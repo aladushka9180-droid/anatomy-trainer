@@ -33,6 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list
           sudo apt-get update
           sudo apt-get install --yes curl gnupg
           sudo install -d -m 0755 /usr/share/postgresql-common/pgdg

@@ -68,7 +68,7 @@ jobs:
         with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 22 }
-      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome.list && sudo apt-get update && sudo apt-get install --yes postgresql-client
       - name: Apply twice, authorize, reject abuse, rollback and reapply
         run: |
           set -euo pipefail
@@ -115,7 +115,7 @@ jobs:
         with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 22 }
-      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome.list && sudo apt-get update && sudo apt-get install --yes postgresql-client
       - name: Validate v139 production state read-only
         env: { SHA: "${{ inputs.commit_sha }}" }
         run: |
@@ -193,7 +193,7 @@ jobs:
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 22 }
-      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome.list && sudo apt-get update && sudo apt-get install --yes postgresql-client
       - name: Apply v139 and verify protected schedule state
         env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
         run: |
@@ -223,7 +223,7 @@ jobs:
         with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 22 }
-      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome.list && sudo apt-get update && sudo apt-get install --yes postgresql-client
       - name: Verify apply evidence and observe v139 read-only
         env: { SHA: "${{ inputs.commit_sha }}", APPLY: "${{ inputs.apply_run_id }}", GH_TOKEN: "${{ github.token }}" }
         run: |
