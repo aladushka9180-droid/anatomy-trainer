@@ -70,11 +70,11 @@ try {
     document.querySelector('#reportTrendCoverage').textContent = 'Оплата указана у 3 из 49 визитов';
     document.querySelector('#reportTrendCoverage').classList.add('is-incomplete');
     document.querySelector('#reportRevenueChart').innerHTML = [
-      ['Нет данных','10 авг.–16 авг.','is-unknown',0],
-      ['Нет визитов','17 авг.–23 авг.','is-empty',0],
-      ['Нет визитов','24 авг.–30 авг.','is-empty',0],
-      ['7 300 ₽','31 авг.–6 сент.','is-best is-selected',100],
-      ['3 000 ₽','7 сент.–8 сент. · 2 дня','',41]
+      ['Нет данных','10–16 авг','is-unknown',0],
+      ['Нет визитов','17–23 авг','is-empty',0],
+      ['Нет визитов','24–30 авг','is-empty',0],
+      ['7 300 ₽','31 авг–6 сент','is-best is-selected',100],
+      ['3 000 ₽','7–8 сент','',41]
     ].map(([value,label,state,height], index) => `<button class="report-chart-column ${state}" type="button" data-report-trend-bucket aria-pressed="${index === 3}"><b>${value}</b><span aria-hidden="true"><i style="height:${height}%"></i></span><small>${label}</small></button>`).join('');
     const trendDetail = document.querySelector('#reportTrendDetail');
     trendDetail.hidden = false;
@@ -114,6 +114,7 @@ try {
         const trend = document.querySelector('.report-trend');
         const chart = document.querySelector('#reportRevenueChart');
         const chartTracks = [...chart.querySelectorAll('.report-chart-column > span')];
+        const chartLabels = [...chart.querySelectorAll('.report-chart-column > small')];
         const trendDetail = document.querySelector('#reportTrendDetail');
         const trendAction = trendDetail.querySelector('.report-trend-open');
         const trendCopy = trendDetail.querySelector(':scope > div');
@@ -146,6 +147,7 @@ try {
           trendOverflow:trend.getBoundingClientRect().right > innerWidth + 2,
           chartHeight:Math.round(chart.getBoundingClientRect().height),
           defaultChartOverflow:chart.scrollWidth > chart.clientWidth + 1,
+          chartLabelOverflow:chartLabels.some(label => label.scrollWidth > label.clientWidth + 1 || label.getBoundingClientRect().right > label.parentElement.getBoundingClientRect().right + 1),
           chartTracksTransparent:chartTracks.every(element => getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)'),
           trendDetailOverflow:trendDetail.getBoundingClientRect().right > trend.getBoundingClientRect().right + 2,
           trendActionTooWide:innerWidth > 760 && trendAction.getBoundingClientRect().width > trendDetail.getBoundingClientRect().width * .5,
@@ -157,7 +159,7 @@ try {
       });
       const expectedChartHeight = width <= 760 ? 168 : 210;
       const expectedSummaryTracks = width <= 760 ? 2 : 3;
-      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.visualGridOverflow || metrics.funnelOverflow || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
+      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.visualGridOverflow || metrics.funnelOverflow || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || metrics.chartLabelOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
         failures.push({ width, theme, ...metrics });
       }
       if (output && theme === 'warm') await page.locator('.report-trend').screenshot({ path:path.join(output, `weekly-revenue-${width}.png`) });

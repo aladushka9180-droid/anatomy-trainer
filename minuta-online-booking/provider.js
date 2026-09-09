@@ -3755,6 +3755,13 @@ function reportTrendMarkup(completed, range) {
   const bestIndex = maximumValue > 0 ? buckets.reduce((best, bucket, index) => bucket.value > buckets[best].value ? index : best, 0) : -1;
   chart.innerHTML = buckets.map((bucket, index) => {
     const label = bucketDays === 1 ? reportDateText(localIsoDate(bucket.from)) : `${reportDateText(localIsoDate(bucket.from))}–${reportDateText(localIsoDate(bucket.to))}`;
+    const compactDate = date => date.toLocaleDateString('ru-RU', { day:'numeric', month:'short' }).replace(/\.$/, '');
+    const sameMonth = bucket.from.getMonth() === bucket.to.getMonth() && bucket.from.getFullYear() === bucket.to.getFullYear();
+    const compactLabel = bucketDays === 1
+      ? compactDate(bucket.from)
+      : sameMonth
+        ? `${bucket.from.getDate()}–${compactDate(bucket.to)}`
+        : `${compactDate(bucket.from)}–${compactDate(bucket.to)}`;
     const durationDays = Math.max(1, Math.round((bucket.to - bucket.from) / 86400000) + 1);
     const partial = bucketDays > 1 && durationDays < bucketDays;
     const periodLabel = `${label}${partial ? ` · ${durationDays} ${durationDays === 1 ? 'день' : durationDays < 5 ? 'дня' : 'дней'}` : ''}`;
@@ -3764,7 +3771,7 @@ function reportTrendMarkup(completed, range) {
     const stateClass = [bucket.visits === 0 ? 'is-empty' : '', bucket.visits > 0 && bucket.known === 0 ? 'is-unknown' : '', bucket.known > 0 && bucket.value === 0 ? 'is-zero' : '', bucket.unknown > 0 && bucket.known > 0 ? 'is-partial-data' : '', index === bestIndex ? 'is-best' : ''].filter(Boolean).map(name => ` ${name}`).join('');
     const openStart = localIsoDate(bucket.from);
     const openEnd = localIsoDate(bucket.to);
-    return `<button class="report-chart-column${stateClass}" type="button" data-report-start="${openStart}" data-report-end="${openEnd}" data-report-trend-bucket data-report-label="${escapeHtml(periodLabel)}" data-report-value="${bucket.value}" data-report-visits="${bucket.visits}" data-report-known="${bucket.known}" data-report-unknown="${bucket.unknown}" aria-pressed="false" title="${escapeHtml(periodLabel)}: ${escapeHtml(accessibleValue)}" aria-label="${escapeHtml(periodLabel)}, ${escapeHtml(accessibleValue)}. Показать состав периода"><b>${escapeHtml(valueLabel)}</b><span aria-hidden="true"><i style="height:${height}%"></i></span><small>${escapeHtml(periodLabel)}</small></button>`;
+    return `<button class="report-chart-column${stateClass}" type="button" data-report-start="${openStart}" data-report-end="${openEnd}" data-report-trend-bucket data-report-label="${escapeHtml(periodLabel)}" data-report-value="${bucket.value}" data-report-visits="${bucket.visits}" data-report-known="${bucket.known}" data-report-unknown="${bucket.unknown}" aria-pressed="false" title="${escapeHtml(periodLabel)}: ${escapeHtml(accessibleValue)}" aria-label="${escapeHtml(periodLabel)}, ${escapeHtml(accessibleValue)}. Показать состав периода"><b>${escapeHtml(valueLabel)}</b><span aria-hidden="true"><i style="height:${height}%"></i></span><small>${escapeHtml(compactLabel)}</small></button>`;
   }).join('');
   requestAnimationFrame(() => {
     if (chart.scrollWidth > chart.clientWidth) chart.scrollLeft = chart.scrollWidth;
