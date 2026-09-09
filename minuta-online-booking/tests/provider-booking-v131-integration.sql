@@ -75,6 +75,7 @@ begin
     if sqlerrm <> 'slot_unavailable' then raise; end if;
   end;
 end $$;
+reset role;
 select set_config('v131.legacy_code', public.provider_book_appointment(
   current_setting('v123.service')::uuid,
   current_setting('v123.date')::date,
@@ -82,7 +83,6 @@ select set_config('v131.legacy_code', public.provider_book_appointment(
   'V131 legacy client',
   '0000000000'
 ), true);
-reset role;
 select pg_temp.v131_assert(
   (select count(*) = 1 from public.bookings
    where booking_code = current_setting('v131.legacy_code') and request_id is null),
