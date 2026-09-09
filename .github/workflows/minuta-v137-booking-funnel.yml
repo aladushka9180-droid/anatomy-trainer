@@ -82,6 +82,9 @@ jobs:
           SQL
           )"
           test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          if test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.track_public_booking_funnel_event(text,uuid,text,uuid,uuid,text,text,text,text,text,text,text)') is null")" = t; then
+            psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v107.sql
+          fi
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v137.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/booking-funnel-v137-integration.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v137-rollback.sql

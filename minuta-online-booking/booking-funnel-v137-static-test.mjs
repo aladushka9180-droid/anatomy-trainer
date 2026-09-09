@@ -17,6 +17,6 @@ assert.match(rollback,/service\.organization_id/i);
 for(const token of ['page_opened','service_selected','primetime_external_test','htmlpreview.github.io','rollback;']) assert.ok(integration.includes(token),`integration missing ${token}`);
 assert.match(integration,/set local role anon/i);
 assert.match(integration,/v137_cross_tenant_service_event_accepted/i);
-for(const token of ['workflow_dispatch:','test-v137','validate-production-v137','apply-production-v137','observe-production-v137','BACKUP','RESTORE','environment: minuta-production','production-db-target-guard.mjs','supabase-migration-v137.sql','booking-funnel-v137-integration.sql']) assert.ok(workflow.includes(token),`workflow missing ${token}`);
+for(const token of ['workflow_dispatch:','test-v137','validate-production-v137','apply-production-v137','observe-production-v137','BACKUP','RESTORE','environment: minuta-production','production-db-target-guard.mjs','supabase-migration-v107.sql','supabase-migration-v137.sql','booking-funnel-v137-integration.sql']) assert.ok(workflow.includes(token),`workflow missing ${token}`);
 for(const token of ['APPLY_V137_TO_PRODUCTION','default_transaction_read_only=on','production-health-check.mjs']) assert.ok(workflow.includes(token),`workflow missing ${token}`);
 console.log('booking funnel v137 static checks passed');
