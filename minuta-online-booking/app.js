@@ -1,4 +1,4 @@
-const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
 const yookassaPaymentEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/yookassa-create-payment`;
 const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, branchShiftScheduling: false, groupBookingSafety: true, organization: null, clientPage: { theme_key:'sage', headline_key:'massage-time' }, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
@@ -21,12 +21,22 @@ const VISITOR_FIRST_SOURCE_KEY = 'minuta-visitor-first-source-v1';
 const VISITOR_PRESENCE_OPT_OUT_KEY = 'minuta-visitor-presence-opt-out-v1';
 const VISITOR_FIRST_SOURCE_TTL = 90 * 24 * 60 * 60 * 1000;
 const bookingQuery = new URLSearchParams(location.search);
-const requestedServiceId = /^[0-9a-f-]{36}$/i.test(bookingQuery.get('service') || '') ? bookingQuery.get('service') : '';
-const requestedLocationId = /^[0-9a-f-]{36}$/i.test(bookingQuery.get('location') || '') ? bookingQuery.get('location') : '';
+const bookingLinkRequest = window.MinutaBookingWidgets?.readRequest?.(bookingQuery) || {};
+window.MinutaBookingWidgets?.applyEmbedPresentation?.(bookingLinkRequest);
+window.MinutaBookingWidgets?.startEmbedMessaging?.(bookingLinkRequest);
+const requestedServiceId = bookingLinkRequest.serviceId || (/^[0-9a-f-]{36}$/i.test(bookingQuery.get('service') || '') ? bookingQuery.get('service') : '');
+const requestedLocationId = bookingLinkRequest.branchId || (/^[0-9a-f-]{36}$/i.test(bookingQuery.get('location') || '') ? bookingQuery.get('location') : '');
+const requestedPerformerId = bookingLinkRequest.providerId || '';
+const requestedGroupId = bookingLinkRequest.groupId || '';
+const explicitLinkParameters = ['service','location','provider','group'].filter(key => bookingQuery.has(key));
+const explicitOrganizationSlug = bookingQuery.get('org') || '';
+const invalidOrganizationSlug = bookingQuery.has('org') && !/^[a-z0-9][a-z0-9-]{2,62}$/.test(explicitOrganizationSlug);
+const invalidLinkParameter = invalidOrganizationSlug || explicitLinkParameters.some(key => !({ service:requestedServiceId, location:requestedLocationId, provider:requestedPerformerId, group:requestedGroupId })[key]);
+const conflictingGroupLink = Boolean(requestedGroupId && (requestedServiceId || requestedLocationId || requestedPerformerId));
 const organizationSlugFromQuery = bookingQuery.get('org') || '';
 const organizationSlugFromConfig = window.MINUTA_CONFIG.defaultOrganizationSlug || '';
-const requestedOrganizationSlug = /^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationSlugFromQuery)
-  ? organizationSlugFromQuery
+const requestedOrganizationSlug = bookingQuery.has('org')
+  ? (/^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationSlugFromQuery) ? organizationSlugFromQuery : '')
   : (/^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationSlugFromConfig) ? organizationSlugFromConfig : '');
 const isRepeatBooking = bookingQuery.get('repeat') === '1' && Boolean(requestedServiceId);
 const isFreeSlotsLink = bookingQuery.get('utm_campaign') === 'free_slots' && Boolean(requestedServiceId);
@@ -502,6 +512,23 @@ function serviceDescription(value) {
   return 'Индивидуальный сеанс массажа. Зоны и интенсивность работы согласуются с исполнителем перед началом.';
 }
 
+function rejectRequestedBookingLink(message = 'Эта ссылка больше недоступна.') {
+  state.services = [];
+  state.serviceId = '';
+  state.performerId = '';
+  state.time = '';
+  setBookingStatus('error', 'Ссылка недоступна');
+  const holder = $('#services');
+  if (holder) holder.innerHTML = `<div class="empty-service"><strong>Не удалось открыть запись</strong><span>${escapeHtml(message)}</span></div>`;
+  const groupRoot = $('#publicGroupEvents');
+  if (groupRoot) groupRoot.hidden = true;
+  const groupList = $('#publicGroupEventsList');
+  if (groupList) groupList.innerHTML = '';
+  $('#publicGroupBookingDialog')?.close();
+  if ($('#toDate')) $('#toDate').disabled = true;
+  return false;
+}
+
 async function loadServices() {
   const holder = $('#services');
   const revision = ++servicesLoadRevision;
@@ -518,6 +545,10 @@ async function loadServices() {
   state.organization = null;
   state.locations = [];
   state.locationId = '';
+  if (invalidLinkParameter || conflictingGroupLink) {
+    rejectRequestedBookingLink('Проверьте адрес ссылки или попросите отправить новую.');
+    return false;
+  }
   if (requestedOrganizationSlug) {
     let catalogResult = await db.rpc('get_public_minuta_catalog_v5', { p_slug: requestedOrganizationSlug });
     let appearanceAwareCatalog = !catalogResult.error;
@@ -570,25 +601,45 @@ async function loadServices() {
     if (state.step === 3) setSelectionValidationState('failed');
     setBookingStatus(navigator.onLine ? 'error' : 'offline', navigator.onLine ? 'Запись временно недоступна' : 'Нет соединения с интернетом');
     holder.innerHTML = '<div class="empty-service"><strong>Не удалось проверить расписание</strong><span>Запись не создана. Проверьте интернет и повторите попытку.</span><button class="service-details-button" type="button" id="retryServices">Повторить</button></div>';
-    return;
+    return false;
   }
   state.services = data || [];
+  if (bookingQuery.has('org') && !state.organization) {
+    rejectRequestedBookingLink('Организация не принимает запись по этой ссылке.');
+    return false;
+  }
+  const requestedServiceCandidate = requestedServiceId ? state.services.find(item => item.id === requestedServiceId) : null;
+  if (state.resourceScheduling && !requestedLocationId && (requestedServiceCandidate || requestedPerformerId)) {
+    const scopedServices = requestedServiceCandidate ? [requestedServiceCandidate] : state.services.filter(item => item.performer_id === requestedPerformerId);
+    const compatibleLocation = state.locations.find(location => scopedServices.some(service => Array.isArray(service.location_ids) && service.location_ids.includes(location.id)));
+    if (compatibleLocation) state.locationId = compatibleLocation.id;
+  }
+  const requestedPerformerExists = !requestedPerformerId || state.services.some(item => item.performer_id === requestedPerformerId);
+  const requestedLocationExists = !requestedLocationId || state.locations.some(item => item.id === requestedLocationId);
+  const requestedServiceFitsLocation = !requestedServiceCandidate || !requestedLocationId || !Array.isArray(requestedServiceCandidate.location_ids) || requestedServiceCandidate.location_ids.includes(requestedLocationId);
+  const requestedServiceFitsPerformer = !requestedServiceCandidate || !requestedPerformerId || requestedServiceCandidate.performer_id === requestedPerformerId;
+  const requestedPerformerFitsLocation = !requestedPerformerId || !requestedLocationId || state.services.some(item => item.performer_id === requestedPerformerId && (!Array.isArray(item.location_ids) || item.location_ids.includes(requestedLocationId)));
+  if ((requestedServiceId && !requestedServiceCandidate) || !requestedPerformerExists || !requestedLocationExists || !requestedServiceFitsLocation || !requestedServiceFitsPerformer || !requestedPerformerFitsLocation) {
+    rejectRequestedBookingLink('Выбранная услуга, специалист или филиал недоступны для этой организации.');
+    return false;
+  }
+  if (requestedPerformerId) state.performerId = requestedPerformerId;
   renderLocations();
   if (restorePersistedBookingSelection()) {
     // Restoration may select a non-primary branch after the initial render.
     renderLocations();
     renderSpecialists(); renderServices(); await showStep(3);
     showError('Есть незавершённая проверка записи. Укажите исходные контакты и нажмите «Проверить результат».');
-    return;
+    return true;
   }
   const requestedService = state.services.find(item => item.id === requestedServiceId);
   const performers = performerOptions();
-  if (isRepeatBooking && requestedService) state.performerId = requestedService.performer_id || '';
+  if ((isRepeatBooking || requestedServiceId) && requestedService) state.performerId = requestedPerformerId || requestedService.performer_id || '';
   if (state.performerId && !performers.some(item => item.id === state.performerId)) state.performerId = '';
   const selectionWasRemoved = Boolean(previousServiceId) && !state.services.some(item => item.id === previousServiceId);
   const locationServices = visibleServices();
   if (!previousServiceId) {
-    state.serviceId = isRepeatBooking && requestedServiceId
+    state.serviceId = requestedServiceId
       ? (locationServices.some(item => item.id === requestedServiceId) ? requestedServiceId : '')
       : '';
     if (!state.serviceId && isFreeSlotsLink && locationServices.some(item => item.id === requestedServiceId)) state.serviceId = requestedServiceId;
@@ -611,11 +662,12 @@ async function loadServices() {
     state.availability = new Map();
     setBookingStatus('error', 'Выбранная услуга больше недоступна');
     await showStep(1);
-    return;
+    return false;
   }
-  if ((isRepeatBooking || isFreeSlotsLink) && state.step === 1 && selectedService()) await showStep(2);
+  if (requestedServiceId && state.step === 1 && selectedService()) await showStep(2);
   else if (state.step === 2) await loadAvailability();
   if (state.step === 3 && selectedService()) await validateCurrentSelection();
+  return true;
 }
 
 function publicPortfolioAfterLabel(sessionCount) {
@@ -1513,14 +1565,18 @@ window.addEventListener('offline', () => setBookingStatus('offline', 'Нет с�
 window.addEventListener('online', loadServices);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void registerBookingPageVisit({ force:true }); });
 const publicGroupBookingsController = window.MinutaGroupBookings?.createPublicController ? window.MinutaGroupBookings.createPublicController({
-  db, $, escapeHtml, getSlug:() => requestedOrganizationSlug
+  db, $, escapeHtml, getSlug:() => requestedOrganizationSlug,
+  getRequestedEventId:() => requestedGroupId,
+  onRequestedEventUnavailable:() => {
+    if (!requestedGroupId) return;
+    rejectRequestedBookingLink('Групповое событие завершено, заполнено или больше не опубликовано.');
+  }
 }) : { bind() {}, load() {} };
 publicGroupBookingsController.bind();
 restoreClientContact();
 applyClientPagePresentation();
 renderDates();
 renderTimes();
-loadServices();
-publicGroupBookingsController.load();
+void loadServices().then(valid => { if (valid) publicGroupBookingsController.load(); });
 loadPublicReviews();
 updateSubmitAvailability();

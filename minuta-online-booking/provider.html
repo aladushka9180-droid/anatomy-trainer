@@ -1216,7 +1216,7 @@
                   </div>
                 </div>
                 <fieldset class="client-headline-picker"><legend>Текст вверху страницы</legend><div class="client-headline-options" id="clientHeadlineOptions"></div></fieldset>
-                <div class="client-appearance-actions"><p id="clientAppearanceStatus" role="status" aria-live="polite">Выберите организацию.</p><div><a class="secondary-button compact-button provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer">Открыть страницу</a><button class="primary compact-button" type="submit">Сохранить для клиентов</button></div></div>
+                <div class="client-appearance-actions"><p id="clientAppearanceStatus" role="status" aria-live="polite">Выберите организацию.</p><div><button class="secondary-button compact-button" id="openBookingWidgets" type="button">Ссылки и виджет</button><a class="secondary-button compact-button provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer">Открыть страницу</a><button class="primary compact-button" type="submit">Сохранить для клиентов</button></div></div>
               </form>
             </section>
             <section class="panel settings-card appearance-settings-card provider-section-anchor" id="appearanceSettingsCard">
@@ -1805,6 +1805,22 @@
       </div>
     </div>
   </dialog>
+  <dialog class="booking-widgets-dialog" id="bookingWidgetsDialog" aria-labelledby="bookingWidgetsTitle">
+    <div class="booking-widgets-head"><div><small>Страница для клиентов</small><h2 id="bookingWidgetsTitle">Ссылки и виджет</h2><p>Откройте нужный сценарий записи прямо с сайта, рекламы или сообщения.</p></div><button id="closeBookingWidgets" type="button" aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
+    <div class="booking-widget-mode" role="group" aria-label="Формат публикации"><button class="active" type="button" data-booking-widget-mode="link" aria-pressed="true">Ссылка</button><button type="button" data-booking-widget-mode="widget" aria-pressed="false">Виджет</button></div>
+    <div class="booking-widget-layout">
+      <div class="booking-widget-controls">
+        <label><span>Что открыть</span><select id="bookingWidgetTarget"><option value="general">Общая запись</option><option value="service">Услуга</option><option value="provider">Специалист</option><option value="branch">Филиал</option><option value="group">Группа</option></select></label>
+        <label id="bookingWidgetItemField" hidden><span>Выберите вариант</span><select id="bookingWidgetItem"></select></label>
+        <label><span>Источник перехода</span><select id="bookingWidgetSource"><option value="website">Сайт</option><option value="telegram">Telegram</option><option value="whatsapp">WhatsApp</option><option value="vk">ВКонтакте</option><option value="qr">QR-код</option><option value="direct">Другое</option></select></label>
+        <div data-booking-widget-panel="link"><label><span>Готовая ссылка</span><textarea id="bookingWidgetOutput" rows="3" readonly></textarea></label><div class="booking-widget-actions"><button class="primary" type="button" data-booking-widget-copy="url">Скопировать</button><button class="secondary-button" id="openBookingWidgetResult" type="button">Открыть</button></div></div>
+        <div data-booking-widget-panel="widget" hidden><label><span>Код для сайта</span><textarea id="bookingWidgetCode" rows="6" readonly></textarea></label><div class="booking-widget-actions"><button class="primary" type="button" data-booking-widget-copy="code">Скопировать код</button></div></div>
+        <details class="booking-widget-details"><summary>Как считается источник</summary><p>PrimeTime добавляет безопасные UTM-метки. Переходы и созданные записи попадут в общую аналитику источников.</p></details>
+        <p id="bookingWidgetStatus" role="status" aria-live="polite">Выберите организацию.</p>
+      </div>
+      <div class="booking-widget-preview" data-booking-widget-panel="widget" hidden><small>Предпросмотр</small><div class="booking-widget-preview-frame" id="bookingWidgetPreview" role="group" aria-label="Предпросмотр виджета онлайн-записи"></div></div>
+    </div>
+  </dialog>
   <dialog class="connection-log-dialog" id="connectionLogDialog" aria-labelledby="connectionLogTitle">
     <div class="connection-log-head"><div><small>Диагностика</small><h2 id="connectionLogTitle">Журнал связи</h2></div><button type="button" data-close-connection-log aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <p class="connection-log-lead">Здесь сохраняются только технические события без имён и телефонов клиентов.</p>
@@ -1851,6 +1867,7 @@
   <script src="client-results.js?v=657" defer></script>
   <script src="client-relationship.js?v=657" defer></script>
   <script src="client-records.js?v=657" defer></script>
+  <script src="booking-widgets.js?v=657" defer></script>
   <script src="provider.js?v=657" defer></script>
   <script src="primetime-handoff.js?v=657" defer></script>
   <script src="code-scanner.js?v=657" defer></script>

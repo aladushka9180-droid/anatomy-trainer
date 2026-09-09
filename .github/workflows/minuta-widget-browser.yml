@@ -1,0 +1,67 @@
+name: Minuta widget browser
+run-name: Minuta widget browser - ${{ inputs.commit_sha || github.sha }}
+
+on:
+  push:
+    paths:
+      - 'minuta-online-booking/booking-widgets.js'
+      - 'minuta-online-booking/app.js'
+      - 'minuta-online-booking/group-bookings.js'
+      - 'minuta-online-booking/index.html'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/provider.js'
+      - 'minuta-online-booking/styles.css'
+      - 'minuta-online-booking/sw.js'
+      - 'minuta-online-booking/booking-widgets-static-test.mjs'
+      - 'minuta-online-booking/tests/booking-widgets-browser-test.mjs'
+      - '.github/workflows/minuta-widget-browser.yml'
+  pull_request:
+    paths:
+      - 'minuta-online-booking/**'
+      - '.github/workflows/minuta-widget-browser.yml'
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character current main commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  widget_browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact requested revision
+        env:
+          SHA: ${{ inputs.commit_sha || github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SHA"
+          if test "$GITHUB_EVENT_NAME" = workflow_dispatch; then
+            test "$GITHUB_REF" = refs/heads/main
+            test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install isolated browser runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/widget-browser" --ignore-scripts --no-save playwright@1.62.1
+          "$RUNNER_TEMP/widget-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Check static widget contract
+        run: node minuta-online-booking/booking-widgets-static-test.mjs
+      - name: Check deep links, external embed and source analytics
+        env:
+          MINUTA_PLAYWRIGHT_MODULE: ${{ runner.temp }}/widget-browser/node_modules/playwright/index.mjs
+        run: node minuta-online-booking/tests/booking-widgets-browser-test.mjs

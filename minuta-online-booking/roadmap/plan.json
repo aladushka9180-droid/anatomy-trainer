@@ -159,7 +159,7 @@
       "title": "Виджеты и глубокие ссылки",
       "dependsOn": [],
       "parallelizable": false,
-      "externalActions": [],
+      "externalActions": ["real_external_site"],
       "completion": {
         "requiredCi": ["smoke", "pages", "widget_browser"],
         "requiredChecks": ["embeddable_widget", "service_link", "provider_link", "branch_link", "group_link", "source_analytics"]

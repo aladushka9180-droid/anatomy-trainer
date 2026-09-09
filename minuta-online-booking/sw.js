@@ -61,6 +61,7 @@ const ASSETS = [
   './vendor/qrcodegen.js?v=657',
   './free-slots-share.js?v=657',
   './group-bookings.js?v=657',
+  './booking-widgets.js?v=657',
   './onboarding.js?v=657',
   './client-messaging.js?v=657',
   './provider-read-fetch.js?v=657',

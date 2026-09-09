@@ -16,7 +16,7 @@ const STAGE_GATE_OVERRIDE_CONTRACTS = {
   D06: { dependsOn: [], externalActions: [] },
   D07: { dependsOn: ['D06'], externalActions: [] },
   D09: { dependsOn: [], externalActions: [] },
-  D10: { dependsOn: [], externalActions: [] },
+  D10: { dependsOn: [], externalActions: ['real_external_site'] },
   D11: { dependsOn: ['D10'], externalActions: ['maps_provider_account'] },
   D12: { dependsOn: ['D11'], externalActions: ['calendar_provider_credentials'] },
   D13: { dependsOn: ['D12'], externalActions: ['customer_export_file'] }

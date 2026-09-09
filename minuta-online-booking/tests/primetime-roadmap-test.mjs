@@ -17,6 +17,10 @@ const PLAN_PATH = resolve(APP_DIR, 'roadmap', 'plan.json');
 const STATUS_PATH = resolve(APP_DIR, 'roadmap', 'status.json');
 const CLI_PATH = resolve(APP_DIR, 'scripts', 'primetime-roadmap.mjs');
 const clone = value => structuredClone(value);
+const resetItems = (status, ids) => {
+  for (const id of ids) status.items[id] = { status:'not_started', evidence:{}, blocker:null };
+  return status;
+};
 const completeEvidence = (item, marker = 'a') => ({
   releaseSha: marker.repeat(40),
   releaseVersion: `test-${item.id.toLowerCase()}`,
@@ -30,7 +34,7 @@ const completeEvidence = (item, marker = 'a') => ({
 test('current override exposes its approved subset while stage-0 remains blocked', () => {
   const plan = readJson(PLAN_PATH);
   const status = readJson(STATUS_PATH);
-  for (const id of ['D06', 'D09']) status.items[id] = { status:'not_started', evidence:{}, blocker:null };
+  resetItems(status, ['D06', 'D07', 'D09', 'D10', 'D11', 'D12', 'D13']);
   const result = validateRoadmap(plan, status);
   assert.equal(result.valid, true);
   assert.equal(result.items, 22);
@@ -42,7 +46,7 @@ test('current override exposes its approved subset while stage-0 remains blocked
   assert.equal(next.blockedStage.id, 'stage-0');
   assert.equal(next.primary.id, 'D06');
   assert.deepEqual(next.parallelCandidates.map(item => item.id), ['D09']);
-  assert.deepEqual(next.override.allowedItems, ['D06', 'D09']);
+  assert.deepEqual(next.override.allowedItems, status.stageGateOverride.allowedItems);
   assert.deepEqual(next.blockers.map(item => item.id), ['D01', 'D02', 'D03', 'D04', 'D05']);
   assert(![next.primary.id, ...next.parallelCandidates.map(item => item.id)].some(id => ['D08', 'D14'].includes(id)));
 });
@@ -83,7 +87,7 @@ test('transition accepts one monotonic item update and rejects multiple updates'
 test('override activation is an isolated transition and requires explicit user approval', () => {
   const plan = readJson(PLAN_PATH);
   const published = readJson(STATUS_PATH);
-  for (const id of ['D06', 'D09']) published.items[id] = { status:'not_started', evidence:{}, blocker:null };
+  resetItems(published, ['D06', 'D07', 'D09', 'D10', 'D11', 'D12', 'D13']);
   const after = clone(published);
   after.updatedAt = after.stageGateOverride.approvedAt;
   const before = clone(after);
@@ -95,7 +99,7 @@ test('override activation is an isolated transition and requires explicit user a
     change: 'stage_gate_override',
     from: 'inactive',
     to: 'active',
-    allowedItems: ['D06', 'D09'],
+    allowedItems: after.stageGateOverride.allowedItems,
     planVersion: plan.version
   });
 
@@ -132,7 +136,7 @@ test('override activation is an isolated transition and requires explicit user a
 test('override scope expands only within the approved stage-1 chain and preserves contracts', () => {
   const plan = readJson(PLAN_PATH);
   const status = readJson(STATUS_PATH);
-  const expanded = clone(status);
+  const expanded = resetItems(clone(status), ['D07', 'D10', 'D11', 'D12', 'D13']);
   expanded.stageGateOverride.allowedItems = ['D06', 'D07', 'D09', 'D10', 'D11', 'D12', 'D13'];
   assert.equal(validateRoadmap(plan, expanded).valid, true);
   const next = selectNext(plan, expanded);
@@ -160,9 +164,11 @@ test('override scope expands only within the approved stage-1 chain and preserve
   assert.throws(() => validateRoadmap(plan, missingDependency), /dependency D06 is neither done nor included/);
 
   const chain = clone(expanded);
-  chain.items.D07.status = 'done';
+  const d07 = plan.items.find(item => item.id === 'D07');
+  chain.items.D07 = { status:'done', evidence:completeEvidence(d07, 'd'), blocker:null };
   assert.equal(selectNext(plan, chain).primary.id, 'D10');
   const d10 = plan.items.find(item => item.id === 'D10');
+  assert.deepEqual(d10.externalActions, ['real_external_site']);
   chain.items.D10 = { status:'done', evidence:completeEvidence(d10, 'e'), blocker:null };
   const d11Next = selectNext(plan, chain);
   assert.equal(d11Next.primary.id, 'D11');
@@ -219,6 +225,8 @@ test('transition cannot mark an item ready without complete production evidence'
 test('override permits fully evidenced D06 and D09 only, then returns to stage-0', () => {
   const plan = readJson(PLAN_PATH);
   const status = readJson(STATUS_PATH);
+  resetItems(status, ['D07', 'D10', 'D11', 'D12', 'D13']);
+  status.stageGateOverride.allowedItems = ['D06', 'D09'];
   for (const [index, id] of ['D06', 'D09'].entries()) {
     const item = plan.items.find(candidate => candidate.id === id);
     status.items[id].status = 'done';

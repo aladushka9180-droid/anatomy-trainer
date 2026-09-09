@@ -1009,7 +1009,8 @@ assert.match(clientAccount, /repeatBookingUrl/, 'В личном разделе 
 assert.match(indexHtml, /id="reviewsSection"/, 'На главной странице нет отзывов');
 assert.match(app, /get_public_booking_reviews/, 'Публичные отзывы не загружаются');
 assert.match(app, /requestedServiceId/, 'Повторная запись не выбирает прежнюю услугу');
-assert.match(app, /isRepeatBooking && requestedServiceId[\s\S]*\? requestedServiceId : ''/, 'Недоступная прежняя услуга молча заменяется первой активной');
+assert.match(app, /state\.serviceId = requestedServiceId[\s\S]*locationServices\.some\(item => item\.id === requestedServiceId\)/, 'Ссылка не выбирает только точную доступную услугу');
+assert.match(app, /requestedServiceId && !requestedServiceCandidate[\s\S]*rejectRequestedBookingLink/, 'Недоступная прежняя услуга молча заменяется первой активной');
 const reviewsMigration = readFileSync(join(root, 'supabase-migration-v61.sql'), 'utf8');
 assert.match(reviewsMigration, /create table if not exists public\.booking_reviews/, 'Нет серверного хранения отзывов');
 assert.match(reviewsMigration, /outcome\.visit_status = 'completed'/, 'Отзыв можно оставить до завершения визита');

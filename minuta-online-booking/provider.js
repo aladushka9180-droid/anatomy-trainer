@@ -13598,6 +13598,29 @@ const groupBookingsController = window.MinutaGroupBookings?.createProviderContro
 }) : { bind() {}, load() { return Promise.resolve({ ok:true, optional:true }); }, setOrganization() {}, reset() {} };
 groupBookingsController.bind();
 
+async function getBookingWidgetContext() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const context = await getFreeSlotsServerContext();
+  if (context.mode !== 'organization' || !context.organizationSlug) throw new Error('public_organization_required');
+  const today = businessTodayIso();
+  const end = new Date(`${today}T12:00:00Z`);
+  end.setUTCDate(end.getUTCDate() + 180);
+  const groupsResult = await db.rpc('get_public_minuta_group_events', { p_slug:context.organizationSlug, p_start:today, p_end:end.toISOString().slice(0,10) });
+  if (groupsResult.error && !isMissingRpc(groupsResult.error, 'get_public_minuta_group_events')) throw groupsResult.error;
+  const activeOrganization = organizationController?.getActiveOrganization?.() || null;
+  if (!sessionIsCurrent(userId, generation)
+    || (activeOrganization?.id || null) !== (context.organizationId || null)
+    || activeOrganization?.public_slug !== context.organizationSlug) throw new Error('stale_session');
+  return { ...context, groups:Array.isArray(groupsResult.data?.events) ? groupsResult.data.events : [] };
+}
+const bookingWidgetsController = window.MinutaBookingWidgets?.createProviderController ? window.MinutaBookingWidgets.createProviderController({
+  $, notify,
+  getContext:getBookingWidgetContext,
+  getAppearance:() => settingsForClientLink(organizationController?.getActiveOrganization?.() || null)
+}) : { bind() {}, render() {} };
+bookingWidgetsController.bind();
+
 const paymentController = window.MinutaPayments?.createController ? window.MinutaPayments.createController({
   db, $, escapeHtml, notify, requireWrites, refreshNavigation:refreshSectionNavigation
 }) : { bind() {}, load() { return Promise.resolve(); }, setOrganization() {}, reset() {}, isCheckoutEnabled() { return false; } };

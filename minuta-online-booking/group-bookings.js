@@ -308,7 +308,7 @@
   }
 
   function createPublicController(options) {
-    const { db, $, escapeHtml, getSlug, notify } = options;
+    const { db, $, escapeHtml, getSlug, notify, getRequestedEventId, onRequestedEventUnavailable } = options;
     let events = [];
     let selected = null;
     let available = null;
@@ -358,13 +358,29 @@
       end.setDate(end.getDate() + 180);
       const { data, error } = await callRpc(db, 'get_public_minuta_group_events', { p_slug:slug, p_start:localIso(start), p_end:localIso(end) });
       if (currentRevision !== revision || slug !== getSlug()) return;
+      const requestedEventId = getRequestedEventId?.() || '';
       if (error) {
         available = isMissingRpc(error, 'get_public_minuta_group_events') ? 'unsupported' : 'error';
+        events = [];
         root.hidden = true;
+        if (requestedEventId) onRequestedEventUnavailable?.(requestedEventId);
         return;
       }
       available = data?.enabled ? 'ready' : 'disabled';
       events = Array.isArray(data?.events) ? data.events : [];
+      if (requestedEventId) {
+        const requested = events.find(item => item.id === requestedEventId && Number(item.seats_left || 0) > 0);
+        if (available !== 'ready' || !requested) {
+          events = [];
+          render();
+          $('#publicGroupBookingDialog')?.close();
+          onRequestedEventUnavailable?.(requestedEventId);
+          return;
+        }
+        render();
+        open(requestedEventId);
+        return;
+      }
       render();
     }
 
@@ -385,8 +401,11 @@
     function open(id) {
       if (catalogSlug !== getSlug() || available !== 'ready') return;
       invalidateForm();
-      selected = events.find(item => item.id === id) || null;
-      if (!selected) return;
+      selected = events.find(item => item.id === id && Number(item.seats_left || 0) > 0) || null;
+      if (!selected) {
+        onRequestedEventUnavailable?.(id);
+        return;
+      }
       selectedSlug = catalogSlug;
       const form = $('#publicGroupBookingForm');
       form.reset();
