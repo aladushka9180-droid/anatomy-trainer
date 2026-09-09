@@ -34,6 +34,12 @@ jobs:
           trap 'rm -f "$response_file"' EXIT
           endpoint='https://primetime-booking.aladushka9180.chatgpt.site/api/internal/media-cleanup'
           if [ "$SYNTHETIC_PROBE" = 'true' ]; then endpoint="$endpoint?probe=1"; fi
+          if [ "$SYNTHETIC_PROBE" = 'true' ]; then
+            missing_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --request POST --max-time 20 "$endpoint")"
+            wrong_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --request POST --header 'x-primetime-cleanup-key: 0000000000000000000000000000000000000000000000000000000000000000' --max-time 20 "$endpoint")"
+            test "$missing_status" = '404'
+            test "$wrong_status" = '404'
+          fi
           for attempt in 1 2 3; do
             status="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
               --request POST \

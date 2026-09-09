@@ -43,6 +43,8 @@ assert.match(cleanupWorkflow, /secrets\.PRIMETIME_MEDIA_CLEANUP_SECRET/);
 assert.match(cleanupWorkflow, /x-primetime-cleanup-key/);
 assert.match(cleanupWorkflow, /synthetic_probe/);
 assert.match(cleanupWorkflow, /endpoint\?probe=1/);
+assert.match(cleanupWorkflow, /missing_status.*'404'/s);
+assert.match(cleanupWorkflow, /wrong_status.*'404'/s);
 assert.match(cleanupWorkflow, /api\/catalog\?code=ramil/);
 assert.match(cleanupWorkflow, /api\/catalog-availability\?target=/);
 assert.match(cleanupWorkflow, /\['available','none'\]/);
