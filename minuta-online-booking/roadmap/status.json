@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-09T13:00:13Z",
+  "updatedAt": "2026-09-09T13:02:06Z",
   "stageGateOverride": {
     "type": "allow_early_stage_work",
     "approvedBy": "user",
@@ -183,7 +183,7 @@
       "blocker": null
     },
     "D10": {
-      "status": "verifying",
+      "status": "done",
       "evidence": {
         "releaseSha": "2ad1b6a5f08799f58f564cbe379404399ae31553",
         "releaseVersion": "v659",
