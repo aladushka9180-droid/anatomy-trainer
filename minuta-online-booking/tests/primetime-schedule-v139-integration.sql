@@ -8,7 +8,7 @@ create or replace function public.get_public_minuta_available_slots_v101(
 )
 returns table(booking_date date,booking_time time without time zone)
 language sql stable security definer set search_path to '' as $$
-  select p_start,make_time(hour,0,0)
+  select p_start,make_time(slot_hour,0,0)
   from generate_series(0,119) ordinal
   cross join lateral(
     select case
@@ -21,7 +21,7 @@ language sql stable security definer set search_path to '' as $$
         when 3 then 14
         when 4 then 15
       end
-    end hour
+    end as slot_hour
   ) value
   where (p_service='33333333-3333-4333-8333-333333333333'::uuid and ordinal<120)
      or (p_service<>'33333333-3333-4333-8333-333333333333'::uuid and ordinal<5)
