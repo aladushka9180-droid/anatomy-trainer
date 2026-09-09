@@ -129,7 +129,7 @@
       "status": "done",
       "evidence": {
         "releaseSha": "de555ebe6fde2a25a436601d32e12ccc70751c33",
-        "releaseVersion": "v657",
+        "releaseVersion": "v656",
         "ciRuns": {
           "smoke": 34336319030,
           "pages": 34336317744,
