@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const workflow = readFileSync(new URL('../.github/workflows/minuta-v130-safe-release.yml',import.meta.url),'utf8');
+const stateScript = readFileSync(new URL('./scripts/inventory-transfer-v130-production-state.sh',import.meta.url),'utf8');
+const integrationWorkflow = readFileSync(new URL('../.github/workflows/minuta-v130-inventory-transfer.yml',import.meta.url),'utf8');
+const testAttestation = readFileSync(new URL('./scripts/inventory-transfer-v130-test-attestation.mjs',import.meta.url),'utf8');
+
+assert.match(workflow,/options: \[audit-production-v130, apply-production-v130, observe-production-v130\]/);
+assert.match(workflow,/concurrency: \{ group: minuta-production-database, cancel-in-progress: false \}/);
+assert.match(workflow,/production-db-schema-guard\.sh/);
+assert.match(workflow,/check_run "\$TEST" \.github\/workflows\/minuta-v130-inventory-transfer\.yml/);
+assert.match(workflow,/v130-test-\$TEST/);
+assert.match(workflow,/check_run "\$BACKUP" \.github\/workflows\/minuta-supabase-backup\.yml/);
+assert.match(workflow,/check_run "\$RESTORE" \.github\/workflows\/minuta-supabase-restore-drill\.yml/);
+assert.match(workflow,/\.sourceBackupRunId==\$backup and \.sourceBackupSha==\$sha/);
+assert.match(workflow,/test "\$age" -ge 0 && test "\$age" -le 7200/);
+assert.match(workflow,/\.v130Mode=="absent"/);
+assert.match(workflow,/supabase-migration-v130\.sql/);
+assert.match(workflow,/inventoryTransfersActivated:false,inventoryRowsCreated:false/);
+assert.match(workflow,/observe-production-v130:/);
+assert.match(stateScript,/default_transaction_read_only=on/);
+assert.match(stateScript,/"absent"/);
+assert.match(stateScript,/"full"/);
+assert.match(stateScript,/"partial"/);
+assert.match(stateScript,/constraintsValidated/);
+assert.match(stateScript,/functionSecurity/);
+assert.match(stateScript,/rpcAcl/);
+assert.match(stateScript,/legacyAcl/);
+assert.match(stateScript,/internalAcl/);
+assert.match(stateScript,/tableAcl/);
+assert.match(stateScript,/policiesExact/);
+assert.match(stateScript,/legacyLockOrder/);
+assert.match(stateScript,/consumeLockOrder/);
+assert.match(stateScript,/movementEvidence/);
+assert.match(integrationWorkflow,/inventory-transfer-v130-test-attestation\.mjs/);
+assert.doesNotMatch(integrationWorkflow,/rlsAclVerified:true|functionDefinitionsVerified:true/);
+assert.match(testAttestation,/postgresSuitePassed:true/);
+assert.match(testAttestation,/currentMainVerified:true/);
+assert.match(testAttestation,/schemaFingerprint/);
+assert.match(integrationWorkflow,/name: v130-test-\$\{\{ github\.run_id \}\}/);
+
+console.log('inventory transfer v130 safe release contract: OK');

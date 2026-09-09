@@ -23,18 +23,21 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
-      - name: Pin exact commit
-        env: { SHA: "${{ inputs.commit_sha }}" }
+      - name: Pin exact current main commit
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
         run: |
           set -euo pipefail
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
           test "$(git rev-parse HEAD)" = "$SHA"
           test "$GITHUB_SHA" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
       - run: node --check minuta-online-booking/inventory-transfer-v130-static-test.mjs
       - run: node --check minuta-online-booking/tests/inventory-transfer-v130-postgres-test.mjs
+      - run: node --check minuta-online-booking/scripts/inventory-transfer-v130-test-attestation.mjs
       - run: node minuta-online-booking/inventory-transfer-v130-static-test.mjs
 
   inventory_integration:
@@ -50,15 +53,32 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
-      - name: Pin exact commit
-        env: { SHA: "${{ inputs.commit_sha }}" }
+      - name: Pin exact current main commit
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
         run: |
           set -euo pipefail
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
           test "$(git rev-parse HEAD)" = "$SHA"
           test "$GITHUB_SHA" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
       - run: npm install --no-save --no-package-lock --ignore-scripts pg@8.16.3
       - run: node minuta-online-booking/tests/inventory-transfer-v130-postgres-test.mjs
+      - name: Create exact-SHA D09 test attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.commit_sha }}
+          MINUTA_ATTEST_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          node minuta-online-booking/scripts/inventory-transfer-v130-test-attestation.mjs "$RUNNER_TEMP/v130-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: v130-test-${{ github.run_id }}
+          path: ${{ runner.temp }}/v130-test.json
+          if-no-files-found: error
+          retention-days: 35

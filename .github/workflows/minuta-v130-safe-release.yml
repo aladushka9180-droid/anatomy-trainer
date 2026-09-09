@@ -1,0 +1,279 @@
+name: Minuta v130 safe release
+run-name: Minuta v130 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v130
+        required: true
+        default: audit-production-v130
+        type: choice
+        options: [audit-production-v130, apply-production-v130, observe-production-v130]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      restore_run_id: { description: Linked successful ephemeral restore run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful D09 integration run ID, required: false, default: "", type: string }
+      audit_run_id: { description: Successful read-only v130 audit run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v130 apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter BACKUP_VERIFIED for apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency: { group: minuta-production-database, cancel-in-progress: false }
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit and phase
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            audit-production-v130|observe-production-v130) ;;
+            apply-production-v130) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - name: Verify migration and release contracts
+        run: |
+          node minuta-online-booking/inventory-transfer-v130-static-test.mjs
+          node minuta-online-booking/inventory-transfer-v130-release-static-test.mjs
+          node minuta-online-booking/scripts/production-db-target-guard-test.mjs
+          bash -n minuta-online-booking/scripts/production-db-schema-guard.sh
+          bash -n minuta-online-booking/scripts/inventory-transfer-v130-production-state.sh
+
+  audit-production-v130:
+    if: inputs.phase == 'audit-production-v130'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Audit v130 prerequisites and fail closed on partial or active state
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(bash minuta-online-booking/scripts/inventory-transfer-v130-production-state.sh "$db")"
+          jq -e '
+            .prerequisitesReady and (.v130Mode=="absent" or .v130Mode=="full") and
+            (.initialized|not) and (.enabled|not) and (.suspended|not) and
+            .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
+            .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0 and
+            (.v130Mode=="absent" or (.constraintsValidated and .triggersEnabled and .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and .policiesExact and .legacyLockOrder and .consumeLockOrder))
+          ' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"audit-production-v130",commitSha:$sha,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v130-audit.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v130-audit-${{ github.run_id }}", path: "${{ runner.temp }}/v130-audit.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v130:
+    if: inputs.phase == 'apply-production-v130'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify exact D09 test, audit, backup, linked restore and current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.commit_sha }}
+          BACKUP: ${{ inputs.backup_run_id }}
+          RESTORE: ${{ inputs.restore_run_id }}
+          TEST: ${{ inputs.test_run_id }}
+          AUDIT: ${{ inputs.audit_run_id }}
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP" "$RESTORE" "$TEST" "$AUDIT"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"
+            test "$(jq -r .conclusion <<<"$run")" = success
+            test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+            test "$(jq -r .head_branch <<<"$run")" = main
+            test "$(jq -r .event <<<"$run")" = workflow_dispatch
+            test "$(jq -r .path <<<"$run")" = "$2"
+          }
+          mkdir -p "$RUNNER_TEMP/v130-evidence/test" "$RUNNER_TEMP/v130-evidence/audit" "$RUNNER_TEMP/v130-evidence/backup" "$RUNNER_TEMP/v130-evidence/restore"
+          check_run "$TEST" .github/workflows/minuta-v130-inventory-transfer.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v130 inventory integration - $SHA"
+          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TEST/jobs?per_page=100")"
+          jq -e '[.jobs[]|select(.name=="inventory_static" and .conclusion=="success")]|length==1' <<<"$jobs" >/dev/null
+          jq -e '[.jobs[]|select(.name=="inventory_integration" and .conclusion=="success")]|length==1' <<<"$jobs" >/dev/null
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v130-test-$TEST" -D "$RUNNER_TEMP/v130-evidence/test"
+          jq -e --arg sha "$SHA" --arg run "$TEST" '
+            .status=="success" and .phase=="test-v130" and .commitSha==$sha and .workflowRunId==$run and
+            .isolatedDatabase==true and .productionWritten==false and .currentMainVerified==true and
+            .postgresIntegrationPassed==true and .postgresSuitePassed==true and
+            .concurrencyPassed==true and .rollbackVerified==true and .reapplyVerified==true and
+            (.schemaFingerprint|test("^[0-9a-f]{64}$"))
+          ' "$RUNNER_TEMP/v130-evidence/test/v130-test.json" >/dev/null
+          check_run "$AUDIT" .github/workflows/minuta-v130-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v130 - audit-production-v130 - $SHA"
+          gh run download "$AUDIT" -R "$GITHUB_REPOSITORY" -n "v130-audit-$AUDIT" -D "$RUNNER_TEMP/v130-evidence/audit"
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="audit-production-v130" and .commitSha==$sha and .productionWritten==false and .state.prerequisitesReady and .state.v130Mode=="absent"' "$RUNNER_TEMP/v130-evidence/audit/v130-audit.json" >/dev/null
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$age" -ge 0 && test "$age" -le 7200
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts")"
+          jq -e '[.artifacts[]|select(.expired==false and .size_in_bytes>0)]|length==1' <<<"$artifacts" >/dev/null
+          artifact="$(jq -r '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name' <<<"$artifacts")"
+          [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v130-evidence/backup"
+          shopt -s nullglob
+          journals=("$RUNNER_TEMP/v130-evidence/backup/"*.json)
+          encrypted=("$RUNNER_TEMP/v130-evidence/backup/"*.dump.gpg)
+          checksums=("$RUNNER_TEMP/v130-evidence/backup/"*.dump.gpg.sha256)
+          test "${#journals[@]}" = 1 && test "${#encrypted[@]}" = 1 && test "${#checksums[@]}" = 1
+          jq -e --arg run "$BACKUP" --arg repo "$GITHUB_REPOSITORY" '.operation=="backup" and .status=="success" and .workflowRunId==$run and .repository==$repo and .encryption=="OpenPGP symmetric AES-256" and .archiveFormat=="PostgreSQL custom" and .archiveEntries>0' "${journals[0]}" >/dev/null
+          expected="$(jq -r .encryptedSha256 "${journals[0]}")"
+          test "$(sha256sum "${encrypted[0]}" | cut -d' ' -f1)" = "$expected"
+          test "$(tr -d '[:space:]' < "${checksums[0]}")" = "$expected"
+          test "$(stat -c %s "${encrypted[0]}")" = "$(jq -r .encryptedBytes "${journals[0]}")"
+          check_run "$RESTORE" .github/workflows/minuta-supabase-restore-drill.yml
+          restore_age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$restore_age" -ge 0 && test "$restore_age" -le 7200
+          restore_jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESTORE/jobs?per_page=100")"
+          jq -e '[.jobs[]|select(.name=="ephemeral-restore-drill" and .conclusion=="success")]|length==1' <<<"$restore_jobs" >/dev/null
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE" -D "$RUNNER_TEMP/v130-evidence/restore"
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" --arg run "$RESTORE" '
+            .status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed==true and
+            .productionWritten==false and .testDatabaseWritten==false and
+            .sourceBackupRunId==$backup and .sourceBackupSha==$sha and .workflowRunId==$run
+          ' "$RUNNER_TEMP/v130-evidence/restore/minuta-ephemeral-restore.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Recheck absent state, apply v130 once and verify default-off schema
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          before="$(bash minuta-online-booking/scripts/inventory-transfer-v130-production-state.sh "$db")"
+          expected_fingerprint="$(jq -r .schemaFingerprint "$RUNNER_TEMP/v130-evidence/test/v130-test.json")"
+          [[ "$expected_fingerprint" =~ ^[0-9a-f]{64}$ ]]
+          jq -e '
+            .prerequisitesReady and (
+              .v130Mode=="absent" or (
+                .v130Mode=="full" and .constraintsValidated and .triggersEnabled and .functionSecurity and
+                .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and .policiesExact and
+                .legacyLockOrder and .consumeLockOrder and (.initialized|not) and (.enabled|not) and
+                (.suspended|not) and .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
+                .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0
+              )
+            )
+          ' <<<"$before" >/dev/null
+          if test "$(jq -r .v130Mode <<<"$before")" = full; then
+            test "$(jq -r .schemaFingerprint <<<"$before")" = "$expected_fingerprint"
+          fi
+          if test "$(jq -r .v130Mode <<<"$before")" = absent; then
+            PGOPTIONS='-c statement_timeout=120000 -c lock_timeout=10000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v130.sql
+            recovered=false
+          else
+            recovered=true
+          fi
+          after="$(bash minuta-online-booking/scripts/inventory-transfer-v130-production-state.sh "$db")"
+          jq -e '
+            .prerequisitesReady and .v130Mode=="full" and .constraintsValidated and .triggersEnabled and
+            .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and
+            .policiesExact and .legacyLockOrder and .consumeLockOrder and
+            (.initialized|not) and (.enabled|not) and (.suspended|not) and
+            .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
+            .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0
+          ' <<<"$after" >/dev/null
+          test "$(jq -r .schemaFingerprint <<<"$after")" = "$expected_fingerprint"
+          jq -n --arg sha "$SHA" --argjson before "$before" --argjson after "$after" --argjson recovered "$recovered" '{status:"success",phase:"apply-production-v130",commitSha:$sha,before:$before,after:$after,recoveredFromCommittedFull:$recovered,inventoryTransfersActivated:false,inventoryRowsCreated:false}' > "$RUNNER_TEMP/v130-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v130-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v130-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v130:
+    if: inputs.phase == 'observe-production-v130'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - name: Verify exact apply attestation and current main
+        env:
+          APPLY: ${{ inputs.apply_run_id }}
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success
+          test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          test "$(jq -r .head_branch <<<"$run")" = main
+          test "$(jq -r .event <<<"$run")" = workflow_dispatch
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v130-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v130 - apply-production-v130 - $SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          mkdir -p "$RUNNER_TEMP/v130-observation/apply"
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v130-apply-$APPLY" -D "$RUNNER_TEMP/v130-observation/apply"
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="apply-production-v130" and .commitSha==$sha and .inventoryTransfersActivated==false and .inventoryRowsCreated==false and ((.before.v130Mode=="absent" and .recoveredFromCommittedFull==false) or (.before.v130Mode=="full" and .recoveredFromCommittedFull==true)) and .after.v130Mode=="full"' "$RUNNER_TEMP/v130-observation/apply/v130-apply.json" >/dev/null
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Observe production v130 read-only and fail on activation or drift
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(bash minuta-online-booking/scripts/inventory-transfer-v130-production-state.sh "$db")"
+          expected_fingerprint="$(jq -r .after.schemaFingerprint "$RUNNER_TEMP/v130-observation/apply/v130-apply.json")"
+          [[ "$expected_fingerprint" =~ ^[0-9a-f]{64}$ ]]
+          jq -e '
+            .prerequisitesReady and .v130Mode=="full" and .constraintsValidated and .triggersEnabled and
+            .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and
+            .policiesExact and .legacyLockOrder and .consumeLockOrder and
+            (.initialized|not) and (.enabled|not) and (.suspended|not) and
+            .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
+            .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0
+          ' <<<"$state" >/dev/null
+          test "$(jq -r .schemaFingerprint <<<"$state")" = "$expected_fingerprint"
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"observe-production-v130",commitSha:$sha,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v130-observe.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v130-observe-${{ github.run_id }}", path: "${{ runner.temp }}/v130-observe.json", if-no-files-found: error, retention-days: 90 }
