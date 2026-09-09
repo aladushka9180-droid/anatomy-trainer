@@ -1,0 +1,55 @@
+name: PrimeTime media cleanup
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      synthetic_probe:
+        description: Create and remove one synthetic R2/D1 deletion probe
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: primetime-media-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Drain deletion queue and verify backlog
+        env:
+          CLEANUP_SECRET: ${{ secrets.PRIMETIME_MEDIA_CLEANUP_SECRET }}
+          SYNTHETIC_PROBE: ${{ github.event_name == 'workflow_dispatch' && inputs.synthetic_probe }}
+        run: |
+          set -euo pipefail
+          test -n "$CLEANUP_SECRET"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          endpoint='https://primetime-booking.aladushka9180.chatgpt.site/api/internal/media-cleanup'
+          if [ "$SYNTHETIC_PROBE" = 'true' ]; then endpoint="$endpoint?probe=1"; fi
+          for attempt in 1 2 3; do
+            status="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+              --request POST \
+              --header "User-Agent: PrimeTime-media-cleanup/1.0" \
+              --header "x-primetime-cleanup-key: $CLEANUP_SECRET" \
+              --max-time 20 \
+              "$endpoint")"
+            if [ "$status" = '200' ]; then
+              node -e "const fs=require('fs'); const value=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const probe=process.argv[2]==='true'; if(value.ok!==true || value.probe!==probe) process.exit(1); console.log(JSON.stringify(value.report));" "$response_file" "$SYNTHETIC_PROBE"
+              exit 0
+            fi
+            if [ "$status" = '404' ]; then
+              echo 'Cleanup credential was rejected.' >&2
+              exit 1
+            fi
+            sleep "$((attempt * 5))"
+          done
+          echo 'Cleanup endpoint remained unhealthy after three attempts.' >&2
+          exit 1
