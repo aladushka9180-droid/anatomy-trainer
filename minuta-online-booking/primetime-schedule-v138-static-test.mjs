@@ -7,6 +7,7 @@ const migration = read('./supabase-migration-v138.sql');
 const rollback = read('./supabase-migration-v138-rollback.sql');
 const workflow = read('../.github/workflows/minuta-v138-safe-release.yml');
 const cleanupWorkflow = read('../.github/workflows/primetime-media-cleanup.yml');
+const prerequisite = read('./tests/primetime-schedule-v138-prerequisite.sql');
 
 assert.match(migration, /get_primetime_schedule_v138\(p_requests jsonb\)/);
 assert.match(migration, /x-primetime-upstream-key/);
@@ -41,6 +42,8 @@ assert.match(cleanupWorkflow, /secrets\.PRIMETIME_MEDIA_CLEANUP_SECRET/);
 assert.match(cleanupWorkflow, /x-primetime-cleanup-key/);
 assert.match(cleanupWorkflow, /synthetic_probe/);
 assert.match(cleanupWorkflow, /endpoint\?probe=1/);
+assert.match(workflow, /primetime-schedule-v138-prerequisite\.sql/);
+assert.match(prerequisite, /get_public_minuta_available_slots_v101/);
 assert.match(cleanupWorkflow, /status" = '200'/);
 assert.match(cleanupWorkflow, /status" = '404'/);
 

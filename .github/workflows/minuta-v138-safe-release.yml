@@ -80,6 +80,7 @@ jobs:
           SQL
           )"
           test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/primetime-schedule-v138-prerequisite.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v138.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v138.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/primetime-schedule-v138-integration.sql
