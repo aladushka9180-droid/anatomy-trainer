@@ -367,12 +367,10 @@ begin
     if v_existing.request_fingerprint<>v_fingerprint then
       raise exception using errcode='23505',message='payroll_adjustment_request_conflict';
     end if;
-    select total_payroll_rub into v_total from public.payroll_periods
-      where id=v_existing.period_id and organization_id=p_organization;
     return jsonb_build_object('id',v_existing.id,'organization_id',p_organization,
       'period_id',v_existing.period_id,'performer_id',v_existing.performer_id,
       'kind',v_existing.adjustment_kind,'amount_minor',v_existing.amount_minor,
-      'request_id',v_existing.request_id,'total_payroll_rub',v_total,'replayed',true);
+      'request_id',v_existing.request_id,'replayed',true);
   end if;
   if not exists(select 1 from public.payroll_periods
       where id=p_period and organization_id=p_organization and status='draft' for update) then
@@ -406,7 +404,7 @@ begin
       'amount_minor',p_amount_minor,'reason',v_reason,'request_id',p_request_id));
   return jsonb_build_object('id',v_id,'organization_id',p_organization,'period_id',p_period,
     'performer_id',p_performer,'kind',p_kind,'amount_minor',p_amount_minor,
-    'request_id',p_request_id,'total_payroll_rub',v_total,'replayed',false);
+    'request_id',p_request_id,'replayed',false);
 exception when unique_violation then
   raise exception using errcode='23505',message='payroll_adjustment_request_conflict';
 end
