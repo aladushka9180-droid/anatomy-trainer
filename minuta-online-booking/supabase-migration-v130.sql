@@ -332,7 +332,7 @@ create trigger inventory_movement_cost_v130 after insert on public.inventory_mov
 for each row execute function public.record_minuta_inventory_cost_v130();
 
 create or replace function public.verify_minuta_inventory_transfer_pair_v130()
-returns trigger language plpgsql set search_path to '' as $$
+returns trigger language plpgsql security definer set search_path to '' as $$
 declare v_document uuid; v_row public.inventory_transfer_documents%rowtype;
 begin
   if tg_table_name='inventory_transfer_documents' then

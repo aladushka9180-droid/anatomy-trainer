@@ -25,6 +25,7 @@ assert.match(migration, /check\(source_warehouse_id<>destination_warehouse_id\)/
 assert.match(migration, /movement_type in \('receipt','write_off','inventory','service_use','transfer_out','transfer_in'\)/i);
 assert.match(migration, /unique index if not exists inventory_transfer_movement_side_v130/i);
 assert.match(migration, /constraint trigger inventory_transfer_document_pair_v130[\s\S]*deferrable initially deferred/i);
+assert.match(migration, /function public\.verify_minuta_inventory_transfer_pair_v130\(\)[\s\S]*security definer[\s\S]*set search_path to ''/i);
 assert.match(migration, /inventory_transfer_pair_incomplete/i);
 
 assert.match(migration, /transferred_from_layer_id bigint[\s\S]*foreign key\(transferred_from_layer_id,organization_id\)[\s\S]*references public\.inventory_cost_layers\(id,organization_id\)/i);
