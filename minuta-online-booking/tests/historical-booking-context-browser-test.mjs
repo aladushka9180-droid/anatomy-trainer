@@ -16,7 +16,7 @@ function declaration(name){
   assert.ok(end>start,`Actual function end ${name}`);return source.slice(start,end);
 }
 function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf('\n});',start);assert.ok(start>=0&&end>start);return source.slice(start,end+4);}
-const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeSlots','bookingRemainingTimeMarkup','activateBookingRemainingTimeScroll','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
+const functions=['openNewBookingSheet','openTimelineBookingAtTime','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','newBookingPreferredUnavailableMarkup','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeSlots','bookingRemainingTimeMarkup','activateBookingRemainingTimeScroll','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
   'renderNewBookingOutsideSchedulePrompt','newBookingOutsideScheduleLabel',
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService',
   'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingRecentCallsSupported','refreshNewBookingRecentCalls','chooseNewBookingRecentCall','receiveNewBookingRecentCall','newBookingClientPhoneLabel','newBookingClientCandidates',
@@ -172,6 +172,27 @@ const cases=[['CONTROL current historical form completes one intended create',as
   assert.equal(state.effects.at(-2).id,ids.booking);assert.deepEqual(state.pending,[]);
   assert.equal(state.sessionStorage.some(([key])=>key==='minuta-provider-booking-draft-v1:actor-A'),false);
 }]];
+cases.push(['CONTROL today past timeline time keeps intent explicit and block mode available',async page=>{
+  await page.evaluate(()=>{
+    selectedDate=businessTodayIso();
+    window.getProviderAvailableSlots=async()=>({data:[],error:null});
+    sessionStorage.setItem(bookingDraftKey(),JSON.stringify({
+      savedAt:Date.now(),mode:'block',historical:true,date:'2020-01-05',time:'10:15',
+      name:'Клиент из черновика',phone:'+79990000003',serviceId:ids.service,durationMinutes:60
+    }));
+    openTimelineBookingAtTime('10:15',selectedDate);
+  });
+  await page.waitForFunction(()=>document.querySelector('#newBookingTimes')?.textContent.includes('10:15 уже прошло'));
+  assert.equal(await page.evaluate(()=>newBookingHistoricalMode),false,'A past time today must not silently become a completed visit');
+  assert.equal(await page.locator('#newBookingHistoricalToggle').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('[data-new-booking-mode="client"]').getAttribute('aria-pressed'),'true','A stale block draft must not choose the new entry type');
+  assert.equal(await page.locator('[data-new-booking-mode="block"]').isEnabled(),true,'Blocking future time must remain available');
+  assert.equal(await page.locator('#newBookingDate').inputValue(),'2026-09-06','The explicit schedule date must win over a stale draft');
+  assert.match(await page.locator('#newBookingTimes').innerText(),/Выберите будущее окно или включите «Визит уже состоялся»/);
+  await page.locator('#newBookingName').fill('Обновлённый клиент');
+  const draft=await page.evaluate(()=>JSON.parse(sessionStorage.getItem(bookingDraftKey())));
+  for(const key of ['mode','historical','date','time'])assert.equal(Object.hasOwn(draft,key),false,`Draft must not retain ${key}`);
+}]);
 for(const transition of ['account','close-reopen'])cases.push([
   `SAFETY confirmed historical A then pending color cannot complete into ${transition} B`,async page=>{
     await start(page);await page.keyboard.press('Escape');
