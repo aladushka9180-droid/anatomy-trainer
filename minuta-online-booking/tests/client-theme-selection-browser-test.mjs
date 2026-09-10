@@ -28,7 +28,7 @@ const clientHarness = `
   function render() {
     const selected = catalog.readClientOverride(organizationId, organizationSlug);
     options.innerHTML = '<label><input type="radio" name="clientTheme" value="follow" ' + (selected === 'follow' ? 'checked' : '') + '>Как у организации</label>'
-      + catalog.themes.map(item => '<label><input type="radio" name="clientTheme" value="' + item.key + '" ' + (selected === item.key ? 'checked' : '') + '>' + item.label + '</label>').join('');
+      + catalog.clientThemes.map(item => '<label><input type="radio" name="clientTheme" value="' + item.key + '" ' + (selected === item.key ? 'checked' : '') + '>' + item.label + '</label>').join('');
     const effective = selected === 'follow' ? organizationSettings.theme_key : selected;
     label.textContent = catalog.applyClientTheme(document.body, effective).label;
     document.querySelector('#clientHeroTitle').textContent = catalog.headline(organizationSettings.headline_key).label;
@@ -66,7 +66,7 @@ const providerHarness = `
   const status = document.querySelector('#clientAppearanceStatus');
   function render() {
     const settings = read();
-    themeHolder.innerHTML = catalog.themes.map(item => '<label><input type="radio" name="providerClientTheme" value="' + item.key + '" ' + (settings.theme_key === item.key ? 'checked' : '') + '>' + item.label + '</label>').join('');
+    themeHolder.innerHTML = catalog.clientThemes.map(item => '<label><input type="radio" name="providerClientTheme" value="' + item.key + '" ' + (settings.theme_key === item.key ? 'checked' : '') + '>' + item.label + '</label>').join('');
     headlineHolder.innerHTML = catalog.headlines.map(item => '<label><input type="radio" name="providerClientHeadline" value="' + item.key + '" ' + (settings.headline_key === item.key ? 'checked' : '') + '>' + item.label + '</label>').join('');
     document.querySelector('#providerClientLink').href = buildLink(settings).href;
   }

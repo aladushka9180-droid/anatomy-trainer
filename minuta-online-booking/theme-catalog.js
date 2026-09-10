@@ -1,8 +1,8 @@
 (function initializeMinutaThemeCatalog() {
   'use strict';
 
-  const defineTheme = (key, label, description, groups, palette, recommended = false) => Object.freeze({
-    key, label, description, groups:Object.freeze(groups), recommended, palette:Object.freeze(palette)
+  const defineTheme = (key, label, description, groups, palette, recommended = false, clientSelectable = true) => Object.freeze({
+    key, label, description, groups:Object.freeze(groups), recommended, clientSelectable, palette:Object.freeze(palette)
   });
   const themes = Object.freeze([
     defineTheme('sage', 'Sage Studio', 'Спокойная зелёная', ['featured','light','natural'], { bg:'#f5f8f5', surface:'#ffffff', surfaceAlt:'#f1f7f3', ink:'#183427', muted:'#62766c', line:'#dce7df', accent:'#347258', accentSoft:'#e7f3eb', contrast:'#ffffff', shadow:'rgba(33,74,54,.10)', pattern:'radial-gradient(circle at 8% 2%,rgba(87,144,111,.12),transparent 32%),linear-gradient(145deg,#f3f8f4,#ffffff 60%,#eef5f0)', themeColor:'#153c2c', dark:false }, true),
@@ -28,6 +28,9 @@
     defineTheme('snow-leopard', 'Snow Leopard', 'Серебристо-белый леопард и тёмный графит', ['featured','light'], { bg:'#f4f5f6', surface:'#ffffff', surfaceAlt:'#eceef0', ink:'#272c31', muted:'#606970', line:'#cfd4d8', accent:'#343b42', accentSoft:'#e2e6e9', contrast:'#ffffff', shadow:'rgba(38,47,56,.10)', pattern:'radial-gradient(ellipse 9px 6px at 12% 18%,rgba(52,59,66,.14) 0 65%,transparent 72%) 0 0/92px 78px,radial-gradient(ellipse 6px 9px at 64% 68%,rgba(52,59,66,.09) 0 65%,transparent 72%) 0 0/92px 78px,linear-gradient(#f7f8f9,#eef0f2)', themeColor:'#f4f5f6', dark:false }),
     defineTheme('apricot-tiger', 'Apricot Tiger', 'Приглушённый абрикос, тигриный шёлк и кофе', ['featured','light','natural'], { bg:'#fff3e7', surface:'#fffdfb', surfaceAlt:'#f5e9de', ink:'#342a24', muted:'#746357', line:'#d8c4b4', accent:'#805238', accentSoft:'#efe0d3', contrast:'#ffffff', shadow:'rgba(88,56,34,.09)', pattern:'repeating-linear-gradient(112deg,transparent 0 44px,rgba(86,54,34,.07) 46px 53px,transparent 56px 88px),linear-gradient(145deg,#fff3e7,#fffaf5)', themeColor:'#fff3e7', dark:false }),
     defineTheme('pearl-zebra', 'Pearl Zebra', 'Жемчужная зебра: молочный фон и дымчатые полосы', ['featured','light','natural'], { bg:'#f5f2ee', surface:'#fffdfb', surfaceAlt:'#eeeae5', ink:'#302e2b', muted:'#716a64', line:'#d1cac3', accent:'#4f4944', accentSoft:'#e7e2dc', contrast:'#ffffff', shadow:'rgba(60,50,40,.09)', pattern:'repeating-radial-gradient(ellipse at -12% 16%,transparent 0 24px,rgba(79,73,68,.09) 25px 35px,transparent 37px 67px),linear-gradient(#f5f2ee,#eeeae5)', themeColor:'#f5f2ee', dark:false }),
+    defineTheme('blue-hydrangea', 'Blue Hydrangea', 'Пудрово-голубой, белый и мягкий васильковый', ['featured','light'], { bg:'#eef5fb', surface:'#fbfdff', surfaceAlt:'#e5eef8', ink:'#25384d', muted:'#60758b', line:'#cfdeeb', accent:'#426b96', accentSoft:'#dce8f4', contrast:'#ffffff', shadow:'rgba(41,75,111,.10)', pattern:'radial-gradient(circle at 86% 4%,rgba(116,157,205,.20),transparent 38%),radial-gradient(circle at 8% 78%,rgba(207,226,244,.30),transparent 42%),linear-gradient(145deg,#edf5fb,#fbfdff 58%,#eaf2fa)', themeColor:'#eef5fb', dark:false }, false, false),
+    defineTheme('peach-silk', 'Peach Silk', 'Молочный персик, кремовый и мягкий коралл', ['featured','light','natural'], { bg:'#fff4ee', surface:'#fffdfa', surfaceAlt:'#f8e7de', ink:'#42312c', muted:'#796159', line:'#ecd2c6', accent:'#935544', accentSoft:'#f5ded3', contrast:'#ffffff', shadow:'rgba(111,66,50,.10)', pattern:'radial-gradient(ellipse at 12% 2%,rgba(234,163,136,.22),transparent 40%),radial-gradient(ellipse at 92% 84%,rgba(249,215,199,.28),transparent 44%),linear-gradient(145deg,#fff1ea,#fffdfa 58%,#fae9df)', themeColor:'#fff4ee', dark:false }, false, false),
+    defineTheme('moonlit-lilac', 'Moonlit Lilac', 'Тёмная слива, дымчатая сирень и серебряный свет', ['featured','dark'], { bg:'#17131f', surface:'#221c2b', surfaceAlt:'#2c2437', ink:'#f3edf7', muted:'#c3b5cc', line:'#594a64', accent:'#c4a4d4', accentSoft:'#3b2e48', contrast:'#211626', shadow:'rgba(5,3,8,.38)', pattern:'radial-gradient(circle at 84% 4%,rgba(186,147,209,.22),transparent 36%),radial-gradient(circle at 10% 82%,rgba(111,87,132,.18),transparent 42%),linear-gradient(145deg,#14101b,#241c2e 58%,#191420)', themeColor:'#17131f', dark:true }, false, false),
     defineTheme('noir-safari', 'Noir Safari', 'Тёмная замша, коньячный акцент и леопардовый рисунок', ['featured','dark','natural'], { bg:'#080705', surface:'#15110d', surfaceAlt:'#211913', ink:'#f4eadc', muted:'#bba993', line:'#4a392b', accent:'#b87748', accentSoft:'#39261a', contrast:'#120b06', shadow:'rgba(0,0,0,.42)', pattern:'radial-gradient(ellipse 7px 5px at 14% 18%,rgba(184,119,72,.15) 0 67%,transparent 75%) 0 0/88px 84px,radial-gradient(ellipse 5px 8px at 66% 70%,rgba(184,119,72,.10) 0 68%,transparent 76%) 0 0/88px 84px,linear-gradient(145deg,#070604,#17100c)', themeColor:'#080705', dark:true })
   ]);
   const headlines = Object.freeze([
@@ -37,6 +40,8 @@
     Object.freeze({ key:'booking', label:'Выберите время для себя.', description:'Коротко и универсально' })
   ]);
   const themeKeys = Object.freeze(themes.map(item => item.key));
+  const clientThemes = Object.freeze(themes.filter(item => item.clientSelectable));
+  const clientThemeKeys = Object.freeze(clientThemes.map(item => item.key));
   const headlineKeys = Object.freeze(headlines.map(item => item.key));
   const normalizeTheme = value => themeKeys.includes(String(value || '')) ? String(value) : 'sage';
   const normalizeHeadline = value => headlineKeys.includes(String(value || '')) ? String(value) : 'massage-time';
@@ -82,5 +87,5 @@
     return selected;
   };
 
-  window.MinutaThemeCatalog = Object.freeze({ themes, headlines, themeKeys, headlineKeys, normalizeTheme, normalizeHeadline, normalizeSettings, theme, headline, clientStorageKey, legacyClientStorageKey, migrateClientOverride, readClientOverride, writeClientOverride, settingsFromSearch, applyClientTheme });
+  window.MinutaThemeCatalog = Object.freeze({ themes, clientThemes, headlines, themeKeys, clientThemeKeys, headlineKeys, normalizeTheme, normalizeHeadline, normalizeSettings, theme, headline, clientStorageKey, legacyClientStorageKey, migrateClientOverride, readClientOverride, writeClientOverride, settingsFromSearch, applyClientTheme });
 })();

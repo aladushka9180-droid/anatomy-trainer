@@ -468,7 +468,7 @@ assert.match(styles, /\.schedule-empty-create/, 'Кнопка пустого р�
 const themeCatalog = readFileSync(join(root, 'theme-catalog.js'), 'utf8');
 const providerThemes = [...themeCatalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
 const providerThemeCards = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
-assert.deepEqual(providerThemes, ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard', 'apricot-tiger', 'pearl-zebra', 'noir-safari'], 'Набор тем единого каталога неожиданно изменился');
+assert.deepEqual(providerThemes, ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard', 'apricot-tiger', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'noir-safari'], 'Набор тем единого каталога неожиданно изменился');
 assert.deepEqual(providerThemeCards, providerThemes, 'Карточки тем кабинета разошлись с единым каталогом');
 const allProviderThemeStyles = `${styles}\n${signatureStyles}\n${readFileSync(join(root, 'provider-themes-wildlife.css'), 'utf8')}\n${readFileSync(join(root, 'provider-theme-noir-safari.css'), 'utf8')}`;
 for (const theme of providerThemes) assert.match(allProviderThemeStyles, new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\] \\{[^}]*--theme-bg:`), `У темы ${theme} нет полной палитры`);
@@ -482,7 +482,7 @@ assert.match(styles, /@media \(prefers-reduced-motion:reduce\) \{\s*\.calendar-v
 assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:center;/, 'Метка под именем клиента не стала компактной');
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
-for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'pearl-zebra', 'noir-safari']) assert.match(allProviderThemeStyles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
+for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'noir-safari']) assert.match(allProviderThemeStyles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
 for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) assert.match(styles, new RegExp(`data-provider-layout="${layout}"`), `Нет CSS структуры ${layout}`);
 assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
 assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span \{ color:#fff; \}/, 'Текст главной кнопки или активного режима теряет контраст темы');
@@ -592,7 +592,7 @@ const defaultViewOrderByRole = { owner:['bookings','analytics','organization','n
 const defaultAnalyticsGoals = { revenue_rub:0, utilization_percent:70, repeat_percent:35, cancellation_percent:10 };
 const defaultAnalyticsGoalsByScope = {};
 for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) {
-  for (const theme of ['luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'pearl-zebra', 'noir-safari']) {
+  for (const theme of ['luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'noir-safari']) {
     assert.deepEqual(normalizeAppearance({ layout, theme }).layout, layout, `Структура ${layout} потерялась с темой ${theme}`);
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
   }

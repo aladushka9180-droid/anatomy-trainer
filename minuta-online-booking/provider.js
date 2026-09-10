@@ -1994,7 +1994,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=681#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=682#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2699,7 +2699,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=681#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=682#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4921,7 +4921,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=681');
+    worker = new Worker('./report-worker.js?v=682');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5511,7 +5511,7 @@ function renderClientAppearanceForm() {
   const themeHolder = $('#providerClientThemeOptions');
   const headlineHolder = $('#clientHeadlineOptions');
   const preview = item => `linear-gradient(135deg,${item.palette.surface},${item.palette.accentSoft} 62%,${item.palette.accent})`;
-  themeHolder.innerHTML = catalog.themes.map(item => `<label class="client-theme-option theme-${item.key}" data-theme-groups="${item.groups.join(' ')}" style="--theme-preview:${preview(item)}"><input type="radio" name="providerClientTheme" value="${item.key}" ${item.key === clientPageSettings.theme_key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('');
+  themeHolder.innerHTML = catalog.clientThemes.map(item => `<label class="client-theme-option theme-${item.key}" data-theme-groups="${item.groups.join(' ')}" style="--theme-preview:${preview(item)}"><input type="radio" name="providerClientTheme" value="${item.key}" ${item.key === clientPageSettings.theme_key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('');
   headlineHolder.innerHTML = catalog.headlines.map(item => `<label class="client-headline-option"><input type="radio" name="providerClientHeadline" value="${item.key}" ${item.key === clientPageSettings.headline_key ? 'checked' : ''}><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></label>`).join('');
   const selectedTheme = catalog.theme(clientPageSettings.theme_key);
   if (!clientThemeFilter) clientThemeFilter = selectedTheme?.groups.includes('featured') ? 'featured' : 'all';

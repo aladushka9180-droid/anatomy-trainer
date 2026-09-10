@@ -75,7 +75,7 @@ try {
     const controlSelectors = ['.brand-mark', '.availability-suggestion button', '.primary'];
     const surfaceSelectors = ['.booking-card', '.duration-note', '.availability-suggestion', '.waitlist-cta', '.booking-faq', '.booking-faq details'];
     const results = [];
-    for (const theme of window.MinutaThemeCatalog.themes) {
+    for (const theme of window.MinutaThemeCatalog.clientThemes) {
       window.MinutaThemeCatalog.applyClientTheme(document.body, theme.key);
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       results.push({
