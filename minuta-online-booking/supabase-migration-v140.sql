@@ -6,22 +6,29 @@ set local statement_timeout='2min';
 set local search_path=public,extensions,pg_catalog;
 
 do $guard$
+declare
+  v_missing text[]:='{}'::text[];
 begin
-  if to_regprocedure('public.get_public_minuta_catalog_v5(text)') is null
-     or to_regclass('public.organization_client_profiles') is null
-     or to_regclass('public.organization_booking_policy_settings') is null
-     or to_regclass('public.organization_booking_policy_rules') is null
-     or to_regclass('public.booking_policies') is null
-     or to_regprocedure('public.normalize_client_phone(text)') is null
-     or to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is null
-     or to_regprocedure('public.get_primetime_slot_ranges_v139(text,uuid,uuid,date,date,text)') is null
-     or to_regprocedure('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)') is null
-     or to_regprocedure('public.reschedule_booking_v2(uuid,date,time without time zone,uuid)') is null
-     or to_regprocedure('public.cancel_booking_v2(uuid)') is null
-     or to_regprocedure('public.resolve_minuta_booking_policy(uuid,uuid,uuid)') is null
-     or to_regprocedure('extensions.digest(bytea,text)') is null
-     or to_regprocedure('public.track_public_booking_funnel_event(text,uuid,text,uuid,uuid,text,text,text,text,text,text,text)') is null then
-    raise exception using errcode='55000',message='v140_yandex_booking_prerequisites_missing';
+  if to_regprocedure('public.get_public_minuta_catalog_v5(text)') is null then v_missing:=array_append(v_missing,'get_public_minuta_catalog_v5'); end if;
+  if to_regclass('public.organization_client_profiles') is null then v_missing:=array_append(v_missing,'organization_client_profiles'); end if;
+  if to_regclass('public.organization_booking_policy_settings') is null then v_missing:=array_append(v_missing,'organization_booking_policy_settings'); end if;
+  if to_regclass('public.organization_booking_policy_rules') is null then v_missing:=array_append(v_missing,'organization_booking_policy_rules'); end if;
+  if to_regclass('public.booking_policies') is null then v_missing:=array_append(v_missing,'booking_policies'); end if;
+  if to_regprocedure('public.normalize_client_phone(text)') is null then v_missing:=array_append(v_missing,'normalize_client_phone'); end if;
+  if to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is null then v_missing:=array_append(v_missing,'get_public_minuta_available_slots_v101'); end if;
+  if to_regprocedure('public.get_primetime_slot_ranges_v139(text,uuid,uuid,date,date,text)') is null then v_missing:=array_append(v_missing,'get_primetime_slot_ranges_v139'); end if;
+  if to_regprocedure('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)') is null then v_missing:=array_append(v_missing,'book_minuta_appointment'); end if;
+  if to_regprocedure('public.reschedule_booking_v2(uuid,date,time without time zone,uuid)') is null then v_missing:=array_append(v_missing,'reschedule_booking_v2'); end if;
+  if to_regprocedure('public.cancel_booking_v2(uuid)') is null then v_missing:=array_append(v_missing,'cancel_booking_v2'); end if;
+  if to_regprocedure('public.resolve_minuta_booking_policy(uuid,uuid,uuid)') is null then v_missing:=array_append(v_missing,'resolve_minuta_booking_policy'); end if;
+  if to_regprocedure('extensions.digest(bytea,text)') is null then v_missing:=array_append(v_missing,'extensions.digest'); end if;
+  if to_regprocedure('public.track_public_booking_funnel_event(text,uuid,text,uuid,uuid,text,text,text,text,text,text,text)') is null then v_missing:=array_append(v_missing,'track_public_booking_funnel_event'); end if;
+
+  if cardinality(v_missing)>0 then
+    raise exception using
+      errcode='55000',
+      message='v140_yandex_booking_prerequisites_missing',
+      detail=array_to_string(v_missing,',');
   end if;
 end
 $guard$;
