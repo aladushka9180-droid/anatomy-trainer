@@ -161,16 +161,16 @@ const server = http.createServer((request, response) => {
       fixture.id = 'scheduleThemeFixture';
       fixture.innerHTML = `
         <div class="timeline-view">
-          <button class="timeline-booking status-confirmed color-auto"><span class="timeline-booking-copy"><strong>Запись</strong></span></button>
+          <button class="timeline-booking status-confirmed color-sage" style="--booking-tone:#00ff00"><span class="timeline-booking-copy"><strong>Запись</strong></span></button>
           <button class="timeline-booking status-block automatic-break"><span class="timeline-booking-copy"><strong>Перерыв</strong></span></button>
         </div>
         <div class="schedule-list">
-          <article class="provider-booking status-confirmed color-auto"><h3>Запись</h3></article>
+          <article class="provider-booking status-confirmed color-sage" style="--booking-tone:#00ff00"><h3>Запись</h3></article>
           <article class="provider-booking status-block automatic-break"><h3>Перерыв</h3></article>
         </div>
-        <button class="calendar-overview-booking status-confirmed color-auto"><strong>Запись</strong></button>
+        <button class="calendar-overview-booking status-confirmed color-auto" style="--booking-tone:#00ff00"><strong>Запись</strong></button>
         <button class="calendar-overview-booking status-block"><strong>Перерыв</strong></button>
-        <button class="calendar-week-booking status-confirmed color-auto"><strong>Запись</strong></button>
+        <button class="calendar-week-booking status-confirmed color-sage" style="--booking-tone:#00ff00"><strong>Запись</strong></button>
         <button class="calendar-week-booking is-block status-block"><strong>Перерыв</strong></button>`;
       const bookings = document.querySelector('#providerBookings');
       bookings.classList.add('calendar-overview', 'calendar-overview-month');
@@ -247,7 +247,7 @@ const server = http.createServer((request, response) => {
           const themeSurface = getComputedStyle(document.body).getPropertyValue('--theme-surface').trim();
           const normal = normals.map(node => {
             const style = getComputedStyle(node);
-            return { background:style.backgroundColor, image:style.backgroundImage, shadow:style.boxShadow, contrast:contrast(style.color, style.backgroundColor), surfaceContrast:contrast(style.backgroundColor, themeSurface) };
+            return { background:style.backgroundColor, borderColor:style.borderColor, image:style.backgroundImage, shadow:style.boxShadow, contrast:contrast(style.color, style.backgroundColor), surfaceContrast:contrast(style.backgroundColor, themeSurface) };
           });
           const rest = rests.map(node => {
             const style = getComputedStyle(node);
@@ -259,10 +259,20 @@ const server = http.createServer((request, response) => {
           fixture.append(monthProbe);
           const monthAutoBackground = getComputedStyle(monthProbe).backgroundColor;
           monthProbe.remove();
+          const accentProbe = document.createElement('span');
+          accentProbe.style.background = 'color-mix(in srgb,var(--theme-accent) var(--schedule-entry-fill-weight),var(--theme-surface))';
+          accentProbe.style.border = '1px solid color-mix(in srgb,var(--theme-accent) var(--schedule-entry-border-weight),var(--theme-line))';
+          fixture.append(accentProbe);
+          const accentProbeStyle = getComputedStyle(accentProbe);
+          const accentBackground = accentProbeStyle.backgroundColor;
+          const accentBorderColor = accentProbeStyle.borderColor;
+          accentProbe.remove();
           return {
             normal,
             rest,
             activeDateBackground:activeDate.backgroundColor,
+            accentBackground,
+            accentBorderColor,
             monthAutoBackground,
             restIconContent:restIcon.content,
             restIconImage:restIcon.backgroundImage,
@@ -278,6 +288,8 @@ const server = http.createServer((request, response) => {
             assert.equal(card.background, cards.monthAutoBackground, `${theme} ${width}px: компактная месячная запись потеряла нейтральный фон`);
             assert.equal(card.shadow, 'none', `${theme} ${width}px: месячная запись получила лишнюю постоянную тень`);
           } else {
+            assert.equal(card.background, cards.accentBackground, `${theme} ${width}px: запись ${index + 1} не использует акцент выбранной темы`);
+            assert.equal(card.borderColor, cards.accentBorderColor, `${theme} ${width}px: рамка записи ${index + 1} не использует акцент выбранной темы`);
             assert.match(card.shadow, /inset/, `${theme} ${width}px: нет акцента выбранной темы у записи ${index + 1}`);
             assert.ok(card.surfaceContrast >= 1.04, `${theme} ${width}px: запись ${index + 1} сливается с поверхностью (${card.surfaceContrast.toFixed(2)})`);
           }

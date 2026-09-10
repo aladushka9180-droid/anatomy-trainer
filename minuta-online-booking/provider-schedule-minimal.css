@@ -163,14 +163,15 @@
   .provider-body .date-strip-shift[data-date-shift="7"] { right:8px; }
 }
 
-/* Appointments echo the selected date in every theme without competing with it. */
+/* Appointments use the same accent as the selected date and journal mode in every theme.
+   Booking-specific colours stay available in forms, but no longer fragment the schedule. */
 .provider-body[data-provider-theme] {
-  --schedule-entry-fill-weight:18%;
-  --schedule-entry-hover-fill-weight:24%;
-  --schedule-entry-border-weight:46%;
-  --schedule-entry-hover-border-weight:58%;
-  --schedule-entry-marker-weight:76%;
-  --schedule-entry-shadow-weight:28%;
+  --schedule-entry-fill-weight:26%;
+  --schedule-entry-hover-fill-weight:34%;
+  --schedule-entry-border-weight:58%;
+  --schedule-entry-hover-border-weight:70%;
+  --schedule-entry-marker-weight:88%;
+  --schedule-entry-shadow-weight:24%;
   --schedule-break-surface-weight:78%;
 }
 
@@ -189,12 +190,12 @@
   [data-provider-theme="oled-mono"],
   [data-provider-theme="noir-safari"]
 ) {
-  --schedule-entry-fill-weight:30%;
-  --schedule-entry-hover-fill-weight:36%;
-  --schedule-entry-border-weight:64%;
-  --schedule-entry-hover-border-weight:76%;
-  --schedule-entry-marker-weight:86%;
-  --schedule-entry-shadow-weight:46%;
+  --schedule-entry-fill-weight:36%;
+  --schedule-entry-hover-fill-weight:42%;
+  --schedule-entry-border-weight:72%;
+  --schedule-entry-hover-border-weight:82%;
+  --schedule-entry-marker-weight:94%;
+  --schedule-entry-shadow-weight:38%;
   --schedule-break-surface-weight:68%;
 }
 
@@ -204,7 +205,7 @@
   .calendar-overview-booking:not(.status-block),
   .calendar-week-booking:not(.is-block)
 ) {
-  --schedule-entry-tone:var(--booking-tone,var(--calendar-week-marker,var(--theme-accent)));
+  --schedule-entry-tone:var(--theme-accent);
   border-color:color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-border-weight),var(--theme-line))!important;
   background:color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-fill-weight),var(--theme-surface))!important;
   background-image:none!important;
@@ -234,7 +235,7 @@
   .provider-booking-note-full,
   .provider-booking-note-full b
 ) {
-  color:color-mix(in srgb,var(--theme-muted) 62%,var(--theme-ink))!important;
+  color:var(--theme-ink)!important;
   opacity:1;
 }
 
