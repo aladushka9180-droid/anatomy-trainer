@@ -31,8 +31,8 @@ assert.match(renderEditPicker, /new Set\(bookingEditSlots\.map\(time => time\.sl
   'Часы не группируются из реальных свободных окон');
 assert.match(renderEditPicker, /filter\(time => time\.startsWith\(`\$\{bookingEditHour\}:`\)\)/,
   'Точные варианты не ограничены выбранным часом');
-assert.match(renderEditPicker, /bookingQuickTimeSlots[\s\S]*1\. Выберите час[\s\S]*data-edit-booking-hour[\s\S]*2\. Выберите время[\s\S]*data-edit-booking-time/,
-  'В интерфейсе нет ясного порядка «час → быстрый выбор времени»');
+assert.match(renderEditPicker, /bookingQuickTimeSlots[\s\S]*<strong>Час<\/strong>[\s\S]*data-edit-booking-hour[\s\S]*<strong>Новое время<\/strong>[\s\S]*data-edit-booking-time/,
+  'В интерфейсе нет компактного выбора «час → новое время»');
 assert.match(quickTimeSlots, /Number\(time\.slice\(3, 5\)\) % 5 === 0/,
   'Минутный список не сокращён до удобного шага 5 минут');
 assert.match(exactTimeMarkup, /Указать точную минуту[\s\S]*type="time"[\s\S]*step="60"/,
@@ -43,8 +43,8 @@ assert.match(provider, /applyEditExactTime[\s\S]*bookingEditSlots\.filter[\s\S]*
   'Точный выбор переноса не проверяет валидность и доступность минуты выбранного часа');
 assert.match(provider, /applyNewExactTime[\s\S]*newBookingSlots\.filter[\s\S]*!input\?\.checkValidity\(\) \|\| !hourSlots\.includes\(value\)[\s\S]*newBookingTime = value/,
   'Точный выбор новой записи не проверяет валидность и доступность минуты выбранного часа');
-assert.match(provider, /if \(newTime\)[\s\S]*renderNewBookingTimePicker\(\{ offline:!navigator\.onLine, historical:newBookingHistoricalMode, outsideSchedule:newBookingOutsideSchedule \}\)/,
-  'Быстрый выбор времени теряет исторический или внеплановый контекст');
+assert.match(provider, /if \(newTime\)[\s\S]*renderNewBookingTimePicker\(\{ offline:!navigator\.onLine, historical:newBookingHistoricalMode \}\)/,
+  'Быстрый выбор времени теряет исторический контекст');
 const helperApi = Function(`${quickTimeSlots}\n${exactTimeMarkup}\nreturn {bookingQuickTimeSlots,bookingExactTimeMarkup};`)();
 const denseHour = Array.from({length:60}, (_, minute) => `12:${String(minute).padStart(2, '0')}`);
 assert.deepEqual(helperApi.bookingQuickTimeSlots(denseHour), Array.from({length:12}, (_, index) => `12:${String(index * 5).padStart(2, '0')}`),
@@ -104,11 +104,11 @@ async function geometryCheck() {
       </head><body class="provider-body" data-provider-theme="sage" data-provider-layout="soft">
       <main class="test-shell booking-editor-form booking-edit-form-compact">
         <div class="booking-editor-times booking-time-picker" id="editBookingTimes">
-          <div class="booking-time-guide"><strong>1. Выберите час</strong><span>5 доступно</span></div>
+          <div class="booking-time-guide"><strong>Час</strong><span>5 доступно</span></div>
           <div class="booking-time-hours">
             ${['10','11','12','13','14'].map((hour, index) => `<button type="button" class="${index === 0 ? 'active' : ''}">${hour}:00</button>`).join('')}
           </div>
-          <div class="booking-time-guide"><strong>2. Выберите время</strong><span>12 быстрых вариантов · шаг 5 мин</span></div>
+          <div class="booking-time-guide"><strong>Новое время</strong><span>12 вариантов</span></div>
           <div class="booking-time-slots">
             ${Array.from({ length:12 }, (_, index) => `<button type="button">10:${String(index * 5).padStart(2, '0')}</button>`).join('')}
           </div>

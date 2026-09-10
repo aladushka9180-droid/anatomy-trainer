@@ -56,6 +56,7 @@ jobs:
       - run: node minuta-online-booking/payroll-ledger-v136-static-test.mjs
       - run: node minuta-online-booking/booking-funnel-v137-static-test.mjs
       - run: node minuta-online-booking/yandex-booking-v140-static-test.mjs
+      - run: node minuta-online-booking/booking-workflows-v141-static-test.mjs
       - run: node --test minuta-online-booking/tests/yandex-booking-edge-test.mjs
       - run: node --check minuta-online-booking/tests/yandex-booking-v140-postgres-concurrency-test.mjs
       - run: bash -n minuta-online-booking/tests/financial-ledger-v129-concurrency-test.sh

@@ -9,8 +9,10 @@ assert.match(provider, /openNewBookingSheet\(time, \{ date:dateIso, historical:s
 assert.match(provider, /#newBookingButton'\)\.addEventListener\('click', \(\) => openNewBookingSheet\('', \{ date:selectedDate, historical:selectedDate < businessTodayIso\(\) \}\)\)/, 'Основная кнопка не открывает выбранный прошедший день');
 assert.match(provider, /#mobileNewBookingButton'\)\.addEventListener\('click', \(\) => openNewBookingSheet\('', \{ date:selectedDate, historical:selectedDate < businessTodayIso\(\) \}\)\)/, 'Мобильная кнопка не открывает выбранный прошедший день');
 assert.match(provider, /id="newBookingHistoricalToggle"[^>]*aria-pressed=/, 'Нет явного режима прошедшего визита');
-assert.match(provider, /date === businessTodayIso\(\) \? now\.getHours\(\) \* 60 \+ now\.getMinutes\(\) : 1440/, 'Режим не ограничивает сегодняшний день уже прошедшим временем');
-assert.match(provider, /minute \+ duration > latestMinute/, 'В прошедшем визите предлагаются будущие интервалы');
+assert.match(provider, /<strong>Визит уже состоялся<\/strong>/, 'Режим прошедшего визита назван двусмысленно');
+assert.match(provider, /id="newBookingHistoricalTime" type="time" step="300"/, 'Нет прямого ввода фактического времени визита');
+assert.match(provider, /Время вне рабочего графика[\s\S]*Если визит действительно состоялся, его можно сохранить/, 'Нет спокойного предупреждения о фактическом времени вне графика');
+assert.match(provider, /bookingPlacementIssue[\s\S]*allowPast:true, ignoreSchedule:true/, 'Фактическое время не проверяется отдельно от рабочего графика');
 assert.match(provider, /newBookingHistoricalMode \? 'Добавить прошедший визит'/, 'Кнопка сохранения не объясняет действие');
 assert.match(provider, /db\.rpc\('create_minuta_historical_booking'/, 'Прошедший визит не отправляется в защищённую серверную функцию');
 assert.doesNotMatch(provider, /id="newBookingDate" type="date" min=/, 'Выбор прошлой даты заблокирован атрибутом min');

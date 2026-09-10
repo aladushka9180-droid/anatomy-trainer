@@ -430,9 +430,9 @@ assert.match(provider, /openTimelineBookingAtTime\(time, stage\.dataset\.timelin
 assert.match(provider, /data-create-booking-at data-timeline-date="\$\{selectedDate\}"/, 'Расписание не закрепляет дату для создаваемой записи');
 assert.match(provider, /const requestId = \+\+newBookingSlotsRequestId;[\s\S]*?if \(!requestIsCurrent\(\)\) return;/, 'Устаревший ответ свободных окон может заменить актуальные дату, услугу или время');
 assert.doesNotMatch(provider, /#newBookingService'\)\.addEventListener\('change',[^\n]*newBookingPreferredTime = ''/, 'Смена услуги не должна терять время, выбранное в расписании');
-assert.doesNotMatch(provider, /#newBookingDate'\)\.addEventListener\('change',[^\n]*newBookingPreferredTime = ''/, 'Смена даты не должна молча подставлять первое свободное время');
-assert.match(provider, /if \(newHour\) \{[\s\S]*?newBookingPreferredTime = newBookingTime;/, 'Выбранный час должен сохраняться как предпочтительное время при повторной загрузке окон');
-assert.match(provider, /enteringBlock[\s\S]*?duration_minutes\) === 60/, 'Новый перерыв не выбирает 60 минут по умолчанию');
+assert.match(provider, /#newBookingDate'\)\.addEventListener\('change',[^\n]*newBookingPreferredTime = ''/, 'Смена даты должна сбрасывать время, выбранное для другого дня');
+assert.match(provider, /if \(newHour\) \{[\s\S]*?if \(!newBookingTime\.startsWith[\s\S]*?newBookingTime = '';/, 'Выбор часа не должен молча выбирать первое время');
+assert.match(provider, /block:\{ durationMinutes:Number\(draft\?\.blockDurationMinutes[\s\S]*?60/, 'Новый перерыв не выбирает 60 минут по умолчанию');
 assert.doesNotMatch(provider, /timeline-client-phone-separator/, 'Телефон снова перегружает карточку временной шкалы');
 assert.match(provider, /class="provider-booking-phone"/, 'Телефон исчез из подробного дневного списка');
 assert.match(provider, /const timelineStatus = block\s*\? ''/, 'Перерыв дублируется меткой «Занято»');

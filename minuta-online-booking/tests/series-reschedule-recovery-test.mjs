@@ -139,9 +139,8 @@ test('current editor completes the real series RPC and auxiliary writes', async 
       p_scope:'following', p_date:'2026-09-20', p_time:'12:00:00',
       p_expected_date:'2026-09-15', p_expected_time:'10:00:00' }
   });
-  assert.deepEqual(h.effects.filter(e => ['color', 'note', 'refresh'].includes(e[0])).map(e => e[0]), ['color', 'note', 'refresh']);
+  assert.deepEqual(h.effects.filter(e => ['color', 'note', 'refresh'].includes(e[0])).map(e => e[0]), ['refresh']);
   assert.deepEqual(h.effects.at(-1), ['openBookingSheet', ids.A]);
-  assert.equal(h.effects.find(e => e[0] === 'note')[1].note, 'Исходная заметка A');
   assert.equal(h.effects.filter(e => e[0] === 'toast').length, 1);
 });
 
@@ -160,13 +159,13 @@ test('current explicit RPC refusal restores the editor button', async () => {
   const h = harness('rpc'); const form = h.open(); const pending = h.submit(form);
   await h.entered.promise; h.gate.resolve(refusal); const result = await pending;
   assert.equal(result.error, null); assert.equal(form.button.disabled, false);
-  assert.equal(form.button.textContent, 'Сохранить изменения');
+  assert.equal(form.button.textContent, 'Перенести запись');
   assert.equal(h.nodes['#bookingEditForm'], form);
   assert.equal(h.effects.filter(e => e[0] === 'error').length, 1);
   assert.equal(h.effects.some(e => ['color', 'note', 'refresh', 'toast', 'openBookingSheet'].includes(e[0])), false);
 });
 
-for (const phase of ['rpc', 'color', 'note', 'refresh']) {
+for (const phase of ['rpc', 'refresh']) {
   test(`late ${phase} completion must leave newly opened editor B unchanged`, async () => {
     const h = harness(phase); const formA = h.open(); const pending = h.submit(formA);
     await h.entered.promise; const formB = h.open('B'); const effectsBeforeReply = h.effects.length;
@@ -187,7 +186,7 @@ test('duplicate submit on the same editor sends one RPC', async () => {
   h.gate.resolve(success); assert.equal((await pending).error, null);
 });
 
-for (const phase of ['rpc', 'color', 'note', 'refresh']) {
+for (const phase of ['rpc', 'refresh']) {
   for (const change of ['org-roundtrip', 'session-reset', 'logout', 'close']) {
     test(`${change} invalidates editor awaiting ${phase}`, async () => {
       const h = harness(phase); const form = h.open(); const pending = h.submit(form);
@@ -231,12 +230,10 @@ test('fulfilled transport error does not claim unchanged series', async () => {
   assert.doesNotMatch(h.effects.at(-1)[2], /без изменений/);
 });
 
-test('auxiliary rejection distinguishes confirmed primary save from unknown', async () => {
-  const h = harness('color'); const pending = h.submit(h.open());
-  await h.entered.promise; h.gate.reject(Error('color failed'));
-  assert.equal((await pending).error, null);
-  assert.match(h.effects.at(-1)[2], /Основное изменение сохранено/);
-  assert.doesNotMatch(h.effects.at(-1)[2], /без изменений/);
+test('transfer does not rewrite color or client note', async () => {
+  const h = harness(); const result = await h.submit(h.open());
+  assert.equal(result.error, null);
+  assert.equal(h.effects.some(effect => effect[0] === 'color' || effect[0] === 'note'), false);
 });
 
 test('fulfilled unsuccessful refresh does not reopen a stale booking summary', async () => {
@@ -317,9 +314,9 @@ test('real late slot load cannot replace new editor selection or holder', async 
   h.context.allBookings[1].booking_time = '14:00:00';
   h.context.openBookingEditor(ids.A); h.context.openBookingEditor(ids.B);
   const holder = h.nodes['#editBookingTimes'];
-  assert.equal(h.context.bookingEditTime, '14:00');
+  assert.equal(h.context.bookingEditTime, '');
   h.reads[0].resolve({ data:[{ booking_time:'10:00:00' }], error:null }); await turn();
-  assert.equal(h.context.bookingEditTime, '14:00');
+  assert.equal(h.context.bookingEditTime, '');
   assert.equal(holder.innerHTML, '<span>Ищем свободное время…</span>');
   h.reads[1].resolve({ data:[{ booking_time:'14:00:00' }], error:null }); await turn();
   assert.match(holder.innerHTML, /data-edit-booking-time="14:00"/);
@@ -363,7 +360,7 @@ test('reopening the same booking still replaces the old editor identity', async 
   assert.equal(h.nodes['#bookingEditForm'], freshA);
 });
 
-for (const phase of ['rpc', 'color', 'note', 'refresh']) {
+for (const phase of ['rpc', 'refresh']) {
   test(`current ${phase} rejection must be handled and restore a usable editor`, async () => {
     const h = harness(phase); const form = h.open(); const pending = h.submit(form);
     await h.entered.promise; h.gate.reject(Error(`unexpected_${phase}_rejection`)); const result = await pending;
