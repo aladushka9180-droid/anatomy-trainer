@@ -16,10 +16,10 @@ function declaration(name){
   assert.ok(end>start,`Actual function end ${name}`);return source.slice(start,end);
 }
 function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf('\n});',start);assert.ok(start>=0&&end>start);return source.slice(start,end+4);}
-const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','loadNewBookingSlots','renderNewBookingTimePicker','bookingQuickTimeSlots','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
-  'renderNewBookingOutsideSchedulePrompt','enableNewBookingOutsideSchedule','newBookingOutsideScheduleLabel',
+const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
+  'renderNewBookingOutsideSchedulePrompt','newBookingOutsideScheduleLabel',
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService',
-  'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','parseLocalIsoDate','localIsoDate',
+  'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','bookingDateLabel','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','parseLocalIsoDate','localIsoDate',
   'bookingDraftKey','readNewBookingDraft','saveNewBookingDraft','clearNewBookingDraft','bookingColorPicker','compactBookingColorPicker','bookingColor','validBookingColor',
   'saveBookingColor','persistBookingColors','bookingColorStorageKey','bookingColorPendingStorageKey','requireBookingWrites','sessionIsCurrent','captureBookingMetadataContext',
   'showFormError','clearFormError'];
@@ -95,13 +95,13 @@ async function fixture(){
 }
 async function openAndFill(page,label){
   await page.locator('#newBookingButton').click();
-  assert.equal(await page.locator('[data-new-booking-hour="00"]').count(),0,'Historical picker must start with provider working hours');
-  assert.equal(await page.locator('[data-new-booking-hour="10"]').count(),1,'Provider opening hour must remain available');
-  assert.equal(await page.locator('[data-new-booking-hour="19"]').count(),1,'Last valid start hour must remain available');
+  assert.equal(await page.locator('[data-new-booking-hour]').count(),0,'Historical visits must use a direct factual time field, not future availability buckets');
+  assert.equal(await page.locator('#newBookingHistoricalTime').count(),1,'Historical visits must expose the exact factual time');
   assert.equal(await page.locator('#newBookingOutsideScheduleButton').count(),0,'Historical picker must not show the outside-schedule callout');
+  await page.locator('[data-add-new-booking-client]').click();
   await page.locator('#newBookingName').fill(`Клиент ${label}`);
   await page.locator('#newBookingPhone').fill(label==='A'?'+79990000001':'+79990000002');
-  await page.locator('[data-new-booking-time="10:15"]').click();
+  await page.evaluate(()=>{const time=$('#newBookingHistoricalTime');time.value='10:15';time.dispatchEvent(new Event('input',{bubbles:true}));time.dispatchEvent(new Event('change',{bubbles:true}));});
   await page.locator('#newBookingAdvanced > summary').click();
   await page.locator('.booking-color-compact > summary').click();
   await page.locator(`[name="newBookingColor"][value="${label==='A'?'mint':'rose'}"]`).check();
@@ -138,7 +138,9 @@ async function exerciseCaption(page){
     $('#newBookingName').dispatchEvent(new Event('input',{bubbles:true}));
     $('#newBookingDate').dispatchEvent(new Event('change',{bubbles:true}));
     $('#newBookingOccurrences').dispatchEvent(new Event('change',{bubbles:true}));
-    $('[data-new-booking-time="10:15"]').click();
+    const time=$('#newBookingHistoricalTime');time.value='10:15';
+    time.dispatchEvent(new Event('input',{bubbles:true}));
+    time.dispatchEvent(new Event('change',{bubbles:true}));
   });
   assert.equal(await page.evaluate(()=>newBookingTime),'10:15','Keep validation preconditions valid; missing time must not mask duplicate protection');
 }
@@ -212,7 +214,7 @@ cases.push(['CONTROL exact v98 SQL refusal unlocks editing and a new explicit at
   assert.equal(await page.locator('#newBookingSubmit').isEnabled(),true);
   assert.equal(await page.locator('#newBookingError').isVisible(),true);
   await page.locator('#newBookingName').fill('Исправленный клиент');
-  await page.locator('[data-new-booking-time="10:15"]').click();
+  await page.evaluate(()=>{const time=$('#newBookingHistoricalTime');time.value='10:15';time.dispatchEvent(new Event('input',{bubbles:true}));time.dispatchEvent(new Event('change',{bubbles:true}));});
   await page.evaluate(()=>{hold='create';});await page.locator('#newBookingSubmit').click();
   assert.equal(await page.evaluate(()=>effects.filter(e=>e.name==='create_minuta_historical_booking').length),2);
   await answerCreate(page,'refusal');
