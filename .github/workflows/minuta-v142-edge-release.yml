@@ -8,6 +8,10 @@ on:
         description: Exact 40-character current main commit SHA
         required: true
         type: string
+      evidence_commit_sha:
+        description: Exact v142 commit SHA proven by the apply and observe runs
+        required: true
+        type: string
       apply_run_id:
         description: Successful v142 production apply run ID
         required: true
@@ -42,6 +46,7 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
       SHA: ${{ inputs.commit_sha }}
+      EVIDENCE_SHA: ${{ inputs.evidence_commit_sha }}
       CONFIRMATION: ${{ inputs.confirmation }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -59,6 +64,13 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          [[ "$EVIDENCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor "$EVIDENCE_SHA" "$SHA"
+          git diff --quiet "$EVIDENCE_SHA" "$SHA" -- \
+            minuta-online-booking/supabase-migration-v142.sql \
+            minuta-online-booking/supabase-migration-v142-rollback.sql \
+            supabase/functions/primetime-integration-api \
+            supabase/functions/primetime-webhook-dispatcher
           test "$CONFIRMATION" = DEPLOY_DISABLED_V142_EDGE
           test -n "$SUPABASE_ACCESS_TOKEN"
           test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
@@ -82,16 +94,18 @@ jobs:
         run: |
           set -euo pipefail
           for id in "$APPLY" "$OBSERVE"; do [[ "$id" =~ ^[0-9]+$ ]]; done
-          check_run(){ run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$SHA"; test "$(jq -r .head_branch <<<"$run")" = main; test "$(jq -r .event <<<"$run")" = workflow_dispatch; test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v142-integration-contour.yml; }
+          check_run(){ run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$EVIDENCE_SHA"; test "$(jq -r .head_branch <<<"$run")" = main; test "$(jq -r .event <<<"$run")" = workflow_dispatch; test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v142-integration-contour.yml; }
           mkdir -p "$RUNNER_TEMP/v142-edge-evidence"/{apply,observe}
           check_run "$APPLY"
           gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v142-apply-$APPLY" -D "$RUNNER_TEMP/v142-edge-evidence/apply"
-          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .productionWritten and (.businessRowsChanged|not) and (.realIntegrationsEnabled|not) and .state.ready and .state.connections==0 and .state.enabledConnections==0' "$RUNNER_TEMP/v142-edge-evidence/apply/v142-apply.json" >/dev/null
+          jq -e --arg sha "$EVIDENCE_SHA" '.status=="success" and .commitSha==$sha and .productionWritten and (.businessRowsChanged|not) and (.realIntegrationsEnabled|not) and .state.ready and .state.connections==0 and .state.enabledConnections==0' "$RUNNER_TEMP/v142-edge-evidence/apply/v142-apply.json" >/dev/null
           check_run "$OBSERVE"
           gh run download "$OBSERVE" -R "$GITHUB_REPOSITORY" -n "v142-observe-$OBSERVE" -D "$RUNNER_TEMP/v142-edge-evidence/observe"
-          jq -e --arg sha "$SHA" --arg apply "$APPLY" '.status=="success" and .commitSha==$sha and .applyRunId==$apply and .readOnly and (.productionWritten|not) and (.realIntegrationsEnabled|not) and .state.ready and .state.connections==0 and .state.enabledConnections==0' "$RUNNER_TEMP/v142-edge-evidence/observe/v142-observe.json" >/dev/null
+          jq -e --arg sha "$EVIDENCE_SHA" --arg apply "$APPLY" '.status=="success" and .commitSha==$sha and .applyRunId==$apply and .readOnly and (.productionWritten|not) and (.realIntegrationsEnabled|not) and .state.ready and .state.connections==0 and .state.enabledConnections==0' "$RUNNER_TEMP/v142-edge-evidence/observe/v142-observe.json" >/dev/null
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
-      - name: Force both production adapters off before deployment
+      - name: Attempt to force both production adapters off before deployment
+        id: disable
+        continue-on-error: true
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           set -euo pipefail
@@ -121,8 +135,9 @@ jobs:
           jq -e '.code == "NOT_CONFIGURED"' "$RUNNER_TEMP/api-disabled.json" >/dev/null
           jq -e '.code == "NOT_CONFIGURED"' "$RUNNER_TEMP/dispatcher-disabled.json" >/dev/null
           jq -n --arg sha "$SHA" --arg api "$api_url" --arg dispatcher "$dispatcher_url" \
+            --arg secretWrite "${{ steps.disable.outcome }}" \
             '{status:"success",commitSha:$sha,apiRoute:$api,dispatcherRoute:$dispatcher,
-              enabled:false,configurationStatus:"NOT_CONFIGURED",productionWritten:true,
+              enabled:false,configurationStatus:"NOT_CONFIGURED",secretWriteOutcome:$secretWrite,productionWritten:true,
               externalRequestsSent:false,realIntegrationsEnabled:false,realBookingsCreated:false}' \
             > "$RUNNER_TEMP/v142-edge-release.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
