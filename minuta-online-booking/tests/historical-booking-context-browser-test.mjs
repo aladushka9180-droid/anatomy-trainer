@@ -325,6 +325,12 @@ cases.push([
     await page.waitForFunction(()=>!document.querySelector('#newBookingClientSuggestions').hidden);
     await page.locator('#newBookingClientSuggestions [data-new-booking-client]').click();
     assert.equal(await page.locator('#newBookingName').inputValue(),'Имя в CRM','The always-visible name field must retain manual CRM lookup');
+    await page.locator('#newBookingPhone').fill('00-05');
+    await page.waitForFunction(()=>!document.querySelector('#newBookingClientSuggestions').hidden);
+    await page.locator('#newBookingClientSuggestions [data-new-booking-client]').click();
+    assert.equal(await page.locator('#newBookingName').inputValue(),'Имя в CRM','The last four digits must find and select a CRM client');
+    assert.equal(await page.locator('#newBookingPhone').inputValue(),'+7 (900) 000-00-05');
+    assert.equal(await page.locator('#newBookingSectionSubtitle').textContent(),'Клиент найден в базе');
     await page.evaluate(()=>{
       $('#newBookingDate').value='2026-09-10';newBookingHistoricalMode=false;
       newBookingSlots=['14:00','14:30','15:00','15:30','16:00'];newBookingTime='15:00';newBookingPreferredTime='15:00';

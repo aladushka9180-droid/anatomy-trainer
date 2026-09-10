@@ -48,6 +48,20 @@ const anna = {
   bookings:[{ client_name:'Анна' }]
 };
 
+const boris = {
+  phone:'79525117777',
+  displayPhone:'+7 (952) 511-77-77',
+  name:'Борис',
+  bookings:[{ client_name:'Борис' }]
+};
+
+const vera = {
+  phone:'79009525111',
+  displayPhone:'+7 (900) 952-51-11',
+  name:'Вера',
+  bookings:[{ client_name:'Вера' }]
+};
+
 {
   const { nodes, api, context } = createHarness([anna]);
   nodes['#newBookingPhone'].value = '8 (999) 050-95-25';
@@ -87,4 +101,17 @@ const anna = {
   assert.equal(nodes['#newBookingName'].value, 'Анна Новая', 'The latest client name must be the first choice');
 }
 
-console.log('PASS: exact phone autofill preserves manual names and exposes conflicting names');
+{
+  const { api } = createHarness([vera, boris, anna]);
+  assert.deepEqual(
+    Array.from(api.newBookingClientCandidates('95-25'), client => client.name),
+    ['Анна', 'Борис', 'Вера'],
+    'A formatted four-digit query must rank a matching suffix ahead of prefix and middle matches'
+  );
+  assert.equal(api.newBookingClientCandidates('050 95 25')[0].name, 'Анна', 'Seven remembered digits must find the client');
+  assert.equal(api.newBookingClientCandidates('999-050')[0].name, 'Анна', 'A national prefix must find the client without +7');
+  assert.equal(api.newBookingClientCandidates('8 (999) 050')[0].name, 'Анна', 'A partial Russian trunk prefix must match +7 storage');
+  assert.equal(api.newBookingClientCandidates('525').length, 0, 'Three digits are too short for a safe phone match');
+}
+
+console.log('PASS: smart phone lookup ranks exact, suffix, prefix and formatted Russian matches');

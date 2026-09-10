@@ -2625,7 +2625,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=671#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=672#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4847,7 +4847,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=671');
+    worker = new Worker('./report-worker.js?v=672');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -8423,7 +8423,7 @@ let newBookingClientSuggestionTimer = null;
 let newBookingAutoFilledPhone = '';
 let newBookingAutoFilledName = '';
 let newBookingClientBaseTitle = 'Новая запись';
-let newBookingClientBaseSubtitle = 'Только необходимое для записи';
+let newBookingClientBaseSubtitle = 'Имя, номер целиком или последние 4 цифры';
 
 function newBookingClientPhoneLabel(phone, fallback = '') {
   const digits = normalizePhone(phone);
@@ -8479,7 +8479,14 @@ function newBookingClientCandidates(query) {
   const value = String(query || '').trim();
   const textQuery = value.toLocaleLowerCase('ru-RU');
   const phoneQuery = value.replace(/\D/g, '');
-  if (textQuery.length < 2 && phoneQuery.length < 2) return [];
+  const phoneSearchQueries = new Set();
+  if (phoneQuery.length >= 4) {
+    phoneSearchQueries.add(phoneQuery);
+    if (phoneQuery.startsWith('8')) phoneSearchQueries.add(`7${phoneQuery.slice(1)}`);
+    if ((phoneQuery.startsWith('7') || phoneQuery.startsWith('8')) && phoneQuery.length > 4) phoneSearchQueries.add(phoneQuery.slice(1));
+  }
+  const nameQuery = /[^\d\s()+-]/u.test(value) && textQuery.length >= 2 ? textQuery : '';
+  if (!nameQuery && !phoneSearchQueries.size) return [];
   const clients = buildClients();
   const exactPhone = normalizePhone(value);
   const exactClient = exactPhone ? clients.find(client => client.phone === exactPhone) : null;
@@ -8503,10 +8510,28 @@ function newBookingClientCandidates(query) {
     addVariant(exactClient.imported?.name);
     return variants.slice(0, 8);
   }
-  return clients.filter(client => (
-    client.name.toLocaleLowerCase('ru-RU').includes(textQuery)
-    || (phoneQuery && client.phone.includes(phoneQuery))
-  )).slice(0, 8).map(client => ({
+  const rankedClients = clients.map((client, recentIndex) => {
+    const clientName = client.name.toLocaleLowerCase('ru-RU');
+    let score = Number.POSITIVE_INFINITY;
+    if (nameQuery) {
+      if (clientName === nameQuery) score = 0;
+      else if (clientName.startsWith(nameQuery)) score = 10;
+      else if (clientName.includes(nameQuery)) score = 20;
+    }
+    const clientPhone = String(client.phone || '').replace(/\D/g, '');
+    const searchablePhones = new Set([clientPhone]);
+    if (clientPhone.length === 11 && clientPhone.startsWith('7')) searchablePhones.add(clientPhone.slice(1));
+    phoneSearchQueries.forEach(searchQuery => {
+      searchablePhones.forEach(searchablePhone => {
+        if (searchablePhone === searchQuery) score = Math.min(score, 0);
+        else if (searchablePhone.endsWith(searchQuery)) score = Math.min(score, 4);
+        else if (searchablePhone.startsWith(searchQuery)) score = Math.min(score, 8);
+        else if (searchablePhone.includes(searchQuery)) score = Math.min(score, 12);
+      });
+    });
+    return { client, recentIndex, score };
+  }).filter(item => Number.isFinite(item.score)).sort((left, right) => left.score - right.score || left.recentIndex - right.recentIndex);
+  return rankedClients.slice(0, 8).map(({ client }) => ({
     phone:client.phone,
     displayPhone:newBookingClientPhoneLabel(client.phone, client.displayPhone),
     name:client.name,
@@ -8654,7 +8679,7 @@ function setNewBookingMode(mode) {
   if (recurrence) recurrence.hidden = block;
   updateNewBookingHeading();
   $('#newBookingSectionTitle').textContent = block ? 'Перерыв' : 'Клиент и услуга';
-  $('#newBookingSectionSubtitle').textContent = block ? 'Название, длительность и время' : 'Имя и телефон ищут совпадения в базе';
+  $('#newBookingSectionSubtitle').textContent = block ? 'Название, длительность и время' : newBookingClientBaseSubtitle;
   $('#newBookingServiceCaption').textContent = 'Услуга';
   const serviceSelect = $('#newBookingService');
   const selectedService = newBookingModeState.client.serviceId || serviceSelect.value;
@@ -8698,14 +8723,14 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   newBookingAutoFilledPhone = '';
   newBookingAutoFilledName = '';
   newBookingClientBaseTitle = preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : 'Новая запись';
-  newBookingClientBaseSubtitle = preset.offlineEdit ? 'Измените данные и снова отправьте на проверку' : preset.clientName ? 'Клиент и услуга уже выбраны' : 'Только необходимое для записи';
+  newBookingClientBaseSubtitle = preset.offlineEdit ? 'Измените данные и снова отправьте на проверку' : preset.clientName ? 'Клиент и услуга уже выбраны' : 'Имя, номер целиком или последние 4 цифры';
   $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${preset.offlineEdit ? 'Отложенная запись' : preset.clientName ? 'Повторный визит' : 'Расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : `Новая запись${newBookingPreferredTime ? ` · ${escapeHtml(bookingDateLabel(date))}, ${escapeHtml(newBookingPreferredTime)}` : ''}`}</span></h2>
     <form class="booking-editor-form new-booking-form" id="newBookingForm">
       <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
-        <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Имя и телефон ищут совпадения в базе</small></div></div>
+        <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Имя, номер целиком или последние 4 цифры</small></div></div>
           <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название — необязательно<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Перерыв"></label></div>
           <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
@@ -8811,7 +8836,9 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
       if (event.key === 'Escape') hideNewBookingClientSuggestions();
       if (event.key === 'ArrowDown') { const first = $('#newBookingClientSuggestions button'); if (first) { event.preventDefault(); first.focus(); } }
     });
-    input.addEventListener('blur', () => setTimeout(hideNewBookingClientSuggestions, 120));
+    input.addEventListener('blur', () => setTimeout(() => {
+      if (document.activeElement !== newBookingNameInput && document.activeElement !== newBookingPhoneInput) hideNewBookingClientSuggestions();
+    }, 120));
   });
   $('#newBookingClientSuggestions').addEventListener('pointerdown', event => event.preventDefault());
   $('#newBookingClientSuggestions').addEventListener('click', event => {
