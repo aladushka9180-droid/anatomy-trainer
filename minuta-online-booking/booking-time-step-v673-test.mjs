@@ -14,4 +14,4 @@ assert.deepEqual(
 );
 assert.ok(provider.includes('data-scroll-time="${scrollTime}"'), 'Список не хранит время, к которому нужно прокрутить');
 assert.ok(provider.includes("details.addEventListener('toggle'"), 'Раскрытие списка не запускает прокрутку к выбранному времени');
-console.log('Booking time step v673 checks passed.');
+console.log('Booking time step v674 checks passed.');

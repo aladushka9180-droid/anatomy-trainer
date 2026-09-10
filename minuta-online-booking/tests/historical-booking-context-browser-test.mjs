@@ -16,7 +16,7 @@ function declaration(name){
   assert.ok(end>start,`Actual function end ${name}`);return source.slice(start,end);
 }
 function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf('\n});',start);assert.ok(start>=0&&end>start);return source.slice(start,end+4);}
-const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeMarkup','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
+const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeSlots','bookingRemainingTimeMarkup','activateBookingRemainingTimeScroll','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
   'renderNewBookingOutsideSchedulePrompt','newBookingOutsideScheduleLabel',
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService',
   'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingClientPhoneLabel','newBookingClientCandidates',
@@ -339,8 +339,10 @@ cases.push([
     assert.deepEqual(await page.locator('.booking-time-slots-nearby [data-new-booking-time]').allTextContents(),['14:30','15:00','15:30']);
     assert.equal(await page.locator('.booking-time-slots-nearby [data-new-booking-time].active').textContent(),'15:00');
     assert.equal(await page.locator('.booking-more-times').getAttribute('open'),null);
-    assert.deepEqual(await page.locator('.booking-more-times [data-new-booking-time]').allTextContents(),['14:00','16:00']);
+    assert.deepEqual(await page.locator('.booking-more-times [data-new-booking-time]').allTextContents(),['14:00','15:00','16:00']);
+    assert.match(await page.locator('.booking-more-times > summary').innerText(),/Шаг 5 мин/);
     await page.locator('.booking-more-times > summary').click();
+    assert.equal(await page.locator('.booking-more-times [data-new-booking-time="15:00"]').getAttribute('aria-pressed'),'true');
     await page.locator('.booking-more-times [data-new-booking-time="16:00"]').click();
     assert.equal(await page.locator('.booking-time-slots-nearby [data-new-booking-time].active').textContent(),'16:00');
     assert.equal(await page.locator('#newBookingSubmit').isDisabled(),false,'Selecting a disclosed time must enable booking creation');
@@ -409,6 +411,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     assert.equal(await day.evaluate(el=>getComputedStyle(el).boxShadow),'none');
     assert.equal(await day.evaluate(el=>getComputedStyle(el).backgroundColor),await page.locator('[data-calendar-date="2026-09-12"]').evaluate(el=>getComputedStyle(el).backgroundColor),'Selected day keeps the same canvas as other days; only bookings have grey fill');
     const booking=width<=760?page.locator('.calendar-month-mobile-agenda [data-open-booking]').first():day.locator('[data-open-booking]').first();
+    await page.evaluate(async()=>Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{}))));
     const beforeHover=await booking.boundingBox();
     const originalBackground=await booking.evaluate(el=>getComputedStyle(el).backgroundColor);
     assert.notEqual(originalBackground,'rgba(0, 0, 0, 0)','Booking has a permanent fill even without hover');
