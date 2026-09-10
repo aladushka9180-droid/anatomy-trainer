@@ -12,7 +12,7 @@ const contentTypes={
 
 const fixtureScript=`
 document.documentElement.classList.remove('provider-booting','requires-top-level');
-document.body.dataset.providerTheme='hitech';
+document.body.dataset.providerTheme='warm';
 document.body.dataset.providerLayout='soft';
 document.body.dataset.providerTextScale='default';
 document.body.dataset.bookingCardDensity='compact';
@@ -33,6 +33,7 @@ document.querySelector('#selectedDateSummary').textContent='2 записи · 1 
 document.querySelector('#desktopAppInstallButton').hidden=true;
 document.querySelector('#dateStrip').innerHTML=['Пн|7','Вт|8','Ср|9','Сегодня|10','Пт|11','Сб|12','Вс|13'].map((item,index)=>{const [day,date]=item.split('|');return '<button type="button" class="'+(index===3?'active':'')+'"><span>'+day+'</span><strong>'+date+'</strong><small>сент</small></button>';}).join('');
 document.querySelector('#providerBookings').innerHTML='<article class="provider-booking"><div><strong>10:00</strong><span>Массаж спины · 60 минут</span></div><div><strong>Анна</strong><small>Подтверждена</small></div></article><article class="provider-booking"><div><strong>13:30</strong><span>Общий массаж · 90 минут</span></div><div><strong>Елена</strong><small>Новая запись</small></div></article>';
+document.querySelector('#providerBookings').insertAdjacentHTML('afterend','<div class="timeline-view" style="position:absolute;left:-9999px"><button class="timeline-booking color-auto"><span class="timeline-booking-copy"><strong id="appearanceTimelineHeading">Массаж</strong></span></button></div>');
 
 let requestedMode='light';
 const colorQuery=matchMedia('(prefers-color-scheme: dark)');
@@ -115,11 +116,13 @@ async function run(){
         const result=await page.evaluate(()=>{
           const menu=document.querySelector('.provider-appearance-popover').getBoundingClientRect();
           const bodyStyle=getComputedStyle(document.body),workspaceStyle=getComputedStyle(document.querySelector('.provider-app')),surfaceStyle=getComputedStyle(document.querySelector('.schedule-card'));
+          const timelineCardStyle=getComputedStyle(document.querySelector('.timeline-booking')),timelineHeadingStyle=getComputedStyle(document.querySelector('#appearanceTimelineHeading'));
           return {
             requested:document.body.dataset.providerColorMode,resolved:document.body.dataset.providerResolvedColorMode,
             menu:{left:menu.left,right:menu.right,top:menu.top,bottom:menu.bottom},
             width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
             bodyBackground:bodyStyle.backgroundColor,workspaceBackground:workspaceStyle.backgroundColor,surfaceBackground:surfaceStyle.backgroundColor,
+            timelineCardColor:timelineCardStyle.color,timelineHeadingColor:timelineHeadingStyle.color,
             pressed:[...document.querySelector('#providerAppearanceMenu').querySelectorAll('[data-provider-color-mode]')].filter(button=>button.getAttribute('aria-pressed')==='true').map(button=>button.dataset.providerColorMode)
           };
         });
@@ -129,6 +132,7 @@ async function run(){
         assert.ok(result.menu.left>=0&&result.menu.right<=width+1&&result.menu.bottom<=1000,'Меню оформления вышло за экран');
         assert.ok(result.scrollWidth<=width+1,'Страница получила горизонтальную прокрутку');
         assert.notEqual(result.surfaceBackground,'rgba(0, 0, 0, 0)');
+        assert.equal(result.timelineHeadingColor,result.timelineCardColor,'Название записи потеряло контраст в производном режиме');
         await page.keyboard.press('Escape');
         assert.equal(await page.locator('#providerAppearanceMenu').getAttribute('open'),null);
       }

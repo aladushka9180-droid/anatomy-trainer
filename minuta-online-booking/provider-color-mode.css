@@ -39,6 +39,16 @@
   text-shadow:none!important;
 }
 
+/* Theme signatures may color schedule headings directly. In a derived mode the
+   card already uses the derived ink, so its primary text must follow that ink. */
+.provider-body[data-provider-color-variant="derived"][data-provider-layout] :is(
+  .timeline-booking-time,.timeline-booking-copy>strong,.provider-booking h3,
+  .calendar-overview-booking strong,.calendar-week-booking strong
+) {
+  color:inherit!important;
+  text-shadow:none!important;
+}
+
 .provider-body[data-provider-color-variant="derived"][data-provider-layout] :is(
   input,select,textarea,.field-with-unit,.client-search,.notification-filters,.report-periods,
   .journal-mode-toggle,.calendar-view-toggle,.booking-filters,.provider-section-nav,
