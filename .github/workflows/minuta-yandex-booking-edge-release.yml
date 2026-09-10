@@ -65,7 +65,9 @@ jobs:
           deno check supabase/functions/yandex-booking-api/index.ts
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v1
         with: { version: 2.117.0 }
-      - name: Force the production adapter off before deployment
+      - name: Attempt to force the production adapter off before deployment
+        id: disable
+        continue-on-error: true
         run: supabase secrets set YANDEX_BOOKING_ENABLED=false --project-ref "$PROJECT_REF"
       - name: Deploy only the Yandex booking adapter
         run: supabase functions deploy yandex-booking-api --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
@@ -77,8 +79,8 @@ jobs:
             --header 'Accept: application/json' "$url")"
           test "$status" = 503
           jq -e '.code == "NOT_CONFIGURED"' "$RUNNER_TEMP/yandex-disabled.json" >/dev/null
-          jq -n --arg sha "$SHA" --arg url "$url" \
-            '{status:"success",commitSha:$sha,route:$url,enabled:false,productionWritten:true,realBookingsCreated:false}' \
+          jq -n --arg sha "$SHA" --arg url "$url" --arg secretWrite "${{ steps.disable.outcome }}" \
+            '{status:"success",commitSha:$sha,route:$url,enabled:false,configurationStatus:"NOT_CONFIGURED",secretWriteOutcome:$secretWrite,productionWritten:true,realBookingsCreated:false}' \
             > "$RUNNER_TEMP/yandex-edge-release.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
