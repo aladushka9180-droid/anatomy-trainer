@@ -384,7 +384,6 @@ let newBookingHour = '';
 let newBookingPreferredTime = '';
 let newBookingSlotsRequestId = 0;
 let newBookingMode = 'client';
-let newBookingTimeEditorOpen = false;
 let newBookingModeState = {
   client:{ serviceId:'', durationMinutes:60 },
   block:{ durationMinutes:60 }
@@ -2626,7 +2625,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=670#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=671#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4848,7 +4847,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=670');
+    worker = new Worker('./report-worker.js?v=671');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7672,6 +7671,57 @@ function bookingQuickTimeSlots(slots) {
   return quick.length ? quick : available.slice(0, 12);
 }
 
+function bookingNearbyTimeSlots(slots, selectedTime = '') {
+  const available = [...new Set((slots || []).filter(time => /^\d{2}:\d{2}$/.test(String(time))))].sort();
+  if (!available.length) return [];
+  const value = available.includes(selectedTime) ? selectedTime : '';
+  const minuteValue = time => minutesFromTime(time);
+  const closestTo = (items, target) => [...items].sort((left, right) => {
+    const distance = Math.abs(minuteValue(left) - target) - Math.abs(minuteValue(right) - target);
+    return distance || left.localeCompare(right);
+  })[0] || '';
+  const chosen = [];
+  if (value) {
+    const selectedMinutes = minuteValue(value);
+    const before = available.filter(time => minuteValue(time) < selectedMinutes);
+    const after = available.filter(time => minuteValue(time) > selectedMinutes);
+    const previous = closestTo(before, selectedMinutes - 30);
+    const next = closestTo(after, selectedMinutes + 30);
+    if (previous) chosen.push(previous);
+    chosen.push(value);
+    if (next) chosen.push(next);
+    for (const time of [...available].sort((left, right) => {
+      const distance = Math.abs(minuteValue(left) - selectedMinutes) - Math.abs(minuteValue(right) - selectedMinutes);
+      return distance || left.localeCompare(right);
+    })) {
+      if (chosen.length >= 3) break;
+      if (!chosen.includes(time)) chosen.push(time);
+    }
+  } else {
+    const first = available[0];
+    chosen.push(first);
+    const start = minuteValue(first);
+    for (const target of [start + 30, start + 60]) {
+      const next = closestTo(available.filter(time => !chosen.includes(time) && minuteValue(time) >= target), target)
+        || available.find(time => !chosen.includes(time));
+      if (next) chosen.push(next);
+    }
+  }
+  return chosen.slice(0, 3).sort((left, right) => left.localeCompare(right));
+}
+
+function bookingRemainingTimeMarkup(slots, nearbySlots, selectedTime = '') {
+  const nearby = new Set(nearbySlots || []);
+  const remaining = [...new Set((slots || []).filter(time => /^\d{2}:\d{2}$/.test(String(time))))]
+    .sort()
+    .filter(time => !nearby.has(time));
+  if (!remaining.length) return '';
+  return `<details class="booking-more-times">
+    <summary><span>Показать остальные</span><small>Ещё ${remaining.length}</small></summary>
+    <div class="booking-time-slots booking-time-slots-all">${remaining.map(time => `<button type="button" class="${time === selectedTime ? 'active' : ''}" aria-pressed="${time === selectedTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
+  </details>`;
+}
+
 function bookingExactTimeMarkup(kind, slots, selectedTime = '') {
   const available = [...new Set((slots || []).filter(time => /^\d{2}:\d{2}$/.test(String(time))))].sort();
   const quick = bookingQuickTimeSlots(available);
@@ -8256,11 +8306,6 @@ async function loadNewBookingSlots() {
     return;
   }
   if (!data?.length) {
-    if (newBookingPreferredTime) {
-      $('#newBookingDateTimeEditor').hidden = false;
-      $('#newBookingPresetTime').hidden = true;
-      newBookingTimeEditorOpen = true;
-    }
     if (newBookingMode === 'block') holder.innerHTML = '<span>На эту дату нет свободного окна нужной длительности</span>';
     else renderNewBookingOutsideSchedulePrompt();
     return;
@@ -8273,11 +8318,6 @@ async function loadNewBookingSlots() {
   newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : '';
   newBookingHour = String(newBookingTime || preferredTime || newBookingSlots[0]).slice(0, 2);
   if (!newBookingSlots.some(time => time.startsWith(`${newBookingHour}:`))) newBookingHour = newBookingSlots[0].slice(0, 2);
-  if (preferredTime && !newBookingTime) {
-    newBookingTimeEditorOpen = true;
-    $('#newBookingDateTimeEditor').hidden = false;
-    $('#newBookingPresetTime').hidden = true;
-  }
   renderNewBookingTimePicker();
   updateNewBookingDurationControl();
   updateNewBookingSubmitCaption();
@@ -8304,27 +8344,19 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
     const selectionSummary = newBookingTime
       ? `<div class="booking-time-selection-summary"><div><strong>Запись: ${newBookingTime}–${endTime}</strong><span>${duration} мин × ${new Intl.NumberFormat('ru-RU').format(minutePrice)} ₽</span></div><div><span>Итого</span><strong>${new Intl.NumberFormat('ru-RU').format(totalPrice)} ₽</strong></div></div>`
       : '';
-    const hours = [...new Set(newBookingSlots.map(time => time.slice(0, 2)))];
-    if (!hours.includes(newBookingHour)) newBookingHour = String(newBookingTime || newBookingSlots[0]).slice(0, 2);
-    const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
-    const quickSlots = bookingQuickTimeSlots(hourSlots);
-    holder.innerHTML = `${offline ? `<div class="booking-time-warning">${newBookingPreferredTime || newBookingTime || 'Выбранное время'} сохранится как отложенный запрос. Сервер проверит его после подключения.</div>` : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${newBookingPreferredTime} сейчас недоступно. Выберите другое.</div>` : ''}${hours.length > 1 ? `<div class="booking-time-guide"><strong>Час</strong><span>${hours.length} доступно</span></div>
-      <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" aria-pressed="${hour === newBookingHour}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>` : ''}
-      <div class="booking-time-guide"><strong>Время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${quickSlots.length} вариантов`}</span></div>
-      <div class="booking-time-slots">${quickSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
-      ${bookingExactTimeMarkup('new', hourSlots, newBookingTime)}${selectionSummary}`;
+    const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime);
+    holder.innerHTML = `${offline ? `<div class="booking-time-warning">${newBookingPreferredTime || newBookingTime || 'Выбранное время'} сохранится как отложенный запрос. Сервер проверит его после подключения.</div>` : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${escapeHtml(newBookingPreferredTime)} сейчас недоступно. Выберите другое.</div>` : ''}
+      <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : 'Свободное время рядом'}</span></div>
+      <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
+      ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)}${selectionSummary}`;
     return;
   }
-  const hours = [...new Set(newBookingSlots.map(time => time.slice(0, 2)))];
-  if (!hours.includes(newBookingHour)) newBookingHour = hours[0];
-  const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
-  const quickSlots = bookingQuickTimeSlots(hourSlots);
+  const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime);
   const preferredUnavailable = newBookingPreferredTime && !newBookingSlots.includes(newBookingPreferredTime);
-  holder.innerHTML = `${offline ? '<div class="booking-time-warning">Предварительные варианты из последней сохранённой копии. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${escapeHtml(newBookingPreferredTime)} сейчас недоступно. Выберите другое.</div>` : ''}${hours.length > 1 ? `<div class="booking-time-guide"><strong>Час</strong><span>Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут</span></div>
-    <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>` : ''}
-    <div class="booking-time-guide"><strong>Время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${quickSlots.length} вариантов`}</span></div>
-    <div class="booking-time-slots">${quickSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
-    ${bookingExactTimeMarkup('new', hourSlots, newBookingTime)}`;
+  holder.innerHTML = `${offline ? '<div class="booking-time-warning">Предварительные варианты из последней сохранённой копии. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${escapeHtml(newBookingPreferredTime)} сейчас недоступно. Выберите другое.</div>` : ''}
+    <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут`}</span></div>
+    <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
+    ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)}`;
 }
 
 function updateNewBookingSubmitCaption() {
@@ -8397,6 +8429,50 @@ function newBookingClientPhoneLabel(phone, fallback = '') {
   const digits = normalizePhone(phone);
   if (digits.length === 11 && digits.startsWith('7')) return `+7 (${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7,9)}-${digits.slice(9)}`;
   return fallback || (digits ? `+${digits}` : 'Без телефона');
+}
+
+function newBookingContactPickerSupported() {
+  return Boolean(navigator.contacts?.select && navigator.contacts?.getProperties);
+}
+
+async function refreshNewBookingContactPicker() {
+  const button = $('#newBookingContactPicker');
+  if (!button || !newBookingContactPickerSupported()) return;
+  try {
+    const properties = await navigator.contacts.getProperties();
+    if (button === $('#newBookingContactPicker')) button.hidden = !properties?.includes('name') || !properties?.includes('tel');
+  } catch {
+    if (button === $('#newBookingContactPicker')) button.hidden = true;
+  }
+}
+
+async function chooseNewBookingContact() {
+  const form = $('#newBookingForm');
+  const button = $('#newBookingContactPicker');
+  if (!form || !button || !newBookingContactPickerSupported()) return;
+  button.disabled = true;
+  try {
+    const contacts = await navigator.contacts.select(['name','tel'], { multiple:false });
+    if (form !== $('#newBookingForm') || !contacts?.length) return;
+    const contact = contacts[0];
+    const name = String(contact?.name?.[0] || '').trim().slice(0, 80);
+    const rawPhone = (Array.isArray(contact?.tel) ? contact.tel : []).find(value => normalizePhone(value)) || '';
+    if (!name || !normalizePhone(rawPhone)) {
+      notify('В контакте нужны имя и российский номер телефона');
+      return;
+    }
+    $('#newBookingName').value = name;
+    $('#newBookingPhone').value = newBookingClientPhoneLabel(rawPhone, String(rawPhone).slice(0, 24));
+    newBookingAutoFilledName = '';
+    newBookingAutoFilledPhone = '';
+    handleNewBookingPhoneInput();
+    scheduleNewBookingClientSuggestions(name);
+    saveNewBookingDraft();
+  } catch (error) {
+    if (form === $('#newBookingForm') && error?.name !== 'AbortError') notify(error?.message || 'Не удалось открыть телефонную книгу');
+  } finally {
+    if (button === $('#newBookingContactPicker')) button.disabled = false;
+  }
 }
 
 function newBookingClientCandidates(query) {
@@ -8474,10 +8550,8 @@ function applyNewBookingClient(client, { automatic = false } = {}) {
   if (automatic && !canReplaceName) return false;
   nameInput.value = client.name;
   $('#newBookingPhone').value = client.displayPhone;
-  if ($('#newBookingClientEntry')) $('#newBookingClientEntry').hidden = false;
   nameInput.required = true;
   $('#newBookingPhone').required = true;
-  if ($('#newBookingClientSearch')) $('#newBookingClientSearch').value = client.name;
   newBookingAutoFilledPhone = client.phone;
   newBookingAutoFilledName = client.name;
   const note = $('#newBookingNote');
@@ -8568,9 +8642,8 @@ function setNewBookingMode(mode) {
   }
   $('#newBookingClientFields').hidden = block;
   $('#newBookingBlockFields').hidden = !block;
-  const clientEntryVisible = !$('#newBookingClientEntry')?.hidden;
-  $('#newBookingName').required = !block && clientEntryVisible;
-  $('#newBookingPhone').required = !block && clientEntryVisible;
+  $('#newBookingName').required = !block;
+  $('#newBookingPhone').required = !block;
   $('#newBookingBlockTitle').required = block;
   $('#newBookingClientNoteField').hidden = block;
   $('#newBookingBlockNoteField').hidden = !block;
@@ -8581,7 +8654,7 @@ function setNewBookingMode(mode) {
   if (recurrence) recurrence.hidden = block;
   updateNewBookingHeading();
   $('#newBookingSectionTitle').textContent = block ? 'Перерыв' : 'Клиент и услуга';
-  $('#newBookingSectionSubtitle').textContent = block ? 'Название, длительность и время' : 'Найдите клиента или добавьте нового';
+  $('#newBookingSectionSubtitle').textContent = block ? 'Название, длительность и время' : 'Имя и телефон ищут совпадения в базе';
   $('#newBookingServiceCaption').textContent = 'Услуга';
   const serviceSelect = $('#newBookingService');
   const selectedService = newBookingModeState.client.serviceId || serviceSelect.value;
@@ -8619,7 +8692,6 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   newBookingSlots = [];
   newBookingHour = '';
   newBookingPreferredTime = /^\d{2}:\d{2}$/.test(String(preferredTime || draft?.time)) ? String(preferredTime || draft.time) : '';
-  newBookingTimeEditorOpen = !newBookingPreferredTime;
   const requestedHistorical = Boolean(preset.historical || draft?.historical);
   newBookingHistoricalMode = date < businessTodayIso() || (date === businessTodayIso() && requestedHistorical);
   newBookingMode = draft?.mode === 'block' || !services.length ? 'block' : 'client';
@@ -8633,8 +8705,8 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
     <form class="booking-editor-form new-booking-form" id="newBookingForm">
       <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
-        <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Найдите клиента или добавьте нового</small></div></div>
-          <div class="new-booking-client-lookup" id="newBookingClientFields"><label>Поиск клиента<input id="newBookingClientSearch" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Имя или телефон"></label><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div><button class="new-booking-add-client" type="button" data-add-new-booking-client>Добавить нового клиента</button><div class="booking-client-fields" id="newBookingClientEntry" hidden><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="off" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" placeholder="+7 (___) ___-__-__" required></label></div></div>
+        <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Имя и телефон ищут совпадения в базе</small></div></div>
+          <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название — необязательно<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Перерыв"></label></div>
           <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
           <p class="booking-time-warning" id="newBookingClientServiceUnavailable" ${services.length ? 'hidden' : ''}>Для записи клиента сначала добавьте активную услугу. Занять время можно уже сейчас.</p>
@@ -8656,13 +8728,12 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
             </section>
           </div></details>
         </section>
-        <section class="new-booking-section new-booking-date-time-section${newBookingPreferredTime ? ' is-preset' : ''}" id="newBookingDateTimeSection"><div class="new-booking-section-title"><div><strong>Дата и время</strong><small id="newBookingDateTimeSubtitle">${newBookingPreferredTime ? 'Выбрано в расписании' : 'Выберите свободное окно'}</small></div></div>
-          <div class="new-booking-preset-time" id="newBookingPresetTime" ${newBookingPreferredTime ? '' : 'hidden'}><div><span>Выбрано</span><strong>${escapeHtml(bookingDateLabel(date))}, ${escapeHtml(newBookingPreferredTime)}</strong></div><button type="button" data-change-new-booking-time>Изменить</button></div>
-          <div class="new-booking-date-time-editor" id="newBookingDateTimeEditor" ${newBookingPreferredTime ? 'hidden' : ''}>
+        <section class="new-booking-section new-booking-date-time-section" id="newBookingDateTimeSection"><div class="new-booking-section-title"><div><strong>Дата и время</strong><small id="newBookingDateTimeSubtitle">${newBookingPreferredTime ? 'Время выбрано в расписании' : 'Выберите свободное окно'}</small></div></div>
+          <div class="new-booking-date-time-editor" id="newBookingDateTimeEditor">
             <button class="new-booking-history-option${newBookingHistoricalMode ? ' active' : ''}" id="newBookingHistoricalToggle" type="button" aria-pressed="${newBookingHistoricalMode}"><span><strong>Визит уже состоялся</strong><small>Добавить фактический визит за сегодня или прошедшую дату</small></span><b>${newBookingHistoricalMode ? 'Включено' : 'Включить'}</b></button>
             <label id="newBookingLocationField" ${blockContext.locations.length > 1 ? '' : 'hidden'}>Филиал<select id="newBookingLocation">${providerBlockLocationOptions(blockContext.locations, blockContext.locationId)}</select></label>
             <label>Дата<input id="newBookingDate" type="date" value="${date}" required></label>
-            <div role="group" aria-labelledby="newBookingTimeCaption"><span id="newBookingTimeCaption">Свободное время</span><div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></div>
+            <div role="group" aria-labelledby="newBookingTimeCaption"><span class="sr-only" id="newBookingTimeCaption">Свободное время</span><div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></div>
           </div>
         </section>
       </div>
@@ -8683,22 +8754,8 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingInterval').value = String(draft?.interval || '1');
   const draftColor = $(`[name="newBookingColor"][value="${CSS.escape(String(preset.color || draft?.color || BOOKING_COLOR_DEFAULT))}"]`);
   if (draftColor) draftColor.checked = true;
-  const clientEntry = $('#newBookingClientEntry');
-  if (clientEntry && (preset.clientName || draft?.name || draft?.phone)) clientEntry.hidden = false;
-  $('[data-add-new-booking-client]')?.addEventListener('click', () => {
-    clientEntry.hidden = false;
-    $('#newBookingName').required = true;
-    $('#newBookingPhone').required = true;
-    $('#newBookingClientSearch').value = '';
-    hideNewBookingClientSuggestions();
-    $('#newBookingName')?.focus();
-  });
-  $('[data-change-new-booking-time]')?.addEventListener('click', () => {
-    newBookingTimeEditorOpen = true;
-    $('#newBookingDateTimeEditor').hidden = false;
-    $('#newBookingPresetTime').hidden = true;
-    $('#newBookingDate')?.focus();
-  });
+  $('#newBookingContactPicker')?.addEventListener('click', chooseNewBookingContact);
+  refreshNewBookingContactPicker();
   $$('[data-new-booking-mode]').forEach(button => button.addEventListener('click', () => { setNewBookingMode(button.dataset.newBookingMode); saveNewBookingDraft(); }));
   $('#newBookingService').addEventListener('change', () => { newBookingTime = ''; updateNewBookingDurationControl({ reset:true }); saveNewBookingDraft(); loadNewBookingSlots(); });
   $('#newBookingDuration').addEventListener('input', () => updateNewBookingDurationControl());
@@ -8732,7 +8789,6 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingForm').addEventListener('change', saveNewBookingDraft);
   const newBookingNameInput = $('#newBookingName');
   const newBookingPhoneInput = $('#newBookingPhone');
-  const newBookingClientSearchInput = $('#newBookingClientSearch');
   newBookingNameInput.addEventListener('input', () => {
     if (newBookingNameInput.value.trim() !== newBookingAutoFilledName) {
       newBookingAutoFilledPhone = '';
@@ -8749,8 +8805,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
     scheduleNewBookingClientSuggestions(newBookingNameInput.value);
   });
   newBookingPhoneInput.addEventListener('input', handleNewBookingPhoneInput);
-  newBookingClientSearchInput.addEventListener('input', () => scheduleNewBookingClientSuggestions(newBookingClientSearchInput.value));
-  [newBookingClientSearchInput, newBookingNameInput, newBookingPhoneInput].forEach(input => {
+  [newBookingNameInput, newBookingPhoneInput].forEach(input => {
     input.addEventListener('focus', () => scheduleNewBookingClientSuggestions(input.value));
     input.addEventListener('keydown', event => {
       if (event.key === 'Escape') hideNewBookingClientSuggestions();
@@ -8773,7 +8828,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   setTimeout(() => {
     const target = preset.clientName
       ? (newBookingPreferredTime ? $('#newBookingService') : $('#newBookingDate'))
-      : $('#newBookingClientSearch');
+      : $('#newBookingName');
     target?.focus();
   }, 0);
 }

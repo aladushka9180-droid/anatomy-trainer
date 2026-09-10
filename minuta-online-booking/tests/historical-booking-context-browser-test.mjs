@@ -16,9 +16,11 @@ function declaration(name){
   assert.ok(end>start,`Actual function end ${name}`);return source.slice(start,end);
 }
 function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf('\n});',start);assert.ok(start>=0&&end>start);return source.slice(start,end+4);}
-const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
+const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeMarkup','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
   'renderNewBookingOutsideSchedulePrompt','newBookingOutsideScheduleLabel',
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService',
+  'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingClientPhoneLabel','newBookingClientCandidates',
+  'hideNewBookingClientSuggestions','renderNewBookingClientSuggestions','scheduleNewBookingClientSuggestions','restoreNewBookingClientLookupStatus','applyNewBookingClient','selectNewBookingClient','handleNewBookingPhoneInput',
   'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','bookingDateLabel','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','parseLocalIsoDate','localIsoDate',
   'bookingDraftKey','readNewBookingDraft','saveNewBookingDraft','clearNewBookingDraft','bookingColorPicker','compactBookingColorPicker','bookingColor','validBookingColor',
   'saveBookingColor','persistBookingColors','bookingColorStorageKey','bookingColorPendingStorageKey','requireBookingWrites','sessionIsCurrent','captureBookingMetadataContext',
@@ -62,14 +64,15 @@ async function fixture(){
     var newBookingTime='',newBookingSlots=[],newBookingHour='',newBookingPreferredTime='',newBookingSlotsRequestId=0,newBookingHistoricalMode=false,newBookingOutsideSchedule=false,newBookingMode='client';
     var PER_MINUTE_BOOKING_MIN=1,PER_MINUTE_BOOKING_MAX=480,serviceDurationDefaults={},serviceScheduleNames={},SCHEDULE_BLOCK_PHONE='0000000000',gestureClickSuppressedUntil=0;
     var ownServices=[{id:ids.service,active:true,name:'Тестовая услуга',duration_minutes:60,price_rub:1000}],scheduleRows=[];
-    var allBookings=[],clientNotes=new Map(),pendingClientNotes=new Map(),bookingColors=new Map(),pendingBookingColors=new Set();
+    var allBookings=[],clientNotes=new Map(),pendingClientNotes=new Map(),bookingColors=new Map(),pendingBookingColors=new Set(),clientFixtures=[];
+    var newBookingClientSuggestionMap=new Map(),newBookingClientSuggestionTimer=null,newBookingAutoFilledPhone='',newBookingAutoFilledName='',newBookingClientBaseTitle='Новая запись',newBookingClientBaseSubtitle='Только необходимое для записи';
     var businessTodayIso=()=> '2026-09-06',bookingUsesDemoData=()=>false;
     var placementCalls=[],bookingPlacementIssue=(item,date,start,options={})=>{
       placementCalls.push([item,date,start,options]);
       const duration=Number(item?.duration_minutes||60);
       return !options.ignoreSchedule&&(start<600||start+duration>1200)?'Вне рабочего графика':null;
     };
-    var applyClientHighlightClasses=()=>{},scheduleNewBookingClientSuggestions=()=>{},hideNewBookingClientSuggestions=()=>{},restoreNewBookingClientLookupStatus=()=>{},handleNewBookingPhoneInput=()=>{},newBookingClientCandidates=()=>[];
+    var applyClientHighlightClasses=()=>{},buildClients=()=>clientFixtures;
     var organizationController={getActiveOrganization:()=>({id:activeClientOrganizationId})};
     var effects=[],gates=[],hold='color',refreshOutcome='success';
     var renderBookingData=()=>effects.push({kind:'render-list'}),notify=text=>effects.push({kind:'notify',text});
@@ -98,7 +101,6 @@ async function openAndFill(page,label){
   assert.equal(await page.locator('[data-new-booking-hour]').count(),0,'Historical visits must use a direct factual time field, not future availability buckets');
   assert.equal(await page.locator('#newBookingHistoricalTime').count(),1,'Historical visits must expose the exact factual time');
   assert.equal(await page.locator('#newBookingOutsideScheduleButton').count(),0,'Historical picker must not show the outside-schedule callout');
-  await page.locator('[data-add-new-booking-client]').click();
   await page.locator('#newBookingName').fill(`Клиент ${label}`);
   await page.locator('#newBookingPhone').fill(label==='A'?'+79990000001':'+79990000002');
   await page.evaluate(()=>{const time=$('#newBookingHistoricalTime');time.value='10:15';time.dispatchEvent(new Event('input',{bubbles:true}));time.dispatchEvent(new Event('change',{bubbles:true}));});
@@ -290,7 +292,55 @@ for(const transition of ['account','close-reopen'])for(const outcome of ['succes
     assert.deepEqual(await snapshot(page),before,'Old note result must not add unsaved cache data, start color, close B, clear draft or notify');
   }
 ]);
-for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [390,1280]) cases.push([
+cases.push([
+  'Mobile contact picker and nearby booking times',async page=>{
+    await page.setViewportSize({width:390,height:850});
+    await page.evaluate(()=>{
+      window.contactPickerState={calls:0};
+      Object.defineProperty(navigator,'contacts',{configurable:true,value:{
+        getProperties:async()=>['name','tel'],
+        select:async(properties,options)=>{
+          contactPickerState.calls+=1;contactPickerState.properties=properties;contactPickerState.options=options;
+          return [{name:['Контакт из телефона'],tel:['+7 (900) 000-00-05']}];
+        }
+      }});
+      clientFixtures=[{phone:'79000000005',displayPhone:'+7 (900) 000-00-05',name:'Имя в CRM',bookings:[],imported:null}];
+      openNewBookingSheet();
+    });
+    await page.waitForFunction(()=>!document.querySelector('#newBookingContactPicker')?.hidden);
+    assert.equal(await page.locator('#newBookingClientSearch').count(),0);
+    assert.equal(await page.locator('[data-add-new-booking-client]').count(),0);
+    assert.equal(await page.locator('#newBookingPresetTime').count(),0);
+    assert.equal(await page.locator('#newBookingName').isVisible(),true);
+    assert.equal(await page.locator('#newBookingPhone').isVisible(),true);
+    await page.locator('#newBookingContactPicker').click();
+    await page.waitForFunction(()=>contactPickerState.calls===1);
+    assert.deepEqual(await page.evaluate(()=>contactPickerState.properties),['name','tel']);
+    assert.equal(await page.evaluate(()=>contactPickerState.options.multiple),false);
+    assert.equal(await page.locator('#newBookingName').inputValue(),'Контакт из телефона');
+    assert.equal(await page.locator('#newBookingPhone').inputValue(),'+7 (900) 000-00-05');
+    assert.equal(await page.locator('#newBookingClientFields').getAttribute('data-client-lookup-state'),'manual-name','Phone must still run the existing CRM match');
+    assert.equal(await page.evaluate(()=>effects.some(effect=>effect.kind==='rpc'||effect.kind==='client-note')),false,'Picking a contact must not write CRM data');
+    await page.locator('#newBookingName').fill('Имя');
+    await page.waitForFunction(()=>!document.querySelector('#newBookingClientSuggestions').hidden);
+    await page.locator('#newBookingClientSuggestions [data-new-booking-client]').click();
+    assert.equal(await page.locator('#newBookingName').inputValue(),'Имя в CRM','The always-visible name field must retain manual CRM lookup');
+    await page.evaluate(()=>{
+      $('#newBookingDate').value='2026-09-10';newBookingHistoricalMode=false;
+      newBookingSlots=['14:00','14:30','15:00','15:30','16:00'];newBookingTime='15:00';newBookingPreferredTime='15:00';
+      renderNewBookingTimePicker();
+    });
+    assert.deepEqual(await page.locator('.booking-time-slots-nearby [data-new-booking-time]').allTextContents(),['14:30','15:00','15:30']);
+    assert.equal(await page.locator('.booking-time-slots-nearby [data-new-booking-time].active').textContent(),'15:00');
+    assert.equal(await page.locator('.booking-more-times').getAttribute('open'),null);
+    assert.deepEqual(await page.locator('.booking-more-times [data-new-booking-time]').allTextContents(),['14:00','16:00']);
+    await page.locator('.booking-more-times > summary').click();
+    await page.locator('.booking-more-times [data-new-booking-time="16:00"]').click();
+    assert.equal(await page.locator('.booking-time-slots-nearby [data-new-booking-time].active').textContent(),'16:00');
+    assert.equal(await page.locator('#newBookingSubmit').isDisabled(),false,'Selecting a disclosed time must enable booking creation');
+  }
+]);
+for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [390,760,1440]) cases.push([
   `UI booking and month grid ${theme} ${width}`,async page=>{
     await page.setViewportSize({width,height:850});
     await page.evaluate(theme=>{document.body.className='provider-body';document.body.dataset.providerTheme=theme;document.body.dataset.providerLayout='linear';},theme);
@@ -299,7 +349,12 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
       const css=readFileSync(new URL(`../${match[1]}`,import.meta.url),'utf8').replace(/url\([^)]*\)/g,'none');
       await page.addStyleTag({content:css});
     }
-    await page.evaluate(()=>openNewBookingSheet());
+    await page.evaluate(()=>{
+      Object.defineProperty(navigator,'contacts',{configurable:true,value:{getProperties:async()=>['name','tel'],select:async()=>[]}});
+      openNewBookingSheet();
+    });
+    await page.waitForFunction(()=>!document.querySelector('#newBookingContactPicker')?.hidden);
+    assert.equal(await page.locator('#newBookingContactPicker').isVisible(),width<=760,'Phone-book action is mobile-only');
     assert.ok(await page.locator('.new-booking-section-title>div').first().evaluate(el=>el.getBoundingClientRect().width>200),'Heading must occupy full width after removing step badge');
     await page.locator('#newBookingAdvanced > summary').click();
     assert.equal(await page.locator('#newBookingInterval').isVisible(),false,'Single occurrence has no repeat interval');
@@ -309,8 +364,15 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     assert.equal(await page.locator('#newBookingInterval').isVisible(),true);
     await page.selectOption('#newBookingOccurrences','1');
     assert.equal(await page.locator('#newBookingInterval').isVisible(),false);
+    await page.locator('#newBookingAdvanced > summary').click();
     await page.evaluate(()=>{document.querySelector('#newBookingDate').value='2026-09-06';updateNewBookingConnectivity();renderNewBookingTimePicker();});
     assert.equal(await page.locator('#newBookingHistoricalToggle').isVisible(),true);
+    await page.evaluate(()=>{
+      document.querySelector('#newBookingDate').value='2026-09-10';newBookingHistoricalMode=false;
+      newBookingSlots=['14:00','14:30','15:00','15:30','16:00'];newBookingTime='15:00';newBookingPreferredTime='15:00';
+      updateNewBookingConnectivity();renderNewBookingTimePicker();
+    });
+    assert.deepEqual(await page.locator('.booking-time-slots-nearby [data-new-booking-time]').allTextContents(),['14:30','15:00','15:30']);
     const geometry=await page.evaluate(()=>{
       const sections=[...document.querySelectorAll('.new-booking-section')].map(el=>({rect:el.getBoundingClientRect().toJSON(),background:getComputedStyle(el).backgroundColor}));
       return {sections,scroll:document.documentElement.scrollWidth,width:innerWidth,repeat:getComputedStyle(document.querySelector('.new-booking-recurrence')).backgroundColor};
@@ -320,6 +382,8 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     if(width>760)assert.equal(await page.locator('.new-booking-layout').evaluate(el=>getComputedStyle(el).alignItems),'start','Columns must size to their contents');
     await page.locator('#bookingSheetTitle').scrollIntoViewIfNeeded();
     if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-booking-${theme}-${width}.png`});
+    await page.locator('.booking-more-times').scrollIntoViewIfNeeded();
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-booking-time-${theme}-${width}.png`});
     await page.evaluate(()=>closeBookingSheet());
     await page.addScriptTag({content:['bookingClientNote','bookingDisplayNote','compactBookingCardsEnabled','bookingNotePresenceMarkup','renderCalendarOverview','calendarOverviewBookingMarkup','calendarMonthMobileAgendaMarkup'].map(declaration).join('\n')});
     await page.evaluate(()=>{
