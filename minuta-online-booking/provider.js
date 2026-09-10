@@ -2625,7 +2625,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=672#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=673#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4847,7 +4847,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=672');
+    worker = new Worker('./report-worker.js?v=673');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7710,16 +7710,39 @@ function bookingNearbyTimeSlots(slots, selectedTime = '') {
   return chosen.slice(0, 3).sort((left, right) => left.localeCompare(right));
 }
 
-function bookingRemainingTimeMarkup(slots, nearbySlots, selectedTime = '') {
+function bookingRemainingTimeSlots(slots, nearbySlots, selectedTime = '') {
   const nearby = new Set(nearbySlots || []);
-  const remaining = [...new Set((slots || []).filter(time => /^\d{2}:\d{2}$/.test(String(time))))]
+  return [...new Set((slots || []).filter(time => /^\d{2}:\d{2}$/.test(String(time))))]
     .sort()
-    .filter(time => !nearby.has(time));
+    .filter(time => Number(time.slice(3, 5)) % 5 === 0)
+    .filter(time => time === selectedTime || !nearby.has(time));
+}
+
+function bookingRemainingTimeMarkup(slots, nearbySlots, selectedTime = '') {
+  const remaining = bookingRemainingTimeSlots(slots, nearbySlots, selectedTime);
   if (!remaining.length) return '';
-  return `<details class="booking-more-times">
-    <summary><span>Показать остальные</span><small>Ещё ${remaining.length}</small></summary>
+  const scrollTime = remaining.includes(selectedTime)
+    ? selectedTime
+    : remaining.find(time => time >= selectedTime) || remaining.at(-1);
+  return `<details class="booking-more-times" data-scroll-time="${scrollTime}">
+    <summary><span>Показать остальные</span><small>Шаг 5 мин · ещё ${remaining.length}</small></summary>
     <div class="booking-time-slots booking-time-slots-all">${remaining.map(time => `<button type="button" class="${time === selectedTime ? 'active' : ''}" aria-pressed="${time === selectedTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
   </details>`;
+}
+
+function activateBookingRemainingTimeScroll(holder) {
+  const details = holder?.querySelector('.booking-more-times');
+  if (!details?.dataset.scrollTime) return;
+  details.addEventListener('toggle', () => {
+    if (!details.open) return;
+    requestAnimationFrame(() => {
+      const list = details.querySelector('.booking-time-slots-all');
+      const target = list?.querySelector(`[data-new-booking-time="${details.dataset.scrollTime}"]`);
+      if (!list || !target) return;
+      const targetTop = target.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+      list.scrollTop = Math.max(0, targetTop);
+    });
+  });
 }
 
 function bookingExactTimeMarkup(kind, slots, selectedTime = '') {
@@ -8349,6 +8372,7 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
       <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : 'Свободное время рядом'}</span></div>
       <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
       ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)}${selectionSummary}`;
+    activateBookingRemainingTimeScroll(holder);
     return;
   }
   const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime);
@@ -8357,6 +8381,7 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
     <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут`}</span></div>
     <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
     ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)}`;
+  activateBookingRemainingTimeScroll(holder);
 }
 
 function updateNewBookingSubmitCaption() {
