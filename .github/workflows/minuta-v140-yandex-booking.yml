@@ -95,7 +95,7 @@ jobs:
           set -euo pipefail
           db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/yandex-booking-v140-prerequisite.sql
-          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/primetime-schedule-v139-prerequisite.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v138.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v139.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v140.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v140.sql
