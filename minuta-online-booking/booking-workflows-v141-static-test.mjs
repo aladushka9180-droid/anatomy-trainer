@@ -11,7 +11,7 @@ const workflow = readFileSync(new URL('../.github/workflows/minuta-v141-safe-rel
 for (const required of [
   'Визит уже состоялся',
   'Когда состоялся визит',
-  'Для будущей записи выберите день со свободным рабочим окном.',
+  'На сегодня будущих окон не осталось.',
   'Новая запись · ${bookingDateLabel',
   'id="newBookingContactPicker"',
   "navigator.contacts.select(['name','tel'], { multiple:false })",
@@ -22,6 +22,10 @@ for (const required of [
   "details.addEventListener('toggle'",
   "target.style.gridColumnStart = '1'",
   'activateBookingRemainingTimeScroll(holder)',
+  "historical:dateIso < businessTodayIso()",
+  'const requestedHistorical = Boolean(preset.historical);',
+  "newBookingMode = preset.mode === 'block' || !services.length ? 'block' : 'client';",
+  'Выберите будущее окно или включите «Визит уже состоялся».',
   'id="newBookingClientEntry"',
   "newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : '';",
   'submit.disabled = !newBookingTime;',
@@ -49,6 +53,8 @@ for (const forbidden of [
   'data-add-new-booking-client',
   'id="newBookingPresetTime"',
   'data-change-new-booking-time',
+  'historical:selectedStart < new Date()',
+  'mode:newBookingMode, historical:newBookingHistoricalMode',
 ]) assert.ok(!provider.includes(forbidden), `stale workflow remains: ${forbidden}`);
 
 for (const required of [
