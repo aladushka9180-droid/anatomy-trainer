@@ -2626,7 +2626,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=666#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=667#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3640,12 +3640,38 @@ async function loadReportTeamAnalytics(range) {
   renderReportPerformerFilter(range);
 }
 
+const REPORT_UTM_METRIC_KEYS = ['visitors', 'service_selected', 'slots_viewed', 'details_started', 'bookings', 'completed', 'cancelled', 'no_show', 'paid', 'revenue_rub'];
+
+function reportUtmIsTestSource(row) {
+  return String(row?.utm_source || '').trim().toLowerCase() === 'primetime_external_test';
+}
+
 function reportUtmSourceTitle(row) {
   const source = String(row?.utm_source || '').trim().toLowerCase();
   const channel = String(row?.source_kind || '').trim().toLowerCase();
+  if (reportUtmIsTestSource(row)) return 'Виджет онлайн-записи';
   const names = { telegram:'Telegram', whatsapp:'WhatsApp', vk:'ВКонтакте', yandex:'Яндекс', google:'Google', qr:'QR-код' };
   const base = names[source] || row?.utm_source || ({ direct:'Прямые переходы', referral:'Другие сайты', social:'Соцсети', search:'Поиск', campaign:'Реклама' })[channel] || 'Источник не определён';
   return row?.utm_campaign ? `${base} · ${row.utm_campaign}` : base;
+}
+
+function reportUtmSourceSubtitle(row) {
+  if (reportUtmIsTestSource(row)) return 'Тестовые переходы с сайта';
+  const medium = String(row?.utm_medium || '').trim().toLowerCase();
+  return ({ embed:'Встроено на сайт', maps:'Карты' })[medium] || row?.utm_medium || row?.source_kind || 'без метки';
+}
+
+function reportUtmTotals(rows) {
+  return rows.reduce((totals, row) => {
+    REPORT_UTM_METRIC_KEYS.forEach(key => { totals[key] += Math.max(0, Number(row?.[key]) || 0); });
+    return totals;
+  }, Object.fromEntries(REPORT_UTM_METRIC_KEYS.map(key => [key, 0])));
+}
+
+function reportUtmTestSourceMarkup(rows) {
+  const visitors = rows.reduce((sum, row) => sum + Math.max(0, Number(row?.visitors) || 0), 0);
+  const ending = visitors % 10 === 1 && visitors % 100 !== 11 ? 'посещение' : visitors % 10 >= 2 && visitors % 10 <= 4 && (visitors % 100 < 10 || visitors % 100 >= 20) ? 'посещения' : 'посещений';
+  return `<aside class="report-utm-test-source"><strong>Виджет онлайн-записи</strong><small>Тестовые переходы с сайта · ${visitors} ${ending} · не учитываются в показателях</small></aside>`;
 }
 
 function renderReportUtmFunnel() {
@@ -3665,10 +3691,12 @@ function renderReportUtmFunnel() {
     stages.hidden = outcomes.hidden = sources.hidden = true;
     return;
   }
-  const totals = state.data?.totals || {};
-  const rows = Array.isArray(state.data?.rows) ? state.data.rows : [];
+  const sourceRows = Array.isArray(state.data?.rows) ? state.data.rows : [];
+  const testRows = sourceRows.filter(reportUtmIsTestSource);
+  const rows = sourceRows.filter(row => !reportUtmIsTestSource(row));
+  const totals = testRows.length ? reportUtmTotals(rows) : state.data?.totals || {};
   const visitors = Math.max(0, Number(totals.visitors) || 0);
-  if (!visitors && !Number(totals.bookings) && !rows.length) {
+  if (!visitors && !Number(totals.bookings) && !rows.length && !testRows.length) {
     status.hidden = false;
     status.textContent = 'За этот период пока нет данных о переходах. Они появятся после посещений страницы записи.';
     stages.hidden = outcomes.hidden = sources.hidden = true;
@@ -3688,16 +3716,17 @@ function renderReportUtmFunnel() {
   outcomes.hidden = false;
   outcomes.innerHTML = `<article><small>Пришли</small><strong>${Number(totals.completed) || 0}</strong></article><article><small>Отменили</small><strong>${Number(totals.cancelled) || 0}</strong></article><article><small>Не пришли</small><strong>${Number(totals.no_show) || 0}</strong></article><article><small>Оплатили</small><strong>${Number(totals.paid) || 0}</strong></article><article><small>Получено</small><strong>${money(Number(totals.revenue_rub) || 0)}</strong></article>`;
   sources.hidden = false;
+  const testSourceMarkup = testRows.length ? reportUtmTestSourceMarkup(testRows) : '';
   if (!rows.length) {
-    sources.innerHTML = '<p class="report-empty-inline">Источники пока не определены. Здесь появятся новые переходы на страницу записи.</p>';
+    sources.innerHTML = testSourceMarkup || '<p class="report-empty-inline">Источники пока не определены. Здесь появятся новые переходы на страницу записи.</p>';
     return;
   }
   sources.innerHTML = `<div class="report-utm-source-head"><span>Источник</span><span>Посетители</span><span>Записи</span><span>Конверсия</span><span>Получено</span></div>${rows.map(row => {
     const rowVisitors = Math.max(0, Number(row.visitors) || 0);
     const bookings = Math.max(0, Number(row.bookings) || 0);
     const conversion = rowVisitors ? Math.round(bookings / rowVisitors * 100) : 0;
-    return `<article><div><strong>${escapeHtml(reportUtmSourceTitle(row))}</strong><small>${escapeHtml(row.utm_medium || row.source_kind || 'без метки')}</small></div><span>${rowVisitors}</span><span>${bookings}</span><span><b>${conversion}%</b><i style="--utm-conversion:${Math.min(100, conversion)}%"></i></span><span>${money(Number(row.revenue_rub) || 0)}</span></article>`;
-  }).join('')}`;
+    return `<article><div><strong>${escapeHtml(reportUtmSourceTitle(row))}</strong><small>${escapeHtml(reportUtmSourceSubtitle(row))}</small></div><span>${rowVisitors}</span><span>${bookings}</span><span><b>${conversion}%</b><i style="--utm-conversion:${Math.min(100, conversion)}%"></i></span><span>${money(Number(row.revenue_rub) || 0)}</span></article>`;
+  }).join('')}${testSourceMarkup}`;
 }
 
 async function loadReportUtmFunnel(range) {
@@ -4802,7 +4831,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=666');
+    worker = new Worker('./report-worker.js?v=667');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {

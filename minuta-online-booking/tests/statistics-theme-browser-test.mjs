@@ -45,8 +45,13 @@ try {
     analytics.dataset.reportSource = 'own';
     document.querySelector('#reportDataSource').hidden = false;
     document.querySelector('#reportComparison').hidden = false;
-    document.querySelector('#reportUtmFunnelState').hidden = false;
-    document.querySelector('#reportUtmFunnelState').textContent = 'За этот период пока нет данных о переходах. Они появятся после посещений страницы записи.';
+    document.querySelector('#reportUtmFunnelState').hidden = true;
+    document.querySelector('#reportUtmFunnelStages').hidden = false;
+    document.querySelector('#reportUtmFunnelStages').innerHTML = ['Открыли страницу','Выбрали услугу','Посмотрели время','Начали оформление','Создали запись'].map((label,index) => `<article><small>${index + 1}</small><span>${label}</span><strong>0</strong><em>—</em></article>`).join('');
+    document.querySelector('#reportUtmFunnelOutcomes').hidden = false;
+    document.querySelector('#reportUtmFunnelOutcomes').innerHTML = ['Пришли','Отменили','Не пришли','Оплатили','Получено'].map(label => `<article><small>${label}</small><strong>0</strong></article>`).join('');
+    document.querySelector('#reportUtmFunnelSources').hidden = false;
+    document.querySelector('#reportUtmFunnelSources').innerHTML = '<aside class="report-utm-test-source"><strong>Виджет онлайн-записи</strong><small>Тестовые переходы с сайта · 3 посещения · не учитываются в показателях</small></aside>';
     const values = {
       reportFilterSummary:'30 дней · Вся команда', reportPeriodLabel:'10 августа — 8 сентября 2026 · Вся команда',
       reportCommandNarrative:'Поступления выросли. У трёх визитов нужно уточнить результат.', reportHeroRevenue:'191 100 ₽',
@@ -105,6 +110,8 @@ try {
         analyticsDetails.open = true;
         const utmCard = document.querySelector('#reportUtmFunnelCard');
         const utmState = document.querySelector('#reportUtmFunnelState');
+        const utmParts = [...utmCard.querySelectorAll('#reportUtmFunnelStages,#reportUtmFunnelOutcomes,#reportUtmFunnelSources,.report-utm-test-source')].filter(visible);
+        const testSource = document.querySelector('.report-utm-test-source');
         const comparison = document.querySelector('#reportComparison');
         const comparisonList = comparison.querySelector('.report-comparison-list');
         const comparisonCards = [...comparisonList.children];
@@ -143,7 +150,9 @@ try {
           visibleKpis:[...document.querySelectorAll('.report-command-metrics > article')].filter(visible).length,
           visibleActions:[...document.querySelectorAll('#reportSmartActions > .report-smart-action')].filter(visible).length,
           detailsClosed,
-          utmOverflow:utmCard.scrollWidth > utmCard.clientWidth + 1 || utmState.scrollWidth > utmState.clientWidth + 1 || !within(utmState, utmCard),
+          utmOverflow:utmCard.scrollWidth > utmCard.clientWidth + 1 || utmParts.some(element => element.scrollWidth > element.clientWidth + 1 || !within(element, utmCard)),
+          testSourceText:testSource?.textContent?.trim() || '',
+          rawTestLabels:utmCard.textContent.includes('primetime_external_test') || utmCard.textContent.includes('booking_widget') || utmCard.textContent.includes('embed'),
           comparisonOverflow:comparison.scrollWidth > comparison.clientWidth + 1 || comparisonList.scrollWidth > comparisonList.clientWidth + 1 || comparisonCards.some(card => !within(card, comparisonList)),
           comparisonTracks:getComputedStyle(comparisonList).gridTemplateColumns.split(' ').length,
           visualGridOverflow,
@@ -171,11 +180,15 @@ try {
       const expectedChartHeight = width <= 760 ? 168 : 210;
       const expectedSummaryTracks = width <= 760 ? 2 : 3;
       const expectedComparisonTracks = width <= 760 ? 2 : 4;
-      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.utmOverflow || metrics.comparisonOverflow || metrics.comparisonTracks !== expectedComparisonTracks || metrics.visualGridOverflow || metrics.funnelOverflow || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || metrics.chartLabelOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
+      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.utmOverflow || metrics.testSourceText !== 'Виджет онлайн-записиТестовые переходы с сайта · 3 посещения · не учитываются в показателях' || metrics.rawTestLabels || metrics.comparisonOverflow || metrics.comparisonTracks !== expectedComparisonTracks || metrics.visualGridOverflow || metrics.funnelOverflow || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || metrics.chartLabelOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
         failures.push({ width, theme, ...metrics });
       }
+      if (output && theme === 'warm') await page.screenshot({ path:path.join(output, `statistics-screen-${width}.png`), fullPage:true });
       if (output && theme === 'warm') await page.locator('.report-trend').screenshot({ path:path.join(output, `weekly-revenue-${width}.png`) });
       if (output && theme === 'warm') {
+        await page.evaluate(() => { document.querySelector('.report-analytics-details').open = true; });
+        await page.locator('#reportUtmFunnelCard').screenshot({ path:path.join(output, `utm-test-traffic-${width}.png`) });
+        await page.evaluate(() => { document.querySelector('.report-analytics-details').open = false; });
         await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'money'; });
         await page.locator('.report-summary[data-report-section="money"]').screenshot({ path:path.join(output, `payment-separation-${width}.png`) });
         await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });

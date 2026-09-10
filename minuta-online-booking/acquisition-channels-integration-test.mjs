@@ -49,18 +49,19 @@ assert.match(provider, /names = \{ telegram:'Telegram', whatsapp:'WhatsApp', vk:
 assert.match(provider, /rowVisitors \? Math\.round\(bookings \/ rowVisitors \* 100\) : 0/);
 
 const renderSource = provider.slice(
-  provider.indexOf('function reportUtmSourceTitle'),
+  provider.indexOf('const REPORT_UTM_METRIC_KEYS'),
   provider.indexOf('async function loadReportUtmFunnel')
 );
-assert.ok(renderSource.startsWith('function reportUtmSourceTitle') && renderSource.includes('function renderReportUtmFunnel'));
+assert.ok(renderSource.startsWith('const REPORT_UTM_METRIC_KEYS') && renderSource.includes('function renderReportUtmFunnel'));
 const elements = Object.fromEntries(['reportUtmFunnelCard','reportUtmFunnelState','reportUtmFunnelStages','reportUtmFunnelOutcomes','reportUtmFunnelSources'].map(id => [id, { hidden:false, textContent:'', innerHTML:'' }]));
 const renderContext = vm.createContext({
   reportDataSource:'own',
   reportUtmFunnelState:{ status:'ready', data:{
-    totals:{ visitors:2, service_selected:2, slots_viewed:2, details_started:1, bookings:1, completed:1, cancelled:0, no_show:0, paid:1, revenue_rub:2500 },
+    totals:{ visitors:5, service_selected:3, slots_viewed:2, details_started:1, bookings:1, completed:1, cancelled:0, no_show:0, paid:1, revenue_rub:2500 },
     rows:[
       { source_kind:'search', utm_source:'yandex', utm_medium:'maps', utm_campaign:'maps_booking_general', visitors:1, bookings:1, revenue_rub:2500 },
-      { source_kind:'search', utm_source:'google', utm_medium:'maps', utm_campaign:'maps_booking_general', visitors:1, bookings:0, revenue_rub:0 }
+      { source_kind:'search', utm_source:'google', utm_medium:'maps', utm_campaign:'maps_booking_general', visitors:1, bookings:0, revenue_rub:0 },
+      { source_kind:'campaign', utm_source:'primetime_external_test', utm_medium:'embed', utm_campaign:'booking_widget', visitors:3, service_selected:1, bookings:0, revenue_rub:0 }
     ]
   } },
   $:selector => elements[selector.slice(1)],
@@ -71,5 +72,8 @@ vm.runInContext(`${renderSource}\nrenderReportUtmFunnel();`, renderContext, { fi
 assert.match(elements.reportUtmFunnelStages.innerHTML, /Открыли страницу[\s\S]*>2<[\s\S]*Создали запись[\s\S]*>1</);
 assert.match(elements.reportUtmFunnelSources.innerHTML, /Яндекс · maps_booking_general[\s\S]*<b>100%<\/b>/);
 assert.match(elements.reportUtmFunnelSources.innerHTML, /Google · maps_booking_general[\s\S]*<b>0%<\/b>/);
+assert.match(elements.reportUtmFunnelSources.innerHTML, /Виджет онлайн-записи[\s\S]*Тестовые переходы с сайта · 3 посещения · не учитываются в показателях/);
+assert.doesNotMatch(elements.reportUtmFunnelSources.innerHTML, /primetime_external_test|booking_widget|>embed</);
+assert.match(elements.reportUtmFunnelStages.innerHTML, /Открыли страницу[\s\S]*>2<[\s\S]*Выбрали услугу[\s\S]*>0</, 'test traffic must not affect the visible funnel totals');
 
 console.log('D11 acquisition channel integration checks passed');
