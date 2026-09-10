@@ -67,6 +67,15 @@ try {
   assert.equal(schema.create_ready, true, 'Apply v140 to the isolated test DB before the race test');
   assert.equal(schema.table_ready, true, 'v140 tables are unavailable');
 
+  // Repair residue from the original race fixture, which allowed the legacy
+  // performer trigger to create a second organization before cleanup.
+  await admin.query(`delete from public.organizations organization
+    where organization.name='V140 isolated race specialist — организация'
+      and organization.legacy_performer_id is not null
+      and organization.public_slug='minuta-'||replace(organization.legacy_performer_id::text,'-','')
+      and not exists(select 1 from public.performer_profiles profile
+        where profile.id=organization.legacy_performer_id)`);
+
   await admin.query('begin');
   await admin.query('set local session_replication_role=replica');
   await admin.query(`insert into auth.users(
