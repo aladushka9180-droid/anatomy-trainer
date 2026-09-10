@@ -192,13 +192,13 @@ begin
   insert into public.provider_schedule(
     performer_id,weekday,enabled,start_time,end_time,slot_interval_minutes
   )
-  select actor,day,true,'09:00','18:00',15 from generate_series(1,7) day
+  select actor,day,true,time '09:00',time '18:00',15 from generate_series(1,7) day
   union all
-  select foreign_actor,day,true,'09:00','18:00',15 from generate_series(1,7) day
+  select foreign_actor,day,true,time '09:00',time '18:00',15 from generate_series(1,7) day
   union all
-  select deposit_actor,day,true,'09:00','18:00',15 from generate_series(1,7) day
+  select deposit_actor,day,true,time '09:00',time '18:00',15 from generate_series(1,7) day
   union all
-  select legacy_deposit_actor,day,true,'09:00','18:00',15 from generate_series(1,7) day;
+  select legacy_deposit_actor,day,true,time '09:00',time '18:00',15 from generate_series(1,7) day;
 
   insert into public.organization_client_profiles(
     organization_id,normalized_phone,online_booking_blocked,online_booking_blocked_at,
