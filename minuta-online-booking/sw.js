@@ -32,10 +32,8 @@ const ASSETS = [
   './settings-smart-search.css?v=661',
   './contextual-help.css?v=661',
   './settings-mobile-minimalism.css?v=661',
-  './free-slots-compact.css?v=661',
   './client-records.css?v=661',
   './client-results.css?v=661',
-  './code-scanner.css?v=661',
   './provider-theme-noir-safari.css?v=661',
   './client-directory.css?v=661',
   './provider-ui-refinements.css?v=661',
@@ -58,7 +56,6 @@ const ASSETS = [
   './batch-bookings.js?v=661',
   './booking-policy-management.js?v=661',
   './team-calendar.js?v=661',
-  './vendor/qrcodegen.js?v=661',
   './free-slots-share.js?v=661',
   './group-bookings.js?v=661',
   './booking-widgets.js?v=661',
@@ -73,9 +70,33 @@ const ASSETS = [
   './client-directory.js?v=661',
   './client-results.js?v=661',
   './provider.js?v=661',
+  './provider-feature-assets.js?v=661',
   './client-records.js?v=661',
+];
+
+// Warm after the first screen. A cold installation must not wait for tools
+// that are only used from a dialog; retain their offline use after warming.
+const OPTIONAL_ASSETS = [
+  './free-slots-compact.css?v=661',
+  './vendor/qrcodegen.js?v=661',
+  './code-scanner.css?v=661',
   './code-scanner.js?v=661',
 ];
+let optionalWarmup = null;
+
+self.addEventListener('message', event => {
+  if (event.data?.type !== 'warm-provider-features') return;
+  if (!optionalWarmup) {
+    optionalWarmup = (async () => {
+      const cache = await caches.open(CACHE);
+      for (const asset of OPTIONAL_ASSETS) {
+        if (await cache.match(asset)) continue;
+        await cache.add(asset);
+      }
+    })().finally(() => { optionalWarmup = null; });
+  }
+  event.waitUntil(optionalWarmup.catch(() => {}));
+});
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
