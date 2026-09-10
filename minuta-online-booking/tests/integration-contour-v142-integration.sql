@@ -45,7 +45,8 @@ begin
   end loop;
   foreach relation_name in array array[
     'public.integration_connections_v142','public.integration_api_keys_v142',
-    'public.integration_rate_limits_v142','public.integration_calendar_events_v142',
+    'public.integration_rate_limits_v142','public.integration_booking_revisions_v142',
+    'public.integration_calendar_events_v142',
     'public.integration_request_receipts_v142','public.integration_webhook_subscriptions_v142',
     'public.integration_webhook_outbox_v142'
   ] loop

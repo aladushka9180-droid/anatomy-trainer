@@ -136,7 +136,8 @@ jobs:
               and to_regclass('public.locations') is not null
               and to_regclass('public.services') is not null
               and to_regclass('public.bookings') is not null
-              and to_regclass('public.notification_outbox') is not null prerequisites_ready,
+              and to_regclass('public.notification_outbox') is not null
+              and to_regprocedure('public.cancel_minuta_booking_core(uuid,text,text)') is not null prerequisites_ready,
             to_regclass('public.integration_connections_v142') is not null connections_table,
             to_regclass('public.integration_api_keys_v142') is not null keys_table,
             to_regclass('public.integration_rate_limits_v142') is not null limits_table,

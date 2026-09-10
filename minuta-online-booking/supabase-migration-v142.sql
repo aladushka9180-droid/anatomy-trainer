@@ -14,6 +14,7 @@ begin
   if to_regclass('public.services') is null then v_missing:=array_append(v_missing,'services'); end if;
   if to_regclass('public.bookings') is null then v_missing:=array_append(v_missing,'bookings'); end if;
   if to_regclass('public.notification_outbox') is null then v_missing:=array_append(v_missing,'notification_outbox'); end if;
+  if to_regprocedure('public.cancel_minuta_booking_core(uuid,text,text)') is null then v_missing:=array_append(v_missing,'cancel_minuta_booking_core'); end if;
   if to_regprocedure('extensions.digest(bytea,text)') is null then v_missing:=array_append(v_missing,'extensions.digest'); end if;
   if to_regprocedure('extensions.gen_random_uuid()') is null then v_missing:=array_append(v_missing,'extensions.gen_random_uuid'); end if;
   if cardinality(v_missing)>0 then
@@ -627,7 +628,7 @@ begin
     where connection_id=p_connection and external_event_id=p_external_event_id for update;
   if not found or v_mapping.state<>'active' then return jsonb_build_object('ok',false,'error','event_not_found'); end if;
   if v_mapping.source_revision<>p_expected_revision then return jsonb_build_object('ok',false,'error','revision_conflict'); end if;
-  update public.bookings set status='cancelled' where id=v_mapping.local_booking_id;
+  perform public.cancel_minuta_booking_core(v_mapping.local_booking_id,'provider','always_full');
   update public.integration_calendar_events_v142 set state='deleted',updated_at=now()
     where id=v_mapping.id;
   delete from public.notification_outbox where booking_id=v_mapping.local_booking_id;

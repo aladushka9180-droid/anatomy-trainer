@@ -46,6 +46,7 @@ assert.match(migration, /v_receipt\.payload_sha256<>p_payload_sha256[\s\S]*reque
 assert.match(migration, /booking_policy_snapshot->>'integration_calendar_block'/i);
 assert.match(migration, /aa_bookings_touch_integration_revision_v142/i);
 assert.doesNotMatch(migration, /booking\.updated_at|new\.updated_at|set status='cancelled',updated_at/i);
+assert.match(migration, /cancel_minuta_booking_core\(v_mapping\.local_booking_id,'provider','always_full'\)/i);
 assert.match(migration, /booking\.organization_id=v_connection\.organization_id/i);
 assert.match(migration, /subscription\.organization_id=new\.organization_id/i);
 assert.doesNotMatch(migration, /aggregate_id uuid not null references public\.bookings/i);
