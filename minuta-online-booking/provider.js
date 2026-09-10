@@ -10224,7 +10224,10 @@ async function loadClientLabels() {
   renderBookings();
   renderClients();
   if (selectedClientPhone) renderClientDetail(selectedClientPhone);
-  return { ok:!error, optional:true };
+  const unsupported = Boolean(error)
+    && ['PGRST205', '42P01'].includes(String(error.code || ''))
+    && /client_labels/i.test(`${error.message || ''} ${error.details || ''}`);
+  return { ok:!error, optional:true, unsupported };
 }
 
 function refreshClientLabelPresentation(phone) {
@@ -10900,6 +10903,10 @@ function startLiveUpdates({ catchUpOnSubscribe = true } = {}) {
   }, SERVICE_SYNC_INTERVAL_MS);
 }
 
+function optionalSyncFailureIsDegraded(result) {
+  return Boolean(result?.optional && !result?.ok && !result?.forbidden && !result?.unsupported && !result?.stale);
+}
+
 function synchronizeProvider({ tables = null, background = false } = {}) {
   const requestedGeneration = sessionGeneration;
   const requestedUserId = currentUser?.id;
@@ -10961,7 +10968,7 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
     const skipped = requiredResults.some(result => result?.skipped);
-    const degraded = results.some(result => result?.optional && !result?.ok && !result?.forbidden);
+    const degraded = results.some(optionalSyncFailureIsDegraded);
     setBookingCreationReady(bookingReady);
     setWritesAllowed(complete);
     if (complete) {

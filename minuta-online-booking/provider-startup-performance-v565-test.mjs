@@ -24,8 +24,17 @@ assert.match(provider, /const name = 'исполнитель';[\s\S]{0,500}void 
   'The display name request must not delay the provider shell');
 assert.match(provider, /async function loadProviderDisplayName\(userId, generation\)[\s\S]{0,700}!sessionIsCurrent\(userId, generation\)/,
   'A late display name response must not overwrite a newer session');
-assert.match(provider, /result\?\.optional && !result\?\.ok && !result\?\.forbidden/,
-  'Unavailable role-gated sections must not show a degraded sync warning');
+const optionalFailureSource = provider.match(/function optionalSyncFailureIsDegraded\(result\) \{[\s\S]*?\n\}/)?.[0] || '';
+assert.ok(optionalFailureSource, 'Optional sync status classifier must exist');
+const optionalSyncFailureIsDegraded = Function(`${optionalFailureSource}; return optionalSyncFailureIsDegraded;`)();
+assert.equal(optionalSyncFailureIsDegraded({ optional:true, ok:false }), true,
+  'A real optional data failure must keep the partial sync warning');
+for (const neutral of [{ optional:true, ok:false, forbidden:true }, { optional:true, ok:false, unsupported:true }, { optional:true, ok:false, stale:true }]) {
+  assert.equal(optionalSyncFailureIsDegraded(neutral), false,
+    'Unavailable or superseded optional data must not create a false global sync warning');
+}
+assert.match(provider, /\['PGRST205', '42P01'\][\s\S]{0,180}client_labels/,
+  'A missing optional client-label table must be classified as unsupported');
 
 const startupSecondary = provider.match(/const secondaryResults = \(await Promise\.allSettled\(\[([\s\S]*?)\]\)\)/)?.[1] || '';
 for (const forbidden of ['loadClientAvatars()', 'synchronizePortfolio(', 'loadWaitlist()']) {
