@@ -250,7 +250,7 @@ select pg_temp.v142_assert(exists(
   join public.bookings booking on booking.id=mapping.local_booking_id
   where mapping.connection_id=current_setting('minuta.v142.connection')::uuid
     and mapping.external_event_id='fixture:event-1' and mapping.state='active'
-    and mapping.source_revision='revision-3' and booking.status='new'
+    and mapping.source_revision='revision-3' and booking.status in('new','confirmed')
 ),'calendar_deleted_event_restored:'||coalesce((
   select jsonb_build_object(
     'mappingState',mapping.state,'sourceRevision',mapping.source_revision,
