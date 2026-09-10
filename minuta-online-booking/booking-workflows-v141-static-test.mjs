@@ -20,6 +20,7 @@ for (const required of [
   'bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)',
   'Шаг 5 мин · ещё ${remaining.length}',
   "details.addEventListener('toggle'",
+  "target.style.gridColumnStart = '1'",
   'activateBookingRemainingTimeScroll(holder)',
   'id="newBookingClientEntry"',
   "newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : '';",
