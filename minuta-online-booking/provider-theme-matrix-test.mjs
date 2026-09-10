@@ -140,6 +140,7 @@ assert.doesNotMatch(pearlZebraBackground, /repeating-radial-gradient/, 'Pearl Ze
 const noirSafariBackground = noirSafariCss.match(/\.provider-body\[data-provider-theme="noir-safari"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
 assert.match(noirSafariBackground, /background-image:linear-gradient\(rgba\(5,4,3,\.08\),rgba\(5,4,3,\.08\)\),var\(--atmosphere-background\)!important/);
 assert.doesNotMatch(noirSafariBackground, /linear-gradient\(90deg/, 'Noir Safari must preserve the approved leopard artwork without directional recoloring');
+assert.match(noirSafariCss, /\.provider-body\[data-provider-theme="noir-safari"\] \.ambient\s*\{[^}]*display:none!important/s, 'Noir Safari must hide the generic green and amber ambient lights');
 assert.match(noirSafariCss, /:is\(\s*\.provider-main,\.provider-app,\.provider-workspace,\.provider-view,\.schedule-card\s*\)\s*\{[^}]*background:transparent!important/s, 'Noir Safari must continue the same wallpaper behind the interface instead of exposing a white stage');
 assert.equal(pearlZebraAsset.toString('ascii', 0, 4), 'RIFF', 'Pearl Zebra must remain a WebP asset');
 assert.equal(pearlZebraAsset.readUInt16LE(26) & 0x3fff, 3840, 'Pearl Zebra must retain its 4K width');

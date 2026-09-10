@@ -35,6 +35,10 @@
   background-attachment:fixed!important;
 }
 
+.provider-body[data-provider-theme="noir-safari"] .ambient {
+  display:none!important;
+}
+
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(
   .provider-main,.provider-app,.provider-workspace,.provider-view,.schedule-card
 ) {
