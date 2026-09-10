@@ -27,6 +27,8 @@ for (const required of [
   ": $('#newBookingClientSearch');",
   'Перенести запись',
 ]) assert.ok(provider.includes(required), `missing provider contract: ${required}`);
+assert.ok((provider.match(/id,organization_id,location_id,booking_code/g) || []).length >= 3,
+  'Block creation and editing must retain the branch identity loaded with each booking');
 
 for (const forbidden of [
   'Создать вне графика',
