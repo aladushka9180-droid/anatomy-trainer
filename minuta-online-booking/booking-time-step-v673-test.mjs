@@ -15,4 +15,4 @@ assert.deepEqual(
 assert.ok(provider.includes('data-scroll-time="${scrollTime}"'), 'Список не хранит время, к которому нужно прокрутить');
 assert.ok(provider.includes("details.addEventListener('toggle'"), 'Раскрытие списка не запускает прокрутку к выбранному времени');
 assert.ok(provider.includes("target.style.gridColumnStart = '1'"), 'Выбранное время не выравнивается первым в строке');
-console.log('Booking time step v676 checks passed.');
+console.log('Booking time step v677 checks passed.');
