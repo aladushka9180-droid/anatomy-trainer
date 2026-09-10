@@ -10,14 +10,25 @@ on:
       - 'minuta-online-booking/provider.js'
       - 'minuta-online-booking/supabase-migration-v107.sql'
       - 'minuta-online-booking/supabase-migration-v137.sql'
+      - 'minuta-online-booking/supabase-migration-v140.sql'
+      - 'minuta-online-booking/supabase-migration-v140-rollback.sql'
       - 'minuta-online-booking/booking-widgets-static-test.mjs'
       - 'minuta-online-booking/acquisition-channels-integration-test.mjs'
+      - 'minuta-online-booking/yandex-booking-v140-static-test.mjs'
       - 'minuta-online-booking/tests/acquisition-channels-v137-integration.sql'
       - 'minuta-online-booking/tests/booking-widgets-browser-test.mjs'
+      - 'minuta-online-booking/tests/yandex-booking-edge-fixture.mjs'
+      - 'minuta-online-booking/tests/yandex-booking-edge-test.mjs'
+      - 'minuta-online-booking/tests/yandex-booking-v140-integration.sql'
+      - 'minuta-online-booking/tests/yandex-booking-v140-postgres-concurrency-test.mjs'
+      - 'supabase/functions/yandex-booking-api/**'
+      - 'supabase/config.toml'
       - '.github/workflows/minuta-acquisition-integration.yml'
   pull_request:
     paths:
       - 'minuta-online-booking/**'
+      - 'supabase/functions/yandex-booking-api/**'
+      - 'supabase/config.toml'
       - '.github/workflows/minuta-acquisition-integration.yml'
   workflow_dispatch:
     inputs:
@@ -29,6 +40,10 @@ on:
 permissions:
   contents: read
   actions: read
+
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
 
 jobs:
   browser:
@@ -103,6 +118,8 @@ jobs:
           set -euo pipefail
           node minuta-online-booking/booking-widgets-static-test.mjs
           node minuta-online-booking/acquisition-channels-integration-test.mjs
+          node minuta-online-booking/yandex-booking-v140-static-test.mjs
+          node --test minuta-online-booking/tests/yandex-booking-edge-test.mjs
       - name: Guard isolated test database
         run: |
           set -euo pipefail

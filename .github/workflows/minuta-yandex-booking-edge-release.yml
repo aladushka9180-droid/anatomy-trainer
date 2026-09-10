@@ -1,0 +1,88 @@
+name: Minuta Yandex booking Edge release
+run-name: Minuta Yandex booking Edge - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character current main commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter DEPLOY_DISABLED_YANDEX_EDGE
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-production-edge-functions
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  deploy-disabled:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      SHA: ${{ inputs.commit_sha }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pin exact current main commit and disabled release intent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$CONFIRMATION" = DEPLOY_DISABLED_YANDEX_EDGE
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 24 }
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with: { deno-version: v2.x }
+      - name: Verify the exact disabled adapter without external side effects
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/yandex-booking-v140-static-test.mjs
+          node --test minuta-online-booking/tests/yandex-booking-edge-test.mjs
+          deno check supabase/functions/yandex-booking-api/index.ts
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v1
+        with: { version: 2.117.0 }
+      - name: Force the production adapter off before deployment
+        run: supabase secrets set YANDEX_BOOKING_ENABLED=false --project-ref "$PROJECT_REF"
+      - name: Deploy only the Yandex booking adapter
+        run: supabase functions deploy yandex-booking-api --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+      - name: Prove the production adapter is still disabled
+        run: |
+          set -euo pipefail
+          url="https://$PROJECT_REF.supabase.co/functions/v1/yandex-booking-api/v1/companies/feed"
+          status="$(curl --silent --show-error --output "$RUNNER_TEMP/yandex-disabled.json" --write-out '%{http_code}' \
+            --header 'Accept: application/json' "$url")"
+          test "$status" = 503
+          jq -e '.code == "NOT_CONFIGURED"' "$RUNNER_TEMP/yandex-disabled.json" >/dev/null
+          jq -n --arg sha "$SHA" --arg url "$url" \
+            '{status:"success",commitSha:$sha,route:$url,enabled:false,productionWritten:true,realBookingsCreated:false}' \
+            > "$RUNNER_TEMP/yandex-edge-release.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: yandex-edge-release-${{ github.run_id }}
+          path: ${{ runner.temp }}/yandex-edge-release.json
+          if-no-files-found: error
+          retention-days: 90

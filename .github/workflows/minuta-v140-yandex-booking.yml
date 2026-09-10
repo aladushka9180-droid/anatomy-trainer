@@ -1,0 +1,297 @@
+name: Minuta v140 Yandex booking safe release
+run-name: Minuta v140 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v140
+        required: true
+        default: test-v140
+        type: choice
+        options: [test-v140, validate-production-v140, apply-production-v140, observe-production-v140]
+      commit_sha: { description: Exact 40-character current main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      restore_run_id: { description: Linked offline restore run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful isolated v140 test run ID, required: false, default: "", type: string }
+      validation_run_id: { description: Successful read-only v140 validation run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v140 apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter BACKUP_VERIFIED for production apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency: { group: "${{ inputs.phase == 'test-v140' && 'minuta-test-database' || 'minuta-production-database' }}", cancel-in-progress: false }
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit and phase
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            test-v140|validate-production-v140|observe-production-v140) ;;
+            apply-production-v140) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 24 }
+      - name: Verify static and Edge contracts
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/yandex-booking-v140-static-test.mjs
+          node --test minuta-online-booking/tests/yandex-booking-edge-test.mjs
+
+  test-v140:
+    if: inputs.phase == 'test-v140'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+      PGOPTIONS: -c statement_timeout=120000 -c lock_timeout=10000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 24 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Install isolated PostgreSQL client runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/v140-pg" --no-save --ignore-scripts --no-audit --no-fund pg@8.16.3
+          echo "MINUTA_PG_MODULE=$RUNNER_TEMP/v140-pg/node_modules/pg/lib/index.js" >> "$GITHUB_ENV"
+      - name: Guard isolated test database
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          test "$MINUTA_TEST_PROJECT_REF" != "$MINUTA_PRODUCTION_PROJECT_REF"
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target
+          where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+      - name: Apply twice, test, rollback and reapply
+        run: |
+          set -euo pipefail
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v140.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v140.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/yandex-booking-v140-integration.sql
+          node minuta-online-booking/tests/yandex-booking-v140-postgres-concurrency-test.mjs
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v140-rollback.sql
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.yandex_booking_connections_v140') is null")" = t
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.get_yandex_booking_feed_v140(text,text,integer)') is null")" = t
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v140.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/yandex-booking-v140-integration.sql
+      - name: Create test attestation
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          jq -n --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" \
+            --arg migration "$(sha256sum minuta-online-booking/supabase-migration-v140.sql|cut -d' ' -f1)" \
+            --arg rollback "$(sha256sum minuta-online-booking/supabase-migration-v140-rollback.sql|cut -d' ' -f1)" \
+            '{status:"success",phase:"test-v140",commitSha:$sha,runId:$run,isolatedDatabase:true,
+              cycle:["apply","apply","authorization","tenant-isolation","idempotency","races","rollback","reapply"],
+              migrationSha256:$migration,rollbackSha256:$rollback,productionWritten:false,realBookingsCreated:false}' \
+            > "$RUNNER_TEMP/v140-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v140-test-${{ github.run_id }}", path: "${{ runner.temp }}/v140-test.json", if-no-files-found: error, retention-days: 35 }
+
+  validate-production-v140:
+    if: inputs.phase == 'validate-production-v140'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 24 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Validate production prerequisites and current mode read-only
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          installed="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.yandex_booking_connections_v140') is not null")"
+          if test "$installed" = t; then
+            state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          begin transaction isolation level repeatable read read only;
+          select json_build_object(
+            'prerequisitesReady',
+              to_regprocedure('public.get_public_minuta_catalog_v5(text)') is not null
+              and to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is not null
+              and to_regprocedure('public.get_primetime_slot_ranges_v139(text,uuid,uuid,date,date,text)') is not null
+              and to_regprocedure('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)') is not null
+              and to_regprocedure('public.reschedule_booking_v2(uuid,date,time without time zone,uuid)') is not null
+              and to_regprocedure('public.cancel_booking_v2(uuid)') is not null
+              and to_regprocedure('public.resolve_minuta_booking_policy(uuid,uuid,uuid)') is not null
+              and to_regprocedure('extensions.digest(bytea,text)') is not null
+              and to_regprocedure('public.track_public_booking_funnel_event(text,uuid,text,uuid,uuid,text,text,text,text,text,text,text)') is not null,
+            'mode',case when
+              to_regclass('public.yandex_booking_mappings_v140') is not null
+              and to_regclass('public.yandex_booking_receipts_v140') is not null
+              and to_regclass('public.yandex_booking_rate_limits_v140') is not null
+              and to_regprocedure('public.get_yandex_booking_feed_v140(text,text,integer)') is not null
+              and not has_table_privilege('anon','public.yandex_booking_connections_v140','SELECT,INSERT,UPDATE,DELETE')
+              and not has_table_privilege('authenticated','public.yandex_booking_connections_v140','SELECT,INSERT,UPDATE,DELETE')
+              and not has_table_privilege('service_role','public.yandex_booking_connections_v140','SELECT,INSERT,UPDATE,DELETE')
+              and (select count(*)=0 from public.yandex_booking_connections_v140 where enabled)
+              then 'full' else 'partial' end);
+          rollback;
+          SQL
+            )"
+          else
+            state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          begin transaction isolation level repeatable read read only;
+          select json_build_object(
+            'prerequisitesReady',
+              to_regprocedure('public.get_public_minuta_catalog_v5(text)') is not null
+              and to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is not null
+              and to_regprocedure('public.get_primetime_slot_ranges_v139(text,uuid,uuid,date,date,text)') is not null
+              and to_regprocedure('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)') is not null
+              and to_regprocedure('public.reschedule_booking_v2(uuid,date,time without time zone,uuid)') is not null
+              and to_regprocedure('public.cancel_booking_v2(uuid)') is not null
+              and to_regprocedure('public.resolve_minuta_booking_policy(uuid,uuid,uuid)') is not null
+              and to_regprocedure('extensions.digest(bytea,text)') is not null
+              and to_regprocedure('public.track_public_booking_funnel_event(text,uuid,text,uuid,uuid,text,text,text,text,text,text,text)') is not null,
+            'mode','ready');
+          rollback;
+          SQL
+            )"
+          fi
+          state="$(grep '^{' <<<"$state"|tail -n 1)"
+          jq -e '.prerequisitesReady and (.mode=="ready" or .mode=="full")' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" \
+            '{status:"success",phase:"validate-production-v140",commitSha:$sha,readOnly:true,productionWritten:false,state:$state}' \
+            > "$RUNNER_TEMP/v140-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v140-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v140-validation.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v140:
+    if: inputs.phase == 'apply-production-v140'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify test, validation, encrypted backup and linked restore
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          TEST: ${{ inputs.test_run_id }}
+          VALIDATION: ${{ inputs.validation_run_id }}
+          BACKUP: ${{ inputs.backup_run_id }}
+          RESTORE: ${{ inputs.restore_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for id in "$TEST" "$VALIDATION" "$BACKUP" "$RESTORE"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){ run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$SHA"; test "$(jq -r .head_branch <<<"$run")" = main; test "$(jq -r .event <<<"$run")" = workflow_dispatch; test "$(jq -r .path <<<"$run")" = "$2"; }
+          mkdir -p "$RUNNER_TEMP/v140-evidence"/{test,validation,backup,restore}
+          check_run "$TEST" .github/workflows/minuta-v140-yandex-booking.yml
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v140-test-$TEST" -D "$RUNNER_TEMP/v140-evidence/test"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .isolatedDatabase and (.productionWritten|not) and (.realBookingsCreated|not)' "$RUNNER_TEMP/v140-evidence/test/v140-test.json" >/dev/null
+          check_run "$VALIDATION" .github/workflows/minuta-v140-yandex-booking.yml
+          gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v140-validation-$VALIDATION" -D "$RUNNER_TEMP/v140-evidence/validation"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .readOnly and (.state.mode=="ready" or .state.mode=="full")' "$RUNNER_TEMP/v140-evidence/validation/v140-validation.json" >/dev/null
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s)-$(date -d "$(jq -r .created_at <<<"$run")" +%s) )); test "$age" -ge 0 && test "$age" -le 7200
+          artifact="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts" --jq '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name')"; [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v140-evidence/backup"
+          shopt -s nullglob; encrypted=("$RUNNER_TEMP/v140-evidence/backup/"*.dump.gpg); journals=("$RUNNER_TEMP/v140-evidence/backup/"*.json)
+          test "${#encrypted[@]}" = 1 && test "${#journals[@]}" = 1
+          test "$(sha256sum "${encrypted[0]}"|cut -d' ' -f1)" = "$(jq -r .encryptedSha256 "${journals[0]}")"
+          check_run "$RESTORE" .github/workflows/minuta-supabase-restore-drill.yml
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE" -D "$RUNNER_TEMP/v140-evidence/restore"
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" '.status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed and (.productionWritten|not) and .sourceBackupRunId==$backup and .sourceBackupSha==$sha' "$RUNNER_TEMP/v140-evidence/restore/minuta-ephemeral-restore.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 24 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply v140 with every connection disabled
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v140.sql
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('connectionsReady',to_regclass('public.yandex_booking_connections_v140') is not null,'mappingsReady',to_regclass('public.yandex_booking_mappings_v140') is not null,'receiptsReady',to_regclass('public.yandex_booking_receipts_v140') is not null,'rateLimitsReady',to_regclass('public.yandex_booking_rate_limits_v140') is not null,'feedReady',to_regprocedure('public.get_yandex_booking_feed_v140(text,text,integer)') is not null,'enabledCount',(select count(*) from public.yandex_booking_connections_v140 where enabled),'anonTableAccess',has_table_privilege('anon','public.yandex_booking_connections_v140','SELECT,INSERT,UPDATE,DELETE'),'authenticatedTableAccess',has_table_privilege('authenticated','public.yandex_booking_connections_v140','SELECT,INSERT,UPDATE,DELETE'),'serviceRoleTableAccess',has_table_privilege('service_role','public.yandex_booking_connections_v140','SELECT,INSERT,UPDATE,DELETE'))")"
+          jq -e '.connectionsReady and .mappingsReady and .receiptsReady and .rateLimitsReady and .feedReady and .enabledCount==0 and (.anonTableAccess|not) and (.authenticatedTableAccess|not) and (.serviceRoleTableAccess|not)' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" \
+            '{status:"success",phase:"apply-production-v140",commitSha:$sha,state:$state,productionWritten:true,businessRowsChanged:false,connectionsEnabled:false,realBookingsCreated:false,secretsExposed:false}' \
+            > "$RUNNER_TEMP/v140-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v140-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v140-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v140:
+    if: inputs.phase == 'observe-production-v140'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 24 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify apply evidence and observe disabled state read-only
+        env: { SHA: "${{ inputs.commit_sha }}", APPLY: "${{ inputs.apply_run_id }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success
+          test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v140-yandex-booking.yml
+          mkdir -p "$RUNNER_TEMP/v140-apply-evidence"
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v140-apply-$APPLY" -D "$RUNNER_TEMP/v140-apply-evidence"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .productionWritten and (.businessRowsChanged|not) and (.connectionsEnabled|not) and (.realBookingsCreated|not)' "$RUNNER_TEMP/v140-apply-evidence/v140-apply.json" >/dev/null
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('ready',to_regclass('public.yandex_booking_connections_v140') is not null and to_regclass('public.yandex_booking_mappings_v140') is not null and to_regclass('public.yandex_booking_receipts_v140') is not null and to_regclass('public.yandex_booking_rate_limits_v140') is not null and to_regprocedure('public.get_yandex_booking_feed_v140(text,text,integer)') is not null,'enabledCount',(select count(*) from public.yandex_booking_connections_v140 where enabled))")"
+          jq -e '.ready and .enabledCount==0' <<<"$state" >/dev/null
+          MINUTA_EXPECT_IDEMPOTENCY=1 node minuta-online-booking/production-health-check.mjs
+          jq -n --arg sha "$SHA" --arg apply "$APPLY" --argjson state "$state" \
+            '{status:"success",phase:"observe-production-v140",commitSha:$sha,applyRunId:$apply,readOnly:true,productionWritten:false,state:$state}' \
+            > "$RUNNER_TEMP/v140-observe.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v140-observe-${{ github.run_id }}", path: "${{ runner.temp }}/v140-observe.json", if-no-files-found: error, retention-days: 90 }
