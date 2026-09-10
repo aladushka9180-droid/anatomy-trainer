@@ -25,7 +25,7 @@
 }
 .theme-apricot-tiger { --theme-preview-bg:#fff3e7; --theme-preview-surface:#fffdfb; --theme-preview-line:#ae9785; --theme-preview-accent:#49362a; --theme-preview-radius:14px; }
 .theme-apricot-tiger .theme-swatch {
-  background-image:linear-gradient(90deg,#fff3e7,rgba(255,243,231,.1)),url("provider-apricot-tiger.svg?v=685");
+  background-image:linear-gradient(90deg,#fff3e7,rgba(255,243,231,.1)),url("provider-apricot-tiger.svg?v=686");
   background-size:100% 100%,240px auto;
   background-position:center;
 }
@@ -57,7 +57,7 @@
 
 .theme-snow-leopard { --theme-preview-bg:#f4f5f6; --theme-preview-surface:#ffffff; --theme-preview-line:#929ba1; --theme-preview-accent:#343b42; --theme-preview-radius:14px; }
 .theme-snow-leopard .theme-swatch {
-  background-image:linear-gradient(90deg,#f4f5f6 10%,rgba(244,245,246,.08)),url("provider-snow-leopard-natural-v2.webp?v=685");
+  background-image:linear-gradient(90deg,#f4f5f6 10%,rgba(244,245,246,.08)),url("provider-snow-leopard-natural-v2.webp?v=686");
   background-size:100% 100%,160px auto;
   background-position:right center;
   background-repeat:no-repeat;
@@ -303,18 +303,45 @@
   color-scheme:dark;
 }
 
+.provider-body[data-provider-theme="mocha-pastel"] {
+  --theme-bg:#1a1817;
+  --theme-surface:#272320;
+  --theme-surface-alt:#312b28;
+  --theme-ink:#f0ebe7;
+  --theme-muted:#bbb1aa;
+  --theme-line:#766b64;
+  --theme-accent:#aaa6c5;
+  --theme-accent-soft:#3b3543;
+  --theme-accent-contrast:#18151d;
+  --theme-shadow:rgba(10,7,6,.34);
+  --material-card-bg:#272320;
+  --material-card-border:#766b64;
+  --material-radius:18px;
+  --material-control-radius:10px;
+  --signature-sidebar:#211e1c;
+  --signature-stage:#2a2522;
+  --signature-nav-active:#3b3543;
+  --signature-card-shadow:0 10px 28px rgba(0,0,0,.2);
+  --atmosphere-background:radial-gradient(circle at 84% 3%,rgba(170,166,197,.11),transparent 34%),radial-gradient(circle at 10% 84%,rgba(139,103,82,.08),transparent 40%),linear-gradient(145deg,#171514,#2a2522 58%,#1d1918);
+  --atmosphere-panel:#2a2522;
+  --atmosphere-panel-strong:#272320;
+  color-scheme:dark;
+}
+
 .theme-blue-hydrangea { --theme-preview-bg:#eef5fb; --theme-preview-surface:#fbfdff; --theme-preview-line:#849db8; --theme-preview-accent:#426b96; --theme-preview-radius:14px; }
 .theme-peach-silk { --theme-preview-bg:#fff4ee; --theme-preview-surface:#fffdfa; --theme-preview-line:#b89080; --theme-preview-accent:#935544; --theme-preview-radius:15px; }
 .theme-moonlit-lilac { --theme-preview-bg:#17131f; --theme-preview-surface:#221c2b; --theme-preview-line:#705c7c; --theme-preview-accent:#c4a4d4; --theme-preview-radius:14px; color:#f3edf7; }
 .theme-carbon-ember { --theme-preview-bg:#111214; --theme-preview-surface:#1a1b1e; --theme-preview-line:#755c56; --theme-preview-accent:#b87364; --theme-preview-radius:12px; color:#f2f0ed; }
 .theme-petrol-steel { --theme-preview-bg:#0b1b1e; --theme-preview-surface:#14272a; --theme-preview-line:#537477; --theme-preview-accent:#78aaa9; --theme-preview-radius:12px; color:#ecf3f2; }
 .theme-carbon-crimson { --theme-preview-bg:#0b0e12; --theme-preview-surface:#15191f; --theme-preview-line:#5a6674; --theme-preview-accent:#cf667d; --theme-preview-radius:12px; color:#f3f5f7; }
+.theme-mocha-pastel { --theme-preview-bg:#1a1817; --theme-preview-surface:#272320; --theme-preview-line:#766b64; --theme-preview-accent:#aaa6c5; --theme-preview-radius:14px; color:#f0ebe7; }
 .theme-blue-hydrangea .theme-swatch { background-image:radial-gradient(circle at 84% 8%,rgba(116,157,205,.30),transparent 48%),linear-gradient(145deg,#e8f2fb,#fbfdff); }
 .theme-peach-silk .theme-swatch { background-image:radial-gradient(ellipse at 12% 0,rgba(234,163,136,.30),transparent 58%),linear-gradient(145deg,#ffede4,#fffdfa); }
 .theme-moonlit-lilac .theme-swatch { background-image:radial-gradient(circle at 84% 8%,rgba(196,164,212,.24),transparent 48%),linear-gradient(145deg,#15111d,#2b2236); }
 .theme-carbon-ember .theme-swatch { background-image:radial-gradient(circle at 84% 8%,rgba(184,115,100,.22),transparent 48%),linear-gradient(145deg,#0f1012,#26272a); }
 .theme-petrol-steel .theme-swatch { background-image:radial-gradient(circle at 84% 8%,rgba(120,170,169,.24),transparent 48%),linear-gradient(145deg,#091719,#1b3437); }
 .theme-carbon-crimson .theme-swatch { background-image:radial-gradient(circle at 84% 8%,rgba(207,102,125,.20),transparent 46%),linear-gradient(145deg,#090c10,#20262e); }
+.theme-mocha-pastel .theme-swatch { background-image:radial-gradient(circle at 84% 8%,rgba(170,166,197,.22),transparent 48%),radial-gradient(circle at 12% 88%,rgba(139,103,82,.14),transparent 44%),linear-gradient(145deg,#171514,#322c29); }
 
 /* Keep the small sunny selection readable without colouring whole panels. */
 .provider-body[data-provider-theme="butter"][data-provider-layout] .date-strip button.active {
@@ -542,7 +569,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) {
   min-height:100vh;
   font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif!important;
@@ -558,7 +585,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(*,button,input,select,textarea) { text-shadow:none!important; }
 
 .provider-body:is(
@@ -566,7 +593,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.provider-app,.provider-view) {
   border-color:transparent!important;
   background:transparent!important;
@@ -579,7 +606,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .ambient { display:none!important; }
 
 .provider-body:is(
@@ -587,7 +614,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-sidebar {
   border:1px solid var(--theme-line)!important;
   background:var(--signature-sidebar)!important;
@@ -601,7 +628,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.provider-brand,.sidebar-bottom) { border-color:var(--theme-line)!important; box-shadow:none!important; }
 
 .provider-body:is(
@@ -609,7 +636,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-brand .brand-mark {
   border:1px solid color-mix(in srgb,var(--theme-accent) 50%,var(--theme-line))!important;
   border-radius:var(--material-control-radius)!important;
@@ -624,7 +651,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.brand strong,.provider-topbar h1,.view-title h2,.settings-heading h3,.panel-head h3,.notification-toolbar h3,.client-profile-head h3,.organization-overview-copy h3) {
   color:var(--theme-ink)!important;
   font-family:var(--signature-heading-font,inherit)!important;
@@ -642,7 +669,7 @@
   font-weight:600!important;
 }
 
-.provider-body:is([data-provider-theme="japandi"],[data-provider-theme="midnight"],[data-provider-theme="mono"],[data-provider-theme="desert"],[data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]) :is(
+.provider-body:is([data-provider-theme="japandi"],[data-provider-theme="midnight"],[data-provider-theme="mono"],[data-provider-theme="desert"],[data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]) :is(
   .date-strip button,.booking-time-column,.timeline-time-axis,.timeline-booking-time,.provider-booking time,.report-value
 ) { font-variant-numeric:tabular-nums; }
 
@@ -651,7 +678,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.brand small,.provider-topbar small,.view-title>div:first-child>span:not(.panel-count),.provider-nav-label) {
   color:var(--theme-muted)!important;
   letter-spacing:.07em!important;
@@ -662,7 +689,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-topbar {
   border:1px solid var(--theme-line)!important;
   border-radius:var(--material-radius)!important;
@@ -676,7 +703,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-nav { gap:5px!important; border:0!important; }
 
 .provider-body:is(
@@ -684,7 +711,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-nav button {
   min-height:48px!important;
   border:1px solid transparent!important;
@@ -700,7 +727,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-nav button:hover { border-color:var(--theme-line)!important; background:var(--theme-surface-alt)!important; color:var(--theme-ink)!important; }
 
 .provider-body:is(
@@ -708,7 +735,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-nav button.active {
   border-color:color-mix(in srgb,var(--theme-accent) 25%,var(--theme-line))!important;
   background:var(--signature-nav-active)!important;
@@ -723,7 +750,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.provider-nav button.active>span:first-child,.provider-nav b,.panel-count,.dashboard-summary) {
   border-color:color-mix(in srgb,var(--theme-accent) 25%,var(--theme-line))!important;
   background:var(--theme-accent-soft)!important;
@@ -736,7 +763,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(
   .panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.notification-card,.waitlist-provider-card,
   .report-summary article,.report-comparison,.report-business-card,.report-performers,.report-visual-grid>.panel,
@@ -757,7 +784,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(
   .date-navigation,.date-strip,.schedule-toolbar,.timeline-view,.schedule-empty,.provider-user,.service-form,
   .booking-sheet-client,.booking-sheet-note-editor,.client-labels-panel,.provider-display-hint,.organization-row,
@@ -777,7 +804,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(
   .date-nav-button,.date-today-button,.schedule-date-picker,.refresh-button,.sync-tool-button,.journal-mode-toggle,
   .booking-filters button,.notification-filters,.notification-filters button,.report-periods,.report-periods button,
@@ -798,7 +825,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.connection-log-head small,.connection-log-lead,.connection-log-entry small) { color:var(--theme-muted)!important; }
 
 .provider-body:is(
@@ -806,7 +833,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(
   .primary,.date-strip button.active,.calendar-view-toggle button.active,.journal-mode-toggle button.active,
   .booking-filters button.active,.notification-filters button.active,.report-periods button.active,
@@ -824,7 +851,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.primary,.journal-mode-toggle button.active)>span { color:var(--theme-accent-contrast)!important; }
 
 .provider-body:is(
@@ -832,7 +859,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .date-strip { gap:5px!important; padding:8px!important; }
 
 .provider-body:is(
@@ -840,7 +867,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .date-strip button {
   min-height:64px!important;
   margin:0!important;
@@ -856,7 +883,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .date-strip button.active { border-color:var(--theme-accent)!important; background:var(--theme-accent)!important; color:var(--theme-accent-contrast)!important; }
 
 .provider-body:is(
@@ -864,7 +891,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.timeline-stage,.team-dispatcher-stage) {
   border-color:var(--theme-line)!important;
   background:var(--signature-stage)!important;
@@ -877,7 +904,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .timeline-grid-line { background:var(--theme-line)!important; box-shadow:none!important; }
 
 .provider-body:is(
@@ -885,7 +912,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.timeline-view .timeline-booking,.schedule-list .provider-booking) {
   border-color:color-mix(in srgb,var(--booking-tone,var(--theme-accent)) 30%,var(--theme-line))!important;
   border-radius:var(--material-radius)!important;
@@ -902,7 +929,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.booking-client-visit,.timeline-client-visit,.booking-status,.client-badge) {
   border-color:color-mix(in srgb,var(--theme-accent) 24%,var(--theme-line))!important;
   background:var(--theme-accent-soft)!important;
@@ -915,7 +942,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(.report-command-kicker i,.report-command-center::after) { animation:none!important; box-shadow:none!important; }
 
 .provider-body:is(
@@ -923,7 +950,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .report-command-center::after { display:none!important; }
 
 .provider-body:is(
@@ -931,7 +958,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-mobile-nav {
   border:1px solid var(--theme-line)!important;
   border-radius:calc(var(--material-radius) + 4px)!important;
@@ -946,7 +973,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-mobile-nav :is(button,a) { color:var(--theme-muted)!important; }
 
 .provider-body:is(
@@ -954,7 +981,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) .provider-mobile-nav button.active {
   border-color:color-mix(in srgb,var(--theme-accent) 24%,var(--theme-line))!important;
   border-radius:var(--material-control-radius)!important;
@@ -968,7 +995,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
 ) :is(
   .booking-sheet-panel,.notification-template-dialog,.service-creator-dialog,.dialog-card,.modal-card,
   .connection-log-dialog,.free-slots-dialog,.portfolio-editor-dialog,.product-feedback-dialog,.provider-confirm-dialog,
@@ -1009,7 +1036,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
   ) { background:var(--theme-bg)!important; }
 
   .provider-body:is(
@@ -1017,7 +1044,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
   ) :is(.provider-topbar,.provider-view) {
     margin-top:0!important;
     border-radius:0!important;
@@ -1030,7 +1057,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
   ) .date-strip button { min-height:56px!important; padding:6px 2px!important; }
 
   .provider-theme-options .provider-theme-option:last-child { grid-column:auto; }
@@ -1042,7 +1069,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"],[data-provider-theme="pearl-zebra"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="peach-silk"],[data-provider-theme="moonlit-lilac"],[data-provider-theme="carbon-ember"],[data-provider-theme="petrol-steel"],[data-provider-theme="carbon-crimson"],[data-provider-theme="mocha-pastel"]
   ) * { transition-duration:.01ms!important; animation-duration:.01ms!important; }
 }
 
@@ -1050,7 +1077,7 @@
 /* The tiger print belongs to the canvas, never to a reading surface. */
 .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
   background-color:var(--theme-bg)!important;
-  background-image:radial-gradient(ellipse 42% 95% at 56% 38%,#fff3e7 12%,rgba(255,243,231,.94) 40%,rgba(255,243,231,.12) 100%),url("provider-apricot-tiger.svg?v=685")!important;
+  background-image:radial-gradient(ellipse 42% 95% at 56% 38%,#fff3e7 12%,rgba(255,243,231,.94) 40%,rgba(255,243,231,.12) 100%),url("provider-apricot-tiger.svg?v=686")!important;
   background-size:100% 100%,1200px auto!important;
   background-position:center top,center top!important;
   background-repeat:no-repeat,repeat!important;
@@ -1070,7 +1097,7 @@
 }
 @media (max-width:760px) {
   .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
-    background-image:linear-gradient(rgba(255,243,231,.5),rgba(255,243,231,.5)),url("provider-apricot-tiger-mobile.svg?v=685")!important;
+    background-image:linear-gradient(rgba(255,243,231,.5),rgba(255,243,231,.5)),url("provider-apricot-tiger-mobile.svg?v=686")!important;
     background-size:auto,480px auto!important;
     background-attachment:scroll!important;
     background-repeat:repeat!important;
@@ -1138,7 +1165,7 @@
   --snow-print-veil:rgba(255,255,255,.86);
   background-color:#fff!important;
   /* Use one continuous 4K canvas; the composition itself carries the natural spacing. */
-  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-continuous-4k-v3.webp?v=685")!important;
+  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-continuous-4k-v3.webp?v=686")!important;
   background-size:auto,cover!important;
   background-repeat:no-repeat!important;
   background-position:center!important;
@@ -1165,7 +1192,7 @@
     --snow-print-veil:rgba(255,255,255,.80);
     /* Dedicated portrait artwork keeps rosettes about 30% smaller on phones
        while preserving one continuous, non-tiled canvas. */
-    background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-mobile-v1.png?v=685")!important;
+    background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-mobile-v1.png?v=686")!important;
     background-size:100% 100%,100% 100%!important;
     background-repeat:no-repeat!important;
     background-position:center top!important;
