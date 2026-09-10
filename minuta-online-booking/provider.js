@@ -13080,7 +13080,9 @@ function renderWaitlist() {
   const holder = $('#waitlistList');
   if (!holder) return;
   const active = waitlistRequests.filter(item => ['waiting', 'contacted'].includes(item.status));
-  $('#waitlistCount').textContent = String(active.length);
+  const count = $('#waitlistCount');
+  count.textContent = String(active.length);
+  count.hidden = !active.length;
   const badge = $('#waitlistBadge');
   badge.textContent = String(active.length);
   badge.hidden = !active.length;
@@ -13094,7 +13096,7 @@ function renderWaitlist() {
   }
   if (!active.length) {
     const clientPageUrl = $('.provider-client-link')?.href || new URL('index.html', location.href).href;
-    holder.innerHTML = `<div class="provider-empty compact-empty"><strong>Заявок пока нет</strong><small>Клиент сможет оставить удобную дату, если свободного времени не окажется.</small><div class="provider-empty-actions"><button class="primary compact-button" type="button" data-provider-view="bookings">Проверить расписание</button><a class="secondary-button provider-client-link" href="${escapeHtml(clientPageUrl)}" target="_blank" rel="noopener noreferrer">Страница клиента</a></div></div>`;
+    holder.innerHTML = `<div class="provider-empty compact-empty waitlist-empty-state"><strong>Заявок пока нет</strong><small>Когда клиенту не подойдёт свободное время, его заявка появится здесь.</small><div class="provider-empty-actions"><a class="primary compact-button provider-client-link" href="${escapeHtml(clientPageUrl)}" target="_blank" rel="noopener noreferrer">Открыть страницу клиента</a></div></div>`;
     return;
   }
   const statusLabels = { waiting: 'Ожидает', contacted: 'Связались' };

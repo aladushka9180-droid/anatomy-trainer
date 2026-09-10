@@ -16,6 +16,10 @@ const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noi
   readFile(path.join(directory, 'provider-pearl-zebra-smooth-4k-v4.webp')),
   readFile(path.join(directory, 'provider-snow-leopard-mobile-v1.png')),
 ]);
+const [providerHtml, providerUiRefinementsCss] = await Promise.all([
+  readFile(path.join(directory, 'provider.html'), 'utf8'),
+  readFile(path.join(directory, 'provider-ui-refinements.css'), 'utf8'),
+]);
 const css = `${baseCss}\n${signatureCss}\n${wildlifeCss}\n${noirSafariCss}`;
 
 function sourceArray(name) {
@@ -128,6 +132,14 @@ for (const layout of layouts) {
 assert.match(css, /\.unified-channel-card input\s*\{[^}]*width:20px!important[^}]*height:20px!important[^}]*\}/s);
 assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav :is\(button,a\):not\(\.active\)/);
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
+assert.match(providerHtml, /id="waitlistCount" hidden>0<\/span>/, 'An empty waitlist must not repeat a zero counter');
+assert.match(providerHtml, /Заявки клиентов на занятые даты\./, 'The waitlist introduction must stay concise');
+assert.doesNotMatch(providerHtml, /data-provider-panel="waitlist"[\s\S]{0,220}Свободные окна/, 'The waitlist title must not repeat a decorative eyebrow');
+assert.match(provider, /waitlist-empty-state[^`]+Открыть страницу клиента/, 'The empty waitlist must keep one clear action');
+assert.doesNotMatch(provider, /Заявок пока нет[^`]+Проверить расписание/, 'The empty waitlist must not duplicate the persistent Bookings navigation');
+assert.match(provider, /count\.hidden = !active\.length/, 'The waitlist counter must appear only when it carries information');
+assert.match(providerUiRefinementsCss, /\[data-provider-panel="waitlist"\] > :is\(\.view-title,\.view-description\)[\s\S]*?border:0!important[\s\S]*?background:transparent!important/, 'The waitlist heading must not be wrapped in decorative cards');
+assert.match(providerUiRefinementsCss, /\[data-provider-panel="waitlist"\] \.waitlist-empty-state[\s\S]*?width:min\(520px,100%\)[\s\S]*?border:0!important[\s\S]*?text-align:left/, 'The empty state must stay compact and use a single surface');
 
 const pearlZebraBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="pearl-zebra"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
 assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=684"\)/);
