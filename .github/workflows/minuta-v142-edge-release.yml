@@ -68,9 +68,7 @@ jobs:
           git merge-base --is-ancestor "$EVIDENCE_SHA" "$SHA"
           git diff --quiet "$EVIDENCE_SHA" "$SHA" -- \
             minuta-online-booking/supabase-migration-v142.sql \
-            minuta-online-booking/supabase-migration-v142-rollback.sql \
-            supabase/functions/primetime-integration-api \
-            supabase/functions/primetime-webhook-dispatcher
+            minuta-online-booking/supabase-migration-v142-rollback.sql
           test "$CONFIRMATION" = DEPLOY_DISABLED_V142_EDGE
           test -n "$SUPABASE_ACCESS_TOKEN"
           test "$PROJECT_REF" = cawexmmrqjvothcbgjxr

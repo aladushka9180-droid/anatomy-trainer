@@ -296,15 +296,17 @@ export async function handlePrimeTimeWebhookDispatch(
 ): Promise<Response> {
   try {
     if (request.method !== "POST") return json({ code: "METHOD_NOT_ALLOWED" }, 405);
-    if (request.body !== null || (request.headers.get("content-length") || "0") !== "0") {
-      return json({ code: "INVALID_REQUEST" }, 422);
-    }
     const getEnv = dependencies.env ?? runtimeEnv;
     const fetcher = dependencies.fetch ?? fetch;
     const config = loadConfig(getEnv);
     const authorization = request.headers.get("authorization")?.trim() || "";
     if (!await constantTimeEqual(authorization, `Bearer ${config.dispatchToken}`)) {
       throw new HttpError(401, "UNAUTHORIZED");
+    }
+    const declaredLength = request.headers.get("content-length")?.trim();
+    if ((declaredLength !== undefined && declaredLength !== "0") ||
+      (await request.arrayBuffer()).byteLength !== 0) {
+      return json({ code: "INVALID_REQUEST" }, 422);
     }
     const lease = (dependencies.randomUUID ?? crypto.randomUUID)();
     const leased = await callRpc(fetcher, config, "lease_minuta_integration_webhooks_v142", {

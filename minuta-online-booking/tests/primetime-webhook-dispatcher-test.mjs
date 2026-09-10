@@ -71,8 +71,12 @@ function fixture({ env = environment, deliveries, targetStatus = 204, targetThro
     if (targetThrows) throw new Error('fixture network failure');
     return new Response(targetStatus === 204 ? null : '', { status: targetStatus });
   };
-  const call = (headers = { authorization: `Bearer ${dispatchToken}` }) => handlePrimeTimeWebhookDispatch(
-    new Request('https://edge.fixture.invalid/functions/v1/primetime-webhook-dispatcher', { method: 'POST', headers }),
+  const call = (headers = { authorization: `Bearer ${dispatchToken}` }, body) => handlePrimeTimeWebhookDispatch(
+    new Request('https://edge.fixture.invalid/functions/v1/primetime-webhook-dispatcher', {
+      method: 'POST',
+      headers,
+      ...(body === undefined ? {} : { body })
+    }),
     { env: name => env[name], fetch, now: () => 4_102_444_800_000, randomUUID: () => lease }
   );
   return { calls, call };
@@ -100,6 +104,19 @@ test('private dispatch token is required before leasing', async () => {
   assert.equal(response.status, 401);
   assert.deepEqual(await response.json(), { code: 'UNAUTHORIZED' });
   assert.equal(f.calls.length, 0);
+});
+
+test('empty request streams are accepted but payload bytes are rejected', async () => {
+  const empty = fixture({ deliveries: [] });
+  const accepted = await empty.call(undefined, new Uint8Array(0));
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(await accepted.json(), { leased: 0, delivered: 0, retried: 0, failed: 0 });
+
+  const nonempty = fixture();
+  const rejected = await nonempty.call(undefined, 'x');
+  assert.equal(rejected.status, 422);
+  assert.deepEqual(await rejected.json(), { code: 'INVALID_REQUEST' });
+  assert.equal(nonempty.calls.length, 0);
 });
 
 test('exact JSON body is signed and successful deliveries are settled', async () => {

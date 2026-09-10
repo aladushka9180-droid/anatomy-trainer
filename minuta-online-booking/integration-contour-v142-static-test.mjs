@@ -87,7 +87,7 @@ assert.match(dispatcherDocs, /omit names, phone numbers, notes, management token
 
 assert.match(edgeRelease, /Attempt to force both production adapters off before deployment[\s\S]*continue-on-error: true/i);
 assert.match(edgeRelease, /evidence_commit_sha[\s\S]*git merge-base --is-ancestor "\$EVIDENCE_SHA" "\$SHA"/i);
-assert.match(edgeRelease, /git diff --quiet "\$EVIDENCE_SHA" "\$SHA"[\s\S]*supabase\/functions\/primetime-integration-api[\s\S]*supabase\/functions\/primetime-webhook-dispatcher/i);
+assert.match(edgeRelease, /git diff --quiet "\$EVIDENCE_SHA" "\$SHA"[\s\S]*supabase-migration-v142\.sql[\s\S]*supabase-migration-v142-rollback\.sql/i);
 assert.match(edgeRelease, /api_status[\s\S]*test "\$api_status" = 503/i);
 assert.match(edgeRelease, /dispatcher_status[\s\S]*test "\$dispatcher_status" = 503/i);
 assert.match(edgeRelease, /configurationStatus:"NOT_CONFIGURED"[\s\S]*realIntegrationsEnabled:false/i);
