@@ -1429,8 +1429,16 @@
                     <p class="password-hint">Можно использовать <code>{code}</code> и <code>{amount}</code>. Автоматическую проверку оплаты подключим после выбора платёжного сервиса.</p>
                   </div>
                 </div>
+                <div class="auto-complete-primary-setting" id="autoCompleteVisitsSetting">
+                  <label class="settings-check auto-complete-setting"><input id="autoCompleteVisits" type="checkbox" aria-controls="autoCompletePaymentField"><span><strong>Автоматически завершать прошедшие визиты</strong><small>Запись сама попадёт в статистику — заходить в карточку не нужно.</small></span></label>
+                  <div class="auto-complete-payment-field" id="autoCompletePaymentField" hidden>
+                    <label>Оплата по умолчанию<select id="autoCompletePaymentMethod"><option value="cash">Наличные</option><option value="transfer">Перевод</option><option value="card">Карта</option><option value="unpaid">Не оплачено</option></select></label>
+                    <small id="autoCompletePaymentHint">Полная стоимость услуги будет учтена как полученная.</small>
+                  </div>
+                  <p class="settings-effect-note"><strong>Важно:</strong> уже завершённые визиты не изменятся. Неявку или другую оплату можно исправить в карточке записи.</p>
+                </div>
                 <details class="booking-advanced-settings">
-                  <summary>Дополнительно: перерывы и автозавершение</summary>
+                  <summary>Дополнительно: перерывы</summary>
                   <div class="booking-advanced-settings-body">
                     <label class="settings-check booking-buffer-setting"><input id="bookingBufferEnabled" type="checkbox"><span><strong>Перерыв до и после каждой записи</strong><small>Свободные окна рядом с визитом будут закрыты автоматически.</small></span></label>
                     <div class="booking-buffer-duration" id="bookingBufferDuration" hidden>
@@ -1438,12 +1446,6 @@
                       <div class="booking-buffer-presets" aria-label="Быстрый выбор длительности перерыва"><button type="button" data-booking-buffer-minutes="15">15 мин</button><button type="button" data-booking-buffer-minutes="30">30 мин</button><button type="button" data-booking-buffer-minutes="60">1 час</button><button type="button" data-booking-buffer-minutes="120">2 часа</button><button type="button" data-booking-buffer-minutes="1440">Весь день</button></div>
                       <small>Можно указать точное время от 1 минуты до 24 часов.</small>
                     </div>
-                    <label class="settings-check auto-complete-setting"><input id="autoCompleteVisits" type="checkbox" aria-controls="autoCompletePaymentField"><span><strong>После окончания считать визит состоявшимся</strong><small>Запись сама попадёт в статистику — заходить в карточку не нужно.</small></span></label>
-                    <div class="auto-complete-payment-field" id="autoCompletePaymentField" hidden>
-                      <label>Оплата по умолчанию<select id="autoCompletePaymentMethod"><option value="cash">Наличные</option><option value="transfer">Перевод</option><option value="card">Карта</option><option value="unpaid">Не оплачено</option></select></label>
-                      <small id="autoCompletePaymentHint">Полная стоимость услуги будет учтена как полученная.</small>
-                    </div>
-                    <p class="settings-effect-note"><strong>Важно:</strong> уже завершённые визиты не изменятся. Неявку или другую оплату можно исправить в карточке записи.</p>
                   </div>
                 </details>
                 <p class="form-error" id="bookingPolicyError" hidden></p>

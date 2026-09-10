@@ -2777,6 +2777,25 @@ function quickVisitOutcomeMarkup(item) {
   const amount = draft.payment_method === 'unpaid' ? '' : ` · ${money(draft.amount_rub)}`;
   return `<div class="booking-outcome-quick"><button class="primary" type="button" data-quick-complete-booking="${item.id}">${uiIcon('check')}Состоялся · ${paymentMethodLabel(draft.payment_method)}${amount}</button><small>Одним нажатием. При необходимости результат можно исправить ниже.</small></div>`;
 }
+function autoCompleteSettingsActionMarkup(item) {
+  if (bookingPolicy.auto_complete_visits || item.status === 'cancelled' || bookingOutcome(item).visit_status !== 'scheduled' || bookingSessionEnd(item) > new Date()) return '';
+  return '<button class="booking-auto-complete-action" type="button" data-open-auto-complete-settings>Включить автозавершение</button>';
+}
+async function openAutoCompleteSettings() {
+  const sheet = $('#bookingSheet');
+  if (sheet) sheet.hidden = true;
+  document.body.classList.remove('booking-sheet-open');
+  await Promise.resolve(setProviderView('settings'));
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  const sectionButton = $('[data-provider-panel="settings"] [data-section-target="bookingRulesCard"]');
+  if (sectionButton) scrollToProviderSection(sectionButton);
+  else $('#autoCompleteVisitsSetting')?.scrollIntoView({ behavior:'smooth', block:'center' });
+  const setting = $('#autoCompleteVisitsSetting');
+  const input = $('#autoCompleteVisits');
+  setting?.classList.add('is-guided');
+  input?.focus({ preventScroll:true });
+  setTimeout(() => setting?.classList.remove('is-guided'), 1800);
+}
 function outcomeVisitLabel(outcome) {
   if (outcome.visit_status === 'completed') return outcome.completion_source === 'auto' ? 'Состоялся автоматически' : 'Состоялся';
   if (outcome.visit_status === 'no_show') return 'Не пришёл';
@@ -7176,7 +7195,7 @@ function openBookingSheet(id) {
   }
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
-    <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span>${bookingSeriesMarkup(item)}</div>
+    <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span>${autoCompleteSettingsActionMarkup(item)}${bookingSeriesMarkup(item)}</div>
     <div class="booking-sheet-summary"><div class="booking-sheet-client">${clientAvatarEditorMarkup(item.client_phone, item.client_name, item.id)}<div class="booking-sheet-client-copy"><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}</div><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>${isPerMinuteBooking(item) ? 'Тариф' : 'Стоимость'}</small><strong>${isPerMinuteBooking(item) ? `${money(minuteRate)}/мин` : money(bookingSessionTotal(item))}</strong></div></div>
     ${bookingClientOverviewMarkup(item)}
     <div class="booking-sheet-actions booking-repeat-actions">${bookingClientProfileActionMarkup(item)}<button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button></div>
@@ -13020,6 +13039,7 @@ document.addEventListener('click', async event => {
   const openClientProfile = event.target.closest('[data-open-client-profile]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
   const quickCompleteBookingButton = event.target.closest('[data-quick-complete-booking]');
+  const openAutoCompleteSettingsButton = event.target.closest('[data-open-auto-complete-settings]');
   const quickRepeatClient = event.target.closest('[data-quick-repeat-client]');
   const favoriteServiceButton = event.target.closest('[data-client-favorite-service]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
@@ -13230,6 +13250,7 @@ document.addEventListener('click', async event => {
   if (openClientProfile) openClientProfileFromBooking(openClientProfile.dataset.clientBookingId, openClientProfile.dataset.openClientProfile);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (quickCompleteBookingButton) await quickCompleteBookingOutcome(quickCompleteBookingButton);
+  if (openAutoCompleteSettingsButton) await openAutoCompleteSettings();
   if (quickRepeatClient) openQuickRepeatForClient(quickRepeatClient.dataset.quickRepeatClient);
   if (clientContactButton) openClientContactDialog();
   if (clientMoreButton) openClientMoreDialog();
