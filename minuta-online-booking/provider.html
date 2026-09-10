@@ -148,6 +148,22 @@
           <div><small class="provider-current-moment"><span id="todayLabel">Сегодня</span><span class="provider-current-moment-separator" aria-hidden="true">·</span><time id="currentTimeLabel" datetime="">--:--</time><span class="provider-theme-ornament" aria-hidden="true"></span></small><h1 id="welcomeName" hidden style="display:none!important"></h1></div>
           <div class="provider-topbar-actions">
             <button class="sync-state is-checking" id="syncState" type="button" aria-live="polite" aria-label="Открыть журнал связи" aria-describedby="syncVerifiedAt"><i></i><span>Подключаемся…</span><small id="syncVerifiedAt">Сверка ещё не выполнена</small></button>
+            <details class="provider-appearance-menu" id="providerAppearanceMenu">
+              <summary aria-label="Оформление: светлый режим" title="Оформление"><svg class="ui-icon" aria-hidden="true"><use id="providerAppearanceIcon" href="ui-icons.svg#icon-sun"></use></svg><span class="provider-appearance-label">Оформление</span></summary>
+              <div class="provider-appearance-popover">
+                <div class="provider-appearance-heading"><small>Быстрый выбор</small><strong>Оформление</strong></div>
+                <div class="provider-appearance-modes" role="group" aria-label="Режим оформления">
+                  <button type="button" data-provider-color-mode="light" aria-label="Светлый режим" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-sun"></use></svg><span>Светлая</span></button>
+                  <button type="button" data-provider-color-mode="dark" aria-label="Тёмный режим" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-moon"></use></svg><span>Тёмная</span></button>
+                  <button type="button" data-provider-color-mode="system" aria-label="Использовать режим устройства" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-monitor"></use></svg><span>Система</span></button>
+                </div>
+                <div class="provider-appearance-current" aria-live="polite">
+                  <span><small>Тема</small><strong id="providerAppearanceThemeName">Warm Beige</strong></span>
+                  <span><small>Компоновка</small><strong id="providerAppearanceLayoutName">Мягкий минимализм</strong></span>
+                </div>
+                <button class="provider-appearance-settings-link" id="openProviderAppearanceSettings" type="button" aria-label="Открыть все темы и компоновки в настройках"><span>Все темы и компоновки</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
+              </div>
+            </details>
             <details class="provider-topbar-tools">
               <summary aria-label="Открыть дополнительные инструменты"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Инструменты</span></summary>
               <div>
@@ -1864,7 +1880,9 @@
   <link rel="stylesheet" href="provider-ui-refinements.css?v=677">
   <link rel="stylesheet" href="provider-schedule-minimal.css?v=677">
   <link rel="stylesheet" href="provider-clients-premium.css?v=677">
+  <link rel="stylesheet" href="provider-color-mode.css?v=677">
   <script src="theme-catalog.js?v=677" defer></script>
+  <script src="provider-color-mode.js?v=677" defer></script>
   <script src="client-directory.js?v=677" defer></script>
   <script src="client-results.js?v=677" defer></script>
   <script src="client-relationship.js?v=677" defer></script>

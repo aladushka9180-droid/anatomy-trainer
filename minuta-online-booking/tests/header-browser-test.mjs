@@ -26,7 +26,7 @@ try{
         else if(css.backgroundImage!=='none')errors.push('unexpected header image');
         if(parseFloat(css.borderLeftWidth)||parseFloat(css.borderRightWidth)||parseFloat(css.borderTopWidth)||parseFloat(css.borderRadius))errors.push('card frame remains');
         if(r.left<0||r.right>innerWidth+1)errors.push('header overflow');
-        const controls=[...header.querySelectorAll('button,a')].filter(e=>e.getClientRects().length);
+        const controls=[...header.querySelectorAll('button,a,summary')].filter(e=>e.getClientRects().length);
         for(const control of controls){const rect=control.getBoundingClientRect();if(rect.height<44||rect.width<44)errors.push('small control '+control.id);if(rect.left<r.left-1||rect.right>r.right+1)errors.push('control overflow '+control.id);if(control.scrollWidth>control.clientWidth+2)errors.push('clipped control '+control.id);}
         for(let i=0;i<controls.length;i++)for(let j=i+1;j<controls.length;j++){const a=controls[i].getBoundingClientRect(),b=controls[j].getBoundingClientRect();if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>1&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1)errors.push('overlap '+controls[i].id+' '+controls[j].id);}
         const greeting=header.querySelector('h1').getBoundingClientRect();for(const control of controls){const a=control.getBoundingClientRect();if(Math.min(a.right,greeting.right)-Math.max(a.left,greeting.left)>1&&Math.min(a.bottom,greeting.bottom)-Math.max(a.top,greeting.top)>1)errors.push('greeting overlap');}
@@ -90,10 +90,51 @@ try{
       failures.push(...errors.map(error=>({theme,layout,width,scale,error})));menuCombinations++;
     }
   }
+  let appearanceCombinations=0;
+  for(const width of [320,390,760,1440]){
+    await page.setViewportSize({width,height:1000});
+    for(const layout of layouts)for(const theme of themes)for(const scale of ['default','large']){
+      await page.evaluate(({layout,theme,scale})=>{
+        document.body.dataset.providerTheme=theme;
+        document.body.dataset.providerLayout=layout;
+        document.body.dataset.providerTextScale=scale;
+        document.querySelector('.provider-topbar-tools').open=false;
+        document.querySelector('#providerAppearanceMenu').open=true;
+      },{layout,theme,scale});
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      const errors=await page.evaluate(()=>{
+        const errors=[];
+        const holder=document.querySelector('.provider-topbar-actions');
+        const menu=document.querySelector('.provider-appearance-popover');
+        const summary=document.querySelector('#providerAppearanceMenu>summary');
+        const modes=[...menu.querySelectorAll('[data-provider-color-mode]')];
+        const link=menu.querySelector('#openProviderAppearanceSettings');
+        const menuRect=menu.getBoundingClientRect();
+        const holderRect=holder.getBoundingClientRect();
+        const summaryRect=summary.getBoundingClientRect();
+        if(modes.length!==3)errors.push('wrong appearance mode count');
+        if(menuRect.width>293||menuRect.height>250)errors.push(`large appearance menu ${menuRect.width}x${menuRect.height}`);
+        if(menuRect.left<0||menuRect.right>innerWidth+1)errors.push('appearance menu overflow');
+        if(Math.abs(menuRect.right-holderRect.right)>1)errors.push('appearance menu is not action-aligned');
+        if(summaryRect.width<44||summaryRect.height<44)errors.push('small appearance summary');
+        for(const item of [...modes,link]){
+          const rect=item.getBoundingClientRect();
+          if(rect.width<44||rect.height<44)errors.push(`small appearance control ${item.id||item.dataset.providerColorMode}`);
+          if(rect.left<menuRect.left||rect.right>menuRect.right||rect.top<menuRect.top||rect.bottom>menuRect.bottom)errors.push('appearance control overflow');
+          if(!item.getAttribute('aria-label'))errors.push(`missing appearance label ${item.id||item.dataset.providerColorMode}`);
+        }
+        const pressed=modes.filter(item=>item.getAttribute('aria-pressed')==='true');
+        if(pressed.length!==1)errors.push('appearance selection is ambiguous');
+        return errors;
+      });
+      failures.push(...errors.map(error=>({theme,layout,width,scale,error})));appearanceCombinations++;
+    }
+  }
+  await page.evaluate(()=>{document.querySelector('#providerAppearanceMenu').open=false;});
   assert.deepEqual(failures,[]);
   await page.evaluate(()=>{document.querySelector('.provider-topbar-tools').open=false;document.querySelector('#desktopAppInstallButton').hidden=true;});
   await page.locator('#syncState').click();await page.getByRole('dialog').waitFor({state:'visible'});
   assert.match(await page.getByRole('dialog').innerText(),/дополнительные данные сохранены/);
   assert.deepEqual(pageErrors,[],'Header matrix and dialog must not hide script errors');
-  console.log(`Header browser: ${combinations} header combinations and ${menuCombinations} compact-menu combinations; transparent frame, 44px targets, no clipping/overlap; full status opens on click.`);
+  console.log(`Header browser: ${combinations} headers, ${menuCombinations} tool menus and ${appearanceCombinations} appearance menus; 44px targets, no clipping/overlap.`);
 }finally{await browser?.close();server.close();}

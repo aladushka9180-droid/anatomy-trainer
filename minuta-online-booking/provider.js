@@ -208,6 +208,13 @@ const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
 const PROVIDER_THEME_KEYS = Object.freeze([...window.MinutaThemeCatalog.themeKeys]);
 const PROVIDER_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all'];
+const PROVIDER_COLOR_MODE_KEYS = Object.freeze([...window.MinutaProviderColorMode.modes]);
+const PROVIDER_DARK_THEME_KEYS = Object.freeze(window.MinutaThemeCatalog.themes.filter(theme => theme.palette.dark).map(theme => theme.key));
+const PROVIDER_COLOR_MODE_LABELS = Object.freeze({ light:'светлый', dark:'тёмный', system:'как на устройстве' });
+const PROVIDER_LAYOUT_LABELS = Object.freeze({
+  linear:'Строгая геометрия', soft:'Мягкий минимализм', capsule:'Капсульный Flow',
+  editorial:'Редакционный', bento:'Модульный Bento', split:'Разделённая'
+});
 const CLIENT_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all'];
 const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
 const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
@@ -231,6 +238,7 @@ const DEFAULT_MOBILE_NAV_BY_ROLE = Object.freeze({
 });
 const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v1';
 const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
+const providerColorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
 const PROVIDER_SECTION_COMPANIONS = Object.freeze({
   organizationPeopleSection:['invitationsPanel', 'organizationAuditPanel'],
   telegramClientSettingsCard:['visitorAlertSettingsCard'],
@@ -250,6 +258,7 @@ const BOOKING_CARD_DENSITY_PRESETS = Object.freeze({
 const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   layout: 'soft',
   theme: 'warm',
+  color_mode: 'light',
   text_scale: 'default',
   booking_card_density: 'compact',
   show_phone: false,
@@ -1747,11 +1756,13 @@ function normalizeAnalyticsGoalsByScope(value = {}) {
 }
 function normalizeDisplayPreferences(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
-  const preferencesVersion = Number(source.preferences_version ?? source.version ?? 7);
+  const preferencesVersion = Number(source.preferences_version ?? source.version ?? 8);
   const storedTheme = String(source.theme || '');
   const storedLayout = String(source.layout || '');
   const storedTextScale = String(source.text_scale || source.textScale || '');
   const legacyLayout = PROVIDER_LAYOUT_KEYS.includes(storedTheme) ? storedTheme : '';
+  const theme = PROVIDER_THEME_KEYS.includes(storedTheme) ? storedTheme : LEGACY_PROVIDER_THEME_MAP[storedTheme] || DEFAULT_DISPLAY_PREFERENCES.theme;
+  const nativeColorMode = PROVIDER_DARK_THEME_KEYS.includes(theme) ? 'dark' : 'light';
   const density = BOOKING_CARD_DENSITY_KEYS.includes(source.booking_card_density)
     ? source.booking_card_density
     : DEFAULT_DISPLAY_PREFERENCES.booking_card_density;
@@ -1765,7 +1776,8 @@ function normalizeDisplayPreferences(value = {}) {
   const cardOptions = BOOKING_CARD_DENSITY_PRESETS[density] || customCardOptions;
   return {
     layout: PROVIDER_LAYOUT_KEYS.includes(storedLayout) ? storedLayout : legacyLayout || DEFAULT_DISPLAY_PREFERENCES.layout,
-    theme: PROVIDER_THEME_KEYS.includes(storedTheme) ? storedTheme : LEGACY_PROVIDER_THEME_MAP[storedTheme] || DEFAULT_DISPLAY_PREFERENCES.theme,
+    theme,
+    color_mode: PROVIDER_COLOR_MODE_KEYS.includes(source.color_mode) ? source.color_mode : nativeColorMode,
     text_scale: PROVIDER_TEXT_SCALE_KEYS.includes(storedTextScale) ? storedTextScale : DEFAULT_DISPLAY_PREFERENCES.text_scale,
     booking_card_density:density,
     ...cardOptions,
@@ -1783,6 +1795,7 @@ function displayPreferencesEqual(left, right) {
   const b = normalizeDisplayPreferences(right);
   return a.layout === b.layout
     && a.theme === b.theme
+    && a.color_mode === b.color_mode
     && a.text_scale === b.text_scale
     && a.booking_card_density === b.booking_card_density
     && a.show_phone === b.show_phone
@@ -1849,7 +1862,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
   if (!userId) return;
   try {
     localStorage.setItem(providerDisplayStorageKey(userId), JSON.stringify({
-      version: 7,
+      version: 8,
       preferences: displayPreferences,
       updated_at: displayPreferencesUpdatedAt,
       pending: displayPreferencesPending
@@ -1871,7 +1884,7 @@ function restoreDisplayPreferences(user = currentUser) {
 function displayPreferencesServerSnapshot() {
   return {
     ...displayPreferences,
-    version: 7,
+    version: 8,
     updated_at: displayPreferencesUpdatedAt
   };
 }
@@ -1971,16 +1984,71 @@ function renderMobileNavigationPreview(selectedKeys = displayPreferences.mobile_
     return `<span>${uiIcon(item.icon)}<small>${item.label}</small></span>`;
   }).join('')}<span>${uiIcon('more')}<small>Разделы</small></span>`;
 }
+function renderProviderAppearanceMenu(colorState = null) {
+  const menu = $('#providerAppearanceMenu');
+  if (!menu) return;
+  const theme = window.MinutaThemeCatalog.theme(displayPreferences.theme);
+  const requested = PROVIDER_COLOR_MODE_KEYS.includes(displayPreferences.color_mode) ? displayPreferences.color_mode : (theme.palette.dark ? 'dark' : 'light');
+  const resolved = colorState?.resolved || window.MinutaProviderColorMode.resolveMode(requested, providerColorSchemeQuery.matches, theme.palette.dark ? 'dark' : 'light');
+  menu.querySelectorAll('[data-provider-color-mode]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
+  });
+  const icon = $('#providerAppearanceIcon');
+  if (icon) icon.setAttribute('href', `ui-icons.svg#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  const summary = menu.querySelector(':scope>summary');
+  const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
+  const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
+  if (summary) {
+    summary.setAttribute('aria-label', `Оформление: ${currentLabel} режим`);
+    summary.title = `Оформление · ${currentLabel}`;
+  }
+  const themeName = $('#providerAppearanceThemeName');
+  if (themeName) themeName.textContent = theme.label;
+  const layoutName = $('#providerAppearanceLayoutName');
+  if (layoutName) layoutName.textContent = PROVIDER_LAYOUT_LABELS[displayPreferences.layout] || PROVIDER_LAYOUT_LABELS.soft;
+}
+function applyProviderColorMode() {
+  const theme = window.MinutaThemeCatalog.theme(displayPreferences.theme);
+  return window.MinutaProviderColorMode.apply(document.body, theme, displayPreferences.color_mode, providerColorSchemeQuery.matches);
+}
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
   document.body.dataset.providerLayout = displayPreferences.layout;
   document.body.dataset.providerTextScale = displayPreferences.text_scale;
   document.body.dataset.bookingCardDensity = displayPreferences.booking_card_density;
   document.body.dataset.iosTransitions = displayPreferences.ios_transitions ? 'on' : 'off';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', window.MinutaThemeCatalog.theme(displayPreferences.theme).palette.themeColor);
+  const colorState = applyProviderColorMode();
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', colorState?.themeColor || window.MinutaThemeCatalog.theme(displayPreferences.theme).palette.themeColor);
+  renderProviderAppearanceMenu(colorState);
   renderMobileNavigation();
   applyRoleViewOrder();
   groupMobileMoreNavigation();
+}
+
+function setProviderColorMode(nextMode) {
+  const theme = window.MinutaThemeCatalog.theme(displayPreferences.theme);
+  const fallback = theme.palette.dark ? 'dark' : 'light';
+  const mode = window.MinutaProviderColorMode.normalizeMode(nextMode, fallback);
+  if (displayPreferences.color_mode === mode) {
+    $('#providerAppearanceMenu')?.removeAttribute('open');
+    return;
+  }
+  displayPreferences = normalizeDisplayPreferences({ ...displayPreferences, color_mode:mode });
+  displayPreferencesUpdatedAt = Math.max(Date.now(), displayPreferencesUpdatedAt + 1);
+  displayPreferencesPending = true;
+  persistLocalDisplayPreferences();
+  applyDisplayPreferences();
+  renderDisplayPreferencesForm();
+  queueDisplayPreferencesSync();
+  $('#providerAppearanceMenu')?.removeAttribute('open');
+}
+
+async function openProviderAppearanceSettings() {
+  $('#providerAppearanceMenu')?.removeAttribute('open');
+  await Promise.resolve(setProviderView('settings'));
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  const sectionButton = $('[data-provider-panel="settings"] .provider-section-nav [data-section-target="appearanceSettingsCard"]');
+  if (sectionButton) scrollToProviderSection(sectionButton);
 }
 
 function setTeamCalendarEnabledPreference(nextEnabled) {
@@ -2215,6 +2283,7 @@ function displayPreferencesFromForm() {
   return normalizeDisplayPreferences({
     layout: $('#providerDisplayForm input[name="providerLayout"]:checked')?.value,
     theme: $('#providerDisplayForm input[name="providerTheme"]:checked')?.value,
+    color_mode: displayPreferences.color_mode,
     text_scale: $('#providerDisplayForm input[name="providerTextScale"]:checked')?.value,
     booking_card_density:$('#providerDisplayForm input[name="bookingCardDensity"]:checked')?.value,
     show_phone: $('#showBookingPhone').checked,
@@ -14655,6 +14724,36 @@ $('#visitorNotificationTestButton').addEventListener('click', testVisitorSystemN
 $('#telegramClientSettingsForm').addEventListener('submit', saveTelegramClientSettings);
 document.addEventListener('pointerdown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); }, { passive:true });
 document.addEventListener('keydown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); });
+const providerAppearanceMenu = $('#providerAppearanceMenu');
+const providerTopbarTools = $('.provider-topbar-tools');
+providerAppearanceMenu?.addEventListener('click', event => {
+  const modeButton = event.target.closest('.provider-appearance-modes>[data-provider-color-mode]');
+  if (modeButton) {
+    setProviderColorMode(modeButton.dataset.providerColorMode);
+    return;
+  }
+  if (event.target.closest('#openProviderAppearanceSettings')) void openProviderAppearanceSettings();
+});
+providerAppearanceMenu?.addEventListener('toggle', () => {
+  if (providerAppearanceMenu.open) providerTopbarTools?.removeAttribute('open');
+});
+providerTopbarTools?.addEventListener('toggle', () => {
+  if (providerTopbarTools.open) providerAppearanceMenu?.removeAttribute('open');
+});
+document.addEventListener('pointerdown', event => {
+  if (providerAppearanceMenu?.open && !event.target.closest('#providerAppearanceMenu')) providerAppearanceMenu.removeAttribute('open');
+  if (providerTopbarTools?.open && !event.target.closest('.provider-topbar-tools')) providerTopbarTools.removeAttribute('open');
+}, { passive:true });
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !providerAppearanceMenu?.open) return;
+  providerAppearanceMenu.removeAttribute('open');
+  providerAppearanceMenu.querySelector(':scope>summary')?.focus();
+});
+const handleProviderSystemColorChange = () => {
+  if (displayPreferences.color_mode === 'system') applyDisplayPreferences();
+};
+if (typeof providerColorSchemeQuery.addEventListener === 'function') providerColorSchemeQuery.addEventListener('change', handleProviderSystemColorChange);
+else providerColorSchemeQuery.addListener?.(handleProviderSystemColorChange);
 function handleDisplayPreferencesClick(event) {
   const move = event.target.closest('[data-move-role-view]');
   if (move) {
