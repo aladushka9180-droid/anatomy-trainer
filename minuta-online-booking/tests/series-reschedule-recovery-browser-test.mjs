@@ -25,7 +25,7 @@ function listener(startText) {
   return source.slice(start, end + 4);
 }
 const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'renderBookingEditTimePicker', 'bookingQuickTimeSlots', 'bookingExactTimeMarkup', 'closeBookingSheet', 'updateBookingAtExpectedState', 'bookingMoveTimeIsPast', 'updateBookingMovePreview', 'blockDurationChoices',
-  'sessionIsCurrent', 'requireWrites', 'providerAssistantIsoDate', 'isScheduleBlock', 'escapeHtml',
+  'sessionIsCurrent', 'requireWrites', 'providerAssistantIsoDate', 'isScheduleBlock', 'bookingDateLabel', 'escapeHtml',
   'serviceName', 'money', 'uiIcon', 'serviceOptions', 'bookingDisplayNote', 'bookingClientNote',
   'normalizePhone', 'bookingColor', 'validBookingColor', 'bookingColorPicker', 'bookingOutcome',
   'actionableSeriesBookings', 'seriesBookingCountLabel', 'bookingSeriesScopeMarkup', 'seriesRpcErrorMessage',
@@ -135,9 +135,7 @@ async function open(page, name) {
   assert.equal(await page.locator('#editBookingService').inputValue(), ids.service);
 }
 async function edit(page, name) {
-  await page.locator('.booking-move-advanced > summary').click();
-  await page.locator('#editBookingNote').fill(`Новая заметка ${name}`);
-  await page.locator(`[name="editBookingColor"][value="${name==='A'?'mint':'rose'}"]`).check();
+  assert.equal(await page.locator('.booking-move-advanced, #editBookingNote, [name="editBookingColor"]').count(),0,'Client transfer must contain only date, time and series scope');
   await page.locator('[name="editBookingSeriesScope"][value="following"]').check();
   await page.locator('#editBookingDate').fill(name==='A'?'2099-09-06':'2099-09-07');
   await page.locator('#editBookingDate').dispatchEvent('change');
@@ -152,8 +150,8 @@ async function startA(page) {
 }
 async function editorSnapshot(page) {
   return page.evaluate(() => ({visible:!$('#bookingSheet').hidden,same:window.newEditor===$('#bookingEditForm'),
-    id:$('#bookingEditForm').dataset.bookingId,date:$('#editBookingDate').value,note:$('#editBookingNote').value,
-    color:$('[name="editBookingColor"]:checked').value,scope:$('#bookingEditForm').elements.editBookingSeriesScope.value,
+    id:$('#bookingEditForm').dataset.bookingId,date:$('#editBookingDate').value,
+    scope:$('#bookingEditForm').elements.editBookingSeriesScope.value,
     time:bookingEditTime,errorHidden:$('#bookingEditError').hidden,
     disabled:$('#bookingEditForm button[type="submit"]').disabled,caption:$('#bookingEditForm button[type="submit"]').textContent,
     user:currentUser.id,generation:sessionGeneration}));
@@ -168,21 +166,19 @@ async function release(page, value) {
   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
 }
 const cases = [
-  ['current editor completes the intended RPC/color/note/refresh pipeline', '', async page => {
+  ['current transfer editor completes the intended RPC/refresh pipeline without metadata edits', '', async page => {
     await startA(page);
     await page.waitForFunction(() => effects.some(e=>e.kind==='open-sheet'));
     const output = await page.evaluate(() => ({effects,notes:[...clientNotes],notices}));
-    assert.deepEqual(output.effects.map(e=>e.kind), ['rpc-args','rpc','telegram','color-args','color','note-args','note','select-date','refresh','notify','open-sheet']);
+    assert.deepEqual(output.effects.map(e=>e.kind), ['rpc-args','rpc','telegram','select-date','refresh','notify','open-sheet']);
     assert.deepEqual(output.effects[0].args, {p_booking:ids.A,p_action:'reschedule',p_scope:'following',p_date:'2099-09-06',p_time:'11:00:00',p_expected_date:'2099-09-05',p_expected_time:'10:00:00'});
-    assert.equal(output.effects.find(e=>e.kind==='color-args').color,'mint');
-    assert.deepEqual(output.effects.find(e=>e.kind==='note-args').args.client_phone,'79990000001');
-    assert.deepEqual(output.effects.find(e=>e.kind==='note-args').args.note,'Новая заметка A');
+    assert.equal(output.effects.some(e=>e.kind==='color-args'||e.kind==='note-args'),false,'Transfer must not change color or client note');
     assert.equal(output.effects.at(-1).id,ids.A);
     assert.deepEqual(output.notices,['Запись обновлена']);
-    assert.ok(output.notes.some(([phone,note])=>phone==='79990000001'&&note==='Новая заметка A'));
+    assert.ok(output.notes.some(([phone,note])=>phone==='79990000001'&&note==='Исходная заметка A'));
   }]
 ];
-for (const boundary of ['rpc','color','note','refresh']) cases.push([
+for (const boundary of ['rpc','refresh']) cases.push([
   `A pending ${boundary} → native close → B editor → late A must stop`, boundary, async page => {
     await startA(page);
     await page.waitForFunction(kind=>gates.some(g=>g.kind===kind), boundary);
@@ -197,7 +193,7 @@ for (const boundary of ['rpc','color','note','refresh']) cases.push([
     assert.deepEqual(after,before,'A must not start further writes, mutate the notes cache, change schedule, toast, or navigate after B opens');
   }
 ]);
-for (const phase of ['rpc','color','note','refresh']) for (const transition of ['org-roundtrip','session-reset','account-replacement']) cases.push([
+for (const phase of ['rpc','refresh']) for (const transition of ['org-roundtrip','session-reset','account-replacement']) cases.push([
   `${phase} completion after ${transition} cannot touch current editor/maps/storage`,phase,async page=>{
     await startA(page);
     await page.waitForFunction(kind=>gates.some(g=>g.kind===kind),phase);
@@ -227,7 +223,7 @@ cases.push(['same-org callback does not invalidate a current save','rpc',async p
   assert.equal(await page.evaluate(()=>effects.at(-1).kind),'open-sheet');
   assert.equal(await page.evaluate(()=>effects.at(-1).id),ids.A);
 }]);
-for(const phase of ['rpc','color','note','refresh']){
+for(const phase of ['rpc','refresh']){
   cases.push([`late rejected ${phase} cannot paint an error into native B`,phase,async page=>{
     await startA(page);await page.waitForFunction(()=>gates.length===1);
     await page.keyboard.press('Escape');await open(page,'B');await edit(page,'B');
@@ -241,7 +237,7 @@ for(const phase of ['rpc','color','note','refresh']){
     await startA(page);await page.waitForFunction(()=>gates.length===1);
     await page.evaluate(()=>gates.shift().reject(new Error('Failed to fetch')));
     await page.waitForFunction(()=>!$('#bookingEditForm button[type="submit"]').disabled);
-    assert.equal(await page.locator('#bookingEditForm button[type="submit"]').textContent(),'Сохранить изменения');
+    assert.equal(await page.locator('#bookingEditForm button[type="submit"]').textContent(),'Перенести запись');
     assert.equal(await page.locator('#bookingEditError').isVisible(),true);
     assert.match(await page.locator('#bookingEditError').textContent(),phase==='rpc'?/Не удалось подтвердить результат/:/Основное изменение сохранено/);
     assert.equal(await page.evaluate(()=>effects.some(e=>e.kind==='open-sheet'||e.kind==='notify')),false);
@@ -250,8 +246,7 @@ for(const phase of ['rpc','color','note','refresh']){
 cases.push(['closing and reopening the same booking invalidates the old incarnation','rpc',async page=>{
   await startA(page);await page.waitForFunction(()=>gates.length===1);
   await page.keyboard.press('Escape');await open(page,'A');
-  await page.locator('.booking-move-advanced > summary').click();
-  await page.locator('#editBookingNote').fill('Другая форма той же записи');
+  await edit(page,'A');
   await page.evaluate(()=>{window.newEditor=$('#bookingEditForm');});
   const before=await effectsSnapshot(page),form=await editorSnapshot(page);
   await release(page);
@@ -309,7 +304,6 @@ cases.push(['same-form out-of-order dates keep the latest actual slot response',
   }
   await page.waitForFunction(()=>gates.length===2);
   await page.evaluate(()=>gates.pop().resolve({data:[{booking_time:'15:00:00'}],error:null}));
-  await page.locator('[data-edit-booking-hour="15"]').click();
   await page.locator('[data-edit-booking-time="15:00"]').click();
   await release(page,{data:[{booking_time:'23:45:00'}],error:null});
   assert.equal(await page.locator('[data-edit-booking-time="23:45"]').count(),0);
