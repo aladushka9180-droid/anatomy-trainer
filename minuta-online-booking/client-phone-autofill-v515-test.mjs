@@ -15,7 +15,9 @@ function createHarness(clients) {
     '#newBookingSheetTitle':{ textContent:'Новая запись', dataset:{} },
     '#newBookingSectionSubtitle':{ textContent:'Только необходимое для записи', dataset:{} },
     '#newBookingClientFields':{ dataset:{} },
-    '#newBookingClientSuggestions':{ hidden:true, innerHTML:'', dataset:{} }
+    '#newBookingClientSuggestions':{ hidden:true, innerHTML:'', dataset:{} },
+    '#newBookingRecentCalls':{ hidden:true, dataset:{} },
+    '#newBookingForm':{ dataset:{} }
   };
   const context = {
     Map,
@@ -37,7 +39,7 @@ function createHarness(clients) {
     saveNewBookingDraft() { context.saveCount += 1; }
   };
   vm.createContext(context);
-  vm.runInContext(`${providerSource.slice(start, end)}\nglobalThis.lookupApi = { newBookingClientCandidates, handleNewBookingPhoneInput, selectNewBookingClient };`, context);
+  vm.runInContext(`${providerSource.slice(start, end)}\nglobalThis.lookupApi = { newBookingClientCandidates, handleNewBookingPhoneInput, selectNewBookingClient, refreshNewBookingRecentCalls, chooseNewBookingRecentCall, receiveNewBookingRecentCall };`, context);
   return { context, nodes, api:context.lookupApi };
 }
 
@@ -61,6 +63,28 @@ const vera = {
   name:'Вера',
   bookings:[{ client_name:'Вера' }]
 };
+
+{
+  const { nodes, api, context } = createHarness([anna]);
+  let openCount = 0;
+  context.PrimeTimeAndroidCalls = { isAvailable:() => true, openRecentCalls:() => { openCount += 1; } };
+  api.refreshNewBookingRecentCalls();
+  assert.equal(nodes['#newBookingRecentCalls'].hidden, false, 'Android companion must expose the recent-calls action');
+  api.chooseNewBookingRecentCall();
+  assert.equal(openCount, 1, 'The web action must delegate the private call-log picker to Android');
+  assert.equal(api.receiveNewBookingRecentCall('+7 (999) 050-95-25'), true);
+  assert.equal(nodes['#newBookingName'].value, 'Анна', 'Selected recent caller must use the existing CRM autofill');
+  assert.equal(nodes['#newBookingPhone'].value, '+7 (999) 050-95-25');
+}
+
+{
+  const { nodes, api } = createHarness([]);
+  assert.equal(api.receiveNewBookingRecentCall('8 999 111-22-33'), true);
+  assert.equal(nodes['#newBookingPhone'].value, '+7 (999) 111-22-33');
+  assert.equal(nodes['#newBookingClientFields'].dataset.clientLookupState, 'recent-call');
+  assert.equal(nodes['#newBookingSectionSubtitle'].textContent, 'Номер из недавнего звонка — укажите имя');
+  assert.equal(api.receiveNewBookingRecentCall('скрытый номер'), false, 'Private or invalid caller IDs must not enter the form');
+}
 
 {
   const { nodes, api, context } = createHarness([anna]);

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PrimeTime Pro</string>
+    <string name="external_link_error">Не удалось открыть ссылку</string>
+    <string name="call_log_disclosure_title">Доступ к недавним звонкам</string>
+    <string name="call_log_disclosure">PrimeTime Pro прочитает только недавние входящие и пропущенные звонки, чтобы вы могли выбрать номер для новой записи. Журнал звонков не загружается на сервер и не сохраняется в CRM. В форму попадёт только номер, который вы выберете.</string>
+    <string name="continue_action">Продолжить</string>
+    <string name="call_log_denied">Доступ не разрешён. Недавние звонки останутся недоступны.</string>
+    <string name="call_log_unavailable_title">Доступ к звонкам выключен</string>
+    <string name="call_log_unavailable">Разрешите доступ к журналу звонков в настройках приложения. Без разрешения PrimeTime Pro не читает номера.</string>
+    <string name="open_settings">Открыть настройки</string>
+    <string name="recent_calls_title">Недавние входящие</string>
+    <string name="no_recent_calls">В журнале нет доступных входящих или пропущенных номеров.</string>
+</resources>

@@ -6302,7 +6302,9 @@ html.provider-booting .provider-main {
 .new-booking-date-time-editor[hidden] { display:none; }
 .new-booking-phone-control { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:8px; margin-top:9px; }
 .new-booking-phone-control>input { min-width:0; margin-top:0; }
-#newBookingContactPicker {
+.new-booking-phone-actions { display:flex; align-items:stretch; gap:7px; }
+#newBookingContactPicker,
+#newBookingRecentCalls {
   display:none;
   place-items:center;
   width:51px;
@@ -6314,9 +6316,15 @@ html.provider-booting .provider-main {
   color:var(--theme-accent,var(--green));
   cursor:pointer;
 }
-#newBookingContactPicker .ui-icon { width:20px; height:20px; }
-#newBookingContactPicker:disabled { cursor:wait; opacity:.6; }
-#newBookingContactPicker[hidden] { display:none; }
+#newBookingContactPicker .ui-icon,
+#newBookingRecentCalls .ui-icon { width:20px; height:20px; }
+#newBookingRecentCalls { width:auto; grid-auto-flow:column; gap:6px; padding:0 11px; }
+#newBookingRecentCalls>span { font-size:10px; font-weight:900; }
+#newBookingRecentCalls:not([hidden]) { display:grid; }
+#newBookingContactPicker:disabled,
+#newBookingRecentCalls:disabled { cursor:wait; opacity:.6; }
+#newBookingContactPicker[hidden],
+#newBookingRecentCalls[hidden] { display:none; }
 .new-booking-date-time-editor { display:grid; gap:12px; }
 .new-booking-block-fields { padding:0; border:0; background:transparent; }
 .new-booking-form[data-mode="block"] .new-booking-layout { grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); }
@@ -6378,7 +6386,8 @@ html.provider-booting .provider-main {
   .new-booking-mode-toggle button { min-height:40px; }
   .new-booking-section { gap:10px; padding:11px; }
   .new-booking-form input,.new-booking-form select,.new-booking-form textarea { min-height:46px; margin-top:6px; font-size:14px; }
-  #newBookingContactPicker { width:46px; min-height:46px; border-radius:12px; }
+  #newBookingContactPicker,#newBookingRecentCalls { min-height:46px; border-radius:12px; }
+  #newBookingContactPicker { width:46px; }
   .new-booking-phone-control { margin-top:6px; }
   .booking-time-picker { padding:10px; }
   .booking-time-hours,.booking-time-slots { grid-template-columns:repeat(3,minmax(0,1fr)); }

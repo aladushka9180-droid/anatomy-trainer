@@ -8461,6 +8461,51 @@ function newBookingContactPickerSupported() {
   return Boolean(navigator.contacts?.select && navigator.contacts?.getProperties);
 }
 
+function newBookingRecentCallsSupported() {
+  try {
+    const bridge = globalThis.PrimeTimeAndroidCalls;
+    return Boolean(bridge?.openRecentCalls && bridge?.isAvailable?.());
+  } catch {
+    return false;
+  }
+}
+
+function refreshNewBookingRecentCalls() {
+  const button = $('#newBookingRecentCalls');
+  if (button) button.hidden = !newBookingRecentCallsSupported();
+}
+
+function chooseNewBookingRecentCall() {
+  if (!$('#newBookingForm') || !newBookingRecentCallsSupported()) return;
+  try {
+    globalThis.PrimeTimeAndroidCalls.openRecentCalls();
+  } catch {
+    notify('Не удалось открыть недавние звонки');
+  }
+}
+
+function receiveNewBookingRecentCall(rawPhone) {
+  const form = $('#newBookingForm');
+  const phoneInput = $('#newBookingPhone');
+  const phone = normalizePhone(rawPhone);
+  if (!form || !phoneInput || !phone) return false;
+  phoneInput.value = newBookingClientPhoneLabel(phone, String(rawPhone || '').slice(0, 24));
+  newBookingAutoFilledName = '';
+  newBookingAutoFilledPhone = '';
+  handleNewBookingPhoneInput();
+  const fields = $('#newBookingClientFields');
+  if (fields && !fields.dataset.clientLookupState) {
+    fields.dataset.clientLookupState = 'recent-call';
+    $('#newBookingSectionSubtitle').textContent = 'Номер из недавнего звонка — укажите имя';
+    $('#newBookingName')?.focus?.();
+  }
+  saveNewBookingDraft();
+  return true;
+}
+
+globalThis.PrimeTimeReceiveRecentCall = receiveNewBookingRecentCall;
+globalThis.addEventListener?.('primetime-native-ready', refreshNewBookingRecentCalls);
+
 async function refreshNewBookingContactPicker() {
   const button = $('#newBookingContactPicker');
   if (!button || !newBookingContactPickerSupported()) return;
@@ -8757,7 +8802,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
       <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
         <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Имя, номер целиком или последние 4 цифры</small></div></div>
-          <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
+          <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><span class="new-booking-phone-actions"><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button><button id="newBookingRecentCalls" type="button" aria-label="Выбрать из недавних входящих звонков" title="Недавние входящие" hidden>${uiIcon('clock')}<span>Звонки</span></button></span></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название — необязательно<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Перерыв"></label></div>
           <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
           <p class="booking-time-warning" id="newBookingClientServiceUnavailable" ${services.length ? 'hidden' : ''}>Для записи клиента сначала добавьте активную услугу. Занять время можно уже сейчас.</p>
@@ -8806,7 +8851,9 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   const draftColor = $(`[name="newBookingColor"][value="${CSS.escape(String(preset.color || draft?.color || BOOKING_COLOR_DEFAULT))}"]`);
   if (draftColor) draftColor.checked = true;
   $('#newBookingContactPicker')?.addEventListener('click', chooseNewBookingContact);
+  $('#newBookingRecentCalls')?.addEventListener('click', chooseNewBookingRecentCall);
   refreshNewBookingContactPicker();
+  refreshNewBookingRecentCalls();
   $$('[data-new-booking-mode]').forEach(button => button.addEventListener('click', () => { setNewBookingMode(button.dataset.newBookingMode); saveNewBookingDraft(); }));
   $('#newBookingService').addEventListener('change', () => { newBookingTime = ''; updateNewBookingDurationControl({ reset:true }); saveNewBookingDraft(); loadNewBookingSlots(); });
   $('#newBookingDuration').addEventListener('input', () => updateNewBookingDurationControl());

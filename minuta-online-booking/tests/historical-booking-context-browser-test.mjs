@@ -19,7 +19,7 @@ function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf(
 const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeSlots','bookingRemainingTimeMarkup','activateBookingRemainingTimeScroll','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
   'renderNewBookingOutsideSchedulePrompt','newBookingOutsideScheduleLabel',
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService',
-  'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingClientPhoneLabel','newBookingClientCandidates',
+  'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingRecentCallsSupported','refreshNewBookingRecentCalls','chooseNewBookingRecentCall','receiveNewBookingRecentCall','newBookingClientPhoneLabel','newBookingClientCandidates',
   'hideNewBookingClientSuggestions','renderNewBookingClientSuggestions','scheduleNewBookingClientSuggestions','restoreNewBookingClientLookupStatus','applyNewBookingClient','selectNewBookingClient','handleNewBookingPhoneInput',
   'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','bookingDateLabel','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','parseLocalIsoDate','localIsoDate',
   'bookingDraftKey','readNewBookingDraft','saveNewBookingDraft','clearNewBookingDraft','bookingColorPicker','compactBookingColorPicker','bookingColor','validBookingColor',
@@ -73,6 +73,7 @@ async function fixture(){
       return !options.ignoreSchedule&&(start<600||start+duration>1200)?'Вне рабочего графика':null;
     };
     var applyClientHighlightClasses=()=>{},buildClients=()=>clientFixtures;
+    globalThis.PrimeTimeReceiveRecentCall=receiveNewBookingRecentCall;
     var organizationController={getActiveOrganization:()=>({id:activeClientOrganizationId})};
     var effects=[],gates=[],hold='color',refreshOutcome='success';
     var renderBookingData=()=>effects.push({kind:'render-list'}),notify=text=>effects.push({kind:'notify',text});
@@ -304,6 +305,8 @@ cases.push([
           return [{name:['Контакт из телефона'],tel:['+7 (900) 000-00-05']}];
         }
       }});
+      window.recentCallsState={calls:0};
+      window.PrimeTimeAndroidCalls={isAvailable:()=>true,openRecentCalls:()=>{recentCallsState.calls+=1;}};
       clientFixtures=[{phone:'79000000005',displayPhone:'+7 (900) 000-00-05',name:'Имя в CRM',bookings:[],imported:null}];
       openNewBookingSheet();
     });
@@ -313,6 +316,13 @@ cases.push([
     assert.equal(await page.locator('#newBookingPresetTime').count(),0);
     assert.equal(await page.locator('#newBookingName').isVisible(),true);
     assert.equal(await page.locator('#newBookingPhone').isVisible(),true);
+    assert.equal(await page.locator('#newBookingRecentCalls').isVisible(),true);
+    await page.locator('#newBookingRecentCalls').click();
+    assert.equal(await page.evaluate(()=>recentCallsState.calls),1,'Recent calls stay inside the native picker until the user selects one');
+    await page.evaluate(()=>window.PrimeTimeReceiveRecentCall('+7 (900) 000-00-05'));
+    assert.equal(await page.locator('#newBookingName').inputValue(),'Имя в CRM','Selected incoming caller must use the existing CRM match');
+    await page.locator('#newBookingName').fill('');
+    await page.locator('#newBookingPhone').fill('');
     await page.locator('#newBookingContactPicker').click();
     await page.waitForFunction(()=>contactPickerState.calls===1);
     assert.deepEqual(await page.evaluate(()=>contactPickerState.properties),['name','tel']);
@@ -359,10 +369,12 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     }
     await page.evaluate(()=>{
       Object.defineProperty(navigator,'contacts',{configurable:true,value:{getProperties:async()=>['name','tel'],select:async()=>[]}});
+      window.PrimeTimeAndroidCalls={isAvailable:()=>true,openRecentCalls:()=>{}};
       openNewBookingSheet();
     });
     await page.waitForFunction(()=>!document.querySelector('#newBookingContactPicker')?.hidden);
     assert.equal(await page.locator('#newBookingContactPicker').isVisible(),width<=760,'Phone-book action is mobile-only');
+    assert.equal(await page.locator('#newBookingRecentCalls').isVisible(),true,'Android companion must keep recent calls available at every supported width');
     assert.ok(await page.locator('.new-booking-section-title>div').first().evaluate(el=>el.getBoundingClientRect().width>200),'Heading must occupy full width after removing step badge');
     await page.locator('#newBookingAdvanced > summary').click();
     assert.equal(await page.locator('#newBookingInterval').isVisible(),false,'Single occurrence has no repeat interval');
