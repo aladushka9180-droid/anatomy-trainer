@@ -2911,6 +2911,8 @@ html.provider-booting .provider-main {
 .provider-body .provider-apk-download .ui-icon { width:17px; height:17px; }
 .provider-body .auth-footer-actions { display:grid; gap:10px; margin-top:18px; }
 .provider-body .auth-footer-actions .back-to-booking,.provider-body .auth-footer-actions .provider-apk-download { margin:0; }
+.provider-body .auth-footer-actions .provider-apk-download { color:var(--muted); font-size:12px; font-weight:750; }
+.provider-body .auth-footer-actions .provider-apk-download:hover { color:var(--green); }
 .provider-body .install-app-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:48px; margin:0; padding:0 17px; touch-action:manipulation; }
 .provider-body .install-fullscreen-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:48px; margin:0; white-space:nowrap; }
 .provider-body .install-fullscreen-button[hidden] { display:none; }
