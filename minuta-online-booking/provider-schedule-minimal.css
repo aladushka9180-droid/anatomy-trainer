@@ -186,6 +186,7 @@
   [data-provider-theme="petrol-steel"],
   [data-provider-theme="carbon-crimson"],
   [data-provider-theme="mocha-pastel"],
+  [data-provider-theme="oled-mono"],
   [data-provider-theme="noir-safari"]
 ) {
   --schedule-entry-fill-weight:30%;

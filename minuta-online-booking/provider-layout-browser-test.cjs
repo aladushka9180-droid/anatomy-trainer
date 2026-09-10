@@ -85,6 +85,7 @@ const server = http.createServer((request, response) => {
         if (output && theme === 'sage' && panel === 'bookings' && [390,768,1440].includes(width)) await page.screenshot({ path:path.join(output, `${layout}-${width}.png`) });
         if (output && theme === 'sage' && panel === 'settings' && layout === 'soft' && width === 390) await page.screenshot({ path:path.join(output, 'settings-soft-390.png') });
         if (output && theme === 'mocha-pastel' && panel === 'settings' && layout === 'capsule' && [390,760,1440].includes(width)) await page.screenshot({ path:path.join(output, `mocha-pastel-settings-capsule-${width}.png`), fullPage:true });
+        if (output && theme === 'oled-mono' && panel === 'settings' && layout === 'capsule' && [390,760,1440].includes(width)) await page.screenshot({ path:path.join(output, `oled-mono-settings-capsule-${width}.png`), fullPage:true });
       }
       console.log(`Layout matrix: ${width}px checked`);
     }

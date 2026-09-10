@@ -29,6 +29,6 @@ const catalogContext = { window:{} };
 vm.createContext(catalogContext);
 vm.runInContext(catalogSource, catalogContext);
 const themes = [...catalogContext.window.MinutaThemeCatalog.themeKeys];
-assert.equal(themes.length, 31, 'Проверка месяца должна охватывать всю 31 тему');
+assert.equal(themes.length, 32, 'Проверка месяца должна охватывать все 32 темы');
 
 console.log(`Calendar minimalism v400 checks passed across ${themes.length} themes.`);
