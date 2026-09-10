@@ -53,7 +53,7 @@ const loader = [metadataDependencies,lifecycle, resetHooks, orgHook, colorConsta
   declaration('saveBookingNote').replace('function saveBookingNote(', 'function actualSaveBookingNote('),
   listener("document.addEventListener('click', async event => {"),
   listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
-const ids = { A:'11111111-1111-4111-8111-111111111111', B:'22222222-2222-4222-8222-222222222222',
+const ids = { A:'11111111-1111-4111-8111-111111111111', B:'22222222-2222-4222-8222-222222222222', block:'66666666-6666-4666-8666-666666666666',
   service:'33333333-3333-4333-8333-333333333333', seriesA:'44444444-4444-4444-8444-444444444444', seriesB:'55555555-5555-4555-8555-555555555555' };
 const reply = { data:{ series_id:ids.seriesA, action:'reschedule', scope:'following', affected_count:1,
   affected:[{ booking_id:ids.A, occurrence:1 }] }, error:null };
@@ -82,7 +82,7 @@ async function fixture(holdAt = '') {
       if (!el) throw new Error(`Missing provider #${id}`);
       document.body.append(document.importNode(el, true));
     }
-    for (const name of ['A','B']) {
+    for (const name of ['A','B','block']) {
       const button = document.createElement('button');
       button.dataset.editBooking = ids[name]; button.textContent = `Открыть редактор ${name}`;
       document.body.append(button);
@@ -102,6 +102,8 @@ async function fixture(holdAt = '') {
     var allBookings=['A','B'].map((name,index)=>({id:ids[name],series_id:ids['series'+name],series_occurrence:1,
       booking_series:{occurrence_count:1},service_id:ids.service,services:ownServices[0],duration_minutes:60,
       booking_date:'2099-09-05',booking_time:'10:00:00',status:'confirmed',client_phone:'+7999000000'+(index+1)}));
+    allBookings.push({id:ids.block,series_id:null,service_id:ids.service,services:ownServices[0],duration_minutes:60,
+      organization_id:'org-A',location_id:'location-A',booking_date:'2099-09-05',booking_time:'10:00:00',status:'confirmed',client_name:'Перерыв',client_phone:SCHEDULE_BLOCK_PHONE});
     var $=selector=>document.querySelector(selector), $$=selector=>[...document.querySelectorAll(selector)];
     var businessTodayIso=()=> '2099-09-04', scheduleStepForDate=()=>5, applyClientHighlightClasses=()=>{};
     var effects=[], gates=[], slotCalls=[], notices=[];
@@ -110,6 +112,7 @@ async function fixture(holdAt = '') {
     var db={rpc:(name,args)=>{
       if(name==='set_booking_color')return boundary('color',{data:args.p_color,error:null});
       if(name==='set_booking_note')return boundary('booking-note',{data:args.p_note,error:null});
+      if(name==='get_provider_block_slots_v141')return Promise.resolve({data:[{booking_time:'10:00:00'},{booking_time:'11:00:00'},{booking_time:'15:00:00'}],error:null});
       if(name!=='manage_minuta_booking_series_v123')throw new Error('Unexpected RPC '+name);
       effects.push({kind:'rpc-args',name,args:structuredClone(args)});return boundary('rpc',responseFixture);},
       from:name=>{if(name!=='client_notes')throw new Error('Unexpected table '+name);return {upsert:args=>{
@@ -319,6 +322,17 @@ cases.push(['native slot loading recovers after rejected transport on the next d
   await page.locator('[data-edit-booking-hour="15"]').click();
   await page.locator('[data-edit-booking-time="15:00"]').click();
   assert.equal(await page.evaluate(()=>bookingEditTime),'15:00');
+}]);
+cases.push(['block hour immediately selects its first free minute and enables transfer','',async page=>{
+  await page.locator(`[data-edit-booking="${ids.block}"]`).click();
+  await page.locator('[data-edit-booking-time="10:00"]').waitFor();
+  await page.locator('#editBookingDate').fill('2099-09-06');
+  await page.locator('#editBookingDate').dispatchEvent('change');
+  await page.locator('[data-edit-booking-hour="15"]').click();
+  assert.equal(await page.evaluate(()=>bookingEditTime),'15:00');
+  assert.equal(await page.locator('#bookingEditForm button[type="submit"]').isEnabled(),true);
+  assert.match(await page.locator('#editBookingSelection').textContent(),/15:00/);
+  assert.match(await page.locator('#editBookingExactStatus').textContent(),/Необязательно.*15:00/);
 }]);
 try {
   browser = await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});

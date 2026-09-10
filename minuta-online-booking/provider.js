@@ -2626,7 +2626,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=669#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=670#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4848,7 +4848,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=669');
+    worker = new Worker('./report-worker.js?v=670');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7649,6 +7649,7 @@ async function loadBookingEditSlots(id, preserveCurrent = false) {
 function renderBookingEditTimePicker({ focusExact = false } = {}) {
   const holder = $('#editBookingTimes');
   if (!holder || !bookingEditSlots.length) return;
+  const blockEditor = $('#bookingEditForm')?.dataset.bookingKind === 'block';
   const hours = [...new Set(bookingEditSlots.map(time => time.slice(0, 2)))];
   if (!hours.includes(bookingEditHour)) bookingEditHour = hours[0];
   const hourSlots = bookingEditSlots.filter(time => time.startsWith(`${bookingEditHour}:`));
@@ -7658,7 +7659,7 @@ function renderBookingEditTimePicker({ focusExact = false } = {}) {
     : '';
   holder.innerHTML = `${seriesHint}${hours.length > 1 ? `<div class="booking-time-guide"><strong>Час</strong><span>${hours.length} доступно</span></div>
     <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === bookingEditHour ? 'active' : ''}" aria-pressed="${hour === bookingEditHour}" aria-label="Час ${hour}:00" data-edit-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>` : ''}
-    <div class="booking-time-guide"><strong>Новое время</strong><span id="editBookingExactStatus">${bookingEditTime ? `Выбрано ${bookingEditTime}` : `${quickSlots.length} вариантов`}</span></div>
+    <div class="booking-time-guide"><strong>${blockEditor ? 'Уточнить минуты' : 'Новое время'}</strong><span id="editBookingExactStatus">${bookingEditTime ? `${blockEditor ? 'Необязательно · ' : ''}выбрано ${bookingEditTime}` : `${quickSlots.length} вариантов`}</span></div>
     <div class="booking-time-slots">${quickSlots.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" aria-pressed="${time === bookingEditTime}" data-edit-booking-time="${time}">${time}</button>`).join('')}</div>
     ${bookingExactTimeMarkup('edit', hourSlots, bookingEditTime)}`;
   updateBookingMovePreview();
@@ -7913,7 +7914,7 @@ function openBookingEditor(id, preset = {}) {
   applyClientHighlightClasses($('#bookingSheet'), block ? '' : item.client_phone, 'booking-sheet-');
   $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
     <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Расписание'}</small></div><h2 id="bookingSheetTitle">${block ? 'Перенести перерыв' : 'Перенести запись'}</h2>
-    <form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="${item.id}" data-expected-booking-date="${escapeHtml(item.booking_date)}" data-expected-booking-time="${escapeHtml(String(item.booking_time).slice(0,5))}" data-expected-series-id="${escapeHtml(item.series_id || '')}">
+    <form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="${item.id}" data-booking-kind="${block ? 'block' : 'client'}" data-expected-booking-date="${escapeHtml(item.booking_date)}" data-expected-booking-time="${escapeHtml(String(item.booking_time).slice(0,5))}" data-expected-series-id="${escapeHtml(item.series_id || '')}">
       <div class="booking-move-summary"><div><span>Было</span><strong>${escapeHtml(bookingDateLabel(item.booking_date))}, ${escapeHtml(String(item.booking_time).slice(0,5))}</strong></div><b aria-hidden="true">→</b><div class="booking-move-selection" id="editBookingSelection" role="status" aria-live="polite"><span>Будет</span><strong>Выберите новое время</strong></div></div>
       <p class="booking-move-context">${escapeHtml(block ? item.client_name || 'Перерыв' : item.services?.name || ownServices.find(service => service.id === item.service_id)?.name || 'Запись')} · ${Number(item.duration_minutes) || 60} мин</p>
       <input id="editBookingService" type="hidden" value="${escapeHtml(item.service_id)}">
@@ -13286,8 +13287,13 @@ document.addEventListener('click', async event => {
   }
   if (editHour) {
     bookingEditHour = editHour.dataset.editBookingHour;
-    if (!bookingEditTime.startsWith(`${bookingEditHour}:`)) bookingEditTime = '';
-    renderBookingEditTimePicker({ focusExact:true });
+    if (!bookingEditTime.startsWith(`${bookingEditHour}:`)) {
+      const hourSlots = bookingEditSlots.filter(time => time.startsWith(`${bookingEditHour}:`));
+      bookingEditTime = $('#bookingEditForm')?.dataset.bookingKind === 'block'
+        ? (hourSlots.find(time => time.endsWith(':00')) || hourSlots[0] || '')
+        : '';
+    }
+    renderBookingEditTimePicker({ focusExact:$('#bookingEditForm')?.dataset.bookingKind !== 'block' });
   }
   if (applyEditExactTime) {
     const input = $('#editBookingExactTime');
