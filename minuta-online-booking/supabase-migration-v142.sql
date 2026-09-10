@@ -66,6 +66,13 @@ create table if not exists public.integration_rate_limits_v142(
   primary key(connection_id,key_id,operation_class,window_started_at)
 );
 
+create table if not exists public.integration_booking_revisions_v142(
+  booking_id uuid primary key references public.bookings(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  revision uuid not null default extensions.gen_random_uuid(),
+  updated_at timestamptz not null default clock_timestamp()
+);
+
 create table if not exists public.integration_calendar_events_v142(
   id uuid primary key default extensions.gen_random_uuid(),
   connection_id uuid not null references public.integration_connections_v142(id) on delete cascade,
@@ -148,13 +155,15 @@ create table if not exists public.integration_webhook_outbox_v142(
 alter table public.integration_connections_v142 enable row level security;
 alter table public.integration_api_keys_v142 enable row level security;
 alter table public.integration_rate_limits_v142 enable row level security;
+alter table public.integration_booking_revisions_v142 enable row level security;
 alter table public.integration_calendar_events_v142 enable row level security;
 alter table public.integration_request_receipts_v142 enable row level security;
 alter table public.integration_webhook_subscriptions_v142 enable row level security;
 alter table public.integration_webhook_outbox_v142 enable row level security;
 
 revoke all on public.integration_connections_v142,public.integration_api_keys_v142,
-  public.integration_rate_limits_v142,public.integration_calendar_events_v142,
+  public.integration_rate_limits_v142,public.integration_booking_revisions_v142,
+  public.integration_calendar_events_v142,
   public.integration_request_receipts_v142,public.integration_webhook_subscriptions_v142,
   public.integration_webhook_outbox_v142 from public,anon,authenticated,service_role;
 
@@ -162,6 +171,8 @@ create index if not exists integration_api_keys_v142_active_idx
   on public.integration_api_keys_v142(id,expires_at) where revoked_at is null;
 create index if not exists integration_rate_limits_v142_window_idx
   on public.integration_rate_limits_v142(window_started_at);
+create index if not exists integration_booking_revisions_v142_cursor_idx
+  on public.integration_booking_revisions_v142(organization_id,updated_at,booking_id);
 create index if not exists integration_calendar_events_v142_booking_idx
   on public.integration_calendar_events_v142(local_booking_id);
 create index if not exists integration_webhook_outbox_v142_lease_idx
@@ -367,6 +378,34 @@ end
 $$;
 revoke all on function public.ensure_minuta_integration_block_service_v142(uuid) from public,anon,authenticated,service_role;
 
+create or replace function public.touch_minuta_integration_booking_revision_v142()
+returns trigger language plpgsql security definer set search_path to '' as $$
+begin
+  insert into public.integration_booking_revisions_v142(
+    booking_id,organization_id,revision,updated_at
+  ) values(
+    new.id,new.organization_id,extensions.gen_random_uuid(),clock_timestamp()
+  ) on conflict(booking_id) do update set
+    organization_id=excluded.organization_id,
+    revision=excluded.revision,
+    updated_at=excluded.updated_at;
+  return new;
+end
+$$;
+revoke all on function public.touch_minuta_integration_booking_revision_v142() from public,anon,authenticated,service_role;
+
+drop trigger if exists aa_bookings_touch_integration_revision_v142 on public.bookings;
+create trigger aa_bookings_touch_integration_revision_v142
+after insert or update on public.bookings
+for each row execute function public.touch_minuta_integration_booking_revision_v142();
+
+insert into public.integration_booking_revisions_v142(
+  booking_id,organization_id,revision,updated_at
+)
+select booking.id,booking.organization_id,extensions.gen_random_uuid(),clock_timestamp()
+from public.bookings booking
+on conflict(booking_id) do nothing;
+
 create or replace function public.minuta_integration_calendar_snapshot_v142(
   p_connection uuid,p_external_event_id text
 ) returns jsonb language sql stable security definer set search_path to '' as $$
@@ -398,7 +437,7 @@ begin
     raise exception using errcode='22023',message='invalid_integration_calendar_query';
   end if;
   with candidates as(
-    select booking.id,coalesce(mapping.updated_at,booking.updated_at) updated_at,
+    select booking.id,coalesce(mapping.updated_at,booking_revision.updated_at) updated_at,
       jsonb_build_object(
         'id',coalesce(mapping.id,booking.id),'type',case when mapping.id is null then 'booking' else 'external_busy' end,
         'externalId',mapping.external_event_id,'bookingId',booking.id,'locationId',booking.location_id,
@@ -406,19 +445,21 @@ begin
         'startsAt',((booking.booking_date+booking.booking_time) at time zone location.timezone),
         'endsAt',((booking.booking_date+booking.booking_time+make_interval(mins=>booking.duration_minutes)) at time zone location.timezone),
         'status',coalesce(mapping.state,booking.status),
-        'revision',coalesce(mapping.source_revision,booking.updated_at::text),
-        'updatedAt',coalesce(mapping.updated_at,booking.updated_at)
+        'revision',coalesce(mapping.source_revision,booking_revision.revision::text),
+        'updatedAt',coalesce(mapping.updated_at,booking_revision.updated_at)
       ) payload
     from public.bookings booking
     join public.locations location on location.id=booking.location_id and location.organization_id=booking.organization_id
     left join public.integration_calendar_events_v142 mapping
       on mapping.connection_id=p_connection and mapping.local_booking_id=booking.id
+    left join public.integration_booking_revisions_v142 booking_revision
+      on booking_revision.booking_id=booking.id and booking_revision.organization_id=booking.organization_id
     where booking.organization_id=v_connection.organization_id
       and ((booking.booking_date+booking.booking_time) at time zone location.timezone)<p_to
       and ((booking.booking_date+booking.booking_time+make_interval(mins=>booking.duration_minutes)) at time zone location.timezone)>p_from
       and (mapping.id is not null or coalesce(booking.booking_policy_snapshot->>'integration_calendar_block','false')<>'true')
-      and (p_after_updated_at is null or (coalesce(mapping.updated_at,booking.updated_at),booking.id)>(p_after_updated_at,p_after_id))
-    order by coalesce(mapping.updated_at,booking.updated_at),booking.id
+      and (p_after_updated_at is null or (coalesce(mapping.updated_at,booking_revision.updated_at),booking.id)>(p_after_updated_at,p_after_id))
+    order by coalesce(mapping.updated_at,booking_revision.updated_at),booking.id
     limit p_count+1
   ), page as(select * from candidates order by updated_at,id limit p_count), overflow as(
     select * from candidates order by updated_at,id offset p_count limit 1
@@ -534,7 +575,7 @@ begin
       service_id=v_service,
       booking_date=v_local_start::date,booking_time=v_local_start::time,
       duration_minutes=extract(epoch from(v_local_end-v_local_start))::integer/60,
-      status='new',updated_at=now()
+      status='new'
     where id=v_booking and organization_id=v_connection.organization_id;
     update public.integration_calendar_events_v142 set location_id=p_location,performer_id=p_performer,
       source_revision=p_revision,payload_sha256=p_payload_sha256,state='active',updated_at=now()
@@ -586,7 +627,7 @@ begin
     where connection_id=p_connection and external_event_id=p_external_event_id for update;
   if not found or v_mapping.state<>'active' then return jsonb_build_object('ok',false,'error','event_not_found'); end if;
   if v_mapping.source_revision<>p_expected_revision then return jsonb_build_object('ok',false,'error','revision_conflict'); end if;
-  update public.bookings set status='cancelled',updated_at=now() where id=v_mapping.local_booking_id;
+  update public.bookings set status='cancelled' where id=v_mapping.local_booking_id;
   update public.integration_calendar_events_v142 set state='deleted',updated_at=now()
     where id=v_mapping.id;
   delete from public.notification_outbox where booking_id=v_mapping.local_booking_id;
@@ -607,7 +648,7 @@ grant execute on function public.delete_minuta_integration_calendar_event_v142(u
 create or replace function public.enqueue_minuta_integration_booking_webhooks_v142()
 returns trigger language plpgsql security definer set search_path to '' as $$
 declare v_event_type text; v_subscription record; v_event_id uuid; v_payload jsonb; v_zone text;
-  v_occurred_at timestamptz;
+  v_occurred_at timestamptz; v_booking_revision uuid;
 begin
   if coalesce(new.booking_policy_snapshot->>'integration_calendar_block','false')='true' then return new; end if;
   if tg_op='INSERT' then v_event_type:='booking.created';
@@ -618,6 +659,12 @@ begin
   else return new; end if;
   select location.timezone into v_zone from public.locations location where location.id=new.location_id;
   if v_zone is null then return new; end if;
+  select revision,updated_at into v_booking_revision,v_occurred_at
+  from public.integration_booking_revisions_v142 where booking_id=new.id;
+  if v_booking_revision is null then
+    v_booking_revision:=extensions.gen_random_uuid();
+    v_occurred_at:=clock_timestamp();
+  end if;
   for v_subscription in
     select subscription.* from public.integration_webhook_subscriptions_v142 subscription
     join public.integration_connections_v142 connection on connection.id=subscription.connection_id and connection.enabled
@@ -625,14 +672,13 @@ begin
       and v_event_type=any(subscription.event_types)
   loop
     v_event_id:=extensions.gen_random_uuid();
-    v_occurred_at:=clock_timestamp();
     v_payload:=jsonb_build_object(
       'schemaVersion',1,'eventId',v_event_id,'type',v_event_type,'occurredAt',v_occurred_at,
       'booking',jsonb_build_object(
         'id',new.id,'locationId',new.location_id,'performerId',new.performer_id,'serviceId',new.service_id,
         'startsAt',((new.booking_date+new.booking_time) at time zone v_zone),
         'endsAt',((new.booking_date+new.booking_time+make_interval(mins=>new.duration_minutes)) at time zone v_zone),
-        'status',new.status,'revision',new.updated_at
+        'status',new.status,'revision',v_booking_revision
       )
     );
     insert into public.integration_webhook_outbox_v142(

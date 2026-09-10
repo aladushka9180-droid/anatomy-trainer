@@ -22,9 +22,11 @@ end
 $guard$;
 
 drop trigger if exists bookings_integration_webhook_v142 on public.bookings;
+drop trigger if exists aa_bookings_touch_integration_revision_v142 on public.bookings;
 drop function if exists public.settle_minuta_integration_webhook_v142(uuid,uuid,text,integer,text);
 drop function if exists public.lease_minuta_integration_webhooks_v142(integer,uuid);
 drop function if exists public.enqueue_minuta_integration_booking_webhooks_v142();
+drop function if exists public.touch_minuta_integration_booking_revision_v142();
 drop function if exists public.delete_minuta_integration_calendar_event_v142(uuid,text,text,text,text);
 drop function if exists public.upsert_minuta_integration_calendar_event_v142(uuid,text,text,text,uuid,uuid,timestamptz,timestamptz,text,text);
 drop function if exists public.get_minuta_integration_calendar_v142(uuid,timestamptz,timestamptz,integer,timestamptz,uuid);
@@ -42,6 +44,7 @@ drop table if exists public.integration_webhook_outbox_v142;
 drop table if exists public.integration_webhook_subscriptions_v142;
 drop table if exists public.integration_request_receipts_v142;
 drop table if exists public.integration_calendar_events_v142;
+drop table if exists public.integration_booking_revisions_v142;
 drop table if exists public.integration_rate_limits_v142;
 drop table if exists public.integration_api_keys_v142;
 drop table if exists public.integration_connections_v142;

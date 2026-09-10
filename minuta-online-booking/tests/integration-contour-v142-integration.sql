@@ -269,6 +269,9 @@ select set_config('minuta.booking_location','',true);
 
 select pg_temp.v142_assert((select count(*)=1 from public.integration_webhook_outbox_v142
   where aggregate_id=current_setting('minuta.v142.ordinary_booking')::uuid and event_type='booking.created'),'webhook_enqueued');
+select pg_temp.v142_assert(exists(select 1 from public.integration_booking_revisions_v142
+  where booking_id=current_setting('minuta.v142.ordinary_booking')::uuid
+    and organization_id=current_setting('minuta.v142.organization')::uuid),'booking_revision_sidecar_created');
 select pg_temp.v142_assert(not exists(select 1 from public.integration_webhook_outbox_v142
   where payload::text~*'Secret client name|79990000000|Secret provider note'),'webhook_payload_is_pii_free');
 
@@ -295,6 +298,10 @@ where id=current_setting('minuta.v142.ordinary_booking')::uuid;
 select pg_temp.v142_assert(not exists(
   select 1 from public.bookings where id=current_setting('minuta.v142.ordinary_booking')::uuid
 ),'booking_delete_not_blocked_by_webhook_history');
+select pg_temp.v142_assert(not exists(
+  select 1 from public.integration_booking_revisions_v142
+  where booking_id=current_setting('minuta.v142.ordinary_booking')::uuid
+),'booking_revision_sidecar_cascades');
 select pg_temp.v142_assert(exists(
   select 1 from public.integration_webhook_outbox_v142
   where aggregate_id=current_setting('minuta.v142.ordinary_booking')::uuid

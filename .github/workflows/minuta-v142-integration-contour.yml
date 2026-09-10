@@ -140,6 +140,7 @@ jobs:
             to_regclass('public.integration_connections_v142') is not null connections_table,
             to_regclass('public.integration_api_keys_v142') is not null keys_table,
             to_regclass('public.integration_rate_limits_v142') is not null limits_table,
+            to_regclass('public.integration_booking_revisions_v142') is not null revisions_table,
             to_regclass('public.integration_calendar_events_v142') is not null events_table,
             to_regclass('public.integration_request_receipts_v142') is not null receipts_table,
             to_regclass('public.integration_webhook_subscriptions_v142') is not null subscriptions_table,
@@ -151,10 +152,10 @@ jobs:
             to_regprocedure('public.lease_minuta_integration_webhooks_v142(integer,uuid)') is not null lease_rpc,
             to_regprocedure('public.settle_minuta_integration_webhook_v142(uuid,uuid,text,integer,text)') is not null settle_rpc)
           select json_build_object('prerequisitesReady',prerequisites_ready,'mode',case
-            when prerequisites_ready and not connections_table and not keys_table and not limits_table
+            when prerequisites_ready and not connections_table and not keys_table and not limits_table and not revisions_table
               and not events_table and not receipts_table and not subscriptions_table and not outbox_table
               and not configure_rpc and not authenticate_rpc and not read_rpc and not write_rpc and not lease_rpc and not settle_rpc then 'ready'
-            when prerequisites_ready and connections_table and keys_table and limits_table
+            when prerequisites_ready and connections_table and keys_table and limits_table and revisions_table
               and events_table and receipts_table and subscriptions_table and outbox_table
               and configure_rpc and authenticate_rpc and read_rpc and write_rpc and lease_rpc and settle_rpc then 'full'
             else 'partial' end) from flags;
@@ -228,7 +229,7 @@ jobs:
           bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v142.sql
-          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('ready',to_regprocedure('public.configure_minuta_integration_connection_v142(uuid,uuid,text,text,text,boolean)') is not null and to_regprocedure('public.get_minuta_integration_calendar_v142(uuid,timestamptz,timestamptz,integer,timestamptz,uuid)') is not null and to_regprocedure('public.lease_minuta_integration_webhooks_v142(integer,uuid)') is not null,'connections',count(*),'enabledConnections',count(*) filter(where enabled)) from public.integration_connections_v142")"
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('ready',to_regclass('public.integration_booking_revisions_v142') is not null and to_regprocedure('public.touch_minuta_integration_booking_revision_v142()') is not null and to_regprocedure('public.configure_minuta_integration_connection_v142(uuid,uuid,text,text,text,boolean)') is not null and to_regprocedure('public.get_minuta_integration_calendar_v142(uuid,timestamptz,timestamptz,integer,timestamptz,uuid)') is not null and to_regprocedure('public.lease_minuta_integration_webhooks_v142(integer,uuid)') is not null,'connections',count(*),'enabledConnections',count(*) filter(where enabled)) from public.integration_connections_v142")"
           jq -e '.ready and .connections==0 and .enabledConnections==0' <<<"$state" >/dev/null
           jq -n --arg sha "$SHA" --argjson state "$state" \
             '{status:"success",phase:"apply-production-v142",commitSha:$sha,state:$state,productionWritten:true,businessRowsChanged:false,realIntegrationsEnabled:false,secretsExposed:false}' \
@@ -266,7 +267,7 @@ jobs:
           jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .productionWritten and (.businessRowsChanged|not) and (.realIntegrationsEnabled|not)' "$RUNNER_TEMP/v142-apply-evidence/v142-apply.json" >/dev/null
           db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
           bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
-          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('ready',to_regprocedure('public.configure_minuta_integration_connection_v142(uuid,uuid,text,text,text,boolean)') is not null and to_regprocedure('public.get_minuta_integration_calendar_v142(uuid,timestamptz,timestamptz,integer,timestamptz,uuid)') is not null and to_regprocedure('public.lease_minuta_integration_webhooks_v142(integer,uuid)') is not null,'connections',count(*),'enabledConnections',count(*) filter(where enabled)) from public.integration_connections_v142")"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('ready',to_regclass('public.integration_booking_revisions_v142') is not null and to_regprocedure('public.touch_minuta_integration_booking_revision_v142()') is not null and to_regprocedure('public.configure_minuta_integration_connection_v142(uuid,uuid,text,text,text,boolean)') is not null and to_regprocedure('public.get_minuta_integration_calendar_v142(uuid,timestamptz,timestamptz,integer,timestamptz,uuid)') is not null and to_regprocedure('public.lease_minuta_integration_webhooks_v142(integer,uuid)') is not null,'connections',count(*),'enabledConnections',count(*) filter(where enabled)) from public.integration_connections_v142")"
           jq -e '.ready and .connections==0 and .enabledConnections==0' <<<"$state" >/dev/null
           jq -n --arg sha "$SHA" --arg apply "$APPLY" --argjson state "$state" \
             '{status:"success",phase:"observe-production-v142",commitSha:$sha,applyRunId:$apply,readOnly:true,productionWritten:false,realIntegrationsEnabled:false,state:$state}' \

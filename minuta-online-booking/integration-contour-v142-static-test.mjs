@@ -13,6 +13,7 @@ for (const table of [
   'integration_connections_v142',
   'integration_api_keys_v142',
   'integration_rate_limits_v142',
+  'integration_booking_revisions_v142',
   'integration_calendar_events_v142',
   'integration_request_receipts_v142',
   'integration_webhook_subscriptions_v142',
@@ -43,6 +44,8 @@ assert.match(migration, /integration_calendar_block',true[\s\S]*notifications_su
 assert.match(migration, /p_expected_revision<>v_mapping\.source_revision/i);
 assert.match(migration, /v_receipt\.payload_sha256<>p_payload_sha256[\s\S]*request_conflict/i);
 assert.match(migration, /booking_policy_snapshot->>'integration_calendar_block'/i);
+assert.match(migration, /aa_bookings_touch_integration_revision_v142/i);
+assert.doesNotMatch(migration, /booking\.updated_at|new\.updated_at|set status='cancelled',updated_at/i);
 assert.match(migration, /booking\.organization_id=v_connection\.organization_id/i);
 assert.match(migration, /subscription\.organization_id=new\.organization_id/i);
 assert.doesNotMatch(migration, /aggregate_id uuid not null references public\.bookings/i);
