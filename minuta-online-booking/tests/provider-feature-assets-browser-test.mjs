@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { createRequire } from 'node:module';
 import { dirname, extname, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const { chromium } = createRequire(import.meta.url)('playwright');
+const playwright = process.env.MINUTA_PLAYWRIGHT_MODULE
+  ? await import(pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href)
+  : await import('playwright');
+const { chromium } = playwright;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(resolve(root, 'provider.html'), 'utf8');
 const worker = readFileSync(resolve(root, 'sw.js'), 'utf8');

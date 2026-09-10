@@ -20,6 +20,12 @@ assert.match(provider, /startLiveUpdates\(\{ catchUpOnSubscribe:false \}\);\s*aw
   'The initial subscription must be armed before the single full synchronization');
 assert.match(provider, /if \(catchUpOnSubscribe\) scheduleBookingsReload\(\);/,
   'Reconnects must retain their missed-event catch-up');
+assert.match(provider, /const name = 'исполнитель';[\s\S]{0,500}void loadProviderDisplayName\(userId, generation\);/,
+  'The display name request must not delay the provider shell');
+assert.match(provider, /async function loadProviderDisplayName\(userId, generation\)[\s\S]{0,700}!sessionIsCurrent\(userId, generation\)/,
+  'A late display name response must not overwrite a newer session');
+assert.match(provider, /result\?\.optional && !result\?\.ok && !result\?\.forbidden/,
+  'Unavailable role-gated sections must not show a degraded sync warning');
 
 const startupSecondary = provider.match(/const secondaryResults = \(await Promise\.allSettled\(\[([\s\S]*?)\]\)\)/)?.[1] || '';
 for (const forbidden of ['loadClientAvatars()', 'synchronizePortfolio(', 'loadWaitlist()']) {
@@ -65,4 +71,4 @@ assert.match(updates, /const CHECK_INTERVAL_MS = 15 \* 60 \* 1000;/, 'Update int
 assert.ok(!updates.includes("addEventListener('focus'"), 'Focus must not trigger update storms');
 assert.ok(!updates.includes("addEventListener('pageshow'"), 'Pageshow must not trigger update storms');
 
-console.log(`Provider startup performance v661: PASS (${assets.length} core files, ${precacheBytes} bytes)`);
+console.log(`Provider startup performance v662: PASS (${assets.length} core files, ${precacheBytes} bytes)`);
