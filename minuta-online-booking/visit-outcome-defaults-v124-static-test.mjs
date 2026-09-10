@@ -28,6 +28,7 @@ assert.match(provider, /paymentMethod === 'unpaid' \? 0 : calculatedAmount/);
 assert.match(provider, /data-quick-complete-booking/);
 assert.match(provider, /data-open-auto-complete-settings/);
 assert.match(provider, /function openAutoCompleteSettings/);
+assert.match(provider, /setting\?\.scrollIntoView\(\{ behavior:window\.matchMedia/);
 assert.match(provider, /async function quickCompleteBookingOutcome/);
 assert.match(provider, /auto_complete_payment_method,visitor_notifications_enabled/);
 assert.doesNotMatch(provider, /completionSource === 'auto' && method !== 'unpaid'/);
