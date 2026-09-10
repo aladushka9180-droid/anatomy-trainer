@@ -257,7 +257,7 @@ const BOOKING_CARD_DENSITY_PRESETS = Object.freeze({
 });
 const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   layout: 'soft',
-  theme: 'warm',
+  theme: 'sage',
   color_mode: 'light',
   text_scale: 'default',
   booking_card_density: 'compact',
@@ -1994,7 +1994,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=679#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=680#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2012,6 +2012,10 @@ function applyProviderColorMode() {
   return window.MinutaProviderColorMode.apply(document.body, theme, displayPreferences.color_mode, providerColorSchemeQuery.matches);
 }
 function applyDisplayPreferences() {
+  if (displayPreferences.color_mode === 'system') {
+    const systemTheme = window.MinutaProviderColorMode.themeKeyForMode('system', providerColorSchemeQuery.matches);
+    if (displayPreferences.theme !== systemTheme) displayPreferences = normalizeDisplayPreferences({ ...displayPreferences, theme:systemTheme });
+  }
   document.body.dataset.providerTheme = displayPreferences.theme;
   document.body.dataset.providerLayout = displayPreferences.layout;
   document.body.dataset.providerTextScale = displayPreferences.text_scale;
@@ -2029,11 +2033,12 @@ function setProviderColorMode(nextMode) {
   const theme = window.MinutaThemeCatalog.theme(displayPreferences.theme);
   const fallback = theme.palette.dark ? 'dark' : 'light';
   const mode = window.MinutaProviderColorMode.normalizeMode(nextMode, fallback);
-  if (displayPreferences.color_mode === mode) {
+  const targetTheme = window.MinutaProviderColorMode.themeKeyForMode(mode, providerColorSchemeQuery.matches);
+  if (displayPreferences.color_mode === mode && displayPreferences.theme === targetTheme) {
     $('#providerAppearanceMenu')?.removeAttribute('open');
     return;
   }
-  displayPreferences = normalizeDisplayPreferences({ ...displayPreferences, color_mode:mode });
+  displayPreferences = normalizeDisplayPreferences({ ...displayPreferences, theme:targetTheme, color_mode:mode });
   displayPreferencesUpdatedAt = Math.max(Date.now(), displayPreferencesUpdatedAt + 1);
   displayPreferencesPending = true;
   persistLocalDisplayPreferences();
@@ -2694,7 +2699,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=679#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=680#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4916,7 +4921,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=679');
+    worker = new Worker('./report-worker.js?v=680');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -14750,7 +14755,7 @@ document.addEventListener('keydown', event => {
   providerAppearanceMenu.querySelector(':scope>summary')?.focus();
 });
 const handleProviderSystemColorChange = () => {
-  if (displayPreferences.color_mode === 'system') applyDisplayPreferences();
+  if (displayPreferences.color_mode === 'system') setProviderColorMode('system');
 };
 if (typeof providerColorSchemeQuery.addEventListener === 'function') providerColorSchemeQuery.addEventListener('change', handleProviderSystemColorChange);
 else providerColorSchemeQuery.addListener?.(handleProviderSystemColorChange);
@@ -14768,6 +14773,10 @@ function handleDisplayPreferencesClick(event) {
 }
 function handleDisplayPreferencesChange(event) {
   if(event.target.id==='providerPreferenceRole'){renderDisplayPreferencesForm();return;}
+  if(event.target.matches('input[name="providerTheme"]')) {
+    const selectedTheme = window.MinutaThemeCatalog.theme(event.target.value);
+    displayPreferences = normalizeDisplayPreferences({ ...displayPreferences, color_mode:selectedTheme.palette.dark ? 'dark' : 'light' });
+  }
   saveDisplayPreferences();
 }
 $('#providerDisplayForm').addEventListener('click', handleDisplayPreferencesClick);

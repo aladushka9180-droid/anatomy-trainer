@@ -56,6 +56,7 @@ const app = readFileSync(join(root, 'app.js'), 'utf8');
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const config = readFileSync(join(root, 'config.js'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
+const providerColorMode = readFileSync(join(root, 'provider-color-mode.js'), 'utf8');
 const settingsSmartSearch = readFileSync(join(root, 'settings-smart-search.js'), 'utf8');
 const settingsNavScroll = readFileSync(join(root, 'settings-nav-scroll.js'), 'utf8');
 const freeSlotsShare = readFileSync(join(root, 'free-slots-share.js'), 'utf8');
@@ -362,8 +363,9 @@ assert.match(provider, /provider_display_preferences/, 'Оформление к�
 assert.match(providerHtml, /id="providerDisplayForm"/, 'В настройках нет выбора оформления кабинета');
 assert.match(providerHtml, /id="providerAppearanceMenu"[\s\S]*data-provider-color-mode="light"[\s\S]*data-provider-color-mode="dark"[\s\S]*data-provider-color-mode="system"/, 'В шапке нет быстрого выбора светлого, тёмного и системного режима');
 assert.match(providerHtml, /id="openProviderAppearanceSettings"[\s\S]*Все темы и компоновки/, 'Из быстрого меню нельзя перейти ко всем темам и компоновкам');
-assert.match(providerHtml, /provider-color-mode\.css\?v=\d+[\s\S]*provider-color-mode\.js\?v=\d+/, 'Палитры светлого и тёмного режима не подключены к кабинету');
-assert.match(serviceWorker, /provider-color-mode\.css\?v=\d+[\s\S]*provider-color-mode\.js\?v=\d+/, 'Быстрое оформление недоступно офлайн');
+assert.match(providerHtml, /provider-color-mode\.js\?v=\d+/, 'Переключение штатных тем не подключено к кабинету');
+assert.match(serviceWorker, /provider-color-mode\.js\?v=\d+/, 'Быстрое оформление недоступно офлайн');
+assert.match(providerColorMode, /light:'sage', dark:'midnight'/, 'Светлый и тёмный режимы не используют Sage Studio и Midnight Navy');
 assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"[\s\S]*value="graphite"[\s\S]*value="lavender"[\s\S]*value="luxury"[\s\S]*value="loft"[\s\S]*value="eco"[\s\S]*value="hitech"[\s\S]*value="japandi"[\s\S]*value="midnight"[\s\S]*value="mono"[\s\S]*value="desert"[\s\S]*value="rose"/, 'В настройках доступны не все базовые темы');
 assert.match(providerHtml, /name="bookingCardDensity" value="compact"[\s\S]*name="bookingCardDensity" value="detailed"[\s\S]*name="bookingCardDensity" value="custom"/, 'В карточках записей нет компактного, подробного и ручного режима');
 assert.match(providerHtml, /id="showBookingPhone"[\s\S]*id="showBookingVisitNumber"[\s\S]*id="showBookingClientType"/, 'Нельзя выбирать данные карточки записи');
@@ -582,7 +584,7 @@ const appearanceSources = [
   provider.match(/function normalizeDisplayPreferences\([\s\S]*?(?=\nfunction loadLocalDisplayPreferences)/)?.[0]
 ];
 assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
-assert.match(appearanceSources[12], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
+assert.match(appearanceSources[12], /theme:\s*'sage'/, 'Новый кабинет исполнителя не открывается в теме Sage Studio');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
 const defaultMobileNav = ['bookings', 'clients', 'notifications', 'analytics'];
 const defaultMobileNavByRole = { owner:['bookings','clients','notifications','analytics'], admin:['bookings','clients','notifications','analytics'], specialist:['bookings','clients','notifications','analytics'] };

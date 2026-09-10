@@ -12,7 +12,7 @@ const contentTypes={
 
 const fixtureScript=`
 document.documentElement.classList.remove('provider-booting','requires-top-level');
-document.body.dataset.providerTheme='warm';
+document.body.dataset.providerTheme='sage';
 document.body.dataset.providerLayout='soft';
 document.body.dataset.providerTextScale='default';
 document.body.dataset.bookingCardDensity='compact';
@@ -39,6 +39,7 @@ let requestedMode='light';
 const colorQuery=matchMedia('(prefers-color-scheme: dark)');
 const theme=()=>window.MinutaThemeCatalog.theme(document.body.dataset.providerTheme);
 function renderMode(){
+  document.body.dataset.providerTheme=window.MinutaProviderColorMode.themeKeyForMode(requestedMode,colorQuery.matches);
   const state=window.MinutaProviderColorMode.apply(document.body,theme(),requestedMode,colorQuery.matches);
   document.querySelector('#providerAppearanceMenu').querySelectorAll('[data-provider-color-mode]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.providerColorMode===requestedMode)));
   document.querySelector('#providerAppearanceIcon').setAttribute('href','ui-icons.svg#icon-'+(state.resolved==='dark'?'moon':'sun'));
@@ -119,6 +120,7 @@ async function run(){
           const timelineCardStyle=getComputedStyle(document.querySelector('.timeline-booking')),timelineHeadingStyle=getComputedStyle(document.querySelector('#appearanceTimelineHeading'));
           return {
             requested:document.body.dataset.providerColorMode,resolved:document.body.dataset.providerResolvedColorMode,
+            theme:document.body.dataset.providerTheme,variant:document.body.dataset.providerColorVariant,
             menu:{left:menu.left,right:menu.right,top:menu.top,bottom:menu.bottom},
             width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
             bodyBackground:bodyStyle.backgroundColor,workspaceBackground:workspaceStyle.backgroundColor,surfaceBackground:surfaceStyle.backgroundColor,
@@ -128,11 +130,13 @@ async function run(){
         });
         assert.equal(result.requested,mode);
         assert.ok(['light','dark'].includes(result.resolved));
+        assert.equal(result.theme,result.resolved==='dark'?'midnight':'sage');
+        assert.equal(result.variant,'native');
         assert.deepEqual(result.pressed,[mode]);
         assert.ok(result.menu.left>=0&&result.menu.right<=width+1&&result.menu.bottom<=1000,'Меню оформления вышло за экран');
         assert.ok(result.scrollWidth<=width+1,'Страница получила горизонтальную прокрутку');
         assert.notEqual(result.surfaceBackground,'rgba(0, 0, 0, 0)');
-        assert.equal(result.timelineHeadingColor,result.timelineCardColor,'Название записи потеряло контраст в производном режиме');
+        assert.equal(result.timelineHeadingColor,result.timelineCardColor,'Название записи потеряло контраст');
         await page.keyboard.press('Escape');
         assert.equal(await page.locator('#providerAppearanceMenu').getAttribute('open'),null);
       }
@@ -143,7 +147,7 @@ async function run(){
     await page.locator('[data-provider-panel="settings"]').waitFor({state:'visible'});
     assert.ok(await page.locator('#appearanceSettingsCard').isVisible(),'Ссылка не открыла настройки оформления');
     assert.deepEqual(pageErrors,[]);
-    console.log('Appearance menu browser: light/dark/system and Settings link verified at 390, 760 and 1440 px.');
+    console.log('Appearance menu browser: native Sage Studio / Midnight Navy pairing, system mode and Settings link verified at 390, 760 and 1440 px.');
   }finally{await browser?.close();server.close();}
 }
 
