@@ -74,8 +74,8 @@ try {
     raw_app_meta_data,raw_user_meta_data,created_at,updated_at
   ) values($1,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',$2,now(),'{}','{}',now(),now())`,
   [ids.actor, `${ids.actor}@example.invalid`]);
-  await admin.query('set local session_replication_role=origin');
   await admin.query("insert into public.performer_profiles(id,display_name) values($1,'V140 isolated race specialist')", [ids.actor]);
+  await admin.query('set local session_replication_role=origin');
   await admin.query(`insert into public.organizations(
     id,name,public_slug,status,public_booking_enabled,created_by
   ) values($1,'V140 isolated race organization',$2,'active',true,$3)`,
