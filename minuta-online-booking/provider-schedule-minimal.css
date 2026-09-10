@@ -181,6 +181,10 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="botanical"],
   [data-provider-theme="burgundy"],
+  [data-provider-theme="moonlit-lilac"],
+  [data-provider-theme="carbon-ember"],
+  [data-provider-theme="petrol-steel"],
+  [data-provider-theme="carbon-crimson"],
   [data-provider-theme="noir-safari"]
 ) {
   --schedule-entry-fill-weight:30%;

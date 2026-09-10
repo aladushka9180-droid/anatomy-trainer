@@ -21,6 +21,12 @@ const themes = [
   ['celadon', 'Celadon'],
   ['snow-leopard', 'Snow Leopard'],
   ['apricot-tiger', 'Apricot Tiger'],
+  ['blue-hydrangea', 'Blue Hydrangea'],
+  ['peach-silk', 'Peach Silk'],
+  ['moonlit-lilac', 'Moonlit Lilac'],
+  ['carbon-ember', 'Carbon Ember'],
+  ['petrol-steel', 'Petrol Steel'],
+  ['carbon-crimson', 'Carbon Crimson'],
 ];
 
 for (const [key, label] of themes) {
