@@ -69,12 +69,54 @@ try {
 
   // Repair residue from the original race fixture, which allowed the legacy
   // performer trigger to create a second organization before cleanup.
-  await admin.query(`delete from public.organizations organization
-    where organization.name='V140 isolated race specialist — организация'
-      and organization.legacy_performer_id is not null
-      and organization.public_slug='minuta-'||replace(organization.legacy_performer_id::text,'-','')
-      and not exists(select 1 from public.performer_profiles profile
-        where profile.id=organization.legacy_performer_id)`);
+  await admin.query('begin');
+  try {
+    await admin.query('set local session_replication_role=replica');
+    await admin.query(`do $$
+    declare
+      orphan_ids uuid[];
+      item record;
+    begin
+      select array_agg(organization.id order by organization.id) into orphan_ids
+      from public.organizations organization
+      where organization.name='V140 isolated race specialist — организация'
+        and organization.legacy_performer_id is not null
+        and organization.public_slug='minuta-'||replace(organization.legacy_performer_id::text,'-','')
+        and not exists(select 1 from public.performer_profiles profile
+          where profile.id=organization.legacy_performer_id);
+
+      if coalesce(cardinality(orphan_ids),0)>0 then
+        for item in
+          select columns.table_name
+          from information_schema.columns columns
+          join information_schema.tables tables using(table_schema,table_name)
+          where columns.table_schema='public' and tables.table_type='BASE TABLE'
+            and columns.column_name='organization_id'
+          order by columns.table_name
+        loop
+          execute format('delete from public.%I where organization_id=any($1)',item.table_name)
+            using orphan_ids;
+        end loop;
+        delete from public.organizations organization where organization.id=any(orphan_ids);
+      end if;
+
+      if exists(
+        select 1 from public.organizations organization
+        where organization.name='V140 isolated race specialist — организация'
+          and organization.legacy_performer_id is not null
+          and organization.public_slug='minuta-'||replace(organization.legacy_performer_id::text,'-','')
+          and not exists(select 1 from public.performer_profiles profile
+            where profile.id=organization.legacy_performer_id)
+      ) then
+        raise exception 'v140_orphan_legacy_organization_cleanup_failed';
+      end if;
+    end
+    $$`);
+    await admin.query('commit');
+  } catch (error) {
+    await admin.query('rollback');
+    throw error;
+  }
 
   await admin.query('begin');
   await admin.query('set local session_replication_role=replica');
