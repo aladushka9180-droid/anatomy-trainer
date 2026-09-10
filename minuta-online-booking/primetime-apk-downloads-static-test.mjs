@@ -9,8 +9,11 @@ const clientPolicy = read('../android/primetime-client/app/src/main/java/ru/prim
 const proManifest = read('../android/primetime-calls/app/src/main/AndroidManifest.xml');
 
 assert.match(provider, /releases\/latest\/download\/PrimeTime-Pro\.apk/u);
-assert.match(provider, />Скачать APK для Android</u);
+assert.match(provider, /class="install-app-secondary-actions"/u);
+assert.match(provider, />APK для Android</u);
 assert.match(styles, /\.auth-footer-actions \.provider-apk-download \{ color:var\(--muted\);/u);
+assert.match(styles, /\.install-app-content \{ display:grid; grid-column:2;/u);
+assert.match(styles, /\.install-app-button \{ display:inline-flex; width:auto; min-width:190px;/u);
 assert.match(clientManifest, /android\.permission\.INTERNET/u);
 assert.doesNotMatch(clientManifest, /READ_CALL_LOG/u);
 assert.match(clientPolicy, /https:\/\/primetime-booking\.primetime-booking-ru\.workers\.dev\//u);
