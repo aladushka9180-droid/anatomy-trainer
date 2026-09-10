@@ -1,9 +1,10 @@
-name: PrimeTime Android calls companion
+name: PrimeTime Android APKs
 
 on:
   push:
     paths:
       - "android/primetime-calls/**"
+      - "android/primetime-client/**"
       - ".github/workflows/primetime-android-calls.yml"
   workflow_dispatch:
 
@@ -15,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-pro:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -42,5 +43,32 @@ jobs:
         with:
           name: PrimeTime-Pro-calls-debug
           path: android/primetime-calls/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  build-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: android/primetime-client
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4.4.3
+        with:
+          gradle-version: "8.10.2"
+      - name: Test and build APK
+        run: gradle testDebugUnitTest lintDebug assembleDebug --stacktrace
+      - name: Upload installable APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: PrimeTime-client-debug
+          path: android/primetime-client/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
