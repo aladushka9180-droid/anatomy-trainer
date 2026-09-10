@@ -10961,7 +10961,7 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
     const skipped = requiredResults.some(result => result?.skipped);
-    const degraded = results.some(result => result?.optional && !result?.ok);
+    const degraded = results.some(result => result?.optional && !result?.ok && !result?.forbidden);
     setBookingCreationReady(bookingReady);
     setWritesAllowed(complete);
     if (complete) {
@@ -11246,13 +11246,11 @@ async function handleSession(session) {
   if (!sessionIsCurrent(userId, generation)) return;
   if (cachedBookings) setSyncState(navigator.onLine ? 'checking' : 'offline', navigator.onLine ? `Показана копия на ${reliability?.savedAtLabel(cachedBookings.savedAt) || 'последнюю синхронизацию'} · обновляем` : canQueueOfflineBooking() ? `${cachedStateText(cachedBookings.savedAt)} · новую запись можно отложить` : `${cachedStateText(cachedBookings.savedAt)} · только чтение`);
   else if (!navigator.onLine) setSyncState('offline', 'Нет интернета и сохранённой копии · только чтение');
-  let profile = null;
-  if (navigator.onLine) ({ data: profile } = await db.from('performer_profiles').select('display_name').eq('id', currentUser.id).single());
-  if (!sessionIsCurrent(userId, generation)) return;
-  const name = profile?.display_name || 'исполнитель';
+  const name = 'исполнитель';
   $('#welcomeName').textContent = `Здравствуйте, ${name}!`;
   $('#sidebarName').textContent = name;
   $('#userAvatar').textContent = name.slice(0, 1).toUpperCase();
+  if (navigator.onLine) void loadProviderDisplayName(userId, generation);
   $('#accountEmail').textContent = currentUser.email || (currentUser.phone ? (window.MinutaPhoneAuth?.formatPhone(currentUser.phone) || currentUser.phone) : '');
   renderProviderPhoneState();
   renderTopbarDateTime();
@@ -11280,6 +11278,19 @@ async function handleSession(session) {
   if (!bookingsChannel) startLiveUpdates();
   setProviderView(providerViewFromLocation(), { historyMode:'replace', focusHeading:false });
   syncScheduleContextHistory();
+}
+
+async function loadProviderDisplayName(userId, generation) {
+  // A greeting must not hold up the journal or overwrite a newer session.
+  try {
+    const { data:profile, error } = await db.from('performer_profiles').select('display_name').eq('id', userId).single();
+    if (error || !sessionIsCurrent(userId, generation)) return false;
+    const name = profile?.display_name || 'исполнитель';
+    $('#welcomeName').textContent = `Здравствуйте, ${name}!`;
+    $('#sidebarName').textContent = name;
+    $('#userAvatar').textContent = name.slice(0, 1).toUpperCase();
+    return true;
+  } catch { return false; }
 }
 
 async function providerAccessAllowed(userId) {
