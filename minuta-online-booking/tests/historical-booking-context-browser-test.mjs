@@ -539,6 +539,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
       db.rpc=(name,args)=>name==='get_provider_block_slots_v141'
         ? Promise.resolve({data:['14:00','14:30','15:00'].map(booking_time=>({booking_time})),error:null})
         : originalRpc(name,args);
+      document.body.dataset.providerLayout='capsule';
     });
     await page.locator('[data-new-booking-mode="block"]').click();
     await page.waitForTimeout(50);
@@ -546,10 +547,31 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingSectionSubtitle').getAttribute('class'),'sr-only','The block fields make the repeated helper unnecessary');
     await recordUiMetric(page,'block-collapsed',theme,width);
     if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-block-${theme}-${width}.png`});
+    if(expectMinimalBookingForm){
+      assert.equal(await page.locator('#newBookingBlockTitle').inputValue(),'','A generic break must not repeat its title inside the optional name field');
+      assert.equal(await page.locator('#newBookingBlockTitle').isVisible(),false,'The optional title must stay collapsed by default');
+      assert.equal(await page.locator('#newBookingBlockTitleSummary').textContent(),'Добавить название');
+      const blockTitleSurface=await page.locator('#newBookingBlockFields').evaluate(el=>{
+        const style=getComputedStyle(el),rect=el.getBoundingClientRect();
+        return {background:style.backgroundColor,borderTop:style.borderTopWidth,borderRadius:style.borderRadius,height:rect.height};
+      });
+      assert.match(blockTitleSurface.background,/rgba\([^)]*,\s*0\)$/,'Optional title disclosure must not inherit a decorative capsule background');
+      assert.equal(blockTitleSurface.borderTop,'0px');
+      assert.equal(blockTitleSurface.borderRadius,'0px');
+      assert.ok(blockTitleSurface.height<=45,`Collapsed optional title must remain a compact row: ${JSON.stringify(blockTitleSurface)}`);
+      await page.locator('#newBookingBlockFields > summary').click();
+      assert.equal(await page.locator('#newBookingBlockTitle').isVisible(),true);
+      assert.equal(await page.locator('#newBookingBlockTitle').getAttribute('placeholder'),'Например, обед или личное дело');
+      await page.locator('#newBookingBlockTitle').fill('Обед');
+      await page.locator('#newBookingBlockFields > summary').click();
+      await page.waitForFunction(()=>document.querySelector('#newBookingBlockTitleSummary')?.textContent==='Название: Обед');
+      assert.equal(await page.locator('#newBookingBlockTitleSummary').textContent(),'Название: Обед');
+    }
     await page.locator('#newBookingAdvanced > summary').click();
     await recordUiMetric(page,'block-advanced',theme,width);
     if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-block-advanced-${theme}-${width}.png`});
     await page.locator('#newBookingAdvanced > summary').click();
+    await page.evaluate(()=>{document.body.dataset.providerLayout='linear';});
     await page.locator('[data-new-booking-mode="client"]').click();
     await page.evaluate(()=>{
       const date=document.querySelector('#newBookingDate');

@@ -6356,7 +6356,35 @@ html.provider-booting .provider-main {
 #newBookingContactPicker[hidden],
 #newBookingRecentCalls[hidden] { display:none; }
 .new-booking-date-time-editor { display:grid; gap:12px; }
-.new-booking-block-fields { padding:0; border:0; background:transparent; }
+.provider-body[data-provider-theme] .booking-sheet.new-booking-sheet .new-booking-block-title {
+  display:grid;
+  gap:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.provider-body[data-provider-theme] .booking-sheet.new-booking-sheet .new-booking-block-title[open] { gap:8px; }
+.new-booking-block-title>summary {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  min-height:44px;
+  padding:0 2px;
+  border-bottom:1px solid var(--theme-line,var(--line));
+  color:var(--theme-accent,var(--green));
+  cursor:pointer;
+  list-style:none;
+  font-size:13px;
+  font-weight:850;
+}
+.new-booking-block-title>summary::-webkit-details-marker { display:none; }
+.new-booking-block-title>summary::after { content:'＋'; flex:none; font-size:16px; }
+.new-booking-block-title[open]>summary::after { content:'−'; }
+.new-booking-block-title>label { display:block; margin:0; }
+.new-booking-block-title>label>input { margin-top:0; }
 .new-booking-form[data-mode="block"] .new-booking-layout { grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); }
 .booking-time-guide:not(:first-child) { margin-top:12px; padding-top:10px; }
 .booking-time-hours,.booking-time-slots { grid-template-columns:repeat(5,minmax(0,1fr)); }

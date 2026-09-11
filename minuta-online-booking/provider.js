@@ -2035,7 +2035,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=699#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=700#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2740,7 +2740,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=699#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=700#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4962,7 +4962,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=699');
+    worker = new Worker('./report-worker.js?v=700');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -8978,7 +8978,7 @@ function setNewBookingMode(mode) {
   $('#newBookingBlockFields').hidden = !block;
   $('#newBookingName').required = !block;
   $('#newBookingPhone').required = !block;
-  $('#newBookingBlockTitle').required = block;
+  $('#newBookingBlockTitle').required = false;
   $('#newBookingClientNoteField').hidden = block;
   $('#newBookingBlockNoteField').hidden = !block;
   const locationField = $('#newBookingLocationField');
@@ -9046,7 +9046,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
       <div class="new-booking-layout">
         <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Имя, номер целиком или последние 4 цифры</small></div></div>
           <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label class="new-booking-name-field"><span class="sr-only">Имя клиента</span><input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><span class="new-booking-phone-actions"><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button><button id="newBookingRecentCalls" type="button" aria-label="Выбрать из недавних входящих звонков" title="Недавние входящие" hidden>${uiIcon('clock')}<span>Звонки</span></button></span></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
-          <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название — необязательно<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Перерыв"></label></div>
+          <details class="new-booking-block-fields new-booking-block-title" id="newBookingBlockFields" hidden><summary><span id="newBookingBlockTitleSummary">Добавить название</span></summary><label><span class="sr-only">Название перерыва</span><input id="newBookingBlockTitle" maxlength="80" placeholder="Например, обед или личное дело"></label></details>
           <label class="new-booking-service-field"><span class="sr-only" id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
           <p class="booking-time-warning" id="newBookingClientServiceUnavailable" ${services.length ? 'hidden' : ''}>Для записи клиента сначала добавьте активную услугу. Занять время можно уже сейчас.</p>
           <label id="newBookingBlockDurationField" hidden>Длительность<select id="newBookingBlockDuration">${blockDurationChoices(60)}</select></label>
@@ -9087,7 +9087,19 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingName').value = String(preset.clientName || draft?.name || '');
   $('#newBookingPhone').value = String(preset.clientPhone || draft?.phone || '');
   $('#newBookingNote').value = String(preset.note || draft?.note || (preset.clientPhone ? clientNotes.get(normalizePhone(preset.clientPhone)) : '') || '');
-  $('#newBookingBlockTitle').value = String(draft?.blockTitle || 'Перерыв');
+  const blockTitleDetails = $('#newBookingBlockFields');
+  const blockTitleInput = $('#newBookingBlockTitle');
+  const blockTitleSummary = $('#newBookingBlockTitleSummary');
+  blockTitleInput.value = String(draft?.blockTitle || '');
+  blockTitleDetails.open = Boolean(blockTitleInput.value.trim());
+  const updateBlockTitleDisclosure = () => {
+    const value = blockTitleInput.value.trim();
+    blockTitleSummary.textContent = blockTitleDetails.open ? 'Название перерыва' : value ? `Название: ${value}` : 'Добавить название';
+    blockTitleDetails.classList.toggle('has-value', Boolean(value));
+  };
+  blockTitleInput.addEventListener('input', updateBlockTitleDisclosure);
+  blockTitleDetails.addEventListener('toggle', updateBlockTitleDisclosure);
+  updateBlockTitleDisclosure();
   $('#newBookingBlockNote').value = String(draft?.blockNote || '');
   $('#newBookingBlockDuration').value = String([15,30,45,60,90,120].includes(Number(newBookingModeState.block.durationMinutes)) ? Number(newBookingModeState.block.durationMinutes) : 60);
   $('#newBookingBlockDuration').addEventListener('change', () => { saveNewBookingDraft(); loadNewBookingSlots(); });
