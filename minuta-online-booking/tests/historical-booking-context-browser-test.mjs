@@ -482,6 +482,51 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     assert.equal(await page.locator('#newBookingInterval').isVisible(),false);
     await page.locator('#newBookingAdvanced > summary').click();
     await recordUiMetric(page,'future-collapsed',theme,width);
+    if(width===390){
+      await page.evaluate(()=>{
+        const date=document.querySelector('#newBookingDate');
+        date.value='2026-09-10';
+        newBookingHistoricalMode=false;
+        newBookingSlots=['14:00','14:30','15:00','15:30','16:00'];
+        newBookingTime='15:00';
+        newBookingPreferredTime='15:00';
+        updateNewBookingConnectivity();
+        renderNewBookingTimePicker();
+        updateNewBookingHeading();
+      });
+      await page.setViewportSize({width,height:740});
+      const compactGeometry=await page.evaluate(()=>{
+        const panel=document.querySelector('#bookingSheet .booking-sheet-panel');
+        const controls=[
+          ...document.querySelectorAll('#newBookingForm input:not([type="hidden"]),#newBookingForm select,#newBookingForm button,#newBookingForm summary')
+        ].filter(el=>{
+          const style=getComputedStyle(el),rect=el.getBoundingClientRect();
+          return !el.hidden&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0;
+        });
+        const timeSlots=[...document.querySelectorAll('.booking-time-slots-nearby button')];
+        const submit=document.querySelector('#newBookingSubmit').getBoundingClientRect();
+        const lastSlot=timeSlots.at(-1)?.getBoundingClientRect();
+        const whenTitle=document.querySelector('#newBookingDateTimeSection .new-booking-section-title').getBoundingClientRect();
+        const date=document.querySelector('#newBookingDate').getBoundingClientRect();
+        return {
+          clientHeight:panel.clientHeight,
+          scrollHeight:panel.scrollHeight,
+          minimumControlHeight:Math.min(...controls.map(el=>el.getBoundingClientRect().height)),
+          lastSlotBottom:lastSlot?.bottom||0,
+          submitTop:submit.top,
+          whenTitleTop:whenTitle.top,
+          whenTitleHeight:whenTitle.height,
+          dateTop:date.top,
+          dateHeight:date.height
+        };
+      });
+      assert.ok(compactGeometry.scrollHeight<=compactGeometry.clientHeight+1,`Collapsed new booking must open without scrolling at 390x740: ${JSON.stringify(compactGeometry)}`);
+      assert.ok(compactGeometry.minimumControlHeight>=43.5,'Visible booking controls must retain a 44px touch target');
+      assert.ok(compactGeometry.lastSlotBottom<=compactGeometry.submitTop,'Sticky submit must not cover nearby times');
+      assert.ok(Math.abs((compactGeometry.whenTitleTop+compactGeometry.whenTitleHeight/2)-(compactGeometry.dateTop+compactGeometry.dateHeight/2))<=2,'When and date must share one compact row');
+      if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-compact-${theme}-390.png`});
+      await page.setViewportSize({width,height:850});
+    }
     await page.evaluate(()=>{
       const originalRpc=db.rpc;
       db.rpc=(name,args)=>name==='get_provider_block_slots_v141'

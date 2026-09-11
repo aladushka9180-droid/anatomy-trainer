@@ -6427,6 +6427,93 @@ html.provider-booting .provider-main {
   .booking-move-summary { grid-template-columns:1fr auto; }
   .booking-move-summary>div:last-child { grid-column:1/-1; padding-top:9px; border-top:1px solid var(--theme-line,var(--line)); }
   .booking-move-summary>b { grid-row:1; grid-column:2; }
+
+  /* The default new-booking state fits a short phone without hiding fields. */
+  .provider-body .booking-sheet.new-booking-sheet.booking-sheet-wide .booking-sheet-panel {
+    padding:18px 14px max(10px,env(safe-area-inset-bottom));
+  }
+  .provider-body .booking-sheet.new-booking-sheet .booking-sheet-handle {
+    margin:-10px auto 9px;
+  }
+  .booking-sheet.new-booking-sheet .booking-sheet-panel h2 {
+    margin-top:0;
+    font-size:21px;
+    line-height:1.12;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-form {
+    gap:7px;
+    margin-top:10px;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-mode-toggle {
+    padding:3px;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-mode-toggle button {
+    min-height:44px;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-layout {
+    gap:7px;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-section {
+    gap:7px;
+    padding:8px;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-section:first-child {
+    padding-bottom:8px;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-section-title strong {
+    font-size:14px;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-client-lookup,
+  .booking-sheet.new-booking-sheet .booking-client-fields {
+    gap:6px;
+  }
+  .booking-sheet.new-booking-sheet :is(.new-booking-name-field,.new-booking-service-field,.new-booking-date-field)>:is(input,select) {
+    margin-top:0;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-phone-control {
+    margin-top:4px;
+  }
+  .booking-sheet.new-booking-sheet :is(.new-booking-form input,.new-booking-form select,#newBookingContactPicker,#newBookingRecentCalls) {
+    min-height:44px;
+  }
+  .booking-sheet.new-booking-sheet #newBookingContactPicker {
+    width:44px;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-advanced>summary {
+    min-height:44px;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-date-time-section {
+    grid-template-columns:72px minmax(0,1fr);
+    align-items:center;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-date-time-section>.new-booking-section-title {
+    grid-column:1;
+    grid-row:1;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-date-time-editor:not([hidden]) {
+    display:contents;
+  }
+  .booking-sheet.new-booking-sheet .new-booking-date-field {
+    grid-column:2;
+    grid-row:1;
+  }
+  .booking-sheet.new-booking-sheet :is(#newBookingLocationField,.new-booking-date-time-editor>[role="group"],#newBookingHistoricalPayment) {
+    grid-column:1/-1;
+  }
+  .booking-sheet.new-booking-sheet .booking-time-picker {
+    padding:8px;
+  }
+  .booking-sheet.new-booking-sheet :is(.booking-time-hours button,.booking-time-slots button) {
+    min-height:44px;
+  }
+  .booking-sheet.new-booking-sheet .booking-sheet-submit-bar {
+    bottom:calc(-1 * max(10px,env(safe-area-inset-bottom)));
+    margin:0 -14px;
+    padding:6px 14px max(8px,env(safe-area-inset-bottom));
+  }
+  .booking-sheet.new-booking-sheet .booking-sheet-submit-bar>.primary {
+    min-height:48px;
+  }
 }
 
 .portfolio-purpose {

@@ -2035,7 +2035,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=697#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=698#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2740,7 +2740,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=697#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=698#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4962,7 +4962,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=697');
+    worker = new Worker('./report-worker.js?v=698');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -9045,9 +9045,9 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
       <div class="new-booking-mode-toggle" id="newBookingModeToggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
         <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Имя, номер целиком или последние 4 цифры</small></div></div>
-          <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label><span class="sr-only">Имя клиента</span><input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><span class="new-booking-phone-actions"><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button><button id="newBookingRecentCalls" type="button" aria-label="Выбрать из недавних входящих звонков" title="Недавние входящие" hidden>${uiIcon('clock')}<span>Звонки</span></button></span></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
+          <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label class="new-booking-name-field"><span class="sr-only">Имя клиента</span><input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><span class="new-booking-phone-actions"><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button><button id="newBookingRecentCalls" type="button" aria-label="Выбрать из недавних входящих звонков" title="Недавние входящие" hidden>${uiIcon('clock')}<span>Звонки</span></button></span></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название — необязательно<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Перерыв"></label></div>
-          <label><span class="sr-only" id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
+          <label class="new-booking-service-field"><span class="sr-only" id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
           <p class="booking-time-warning" id="newBookingClientServiceUnavailable" ${services.length ? 'hidden' : ''}>Для записи клиента сначала добавьте активную услугу. Занять время можно уже сейчас.</p>
           <label id="newBookingBlockDurationField" hidden>Длительность<select id="newBookingBlockDuration">${blockDurationChoices(60)}</select></label>
           <div class="new-booking-minute-duration" id="newBookingDurationField" hidden>
@@ -9070,7 +9070,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
         <section class="new-booking-section new-booking-date-time-section" id="newBookingDateTimeSection"><div class="new-booking-section-title"><div><strong>Когда</strong><small class="sr-only" id="newBookingDateTimeSubtitle">${newBookingPreferredTime ? 'Время выбрано в расписании' : 'Выберите свободное окно'}</small></div></div>
           <div class="new-booking-date-time-editor" id="newBookingDateTimeEditor">
             <label id="newBookingLocationField" ${blockContext.locations.length > 1 ? '' : 'hidden'}>Филиал<select id="newBookingLocation">${providerBlockLocationOptions(blockContext.locations, blockContext.locationId)}</select></label>
-            <label><span class="sr-only">Дата</span><input id="newBookingDate" type="date" value="${date}" required></label>
+            <label class="new-booking-date-field"><span class="sr-only">Дата</span><input id="newBookingDate" type="date" value="${date}" required></label>
             <div role="group" aria-labelledby="newBookingTimeCaption"><span class="sr-only" id="newBookingTimeCaption">Свободное время</span><div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></div>
             <section class="new-booking-historical-payment" id="newBookingHistoricalPayment" ${newBookingHistoricalMode ? '' : 'hidden'}>
               <div class="new-booking-historical-payment-title"><strong>Оплата за визит</strong></div>
