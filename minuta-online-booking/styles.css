@@ -4369,6 +4369,7 @@ html.provider-booting .provider-main {
 #providerBookings { touch-action:pan-y; }
 #providerBookings.is-day-swiping { position:relative; z-index:3; transform:translate3d(var(--day-swipe-x,0),0,0); cursor:grabbing; user-select:none; transition:none!important; will-change:transform; }
 .timeline-booking[data-open-booking] { cursor:grab; touch-action:pan-y; -webkit-user-drag:none; }
+.timeline-drag-handle { display:none; }
 .timeline-booking[data-open-booking].is-drag-pressed { cursor:grabbing; }
 .timeline-booking[data-open-booking].is-dragging { z-index:30!important; cursor:grabbing; pointer-events:none; opacity:.9; transform:scale(1.012)!important; box-shadow:0 14px 34px rgba(25,65,45,.22)!important; transition:none!important; will-change:top; }
 .timeline-booking[data-open-booking].is-saving-position { cursor:progress; opacity:.76; }
@@ -4377,6 +4378,25 @@ html.provider-booting .provider-main {
 
 @media (max-width:760px) {
   .timeline-drag-label { left:8px; min-width:78px; padding:4px 7px; font-size:9px; }
+  .timeline-booking[data-open-booking] .timeline-drag-handle {
+    position:absolute;
+    z-index:4;
+    top:50%;
+    right:1px;
+    display:flex;
+    width:26px;
+    height:38px;
+    align-items:center;
+    justify-content:center;
+    border-radius:9px;
+    color:color-mix(in srgb,currentColor 48%,transparent);
+    font-size:18px;
+    line-height:1;
+    touch-action:none;
+    transform:translateY(-50%);
+  }
+  .timeline-booking[data-open-booking] .timeline-drag-handle::before { content:'⠿'; }
+  .provider-body[data-provider-theme] .timeline-booking[data-open-booking]:has(.timeline-drag-handle) .timeline-booking-copy { padding-right:20px!important; }
 }
 
 /* Mobile Luxury + Строгая геометрия: единый финальный слой. */

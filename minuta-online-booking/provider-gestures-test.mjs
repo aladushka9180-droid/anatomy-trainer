@@ -55,7 +55,10 @@ assert.match(source, /shiftScheduleDate\(deltaX < 0 \? 1 : -1\)/);
 assert.match(source, /bookingPlacementIssue\(item, state\.date, state\.targetMinute\)/);
 assert.match(source, /p_ignore_booking: item\.id/);
 assert.match(source, /data-booking-duration="\$\{duration\}"/);
+assert.match(source, /class="timeline-drag-handle" aria-hidden="true"/, 'мобильная карточка должна иметь отдельный маркер переноса');
+assert.match(source, /pointerType === 'touch'[\s\S]*?event\.target\.closest\('\.timeline-drag-handle'\)/, 'перенос касанием должен начинаться только с маркера, сохраняя прокрутку карточки');
 assert.match(styles, /\.timeline-booking\[data-open-booking\]\.is-dragging/);
+assert.match(styles, /timeline-drag-handle[\s\S]*?touch-action:none/, 'маркер должен удерживать touch-жест без отмены браузером');
 assert.match(styles, /#providerBookings\.is-day-swiping/);
 
 console.log('Provider gestures tests passed');

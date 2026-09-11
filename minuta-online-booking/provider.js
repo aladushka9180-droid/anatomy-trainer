@@ -1994,7 +1994,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=688#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=689#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2699,7 +2699,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=688#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=689#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4921,7 +4921,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=688');
+    worker = new Worker('./report-worker.js?v=689');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6727,6 +6727,7 @@ async function persistTimelineBookingMove(state) {
 
 function beginTimelineBookingDrag(event, card) {
   if (timelineBookingDrag || scheduleDaySwipe || timelineMovePending || !writesAllowed || event.button !== 0 || card.classList.contains('status-cancelled')) return;
+  if ((event.pointerType === 'touch' || event.pointerType === 'pen') && !event.target.closest('.timeline-drag-handle')) return;
   const stage = card.closest('.timeline-stage');
   const item = allBookings.find(booking => booking.id === card.dataset.openBooking);
   if (!stage || !item) return;
@@ -7050,13 +7051,14 @@ function renderTimeline(sourceItems) {
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
       <span class="timeline-booking-copy">${mobileBadgeMarkup}<strong>${serviceTitleMarkup}</strong>${timelineClientRow}${desktopBadgeMarkup}${renderedNote}</span>
       ${renderedStatus}`;
+    const dragHandle = imported ? '' : '<span class="timeline-drag-handle" aria-hidden="true"></span>';
     const tight = tightMobile ? ' timeline-tight' : '';
     const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${notePresence ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
     const timelineStyle = `top:${visualTop + 2}px;height:${height}px${tightMobile ? ';padding:5px 9px!important;overflow:hidden!important' : ''}`;
     return item.automatic_break
       ? `<div class="${className}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
-      : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : 'Зажмите и перетащите, чтобы изменить время'}">${cardContent}</button>`;
+      : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : 'Зажмите и перетащите, чтобы изменить время'}">${cardContent}${dragHandle}</button>`;
   }).join('');
   const expandTimeline = timelineWasCompacted
     ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`
@@ -8116,7 +8118,11 @@ async function saveBookingChanges(event) {
     return;
   }
   if (bookingMoveTimeIsPast(date, bookingEditTime)) { showFormError('#bookingEditError', 'Это время уже прошло. Выберите новое время.'); return; }
-  const button = event.submitter;
+  const button = event.submitter || form.querySelector('button[type="submit"]');
+  if (!button) {
+    showFormError('#bookingEditError', 'Не удалось запустить перенос. Закройте форму и попробуйте ещё раз.');
+    return;
+  }
   form.dataset.editorPending = 'true';
   button.disabled = true;
   button.textContent = 'Сохраняем…';

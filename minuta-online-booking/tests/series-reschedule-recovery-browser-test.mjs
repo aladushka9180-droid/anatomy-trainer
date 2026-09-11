@@ -181,6 +181,13 @@ const cases = [
     assert.ok(output.notes.some(([phone,note])=>phone==='79990000001'&&note==='Исходная заметка A'));
   }]
 ];
+cases.push(['mobile requestSubmit without an explicit submitter completes transfer', '', async page => {
+  await page.setViewportSize({width:390,height:844});
+  await open(page,'A'); await edit(page,'A');
+  await page.locator('#bookingEditForm').evaluate(form => form.requestSubmit());
+  await page.waitForFunction(() => effects.some(e=>e.kind==='open-sheet'));
+  assert.deepEqual(await page.evaluate(() => effects.map(e=>e.kind)), ['rpc-args','rpc','telegram','select-date','refresh','notify','open-sheet']);
+}]);
 for (const boundary of ['rpc','refresh']) cases.push([
   `A pending ${boundary} → native close → B editor → late A must stop`, boundary, async page => {
     await startA(page);

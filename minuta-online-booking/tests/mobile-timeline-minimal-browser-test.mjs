@@ -15,13 +15,14 @@ try {
   const page = await browser.newPage({ viewport:{ width:390, height:844 } });
   await page.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head>
     <body class="provider-body" data-provider-theme="warm" data-provider-layout="bento">
-      <button class="timeline-booking status-new client-vip" data-mobile-timeline-top="62" style="position:relative;width:280px;height:132px">
+      <button class="timeline-booking status-new client-vip" data-open-booking="fixture" data-mobile-timeline-top="62" style="position:relative;width:280px;height:132px">
         <span class="timeline-booking-copy">
           <span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span>
           <strong>Общий массаж с обеих сторон<span class="timeline-service-duration"> · 90 мин</span></strong>
           <span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:30 · </span><span class="timeline-client-name">Евгения Белышева</span><span class="timeline-client-phone">79508319339</span><span class="timeline-client-visit-wrap"> · <span class="timeline-client-visit is-regular">Постоянный клиент</span></span></small></span>
         </span>
         <span class="timeline-booking-status">Новая</span>
+        <span class="timeline-drag-handle" aria-hidden="true"></span>
       </button>
     </body></html>`);
 
@@ -32,6 +33,7 @@ try {
       const title = card.querySelector('strong');
       const badge = card.querySelector('.client-badges');
       const client = card.querySelector('.timeline-booking-client-row');
+      const handle = card.querySelector('.timeline-drag-handle');
       const rect = element => element.getBoundingClientRect();
       return {
         cardWidth:rect(card).width,
@@ -40,6 +42,11 @@ try {
         badgeFloat:getComputedStyle(badge).float,
         badgeWidth:rect(badge).width,
         titlePaddingRight:getComputedStyle(title).paddingRight,
+        copyPaddingRight:Number.parseFloat(getComputedStyle(copy).paddingRight),
+        handleDisplay:getComputedStyle(handle).display,
+        handleTouchAction:getComputedStyle(handle).touchAction,
+        handleRect:rect(handle).toJSON(),
+        cardRect:rect(card).toJSON(),
         clientClear:getComputedStyle(client).clear,
         phoneDisplay:getComputedStyle(card.querySelector('.timeline-client-phone')).display,
         visitDisplay:getComputedStyle(card.querySelector('.timeline-client-visit-wrap')).display,
@@ -50,7 +57,11 @@ try {
     assert.equal(layout.badgeFloat, 'right', `VIP is not floated at ${width}px`);
     assert.ok(layout.badgeWidth <= 72, `VIP is wider than 72px at ${width}px`);
     assert.equal(layout.titlePaddingRight, '0px', `Title keeps a dead right column at ${width}px`);
-    assert.ok(Math.abs(layout.titleWidth - layout.copyWidth) < 1, `Title does not regain full width at ${width}px`);
+    assert.ok(Math.abs(layout.titleWidth - (layout.copyWidth - layout.copyPaddingRight)) < 1, `Title does not use the space left by the handle at ${width}px`);
+    assert.equal(layout.copyPaddingRight, 20, `Copy does not reserve the mobile drag handle at ${width}px`);
+    assert.equal(layout.handleDisplay, 'flex', `Drag handle is not visible at ${width}px`);
+    assert.equal(layout.handleTouchAction, 'none', `Drag handle cannot keep a touch gesture at ${width}px`);
+    assert.ok(layout.handleRect.right <= layout.cardRect.right + .5 && layout.handleRect.left >= layout.cardRect.left, `Drag handle escapes the card at ${width}px`);
     assert.equal(layout.clientClear, 'both', `Client row is not full-width below VIP at ${width}px`);
     assert.equal(layout.phoneDisplay, 'none', `Phone clutters the timeline at ${width}px`);
     assert.equal(layout.visitDisplay, 'none', `Visit label protrudes below the card at ${width}px`);
@@ -61,6 +72,8 @@ try {
       await page.screenshot({ path:join(process.env.MINUTA_VISUAL_DIR, `mobile-timeline-${width}.png`), fullPage:true });
     }
   }
+  await page.setViewportSize({ width:1440, height:900 });
+  assert.equal(await page.locator('.timeline-drag-handle').evaluate(handle => getComputedStyle(handle).display), 'none', 'Mobile drag handle must stay hidden on desktop');
 } finally {
   await browser.close();
 }
