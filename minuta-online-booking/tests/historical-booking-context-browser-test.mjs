@@ -447,6 +447,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     await page.evaluate(()=>{
       Object.defineProperty(navigator,'contacts',{configurable:true,value:{getProperties:async()=>['name','tel'],select:async()=>[]}});
       window.PrimeTimeAndroidCalls={isAvailable:()=>true,openRecentCalls:()=>{}};
+      sessionStorage.setItem(bookingDraftKey(),JSON.stringify({savedAt:Date.now(),blockTitle:'Перерыв'}));
       openNewBookingSheet();
     });
     await page.waitForFunction(()=>!document.querySelector('#newBookingContactPicker')?.hidden);
