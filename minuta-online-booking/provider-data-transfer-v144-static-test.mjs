@@ -6,6 +6,7 @@ const read = file => readFileSync(new URL(file, import.meta.url), 'utf8');
 const migration = read('supabase-migration-v144.sql');
 const rollback = read('supabase-migration-v144-rollback.sql');
 const clientImport = read('client-import.js');
+const releaseWorkflow = read('../.github/workflows/minuta-v144-safe-release.yml');
 
 assert.match(migration, /v144_requires_v95_v99_v110_v112/);
 assert.match(migration, /create table if not exists public\.provider_data_transfer_batches/);
@@ -43,6 +44,9 @@ assert.match(rollback, /drop function if exists public\.preview_minuta_provider_
 assert.match(rollback, /drop function if exists public\.minuta_provider_transfer_target_hash_v144/);
 assert.match(rollback, /set status='expired',staged_payload=null/);
 assert.doesNotMatch(rollback, /drop table|delete from public\.provider_data_transfer_(?:batches|changes)/i);
+assert.match(releaseWorkflow, /'transferTablesRetained',to_regclass\('public\.provider_data_transfer_batches'\) is not null/);
+assert.match(releaseWorkflow, /\.transferTablesRetained and \.transferSurfaceDisabled and \.transferRows==0/);
+assert.doesNotMatch(releaseWorkflow, /'transfer',to_regclass\('public\.provider_data_transfer_batches'\) is null/);
 
 assert.match(clientImport, /preview_minuta_provider_transfer_v144/);
 assert.match(clientImport, /apply_minuta_provider_transfer_v144/);
