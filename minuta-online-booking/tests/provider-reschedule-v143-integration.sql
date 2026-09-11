@@ -5,14 +5,12 @@ begin;
 create function pg_temp.v143_assert(ok boolean,label text) returns void language plpgsql as $$
 begin if ok is distinct from true then raise exception 'v143_assert:%',label; end if; end $$;
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub',current_setting('v123.actor'),true);
 select set_config('v143.created_code',public.provider_book_appointment(
   current_setting('v123.service')::uuid,
   current_setting('v123.date')::date,
   '10:00'::time,'V143 client'::text,'0000000000'::text
 ),true);
-reset role;
 select set_config('v143.booking',(select id::text from public.bookings
   where booking_code=current_setting('v143.created_code')),true);
 update public.bookings set client_phone='79990000143'
@@ -54,11 +52,14 @@ do $$ begin
     if sqlerrm<>'provider_booking_changed' then raise; end if;
   end;
 end $$;
+reset role;
 select set_config('v143.conflict_code',public.provider_book_appointment(
   current_setting('v123.service')::uuid,
   current_setting('v123.date')::date,
   '13:00'::time,'V143 conflict'::text,'0000000000'::text
 ),true);
+set local role authenticated;
+select set_config('request.jwt.claim.sub',current_setting('v123.actor'),true);
 do $$ begin
   begin
     perform public.reschedule_minuta_provider_booking_v143(
