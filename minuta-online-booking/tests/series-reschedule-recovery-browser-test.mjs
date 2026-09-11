@@ -24,7 +24,8 @@ function listener(startText) {
   assert.ok(start >= 0 && end > start, 'Actual production listener missing');
   return source.slice(start, end + 4);
 }
-const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'renderBookingEditTimePicker', 'bookingQuickTimeSlots', 'bookingExactTimeMarkup', 'closeBookingSheet', 'updateBookingAtExpectedState', 'bookingMoveTimeIsPast', 'updateBookingMovePreview', 'blockDurationChoices',
+const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'renderBookingEditTimePicker', 'bookingQuickTimeSlots', 'bookingExactTimeMarkup', 'closeBookingSheet',
+  'providerRescheduleRpcMissing', 'providerRescheduleErrorMessage', 'updateBookingAtExpectedStateLegacy', 'updateBookingAtExpectedState', 'bookingMoveTimeIsPast', 'updateBookingMovePreview', 'blockDurationChoices',
   'sessionIsCurrent', 'requireWrites', 'providerAssistantIsoDate', 'isScheduleBlock', 'bookingDateLabel', 'escapeHtml',
   'serviceName', 'money', 'uiIcon', 'serviceOptions', 'bookingDisplayNote', 'bookingClientNote',
   'normalizePhone', 'bookingColor', 'validBookingColor', 'bookingColorPicker', 'bookingOutcome',
@@ -113,6 +114,11 @@ async function fixture(holdAt = '') {
       if(name==='set_booking_color')return boundary('color',{data:args.p_color,error:null});
       if(name==='set_booking_note')return boundary('booking-note',{data:args.p_note,error:null});
       if(name==='get_provider_block_slots_v141')return Promise.resolve({data:[{booking_time:'10:00:00'},{booking_time:'11:00:00'},{booking_time:'15:00:00'}],error:null});
+      if(name==='reschedule_minuta_provider_booking_v143'){
+        effects.push({kind:'rpc-args',name,args:structuredClone(args)});
+        return boundary('rpc',{data:{booking_id:args.p_booking,performer_id:currentUser.id,service_id:ids.service,
+          booking_date:args.p_date,booking_time:args.p_time,duration_minutes:60,status:'confirmed',notifications_suppressed:false},error:null});
+      }
       if(name!=='manage_minuta_booking_series_v123')throw new Error('Unexpected RPC '+name);
       effects.push({kind:'rpc-args',name,args:structuredClone(args)});return boundary('rpc',responseFixture);},
       from:name=>{if(name!=='client_notes')throw new Error('Unexpected table '+name);return {upsert:args=>{
@@ -187,6 +193,24 @@ cases.push(['mobile requestSubmit without an explicit submitter completes transf
   await page.locator('#bookingEditForm').evaluate(form => form.requestSubmit());
   await page.waitForFunction(() => effects.some(e=>e.kind==='open-sheet'));
   assert.deepEqual(await page.evaluate(() => effects.map(e=>e.kind)), ['rpc-args','rpc','telegram','select-date','refresh','notify','open-sheet']);
+}]);
+cases.push(['mobile single booking transfer uses the protected v143 RPC', '', async page => {
+  await page.setViewportSize({width:390,height:844});
+  await page.evaluate(()=>{allBookings[0].series_id=null;allBookings[0].series_occurrence=null;allBookings[0].booking_series=null;});
+  await open(page,'A');
+  assert.equal(await page.locator('[name="editBookingSeriesScope"]').count(),0);
+  await page.locator('#editBookingDate').fill('2099-09-06');
+  await page.locator('#editBookingDate').dispatchEvent('change');
+  await page.locator('[data-edit-booking-hour="11"]').click();
+  await page.locator('[data-edit-booking-time="11:00"]').click();
+  await page.locator('#bookingEditForm').evaluate(form=>form.requestSubmit());
+  await page.waitForFunction(()=>effects.some(e=>e.kind==='open-sheet'));
+  const output=await page.evaluate(()=>({effects,notices}));
+  assert.deepEqual(output.effects.map(e=>e.kind),['rpc-args','rpc','telegram','select-date','refresh','notify','open-sheet']);
+  assert.deepEqual(output.effects[0].args,{p_booking:ids.A,p_date:'2099-09-06',p_time:'11:00:00',
+    p_expected_date:'2099-09-05',p_expected_time:'10:00:00'});
+  assert.equal(output.effects[0].name,'reschedule_minuta_provider_booking_v143');
+  assert.deepEqual(output.notices,['Запись обновлена']);
 }]);
 for (const boundary of ['rpc','refresh']) cases.push([
   `A pending ${boundary} → native close → B editor → late A must stop`, boundary, async page => {

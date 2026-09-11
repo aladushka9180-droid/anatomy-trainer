@@ -27,7 +27,7 @@ assert.ok(
     > styles.lastIndexOf(') .date-strip button.active {'),
   'Матовый Hitech-цвет должен применяться после общего правила активного дня'
 );
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v689`;/, 'Кэш приложения не обновлён для атмосферных тем');
-assert.match(provider, /styles\.css\?v=689/, 'Кабинет не подключает актуальные стили');
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v690`;/, 'Кэш приложения не обновлён для атмосферных тем');
+assert.match(provider, /styles\.css\?v=690/, 'Кабинет не подключает актуальные стили');
 
 console.log('Atmospheric provider themes v400: OK');

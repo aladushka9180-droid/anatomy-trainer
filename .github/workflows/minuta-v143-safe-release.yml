@@ -1,0 +1,241 @@
+name: Minuta v143 provider reschedule safe release
+run-name: Minuta v143 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v143
+        required: true
+        default: test-v143
+        type: choice
+        options: [test-v143, validate-production-v143, apply-production-v143, observe-production-v143]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      restore_run_id: { description: Linked offline restore run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful isolated v143 test run ID, required: false, default: "", type: string }
+      validation_run_id: { description: Successful read-only v143 validation run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v143 apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter BACKUP_VERIFIED for production apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency: { group: "${{ inputs.phase == 'test-v143' && 'minuta-test-database' || 'minuta-production-database' }}", cancel-in-progress: false }
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit and phase
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            test-v143|validate-production-v143|observe-production-v143) ;;
+            apply-production-v143) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: node minuta-online-booking/provider-reschedule-v143-static-test.mjs
+      - run: node --test minuta-online-booking/tests/provider-booking-integrity-test.mjs
+
+  test-v143:
+    if: inputs.phase == 'test-v143'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      PGOPTIONS: -c statement_timeout=120000 -c lock_timeout=10000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply twice, authorize, reject abuse, rollback and reapply
+        run: |
+          set -euo pipefail
+          test "$MINUTA_TEST_PROJECT_REF" != "$MINUTA_PRODUCTION_PROJECT_REF"
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target
+          where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v143.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v143.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/provider-reschedule-v143-integration.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v143-rollback.sql
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)') is null")" = t
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v143.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/provider-reschedule-v143-integration.sql
+      - name: Create test attestation
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          jq -n --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" \
+            --arg migration "$(sha256sum minuta-online-booking/supabase-migration-v143.sql|cut -d' ' -f1)" \
+            --arg rollback "$(sha256sum minuta-online-booking/supabase-migration-v143-rollback.sql|cut -d' ' -f1)" \
+            '{status:"success",phase:"test-v143",commitSha:$sha,runId:$run,isolatedDatabase:true,
+              cycle:["apply","apply","authorization","stale","overlap","rollback","reapply"],migrationSha256:$migration,
+              rollbackSha256:$rollback,productionWritten:false}' > "$RUNNER_TEMP/v143-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v143-test-${{ github.run_id }}", path: "${{ runner.temp }}/v143-test.json", if-no-files-found: error, retention-days: 35 }
+
+  validate-production-v143:
+    if: inputs.phase == 'validate-production-v143'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Validate v143 production state read-only
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          begin transaction isolation level repeatable read read only;
+          with flags as(select
+            to_regprocedure('public.get_available_slots_v101(uuid,date,date,uuid)') is not null v101,
+            to_regprocedure('public.manage_minuta_booking_series_v123(uuid,text,text,date,time without time zone,date,time without time zone)') is not null v123,
+            to_regprocedure('public.update_provider_block_v141(uuid,date,time without time zone,integer,date,time without time zone,integer,text,text)') is not null v141,
+            to_regprocedure('public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)') is not null rpc)
+          select json_build_object('prerequisitesReady',v101 and v123 and v141,'mode',case
+            when v101 and v123 and v141 and not rpc then 'ready'
+            when v101 and v123 and v141 and rpc
+              and has_function_privilege('authenticated','public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)','EXECUTE')
+              and not has_function_privilege('anon','public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)','EXECUTE')
+              then 'full' else 'partial' end) from flags;
+          rollback;
+          SQL
+          )"
+          state="$(grep '^{' <<<"$state"|tail -n 1)"
+          jq -e '.prerequisitesReady and (.mode=="ready" or .mode=="full")' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"validate-production-v143",commitSha:$sha,readOnly:true,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v143-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v143-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v143-validation.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v143:
+    if: inputs.phase == 'apply-production-v143'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify test, validation, encrypted backup and linked restore
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          TEST: ${{ inputs.test_run_id }}
+          VALIDATION: ${{ inputs.validation_run_id }}
+          BACKUP: ${{ inputs.backup_run_id }}
+          RESTORE: ${{ inputs.restore_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for id in "$TEST" "$VALIDATION" "$BACKUP" "$RESTORE"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){ run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$SHA"; test "$(jq -r .head_branch <<<"$run")" = main; test "$(jq -r .event <<<"$run")" = workflow_dispatch; test "$(jq -r .path <<<"$run")" = "$2"; }
+          mkdir -p "$RUNNER_TEMP/v143-evidence"/{test,validation,backup,restore}
+          check_run "$TEST" .github/workflows/minuta-v143-safe-release.yml
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v143-test-$TEST" -D "$RUNNER_TEMP/v143-evidence/test"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .isolatedDatabase and (.productionWritten|not)' "$RUNNER_TEMP/v143-evidence/test/v143-test.json" >/dev/null
+          check_run "$VALIDATION" .github/workflows/minuta-v143-safe-release.yml
+          gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v143-validation-$VALIDATION" -D "$RUNNER_TEMP/v143-evidence/validation"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .readOnly and (.state.mode=="ready" or .state.mode=="full")' "$RUNNER_TEMP/v143-evidence/validation/v143-validation.json" >/dev/null
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s)-$(date -d "$(jq -r .created_at <<<"$run")" +%s) )); test "$age" -ge 0 && test "$age" -le 7200
+          artifact="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts" --jq '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name')"; [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v143-evidence/backup"
+          shopt -s nullglob; encrypted=("$RUNNER_TEMP/v143-evidence/backup/"*.dump.gpg); journals=("$RUNNER_TEMP/v143-evidence/backup/"*.json)
+          test "${#encrypted[@]}" = 1 && test "${#journals[@]}" = 1
+          test "$(sha256sum "${encrypted[0]}"|cut -d' ' -f1)" = "$(jq -r .encryptedSha256 "${journals[0]}")"
+          check_run "$RESTORE" .github/workflows/minuta-supabase-restore-drill.yml
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE" -D "$RUNNER_TEMP/v143-evidence/restore"
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" '.status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed and (.productionWritten|not) and .sourceBackupRunId==$backup and .sourceBackupSha==$sha' "$RUNNER_TEMP/v143-evidence/restore/minuta-ephemeral-restore.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply v143 and verify protected provider reschedule
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v143.sql
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('ready',to_regprocedure('public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)') is not null and has_function_privilege('authenticated','public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)','EXECUTE'))")"
+          jq -e '.ready' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"apply-production-v143",commitSha:$sha,state:$state,productionWritten:true,businessRowsChanged:false,secretsExposed:false}' > "$RUNNER_TEMP/v143-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v143-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v143-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v143:
+    if: inputs.phase == 'observe-production-v143'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify apply evidence and observe v143 read-only
+        env: { SHA: "${{ inputs.commit_sha }}", APPLY: "${{ inputs.apply_run_id }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success
+          test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v143-safe-release.yml
+          mkdir -p "$RUNNER_TEMP/v143-apply-evidence"
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v143-apply-$APPLY" -D "$RUNNER_TEMP/v143-apply-evidence"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .productionWritten and (.businessRowsChanged|not)' "$RUNNER_TEMP/v143-apply-evidence/v143-apply.json" >/dev/null
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('ready',to_regprocedure('public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)') is not null and has_function_privilege('authenticated','public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.reschedule_minuta_provider_booking_v143(uuid,date,time without time zone,date,time without time zone)','EXECUTE'))")"
+          jq -e '.ready' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --arg apply "$APPLY" --argjson state "$state" '{status:"success",phase:"observe-production-v143",commitSha:$sha,applyRunId:$apply,readOnly:true,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v143-observe.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v143-observe-${{ github.run_id }}", path: "${{ runner.temp }}/v143-observe.json", if-no-files-found: error, retention-days: 90 }

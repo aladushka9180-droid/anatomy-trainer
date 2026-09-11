@@ -1994,7 +1994,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=689#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=690#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2699,7 +2699,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=689#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=690#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4921,7 +4921,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=689');
+    worker = new Worker('./report-worker.js?v=690');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6716,7 +6716,7 @@ async function persistTimelineBookingMove(state) {
   timelineMovePending = false;
   if (!sessionIsCurrent(userId, generation)) return;
   if (error) {
-    notify(error.code === 'MINUTA_BOOKING_CHANGED' ? 'Запись уже изменилась. Проверьте актуальное расписание перед переносом.' : 'Не удалось подтвердить перенос. Проверьте актуальную запись.');
+    notify(providerRescheduleErrorMessage(error) || 'Не удалось подтвердить перенос. Проверьте актуальную запись.');
     await loadBookings({ silent:true });
     return;
   }
@@ -7984,7 +7984,34 @@ async function saveBookingSession(event) {
   openBookingSheet(item.id);
 }
 
-async function updateBookingAtExpectedState(item, changes, userId) {
+function providerRescheduleRpcMissing(error) {
+  const reason = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return /PGRST202|42883/.test(reason)
+    || (/reschedule_minuta_provider_booking_v143/i.test(reason) && /not find|does not exist|schema cache|unknown function/i.test(reason));
+}
+
+function providerRescheduleErrorMessage(error) {
+  const known = {
+    '40001:provider_booking_changed':'Запись уже изменилась в другой вкладке. Откройте её заново и выберите время по актуальному расписанию.',
+    '23P01:provider_booking_slot_unavailable':'Новое время занято или недоступно. Выберите другое окно.',
+    '23P01:booking_outside_active_shift':'Новое время находится вне рабочей смены. Выберите другое окно.',
+    'P0001:resource_unavailable':'Для этого времени нет свободного ресурса. Выберите другое окно.',
+    'P0001:booking_buffer_conflict':'Новое время слишком близко к соседней записи. Выберите другое окно.',
+    '42501:authentication_required':'Войдите в аккаунт снова и обновите журнал.',
+    '42501:provider_booking_access_denied':'У вас нет доступа к переносу этой записи.',
+    'P0001:provider_booking_not_found':'Запись не найдена. Обновите журнал.',
+    'P0001:provider_booking_not_actionable':'Эту запись уже нельзя перенести. Обновите журнал.',
+    '55000:provider_booking_series_requires_scope':'Для серии выберите, какие записи нужно перенести.',
+    '55000:provider_booking_block_requires_block_rpc':'Откройте перерыв заново и повторите перенос.',
+    '22023:invalid_provider_reschedule_target':'Выберите корректные дату и время переноса.'
+  };
+  if (error?.code === 'MINUTA_BOOKING_CHANGED') {
+    return 'Запись уже изменилась или недоступна. Вернитесь к записи и проверьте актуальные данные перед переносом.';
+  }
+  return known[`${error?.code}:${error?.message}`] || '';
+}
+
+async function updateBookingAtExpectedStateLegacy(item, changes, userId) {
   let query = db.from('bookings').update(changes).eq('id', item.id).eq('performer_id', userId)
     .eq('service_id', item.service_id).eq('booking_date', item.booking_date).eq('booking_time', item.booking_time);
   if (item.duration_minutes != null) query = query.eq('duration_minutes', item.duration_minutes);
@@ -7996,6 +8023,33 @@ async function updateBookingAtExpectedState(item, changes, userId) {
     && Object.entries(changes).every(([key, value]) => key === 'booking_time'
       ? String(row[key]).slice(0, 5) === String(value).slice(0, 5) : String(row[key]) === String(value));
   return matches ? { data:row, error:null } : { error:{ code:'MINUTA_BOOKING_CHANGED', message:'booking_changed_or_unconfirmed' } };
+}
+
+async function updateBookingAtExpectedState(item, changes, userId) {
+  const targetDate = String(changes?.booking_date || item.booking_date || '');
+  const targetTime = String(changes?.booking_time || item.booking_time || '');
+  const result = await db.rpc('reschedule_minuta_provider_booking_v143', {
+    p_booking:item.id,
+    p_date:targetDate,
+    p_time:targetTime,
+    p_expected_date:item.booking_date,
+    p_expected_time:item.booking_time
+  });
+  if (result.error && providerRescheduleRpcMissing(result.error)) {
+    return updateBookingAtExpectedStateLegacy(item, changes, userId);
+  }
+  if (result.error) return { error:result.error };
+  const row = result.data;
+  const confirmed = row?.booking_id === item.id && row?.performer_id === userId
+    && row?.service_id === item.service_id
+    && String(row?.booking_date) === targetDate
+    && String(row?.booking_time).slice(0, 5) === targetTime.slice(0, 5)
+    && Number(row?.duration_minutes) === Number(item.duration_minutes)
+    && String(row?.status) === String(item.status)
+    && row?.notifications_suppressed === false;
+  return confirmed
+    ? { data:{ ...row, id:row.booking_id }, error:null }
+    : { error:{ code:'MINUTA_BOOKING_UNCONFIRMED', message:'provider_reschedule_unconfirmed' } };
 }
 
 function bookingMoveTimeIsPast(date, time) {
@@ -8208,10 +8262,9 @@ async function saveBookingChanges(event) {
         '42501:block_access_denied':'У вас нет доступа к этому перерыву.',
         'P0001:block_not_found':'Перерыв не найден. Обновите журнал.'
       };
-      const message = error.code === 'MINUTA_BOOKING_CHANGED'
-        ? 'Запись уже изменилась или недоступна. Вернитесь к записи и проверьте актуальные данные перед переносом.'
-        : block ? blockErrors[`${error.code}:${error.message}`]
-        : seriesId ? seriesErrors[`${error.code}:${error.message}`] : null;
+      const message = block ? blockErrors[`${error.code}:${error.message}`]
+        : seriesId ? seriesErrors[`${error.code}:${error.message}`]
+        : providerRescheduleErrorMessage(error);
       showFormError('#bookingEditError', message || unconfirmedMessage);
       if (message) await loadBookingEditSlots(id);
       return;

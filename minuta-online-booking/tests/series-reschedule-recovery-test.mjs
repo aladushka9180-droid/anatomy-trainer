@@ -14,7 +14,7 @@ function between(start, end) {
   assert.ok(from >= 0 && to > from, `Actual source boundary: ${start}`);
   return source.slice(from, to);
 }
-const realController = between('async function updateBookingAtExpectedState(', 'function offlineCandidateSlots(')
+const realController = between('function providerRescheduleRpcMissing(', 'function offlineCandidateSlots(')
   + between('function seriesRpcErrorMessage(', 'function stackMinuteTimelineItems(')
   + source.match(/^function sessionIsCurrent[^\n]+/m)[0];
 const metadataDependencies = between('function captureBookingMetadataContext(', '// Local completion ownership');
@@ -34,6 +34,9 @@ const serviceId = '33333333-3333-4333-8333-333333333333';
 const userId = '44444444-4444-4444-8444-444444444444';
 const success = { data:{ series_id:seriesIds.A, action:'reschedule', scope:'following',
   affected_count:1, affected:[{ booking_id:ids.A, occurrence:1 }] }, error:null };
+const singleSuccess = { data:{ booking_id:ids.A, performer_id:userId, service_id:serviceId,
+  booking_date:'2026-09-20', booking_time:'12:00:00', duration_minutes:60,
+  status:'confirmed', notifications_suppressed:false }, error:null };
 const refusal = { data:null, error:{ code:'P0001', message:'series_slot_unavailable' } };
 const deferred = () => {
   let resolve, reject;
@@ -69,10 +72,10 @@ function harness(pendingStage = null) {
       nodes['#editBookingTimes'] = { innerHTML:'' };
     }
   };
-  const stage = (name, payload) => {
+  const stage = (name, payload, value = defaultResult[name]) => {
     effects.push([name, payload]);
     if (name === pendingStage) { entered.resolve(); return gate.promise; }
-    return Promise.resolve(defaultResult[name]);
+    return Promise.resolve(value);
   };
   const context = vm.createContext({
     $:selector => nodes[selector], $$:() => [],
@@ -93,7 +96,8 @@ function harness(pendingStage = null) {
     loadBookingEditSlots:async id => { effects.push(['loadSlots', id]); },
     showFormError:(selector, message) => effects.push(['error', selector, message]),
     db:{
-      rpc:(name, params) => stage('rpc', { name, params:JSON.parse(JSON.stringify(params)) }),
+      rpc:(name, params) => stage('rpc', { name, params:JSON.parse(JSON.stringify(params)) },
+        name === 'reschedule_minuta_provider_booking_v143' ? singleSuccess : defaultResult.rpc),
       from:table => ({ upsert:params => {
         assert.equal(table, 'client_notes');
         return stage('note', JSON.parse(JSON.stringify(params)));
@@ -142,6 +146,18 @@ test('current editor completes the real series RPC and auxiliary writes', async 
   assert.deepEqual(h.effects.filter(e => ['color', 'note', 'refresh'].includes(e[0])).map(e => e[0]), ['refresh']);
   assert.deepEqual(h.effects.at(-1), ['openBookingSheet', ids.A]);
   assert.equal(h.effects.filter(e => e[0] === 'toast').length, 1);
+});
+
+test('single booking uses the protected provider reschedule RPC', async () => {
+  const h=harness();
+  h.context.allBookings.find(item=>item.id===ids.A).series_id=null;
+  const result=await h.submit(h.open());
+  assert.equal(result.error,null);
+  assert.deepEqual(h.effects.find(e=>e[0]==='rpc')[1],{
+    name:'reschedule_minuta_provider_booking_v143',params:{p_booking:ids.A,p_date:'2026-09-20',p_time:'12:00:00',
+      p_expected_date:'2026-09-15',p_expected_time:'10:00:00'}
+  });
+  assert.deepEqual(h.effects.at(-1),['openBookingSheet',ids.A]);
 });
 
 test('realtime refresh cannot replace the editor expected anchor', async () => {
