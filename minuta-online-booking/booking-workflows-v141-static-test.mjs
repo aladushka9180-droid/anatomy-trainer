@@ -9,7 +9,6 @@ const rollback = readFileSync(new URL('./supabase-migration-v141-rollback.sql', 
 const workflow = readFileSync(new URL('../.github/workflows/minuta-v141-safe-release.yml', import.meta.url), 'utf8');
 
 for (const required of [
-  'Визит уже состоялся',
   'Когда состоялся визит',
   'На сегодня будущих окон не осталось.',
   'Новая запись · ${bookingDateLabel',
@@ -22,11 +21,11 @@ for (const required of [
   "details.addEventListener('toggle'",
   "target.style.gridColumnStart = '1'",
   'activateBookingRemainingTimeScroll(holder)',
-  "historical:dateIso < businessTodayIso()",
+  "historical:dateIso < today || (dateIso === today && bookingMoveTimeIsPast(dateIso, time))",
   'const requestedHistorical = Boolean(preset.historical);',
   "newBookingMode = preset.mode === 'block' || !services.length ? 'block' : 'client';",
-  'Выберите будущее окно или включите «Визит уже состоялся».',
   'id="newBookingClientEntry"',
+  '<span class="sr-only">Имя клиента</span><input id="newBookingName"',
   "newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : '';",
   'submit.disabled = !newBookingTime;',
   "service:block ? '' : service,",
@@ -55,6 +54,9 @@ for (const forbidden of [
   'data-change-new-booking-time',
   'historical:selectedStart < new Date()',
   'mode:newBookingMode, historical:newBookingHistoricalMode',
+  'newBookingHistoricalToggle',
+  'Визит уже состоялся',
+  '<label>Имя клиента<input id="newBookingName"',
 ]) assert.ok(!provider.includes(forbidden), `stale workflow remains: ${forbidden}`);
 
 for (const required of [

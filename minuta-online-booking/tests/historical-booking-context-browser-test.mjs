@@ -113,7 +113,7 @@ async function openAndFill(page,label){
   assert.equal(await page.locator('#newBookingHistoricalPayment').isVisible(),true);
   assert.equal(await page.locator('#newBookingHistoricalPaymentMethod').inputValue(),'cash');
   assert.equal(await page.locator('#newBookingHistoricalAmount').inputValue(),'1000');
-  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Добавить визит · учесть 1 000 ₽');
+  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Сохранить');
 }
 async function start(page){
   await openAndFill(page,'A');await page.locator('#newBookingSubmit').click();await page.waitForFunction(()=>gates.length===1);
@@ -180,7 +180,7 @@ cases.push(['CONTROL edited payment is saved in the same historical visit',async
   await openAndFill(page,'A');
   await page.locator('#newBookingHistoricalPaymentMethod').selectOption('transfer');
   await page.locator('#newBookingHistoricalAmount').fill('750');
-  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Добавить визит · учесть 750 ₽');
+  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Сохранить');
   await page.evaluate(()=>{
     historicalAck={...historicalAck,payment_method:'transfer',amount_rub:750};
     hold='create';
@@ -197,10 +197,10 @@ cases.push(['CONTROL unpaid historical visit disables amount and remains explici
   await page.locator('#newBookingHistoricalPaymentMethod').selectOption('unpaid');
   assert.equal(await page.locator('#newBookingHistoricalAmount').inputValue(),'0');
   assert.equal(await page.locator('#newBookingHistoricalAmount').isDisabled(),true);
-  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Добавить неоплаченный визит');
+  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Сохранить');
   assert.match(await page.locator('#newBookingHistoricalPaymentHint').textContent(),/подтверждённый долг/);
 }]);
-cases.push(['CONTROL today past timeline time keeps intent explicit and block mode available',async page=>{
+cases.push(['CONTROL today past timeline time opens a completed visit without the empty-state detour',async page=>{
   await page.evaluate(()=>{
     selectedDate=businessTodayIso();
     window.getProviderAvailableSlots=async()=>({data:[],error:null});
@@ -210,20 +210,31 @@ cases.push(['CONTROL today past timeline time keeps intent explicit and block mo
     }));
     openTimelineBookingAtTime('00:00',selectedDate);
   });
-  await page.waitForFunction(()=>document.querySelector('#newBookingTimes')?.textContent.includes('00:00 уже прошло'));
-  assert.equal(await page.evaluate(()=>newBookingHistoricalMode),false,'A past time today must not silently become a completed visit');
-  assert.equal(await page.locator('#newBookingHistoricalToggle').getAttribute('aria-pressed'),'false');
+  await page.waitForFunction(()=>document.querySelector('#newBookingHistoricalTime')?.value==='00:00');
+  assert.equal(await page.evaluate(()=>newBookingHistoricalMode),true,'A clicked past time today must become a completed visit automatically');
+  assert.equal(await page.locator('#newBookingHistoricalToggle').count(),0,'The historical mode must be automatic, not another form control');
   assert.equal(await page.locator('[data-new-booking-mode="client"]').getAttribute('aria-pressed'),'true','A stale block draft must not choose the new entry type');
-  assert.equal(await page.locator('[data-new-booking-mode="block"]').isEnabled(),true,'Blocking future time must remain available');
+  assert.equal(await page.locator('[data-new-booking-mode="block"]').isEnabled(),false,'A completed past visit cannot become a schedule block');
   assert.equal(await page.locator('#newBookingDate').inputValue(),'2026-09-06','The explicit schedule date must win over a stale draft');
-  assert.match(await page.locator('#newBookingTimes').innerText(),/Выберите будущее окно или включите «Визит уже состоялся»/);
+  assert.equal(await page.locator('#newBookingHistoricalTime').inputValue(),'00:00','The clicked factual time must be kept');
+  assert.doesNotMatch(await page.locator('#newBookingTimes').innerText(),/будущих окон|Выбрать другую дату|уже прошло/);
   await page.locator('#newBookingName').fill('Обновлённый клиент');
   const draft=await page.evaluate(()=>JSON.parse(sessionStorage.getItem(bookingDraftKey())));
   for(const key of ['mode','historical','date','time'])assert.equal(Object.hasOwn(draft,key),false,`Draft must not retain ${key}`);
-  await page.locator('#newBookingHistoricalToggle').click();
-  assert.equal(await page.locator('#newBookingHistoricalTime').inputValue(),'00:00','Enabling a factual visit must preserve the clicked past time');
   assert.equal(await page.locator('#newBookingHistoricalPayment').isVisible(),true);
-  assert.equal(await page.locator('#newBookingSubmit').isEnabled(),true,'The preserved past time and default payment must enable creation');
+  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Сохранить');
+  assert.equal(await page.locator('#newBookingSubmit').isEnabled(),true,'The preserved past time and default payment must enable saving');
+}]);
+cases.push(['CONTROL generic new booking keeps an honest empty state without an extra historical control',async page=>{
+  await page.evaluate(()=>{
+    selectedDate=businessTodayIso();
+    window.getProviderAvailableSlots=async()=>({data:[],error:null});
+  });
+  await page.locator('#newBookingButton').click();
+  await page.waitForFunction(()=>document.querySelector('#newBookingTimes')?.textContent.includes('На сегодня будущих окон не осталось'));
+  assert.equal(await page.evaluate(()=>newBookingHistoricalMode),false);
+  assert.equal(await page.locator('#newBookingHistoricalToggle').count(),0,'The long form must not repeat historical intent as a separate control');
+  assert.match(await page.locator('#newBookingTimes').innerText(),/На сегодня будущих окон не осталось/);
 }]);
 for(const transition of ['account','close-reopen'])cases.push([
   `SAFETY confirmed historical A then pending color cannot complete into ${transition} B`,async page=>{
@@ -432,19 +443,22 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     await page.locator('#newBookingAdvanced > summary').click();
     assert.equal(await page.locator('#newBookingInterval').isVisible(),false,'Single occurrence has no repeat interval');
     await page.evaluate(()=>{document.querySelector('#newBookingDate').value='2026-09-07';updateNewBookingConnectivity();});
-    assert.equal(await page.locator('#newBookingHistoricalToggle').isVisible(),false,'Future date cannot be a completed visit');
+    assert.equal(await page.locator('#newBookingHistoricalToggle').count(),0,'Future forms must not contain a historical toggle');
     await page.selectOption('#newBookingOccurrences','3');
     assert.equal(await page.locator('#newBookingInterval').isVisible(),true);
     await page.selectOption('#newBookingOccurrences','1');
     assert.equal(await page.locator('#newBookingInterval').isVisible(),false);
     await page.locator('#newBookingAdvanced > summary').click();
-    await page.evaluate(()=>{document.querySelector('#newBookingDate').value='2026-09-06';updateNewBookingConnectivity();renderNewBookingTimePicker();});
-    assert.equal(await page.locator('#newBookingHistoricalToggle').isVisible(),true);
-    await page.locator('#newBookingHistoricalToggle').click();
+    await page.evaluate(()=>{
+      const date=document.querySelector('#newBookingDate');
+      date.value='2026-09-05';
+      date.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+    await page.waitForFunction(()=>document.querySelector('#newBookingHistoricalTime'));
     assert.equal(await page.locator('#newBookingHistoricalPayment').isVisible(),true,'Completed visit exposes payment in the same flow');
     assert.equal(await page.locator('#newBookingHistoricalPaymentMethod').inputValue(),'cash');
     assert.equal(await page.locator('#newBookingHistoricalAmount').inputValue(),'1000');
-    assert.equal(await page.locator('#newBookingSubmit').textContent(),'Добавить визит · учесть 1 000 ₽');
+    assert.equal(await page.locator('#newBookingSubmit').textContent(),'Сохранить');
     const paymentGeometry=await page.locator('#newBookingHistoricalPayment').evaluate(el=>({
       width:el.getBoundingClientRect().width,
       fieldsWidth:el.querySelector('.new-booking-historical-payment-fields').getBoundingClientRect().width,
@@ -459,6 +473,18 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     });
     assert.ok(paymentReachability.amountBottom<=paymentReachability.submitTop,'Sticky submit must not cover historical payment controls');
     if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-historical-payment-${theme}-${width}.png`});
+    await page.evaluate(()=>{
+      closeBookingSheet();
+      selectedDate=businessTodayIso();
+      openTimelineBookingAtTime('00:00',selectedDate);
+    });
+    await page.waitForFunction(()=>document.querySelector('#newBookingHistoricalTime')?.value==='00:00');
+    assert.equal(await page.locator('#newBookingHistoricalToggle').count(),0);
+    assert.doesNotMatch(await page.locator('#newBookingTimes').innerText(),/будущих окон|Выбрать другую дату|уже прошло/);
+    assert.equal(await page.locator('#newBookingSubmit').textContent(),'Сохранить');
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Automatic historical form must not overflow horizontally');
+    await page.waitForTimeout(650);
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-historical-auto-${theme}-${width}.png`});
     await page.evaluate(()=>{
       document.querySelector('#newBookingDate').value='2026-09-10';newBookingHistoricalMode=false;
       newBookingSlots=['14:00','14:30','15:00','15:30','16:00'];newBookingTime='15:00';newBookingPreferredTime='15:00';
