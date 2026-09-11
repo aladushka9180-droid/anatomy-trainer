@@ -59,6 +59,8 @@ jobs:
             minuta-online-booking/supabase-migration-v144.sql \
             minuta-online-booking/supabase-migration-v144-payment-connectors.sql \
             supabase/functions/primetime-provider-inbound-v144
+          grep -Fq 'const DEPLOYMENT_STATE = "disabled";' \
+            supabase/functions/primetime-provider-inbound-v144/index.ts
           test "$CONFIRMATION" = DEPLOY_DISABLED_V144_EDGE
           test -n "$SUPABASE_ACCESS_TOKEN"
           test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
@@ -90,14 +92,6 @@ jobs:
           check_run "$OBSERVE"
           gh run download "$OBSERVE" -R "$GITHUB_REPOSITORY" -n "v144-observe-$OBSERVE" -D "$RUNNER_TEMP/v144-edge-evidence/observe"
           jq -e --arg sha "$EVIDENCE_SHA" --arg apply "$APPLY" '.status=="success" and .commitSha==$sha and .applyRunId==$apply and .readOnly and (.productionWritten|not) and (.externalRequestsSent|not) and .state.ready' "$RUNNER_TEMP/v144-edge-evidence/observe/v144-observe.json" >/dev/null
-          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
-      - name: Force provider inbound off before deployment
-        env: { GH_TOKEN: "${{ github.token }}" }
-        run: |
-          set -euo pipefail
-          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
-          supabase secrets set PRIMETIME_PROVIDER_INBOUND_V144_ENABLED=false \
-            PRIMETIME_PROVIDER_INBOUND_V144_ENVIRONMENT=testing --project-ref "$PROJECT_REF"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
       - name: Deploy only the disabled v144 provider inbound adapter
         env: { GH_TOKEN: "${{ github.token }}" }

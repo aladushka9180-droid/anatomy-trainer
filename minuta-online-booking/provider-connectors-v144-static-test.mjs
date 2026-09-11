@@ -7,7 +7,9 @@ const migration = read('./supabase-migration-v144-payment-connectors.sql');
 const rollback = read('./supabase-migration-v144-payment-connectors-rollback.sql');
 const integration = read('./tests/provider-connectors-v144-integration.sql');
 const handler = read('../supabase/functions/primetime-provider-inbound-v144/handler.ts');
+const entrypoint = read('../supabase/functions/primetime-provider-inbound-v144/index.ts');
 const docs = read('../supabase/functions/primetime-provider-inbound-v144/README.md');
+const edgeWorkflow = read('../.github/workflows/minuta-v144-edge-release.yml');
 
 for (const table of [
   'payment_sandbox_ledgers_v144',
@@ -75,6 +77,10 @@ assert.doesNotMatch(handler, /console\.(?:log|error|warn)|api\.dikidi|api\.yclie
 assert.match(docs, /disabled[\s\S]*testing-only|testing-only[\s\S]*disabled/i);
 assert.match(docs, /does not call either vendor/i);
 assert.match(docs, /operator-controlled gateway[\s\S]*both\s+providers/i);
+assert.match(entrypoint, /const DEPLOYMENT_STATE = "disabled";/);
+assert.match(entrypoint, /status:\s*503[\s\S]*NOT_CONFIGURED|NOT_CONFIGURED[\s\S]*status:\s*503/);
+assert.match(edgeWorkflow, /grep -Fq 'const DEPLOYMENT_STATE = "disabled";'/);
+assert.doesNotMatch(edgeWorkflow, /supabase secrets set/);
 
 for (const protectedFile of ['provider.js', 'provider.html', 'styles.css', 'sw.js']) {
   assert.equal(read(`./${protectedFile}`).includes('primetime-provider-inbound-v144'), false);

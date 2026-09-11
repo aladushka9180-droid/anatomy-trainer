@@ -1,8 +1,10 @@
 # PrimeTime provider inbound v144
 
-Private testing-only Edge endpoint for normalized booking events. It is disabled
-unless both `PRIMETIME_PROVIDER_INBOUND_V144_ENABLED=true` and
-`PRIMETIME_PROVIDER_INBOUND_V144_ENVIRONMENT=testing` are present.
+Private testing-only Edge endpoint for normalized booking events. The deployed
+v144 entrypoint is disabled and code-locked to `NOT_CONFIGURED`; environment
+values cannot enable it. A separate reviewed release must remove that lock and set
+both `PRIMETIME_PROVIDER_INBOUND_V144_ENABLED=true` and
+`PRIMETIME_PROVIDER_INBOUND_V144_ENVIRONMENT=testing`.
 
 `PRIMETIME_PROVIDER_INBOUND_V144_CONNECTIONS` is an operator-managed JSON object
 keyed by the v142 connection UUID. Each entry contains `organizationId`,
