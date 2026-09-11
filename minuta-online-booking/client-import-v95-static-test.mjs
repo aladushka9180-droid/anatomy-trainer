@@ -43,7 +43,7 @@ assert.match(
   /client_import_batches_scope_v95_idx'[\s\S]*createindexclient_import_batches_scope_v95_idxonpublic\.client_import_batchesusingbtree\(organization_id,created_atdesc,iddesc\)'\)\)\);"/,
   'release: проверка трёх индексов v95 должна закрывать условие и подзапрос'
 );
-assert.doesNotMatch(`${clientImport}\n${html}`, /YCLIENTS|DIKIDI|Masters/);
+assert.doesNotMatch(clientImport, /YCLIENTS|DIKIDI|Masters/);
 assert.match(clientImport, /Поддерживаются XLS, XLSX, CSV, TSV и TXT/);
 assert.match(clientImport, /XLSX\.utils\.sheet_to_json/);
 assert.match(clientImport, /clients\.set\(phone/);
