@@ -55,6 +55,9 @@ function createProviderAuthStorage(storage = window.localStorage, authKey = '') 
 }
 const providerAuthStorageKey = `sb-${new URL(window.MINUTA_CONFIG.supabaseUrl).hostname.split('.')[0]}-auth-token`;
 const providerAuthStorage = createProviderAuthStorage(window.localStorage, providerAuthStorageKey);
+let providerSessionTrust = 'none';
+let cachedProviderVerification = null;
+let cachedProviderVerificationRetryTimer = null;
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage:providerAuthStorage },
   // One retry owner: the SDK also retries GETs by default. Mutations remain single-attempt.
@@ -959,7 +962,7 @@ function offlineBookingSnapshotFresh() {
   return Number.isFinite(savedAt) && Date.now() - savedAt <= PROVIDER_CACHE_MAX_AGE;
 }
 function canQueueOfflineBooking() {
-  return Boolean(currentUser && !navigator.onLine && offlineBookingInputsReady && offlineBookingSnapshotFresh() && ownServices.some(item => item.active));
+  return Boolean(providerSessionTrust === 'verified' && currentUser && !navigator.onLine && offlineBookingInputsReady && offlineBookingSnapshotFresh() && ownServices.some(item => item.active));
 }
 async function saveOfflineBookingQueue(userId = currentUser?.id, { generation = sessionGeneration, verify = false } = {}) {
   if (!userId || !reliability?.put || !reliability?.get || !sessionIsCurrent(userId, generation)) return false;
@@ -2031,7 +2034,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=693#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=694#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2736,7 +2739,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=693#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=694#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4958,7 +4961,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=693');
+    worker = new Worker('./report-worker.js?v=694');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -11574,15 +11577,22 @@ async function logout() {
   setWritesAllowed(false);
   setBookingCreationReady(false);
   await clearProviderDeviceData(userId);
+  providerSessionTrust = 'none';
+  clearTimeout(cachedProviderVerificationRetryTimer);
+  cachedProviderVerificationRetryTimer = null;
   providerAuthStorage.forget();
   await db.auth.signOut();
 }
 
 async function handleSession(session) {
-  if (session?.user?.id && session.user.id === currentUser?.id) {
+  const { cachedOnly=false, accessVerified=false } = arguments[1] || {};
+  const sameUser = session?.user?.id && session.user.id === currentUser?.id;
+  if (sameUser && !(accessVerified && providerSessionTrust === 'cached')) {
     currentUser = session.user;
-    if (restoreServiceScheduleNames(currentUser)) void syncServiceScheduleNames();
-    void providerFeedbackController.refreshAvailability();
+    if (providerSessionTrust === 'verified') {
+      if (restoreServiceScheduleNames(currentUser)) void syncServiceScheduleNames();
+      void providerFeedbackController.refreshAvailability();
+    }
     restoreTelegramClientSettings(currentUser);
     renderTelegramClientSettings();
     renderProviderPhoneState();
@@ -11633,11 +11643,14 @@ async function handleSession(session) {
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
-  if (currentUser && navigator.onLine && (await providerAccessAllowed(currentUser.id)) === false) {
+  const accessState = !currentUser ? false : cachedOnly ? null : accessVerified ? true : navigator.onLine ? await providerAccessAllowed(currentUser.id) : null;
+  if (currentUser && accessState === false) {
+    providerSessionTrust = 'none';
+    providerAuthStorage.forget();
+    providerAuthStorage.removeItem(providerAuthStorageKey);
     const socialFlow = window.MinutaSocialAuth?.flow();
+    await db.auth.signOut({ scope:'local' });
     if (socialFlow?.mode === 'provider-login') {
-      providerAuthStorage.forget();
-      await db.auth.signOut();
       window.MinutaSocialAuth.clearFlow();
     }
     currentUser = null;
@@ -11651,12 +11664,14 @@ async function handleSession(session) {
     finishProviderBoot();
     return;
   }
-  if (currentUser) void providerFeedbackController.refreshAvailability();
+  const localSessionOnly = Boolean(currentUser) && accessState !== true;
+  providerSessionTrust = !currentUser ? 'none' : localSessionOnly ? 'cached' : 'verified';
+  if (currentUser && !localSessionOnly) void providerFeedbackController.refreshAvailability();
   const completedSocialFlow = window.MinutaSocialAuth?.flow();
-  if (currentUser && completedSocialFlow?.mode === 'provider-link') {
+  if (currentUser && !localSessionOnly && completedSocialFlow?.mode === 'provider-link') {
     window.MinutaSocialAuth.clearFlow();
     notify(`${window.MinutaSocialAuth.PROVIDERS[completedSocialFlow.provider].label} привязан`);
-  } else if (currentUser && completedSocialFlow?.mode === 'provider-login') {
+  } else if (currentUser && !localSessionOnly && completedSocialFlow?.mode === 'provider-login') {
     window.MinutaSocialAuth.clearFlow();
   }
   let displayPreferencesNeedSync = false;
@@ -11689,8 +11704,8 @@ async function handleSession(session) {
   renderDisplayPreferencesForm();
   renderTelegramClientSettings();
   renderProviderSocialState();
-  if (displayPreferencesNeedSync) queueDisplayPreferencesSync();
-  if (serviceScheduleNamesNeedSync) void syncServiceScheduleNames();
+  if (!localSessionOnly && displayPreferencesNeedSync) queueDisplayPreferencesSync();
+  if (!localSessionOnly && serviceScheduleNamesNeedSync) void syncServiceScheduleNames();
   scheduleDirty = false;
   updateScheduleSaveState();
   if (previousUserId && currentUser?.id && previousUserId !== currentUser.id) await clearProviderDeviceData(previousUserId);
@@ -11740,21 +11755,21 @@ async function handleSession(session) {
     return;
   }
   const userId = currentUser.id;
-  // Access has already been verified above, so the user's own saved snapshot
-  // can be shown immediately while the server refresh continues in read-only mode.
+  // The user's own snapshot can be shown immediately. Until server access is
+  // verified, the cached-session path remains strictly read-only.
   const cachedBookings = await hydrateCachedBookings(userId);
   if (!sessionIsCurrent(userId, generation)) return;
   await hydrateOfflineBookingInputs(userId, generation, cachedBookings);
   if (!sessionIsCurrent(userId, generation)) return;
   await loadOfflineBookingQueue(userId, generation);
   if (!sessionIsCurrent(userId, generation)) return;
-  if (cachedBookings) setSyncState(navigator.onLine ? 'checking' : 'offline', navigator.onLine ? `Показана копия на ${reliability?.savedAtLabel(cachedBookings.savedAt) || 'последнюю синхронизацию'} · обновляем` : canQueueOfflineBooking() ? `${cachedStateText(cachedBookings.savedAt)} · новую запись можно отложить` : `${cachedStateText(cachedBookings.savedAt)} · только чтение`);
-  else if (!navigator.onLine) setSyncState('offline', 'Нет интернета и сохранённой копии · только чтение');
+  if (cachedBookings) setSyncState(localSessionOnly ? (navigator.onLine ? 'warning' : 'offline') : 'checking', localSessionOnly ? `${cachedStateText(cachedBookings.savedAt)} · только чтение` : `Показана копия на ${reliability?.savedAtLabel(cachedBookings.savedAt) || 'последнюю синхронизацию'} · обновляем`);
+  else if (localSessionOnly) setSyncState(navigator.onLine ? 'warning' : 'offline', navigator.onLine ? 'Проверяем связь · только чтение' : 'Нет интернета и сохранённой копии · только чтение');
   const name = 'исполнитель';
   $('#welcomeName').textContent = `Здравствуйте, ${name}!`;
   $('#sidebarName').textContent = name;
   $('#userAvatar').textContent = name.slice(0, 1).toUpperCase();
-  if (navigator.onLine) void loadProviderDisplayName(userId, generation);
+  if (!localSessionOnly && navigator.onLine) void loadProviderDisplayName(userId, generation);
   $('#accountEmail').textContent = currentUser.email || (currentUser.phone ? (window.MinutaPhoneAuth?.formatPhone(currentUser.phone) || currentUser.phone) : '');
   renderProviderPhoneState();
   renderTopbarDateTime();
@@ -11764,6 +11779,11 @@ async function handleSession(session) {
   renderVisitorNotificationForm();
   await providerCacheMaintenance;
   if (!sessionIsCurrent(userId, generation)) return;
+  if (localSessionOnly) {
+    setProviderView(providerViewFromLocation(), { historyMode:'replace', focusHeading:false });
+    syncScheduleContextHistory();
+    return;
+  }
   if (navigator.onLine && !bookingsChannel) startLiveUpdates({ catchUpOnSubscribe:false });
   await synchronizeProvider();
   if (!sessionIsCurrent(userId, generation)) return;
@@ -12009,6 +12029,80 @@ function authTemporarilyUnavailable(error) {
 function cachedProviderSessionAfterTemporaryFailure(error) {
   if (navigator.onLine !== false && !authTemporarilyUnavailable(error)) return null;
   return providerAuthStorage.cachedSession();
+}
+async function rejectCachedProviderSession(expectedUserId) {
+  if (providerSessionTrust !== 'cached' || currentUser?.id !== expectedUserId) return;
+  providerSessionTrust = 'none';
+  clearTimeout(cachedProviderVerificationRetryTimer);
+  cachedProviderVerificationRetryTimer = null;
+  providerAuthStorage.forget();
+  providerAuthStorage.removeItem(providerAuthStorageKey);
+  try { await db.auth.signOut({ scope:'local' }); } catch {}
+  if (currentUser?.id === expectedUserId) await handleSession(null);
+}
+function verifyCachedProviderSession(expectedUserId) {
+  if (!expectedUserId || providerSessionTrust !== 'cached' || currentUser?.id !== expectedUserId || cachedProviderVerification) return cachedProviderVerification;
+  clearTimeout(cachedProviderVerificationRetryTimer);
+  cachedProviderVerificationRetryTimer = null;
+  const verification = (async () => {
+    let result;
+    try { result = await db.auth.getSession(); }
+    catch (error) {
+      if (!authTemporarilyUnavailable(error)) await rejectCachedProviderSession(expectedUserId);
+      return;
+    }
+    if (providerSessionTrust !== 'cached' || currentUser?.id !== expectedUserId) return;
+    if (result.error) {
+      if (!authTemporarilyUnavailable(result.error)) await rejectCachedProviderSession(expectedUserId);
+      return;
+    }
+    const session = result.data?.session;
+    if (!session?.user?.id || session.user.id !== expectedUserId) {
+      await rejectCachedProviderSession(expectedUserId);
+      return;
+    }
+    let accessState = null;
+    try { accessState = navigator.onLine ? await providerAccessAllowed(expectedUserId) : null; }
+    catch { return; }
+    if (providerSessionTrust !== 'cached' || currentUser?.id !== expectedUserId) return;
+    if (accessState === true) await handleSession(session, { accessVerified:true });
+    else if (accessState === false) await rejectCachedProviderSession(expectedUserId);
+  })();
+  const tracked = verification.finally(() => {
+    if (cachedProviderVerification === tracked) cachedProviderVerification = null;
+    if (providerSessionTrust === 'cached' && currentUser?.id === expectedUserId && navigator.onLine && !cachedProviderVerificationRetryTimer) {
+      cachedProviderVerificationRetryTimer = setTimeout(() => {
+        cachedProviderVerificationRetryTimer = null;
+        void verifyCachedProviderSession(expectedUserId);
+      }, 15000);
+    }
+  });
+  cachedProviderVerification = tracked;
+  return tracked;
+}
+function startProviderSession() {
+  if (!recoveryMode) {
+    const cachedSession = providerAuthStorage.cachedSession();
+    if (cachedSession?.user?.id) {
+      void handleSession(cachedSession, { cachedOnly:true })
+        .catch(() => { if (document.documentElement.classList.contains('provider-booting')) showProviderStartupFailure(); });
+      void verifyCachedProviderSession(cachedSession.user.id);
+      return;
+    }
+  }
+  db.auth.getSession().then(({ data, error }) => {
+    if (recoveryMode) return showRecoveryReset();
+    if (data?.session) return handleSession(data.session);
+    const cachedSession = cachedProviderSessionAfterTemporaryFailure(error);
+    if (cachedSession) return handleSession(cachedSession, { cachedOnly:true });
+    if (error) { showProviderStartupFailure(); return; }
+    return handleSession(null);
+  }).catch(error => {
+    const cachedSession = recoveryMode ? null : cachedProviderSessionAfterTemporaryFailure(error);
+    if (cachedSession) return handleSession(cachedSession, { cachedOnly:true });
+    if (document.documentElement.classList.contains('provider-booting')) showProviderStartupFailure();
+    else setSyncState('warning', 'Не удалось обновить данные · повторите позже');
+  });
 }
 
 async function login(event) {
@@ -15211,11 +15305,22 @@ db.auth.onAuthStateChange((event, session) => {
     setTimeout(showRecoveryReset, 0);
     return;
   }
+  if (event === 'INITIAL_SESSION') return;
+  if (providerSessionTrust === 'cached') {
+    if (!session && event === 'SIGNED_OUT') return;
+    if (session?.user?.id === currentUser?.id) {
+      setTimeout(() => { void verifyCachedProviderSession(session.user.id); }, 0);
+      return;
+    }
+  }
   if (session?.user?.id && session.user.id === currentUser?.id) {
     currentUser = session.user;
     return;
   }
-  setTimeout(() => handleSession(session), 0);
+  setTimeout(() => {
+    if (!session && !currentUser) return;
+    void handleSession(session);
+  }, 0);
 });
 window.addEventListener('beforeinstallprompt', event => {
   event.preventDefault();
@@ -15301,18 +15406,9 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 prepareProviderViewBeforeSession();
-db.auth.getSession().then(({ data, error }) => {
-  if (recoveryMode) return showRecoveryReset();
-  if (data?.session) return handleSession(data.session);
-  const cachedSession = cachedProviderSessionAfterTemporaryFailure(error);
-  if (cachedSession) return handleSession(cachedSession);
-  if (error) { showProviderStartupFailure(); return; }
-  return handleSession(null);
-}).catch(error => {
-  const cachedSession = recoveryMode ? null : cachedProviderSessionAfterTemporaryFailure(error);
-  if (cachedSession) return handleSession(cachedSession);
-  if (document.documentElement.classList.contains('provider-booting')) showProviderStartupFailure();
-  else setSyncState('warning', 'Не удалось обновить данные · повторите позже');
+window.addEventListener('online', () => {
+  if (providerSessionTrust === 'cached' && currentUser?.id) void verifyCachedProviderSession(currentUser.id);
 });
+startProviderSession();
 initializePhoneAuth();
 initializeSocialAuth();
