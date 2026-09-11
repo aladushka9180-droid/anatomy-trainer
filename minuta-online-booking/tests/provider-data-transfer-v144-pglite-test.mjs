@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const root = new URL('../', import.meta.url);
@@ -18,7 +19,7 @@ const migration = withoutPsqlMeta(migrationSource);
 const rollback = withoutPsqlMeta(rollbackSource);
 
 const moduleName = process.env.MINUTA_PGLITE_MODULE || '@electric-sql/pglite';
-const localModule = /^[A-Za-z]:[\\/]/.test(moduleName);
+const localModule = isAbsolute(moduleName);
 const moduleSpecifier = localModule ? pathToFileURL(moduleName).href : moduleName;
 const pgcryptoSpecifier = localModule
   ? new URL('./contrib/pgcrypto.js', pathToFileURL(moduleName)).href
