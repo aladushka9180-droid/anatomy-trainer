@@ -37,8 +37,20 @@ const loader=[metadataDependencies,constants,revisions,operations,...functions.m
   listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
 const ids={booking:'11111111-1111-4111-8111-111111111111',service:'22222222-2222-4222-8222-222222222222'};
 const origin='https://historical-context.test/';
+const expectMinimalBookingForm=process.env.MINUTA_EXPECT_PREVIOUS!=='1';
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 let browser;
+async function recordUiMetric(page,label,theme,width){
+  if(!process.env.MINUTA_UI_METRICS)return;
+  const metric=await page.evaluate(()=>{
+    const panel=document.querySelector('#bookingSheet .booking-sheet-panel');
+    const content=document.querySelector('#bookingSheetContent');
+    const form=document.querySelector('#newBookingForm');
+    const layout=document.querySelector('.new-booking-layout');
+    return {panelScroll:panel?.scrollHeight||0,contentScroll:content?.scrollHeight||0,formScroll:form?.scrollHeight||0,layoutScroll:layout?.scrollHeight||0};
+  });
+  console.log(`UI_METRIC ${theme} ${width} ${label} ${JSON.stringify(metric)}`);
+}
 async function fixture(){
   const context=await browser.newContext({serviceWorkers:'block'}),page=await context.newPage();page.setDefaultTimeout(5000);
   const errors=[],traffic=[];page.on('pageerror',error=>errors.push(error.message));
@@ -67,6 +79,7 @@ async function fixture(){
     var allBookings=[],clientNotes=new Map(),pendingClientNotes=new Map(),bookingColors=new Map(),pendingBookingColors=new Set(),clientFixtures=[];
     var newBookingClientSuggestionMap=new Map(),newBookingClientSuggestionTimer=null,newBookingAutoFilledPhone='',newBookingAutoFilledName='',newBookingClientBaseTitle='Новая запись',newBookingClientBaseSubtitle='Только необходимое для записи';
     var businessTodayIso=()=> '2026-09-06',bookingUsesDemoData=()=>false;
+    var getProviderAvailableSlots=async()=>({data:['14:00','14:30','15:00','15:30','16:00'].map(booking_time=>({booking_time})),error:null});
     var placementCalls=[],bookingPlacementIssue=(item,date,start,options={})=>{
       placementCalls.push([item,date,start,options]);
       const duration=Number(item?.duration_minutes||60);
@@ -440,21 +453,59 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     assert.equal(await page.locator('#newBookingContactPicker').isVisible(),width<=760,'Phone-book action is mobile-only');
     assert.equal(await page.locator('#newBookingRecentCalls').isVisible(),true,'Android companion must keep recent calls available at every supported width');
     assert.ok(await page.locator('.new-booking-section-title>div').first().evaluate(el=>el.getBoundingClientRect().width>200),'Heading must occupy full width after removing step badge');
+    await recordUiMetric(page,'historical-collapsed',theme,width);
+    if(expectMinimalBookingForm){
+      assert.equal(await page.locator('.booking-sheet-kicker').getAttribute('class'),'booking-sheet-kicker sr-only','The sheet context must stay accessible without adding a visual line');
+      assert.equal(await page.locator('#newBookingSectionTitle').textContent(),'Клиент и услуга');
+      assert.equal(await page.locator('#newBookingServiceCaption').getAttribute('class'),'sr-only','The section heading already identifies the service control');
+      assert.equal(await page.locator('#newBookingDateTimeSection .new-booking-section-title strong').textContent(),'Когда');
+      assert.equal(await page.locator('#newBookingDate').locator('xpath=preceding-sibling::span').getAttribute('class'),'sr-only','Date must have one visible presentation');
+    }
     await page.locator('#newBookingAdvanced > summary').click();
+    if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingRecurrence').isVisible(),false,'Past visits cannot repeat and must not show an inactive section');
+    await recordUiMetric(page,'historical-advanced',theme,width);
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-advanced-historical-${theme}-${width}.png`});
     assert.equal(await page.locator('#newBookingInterval').isVisible(),false,'Single occurrence has no repeat interval');
     await page.evaluate(()=>{document.querySelector('#newBookingDate').value='2026-09-07';updateNewBookingConnectivity();});
     assert.equal(await page.locator('#newBookingHistoricalToggle').count(),0,'Future forms must not contain a historical toggle');
+    if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingModeToggle').isVisible(),true,'Future booking types must remain available');
+    assert.equal(await page.locator('#newBookingRecurrence').isVisible(),true,'Future visits may repeat from the open advanced section');
+    if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingRecurrenceHint').isVisible(),false,'The two-year series note must wait until repetition is chosen');
+    await recordUiMetric(page,'future-advanced',theme,width);
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-advanced-${theme}-${width}.png`});
     await page.selectOption('#newBookingOccurrences','3');
     assert.equal(await page.locator('#newBookingInterval').isVisible(),true);
+    if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingRecurrenceHint').isVisible(),true);
+    await recordUiMetric(page,'future-series',theme,width);
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-series-${theme}-${width}.png`});
     await page.selectOption('#newBookingOccurrences','1');
     assert.equal(await page.locator('#newBookingInterval').isVisible(),false);
     await page.locator('#newBookingAdvanced > summary').click();
+    await recordUiMetric(page,'future-collapsed',theme,width);
+    await page.evaluate(()=>{
+      const originalRpc=db.rpc;
+      db.rpc=(name,args)=>name==='get_provider_block_slots_v141'
+        ? Promise.resolve({data:['14:00','14:30','15:00'].map(booking_time=>({booking_time})),error:null})
+        : originalRpc(name,args);
+    });
+    await page.locator('[data-new-booking-mode="block"]').click();
+    await page.waitForTimeout(50);
+    if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingRecurrence').isVisible(),false,'Schedule blocks must not show visit repetition');
+    if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingSectionSubtitle').getAttribute('class'),'sr-only','The block fields make the repeated helper unnecessary');
+    await recordUiMetric(page,'block-collapsed',theme,width);
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-block-${theme}-${width}.png`});
+    await page.locator('#newBookingAdvanced > summary').click();
+    await recordUiMetric(page,'block-advanced',theme,width);
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-block-advanced-${theme}-${width}.png`});
+    await page.locator('#newBookingAdvanced > summary').click();
+    await page.locator('[data-new-booking-mode="client"]').click();
     await page.evaluate(()=>{
       const date=document.querySelector('#newBookingDate');
       date.value='2026-09-05';
       date.dispatchEvent(new Event('change',{bubbles:true}));
     });
     await page.waitForFunction(()=>document.querySelector('#newBookingHistoricalTime'));
+    if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingModeToggle').isVisible(),false,'Past visits have only one valid type and must not show a disabled tab');
     assert.equal(await page.locator('#newBookingHistoricalPayment').isVisible(),true,'Completed visit exposes payment in the same flow');
     assert.equal(await page.locator('#newBookingHistoricalPaymentMethod').inputValue(),'cash');
     assert.equal(await page.locator('#newBookingHistoricalAmount').inputValue(),'1000');

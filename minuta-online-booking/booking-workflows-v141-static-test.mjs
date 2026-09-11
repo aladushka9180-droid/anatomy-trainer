@@ -9,7 +9,7 @@ const rollback = readFileSync(new URL('./supabase-migration-v141-rollback.sql', 
 const workflow = readFileSync(new URL('../.github/workflows/minuta-v141-safe-release.yml', import.meta.url), 'utf8');
 
 for (const required of [
-  'Когда состоялся визит',
+  'Время визита',
   'На сегодня будущих окон не осталось.',
   'Новая запись · ${bookingDateLabel',
   'id="newBookingContactPicker"',
@@ -26,6 +26,9 @@ for (const required of [
   "newBookingMode = preset.mode === 'block' || !services.length ? 'block' : 'client';",
   'id="newBookingClientEntry"',
   '<span class="sr-only">Имя клиента</span><input id="newBookingName"',
+  '<strong>Когда</strong><small class="sr-only" id="newBookingDateTimeSubtitle"',
+  '<span class="sr-only">Дата</span><input id="newBookingDate"',
+  'id="newBookingModeToggle"',
   "newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : '';",
   'submit.disabled = !newBookingTime;',
   "service:block ? '' : service,",
@@ -57,6 +60,8 @@ for (const forbidden of [
   'newBookingHistoricalToggle',
   'Визит уже состоялся',
   '<label>Имя клиента<input id="newBookingName"',
+  '<strong>Дата и время</strong>',
+  '<label>Дата<input id="newBookingDate"',
 ]) assert.ok(!provider.includes(forbidden), `stale workflow remains: ${forbidden}`);
 
 for (const required of [

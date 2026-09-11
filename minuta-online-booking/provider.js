@@ -2035,7 +2035,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=696#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=697#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2740,7 +2740,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=696#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=697#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4962,7 +4962,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=696');
+    worker = new Worker('./report-worker.js?v=697');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -8430,7 +8430,7 @@ function renderHistoricalTimeEntry() {
     if (overlap) warning = `<div class="booking-time-warning is-error"><strong>Это время пересекается с другой записью.</strong><br>Укажите фактическое время без пересечения.</div>`;
     else if (scheduleIssue) warning = `<div class="booking-time-warning booking-time-outside"><strong>Время вне рабочего графика</strong><br>Если визит действительно состоялся, его можно сохранить.</div>`;
   }
-  holder.innerHTML = `<label class="booking-historical-time" for="newBookingHistoricalTime"><span>Когда состоялся визит</span><input id="newBookingHistoricalTime" type="time" step="300" value="${escapeHtml(time)}" required></label>${warning}<small class="booking-historical-time-hint">Система проверит возможное пересечение перед сохранением.</small>`;
+  holder.innerHTML = `<label class="booking-historical-time" for="newBookingHistoricalTime"><span>Время визита</span><input id="newBookingHistoricalTime" type="time" step="300" value="${escapeHtml(time)}" required></label>${warning}<small class="booking-historical-time-hint">Система проверит возможное пересечение перед сохранением.</small>`;
   const input = $('#newBookingHistoricalTime');
   input?.addEventListener('input', () => {
     newBookingTime = String(input.value || '').slice(0, 5);
@@ -8634,6 +8634,10 @@ function updateNewBookingSubmitCaption() {
   const occurrenceCount = Math.max(1, Number($('#newBookingOccurrences')?.value || 1));
   const intervalField = $('#newBookingIntervalField');
   if (intervalField) intervalField.hidden = occurrenceCount <= 1;
+  const recurrenceHint = $('#newBookingRecurrenceHint');
+  if (recurrenceHint) recurrenceHint.hidden = occurrenceCount <= 1;
+  const recurrence = $('#newBookingRecurrence');
+  if (recurrence) recurrence.classList.toggle('is-single', occurrenceCount <= 1);
   const historicalOffline = newBookingHistoricalMode && !navigator.onLine;
   const historicalMethod = $('#newBookingHistoricalPaymentMethod')?.value || 'cash';
   const historicalAmountValue = $('#newBookingHistoricalAmount')?.value ?? '';
@@ -8654,6 +8658,8 @@ function updateNewBookingConnectivity() {
   const today = businessTodayIso();
   const historical = bookingDate < today || (bookingDate === today && newBookingHistoricalMode);
   newBookingHistoricalMode = historical;
+  const modeToggle = $('#newBookingModeToggle');
+  if (modeToggle) modeToggle.hidden = historical;
   const blockButton = $('[data-new-booking-mode="block"]');
   if (blockButton) {
     blockButton.disabled = offline || historical;
@@ -8668,7 +8674,10 @@ function updateNewBookingConnectivity() {
   if (occurrences) occurrences.disabled = offline || historical;
   if (interval) interval.disabled = offline || historical;
   const recurrence = $('#newBookingRecurrence');
-  if (recurrence) recurrence.classList.toggle('is-offline-disabled', offline || historical);
+  if (recurrence) {
+    recurrence.hidden = newBookingMode === 'block' || historical;
+    recurrence.classList.toggle('is-offline-disabled', offline && !historical);
+  }
   const subtitle = $('#newBookingDateTimeSubtitle');
   const timeCaption = $('#newBookingTimeCaption');
   if (subtitle) subtitle.textContent = historical ? 'Укажите фактические дату и время визита' : 'Выберите удобное свободное окно';
@@ -8980,6 +8989,7 @@ function setNewBookingMode(mode) {
   updateNewBookingHeading();
   $('#newBookingSectionTitle').textContent = block ? 'Перерыв' : 'Клиент и услуга';
   $('#newBookingSectionSubtitle').textContent = block ? 'Название, длительность и время' : newBookingClientBaseSubtitle;
+  $('#newBookingSectionSubtitle').classList.toggle('sr-only', block);
   $('#newBookingServiceCaption').textContent = 'Услуга';
   const serviceSelect = $('#newBookingService');
   const selectedService = newBookingModeState.client.serviceId || serviceSelect.value;
@@ -9030,14 +9040,14 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   newBookingClientBaseSubtitle = preset.offlineEdit ? 'Измените данные и снова отправьте на проверку' : preset.clientName ? 'Клиент и услуга уже выбраны' : 'Имя, номер целиком или последние 4 цифры';
   $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
-  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${preset.offlineEdit ? 'Отложенная запись' : preset.clientName ? 'Повторный визит' : 'Расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : `Новая запись${newBookingPreferredTime ? ` · ${escapeHtml(bookingDateLabel(date))}, ${escapeHtml(newBookingPreferredTime)}` : ''}`}</span></h2>
+  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker sr-only">${preset.offlineEdit ? 'Отложенная запись' : preset.clientName ? 'Повторный визит' : 'Расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : `Новая запись${newBookingPreferredTime ? ` · ${escapeHtml(bookingDateLabel(date))}, ${escapeHtml(newBookingPreferredTime)}` : ''}`}</span></h2>
     <form class="booking-editor-form new-booking-form" id="newBookingForm">
-      <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
+      <div class="new-booking-mode-toggle" id="newBookingModeToggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
         <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Имя, номер целиком или последние 4 цифры</small></div></div>
           <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label><span class="sr-only">Имя клиента</span><input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><span class="new-booking-phone-actions"><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button><button id="newBookingRecentCalls" type="button" aria-label="Выбрать из недавних входящих звонков" title="Недавние входящие" hidden>${uiIcon('clock')}<span>Звонки</span></button></span></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название — необязательно<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Перерыв"></label></div>
-          <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
+          <label><span class="sr-only" id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
           <p class="booking-time-warning" id="newBookingClientServiceUnavailable" ${services.length ? 'hidden' : ''}>Для записи клиента сначала добавьте активную услугу. Занять время можно уже сейчас.</p>
           <label id="newBookingBlockDurationField" hidden>Длительность<select id="newBookingBlockDuration">${blockDurationChoices(60)}</select></label>
           <div class="new-booking-minute-duration" id="newBookingDurationField" hidden>
@@ -9046,21 +9056,21 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
             <div class="new-booking-minute-presets" aria-label="Быстрый выбор длительности">${[15,30,45,60].map(value => `<button type="button" data-new-booking-duration="${value}">${value} мин</button>`).join('')}</div>
             <small>Можно указать любое точное время от 1 до 480 минут.</small>
           </div>
-          <details class="new-booking-advanced" id="newBookingAdvanced"><summary><span>Дополнительные параметры</span><small id="newBookingAdvancedSummary">Заметка, цвет и серия</small></summary><div class="new-booking-advanced-content">
-            <label id="newBookingClientNoteField">Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label>
-            <label id="newBookingBlockNoteField" hidden>Заметка к перерыву<textarea id="newBookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело"></textarea></label>
+          <details class="new-booking-advanced" id="newBookingAdvanced"><summary><span>Дополнительно</span><small class="sr-only" id="newBookingAdvancedSummary">Заметка, цвет и серия</small></summary><div class="new-booking-advanced-content">
+            <label id="newBookingClientNoteField"><span class="sr-only">Заметка</span><textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label>
+            <label id="newBookingBlockNoteField" hidden><span class="sr-only">Заметка</span><textarea id="newBookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело"></textarea></label>
             ${compactBookingColorPicker('newBookingColor', BOOKING_COLOR_DEFAULT, '')}
             <section class="new-booking-recurrence" id="newBookingRecurrence">
-              <div><strong>Курс или серия</strong><small>Все окна должны быть свободны, а последний визит — не дальше двух лет.</small></div>
+              <div><strong>Повторение</strong><small id="newBookingRecurrenceHint" hidden>Все окна должны быть свободны, а последний визит — не дальше двух лет.</small></div>
               <label>Количество<select id="newBookingOccurrences"><option value="1">Одна запись</option><option value="2">2 визита</option><option value="3">3 визита</option><option value="4">4 визита</option><option value="6">6 визитов</option><option value="8">8 визитов</option><option value="10">10 визитов</option><option value="12">12 визитов</option><option value="16">16 визитов</option><option value="20">20 визитов</option><option value="24">24 визита</option></select></label>
               <label id="newBookingIntervalField" hidden>Повторять<select id="newBookingInterval"><option value="1">Каждую неделю</option><option value="2">Раз в 2 недели</option><option value="3">Раз в 3 недели</option><option value="4">Раз в 4 недели</option><option value="6">Раз в 6 недель</option><option value="8">Раз в 8 недель</option><option value="12">Раз в 12 недель</option></select></label>
             </section>
           </div></details>
         </section>
-        <section class="new-booking-section new-booking-date-time-section" id="newBookingDateTimeSection"><div class="new-booking-section-title"><div><strong>Дата и время</strong><small id="newBookingDateTimeSubtitle">${newBookingPreferredTime ? 'Время выбрано в расписании' : 'Выберите свободное окно'}</small></div></div>
+        <section class="new-booking-section new-booking-date-time-section" id="newBookingDateTimeSection"><div class="new-booking-section-title"><div><strong>Когда</strong><small class="sr-only" id="newBookingDateTimeSubtitle">${newBookingPreferredTime ? 'Время выбрано в расписании' : 'Выберите свободное окно'}</small></div></div>
           <div class="new-booking-date-time-editor" id="newBookingDateTimeEditor">
             <label id="newBookingLocationField" ${blockContext.locations.length > 1 ? '' : 'hidden'}>Филиал<select id="newBookingLocation">${providerBlockLocationOptions(blockContext.locations, blockContext.locationId)}</select></label>
-            <label>Дата<input id="newBookingDate" type="date" value="${date}" required></label>
+            <label><span class="sr-only">Дата</span><input id="newBookingDate" type="date" value="${date}" required></label>
             <div role="group" aria-labelledby="newBookingTimeCaption"><span class="sr-only" id="newBookingTimeCaption">Свободное время</span><div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></div>
             <section class="new-booking-historical-payment" id="newBookingHistoricalPayment" ${newBookingHistoricalMode ? '' : 'hidden'}>
               <div class="new-booking-historical-payment-title"><strong>Оплата за визит</strong></div>

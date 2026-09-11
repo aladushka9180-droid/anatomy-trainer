@@ -6286,37 +6286,40 @@ html.provider-booting .provider-main {
 }
 .new-booking-advanced-content .new-booking-recurrence {
   grid-template-columns:1fr;
-  gap:12px;
-  padding:14px;
+  gap:8px;
+  padding:12px;
 }
 .new-booking-advanced-content .new-booking-recurrence>div {
   grid-column:auto;
-  padding-bottom:10px;
+  padding-bottom:8px;
   border-bottom:1px solid var(--theme-line);
 }
+.new-booking-advanced-content .new-booking-recurrence.is-single>div { display:none; }
 .new-booking-advanced-content .new-booking-recurrence>label {
   display:grid;
   grid-template-columns:120px minmax(0,1fr);
   align-items:center;
-  gap:12px;
+  gap:8px;
   min-width:0;
 }
 .new-booking-advanced-content .new-booking-recurrence>label select {
   width:100%;
   min-width:0;
+  margin-top:0;
 }
 @media (max-width:720px) {
   .new-booking-advanced-content .new-booking-recurrence>label {
     grid-template-columns:1fr;
-    gap:6px;
+    gap:4px;
   }
 }
 
 /* Быстрые сценарии ручной записи, перерыва и переноса. */
 .booking-sheet-wide .booking-sheet-panel { width:min(820px,calc(100% - 32px)); }
-.new-booking-form { gap:12px; }
+.new-booking-form { gap:12px; margin-top:16px; }
 .new-booking-layout { gap:12px; }
 .new-booking-section { gap:12px; padding:17px; }
+.new-booking-advanced>summary { min-height:46px; }
 .new-booking-section-title { display:block; margin:0; }
 .new-booking-section-title>div { display:grid; gap:3px; }
 .new-booking-section-title strong { font-size:15px; }
