@@ -208,6 +208,7 @@
   function createController(options) {
     const { db, $, escapeHtml, notify, requireWrites } = options;
     const refreshNavigation = typeof options.refreshNavigation === 'function' ? options.refreshNavigation : () => {};
+    const getSandboxBookings = typeof options.getSandboxBookings === 'function' ? options.getSandboxBookings : () => [];
     let organization = null;
     let payload = null;
     let available = null;
@@ -219,6 +220,10 @@
     let refundIntent = null;
     let refundVerifiedStatus = '';
     let refundStorageFailed = false;
+    let sandboxState = null;
+    let sandboxReference = null;
+    let sandboxAvailable = true;
+    let sandboxStorageFailed = false;
 
     function intentKey() { return `minuta_refund_intent_v1:${organization.id}`; }
     function restoreRefundIntent() {
@@ -388,6 +393,256 @@
       if (!global.crypto?.randomUUID) throw new Error('secure_request_id_unavailable');
       return global.crypto.randomUUID();
     }
+    function sandboxStorageKey() { return `minuta_payment_sandbox_v144:${organization?.id || ''}`; }
+    function sandboxMissing(error) {
+      return /PGRST202|42883|apply_minuta_payment_sandbox_v144|get_minuta_payment_sandbox_journal_v144|function .* does not exist/i
+        .test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
+    }
+    function validSandboxResult(value, reference) {
+      if (!value || typeof value !== 'object' || Array.isArray(value) || value.sandbox !== true
+        || value.ok === false || !SANDBOX_UUID.test(String(value.ledgerId || ''))
+        || !SANDBOX_UUID.test(String(value.bookingId || ''))
+        || String(value.ledgerId) !== String(reference?.ledgerId || '')
+        || String(value.bookingId) !== String(reference?.bookingId || '')
+        || !['created','authorized','captured','partially_refunded','refunded','cancelled'].includes(value.status)
+        || !['booking_prepayment','tip'].includes(value.purpose) || value.currency !== 'RUB'
+        || !Number.isSafeInteger(Number(value.version)) || Number(value.version) < 1) return false;
+      const amounts = ['amountMinor','authorizedMinor','capturedMinor','refundedMinor'].map(key => Number(value[key]));
+      return amounts.every(amount => Number.isSafeInteger(amount) && amount >= 0)
+        && amounts[1] <= amounts[0] && amounts[2] <= amounts[1] && amounts[3] <= amounts[2]
+        && (!Object.hasOwn(value, 'journal') || Array.isArray(value.journal));
+    }
+    function persistSandboxReference(next) {
+      if (!organization?.id) return false;
+      try {
+        const encoded = JSON.stringify({ organizationId:organization.id, ...next });
+        global.localStorage.setItem(sandboxStorageKey(), encoded);
+        if (global.localStorage.getItem(sandboxStorageKey()) !== encoded) throw new Error('sandbox_reference_not_saved');
+        sandboxReference = { organizationId:organization.id, ...next };
+        sandboxStorageFailed = false;
+        return true;
+      } catch {
+        sandboxStorageFailed = true;
+        return false;
+      }
+    }
+    function restoreSandboxReference() {
+      sandboxState = null;
+      sandboxReference = null;
+      sandboxAvailable = true;
+      sandboxStorageFailed = false;
+      if (!organization?.id) return;
+      try {
+        const parsed = JSON.parse(global.localStorage.getItem(sandboxStorageKey()) || 'null');
+        if (!parsed) return;
+        if (parsed.organizationId !== organization.id || !SANDBOX_UUID.test(String(parsed.ledgerId || ''))
+          || !SANDBOX_UUID.test(String(parsed.bookingId || ''))) throw new Error('invalid_sandbox_reference');
+        if (parsed.pending && (typeof parsed.pending !== 'object'
+          || !['create','authorize','capture','refund','cancel'].includes(parsed.pending.action)
+          || !SANDBOX_IDEMPOTENCY.test(String(parsed.pending.idempotencyKey || ''))
+          || !Number.isSafeInteger(parsed.pending.expectedVersion) || parsed.pending.expectedVersion < 0
+          || (parsed.pending.amountMinor !== null && (!Number.isSafeInteger(parsed.pending.amountMinor) || parsed.pending.amountMinor < 1)))) {
+          throw new Error('invalid_sandbox_pending');
+        }
+        sandboxReference = parsed;
+      } catch {
+        sandboxStorageFailed = true;
+      }
+    }
+    function clearSandboxReference() {
+      try {
+        global.localStorage.removeItem(sandboxStorageKey());
+        if (global.localStorage.getItem(sandboxStorageKey()) !== null) throw new Error('sandbox_reference_not_cleared');
+        sandboxReference = null;
+        sandboxState = null;
+        sandboxStorageFailed = false;
+        sandboxAvailable = true;
+      } catch {
+        sandboxStorageFailed = true;
+      }
+    }
+    function sandboxBookings() {
+      try {
+        return getSandboxBookings().filter(item => item && SANDBOX_UUID.test(String(item.id || '')));
+      } catch { return []; }
+    }
+    function sandboxStatusLabel(value) {
+      return ({ created:'Создан', authorized:'Авторизован', captured:'Списание подтверждено',
+        partially_refunded:'Частично возвращён', refunded:'Полностью возвращён', cancelled:'Отменён' })[value] || 'Не запускался';
+    }
+    function renderSandbox() {
+      const disclosure = $('#paymentSandboxDisclosure');
+      if (!disclosure) return;
+      disclosure.hidden = !organization || !manager() || available !== true;
+      if (disclosure.hidden) return;
+      const unavailable = $('#paymentSandboxUnavailable');
+      const workspace = $('#paymentSandboxWorkspace');
+      const usable = sandboxAvailable === true && !sandboxStorageFailed;
+      if (unavailable) unavailable.hidden = usable;
+      if (workspace) workspace.hidden = !usable;
+      if (!usable) {
+        const reload = disclosure.querySelector('[data-payment-sandbox-action="reload"]');
+        if (reload) { reload.hidden = false; reload.disabled = busy; }
+        if ($('#paymentSandboxUnavailableText')) $('#paymentSandboxUnavailableText').textContent = sandboxStorageFailed
+          ? 'Не удалось сохранить защиту от повторного запуска. Освободите хранилище браузера и повторите.'
+          : sandboxAvailable === false ? 'Контур появится после безопасного обновления базы.'
+            : 'Не удалось проверить журнал. Рабочие платежи и записи продолжают работать.';
+        return;
+      }
+      const bookings = sandboxBookings();
+      const select = $('#paymentSandboxBooking');
+      const chosen = select?.value || '';
+      if (select) {
+        select.innerHTML = bookings.map(item => `<option value="${escapeHtml(item.id)}" data-amount="${escapeHtml(String(item.totalPriceRub || 0))}">${escapeHtml(item.clientName || 'Клиент')} · ${escapeHtml(item.date || '')} ${escapeHtml(item.time || '')}</option>`).join('');
+        select.value = bookings.some(item => item.id === chosen) ? chosen : bookings[0]?.id || '';
+      }
+      const setup = $('#paymentSandboxForm');
+      const result = $('#paymentSandboxResult');
+      if (setup) setup.hidden = Boolean(sandboxState);
+      if (result) result.hidden = !sandboxState;
+      if (!sandboxState) {
+        $('#paymentSandboxState').textContent = sandboxReference?.pending ? 'Проверяем запуск' : 'Не запускался';
+        const amount = $('#paymentSandboxAmount');
+        const booking = bookings.find(item => item.id === select?.value);
+        if (amount && !amount.value) amount.value = String(Math.max(1, booking?.totalPriceRub || 1));
+        if (setup?.querySelector('button[type="submit"]')) setup.querySelector('button[type="submit"]').disabled = !bookings.length || busy;
+        if ($('#paymentSandboxHelp')) $('#paymentSandboxHelp').textContent = bookings.length
+          ? 'Клиент не получит уведомление, ссылка на оплату не создаётся.'
+          : 'Сначала создайте хотя бы одну запись в расписании.';
+        return;
+      }
+      const remaining = Number(sandboxState.capturedMinor) - Number(sandboxState.refundedMinor);
+      $('#paymentSandboxState').textContent = sandboxStatusLabel(sandboxState.status);
+      $('#paymentSandboxSummary').textContent = `${sandboxStatusLabel(sandboxState.status)} · ${moneyMinor(sandboxState.amountMinor)}`;
+      $('#paymentSandboxVersion').textContent = `Шаг ${sandboxState.version}`;
+      $('#paymentSandboxNote').textContent = sandboxReference?.pending
+        ? 'Результат предыдущего нажатия ещё не подтверждён. Повтор использует тот же безопасный идентификатор.'
+        : sandboxState.status === 'captured' || sandboxState.status === 'partially_refunded'
+          ? `Можно проверить возврат до ${moneyMinor(remaining)}.`
+          : ['refunded','cancelled'].includes(sandboxState.status)
+            ? 'Сценарий завершён. Ни банк, ни ЮKassa не вызывались.'
+            : 'Продолжите тест следующим шагом или отмените его.';
+      const actions = disclosure.querySelectorAll('[data-payment-sandbox-action]');
+      actions.forEach(button => { button.hidden = true; button.disabled = busy; });
+      const show = action => { const button = disclosure.querySelector(`[data-payment-sandbox-action="${action}"]`); if (button) button.hidden = false; };
+      if (sandboxReference?.pending) show(sandboxReference.pending.action);
+      else if (sandboxState.status === 'created') { show('authorize'); show('cancel'); }
+      else if (sandboxState.status === 'authorized') { show('capture'); show('cancel'); }
+      else if (['captured','partially_refunded'].includes(sandboxState.status)) show('refund');
+      else show('new');
+      const refund = $('#paymentSandboxRefund');
+      if (refund) refund.hidden = !['captured','partially_refunded'].includes(sandboxState.status);
+      if (!refund?.hidden && $('#paymentSandboxRefundAmount')) {
+        $('#paymentSandboxRefundAmount').max = minorInputValue(remaining);
+        if (!$('#paymentSandboxRefundAmount').value) $('#paymentSandboxRefundAmount').value = minorInputValue(remaining);
+      }
+    }
+    async function loadSandbox() {
+      if (!organization?.id || !manager()) return;
+      if (sandboxStorageFailed) { renderSandbox(); return; }
+      if (!sandboxReference) { sandboxAvailable = true; renderSandbox(); return; }
+      const organizationId = organization.id;
+      const contextIsCurrent = currentContext();
+      try {
+        const response = await db.rpc('get_minuta_payment_sandbox_journal_v144', {
+          p_organization:organizationId,
+          p_ledger:sandboxReference.ledgerId
+        });
+        if (!contextIsCurrent()) return;
+        if (response.error) {
+          if (/sandbox_payment_not_found/i.test(response.error.message || '') && sandboxReference.pending?.action === 'create') {
+            sandboxState = null;
+            sandboxAvailable = true;
+          } else {
+            sandboxState = null;
+            sandboxAvailable = sandboxMissing(response.error) ? false : null;
+          }
+          renderSandbox();
+          return;
+        }
+        if (!validSandboxResult(response.data, sandboxReference)) {
+          sandboxState = null;
+          sandboxAvailable = null;
+          renderSandbox();
+          return;
+        }
+        sandboxState = response.data;
+        sandboxAvailable = true;
+        const pending = sandboxReference.pending;
+        if (pending && Number(sandboxState.version) > pending.expectedVersion) {
+          persistSandboxReference({ ledgerId:sandboxReference.ledgerId, bookingId:sandboxReference.bookingId, pending:null });
+        }
+        renderSandbox();
+      } catch {
+        if (!contextIsCurrent()) return;
+        sandboxState = null;
+        sandboxAvailable = null;
+        renderSandbox();
+      }
+    }
+    async function runSandboxCommand(action) {
+      if (action === 'reload') { await loadSandbox(); return; }
+      if (action === 'new') { clearSandboxReference(); renderSandbox(); return; }
+      if (!organization?.id || !manager() || busy || !requireWrites()) return;
+      const organizationId = organization.id;
+      let reference = sandboxReference;
+      let pending = reference?.pending || null;
+      if (pending && pending.action !== action) {
+        notify('Сначала подтвердите предыдущий шаг тестового платежа');
+        return;
+      }
+      if (!pending) {
+        const bookingId = action === 'create' ? $('#paymentSandboxBooking')?.value : sandboxState?.bookingId;
+        if (!SANDBOX_UUID.test(String(bookingId || ''))) { notify('Выберите запись для теста'); return; }
+        const expectedVersion = action === 'create' ? 0 : Number(sandboxState?.version);
+        const amountMinor = action === 'create' ? parseRefundAmount($('#paymentSandboxAmount')?.value)
+          : action === 'refund' ? parseRefundAmount($('#paymentSandboxRefundAmount')?.value) : null;
+        if ((action === 'create' || action === 'refund') && (amountMinor === null || amountMinor < 100)) {
+          notify('Укажите сумму не меньше 1 ₽ без округления');
+          return;
+        }
+        const ledgerId = action === 'create' ? requestId() : sandboxState?.ledgerId;
+        pending = { action, idempotencyKey:`sandbox:${action}:${requestId()}`, expectedVersion, amountMinor,
+          purpose:action === 'create' ? 'booking_prepayment' : null };
+        reference = { ledgerId, bookingId, pending };
+        if (!persistSandboxReference(reference)) { renderSandbox(); return; }
+      }
+      const contextIsCurrent = currentContext();
+      setBusy(true);
+      renderSandbox();
+      try {
+        const response = await db.rpc('apply_minuta_payment_sandbox_v144', {
+          p_organization:organizationId,
+          p_ledger:reference.ledgerId,
+          p_booking:reference.bookingId,
+          p_idempotency_key:pending.idempotencyKey,
+          p_expected_version:pending.expectedVersion,
+          p_command:pending.action,
+          p_amount_minor:pending.amountMinor,
+          p_purpose:pending.purpose
+        });
+        if (!contextIsCurrent()) return;
+        setBusy(false);
+        if (response.error || !validSandboxResult(response.data, reference)) {
+          sandboxAvailable = response.error && sandboxMissing(response.error) ? false : null;
+          await loadSandbox();
+          if (contextIsCurrent()) notify(sandboxState && Number(sandboxState.version) > pending.expectedVersion
+            ? 'Шаг тестового платежа подтверждён' : 'Результат не подтверждён. Повторите тот же шаг после проверки связи.');
+          return;
+        }
+        sandboxState = response.data;
+        sandboxAvailable = true;
+        persistSandboxReference({ ledgerId:reference.ledgerId, bookingId:reference.bookingId, pending:null });
+        renderSandbox();
+        notify(`${sandboxStatusLabel(sandboxState.status)} · тестовый контур`);
+      } catch {
+        if (!contextIsCurrent()) return;
+        setBusy(false);
+        await loadSandbox();
+        if (contextIsCurrent()) notify(sandboxState && Number(sandboxState.version) > pending.expectedVersion
+          ? 'Шаг тестового платежа подтверждён' : 'Результат не подтверждён. Повторите тот же шаг после проверки связи.');
+      }
+    }
     function setBusy(value) {
       busy = value;
       $('#paymentProviderPanel')?.querySelectorAll('button,input,select').forEach((item) => { item.disabled = value; });
@@ -396,6 +651,7 @@
     function reset() {
       organization = null; payload = null; available = null; busy = false;
       refundIntent = null; refundVerifiedStatus = ''; refundStorageFailed = false;
+      sandboxState = null; sandboxReference = null; sandboxAvailable = true; sandboxStorageFailed = false;
       invalidateContext();
       refundSelectionInitialized = false;
       if ($('#paymentProviderPanel')) $('#paymentProviderPanel').hidden = true;
@@ -428,6 +684,7 @@
         available = true;
         payload = result.data || {};
         render();
+        await loadSandbox();
         return { ok:true, optional:true };
       } catch (error) {
         if (!isCurrent()) return { ok:false, optional:true, stale:true };
@@ -441,7 +698,7 @@
         || String(next?.current_role || '') !== currentRole();
       if (changed) invalidateContext();
       organization = next?.id ? next : null;
-      if (changed) restoreRefundIntent();
+      if (changed) { restoreRefundIntent(); restoreSandboxReference(); }
       payload = null;
       available = null;
       if (!organization) { reset(); return; }
@@ -490,7 +747,7 @@
       const testPaymentSucceeded = attempts.some(item => item.environment === 'test' && item.status === 'succeeded');
       $('#paymentProviderState').textContent = settings.enabled
         ? `ЮKassa включена в режиме «${settings.environment === 'production' ? 'рабочий' : 'тестовый'}»`
-        : testPaymentSucceeded ? 'Тестовый платёж подтверждён, приём выключен' : 'Тестовый платёж ещё не подтверждён';
+        : testPaymentSucceeded ? 'ЮKassa: тест подтверждён, приём выключен' : 'ЮKassa: тест не подтверждён';
       $('#paymentProviderSettingsForm').hidden = !owner();
       $('#paymentProviderControls').hidden = !owner();
       const operationRows = [
@@ -524,6 +781,7 @@
       }
       if (refundIntent) $('#paymentRefundAttempt').value = refundIntent.attempt_id;
       updateRefundAmount();
+      renderSandbox();
       setBusy(busy);
       refreshNavigation();
     }
@@ -551,6 +809,11 @@
         ));
     }
     async function submit(event) {
+      if (event.target.id === 'paymentSandboxForm') {
+        event.preventDefault();
+        await runSandboxCommand('create');
+        return;
+      }
       if (event.target.id === 'paymentProviderSettingsForm') {
         event.preventDefault();
         if (!organization || !owner() || busy || !requireWrites()) return;
@@ -701,11 +964,19 @@
     }
     function change(event) {
       if (event.target.id === 'paymentFiscalizationEnabled' || event.target.id === 'paymentRefundAttempt') updateRefundAmount();
+      if (event.target.id === 'paymentSandboxBooking') {
+        const booking = sandboxBookings().find(item => item.id === event.target.value);
+        if ($('#paymentSandboxAmount')) $('#paymentSandboxAmount').value = String(Math.max(1, booking?.totalPriceRub || 1));
+      }
     }
     function bind() {
       document.addEventListener('submit', submit);
       document.addEventListener('change', change);
-      document.addEventListener('click', event => { if (event.target.closest?.('#paymentRefundNew')) newRefund(); });
+      document.addEventListener('click', event => {
+        if (event.target.closest?.('#paymentRefundNew')) newRefund();
+        const sandboxAction = event.target.closest?.('[data-payment-sandbox-action]')?.dataset.paymentSandboxAction;
+        if (sandboxAction) void runSandboxCommand(sandboxAction);
+      });
       $('#reloadPaymentProvider')?.addEventListener('click', load);
     }
     return {

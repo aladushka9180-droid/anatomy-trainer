@@ -5,12 +5,14 @@ on:
     paths:
       - "minuta-online-booking/**"
       - "supabase/functions/yandex-booking-api/**"
+      - "supabase/functions/primetime-provider-inbound-v144/**"
       - "supabase/config.toml"
       - ".github/workflows/minuta-*.yml"
   pull_request:
     paths:
       - "minuta-online-booking/**"
       - "supabase/functions/yandex-booking-api/**"
+      - "supabase/functions/primetime-provider-inbound-v144/**"
       - "supabase/config.toml"
       - ".github/workflows/minuta-*.yml"
 
@@ -51,7 +53,7 @@ jobs:
       - run: node minuta-online-booking/data-governance-v110-static-test.mjs
       - run: node minuta-online-booking/notification-v114-static-test.mjs
       - run: node minuta-online-booking/platform-hardening-v115-static-test.mjs
-      - run: node --check minuta-online-booking/tests/benefit-public-v115-postgres-concurrency-test.mjs
+      - run: node --check minuta-online-booking/tests/benefit-public-v115-postgres-concurrency-test.mjs && node --check minuta-online-booking/integration-management.js
       - run: node minuta-online-booking/visit-outcome-defaults-v124-static-test.mjs
       - run: node minuta-online-booking/financial-ledger-v129-static-test.mjs
       - run: node minuta-online-booking/payroll-ledger-v136-static-test.mjs
@@ -59,6 +61,11 @@ jobs:
       - run: node minuta-online-booking/yandex-booking-v140-static-test.mjs
       - run: node minuta-online-booking/booking-workflows-v141-static-test.mjs
       - run: node minuta-online-booking/provider-reschedule-v143-static-test.mjs
+      - run: node minuta-online-booking/provider-integrations-v144-static-test.mjs
+      - run: node minuta-online-booking/provider-data-transfer-v144-static-test.mjs
+      - run: node minuta-online-booking/provider-connectors-v144-static-test.mjs
+      - run: node minuta-online-booking/tests/notification-center-context-recovery-test.mjs
+      - run: node --test minuta-online-booking/tests/provider-sandbox-payment-v144-test.mjs minuta-online-booking/tests/provider-inbound-v144-edge-test.mjs
       - run: node --test minuta-online-booking/tests/yandex-booking-edge-test.mjs
       - run: node --check minuta-online-booking/tests/yandex-booking-v140-postgres-concurrency-test.mjs
       - run: bash -n minuta-online-booking/tests/financial-ledger-v129-concurrency-test.sh

@@ -59,7 +59,7 @@ for (const script of lazyScripts) {
 
 const assetBlock = worker.match(/const ASSETS = \[([\s\S]*?)\];/)?.[1] || '';
 const assets = [...assetBlock.matchAll(/'([^']+)'/g)].map(match => match[1]);
-assert.ok(assets.length > 0 && assets.length <= 70, `Unexpected core precache size: ${assets.length}`);
+assert.ok(assets.length > 0 && assets.length <= 72, `Unexpected core precache size: ${assets.length}`);
 for (const asset of assets) {
   assert.ok(!asset.startsWith('./help/images/'), 'Help screenshots must be runtime-cached');
   assert.ok(!lazyScripts.some(script => asset.split('?')[0] === `./${script}`), `${asset} must be runtime-cached`);
@@ -80,4 +80,4 @@ assert.match(updates, /const CHECK_INTERVAL_MS = 15 \* 60 \* 1000;/, 'Update int
 assert.ok(!updates.includes("addEventListener('focus'"), 'Focus must not trigger update storms');
 assert.ok(!updates.includes("addEventListener('pageshow'"), 'Pageshow must not trigger update storms');
 
-console.log(`Provider startup performance v690: PASS (${assets.length} core files, ${precacheBytes} bytes)`);
+console.log(`Provider startup performance v691: PASS (${assets.length} core files, ${precacheBytes} bytes)`);

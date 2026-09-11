@@ -1,0 +1,122 @@
+name: Minuta v144 provider inbound Edge release
+run-name: Minuta v144 Edge - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character current main commit SHA
+        required: true
+        type: string
+      evidence_commit_sha:
+        description: Exact v144 commit SHA proven by apply and observe
+        required: true
+        type: string
+      apply_run_id:
+        description: Successful v144 production apply run ID
+        required: true
+        type: string
+      observe_run_id:
+        description: Successful v144 production observation run ID
+        required: true
+        type: string
+      confirmation:
+        description: Enter DEPLOY_DISABLED_V144_EDGE
+        required: true
+        type: string
+
+permissions: { contents: read, actions: read }
+concurrency: { group: minuta-production-database, cancel-in-progress: false }
+defaults:
+  run: { shell: bash }
+
+jobs:
+  deploy-disabled:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      SHA: ${{ inputs.commit_sha }}
+      EVIDENCE_SHA: ${{ inputs.evidence_commit_sha }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin current main and disabled release intent
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EVIDENCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          git merge-base --is-ancestor "$EVIDENCE_SHA" "$SHA"
+          git diff --quiet "$EVIDENCE_SHA" "$SHA" -- \
+            minuta-online-booking/supabase-migration-v144.sql \
+            minuta-online-booking/supabase-migration-v144-payment-connectors.sql \
+            supabase/functions/primetime-provider-inbound-v144
+          test "$CONFIRMATION" = DEPLOY_DISABLED_V144_EDGE
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with: { deno-version: v2.x }
+      - name: Verify inbound adapter without vendor traffic
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/provider-connectors-v144-static-test.mjs
+          node --test minuta-online-booking/tests/provider-inbound-v144-edge-test.mjs
+          deno check supabase/functions/primetime-provider-inbound-v144/index.ts
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v1
+        with: { version: 2.117.0 }
+      - name: Verify applied and observed v144 database evidence
+        env:
+          APPLY: ${{ inputs.apply_run_id }}
+          OBSERVE: ${{ inputs.observe_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for id in "$APPLY" "$OBSERVE"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){ run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$EVIDENCE_SHA"; test "$(jq -r .head_branch <<<"$run")" = main; test "$(jq -r .event <<<"$run")" = workflow_dispatch; test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v144-safe-release.yml; }
+          mkdir -p "$RUNNER_TEMP/v144-edge-evidence"/{apply,observe}
+          check_run "$APPLY"
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v144-apply-$APPLY" -D "$RUNNER_TEMP/v144-edge-evidence/apply"
+          jq -e --arg sha "$EVIDENCE_SHA" '.status=="success" and .commitSha==$sha and .productionWritten and (.externalRequestsSent|not) and (.realPaymentsCreated|not) and .state.ready' "$RUNNER_TEMP/v144-edge-evidence/apply/v144-apply.json" >/dev/null
+          check_run "$OBSERVE"
+          gh run download "$OBSERVE" -R "$GITHUB_REPOSITORY" -n "v144-observe-$OBSERVE" -D "$RUNNER_TEMP/v144-edge-evidence/observe"
+          jq -e --arg sha "$EVIDENCE_SHA" --arg apply "$APPLY" '.status=="success" and .commitSha==$sha and .applyRunId==$apply and .readOnly and (.productionWritten|not) and (.externalRequestsSent|not) and .state.ready' "$RUNNER_TEMP/v144-edge-evidence/observe/v144-observe.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - name: Force provider inbound off before deployment
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          supabase secrets set PRIMETIME_PROVIDER_INBOUND_V144_ENABLED=false \
+            PRIMETIME_PROVIDER_INBOUND_V144_ENVIRONMENT=testing --project-ref "$PROJECT_REF"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - name: Deploy only the disabled v144 provider inbound adapter
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          supabase functions deploy primetime-provider-inbound-v144 --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - name: Prove production adapter remains disabled
+        run: |
+          set -euo pipefail
+          endpoint="https://$PROJECT_REF.supabase.co/functions/v1/primetime-provider-inbound-v144/v1/events/dikidi/00000000-0000-4000-8000-000000000144"
+          status="$(curl --silent --show-error --output "$RUNNER_TEMP/provider-disabled.json" --write-out '%{http_code}' \
+            --request POST --header 'Content-Type: application/json' --data '{}' "$endpoint")"
+          test "$status" = 503
+          jq -e '.code=="NOT_CONFIGURED"' "$RUNNER_TEMP/provider-disabled.json" >/dev/null
+          jq -n --arg sha "$SHA" --arg endpoint "$endpoint" \
+            '{status:"success",commitSha:$sha,endpoint:$endpoint,enabled:false,configurationStatus:"NOT_CONFIGURED",
+              productionWritten:true,externalRequestsSent:false,realIntegrationsEnabled:false,realBookingsCreated:false}' \
+            > "$RUNNER_TEMP/v144-edge-release.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v144-edge-release-${{ github.run_id }}", path: "${{ runner.temp }}/v144-edge-release.json", if-no-files-found: error, retention-days: 90 }

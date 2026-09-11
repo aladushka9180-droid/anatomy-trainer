@@ -411,6 +411,7 @@
     let pendingTable = null;
     let bound = false;
     let revision = 0;
+    let transferBusy = false;
 
     function supported() { return Boolean(workspace && workspace.can_import); }
     function contactsSupported() { return Boolean(navigator.contacts?.select && navigator.contacts?.getProperties); }
@@ -429,6 +430,28 @@
           ? `История загружена: ${Number(importedSummary.visit_count).toLocaleString('ru-RU')} записей · ${Number(importedSummary.total_price_rub || 0).toLocaleString('ru-RU')} ₽ по журналу`
           : transferBatches.length ? `Последний перенос: ${new Date(transferBatches[0].created_at).toLocaleString('ru-RU')} · ${transferBatches[0].input_count} строк · ${transferBatches[0].status === 'rolled_back' ? 'отменён' : transferBatches[0].status === 'applied' ? 'применён' : transferBatches[0].status === 'expired' ? 'истёк' : 'ожидает'}`
             : batches.length ? `Последний импорт: ${new Date(batches[0].created_at).toLocaleString('ru-RU')} · ${batches[0].input_count} клиентов` : 'Импортов пока не было';
+      }
+      const tools = $('#clientTransferTools');
+      if (tools) tools.hidden = !supported();
+      if (supported()) {
+        const transferBatches = Array.isArray(workspace.transfer_batches) ? workspace.transfer_batches : [];
+        const latest = transferBatches[0] || null;
+        const latestApplied = transferBatches.find(item => item?.status === 'applied') || null;
+        if ($('#clientTransferState')) $('#clientTransferState').textContent = latest
+          ? latest.status === 'rolled_back' ? 'Последний отменён' : latest.status === 'applied' ? 'Последний применён'
+            : latest.status === 'expired' ? 'Предпросмотр истёк' : 'Предпросмотр готов'
+          : 'Нет операций';
+        if ($('#clientTransferExport')) $('#clientTransferExport').hidden = workspace.current_role !== 'owner';
+        if ($('#clientTransferRollback')) $('#clientTransferRollback').hidden = !latestApplied;
+        if ($('#clientTransferRollbackButton')) {
+          $('#clientTransferRollbackButton').dataset.batchId = latestApplied?.id || latestApplied?.batch_id || '';
+          $('#clientTransferRollbackButton').disabled = transferBusy;
+        }
+        if ($('#clientTransferRollbackTitle') && latestApplied) {
+          const kind = latestApplied.transfer_kind === 'history' ? 'истории визитов' : 'клиентов';
+          $('#clientTransferRollbackTitle').textContent = `Отменить перенос ${kind} · ${Number(latestApplied.input_count || 0)} строк`;
+        }
+        tools?.querySelectorAll('button,select').forEach(control => { control.disabled = transferBusy; });
       }
     }
 
@@ -667,6 +690,52 @@
       finally { button.disabled = false; button.textContent = originalCaption; }
     }
 
+    async function exportTransfer(format, kind = 'clients') {
+      if (!organization?.id || workspace?.current_role !== 'owner' || transferBusy) return null;
+      const organizationId = organization.id;
+      transferBusy = true;
+      render();
+      try {
+        const payload = await fetchProviderTransferExport(db, organizationId, kind);
+        if (organization?.id !== organizationId) return null;
+        const artifact = buildProviderTransferExport(payload, format);
+        if (!downloadProviderTransferExport(artifact)) throw new Error('download_unavailable');
+        notify(`Скачана защищаемая копия: ${artifact.rowCount} строк`);
+        return artifact;
+      } catch (error) {
+        if (organization?.id === organizationId) notify(error?.message === 'download_unavailable'
+          ? 'Браузер не разрешил скачать файл' : 'Не удалось подготовить выгрузку');
+        throw error;
+      } finally {
+        if (organization?.id === organizationId) { transferBusy = false; render(); }
+      }
+    }
+
+    async function rollbackTransfer(batchId) {
+      if (!organization?.id || !batchId || transferBusy || !requireWrites()) return null;
+      if (typeof global.confirm === 'function'
+        && !global.confirm('Отменить этот перенос? Более поздние изменения клиентов или истории не будут затронуты.')) return null;
+      const organizationId = organization.id;
+      transferBusy = true;
+      render();
+      try {
+        const { data,error } = await db.rpc('rollback_minuta_provider_transfer_v144', {
+          p_organization:organizationId,p_batch:batchId
+        });
+        if (organization?.id !== organizationId) return null;
+        if (error || data?.status !== 'rolled_back') throw error || new Error('rollback_not_confirmed');
+        notify('Перенос отменён и проверен');
+        await load();
+        return data;
+      } catch (error) {
+        if (organization?.id === organizationId) notify(/modified|blocked|conflict|измен/i.test(`${error?.message || ''} ${error?.details || ''}`)
+          ? 'Перенос уже нельзя отменить: связанные данные изменились позже' : 'Не удалось подтвердить отмену переноса');
+        throw error;
+      } finally {
+        if (organization?.id === organizationId) { transferBusy = false; render(); }
+      }
+    }
+
     function bind() {
       if (bound) return;
       bound = true;
@@ -674,28 +743,22 @@
       $('#clientContactsImport')?.addEventListener('click', choosePhoneContacts);
       $('#clientImportApplyMapping')?.addEventListener('click', applyManualMapping);
       $('#clientImportForm')?.addEventListener('submit', submit);
+      $('#clientTransferExportButton')?.addEventListener('click', () => {
+        void exportTransfer($('#clientTransferExportFormat')?.value || 'csv', $('#clientTransferExportKind')?.value || 'clients').catch(() => {});
+      });
+      $('#clientTransferRollbackButton')?.addEventListener('click', event => {
+        void rollbackTransfer(event.currentTarget.dataset.batchId).catch(() => {});
+      });
     }
 
     return {
       bind, load,
       async rollback(batchId) {
-        if (!organization?.id || !requireWrites()) return null;
-        const organizationId = organization.id;
-        const { data,error } = await db.rpc('rollback_minuta_provider_transfer_v144', {
-          p_organization:organizationId,p_batch:batchId
-        });
-        if (error) throw error;
-        if (organization?.id === organizationId) await load();
-        return data;
+        return rollbackTransfer(batchId);
       },
       async exportData(format, kind = 'clients') {
         if (!organization?.id) throw new Error('Сначала выберите организацию.');
-        const organizationId = organization.id;
-        const payload = await fetchProviderTransferExport(db, organizationId, kind);
-        if (organization?.id !== organizationId) return null;
-        const artifact = buildProviderTransferExport(payload, format);
-        downloadProviderTransferExport(artifact);
-        return artifact;
+        return exportTransfer(format, kind);
       },
       getTransferBatches() {
         return Array.isArray(workspace?.transfer_batches) ? [...workspace.transfer_batches] : [];

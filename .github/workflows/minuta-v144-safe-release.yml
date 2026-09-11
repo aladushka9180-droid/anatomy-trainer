@@ -1,0 +1,267 @@
+name: Minuta v144 provider operations safe release
+run-name: Minuta v144 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v144
+        required: true
+        default: test-v144
+        type: choice
+        options: [test-v144, validate-production-v144, apply-production-v144, observe-production-v144]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      restore_run_id: { description: Linked offline restore run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful isolated v144 test run ID, required: false, default: "", type: string }
+      validation_run_id: { description: Successful read-only v144 validation run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v144 apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter BACKUP_VERIFIED for production apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency: { group: "${{ inputs.phase == 'test-v144' && 'minuta-test-database' || 'minuta-production-database' }}", cancel-in-progress: false }
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit and phase
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            test-v144|validate-production-v144|observe-production-v144) ;;
+            apply-production-v144) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with: { deno-version: v2.x }
+      - run: node minuta-online-booking/provider-data-transfer-v144-static-test.mjs
+      - run: node minuta-online-booking/provider-connectors-v144-static-test.mjs
+      - run: node minuta-online-booking/provider-integrations-v144-static-test.mjs
+      - run: node minuta-online-booking/tests/notification-center-context-recovery-test.mjs
+      - run: node --test minuta-online-booking/tests/provider-sandbox-payment-v144-test.mjs minuta-online-booking/tests/provider-inbound-v144-edge-test.mjs
+      - run: deno check supabase/functions/primetime-provider-inbound-v144/index.ts
+
+  test-v144:
+    if: inputs.phase == 'test-v144'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      PGOPTIONS: -c statement_timeout=180000 -c lock_timeout=10000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Run the isolated transfer model
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/v144-pglite" --no-audit --no-fund --ignore-scripts @electric-sql/pglite@0.5.8
+          MINUTA_PGLITE_MODULE="$RUNNER_TEMP/v144-pglite/node_modules/@electric-sql/pglite/dist/index.js" \
+            node minuta-online-booking/tests/provider-data-transfer-v144-pglite-test.mjs
+      - name: Apply twice, test PostgreSQL contracts, rollback and reapply
+        run: |
+          set -euo pipefail
+          test "$MINUTA_TEST_PROJECT_REF" != "$MINUTA_PRODUCTION_PROJECT_REF"
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target
+          where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          for pass in 1 2; do
+            psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v144.sql
+            psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v144-payment-connectors.sql
+          done
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/provider-connectors-v144-integration.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v144-payment-connectors-rollback.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v144-rollback.sql
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('transfer',to_regclass('public.provider_data_transfer_batches') is null,'payments',to_regclass('public.payment_sandbox_ledgers_v144') is null,'events',to_regclass('public.integration_provider_events_v144') is null)")"
+          jq -e '.transfer and .payments and .events' <<<"$state" >/dev/null
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v144.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v144-payment-connectors.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/provider-connectors-v144-integration.sql
+      - name: Create isolated test attestation
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          jq -n --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" \
+            --arg transfer "$(sha256sum minuta-online-booking/supabase-migration-v144.sql|cut -d' ' -f1)" \
+            --arg payment "$(sha256sum minuta-online-booking/supabase-migration-v144-payment-connectors.sql|cut -d' ' -f1)" \
+            '{status:"success",phase:"test-v144",commitSha:$sha,runId:$run,isolatedDatabase:true,
+              cycle:["apply","apply","authorization","tenant-isolation","idempotency","rollback","reapply"],
+              transferMigrationSha256:$transfer,paymentMigrationSha256:$payment,
+              productionWritten:false,externalRequestsSent:false,realPaymentsCreated:false}' > "$RUNNER_TEMP/v144-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v144-test-${{ github.run_id }}", path: "${{ runner.temp }}/v144-test.json", if-no-files-found: error, retention-days: 35 }
+
+  validate-production-v144:
+    if: inputs.phase == 'validate-production-v144'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Validate production prerequisites and v144 state read-only
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          begin transaction isolation level repeatable read read only;
+          with flags as(select
+            to_regclass('public.organization_imported_clients') is not null
+              and to_regclass('public.organization_imported_booking_history') is not null
+              and to_regclass('public.integration_connections_v142') is not null prerequisites_ready,
+            to_regclass('public.provider_data_transfer_batches') is not null transfer_table,
+            to_regclass('public.payment_sandbox_ledgers_v144') is not null payment_table,
+            to_regclass('public.integration_provider_events_v144') is not null event_table,
+            to_regprocedure('public.preview_minuta_provider_transfer_v144(uuid,text,text,jsonb,uuid,text)') is not null transfer_preview,
+            to_regprocedure('public.export_minuta_provider_transfer_data_v144(uuid,text,integer,integer)') is not null transfer_export,
+            to_regprocedure('public.apply_minuta_payment_sandbox_v144(uuid,uuid,uuid,text,integer,text,bigint,text)') is not null payment_rpc,
+            to_regprocedure('public.get_minuta_provider_connector_read_model_v144(uuid,integer)') is not null connector_read)
+          select json_build_object('prerequisitesReady',prerequisites_ready,'mode',case
+            when prerequisites_ready and not transfer_table and not payment_table and not event_table
+              and not transfer_preview and not transfer_export and not payment_rpc and not connector_read then 'ready'
+            when prerequisites_ready and transfer_table and payment_table and event_table
+              and transfer_preview and transfer_export and payment_rpc and connector_read then 'full'
+            else 'partial' end) from flags;
+          rollback;
+          SQL
+          )"
+          state="$(grep '^{' <<<"$state"|tail -n 1)"
+          jq -e '.prerequisitesReady and (.mode=="ready" or .mode=="full")' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" \
+            '{status:"success",phase:"validate-production-v144",commitSha:$sha,readOnly:true,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v144-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v144-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v144-validation.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v144:
+    if: inputs.phase == 'apply-production-v144'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify test, validation, encrypted backup and linked restore
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          TEST: ${{ inputs.test_run_id }}
+          VALIDATION: ${{ inputs.validation_run_id }}
+          BACKUP: ${{ inputs.backup_run_id }}
+          RESTORE: ${{ inputs.restore_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for id in "$TEST" "$VALIDATION" "$BACKUP" "$RESTORE"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){ run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$SHA"; test "$(jq -r .head_branch <<<"$run")" = main; test "$(jq -r .event <<<"$run")" = workflow_dispatch; test "$(jq -r .path <<<"$run")" = "$2"; }
+          mkdir -p "$RUNNER_TEMP/v144-evidence"/{test,validation,backup,restore}
+          check_run "$TEST" .github/workflows/minuta-v144-safe-release.yml
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v144-test-$TEST" -D "$RUNNER_TEMP/v144-evidence/test"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .isolatedDatabase and (.productionWritten|not) and (.externalRequestsSent|not) and (.realPaymentsCreated|not)' "$RUNNER_TEMP/v144-evidence/test/v144-test.json" >/dev/null
+          check_run "$VALIDATION" .github/workflows/minuta-v144-safe-release.yml
+          gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v144-validation-$VALIDATION" -D "$RUNNER_TEMP/v144-evidence/validation"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .readOnly and (.state.mode=="ready" or .state.mode=="full")' "$RUNNER_TEMP/v144-evidence/validation/v144-validation.json" >/dev/null
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s)-$(date -d "$(jq -r .created_at <<<"$run")" +%s) )); test "$age" -ge 0 && test "$age" -le 7200
+          artifact="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts" --jq '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name')"; [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v144-evidence/backup"
+          shopt -s nullglob; encrypted=("$RUNNER_TEMP/v144-evidence/backup/"*.dump.gpg); journals=("$RUNNER_TEMP/v144-evidence/backup/"*.json)
+          test "${#encrypted[@]}" = 1 && test "${#journals[@]}" = 1
+          test "$(sha256sum "${encrypted[0]}"|cut -d' ' -f1)" = "$(jq -r .encryptedSha256 "${journals[0]}")"
+          check_run "$RESTORE" .github/workflows/minuta-supabase-restore-drill.yml
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE" -D "$RUNNER_TEMP/v144-evidence/restore"
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" '.status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed and (.productionWritten|not) and .sourceBackupRunId==$backup and .sourceBackupSha==$sha' "$RUNNER_TEMP/v144-evidence/restore/minuta-ephemeral-restore.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply v144 and verify protected operations
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v144.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v144-payment-connectors.sql
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('ready',to_regprocedure('public.preview_minuta_provider_transfer_v144(uuid,text,text,jsonb,uuid,text)') is not null and to_regprocedure('public.export_minuta_provider_transfer_data_v144(uuid,text,integer,integer)') is not null and to_regprocedure('public.apply_minuta_payment_sandbox_v144(uuid,uuid,uuid,text,integer,text,bigint,text)') is not null and to_regprocedure('public.get_minuta_provider_connector_read_model_v144(uuid,integer)') is not null,'transferBatches',(select count(*) from public.provider_data_transfer_batches),'sandboxLedgers',(select count(*) from public.payment_sandbox_ledgers_v144),'providerEvents',(select count(*) from public.integration_provider_events_v144))")"
+          jq -e '.ready' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" \
+            '{status:"success",phase:"apply-production-v144",commitSha:$sha,state:$state,productionWritten:true,
+              businessRowsChanged:false,externalRequestsSent:false,realPaymentsCreated:false,secretsExposed:false}' > "$RUNNER_TEMP/v144-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v144-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v144-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v144:
+    if: inputs.phase == 'observe-production-v144'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify apply evidence and observe v144 read-only
+        env: { SHA: "${{ inputs.commit_sha }}", APPLY: "${{ inputs.apply_run_id }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success
+          test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v144-safe-release.yml
+          mkdir -p "$RUNNER_TEMP/v144-apply-evidence"
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v144-apply-$APPLY" -D "$RUNNER_TEMP/v144-apply-evidence"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .productionWritten and (.businessRowsChanged|not) and (.externalRequestsSent|not) and (.realPaymentsCreated|not)' "$RUNNER_TEMP/v144-apply-evidence/v144-apply.json" >/dev/null
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('ready',to_regprocedure('public.preview_minuta_provider_transfer_v144(uuid,text,text,jsonb,uuid,text)') is not null and to_regprocedure('public.export_minuta_provider_transfer_data_v144(uuid,text,integer,integer)') is not null and to_regprocedure('public.apply_minuta_payment_sandbox_v144(uuid,uuid,uuid,text,integer,text,bigint,text)') is not null and to_regprocedure('public.get_minuta_provider_connector_read_model_v144(uuid,integer)') is not null,'transferBatches',(select count(*) from public.provider_data_transfer_batches),'sandboxLedgers',(select count(*) from public.payment_sandbox_ledgers_v144),'providerEvents',(select count(*) from public.integration_provider_events_v144))")"
+          jq -e '.ready' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --arg apply "$APPLY" --argjson state "$state" \
+            '{status:"success",phase:"observe-production-v144",commitSha:$sha,applyRunId:$apply,
+              readOnly:true,productionWritten:false,externalRequestsSent:false,state:$state}' > "$RUNNER_TEMP/v144-observe.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v144-observe-${{ github.run_id }}", path: "${{ runner.temp }}/v144-observe.json", if-no-files-found: error, retention-days: 90 }

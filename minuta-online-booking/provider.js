@@ -1994,7 +1994,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=690#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=691#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2699,7 +2699,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=690#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=691#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4921,7 +4921,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=690');
+    worker = new Worker('./report-worker.js?v=691');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -11584,6 +11584,7 @@ async function handleSession(session) {
   teamCalendarController.reset();
   groupBookingsController.reset();
   paymentController.reset();
+  integrationController.reset();
   notificationCenterController.reset();
   providerFeedbackController.reset();
   clientFieldsController.setOrganization(null);
@@ -14103,9 +14104,25 @@ const bookingWidgetsController = window.MinutaBookingWidgets?.createProviderCont
 bookingWidgetsController.bind();
 
 const paymentController = window.MinutaPayments?.createController ? window.MinutaPayments.createController({
-  db, $, escapeHtml, notify, requireWrites, refreshNavigation:refreshSectionNavigation
+  db, $, escapeHtml, notify, requireWrites,
+  getSandboxBookings: () => allBookings
+    .filter(item => !isScheduleBlock(item) && item.status !== 'cancelled'
+      && (!activeOrganizationId || !item.organization_id || item.organization_id === activeOrganizationId))
+    .slice(-100).reverse().map(item => ({
+      id:item.id,
+      clientName:item.client_name || 'Клиент',
+      date:item.booking_date,
+      time:String(item.booking_time || '').slice(0, 5),
+      totalPriceRub:Math.max(0, Number(item.total_price_rub ?? item.original_price_rub ?? item.services?.price_rub ?? 0) || 0)
+    })),
+  refreshNavigation:refreshSectionNavigation
 }) : { bind() {}, load() { return Promise.resolve(); }, setOrganization() {}, reset() {}, isCheckoutEnabled() { return false; } };
 paymentController.bind();
+
+const integrationController = window.MinutaIntegrations?.createController ? window.MinutaIntegrations.createController({
+  db, $, escapeHtml, notify, requireWrites
+}) : { bind() {}, load() { return Promise.resolve(); }, setOrganization() {}, reset() {} };
+integrationController.bind();
 
 const notificationCenterController = window.MinutaNotificationCenter?.createController ? window.MinutaNotificationCenter.createController({
   db, $, escapeHtml, notify, requireWrites
@@ -14216,6 +14233,7 @@ const organizationController = window.MinutaOrganization.createController({
     bookingPolicyController.setOrganization(organization);
     groupBookingsController.setOrganization(organization);
     paymentController.setOrganization(organization);
+    integrationController.setOrganization(organization);
     notificationCenterController.setOrganization(organization);
     clientFieldsController.setOrganization(organization);
     clientResultsController.setOrganization(organization);
