@@ -42,6 +42,8 @@ try {
       contactState.rpcCalls.push({ name, args });
       if (name === 'get_minuta_imported_clients') return { data:{ can_import:true, clients:[{ phone:'79000000001' }], recent_batches:[], has_more:false }, error:null };
       if (name === 'get_minuta_imported_booking_history') return { data:{ rows:[], summary:null, has_more:false }, error:null };
+      if (name === 'get_minuta_provider_transfer_journal_v144') return { data:null, error:{ code:'PGRST202',message:'not installed' } };
+      if (name === 'preview_minuta_provider_transfer_v144') return { data:null, error:{ code:'PGRST202',message:'not installed' } };
       if (name === 'import_minuta_clients') return { data:{ created_count:1, updated_count:0 }, error:null };
       throw new Error(`Unexpected RPC: ${name}`);
     } };

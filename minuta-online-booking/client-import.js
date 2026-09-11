@@ -53,6 +53,145 @@
     return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
   }
 
+  function missingRpc(error, name) {
+    return Boolean(error && (error.code === 'PGRST202' || new RegExp(`could not find.*${name}|function .*${name}.*does not exist`, 'i').test(error.message || '')));
+  }
+
+  async function executeProviderTransferBatch(db, input) {
+    const previewResponse = await db.rpc('preview_minuta_provider_transfer_v144', {
+      p_organization:input.organizationId,
+      p_kind:input.kind,
+      p_source_system:input.sourceSystem || 'other',
+      p_rows:input.rows,
+      p_request_id:input.requestId,
+      p_source_file:input.kind === 'history' ? input.sourceFile || 'journal.xls' : null
+    });
+    if (previewResponse.error) {
+      if (missingRpc(previewResponse.error, 'preview_minuta_provider_transfer_v144')) return { supported:false };
+      throw previewResponse.error;
+    }
+    const planned = previewResponse.data || {};
+    if (!planned.batch_id) throw new Error('Сервер не вернул номер предварительной проверки.');
+    if (Number(planned.conflict_count || 0) > 0) {
+      throw new Error('Импорт остановлен: внешний идентификатор уже связан с другим клиентом.');
+    }
+    if (!['previewed','applied'].includes(planned.status)) {
+      throw new Error('Предварительная проверка импорта больше не действует. Повторите выбор файла.');
+    }
+    const applyResponse = await db.rpc('apply_minuta_provider_transfer_v144', {
+      p_organization:input.organizationId,
+      p_batch:planned.batch_id
+    });
+    if (applyResponse.error) throw applyResponse.error;
+    const applied = applyResponse.data || {};
+    if (applied.status !== 'applied') {
+      throw new Error('Предварительная проверка импорта больше не действует. Повторите выбор файла.');
+    }
+    return { supported:true, preview:planned, data:applied };
+  }
+
+  const TRANSFER_EXPORT_COLUMNS = Object.freeze({
+    clients:Object.freeze([
+      ['name','Имя'],['display_phone','Телефон'],['email','Email'],['birthday','Дата рождения'],
+      ['note','Комментарий'],['source_system','Источник'],['external_id','ID клиента'],
+      ['visit_count','Количество визитов'],['total_spent_rub','Всего оплачено'],
+      ['last_visit_on','Последний визит'],['marketing_consent','Согласие на рассылку'],
+      ['personal_data_consent','Согласие на обработку персональных данных']
+    ]),
+    history:Object.freeze([
+      ['booking_date','Дата'],['booking_time','Время'],['duration_minutes','Длительность, мин'],
+      ['client_name','Имя клиента'],['display_phone','Телефон'],['service_name','Услуга'],
+      ['source_provider_name','Мастер'],['price_rub','Стоимость'],['source_note','Комментарий'],
+      ['source_sheet','Лист'],['source_file_name','Исходный файл']
+    ])
+  });
+
+  function safeCsvCell(value) {
+    if (value === null || value === undefined) return '';
+    let text = String(value).replace(/\0/g, '');
+    if (/^\s*[=+\-@]/.test(text)) text = `'${text}`;
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function buildProviderTransferExport(payload, format) {
+    const kind = String(payload?.kind || '').toLowerCase();
+    if (!Object.hasOwn(TRANSFER_EXPORT_COLUMNS, kind)) throw new Error('Неизвестный раздел выгрузки.');
+    if (!['csv','json'].includes(format)) throw new Error('Поддерживаются CSV и JSON.');
+    const columns = TRANSFER_EXPORT_COLUMNS[kind];
+    const rows = (Array.isArray(payload?.rows) ? payload.rows : []).map(row => Object.fromEntries(
+      columns.map(([key]) => [key, ['string','number','boolean'].includes(typeof row?.[key]) ? row[key] : null])
+    ));
+    const exportedAt = String(payload?.exported_at || new Date().toISOString());
+    const datasetRevision = /^[0-9a-f]{64}$/.test(String(payload?.dataset_revision || ''))
+      ? String(payload.dataset_revision) : '';
+    const day = /^\d{4}-\d{2}-\d{2}/.exec(exportedAt)?.[0] || new Date().toLocaleDateString('en-CA');
+    let content;
+    let mediaType;
+    if (format === 'json') {
+      content = `${JSON.stringify({ schema_version:1,kind,exported_at:exportedAt,dataset_revision:datasetRevision,rows }, null, 2)
+        .replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')}\n`;
+      mediaType = 'application/json;charset=utf-8';
+    } else {
+      const lines = [columns.map(([,label]) => safeCsvCell(label)).join(',')];
+      rows.forEach(row => lines.push(columns.map(([key]) => safeCsvCell(row?.[key])).join(',')));
+      content = `\ufeff${lines.join('\r\n')}\r\n`;
+      mediaType = 'text/csv;charset=utf-8';
+    }
+    return {
+      kind,format,content,mediaType,rowCount:rows.length,datasetRevision,containsPersonalData:true,
+      filename:`primetime-pro-${kind}-${day}.${format}`
+    };
+  }
+
+  async function fetchProviderTransferExport(db, organizationId, kind) {
+    const pageSize = 1000;
+    const maxRows = 100000;
+    const rows = [];
+    let offset = 0;
+    let exportedAt = '';
+    let datasetRevision = '';
+    while (offset < maxRows) {
+      const response = await db.rpc('export_minuta_provider_transfer_data_v144', {
+        p_organization:organizationId,p_kind:kind,p_limit:pageSize,p_offset:offset
+      });
+      if (response.error) throw response.error;
+      const page = response.data || {};
+      if (!exportedAt) exportedAt = page.exported_at || '';
+      const pageRevision = String(page.dataset_revision || '');
+      if (!/^[0-9a-f]{64}$/.test(pageRevision)) {
+        throw new Error('Сервер не подтвердил целостность выгрузки.');
+      }
+      if (datasetRevision && datasetRevision !== pageRevision) {
+        throw new Error('Данные изменились во время выгрузки. Повторите её.');
+      }
+      datasetRevision = pageRevision;
+      const pageRows = Array.isArray(page.rows) ? page.rows : [];
+      if (pageRows.length > pageSize || rows.length+pageRows.length>maxRows) {
+        throw new Error('Сервер вернул неверную страницу выгрузки.');
+      }
+      rows.push(...pageRows);
+      if (!page.has_more) return { schema_version:1,kind,exported_at:exportedAt,dataset_revision:datasetRevision,rows };
+      const nextOffset = Number(page.next_offset);
+      if (!Number.isSafeInteger(nextOffset) || nextOffset !== offset+pageSize || pageRows.length !== pageSize) {
+        throw new Error('Сервер вернул неверную страницу выгрузки.');
+      }
+      offset = nextOffset;
+    }
+    throw new Error('Выгрузка превышает безопасный предел в 100 000 строк.');
+  }
+
+  function downloadProviderTransferExport(artifact) {
+    if (!global.URL?.createObjectURL || !global.Blob || !global.document?.createElement) return false;
+    const url = global.URL.createObjectURL(new global.Blob([artifact.content], { type:artifact.mediaType }));
+    const link = global.document.createElement('a');
+    link.href = url;
+    link.download = artifact.filename;
+    link.rel = 'noopener';
+    link.click();
+    setTimeout(() => global.URL.revokeObjectURL(url), 1000);
+    return true;
+  }
+
   function normalizedHeader(value) {
     return String(value || '').replace(/^\ufeff/, '').trim().toLowerCase().replace(/ё/g, 'е').replace(/[_.\-]+/g, ' ').replace(/\s+/g, ' ');
   }
@@ -284,10 +423,12 @@
       const history = $('#clientImportHistory');
       if (history && supported()) {
         const batches = Array.isArray(workspace.recent_batches) ? workspace.recent_batches : [];
+        const transferBatches = Array.isArray(workspace.transfer_batches) ? workspace.transfer_batches : [];
         const importedSummary = workspace.history_summary;
         history.textContent = Number(importedSummary?.visit_count || 0)
           ? `История загружена: ${Number(importedSummary.visit_count).toLocaleString('ru-RU')} записей · ${Number(importedSummary.total_price_rub || 0).toLocaleString('ru-RU')} ₽ по журналу`
-          : batches.length ? `Последний импорт: ${new Date(batches[0].created_at).toLocaleString('ru-RU')} · ${batches[0].input_count} клиентов` : 'Импортов пока не было';
+          : transferBatches.length ? `Последний перенос: ${new Date(transferBatches[0].created_at).toLocaleString('ru-RU')} · ${transferBatches[0].input_count} строк · ${transferBatches[0].status === 'rolled_back' ? 'отменён' : transferBatches[0].status === 'applied' ? 'применён' : transferBatches[0].status === 'expired' ? 'истёк' : 'ожидает'}`
+            : batches.length ? `Последний импорт: ${new Date(batches[0].created_at).toLocaleString('ru-RU')} · ${batches[0].input_count} клиентов` : 'Импортов пока не было';
       }
     }
 
@@ -373,7 +514,12 @@
         if (!historyPayload.has_more) break;
       }
       if (!requestIsCurrent()) return { ok:false,optional:true,stale:true };
-      workspace = { ...(payload || {}), clients,history_rows:historyRows,history_summary:historyPayload?.summary || null };
+      let transferBatches = [];
+      const journalResponse = await db.rpc('get_minuta_provider_transfer_journal_v144', { p_organization:organizationId,p_limit:20 });
+      if (!requestIsCurrent()) return { ok:false,optional:true,stale:true };
+      if (!journalResponse.error) transferBatches = Array.isArray(journalResponse.data?.batches) ? journalResponse.data.batches : [];
+      else if (!missingRpc(journalResponse.error, 'get_minuta_provider_transfer_journal_v144')) transferBatches = [];
+      workspace = { ...(payload || {}), clients,history_rows:historyRows,history_summary:historyPayload?.summary || null,transfer_batches:transferBatches };
       onLoaded?.(clients, historyRows, workspace.history_summary);
       render();
       return { ok:true,optional:true };
@@ -385,7 +531,11 @@
     }
 
     function renderPreview(nextPreview) {
-      preview = nextPreview;
+      preview = {
+        ...nextPreview,
+        transferRequestIds:nextPreview.transferRequestIds || Object.create(null),
+        transferBaseOffset:Number.isSafeInteger(nextPreview.transferBaseOffset) ? nextPreview.transferBaseOffset : 0
+      };
       const sample = preview.rows.slice(0, 5);
       if (preview.kind === 'history') {
         const price = preview.rows.reduce((sum, item) => sum + Number(item.price_rub || 0), 0);
@@ -465,23 +615,35 @@
       let processedCount = 0;
       let createdCount = 0;
       let updatedCount = 0;
+      let unchangedCount = 0;
       try {
         for (let offset = 0; offset < totalCount; offset += IMPORT_BATCH_SIZE) {
           if (!requestIsCurrent()) return;
           const batch = importPreview.rows.slice(offset, offset + IMPORT_BATCH_SIZE);
+          const absoluteOffset = importPreview.transferBaseOffset + offset;
+          const requestId = importPreview.transferRequestIds[absoluteOffset] || uuid();
+          importPreview.transferRequestIds[absoluteOffset] = requestId;
           button.textContent = `Импортируем ${Math.min(offset + batch.length, totalCount)} из ${totalCount}`;
-          const { data, error } = importPreview.kind === 'history'
-            ? await db.rpc('import_minuta_booking_history', { p_organization:organizationId,p_rows:batch,p_request_id:uuid(),p_source_file:importPreview.fileName || 'journal.xls' })
-            : await db.rpc('import_minuta_clients', { p_organization:organizationId,p_source_system:'other',p_rows:batch,p_request_id:uuid() });
+          const transfer = await executeProviderTransferBatch(db, {
+            organizationId,kind:importPreview.kind,sourceSystem:'other',rows:batch,
+            requestId,sourceFile:importPreview.fileName || 'journal.xls'
+          });
+          let data;
+          let error;
+          if (transfer.supported) data = transfer.data;
+          else ({ data,error } = importPreview.kind === 'history'
+            ? await db.rpc('import_minuta_booking_history', { p_organization:organizationId,p_rows:batch,p_request_id:requestId,p_source_file:importPreview.fileName || 'journal.xls' })
+            : await db.rpc('import_minuta_clients', { p_organization:organizationId,p_source_system:'other',p_rows:batch,p_request_id:requestId }));
           if (!requestIsCurrent()) return;
           if (error) throw error;
           processedCount += batch.length;
           createdCount += Number(data?.created_count || 0);
           updatedCount += Number(data?.updated_count || data?.duplicate_count || 0);
+          unchangedCount += Number(data?.unchanged_count || 0);
         }
         notify(importPreview.kind === 'history'
           ? `История загружена: ${createdCount} записей${updatedCount ? `, ${updatedCount} дублей пропущено` : ''}`
-          : `Клиенты загружены: ${createdCount} новых, ${updatedCount} обновлено. Чтобы восстановить прошлый график, отдельно загрузите журнал записей Excel.`);
+          : `Клиенты загружены: ${createdCount} новых, ${updatedCount} обновлено${unchangedCount ? `, без изменений: ${unchangedCount}` : ''}. Чтобы восстановить прошлый график, отдельно загрузите журнал записей Excel.`);
         $('#clientImportForm').reset();
         pendingTable = null;
         preview = null;
@@ -490,7 +652,10 @@
         await load();
       } catch (error) {
         if (!requestIsCurrent()) return;
-        const retryPreview = processedCount ? { ...importPreview, rows:importPreview.rows.slice(processedCount) } : null;
+        const retryPreview = processedCount ? {
+          ...importPreview,rows:importPreview.rows.slice(processedCount),
+          transferBaseOffset:importPreview.transferBaseOffset+processedCount
+        } : importPreview;
         const prefix = processedCount ? `Успешно перенесено ${processedCount} из ${totalCount}. ` : '';
         notify(`${prefix}${error?.message || 'Импорт не выполнен'}`);
         if (retryPreview?.rows.length) {
@@ -513,6 +678,28 @@
 
     return {
       bind, load,
+      async rollback(batchId) {
+        if (!organization?.id || !requireWrites()) return null;
+        const organizationId = organization.id;
+        const { data,error } = await db.rpc('rollback_minuta_provider_transfer_v144', {
+          p_organization:organizationId,p_batch:batchId
+        });
+        if (error) throw error;
+        if (organization?.id === organizationId) await load();
+        return data;
+      },
+      async exportData(format, kind = 'clients') {
+        if (!organization?.id) throw new Error('Сначала выберите организацию.');
+        const organizationId = organization.id;
+        const payload = await fetchProviderTransferExport(db, organizationId, kind);
+        if (organization?.id !== organizationId) return null;
+        const artifact = buildProviderTransferExport(payload, format);
+        downloadProviderTransferExport(artifact);
+        return artifact;
+      },
+      getTransferBatches() {
+        return Array.isArray(workspace?.transfer_batches) ? [...workspace.transfer_batches] : [];
+      },
       setOrganization(next) {
         const normalized = next || null;
         const currentOrganizationId = organization?.id || '';
@@ -529,5 +716,8 @@
     };
   }
 
-  global.MinutaClientImport = Object.freeze({ createController, parseDelimited, parseSpreadsheet, parseBookingJournalWorkbook, mapRows, normalizePhone, loadXlsx });
+  global.MinutaClientImport = Object.freeze({
+    createController,parseDelimited,parseSpreadsheet,parseBookingJournalWorkbook,mapRows,normalizePhone,loadXlsx,
+    executeProviderTransferBatch,fetchProviderTransferExport,buildProviderTransferExport
+  });
 })(window);
