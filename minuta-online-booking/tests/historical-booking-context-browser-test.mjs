@@ -180,9 +180,9 @@ cases.push(['CONTROL today past timeline time keeps intent explicit and block mo
       savedAt:Date.now(),mode:'block',historical:true,date:'2020-01-05',time:'10:15',
       name:'Клиент из черновика',phone:'+79990000003',serviceId:ids.service,durationMinutes:60
     }));
-    openTimelineBookingAtTime('10:15',selectedDate);
+    openTimelineBookingAtTime('00:00',selectedDate);
   });
-  await page.waitForFunction(()=>document.querySelector('#newBookingTimes')?.textContent.includes('10:15 уже прошло'));
+  await page.waitForFunction(()=>document.querySelector('#newBookingTimes')?.textContent.includes('00:00 уже прошло'));
   assert.equal(await page.evaluate(()=>newBookingHistoricalMode),false,'A past time today must not silently become a completed visit');
   assert.equal(await page.locator('#newBookingHistoricalToggle').getAttribute('aria-pressed'),'false');
   assert.equal(await page.locator('[data-new-booking-mode="client"]').getAttribute('aria-pressed'),'true','A stale block draft must not choose the new entry type');
