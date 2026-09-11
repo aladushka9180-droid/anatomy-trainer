@@ -453,6 +453,13 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     assert.equal(await page.locator('#newBookingContactPicker').isVisible(),width<=760,'Phone-book action is mobile-only');
     assert.equal(await page.locator('#newBookingRecentCalls').isVisible(),true,'Android companion must keep recent calls available at every supported width');
     assert.ok(await page.locator('.new-booking-section-title>div').first().evaluate(el=>el.getBoundingClientRect().width>200),'Heading must occupy full width after removing step badge');
+    const clientFieldGeometry=await page.evaluate(()=>{
+      const name=document.querySelector('#newBookingName').getBoundingClientRect();
+      const phone=document.querySelector('#newBookingPhone').getBoundingClientRect();
+      return {nameTop:name.top,nameBottom:name.bottom,phoneTop:phone.top,phoneBottom:phone.bottom};
+    });
+    if(width>440)assert.ok(Math.abs(clientFieldGeometry.nameBottom-clientFieldGeometry.phoneBottom)<=1,`Desktop client inputs must share a baseline: ${JSON.stringify(clientFieldGeometry)}`);
+    else assert.ok(clientFieldGeometry.nameBottom<clientFieldGeometry.phoneTop,'Phone layout must remain stacked on narrow phones');
     await recordUiMetric(page,'historical-collapsed',theme,width);
     if(expectMinimalBookingForm){
       assert.equal(await page.locator('.booking-sheet-kicker').getAttribute('class'),'booking-sheet-kicker sr-only','The sheet context must stay accessible without adding a visual line');
