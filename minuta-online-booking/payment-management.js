@@ -1,6 +1,210 @@
 (function initMinutaPayments(global) {
   'use strict';
 
+  const SANDBOX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const SANDBOX_HASH = /^[0-9a-f]{64}$/;
+  const SANDBOX_IDEMPOTENCY = /^[\x21-\x7e]{8,200}$/;
+  const SANDBOX_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+  const SANDBOX_MAX_AMOUNT_MINOR = 100000000;
+
+  function sandboxFailure(code) {
+    const error = new Error(code);
+    error.code = code;
+    throw error;
+  }
+
+  function sandboxExactKeys(value, allowed, code) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || Object.keys(value).some(key => !allowed.includes(key))) sandboxFailure(code);
+  }
+
+  function sandboxUuid(value, code) {
+    if (typeof value !== 'string' || !SANDBOX_UUID.test(value)) sandboxFailure(code);
+    return value.toLowerCase();
+  }
+
+  function sandboxInstant(value) {
+    if (typeof value !== 'string' || !SANDBOX_INSTANT.test(value)
+      || !Number.isFinite(Date.parse(value))) sandboxFailure('sandbox_invalid_instant');
+    const normalized = value.includes('.') ? value : value.replace('Z', '.000Z');
+    if (new Date(value).toISOString() !== normalized) sandboxFailure('sandbox_invalid_instant');
+    return new Date(value).toISOString();
+  }
+
+  function sandboxAmount(value, code = 'sandbox_invalid_amount') {
+    if (!Number.isSafeInteger(value) || value < 1 || value > SANDBOX_MAX_AMOUNT_MINOR) sandboxFailure(code);
+    return value;
+  }
+
+  function freezeSandboxState(value) {
+    value.journal.forEach(Object.freeze);
+    Object.freeze(value.journal);
+    return Object.freeze(value);
+  }
+
+  function validateSandboxState(state) {
+    sandboxExactKeys(state, [
+      'schema', 'ledgerId', 'organizationId', 'bookingId', 'purpose', 'currency', 'amountMinor',
+      'authorizedMinor', 'capturedMinor', 'refundedMinor', 'status', 'version', 'journal'
+    ], 'sandbox_invalid_state');
+    sandboxUuid(state.ledgerId, 'sandbox_invalid_ledger');
+    sandboxUuid(state.organizationId, 'sandbox_invalid_organization');
+    sandboxUuid(state.bookingId, 'sandbox_invalid_booking');
+    sandboxAmount(state.amountMinor);
+    if (state.schema !== 'minuta.payment-sandbox.v1' || !['booking_prepayment', 'tip'].includes(state.purpose)
+      || state.currency !== 'RUB' || !Number.isSafeInteger(state.version) || state.version < 1 || state.version > 10000
+      || !Array.isArray(state.journal) || state.journal.length !== state.version) sandboxFailure('sandbox_invalid_state');
+    for (const amount of [state.authorizedMinor, state.capturedMinor, state.refundedMinor]) {
+      if (!Number.isSafeInteger(amount) || amount < 0) sandboxFailure('sandbox_invalid_state');
+    }
+    if (state.authorizedMinor > state.amountMinor || state.capturedMinor > state.authorizedMinor
+      || state.refundedMinor > state.capturedMinor) sandboxFailure('sandbox_invalid_state');
+    const validStatusAmounts =
+      (state.status === 'created' && state.authorizedMinor === 0 && state.capturedMinor === 0 && state.refundedMinor === 0)
+      || (state.status === 'authorized' && state.authorizedMinor === state.amountMinor && state.capturedMinor === 0 && state.refundedMinor === 0)
+      || (state.status === 'captured' && state.authorizedMinor === state.amountMinor && state.capturedMinor === state.amountMinor && state.refundedMinor === 0)
+      || (state.status === 'partially_refunded' && state.capturedMinor === state.amountMinor && state.refundedMinor > 0 && state.refundedMinor < state.capturedMinor)
+      || (state.status === 'refunded' && state.capturedMinor === state.amountMinor && state.refundedMinor === state.capturedMinor)
+      || (state.status === 'cancelled' && [0, state.amountMinor].includes(state.authorizedMinor) && state.capturedMinor === 0 && state.refundedMinor === 0);
+    if (!validStatusAmounts) sandboxFailure('sandbox_invalid_state');
+    const keys = new Set();
+    let expectedStatus = 'created';
+    let expectedAuthorizedMinor = 0;
+    let expectedCapturedMinor = 0;
+    let expectedRefundedMinor = 0;
+    let previousOccurredAt = null;
+    state.journal.forEach((entry, index) => {
+      sandboxExactKeys(entry, [
+        'sequence', 'action', 'idempotencyKey', 'payloadSha256', 'commandFingerprint',
+        'occurredAt', 'resultingStatus', 'resultingVersion', 'amountMinor'
+      ], 'sandbox_invalid_journal');
+      const entryAmountMinor = entry.amountMinor;
+      if (entry.sequence !== index + 1 || entry.resultingVersion !== index + 1
+        || !['create', 'authorize', 'capture', 'refund', 'cancel'].includes(entry.action)
+        || (index === 0) !== (entry.action === 'create')
+        || !SANDBOX_IDEMPOTENCY.test(entry.idempotencyKey) || !SANDBOX_HASH.test(entry.payloadSha256)
+        || !Number.isSafeInteger(entryAmountMinor) || entryAmountMinor < 0 || entryAmountMinor > SANDBOX_MAX_AMOUNT_MINOR
+        || keys.has(entry.idempotencyKey)) sandboxFailure('sandbox_invalid_journal');
+      const occurredAt = Date.parse(sandboxInstant(entry.occurredAt));
+      if (previousOccurredAt !== null && occurredAt < previousOccurredAt) sandboxFailure('sandbox_invalid_journal');
+      previousOccurredAt = occurredAt;
+      if (index === 0) {
+        if (entryAmountMinor !== state.amountMinor
+          || entry.commandFingerprint !== `create:${state.purpose}:RUB:${state.amountMinor}`) {
+          sandboxFailure('sandbox_invalid_journal');
+        }
+      } else {
+        const expectedFingerprint = `${entry.action}:${entryAmountMinor}:${index}`;
+        if (entry.commandFingerprint !== expectedFingerprint
+          || (entry.action === 'refund') !== (entryAmountMinor > 0)) sandboxFailure('sandbox_invalid_journal');
+        if (entry.action === 'authorize') {
+          if (expectedStatus !== 'created') sandboxFailure('sandbox_invalid_journal');
+          expectedStatus = 'authorized'; expectedAuthorizedMinor = state.amountMinor;
+        } else if (entry.action === 'capture') {
+          if (expectedStatus !== 'authorized' || expectedAuthorizedMinor !== state.amountMinor) sandboxFailure('sandbox_invalid_journal');
+          expectedStatus = 'captured'; expectedCapturedMinor = expectedAuthorizedMinor;
+        } else if (entry.action === 'refund') {
+          if (!['captured', 'partially_refunded'].includes(expectedStatus)
+            || entryAmountMinor > expectedCapturedMinor - expectedRefundedMinor) sandboxFailure('sandbox_invalid_journal');
+          expectedRefundedMinor += entryAmountMinor;
+          expectedStatus = expectedRefundedMinor === expectedCapturedMinor ? 'refunded' : 'partially_refunded';
+        } else {
+          if (!['created', 'authorized'].includes(expectedStatus)) sandboxFailure('sandbox_invalid_journal');
+          expectedStatus = 'cancelled';
+        }
+      }
+      if (entry.resultingStatus !== expectedStatus) sandboxFailure('sandbox_invalid_journal');
+      keys.add(entry.idempotencyKey);
+    });
+    if (state.status !== expectedStatus || state.authorizedMinor !== expectedAuthorizedMinor
+      || state.capturedMinor !== expectedCapturedMinor || state.refundedMinor !== expectedRefundedMinor) {
+      sandboxFailure('sandbox_invalid_journal');
+    }
+  }
+
+  function createSandboxPaymentState(input) {
+    sandboxExactKeys(input, [
+      'ledgerId', 'organizationId', 'bookingId', 'purpose', 'currency', 'amountMinor',
+      'idempotencyKey', 'payloadSha256', 'occurredAt'
+    ], 'sandbox_invalid_create');
+    const ledgerId = sandboxUuid(input.ledgerId, 'sandbox_invalid_ledger');
+    const organizationId = sandboxUuid(input.organizationId, 'sandbox_invalid_organization');
+    const bookingId = sandboxUuid(input.bookingId, 'sandbox_invalid_booking');
+    const amountMinor = sandboxAmount(input.amountMinor);
+    if (!['booking_prepayment', 'tip'].includes(input.purpose) || input.currency !== 'RUB'
+      || !SANDBOX_IDEMPOTENCY.test(input.idempotencyKey) || !SANDBOX_HASH.test(input.payloadSha256)) {
+      sandboxFailure('sandbox_invalid_create');
+    }
+    const occurredAt = sandboxInstant(input.occurredAt);
+    return freezeSandboxState({
+      schema: 'minuta.payment-sandbox.v1', ledgerId, organizationId, bookingId,
+      purpose: input.purpose, currency: 'RUB', amountMinor,
+      authorizedMinor: 0, capturedMinor: 0, refundedMinor: 0,
+      status: 'created', version: 1,
+      journal: [Object.freeze({
+        sequence: 1, action: 'create', idempotencyKey: input.idempotencyKey,
+        payloadSha256: input.payloadSha256,
+        commandFingerprint: `create:${input.purpose}:RUB:${amountMinor}`,
+        occurredAt, resultingStatus: 'created', resultingVersion: 1,
+        amountMinor
+      })]
+    });
+  }
+
+  function applySandboxPaymentCommand(state, command) {
+    validateSandboxState(state);
+    sandboxExactKeys(command, [
+      'action', 'amountMinor', 'idempotencyKey', 'payloadSha256', 'expectedVersion', 'occurredAt'
+    ], 'sandbox_invalid_command');
+    if (!['authorize', 'capture', 'refund', 'cancel'].includes(command.action)
+      || !SANDBOX_IDEMPOTENCY.test(command.idempotencyKey) || !SANDBOX_HASH.test(command.payloadSha256)
+      || !Number.isSafeInteger(command.expectedVersion)) sandboxFailure('sandbox_invalid_command');
+    const amountMinor = command.action === 'refund'
+      ? sandboxAmount(command.amountMinor, 'sandbox_invalid_refund_amount') : 0;
+    if (command.action !== 'refund' && command.amountMinor !== undefined) sandboxFailure('sandbox_invalid_command');
+    const fingerprint = `${command.action}:${amountMinor}:${command.expectedVersion}`;
+    const existing = state.journal.find(entry => entry.idempotencyKey === command.idempotencyKey);
+    if (existing) {
+      if (existing.payloadSha256 !== command.payloadSha256 || existing.commandFingerprint !== fingerprint) {
+        sandboxFailure('sandbox_idempotency_conflict');
+      }
+      return Object.freeze({ state, replayed: true });
+    }
+    if (command.expectedVersion !== state.version) sandboxFailure('sandbox_stale_version');
+    let status = state.status;
+    let authorizedMinor = state.authorizedMinor;
+    let capturedMinor = state.capturedMinor;
+    let refundedMinor = state.refundedMinor;
+    if (command.action === 'authorize') {
+      if (status !== 'created') sandboxFailure('sandbox_invalid_transition');
+      status = 'authorized'; authorizedMinor = state.amountMinor;
+    } else if (command.action === 'capture') {
+      if (status !== 'authorized' || authorizedMinor !== state.amountMinor) sandboxFailure('sandbox_invalid_transition');
+      status = 'captured'; capturedMinor = authorizedMinor;
+    } else if (command.action === 'refund') {
+      if (!['captured', 'partially_refunded'].includes(status)
+        || command.amountMinor > capturedMinor - refundedMinor) sandboxFailure('sandbox_invalid_transition');
+      refundedMinor += command.amountMinor;
+      status = refundedMinor === capturedMinor ? 'refunded' : 'partially_refunded';
+    } else {
+      if (!['created', 'authorized'].includes(status)) sandboxFailure('sandbox_invalid_transition');
+      status = 'cancelled';
+    }
+    const occurredAt = sandboxInstant(command.occurredAt);
+    const nextVersion = state.version + 1;
+    const next = freezeSandboxState({
+      ...state, status, authorizedMinor, capturedMinor, refundedMinor, version: nextVersion,
+      journal: [...state.journal, Object.freeze({
+        sequence: nextVersion, action: command.action, idempotencyKey: command.idempotencyKey,
+        payloadSha256: command.payloadSha256, commandFingerprint: fingerprint,
+        occurredAt, resultingStatus: status, resultingVersion: nextVersion,
+        amountMinor
+      })]
+    });
+    validateSandboxState(next);
+    return Object.freeze({ state: next, replayed: false });
+  }
+
   function createController(options) {
     const { db, $, escapeHtml, notify, requireWrites } = options;
     const refreshNavigation = typeof options.refreshNavigation === 'function' ? options.refreshNavigation : () => {};
@@ -513,5 +717,9 @@
     };
   }
 
-  global.MinutaPayments = { createController };
+  global.MinutaPayments = {
+    createController,
+    createSandboxPaymentState,
+    applySandboxPaymentCommand
+  };
 })(window);
