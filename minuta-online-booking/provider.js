@@ -18,8 +18,45 @@ window.addEventListener('minuta:provider-session-reset', () => {
   providerReadFetch.cancelPendingReads();
 });
 window.addEventListener('offline', () => providerReadFetch.cancelPendingReads());
+function parsePersistedProviderSession(value) {
+  try {
+    const parsed = JSON.parse(value || 'null');
+    const session = parsed?.currentSession || parsed?.session || parsed;
+    if (typeof session?.access_token !== 'string'
+      || typeof session?.refresh_token !== 'string'
+      || !session?.user?.id) return null;
+    return { user:{ ...session.user } };
+  } catch { return null; }
+}
+function createProviderAuthStorage(storage = window.localStorage, authKey = '') {
+  let lastTrustedSession = null;
+  let lastTrustedEntry = null;
+  const capture = (key, value) => {
+    const session = parsePersistedProviderSession(value);
+    if (session) {
+      lastTrustedSession = session;
+      lastTrustedEntry = { key, value:String(value) };
+    }
+    return value;
+  };
+  if (authKey) try { capture(authKey, storage.getItem(authKey)); } catch {}
+  return Object.freeze({
+    getItem(key) { return capture(key, storage.getItem(key)); },
+    setItem(key, value) { storage.setItem(key, value); capture(key, value); },
+    removeItem(key) { storage.removeItem(key); },
+    cachedSession() {
+      if (lastTrustedEntry) try {
+        if (storage.getItem(lastTrustedEntry.key) == null) storage.setItem(lastTrustedEntry.key, lastTrustedEntry.value);
+      } catch {}
+      return lastTrustedSession ? { user:{ ...lastTrustedSession.user } } : null;
+    },
+    forget() { lastTrustedSession = null; lastTrustedEntry = null; }
+  });
+}
+const providerAuthStorageKey = `sb-${new URL(window.MINUTA_CONFIG.supabaseUrl).hostname.split('.')[0]}-auth-token`;
+const providerAuthStorage = createProviderAuthStorage(window.localStorage, providerAuthStorageKey);
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage:providerAuthStorage },
   // One retry owner: the SDK also retries GETs by default. Mutations remain single-attempt.
   db: { retry:false },
   global: { fetch:providerReadFetch }
@@ -1994,7 +2031,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=692#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=693#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2699,7 +2736,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=692#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=693#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4921,7 +4958,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=692');
+    worker = new Worker('./report-worker.js?v=693');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -11537,6 +11574,7 @@ async function logout() {
   setWritesAllowed(false);
   setBookingCreationReady(false);
   await clearProviderDeviceData(userId);
+  providerAuthStorage.forget();
   await db.auth.signOut();
 }
 
@@ -11595,9 +11633,10 @@ async function handleSession(session) {
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
-  if (currentUser && navigator.onLine && !(await providerAccessAllowed(currentUser.id))) {
+  if (currentUser && navigator.onLine && (await providerAccessAllowed(currentUser.id)) === false) {
     const socialFlow = window.MinutaSocialAuth?.flow();
     if (socialFlow?.mode === 'provider-login') {
+      providerAuthStorage.forget();
       await db.auth.signOut();
       window.MinutaSocialAuth.clearFlow();
     }
@@ -11762,9 +11801,10 @@ async function providerAccessAllowed(userId) {
   const capability = await db.rpc('has_minuta_provider_access');
   if (!capability.error) return capability.data === true;
   const membership = await db.from('organization_memberships').select('organization_id').eq('user_id', userId).eq('active', true).limit(1);
-  if (!membership.error) return Boolean(membership.data?.length);
+  if (!membership.error && membership.data?.length) return true;
   const profile = await db.from('performer_profiles').select('id').eq('id', userId).maybeSingle();
-  return !profile.error && Boolean(profile.data?.id);
+  if (!profile.error && profile.data?.id) return true;
+  return membership.error || profile.error ? null : false;
 }
 
 function renderProviderSocialState() {
@@ -11962,6 +12002,14 @@ function initializeSocialAuth() {
 function authConnectionFailed(error) {
   return navigator.onLine === false || error?.name === 'AuthRetryableFetchError' || error?.status === 0 || /fetch|network|connection|offline/i.test(error?.message || '');
 }
+function authTemporarilyUnavailable(error) {
+  const status = Number(error?.status || 0);
+  return authConnectionFailed(error) || status === 429 || status >= 500;
+}
+function cachedProviderSessionAfterTemporaryFailure(error) {
+  if (navigator.onLine !== false && !authTemporarilyUnavailable(error)) return null;
+  return providerAuthStorage.cachedSession();
+}
 
 async function login(event) {
   event.preventDefault();
@@ -12057,6 +12105,7 @@ async function completePasswordRecovery(event) {
   }
   recoveryMode = false;
   await clearProviderDeviceData(currentUser?.id);
+  providerAuthStorage.forget();
   await db.auth.signOut();
   history.replaceState({}, '', 'provider.html');
   setAuthTab('login');
@@ -15253,9 +15302,15 @@ refreshSectionNavigation();
 refreshInstallAppCard();
 prepareProviderViewBeforeSession();
 db.auth.getSession().then(({ data, error }) => {
-  if (error) { if (recoveryMode) return showRecoveryReset(); showProviderStartupFailure(); return; }
-  return recoveryMode ? showRecoveryReset() : handleSession(data.session);
-}).catch(() => {
+  if (recoveryMode) return showRecoveryReset();
+  if (data?.session) return handleSession(data.session);
+  const cachedSession = cachedProviderSessionAfterTemporaryFailure(error);
+  if (cachedSession) return handleSession(cachedSession);
+  if (error) { showProviderStartupFailure(); return; }
+  return handleSession(null);
+}).catch(error => {
+  const cachedSession = recoveryMode ? null : cachedProviderSessionAfterTemporaryFailure(error);
+  if (cachedSession) return handleSession(cachedSession);
   if (document.documentElement.classList.contains('provider-booting')) showProviderStartupFailure();
   else setSyncState('warning', 'Не удалось обновить данные · повторите позже');
 });
