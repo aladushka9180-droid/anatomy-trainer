@@ -6369,6 +6369,11 @@ html.provider-booting .provider-main {
 .booking-historical-time { display:grid; gap:7px; }
 .booking-historical-time input { margin:0; }
 .booking-historical-time-hint { color:var(--theme-muted,var(--muted)); font-size:9px; line-height:1.4; }
+.new-booking-historical-payment { display:grid; gap:10px; padding-top:14px; border-top:1px solid var(--theme-line,#d7e5dc); }
+.new-booking-historical-payment-title strong { display:block; color:var(--theme-ink,#214b37); font-size:14px; }
+.new-booking-historical-payment-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+.new-booking-historical-payment-fields input,.new-booking-historical-payment-fields select { margin-top:7px; }
+.new-booking-historical-payment>small { color:var(--theme-muted,#677d71); font-size:11px; line-height:1.4; }
 .booking-time-warning.is-error { background:#fff0ee; color:#93453f; }
 .booking-sheet-submit-bar { display:grid; gap:8px; }
 .booking-sheet-submit-bar>.form-error { margin:0; }
@@ -6409,6 +6414,7 @@ html.provider-booting .provider-main {
     backdrop-filter:blur(12px);
   }
   .booking-sheet-submit-bar>.primary { min-height:50px; }
+  .new-booking-historical-payment-fields input,.new-booking-historical-payment-fields select { scroll-margin-bottom:84px; }
   #newBookingContactPicker:not([hidden]) { display:grid; }
   .booking-time-hours,.booking-time-slots { grid-template-columns:repeat(4,minmax(0,1fr)); }
   .booking-time-slots.booking-time-slots-nearby { grid-template-columns:repeat(3,minmax(0,1fr)); }

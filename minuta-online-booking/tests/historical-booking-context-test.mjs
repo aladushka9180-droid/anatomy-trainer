@@ -52,7 +52,8 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false, note 
   const rpc = new Promise((resolve, reject) => { resolveRpc = resolve; rejectRpc = reject; });
   const refresh = new Promise((resolve, reject) => { resolveRefresh = resolve; rejectRefresh = reject; });
   const reply = { data:{ booking_id:createdId, booking_code:'MIN-1234567890', duration_minutes:60,
-    unit_price_rub:1000, total_price_rub:1000, payment_required:false, notifications_suppressed:true }, error:null };
+    unit_price_rub:1000, total_price_rub:1000, payment_required:false, notifications_suppressed:true,
+    visit_status:'completed',payment_method:'cash',amount_rub:1000,calculated_amount_rub:1000 }, error:null };
   const node = value => ({ value, hidden:false, dataset:{}, classList,
     handlers:new Map(), addEventListener(name, handler){ this.handlers.set(name, handler); } });
   function renderFixtureForm(label, date) {
@@ -65,6 +66,7 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false, note 
       '#newBookingForm':'', '#newBookingName':label, '#newBookingPhone':'+79990000001',
       '#newBookingService':serviceId, '#newBookingDate':date, '#newBookingNote':note,
       '#newBookingOccurrences':'1', '#newBookingInterval':'1', '#newBookingSubmit':'',
+      '#newBookingHistoricalPaymentMethod':'cash', '#newBookingHistoricalAmount':'1000',
       '[name="newBookingColor"]:checked':'sky',
     })) nodes.set(selector, node(value));
   }
@@ -84,6 +86,7 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false, note 
     window:{ addEventListener:(name, callback) => { if (name === 'minuta:provider-session-reset') resetListeners.push(callback); } },
     freeSlotsController:{ invalidateScope(){} }, providerReadFetch:{ cancelPendingReads(){} },
     normalizePhone:phone => String(phone).replace(/\D/g, ''),
+    money:value => `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`,
     newBookingDurationMinutes:() => 60, businessTodayIso:() => '2026-09-06',
     minutesFromTime:time => Number(time.slice(0, 2)) * 60 + Number(time.slice(3)),
     bookingPlacementIssue:() => '', organizationController:{ getActiveOrganization:() => ({ id:orgId }) },
@@ -163,12 +166,14 @@ test('current historical form completes its confirmed creation normally', async 
   assert.equal(h.calls[0].params.p_organization, orgId);
   assert.equal(h.calls[0].params.p_date, createdDate);
   assert.equal(h.calls[0].params.p_time, '10:00:00');
+  assert.equal(h.calls[0].params.p_payment_method, 'cash');
+  assert.equal(h.calls[0].params.p_amount_rub, 1000);
   assert.equal(h.nodes.get('#bookingSheet').hidden, true);
   assert.equal(h.storage.has(h.context.bookingDraftKey(actorA)), false);
   assert.deepEqual(h.effects.slice(1), [
     ['selectDate', createdDate], ['clearDraft', h.context.bookingDraftKey(actorA)],
     ['refresh', actorA], ['focus', createdId, actorA],
-    ['notify', 'Запись в прошлом создана · отметьте результат и оплату', actorA],
+    ['notify', 'Прошедший визит добавлен · 1 000 ₽ учтено в статистике', actorA],
   ]);
 });
 
@@ -291,7 +296,7 @@ for (const phase of ['color', 'refresh']) {
     const message = h.effects.findLast(effect => ['notify', 'error'].includes(effect[0]));
     assert.ok(message); assert.match(message[0] === 'notify' ? message[1] : message[2], /Запись в прошлом создана, но/);
     assert.equal(h.effects.some(effect => effect[0] === 'focus'), false);
-    assert.equal(h.effects.some(effect => effect[0] === 'notify' && effect[1] === 'Запись в прошлом создана · отметьте результат и оплату'), false);
+    assert.equal(h.effects.some(effect => effect[0] === 'notify' && /учтено в статистике/.test(effect[1])), false);
   });
 }
 
@@ -306,7 +311,7 @@ test('current notes upsert accepts actual empty successful PostgREST envelope', 
   assert.equal(h.state.clientNotes.get('79990000001'), 'Новая заметка');
   assert.equal(h.calls.length, 1);
   assert.equal(h.effects.at(-1)[0], 'notify');
-  assert.equal(h.effects.at(-1)[1], 'Запись в прошлом создана · отметьте результат и оплату');
+  assert.equal(h.effects.at(-1)[1], 'Прошедший визит добавлен · 1 000 ₽ учтено в статистике');
 });
 
 for (const outcome of ['error', 'throw', 'malformed']) {

@@ -943,7 +943,8 @@ function saveNewBookingDraft() {
   const draft = {
     savedAt:Date.now(), name:$('#newBookingName')?.value || '', phone:$('#newBookingPhone')?.value || '', note:$('#newBookingNote')?.value || '',
     blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', blockRequestId:form.dataset.blockRequestId || '', locationId:$('#newBookingLocation')?.value || '', serviceId:newBookingModeState.client.serviceId || $('#newBookingService')?.value || '', durationMinutes:newBookingModeState.client.durationMinutes || newBookingDurationMinutes(), blockDurationMinutes:newBookingModeState.block.durationMinutes,
-    occurrences:$('#newBookingOccurrences')?.value || '1', interval:$('#newBookingInterval')?.value || '1', color:$('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT
+    occurrences:$('#newBookingOccurrences')?.value || '1', interval:$('#newBookingInterval')?.value || '1', color:$('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT,
+    historicalPaymentMethod:$('#newBookingHistoricalPaymentMethod')?.value || '', historicalAmount:$('#newBookingHistoricalAmount')?.value || ''
   };
   try { sessionStorage.setItem(bookingDraftKey(), JSON.stringify(draft)); } catch {}
 }
@@ -2034,7 +2035,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=694#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=695#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2739,7 +2740,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=694#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=695#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4961,7 +4962,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=694');
+    worker = new Worker('./report-worker.js?v=695');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7545,7 +7546,10 @@ function updateNewBookingDurationControl({ reset = false } = {}) {
   const perMinute = newBookingMode === 'client' && Number(service?.duration_minutes) === 1;
   if (!holder || !input || !summary) return;
   holder.hidden = !perMinute;
-  if (!perMinute) return;
+  if (!perMinute) {
+    updateNewBookingHistoricalPayment({ resetAmount:reset });
+    return;
+  }
   if (reset) input.value = String(serviceDefaultDuration(service.id));
   const duration = normalizePerMinuteDuration(input.value);
   input.value = String(duration);
@@ -7553,6 +7557,7 @@ function updateNewBookingDurationControl({ reset = false } = {}) {
   const start = newBookingTime || newBookingPreferredTime;
   const end = start ? ` · ${start}–${timeFromMinutes(minutesFromTime(start) + duration)}` : '';
   summary.textContent = `${duration} мин · ${money(total)}${end}`;
+  updateNewBookingHistoricalPayment({ resetAmount:reset });
 }
 
 function updateServiceDefaultDurationField(selectSelector, holderSelector, inputSelector) {
@@ -8578,6 +8583,43 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
   activateBookingRemainingTimeScroll(holder);
 }
 
+function newBookingHistoricalCalculatedAmount() {
+  const service = selectedNewBookingService();
+  if (!service) return 0;
+  const unitPrice = Math.max(0, Number(service.price_rub || 0));
+  const total = Number(service.duration_minutes) === 1 ? unitPrice * newBookingDurationMinutes() : unitPrice;
+  return Math.min(1000000, Math.max(0, Math.round(total)));
+}
+
+function updateNewBookingHistoricalPayment({ resetAmount = false } = {}) {
+  const panel = $('#newBookingHistoricalPayment');
+  const method = $('#newBookingHistoricalPaymentMethod');
+  const amount = $('#newBookingHistoricalAmount');
+  const hint = $('#newBookingHistoricalPaymentHint');
+  if (!panel || !method || !amount) return;
+  const visible = newBookingMode === 'client' && newBookingHistoricalMode;
+  panel.hidden = !visible;
+  if (!visible) return;
+  const unpaid = method.value === 'unpaid';
+  const calculated = newBookingHistoricalCalculatedAmount();
+  if (unpaid) {
+    if (!amount.disabled && amount.value !== '') amount.dataset.paidAmount = amount.value;
+    amount.value = '0';
+    amount.disabled = true;
+  } else {
+    amount.disabled = false;
+    if (resetAmount || amount.dataset.userEdited !== 'true' || Number(amount.value) === 0) {
+      amount.value = String(Number(amount.dataset.paidAmount || calculated));
+      delete amount.dataset.userEdited;
+    }
+    amount.dataset.paidAmount = amount.value;
+  }
+  if (hint) hint.textContent = unpaid
+    ? 'Визит попадёт в посещения, а сумма — в подтверждённый долг.'
+    : `В полученные деньги попадёт ${money(Number(amount.value || 0))}.`;
+  updateNewBookingSubmitCaption();
+}
+
 function updateNewBookingSubmitCaption() {
   const submit = $('#newBookingSubmit');
   if (!submit) return;
@@ -8592,8 +8634,16 @@ function updateNewBookingSubmitCaption() {
   const intervalField = $('#newBookingIntervalField');
   if (intervalField) intervalField.hidden = occurrenceCount <= 1;
   const historicalOffline = newBookingHistoricalMode && !navigator.onLine;
-  submit.textContent = editingOfflineBookingId ? 'Сохранить исправление' : newBookingHistoricalMode ? 'Добавить прошедший визит' : !navigator.onLine && newBookingMode === 'client' ? 'Сохранить до подключения' : newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
+  const historicalMethod = $('#newBookingHistoricalPaymentMethod')?.value || 'cash';
+  const historicalAmountValue = $('#newBookingHistoricalAmount')?.value ?? '';
+  const historicalAmount = historicalAmountValue === '' ? Number.NaN : Math.round(Number(historicalAmountValue));
+  const historicalAmountValid = Number.isInteger(historicalAmount) && historicalAmount >= 0 && historicalAmount <= 1000000;
+  const historicalCaption = historicalMethod === 'unpaid'
+    ? 'Добавить неоплаченный визит'
+    : historicalAmountValid ? `Добавить визит · учесть ${historicalAmount.toLocaleString('ru-RU')} ₽` : 'Добавить состоявшийся визит';
+  submit.textContent = editingOfflineBookingId ? 'Сохранить исправление' : newBookingHistoricalMode ? historicalCaption : !navigator.onLine && newBookingMode === 'client' ? 'Сохранить до подключения' : newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
   submit.disabled = !newBookingTime;
+  if (newBookingHistoricalMode && historicalMethod !== 'unpaid' && !historicalAmountValid) submit.disabled = true;
   if (historicalOffline) submit.disabled = true;
   submit.title = historicalOffline ? 'Запись в прошлом создаётся только при подключении к интернету' : submit.disabled ? 'Сначала выберите время в расписании' : '';
 }
@@ -8634,6 +8684,7 @@ function updateNewBookingConnectivity() {
   const timeCaption = $('#newBookingTimeCaption');
   if (subtitle) subtitle.textContent = historical ? 'Укажите фактические дату и время визита' : 'Выберите удобное свободное окно';
   if (timeCaption) timeCaption.textContent = historical ? 'Фактическое время' : 'Свободное время';
+  updateNewBookingHistoricalPayment();
   updateNewBookingSubmitCaption();
 }
 
@@ -8973,6 +9024,10 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   const presetDate = /^\d{4}-\d{2}-\d{2}$/.test(String(preset.date || '')) ? preset.date : '';
   const date = presetDate || defaultDate;
   const initialDuration = normalizePerMinuteDuration(preset.durationMinutes || draft?.durationMinutes || serviceDefaultDuration(selectedService?.id), 60);
+  const initialHistoricalPaymentMethod = normalizedOutcomePaymentMethod(draft?.historicalPaymentMethod || bookingPolicy.auto_complete_payment_method || 'cash');
+  const initialHistoricalAmount = Math.min(1000000, Math.max(0, Math.round(Number(draft?.historicalAmount ?? (Number(selectedService?.duration_minutes) === 1
+    ? Number(selectedService?.price_rub || 0) * initialDuration
+    : Number(selectedService?.price_rub || 0))))));
   newBookingModeState = {
     client:{ serviceId:selectedService?.id || draft?.serviceId || '', durationMinutes:initialDuration },
     block:{ durationMinutes:Number(draft?.blockDurationMinutes || (draft?.mode === 'block' ? draft?.durationMinutes : 60) || 60) }
@@ -9023,6 +9078,11 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
             <label id="newBookingLocationField" ${blockContext.locations.length > 1 ? '' : 'hidden'}>Филиал<select id="newBookingLocation">${providerBlockLocationOptions(blockContext.locations, blockContext.locationId)}</select></label>
             <label>Дата<input id="newBookingDate" type="date" value="${date}" required></label>
             <div role="group" aria-labelledby="newBookingTimeCaption"><span class="sr-only" id="newBookingTimeCaption">Свободное время</span><div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></div>
+            <section class="new-booking-historical-payment" id="newBookingHistoricalPayment" ${newBookingHistoricalMode ? '' : 'hidden'}>
+              <div class="new-booking-historical-payment-title"><strong>Оплата за визит</strong></div>
+              <div class="new-booking-historical-payment-fields"><label>Способ оплаты<select id="newBookingHistoricalPaymentMethod"><option value="cash" ${initialHistoricalPaymentMethod === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${initialHistoricalPaymentMethod === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${initialHistoricalPaymentMethod === 'card' ? 'selected' : ''}>Карта</option><option value="unpaid" ${initialHistoricalPaymentMethod === 'unpaid' ? 'selected' : ''}>Не оплачено</option></select></label><label>Получено, ₽<input id="newBookingHistoricalAmount" type="number" inputmode="numeric" min="0" max="1000000" step="1" value="${initialHistoricalPaymentMethod === 'unpaid' ? 0 : initialHistoricalAmount}" ${initialHistoricalPaymentMethod === 'unpaid' ? 'disabled' : ''} required></label></div>
+              <small id="newBookingHistoricalPaymentHint"></small>
+            </section>
           </div>
         </section>
       </div>
@@ -9068,11 +9128,22 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
     const dateValue = $('#newBookingDate').value;
     const requested = event.currentTarget.getAttribute('aria-pressed') !== 'true';
     newBookingHistoricalMode = dateValue < businessTodayIso() || (dateValue === businessTodayIso() && requested);
-    newBookingTime = '';
-    newBookingPreferredTime = '';
+    if (newBookingHistoricalMode && newBookingPreferredTime && bookingMoveTimeIsPast(dateValue, newBookingPreferredTime)) {
+      newBookingTime = newBookingPreferredTime;
+    } else {
+      newBookingTime = '';
+      if (!newBookingHistoricalMode) newBookingPreferredTime = '';
+    }
     updateNewBookingConnectivity();
     saveNewBookingDraft();
     loadNewBookingSlots();
+  });
+  $('#newBookingHistoricalPaymentMethod').addEventListener('change', () => { updateNewBookingHistoricalPayment(); saveNewBookingDraft(); });
+  $('#newBookingHistoricalAmount').addEventListener('input', event => {
+    event.currentTarget.dataset.userEdited = 'true';
+    event.currentTarget.dataset.paidAmount = event.currentTarget.value;
+    updateNewBookingSubmitCaption();
+    saveNewBookingDraft();
   });
   $('#newBookingOccurrences').addEventListener('change', () => { updateNewBookingSubmitCaption(); saveNewBookingDraft(); });
   $('#newBookingForm').addEventListener('submit', createNewBooking);
@@ -9233,6 +9304,11 @@ async function createNewBooking(event) {
   const selectedButtonTime = $('[data-new-booking-time].active')?.dataset.newBookingTime || '';
   newBookingTime = newBookingTime || selectedButtonTime;
   const historical = newBookingHistoricalMode || date < businessTodayIso() || (date === businessTodayIso() && newBookingTime && new Date(`${date}T${newBookingTime}:00`) < new Date());
+  const historicalPaymentMethod = ['cash','transfer','card','unpaid'].includes($('#newBookingHistoricalPaymentMethod')?.value)
+    ? $('#newBookingHistoricalPaymentMethod').value
+    : 'cash';
+  const historicalAmountValue = $('#newBookingHistoricalAmount')?.value ?? '';
+  const historicalAmount = historicalPaymentMethod === 'unpaid' ? 0 : historicalAmountValue === '' ? Number.NaN : Math.round(Number(historicalAmountValue));
   if (historical && (submittedForm !== $('#newBookingForm') || $('#bookingSheet').hidden)) return;
   const validationError = name.length < 2
     ? (block ? 'Укажите название перерыва.' : 'Укажите имя клиента.')
@@ -9246,6 +9322,8 @@ async function createNewBooking(event) {
           ? 'Выберите дату.'
           : !newBookingTime
             ? 'Выберите время записи.'
+            : historical && (!Number.isInteger(historicalAmount) || historicalAmount < 0 || historicalAmount > 1000000)
+              ? 'Укажите полученную сумму от 0 до 1 000 000 ₽.'
             : '';
   if (validationError) {
     showFormError('#newBookingError', validationError);
@@ -9362,7 +9440,9 @@ async function createNewBooking(event) {
         p_time:`${newBookingTime}:00`,
         p_duration_minutes:durationMinutes,
         p_client_name:name,
-        p_client_phone:phone
+        p_client_phone:phone,
+        p_payment_method:historicalPaymentMethod,
+        p_amount_rub:historicalAmount
       });
       if (!formIsCurrent()) return;
       if (error) {
@@ -9372,7 +9452,7 @@ async function createNewBooking(event) {
           '42501':['authentication_required', 'organization_access_denied', 'historical_booking_denied'],
           '22023':['invalid_historical_booking', 'invalid_client_data', 'invalid_historical_time', 'service_unavailable',
             'invalid_service_terms', 'historical_duration_required', 'fixed_service_duration_mismatch',
-            'invalid_historical_price', 'invalid_location_timezone', 'invalid_historical_duration', 'historical_time_required'],
+            'invalid_historical_price', 'invalid_historical_payment', 'invalid_location_timezone', 'invalid_historical_duration', 'historical_time_required'],
           'P0001':['booking_location_unavailable'],
           '23P01':['slot_unavailable']
         };
@@ -9395,6 +9475,8 @@ async function createNewBooking(event) {
               ? 'Проверьте имя и номер телефона клиента.'
               : /invalid_historical_booking/i.test(reason)
                 ? 'Проверьте выбранные услугу, дату и время.'
+                : /invalid_historical_payment/i.test(reason)
+                  ? 'Проверьте способ оплаты и полученную сумму.'
                 : /invalid_historical_duration|invalid_historical_price|invalid_historical_terms/i.test(reason)
                   ? 'Проверьте длительность и рассчитанную стоимость записи.'
                   : /booking_location_unavailable/i.test(reason)
@@ -9414,7 +9496,10 @@ async function createNewBooking(event) {
         && Number.isInteger(data.duration_minutes) && data.duration_minutes >= 1 && data.duration_minutes <= 480
         && Number.isInteger(data.unit_price_rub) && data.unit_price_rub >= 0 && data.unit_price_rub <= 1000000
         && Number.isInteger(data.total_price_rub) && data.total_price_rub >= 0 && data.total_price_rub <= 10000000
-        && data.payment_required === false && data.notifications_suppressed === true;
+        && data.payment_required === false && data.notifications_suppressed === true
+        && data.visit_status === 'completed' && data.payment_method === historicalPaymentMethod
+        && Number.isInteger(data.amount_rub) && data.amount_rub === historicalAmount
+        && Number.isInteger(data.calculated_amount_rub) && data.calculated_amount_rub === data.total_price_rub;
       if (!validAcknowledgement) {
         form.dataset.historicalCreateState = 'unknown';
         showFormError('#newBookingError', 'Сервер не вернул созданную запись. Обновите расписание и проверьте результат.');
@@ -9449,7 +9534,9 @@ async function createNewBooking(event) {
         return;
       }
       focusCreatedBooking(createdId);
-      notify('Запись в прошлом создана · отметьте результат и оплату');
+      notify(historicalPaymentMethod === 'unpaid'
+        ? 'Прошедший визит добавлен · отмечен как неоплаченный'
+        : `Прошедший визит добавлен · ${money(historicalAmount)} учтено в статистике`);
     } catch {
       if (!(closedIsCurrent ? closedIsCurrent() : formIsCurrent())) return;
       if (!createdId) form.dataset.historicalCreateState = 'unknown';

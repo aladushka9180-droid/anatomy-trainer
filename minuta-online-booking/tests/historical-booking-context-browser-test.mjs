@@ -18,7 +18,7 @@ function declaration(name){
 function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf('\n});',start);assert.ok(start>=0&&end>start);return source.slice(start,end+4);}
 const functions=['openNewBookingSheet','openTimelineBookingAtTime','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','newBookingPreferredUnavailableMarkup','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeSlots','bookingRemainingTimeMarkup','activateBookingRemainingTimeScroll','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
   'renderNewBookingOutsideSchedulePrompt','newBookingOutsideScheduleLabel',
-  'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService',
+  'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingHistoricalPayment','newBookingHistoricalCalculatedAmount','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService','normalizedOutcomePaymentMethod',
   'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingRecentCallsSupported','refreshNewBookingRecentCalls','chooseNewBookingRecentCall','receiveNewBookingRecentCall','newBookingClientPhoneLabel','newBookingClientCandidates',
   'hideNewBookingClientSuggestions','renderNewBookingClientSuggestions','scheduleNewBookingClientSuggestions','restoreNewBookingClientLookupStatus','applyNewBookingClient','selectNewBookingClient','handleNewBookingPhoneInput',
   'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','bookingDateLabel','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','parseLocalIsoDate','localIsoDate',
@@ -80,8 +80,9 @@ async function fixture(){
     var selectScheduleDate=date=>effects.push({kind:'select-date',date});
     var refreshAfterWrite=async()=>{effects.push({kind:'refresh'});if(refreshOutcome==='throw')throw Error('refresh_failed');return refreshOutcome!=='error';};
     var focusCreatedBooking=id=>effects.push({kind:'focus-created',id});
+    var bookingPolicy={auto_complete_payment_method:'cash'};
     var historicalAck={booking_id:ids.booking,booking_code:'MIN-A1B2C3D4E5',duration_minutes:60,unit_price_rub:1000,
-      total_price_rub:1000,payment_required:false,notifications_suppressed:true};
+      total_price_rub:1000,payment_required:false,notifications_suppressed:true,visit_status:'completed',payment_method:'cash',amount_rub:1000,calculated_amount_rub:1000};
     var transport=(kind,value)=>hold===kind?new Promise((resolve,reject)=>gates.push({kind,resolve,reject,value})):Promise.resolve(value);
     var db={rpc:(name,args)=>{
       effects.push({kind:'rpc',name,args:structuredClone(args)});
@@ -109,7 +110,10 @@ async function openAndFill(page,label){
   await page.locator('.booking-color-compact > summary').click();
   await page.locator(`[name="newBookingColor"][value="${label==='A'?'mint':'rose'}"]`).check();
   assert.equal(await page.evaluate(()=>newBookingHistoricalMode),true);
-  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Добавить прошедший визит');
+  assert.equal(await page.locator('#newBookingHistoricalPayment').isVisible(),true);
+  assert.equal(await page.locator('#newBookingHistoricalPaymentMethod').inputValue(),'cash');
+  assert.equal(await page.locator('#newBookingHistoricalAmount').inputValue(),'1000');
+  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Добавить визит · учесть 1 000 ₽');
 }
 async function start(page){
   await openAndFill(page,'A');await page.locator('#newBookingSubmit').click();await page.waitForFunction(()=>gates.length===1);
@@ -167,11 +171,35 @@ const cases=[['CONTROL current historical form completes one intended create',as
   await start(page);await release(page);const state=await snapshot(page);
   assert.equal(state.visible,false);
   assert.deepEqual(state.effects.map(e=>e.kind),['rpc','rpc','select-date','refresh','focus-created','notify']);
-  assert.deepEqual(state.effects[0].args,{p_organization:'org-A',p_service:ids.service,p_date:'2020-01-05',p_time:'10:15:00',p_duration_minutes:60,p_client_name:'Клиент A',p_client_phone:'+79990000001'});
+  assert.deepEqual(state.effects[0].args,{p_organization:'org-A',p_service:ids.service,p_date:'2020-01-05',p_time:'10:15:00',p_duration_minutes:60,p_client_name:'Клиент A',p_client_phone:'+79990000001',p_payment_method:'cash',p_amount_rub:1000});
   assert.deepEqual(state.effects[1].args,{p_booking:ids.booking,p_color:'mint'});
   assert.equal(state.effects.at(-2).id,ids.booking);assert.deepEqual(state.pending,[]);
   assert.equal(state.sessionStorage.some(([key])=>key==='minuta-provider-booking-draft-v1:actor-A'),false);
 }]];
+cases.push(['CONTROL edited payment is saved in the same historical visit',async page=>{
+  await openAndFill(page,'A');
+  await page.locator('#newBookingHistoricalPaymentMethod').selectOption('transfer');
+  await page.locator('#newBookingHistoricalAmount').fill('750');
+  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Добавить визит · учесть 750 ₽');
+  await page.evaluate(()=>{
+    historicalAck={...historicalAck,payment_method:'transfer',amount_rub:750};
+    hold='create';
+  });
+  await page.locator('#newBookingSubmit').click();await page.waitForFunction(()=>gates.length===1);
+  await release(page);const state=await snapshot(page);
+  assert.equal(state.visible,false);
+  assert.equal(state.effects[0].args.p_payment_method,'transfer');
+  assert.equal(state.effects[0].args.p_amount_rub,750);
+  assert.match(state.effects.at(-1).text,/750 ₽ учтено в статистике/);
+}]);
+cases.push(['CONTROL unpaid historical visit disables amount and remains explicit',async page=>{
+  await openAndFill(page,'A');
+  await page.locator('#newBookingHistoricalPaymentMethod').selectOption('unpaid');
+  assert.equal(await page.locator('#newBookingHistoricalAmount').inputValue(),'0');
+  assert.equal(await page.locator('#newBookingHistoricalAmount').isDisabled(),true);
+  assert.equal(await page.locator('#newBookingSubmit').textContent(),'Добавить неоплаченный визит');
+  assert.match(await page.locator('#newBookingHistoricalPaymentHint').textContent(),/подтверждённый долг/);
+}]);
 cases.push(['CONTROL today past timeline time keeps intent explicit and block mode available',async page=>{
   await page.evaluate(()=>{
     selectedDate=businessTodayIso();
@@ -192,6 +220,10 @@ cases.push(['CONTROL today past timeline time keeps intent explicit and block mo
   await page.locator('#newBookingName').fill('Обновлённый клиент');
   const draft=await page.evaluate(()=>JSON.parse(sessionStorage.getItem(bookingDraftKey())));
   for(const key of ['mode','historical','date','time'])assert.equal(Object.hasOwn(draft,key),false,`Draft must not retain ${key}`);
+  await page.locator('#newBookingHistoricalToggle').click();
+  assert.equal(await page.locator('#newBookingHistoricalTime').inputValue(),'00:00','Enabling a factual visit must preserve the clicked past time');
+  assert.equal(await page.locator('#newBookingHistoricalPayment').isVisible(),true);
+  assert.equal(await page.locator('#newBookingSubmit').isEnabled(),true,'The preserved past time and default payment must enable creation');
 }]);
 for(const transition of ['account','close-reopen'])cases.push([
   `SAFETY confirmed historical A then pending color cannot complete into ${transition} B`,async page=>{
@@ -282,7 +314,7 @@ cases.push(['CONTROL confirmed historical CREATE and successful client note upda
   assert.equal(write.performer_id,'actor-A');assert.equal(write.client_phone,'79990000001');assert.equal(write.note,'Новая заметка клиента A');
   assert.equal(state.effects.filter(e=>e.name==='create_minuta_historical_booking').length,1);
   assert.equal(state.effects.filter(e=>e.name==='set_booking_color').length,1);
-  assert.equal(state.visible,false);assert.match(state.effects.at(-1).text,/Запись в прошлом создана/);
+  assert.equal(state.visible,false);assert.match(state.effects.at(-1).text,/Прошедший визит добавлен/);
 }]);
 for(const outcome of ['error','throw'])cases.push([
   `SAFETY confirmed CREATE then client note ${outcome} cannot cache unsaved text or repeat CREATE`,async page=>{
@@ -408,6 +440,25 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     await page.locator('#newBookingAdvanced > summary').click();
     await page.evaluate(()=>{document.querySelector('#newBookingDate').value='2026-09-06';updateNewBookingConnectivity();renderNewBookingTimePicker();});
     assert.equal(await page.locator('#newBookingHistoricalToggle').isVisible(),true);
+    await page.locator('#newBookingHistoricalToggle').click();
+    assert.equal(await page.locator('#newBookingHistoricalPayment').isVisible(),true,'Completed visit exposes payment in the same flow');
+    assert.equal(await page.locator('#newBookingHistoricalPaymentMethod').inputValue(),'cash');
+    assert.equal(await page.locator('#newBookingHistoricalAmount').inputValue(),'1000');
+    assert.equal(await page.locator('#newBookingSubmit').textContent(),'Добавить визит · учесть 1 000 ₽');
+    const paymentGeometry=await page.locator('#newBookingHistoricalPayment').evaluate(el=>({
+      width:el.getBoundingClientRect().width,
+      fieldsWidth:el.querySelector('.new-booking-historical-payment-fields').getBoundingClientRect().width,
+      fieldsScroll:el.querySelector('.new-booking-historical-payment-fields').scrollWidth
+    }));
+    assert.ok(paymentGeometry.fieldsScroll<=paymentGeometry.fieldsWidth,'Historical payment fields must fit without horizontal overflow');
+    await page.locator('#newBookingHistoricalAmount').scrollIntoViewIfNeeded();
+    const paymentReachability=await page.evaluate(()=>{
+      const amount=$('#newBookingHistoricalAmount').getBoundingClientRect();
+      const submit=$('#newBookingSubmit').getBoundingClientRect();
+      return {amountBottom:amount.bottom,submitTop:submit.top};
+    });
+    assert.ok(paymentReachability.amountBottom<=paymentReachability.submitTop,'Sticky submit must not cover historical payment controls');
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-historical-payment-${theme}-${width}.png`});
     await page.evaluate(()=>{
       document.querySelector('#newBookingDate').value='2026-09-10';newBookingHistoricalMode=false;
       newBookingSlots=['14:00','14:30','15:00','15:30','16:00'];newBookingTime='15:00';newBookingPreferredTime='15:00';
@@ -438,6 +489,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
       renderCalendarOverview('month');
     });
     const day=page.locator('[data-calendar-date="2026-09-08"]');
+    await page.evaluate(()=>scrollTo(0,0));
     assert.equal(await day.locator('[data-open-booking]').count(),2);
     assert.equal(await day.locator('.calendar-overview-more').count(),1);
     assert.equal(await day.evaluate(el=>getComputedStyle(el).borderRadius),'0px');
@@ -459,7 +511,13 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     await booking.hover();
     assert.notEqual(await booking.evaluate(el=>getComputedStyle(el).boxShadow),'none','Mouse hover must highlight the booking');
     assert.equal(await booking.evaluate(el=>getComputedStyle(el).backgroundColor),originalBackground,'Custom booking fill remains intact');
-    assert.deepEqual(await booking.boundingBox(),beforeHover,'Hover must not move or resize the booking');
+    assert.equal(await booking.evaluate(el=>getComputedStyle(el).transform),'none','Hover must not translate or scale the booking');
+    const afterHover=await booking.boundingBox();
+    assert.deepEqual(
+      {width:afterHover.width,height:afterHover.height},
+      {width:beforeHover.width,height:beforeHover.height},
+      'Hover must not resize the booking'
+    );
     await page.mouse.move(0,0);
     assert.equal(await booking.evaluate(el=>getComputedStyle(el).boxShadow),'none','Hover disappears when pointer leaves');
     await (width<=760?page.locator('.calendar-month-agenda-date').first():day.locator('.calendar-overview-date')).focus();

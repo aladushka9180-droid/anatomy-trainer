@@ -12,6 +12,9 @@ on:
       - 'minuta-online-booking/tests/pwa-resource-update-browser-test.mjs'
       - 'minuta-online-booking/tests/provider-feature-assets-browser-test.mjs'
       - 'minuta-online-booking/provider-feature-assets.js'
+      - 'minuta-online-booking/provider.js'
+      - 'minuta-online-booking/styles.css'
+      - 'minuta-online-booking/tests/historical-booking-context-browser-test.mjs'
       - 'minuta-online-booking/sw.js'
       - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/index.html'
@@ -27,6 +30,9 @@ on:
       - 'minuta-online-booking/tests/pwa-resource-update-browser-test.mjs'
       - 'minuta-online-booking/tests/provider-feature-assets-browser-test.mjs'
       - 'minuta-online-booking/provider-feature-assets.js'
+      - 'minuta-online-booking/provider.js'
+      - 'minuta-online-booking/styles.css'
+      - 'minuta-online-booking/tests/historical-booking-context-browser-test.mjs'
       - 'minuta-online-booking/sw.js'
       - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/index.html'
@@ -69,6 +75,7 @@ jobs:
           echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/group-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - run: node minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-feature-assets-browser-test.mjs
+      - run: node minuta-online-booking/tests/historical-booking-context-browser-test.mjs
       - name: Load pinned previous release for resource update verification
         run: git fetch --depth=1 origin "$MINUTA_BASELINE_REF"
       - name: Verify real service worker update and failed-install recovery
