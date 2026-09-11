@@ -9,6 +9,75 @@
     booking_rescheduled:'Запись перенесена', booking_cancelled:'Запись отменена',
     booking_reminder:'Напоминание', booking_confirmation_request:'Запрос подтверждения записи'
   };
+  const CHANNELS = new Set(Object.keys(CHANNEL_LABELS));
+  const AUDIENCES = new Set(Object.keys(AUDIENCE_LABELS));
+  const OUTBOX_STATUSES = new Set(Object.keys(STATUS_LABELS));
+  const ORGANIZATION_ROLES = new Set(['owner', 'admin', 'specialist']);
+
+  function record(value) {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+  }
+
+  function nonEmptyText(value) {
+    return typeof value === 'string' && value.length > 0;
+  }
+
+  function unique(items, key) {
+    const values = items.map(key);
+    return new Set(values).size === values.length;
+  }
+
+  function normalizeWorkspace(value, organizationId, currentUserId) {
+    // The RPC is security-definer. Never infer tenant, role, delivery state or
+    // channel readiness from a partial/foreign response.
+    if (!record(value)
+      || !nonEmptyText(value.organization_id)
+      || value.organization_id !== organizationId
+      || !ORGANIZATION_ROLES.has(value.current_role)
+      || !record(value.settings)
+      || value.settings.organization_id !== organizationId
+      || typeof value.settings.enabled !== 'boolean') return null;
+    for (const field of ['channels', 'endpoints', 'outbox']) if (!Array.isArray(value[field])) return null;
+
+    if (value.channels.some(item => !record(item)
+      || item.organization_id !== organizationId
+      || !AUDIENCES.has(item.audience)
+      || !CHANNELS.has(item.channel)
+      || typeof item.enabled !== 'boolean')
+      || !unique(value.channels, item => `${item.audience}:${item.channel}`)) return null;
+
+    if (value.endpoints.some(item => !record(item)
+      || !AUDIENCES.has(item.audience)
+      || !nonEmptyText(item.subject_key)
+      || !CHANNELS.has(item.channel)
+      || typeof item.active !== 'boolean'
+      || typeof item.configured !== 'boolean')
+      || !unique(value.endpoints, item => `${item.audience}:${item.subject_key}:${item.channel}`)) return null;
+
+    if (value.outbox.some(item => !record(item)
+      || !nonEmptyText(item.id)
+      || !nonEmptyText(item.performer_id)
+      || !nonEmptyText(item.kind)
+      || !AUDIENCES.has(item.audience)
+      || !CHANNELS.has(item.channel)
+      || !OUTBOX_STATUSES.has(item.status)
+      || !Number.isSafeInteger(item.attempts)
+      || item.attempts < 0
+      || (item.context != null && !record(item.context)))
+      || !unique(value.outbox, item => item.id)) return null;
+
+    if (value.current_role === 'specialist' && (!nonEmptyText(currentUserId)
+      || value.endpoints.some(item => item.audience !== 'provider' || item.subject_key !== currentUserId)
+      || value.outbox.some(item => item.performer_id !== currentUserId))) return null;
+
+    return {
+      ...value,
+      settings:{ ...value.settings },
+      channels:value.channels.map(item => ({ ...item })),
+      endpoints:value.endpoints.map(item => ({ ...item })),
+      outbox:value.outbox.map(item => ({ ...item, context:record(item.context) ? { ...item.context } : {} }))
+    };
+  }
 
   function formatMoment(value) {
     if (!value) return '';
@@ -61,6 +130,7 @@
     let currentUserId = '';
     let busy = false;
     let revision = 0;
+    let unavailableMessage = '';
 
     function missing(error) {
       return /PGRST202|42883|get_minuta_notification_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -95,7 +165,7 @@
     }
     function reset() {
       revision += 1;
-      organization = null; payload = null; available = null; deliveryHealth = null; currentUserId = ''; busy = false;
+      organization = null; payload = null; available = null; deliveryHealth = null; currentUserId = ''; busy = false; unavailableMessage = '';
       if ($('#unifiedNotificationPanel')) $('#unifiedNotificationPanel').hidden = true;
     }
     function current(requestRevision, organizationId) {
@@ -134,25 +204,47 @@
         available = null;
         deliveryHealth = { unavailable:true, configured_channels:[] };
         currentUserId = '';
+        unavailableMessage = 'Центр каналов временно недоступен. Старые уведомления продолжают работать.';
         render(error);
         return;
       }
       if (!current(requestRevision, organizationId)) return;
       currentUserId = health.userId;
       deliveryHealth = health.health || { unavailable:true, configured_channels:[] };
+      if (!record(result)) {
+        payload = null;
+        available = null;
+        unavailableMessage = 'Сервер вернул неполный ответ центра уведомлений. Изменения заблокированы.';
+        render(new Error('notification_workspace_response_missing'));
+        return;
+      }
       if (result.error) {
+        payload = null;
         available = missing(result.error) ? false : null;
+        unavailableMessage = available === false ? '' : 'Центр каналов временно недоступен. Старые уведомления продолжают работать.';
         render(result.error);
         return;
       }
+      const normalized = normalizeWorkspace(result.data, organizationId, currentUserId);
+      if (!normalized) {
+        payload = null;
+        available = null;
+        unavailableMessage = record(result.data) && Object.prototype.hasOwnProperty.call(result.data, 'organization_id')
+          && String(result.data.organization_id || '') !== organizationId
+          ? 'Сервер вернул данные другой организации. Изменения заблокированы.'
+          : 'Сервер вернул неполные данные центра уведомлений. Изменения заблокированы.';
+        render(new Error('notification_workspace_invalid'));
+        return;
+      }
       available = true;
-      payload = result.data || {};
+      unavailableMessage = '';
+      payload = normalized;
       render();
     }
     async function setOrganization(next) {
       revision += 1;
       organization = next?.id ? next : null;
-      payload = null; available = null; deliveryHealth = null; currentUserId = ''; busy = false;
+      payload = null; available = null; deliveryHealth = null; currentUserId = ''; busy = false; unavailableMessage = '';
       if (!organization) { reset(); return; }
       render();
       await load();
@@ -165,7 +257,7 @@
       $('#unifiedNotificationUnavailable').hidden = available !== null;
       $('#unifiedNotificationWorkspace').hidden = available !== true;
       if (available !== true) {
-        $('#unifiedNotificationUnavailableText').textContent = error ? 'Центр каналов временно недоступен. Старые уведомления продолжают работать.' : '';
+        $('#unifiedNotificationUnavailableText').textContent = error ? unavailableMessage : '';
         global.refreshSectionNavigation?.();
         return;
       }
@@ -193,7 +285,9 @@
         const failureText = state.deliveryUnknown
           ? 'Проверьте чат вручную'
           : item.last_error;
-        const error = item.status === 'failed' && failureText ? ` · ${failureText}` : '';
+        const error = ((item.status === 'failed' && failureText) || (item.status === 'cancelled' && item.last_error))
+          ? ` · ${item.status === 'cancelled' ? item.last_error : failureText}`
+          : '';
         const fallbackSource = item.fallback_of ? outboxById.get(String(item.fallback_of)) : null;
         const fallback = item.fallback_depth === 1 || item.fallback_of
           ? `Резервный канал${fallbackSource ? ` после ${CHANNEL_LABELS[fallbackSource.channel] || fallbackSource.channel}` : ''}`
@@ -226,7 +320,9 @@
         }
         if (!current(operationRevision, organizationId)) return;
         if (rejected || result?.error) { notify('Не удалось изменить центр уведомлений'); await load(); return; }
-        payload = result.data || payload;
+        const normalized = normalizeWorkspace(result?.data, organizationId, currentUserId);
+        if (!normalized) { notify('Сервер не подтвердил изменение центра уведомлений'); await load(); return; }
+        payload = normalized;
         render();
         notify(enabled ? 'Единый центр уведомлений включён' : 'Единый центр уведомлений выключен');
         return;
@@ -252,7 +348,9 @@
       }
       if (!current(operationRevision, organizationId)) return;
       if (rejected || result?.error) { notify('Не удалось изменить канал'); await load(); return; }
-      payload = result.data || payload;
+      const normalized = normalizeWorkspace(result?.data, organizationId, currentUserId);
+      if (!normalized) { notify('Сервер не подтвердил изменение канала'); await load(); return; }
+      payload = normalized;
       render();
       notify('Настройка канала сохранена');
     }
@@ -273,6 +371,7 @@
       }
       if (!current(operationRevision, organizationId)) return;
       if (rejected || result?.error) notify('Не удалось повторить уведомление');
+      else if (result?.data !== 'pending') notify('Сервер не подтвердил повтор уведомления');
       else notify('Уведомление возвращено в очередь');
       await load();
     }

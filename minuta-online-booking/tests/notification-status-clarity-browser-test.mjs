@@ -24,18 +24,19 @@ try {
   await page.evaluate(async () => {
     window.MINUTA_CONFIG = { supabaseUrl:'https://status.test', supabaseKey:'public-test-key' };
     window.fetch = async () => ({ ok:true, json:async () => ({ ok:true, configured_channels:['telegram','email'] }) });
-    const base = { audience:'client', context:{ client_name:'Ирина', service_name:'Массаж', booking_date:'2026-09-09', booking_time:'14:00' } };
+    const base = { performer_id:'owner', audience:'client', context:{ client_name:'Ирина', service_name:'Массаж', booking_date:'2026-09-09', booking_time:'14:00' } };
     const outbox = [
       { ...base, id:'primary', kind:'booking_confirmation_request', channel:'telegram', status:'failed', attempts:2, last_error:'gateway_timeout', created_at:'2026-09-09T10:00:00Z', updated_at:'2026-09-09T10:03:00Z' },
       { ...base, id:'fallback', kind:'booking_confirmation_request', channel:'email', status:'sent', attempts:1, sent_at:'2026-09-09T10:04:00Z', fallback_of:'primary', fallback_depth:1, created_at:'2026-09-09T10:03:10Z' },
       { ...base, id:'delivered', kind:'booking_reminder', channel:'email', status:'sent', attempts:1, sent_at:'2026-09-09T11:00:00Z', delivered_at:'2026-09-09T11:01:00Z', created_at:'2026-09-09T10:59:00Z' },
       { ...base, id:'pending', kind:'booking_created', channel:'telegram', status:'pending', attempts:0, next_attempt_at:'2026-09-09T12:30:00Z', created_at:'2026-09-09T12:00:00Z' },
-      { ...base, id:'unknown', kind:'booking_cancelled', channel:'telegram', status:'failed', attempts:1, last_error_code:'telegram_delivery_unknown', created_at:'2026-09-09T13:00:00Z' }
+      { ...base, id:'unknown', kind:'booking_cancelled', channel:'telegram', status:'failed', attempts:1, last_error_code:'telegram_delivery_unknown', created_at:'2026-09-09T13:00:00Z' },
+      { ...base, id:'cancelled', kind:'booking_reminder', channel:'telegram', status:'cancelled', attempts:0, last_error:'Событие устарело после переноса записи', created_at:'2026-09-09T13:30:00Z' }
     ];
     const db = {
       auth:{ getUser:async () => ({ data:{ user:{ id:'owner' } } }) },
       rpc:async name => name === 'get_minuta_notification_workspace'
-        ? { data:{ current_role:'owner', settings:{ enabled:true }, channels:[], endpoints:[], outbox }, error:null }
+        ? { data:{ organization_id:'organization-a', current_role:'owner', settings:{ organization_id:'organization-a', enabled:true }, channels:[], endpoints:[], outbox }, error:null }
         : { data:null, error:null }
     };
     window.controller = MinutaNotificationCenter.createController({
@@ -58,6 +59,8 @@ try {
   assert.match(content, /Попыток: 0/);
   assert.match(content, /нужна проверка/);
   assert.match(content, /Проверьте чат вручную/);
+  assert.match(content, /отменено/);
+  assert.match(content, /Событие устарело после переноса записи/);
   assert.doesNotMatch(content, /отправлено/);
   assert.equal(await page.locator('[data-unified-retry="primary"]').count(), 1);
   assert.equal(await page.locator('[data-unified-retry="unknown"]').count(), 0);
