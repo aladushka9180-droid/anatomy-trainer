@@ -41,6 +41,7 @@ async function setup(mode) {
       rpc:async (name, payload) => {
         if (name === 'get_minuta_feedback_capability') return { data:true, error:null };
         effects.creates.push(payload);
+        if (testMode === 'screenshot-rejected' && payload.p_screenshot_path) return { data:null, error:{ code:'22023', message:'invalid_screenshot' } };
         if (testMode === 'create-rejects') return { data:null, error:{ code:'22023', message:'invalid_feedback' } };
         if (testMode === 'unconfirmed') return { data:null, error:null };
         if (testMode === 'slow') return new Promise(resolve => { window.finishFeedback = () => resolve({ data:{ request_number:22 }, error:null }); });
@@ -91,11 +92,21 @@ try {
     if (process.env.MINUTA_FEEDBACK_SCREENSHOT) await page.screenshot({ path:`${process.env.MINUTA_FEEDBACK_SCREENSHOT}-${width}.png`, fullPage:true });
   }
 
+  await setup('screenshot-rejected');
+  await attachAndSubmit();
+  await page.locator('#productFeedbackSuccess').waitFor({ state:'visible' });
+  effects = await page.evaluate(() => window.effects);
+  assert.equal(effects.creates.length, 2);
+  assert.ok(effects.creates[0].p_screenshot_path);
+  assert.equal(effects.creates[1].p_screenshot_path, null);
+  assert.equal(effects.removes.length, 1);
+  assert.match(await page.locator('#productFeedbackAttachmentNotice').innerText(), /текст обращения уже получен/i);
+
   await setup('create-rejects');
   await attachAndSubmit();
   await page.locator('#productFeedbackError').waitFor({ state:'visible' });
   effects = await page.evaluate(() => window.effects);
-  assert.equal(effects.creates.length, 1);
+  assert.equal(effects.creates.length, 2);
   assert.equal(effects.removes.length, 1, 'definitive rejection cleans the uploaded image');
   assert.match(await page.locator('#productFeedbackError').innerText(), /сервер отклонил данные/i);
 

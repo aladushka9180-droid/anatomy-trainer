@@ -160,8 +160,7 @@
           }
         }
         const organization = getOrganization?.();
-        feedbackRequestStarted = true;
-        const { data, error } = await db.rpc('create_minuta_feedback', {
+        const payload = {
           p_organization:organization?.id || null,
           p_kind:kind,
           p_message:message,
@@ -170,7 +169,15 @@
           p_client_version:clientVersion(),
           p_device_summary:deviceSummary(),
           p_screenshot_path:screenshotPath || null
-        });
+        };
+        feedbackRequestStarted = true;
+        let { data, error } = await db.rpc('create_minuta_feedback', payload);
+        if (error && screenshotPath) {
+          try { await db.storage.from(BUCKET).remove([screenshotPath]); } catch {}
+          screenshotPath = '';
+          attachmentSkipped = true;
+          ({ data, error } = await db.rpc('create_minuta_feedback', { ...payload, p_screenshot_path:null }));
+        }
         if (error) { feedbackRejected = true; throw error; }
         const requestNumber = data?.request_number;
         if (!/^[1-9][0-9]*$/.test(String(requestNumber || ''))) throw new Error('feedback_ack_invalid');
