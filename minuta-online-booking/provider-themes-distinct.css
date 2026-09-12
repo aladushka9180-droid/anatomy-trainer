@@ -153,7 +153,7 @@
   --atmosphere-panel:#f2f7f9; --atmosphere-panel-strong:#fafeff;
 }
 .theme-snow-leopard { --theme-preview-bg:#eaf1f4; --theme-preview-surface:#fafeff; --theme-preview-line:#7b9099; --theme-preview-accent:#27414d; --theme-preview-radius:10px; --theme-preview-item-radius:3px; }
-.theme-snow-leopard .theme-swatch { background-image:linear-gradient(90deg,rgba(238,242,244,.2),rgba(238,242,244,.04)),url("provider-snow-leopard-natural-v2.webp?v=716"); background-size:100% 100%,132px auto; }
+.theme-snow-leopard .theme-swatch { background-image:linear-gradient(90deg,rgba(238,242,244,.2),rgba(238,242,244,.04)),url("provider-snow-leopard-natural-v2.webp?v=717"); background-size:100% 100%,132px auto; }
 
 .provider-body[data-provider-theme="mono"] {
   --theme-bg:#f7f6f1; --theme-surface:#fffefa; --theme-surface-alt:#ecebe4; --theme-ink:#11110f;
@@ -176,7 +176,7 @@
   --atmosphere-background:repeating-radial-gradient(ellipse at -12% 16%,transparent 0 20px,rgba(81,60,45,.18) 21px 34px,transparent 36px 60px),linear-gradient(145deg,#f5ede3,#fff9f1 58%,#eadbc9);
   --atmosphere-panel:#f8f0e7; --atmosphere-panel-strong:#fff9f1;
 }
-.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] { background-color:#f5ede3!important; background-image:linear-gradient(rgba(245,237,227,.08),rgba(245,237,227,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=716")!important; }
+.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] { background-color:#f5ede3!important; background-image:linear-gradient(rgba(245,237,227,.08),rgba(245,237,227,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=717")!important; }
 .theme-pearl-zebra { --theme-preview-bg:#f5ede3; --theme-preview-surface:#fff9f1; --theme-preview-line:#9b806b; --theme-preview-accent:#513c2d; --theme-preview-radius:8px; --theme-preview-item-radius:2px; }
 .theme-pearl-zebra .theme-swatch { background-image:repeating-radial-gradient(ellipse at -12% 16%,transparent 0 13px,rgba(67,59,52,.24) 14px 23px,transparent 25px 40px),linear-gradient(#eee7df,#fbf7f1); }
 
