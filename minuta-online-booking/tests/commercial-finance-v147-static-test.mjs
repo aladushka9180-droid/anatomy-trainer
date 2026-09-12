@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const migration = read('../supabase-migration-v147.sql');
 const rollback = read('../supabase-migration-v147-rollback.sql');
+const refundSafety = read('../supabase-migration-v148.sql');
+const refundSafetyRollback = read('../supabase-migration-v148-rollback.sql');
 const controller = read('../commerce-management.js');
 const provider = read('../provider.js');
 const html = read('../provider.html');
@@ -50,6 +52,10 @@ for (const rpc of ['get_minuta_commerce_workspace_v147', 'get_minuta_money_dashb
   assert.doesNotMatch(source, /require_minuta_financial_manager_v129/);
 }
 assert.match(rollback, /v147_rollback_blocked_commercial_data_exists/);
+assert.match(refundSafety, /commercial_refund_amount_mismatch/);
+assert.match(refundSafety, /v_sale\.total_minor::numeric\*\(v_line\.refunded_quantity\+p_quantity\)\/v_line\.quantity/);
+assert.match(refundSafety, /refunded_minor\+p_amount_minor=total_minor[\s\S]*v_line\.refunded_quantity\+p_quantity=v_line\.quantity/);
+assert.match(refundSafetyRollback, /create or replace function public\.refund_minuta_commercial_sale_v147/);
 
 assert.match(controller, /minuta-commerce-intent:/);
 assert.match(controller, /sell_minuta_commercial_product_v147/);
@@ -60,6 +66,8 @@ assert.match(controller, /get_minuta_money_dashboard_v147/);
 assert.match(controller, /function refundableSales\(\)/);
 assert.match(controller, /quantity <= remainingQuantity/);
 assert.match(controller, /amount <= remainingAmount/);
+assert.match(controller, /amount === expectedRefundAmount\(sale, quantity\)/);
+assert.match(controller, /2n \* numerator \+ totalQuantity/);
 assert.match(controller, /reason\.length >= 3/);
 assert.doesNotMatch(controller, /card(number)?|\bpan\b|cvv|cvc/i);
 
@@ -74,6 +82,7 @@ assert.match(html, /id="commerceRefundEmpty"[\s\S]*Возврат станет �
 assert.match(html, /id="commerceRefundCreator" hidden/);
 assert.match(html, /id="commerceRefundSale" required/);
 assert.match(html, /id="commerceRefundSubmit"[\s\S]*disabled/);
+assert.match(html, /id="commerceRefundAmount"[\s\S]*readonly/);
 assert.match(html, /id="moneyIncome"/);
 assert.match(html, /id="moneyExpenses"/);
 assert.match(html, /id="moneyProfit"/);

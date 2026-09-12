@@ -81,9 +81,10 @@ try {
           return { data:{ id:workspace.sales[0].id, organization_id:organizationId, replayed:false }, error:null };
         }
         if (name === 'refund_minuta_commercial_sale_v147') {
-          workspace.sales[0].refunded_minor = args.p_amount_minor;
-          workspace.sales[0].line.refunded_quantity = args.p_quantity;
-          workspace.sales[0].status = 'refunded';
+          const sale = workspace.sales.find(item => item.id === args.p_sale);
+          sale.refunded_minor += args.p_amount_minor;
+          sale.line.refunded_quantity += args.p_quantity;
+          sale.status = sale.refunded_minor === sale.total_minor ? 'refunded' : 'partially_refunded';
           return { data:{ id:'88888888-8888-4888-8888-888888888888', organization_id:organizationId, replayed:false }, error:null };
         }
         if (name === 'create_minuta_recurring_expense_v147') {
@@ -138,6 +139,8 @@ try {
       assert.equal(await page.locator('#commerceRefundSale').inputValue(), '77777777-7777-4777-8777-777777777777');
       assert.equal(await page.locator('#commerceRefundQuantity').inputValue(), '1');
       assert.equal(await page.locator('#commerceRefundAmount').inputValue(), '5000');
+      assert.equal(await page.locator('#commerceRefundAmount').getAttribute('readonly'), '');
+      assert.equal(await page.locator('#commerceRefundQuantity').getAttribute('readonly'), '');
       assert.equal(await page.locator('#commerceRefundSubmit').isDisabled(), true);
       await page.screenshot({ path:resolve(output, 'refund-390.png'), fullPage:true });
       await page.locator('#commerceRefundReason').fill('Возврат по просьбе клиента');
@@ -147,6 +150,27 @@ try {
       assert.equal(await page.locator('#commerceNet').innerText(), '0 ₽');
       assert.equal(await page.locator('#commerceRefundCreator').isHidden(), true);
       assert.equal(await page.locator('#commerceRefundEmpty').innerText(), 'Все продажи полностью возвращены.');
+
+      await page.evaluate(async () => {
+        workspace.sales.push({ id:'77777777-7777-4777-8777-777777777778', booking_id:null, client_account_id:null, status:'paid', payment_method:'cash', total_minor:100000, refunded_minor:0, occurred_at:'2026-09-12T13:00:00Z', line:{ item_name:'Крем', item_kind:'inventory_item', quantity:2, refunded_quantity:0, unit_price_minor:50000 } });
+        await commerceController.load();
+      });
+      await page.locator('[data-commerce-refund="77777777-7777-4777-8777-777777777778"]').click();
+      assert.equal(await page.locator('#commerceRefundQuantity').getAttribute('readonly'), null);
+      await page.locator('#commerceRefundQuantity').fill('1');
+      assert.equal(await page.locator('#commerceRefundAmount').inputValue(), '500');
+      await page.locator('#commerceRefundReason').fill('Частичный возврат товара');
+      assert.equal(await page.locator('#commerceRefundSubmit').isEnabled(), true);
+      await page.locator('#commerceRefundSubmit').click();
+      await page.waitForFunction(() => window.workspace.sales.find(item => item.id.endsWith('778')).status === 'partially_refunded');
+      assert.equal(await page.locator('[data-commerce-refund="77777777-7777-4777-8777-777777777778"]').isVisible(), true);
+      await page.evaluate(async () => {
+        workspace.sales.push({ id:'77777777-7777-4777-8777-777777777779', booking_id:null, client_account_id:null, status:'paid', payment_method:'cash', total_minor:1334, refunded_minor:0, occurred_at:'2026-09-12T14:00:00Z', line:{ item_name:'Пробник', item_kind:'inventory_item', quantity:0.004, refunded_quantity:0, unit_price_minor:333500 } });
+        await commerceController.load();
+      });
+      await page.locator('[data-commerce-refund="77777777-7777-4777-8777-777777777779"]').click();
+      await page.locator('#commerceRefundQuantity').fill('0.003');
+      assert.equal(await page.locator('#commerceRefundAmount').inputValue(), '10.01', 'browser rounding must match PostgreSQL numeric round');
 
       await page.locator('#commerceRecurringForm').locator('xpath=..').locator('summary').click();
       await page.locator('#commerceRecurringSupplier').fill('Арендодатель');

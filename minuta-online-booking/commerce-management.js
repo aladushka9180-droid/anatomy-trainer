@@ -38,6 +38,7 @@
     if (source.includes('inventory_disabled')) return 'Сначала включите складской учёт.';
     if (source.includes('insufficient') || source.includes('negative')) return 'На выбранном складе недостаточно товара.';
     if (source.includes('used_benefit')) return 'Использованный или зарезервированный продукт вернуть нельзя.';
+    if (source.includes('amount_mismatch')) return 'Сумма возврата должна соответствовать выбранному количеству.';
     if (source.includes('exceeds_remaining')) return 'Количество или сумма превышает доступный остаток возврата.';
     if (source.includes('cash_account_required')) return 'Для наличной оплаты выберите кассу.';
     if (source.includes('permission') || source.includes('42501')) return 'Недостаточно прав для финансовой операции.';
@@ -122,6 +123,28 @@
       return refundableSales().find(sale => sale.id === saleId) || null;
     }
 
+    function expectedRefundAmount(sale, quantity) {
+      if (!sale || quantity <= 0) return 0;
+      const units = value => {
+        const scaled = number(value) * 1000;
+        return Number.isFinite(scaled) && scaled > 0 && Math.abs(scaled - Math.round(scaled)) < 1e-7 ? BigInt(Math.round(scaled)) : 0n;
+      };
+      const totalQuantity = units(sale.line?.quantity);
+      const refundedQuantity = number(sale.line?.refunded_quantity) > 0 ? units(sale.line.refunded_quantity) : 0n;
+      const refundQuantity = units(quantity);
+      if (totalQuantity <= 0n || refundQuantity <= 0n || refundQuantity > totalQuantity - refundedQuantity) return 0;
+      const numerator = BigInt(Math.trunc(Number(sale.total_minor || 0))) * (refundedQuantity + refundQuantity);
+      const cumulativeAmount = (2n * numerator + totalQuantity) / (2n * totalQuantity);
+      return Number(cumulativeAmount) - Number(sale.refunded_minor || 0);
+    }
+
+    function syncRefundAmount() {
+      const amount = $('#commerceRefundAmount');
+      if (!amount) return;
+      const expected = expectedRefundAmount(selectedRefundSale(), number($('#commerceRefundQuantity')?.value));
+      amount.value = expected > 0 ? String(expected / 100) : '';
+    }
+
     function updateRefundValidity() {
       const submit = $('#commerceRefundSubmit');
       if (!submit) return false;
@@ -131,7 +154,7 @@
       const reason = $('#commerceRefundReason')?.value.trim() || '';
       const remainingQuantity = sale ? number(sale.line?.quantity) - number(sale.line?.refunded_quantity) : 0;
       const remainingAmount = sale ? Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0) : 0;
-      const valid = Boolean(sale && quantity > 0 && quantity <= remainingQuantity && amount > 0 && amount <= remainingAmount && reason.length >= 3);
+      const valid = Boolean(sale && quantity > 0 && quantity <= remainingQuantity && amount > 0 && amount <= remainingAmount && amount === expectedRefundAmount(sale, quantity) && reason.length >= 3);
       submit.disabled = !valid;
       return valid;
     }
@@ -250,6 +273,8 @@
       const amount = Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0);
       $('#commerceRefundSale').value = sale.id;
       $('#commerceRefundQuantity').value = String(quantity);
+      $('#commerceRefundQuantity').max = String(quantity);
+      $('#commerceRefundQuantity').readOnly = sale.line?.item_kind === 'benefit_product';
       $('#commerceRefundAmount').value = String(amount / 100);
       $('#commerceRefundReason').value = '';
       updateRefundValidity();
@@ -343,6 +368,10 @@
           $('#commerceRefundReason').value = '';
           updateRefundValidity();
         }
+      });
+      $('#commerceRefundQuantity')?.addEventListener('input', () => {
+        syncRefundAmount();
+        updateRefundValidity();
       });
       $('#commerceRefundForm')?.addEventListener('input', updateRefundValidity);
       $('#commerceRecurringForm')?.addEventListener('submit', event => void submitRecurring(event));
