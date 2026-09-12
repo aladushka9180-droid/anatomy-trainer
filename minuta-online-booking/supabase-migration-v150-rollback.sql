@@ -5,28 +5,75 @@ set local statement_timeout='2min';
 set local search_path=public,extensions,pg_catalog;
 
 do $guard$
+declare
+  v_name text; v_proc regprocedure; v_relation regclass; v_hash text; v_marker text;
 begin
-  if coalesce(obj_description(to_regprocedure('public.get_minuta_benefit_timezone_v150(uuid)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
-     or coalesce(obj_description(to_regprocedure('public.minuta_benefit_frozen_days_v150(text,timestamptz,timestamptz)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
-     or coalesce(obj_description(to_regprocedure('public.sync_minuta_benefit_expiry_v150(uuid,uuid)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
-     or coalesce(obj_description(to_regprocedure('public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
-     or position('minuta_benefit_frozen_days_v150' in pg_get_functiondef(to_regprocedure('public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)')))=0
-     or coalesce(obj_description(to_regprocedure('public.get_minuta_benefit_lifecycle_v150(uuid,uuid)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
-     or position('sync_minuta_benefit_expiry_v150' in pg_get_functiondef(to_regprocedure('public.get_minuta_benefit_lifecycle_v150(uuid,uuid)')))=0
-     or coalesce(obj_description(to_regprocedure('public.set_minuta_benefit_status(uuid,uuid,text)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_compatibility_v150'
-     or position('set_minuta_benefit_lifecycle_v150' in pg_get_functiondef(to_regprocedure('public.set_minuta_benefit_status(uuid,uuid,text)')))=0 then
-    raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_function_version';
-  end if;
-  if to_regclass('public.benefit_freeze_periods') is null
-     or coalesce(obj_description(to_regclass('public.benefit_freeze_periods')::oid,'pg_class'),'')<>'minuta_benefit_lifecycle_v150'
-     or to_regclass('public.benefit_lifecycle_requests') is null
-     or coalesce(obj_description(to_regclass('public.benefit_lifecycle_requests')::oid,'pg_class'),'')<>'minuta_benefit_lifecycle_v150' then
-    raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_table_version';
-  end if;
-  if coalesce((select obj_description(constraint_row.oid,'pg_constraint')
-    from pg_catalog.pg_constraint constraint_row
-    where constraint_row.conrelid='public.benefit_ledger'::regclass
-      and constraint_row.conname='benefit_ledger_event_type_check'),'')<>'minuta_benefit_lifecycle_v150' then
+  foreach v_name in array array[
+    'public.get_minuta_benefit_timezone_v150(uuid)',
+    'public.minuta_benefit_frozen_days_v150(text,timestamptz,timestamptz)',
+    'public.sync_minuta_benefit_expiry_v150(uuid,uuid)',
+    'public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)',
+    'public.get_minuta_benefit_lifecycle_v150(uuid,uuid)',
+    'public.set_minuta_benefit_status(uuid,uuid,text)'
+  ] loop
+    v_proc:=to_regprocedure(v_name);
+    if v_proc is null then
+      raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_function_version';
+    end if;
+    select public.minuta_financial_sha256_v129(jsonb_build_object(
+      'source',procedure_row.prosrc,'kind',procedure_row.prokind,'language',language_row.lanname,
+      'volatility',procedure_row.provolatile,'security_definer',procedure_row.prosecdef,
+      'strict',procedure_row.proisstrict,'leakproof',procedure_row.proleakproof,'parallel',procedure_row.proparallel,
+      'result',pg_get_function_result(procedure_row.oid),'arguments',pg_get_function_arguments(procedure_row.oid),
+      'identity_arguments',pg_get_function_identity_arguments(procedure_row.oid),
+      'config',coalesce(to_jsonb(procedure_row.proconfig),'null'::jsonb),'acl',coalesce(procedure_row.proacl::text,'')
+    )) into v_hash
+    from pg_catalog.pg_proc procedure_row join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
+    where procedure_row.oid=v_proc;
+    if obj_description(v_proc::oid,'pg_proc') is distinct from 'minuta_benefit_lifecycle_v150:sha256='||v_hash then
+      raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_function_version';
+    end if;
+  end loop;
+
+  foreach v_name in array array['public.benefit_freeze_periods','public.benefit_lifecycle_requests'] loop
+    v_relation:=to_regclass(v_name);
+    if v_relation is null then
+      raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_table_version';
+    end if;
+    select public.minuta_financial_sha256_v129(jsonb_build_object(
+      'kind',relation_row.relkind,'row_security',relation_row.relrowsecurity,'acl',coalesce(relation_row.relacl::text,''),
+      'columns',coalesce((select jsonb_agg(jsonb_build_object(
+        'number',attribute_row.attnum,'name',attribute_row.attname,'type',format_type(attribute_row.atttypid,attribute_row.atttypmod),
+        'not_null',attribute_row.attnotnull,'identity',attribute_row.attidentity,'generated',attribute_row.attgenerated,
+        'default',pg_get_expr(default_row.adbin,default_row.adrelid)
+      ) order by attribute_row.attnum)
+        from pg_catalog.pg_attribute attribute_row left join pg_catalog.pg_attrdef default_row
+          on default_row.adrelid=attribute_row.attrelid and default_row.adnum=attribute_row.attnum
+        where attribute_row.attrelid=relation_row.oid and attribute_row.attnum>0 and not attribute_row.attisdropped),'[]'::jsonb),
+      'constraints',coalesce((select jsonb_agg(jsonb_build_object(
+        'name',constraint_row.conname,'type',constraint_row.contype,'definition',pg_get_constraintdef(constraint_row.oid,true),
+        'validated',constraint_row.convalidated,'deferrable',constraint_row.condeferrable,'deferred',constraint_row.condeferred
+      ) order by constraint_row.conname) from pg_catalog.pg_constraint constraint_row where constraint_row.conrelid=relation_row.oid),'[]'::jsonb),
+      'indexes',coalesce((select jsonb_agg(pg_get_indexdef(index_row.indexrelid) order by index_row.indexrelid::regclass::text)
+        from pg_catalog.pg_index index_row where index_row.indrelid=relation_row.oid),'[]'::jsonb),
+      'policies',coalesce((select jsonb_agg(jsonb_build_object(
+        'name',policy_row.polname,'command',policy_row.polcmd,'permissive',policy_row.polpermissive,
+        'roles',policy_row.polroles::text,'using',pg_get_expr(policy_row.polqual,policy_row.polrelid),
+        'check',pg_get_expr(policy_row.polwithcheck,policy_row.polrelid)
+      ) order by policy_row.polname) from pg_catalog.pg_policy policy_row where policy_row.polrelid=relation_row.oid),'[]'::jsonb)
+    )) into v_hash from pg_catalog.pg_class relation_row where relation_row.oid=v_relation;
+    if obj_description(v_relation::oid,'pg_class') is distinct from 'minuta_benefit_lifecycle_v150:sha256='||v_hash then
+      raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_table_version';
+    end if;
+  end loop;
+
+  select public.minuta_financial_sha256_v129(jsonb_build_object(
+    'name',constraint_row.conname,'type',constraint_row.contype,'definition',pg_get_constraintdef(constraint_row.oid,true),
+    'validated',constraint_row.convalidated,'deferrable',constraint_row.condeferrable,'deferred',constraint_row.condeferred
+  )),obj_description(constraint_row.oid,'pg_constraint') into v_hash,v_marker
+  from pg_catalog.pg_constraint constraint_row
+  where constraint_row.conrelid='public.benefit_ledger'::regclass and constraint_row.conname='benefit_ledger_event_type_check';
+  if v_marker is distinct from 'minuta_benefit_lifecycle_v150:sha256='||v_hash then
     raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_constraint_version';
   end if;
   if to_regclass('public.benefit_lifecycle_requests') is not null

@@ -29,6 +29,19 @@ assert.match(migration, /minuta_benefit_frozen_days_v150/);
 assert.match(migration, /pg_catalog\.timezone\(v_timezone,clock_timestamp\(\)\)::date/);
 assert.match(rollback, /v150_rollback_blocked_freeze_history_exists/);
 assert.match(rollback, /v150_rollback_blocked_unexpected_function_version/);
+assert.match(migration, /v150_apply_blocked_newer_function_definition/);
+assert.match(migration, /v150_apply_blocked_newer_table_definition/);
+assert.match(migration, /v150_apply_blocked_newer_constraint_definition/);
+for (const source of [migration, rollback]) {
+  assert.match(source, /minuta_financial_sha256_v129\(jsonb_build_object/);
+  assert.match(source, /procedure_row\.prosrc/);
+  assert.match(source, /procedure_row\.provolatile/);
+  assert.match(source, /procedure_row\.prosecdef/);
+  assert.match(source, /relation_row\.relrowsecurity/);
+  assert.match(source, /pg_get_constraintdef\(constraint_row\.oid,true\)/);
+  assert.match(source, /minuta_benefit_lifecycle_v150:sha256=/);
+}
+assert.ok(migration.indexOf('do $apply_version_guard$') < migration.indexOf('alter table public.benefit_ledger'));
 assert.match(migration, /v_days:=public\.minuta_benefit_frozen_days_v150/);
 assert.match(migration, /v_new_expiry:=v_instrument\.expires_on\+v_days/);
 assert.match(migration, /instrument\.expires_on<v_today/);

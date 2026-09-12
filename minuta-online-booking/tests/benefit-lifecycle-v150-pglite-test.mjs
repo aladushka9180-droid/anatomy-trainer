@@ -76,6 +76,12 @@ returns void language sql security definer set search_path='' as $$
 $$;
 create function public.get_minuta_client_commerce_v147(p_organization uuid,p_client_account uuid)
 returns jsonb language sql stable as $$ select '{}'::jsonb $$;
+-- This PGlite bundle has no pgcrypto. Production requires the real v129
+-- SHA-256 function; this deterministic stand-in exercises stamp comparisons.
+create function public.minuta_financial_sha256_v129(p_value jsonb)
+returns text language sql immutable security definer set search_path='' as $$
+  select md5(p_value::text)
+$$;
 create function public.apply_minuta_benefit_v149(
   p_organization uuid,p_instrument uuid,p_booking uuid,p_action text,p_amount_rub integer default null,p_request_id uuid default null
 ) returns jsonb language sql as $$ select jsonb_build_object('organization_id',p_organization,'status','reserved','request_id',p_request_id) $$;
@@ -107,6 +113,34 @@ assert.equal(await scalar(`select count(*)::int value from public.benefit_freeze
 assert.equal(await scalar(`select count(*)::int value from public.benefit_freeze_periods where instrument_id=${q(ids.legacyFrozen)} and thawed_at is not null`), 1);
 assert.equal(await scalar(`select pg_get_functiondef('public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)'::regprocedure)=${q(v149Definition)} value`), true);
 assert.equal(await scalar(`select public.minuta_benefit_frozen_days_v150('Pacific/Kiritimati','2026-09-11 09:59:00+00'::timestamptz,'2026-09-11 10:01:00+00'::timestamptz) value`), 1);
+for (const signature of [
+  'public.get_minuta_benefit_timezone_v150(uuid)',
+  'public.minuta_benefit_frozen_days_v150(text,timestamptz,timestamptz)',
+  'public.sync_minuta_benefit_expiry_v150(uuid,uuid)',
+  'public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)',
+  'public.get_minuta_benefit_lifecycle_v150(uuid,uuid)',
+  'public.set_minuta_benefit_status(uuid,uuid,text)'
+]) assert.match(await scalar(`select obj_description(${q(signature)}::regprocedure::oid,'pg_proc') value`), /^minuta_benefit_lifecycle_v150:sha256=[0-9a-f]+$/);
+for (const relation of ['public.benefit_freeze_periods','public.benefit_lifecycle_requests'])
+  assert.match(await scalar(`select obj_description(${q(relation)}::regclass::oid,'pg_class') value`), /^minuta_benefit_lifecycle_v150:sha256=[0-9a-f]+$/);
+assert.match(await scalar("select obj_description(oid,'pg_constraint') value from pg_catalog.pg_constraint where conrelid='public.benefit_ledger'::regclass and conname='benefit_ledger_event_type_check'"), /^minuta_benefit_lifecycle_v150:sha256=[0-9a-f]+$/);
+
+const timezoneDefinition = await scalar("select pg_get_functiondef('public.get_minuta_benefit_timezone_v150(uuid)'::regprocedure) value");
+const timezoneStamp = await scalar("select obj_description('public.get_minuta_benefit_timezone_v150(uuid)'::regprocedure::oid,'pg_proc') value");
+await db.exec("create or replace function public.get_minuta_benefit_timezone_v150(p_organization uuid) returns text language sql stable security definer set search_path='' as $$ select 'Etc/UTC'::text $$");
+await assert.rejects(db.exec(migration), /v150_apply_blocked_newer_function_definition/);
+await db.exec('rollback');
+assert.match(await scalar("select prosrc value from pg_catalog.pg_proc where oid='public.get_minuta_benefit_timezone_v150(uuid)'::regprocedure"), /Etc\/UTC/);
+await db.exec(timezoneDefinition);
+await db.exec(`comment on function public.get_minuta_benefit_timezone_v150(uuid) is ${q(timezoneStamp)}`);
+
+const freezeTableStamp = await scalar("select obj_description('public.benefit_freeze_periods'::regclass::oid,'pg_class') value");
+await db.exec('alter table public.benefit_freeze_periods add column future_v151_marker boolean');
+await assert.rejects(db.exec(migration), /v150_apply_blocked_newer_table_definition/);
+await db.exec('rollback');
+assert.equal(await scalar("select count(*)::int value from pg_catalog.pg_attribute where attrelid='public.benefit_freeze_periods'::regclass and attname='future_v151_marker' and not attisdropped"), 1);
+await db.exec('alter table public.benefit_freeze_periods drop column future_v151_marker');
+await db.exec(`comment on table public.benefit_freeze_periods is ${q(freezeTableStamp)}`);
 
 await db.exec(`
 insert into public.client_benefit_instruments(id,organization_id,product_id,client_account_id,request_id,public_code,product_snapshot,remaining_visits,expires_on,issued_by)
@@ -183,11 +217,17 @@ await assert.rejects(
 assert.equal(await scalar(`select count(*)::int value from public.benefit_lifecycle_requests where organization_id=${q(ids.organization)} and request_id=${q(ids.unfreeze)}`), 1);
 assert.equal(await scalar(`select count(*)::int value from public.benefit_ledger where instrument_id=${q(ids.expired)} and event_type='expired'`), 1);
 
+const statusStamp = await scalar("select obj_description('public.set_minuta_benefit_status(uuid,uuid,text)'::regprocedure::oid,'pg_proc') value");
 await db.exec("comment on function public.set_minuta_benefit_status(uuid,uuid,text) is 'minuta_benefit_lifecycle_compatibility_v151'");
 await assert.rejects(db.exec(rollback), /v150_rollback_blocked_unexpected_function_version/);
 await db.exec('rollback');
 assert.equal(await scalar("select to_regprocedure('public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)') is not null value"), true);
-await db.exec("comment on function public.set_minuta_benefit_status(uuid,uuid,text) is 'minuta_benefit_lifecycle_compatibility_v150'");
+await db.exec(`comment on function public.set_minuta_benefit_status(uuid,uuid,text) is ${q(statusStamp)}`);
+const constraintStamp = await scalar("select obj_description(oid,'pg_constraint') value from pg_catalog.pg_constraint where conrelid='public.benefit_ledger'::regclass and conname='benefit_ledger_event_type_check'");
+await db.exec("comment on constraint benefit_ledger_event_type_check on public.benefit_ledger is 'minuta_benefit_lifecycle_v151:sha256=future'");
+await assert.rejects(db.exec(rollback), /v150_rollback_blocked_unexpected_constraint_version/);
+await db.exec('rollback');
+await db.exec(`comment on constraint benefit_ledger_event_type_check on public.benefit_ledger is ${q(constraintStamp)}`);
 await db.exec("delete from public.benefit_lifecycle_requests; delete from public.benefit_ledger where event_type='expired'");
 await assert.rejects(db.exec(rollback), /v150_rollback_blocked_freeze_history_exists/);
 await db.exec('rollback');
