@@ -14,6 +14,8 @@ declare
   v_prefix text;
   v_definition text;
   v_source_hash text;
+  v_contract jsonb;
+  v_component_hashes jsonb;
 begin
   if to_regclass('public.commercial_sales') is null
      or to_regclass('public.commercial_sale_lines') is null
@@ -228,7 +230,7 @@ begin
     raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
   end if;
 
-  select public.minuta_financial_sha256_v129(jsonb_build_object(
+  select jsonb_build_object(
     'functionSourceHashes',jsonb_build_array(
       (select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) from pg_catalog.pg_proc where oid='public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)'::regprocedure),
       (select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) from pg_catalog.pg_proc where oid='public.get_minuta_commerce_workspace_v147(uuid)'::regprocedure),
@@ -302,9 +304,18 @@ begin
         and constraint_row.conname='financial_accounts_organization_id_system_key_key'),'null'::jsonb),
     'index',(select pg_get_indexdef(index_row.indexrelid) from pg_catalog.pg_index index_row
       where index_row.indexrelid='public.commercial_sales_scope_v147_idx'::regclass)
-  )) into v_hash;
+  ) into v_contract;
+  v_hash:=public.minuta_financial_sha256_v129(v_contract);
+  select jsonb_object_agg(component.key,public.minuta_financial_sha256_v129(component.value) order by component.key)
+    into v_component_hashes from jsonb_each(v_contract) component;
   if v_hash is distinct from 'b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6' then
-    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150',
+      detail=jsonb_build_object(
+        'actualFingerprint',v_hash,
+        'expectedFingerprint','b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6',
+        'componentFingerprints',v_component_hashes,
+        'contract',v_contract
+      )::text;
   end if;
 
   foreach v_name in array array[

@@ -63,6 +63,9 @@ assert.match(migration, /p_organization uuid, p_product uuid, p_client_account u
 assert.match(migration, /p_organization uuid, p_warehouse uuid, p_item uuid, p_kind text, p_quantity numeric, p_counted_quantity numeric, p_reason text, p_request_id uuid/);
 assert.match(migration, /financialAccountsSystemKeyIndex/);
 assert.match(migration, /b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6/);
+assert.match(migration, /detail=jsonb_build_object/);
+assert.match(migration, /'componentFingerprints',v_component_hashes/);
+assert.match(migration, /'contract',v_contract/);
 assert.match(migration, new RegExp(`revoke all on function public\\.${signature.replace(/[()]/g, '\\$&')} from public,anon,authenticated,service_role`));
 assert.match(migration, new RegExp(`grant execute on function public\\.${signature.replace(/[()]/g, '\\$&')} to authenticated`));
 
@@ -81,6 +84,8 @@ assert.match(state, /anonWorkspaceExecute/);
 assert.match(state, /criticalSchemaExact/);
 assert.match(state, /criticalSchemaFingerprint/);
 assert.match(state, /criticalSchemaExpectedFingerprint/);
+assert.match(state, /criticalSchemaComponentFingerprints/);
+assert.match(state, /criticalSchemaContract/);
 assert.match(state, /'runtimeFunctions'/);
 assert.match(state, /financial_accounts_organization_id_system_key_key/);
 assert.match(state, /financialAccountsSystemKeyIndex/);
@@ -111,6 +116,12 @@ assert.match(durable, /minuta_migration_guard\.target/);
 assert.match(durable, /MINUTA_TEST_PROJECT_REF/);
 assert.match(durable, /committedRollbackPersistence:true/);
 assert.match(durable, /mixedVersionReplayBothDirections:true/);
+assert.doesNotMatch(durable, /psql[^\n]*-[cv][^\n]*:'(?:expected_ref|run_key|app|app_a|app_b)'/);
+for (const line of durable.split(/\r?\n/)) {
+  if (line.includes('psql') && line.includes(' -c ')) {
+    assert.doesNotMatch(line, /(?:-v|--set)[ =](?:expected_ref|run_key|app|app_a|app_b)=/);
+  }
+}
 assert.match(durableSetup, /create schema minuta_v151_test/);
 assert.match(durableSetup, /md5\(v_run\|\|':organization'\)::uuid/);
 assert.match(durableSetup, /current_setting\('minuta\.v151_test_run_key'\)/);
@@ -148,8 +159,16 @@ assert.match(workflow, /v151-issue-minuta-benefit-restore\.sql/);
 assert.match(workflow, /v151-apply-stock-movement-restore\.sql/);
 assert.match(workflow, /v151-runtime-drift-role/);
 assert.match(workflow, /with grant option/);
-assert.match(workflow, /owner to :\\"drift_role\\"/);
+assert.match(workflow, /owner to :"drift_role"/);
 assert.match(workflow, /runtime-owner-acl-drift/);
+assert.match(workflow, /\.classification=="absent" and \.presentCount==0/);
+assert.match(workflow, /\.criticalSchemaComponentFingerprints\|type=="object"/);
+assert.doesNotMatch(workflow, /psql[^\n]*-[cv][^\n]*:'(?:expected_ref|drift_role)'/);
+for (const line of workflow.split(/\r?\n/)) {
+  if (line.includes('psql') && line.includes(' -c ')) {
+    assert.doesNotMatch(line, /(?:-v|--set)[ =](?:expected_ref|drift_role)=/);
+  }
+}
 assert.match(workflow, /\.setupSha256==\$setup/);
 assert.match(workflow, /\.durableSha256==\$durable/);
 assert.match(workflow, /\.cleanupSha256==\$cleanup/);

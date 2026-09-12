@@ -17,8 +17,11 @@ stop_children() {
   for pid in "$pid_a" "$pid_b"; do
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then kill "$pid" 2>/dev/null || true; fi
   done
-  psql "$db" -X -q -v ON_ERROR_STOP=1 -v app_a="$app_a" -v app_b="$app_b" -c \
-    "select pg_terminate_backend(pid) from pg_catalog.pg_stat_activity where pid<>pg_backend_pid() and application_name in(:'app_a',:'app_b');" >/dev/null 2>&1 || true
+  psql "$db" -X -q -v ON_ERROR_STOP=1 --set=app_a="$app_a" --set=app_b="$app_b" >/dev/null 2>&1 <<'SQL' || true
+  select pg_terminate_backend(pid)
+  from pg_catalog.pg_stat_activity
+  where pid<>pg_backend_pid() and application_name in(:'app_a',:'app_b');
+SQL
   for pid in "$pid_a" "$pid_b"; do
     if [[ -n "$pid" ]]; then wait "$pid" 2>/dev/null || true; fi
   done
@@ -39,8 +42,10 @@ finish() {
 }
 
 test "$MINUTA_TEST_PROJECT_REF" != "$MINUTA_PRODUCTION_PROJECT_REF"
-marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v expected_ref="$MINUTA_TEST_PROJECT_REF" -c \
-  "select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true")"
+marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true;
+SQL
+)"
 test "$(tr -d '[:space:]' <<<"$marker")" = 1
 state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f "$root/scripts/commercial-sales-v151-state.sql" | grep '^{' | tail -n 1)"
 jq -e '.classification=="exact" and .criticalSchemaExact' <<<"$state" >/dev/null
@@ -48,8 +53,11 @@ trap finish EXIT
 
 psql "$db" -X -q -v ON_ERROR_STOP=1 -v run_key="$run_key" -f "$root/tests/commercial-sales-v151-durable-setup.sql"
 read -r owner seller org client product cash request_a request_b request_c <<<"$(
-  psql "$db" -X -qAt -F ' ' -v ON_ERROR_STOP=1 -v run_key="$run_key" -c \
-    "select owner_id,seller_id,organization_id,client_id,product_id,cash_id,request_from_v147,request_from_v151,request_concurrent from minuta_v151_test.fixture where run_key=:'run_key'"
+  psql "$db" -X -qAt -F ' ' -v ON_ERROR_STOP=1 --set=run_key="$run_key" <<'SQL'
+select owner_id,seller_id,organization_id,client_id,product_id,cash_id,
+  request_from_v147,request_from_v151,request_concurrent
+from minuta_v151_test.fixture where run_key=:'run_key';
+SQL
 )"
 
 call_v147() {
@@ -120,7 +128,12 @@ pid_b=$!
 
 observed=false
 for _ in {1..20}; do
-  if psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v app="$app_b" -c "select exists(select 1 from pg_catalog.pg_stat_activity where application_name=:'app' and state='active' and wait_event_type='Lock')" | grep -qx t; then
+  if psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=app="$app_b" <<'SQL' | grep -qx t; then
+select exists(
+  select 1 from pg_catalog.pg_stat_activity
+  where application_name=:'app' and state='active' and wait_event_type='Lock'
+);
+SQL
     observed=true
     break
   fi

@@ -109,9 +109,12 @@ with v151_proc as (
   ) as value
 ), critical_schema as (
   select
+    value as contract,
     public.minuta_financial_sha256_v129(value) as fingerprint,
     'b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6'::text as expected_fingerprint,
-    public.minuta_financial_sha256_v129(value)='b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6' as exact
+    public.minuta_financial_sha256_v129(value)='b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6' as exact,
+    (select jsonb_object_agg(component.key,public.minuta_financial_sha256_v129(component.value) order by component.key)
+      from jsonb_each(value) component) as component_fingerprints
   from critical_contract
 )
 select json_build_object(
@@ -124,6 +127,8 @@ select json_build_object(
   'criticalSchemaExact',critical_schema.exact,
   'criticalSchemaFingerprint',critical_schema.fingerprint,
   'criticalSchemaExpectedFingerprint',critical_schema.expected_fingerprint,
+  'criticalSchemaComponentFingerprints',critical_schema.component_fingerprints,
+  'criticalSchemaContract',case when critical_schema.exact then null else critical_schema.contract end,
   'salePresent',to_regprocedure('public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is not null,
   'workspacePresent',to_regprocedure('public.get_minuta_commerce_workspace_v151(uuid)') is not null,
   'authenticatedSaleExecute',case when to_regprocedure('public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is null then false else has_function_privilege('authenticated',to_regprocedure('public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)'),'execute') end,
