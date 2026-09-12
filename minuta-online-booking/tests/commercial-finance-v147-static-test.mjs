@@ -70,9 +70,9 @@ assert.match(html, /id="moneyIncome"/);
 assert.match(html, /id="moneyExpenses"/);
 assert.match(html, /id="moneyProfit"/);
 assert.match(html, /id="clientCommerceHistory"/);
-assert.match(html, /commerce-management\.js\?v=714/);
-assert.match(worker, /commerce-management\.js\?v=714/);
-assert.match(worker, /CACHE_PREFIX}v714/);
+assert.match(html, /commerce-management\.js\?v=715/);
+assert.match(worker, /commerce-management\.js\?v=715/);
+assert.match(worker, /CACHE_PREFIX}v715/);
 assert.doesNotMatch(html, /\?v=711/);
 assert.doesNotMatch(worker, /\?v=711/);
 
