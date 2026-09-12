@@ -28,9 +28,10 @@
   display:none!important;
 }
 
-/* Reading and navigation surfaces stay clean and opaque over the canvas. */
+/* Reading and navigation surfaces stay clean and opaque over the canvas.
+   The frameless top bar intentionally remains transparent. */
 .provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) :is(
-  .provider-sidebar,.provider-topbar,.provider-mobile-nav,.schedule-card,.panel,.settings-card,
+  .provider-sidebar,.provider-mobile-nav,.schedule-card,.panel,.settings-card,
   .clients-directory,.client-profile,.notification-card,.waitlist-provider-card,
   .portfolio-card,.provider-review-card,.report-summary article,
   .schedule-toolbar,.date-navigation,.date-strip,.timeline-stage,.booking-sheet-panel,

@@ -82,7 +82,7 @@ const server = http.createServer((request, response) => {
         assert.equal(state.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
         for (const surface of state.surfaces) {
           assert.equal(surface.image, 'none', `${theme} ${width}px ${surface.selector}: узор попал на рабочую поверхность`);
-          if (surface.selector !== '.schedule-toolbar') {
+          if (!['.schedule-toolbar', '.provider-topbar'].includes(surface.selector)) {
             assert.notEqual(surface.color, 'rgba(0, 0, 0, 0)', `${theme} ${width}px ${surface.selector}: поверхность стала прозрачной`);
           }
         }

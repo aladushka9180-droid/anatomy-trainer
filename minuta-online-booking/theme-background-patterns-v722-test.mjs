@@ -25,11 +25,11 @@ for (const theme of ['snow-leopard', 'pearl-zebra']) {
 }
 assert.match(approved, /provider-apricot-tiger-desktop-v3\.webp/);
 assert.match(approved, /provider-apricot-tiger-mobile-v2\.webp/);
-assert.match(provider, /theme-catalog\.js\?v=730/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v730`/);
-assert.match(worker, /\.\/theme-catalog\.js\?v=730/);
+assert.match(provider, /theme-catalog\.js\?v=731/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v731`/);
+assert.match(worker, /\.\/theme-catalog\.js\?v=731/);
 
 const neutralScheduleRules = schedule.match(/background-image:none!important/g) || [];
 assert.ok(neutralScheduleRules.length >= 2, 'Фоновый узор темы не должен попадать в записи и перерывы');
 
-console.log('Theme background patterns v730: PASS');
+console.log('Theme background patterns v731: PASS');
