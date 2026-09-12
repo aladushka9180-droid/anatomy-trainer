@@ -55,7 +55,6 @@ const ASSETS = [
   './client-fields.js?v=707',
   './client-import.js?v=707',
   './provider-feedback.js?v=707',
-  './provider-feedback-inbox.js?v=707',
   './batch-bookings.js?v=707',
   './booking-policy-management.js?v=707',
   './team-calendar.js?v=707',
@@ -76,11 +75,13 @@ const ASSETS = [
   './provider.js?v=707',
   './voice-wake.js?v=707',
   './provider-feature-assets.js?v=707',
+  './client-records.js?v=707',
 ];
 
 // Warm after the first screen. A cold installation must not wait for tools
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
+  './provider-feedback-inbox.js?v=707',
   './free-slots-compact.css?v=707',
   './vendor/qrcodegen.js?v=707',
   './code-scanner.css?v=707',
