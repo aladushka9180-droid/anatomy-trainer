@@ -108,9 +108,6 @@
     function unsupported(error) {
       return /PGRST202|42883|get_minuta_benefit_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
     }
-    function unsupportedApplication(error) {
-      return /PGRST202|42883[^\n]*apply_minuta_benefit_v149|apply_minuta_benefit_v149[^\n]*(?:does not exist|schema cache)/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
-    }
     function scopeMatches(data,id) { return Boolean(data && String(data.organization_id || '')===String(id)); }
     function rubles(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`; }
     function clientName(id) { const item=payload?.clients?.find(row=>row.id===id); return item ? `${item.client_name} · ${item.client_phone}` : 'Клиент'; }
@@ -280,7 +277,6 @@
       let data=null,error=null;
       try {
         ({data,error}=await db.rpc('apply_minuta_benefit_v149',guarded));
-        if(error&&unsupportedApplication(error))({data,error}=await db.rpc('apply_minuta_benefit',parameters));
       } catch(reason){error=reason instanceof Error?reason:{message:String(reason||'')};}
       if(button)button.textContent=old;const stale=!sessionIsCurrent(userId,generation)||current!==revision||organization?.id!==organizationId;writing=false;
       if(stale){const next=pendingOrganization;pendingOrganization=undefined;if(next!==undefined)await setOrganization(next);return false;}

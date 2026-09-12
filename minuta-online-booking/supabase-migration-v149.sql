@@ -16,6 +16,27 @@ begin
 end
 $prerequisites$;
 
+do $version_guard$
+declare v_source text;v_function_marker text;v_table_marker text;
+begin
+  if to_regprocedure('public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)') is not null then
+    select routine.prosrc,obj_description(routine.oid,'pg_proc')
+      into v_source,v_function_marker
+      from pg_proc routine
+      where routine.oid='public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)'::regprocedure;
+    if v_function_marker is distinct from 'minuta-benefit-application-v149:'||md5(v_source) then
+      raise exception using errcode='55000',message='v149_apply_newer_function_detected';
+    end if;
+  end if;
+  if to_regclass('public.benefit_application_requests') is not null then
+    v_table_marker:=obj_description('public.benefit_application_requests'::regclass,'pg_class');
+    if v_table_marker is distinct from 'minuta-benefit-application-v149' then
+      raise exception using errcode='55000',message='v149_apply_newer_table_detected';
+    end if;
+  end if;
+end
+$version_guard$;
+
 create table if not exists public.benefit_application_requests (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete restrict,
@@ -27,10 +48,13 @@ create table if not exists public.benefit_application_requests (
   amount_rub integer check(amount_rub is null or amount_rub>0),
   redemption_id uuid not null references public.benefit_redemptions(id) on delete restrict,
   result_status text not null check(result_status in('reserved','redeemed','released')),
+  commercial_sale_id uuid,
+  sale_transaction_id uuid,
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   unique(organization_id,request_id)
 );
+comment on table public.benefit_application_requests is 'minuta-benefit-application-v149';
 
 create index if not exists benefit_application_business_v149_idx
   on public.benefit_application_requests(organization_id,instrument_id,booking_id,created_at desc,id desc);
@@ -61,6 +85,7 @@ declare
   v_sale uuid;
   v_sale_transaction uuid;
 begin
+  -- benefit_application_idempotency_v149
   v_role:=public.get_minuta_benefit_role(p_organization);
   if p_request_id is null then
     raise exception using errcode='22023',message='benefit_application_request_id_required';
@@ -71,6 +96,15 @@ begin
 
   v_fingerprint:=public.minuta_financial_sha256_v129(jsonb_build_array(
     p_organization,p_instrument,p_booking,p_action,p_amount_rub));
+  select line.sale_id into v_sale from public.commercial_sale_lines line
+    where line.organization_id=p_organization and line.benefit_instrument_id=p_instrument
+    order by line.id desc limit 1;
+  if v_sale is not null then
+    select transaction_row.id into v_sale_transaction from public.financial_transactions transaction_row
+      where transaction_row.organization_id=p_organization
+        and transaction_row.source_type='commercial_sale' and transaction_row.source_id=v_sale
+      order by transaction_row.created_at desc,transaction_row.id desc limit 1;
+  end if;
   perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':benefit-application:'||p_request_id::text,149));
   select * into v_existing from public.benefit_application_requests
     where organization_id=p_organization and request_id=p_request_id for update;
@@ -80,7 +114,9 @@ begin
     end if;
     return jsonb_build_object(
       'id',v_existing.redemption_id,'organization_id',p_organization,
-      'status',v_existing.result_status,'request_id',p_request_id,'replayed',true);
+      'status',v_existing.result_status,'request_id',p_request_id,'replayed',true,
+      'commercial_sale_id',v_existing.commercial_sale_id,
+      'sale_transaction_id',v_existing.sale_transaction_id);
   end if;
 
   -- Match the established booking/instrument lock order used by v76.
@@ -108,19 +144,9 @@ begin
 
   insert into public.benefit_application_requests(
     organization_id,request_id,request_fingerprint,instrument_id,booking_id,action,
-    amount_rub,redemption_id,result_status,created_by)
+    amount_rub,redemption_id,result_status,commercial_sale_id,sale_transaction_id,created_by)
   values(p_organization,p_request_id,v_fingerprint,p_instrument,p_booking,p_action,
-    p_amount_rub,(v_result->>'id')::uuid,v_status,auth.uid());
-
-  select line.sale_id into v_sale from public.commercial_sale_lines line
-    where line.organization_id=p_organization and line.benefit_instrument_id=p_instrument
-    order by line.id desc limit 1;
-  if v_sale is not null then
-    select transaction_row.id into v_sale_transaction from public.financial_transactions transaction_row
-      where transaction_row.organization_id=p_organization
-        and transaction_row.source_type='commercial_sale' and transaction_row.source_id=v_sale
-      order by transaction_row.created_at desc,transaction_row.id desc limit 1;
-  end if;
+    p_amount_rub,(v_result->>'id')::uuid,v_status,v_sale,v_sale_transaction,auth.uid());
 
   return v_result||jsonb_build_object(
     'request_id',p_request_id,'replayed',false,
@@ -128,14 +154,24 @@ begin
 end
 $$;
 
+do $function_stamp$
+declare v_source text;
+begin
+  select routine.prosrc into v_source from pg_proc routine
+    where routine.oid='public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)'::regprocedure;
+  execute format(
+    'comment on function public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid) is %L',
+    'minuta-benefit-application-v149:'||md5(v_source));
+end
+$function_stamp$;
+
 alter table public.benefit_application_requests enable row level security;
 revoke all on table public.benefit_application_requests from public,anon,authenticated,service_role;
 revoke all on function public.protect_minuta_benefit_application_v149() from public,anon,authenticated,service_role;
+revoke all on function public.apply_minuta_benefit(uuid,uuid,uuid,text,integer)
+  from public,anon,authenticated,service_role;
 revoke all on function public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)
   from public,anon,authenticated,service_role;
 grant execute on function public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid) to authenticated;
-
-comment on function public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid) is
-  'Idempotently reserves, redeems or releases a client benefit and returns its commercial-sale linkage without creating another money movement.';
 
 commit;
