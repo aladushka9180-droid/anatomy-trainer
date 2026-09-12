@@ -38,6 +38,28 @@ with v151_proc as (
       (select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) from pg_catalog.pg_proc where oid=to_regprocedure('public.get_minuta_commerce_workspace_v147(uuid)')),
       (select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) from pg_catalog.pg_proc where oid=to_regprocedure('public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)'))
     ),
+    'runtimeFunctions',coalesce((select jsonb_agg(jsonb_build_object(
+      'signature',expected.signature,
+      'sourceHash',public.minuta_financial_sha256_v129(jsonb_build_object('source',procedure_row.prosrc)),
+      'language',language_row.lanname,'kind',procedure_row.prokind,'volatility',procedure_row.provolatile,
+      'securityDefiner',procedure_row.prosecdef,'strict',procedure_row.proisstrict,
+      'leakproof',procedure_row.proleakproof,'parallel',procedure_row.proparallel,
+      'result',pg_get_function_result(procedure_row.oid),
+      'identityArguments',pg_get_function_identity_arguments(procedure_row.oid),
+      'config',coalesce(to_jsonb(procedure_row.proconfig),'null'::jsonb),
+      'authenticatedExecute',coalesce(has_function_privilege('authenticated',procedure_row.oid,'execute'),false),
+      'anonExecute',coalesce(has_function_privilege('anon',procedure_row.oid,'execute'),false),
+      'serviceRoleExecute',coalesce(has_function_privilege('service_role',procedure_row.oid,'execute'),false),
+      'publicExecute',exists(select 1 from aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
+        where grant_row.grantee=0 and grant_row.privilege_type='EXECUTE')
+    ) order by expected.signature)
+      from (values
+        ('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'),
+        ('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)')
+      ) expected(signature)
+      left join pg_catalog.pg_proc procedure_row on procedure_row.oid=to_regprocedure(expected.signature)
+      left join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
+    ),'[]'::jsonb),
     'sellerColumn',coalesce((select jsonb_build_object(
       'type',format_type(atttypid,atttypmod),'notNull',attnotnull)
       from pg_catalog.pg_attribute where attrelid=to_regclass('public.commercial_sales')
@@ -56,16 +78,24 @@ with v151_proc as (
       where namespace_row.nspname='public' and (
         relation_row.relname=any(array['commercial_sales','commercial_sale_lines','commercial_sale_refunds','financial_postings'])
         or (relation_row.relname=any(array['financial_accounts','financial_transactions']) and constraint_row.conname like '%v147_check')
+        or (relation_row.relname='financial_accounts' and constraint_row.conname='financial_accounts_organization_id_system_key_key')
         or (relation_row.relname='financial_transactions' and constraint_row.conname='financial_transactions_organization_id_request_id_key')
       )),'[]'::jsonb),
+    'financialAccountsSystemKeyIndex',coalesce((select jsonb_build_object(
+      'definition',pg_get_indexdef(index_row.indexrelid),'unique',index_row.indisunique,
+      'valid',index_row.indisvalid,'ready',index_row.indisready
+    ) from pg_catalog.pg_constraint constraint_row
+      join pg_catalog.pg_index index_row on index_row.indexrelid=constraint_row.conindid
+      where constraint_row.conrelid=to_regclass('public.financial_accounts')
+        and constraint_row.conname='financial_accounts_organization_id_system_key_key'),'null'::jsonb),
     'index',(select pg_get_indexdef(index_row.indexrelid) from pg_catalog.pg_index index_row
       where index_row.indexrelid=to_regclass('public.commercial_sales_scope_v147_idx'))
   ) as value
 ), critical_schema as (
   select
     public.minuta_financial_sha256_v129(value) as fingerprint,
-    '622fc10e7cc5e0057dbe2ed345f0f8caab5c39fd78f4dd3e9c79ed6541bbcb7c'::text as expected_fingerprint,
-    public.minuta_financial_sha256_v129(value)='622fc10e7cc5e0057dbe2ed345f0f8caab5c39fd78f4dd3e9c79ed6541bbcb7c' as exact
+    '2e03b76f8a8ddfadc27af64da2f85990012946a1db19f006e26169e9b12955d3'::text as expected_fingerprint,
+    public.minuta_financial_sha256_v129(value)='2e03b76f8a8ddfadc27af64da2f85990012946a1db19f006e26169e9b12955d3' as exact
   from critical_contract
 )
 select json_build_object(

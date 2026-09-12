@@ -27,6 +27,8 @@ begin
      or to_regclass('public.benefit_ledger') is null
      or to_regclass('public.locations') is null
      or to_regprocedure('public.minuta_financial_sha256_v129(jsonb)') is null
+     or to_regprocedure('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)') is null
+     or to_regprocedure('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)') is null
      or to_regprocedure('public.apply_minuta_benefit(uuid,uuid,uuid,text,integer)') is null
      or to_regprocedure('public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is null
      or to_regprocedure('public.get_minuta_commerce_workspace_v147(uuid)') is null
@@ -57,11 +59,43 @@ begin
   end if;
 
   if exists(
+    select 1
+    from (values
+      ('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)',
+       'p_organization uuid, p_product uuid, p_client_account uuid, p_expires_on date, p_request_id uuid','7fdd3aa28d63d4c31132198d321921128f6f52f0d26a5734e57a9eac16441c05'),
+      ('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)',
+       'p_organization uuid, p_warehouse uuid, p_item uuid, p_kind text, p_quantity numeric, p_counted_quantity numeric, p_reason text, p_request_id uuid','a4ea61f1def8fbd64e3e345ea8e78c8bdbe5aaafe4bd2b1af50d034343a27e18')
+    ) expected(signature,identity_arguments,source_hash)
+    left join pg_catalog.pg_proc procedure_row on procedure_row.oid=to_regprocedure(expected.signature)
+    left join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
+    where procedure_row.oid is null
+      or public.minuta_financial_sha256_v129(jsonb_build_object('source',procedure_row.prosrc)) is distinct from expected.source_hash
+      or language_row.lanname is distinct from 'plpgsql'
+      or procedure_row.prokind is distinct from 'f'
+      or procedure_row.provolatile is distinct from 'v'
+      or procedure_row.prosecdef is not true
+      or procedure_row.proisstrict is not false
+      or procedure_row.proleakproof is not false
+      or procedure_row.proparallel is distinct from 'u'
+      or pg_get_function_result(procedure_row.oid) is distinct from 'jsonb'
+      or pg_get_function_identity_arguments(procedure_row.oid) is distinct from expected.identity_arguments
+      or procedure_row.proconfig is distinct from array['search_path=""']::text[]
+      or coalesce(has_function_privilege('authenticated',procedure_row.oid,'execute'),false) is not true
+      or coalesce(has_function_privilege('anon',procedure_row.oid,'execute'),false) is true
+      or coalesce(has_function_privilege('service_role',procedure_row.oid,'execute'),false) is true
+      or exists(select 1 from aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
+        where grant_row.grantee=0 and grant_row.privilege_type='EXECUTE')
+  ) then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  if exists(
     select 1 from (values
       ('public.financial_accounts'::regclass,'financial_accounts_account_type_v147_check',$constraint$CHECK (account_type = ANY (ARRAY['cash'::text, 'bank'::text, 'receivable'::text, 'service_revenue'::text, 'product_revenue'::text, 'operating_expense'::text, 'supplier_payable'::text, 'payment_channel_commission'::text, 'payroll_expense'::text, 'payroll_payable'::text, 'employee_advance'::text]))$constraint$),
       ('public.financial_accounts'::regclass,'financial_accounts_system_key_v147_check',$constraint$CHECK (system_key IS NULL OR (system_key = ANY (ARRAY['receivable'::text, 'service_revenue'::text, 'product_revenue'::text, 'operating_expense'::text, 'supplier_payable'::text, 'payment_channel_commission'::text, 'payroll_expense'::text, 'payroll_payable'::text, 'employee_advance'::text])))$constraint$),
       ('public.financial_accounts'::regclass,'financial_accounts_system_mapping_v147_check',$constraint$CHECK (system_key IS NULL AND (account_type = ANY (ARRAY['cash'::text, 'bank'::text])) AND account_class = 'asset'::text OR system_key = 'receivable'::text AND account_type = 'receivable'::text AND account_class = 'asset'::text OR system_key = 'service_revenue'::text AND account_type = 'service_revenue'::text AND account_class = 'income'::text OR system_key = 'product_revenue'::text AND account_type = 'product_revenue'::text AND account_class = 'income'::text OR system_key = 'operating_expense'::text AND account_type = 'operating_expense'::text AND account_class = 'expense'::text OR system_key = 'supplier_payable'::text AND account_type = 'supplier_payable'::text AND account_class = 'liability'::text OR system_key = 'payment_channel_commission'::text AND account_type = 'payment_channel_commission'::text AND account_class = 'expense'::text OR system_key = 'payroll_expense'::text AND account_type = 'payroll_expense'::text AND account_class = 'expense'::text OR system_key = 'payroll_payable'::text AND account_type = 'payroll_payable'::text AND account_class = 'liability'::text OR system_key = 'employee_advance'::text AND account_type = 'employee_advance'::text AND account_class = 'asset'::text)$constraint$),
       ('public.financial_accounts'::regclass,'financial_accounts_system_request_v147_check',$constraint$CHECK ((system_key IS NULL) = (creation_request_id IS NOT NULL))$constraint$),
+      ('public.financial_accounts'::regclass,'financial_accounts_organization_id_system_key_key',$constraint$UNIQUE (organization_id, system_key)$constraint$),
       ('public.financial_transactions'::regclass,'financial_transactions_operation_v147_check',$constraint$CHECK (operation_type = ANY (ARRAY['visit_service'::text, 'commercial_sale'::text, 'commercial_refund'::text, 'supplier_expense_accrual'::text, 'supplier_expense_payment'::text, 'customer_debt_settlement'::text, 'payroll_accrual'::text, 'payroll_payment'::text, 'payroll_advance'::text, 'payroll_advance_offset'::text, 'reversal'::text]))$constraint$),
       ('public.financial_transactions'::regclass,'financial_transactions_source_v147_check',$constraint$CHECK (source_type = ANY (ARRAY['booking_outcome'::text, 'commercial_sale'::text, 'commercial_sale_refund'::text, 'financial_expense_source'::text, 'financial_debt_settlement_source'::text, 'financial_payroll_accrual_source'::text, 'financial_payroll_payment_source'::text, 'financial_payroll_advance_source'::text, 'financial_payroll_advance_offset'::text, 'financial_transaction'::text]))$constraint$),
       ('public.financial_transactions'::regclass,'financial_transactions_shape_v147_check',$constraint$CHECK (operation_type = 'visit_service'::text AND source_type = 'booking_outcome'::text AND reversal_of IS NULL OR operation_type = 'commercial_sale'::text AND source_type = 'commercial_sale'::text AND reversal_of IS NULL OR operation_type = 'commercial_refund'::text AND source_type = 'commercial_sale_refund'::text AND reversal_of IS NULL OR (operation_type = ANY (ARRAY['supplier_expense_accrual'::text, 'supplier_expense_payment'::text])) AND source_type = 'financial_expense_source'::text AND reversal_of IS NULL OR operation_type = 'customer_debt_settlement'::text AND source_type = 'financial_debt_settlement_source'::text AND reversal_of IS NULL OR operation_type = 'payroll_accrual'::text AND source_type = 'financial_payroll_accrual_source'::text AND reversal_of IS NULL OR operation_type = 'payroll_payment'::text AND source_type = 'financial_payroll_payment_source'::text AND reversal_of IS NULL OR operation_type = 'payroll_advance'::text AND source_type = 'financial_payroll_advance_source'::text AND reversal_of IS NULL OR operation_type = 'payroll_advance_offset'::text AND source_type = 'financial_payroll_advance_offset'::text AND reversal_of IS NULL OR operation_type = 'reversal'::text AND source_type = 'financial_transaction'::text AND reversal_of IS NOT NULL AND source_id = reversal_of)$constraint$)
@@ -70,6 +104,20 @@ begin
       on actual.conrelid=expected.relation_id and actual.conname=expected.constraint_name
     where actual.oid is null or not actual.convalidated
       or pg_get_constraintdef(actual.oid,true) is distinct from expected.definition
+  ) then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  if not exists(
+    select 1
+    from pg_catalog.pg_constraint constraint_row
+    join pg_catalog.pg_index index_row on index_row.indexrelid=constraint_row.conindid
+    where constraint_row.conrelid='public.financial_accounts'::regclass
+      and constraint_row.conname='financial_accounts_organization_id_system_key_key'
+      and constraint_row.contype='u' and constraint_row.convalidated
+      and pg_get_constraintdef(constraint_row.oid,true)='UNIQUE (organization_id, system_key)'
+      and index_row.indrelid=constraint_row.conrelid
+      and index_row.indisunique and index_row.indisvalid and index_row.indisready
   ) then
     raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
   end if;
@@ -166,6 +214,28 @@ begin
       (select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) from pg_catalog.pg_proc where oid='public.get_minuta_commerce_workspace_v147(uuid)'::regprocedure),
       (select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) from pg_catalog.pg_proc where oid='public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)'::regprocedure)
     ),
+    'runtimeFunctions',coalesce((select jsonb_agg(jsonb_build_object(
+      'signature',expected.signature,
+      'sourceHash',public.minuta_financial_sha256_v129(jsonb_build_object('source',procedure_row.prosrc)),
+      'language',language_row.lanname,'kind',procedure_row.prokind,'volatility',procedure_row.provolatile,
+      'securityDefiner',procedure_row.prosecdef,'strict',procedure_row.proisstrict,
+      'leakproof',procedure_row.proleakproof,'parallel',procedure_row.proparallel,
+      'result',pg_get_function_result(procedure_row.oid),
+      'identityArguments',pg_get_function_identity_arguments(procedure_row.oid),
+      'config',coalesce(to_jsonb(procedure_row.proconfig),'null'::jsonb),
+      'authenticatedExecute',coalesce(has_function_privilege('authenticated',procedure_row.oid,'execute'),false),
+      'anonExecute',coalesce(has_function_privilege('anon',procedure_row.oid,'execute'),false),
+      'serviceRoleExecute',coalesce(has_function_privilege('service_role',procedure_row.oid,'execute'),false),
+      'publicExecute',exists(select 1 from aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
+        where grant_row.grantee=0 and grant_row.privilege_type='EXECUTE')
+    ) order by expected.signature)
+      from (values
+        ('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'),
+        ('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)')
+      ) expected(signature)
+      left join pg_catalog.pg_proc procedure_row on procedure_row.oid=to_regprocedure(expected.signature)
+      left join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
+    ),'[]'::jsonb),
     'sellerColumn',coalesce((select jsonb_build_object(
       'type',format_type(atttypid,atttypmod),'notNull',attnotnull)
       from pg_catalog.pg_attribute where attrelid='public.commercial_sales'::regclass
@@ -184,12 +254,20 @@ begin
       where namespace_row.nspname='public' and (
         relation_row.relname=any(array['commercial_sales','commercial_sale_lines','commercial_sale_refunds','financial_postings'])
         or (relation_row.relname=any(array['financial_accounts','financial_transactions']) and constraint_row.conname like '%v147_check')
+        or (relation_row.relname='financial_accounts' and constraint_row.conname='financial_accounts_organization_id_system_key_key')
         or (relation_row.relname='financial_transactions' and constraint_row.conname='financial_transactions_organization_id_request_id_key')
       )),'[]'::jsonb),
+    'financialAccountsSystemKeyIndex',coalesce((select jsonb_build_object(
+      'definition',pg_get_indexdef(index_row.indexrelid),'unique',index_row.indisunique,
+      'valid',index_row.indisvalid,'ready',index_row.indisready
+    ) from pg_catalog.pg_constraint constraint_row
+      join pg_catalog.pg_index index_row on index_row.indexrelid=constraint_row.conindid
+      where constraint_row.conrelid='public.financial_accounts'::regclass
+        and constraint_row.conname='financial_accounts_organization_id_system_key_key'),'null'::jsonb),
     'index',(select pg_get_indexdef(index_row.indexrelid) from pg_catalog.pg_index index_row
       where index_row.indexrelid='public.commercial_sales_scope_v147_idx'::regclass)
   )) into v_hash;
-  if v_hash is distinct from '622fc10e7cc5e0057dbe2ed345f0f8caab5c39fd78f4dd3e9c79ed6541bbcb7c' then
+  if v_hash is distinct from '2e03b76f8a8ddfadc27af64da2f85990012946a1db19f006e26169e9b12955d3' then
     raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
   end if;
 
