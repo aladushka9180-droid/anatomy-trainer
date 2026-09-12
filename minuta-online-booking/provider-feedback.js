@@ -5,6 +5,7 @@
   const INPUT_LIMIT = 12 * 1024 * 1024;
   const OUTPUT_LIMIT = 4 * 1024 * 1024;
   const MAX_EDGE = 1600;
+  const UNCONFIRMED_MESSAGE = 'Результат отправки не подтверждён. Не отправляйте сообщение повторно — обновите страницу и сначала проверьте результат.';
 
   function createId() {
     if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -60,6 +61,8 @@
   function createController({ db, $, notify, requireWrites, getCurrentUser, getOrganization }) {
     let available = false;
     let bound = false;
+    let submitting = false;
+    let submissionUnresolved = false;
     let availabilityRevision = 0;
 
     function setAvailable(value) {
@@ -83,10 +86,19 @@
     }
 
     function resetForm() {
+      if (submissionUnresolved) {
+        $('#productFeedbackForm').hidden = false;
+        $('#productFeedbackSuccess').hidden = true;
+        $('#productFeedbackSubmit').disabled = true;
+        setError(UNCONFIRMED_MESSAGE);
+        return;
+      }
       $('#productFeedbackForm').reset();
       $('#productFeedbackKindProblem').checked = true;
       $('#productFeedbackForm').hidden = false;
       $('#productFeedbackSuccess').hidden = true;
+      $('#productFeedbackAttachmentNotice').hidden = true;
+      $('#productFeedbackAttachmentNotice').textContent = '';
       $('#productFeedbackFileStatus').textContent = 'Необязательно · PNG, JPEG или WebP до 12 МБ';
       setError();
       updateType();
@@ -113,7 +125,7 @@
 
     async function submit(event) {
       event.preventDefault();
-      if (!available || !getCurrentUser() || !requireWrites()) return;
+      if (submitting || submissionUnresolved || !available || !getCurrentUser() || !requireWrites()) return;
       const kind = $('#productFeedbackKindProblem').checked ? 'problem' : 'suggestion';
       const message = $('#productFeedbackMessage').value.trim();
       const expected = kind === 'problem' ? $('#productFeedbackExpected').value.trim() : '';
@@ -127,17 +139,28 @@
       const button = $('#productFeedbackSubmit');
       const original = button.textContent;
       let screenshotPath = '';
+      let attachmentSkipped = false;
+      let feedbackRejected = false;
+      let feedbackRequestStarted = false;
+      submitting = true;
       button.disabled = true;
       button.textContent = 'Отправляем…';
       setError();
       try {
         if (file) {
-          const blob = await prepareScreenshot(file);
-          screenshotPath = `${getCurrentUser().id}/${createId()}.webp`;
-          const { error } = await db.storage.from(BUCKET).upload(screenshotPath, blob, { contentType:'image/webp', cacheControl:'31536000', upsert:false });
-          if (error) throw error;
+          try {
+            const blob = await prepareScreenshot(file);
+            screenshotPath = `${getCurrentUser().id}/${createId()}.webp`;
+            const { error } = await db.storage.from(BUCKET).upload(screenshotPath, blob, { contentType:'image/webp', cacheControl:'31536000', upsert:false });
+            if (error) throw error;
+          } catch (error) {
+            console.warn('product_feedback_attachment_skipped', error?.code || error?.statusCode || 'unavailable');
+            screenshotPath = '';
+            attachmentSkipped = true;
+          }
         }
         const organization = getOrganization?.();
+        feedbackRequestStarted = true;
         const { data, error } = await db.rpc('create_minuta_feedback', {
           p_organization:organization?.id || null,
           p_kind:kind,
@@ -148,19 +171,35 @@
           p_device_summary:deviceSummary(),
           p_screenshot_path:screenshotPath || null
         });
-        if (error) throw error;
-        $('#productFeedbackRequestNumber').textContent = String(data?.request_number || '—');
+        if (error) { feedbackRejected = true; throw error; }
+        const requestNumber = data?.request_number;
+        if (!/^[1-9][0-9]*$/.test(String(requestNumber || ''))) throw new Error('feedback_ack_invalid');
+        $('#productFeedbackRequestNumber').textContent = String(requestNumber);
         $('#productFeedbackForm').hidden = true;
         $('#productFeedbackSuccess').hidden = false;
-        notify('Сообщение отправлено');
+        const attachmentNotice = $('#productFeedbackAttachmentNotice');
+        attachmentNotice.hidden = !attachmentSkipped;
+        attachmentNotice.textContent = attachmentSkipped
+          ? 'Сообщение отправлено без снимка: файл не удалось загрузить. Сам текст обращения уже получен.'
+          : '';
+        notify(attachmentSkipped ? 'Сообщение отправлено без снимка' : 'Сообщение отправлено');
       } catch (error) {
-        if (screenshotPath) await db.storage.from(BUCKET).remove([screenshotPath]);
+        if (screenshotPath && feedbackRejected) await db.storage.from(BUCKET).remove([screenshotPath]);
         const code = `${error?.code || ''} ${error?.message || ''}`;
-        setError(/image_too_large/.test(code)
-          ? 'Снимок не удалось уменьшить до 4 МБ. Выберите другое изображение.'
-          : 'Не удалось отправить сообщение. Проверьте интернет и попробуйте ещё раз.');
+        const unconfirmed = feedbackRequestStarted && !feedbackRejected;
+        if (unconfirmed) submissionUnresolved = true;
+        setError(unconfirmed || /feedback_ack_invalid/.test(code)
+          ? UNCONFIRMED_MESSAGE
+          : /42501|authentication_required|feedback_organization_denied/i.test(code)
+            ? 'Сессия или доступ к организации изменились. Обновите страницу и войдите снова.'
+            : /22023|invalid_feedback/i.test(code)
+              ? 'Сервер отклонил данные обращения. Проверьте текст и попробуйте ещё раз.'
+              : navigator.onLine === false
+                ? 'Нет подключения к интернету. Текст сохранён в форме — отправьте его после восстановления связи.'
+                : 'Сервис обратной связи временно не принял сообщение. Текст сохранён в форме — попробуйте ещё раз позже.');
       } finally {
-        button.disabled = false;
+        submitting = false;
+        button.disabled = submissionUnresolved;
         button.textContent = original;
       }
     }

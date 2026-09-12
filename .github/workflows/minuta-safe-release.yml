@@ -127,6 +127,7 @@ jobs:
           node --check minuta-online-booking/visit-outcomes-v106-static-test.mjs
           node --check minuta-online-booking/inventory-warehouse-v108-static-test.mjs
           node --check minuta-online-booking/product-feedback-v109-static-test.mjs
+          node --check minuta-online-booking/tests/provider-feedback-attachment-fallback-browser-test.mjs
           node --check minuta-online-booking/privacy.js
           bash -n minuta-online-booking/visitor-presence-v105-integration-test.sh
           node --check minuta-online-booking/analytics-experience-v294-test.mjs

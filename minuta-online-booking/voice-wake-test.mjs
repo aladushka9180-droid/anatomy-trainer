@@ -14,7 +14,7 @@ const wakeSource = readFileSync(join(root, 'voice-wake.js'), 'utf8');
 assert.match(provider, /loadProviderFeatureScript\('voice-wake\.js'\)/);
 assert.match(html, /id="voiceWakeToggle"/);
 assert.match(html, /Привет, Альбина/);
-assert.match(worker, /voice-wake\.js\?v=702/);
+assert.match(worker, /voice-wake\.js\?v=703/);
 assert.match(assistant, /__minutaAssistantWakeRequest/);
 assert.doesNotMatch(wakeSource, /\b(fetch|XMLHttpRequest|WebSocket)\b/, 'wake-слой не должен подключать API или внешнюю модель');
 assert.equal(wake.normalizeWakePhrase('  Привет, Ёлка!  '), 'привет елка');

@@ -1710,6 +1710,7 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .product-feedback-success h3,.product-feedback-success p { margin:0; }
 .product-feedback-success h3 { font-size:20px; letter-spacing:-.03em; }
 .product-feedback-success p { color:var(--theme-muted,#66796f); font-size:11px; }
+.product-feedback-success .product-feedback-attachment-notice { width:100%; padding:10px 12px; border-radius:12px; background:var(--theme-accent-soft,#e4f3e9); color:var(--theme-ink,#3f584b); line-height:1.5; text-align:left; }
 .product-feedback-success .product-feedback-actions { width:100%; margin-top:11px; }
 .free-slots-help { margin:12px 0 16px; color:#6f8077; font-size:10px; line-height:1.55; }
 .free-slots-mode { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin:0; padding:5px; border:1px solid #dce7df; border-radius:13px; background:#f3f7f4; }
