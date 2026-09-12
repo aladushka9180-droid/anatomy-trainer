@@ -179,6 +179,7 @@ assert.match(workflow, /v151-issue-minuta-benefit-restore\.sql/);
 assert.match(workflow, /v151-apply-stock-movement-restore\.sql/);
 assert.match(workflow, /v151-runtime-drift-role/);
 assert.match(workflow, /with grant option/);
+assert.match(workflow, /grant :"drift_role" to current_user/);
 assert.match(workflow, /owner to :"drift_role"/);
 assert.match(workflow, /runtime-owner-acl-drift/);
 assert.match(workflow, /\.classification=="absent" and \.presentCount==0/);

@@ -168,6 +168,7 @@ jobs:
           printf '%s\n' "$drift_role" > "$RUNNER_TEMP/v151-runtime-drift-role"
           psql "$db" -X -q -v ON_ERROR_STOP=1 --set=drift_role="$drift_role" <<'SQL'
           create role :"drift_role" nologin;
+          grant :"drift_role" to current_user;
           SQL
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "alter table public.financial_transactions drop constraint financial_transactions_shape_v147_check; alter table public.financial_transactions add constraint financial_transactions_shape_v147_check check(true);"
           drift="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
