@@ -18,16 +18,17 @@
   --signature-stage:#fffaf5;
   --signature-nav-active:#efe0d3;
   --signature-card-shadow:0 8px 26px rgba(88,56,34,.04);
-  --atmosphere-background:#fff3e7;
+  --atmosphere-background:radial-gradient(ellipse 42% 7% at 96% 8%,rgba(112,61,33,.17),rgba(112,61,33,.09) 38%,transparent 72%),radial-gradient(ellipse 30% 5% at 84% 16%,rgba(116,65,38,.10),transparent 72%),radial-gradient(ellipse 48% 8% at 4% 92%,rgba(103,56,31,.14),rgba(103,56,31,.06) 42%,transparent 74%),linear-gradient(112deg,transparent 0 48%,rgba(255,255,255,.11) 52%,transparent 57%),linear-gradient(145deg,#f5c69e,#fff0df 55%,#edb783);
   --atmosphere-panel:#fffdfb;
   --atmosphere-panel-strong:#fffdfb;
   color-scheme:light;
 }
 .theme-apricot-tiger { --theme-preview-bg:#fff3e7; --theme-preview-surface:#fffdfb; --theme-preview-line:#ae9785; --theme-preview-accent:#49362a; --theme-preview-radius:14px; }
 .theme-apricot-tiger .theme-swatch {
-  background-image:linear-gradient(90deg,#fff3e7,rgba(255,243,231,.1)),url("provider-apricot-tiger.svg?v=723");
-  background-size:100% 100%,240px auto;
+  background-image:radial-gradient(ellipse 46% 18% at 92% 16%,rgba(112,61,33,.24),transparent 74%),radial-gradient(ellipse 42% 15% at 8% 86%,rgba(103,56,31,.20),transparent 76%),linear-gradient(112deg,transparent 0 47%,rgba(255,255,255,.18) 52%,transparent 58%),linear-gradient(145deg,#f5c69e,#fff0df 55%,#edb783);
+  background-size:100% 100%;
   background-position:center;
+  background-repeat:no-repeat;
 }
 
 .provider-body[data-provider-theme="snow-leopard"] {
@@ -49,7 +50,7 @@
   --signature-stage:#fafbfc;
   --signature-nav-active:#e2e6e9;
   --signature-card-shadow:0 8px 26px rgba(38,47,56,.05);
-  --atmosphere-background:linear-gradient(145deg,#eef0f2,#ffffff 58%,#f3f5f6);
+  --atmosphere-background:linear-gradient(128deg,transparent 0 21%,rgba(93,126,145,.035) 21.5%,transparent 22.5% 100%),radial-gradient(ellipse 78% 115% at 118% 16%,transparent 61%,rgba(126,159,178,.10) 62%,rgba(255,255,255,.24) 66%,transparent 71%),radial-gradient(ellipse 72% 105% at -16% 94%,transparent 62%,rgba(132,166,184,.09) 63%,rgba(255,255,255,.22) 67%,transparent 72%),linear-gradient(145deg,#e7f1f7 0%,#fbfdff 54%,#dceaf2 100%);
   --atmosphere-panel:#fafbfc;
   --atmosphere-panel-strong:#ffffff;
   color-scheme:light;
@@ -57,9 +58,9 @@
 
 .theme-snow-leopard { --theme-preview-bg:#f4f5f6; --theme-preview-surface:#ffffff; --theme-preview-line:#929ba1; --theme-preview-accent:#343b42; --theme-preview-radius:14px; }
 .theme-snow-leopard .theme-swatch {
-  background-image:linear-gradient(90deg,#f4f5f6 10%,rgba(244,245,246,.08)),url("provider-snow-leopard-natural-v2.webp?v=723");
-  background-size:100% 100%,160px auto;
-  background-position:right center;
+  background-image:radial-gradient(ellipse 82% 130% at 116% 18%,transparent 58%,rgba(126,159,178,.18) 60%,rgba(255,255,255,.34) 67%,transparent 73%),radial-gradient(ellipse 72% 112% at -14% 94%,transparent 58%,rgba(132,166,184,.15) 61%,transparent 72%),linear-gradient(145deg,#e7f1f7,#fbfdff 54%,#dceaf2);
+  background-size:100% 100%;
+  background-position:center;
   background-repeat:no-repeat;
 }
 
@@ -1226,14 +1227,13 @@
   ) * { transition-duration:.01ms!important; animation-duration:.01ms!important; }
 }
 
-/* Muted, full-page textile: scale is independent of wide screens or page length. */
-/* The tiger print belongs to the canvas, never to a reading surface. */
+/* One calm silk canvas with a few coffee strokes, never tiled onto reading surfaces. */
 .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
   background-color:var(--theme-bg)!important;
-  background-image:radial-gradient(ellipse 42% 95% at 56% 38%,#fff3e7 12%,rgba(255,243,231,.94) 40%,rgba(255,243,231,.12) 100%),url("provider-apricot-tiger.svg?v=723")!important;
-  background-size:100% 100%,1200px auto!important;
-  background-position:center top,center top!important;
-  background-repeat:no-repeat,repeat!important;
+  background-image:var(--atmosphere-background)!important;
+  background-size:100% 100%!important;
+  background-position:center top!important;
+  background-repeat:no-repeat!important;
   background-attachment:fixed!important;
 }
 .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace) {
@@ -1250,10 +1250,11 @@
 }
 @media (max-width:760px) {
   .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
-    background-image:linear-gradient(rgba(255,243,231,.5),rgba(255,243,231,.5)),url("provider-apricot-tiger-mobile.svg?v=723")!important;
-    background-size:auto,480px auto!important;
+    background-image:var(--atmosphere-background)!important;
+    background-size:100% 100%!important;
+    background-position:center top!important;
     background-attachment:scroll!important;
-    background-repeat:repeat!important;
+    background-repeat:no-repeat!important;
   }
   /* As in Snow Leopard, reveal one page canvas between opaque reading surfaces. */
   .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] :is(.provider-view,.schedule-card) {
@@ -1315,13 +1316,12 @@
 }
 
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
-  --snow-print-veil:rgba(255,255,255,.86);
-  background-color:#fff!important;
-  /* Use one continuous 4K canvas; the composition itself carries the natural spacing. */
-  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-continuous-4k-v3.webp?v=723")!important;
-  background-size:auto,cover!important;
+  background-color:var(--theme-bg)!important;
+  /* Frosted quartz is drawn as one restrained composition, without animal-print tiles. */
+  background-image:var(--atmosphere-background)!important;
+  background-size:100% 100%!important;
   background-repeat:no-repeat!important;
-  background-position:center!important;
+  background-position:center top!important;
   background-attachment:fixed!important;
 }
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace) {
@@ -1342,11 +1342,8 @@
 }
 @media (max-width:760px) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
-    --snow-print-veil:rgba(255,255,255,.80);
-    /* Dedicated portrait artwork keeps rosettes about 30% smaller on phones
-       while preserving one continuous, non-tiled canvas. */
-    background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-mobile-v1.png?v=723")!important;
-    background-size:100% 100%,100% 100%!important;
+    background-image:var(--atmosphere-background)!important;
+    background-size:100% 100%!important;
     background-repeat:no-repeat!important;
     background-position:center top!important;
     background-attachment:scroll!important;

@@ -18,16 +18,16 @@
   --signature-stage:var(--theme-surface);
   --signature-nav-active:var(--theme-accent-soft);
   --signature-card-shadow:0 8px 26px rgba(60,45,30,.04);
-  --atmosphere-background:var(--theme-bg);
+  --atmosphere-background:radial-gradient(ellipse 98% 52% at 30% -22%,transparent 51%,rgba(151,125,106,.08) 52% 63%,rgba(255,255,255,.24) 64%,transparent 72%),radial-gradient(ellipse 104% 54% at 6% 118%,transparent 48%,rgba(138,112,94,.09) 49% 61%,rgba(255,255,255,.18) 62%,transparent 70%),linear-gradient(132deg,transparent 0 20%,rgba(203,186,171,.07) 28%,transparent 42%),linear-gradient(145deg,#f2e9df,#fffaf4 54%,#e9dacb);
   --atmosphere-panel:var(--theme-surface);
   --atmosphere-panel-strong:var(--theme-surface);
   color-scheme:light;
 }
 
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
-  background-color:#f7f4ef!important;
-  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=723")!important;
-  background-size:100% 100%,100% 100%!important;
+  background-color:var(--theme-bg)!important;
+  background-image:var(--atmosphere-background)!important;
+  background-size:100% 100%!important;
   background-position:center top!important;
   background-repeat:no-repeat!important;
   background-attachment:scroll!important;
@@ -182,5 +182,5 @@
   --theme-preview-radius:14px;
 }
 .theme-pearl-zebra .theme-swatch {
-  background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=723") center/cover no-repeat!important;
+  background:radial-gradient(ellipse 102% 68% at 24% -32%,transparent 45%,rgba(151,125,106,.14) 48% 61%,rgba(255,255,255,.34) 64%,transparent 72%),radial-gradient(ellipse 112% 72% at 8% 126%,transparent 44%,rgba(138,112,94,.13) 48% 62%,transparent 72%),linear-gradient(145deg,#f2e9df,#fffaf4 54%,#e9dacb) center/100% 100% no-repeat!important;
 }

@@ -95,13 +95,11 @@ assert.match(worker, /\.\/provider-themes-signature\.css\?v=723/, 'Service Worke
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
-assert.match(mobileTiger, /background-size:auto,480px auto!important/);
-assert.match(mobileTiger, /provider-apricot-tiger-mobile\.svg/);
-const mobileTigerAsset = fs.readFileSync(new URL('./provider-apricot-tiger-mobile.svg', import.meta.url), 'utf8');
-assert.match(mobileTigerAsset, /<g fill="#98745d" opacity="\.22">/);
-assert.doesNotMatch(mobileTigerAsset, /fill-opacity=/, 'Mobile branches must not accumulate opacity at joins');
+assert.match(mobileTiger, /background-image:var\(--atmosphere-background\)!important/);
+assert.match(mobileTiger, /background-size:100% 100%!important/);
+assert.match(mobileTiger, /background-repeat:no-repeat!important/);
+assert.doesNotMatch(css, /provider-apricot-tiger(?:-mobile)?\.svg/, 'Apricot Tiger must use a few non-repeating CSS brush strokes');
 assert.doesNotMatch(worker, /provider-apricot-tiger-mobile\.svg/, 'Decorative tiger media must not block a service-worker update');
-assert.match(mobileTiger, /rgba\(255,243,231,\.5\)/, 'Mobile tiger keeps its muted palette');
 const tigerCanvas = css.slice(css.indexOf('/* As in Snow Leopard'), css.indexOf('.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {'));
 assert.match(tigerCanvas, /:is\(\.provider-view,\.schedule-card\)\s*\{\s*background:transparent!important/);
 assert.match(tigerCanvas, /\.provider-view>\.view-title[^}]*background:var\(--theme-surface\)!important/);
@@ -112,21 +110,20 @@ assert.match(tigerCanvas, /\.timeline-stage\s*\{\s*overflow:clip;/, 'Timeline gr
 assert.match(tigerCanvas, /\.timeline-stage:focus-visible\s*\{\s*outline-offset:-3px;/, 'Clipped timeline keeps its keyboard focus visible');
 
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
-assert.match(mobileSnow, /--snow-print-veil:rgba\(255,255,255,\.80\)/);
+assert.match(mobileSnow, /background-image:var\(--atmosphere-background\)!important/);
+assert.match(mobileSnow, /background-size:100% 100%!important/);
 assert.match(mobileSnow, /data-provider-theme="snow-leopard"[^}]*:is\(\.provider-view,\.schedule-card\)\s*\{\s*background:transparent!important/);
 assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--theme-surface\)!important/);
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
 
 const snowCanvas = css.match(/\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(snowCanvas, /provider-snow-leopard-continuous-4k-v3\.webp\?v=723/);
-assert.match(snowCanvas, /--snow-print-veil:rgba\(255,255,255,\.86\)/);
-assert.match(snowCanvas, /background-size:auto,cover!important/);
+assert.match(snowCanvas, /background-image:var\(--atmosphere-background\)!important/);
+assert.match(snowCanvas, /background-size:100% 100%!important/);
 assert.match(snowCanvas, /background-repeat:no-repeat!important/);
-assert.match(snowCanvas, /background-position:center!important/);
+assert.match(snowCanvas, /background-position:center top!important/);
 assert.match(snowCanvas, /background-attachment:fixed!important/, 'Snow Leopard keeps one continuous desktop canvas');
-assert.match(mobileSnow, /provider-snow-leopard-mobile-v1\.png\?v=723/);
-assert.match(mobileSnow, /background-size:100% 100%,100% 100%!important/);
 assert.match(mobileSnow, /background-repeat:no-repeat!important/);
+assert.doesNotMatch(css, /provider-snow-leopard-(?:continuous|mobile|natural)[^"')]*\.(?:webp|png)/, 'Snow Leopard must be frosted quartz without leopard spots');
 assert.doesNotMatch(snowCanvas, /background-repeat:repeat|snow-print-size|natural-v2|unified-landscape-v5|crisp-seamless/);
 assert.match(worker, /assetResponse[\s\S]*caches\.open\(CACHE\)\)\.put\(request, response\.clone\(\)\)/, 'Theme media is not cached after first use');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');

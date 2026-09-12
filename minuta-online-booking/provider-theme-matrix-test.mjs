@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const [baseCss, signatureCss, distinctCss, provider, catalogSource, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset, snowLeopardMobileAsset] = await Promise.all([
+const [baseCss, signatureCss, distinctCss, provider, catalogSource, calmCss, wildlifeCss, noirSafariCss] = await Promise.all([
   readFile(path.join(directory, 'styles.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-signature.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-distinct.css'), 'utf8'),
@@ -14,8 +14,6 @@ const [baseCss, signatureCss, distinctCss, provider, catalogSource, calmCss, wil
   readFile(path.join(directory, 'provider-themes-calm.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-wildlife.css'), 'utf8'),
   readFile(path.join(directory, 'provider-theme-noir-safari.css'), 'utf8'),
-  readFile(path.join(directory, 'provider-pearl-zebra-smooth-4k-v4.webp')),
-  readFile(path.join(directory, 'provider-snow-leopard-mobile-v1.png')),
 ]);
 const [providerHtml, providerUiRefinementsCss] = await Promise.all([
   readFile(path.join(directory, 'provider.html'), 'utf8'),
@@ -146,26 +144,27 @@ assert.match(providerUiRefinementsCss, /\[data-provider-panel="waitlist"\] > :is
 assert.match(providerUiRefinementsCss, /\[data-provider-panel="waitlist"\] \.waitlist-empty-state[\s\S]*?width:min\(520px,100%\)[\s\S]*?border:0!important[\s\S]*?text-align:left/, 'The empty state must stay compact and use a single surface');
 
 const pearlZebraBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="pearl-zebra"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=723"\)/);
-assert.match(pearlZebraBackground, /background-size:100% 100%,100% 100%!important/);
+assert.match(pearlZebraBackground, /background-image:var\(--atmosphere-background\)!important/);
+assert.match(pearlZebraBackground, /background-size:100% 100%!important/);
 assert.match(pearlZebraBackground, /background-repeat:no-repeat!important/);
 assert.match(pearlZebraBackground, /background-attachment:scroll!important/);
 assert.doesNotMatch(pearlZebraBackground, /340px 340px/, 'Pearl Zebra must not split into repeated background tiles');
-assert.doesNotMatch(pearlZebraBackground, /repeating-radial-gradient/, 'Pearl Zebra must use the approved natural stripe artwork');
+assert.doesNotMatch(wildlifeCss, /provider-pearl-zebra-smooth-4k-v4\.webp/, 'Pearl Zebra must use calm CSS satin ribbons rather than the former artwork');
+assert.doesNotMatch(wildlifeCss.match(/--atmosphere-background:([^;]+);/)?.[1] || '', /repeating-/, 'Pearl Zebra ribbons must not repeat');
 
 const noirSafariBackground = noirSafariCss.match(/\.provider-body\[data-provider-theme="noir-safari"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
 assert.match(noirSafariBackground, /background-image:linear-gradient\(rgba\(5,4,3,\.08\),rgba\(5,4,3,\.08\)\),var\(--atmosphere-background\)!important/);
 assert.doesNotMatch(noirSafariBackground, /linear-gradient\(90deg/, 'Noir Safari must preserve the approved leopard artwork without directional recoloring');
 assert.match(noirSafariCss, /\.provider-body\[data-provider-theme="noir-safari"\] \.ambient\s*\{[^}]*display:none!important/s, 'Noir Safari must hide the generic green and amber ambient lights');
 assert.match(noirSafariCss, /:is\(\s*\.provider-main,\.provider-app,\.provider-workspace,\.provider-view,\.schedule-card\s*\)\s*\{[^}]*background:transparent!important/s, 'Noir Safari must continue the same wallpaper behind the interface instead of exposing a white stage');
-assert.equal(pearlZebraAsset.toString('ascii', 0, 4), 'RIFF', 'Pearl Zebra must remain a WebP asset');
-assert.equal(pearlZebraAsset.readUInt16LE(26) & 0x3fff, 3840, 'Pearl Zebra must retain its 4K width');
-assert.equal(pearlZebraAsset.readUInt16LE(28) & 0x3fff, 2160, 'Pearl Zebra must retain its 4K height');
-assert.equal(snowLeopardMobileAsset.toString('ascii', 1, 4), 'PNG', 'Snow Leopard mobile artwork must remain a PNG asset');
-assert.equal(snowLeopardMobileAsset.readUInt32BE(16), 941, 'Snow Leopard mobile artwork width must stay high-resolution');
-assert.equal(snowLeopardMobileAsset.readUInt32BE(20), 1672, 'Snow Leopard mobile artwork height must stay portrait');
-assert.match(signatureCss, /@media \(max-width:760px\)[\s\S]*?provider-snow-leopard-mobile-v1\.png\?v=723/);
-assert.match(signatureCss, /provider-snow-leopard-mobile-v1\.png\?v=723"\)!important;\s*background-size:100% 100%,100% 100%!important;\s*background-repeat:no-repeat!important;\s*background-position:center top!important;\s*background-attachment:scroll!important/s);
+assert.doesNotMatch(signatureCss, /provider-snow-leopard-(?:continuous|mobile|natural)[^"')]*\.(?:webp|png)/, 'Snow Leopard must no longer use spotted bitmap artwork');
+assert.doesNotMatch(signatureCss, /provider-apricot-tiger(?:-mobile)?\.svg/, 'Apricot Tiger must no longer use repeated stripe assets');
+for (const theme of ['snow-leopard', 'apricot-tiger']) {
+  const canvas = signatureCss.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\]\\[data-provider-layout\\]\\s*\\{([^}]*)\\}`))?.[1] || '';
+  assert.match(canvas, /background-image:var\(--atmosphere-background\)!important/);
+  assert.match(canvas, /background-size:100% 100%!important/);
+  assert.match(canvas, /background-repeat:no-repeat!important/);
+}
 
 // The modal lives outside the themed panels: both foreground and background
 // must be assigned together, otherwise dark themes inherit the light base.

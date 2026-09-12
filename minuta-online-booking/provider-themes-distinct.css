@@ -113,11 +113,11 @@
   --theme-accent-contrast:#fff; --theme-shadow:rgba(92,52,28,.11); --material-card-bg:#fff7ef;
   --material-card-border:#a87450; --material-radius:14px; --material-control-radius:8px;
   --signature-sidebar:#efcbaa; --signature-stage:#fbe8d5; --signature-nav-active:#e8b995;
-  --atmosphere-background:repeating-linear-gradient(112deg,transparent 0 36px,rgba(74,42,23,.16) 38px 47px,transparent 50px 78px),linear-gradient(145deg,#f5d5b7,#fff3e7 58%,#ebc39f);
+  --atmosphere-background:radial-gradient(ellipse 42% 7% at 96% 8%,rgba(112,61,33,.17),rgba(112,61,33,.09) 38%,transparent 72%),radial-gradient(ellipse 30% 5% at 84% 16%,rgba(116,65,38,.10),transparent 72%),radial-gradient(ellipse 48% 8% at 4% 92%,rgba(103,56,31,.14),rgba(103,56,31,.06) 42%,transparent 74%),linear-gradient(112deg,transparent 0 48%,rgba(255,255,255,.11) 52%,transparent 57%),linear-gradient(145deg,#f5c69e,#fff0df 55%,#edb783);
   --atmosphere-panel:#fbe8d5; --atmosphere-panel-strong:#fff7ef;
 }
 .theme-apricot-tiger { --theme-preview-bg:#f5d5b7; --theme-preview-surface:#fff7ef; --theme-preview-line:#a87450; --theme-preview-accent:#6f391f; --theme-preview-radius:10px; --theme-preview-item-radius:3px; }
-.theme-apricot-tiger .theme-swatch { background-image:repeating-linear-gradient(112deg,transparent 0 28px,rgba(74,42,23,.24) 30px 38px,transparent 41px 61px),linear-gradient(145deg,#f2cfad,#fff7ef); }
+.theme-apricot-tiger .theme-swatch { background-image:radial-gradient(ellipse 46% 18% at 92% 16%,rgba(112,61,33,.24),transparent 74%),radial-gradient(ellipse 42% 15% at 8% 86%,rgba(103,56,31,.20),transparent 76%),linear-gradient(112deg,transparent 0 47%,rgba(255,255,255,.18) 52%,transparent 58%),linear-gradient(145deg,#f5c69e,#fff0df 55%,#edb783); background-size:100% 100%; background-repeat:no-repeat; }
 
 .provider-body[data-provider-theme="peach-silk"] {
   --theme-bg:#fbe8e5; --theme-surface:#fffafa; --theme-surface-alt:#f4d4cf; --theme-ink:#4b2f34;
@@ -149,11 +149,11 @@
   --theme-accent-contrast:#fff; --theme-shadow:rgba(25,39,46,.11); --material-card-bg:#fafeff;
   --material-card-border:#7b9099; --material-radius:14px; --material-control-radius:8px;
   --signature-sidebar:#dce8ed; --signature-stage:#f2f7f9; --signature-nav-active:#d2e1e7;
-  --atmosphere-background:radial-gradient(ellipse 11px 7px at 12% 18%,rgba(39,65,77,.22) 0 64%,transparent 72%) 0 0/82px 70px,radial-gradient(ellipse 7px 11px at 64% 68%,rgba(39,65,77,.14) 0 65%,transparent 73%) 0 0/82px 70px,linear-gradient(#fafeff,#dce8ed);
+  --atmosphere-background:linear-gradient(128deg,transparent 0 21%,rgba(93,126,145,.035) 21.5%,transparent 22.5% 100%),radial-gradient(ellipse 78% 115% at 118% 16%,transparent 61%,rgba(126,159,178,.10) 62%,rgba(255,255,255,.24) 66%,transparent 71%),radial-gradient(ellipse 72% 105% at -16% 94%,transparent 62%,rgba(132,166,184,.09) 63%,rgba(255,255,255,.22) 67%,transparent 72%),linear-gradient(145deg,#e7f1f7 0%,#fbfdff 54%,#dceaf2 100%);
   --atmosphere-panel:#f2f7f9; --atmosphere-panel-strong:#fafeff;
 }
 .theme-snow-leopard { --theme-preview-bg:#eaf1f4; --theme-preview-surface:#fafeff; --theme-preview-line:#7b9099; --theme-preview-accent:#27414d; --theme-preview-radius:10px; --theme-preview-item-radius:3px; }
-.theme-snow-leopard .theme-swatch { background-image:linear-gradient(90deg,rgba(238,242,244,.2),rgba(238,242,244,.04)),url("provider-snow-leopard-natural-v2.webp?v=723"); background-size:100% 100%,132px auto; }
+.theme-snow-leopard .theme-swatch { background-image:radial-gradient(ellipse 82% 130% at 116% 18%,transparent 58%,rgba(126,159,178,.18) 60%,rgba(255,255,255,.34) 67%,transparent 73%),radial-gradient(ellipse 72% 112% at -14% 94%,transparent 58%,rgba(132,166,184,.15) 61%,transparent 72%),linear-gradient(145deg,#e7f1f7,#fbfdff 54%,#dceaf2); background-size:100% 100%; background-repeat:no-repeat; }
 
 .provider-body[data-provider-theme="mono"] {
   --theme-bg:#f7f6f1; --theme-surface:#fffefa; --theme-surface-alt:#ecebe4; --theme-ink:#11110f;
@@ -173,12 +173,12 @@
   --theme-accent-contrast:#fff; --theme-shadow:rgba(65,48,35,.1); --material-card-bg:#fff9f1;
   --material-card-border:#9b806b; --material-radius:12px; --material-control-radius:7px;
   --signature-sidebar:#eadbc9; --signature-stage:#f8f0e7; --signature-nav-active:#e3d1c1;
-  --atmosphere-background:repeating-radial-gradient(ellipse at -12% 16%,transparent 0 20px,rgba(81,60,45,.18) 21px 34px,transparent 36px 60px),linear-gradient(145deg,#f5ede3,#fff9f1 58%,#eadbc9);
+  --atmosphere-background:radial-gradient(ellipse 98% 52% at 30% -22%,transparent 51%,rgba(151,125,106,.08) 52% 63%,rgba(255,255,255,.24) 64%,transparent 72%),radial-gradient(ellipse 104% 54% at 6% 118%,transparent 48%,rgba(138,112,94,.09) 49% 61%,rgba(255,255,255,.18) 62%,transparent 70%),linear-gradient(132deg,transparent 0 20%,rgba(203,186,171,.07) 28%,transparent 42%),linear-gradient(145deg,#f2e9df,#fffaf4 54%,#e9dacb);
   --atmosphere-panel:#f8f0e7; --atmosphere-panel-strong:#fff9f1;
 }
-.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] { background-color:#f5ede3!important; background-image:linear-gradient(rgba(245,237,227,.08),rgba(245,237,227,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=723")!important; }
+.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] { background-color:var(--theme-bg)!important; background-image:var(--atmosphere-background)!important; background-size:100% 100%!important; background-position:center top!important; background-repeat:no-repeat!important; background-attachment:scroll!important; }
 .theme-pearl-zebra { --theme-preview-bg:#f5ede3; --theme-preview-surface:#fff9f1; --theme-preview-line:#9b806b; --theme-preview-accent:#513c2d; --theme-preview-radius:8px; --theme-preview-item-radius:2px; }
-.theme-pearl-zebra .theme-swatch { background-image:repeating-radial-gradient(ellipse at -12% 16%,transparent 0 13px,rgba(67,59,52,.24) 14px 23px,transparent 25px 40px),linear-gradient(#eee7df,#fbf7f1); }
+.theme-pearl-zebra .theme-swatch { background-image:radial-gradient(ellipse 102% 68% at 24% -32%,transparent 45%,rgba(151,125,106,.14) 48% 61%,rgba(255,255,255,.34) 64%,transparent 72%),radial-gradient(ellipse 112% 72% at 8% 126%,transparent 44%,rgba(138,112,94,.13) 48% 62%,transparent 72%),linear-gradient(145deg,#f2e9df,#fffaf4 54%,#e9dacb); background-size:100% 100%; background-repeat:no-repeat; }
 
 .provider-body[data-provider-theme="graphite"] {
   --theme-bg:#15161a; --theme-surface:#1d1e24; --theme-surface-alt:#272831; --theme-ink:#f2f1f5;
