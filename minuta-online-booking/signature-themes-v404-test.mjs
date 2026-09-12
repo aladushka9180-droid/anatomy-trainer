@@ -32,6 +32,7 @@ const themes = [
   ['cobalt-forge', 'Cobalt Forge'],
   ['volt-graphite', 'Volt Graphite'],
   ['concrete-signal', 'Concrete Signal'],
+  ['azure-lagoon', 'Azure Lagoon'],
 ];
 
 for (const [key, label] of themes) {
@@ -83,6 +84,7 @@ for (const [key, color, group] of [
   ['cobalt-forge', '#071226', 'dark'],
   ['volt-graphite', '#101317', 'dark'],
   ['concrete-signal', '#e9edef', 'light'],
+  ['azure-lagoon', '#e5f4ff', 'light'],
 ]) {
   assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);

@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const catalogSource = fs.readFileSync(new URL('./theme-catalog.js', import.meta.url), 'utf8');
-const css = fs.readFileSync(new URL('./provider-themes-distinct.css', import.meta.url), 'utf8');
+const css = [
+  fs.readFileSync(new URL('./provider-themes-signature.css', import.meta.url), 'utf8'),
+  fs.readFileSync(new URL('./provider-themes-distinct.css', import.meta.url), 'utf8'),
+].join('\n');
 const provider = fs.readFileSync(new URL('./provider.html', import.meta.url), 'utf8');
 const worker = fs.readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
 const context = { window:{} };
@@ -15,7 +18,7 @@ const changedThemes = [
   'sage', 'nordic', 'hitech', 'coastal', 'blue-hydrangea', 'eco', 'celadon',
   'japandi', 'desert', 'apricot-tiger', 'peach-silk', 'pearl', 'snow-leopard',
   'mono', 'pearl-zebra', 'graphite', 'midnight', 'carbon-ember', 'carbon-crimson',
-  'luxury', 'noir-safari',
+  'luxury', 'azure-lagoon', 'noir-safari',
 ];
 
 function rgb(hex) {

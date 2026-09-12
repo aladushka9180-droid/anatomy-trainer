@@ -15,10 +15,10 @@ const context = {
 vm.createContext(context);
 vm.runInContext(read('./theme-catalog.js'), context);
 const catalog = context.window.MinutaThemeCatalog;
-const expected = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard','apricot-tiger','pearl-zebra','blue-hydrangea','peach-silk','moonlit-lilac','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal','noir-safari'];
+const expected = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard','apricot-tiger','pearl-zebra','blue-hydrangea','peach-silk','moonlit-lilac','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal','azure-lagoon','noir-safari'];
 assert.deepEqual([...catalog.themeKeys], expected);
-assert.equal(new Set(catalog.themeKeys).size, 35);
-assert.equal(catalog.clientThemes.length, 24);
+assert.equal(new Set(catalog.themeKeys).size, 36);
+assert.equal(catalog.clientThemes.length, 25);
 assert.deepEqual([...catalog.clientThemeKeys], expected.filter(key => !['blue-hydrangea','peach-silk','moonlit-lilac','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal'].includes(key)));
 for (const theme of catalog.themes) {
   assert.ok(theme.label && theme.description && theme.groups.length);
@@ -46,7 +46,7 @@ const appJs = read('./app.js');
 const sw = read('./sw.js');
 const clientThemesCss = read('./client-themes.css');
 const providerThemeKeys = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
-assert.deepEqual(providerThemeKeys, expected, 'Каталог должен совпадать с 35 темами кабинета');
+assert.deepEqual(providerThemeKeys, expected, 'Каталог должен совпадать с 36 темами кабинета');
 assert.match(providerHtml, /id="clientAppearanceSettingsCard"/);
 assert.match(providerHtml, /data-section-target="clientAppearanceSettingsCard">Страница для клиентов/);
 assert.match(providerHtml, /id="clientAppearanceTitle">Оформление клиентской страницы/);

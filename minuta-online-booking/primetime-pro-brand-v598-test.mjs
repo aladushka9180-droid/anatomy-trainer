@@ -78,7 +78,7 @@ const worker = read('sw.js');
 assert.match(worker, /CACHE_PREFIX\}v719/);
 assert.match(worker, /provider\.webmanifest\?v=719/);
 assert.match(worker, /provider-icon\.svg/);
-assert.match(worker, /provider-og\.png/);
+assert.doesNotMatch(worker, /provider-og\.png/, 'social preview artwork must not block the offline shell installation');
 assert.match(provider, /provider\.js\?v=719/);
 
 console.log(`PrimeTime Pro brand v719: PASS (${publicBrandFiles.length} public text surfaces)`);

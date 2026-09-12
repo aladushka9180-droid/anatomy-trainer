@@ -34,9 +34,9 @@ vm.runInContext(catalogSource, catalogContext);
 const themes = [...catalogContext.window.MinutaThemeCatalog.themeKeys];
 const layouts = sourceArray('PROVIDER_LAYOUT_KEYS');
 
-assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'carbon-ember', 'petrol-steel', 'carbon-crimson', 'mocha-pastel', 'oled-mono', 'cobalt-forge', 'volt-graphite', 'concrete-signal', 'noir-safari']);
+assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'carbon-ember', 'petrol-steel', 'carbon-crimson', 'mocha-pastel', 'oled-mono', 'cobalt-forge', 'volt-graphite', 'concrete-signal', 'azure-lagoon', 'noir-safari']);
 assert.deepEqual(layouts, ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']);
-assert.equal(themes.length * layouts.length, 210, 'the supported appearance matrix must contain 210 combinations');
+assert.equal(themes.length * layouts.length, 216, 'the supported appearance matrix must contain 216 combinations');
 
 function parseColor(value) {
   const color = String(value || '').trim();
@@ -132,6 +132,9 @@ for (const layout of layouts) {
 
 assert.match(css, /\.unified-channel-card input\s*\{[^}]*width:20px!important[^}]*height:20px!important[^}]*\}/s);
 assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav :is\(button,a\):not\(\.active\)/);
+assert.match(distinctCss, /\.provider-body\[data-provider-theme\]\[data-provider-layout\] \.provider-theme-option\s*\{[^}]*border-radius:13px!important;/s, 'The active theme must not reshape theme chooser cards');
+assert.match(distinctCss, /\.provider-theme-option \.theme-swatch\s*\{[^}]*var\(--theme-preview-radius,12px\)!important;/s, 'Theme swatches must keep their own preview geometry');
+assert.match(distinctCss, /\.provider-theme-option \.theme-swatch i\s*\{[^}]*var\(--theme-preview-item-radius,6px\)!important;/s, 'Theme swatch details must keep their own preview geometry');
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 assert.match(providerHtml, /id="waitlistCount" hidden>0<\/span>/, 'An empty waitlist must not repeat a zero counter');
 assert.match(providerHtml, /Заявки клиентов на занятые даты\./, 'The waitlist introduction must stay concise');
@@ -171,4 +174,4 @@ assert.match(calmCss, /\.connection-log-entry\s*\{[^}]*background:var\(--theme-s
 assert.match(calmCss, /\.connection-log-actions \.primary\s*\{[^}]*background:var\(--theme-accent\)!important;[^}]*color:var\(--theme-accent-contrast\)!important;/s);
 assert.match(calmCss, /\.connection-log-dialog :is\(\.connection-log-head small,\.connection-log-lead,\.connection-log-entry small\)\s*\{[^}]*var\(--theme-muted\) 82%,var\(--theme-ink\)/s);
 
-console.log('Provider theme matrix checks passed: 35 themes × 6 layouts.');
+console.log('Provider theme matrix checks passed: 36 themes × 6 layouts.');

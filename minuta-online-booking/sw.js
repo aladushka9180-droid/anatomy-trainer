@@ -12,7 +12,6 @@ const ASSETS = [
   './provider-icon-512.png?v=719',
   './provider-icon-maskable-512.png?v=719',
   './provider-icon.svg?v=719',
-  './provider-og.png?v=719',
   './icon.svg',
   './ui-icons.svg',
   './styles.css?v=719',
