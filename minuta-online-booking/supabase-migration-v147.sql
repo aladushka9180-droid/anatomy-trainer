@@ -352,7 +352,10 @@ create or replace function public.get_minuta_commerce_workspace_v147(p_organizat
 returns jsonb language plpgsql stable security definer set search_path to '' as $$
 declare v_actor uuid;
 begin
-  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
+  v_actor:=auth.uid();
+  if v_actor is null or not public.has_organization_role(p_organization,array['owner','admin']) then
+    raise exception using errcode='42501',message='commercial_finance_manager_required';
+  end if;
   return jsonb_build_object('organization_id',p_organization,
     'finance_enabled',coalesce((select enabled from public.organization_finance_settings where organization_id=p_organization),false),
     'benefits_enabled',coalesce((select enabled from public.organization_benefit_settings where organization_id=p_organization),false),
@@ -373,7 +376,10 @@ create or replace function public.get_minuta_money_dashboard_v147(p_organization
 returns jsonb language plpgsql stable security definer set search_path to '' as $$
 declare v_actor uuid;
 begin
-  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
+  v_actor:=auth.uid();
+  if v_actor is null or not public.has_organization_role(p_organization,array['owner','admin']) then
+    raise exception using errcode='42501',message='commercial_finance_manager_required';
+  end if;
   if p_start is null or p_end is null or p_end<p_start or p_end-p_start>3661 then raise exception using errcode='22023',message='invalid_money_period'; end if;
   return jsonb_build_object('organization_id',p_organization,'start',p_start,'end',p_end,
     'income_minor',coalesce((select sum(case when p.side='credit' then p.amount_minor else -p.amount_minor end) from public.financial_postings p join public.financial_transactions t on t.id=p.transaction_id join public.financial_accounts a on a.id=p.account_id where p.organization_id=p_organization and t.occurred_at::date between p_start and p_end and a.account_class='income'),0),
@@ -387,7 +393,10 @@ create or replace function public.get_minuta_client_commerce_v147(p_organization
 returns jsonb language plpgsql stable security definer set search_path to '' as $$
 declare v_actor uuid;
 begin
-  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
+  v_actor:=auth.uid();
+  if v_actor is null or not public.has_organization_role(p_organization,array['owner','admin']) then
+    raise exception using errcode='42501',message='commercial_finance_manager_required';
+  end if;
   if p_client_account is null or not exists(select 1 from public.bookings where organization_id=p_organization and client_account_id=p_client_account) then
     raise exception using errcode='42501',message='commercial_client_not_in_organization';
   end if;

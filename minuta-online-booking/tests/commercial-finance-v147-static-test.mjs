@@ -43,6 +43,12 @@ assert.match(migration, /'income_minor'/);
 assert.match(migration, /'expense_minor'/);
 assert.match(migration, /'expense_structure'/);
 assert.match(migration, /'recent_operations'/);
+for (const rpc of ['get_minuta_commerce_workspace_v147', 'get_minuta_money_dashboard_v147', 'get_minuta_client_commerce_v147']) {
+  const source = migration.match(new RegExp(`create or replace function public\\.${rpc}\\b[\\s\\S]*?end \\$\\$;`))?.[0] || '';
+  assert.match(source, /v_actor:=auth\.uid\(\)/);
+  assert.match(source, /has_organization_role\(p_organization,array\['owner','admin'\]\)/);
+  assert.doesNotMatch(source, /require_minuta_financial_manager_v129/);
+}
 assert.match(rollback, /v147_rollback_blocked_commercial_data_exists/);
 
 assert.match(controller, /minuta-commerce-intent:/);
