@@ -171,6 +171,14 @@ try {
       await page.locator('[data-commerce-refund="77777777-7777-4777-8777-777777777779"]').click();
       await page.locator('#commerceRefundQuantity').fill('0.003');
       assert.equal(await page.locator('#commerceRefundAmount').inputValue(), '10.01', 'browser rounding must match PostgreSQL numeric round');
+      await page.evaluate(async () => {
+        workspace.sales.push({ id:'77777777-7777-4777-8777-777777777780', booking_id:null, client_account_id:null, status:'paid', payment_method:'cash', total_minor:1, refunded_minor:0, occurred_at:'2026-09-12T15:00:00Z', line:{ item_name:'Микропробник', item_kind:'inventory_item', quantity:0.5, refunded_quantity:0, unit_price_minor:2 } });
+        await commerceController.load();
+      });
+      await page.locator('[data-commerce-refund="77777777-7777-4777-8777-777777777780"]').click();
+      await page.locator('#commerceRefundQuantity').fill('0.25');
+      assert.equal(await page.locator('#commerceRefundAmount').inputValue(), '');
+      assert.equal(await page.locator('#commerceRefundSubmit').isDisabled(), true, 'partial refund cannot consume the final kopeck before the final quantity');
 
       await page.locator('#commerceRecurringForm').locator('xpath=..').locator('summary').click();
       await page.locator('#commerceRecurringSupplier').fill('Арендодатель');

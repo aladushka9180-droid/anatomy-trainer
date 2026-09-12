@@ -3,7 +3,13 @@ begin;
 do $$ begin
   if coalesce(obj_description(
     'public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)'::regprocedure::oid,'pg_proc'
-  ),'')<>'minuta_refund_safety_v148' then
+  ),'')<>'minuta_refund_safety_v148_proportional_rounding'
+  or position('commercial_refund_amount_unallocatable' in pg_get_functiondef(
+    'public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)'::regprocedure
+  ))=0
+  or position('v_remaining_quantity' in pg_get_functiondef(
+    'public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)'::regprocedure
+  ))=0 then
     raise exception using errcode='55000',message='v148_rollback_blocked_unexpected_function_version';
   end if;
 end $$;

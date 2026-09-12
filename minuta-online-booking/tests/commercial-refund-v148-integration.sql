@@ -78,6 +78,24 @@ begin
     (select sum(amount_minor)=299 and sum(quantity)=3 from public.commercial_sale_refunds where sale_id=fixture.sale_id),'refund_totals_match');
   perform pg_temp.v148_assert(
     (select quantity=10 from public.inventory_stock_balances where warehouse_id=fixture.warehouse_id and inventory_item_id=fixture.item_id),'stock_fully_restored');
+
+  payload:=public.sell_minuta_commercial_product_v147(
+    organization_id,null,null,'inventory_item',null,item_id,warehouse_id,0.5,2,0,'cash',cash_id,gen_random_uuid());
+  sale_id:=(payload->>'id')::uuid;
+  begin
+    perform public.refund_minuta_commercial_sale_v147(
+      organization_id,sale_id,0.25,1,'Слишком малая доля',gen_random_uuid());
+    raise exception 'v148_final_kopeck_consumed_early';
+  exception when sqlstate '22023' then
+    get stacked diagnostics error_text=message_text;
+    perform pg_temp.v148_assert(error_text='commercial_refund_amount_unallocatable','tiny_partial_rejected');
+  end;
+  perform pg_temp.v148_assert(
+    (select refunded_minor=0 and status='paid' from public.commercial_sales where id=fixture.sale_id),'tiny_sale_unchanged');
+  perform public.refund_minuta_commercial_sale_v147(
+    organization_id,sale_id,0.5,1,'Полный возврат микропродажи',gen_random_uuid());
+  perform pg_temp.v148_assert(
+    (select refunded_minor=total_minor and status='refunded' from public.commercial_sales where id=fixture.sale_id),'tiny_full_refund_allowed');
 end
 $test$;
 

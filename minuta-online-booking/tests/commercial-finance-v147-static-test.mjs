@@ -53,6 +53,8 @@ for (const rpc of ['get_minuta_commerce_workspace_v147', 'get_minuta_money_dashb
 }
 assert.match(rollback, /v147_rollback_blocked_commercial_data_exists/);
 assert.match(refundSafety, /commercial_refund_amount_mismatch/);
+assert.match(refundSafety, /commercial_refund_amount_unallocatable/);
+assert.match(refundSafety, /lock table public\.commercial_sales/);
 assert.match(refundSafety, /v_sale\.total_minor::numeric\*\(v_line\.refunded_quantity\+p_quantity\)\/v_line\.quantity/);
 assert.match(refundSafety, /refunded_minor\+p_amount_minor=total_minor[\s\S]*v_line\.refunded_quantity\+p_quantity=v_line\.quantity/);
 assert.match(refundSafetyRollback, /create or replace function public\.refund_minuta_commercial_sale_v147/);
@@ -87,9 +89,9 @@ assert.match(html, /id="moneyIncome"/);
 assert.match(html, /id="moneyExpenses"/);
 assert.match(html, /id="moneyProfit"/);
 assert.match(html, /id="clientCommerceHistory"/);
-assert.match(html, /commerce-management\.js\?v=722/);
-assert.match(worker, /commerce-management\.js\?v=722/);
-assert.match(worker, /CACHE_PREFIX}v722/);
+assert.match(html, /commerce-management\.js\?v=723/);
+assert.match(worker, /commerce-management\.js\?v=723/);
+assert.match(worker, /CACHE_PREFIX}v723/);
 assert.doesNotMatch(html, /\?v=711/);
 assert.doesNotMatch(worker, /\?v=711/);
 

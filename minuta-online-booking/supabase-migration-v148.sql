@@ -1,5 +1,18 @@
 begin;
 
+lock table public.commercial_sales,public.commercial_sale_lines,public.commercial_sale_refunds in share mode;
+do $$ begin
+  if exists(
+    select 1 from public.commercial_sales s join public.commercial_sale_lines l on l.sale_id=s.id
+    where s.organization_id=l.organization_id and (
+      (s.refunded_minor=s.total_minor)<>(l.refunded_quantity=l.quantity)
+      or s.refunded_minor>s.total_minor or l.refunded_quantity>l.quantity
+    )
+  ) then
+    raise exception using errcode='55000',message='v148_legacy_refund_mismatch';
+  end if;
+end $$;
+
 create or replace function public.refund_minuta_commercial_sale_v147(
   p_organization uuid,p_sale uuid,p_quantity numeric,p_amount_minor bigint,p_reason text,p_request_id uuid
 ) returns jsonb language plpgsql security definer set search_path to '' as $$
@@ -7,6 +20,7 @@ declare
   v_actor uuid; v_sale public.commercial_sales%rowtype; v_line public.commercial_sale_lines%rowtype;
   v_existing public.commercial_sale_refunds%rowtype; v_fingerprint text; v_refund uuid;
   v_revenue uuid; v_transaction uuid; v_movement jsonb; v_expected_amount bigint;
+  v_remaining_amount bigint; v_remaining_quantity numeric;
 begin
   v_actor:=public.require_minuta_financial_manager_v129(p_organization);
   if p_request_id is null or coalesce(p_quantity,0)<=0 or coalesce(p_amount_minor,0)<=0
@@ -31,14 +45,22 @@ begin
   if v_sale.id is null or v_line.id is null then
     raise exception using errcode='P0002',message='commercial_sale_not_found';
   end if;
-  if p_quantity>v_line.quantity-v_line.refunded_quantity
-     or p_amount_minor>v_sale.total_minor-v_sale.refunded_minor then
+  v_remaining_quantity:=v_line.quantity-v_line.refunded_quantity;
+  v_remaining_amount:=v_sale.total_minor-v_sale.refunded_minor;
+  if p_quantity>v_remaining_quantity or p_amount_minor>v_remaining_amount then
     raise exception using errcode='22023',message='commercial_refund_exceeds_remaining';
   end if;
-  v_expected_amount:=round(
-    v_sale.total_minor::numeric*(v_line.refunded_quantity+p_quantity)/v_line.quantity
-  )::bigint-v_sale.refunded_minor;
-  if v_expected_amount<=0 or p_amount_minor<>v_expected_amount then
+  if p_quantity=v_remaining_quantity then
+    v_expected_amount:=v_remaining_amount;
+  else
+    v_expected_amount:=round(
+      v_sale.total_minor::numeric*(v_line.refunded_quantity+p_quantity)/v_line.quantity
+    )::bigint-v_sale.refunded_minor;
+    if v_expected_amount<=0 or v_expected_amount>=v_remaining_amount then
+      raise exception using errcode='22023',message='commercial_refund_amount_unallocatable';
+    end if;
+  end if;
+  if p_amount_minor<>v_expected_amount then
     raise exception using errcode='22023',message='commercial_refund_amount_mismatch';
   end if;
   if v_line.item_kind='benefit_product' then
@@ -91,6 +113,6 @@ revoke all on function public.refund_minuta_commercial_sale_v147(uuid,uuid,numer
 grant execute on function public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)
   to authenticated;
 comment on function public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)
-  is 'minuta_refund_safety_v148';
+  is 'minuta_refund_safety_v148_proportional_rounding';
 
 commit;

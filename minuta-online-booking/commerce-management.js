@@ -38,6 +38,7 @@
     if (source.includes('inventory_disabled')) return 'Сначала включите складской учёт.';
     if (source.includes('insufficient') || source.includes('negative')) return 'На выбранном складе недостаточно товара.';
     if (source.includes('used_benefit')) return 'Использованный или зарезервированный продукт вернуть нельзя.';
+    if (source.includes('unallocatable')) return 'Для этой суммы возможен только полный возврат.';
     if (source.includes('amount_mismatch')) return 'Сумма возврата должна соответствовать выбранному количеству.';
     if (source.includes('exceeds_remaining')) return 'Количество или сумма превышает доступный остаток возврата.';
     if (source.includes('cash_account_required')) return 'Для наличной оплаты выберите кассу.';
@@ -133,9 +134,12 @@
       const refundedQuantity = number(sale.line?.refunded_quantity) > 0 ? units(sale.line.refunded_quantity) : 0n;
       const refundQuantity = units(quantity);
       if (totalQuantity <= 0n || refundQuantity <= 0n || refundQuantity > totalQuantity - refundedQuantity) return 0;
+      const remainingAmount = Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0);
+      if (refundQuantity === totalQuantity - refundedQuantity) return remainingAmount;
       const numerator = BigInt(Math.trunc(Number(sale.total_minor || 0))) * (refundedQuantity + refundQuantity);
       const cumulativeAmount = (2n * numerator + totalQuantity) / (2n * totalQuantity);
-      return Number(cumulativeAmount) - Number(sale.refunded_minor || 0);
+      const expected = Number(cumulativeAmount) - Number(sale.refunded_minor || 0);
+      return expected > 0 && expected < remainingAmount ? expected : 0;
     }
 
     function syncRefundAmount() {
