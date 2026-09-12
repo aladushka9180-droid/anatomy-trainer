@@ -5,6 +5,8 @@ const catalog = fs.readFileSync(new URL('./theme-catalog.js', import.meta.url), 
 const provider = fs.readFileSync(new URL('./provider.html', import.meta.url), 'utf8');
 const schedule = fs.readFileSync(new URL('./provider-schedule-minimal.css', import.meta.url), 'utf8');
 const signature = fs.readFileSync(new URL('./provider-themes-signature.css', import.meta.url), 'utf8');
+const families = fs.readFileSync(new URL('./provider-theme-families.css', import.meta.url), 'utf8');
+const approved = fs.readFileSync(new URL('./provider-theme-backgrounds-tema1.css', import.meta.url), 'utf8');
 const worker = fs.readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
 
 assert.match(catalog, /defineTheme\('oled-mono',[\s\S]*?pattern:'repeating-linear-gradient\(135deg,rgba\(255,255,255,\.024\) 0 1px,transparent 1px 18px,rgba\(255,255,255,\.012\) 18px 23px,transparent 23px 42px\),linear-gradient\(145deg,#000000,#070707 58%,#010101\)'/);
@@ -13,11 +15,19 @@ assert.match(signature, /data-provider-theme="oled-mono"[\s\S]*?--atmosphere-bac
 assert.match(signature, /data-provider-theme="volt-graphite"[\s\S]*?--atmosphere-background:repeating-linear-gradient\(135deg,rgba\(166,192,68,\.035\) 0 1px,transparent 1px 4px,rgba\(118,132,144,\.035\) 4px 5px,transparent 5px 26px\)/);
 assert.match(signature, /\.theme-oled-mono \.theme-swatch \{ background-image:repeating-linear-gradient/);
 assert.match(signature, /\.theme-volt-graphite \.theme-swatch \{ background-image:repeating-linear-gradient/);
-assert.match(provider, /theme-catalog\.js\?v=726/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v726`/);
-assert.match(worker, /\.\/theme-catalog\.js\?v=726/);
+assert.match(families, /data-provider-theme="oled-mono"[\s\S]*?--theme-canvas-texture:radial-gradient/);
+assert.doesNotMatch(families.match(/data-provider-theme="oled-mono"[\s\S]*?\n\}/)?.[0] || '', /repeating-linear-gradient/);
+assert.match(families, /data-provider-theme="volt-graphite"[\s\S]*?--theme-canvas-size:64px 64px/);
+assert.match(families, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-apricot-tiger\)\) \.theme-swatch/);
+for (const theme of ['snow-leopard', 'pearl-zebra', 'apricot-tiger']) {
+  assert.match(approved, new RegExp(`provider-${theme}-desktop-v2\\.webp`));
+  assert.match(approved, new RegExp(`provider-${theme}-mobile-v2\\.webp`));
+}
+assert.match(provider, /theme-catalog\.js\?v=727/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v727`/);
+assert.match(worker, /\.\/theme-catalog\.js\?v=727/);
 
 const neutralScheduleRules = schedule.match(/background-image:none!important/g) || [];
 assert.ok(neutralScheduleRules.length >= 2, 'Фоновый узор темы не должен попадать в записи и перерывы');
 
-console.log('Theme background patterns v726: PASS');
+console.log('Theme background patterns v727: PASS');
