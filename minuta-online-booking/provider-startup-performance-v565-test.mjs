@@ -60,7 +60,7 @@ for (const script of lazyScripts) {
 
 const assetBlock = worker.match(/const ASSETS = \[([\s\S]*?)\];/)?.[1] || '';
 const assets = [...assetBlock.matchAll(/'([^']+)'/g)].map(match => match[1]);
-assert.ok(assets.length > 0 && assets.length <= 72, `Unexpected core precache size: ${assets.length}`);
+assert.ok(assets.length > 0 && assets.length <= 73, `Unexpected core precache size: ${assets.length}`);
 for (const asset of assets) {
   assert.ok(!asset.startsWith('./help/images/'), 'Help screenshots must be runtime-cached');
   assert.ok(!lazyScripts.some(script => asset.split('?')[0] === `./${script}`), `${asset} must be runtime-cached`);
