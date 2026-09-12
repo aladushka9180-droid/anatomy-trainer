@@ -115,9 +115,15 @@ assert.doesNotMatch(integration, /\bwhere\s+(?:organization_id|request_id|seller
 
 assert.match(durable, /call_v147/);
 assert.match(durable, /call_v151/);
+assert.match(durable, /set -Eeuo pipefail/);
+assert.match(durable, /trap report_error ERR/);
+assert.match(durable, /v151 durable test failed at stage %s \(exit %s\); private SQL output withheld/);
 assert.match(durable, /wait_event_type='Lock'/);
 assert.match(durable, /pg_advisory_xact_lock\(hashtextextended\('\$run_key:signal',0\)\)/);
 assert.match(durable, /trap finish EXIT/);
+assert.match(durable, /select pg_sleep\(12\)/);
+assert.match(durable, /stage=concurrent-lock-observation[\s\S]*for _ in \{1\.\.40\}/);
+assert.match(durable, /PGOPTIONS="\$\{PGOPTIONS:-\} -c lock_timeout=20000" PGAPPNAME="\$app_b"/);
 assert.match(durable, /commercial-sales-v151-durable-cleanup\.sql/);
 assert.match(durable, /minuta_migration_guard\.target/);
 assert.match(durable, /MINUTA_TEST_PROJECT_REF/);
