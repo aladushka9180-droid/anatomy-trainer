@@ -8,6 +8,8 @@ const controller = read('../commerce-management.js');
 const provider = read('../provider.js');
 const html = read('../provider.html');
 const worker = read('../sw.js');
+const integration = read('./commercial-finance-v147-integration.sql');
+const releaseWorkflow = read('../../.github/workflows/minuta-v147-safe-release.yml');
 
 for (const table of [
   'commercial_sales', 'commercial_sale_lines', 'commercial_sale_refunds',
@@ -67,5 +69,21 @@ assert.match(worker, /commerce-management\.js\?v=712/);
 assert.match(worker, /CACHE_PREFIX}v712/);
 assert.doesNotMatch(html, /\?v=711/);
 assert.doesNotMatch(worker, /\?v=711/);
+
+assert.match(integration, /begin;[\s\S]*rollback;/);
+assert.match(integration, /sale_replay/);
+assert.match(integration, /refund_replay/);
+assert.match(integration, /monthly_expense_once/);
+assert.match(integration, /v147_outsider_accepted/);
+
+for (const phase of ['test-v147', 'validate-production-v147', 'apply-production-v147', 'observe-production-v147']) {
+  assert.match(releaseWorkflow, new RegExp(`\\b${phase}:`));
+}
+assert.match(releaseWorkflow, /test "\$CONFIRMATION" = BACKUP_VERIFIED/);
+assert.match(releaseWorkflow, /commercial-finance-v147-integration\.sql/);
+assert.match(releaseWorkflow, /supabase-migration-v147-rollback\.sql/);
+assert.match(releaseWorkflow, /sourceBackupRunId==\$backup/);
+assert.match(releaseWorkflow, /ephemeralContainerDestroyed/);
+assert.match(releaseWorkflow, /test "\$\(gh api "repos\/\$GITHUB_REPOSITORY\/git\/ref\/heads\/main" --jq \.object\.sha\)" = "\$SHA"/);
 
 console.log('PrimeTime Pro commercial finance v147 static checks passed');
