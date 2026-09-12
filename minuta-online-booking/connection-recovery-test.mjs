@@ -13,7 +13,7 @@ function harness() {
   const states = [];
   const events = new Map();
   const context = {
-    currentUser:{id:'first'}, sessionGeneration:1, bookingsChannel:null,
+    currentUser:{id:'first'}, sessionGeneration:1, providerSessionTrust:'verified', cachedProviderVerification:null, bookingsChannel:null,
     syncTimer:null, visitorPresenceTimer:null, bookingReloadTimer:null,
     liveReconnectTimer:null, liveReconnectAttempt:0, lastLiveRecoveryAt:0,
     synchronizationPromise:null, synchronizationGeneration:-1, synchronizationQueued:false,
@@ -42,7 +42,7 @@ function harness() {
     metadataFlushes:0, flushPendingMetadata:async()=>{context.metadataFlushes++;return true;},
     canQueueOfflineBooking:()=>false, offlineBookingStatusText:()=> 'Нет полной офлайн-копии · только чтение',
     saveProviderOfflineSnapshot:async()=>({savedAt:new Date(context.now).toISOString(),data:{}}),
-    readProviderOfflineSnapshot:async()=>null, reliability:{savedAtLabel:()=>''},
+    readProviderOfflineSnapshot:async()=>null, hydrateOfflineBookingInputs:async()=>false, verifyCachedProviderSession:async()=>{}, reliability:{savedAtLabel:()=>''},
     organizationController:{load:async()=>({ok:true})}, teamCalendarController:{load:async()=>({ok:true})},
     loads:0, loadNames:[],
     renderTopbarDateTime(){},renderNotifications(){},refreshReportDemoLive(){},queueDisplayPreferencesSync(){},
@@ -96,6 +96,29 @@ function harness() {
   assert.equal(await h.c.synchronizeProvider(),false,'rejected request must become a recoverable incomplete sync');
   await h.drain();assert.equal(h.c.synchronizationPromise,null);
   assert.ok(h.c.synchronizationRetryTimer,'failed sync must retry automatically');
+}
+{
+  const h=harness();
+  const releases=[];
+  h.c.allBookings=[{id:'old-booking'}];h.c.ownServices=[{id:'old-service'}];h.c.scheduleRows=[{weekday:1}];h.c.daysOff=[{date:'old-day'}];
+  h.c.offlineBookingAccessReady=true;h.c.offlineBookingInputsReady=true;
+  for (const [name, mixed] of [
+    ['loadBookings',()=>{h.c.allBookings=[{id:'mixed-booking'}];}],
+    ['loadOwnServices',()=>{h.c.ownServices=[{id:'mixed-service'}];}],
+    ['loadSchedule',()=>{h.c.scheduleRows=[{weekday:2}];}],
+    ['loadDaysOff',()=>{h.c.daysOff=[{date:'mixed-day'}];}]
+  ]) h.c[name]=()=>new Promise(resolve=>releases.push(()=>{mixed();resolve({ok:true});}));
+  h.c.hydrateOfflineBookingInputs=async()=>{
+    h.c.allBookings=[{id:'old-booking'}];h.c.ownServices=[{id:'old-service'}];h.c.scheduleRows=[{weekday:1}];h.c.daysOff=[{date:'old-day'}];
+    h.c.offlineBookingAccessReady=true;h.c.offlineBookingInputsReady=true;return true;
+  };
+  const run=h.c.synchronizeProvider();
+  assert.equal(h.c.offlineBookingAccessReady,false,'in-flight primary sync must close offline queue readiness');
+  h.c.navigator.onLine=false;releases.forEach(release=>release());
+  assert.equal(await run,false);
+  assert.deepEqual(h.c.allBookings,[{id:'old-booking'}]);assert.deepEqual(h.c.ownServices,[{id:'old-service'}]);
+  assert.deepEqual(h.c.scheduleRows,[{weekday:1}]);assert.deepEqual(h.c.daysOff,[{date:'old-day'}]);
+  assert.equal(h.c.offlineBookingAccessReady,true,'network drop must atomically restore the last complete snapshot');
 }
 {
   const h=harness();h.c.startLiveUpdates();

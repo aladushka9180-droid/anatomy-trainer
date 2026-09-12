@@ -94,11 +94,62 @@ test('verified online core data is persisted as one read-back snapshot', async (
 
 test('provider synchronization commits the atomic snapshot before advertising offline readiness', () => {
   const synchronization = actual('synchronizeProvider');
+  assert.match(synchronization, /providerSessionTrust !== 'verified'/);
+  assert.match(synchronization, /offlineBookingAccessReady = false;[\s\S]*Promise\.allSettled/);
   assert.match(synchronization, /primarySnapshotVerified[\s\S]*saveProviderOfflineSnapshot\(userId, generation\)/);
   assert.match(synchronization, /offlineBookingAccessReady = Boolean\(offlineSnapshot\)/);
   const hydration = actual('hydrateOfflineBookingInputs');
-  assert.match(hydration, /readProviderOfflineSnapshot\(userId\)[\s\S]*offlineBookingAccessReady = true/);
+  assert.match(hydration, /readProviderOfflineSnapshot\(userId\)[\s\S]*applyProviderOfflineSnapshot\(offlineSnapshot, userId, generation\)/);
+  assert.match(actual('applyProviderOfflineSnapshot'), /allBookings = offlineSnapshot\.data\.bookings[\s\S]*ownServices = offlineSnapshot\.data\.services[\s\S]*scheduleRows = offlineSnapshot\.data\.schedule[\s\S]*daysOff = offlineSnapshot\.data\.daysOff[\s\S]*offlineBookingAccessReady = true/);
   assert.match(source, /clearProviderDeviceData[\s\S]*removePrefix\(`provider:\$\{userId\}:`\)/);
+});
+
+test('atomic snapshot restore replaces every booking input as one guarded unit', () => {
+  const box = vm.createContext({
+    currentUser:{ id:'provider-1' },
+    sessionGeneration:7,
+    SCHEDULE_BLOCK_SERVICE_NAME:'__schedule_block__',
+    allBookings:[{ id:'mixed-booking' }],
+    ownServices:[{ id:'mixed-service' }],
+    scheduleRows:[{ weekday:1 }],
+    daysOff:[{ date:'2026-09-01' }],
+    offlineBookingInputsReady:false,
+    offlineBookingAccessReady:false,
+    validProviderOfflineSnapshot:snapshot => snapshot,
+    sessionIsCurrent:(userId, generation) => userId === 'provider-1' && generation === 7,
+    $:() => ({ value:'' }),
+    syncSlotIntervalOptions() {}, renderOwnServices() {}, renderSchedule() {}, renderDaysOff() {}, renderBookings() {}, applyWriteAvailability() {}
+  });
+  vm.runInContext(actual('applyProviderOfflineSnapshot'), box);
+  const snapshot = freshSnapshot();
+  assert.equal(box.applyProviderOfflineSnapshot(snapshot, 'provider-1', 7), true);
+  assert.equal(box.allBookings[0].id, 'booking-1');
+  assert.equal(box.ownServices[0].id, 'service-1');
+  assert.equal(box.scheduleRows[0].weekday, 7);
+  assert.equal(box.daysOff.length, 0);
+  assert.equal(box.offlineBookingInputsReady, true);
+  assert.equal(box.offlineBookingAccessReady, true);
+});
+
+test('cached trust fails closed before synchronization or queue flush can call the server', async () => {
+  let rpcCalls = 0;
+  const box = vm.createContext({
+    sessionGeneration:7,
+    currentUser:{ id:'provider-1' },
+    providerSessionTrust:'cached',
+    navigator:{ onLine:true },
+    synchronizationPromise:null,
+    offlineBookingFlushPromise:null,
+    writesAllowed:true,
+    bookingCreationReady:true,
+    db:{ rpc:async () => { rpcCalls += 1; return { error:null }; } }
+  });
+  vm.runInContext([actual('synchronizeProvider'), actual('flushOfflineBookings')].join('\n'), box);
+  assert.equal(await box.synchronizeProvider(), false);
+  assert.equal(await box.flushOfflineBookings(), false);
+  assert.equal(rpcCalls, 0);
+  assert.match(actual('flushOfflineBookings'), /providerSessionTrust !== 'verified'[\s\S]*db\.rpc\('book_appointment'/);
+  assert.match(source, /window\.addEventListener\('online', async \(\) => \{\s*if \(providerSessionTrust === 'cached'[\s\S]*await verifyCachedProviderSession\(currentUser\.id\);\s*return;/);
 });
 
 test('offline status distinguishes a usable snapshot from incomplete cached data', () => {

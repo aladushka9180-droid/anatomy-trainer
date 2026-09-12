@@ -79,6 +79,7 @@ async function harness({ digestTicks = 0 } = {}) {
             value = optionIds[0] || ''; // Browser select default after options replacement.
           }
         },
+        querySelector: () => null,
         querySelectorAll: () => controlIds.map($),
         addEventListener(name, callback) { handlers.set(`${selector}:${name}`, callback); },
         reset() {
@@ -96,7 +97,7 @@ async function harness({ digestTicks = 0 } = {}) {
   const controllerStub = () => ({ reset() {}, setOrganization() {}, refreshAvailability: async () => {} });
   const ctx = {
     $, $$: () => [], Map, Set, Promise, Date, Intl,
-    currentUser: { id: actorA }, sessionGeneration: 1, activeClientOrganizationId: '',
+    currentUser: { id: actorA }, sessionGeneration: 1, providerSessionTrust:'verified', activeClientOrganizationId: '',
     displayPreferencesSaveRevision: 0, displayPreferencesSaveTimer: null, synchronizationRetryTimer: null,
     notificationTimer: null, bookingsChannel: null, recoveryMode: false, bookingCreationReady: true,
     DEFAULT_DISPLAY_PREFERENCES: {}, DEFAULT_TELEGRAM_CLIENT_SETTINGS: {},
@@ -145,7 +146,7 @@ async function harness({ digestTicks = 0 } = {}) {
     freeSlotsController: { invalidateScope() {} }, REPORT_DEMO_SLUG: 'fixture-demo',
   };
   ctx.localStorage = ctx.window.localStorage;
-  for (const name of ['teamCalendarController', 'groupBookingsController', 'notificationCenterController', 'providerFeedbackController',
+  for (const name of ['teamCalendarController', 'groupBookingsController', 'integrationController', 'notificationCenterController', 'providerFeedbackController',
     'clientFieldsController', 'clientRecordsController', 'clientResultsController', 'clientImportController', 'organizationController', 'resourceController', 'shiftController',
     'payrollController', 'benefitController', 'loyaltyController', 'inventoryController', 'retentionController',
     'batchBookingsController', 'bookingPolicyController', 'dataGovernanceController']) ctx[name] = controllerStub();

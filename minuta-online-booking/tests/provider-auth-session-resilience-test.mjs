@@ -110,6 +110,39 @@ test('a cached identity can queue only from a complete server-verified offline s
   assert.equal(box.canQueueOfflineBooking(), false);
 });
 
+test('cross-tab explicit logout revokes cached offline writes and removes device data', async () => {
+  const calls = [];
+  const box = vm.createContext({
+    currentUser:{ id:'provider-1' },
+    providerSessionTrust:'cached',
+    offlineBookingInputsReady:true,
+    offlineBookingAccessReady:true,
+    cachedProviderVerificationRetryTimer:1,
+    providerAuthStorageKey:'sb-fixture-auth-token',
+    clearTimeout:() => calls.push('timer-cleared'),
+    providerAuthStorage:{
+      forget:() => calls.push('forgotten'),
+      removeItem:key => calls.push(`removed:${key}`)
+    },
+    setWritesAllowed:value => calls.push(`writes:${value}`),
+    setBookingCreationReady:value => calls.push(`booking:${value}`),
+    handleSession:async session => { calls.push(`session:${session}`); box.currentUser = null; },
+    clearProviderDeviceData:async userId => calls.push(`cleared:${userId}`),
+    db:{ auth:{ signOut:async options => calls.push(`signout:${options.scope}`) } }
+  });
+  vm.runInContext(actual('applyProviderLogoutSignal'), box);
+  assert.equal(await box.applyProviderLogoutSignal('provider-1'), true);
+  assert.equal(box.providerSessionTrust, 'none');
+  assert.equal(box.offlineBookingInputsReady, false);
+  assert.equal(box.offlineBookingAccessReady, false);
+  assert.deepEqual(calls, [
+    'timer-cleared', 'forgotten', 'removed:sb-fixture-auth-token', 'writes:false', 'booking:false',
+    'session:null', 'cleared:provider-1', 'signout:local'
+  ]);
+  assert.match(actual('logout'), /broadcastProviderLogout\(userId\)[\s\S]*providerAuthStorage\.forget\(\)/);
+  assert.match(source, /window\.addEventListener\('storage'[\s\S]*applyProviderLogoutSignal\(signal\.userId\)/);
+});
+
 test('a failed background access probe keeps cached mode and schedules one retry', async () => {
   let retries = 0;
   let upgrades = 0;

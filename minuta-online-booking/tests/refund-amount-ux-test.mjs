@@ -23,7 +23,7 @@ async function harness({ captured = 1000, refunded = 0, pendingRefunds = [], rec
       const element = {
         id: selector.slice(1), value: '', checked: false, disabled: false,
         hidden: false, textContent: '', max: '', dataset: {},
-        querySelectorAll: () => [...elements.values()], addEventListener() {},
+        querySelector: () => null, querySelectorAll: () => [...elements.values()], addEventListener() {},
         reset() { resets += 1; select('#paymentRefundAmount').value = ''; },
         get innerHTML() { return markup; },
         set innerHTML(value) {
@@ -69,7 +69,7 @@ async function harness({ captured = 1000, refunded = 0, pendingRefunds = [], rec
   const initialRpcCount = rpcCalls.length;
   return {
     select, controller, payload, notifications, invocations, rpcCalls, storage,
-    newRefund:()=>listeners.get('click')({target:{closest:()=>true}}),
+    newRefund:()=>listeners.get('click')({target:{closest:selector=>selector==='#paymentRefundNew'?{id:'paymentRefundNew',dataset:{}}:null}}),
     get uuidCount() { return uuidCount; }, get resets() { return resets; },
     get extraRpcCount() { return rpcCalls.length - initialRpcCount; },
     async submit(value, reason = 'Возврат части оплаты') {
