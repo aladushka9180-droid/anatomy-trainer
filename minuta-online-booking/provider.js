@@ -486,6 +486,8 @@ let benefitController = null;
 let loyaltyController = null;
 let inventoryController = null;
 let retentionController = null;
+let commerceController = null;
+let financeController = null;
 const organizationFeatureRequests = new Map();
 let organizationFeatureContext = '';
 let organizationFeatureContextRevision = 0;
@@ -2123,7 +2125,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=712#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=713#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2828,7 +2830,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=712#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=713#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4129,6 +4131,7 @@ function setReportSubview(view = 'overview', { focus = false } = {}) {
   });
   if (focus) $(`[data-report-view="${reportSubview}"]`)?.focus();
   if (reportSubview === 'clients') void ensureReportRetention();
+  if (reportSubview === 'money') void financeController?.load(reportRange());
 }
 
 function reportGoalsScopeKey() {
@@ -5050,7 +5053,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=712');
+    worker = new Worker('./report-worker.js?v=713');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7401,7 +7404,7 @@ function openBookingSheet(id) {
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span>${autoCompleteSettingsActionMarkup(item)}${bookingSeriesMarkup(item)}</div>
     <div class="booking-sheet-summary"><div class="booking-sheet-client">${clientAvatarEditorMarkup(item.client_phone, item.client_name, item.id)}<div class="booking-sheet-client-copy"><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}</div><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>${isPerMinuteBooking(item) ? 'Тариф' : 'Стоимость'}</small><strong>${isPerMinuteBooking(item) ? `${money(minuteRate)}/мин` : money(bookingSessionTotal(item))}</strong></div></div>
     ${bookingClientOverviewMarkup(item)}
-    <div class="booking-sheet-actions booking-repeat-actions">${bookingClientProfileActionMarkup(item)}<button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button></div>
+    <div class="booking-sheet-actions booking-repeat-actions">${bookingClientProfileActionMarkup(item)}<button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button><button class="secondary-button booking-repeat-action" type="button" data-commerce-booking-sale="${item.id}">${uiIcon('plus')} Продать</button></div>
     <div class="booking-sheet-secondary">
     ${bookingSessionMarkup(item)}
     ${bookingClientLabelsMarkup(item.client_phone, item.id)}
@@ -9897,6 +9900,32 @@ function closeBookingSheet() {
   document.body.classList.remove('booking-sheet-open');
 }
 
+async function openCommerceSale({ bookingId = '', clientId = '' } = {}) {
+  const organization = organizationController?.getActiveOrganization?.();
+  if (!organization?.id || !['owner', 'admin'].includes(organization.current_role)) {
+    notify('Продажи доступны владельцу или администратору организации');
+    return;
+  }
+  closeBookingSheet();
+  await Promise.resolve(setProviderView('organization'));
+  const section = $('#commercePanel');
+  if (section) section.hidden = false;
+  try {
+    await ensureOrganizationFeature('commercePanel');
+    const button = $('[data-section-target="commercePanel"]');
+    if (button) scrollToProviderSection(button);
+    commerceController?.startSale({ bookingId, clientId });
+  } catch {
+    notify('Раздел продаж не загрузился. Повторите после обновления страницы.');
+  }
+}
+
+function openCommerceSaleFromBooking(id) {
+  const item = bookingSourceItems().find(booking => String(booking.id) === String(id));
+  if (!item) return Promise.resolve();
+  return openCommerceSale({ bookingId:item.id, clientId:item.client_account_id || '' });
+}
+
 function calendarRangeTitle(view = calendarView) {
   const range = calendarRange(view);
   const start = parseLocalIsoDate(range.start);
@@ -10146,6 +10175,7 @@ function buildClients() {
     const current = clients.get(phone) || { phone, displayPhone: booking.client_phone, name: booking.client_name, bookings: [] };
     current.name = booking.client_name || current.name;
     current.displayPhone = booking.client_phone || current.displayPhone;
+    current.clientAccountId = booking.client_account_id || current.clientAccountId || '';
     current.bookings.push(booking);
     clients.set(phone, current);
   });
@@ -10665,6 +10695,43 @@ function activateClientProfileJump(name, { scroll = true } = {}) {
   if (scroll) target?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
+async function loadClientCommerceHistory(client) {
+  const holder = $('#clientCommerceHistory');
+  const list = $('#clientCommerceHistoryList');
+  const organization = organizationController?.getActiveOrganization?.();
+  if (!holder || !list || !client?.clientAccountId || !organization?.id
+    || !['owner', 'admin'].includes(organization.current_role)) {
+    if (holder) holder.hidden = true;
+    return;
+  }
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const phone = client.phone;
+  holder.hidden = false;
+  list.innerHTML = '<p class="report-empty-inline">Загружаем покупки…</p>';
+  const result = await db.rpc('get_minuta_client_commerce_v147', {
+    p_organization:organization.id,
+    p_client_account:client.clientAccountId
+  });
+  if (!sessionIsCurrent(userId, generation) || selectedClientPhone !== phone
+    || organizationController?.getActiveOrganization?.()?.id !== organization.id) return;
+  if (result.error) {
+    holder.hidden = true;
+    return;
+  }
+  const sales = result.data?.sales || [];
+  const benefits = result.data?.benefits || [];
+  $('#clientCommerceHistoryTitle').textContent = `Покупки · ${sales.length}`;
+  const benefitMarkup = benefits.map(item => {
+    const balance = item.kind === 'certificate'
+      ? `Осталось ${money(Number(item.remaining_amount_rub || 0))}`
+      : `Осталось ${Number(item.remaining_visits || 0)} посещ.`;
+    return `<article class="client-commerce-row"><div><small>${item.status === 'active' ? 'Активно' : item.status === 'frozen' ? 'Заморожено' : item.status === 'exhausted' ? 'Использовано' : 'Неактивно'}</small><strong>${escapeHtml(item.name || 'Абонемент')}</strong><span>${escapeHtml(balance)} · до ${escapeHtml(new Date(`${item.expires_on}T12:00:00`).toLocaleDateString('ru-RU'))}</span></div></article>`;
+  }).join('');
+  const salesMarkup = sales.map(item => `<article class="client-commerce-row"><div><small>${new Date(item.occurred_at).toLocaleDateString('ru-RU')} · ${item.status === 'refunded' ? 'возвращено' : item.status === 'partially_refunded' ? 'частичный возврат' : 'оплачено'}</small><strong>${escapeHtml(item.item_name || 'Продажа')}</strong><span>${escapeHtml(String(item.quantity || 1))} шт. · ${money((Number(item.total_minor || 0) - Number(item.refunded_minor || 0)) / 100)}</span></div></article>`).join('');
+  list.innerHTML = benefitMarkup + salesMarkup || '<p class="report-empty-inline">Покупок и активных продуктов пока нет.</p>';
+}
+
 function renderClientDetail(phone, { preserveReturn = false } = {}) {
   const client = buildClients().find(item => item.phone === phone);
   if (!client) return;
@@ -10687,6 +10754,8 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   $('#clientPhone').textContent = newBookingClientPhoneLabel(client.phone, client.displayPhone);
   $('#clientPhone').href = `tel:${client.phone}`;
   $('#clientQuickRepeat').dataset.quickRepeatClient = client.phone;
+  $('#clientCommerceSale').dataset.commerceClientSale = client.clientAccountId || '';
+  $('#clientCommerceSale').hidden = !client.clientAccountId || !['owner', 'admin'].includes(organizationController?.getActiveOrganization?.()?.current_role);
   $('#clientProfileBadges').innerHTML = clientBadgeMarkup(client.phone, { limit:4, showLabels:true });
   const labels = clientLabel(client.phone);
   applyClientHighlightClasses($('#clientProfileContent').closest('.client-profile'), client.phone, 'client-profile-');
@@ -10739,6 +10808,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   const lastVisitDate = lastVisit?.booking_date || client.imported?.last_visit_on || '';
   $('#clientLastVisit').textContent = lastVisitDate ? new Date(`${lastVisitDate}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric',month:'short',year:'numeric' }) : '—';
   void loadClientProfileDetails(client);
+  void loadClientCommerceHistory(client);
   batchBookingsController?.setClient(client);
   clientFieldsController?.setClient(client.phone);
   $('#clientNote').value = noteValue;
@@ -11885,6 +11955,8 @@ async function handleSession(session) {
   paymentController.reset();
   integrationController.reset();
   notificationCenterController.reset();
+  commerceController?.reset();
+  financeController?.reset();
   providerFeedbackController.reset();
   feedbackInboxController.reset();
   clientFieldsController.setOrganization(null);
@@ -13792,6 +13864,8 @@ document.addEventListener('click', async event => {
   const openBooking = event.target.closest('[data-open-booking]');
   const openClientProfile = event.target.closest('[data-open-client-profile]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
+  const commerceBookingSale = event.target.closest('[data-commerce-booking-sale]');
+  const commerceClientSale = event.target.closest('[data-commerce-client-sale]');
   const quickCompleteBookingButton = event.target.closest('[data-quick-complete-booking]');
   const openAutoCompleteSettingsButton = event.target.closest('[data-open-auto-complete-settings]');
   const quickRepeatClient = event.target.closest('[data-quick-repeat-client]');
@@ -13949,6 +14023,7 @@ document.addEventListener('click', async event => {
     }
     loadSelectedReportData();
     renderAnalytics();
+    if (reportSubview === 'money') void financeController.load(reportRange(), { force:true });
     if (reportPeriod !== 'custom') setReportFiltersExpanded(false);
   }
   if (openNotificationTemplates) {
@@ -14001,6 +14076,8 @@ document.addEventListener('click', async event => {
   if (dateToday) restoreDefaultScheduleView();
   if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
+  if (commerceBookingSale) await openCommerceSaleFromBooking(commerceBookingSale.dataset.commerceBookingSale);
+  if (commerceClientSale) await openCommerceSale({ clientId:commerceClientSale.dataset.commerceClientSale || '' });
   if (openClientProfile) openClientProfileFromBooking(openClientProfile.dataset.clientBookingId, openClientProfile.dataset.openClientProfile);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (quickCompleteBookingButton) await quickCompleteBookingOutcome(quickCompleteBookingButton);
@@ -14422,6 +14499,7 @@ const organizationFeatureDefinitions = new Map([
   ['resourcesPanel', { script:'resource-management.js', api:() => window.MinutaResources, get:() => resourceController, set:value => { resourceController = value; }, admin:false }],
   ['shiftsPanel', { script:'shift-management.js', api:() => window.MinutaShifts, get:() => shiftController, set:value => { shiftController = value; }, admin:false }],
   ['payrollPanel', { script:'payroll-management.js', api:() => window.MinutaPayroll, get:() => payrollController, set:value => { payrollController = value; }, admin:false }],
+  ['commercePanel', { script:'commerce-management.js', api:() => window.MinutaCommerce, get:() => commerceController, set:value => { commerceController = value; }, admin:true }],
   ['benefitsPanel', { script:'benefit-management.js', api:() => window.MinutaBenefits, get:() => benefitController, set:value => { benefitController = value; }, admin:true }],
   ['loyaltyPanel', { script:'loyalty-management.js', api:() => window.MinutaLoyalty, get:() => loyaltyController, set:value => { loyaltyController = value; }, admin:true }],
   ['inventoryPanel', { script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true }],
@@ -14583,6 +14661,11 @@ const paymentController = window.MinutaPayments?.createController ? window.Minut
 }) : { bind() {}, load() { return Promise.resolve(); }, setOrganization() {}, reset() {}, isCheckoutEnabled() { return false; } };
 paymentController.bind();
 
+financeController = window.MinutaCommerce?.createFinanceController ? window.MinutaCommerce.createFinanceController({
+  db, $, escapeHtml, notify
+}) : { load() { return Promise.resolve(); }, setOrganization() {}, reset() {} };
+window.addEventListener('minuta:reload-money-dashboard', () => void financeController.load(reportRange(), { force:true }));
+
 const integrationController = window.MinutaIntegrations?.createController ? window.MinutaIntegrations.createController({
   db, $, escapeHtml, notify, requireWrites
 }) : { bind() {}, load() { return Promise.resolve(); }, setOrganization() {}, reset() {} };
@@ -14693,6 +14776,8 @@ const organizationController = window.MinutaOrganization.createController({
     loyaltyController?.setOrganization(organization);
     inventoryController?.setOrganization(organization);
     retentionController?.setOrganization(organization);
+    commerceController?.setOrganization(organization);
+    financeController.setOrganization(organization);
     batchBookingsController.setOrganization(organization);
     bookingPolicyController.setOrganization(organization);
     groupBookingsController.setOrganization(organization);
@@ -15518,6 +15603,7 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   reportCustomEnd = end;
   loadSelectedReportData();
   renderAnalytics();
+  if (reportSubview === 'money') void financeController.load(reportRange(), { force:true });
   setReportFiltersExpanded(false);
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);

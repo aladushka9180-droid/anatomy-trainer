@@ -8,6 +8,38 @@
   --shadow: 0 30px 80px rgba(33,74,54,.14);
 }
 
+/* Commercial sales and the unified money dashboard. */
+.commerce-panel,.money-dashboard{scroll-margin-top:110px}
+.commerce-workspace{display:grid;gap:20px}
+.commerce-finance-toggle{margin:0}
+.commerce-summary,.money-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.commerce-summary article,.money-kpis article{display:grid;gap:4px;min-width:0;padding:14px 16px;border:1px solid var(--theme-line,var(--line));border-radius:16px;background:var(--theme-surface-alt,#f7f7f8)}
+.commerce-summary small,.money-kpis small{color:var(--muted);font-size:.78rem}
+.commerce-summary strong,.money-kpis strong{font-size:1.2rem;letter-spacing:-.02em}
+.money-kpis .is-primary{background:color-mix(in srgb,var(--theme-accent,var(--green)) 10%,var(--theme-surface,#fff));border-color:color-mix(in srgb,var(--theme-accent,var(--green)) 24%,var(--theme-line,var(--line)))}
+.commerce-sales-list,.commerce-recurring,.money-dashboard-grid{display:grid;gap:14px}
+.commerce-sale-row,.commerce-recurring-row,.money-operation-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
+.commerce-sale-row:last-child,.commerce-recurring-row:last-child,.money-operation-row:last-child{border-bottom:0}
+.commerce-sale-row>div,.commerce-recurring-row>div,.money-operation-row>div{display:grid;gap:3px;min-width:0}
+.commerce-sale-row>div:last-child{justify-items:end;flex:0 0 auto}
+.commerce-sale-row span,.commerce-recurring-row span,.money-operation-row small{color:var(--muted);font-size:.82rem}
+.money-dashboard{margin-top:18px}
+.money-dashboard>.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.money-dashboard>.panel-head #reloadMoneyDashboard{width:auto;flex:0 0 auto}
+.money-dashboard-grid{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);margin-top:18px}
+.money-dashboard-grid>section{min-width:0}
+.money-expense-row{display:grid;gap:7px;margin:0 0 12px}
+.money-expense-row>span{display:flex;justify-content:space-between;gap:12px;font-size:.86rem}
+.money-expense-row small{color:var(--muted)}
+.money-expense-row>i{display:block;width:var(--money-share);height:6px;border-radius:999px;background:var(--accent)}
+.money-operation-row>span{font-weight:700;white-space:nowrap}
+.client-commerce-history{display:grid;gap:10px;margin-bottom:16px;padding:14px;border:1px solid var(--theme-line,var(--line));border-radius:16px;background:var(--theme-surface-alt,#f7f7f8)}
+.client-commerce-row{padding:10px 0;border-bottom:1px solid var(--theme-line,var(--line))}
+.client-commerce-row:last-child{border-bottom:0}
+.client-commerce-row>div{display:grid;gap:3px}
+.client-commerce-row small,.client-commerce-row span{color:var(--theme-muted,var(--muted));font-size:.8rem}
+@media(max-width:760px){.commerce-summary article,.money-kpis article{padding:11px 10px}.commerce-summary strong,.money-kpis strong{font-size:1.05rem}.money-dashboard>.panel-head{align-items:stretch;flex-direction:column}.money-dashboard>.panel-head #reloadMoneyDashboard{width:100%}.money-dashboard-grid{grid-template-columns:1fr}.commerce-sale-row,.commerce-recurring-row{align-items:flex-start;flex-direction:column}.commerce-sale-row>div:last-child{width:100%;justify-items:start}.commerce-sale-row>div:last-child .compact-button{width:100%}}
+
 /* PrimeTime D10: compact deep-link and embeddable booking controls. */
 .booking-widgets-dialog{width:min(960px,calc(100vw - 28px));max-height:min(90vh,900px);padding:0;border:0;border-radius:24px;background:var(--surface,#fff);color:var(--ink,#18231d);box-shadow:0 24px 80px rgba(24,35,29,.24)}
 .booking-widgets-dialog::backdrop{background:rgba(19,29,24,.56);backdrop-filter:blur(5px)}
