@@ -22,7 +22,6 @@ try {
     await page.setContent(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><style>${styles}</style><style>${lifecycleStyles}</style><style>
       *{box-sizing:border-box}body{margin:0;background:#f4f5f4;color:#183427;font-family:Inter,Arial,sans-serif}.fixture{width:min(920px,100%);margin:0 auto;padding:20px}.resource-subhead{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px}.resource-subhead small,.resource-subhead strong{display:block}.secondary-button{min-height:40px;border:1px solid #cad8cf;border-radius:11px;background:#fff;color:#214d38;font:inherit;font-weight:750}
     </style></head><body class="provider-body"><main class="fixture"><section class="client-benefit-lifecycle" id="clientBenefitLifecycle" hidden><div class="resource-subhead"><div><small>Срок, остаток и все действия</small><strong id="clientBenefitLifecycleTitle">Абонементы и сертификаты</strong></div></div><div id="clientBenefitLifecycleList"></div></section></main></body></html>`);
-    await page.evaluate(() => { if (!crypto.randomUUID) crypto.randomUUID = () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; });
     await page.addScriptTag({ content:source });
     await page.evaluate(async () => {
       const organizationId = '11111111-1111-4111-8111-111111111150';
@@ -67,7 +66,7 @@ try {
         db,$:selector => document.querySelector(selector),escapeHtml:value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[character]),
         notify:value => lifecycleNotices.push(value),requireWrites:() => true,getCurrentUser:() => ({ id:'owner-150' }),
         storage:{ getItem:key => lifecycleStorage.get(key) || null,setItem:(key,value) => lifecycleStorage.set(key,value),removeItem:key => lifecycleStorage.delete(key) },
-        getSessionGeneration:() => 1,sessionIsCurrent:() => true
+        getSessionGeneration:() => 1,sessionIsCurrent:() => true,createRequestId:() => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
       });
       lifecycleController.bind();
       await lifecycleController.setClient({ clientAccountId:clientId }, { id:organizationId,current_role:'owner' });
