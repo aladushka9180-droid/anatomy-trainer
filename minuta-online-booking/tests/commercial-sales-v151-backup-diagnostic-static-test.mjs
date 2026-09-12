@@ -17,6 +17,9 @@ for (const token of [
   'contents: read',
   'BACKUP_ENCRYPTION_PASSWORD',
   'commercial-sales-v151-backup-diagnostic.sh',
+  'MINUTA_POSTGRES_IMAGE: postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675',
+  'diagnosticHeadSha:$diagnosticHeadSha',
+  'pipelineComponentSha256:',
   'if: always()',
 ]) assert.ok(workflow.includes(token), `workflow missing ${token}`);
 
@@ -27,10 +30,15 @@ assert.match(workflow, /find "\$RUNNER_TEMP\/encrypted-source" -type f -delete/)
 
 for (const token of [
   '--network none',
+  'image="${MINUTA_POSTGRES_IMAGE:?}"',
+  'expected_image_digest="${MINUTA_POSTGRES_IMAGE_DIGEST:?}"',
   '--no-owner --no-privileges',
   'for section in pre-data post-data',
   'for phase in pre-data auth-placeholders post-data',
   'commercial-sales-v151-backup-diagnostic.sql',
+  'public-ddl.toc',
+  "grep -Eq ' (TABLE DATA|SEQUENCE SET|MATERIALIZED VIEW DATA) public '",
+  'serverVersionNum:$serverVersionNum',
   'ephemeralContainerDestroyed:true',
   'productionWritten:false',
   'testDatabaseWritten:false',

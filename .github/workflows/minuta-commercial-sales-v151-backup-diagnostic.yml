@@ -22,6 +22,8 @@ jobs:
       SOURCE_BACKUP_ARTIFACT_NAME: minuta-2026-09-12T18-41-16Z
       SOURCE_BACKUP_HEAD_SHA: ed90edcfb79e16eb0eb6d31dc1b89f8a95ef6f4b
       DIAGNOSTIC_SQL_SHA256: ad9473a386334172f941b9ee34395f30520a9bec083bb6ddd86e7a4830aef421
+      MINUTA_POSTGRES_IMAGE_DIGEST: sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+      MINUTA_POSTGRES_IMAGE: postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -120,11 +122,20 @@ jobs:
         run: |
           set -euo pipefail
           result="$RUNNER_TEMP/minuta-v151-backup-ddl-diagnostic.json"
+          shellSha="$(sha256sum minuta-online-booking/scripts/commercial-sales-v151-backup-diagnostic.sh | awk '{print $1}')"
+          tocFilterSha="$(sha256sum minuta-online-booking/scripts/crm-snapshot-toc.mjs | awk '{print $1}')"
+          postdataFilterSha="$(sha256sum minuta-online-booking/scripts/crm-snapshot-postdata.mjs | awk '{print $1}')"
+          bootstrapSha="$(sha256sum minuta-online-booking/scripts/crm-snapshot-offline-bootstrap.sql | awk '{print $1}')"
           jq --arg sourceRun "$SOURCE_BACKUP_RUN_ID" \
             --arg artifactId "$SOURCE_BACKUP_ARTIFACT_ID" \
             --arg artifactName "$SOURCE_BACKUP_ARTIFACT_NAME" \
             --arg sourceSha "$SOURCE_BACKUP_HEAD_SHA" \
             --arg sqlSha "$DIAGNOSTIC_SQL_SHA256" \
+            --arg shellSha "$shellSha" \
+            --arg tocFilterSha "$tocFilterSha" \
+            --arg postdataFilterSha "$postdataFilterSha" \
+            --arg bootstrapSha "$bootstrapSha" \
+            --arg diagnosticHeadSha "$GITHUB_SHA" \
             --arg workflowRun "$GITHUB_RUN_ID" \
             '. + {
               sourceBackupRunId:$sourceRun,
@@ -132,6 +143,13 @@ jobs:
               sourceBackupArtifactName:$artifactName,
               sourceBackupSha:$sourceSha,
               diagnosticSqlSha256:$sqlSha,
+              diagnosticHeadSha:$diagnosticHeadSha,
+              pipelineComponentSha256:{
+                diagnosticShell:$shellSha,
+                tocFilter:$tocFilterSha,
+                postdataFilter:$postdataFilterSha,
+                offlineBootstrap:$bootstrapSha
+              },
               workflowRunId:$workflowRun
             }' "$result" > "$result.final"
           mv "$result.final" "$result"
@@ -158,7 +176,7 @@ jobs:
         shell: bash
         run: |
           rm -f -- "$RUNNER_TEMP/minuta-v151-source.dump" "$RUNNER_TEMP/minuta-v151-ddl-private.log" \
-            "$RUNNER_TEMP/source.toc" "$RUNNER_TEMP/public.toc" "$RUNNER_TEMP/public-post-data.sql" \
+            "$RUNNER_TEMP/source.toc" "$RUNNER_TEMP/public.toc" "$RUNNER_TEMP/public-ddl.toc" "$RUNNER_TEMP/public-post-data.sql" \
             "$RUNNER_TEMP/filtered-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
           if test -d "$RUNNER_TEMP/encrypted-source"; then
             find "$RUNNER_TEMP/encrypted-source" -type f -delete
