@@ -51,8 +51,8 @@ assert.match(css, /data-provider-theme="snow-leopard"[\s\S]*?--theme-canvas-size
 assert.match(css, /data-provider-theme="luxury"[\s\S]*?repeating-radial-gradient\(ellipse 130% 70%/);
 assert.match(css, /data-provider-theme="warm"[\s\S]*?radial-gradient\(circle at 16% 4%/);
 
-assert.match(provider, /provider-theme-families\.css\?v=729[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=729/);
-assert.match(worker, /\.\/provider-theme-families\.css\?v=729/);
-assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=729/);
+assert.match(provider, /provider-theme-families\.css\?v=730[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=730/);
+assert.match(worker, /\.\/provider-theme-families\.css\?v=730/);
+assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=730/);
 
-console.log('Provider theme families v729: PASS (40 themes, 9 families).');
+console.log('Provider theme families v730: PASS (40 themes, 9 families).');

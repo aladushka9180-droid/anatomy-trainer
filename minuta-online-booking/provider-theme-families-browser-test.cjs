@@ -104,7 +104,8 @@ const server = http.createServer((request, response) => {
           return { image:style.backgroundImage, repeat:style.backgroundRepeat, size:style.backgroundSize, overflow:document.documentElement.scrollWidth > innerWidth + 2 };
         }, theme);
         const variant = width <= 760 ? 'mobile' : 'desktop';
-        assert.match(approved.image, new RegExp(`provider-${theme}-${variant}-v2\\.webp`), `${theme} ${width}px: утверждённый фон ТЕМЫ 1 потерян`);
+        const assetVersion = theme === 'apricot-tiger' && variant === 'desktop' ? 3 : 2;
+        assert.match(approved.image, new RegExp(`provider-${theme}-${variant}-v${assetVersion}\\.webp`), `${theme} ${width}px: утверждённый фон ТЕМЫ 1 потерян`);
         assert.equal(approved.repeat.split(',').every(value => value.trim() === 'no-repeat'), true, `${theme} ${width}px: утверждённый фон начал повторяться`);
         assert.equal(approved.size.split(',').every(value => value.trim() === 'cover'), true, `${theme} ${width}px: утверждённый фон перестал покрывать холст`);
         assert.equal(approved.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);

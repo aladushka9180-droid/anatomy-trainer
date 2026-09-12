@@ -19,15 +19,17 @@ assert.match(families, /data-provider-theme="oled-mono"[\s\S]*?--theme-canvas-te
 assert.doesNotMatch(families.match(/data-provider-theme="oled-mono"[\s\S]*?\n\}/)?.[0] || '', /repeating-linear-gradient/);
 assert.match(families, /data-provider-theme="volt-graphite"[\s\S]*?--theme-canvas-size:64px 64px/);
 assert.match(families, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-apricot-tiger\)\) \.theme-swatch/);
-for (const theme of ['snow-leopard', 'pearl-zebra', 'apricot-tiger']) {
+for (const theme of ['snow-leopard', 'pearl-zebra']) {
   assert.match(approved, new RegExp(`provider-${theme}-desktop-v2\\.webp`));
   assert.match(approved, new RegExp(`provider-${theme}-mobile-v2\\.webp`));
 }
-assert.match(provider, /theme-catalog\.js\?v=729/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v729`/);
-assert.match(worker, /\.\/theme-catalog\.js\?v=729/);
+assert.match(approved, /provider-apricot-tiger-desktop-v3\.webp/);
+assert.match(approved, /provider-apricot-tiger-mobile-v2\.webp/);
+assert.match(provider, /theme-catalog\.js\?v=730/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v730`/);
+assert.match(worker, /\.\/theme-catalog\.js\?v=730/);
 
 const neutralScheduleRules = schedule.match(/background-image:none!important/g) || [];
 assert.ok(neutralScheduleRules.length >= 2, 'Фоновый узор темы не должен попадать в записи и перерывы');
 
-console.log('Theme background patterns v729: PASS');
+console.log('Theme background patterns v730: PASS');
