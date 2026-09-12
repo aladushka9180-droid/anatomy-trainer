@@ -64,20 +64,20 @@ assert.match(subscription, /\.subscription-plan-card[\s\S]*?border:\s*1px solid 
 assert.match(subscription, /\.subscription-plan-card[\s\S]*?border-radius:\s*var\(--material-radius/, 'Карточки тарифов не наследуют геометрию активного стиля');
 assert.match(subscription, /\.subscription-plan-label[\s\S]*?color:var\(--theme-accent-contrast/, 'Метка рекомендуемого тарифа не гарантирует контраст темы');
 
-assert.match(script, /defineTheme\('japandi'[\s\S]*?themeColor:'#f3efe7'/, 'Нет системного theme-color Japandi');
-assert.match(script, /defineTheme\('midnight'[\s\S]*?themeColor:'#08111f'/, 'Нет системного theme-color Midnight Navy');
-assert.match(script, /defineTheme\('mono'[\s\S]*?themeColor:'#f3f3f0'/, 'Нет системного theme-color Editorial Mono');
-assert.match(script, /defineTheme\('desert'[\s\S]*?themeColor:'#f5e9db'/, 'Нет системного theme-color Desert Clay');
+assert.match(script, /defineTheme\('japandi'[\s\S]*?themeColor:'#e9e5dc'/, 'Нет системного theme-color Japandi');
+assert.match(script, /defineTheme\('midnight'[\s\S]*?themeColor:'#061426'/, 'Нет системного theme-color Midnight Navy');
+assert.match(script, /defineTheme\('mono'[\s\S]*?themeColor:'#f7f6f1'/, 'Нет системного theme-color Editorial Mono');
+assert.match(script, /defineTheme\('desert'[\s\S]*?themeColor:'#ead7c8'/, 'Нет системного theme-color Desert Clay');
 assert.match(script, /defineTheme\('rose'[\s\S]*?themeColor:'#f2eaed'/, 'Нет системного theme-color Rose Smoke');
 for (const [key, color, group] of [
   ['botanical', '#202623', 'dark natural'],
   ['burgundy', '#282326', 'dark'],
-  ['coastal', '#f1f6f7', 'light'],
-  ['pearl', '#f4f4f5', 'featured light'],
+  ['coastal', '#f5eddd', 'light'],
+  ['pearl', '#f1edf6', 'featured light'],
   ['butter', '#faf9f3', 'featured light'],
-  ['celadon', '#f0f6f3', 'featured light natural'],
-  ['snow-leopard', '#f4f5f6', 'featured light'],
-  ['apricot-tiger', '#fff3e7', 'featured light natural'],
+  ['celadon', '#ecf7f3', 'featured light natural'],
+  ['snow-leopard', '#eaf1f4', 'featured light'],
+  ['apricot-tiger', '#f7dcc2', 'featured light natural'],
   ['mocha-pastel', '#1a1817', 'dark'],
   ['oled-mono', '#000000', 'dark'],
   ['cobalt-forge', '#071226', 'dark'],

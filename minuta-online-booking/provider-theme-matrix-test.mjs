@@ -5,9 +5,10 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset, snowLeopardMobileAsset] = await Promise.all([
+const [baseCss, signatureCss, distinctCss, provider, catalogSource, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset, snowLeopardMobileAsset] = await Promise.all([
   readFile(path.join(directory, 'styles.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-signature.css'), 'utf8'),
+  readFile(path.join(directory, 'provider-themes-distinct.css'), 'utf8'),
   readFile(path.join(directory, 'provider.js'), 'utf8'),
   readFile(path.join(directory, 'theme-catalog.js'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-calm.css'), 'utf8'),
@@ -20,7 +21,7 @@ const [providerHtml, providerUiRefinementsCss] = await Promise.all([
   readFile(path.join(directory, 'provider.html'), 'utf8'),
   readFile(path.join(directory, 'provider-ui-refinements.css'), 'utf8'),
 ]);
-const css = `${baseCss}\n${signatureCss}\n${wildlifeCss}\n${noirSafariCss}`;
+const css = `${baseCss}\n${signatureCss}\n${wildlifeCss}\n${noirSafariCss}\n${distinctCss}`;
 
 function sourceArray(name) {
   const source = provider.match(new RegExp(`const ${name} = \\[([^\\]]+)\\]`))?.[1] || '';
