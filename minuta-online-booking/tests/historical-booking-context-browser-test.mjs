@@ -51,6 +51,42 @@ async function recordUiMetric(page,label,theme,width){
   });
   console.log(`UI_METRIC ${theme} ${width} ${label} ${JSON.stringify(metric)}`);
 }
+async function assertRemainingTimesReveal(page,mode,width,theme){
+  await page.evaluate(mode=>{
+    newBookingMode=mode;
+    newBookingHistoricalMode=false;
+    const start=12*60,end=20*60;
+    newBookingSlots=[];
+    for(let minute=start;minute<end;minute+=5)newBookingSlots.push(`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`);
+    newBookingTime='18:00';newBookingPreferredTime='18:00';
+    renderNewBookingTimePicker();
+    document.querySelector('#bookingSheet .booking-sheet-panel').scrollTop=0;
+  },mode);
+  const before=await page.evaluate(()=>{
+    const panel=document.querySelector('#bookingSheet .booking-sheet-panel');
+    const summary=document.querySelector('.booking-more-times>summary');
+    return {panelScroll:panel.scrollTop,summaryBottom:summary.getBoundingClientRect().bottom,panelBottom:panel.getBoundingClientRect().bottom};
+  });
+  await page.locator('.booking-more-times>summary').evaluate(summary=>summary.click());
+  await page.waitForTimeout(100);
+  const after=await page.evaluate(()=>{
+    const panel=document.querySelector('#bookingSheet .booking-sheet-panel');
+    const details=document.querySelector('.booking-more-times');
+    const list=details.querySelector('.booking-time-slots-all');
+    const target=list.querySelector('[data-new-booking-time="18:00"]');
+    const submit=document.querySelector('.booking-sheet-submit-bar');
+    const panelRect=panel.getBoundingClientRect(),detailsRect=details.getBoundingClientRect(),listRect=list.getBoundingClientRect(),targetRect=target.getBoundingClientRect();
+    const sticky=submit&&getComputedStyle(submit).position==='sticky';
+    const visibleTop=panelRect.top+10;
+    const visibleBottom=(sticky?Math.min(panelRect.bottom,submit.getBoundingClientRect().top):panelRect.bottom)-10;
+    return {panelScroll:panel.scrollTop,detailsBottom:detailsRect.bottom,detailsHeight:detailsRect.height,visibleTop,visibleBottom,targetTop:targetRect.top,listTop:listRect.top,listScroll:list.scrollTop,listClient:list.clientHeight,listScrollHeight:list.scrollHeight,targetOffset:target.offsetTop};
+  });
+  assert.ok(after.detailsBottom<=after.visibleBottom+4||after.detailsHeight>after.visibleBottom-after.visibleTop,`${mode} remaining times must become fully visible at ${width}px: ${JSON.stringify({before,after})}`);
+  assert.ok(after.targetTop>=after.listTop-1&&after.targetTop<=after.listTop+45,`${mode} selected time must be immediately visible inside the full list: ${JSON.stringify(after)}`);
+  if(width<=760)assert.ok(after.panelScroll>before.panelScroll+1,`${mode} remaining times must lift the mobile sheet automatically`);
+  if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-remaining-${mode}-${theme}-${width}.png`});
+  await page.locator('.booking-more-times>summary').evaluate(summary=>summary.click());
+}
 async function fixture(){
   const context=await browser.newContext({serviceWorkers:'block'}),page=await context.newPage();page.setDefaultTimeout(5000);
   const errors=[],traffic=[];page.on('pageerror',error=>errors.push(error.message));
@@ -535,6 +571,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
       if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-compact-${theme}-390.png`});
       await page.setViewportSize({width,height:850});
     }
+    await assertRemainingTimesReveal(page,'client',width,theme);
     await page.evaluate(()=>{
       const originalRpc=db.rpc;
       db.rpc=(name,args)=>name==='get_provider_block_slots_v141'
@@ -544,6 +581,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     });
     await page.locator('[data-new-booking-mode="block"]').click();
     await page.waitForTimeout(50);
+    await assertRemainingTimesReveal(page,'block',width,theme);
     if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingRecurrence').isVisible(),false,'Schedule blocks must not show visit repetition');
     if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingSectionSubtitle').getAttribute('class'),'sr-only','The block fields make the repeated helper unnecessary');
     await recordUiMetric(page,'block-collapsed',theme,width);
