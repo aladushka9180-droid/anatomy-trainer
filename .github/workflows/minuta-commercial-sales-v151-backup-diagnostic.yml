@@ -1,0 +1,166 @@
+name: Minuta v151 pinned backup DDL diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: minuta-commercial-sales-v151-backup-ddl-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_BACKUP_RUN_ID: "34711919645"
+      SOURCE_BACKUP_ARTIFACT_ID: "10303133907"
+      SOURCE_BACKUP_ARTIFACT_NAME: minuta-2026-09-12T18-41-16Z
+      SOURCE_BACKUP_HEAD_SHA: ed90edcfb79e16eb0eb6d31dc1b89f8a95ef6f4b
+      DIAGNOSTIC_SQL_SHA256: ad9473a386334172f941b9ee34395f30520a9bec083bb6ddd86e7a4830aef421
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Проверить закреплённый источник и его единственный артефакт
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$SOURCE_BACKUP_ARTIFACT_ID" =~ ^[0-9]+$ ]]
+          [[ "$SOURCE_BACKUP_HEAD_SHA" =~ ^[a-f0-9]{40}$ ]]
+          details="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_BACKUP_RUN_ID")"
+          test "$(jq -r '.conclusion' <<<"$details")" = success
+          test "$(jq -r '.head_branch' <<<"$details")" = main
+          test "$(jq -r '.path' <<<"$details")" = '.github/workflows/minuta-supabase-backup.yml'
+          test "$(jq -r '.head_repository.full_name' <<<"$details")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.head_sha' <<<"$details")" = "$SOURCE_BACKUP_HEAD_SHA"
+          comparison="$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_BACKUP_HEAD_SHA...main")"
+          case "$(jq -r '.status' <<<"$comparison")" in
+            ahead|identical) ;;
+            *) echo 'Pinned backup SHA is not an ancestor of current main' >&2; exit 1;;
+          esac
+
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_BACKUP_RUN_ID/artifacts")"
+          test "$(jq '[.artifacts[] | select(.expired==false)] | length' <<<"$artifacts")" = 1
+          artifact="$(jq -c --arg id "$SOURCE_BACKUP_ARTIFACT_ID" --arg name "$SOURCE_BACKUP_ARTIFACT_NAME" \
+            '[.artifacts[] | select(.expired==false and (.id|tostring)==$id and .name==$name)][0]' <<<"$artifacts")"
+          test "$artifact" != null
+          test "$(jq -r '.size_in_bytes > 0' <<<"$artifact")" = true
+          echo "artifact_name=$SOURCE_BACKUP_ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ steps.source.outputs.artifact_name }}
+          path: ${{ runner.temp }}/encrypted-source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_BACKUP_RUN_ID }}
+
+      - name: Проверить журнал, SHA и расшифровать только на runner
+        shell: bash
+        env:
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mapfile -t dumps < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg')
+          mapfile -t checksums < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg.sha256')
+          mapfile -t journals < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.json')
+          test "${#dumps[@]}" = 1
+          test "${#checksums[@]}" = 1
+          test "${#journals[@]}" = 1
+          expected="$(tr -d '[:space:]' < "${checksums[0]}")"
+          [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
+          test "$(sha256sum "${dumps[0]}" | awk '{print $1}')" = "$expected"
+          jq -e --arg digest "$expected" --arg run "$SOURCE_BACKUP_RUN_ID" --arg repository "$GITHUB_REPOSITORY" '
+            .schemaVersion == 1 and
+            .operation == "backup" and
+            .status == "success" and
+            .repository == $repository and
+            .workflowRunId == $run and
+            .encryptedSha256 == $digest and
+            .encryptedBytes > 0 and
+            .archiveEntries > 0 and
+            .archiveFormat == "PostgreSQL custom" and
+            .encryption == "OpenPGP symmetric AES-256"
+          ' "${journals[0]}" >/dev/null
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --output "$RUNNER_TEMP/minuta-v151-source.dump" --decrypt "${dumps[0]}"
+          test "$(sha256sum minuta-online-booking/scripts/commercial-sales-v151-backup-diagnostic.sql | awk '{print $1}')" \
+            = "$DIAGNOSTIC_SQL_SHA256"
+
+      - name: Проверить защитные фильтры
+        run: |
+          node minuta-online-booking/scripts/crm-snapshot-toc-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-toc-review-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-postdata-test.mjs
+          node minuta-online-booking/tests/commercial-sales-v151-backup-diagnostic-static-test.mjs
+
+      - name: Выполнить только DDL-диагностику без TABLE DATA
+        shell: bash
+        env:
+          MINUTA_RESTORE_SOURCE_DUMP: ${{ runner.temp }}/minuta-v151-source.dump
+        run: bash minuta-online-booking/scripts/commercial-sales-v151-backup-diagnostic.sh
+
+      - name: Добавить проверяемое происхождение
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/minuta-v151-backup-ddl-diagnostic.json"
+          jq --arg sourceRun "$SOURCE_BACKUP_RUN_ID" \
+            --arg artifactId "$SOURCE_BACKUP_ARTIFACT_ID" \
+            --arg artifactName "$SOURCE_BACKUP_ARTIFACT_NAME" \
+            --arg sourceSha "$SOURCE_BACKUP_HEAD_SHA" \
+            --arg sqlSha "$DIAGNOSTIC_SQL_SHA256" \
+            --arg workflowRun "$GITHUB_RUN_ID" \
+            '. + {
+              sourceBackupRunId:$sourceRun,
+              sourceBackupArtifactId:$artifactId,
+              sourceBackupArtifactName:$artifactName,
+              sourceBackupSha:$sourceSha,
+              diagnosticSqlSha256:$sqlSha,
+              workflowRunId:$workflowRun
+            }' "$result" > "$result.final"
+          mv "$result.final" "$result"
+          {
+            echo '### v151: DDL-only диагностика закреплённой production-копии'
+            echo "- Backup run: \`$SOURCE_BACKUP_RUN_ID\`, source SHA: \`$SOURCE_BACKUP_HEAD_SHA\`"
+            echo "- DDL fingerprint: \`$(jq -r '.ddlFingerprint' "$result")\`"
+            echo "- Совпадение DDL-компонентов с real test PG: \`$(jq -r '.ddlMatchesRealTestComponents' "$result")\`"
+            echo '- TABLE DATA не восстанавливались; строки бизнес-данных не читались'
+            echo '- Owner/ACL не подтверждаются этой копией и не являются production evidence'
+            echo '- Контейнер PostgreSQL без сети удалён; production/test DB не изменялись'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Сохранить только санитизированный schema-отчёт
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: minuta-v151-backup-ddl-diagnostic-${{ github.run_id }}
+          path: ${{ runner.temp }}/minuta-v151-backup-ddl-diagnostic.json
+          if-no-files-found: error
+          retention-days: 35
+
+      - name: Удалить расшифрованную копию и временные файлы
+        if: always()
+        shell: bash
+        run: |
+          rm -f -- "$RUNNER_TEMP/minuta-v151-source.dump" "$RUNNER_TEMP/minuta-v151-ddl-private.log" \
+            "$RUNNER_TEMP/source.toc" "$RUNNER_TEMP/public.toc" "$RUNNER_TEMP/public-post-data.sql" \
+            "$RUNNER_TEMP/filtered-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
+          if test -d "$RUNNER_TEMP/encrypted-source"; then
+            find "$RUNNER_TEMP/encrypted-source" -type f -delete
+            find "$RUNNER_TEMP/encrypted-source" -depth -type d -empty -delete
+          fi
