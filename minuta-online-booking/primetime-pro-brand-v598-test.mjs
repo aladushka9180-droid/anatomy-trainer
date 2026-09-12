@@ -14,15 +14,15 @@ assert.match(provider, /<title>PrimeTime Pro — кабинет исполнит
 assert.match(provider, /apple-mobile-web-app-title" content="PrimeTime"/);
 assert.match(provider, /<span class="provider-boot-mark"[^>]*>PT<\/span>/);
 assert.match(provider, /<span class="brand-mark">PT<\/span><span><strong>PrimeTime Pro<\/strong>/);
-assert.match(provider, /rel="icon" href="provider-icon\.svg\?v=711"/);
-assert.match(provider, /property="og:image" content="[^"]+\/provider-og\.png\?v=711"/);
-assert.match(provider, /name="twitter:image" content="[^"]+\/provider-og\.png\?v=711"/);
+assert.match(provider, /rel="icon" href="provider-icon\.svg\?v=712"/);
+assert.match(provider, /property="og:image" content="[^"]+\/provider-og\.png\?v=712"/);
+assert.match(provider, /name="twitter:image" content="[^"]+\/provider-og\.png\?v=712"/);
 assert.equal(manifest.name, 'PrimeTime Pro — кабинет');
 assert.equal(manifest.short_name, 'PrimeTime');
 assert.deepEqual(manifest.icons.map(icon => icon.src), [
-  'provider-icon-192.png?v=711',
-  'provider-icon-512.png?v=711',
-  'provider-icon-maskable-512.png?v=711',
+  'provider-icon-192.png?v=712',
+  'provider-icon-512.png?v=712',
+  'provider-icon-maskable-512.png?v=712',
 ]);
 
 const publicBrandFiles = [
@@ -75,10 +75,10 @@ assert.match(read('theme-catalog.js'), /window\.MinutaThemeCatalog/, 'совме
 assert.match(read('app.js'), /book_minuta_appointment/, 'совместимый RPC должен сохраниться');
 
 const worker = read('sw.js');
-assert.match(worker, /CACHE_PREFIX\}v711/);
-assert.match(worker, /provider\.webmanifest\?v=711/);
+assert.match(worker, /CACHE_PREFIX\}v712/);
+assert.match(worker, /provider\.webmanifest\?v=712/);
 assert.match(worker, /provider-icon\.svg/);
 assert.match(worker, /provider-og\.png/);
-assert.match(provider, /provider\.js\?v=711/);
+assert.match(provider, /provider\.js\?v=712/);
 
-console.log(`PrimeTime Pro brand v711: PASS (${publicBrandFiles.length} public text surfaces)`);
+console.log(`PrimeTime Pro brand v712: PASS (${publicBrandFiles.length} public text surfaces)`);

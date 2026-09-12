@@ -50,7 +50,6 @@ const ASSETS = [
   './privacy.js?v=712',
   './organization.js?v=712',
   './payment-management.js?v=712',
-  './commerce-management.js?v=712',
   './integration-management.js?v=712',
   './notification-center.js?v=712',
   './client-fields.js?v=712',
@@ -82,6 +81,7 @@ const ASSETS = [
 // Warm after the first screen. A cold installation must not wait for tools
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
+  './commerce-management.js?v=712',
   './provider-feedback-inbox.js?v=712',
   './free-slots-compact.css?v=712',
   './vendor/qrcodegen.js?v=712',
