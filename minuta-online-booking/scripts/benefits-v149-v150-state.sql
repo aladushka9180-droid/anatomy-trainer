@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 
 begin transaction isolation level repeatable read read only;
+set local search_path=public,extensions,pg_catalog;
 
 with
 v149_proc as (
