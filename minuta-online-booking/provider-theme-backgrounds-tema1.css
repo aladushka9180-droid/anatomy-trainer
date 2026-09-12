@@ -1,0 +1,128 @@
+/* Approved TEMA 1 canvases: one viewport composition, never a tiled page texture. */
+.provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
+.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
+.provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  background-size:cover!important;
+  background-attachment:fixed!important;
+}
+
+.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
+  background-color:#eaf2f6!important;
+  background-image:
+    linear-gradient(rgba(249,252,254,.23),rgba(243,249,252,.23)),
+    url("provider-snow-leopard-desktop-v2.webp")!important;
+}
+
+.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
+  background-color:#f4ede3!important;
+  background-image:
+    linear-gradient(rgba(255,251,246,.30),rgba(250,242,232,.30)),
+    url("provider-pearl-zebra-desktop-v2.webp")!important;
+}
+
+.provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+  background-color:#f3c49e!important;
+  background-image:
+    linear-gradient(rgba(255,239,224,.30),rgba(250,217,187,.30)),
+    url("provider-apricot-tiger-desktop-v2.webp")!important;
+}
+
+/* The artwork belongs to the outer canvas; operational surfaces remain clean. */
+.provider-body:is(
+  [data-provider-theme="snow-leopard"],
+  [data-provider-theme="pearl-zebra"],
+  [data-provider-theme="apricot-tiger"]
+)[data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace,.provider-view,.schedule-card) {
+  background-color:transparent!important;
+  background-image:none!important;
+}
+
+.provider-body:is(
+  [data-provider-theme="snow-leopard"],
+  [data-provider-theme="pearl-zebra"],
+  [data-provider-theme="apricot-tiger"]
+)[data-provider-layout] :is(
+  .provider-sidebar,
+  .provider-topbar,
+  .provider-appearance-popover,
+  .date-navigation,
+  .date-strip,
+  .schedule-toolbar,
+  .timeline-stage,
+  .calendar-overview-day,
+  .provider-mobile-nav,
+  .booking-sheet,
+  dialog
+) {
+  background-image:none!important;
+}
+
+.provider-body:is(
+  [data-provider-theme="snow-leopard"],
+  [data-provider-theme="pearl-zebra"],
+  [data-provider-theme="apricot-tiger"]
+)[data-provider-layout] :is(.provider-booking,.timeline-booking,.calendar-overview-booking,.provider-break,.timeline-break) {
+  background-image:none!important;
+}
+
+/* Theme previews show the same motifs without allowing them to reshape the picker. */
+.theme-snow-leopard .theme-swatch {
+  background:#eaf2f6 url("provider-snow-leopard-desktop-v2.webp") center/cover no-repeat!important;
+}
+.theme-pearl-zebra .theme-swatch {
+  background:#f4ede3 url("provider-pearl-zebra-desktop-v2.webp") center/cover no-repeat!important;
+}
+.theme-apricot-tiger .theme-swatch {
+  background:#f3c49e url("provider-apricot-tiger-desktop-v2.webp") center/cover no-repeat!important;
+}
+
+.provider-body[data-provider-theme][data-provider-layout] .provider-theme-option {
+  overflow:hidden!important;
+  border-radius:13px!important;
+  contain:paint;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-theme-option .theme-swatch {
+  overflow:hidden!important;
+  border-radius:10px!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-theme-option .theme-swatch i {
+  border-radius:3px!important;
+}
+
+@media (max-width:760px) {
+  .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
+  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+    background-position:center top!important;
+    background-size:cover!important;
+    background-attachment:fixed!important;
+  }
+
+  .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
+    background-image:
+      linear-gradient(rgba(249,252,254,.28),rgba(243,249,252,.28)),
+      url("provider-snow-leopard-mobile-v2.webp")!important;
+  }
+
+  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
+    background-image:
+      linear-gradient(rgba(255,251,246,.34),rgba(250,242,232,.34)),
+      url("provider-pearl-zebra-mobile-v2.webp")!important;
+  }
+
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+    background-image:
+      linear-gradient(rgba(255,239,224,.34),rgba(250,217,187,.34)),
+      url("provider-apricot-tiger-mobile-v2.webp")!important;
+  }
+}
+
+@media (prefers-reduced-data:reduce) {
+  .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
+  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+    background-image:var(--atmosphere-background)!important;
+  }
+}
