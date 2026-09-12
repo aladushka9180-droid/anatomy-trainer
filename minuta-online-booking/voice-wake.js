@@ -18,6 +18,12 @@
     return normalizeWakePhrase(value).includes(WAKE_PHRASE);
   }
 
+  function extractWakeCommand(value = '') {
+    const transcript = String(value).trim().replace(/\s+/g, ' ');
+    const match = transcript.match(/привет[\s,!.?:;—–-]*альбина(?:[\s,!.?:;—–-]+([\s\S]*))?$/iu);
+    return String(match?.[1] || '').trim().slice(0, 500);
+  }
+
   function createController(options = {}) {
     const doc = options.document || global.document;
     const Recognition = options.Recognition === undefined
@@ -42,7 +48,11 @@
     let wakeTriggered = false;
     let bound = false;
     let dashboardObserver = null;
-    const handlePageHide = () => disarmWake();
+    const handlePageHide = () => {
+      global.__minutaAssistantWakeRequest = false;
+      global.__minutaAssistantWakeCommand = '';
+      disarmWake();
+    };
     const handleSessionReset = () => disarmWake();
 
     function clearSavedEnabled() {
@@ -106,7 +116,7 @@
       }, RESTART_DELAY_MS) ?? null;
     }
 
-    function triggerWake() {
+    function triggerWake(command = '') {
       if (wakeTriggered || dialog.open) return;
       wakeTriggered = true;
       enabled = false;
@@ -114,9 +124,11 @@
       stopRecognition();
       renderState('Фраза услышана. Открываю помощника…');
       global.__minutaAssistantWakeRequest = true;
+      global.__minutaAssistantWakeCommand = String(command || '').trim().slice(0, 500);
       try { openButton.click(); }
       catch {
         global.__minutaAssistantWakeRequest = false;
+        global.__minutaAssistantWakeCommand = '';
         wakeTriggered = false;
         pausedByError = true;
         renderState('Не удалось открыть помощника. Откройте его кнопкой.');
@@ -144,12 +156,17 @@
       };
       current.onresult = event => {
         if (epoch !== recognitionEpoch || !canListen()) return;
+        let matchedCommand = null;
         for (const item of Array.from(event.results || [])) {
           if (item?.isFinal === false) continue;
           for (const alternative of Array.from(item || [])) {
-            if (matchesWakePhrase(alternative?.transcript || '')) { triggerWake(); return; }
+            const transcript = alternative?.transcript || '';
+            if (!matchesWakePhrase(transcript)) continue;
+            const command = extractWakeCommand(transcript);
+            if (matchedCommand === null || command.length > matchedCommand.length) matchedCommand = command;
           }
         }
+        if (matchedCommand !== null) triggerWake(matchedCommand);
       };
       current.onerror = event => {
         if (epoch !== recognitionEpoch) return;
@@ -204,6 +221,7 @@
     function handleDialogClose() {
       wakeTriggered = false;
       global.__minutaAssistantWakeRequest = false;
+      global.__minutaAssistantWakeCommand = '';
       reconcile();
     }
 
@@ -211,6 +229,7 @@
       if (doc.hidden) {
         wakeTriggered = false;
         global.__minutaAssistantWakeRequest = false;
+        global.__minutaAssistantWakeCommand = '';
         disarmWake('Ожидание выключено, потому что приложение было скрыто.');
         return;
       }
@@ -249,7 +268,7 @@
     return { bind, destroy, reconcile, startRecognition, stopRecognition };
   }
 
-  const api = Object.freeze({ normalizeWakePhrase, matchesWakePhrase, createController });
+  const api = Object.freeze({ normalizeWakePhrase, matchesWakePhrase, extractWakeCommand, createController });
   global.MinutaVoiceWake = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 

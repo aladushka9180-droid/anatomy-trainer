@@ -20,6 +20,9 @@ assert.doesNotMatch(wakeSource, /\b(fetch|XMLHttpRequest|WebSocket)\b/, 'wake-с
 assert.equal(wake.normalizeWakePhrase('  Привет, Ёлка!  '), 'привет елка');
 assert.equal(wake.matchesWakePhrase('Эй… привет, Альбина!'), true);
 assert.equal(wake.matchesWakePhrase('привет, Алевтина'), false);
+assert.equal(wake.extractWakeCommand('Привет, Альбина, какие завтра окошки?'), 'какие завтра окошки?');
+assert.equal(wake.extractWakeCommand('Эй, привет Альбина — покажи важное'), 'покажи важное');
+assert.equal(wake.extractWakeCommand('Привет, Альбина'), '');
 
 const listeners = new Map();
 const makeElement = (overrides = {}) => {
@@ -66,8 +69,9 @@ toggle.checked = true;
 toggle.emit('change');
 timers.shift()?.();
 assert.equal(FakeRecognition.instances.length, 1);
-FakeRecognition.instances[0].emitResult('Привет, Альбина');
+FakeRecognition.instances[0].emitResult('Привет, Альбина, какие завтра окошки?');
 assert.equal(globalThis.__minutaAssistantWakeRequest, true);
+assert.equal(globalThis.__minutaAssistantWakeCommand, 'какие завтра окошки?');
 assert.equal(toggle.checked, false, 'после фразы ожидание должно выключиться');
 FakeRecognition.instances[0].emitResult('Привет, Альбина');
 assert.equal(openButton.clicks, 1, 'повторный результат не должен повторно открыть помощника');

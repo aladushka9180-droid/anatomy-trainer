@@ -2171,6 +2171,7 @@
     let conversationContext = {};
     let correctionOriginal = '';
     let activePlan = null;
+    let autoSpeakNextAnswer = false;
 
     function refreshAssistantMemory(snapshot = bridge.getReadOnlySnapshot?.() || {}) {
       if (!memoryText) return;
@@ -2453,6 +2454,7 @@
 
     function close() {
       requestEpoch += 1;
+      autoSpeakNextAnswer = false;
       abortRecognition();
       stopSpeech();
       if (dialog.open) dialog.close();
@@ -2475,6 +2477,7 @@
       conversationContext = {};
       correctionOriginal = '';
       activePlan = null;
+      autoSpeakNextAnswer = false;
       starters?.classList.remove('is-secondary');
       if (capabilities) capabilities.open = false;
       backButton.hidden = true;
@@ -2496,6 +2499,7 @@
       conversationContext = {};
       correctionOriginal = '';
       activePlan = null;
+      autoSpeakNextAnswer = false;
       if (proactive) { proactive.hidden = true; proactive.dataset.voicePrompt = ''; }
       if (proactiveTitle) proactiveTitle.textContent = '';
       if (proactiveMessage) proactiveMessage.textContent = '';
@@ -2820,6 +2824,10 @@
         refreshAssistantMemory(currentSnapshot);
         close();
       });
+      if (autoSpeakNextAnswer && !model.loading) {
+        autoSpeakNextAnswer = false;
+        speakText(assistantSpeechText(model), 'Ответ озвучен.');
+      }
     }
 
     async function understand() {
@@ -2965,6 +2973,7 @@
           } else {
             resultHandled = true;
             recordingRequested = false;
+            autoSpeakNextAnswer = true;
             understand();
           }
         }
@@ -3026,6 +3035,7 @@
         if (!resultHandled && input.value.trim() && dialog.open) {
           resultHandled = true;
           receivedFinal = true;
+          autoSpeakNextAnswer = true;
           understand();
         } else if (!receivedFinal && !recognitionError && dialog.open) {
           status.textContent = endedByUser
@@ -3114,12 +3124,14 @@
       });
       openButton.addEventListener('click', () => {
         const wakeRequested = global.__minutaAssistantWakeRequest === true;
+        const wakeCommand = wakeRequested ? String(global.__minutaAssistantWakeCommand || '').trim().slice(0, 500) : '';
         global.__minutaAssistantWakeRequest = false;
+        global.__minutaAssistantWakeCommand = '';
         refreshRussianVoice();
         dialog.classList.remove('has-answer');
         requestEpoch += 1;
         abortRecognition();
-        input.value = '';
+        input.value = wakeCommand;
         lastModel = null;
         lastSessionGeneration = null;
         pendingCommand = '';
@@ -3130,6 +3142,7 @@
         refreshAssistantMemory(openingSnapshot);
         correctionOriginal = '';
         activePlan = null;
+        autoSpeakNextAnswer = Boolean(wakeCommand);
         input.placeholder = 'Напишите вопрос…';
         result.hidden = true;
         result.replaceChildren();
@@ -3141,7 +3154,8 @@
           : directRecognitionAvailable ? (touchDevice ? 'Коснитесь микрофона и говорите. Повторное касание завершит запись.' : 'Ничего не изменится без вашего подтверждения.') : touchDevice ? 'Нажмите микрофон, затем значок диктовки на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
         dialog.showModal();
         setTimeout(() => {
-          if (wakeRequested && directRecognitionAvailable) startRecognition();
+          if (wakeCommand) understand();
+          else if (wakeRequested && directRecognitionAvailable) startRecognition();
           else (Recognition ? listenButton : input).focus();
         }, 0);
       });

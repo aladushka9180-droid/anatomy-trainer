@@ -218,6 +218,21 @@ const voice = require('./voice-assistant.js');
 const controller = voice.createController({ document:documentStub, bridge });
 controller.bind();
 
+globalThis.__minutaAssistantWakeRequest = true;
+globalThis.__minutaAssistantWakeCommand = 'какие завтра окошки?';
+const recognitionsBeforeWakeCommand = FakeRecognition.instances.length;
+openButton.emit('click');
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.equal(globalThis.__minutaAssistantWakeCommand, '', 'команда вызова должна очищаться сразу после передачи помощнику');
+assert.equal(FakeRecognition.instances.length, recognitionsBeforeWakeCommand, 'готовая команда после имени не должна запускать второй сеанс микрофона');
+assert.equal(result.hidden, false, 'вопрос после имени должен сразу обрабатываться');
+assert.equal(speechSynthesis.speakCount, 1, 'ответ на вопрос в одной фразе должен озвучиваться автоматически');
+assert.match(speechSynthesis.lastUtterance.text, /свобод|услуг|окн/i, 'озвучивается ответ на переданный вопрос');
+controller.stopSpeech();
+backButton.emit('click');
+speechSynthesis.speakCount = 0;
+speechSynthesis.lastUtterance = null;
+
 openButton.emit('click');
 input.value = 'какие записи';
 form.emit('submit');
@@ -272,6 +287,7 @@ assert.equal(oldRecognition.stopCount, 0, 'отпускание после уд�
 Date.now = originalDateNow;
 assert.equal(oldRecognition.maxAlternatives, 5, 'мобильное распознавание должно запрашивать несколько вариантов фразы');
 const snapshotCallsBeforeRecognitionResult = snapshotCalls;
+const speakCountBeforeRecognitionResult = speechSynthesis.speakCount;
 oldRecognition.onresult({
   results:{ 0:Object.assign([
     { transcript:'какие зарисовки сегодня', confidence:0.9 },
@@ -289,6 +305,8 @@ assert.equal(oldRecognition.stopCount, 1, 'повторное касание д�
 assert.equal(oldRecognition.abortCount, 0);
 listenButton.emit('click', { pointerType:'touch' });
 oldRecognition.onend();
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(speechSynthesis.speakCount, speakCountBeforeRecognitionResult + 1, 'ответ на обычный голосовой вопрос должен озвучиваться автоматически');
 assert.equal(snapshotCalls, snapshotCallsBeforeRecognitionResult + 2, 'команда должна обрабатываться после явного завершения мобильной записи');
 
 listenButton.emit('pointerdown', { pointerType:'touch', pointerId:4, isPrimary:true });
