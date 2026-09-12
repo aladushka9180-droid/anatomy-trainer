@@ -4,7 +4,6 @@
   const STORAGE_KEY = 'minuta-assistant-wake-v1';
   const WAKE_PHRASE = 'привет альбина';
   const RESTART_DELAY_MS = 260;
-  const QUICK_END_LIMIT = 3;
 
   function normalizeWakePhrase(value = '') {
     return String(value)
@@ -41,20 +40,16 @@
     let restartTimer = null;
     let pausedByError = false;
     let wakeTriggered = false;
-    let quickEnds = 0;
-    let startedAt = 0;
     let bound = false;
     let dashboardObserver = null;
-    const handlePageHide = () => stopRecognition();
-    const handleSessionReset = () => { stopRecognition(); renderState(); };
+    const handlePageHide = () => disarmWake();
+    const handleSessionReset = () => disarmWake();
 
-    function readEnabled() {
-      try { return JSON.parse(storage?.getItem?.(STORAGE_KEY) || '{}').enabled === true; }
-      catch { return false; }
-    }
-
-    function saveEnabled() {
-      try { storage?.setItem?.(STORAGE_KEY, JSON.stringify({ enabled })); } catch {}
+    function clearSavedEnabled() {
+      // Older releases persisted the switch and restarted speech recognition on
+      // every app launch. Keep the stored value explicitly off so an older
+      // cached page cannot resume the microphone either.
+      try { storage?.setItem?.(STORAGE_KEY, JSON.stringify({ enabled:false })); } catch {}
     }
 
     function authenticated() {
@@ -95,6 +90,13 @@
       try { current?.abort?.(); } catch {}
     }
 
+    function disarmWake(message = '') {
+      enabled = false;
+      clearSavedEnabled();
+      stopRecognition();
+      renderState(message);
+    }
+
     function scheduleStart() {
       clearRestart();
       if (!canListen()) { renderState(); return; }
@@ -107,6 +109,8 @@
     function triggerWake() {
       if (wakeTriggered || dialog.open) return;
       wakeTriggered = true;
+      enabled = false;
+      clearSavedEnabled();
       stopRecognition();
       renderState('Фраза услышана. Открываю помощника…');
       global.__minutaAssistantWakeRequest = true;
@@ -136,7 +140,6 @@
       current.maxAlternatives = 3;
       current.onstart = () => {
         if (epoch !== recognitionEpoch) return;
-        startedAt = Date.now();
         renderState();
       };
       current.onresult = event => {
@@ -154,7 +157,7 @@
         if (error === 'aborted' || error === 'no-speech') return;
         if (error === 'not-allowed' || error === 'service-not-allowed') {
           enabled = false;
-          saveEnabled();
+          clearSavedEnabled();
           pausedByError = false;
           renderState('Нет доступа к микрофону. Разрешите его для сайта и включите ожидание снова.');
           return;
@@ -171,14 +174,7 @@
         if (epoch !== recognitionEpoch) return;
         recognition = null;
         if (wakeTriggered || pausedByError || !enabled) return;
-        const elapsed = startedAt ? Date.now() - startedAt : 0;
-        quickEnds = elapsed && elapsed < 700 ? quickEnds + 1 : 0;
-        if (quickEnds >= QUICK_END_LIMIT) {
-          pausedByError = true;
-          renderState('Браузер несколько раз сразу остановил микрофон. Выключите и включите ожидание снова.');
-          return;
-        }
-        scheduleStart();
+        disarmWake('Ожидание завершено без вызова. Включите его снова, когда понадобится Альбина.');
       };
       renderState('Включаю микрофон… После разрешения скажите «Привет, Альбина».');
       try { current.start(); }
@@ -199,8 +195,7 @@
       enabled = Boolean(toggle.checked && supported);
       pausedByError = false;
       wakeTriggered = false;
-      quickEnds = 0;
-      saveEnabled();
+      clearSavedEnabled();
       stopRecognition();
       renderState();
       if (enabled) startRecognition();
@@ -212,12 +207,23 @@
       reconcile();
     }
 
+    function handleVisibilityChange() {
+      if (doc.hidden) {
+        wakeTriggered = false;
+        global.__minutaAssistantWakeRequest = false;
+        disarmWake('Ожидание выключено, потому что приложение было скрыто.');
+        return;
+      }
+      renderState();
+    }
+
     function bind() {
       if (bound) return;
       bound = true;
-      enabled = supported && readEnabled();
+      enabled = false;
+      clearSavedEnabled();
       toggle.addEventListener('change', handleToggle);
-      doc.addEventListener?.('visibilitychange', reconcile);
+      doc.addEventListener?.('visibilitychange', handleVisibilityChange);
       global.addEventListener?.('pagehide', handlePageHide);
       dialog.addEventListener?.('close', handleDialogClose);
       global.addEventListener?.('minuta:provider-session-reset', handleSessionReset);
@@ -226,7 +232,6 @@
         dashboardObserver.observe(dashboard, { attributes:true, attributeFilter:['hidden'] });
       }
       renderState();
-      if (canListen()) scheduleStart();
     }
 
     function destroy() {
@@ -234,7 +239,7 @@
       dashboardObserver?.disconnect?.();
       dashboardObserver = null;
       toggle.removeEventListener?.('change', handleToggle);
-      doc.removeEventListener?.('visibilitychange', reconcile);
+      doc.removeEventListener?.('visibilitychange', handleVisibilityChange);
       global.removeEventListener?.('pagehide', handlePageHide);
       dialog.removeEventListener?.('close', handleDialogClose);
       global.removeEventListener?.('minuta:provider-session-reset', handleSessionReset);

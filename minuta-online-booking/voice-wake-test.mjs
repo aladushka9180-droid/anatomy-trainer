@@ -45,12 +45,13 @@ const doc = {
   addEventListener(type, listener) { listeners.set(type, listener); },
   removeEventListener(type) { listeners.delete(type); }
 };
-const storage = { value:'{"enabled":false}', getItem() { return this.value; }, setItem(key, value) { this.value = value; } };
+const storage = { value:'{"enabled":true}', getItem() { return this.value; }, setItem(key, value) { this.value = value; } };
 class FakeRecognition {
   static instances = [];
   constructor() { this.aborted = 0; FakeRecognition.instances.push(this); }
   start() { this.onstart?.(); }
   abort() { this.aborted += 1; }
+  finish() { this.onend?.(); }
   emitResult(transcript) { this.onresult?.({ results:[Object.assign([{ transcript }], { isFinal:true })] }); }
 }
 globalThis.isSecureContext = true;
@@ -58,15 +59,45 @@ globalThis.MinutaProviderAssistant = { getReadOnlySnapshot:() => ({ authenticate
 const timers = [];
 const controller = wake.createController({ document:doc, Recognition:FakeRecognition, storage, setTimeout(fn) { timers.push(fn); return timers.length; }, clearTimeout() {} });
 controller.bind();
+assert.equal(toggle.checked, false, 'сохранённое включение не должно запускать микрофон после повторного открытия');
+assert.equal(FakeRecognition.instances.length, 0, 'микрофон не должен запускаться автоматически');
+assert.equal(storage.value, '{"enabled":false}', 'старое постоянное включение должно быть сброшено');
 toggle.checked = true;
 toggle.emit('change');
 timers.shift()?.();
 assert.equal(FakeRecognition.instances.length, 1);
 FakeRecognition.instances[0].emitResult('Привет, Альбина');
 assert.equal(globalThis.__minutaAssistantWakeRequest, true);
+assert.equal(toggle.checked, false, 'после фразы ожидание должно выключиться');
 FakeRecognition.instances[0].emitResult('Привет, Альбина');
 assert.equal(openButton.clicks, 1, 'повторный результат не должен повторно открыть помощника');
 controller.destroy();
+
+const visibilityController = wake.createController({ document:doc, Recognition:FakeRecognition, storage, setTimeout(fn) { timers.push(fn); return timers.length; }, clearTimeout() {} });
+visibilityController.bind();
+toggle.checked = true;
+toggle.emit('change');
+const visibilityRecognition = FakeRecognition.instances.at(-1);
+doc.hidden = true;
+listeners.get('visibilitychange')?.();
+assert.equal(toggle.checked, false, 'скрытие приложения должно выключать ожидание');
+assert.equal(visibilityRecognition.aborted, 1, 'скрытие приложения должно останавливать микрофон');
+doc.hidden = false;
+listeners.get('visibilitychange')?.();
+timers.splice(0).forEach(fn => fn());
+assert.equal(FakeRecognition.instances.at(-1), visibilityRecognition, 'возврат в приложение не должен запускать микрофон снова');
+visibilityController.destroy();
+
+const endController = wake.createController({ document:doc, Recognition:FakeRecognition, storage, setTimeout(fn) { timers.push(fn); return timers.length; }, clearTimeout() {} });
+endController.bind();
+toggle.checked = true;
+toggle.emit('change');
+const endedRecognition = FakeRecognition.instances.at(-1);
+endedRecognition.finish();
+timers.splice(0).forEach(fn => fn());
+assert.equal(toggle.checked, false, 'завершившееся распознавание не должно циклически перезапускаться');
+assert.equal(FakeRecognition.instances.at(-1), endedRecognition, 'после завершения не должно быть нового системного звука запуска');
+endController.destroy();
 
 globalThis.isSecureContext = false;
 const unsupportedToggle = makeElement();
@@ -81,4 +112,4 @@ unsupported.bind();
 assert.equal(unsupportedToggle.disabled, true);
 assert.match(unsupportedStatus.textContent, /не поддерживает/);
 unsupported.destroy();
-console.log('Voice wake checks passed: normalization, exact phrase guard, explicit enable and single trigger');
+console.log('Voice wake checks passed: one-shot enable, no relaunch restart, exact phrase and single trigger');
