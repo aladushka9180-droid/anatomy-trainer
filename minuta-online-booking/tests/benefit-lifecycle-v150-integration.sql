@@ -79,8 +79,8 @@ insert into public.client_benefit_instruments(
   '{"name":"V150 lifecycle pass","kind":"visit_pass","services":[]}'::jsonb,5,current_date+10,
   current_setting('minuta.v150_owner')::uuid
 );
-insert into public.benefit_ledger(organization_id,instrument_id,event_type,visits_balance,actor_id)
-values(current_setting('minuta.v150_org')::uuid,'00000000-0000-4000-8000-000000001502','issued',5,current_setting('minuta.v150_owner')::uuid);
+insert into public.benefit_ledger(organization_id,instrument_id,event_type,amount_balance_rub,visits_balance,actor_id)
+values(current_setting('minuta.v150_org')::uuid,'00000000-0000-4000-8000-000000001502','issued',0,5,current_setting('minuta.v150_owner')::uuid);
 insert into public.benefit_redemptions(
   id,organization_id,instrument_id,booking_id,service_id,units,status,acted_by
 ) values(
@@ -155,8 +155,8 @@ insert into public.client_benefit_instruments(
   '{"name":"V150 expired pass","kind":"visit_pass","services":[]}'::jsonb,5,current_date-1,
   current_setting('minuta.v150_owner')::uuid
 );
-insert into public.benefit_ledger(organization_id,instrument_id,event_type,visits_balance,actor_id)
-values(current_setting('minuta.v150_org')::uuid,'00000000-0000-4000-8000-000000001509','issued',5,current_setting('minuta.v150_owner')::uuid);
+insert into public.benefit_ledger(organization_id,instrument_id,event_type,amount_balance_rub,visits_balance,actor_id)
+values(current_setting('minuta.v150_org')::uuid,'00000000-0000-4000-8000-000000001509','issued',0,5,current_setting('minuta.v150_owner')::uuid);
 
 set local role authenticated;
 select set_config('minuta.v150_payload',public.get_minuta_benefit_lifecycle_v150(
