@@ -61,7 +61,7 @@
     'час', 'часа', 'часов', 'утра', 'дня', 'вечера', 'ночи', 'день', 'дни', 'неделю', 'недели', 'недель', 'продолжительность',
     'после', 'обеда', 'между', 'клиентами', 'визитами', 'раньше', 'раннее', 'позже', 'позднее', 'самое', 'промежутке', 'обычно',
     'сегодня', 'завтра', 'послезавтра', 'запиши', 'записать', 'добавь', 'добавить', 'поставь', 'поставить',
-    'забронируй', 'забронировать', 'создай', 'создать', 'найди', 'покажи', 'подбери', 'предложи', 'свободное', 'свободный', 'окно', 'окошко', 'слот',
+    'забронируй', 'забронировать', 'создай', 'создать', 'найди', 'покажи', 'подбери', 'предложи', 'какие', 'какой', 'свободное', 'свободный', 'окно', 'окошко', 'окошки', 'слот',
     'расписание', 'график', 'запись', 'записи', 'визит', 'прием', 'сеанс', 'новую', 'новый', 'клиент', 'клиента', 'клиентку', 'выручка', 'доход', 'оплата', 'материал', 'остаток', 'склад', 'цена', 'стоимость',
     'уведомление', 'уведомления', 'напоминание', 'подтверждение', 'сообщение', 'отзыв', 'экспорт', 'настройки', 'настроить', 'тариф',
     'организация', 'филиал', 'сотрудник', 'специалист', 'роль', 'доступ', 'ресурс', 'кабинет', 'смена', 'услуга', 'видно', 'отображается',
@@ -210,7 +210,8 @@
     if (FREE_SLOT_WORDS.test(text)) return true;
     const slot = fuzzyRoot(text, ['свободн', 'окошк', 'окно', 'слот']);
     const search = fuzzyRoot(text, ['найди', 'покажи', 'подбери', 'предложи']);
-    return slot && (search || /(?:^|\s)есть\s+ли(?=\s|$)/.test(text));
+    const question = /(?:^|\s)каки[а-я]*(?=\s|$)/.test(text);
+    return slot && (search || question || /(?:^|\s)есть\s+ли(?=\s|$)/.test(text));
   }
 
   function understanding(model, repaired) {
@@ -998,7 +999,7 @@
 
   function understoodAs(model) {
     const plan = model?.plan || {};
-    if (model?.kind === 'find_slots') return `найти окно${plan.serviceName ? ` на «${plan.serviceName}»` : ''}${plan.date ? `, ${formatDate(plan.date)}` : ''}${plan.timePreference?.label ? `, ${plan.timePreference.label}` : ''}`;
+    if (model?.kind === 'find_slots') return `${plan.general ? 'показать свободные окна' : 'найти окно'}${plan.serviceName ? ` на «${plan.serviceName}»` : ''}${plan.date ? `, ${formatDate(plan.date)}` : ''}${plan.timePreference?.label ? `, ${plan.timePreference.label}` : ''}`;
     if (model?.kind === 'booking_draft') return `подготовить запись${plan.clientName ? ` для ${plan.clientName}` : ''}${plan.serviceName ? ` на «${plan.serviceName}»` : ''}${plan.date ? `, ${formatDate(plan.date)}` : ''}${plan.time ? ` в ${plan.time}` : plan.timePreference?.label ? `, ${plan.timePreference.label}` : ''}`;
     if (model?.kind === 'operation_preview') return `${model.operation === 'cancel' ? 'проверить отмену' : 'подготовить перенос'}${plan.clientName ? ` записи ${plan.clientName}` : ''}`;
     if (model?.kind === 'schedule_summary') return `показать расписание ${String(model.title || '').replace(/^Записи:\s*/i, '').toLocaleLowerCase('ru-RU')}`;
@@ -1723,11 +1724,12 @@
     }
 
     if (freeSlotSignal(text)) {
+      const general = !service && candidates.length === 0;
       return finish({
         kind:'find_slots',
-        title:'Поиск свободного времени',
-        message:service ? `Проверю расписание и покажу действительно свободные интервалы${timePreference ? ` с учётом условия «${timePreference.label}»` : ''}.` : 'Сначала выберите услугу — от неё зависит длительность свободного окна.',
-        plan:{ clientName:'', date, time:'', ...(timePreference ? { timePreference } : {}), serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:selectedDuration, ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
+        title:general ? 'Свободные окна' : 'Поиск свободного времени',
+        message:general ? 'Проверю общие свободные промежутки без привязки к услуге.' : service ? `Проверю расписание и покажу действительно свободные интервалы${timePreference ? ` с учётом условия «${timePreference.label}»` : ''}.` : 'Уточните услугу — от неё зависит длительность свободного окна.',
+        plan:{ clientName:'', date, time:'', ...(general ? { general:true } : {}), ...(timePreference ? { timePreference } : {}), serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:selectedDuration, ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
         candidates:candidates.map(item => ({ id:item.id, name:item.name, durationMinutes:item.durationMinutes, defaultDurationMinutes:item.defaultDurationMinutes, perMinute:Boolean(item.perMinute) })),
         canPrepare:true
       });
@@ -1840,7 +1842,18 @@
     add(model.title);
     add(model.message);
     const plan = model.plan || {};
-    if (model.kind === 'booking_draft' || model.kind === 'find_slots') {
+    if (model.kind === 'find_slots' && plan.general) {
+      field('Дата', formatDate(plan.date));
+      if (model.loading) add('Проверяем расписание');
+      else if (model.slotError) add('Свободные окна не загружены. Повторите запрос после синхронизации');
+      else if (Array.isArray(model.windows)) {
+        if (!model.windows.length) add('На эту дату свободных окон нет');
+        else {
+          add('Свободные окна');
+          model.windows.forEach(window => add(`${window.startTime}–${window.endTime}, ${window.durationMinutes} минут`));
+        }
+      }
+    } else if (model.kind === 'booking_draft' || model.kind === 'find_slots') {
       const services = plan.serviceId ? [] : ((model.candidates?.length ? model.candidates : model.availableServices) || []).slice(0, 8);
       if (services.length) {
         add('Выберите услугу');
@@ -1978,7 +1991,7 @@
 
   function needsClarification(model) {
     if (model?.needsDetail) return true;
-    if (model?.kind === 'find_slots') return !model.plan?.serviceId || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
+    if (model?.kind === 'find_slots') return (!model.plan?.general && !model.plan?.serviceId) || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
     if (model?.kind !== 'booking_draft') return false;
     return !model.plan?.clientName || (!model.plan?.time && !model.plan?.timePreference) || !model.plan?.serviceId || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
   }
@@ -2513,6 +2526,14 @@
 
     function detailsMarkup(model) {
       const draft = model.draftText ? `<div class="voice-result-draft"><small>Готовый черновик</small><p>${escapeHtml(model.draftText)}</p></div>` : '';
+      if (model.kind === 'find_slots' && model.plan?.general) {
+        if (model.loading) return '<p class="voice-result-progress">Проверяем расписание…</p>';
+        if (model.slotError) return '<p class="voice-result-empty">Свободные окна не загружены. Повторите запрос после синхронизации.</p>';
+        if (Array.isArray(model.windows)) {
+          if (!model.windows.length) return '<p class="voice-result-empty">На эту дату свободных окон нет.</p>';
+          return `<p class="voice-slot-context">${escapeHtml(formatDate(model.plan.date))} · без привязки к услуге</p><div class="voice-result-choices voice-slot-options" aria-label="Свободные окна">${model.windows.map(window => `<div class="voice-result-choice voice-slot-choice"><strong>${escapeHtml(`${window.startTime}–${window.endTime}`)}</strong><small>${escapeHtml(`${window.durationMinutes} мин`)}</small></div>`).join('')}</div>`;
+        }
+      }
       if (model.kind === 'booking_draft' || model.kind === 'find_slots') {
         const plan = model.plan || {};
         const services = plan.serviceId ? [] : ((model.candidates?.length ? model.candidates : model.availableServices) || []).slice(0, 8);
@@ -2580,7 +2601,8 @@
     }
 
     async function findSlots(model) {
-      if (!model?.plan?.serviceId || (model.plan.perMinute && !Number(model.plan.durationMinutes))) { renderModel(model, lastSessionGeneration); return; }
+      const general = model?.plan?.general === true;
+      if ((!general && !model?.plan?.serviceId) || (model.plan.perMinute && !Number(model.plan.durationMinutes))) { renderModel(model, lastSessionGeneration); return; }
       const epoch = ++requestEpoch;
       const expectedSessionGeneration = lastSessionGeneration;
       const pending = { ...model, loading:true, slots:null, message:'Проверяю расписание и занятые интервалы…' };
@@ -2588,9 +2610,11 @@
       status.textContent = 'Ищем свободное время…';
       let response;
       try {
-        response = await bridge.findAvailableSlots?.(model.plan);
+        response = general
+          ? await bridge.findGeneralAvailability?.(model.plan)
+          : await bridge.findAvailableSlots?.(model.plan);
       } catch {
-        response = { ok:false, reason:'request_failed', slots:[] };
+        response = { ok:false, reason:'request_failed', slots:[], windows:[] };
       }
       if (epoch !== requestEpoch || !dialog.open) return;
       const currentSnapshot = bridge.getReadOnlySnapshot();
@@ -2601,6 +2625,30 @@
         return;
       }
       if (!currentSnapshot.synchronized && response?.ok) response = { ok:false, reason:'not_synchronized', slots:[] };
+      if (general) {
+        const windows = response?.ok && Array.isArray(response.windows) ? response.windows.filter(window =>
+          /^([01]\d|2[0-3]):[0-5]\d$/.test(String(window?.startTime || ''))
+          && /^([01]\d|2[0-3]):[0-5]\d$/.test(String(window?.endTime || ''))
+          && Number.isInteger(Number(window?.durationMinutes))
+          && Number(window.durationMinutes) > 0
+          && Number(window.durationMinutes) <= 1440
+        ).slice(0, 12) : [];
+        const resolved = {
+          ...model,
+          loading:false,
+          windows:response?.ok ? windows : null,
+          slotError:!response?.ok,
+          explanation:response?.ok && windows.length ? 'Это общие свободные промежутки мастера. Точное время для конкретной услуги проверяется при записи.' : '',
+          message:response?.ok
+            ? (windows.length ? `Свободных промежутков: ${windows.length}.` : 'На эту дату свободных окон нет.')
+            : response?.reason === 'not_synchronized' ? 'Кабинет сейчас не синхронизирован. Дождитесь обновления данных и повторите запрос.'
+            : response?.reason === 'location_required' ? 'Уточните филиал, чтобы проверить свободные окна.'
+            : 'Не удалось проверить свободные окна. Обновите данные и попробуйте ещё раз.'
+        };
+        renderModel(resolved, expectedSessionGeneration);
+        status.textContent = response?.ok ? 'Свободные окна проверены по актуальному расписанию.' : 'Свободные окна не загружены.';
+        return;
+      }
       const available = response?.ok && Array.isArray(response.slots) ? response.slots.filter(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time))) : [];
       const ranked = applySlotPreferences(available, model.plan?.timePreference || null, { bookings:currentSnapshot.bookings || [], date:model.plan?.date || '', durationMinutes:model.plan?.durationMinutes || response?.durationMinutes || 0 });
       const slots = ranked.slots;
@@ -2898,13 +2946,13 @@
         input.placeholder = 'Напишите вопрос…';
       }
       lastSessionGeneration = snapshot.sessionGeneration;
-      const shouldFindSlots = snapshot.synchronized && ['find_slots','booking_draft'].includes(model.kind) && model.plan?.serviceId && !model.plan?.time && (!model.plan.perMinute || Number(model.plan.durationMinutes));
+      const shouldFindSlots = snapshot.synchronized && ['find_slots','booking_draft'].includes(model.kind) && (model.plan?.general || model.plan?.serviceId) && !model.plan?.time && (!model.plan.perMinute || Number(model.plan.durationMinutes));
       if (shouldFindSlots) {
         findSlots(model);
         return;
       }
       renderModel(model, snapshot.sessionGeneration);
-      status.textContent = learnedRules.length ? 'Исправление запомнено только для этого кабинета.' : model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : aiUnavailable && model.kind === 'help' ? 'Защищённый ИИ-разбор сейчас недоступен. Локальный помощник не изменил данные.' : model.kind === 'error' ? 'Команда не распознана.' : model.kind === 'find_slots' && !model.plan?.serviceId ? 'Выберите услугу, чтобы проверить подходящие интервалы.' : 'Ответ готов. Ничего не изменится без вашего подтверждения.';
+      status.textContent = learnedRules.length ? 'Исправление запомнено только для этого кабинета.' : model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : aiUnavailable && model.kind === 'help' ? 'Защищённый ИИ-разбор сейчас недоступен. Локальный помощник не изменил данные.' : model.kind === 'error' ? 'Команда не распознана.' : model.kind === 'find_slots' && !model.plan?.general && !model.plan?.serviceId ? 'Выберите услугу, чтобы проверить подходящие интервалы.' : 'Ответ готов. Ничего не изменится без вашего подтверждения.';
     }
 
     function joinRecognitionText(first, second) {

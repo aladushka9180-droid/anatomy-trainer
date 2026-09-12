@@ -152,6 +152,7 @@ assert.match(providerHtml, /data-voice-back[\s\S]*Вернуться к осно
 assert.match(provider, /loadProviderFeatureScript\('voice-assistant\.js'\)/, 'Кабинет не загружает голосового помощника по запросу');
 assert.doesNotMatch(providerHtml, /<script[^>]+voice-assistant\.js/, 'Голосовой помощник снова блокирует первый экран');
 assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Голосовой помощник не отделён безопасным интерфейсом от состояния кабинета');
+assert.match(provider, /async findGeneralAvailability\(plan = \{\}\)/, 'Голосовой помощник не умеет безопасно получать общие свободные окна');
 assert.match(config, /assistantRemoteUnderstanding:\s*false/, 'Платный внешний ИИ не выключен в публичной конфигурации');
 assert.match(provider, /remoteUnderstandingEnabled:Boolean\(window\.MINUTA_CONFIG\.assistantRemoteUnderstanding\)/, 'Помощник не публикует явный статус внешнего ИИ');
 assert.match(voiceAssistant, /bridge\.remoteUnderstandingEnabled === true/, 'Локальный помощник может обратиться к внешнему ИИ без явного включения');

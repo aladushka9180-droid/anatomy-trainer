@@ -15231,6 +15231,44 @@ window.MinutaProviderAssistant = Object.freeze({
   undoLastAssistantStep() {
     return restoreProviderAssistantNavigation();
   },
+  async findGeneralAvailability(plan = {}) {
+    const generation = sessionGeneration;
+    const userId = currentUser?.id;
+    if (!userId) return { ok:false, reason:'auth_required', windows:[] };
+    if (!navigator.onLine || !bookingCreationReady || bookingsSnapshotFromCache) return { ok:false, reason:'not_synchronized', windows:[] };
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return { ok:false, reason:'invalid_request', windows:[] };
+    const date = providerAssistantIsoDate(plan.date);
+    const today = businessTodayIso();
+    const latest = new Date(`${today}T12:00:00+04:00`);
+    latest.setUTCDate(latest.getUTCDate() + 730);
+    if (!date || date < today || date > businessTodayIso(latest)) return { ok:false, reason:'invalid_request', windows:[] };
+    const { data:sessionData, error:sessionError } = await db.auth.getSession();
+    if (sessionError || !sessionIsCurrent(userId, generation) || sessionData?.session?.user?.id !== userId) return { ok:false, reason:'stale_session', windows:[] };
+    try {
+      const context = await getFreeSlotsServerContext();
+      if (!sessionIsCurrent(userId, generation) || context.performerId !== userId) return { ok:false, reason:'stale_session', windows:[] };
+      const locations = (Array.isArray(context.locations) ? context.locations : []).filter(item => item?.id);
+      if (context.resourceScheduling && locations.length !== 1) return { ok:false, reason:'location_required', windows:[] };
+      const locationId = context.resourceScheduling ? String(locations[0].id) : '';
+      const result = await getFreeSlotsGeneralAvailability({ context, locationId, from:date, to:date });
+      if (!sessionIsCurrent(userId, generation)) return { ok:false, reason:'stale_session', windows:[] };
+      const windows = (Array.isArray(result?.data) ? result.data : [])
+        .filter(item => String(item?.booking_date || '') === date)
+        .map(item => ({
+          startTime:String(item.start_time || '').slice(0, 5),
+          endTime:String(item.end_time || '').slice(0, 5),
+          durationMinutes:providerAssistantNumber(item.duration_minutes, 0, 0, 1440)
+        }))
+        .filter(item => /^([01]\d|2[0-3]):[0-5]\d$/.test(item.startTime)
+          && /^([01]\d|2[0-3]):[0-5]\d$/.test(item.endTime)
+          && minutesFromTime(item.endTime) > minutesFromTime(item.startTime)
+          && item.durationMinutes > 0)
+        .slice(0, 12);
+      return { ok:true, windows };
+    } catch {
+      return { ok:false, reason:'request_failed', windows:[] };
+    }
+  },
   prepareBookingOperation(plan = {}) {
     const synchronized = Boolean(currentUser && navigator.onLine && bookingCreationReady && !bookingsSnapshotFromCache);
     if (!synchronized) return { ok:false, reason:'not_synchronized' };

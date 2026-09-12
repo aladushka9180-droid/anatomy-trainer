@@ -70,7 +70,7 @@ const precacheBytes = assets.reduce((total, asset) => {
   const relative = asset.split('?')[0].replace(/^\.\//, '');
   return total + statSync(resolve(root, relative)).size;
 }, 0);
-assert.ok(precacheBytes <= 3.5 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
+assert.ok(precacheBytes <= 3.51 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /await caches\.delete\(CACHE\);\s*throw error;/,

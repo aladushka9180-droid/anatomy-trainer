@@ -211,6 +211,12 @@ const bridge = {
   prepareBookingDraft() {
     prepareCalls += 1;
     return { ok:true };
+  },
+  async findGeneralAvailability() {
+    return { ok:true, windows:[
+      { startTime:'10:00', endTime:'12:00', durationMinutes:120 },
+      { startTime:'14:30', endTime:'18:00', durationMinutes:210 }
+    ] };
   }
 };
 
@@ -226,8 +232,10 @@ await new Promise(resolve => setTimeout(resolve, 10));
 assert.equal(globalThis.__minutaAssistantWakeCommand, '', 'команда вызова должна очищаться сразу после передачи помощнику');
 assert.equal(FakeRecognition.instances.length, recognitionsBeforeWakeCommand, 'готовая команда после имени не должна запускать второй сеанс микрофона');
 assert.equal(result.hidden, false, 'вопрос после имени должен сразу обрабатываться');
+assert.match(resultHtml, /10:00–12:00/, 'в ответе должны сразу появиться общие свободные окна');
 assert.equal(speechSynthesis.speakCount, 1, 'ответ на вопрос в одной фразе должен озвучиваться автоматически');
-assert.match(speechSynthesis.lastUtterance.text, /свобод|услуг|окн/i, 'озвучивается ответ на переданный вопрос');
+assert.match(speechSynthesis.lastUtterance.text, /свободн[а-я]* окн/i, 'озвучивается ответ на переданный вопрос');
+assert.match(speechSynthesis.lastUtterance.text, /10:00.+12:00/i, 'ответ сразу называет найденные интервалы');
 controller.stopSpeech();
 backButton.emit('click');
 speechSynthesis.speakCount = 0;
