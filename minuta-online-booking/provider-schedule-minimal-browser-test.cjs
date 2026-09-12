@@ -312,7 +312,7 @@ const server = http.createServer((request, response) => {
         document.body.dataset.providerLayout = 'soft';
         document.querySelector('#bookingSheet').hidden = true;
       });
-      for (const theme of ['sage','graphite','midnight','butter','snow-leopard','noir-safari']) {
+      for (const theme of ['sage','graphite','midnight','butter','snow-leopard','noir-safari','oled-mono','volt-graphite']) {
         await page.evaluate(themeKey => { document.body.dataset.providerTheme = themeKey; }, theme);
         for (const width of [390, 760, 1440]) {
           await page.setViewportSize({ width, height:900 });

@@ -59,7 +59,8 @@ assert.match(css, /data-provider-theme="midnight"[\s\S]*?color-scheme:dark/, 'Mi
 assert.match(css, /data-provider-theme="mono"[\s\S]*?--material-control-radius:0px/, 'Editorial Mono потерял строгую прямоугольную геометрию');
 assert.match(css, /@media \(max-width:760px\)[\s\S]*?background:var\(--theme-bg\)!important/, 'Мобильный фон не упрощается');
 assert.match(css, /@media \(prefers-reduced-motion:reduce\)/, 'Нет режима уменьшенного движения');
-assert.doesNotMatch(css, /repeating-linear-gradient|filter:drop-shadow|text-shadow:[^n]/i, 'В новых темах остался тяжёлый декоративный эффект');
+assert.equal((css.match(/repeating-linear-gradient/g) || []).length, 4, 'Тонкие повторяющиеся полосы разрешены только для OLED Mono и Volt Graphite');
+assert.doesNotMatch(css, /filter:drop-shadow|text-shadow:[^n]/i, 'В новых темах остался тяжёлый декоративный эффект');
 assert.doesNotMatch(subscription, /background:\s*#(?:fffdfb|faf6f1|f5f0ea|fffaf6)\s*!important/i, 'Тарифы принудительно используют светлый фон поверх темы');
 assert.match(subscription, /\.subscription-plan-card[\s\S]*?border:\s*1px solid var\(--theme-line/, 'Карточки тарифов не используют границы активной темы');
 assert.match(subscription, /\.subscription-plan-card[\s\S]*?border-radius:\s*var\(--material-radius/, 'Карточки тарифов не наследуют геометрию активного стиля');
