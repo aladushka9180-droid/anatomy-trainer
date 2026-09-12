@@ -33,9 +33,9 @@ vm.runInContext(catalogSource, catalogContext);
 const themes = [...catalogContext.window.MinutaThemeCatalog.themeKeys];
 const layouts = sourceArray('PROVIDER_LAYOUT_KEYS');
 
-assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'carbon-ember', 'petrol-steel', 'carbon-crimson', 'mocha-pastel', 'oled-mono', 'noir-safari']);
+assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'carbon-ember', 'petrol-steel', 'carbon-crimson', 'mocha-pastel', 'oled-mono', 'cobalt-forge', 'volt-graphite', 'concrete-signal', 'noir-safari']);
 assert.deepEqual(layouts, ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']);
-assert.equal(themes.length * layouts.length, 192, 'the supported appearance matrix must contain 192 combinations');
+assert.equal(themes.length * layouts.length, 210, 'the supported appearance matrix must contain 210 combinations');
 
 function parseColor(value) {
   const color = String(value || '').trim();
@@ -170,4 +170,4 @@ assert.match(calmCss, /\.connection-log-entry\s*\{[^}]*background:var\(--theme-s
 assert.match(calmCss, /\.connection-log-actions \.primary\s*\{[^}]*background:var\(--theme-accent\)!important;[^}]*color:var\(--theme-accent-contrast\)!important;/s);
 assert.match(calmCss, /\.connection-log-dialog :is\(\.connection-log-head small,\.connection-log-lead,\.connection-log-entry small\)\s*\{[^}]*var\(--theme-muted\) 82%,var\(--theme-ink\)/s);
 
-console.log('Provider theme matrix checks passed: 32 themes × 6 layouts.');
+console.log('Provider theme matrix checks passed: 35 themes × 6 layouts.');

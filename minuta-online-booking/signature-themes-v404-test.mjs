@@ -29,6 +29,9 @@ const themes = [
   ['carbon-crimson', 'Carbon Crimson'],
   ['mocha-pastel', 'Mocha Pastel'],
   ['oled-mono', 'OLED Mono'],
+  ['cobalt-forge', 'Cobalt Forge'],
+  ['volt-graphite', 'Volt Graphite'],
+  ['concrete-signal', 'Concrete Signal'],
 ];
 
 for (const [key, label] of themes) {
@@ -77,6 +80,9 @@ for (const [key, color, group] of [
   ['apricot-tiger', '#fff3e7', 'featured light natural'],
   ['mocha-pastel', '#1a1817', 'dark'],
   ['oled-mono', '#000000', 'dark'],
+  ['cobalt-forge', '#071226', 'dark'],
+  ['volt-graphite', '#101317', 'dark'],
+  ['concrete-signal', '#e9edef', 'light'],
 ]) {
   assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
