@@ -26,7 +26,7 @@
 
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
   background-color:#f7f4ef!important;
-  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=720")!important;
+  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=721")!important;
   background-size:100% 100%,100% 100%!important;
   background-position:center top!important;
   background-repeat:no-repeat!important;
@@ -182,5 +182,5 @@
   --theme-preview-radius:14px;
 }
 .theme-pearl-zebra .theme-swatch {
-  background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=720") center/cover no-repeat!important;
+  background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=721") center/cover no-repeat!important;
 }
