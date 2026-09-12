@@ -169,6 +169,7 @@ jobs:
           psql "$db" -X -q -v ON_ERROR_STOP=1 --set=drift_role="$drift_role" <<'SQL'
           create role :"drift_role" nologin;
           grant :"drift_role" to current_user;
+          grant create on schema public to :"drift_role";
           SQL
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "alter table public.financial_transactions drop constraint financial_transactions_shape_v147_check; alter table public.financial_transactions add constraint financial_transactions_shape_v147_check check(true);"
           drift="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
@@ -249,6 +250,7 @@ jobs:
           revoke all on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)
             from public,anon,authenticated,service_role,:"drift_role";
           grant execute on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) to authenticated;
+          revoke create on schema public from :"drift_role";
           drop role :"drift_role";
           SQL
           rm -f "$RUNNER_TEMP/v151-runtime-drift-role"
@@ -308,6 +310,7 @@ jobs:
               revoke all on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)
                 from public,anon,authenticated,service_role,:"drift_role";
               grant execute on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) to authenticated;
+              revoke create on schema public from :"drift_role";
               drop role :"drift_role";
           SQL
             fi

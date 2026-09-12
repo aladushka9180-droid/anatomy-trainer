@@ -180,6 +180,8 @@ assert.match(workflow, /v151-apply-stock-movement-restore\.sql/);
 assert.match(workflow, /v151-runtime-drift-role/);
 assert.match(workflow, /with grant option/);
 assert.match(workflow, /grant :"drift_role" to current_user/);
+assert.match(workflow, /grant create on schema public to :"drift_role"/);
+assert.match(workflow, /revoke create on schema public from :"drift_role"/);
 assert.match(workflow, /owner to :"drift_role"/);
 assert.match(workflow, /runtime-owner-acl-drift/);
 assert.match(workflow, /\.classification=="absent" and \.presentCount==0/);
