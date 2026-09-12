@@ -41,6 +41,9 @@ with v151_proc as (
     'runtimeFunctions',coalesce((select jsonb_agg(jsonb_build_object(
       'signature',expected.signature,
       'sourceHash',public.minuta_financial_sha256_v129(jsonb_build_object('source',procedure_row.prosrc)),
+      'owner',pg_get_userbyid(procedure_row.proowner),
+      'ownerMatchesDomainTable',procedure_row.proowner=(select relation_row.relowner from pg_catalog.pg_class relation_row
+        where relation_row.oid=to_regclass(expected.domain_relation)),
       'language',language_row.lanname,'kind',procedure_row.prokind,'volatility',procedure_row.provolatile,
       'securityDefiner',procedure_row.prosecdef,'strict',procedure_row.proisstrict,
       'leakproof',procedure_row.proleakproof,'parallel',procedure_row.proparallel,
@@ -51,12 +54,25 @@ with v151_proc as (
       'anonExecute',coalesce(has_function_privilege('anon',procedure_row.oid,'execute'),false),
       'serviceRoleExecute',coalesce(has_function_privilege('service_role',procedure_row.oid,'execute'),false),
       'publicExecute',exists(select 1 from aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
-        where grant_row.grantee=0 and grant_row.privilege_type='EXECUTE')
+        where grant_row.grantee=0 and grant_row.privilege_type='EXECUTE'),
+      'acl',coalesce((select jsonb_agg(jsonb_build_object(
+        'grantor',pg_get_userbyid(grant_row.grantor),
+        'grantee',case when grant_row.grantee=0 then 'PUBLIC'
+          when grant_row.grantee=procedure_row.proowner then 'owner'
+          else coalesce(role_row.rolname,'oid:'||grant_row.grantee::text) end,
+        'privilege',grant_row.privilege_type,'grantable',grant_row.is_grantable
+      ) order by pg_get_userbyid(grant_row.grantor),
+        case when grant_row.grantee=0 then 'PUBLIC'
+          when grant_row.grantee=procedure_row.proowner then 'owner'
+          else coalesce(role_row.rolname,'oid:'||grant_row.grantee::text) end,
+        grant_row.privilege_type,grant_row.is_grantable)
+        from aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
+        left join pg_catalog.pg_roles role_row on role_row.oid=grant_row.grantee),'[]'::jsonb)
     ) order by expected.signature)
       from (values
-        ('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'),
-        ('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)')
-      ) expected(signature)
+        ('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)','public.inventory_movements'),
+        ('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)','public.client_benefit_instruments')
+      ) expected(signature,domain_relation)
       left join pg_catalog.pg_proc procedure_row on procedure_row.oid=to_regprocedure(expected.signature)
       left join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
     ),'[]'::jsonb),
@@ -94,8 +110,8 @@ with v151_proc as (
 ), critical_schema as (
   select
     public.minuta_financial_sha256_v129(value) as fingerprint,
-    '2e03b76f8a8ddfadc27af64da2f85990012946a1db19f006e26169e9b12955d3'::text as expected_fingerprint,
-    public.minuta_financial_sha256_v129(value)='2e03b76f8a8ddfadc27af64da2f85990012946a1db19f006e26169e9b12955d3' as exact
+    'b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6'::text as expected_fingerprint,
+    public.minuta_financial_sha256_v129(value)='b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6' as exact
   from critical_contract
 )
 select json_build_object(

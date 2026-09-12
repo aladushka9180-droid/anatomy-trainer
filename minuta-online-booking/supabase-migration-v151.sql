@@ -62,10 +62,10 @@ begin
     select 1
     from (values
       ('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)',
-       'p_organization uuid, p_product uuid, p_client_account uuid, p_expires_on date, p_request_id uuid','7fdd3aa28d63d4c31132198d321921128f6f52f0d26a5734e57a9eac16441c05'),
+       'p_organization uuid, p_product uuid, p_client_account uuid, p_expires_on date, p_request_id uuid','7fdd3aa28d63d4c31132198d321921128f6f52f0d26a5734e57a9eac16441c05','public.client_benefit_instruments'),
       ('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)',
-       'p_organization uuid, p_warehouse uuid, p_item uuid, p_kind text, p_quantity numeric, p_counted_quantity numeric, p_reason text, p_request_id uuid','a4ea61f1def8fbd64e3e345ea8e78c8bdbe5aaafe4bd2b1af50d034343a27e18')
-    ) expected(signature,identity_arguments,source_hash)
+       'p_organization uuid, p_warehouse uuid, p_item uuid, p_kind text, p_quantity numeric, p_counted_quantity numeric, p_reason text, p_request_id uuid','a4ea61f1def8fbd64e3e345ea8e78c8bdbe5aaafe4bd2b1af50d034343a27e18','public.inventory_movements')
+    ) expected(signature,identity_arguments,source_hash,domain_relation)
     left join pg_catalog.pg_proc procedure_row on procedure_row.oid=to_regprocedure(expected.signature)
     left join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
     where procedure_row.oid is null
@@ -80,6 +80,26 @@ begin
       or pg_get_function_result(procedure_row.oid) is distinct from 'jsonb'
       or pg_get_function_identity_arguments(procedure_row.oid) is distinct from expected.identity_arguments
       or procedure_row.proconfig is distinct from array['search_path=""']::text[]
+      or pg_get_userbyid(procedure_row.proowner) is distinct from 'postgres'
+      or procedure_row.proowner is distinct from (select relation_row.relowner from pg_catalog.pg_class relation_row
+        where relation_row.oid=to_regclass(expected.domain_relation))
+      or coalesce((select jsonb_agg(jsonb_build_object(
+        'grantor',pg_get_userbyid(grant_row.grantor),
+        'grantee',case when grant_row.grantee=0 then 'PUBLIC'
+          when grant_row.grantee=procedure_row.proowner then 'owner'
+          else coalesce(role_row.rolname,'oid:'||grant_row.grantee::text) end,
+        'privilege',grant_row.privilege_type,'grantable',grant_row.is_grantable
+      ) order by pg_get_userbyid(grant_row.grantor),
+        case when grant_row.grantee=0 then 'PUBLIC'
+          when grant_row.grantee=procedure_row.proowner then 'owner'
+          else coalesce(role_row.rolname,'oid:'||grant_row.grantee::text) end,
+        grant_row.privilege_type,grant_row.is_grantable)
+        from aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
+        left join pg_catalog.pg_roles role_row on role_row.oid=grant_row.grantee),'[]'::jsonb)
+        is distinct from jsonb_build_array(
+          jsonb_build_object('grantor','postgres','grantee','authenticated','privilege','EXECUTE','grantable',false),
+          jsonb_build_object('grantor','postgres','grantee','owner','privilege','EXECUTE','grantable',false)
+        )
       or coalesce(has_function_privilege('authenticated',procedure_row.oid,'execute'),false) is not true
       or coalesce(has_function_privilege('anon',procedure_row.oid,'execute'),false) is true
       or coalesce(has_function_privilege('service_role',procedure_row.oid,'execute'),false) is true
@@ -217,6 +237,9 @@ begin
     'runtimeFunctions',coalesce((select jsonb_agg(jsonb_build_object(
       'signature',expected.signature,
       'sourceHash',public.minuta_financial_sha256_v129(jsonb_build_object('source',procedure_row.prosrc)),
+      'owner',pg_get_userbyid(procedure_row.proowner),
+      'ownerMatchesDomainTable',procedure_row.proowner=(select relation_row.relowner from pg_catalog.pg_class relation_row
+        where relation_row.oid=to_regclass(expected.domain_relation)),
       'language',language_row.lanname,'kind',procedure_row.prokind,'volatility',procedure_row.provolatile,
       'securityDefiner',procedure_row.prosecdef,'strict',procedure_row.proisstrict,
       'leakproof',procedure_row.proleakproof,'parallel',procedure_row.proparallel,
@@ -227,12 +250,25 @@ begin
       'anonExecute',coalesce(has_function_privilege('anon',procedure_row.oid,'execute'),false),
       'serviceRoleExecute',coalesce(has_function_privilege('service_role',procedure_row.oid,'execute'),false),
       'publicExecute',exists(select 1 from aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
-        where grant_row.grantee=0 and grant_row.privilege_type='EXECUTE')
+        where grant_row.grantee=0 and grant_row.privilege_type='EXECUTE'),
+      'acl',coalesce((select jsonb_agg(jsonb_build_object(
+        'grantor',pg_get_userbyid(grant_row.grantor),
+        'grantee',case when grant_row.grantee=0 then 'PUBLIC'
+          when grant_row.grantee=procedure_row.proowner then 'owner'
+          else coalesce(role_row.rolname,'oid:'||grant_row.grantee::text) end,
+        'privilege',grant_row.privilege_type,'grantable',grant_row.is_grantable
+      ) order by pg_get_userbyid(grant_row.grantor),
+        case when grant_row.grantee=0 then 'PUBLIC'
+          when grant_row.grantee=procedure_row.proowner then 'owner'
+          else coalesce(role_row.rolname,'oid:'||grant_row.grantee::text) end,
+        grant_row.privilege_type,grant_row.is_grantable)
+        from aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
+        left join pg_catalog.pg_roles role_row on role_row.oid=grant_row.grantee),'[]'::jsonb)
     ) order by expected.signature)
       from (values
-        ('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'),
-        ('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)')
-      ) expected(signature)
+        ('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)','public.inventory_movements'),
+        ('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)','public.client_benefit_instruments')
+      ) expected(signature,domain_relation)
       left join pg_catalog.pg_proc procedure_row on procedure_row.oid=to_regprocedure(expected.signature)
       left join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
     ),'[]'::jsonb),
@@ -267,7 +303,7 @@ begin
     'index',(select pg_get_indexdef(index_row.indexrelid) from pg_catalog.pg_index index_row
       where index_row.indexrelid='public.commercial_sales_scope_v147_idx'::regclass)
   )) into v_hash;
-  if v_hash is distinct from '2e03b76f8a8ddfadc27af64da2f85990012946a1db19f006e26169e9b12955d3' then
+  if v_hash is distinct from 'b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6' then
     raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
   end if;
 

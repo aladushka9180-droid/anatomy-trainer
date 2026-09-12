@@ -74,6 +74,29 @@ jobs:
           )"
           test "$(tr -d '[:space:]' <<<"$marker")" = 1
           psql "$db" -X -q -v ON_ERROR_STOP=1 -v run_key="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -f minuta-online-booking/tests/commercial-sales-v151-durable-cleanup.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 <<'SQL'
+          do $recovery$
+          declare stale_role record;
+          begin
+            for stale_role in select rolname from pg_catalog.pg_roles where rolname like 'v151_acl_%' order by rolname
+            loop
+              if to_regprocedure('public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid)') is not null then
+                execute 'alter function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) owner to postgres';
+                execute format('revoke all on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) from %I',stale_role.rolname);
+              end if;
+              if to_regprocedure('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)') is not null then
+                execute 'alter function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) owner to postgres';
+                execute format('revoke all on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) from %I',stale_role.rolname);
+              end if;
+              execute format('drop role %I',stale_role.rolname);
+            end loop;
+          end
+          $recovery$;
+          revoke all on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) from public,anon,authenticated,service_role;
+          grant execute on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) to authenticated;
+          revoke all on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) from public,anon,authenticated,service_role;
+          grant execute on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) to authenticated;
+          SQL
           state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
           case "$(jq -r .classification <<<"$state")" in
             exact) touch "$RUNNER_TEMP/v151-test-owned"; psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151-rollback.sql ;;
@@ -130,6 +153,11 @@ jobs:
           psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select pg_get_functiondef('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'::regprocedure)" > "$RUNNER_TEMP/v151-apply-stock-movement-restore.sql"
           test -s "$RUNNER_TEMP/v151-issue-minuta-benefit-restore.sql"
           test -s "$RUNNER_TEMP/v151-apply-stock-movement-restore.sql"
+          drift_role="v151_acl_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          [[ "$drift_role" =~ ^v151_acl_[0-9]+_[0-9]+$ ]]
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v drift_role="$drift_role" -c "select count(*) from pg_catalog.pg_roles where rolname=:'drift_role'")" = 0
+          printf '%s\n' "$drift_role" > "$RUNNER_TEMP/v151-runtime-drift-role"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -v drift_role="$drift_role" -c "create role :\"drift_role\" nologin"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "alter table public.financial_transactions drop constraint financial_transactions_shape_v147_check; alter table public.financial_transactions add constraint financial_transactions_shape_v147_check check(true);"
           drift="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
           jq -e '(.criticalSchemaExact|not) and .criticalSchemaFingerprint!=.criticalSchemaExpectedFingerprint' <<<"$drift" >/dev/null
@@ -184,6 +212,27 @@ jobs:
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/v151-apply-stock-movement-restore.sql"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "revoke all on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) from public,anon,authenticated,service_role; grant execute on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) to authenticated;"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -v drift_role="$drift_role" -c "grant execute on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) to :\"drift_role\" with grant option"
+          drift="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
+          jq -e '(.criticalSchemaExact|not) and .criticalSchemaFingerprint!=.criticalSchemaExpectedFingerprint' <<<"$drift" >/dev/null
+          if failure="$(psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql 2>&1)"; then exit 1; fi
+          grep -q 'v151_requires_exact_v147_v148_v149_v150' <<<"$failure"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -v drift_role="$drift_role" -c "revoke all on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) from public,anon,authenticated,service_role,:\"drift_role\"; grant execute on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) to authenticated"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -v drift_role="$drift_role" -c "alter function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) owner to :\"drift_role\""
+          drift="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
+          jq -e '(.criticalSchemaExact|not) and .criticalSchemaFingerprint!=.criticalSchemaExpectedFingerprint' <<<"$drift" >/dev/null
+          if failure="$(psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql 2>&1)"; then exit 1; fi
+          grep -q 'v151_requires_exact_v147_v148_v149_v150' <<<"$failure"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -v drift_role="$drift_role" <<'SQL'
+          alter function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) owner to postgres;
+          revoke all on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)
+            from public,anon,authenticated,service_role,:"drift_role";
+          grant execute on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) to authenticated;
+          drop role :"drift_role";
+          SQL
+          rm -f "$RUNNER_TEMP/v151-runtime-drift-role"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 <<'SQL'
           create or replace function public.sell_minuta_commercial_product_v147(
             p_organization uuid,p_booking uuid,p_client_account uuid,p_item_kind text,p_benefit_product uuid,
@@ -219,6 +268,15 @@ jobs:
             psql "$db" -X -q -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/v151-apply-stock-movement-restore.sql"
             psql "$db" -X -q -v ON_ERROR_STOP=1 -c "revoke all on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) from public,anon,authenticated,service_role; grant execute on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) to authenticated;"
           fi
+          if test -s "$RUNNER_TEMP/v151-runtime-drift-role"; then
+            drift_role="$(tr -d '\r\n' < "$RUNNER_TEMP/v151-runtime-drift-role")"
+            [[ "$drift_role" =~ ^v151_acl_[0-9]+_[0-9]+$ ]]
+            if test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v drift_role="$drift_role" -c "select count(*) from pg_catalog.pg_roles where rolname=:'drift_role'")" = 1; then
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -v drift_role="$drift_role" -c "alter function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) owner to postgres; revoke all on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) from public,anon,authenticated,service_role,:\"drift_role\"; grant execute on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) to authenticated; alter function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) owner to postgres; revoke all on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) from public,anon,authenticated,service_role,:\"drift_role\"; grant execute on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) to authenticated; drop role :\"drift_role\";"
+            fi
+            rm -f "$RUNNER_TEMP/v151-runtime-drift-role"
+          fi
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -c "alter function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) owner to postgres; revoke all on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) from public,anon,authenticated,service_role; grant execute on function public.issue_minuta_benefit(uuid,uuid,uuid,date,uuid) to authenticated; alter function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) owner to postgres; revoke all on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) from public,anon,authenticated,service_role; grant execute on function public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid) to authenticated;"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "drop function if exists public.get_minuta_commerce_workspace_v151(uuid); drop function if exists public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid);"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "alter table public.financial_accounts drop constraint if exists financial_accounts_organization_id_system_key_key; drop index if exists public.financial_accounts_organization_id_system_key_key; alter table public.financial_accounts add constraint financial_accounts_organization_id_system_key_key unique(organization_id,system_key);"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "alter table public.financial_accounts drop constraint if exists financial_accounts_account_type_v147_check, drop constraint if exists financial_accounts_system_key_v147_check, drop constraint if exists financial_accounts_system_mapping_v147_check, drop constraint if exists financial_accounts_system_request_v147_check; alter table public.financial_transactions drop constraint if exists financial_transactions_operation_v147_check, drop constraint if exists financial_transactions_source_v147_check, drop constraint if exists financial_transactions_shape_v147_check;"
@@ -241,7 +299,7 @@ jobs:
             --arg durable "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-durable-concurrency-test.sh|cut -d' ' -f1)" \
             --arg cleanup "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-durable-cleanup.sql|cut -d' ' -f1)" \
             '{status:"success",phase:"test-v151",commitSha:$sha,runId:$run,isolatedDatabase:true,
-              coverage:["v147-v151-sequential-apply","critical-schema-fingerprint","quantity-boundaries","visit-sale","standalone-sale","seller","inventory-atomicity","sale-idempotency","benefit-v149-application","benefit-v150-freeze-unfreeze","benefit-v148-refund","mixed-version-replay-both-directions","committed-rollback-persistence","two-psql-connections","observed-lock-wait","partial-guard","newer-guard","always-cleanup","reapply"],
+              coverage:["v147-v151-sequential-apply","critical-schema-fingerprint","runtime-owner-acl-drift","runtime-stale-role-recovery","quantity-boundaries","visit-sale","standalone-sale","seller","inventory-atomicity","sale-idempotency","benefit-v149-application","benefit-v150-freeze-unfreeze","benefit-v148-refund","mixed-version-replay-both-directions","committed-rollback-persistence","two-psql-connections","observed-lock-wait","partial-guard","newer-guard","always-cleanup","reapply"],
               migrationSha256:$migration,rollbackSha256:$rollback,stateSha256:$state,integrationSha256:$integration,setupSha256:$setup,durableSha256:$durable,cleanupSha256:$cleanup,productionWritten:false,businessRowsChanged:false}' > "$RUNNER_TEMP/v151-test.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with: { name: "v151-test-${{ github.run_id }}", path: "${{ runner.temp }}/v151-test.json", if-no-files-found: error, retention-days: 35 }
