@@ -19,18 +19,52 @@ begin
 end
 $acl_shape$;
 
-select set_config('minuta.v149_owner',(select legacy_performer_id::text from public.organizations
-  where legacy_performer_id is not null and status='active' and public_booking_enabled order by id limit 1),true);
-select set_config('minuta.v149_org',(select id::text from public.organizations
-  where legacy_performer_id=current_setting('minuta.v149_owner')::uuid),true);
-select set_config('minuta.v149_location',(select id::text from public.locations
-  where organization_id=current_setting('minuta.v149_org')::uuid and active order by is_primary desc,id limit 1),true);
-select set_config('minuta.v149_service',(select service.id::text from public.services service
-  join public.organization_memberships membership on membership.organization_id=current_setting('minuta.v149_org')::uuid
-    and membership.user_id=service.performer_id and membership.active and membership.is_bookable
-  where service.active order by service.id limit 1),true);
-select set_config('minuta.v149_slug',(select public_slug from public.organizations
-  where id=current_setting('minuta.v149_org')::uuid),true);
+do $fixture$
+declare
+  owner_id uuid:=gen_random_uuid(); organization_id uuid:=gen_random_uuid(); location_id uuid:=gen_random_uuid();
+  service_id uuid:=gen_random_uuid(); client_id uuid:=gen_random_uuid();
+  booking1_id uuid:=gen_random_uuid(); booking2_id uuid:=gen_random_uuid(); booking3_id uuid:=gen_random_uuid();
+  phone text:='79'||translate(substr(md5(owner_id::text),1,9),'abcdef','012345');
+begin
+  perform set_config('minuta.v149_owner',owner_id::text,true);
+  perform set_config('minuta.v149_org',organization_id::text,true);
+  perform set_config('minuta.v149_location',location_id::text,true);
+  perform set_config('minuta.v149_service',service_id::text,true);
+  perform set_config('minuta.v149_client',client_id::text,true);
+  perform set_config('minuta.v149_booking1',booking1_id::text,true);
+  perform set_config('minuta.v149_booking2',booking2_id::text,true);
+  perform set_config('minuta.v149_booking3',booking3_id::text,true);
+
+  set local session_replication_role=replica;
+  insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+  values(owner_id,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',owner_id::text||'@example.invalid',now(),'{}','{}',now(),now());
+  set local session_replication_role=origin;
+  insert into public.performer_profiles(id,display_name) values(owner_id,'V149 owner');
+  insert into public.organizations(id,name,public_slug,status,public_booking_enabled,created_by)
+  values(organization_id,'V149 organization','v149-'||replace(organization_id::text,'-',''),'active',true,owner_id);
+  insert into public.organization_memberships(organization_id,user_id,role,is_bookable,active,created_by)
+  values(organization_id,owner_id,'owner',true,true,owner_id);
+  insert into public.locations(id,organization_id,name,timezone,address,active,is_primary)
+  values(location_id,organization_id,'V149 location','Europe/Samara','V149 address',true,true);
+  insert into public.services(id,performer_id,name,duration_minutes,price_rub,active)
+  values(service_id,owner_id,'V149 service',60,2000,true);
+  insert into public.client_accounts(id,normalized_phone,access_code_hash)
+  values(client_id,phone,repeat('1',64));
+
+  perform set_config('minuta.booking_organization',organization_id::text,true);
+  perform set_config('minuta.booking_location',location_id::text,true);
+  insert into public.bookings(
+    id,booking_code,manage_token,performer_id,service_id,client_name,client_phone,client_account_id,
+    booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,
+    deposit_amount_rub,payment_status,payment_url,provider_note,booking_policy_snapshot
+  ) values
+    (booking1_id,'V149-'||substr(replace(booking1_id::text,'-',''),1,10),gen_random_uuid(),owner_id,service_id,'V149 Benefit Client',phone,client_id,current_date,time '09:00',60,2000,2000,'confirmed',0,'not_required','','','{}'),
+    (booking2_id,'V149-'||substr(replace(booking2_id::text,'-',''),1,10),gen_random_uuid(),owner_id,service_id,'V149 Benefit Client',phone,client_id,current_date,time '10:00',60,2000,2000,'confirmed',0,'not_required','','','{}'),
+    (booking3_id,'V149-'||substr(replace(booking3_id::text,'-',''),1,10),gen_random_uuid(),owner_id,service_id,'V149 Benefit Client',phone,client_id,current_date,time '11:00',60,2000,2000,'confirmed',0,'not_required','','','{}');
+  perform set_config('minuta.booking_organization','',true);
+  perform set_config('minuta.booking_location','',true);
+end
+$fixture$;
 
 set local role anon;
 do $anon_denied$
@@ -57,47 +91,15 @@ end
 $outsider_denied$;
 reset role;
 
-select set_config('minuta.v149_slots',coalesce((select jsonb_agg(to_jsonb(slot) order by slot.booking_date,slot.booking_time)::text
-  from (select * from public.get_public_minuta_available_slots_v4(
-    current_setting('minuta.v149_slug'),current_setting('minuta.v149_location')::uuid,
-    current_setting('minuta.v149_service')::uuid,current_date+1,current_date+62
-  ) order by booking_date,booking_time limit 3) slot),'[]'),true);
-
 do $fixture_check$
 begin
   if nullif(current_setting('minuta.v149_owner',true),'') is null
      or nullif(current_setting('minuta.v149_service',true),'') is null
-     or jsonb_array_length(current_setting('minuta.v149_slots')::jsonb)<3 then
-    raise exception using errcode='P0001',message='v149_test_requires_owner_service_and_three_slots';
+     or nullif(current_setting('minuta.v149_booking3',true),'') is null then
+    raise exception using errcode='P0001',message='v149_test_fixture_incomplete';
   end if;
 end
 $fixture_check$;
-
-set local role anon;
-select set_config('minuta.v149_manage1',(select manage_token::text from public.book_minuta_appointment(
-  '00000000-0000-4000-8000-000000014901',current_setting('minuta.v149_slug'),
-  current_setting('minuta.v149_location')::uuid,current_setting('minuta.v149_service')::uuid,
-  (current_setting('minuta.v149_slots')::jsonb->0->>'booking_date')::date,
-  (current_setting('minuta.v149_slots')::jsonb->0->>'booking_time')::time,'V149 Benefit Client','+79990014901')),true);
-select * from public.bootstrap_client_access(current_setting('minuta.v149_manage1')::uuid,'V149 integration test');
-select set_config('minuta.v149_manage2',(select manage_token::text from public.book_minuta_appointment(
-  '00000000-0000-4000-8000-000000014902',current_setting('minuta.v149_slug'),
-  current_setting('minuta.v149_location')::uuid,current_setting('minuta.v149_service')::uuid,
-  (current_setting('minuta.v149_slots')::jsonb->1->>'booking_date')::date,
-  (current_setting('minuta.v149_slots')::jsonb->1->>'booking_time')::time,'V149 Benefit Client','+79990014901')),true);
-select * from public.bootstrap_client_access(current_setting('minuta.v149_manage2')::uuid,'V149 integration test');
-select set_config('minuta.v149_manage3',(select manage_token::text from public.book_minuta_appointment(
-  '00000000-0000-4000-8000-000000014903',current_setting('minuta.v149_slug'),
-  current_setting('minuta.v149_location')::uuid,current_setting('minuta.v149_service')::uuid,
-  (current_setting('minuta.v149_slots')::jsonb->2->>'booking_date')::date,
-  (current_setting('minuta.v149_slots')::jsonb->2->>'booking_time')::time,'V149 Benefit Client','+79990014901')),true);
-select * from public.bootstrap_client_access(current_setting('minuta.v149_manage3')::uuid,'V149 integration test');
-reset role;
-
-select set_config('minuta.v149_booking1',(select id::text from public.bookings where request_id='00000000-0000-4000-8000-000000014901'::uuid),true);
-select set_config('minuta.v149_booking2',(select id::text from public.bookings where request_id='00000000-0000-4000-8000-000000014902'::uuid),true);
-select set_config('minuta.v149_booking3',(select id::text from public.bookings where request_id='00000000-0000-4000-8000-000000014903'::uuid),true);
-select set_config('minuta.v149_client',(select client_account_id::text from public.bookings where id=current_setting('minuta.v149_booking1')::uuid),true);
 
 select set_config('request.jwt.claim.sub',current_setting('minuta.v149_owner'),true);
 set local role authenticated;
