@@ -18,7 +18,8 @@ const changedThemes = [
   'sage', 'nordic', 'hitech', 'coastal', 'blue-hydrangea', 'eco', 'celadon',
   'japandi', 'desert', 'apricot-tiger', 'peach-silk', 'pearl', 'snow-leopard',
   'mono', 'pearl-zebra', 'graphite', 'midnight', 'carbon-ember', 'carbon-crimson',
-  'luxury', 'azure-lagoon', 'noir-safari',
+  'luxury', 'azure-lagoon', 'noir-safari', 'noir-rose', 'cocoa-pearl',
+  'plum-cashmere', 'obsidian-champagne',
 ];
 
 function rgb(hex) {

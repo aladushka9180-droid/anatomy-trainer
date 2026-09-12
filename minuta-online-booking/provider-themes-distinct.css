@@ -250,6 +250,55 @@
 .theme-luxury { --theme-preview-bg:#040506; --theme-preview-surface:#0b0c0e; --theme-preview-line:#7b5f2b; --theme-preview-accent:#e0b45a; --theme-preview-radius:5px; --theme-preview-item-radius:1px; color:#f7f0df; }
 .theme-luxury .theme-swatch { background-image:linear-gradient(125deg,transparent 38%,rgba(255,255,255,.12) 39%,transparent 40%),linear-gradient(35deg,transparent 62%,rgba(224,180,90,.22) 63%,transparent 64%),linear-gradient(145deg,#030405,#121316); }
 
+/* Soft feminine dark themes: nuanced colour and light, without decorative texture. */
+.provider-body[data-provider-theme="noir-rose"] {
+  --theme-bg:#242126; --theme-surface:#2d2930; --theme-surface-alt:#37313a; --theme-ink:#f3ecef;
+  --theme-muted:#c8bac1; --theme-line:#79727b; --theme-accent:#e1a5b6; --theme-accent-soft:#4a303a;
+  --theme-accent-contrast:#27151b; --theme-shadow:rgba(12,8,11,.26); --material-card-bg:#37313a;
+  --material-card-border:#79727b; --material-radius:18px; --material-control-radius:14px;
+  --signature-sidebar:#29262c; --signature-stage:#29262c; --signature-nav-active:#4a303a;
+  --atmosphere-background:radial-gradient(ellipse at 84% 0,rgba(225,165,182,.08),transparent 42%),linear-gradient(145deg,#242126,#2b272e 58%,#252227);
+  --atmosphere-panel:#2d2930; --atmosphere-panel-strong:#37313a;
+}
+.theme-noir-rose { --theme-preview-bg:#242126; --theme-preview-surface:#37313a; --theme-preview-line:#79727b; --theme-preview-accent:#e1a5b6; --theme-preview-radius:14px; --theme-preview-item-radius:999px; color:#f3ecef; }
+.theme-noir-rose .theme-swatch { background-image:radial-gradient(ellipse at 84% 0,rgba(225,165,182,.16),transparent 52%),linear-gradient(145deg,#242126,#37313a); }
+
+.provider-body[data-provider-theme="cocoa-pearl"] {
+  --theme-bg:#28221f; --theme-surface:#332b27; --theme-surface-alt:#3c322d; --theme-ink:#f8f2ed;
+  --theme-muted:#cbbcb2; --theme-line:#82736b; --theme-accent:#e4c0a7; --theme-accent-soft:#50392d;
+  --theme-accent-contrast:#2b1c15; --theme-shadow:rgba(18,11,8,.25); --material-card-bg:#3c322d;
+  --material-card-border:#82736b; --material-radius:20px; --material-control-radius:14px;
+  --signature-sidebar:#2e2723; --signature-stage:#2f2824; --signature-nav-active:#50392d;
+  --atmosphere-background:radial-gradient(ellipse at 86% 0,rgba(228,192,167,.08),transparent 44%),linear-gradient(145deg,#28221f,#302925 58%,#29231f);
+  --atmosphere-panel:#332b27; --atmosphere-panel-strong:#3c322d;
+}
+.theme-cocoa-pearl { --theme-preview-bg:#28221f; --theme-preview-surface:#3c322d; --theme-preview-line:#82736b; --theme-preview-accent:#e4c0a7; --theme-preview-radius:15px; --theme-preview-item-radius:999px; color:#f8f2ed; }
+.theme-cocoa-pearl .theme-swatch { background-image:radial-gradient(ellipse at 86% 0,rgba(228,192,167,.16),transparent 54%),linear-gradient(145deg,#28221f,#3c322d); }
+
+.provider-body[data-provider-theme="plum-cashmere"] {
+  --theme-bg:#27222c; --theme-surface:#312a38; --theme-surface-alt:#3a3143; --theme-ink:#f3edf5;
+  --theme-muted:#c8bacd; --theme-line:#7e7185; --theme-accent:#d0abd0; --theme-accent-soft:#49364e;
+  --theme-accent-contrast:#25172a; --theme-shadow:rgba(11,7,14,.26); --material-card-bg:#3a3143;
+  --material-card-border:#7e7185; --material-radius:22px; --material-control-radius:16px;
+  --signature-sidebar:#2d2733; --signature-stage:#2d2734; --signature-nav-active:#49364e;
+  --atmosphere-background:radial-gradient(ellipse at 84% 0,rgba(208,171,208,.09),transparent 43%),linear-gradient(145deg,#27222c,#2f2936 58%,#28232e);
+  --atmosphere-panel:#312a38; --atmosphere-panel-strong:#3a3143;
+}
+.theme-plum-cashmere { --theme-preview-bg:#27222c; --theme-preview-surface:#3a3143; --theme-preview-line:#7e7185; --theme-preview-accent:#d0abd0; --theme-preview-radius:17px; --theme-preview-item-radius:999px; color:#f3edf5; }
+.theme-plum-cashmere .theme-swatch { background-image:radial-gradient(ellipse at 84% 0,rgba(208,171,208,.17),transparent 54%),linear-gradient(145deg,#27222c,#3a3143); }
+
+.provider-body[data-provider-theme="obsidian-champagne"] {
+  --theme-bg:#232629; --theme-surface:#2c3034; --theme-surface-alt:#363b3f; --theme-ink:#faf8f4;
+  --theme-muted:#c6c0b8; --theme-line:#73797d; --theme-accent:#dec89f; --theme-accent-soft:#493f2e;
+  --theme-accent-contrast:#282216; --theme-shadow:rgba(6,8,9,.26); --material-card-bg:#363b3f;
+  --material-card-border:#73797d; --material-radius:16px; --material-control-radius:12px;
+  --signature-sidebar:#282c2f; --signature-stage:#292d30; --signature-nav-active:#493f2e;
+  --atmosphere-background:radial-gradient(ellipse at 86% 0,rgba(222,200,159,.08),transparent 44%),linear-gradient(145deg,#232629,#2a2e32 58%,#24272a);
+  --atmosphere-panel:#2c3034; --atmosphere-panel-strong:#363b3f;
+}
+.theme-obsidian-champagne { --theme-preview-bg:#232629; --theme-preview-surface:#363b3f; --theme-preview-line:#73797d; --theme-preview-accent:#dec89f; --theme-preview-radius:12px; --theme-preview-item-radius:6px; color:#faf8f4; }
+.theme-obsidian-champagne .theme-swatch { background-image:radial-gradient(ellipse at 86% 0,rgba(222,200,159,.16),transparent 54%),linear-gradient(145deg,#232629,#363b3f); }
+
 /* Preserve visible geometry differences in schedule and client surfaces. */
 .provider-body[data-provider-theme="sage"] { --theme-booking-radius:2px; --theme-client-radius:2px; }
 .provider-body[data-provider-theme="nordic"] { --theme-booking-radius:8px; --theme-client-radius:8px; }
@@ -273,6 +322,10 @@
 .provider-body[data-provider-theme="luxury"] { --theme-booking-radius:6px; --theme-client-radius:6px; }
 .provider-body[data-provider-theme="noir-safari"] { --theme-booking-radius:16px; --theme-client-radius:16px; }
 .provider-body[data-provider-theme="azure-lagoon"] { --theme-booking-radius:20px; --theme-client-radius:18px; }
+.provider-body[data-provider-theme="noir-rose"] { --theme-booking-radius:16px; --theme-client-radius:16px; }
+.provider-body[data-provider-theme="cocoa-pearl"] { --theme-booking-radius:18px; --theme-client-radius:16px; }
+.provider-body[data-provider-theme="plum-cashmere"] { --theme-booking-radius:18px; --theme-client-radius:18px; }
+.provider-body[data-provider-theme="obsidian-champagne"] { --theme-booking-radius:14px; --theme-client-radius:14px; }
 
 .provider-body:is(
   [data-provider-theme="sage"],[data-provider-theme="nordic"],[data-provider-theme="hitech"],
@@ -281,7 +334,8 @@
   [data-provider-theme="apricot-tiger"],[data-provider-theme="peach-silk"],[data-provider-theme="pearl"],
   [data-provider-theme="snow-leopard"],[data-provider-theme="mono"],[data-provider-theme="pearl-zebra"],
   [data-provider-theme="graphite"],[data-provider-theme="midnight"],[data-provider-theme="carbon-ember"],
-  [data-provider-theme="carbon-crimson"],[data-provider-theme="luxury"],[data-provider-theme="noir-safari"],[data-provider-theme="azure-lagoon"]
+  [data-provider-theme="carbon-crimson"],[data-provider-theme="luxury"],[data-provider-theme="noir-safari"],[data-provider-theme="azure-lagoon"],
+  [data-provider-theme="noir-rose"],[data-provider-theme="cocoa-pearl"],[data-provider-theme="plum-cashmere"],[data-provider-theme="obsidian-champagne"]
 ) :is(.provider-booking,.timeline-booking,.calendar-overview-booking) {
   border-radius:var(--theme-booking-radius,var(--material-radius))!important;
 }
@@ -293,7 +347,8 @@
   [data-provider-theme="apricot-tiger"],[data-provider-theme="peach-silk"],[data-provider-theme="pearl"],
   [data-provider-theme="snow-leopard"],[data-provider-theme="mono"],[data-provider-theme="pearl-zebra"],
   [data-provider-theme="graphite"],[data-provider-theme="midnight"],[data-provider-theme="carbon-ember"],
-  [data-provider-theme="carbon-crimson"],[data-provider-theme="luxury"],[data-provider-theme="noir-safari"],[data-provider-theme="azure-lagoon"]
+  [data-provider-theme="carbon-crimson"],[data-provider-theme="luxury"],[data-provider-theme="noir-safari"],[data-provider-theme="azure-lagoon"],
+  [data-provider-theme="noir-rose"],[data-provider-theme="cocoa-pearl"],[data-provider-theme="plum-cashmere"],[data-provider-theme="obsidian-champagne"]
 ) :is(.client-list-item,.client-history-item) {
   border-radius:var(--theme-client-radius,var(--material-radius))!important;
 }
