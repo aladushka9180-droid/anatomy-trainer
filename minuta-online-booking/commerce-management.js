@@ -42,6 +42,7 @@
     if (source.includes('amount_mismatch')) return 'Сумма возврата должна соответствовать выбранному количеству.';
     if (source.includes('exceeds_remaining')) return 'Количество или сумма превышает доступный остаток возврата.';
     if (source.includes('cash_account_required')) return 'Для наличной оплаты выберите кассу.';
+    if (source.includes('seller_not_active_member')) return 'Выберите активного сотрудника-продавца.';
     if (source.includes('permission') || source.includes('42501')) return 'Недостаточно прав для финансовой операции.';
     return 'Операция не выполнена. Данные не изменены; можно безопасно повторить.';
   }
@@ -58,6 +59,7 @@
     let state = null;
     let loading = false;
     let bound = false;
+    const activeWrites = new Set();
 
     const accountOptions = (selected = '') => (state?.accounts || [])
       .filter(item => item.system_key === null && ['cash', 'bank'].includes(item.account_type))
@@ -75,6 +77,7 @@
       const benefits = $('#commerceItemKind')?.value === 'benefit_product';
       const items = currentItems();
       const itemSelect = $('#commerceItem');
+      const selectedItemId = itemSelect?.value || '';
       if ($('#commerceInventoryFields')) $('#commerceInventoryFields').hidden = benefits;
       if ($('#commerceClient')) $('#commerceClient').required = benefits;
       if ($('#commerceQuantity')) {
@@ -82,9 +85,10 @@
         if (benefits) $('#commerceQuantity').value = '1';
       }
       if (itemSelect) itemSelect.innerHTML = items.length
-        ? selectOptions(items, item => item.kind ? `${item.name} · ${item.kind === 'certificate' ? 'сертификат' : item.kind === 'package' ? 'пакет' : 'абонемент'}` : `${item.name}${item.sku ? ` · ${item.sku}` : ''}`)
+        ? selectOptions(items, item => item.kind ? `${item.name} · ${item.kind === 'certificate' ? 'сертификат' : item.kind === 'package' ? 'пакет' : 'абонемент'}` : `${item.name}${item.sku ? ` · ${item.sku}` : ''}`, selectedItemId)
         : '<option value="">Сначала создайте позицию</option>';
-      const selected = items.find(item => item.id === itemSelect?.value) || items[0];
+      const selected = items.find(item => item.id === selectedItemId) || items[0];
+      if (itemSelect && selected) itemSelect.value = selected.id;
       if (benefits && selected && $('#commerceUnitPrice')) $('#commerceUnitPrice').value = String((Number(selected.sale_price_minor) || 0) / 100);
     }
 
@@ -94,6 +98,34 @@
       const clientId = $('#commerceClient')?.value || '';
       const rows = (state?.bookings || []).filter(item => !clientId || item.client_account_id === clientId);
       select.innerHTML = '<option value="">Отдельная продажа</option>' + selectOptions(rows, item => `${dateText(item.booking_date)} ${String(item.booking_time || '').slice(0, 5)} · ${item.client_name} · ${item.service_name}`);
+    }
+
+    function selectSaleSeller(sellerId = '') {
+      const select = $('#commerceSeller');
+      if (!select) return;
+      const fallback = getCurrentUser()?.id || '';
+      const target = sellerId || fallback;
+      if ([...select.options].some(option => option.value === target)) select.value = target;
+    }
+
+    function updateSaleValidity() {
+      const submit = $('#commerceSaleSubmit');
+      const total = $('#commerceSaleTotal');
+      if (!submit || !total) return false;
+      const benefit = $('#commerceItemKind')?.value === 'benefit_product';
+      const quantity = benefit ? 1 : number($('#commerceQuantity')?.value);
+      const price = minor($('#commerceUnitPrice')?.value);
+      const discount = minor($('#commerceDiscount')?.value);
+      const subtotal = Math.round(quantity * price);
+      const result = subtotal - discount;
+      const valid = Boolean(
+        $('#commerceItem')?.value && $('#commerceSeller')?.value && $('#commercePaymentAccount')?.value
+        && quantity > 0 && price > 0 && discount >= 0 && result > 0
+        && (benefit ? $('#commerceClient')?.value : $('#commerceWarehouse')?.value)
+      );
+      total.textContent = result > 0 ? rubles(result) : '—';
+      submit.disabled = !valid || activeWrites.has(`${organization?.id}:sale`);
+      return valid;
     }
 
     function renderSales() {
@@ -108,7 +140,7 @@
         const remainingAmount = Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0);
         const remainingQuantity = number(sale.line?.quantity) - number(sale.line?.refunded_quantity);
         const status = sale.status === 'refunded' ? 'Возвращено' : sale.status === 'partially_refunded' ? 'Частичный возврат' : 'Оплачено';
-        return `<article class="commerce-sale-row"><div><small>${escapeHtml(dateText(sale.occurred_at))} · ${escapeHtml(status)}</small><strong>${escapeHtml(sale.line?.item_name || 'Продажа')}</strong><span>${sale.client_name ? `${escapeHtml(sale.client_name)} · ` : ''}${escapeHtml(String(sale.line?.quantity || 1))} × ${escapeHtml(rubles(sale.line?.unit_price_minor))}${sale.booking_id ? ' · внутри визита' : ' · отдельно'}</span></div><div><strong>${escapeHtml(rubles(Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0)))}</strong>${remainingAmount > 0 && remainingQuantity > 0 ? `<button class="secondary-button compact-button" type="button" data-commerce-refund="${escapeHtml(sale.id)}">Возврат</button>` : ''}</div></article>`;
+        return `<article class="commerce-sale-row"><div><small>${escapeHtml(dateText(sale.occurred_at))} · ${escapeHtml(status)}</small><strong>${escapeHtml(sale.line?.item_name || 'Продажа')}</strong><span>${sale.client_name ? `${escapeHtml(sale.client_name)} · ` : ''}${escapeHtml(String(sale.line?.quantity || 1))} × ${escapeHtml(rubles(sale.line?.unit_price_minor))}${sale.booking_id ? ' · внутри визита' : ' · отдельно'}</span><span>Продавец: ${escapeHtml(sale.seller_name || 'Сотрудник')}</span></div><div><strong>${escapeHtml(rubles(Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0)))}</strong>${remainingAmount > 0 && remainingQuantity > 0 ? `<button class="secondary-button compact-button" type="button" data-commerce-refund="${escapeHtml(sale.id)}">Возврат</button>` : ''}</div></article>`;
       }).join('') : '<p class="report-empty-inline">Продаж пока нет.</p>';
     }
 
@@ -198,6 +230,9 @@
       $('#commerceUnavailable').hidden = true;
       $('#commerceFinanceEnabled').checked = state.finance_enabled === true;
       $('#commerceClient').innerHTML = '<option value="">Без клиента</option>' + selectOptions(state.clients || [], item => `${item.name}${item.phone ? ` · ${item.phone}` : ''}`);
+      const currentSeller = $('#commerceSeller')?.value || '';
+      $('#commerceSeller').innerHTML = selectOptions(state.sellers || [], item => `${item.name}${item.role ? ` · ${item.role}` : ''}`, currentSeller);
+      selectSaleSeller(currentSeller);
       $('#commerceWarehouse').innerHTML = selectOptions(state.warehouses || [], item => item.name);
       $('#commercePaymentAccount').innerHTML = accountOptions();
       $('#commerceRecurringAccount').innerHTML = accountOptions();
@@ -206,6 +241,7 @@
       renderSales();
       renderRefundControls();
       renderRecurring();
+      updateSaleValidity();
       applyWriteAvailability?.($('#commercePanel'));
     }
 
@@ -217,7 +253,7 @@
       $('#commerceLoading').hidden = false;
       $('#commerceUnavailable').hidden = true;
       try {
-        const result = await db.rpc('get_minuta_commerce_workspace_v147', { p_organization:organization.id });
+        const result = await db.rpc('get_minuta_commerce_workspace_v151', { p_organization:organization.id });
         if (result.error) throw result.error;
         if (!sessionIsCurrent(userId, generation) || organization?.id !== result.data?.organization_id) return;
         state = result.data;
@@ -235,33 +271,54 @@
 
     async function write(form, errorElement, scope, payload, rpc, params) {
       if (!requireWrites()) return;
+      const writeKey = `${organization.id}:${scope}`;
+      if (activeWrites.has(writeKey)) return false;
+      activeWrites.add(writeKey);
       const intent = requestIntent(`${organization.id}:${scope}`, payload);
       const submit = form.querySelector('[type="submit"]');
       submit.disabled = true;
       setError(errorElement, '');
+      let result;
       try {
-        const result = await db.rpc(rpc, { ...params, p_request_id:intent.requestId });
+        result = await db.rpc(rpc, { ...params, p_request_id:intent.requestId });
         if (result.error) throw result.error;
-        clearIntent(intent.key);
-        await load();
-        notify(result.data?.replayed ? 'Операция уже была проведена — повтор не создан' : 'Операция проведена');
-        return true;
       } catch (error) {
         setError(errorElement, error);
-        return false;
-      } finally {
+        activeWrites.delete(writeKey);
         submit.disabled = false;
+        if (scope === 'sale') updateSaleValidity();
+        return false;
       }
+      clearIntent(intent.key);
+      try {
+        await load();
+      } catch (error) {
+        if (scope !== 'sale') {
+          setError(errorElement, error);
+          return false;
+        }
+        notify(result.data?.replayed
+          ? 'Продажа уже была проведена — повтор не создан'
+          : 'Продажа проведена. Список обновится после восстановления связи');
+        return true;
+      } finally {
+        activeWrites.delete(writeKey);
+        submit.disabled = false;
+        if (scope === 'sale') updateSaleValidity();
+      }
+      notify(result.data?.replayed ? 'Операция уже была проведена — повтор не создан' : 'Операция проведена');
+      return true;
     }
 
     async function submitSale(event) {
       event.preventDefault();
       const form = event.currentTarget;
+      if (!updateSaleValidity()) return;
       const kind = $('#commerceItemKind').value;
       const quantity = kind === 'benefit_product' ? 1 : number($('#commerceQuantity').value);
-      const payload = { kind, item:$('#commerceItem').value, client:$('#commerceClient').value || null, booking:$('#commerceBooking').value || null, warehouse:kind === 'inventory_item' ? $('#commerceWarehouse').value : null, quantity, price:minor($('#commerceUnitPrice').value), discount:minor($('#commerceDiscount').value), method:$('#commercePaymentMethod').value, account:$('#commercePaymentAccount').value };
-      const ok = await write(form, $('#commerceSaleError'), 'sale', payload, 'sell_minuta_commercial_product_v147', {
-        p_organization:organization.id, p_booking:payload.booking, p_client_account:payload.client,
+      const payload = { kind, item:$('#commerceItem').value, client:$('#commerceClient').value || null, booking:$('#commerceBooking').value || null, seller:$('#commerceSeller').value, warehouse:kind === 'inventory_item' ? $('#commerceWarehouse').value : null, quantity, price:minor($('#commerceUnitPrice').value), discount:minor($('#commerceDiscount').value), method:$('#commercePaymentMethod').value, account:$('#commercePaymentAccount').value };
+      const ok = await write(form, $('#commerceSaleError'), 'sale', payload, 'sell_minuta_commercial_product_v151', {
+        p_organization:organization.id, p_booking:payload.booking, p_client_account:payload.client, p_seller:payload.seller,
         p_item_kind:kind, p_benefit_product:kind === 'benefit_product' ? payload.item : null,
         p_inventory_item:kind === 'inventory_item' ? payload.item : null, p_warehouse:payload.warehouse,
         p_quantity:quantity, p_unit_price_minor:payload.price, p_discount_minor:payload.discount,
@@ -350,12 +407,13 @@
       bound = true;
       $('#reloadCommerce')?.addEventListener('click', () => void load());
       $('#commerceFinanceEnabled')?.addEventListener('change', event => void toggleFinance(event));
-      $('#commerceItemKind')?.addEventListener('change', renderItemControls);
-      $('#commerceItem')?.addEventListener('change', renderItemControls);
-      $('#commerceClient')?.addEventListener('change', renderBookings);
+      $('#commerceItemKind')?.addEventListener('change', () => { renderItemControls(); updateSaleValidity(); });
+      $('#commerceItem')?.addEventListener('change', () => { renderItemControls(); updateSaleValidity(); });
+      $('#commerceClient')?.addEventListener('change', () => { renderBookings(); updateSaleValidity(); });
       $('#commerceBooking')?.addEventListener('change', event => {
         const booking = (state?.bookings || []).find(item => item.id === event.currentTarget.value);
-        if (booking?.client_account_id) { $('#commerceClient').value = booking.client_account_id; renderBookings(); $('#commerceBooking').value = booking.id; }
+        if (booking?.client_account_id) { $('#commerceClient').value = booking.client_account_id; renderBookings(); $('#commerceBooking').value = booking.id; selectSaleSeller(booking.performer_id); }
+        updateSaleValidity();
       });
       $('#commercePaymentMethod')?.addEventListener('change', event => {
         if (event.currentTarget.value !== 'cash') return;
@@ -363,6 +421,8 @@
         if (cash) $('#commercePaymentAccount').value = cash.id;
       });
       $('#commerceSaleForm')?.addEventListener('submit', event => void submitSale(event));
+      $('#commerceSaleForm')?.addEventListener('input', updateSaleValidity);
+      $('#commerceSaleForm')?.addEventListener('change', updateSaleValidity);
       $('#commerceRefundForm')?.addEventListener('submit', event => void submitRefund(event));
       $('#commerceRefundSale')?.addEventListener('change', event => {
         if (event.currentTarget.value) selectRefundSale(event.currentTarget.value);
@@ -394,7 +454,11 @@
         $('#commerceSaleCreator').open = true;
         if (clientId && [...$('#commerceClient').options].some(option => option.value === clientId)) $('#commerceClient').value = clientId;
         renderBookings();
-        if (bookingId && [...$('#commerceBooking').options].some(option => option.value === bookingId)) $('#commerceBooking').value = bookingId;
+        if (bookingId && [...$('#commerceBooking').options].some(option => option.value === bookingId)) {
+          $('#commerceBooking').value = bookingId;
+          selectSaleSeller((state?.bookings || []).find(item => item.id === bookingId)?.performer_id);
+        } else selectSaleSeller();
+        updateSaleValidity();
         $('#commerceItem').focus({ preventScroll:true });
       },
       async setOrganization(next) {

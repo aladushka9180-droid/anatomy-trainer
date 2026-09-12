@@ -16,6 +16,8 @@
 .commerce-summary article,.money-kpis article{display:grid;gap:4px;min-width:0;padding:14px 16px;border:1px solid var(--theme-line,var(--line));border-radius:16px;background:var(--theme-surface-alt,#f7f7f8)}
 .commerce-summary small,.money-kpis small{color:var(--muted);font-size:.78rem}
 .commerce-summary strong,.money-kpis strong{font-size:1.2rem;letter-spacing:-.02em}
+.commerce-sale-total{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border-radius:14px;background:var(--theme-surface-alt,#f7f7f8)}
+.commerce-sale-total span{color:var(--theme-muted,var(--muted));font-size:.84rem}.commerce-sale-total strong{font-size:1.1rem}
 .money-kpis .is-primary{background:color-mix(in srgb,var(--theme-accent,var(--green)) 10%,var(--theme-surface,#fff));border-color:color-mix(in srgb,var(--theme-accent,var(--green)) 24%,var(--theme-line,var(--line)))}
 .commerce-sales-list,.commerce-recurring,.money-dashboard-grid{display:grid;gap:14px}
 .commerce-sale-row,.commerce-recurring-row,.money-operation-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}

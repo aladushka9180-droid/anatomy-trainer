@@ -60,7 +60,7 @@ assert.match(refundSafety, /refunded_minor\+p_amount_minor=total_minor[\s\S]*v_l
 assert.match(refundSafetyRollback, /create or replace function public\.refund_minuta_commercial_sale_v147/);
 
 assert.match(controller, /minuta-commerce-intent:/);
-assert.match(controller, /sell_minuta_commercial_product_v147/);
+assert.match(controller, /sell_minuta_commercial_product_v151/);
 assert.match(controller, /refund_minuta_commercial_sale_v147/);
 assert.match(controller, /create_minuta_recurring_expense_v147/);
 assert.match(controller, /record_minuta_recurring_expense_v147/);
@@ -89,9 +89,9 @@ assert.match(html, /id="moneyIncome"/);
 assert.match(html, /id="moneyExpenses"/);
 assert.match(html, /id="moneyProfit"/);
 assert.match(html, /id="clientCommerceHistory"/);
-assert.match(html, /commerce-management\.js\?v=724/);
-assert.match(worker, /commerce-management\.js\?v=724/);
-assert.match(worker, /CACHE_PREFIX}v724/);
+assert.match(html, /commerce-management\.js\?v=725/);
+assert.match(worker, /commerce-management\.js\?v=725/);
+assert.match(worker, /CACHE_PREFIX}v725/);
 assert.doesNotMatch(html, /\?v=711/);
 assert.doesNotMatch(worker, /\?v=711/);
 

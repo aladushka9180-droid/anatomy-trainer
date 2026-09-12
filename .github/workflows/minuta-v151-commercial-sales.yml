@@ -1,0 +1,255 @@
+name: Minuta v151 commercial sales release
+run-name: Minuta v151 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v151
+        required: true
+        default: test-v151
+        type: choice
+        options: [test-v151, validate-production-v151, apply-production-v151, observe-production-v151]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      restore_run_id: { description: Linked offline restore run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful isolated v151 test run ID, required: false, default: "", type: string }
+      validation_run_id: { description: Successful read-only v151 validation run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v151 apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter BACKUP_VERIFIED for production apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency: { group: "${{ inputs.phase == 'test-v151' && 'minuta-test-database' || 'minuta-production-database' }}", cancel-in-progress: false }
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit and phase
+        env: { SHA: "${{ inputs.commit_sha }}", PHASE: "${{ inputs.phase }}", CONFIRMATION: "${{ inputs.confirmation }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            test-v151|validate-production-v151|observe-production-v151) ;;
+            apply-production-v151) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: node minuta-online-booking/tests/commercial-sales-v151-static-test.mjs
+      - run: node --check minuta-online-booking/commerce-management.js
+
+  test-v151:
+    if: inputs.phase == 'test-v151'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      PGOPTIONS: -c statement_timeout=120000 -c lock_timeout=10000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node minuta-online-booking/tests/commercial-sales-v151-browser-test.mjs
+      - name: Apply twice, test atomic sales, rollback and reapply
+        run: |
+          set -euo pipefail
+          test "$MINUTA_TEST_PROJECT_REF" != "$MINUTA_PRODUCTION_PROJECT_REF"
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v147.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/commercial-sales-v151-integration.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151-rollback.sql
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('newSaleDropped',to_regprocedure('public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is null,'newWorkspaceDropped',to_regprocedure('public.get_minuta_commerce_workspace_v151(uuid)') is null,'legacySalePreserved',to_regprocedure('public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is not null,'refundPreserved',to_regprocedure('public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)') is not null)")"
+          jq -e '.newSaleDropped and .newWorkspaceDropped and .legacySalePreserved and .refundPreserved' <<<"$state" >/dev/null
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/commercial-sales-v151-integration.sql
+      - name: Create isolated test attestation
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          jq -n --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" \
+            --arg migration "$(sha256sum minuta-online-booking/supabase-migration-v151.sql|cut -d' ' -f1)" \
+            --arg rollback "$(sha256sum minuta-online-booking/supabase-migration-v151-rollback.sql|cut -d' ' -f1)" \
+            '{status:"success",phase:"test-v151",commitSha:$sha,runId:$run,isolatedDatabase:true,
+              coverage:["visit-sale","standalone-sale","price","discount","quantity","seller","warehouse","cash","manual-payment","inventory-atomicity","client-card","idempotent-replay","rapid-double-submit","all-benefit-kinds","role-denial","rollback","reapply","visual-390-760-1440"],
+              migrationSha256:$migration,rollbackSha256:$rollback,productionWritten:false,businessRowsChanged:false}' > "$RUNNER_TEMP/v151-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v151-test-${{ github.run_id }}", path: "${{ runner.temp }}/v151-test.json", if-no-files-found: error, retention-days: 35 }
+
+  validate-production-v151:
+    if: inputs.phase == 'validate-production-v151'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Validate production prerequisites read-only
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          begin transaction isolation level repeatable read read only;
+          select json_build_object(
+            'v147Ready',to_regprocedure('public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is not null,
+            'mode',case
+              when to_regprocedure('public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is null
+                and to_regprocedure('public.get_minuta_commerce_workspace_v151(uuid)') is null then 'ready'
+              when to_regprocedure('public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is not null
+                and to_regprocedure('public.get_minuta_commerce_workspace_v151(uuid)') is not null
+                and has_function_privilege('authenticated','public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)','EXECUTE')
+                and not has_function_privilege('anon','public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)','EXECUTE') then 'full'
+              else 'partial' end,
+            'sales',(select count(*) from public.commercial_sales),
+            'transactions',(select count(*) from public.financial_transactions));
+          rollback;
+          SQL
+          )"
+          state="$(grep '^{' <<<"$state"|tail -n 1)"
+          jq -e '.v147Ready and (.mode=="ready" or .mode=="full")' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"validate-production-v151",commitSha:$sha,readOnly:true,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v151-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v151-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v151-validation.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v151:
+    if: inputs.phase == 'apply-production-v151'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify tests, validation, encrypted backup and linked restore
+        env: { SHA: "${{ inputs.commit_sha }}", TEST: "${{ inputs.test_run_id }}", VALIDATION: "${{ inputs.validation_run_id }}", BACKUP: "${{ inputs.backup_run_id }}", RESTORE: "${{ inputs.restore_run_id }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          for id in "$TEST" "$VALIDATION" "$BACKUP" "$RESTORE"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){ run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$SHA"; test "$(jq -r .head_branch <<<"$run")" = main; test "$(jq -r .event <<<"$run")" = workflow_dispatch; test "$(jq -r .path <<<"$run")" = "$2"; }
+          mkdir -p "$RUNNER_TEMP/v151-evidence"/{test,validation,backup,restore}
+          check_run "$TEST" .github/workflows/minuta-v151-commercial-sales.yml
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v151-test-$TEST" -D "$RUNNER_TEMP/v151-evidence/test"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .isolatedDatabase and (.productionWritten|not) and (.businessRowsChanged|not)' "$RUNNER_TEMP/v151-evidence/test/v151-test.json" >/dev/null
+          check_run "$VALIDATION" .github/workflows/minuta-v151-commercial-sales.yml
+          gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v151-validation-$VALIDATION" -D "$RUNNER_TEMP/v151-evidence/validation"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .readOnly and (.state.mode=="ready" or .state.mode=="full")' "$RUNNER_TEMP/v151-evidence/validation/v151-validation.json" >/dev/null
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s)-$(date -d "$(jq -r .created_at <<<"$run")" +%s) )); test "$age" -ge 0 && test "$age" -le 7200
+          artifact="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts" --jq '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name')"; [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v151-evidence/backup"
+          shopt -s nullglob; encrypted=("$RUNNER_TEMP/v151-evidence/backup/"*.dump.gpg); journals=("$RUNNER_TEMP/v151-evidence/backup/"*.json)
+          test "${#encrypted[@]}" = 1 && test "${#journals[@]}" = 1
+          test "$(sha256sum "${encrypted[0]}"|cut -d' ' -f1)" = "$(jq -r .encryptedSha256 "${journals[0]}")"
+          check_run "$RESTORE" .github/workflows/minuta-supabase-restore-drill.yml
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE" -D "$RUNNER_TEMP/v151-evidence/restore"
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" '.status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed and (.productionWritten|not) and .sourceBackupRunId==$backup and .sourceBackupSha==$sha' "$RUNNER_TEMP/v151-evidence/restore/minuta-ephemeral-restore.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply v151 without changing business rows
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          before="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('sales',(select count(*) from public.commercial_sales),'movements',(select count(*) from public.inventory_movements),'transactions',(select count(*) from public.financial_transactions),'instruments',(select count(*) from public.client_benefit_instruments))")"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+          after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('sales',(select count(*) from public.commercial_sales),'movements',(select count(*) from public.inventory_movements),'transactions',(select count(*) from public.financial_transactions),'instruments',(select count(*) from public.client_benefit_instruments),'ready',to_regprocedure('public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is not null and to_regprocedure('public.get_minuta_commerce_workspace_v151(uuid)') is not null and has_function_privilege('authenticated','public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)','EXECUTE') and not has_function_privilege('anon','public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)','EXECUTE'))")"
+          jq -e --argjson before "$before" '.ready and .sales==$before.sales and .movements==$before.movements and .transactions==$before.transactions and .instruments==$before.instruments' <<<"$after" >/dev/null
+          jq -n --arg sha "$SHA" --argjson before "$before" --argjson after "$after" '{status:"success",phase:"apply-production-v151",commitSha:$sha,before:$before,after:$after,productionWritten:true,businessRowsChanged:false,secretsExposed:false}' > "$RUNNER_TEMP/v151-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v151-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v151-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v151:
+    if: inputs.phase == 'observe-production-v151'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify apply evidence and observe v151 read-only
+        env: { SHA: "${{ inputs.commit_sha }}", APPLY: "${{ inputs.apply_run_id }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success
+          test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v151-commercial-sales.yml
+          mkdir -p "$RUNNER_TEMP/v151-apply"
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v151-apply-$APPLY" -D "$RUNNER_TEMP/v151-apply"
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .productionWritten and (.businessRowsChanged|not) and .after.ready' "$RUNNER_TEMP/v151-apply/v151-apply.json" >/dev/null
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 <<'SQL'
+          begin transaction isolation level repeatable read read only;
+          do $probe$
+          declare target record; workspace jsonb;
+          begin
+            for target in select distinct on (membership.organization_id) membership.organization_id,membership.user_id
+              from public.organization_memberships membership
+              where membership.active and membership.role in('owner','admin')
+              order by membership.organization_id,case membership.role when 'owner' then 0 else 1 end,membership.user_id
+            loop
+              perform set_config('request.jwt.claim.sub',target.user_id::text,true);
+              workspace:=public.get_minuta_commerce_workspace_v151(target.organization_id);
+              if workspace->>'organization_id'<>target.organization_id::text or jsonb_typeof(workspace->'sellers')<>'array' then
+                raise exception 'v151_production_workspace_mismatch';
+              end if;
+            end loop;
+          end
+          $probe$;
+          rollback;
+          SQL
+          jq -n --arg sha "$SHA" --arg apply "$APPLY" '{status:"success",phase:"observe-production-v151",commitSha:$sha,applyRunId:$apply,readOnly:true,productionWritten:false}' > "$RUNNER_TEMP/v151-observation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v151-observation-${{ github.run_id }}", path: "${{ runner.temp }}/v151-observation.json", if-no-files-found: error, retention-days: 90 }
