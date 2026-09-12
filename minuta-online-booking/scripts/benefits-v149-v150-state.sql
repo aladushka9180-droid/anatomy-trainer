@@ -265,6 +265,9 @@ select json_build_object(
     and to_regprocedure('public.get_minuta_client_commerce_v147(uuid,uuid)') is not null
     and to_regprocedure('public.minuta_financial_sha256_v129(jsonb)') is not null,
   'v149Any',(select any_present from v149_state),'v149Exact',(select exact from v149_state),
+  'v149ProcExact',(select count(*)=2 and bool_and(marker=expected) from v149_proc),
+  'v149RelationExact',(select count(*)=1 and bool_and(marker=expected) from v149_relation),
+  'v149LegacyExecute',has_function_privilege('authenticated','public.apply_minuta_benefit(uuid,uuid,uuid,text,integer)','execute'),
   'v150Any',(select any_present from v150_state),'v150Exact',(select exact from v150_state),
   'baselineStatusExact',(select actual_hash=expected_hash from baseline_status),
   'baselineLedgerConstraintExact',(select actual_hash=expected_hash from baseline_ledger_constraint),

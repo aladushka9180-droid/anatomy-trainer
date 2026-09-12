@@ -99,7 +99,7 @@ jobs:
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/benefit-application-v149-lifecycle.sql
           baseline_state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql)"
           baseline_state="$(grep '^{' <<<"$baseline_state"|tail -n 1)"
-          jq -c '{classification,v149Exact,v150Exact,baselineStatusExact,baselineLedgerConstraintExact}' <<<"$baseline_state"
+          jq -c '{classification,v149Exact,v149ProcExact,v149RelationExact,v149LegacyExecute,v150Exact,baselineStatusExact,baselineLedgerConstraintExact}' <<<"$baseline_state"
           jq -e '.classification=="v149-exact" and .v149Exact' <<<"$baseline_state" >/dev/null
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/benefit-v149-v150-rollback-order.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v149.sql
