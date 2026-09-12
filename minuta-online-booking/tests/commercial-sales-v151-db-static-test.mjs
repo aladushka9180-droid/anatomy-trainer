@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
+const migration = read('../supabase-migration-v151.sql');
+const rollback = read('../supabase-migration-v151-rollback.sql');
+const state = read('../scripts/commercial-sales-v151-state.sql');
+const integration = read('./commercial-sales-v151-integration.sql');
+const workflow = read('../../.github/workflows/minuta-v151-commercial-sales.yml');
+
+const signature = 'sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)';
+assert.match(migration, /v151_requires_exact_v147_v148_v149_v150/);
+assert.match(migration, /minuta_refund_safety_v148_proportional_rounding/);
+assert.match(migration, /apply_minuta_benefit_v149/);
+assert.match(migration, /set_minuta_benefit_lifecycle_v150/);
+assert.match(migration, /v151_apply_blocked_partial_or_newer_objects/);
+assert.match(migration, /v151_apply_blocked_newer_function_definition/);
+assert.match(migration, /minuta_commercial_sales_v151:sha256=/);
+assert.match(migration, /:commerce:'\|\|p_request_id::text,147\)/);
+assert.match(migration, /commercial_sale_idempotency_conflict/);
+assert.match(migration, new RegExp(`revoke all on function public\\.${signature.replace(/[()]/g, '\\$&')} from public,anon,authenticated,service_role`));
+assert.match(migration, new RegExp(`grant execute on function public\\.${signature.replace(/[()]/g, '\\$&')} to authenticated`));
+
+assert.match(rollback, /v151_rollback_blocked_partial_or_newer_objects/);
+assert.match(rollback, /v151_rollback_blocked_newer_function_definition/);
+assert.match(rollback, /minuta_commercial_sales_v151:sha256=/);
+assert.doesNotMatch(rollback, /drop function if exists public\.refund_minuta_commercial_sale_v147/);
+assert.doesNotMatch(rollback, /drop function if exists public\.apply_minuta_benefit_v149/);
+assert.doesNotMatch(rollback, /drop function if exists public\.set_minuta_benefit_lifecycle_v150/);
+assert.doesNotMatch(rollback, /\b(?:delete|insert|update|truncate|drop table|alter table)\b/i);
+
+assert.match(state, /'partial-or-newer'/);
+assert.match(state, /present_count=2 and exact/);
+assert.match(state, /authenticatedSaleExecute/);
+assert.match(state, /anonWorkspaceExecute/);
+
+assert.match(integration, /benefit_sale_replayed/);
+assert.match(integration, /benefit_reserve_replayed/);
+assert.match(integration, /benefit_release_replayed/);
+assert.match(integration, /benefit_freeze_replayed/);
+assert.match(integration, /benefit_unfreeze_replayed/);
+assert.match(integration, /benefit_refund_replayed/);
+assert.match(integration, /benefit_instrument_cancelled/);
+assert.match(integration, /benefit_sale_transaction_single/);
+assert.match(integration, /benefit_refund_transaction_single/);
+
+for (const phase of ['test-v151', 'validate-production-v151', 'apply-production-v151', 'observe-production-v151']) {
+  assert.match(workflow, new RegExp(`\\b${phase}:`));
+}
+assert.match(workflow, /commercial-sales-v151-db-static-test\.mjs/);
+assert.match(workflow, /commercial-sales-v151-state\.sql/);
+assert.match(workflow, /benefits-v149-v150-state\.sql/);
+assert.match(workflow, /supabase-migration-v151-rollback\.sql/);
+assert.doesNotMatch(workflow, /commercial-sales-v151-browser-test/);
+assert.doesNotMatch(workflow, /commerce-management\.js/);
+assert.doesNotMatch(workflow, /supabase-migration-v147\.sql/);
+assert.doesNotMatch(workflow, /supabase-migration-v148\.sql/);
+assert.doesNotMatch(workflow, /supabase-migration-v149\.sql/);
+assert.doesNotMatch(workflow, /supabase-migration-v150\.sql/);
+
+console.log('PrimeTime Pro commercial sales v151 DB contract checks passed');
