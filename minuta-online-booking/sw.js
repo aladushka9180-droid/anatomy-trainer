@@ -32,6 +32,7 @@ const ASSETS = [
   './contextual-help.css?v=726',
   './settings-mobile-minimalism.css?v=726',
   './client-records.css?v=726',
+  './benefit-lifecycle.css?v=726',
   './provider-integrations.css?v=726',
   './client-results.css?v=726',
   './provider-theme-noir-safari.css?v=726',
@@ -83,6 +84,7 @@ const ASSETS = [
 // Warm after the first screen. A cold installation must not wait for tools
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
+  './benefit-lifecycle.js?v=726',
   './provider-feedback-inbox.js?v=726',
   './free-slots-compact.css?v=726',
   './vendor/qrcodegen.js?v=726',

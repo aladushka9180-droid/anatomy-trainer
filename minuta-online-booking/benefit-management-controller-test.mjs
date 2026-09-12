@@ -123,5 +123,5 @@ function controller(dom,rpc,overrides={}) {
   assert.match(application.args.p_request_id,/^[0-9a-f-]{36}$/i);
 }
 
-for (const rpc of ['get_minuta_benefit_workspace','set_minuta_benefits_enabled','upsert_minuta_benefit_product','issue_minuta_benefit','set_minuta_benefit_status','apply_minuta_benefit_v149','apply_minuta_benefit']) assert.match(source,new RegExp(rpc));
+for (const rpc of ['get_minuta_benefit_workspace','set_minuta_benefits_enabled','upsert_minuta_benefit_product','issue_minuta_benefit','set_minuta_benefit_lifecycle_v150','apply_minuta_benefit_v149','apply_minuta_benefit']) assert.match(source,new RegExp(rpc));
 console.log('benefit management controller tests passed');

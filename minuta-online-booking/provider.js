@@ -483,6 +483,7 @@ let resourceController = null;
 let shiftController = null;
 let payrollController = null;
 let benefitController = null;
+let clientBenefitLifecycleController = null;
 let loyaltyController = null;
 let inventoryController = null;
 let retentionController = null;
@@ -10720,16 +10721,9 @@ async function loadClientCommerceHistory(client) {
     return;
   }
   const sales = result.data?.sales || [];
-  const benefits = result.data?.benefits || [];
-  $('#clientCommerceHistoryTitle').textContent = `Покупки · ${sales.length}`;
-  const benefitMarkup = benefits.map(item => {
-    const balance = item.kind === 'certificate'
-      ? `Осталось ${money(Number(item.remaining_amount_rub || 0))}`
-      : `Осталось ${Number(item.remaining_visits || 0)} посещ.`;
-    return `<article class="client-commerce-row"><div><small>${item.status === 'active' ? 'Активно' : item.status === 'frozen' ? 'Заморожено' : item.status === 'exhausted' ? 'Использовано' : 'Неактивно'}</small><strong>${escapeHtml(item.name || 'Абонемент')}</strong><span>${escapeHtml(balance)} · до ${escapeHtml(new Date(`${item.expires_on}T12:00:00`).toLocaleDateString('ru-RU'))}</span></div></article>`;
-  }).join('');
+  $('#clientCommerceHistoryTitle').textContent = `Продажи · ${sales.length}`;
   const salesMarkup = sales.map(item => `<article class="client-commerce-row"><div><small>${new Date(item.occurred_at).toLocaleDateString('ru-RU')} · ${item.status === 'refunded' ? 'возвращено' : item.status === 'partially_refunded' ? 'частичный возврат' : 'оплачено'}</small><strong>${escapeHtml(item.item_name || 'Продажа')}</strong><span>${escapeHtml(String(item.quantity || 1))} шт. · ${money((Number(item.total_minor || 0) - Number(item.refunded_minor || 0)) / 100)}</span></div></article>`).join('');
-  list.innerHTML = benefitMarkup + salesMarkup || '<p class="report-empty-inline">Покупок и активных продуктов пока нет.</p>';
+  list.innerHTML = salesMarkup || '<p class="report-empty-inline">Оплаченных продаж пока нет.</p>';
 }
 
 function renderClientDetail(phone, { preserveReturn = false } = {}) {
@@ -10808,6 +10802,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   const lastVisitDate = lastVisit?.booking_date || client.imported?.last_visit_on || '';
   $('#clientLastVisit').textContent = lastVisitDate ? new Date(`${lastVisitDate}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric',month:'short',year:'numeric' }) : '—';
   void loadClientProfileDetails(client);
+  void clientBenefitLifecycleController?.setClient(client, organizationController?.getActiveOrganization?.());
   void loadClientCommerceHistory(client);
   batchBookingsController?.setClient(client);
   clientFieldsController?.setClient(client.phone);
@@ -11880,6 +11875,7 @@ async function logout() {
   ++sessionGeneration;
   clientResultsController.reset();
   clientRecordsController.reset();
+  clientBenefitLifecycleController?.reset();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
@@ -11929,6 +11925,7 @@ async function handleSession(session) {
   const generation = ++sessionGeneration;
   clientResultsController.reset();
   clientRecordsController.reset();
+  clientBenefitLifecycleController?.reset();
   resetReportSessionState();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   window.MinutaProviderOnboarding?.reset();
@@ -14680,6 +14677,14 @@ const clientFieldsController = window.createMinutaClientFieldsUIController ? win
   db, $, escapeHtml, notify, requireWrites
 }) : { bind() {}, setOrganization() {}, setClient() {}, render() {} };
 clientFieldsController.bind();
+
+clientBenefitLifecycleController = window.MinutaBenefitLifecycle?.createClientController({
+  db, $, escapeHtml, notify, requireWrites,
+  getCurrentUser:() => currentUser,
+  getSessionGeneration:() => sessionGeneration,
+  sessionIsCurrent
+}) || { bind() {}, load() { return Promise.resolve({ ok:false, optional:true }); }, setClient() {}, reset() {} };
+clientBenefitLifecycleController.bind();
 
 const clientRecordsController = window.MinutaClientRecords?.createController({
   db, requireWrites, getContext:() => ({userId:currentUser?.id,sessionGeneration})
