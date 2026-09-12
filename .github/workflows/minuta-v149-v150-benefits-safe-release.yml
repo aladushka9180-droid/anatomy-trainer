@@ -96,6 +96,23 @@ jobs:
           test "$(tr -d '[:space:]' <<<"$marker")" = 1
           secure="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select position('commercial_refund_amount_mismatch' in pg_get_functiondef('public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)'::regprocedure))>0")"
           test "$(tr -d '[:space:]' <<<"$secure")" = t
+          initial_state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql)"
+          initial_state="$(grep '^{' <<<"$initial_state"|tail -n 1)"
+          initial_classification="$(jq -r '.classification' <<<"$initial_state")"
+          case "$initial_classification" in
+            v150-phase1-or-complete-exact)
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v150-rollback.sql
+              normalized_state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql)"
+              normalized_state="$(grep '^{' <<<"$normalized_state"|tail -n 1)"
+              jq -e '.classification=="v149-exact" and .v149Exact and (.v150Any|not) and .baselineStatusExact and .baselineLedgerConstraintExact' <<<"$normalized_state" >/dev/null
+              ;;
+            absent|v149-exact)
+              ;;
+            *)
+              jq -c '{classification,v149Exact,v150Exact}' <<<"$initial_state"
+              exit 1
+              ;;
+          esac
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/benefit-application-v149-lifecycle.sql
           baseline_state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql)"
           baseline_state="$(grep '^{' <<<"$baseline_state"|tail -n 1)"
