@@ -11955,8 +11955,8 @@ async function handleSession(session) {
   paymentController.reset();
   integrationController.reset();
   notificationCenterController.reset();
-  commerceController?.reset();
-  financeController?.reset();
+  if (typeof commerceController !== 'undefined') commerceController?.reset();
+  if (typeof financeController !== 'undefined') financeController?.reset();
   providerFeedbackController.reset();
   feedbackInboxController.reset();
   clientFieldsController.setOrganization(null);
@@ -14776,8 +14776,8 @@ const organizationController = window.MinutaOrganization.createController({
     loyaltyController?.setOrganization(organization);
     inventoryController?.setOrganization(organization);
     retentionController?.setOrganization(organization);
-    commerceController?.setOrganization(organization);
-    financeController.setOrganization(organization);
+    if (typeof commerceController !== 'undefined') commerceController?.setOrganization(organization);
+    if (typeof financeController !== 'undefined') financeController?.setOrganization(organization);
     batchBookingsController.setOrganization(organization);
     bookingPolicyController.setOrganization(organization);
     groupBookingsController.setOrganization(organization);
