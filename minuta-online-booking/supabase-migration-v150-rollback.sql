@@ -22,6 +22,7 @@ begin
     end if;
     select public.minuta_financial_sha256_v129(jsonb_build_object(
       'source',procedure_row.prosrc,'kind',procedure_row.prokind,'language',language_row.lanname,
+      'owner',pg_get_userbyid(procedure_row.proowner),
       'volatility',procedure_row.provolatile,'security_definer',procedure_row.prosecdef,
       'strict',procedure_row.proisstrict,'leakproof',procedure_row.proleakproof,'parallel',procedure_row.proparallel,
       'result',pg_get_function_result(procedure_row.oid),'arguments',pg_get_function_arguments(procedure_row.oid),
@@ -41,7 +42,9 @@ begin
       raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_table_version';
     end if;
     select public.minuta_financial_sha256_v129(jsonb_build_object(
-      'kind',relation_row.relkind,'row_security',relation_row.relrowsecurity,'acl',coalesce(relation_row.relacl::text,''),
+      'kind',relation_row.relkind,'owner',pg_get_userbyid(relation_row.relowner),
+      'row_security',relation_row.relrowsecurity,'force_row_security',relation_row.relforcerowsecurity,
+      'acl',coalesce(relation_row.relacl::text,''),
       'columns',coalesce((select jsonb_agg(jsonb_build_object(
         'number',attribute_row.attnum,'name',attribute_row.attname,'type',format_type(attribute_row.atttypid,attribute_row.atttypmod),
         'not_null',attribute_row.attnotnull,'identity',attribute_row.attidentity,'generated',attribute_row.attgenerated,
@@ -58,9 +61,15 @@ begin
         from pg_catalog.pg_index index_row where index_row.indrelid=relation_row.oid),'[]'::jsonb),
       'policies',coalesce((select jsonb_agg(jsonb_build_object(
         'name',policy_row.polname,'command',policy_row.polcmd,'permissive',policy_row.polpermissive,
-        'roles',policy_row.polroles::text,'using',pg_get_expr(policy_row.polqual,policy_row.polrelid),
+        'roles',coalesce((select jsonb_agg(pg_get_userbyid(role_oid) order by pg_get_userbyid(role_oid))
+          from unnest(policy_row.polroles) role_oid),'[]'::jsonb),
+        'using',pg_get_expr(policy_row.polqual,policy_row.polrelid),
         'check',pg_get_expr(policy_row.polwithcheck,policy_row.polrelid)
-      ) order by policy_row.polname) from pg_catalog.pg_policy policy_row where policy_row.polrelid=relation_row.oid),'[]'::jsonb)
+      ) order by policy_row.polname) from pg_catalog.pg_policy policy_row where policy_row.polrelid=relation_row.oid),'[]'::jsonb),
+      'triggers',coalesce((select jsonb_agg(jsonb_build_object(
+        'name',trigger_row.tgname,'enabled',trigger_row.tgenabled,'definition',pg_get_triggerdef(trigger_row.oid,true)
+      ) order by trigger_row.tgname) from pg_catalog.pg_trigger trigger_row
+        where trigger_row.tgrelid=relation_row.oid and not trigger_row.tgisinternal),'[]'::jsonb)
     )) into v_hash from pg_catalog.pg_class relation_row where relation_row.oid=v_relation;
     if obj_description(v_relation::oid,'pg_class') is distinct from 'minuta_benefit_lifecycle_v150:sha256='||v_hash then
       raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_table_version';

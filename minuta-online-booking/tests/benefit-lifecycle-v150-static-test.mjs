@@ -35,9 +35,16 @@ assert.match(migration, /v150_apply_blocked_newer_constraint_definition/);
 for (const source of [migration, rollback]) {
   assert.match(source, /minuta_financial_sha256_v129\(jsonb_build_object/);
   assert.match(source, /procedure_row\.prosrc/);
+  assert.match(source, /pg_get_userbyid\(procedure_row\.proowner\)/);
   assert.match(source, /procedure_row\.provolatile/);
   assert.match(source, /procedure_row\.prosecdef/);
   assert.match(source, /relation_row\.relrowsecurity/);
+  assert.match(source, /pg_get_userbyid\(relation_row\.relowner\)/);
+  assert.match(source, /relation_row\.relforcerowsecurity/);
+  assert.match(source, /trigger_row\.tgenabled/);
+  assert.match(source, /pg_get_triggerdef\(trigger_row\.oid,true\)/);
+  assert.match(source, /pg_get_userbyid\(role_oid\)/);
+  assert.doesNotMatch(source, /policy_row\.polroles::text/);
   assert.match(source, /pg_get_constraintdef\(constraint_row\.oid,true\)/);
   assert.match(source, /minuta_benefit_lifecycle_v150:sha256=/);
 }

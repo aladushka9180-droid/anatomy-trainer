@@ -124,6 +124,36 @@ for (const signature of [
 for (const relation of ['public.benefit_freeze_periods','public.benefit_lifecycle_requests'])
   assert.match(await scalar(`select obj_description(${q(relation)}::regclass::oid,'pg_class') value`), /^minuta_benefit_lifecycle_v150:sha256=[0-9a-f]+$/);
 assert.match(await scalar("select obj_description(oid,'pg_constraint') value from pg_catalog.pg_constraint where conrelid='public.benefit_ledger'::regclass and conname='benefit_ledger_event_type_check'"), /^minuta_benefit_lifecycle_v150:sha256=[0-9a-f]+$/);
+assert.deepEqual(await scalar(`select coalesce(jsonb_agg(role_name order by role_name),'[]'::jsonb) value from (
+  select distinct pg_get_userbyid(role_oid) role_name from pg_catalog.pg_policy policy_row
+  cross join lateral unnest(policy_row.polroles) role_oid
+  where policy_row.polrelid in ('public.benefit_freeze_periods'::regclass,'public.benefit_lifecycle_requests'::regclass)
+) stable_roles`), ['authenticated']);
+
+await db.exec('create role lifecycle_future_owner');
+await db.exec('alter function public.get_minuta_benefit_timezone_v150(uuid) owner to lifecycle_future_owner');
+await assert.rejects(db.exec(migration), /v150_apply_blocked_newer_function_definition/);
+await db.exec('rollback');
+assert.equal(await scalar("select pg_get_userbyid(proowner) value from pg_catalog.pg_proc where oid='public.get_minuta_benefit_timezone_v150(uuid)'::regprocedure"), 'lifecycle_future_owner');
+await db.exec('alter function public.get_minuta_benefit_timezone_v150(uuid) owner to postgres');
+
+await db.exec('alter table public.benefit_lifecycle_requests owner to lifecycle_future_owner');
+await assert.rejects(db.exec(migration), /v150_apply_blocked_newer_table_definition/);
+await db.exec('rollback');
+await db.exec('alter table public.benefit_lifecycle_requests owner to postgres');
+
+await db.exec('alter table public.benefit_freeze_periods force row level security');
+await assert.rejects(db.exec(migration), /v150_apply_blocked_newer_table_definition/);
+await db.exec('rollback');
+await db.exec('alter table public.benefit_freeze_periods no force row level security');
+
+await db.exec(`create function public.v150_future_trigger_test() returns trigger language plpgsql as $$ begin return new; end $$;
+  create trigger v150_future_trigger before insert on public.benefit_freeze_periods
+  for each row execute function public.v150_future_trigger_test()`);
+await assert.rejects(db.exec(migration), /v150_apply_blocked_newer_table_definition/);
+await db.exec('rollback');
+assert.equal(await scalar("select tgenabled value from pg_catalog.pg_trigger where tgrelid='public.benefit_freeze_periods'::regclass and tgname='v150_future_trigger'"), 'O');
+await db.exec('drop trigger v150_future_trigger on public.benefit_freeze_periods; drop function public.v150_future_trigger_test()');
 
 const timezoneDefinition = await scalar("select pg_get_functiondef('public.get_minuta_benefit_timezone_v150(uuid)'::regprocedure) value");
 const timezoneStamp = await scalar("select obj_description('public.get_minuta_benefit_timezone_v150(uuid)'::regprocedure::oid,'pg_proc') value");
