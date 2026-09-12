@@ -26,7 +26,7 @@
   background-color:#f3c49e!important;
   background-image:
     linear-gradient(rgba(255,239,224,.30),rgba(250,217,187,.30)),
-    url("provider-apricot-tiger-desktop-v2.webp")!important;
+    url("provider-apricot-tiger-desktop-v3.webp")!important;
 }
 
 /* The artwork belongs to the outer canvas; operational surfaces remain clean. */
@@ -75,7 +75,7 @@
   background:#f4ede3 url("provider-pearl-zebra-desktop-v2.webp") center/cover no-repeat!important;
 }
 .theme-apricot-tiger .theme-swatch {
-  background:#f3c49e url("provider-apricot-tiger-desktop-v2.webp") center/cover no-repeat!important;
+  background:#f3c49e url("provider-apricot-tiger-desktop-v3.webp") center/cover no-repeat!important;
 }
 
 .provider-body[data-provider-theme][data-provider-layout] .provider-theme-option {

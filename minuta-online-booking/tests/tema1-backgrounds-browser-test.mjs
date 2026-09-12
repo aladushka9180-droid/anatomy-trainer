@@ -12,6 +12,7 @@ const playwrightModule = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
 const { chromium } = playwrightModule.chromium ? playwrightModule : playwrightModule.default;
 const mime = { '.html':'text/html', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
 const themes = ['snow-leopard', 'pearl-zebra', 'apricot-tiger'];
+const desktopArtworkVersion = theme => theme === 'apricot-tiger' ? 'v3' : 'v2';
 
 const browser = await chromium.launch({ headless:true, executablePath:process.env.MINUTA_CHROME_PATH || undefined });
 try {
@@ -74,7 +75,8 @@ try {
         };
       }, theme);
       const mode = width <= 760 ? 'mobile' : 'desktop';
-      assert.match(result.bodyImage, new RegExp(`provider-${theme}-${mode}-v2\\.webp`), `${theme}/${width}: wrong responsive artwork`);
+      const artworkVersion = mode === 'desktop' ? desktopArtworkVersion(theme) : 'v2';
+      assert.match(result.bodyImage, new RegExp(`provider-${theme}-${mode}-${artworkVersion}\\.webp`), `${theme}/${width}: wrong responsive artwork`);
       assert.ok(result.repeat.split(',').every(value => value.trim() === 'no-repeat'), `${theme}/${width}: artwork must not tile`);
       assert.ok(result.size.split(',').every(value => value.trim() === 'cover'), `${theme}/${width}: artwork must fit the viewport`);
       assert.ok(result.attachment.split(',').every(value => value.trim() === 'fixed'), `${theme}/${width}: artwork must stay viewport-bound`);
@@ -86,7 +88,7 @@ try {
       assert.equal(result.bookingImage, 'none', `${theme}/${width}: booking must remain texture-free`);
       assert.equal(result.optionRadius, '13px', `${theme}/${width}: picker card became an oval`);
       assert.equal(result.optionOverflow, 'hidden', `${theme}/${width}: picker artwork can escape its card`);
-      assert.match(result.swatchImage, new RegExp(`provider-${theme}-desktop-v2\\.webp`), `${theme}/${width}: picker preview must match the theme`);
+      assert.match(result.swatchImage, new RegExp(`provider-${theme}-desktop-${desktopArtworkVersion(theme)}\\.webp`), `${theme}/${width}: picker preview must match the theme`);
       assert.equal(result.scrollWidth, result.viewportWidth, `${theme}/${width}: horizontal overflow detected`);
     }
   }
