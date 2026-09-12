@@ -160,6 +160,11 @@ try {
   const disabledMarkup = await page.evaluate(() => window.MinutaClientResults.bookingFieldsMarkup({ enabled: false, can_enable: true }));
   assert.match(disabledMarkup, /Подключить/);
   assert.doesNotMatch(disabledMarkup, /client_result_before_session/);
+  const offlineMarkup = await page.evaluate(() => window.MinutaClientResults.bookingFieldsMarkup({ offline: true }));
+  assert.match(offlineMarkup, /Недоступно без интернета/);
+  assert.match(offlineMarkup, /Подключитесь к сети, чтобы просмотреть или изменить приватные результаты/);
+  assert.doesNotMatch(offlineMarkup, /Проверяем доступ/);
+  assert.doesNotMatch(offlineMarkup, /client_result_before_session/);
   const missingAfterMarkup = await page.evaluate(mediaId => window.MinutaClientResults.bookingFieldsMarkup({ enabled: true, result: {
     id: '00000000-0120-4000-8000-000000000010', private_storage_consent: true,
     media: [{ id: mediaId, purpose: 'before', object_path: `org/${mediaId}.webp` }]
@@ -275,6 +280,7 @@ try {
   const emptyAction = await page.evaluate(bookingId => {
     const form = document.createElement('form');
     form.className = 'booking-visit-result-form';
+    form.id = 'offlineBookingVisitResultForm';
     form.dataset.bookingId = bookingId;
     form.innerHTML = '<button class="primary" type="submit">Сохранить результат</button>';
     document.body.append(form);
@@ -296,6 +302,51 @@ try {
     whiteSpace: 'nowrap',
     text: 'Сохранить результат'
   }, 'Empty result keeps the save action quiet and on one line');
+
+  const rpcCountBeforeOffline = await page.evaluate(() => window.__rpcCalls.length);
+  await page.context().setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await page.waitForFunction(() => document.querySelector('#offlineBookingVisitResultForm #bookingVisitResultFields .client-results-gate strong')?.textContent === 'Недоступно без интернета');
+  const offlineState = await page.evaluate(() => ({
+    title: document.querySelector('#offlineBookingVisitResultForm #bookingVisitResultFields .client-results-gate strong')?.textContent,
+    message: document.querySelector('#offlineBookingVisitResultForm #bookingVisitResultFields .client-results-gate p')?.textContent,
+    summary: document.querySelector('#offlineBookingVisitResultForm #bookingVisitResultFields>summary small')?.textContent,
+    saveDisabled: document.querySelector('#offlineBookingVisitResultForm>button[type="submit"]')?.disabled,
+    privateFields: document.querySelectorAll('#offlineBookingVisitResultForm #bookingVisitResultFields [name^="client_result_"]').length,
+    width: document.documentElement.scrollWidth,
+    viewport: document.documentElement.clientWidth
+  }));
+  assert.deepEqual(offlineState, {
+    title: 'Недоступно без интернета',
+    message: 'Подключитесь к сети, чтобы просмотреть или изменить приватные результаты.',
+    summary: 'Без интернета',
+    saveDisabled: true,
+    privateFields: 0,
+    width: 390,
+    viewport: 390
+  }, 'Offline editor immediately explains the limitation, hides private fields and disables saving');
+  const offlineSave = await page.evaluate(() => window.__controller.save());
+  assert.equal(offlineSave.reason, 'offline', 'Programmatic save also fails closed while offline');
+  assert.equal(await page.evaluate(() => window.__rpcCalls.length), rpcCountBeforeOffline, 'Offline state performs no private-result RPC');
+
+  for (const width of [390, 760, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const offlineMetrics = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      gateVisible: document.querySelector('#offlineBookingVisitResultForm .client-results-gate')?.getBoundingClientRect().height > 0
+    }));
+    assert.equal(offlineMetrics.gateVisible, true, `Offline explanation is visible at ${width}px`);
+    assert.ok(offlineMetrics.scrollWidth <= offlineMetrics.clientWidth, `Offline result state has no overflow at ${width}px`);
+    if (process.env.MINUTA_CLIENT_RESULTS_SCREENSHOT_PREFIX) {
+      await page.screenshot({ path: `${process.env.MINUTA_CLIENT_RESULTS_SCREENSHOT_PREFIX}-${width}.png`, fullPage: true });
+    }
+  }
+
+  await page.context().setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await page.waitForFunction(() => document.querySelector('#offlineBookingVisitResultForm #bookingVisitResultFields [name="client_result_before_session"]'));
+  assert.equal(await page.locator('#offlineBookingVisitResultForm>button[type="submit"]').isEnabled(), true, 'Saving is restored after online access verification');
 
   console.log('Client results: private profile/editor/media 390/760/1440 PASS (browser fixture)');
 } finally {

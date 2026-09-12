@@ -111,12 +111,13 @@
     const result = normalizeResult(input.result || input.value || (input.id || input.booking_id ? input : null)) || normalizeResult({});
     const enabled = input.enabled === true;
     const canEnable = input.can_enable === true || input.canEnable === true;
-    const loading = input.enabled == null;
+    const offline = input.offline === true;
     const unavailable = input.unavailable === true;
+    const loading = input.enabled == null && !offline && !unavailable;
     if (!enabled) {
       return `<details class="booking-visit-result-fields" id="bookingVisitResultFields" data-client-results-disabled>
-        <summary><span>Описание сеанса</span><small>${loading ? 'Проверяем приватный раздел…' : unavailable ? 'Недоступно' : 'Подключить'}</small></summary>
-        <div class="client-results-gate"><strong>${loading ? 'Проверяем доступ' : unavailable ? 'Результаты пока недоступны' : 'Приватные результаты не подключены'}</strong><p>${loading ? 'Поля появятся после проверки прав организации.' : unavailable ? 'Проверьте соединение и повторите позже.' : 'Результаты и фото хранятся только в закрытом разделе организации.'}</p>${!loading && !unavailable && canEnable ? '<button class="secondary-button" type="button" data-client-results-enable>Подключить</button>' : ''}</div>
+        <summary><span>Описание сеанса</span><small>${offline ? 'Без интернета' : loading ? 'Проверяем приватный раздел…' : unavailable ? 'Недоступно' : 'Подключить'}</small></summary>
+        <div class="client-results-gate"><strong>${offline ? 'Недоступно без интернета' : loading ? 'Проверяем доступ' : unavailable ? 'Результаты пока недоступны' : 'Приватные результаты не подключены'}</strong><p>${offline ? 'Подключитесь к сети, чтобы просмотреть или изменить приватные результаты.' : loading ? 'Поля появятся после проверки прав организации.' : unavailable ? 'Проверьте соединение и повторите позже.' : 'Результаты и фото хранятся только в закрытом разделе организации.'}</p>${!loading && !offline && !unavailable && canEnable ? '<button class="secondary-button" type="button" data-client-results-enable>Подключить</button>' : ''}</div>
       </details>`;
     }
     const filled = resultCompletion(result);
@@ -175,10 +176,12 @@
     const requireWrites = typeof options.requireWrites === 'function' ? options.requireWrites : () => true;
     const notify = typeof options.notify === 'function' ? options.notify : () => {};
     const openBooking = typeof options.openBooking === 'function' ? options.openBooking : () => {};
+    const isOnline = typeof options.isOnline === 'function' ? options.isOnline : () => global.navigator?.onLine !== false;
     let organization = null;
     let client = null;
     let rows = [];
     let remote = null;
+    let remoteBeforeOffline = null;
     let loading = false;
     let more = false;
     let offset = 0;
@@ -193,6 +196,11 @@
     let preparingFiles = 0;
     const pendingFiles = new Map();
     const mediaIndex = new Map();
+
+    const connectionAvailable = () => {
+      try { return isOnline() !== false; } catch { return false; }
+    };
+    const offlineRemote = () => ({ enabled: false, can_enable: false, unavailable: true, offline: true });
 
     function message(error) {
       const value = `${error?.code || ''} ${error?.message || error || ''}`;
@@ -288,7 +296,8 @@
     function profileSummary() {
       const summary = profileHost?.querySelector('#clientResultsSummary');
       if (!summary) return;
-      if (loading) summary.textContent = 'Проверяем доступ…';
+      if (remote?.offline) summary.textContent = 'Без интернета';
+      else if (loading) summary.textContent = 'Проверяем доступ…';
       else if (remote?.unavailable) summary.textContent = 'Недоступно';
       else if (remote?.enabled === false) summary.textContent = 'Подключить';
       else if (!rows.length) summary.textContent = 'Пока нет';
@@ -339,6 +348,12 @@
       if (loading) {
         list.replaceChildren();
         status.textContent = 'Загружаем приватные результаты…';
+        moreButton.hidden = true;
+        return;
+      }
+      if (remote?.offline) {
+        list.replaceChildren();
+        status.innerHTML = '<div class="client-results-gate"><strong>Недоступно без интернета</strong><p>Подключитесь к сети, чтобы просмотреть приватные результаты.</p></div>';
         moreButton.hidden = true;
         return;
       }
@@ -394,7 +409,7 @@
       const current = editor.form.querySelector('#bookingVisitResultFields');
       const wasOpen = current?.open === true;
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = bookingFieldsMarkup({ result, enabled: remote?.enabled, can_enable: remote?.can_enable, unavailable: remote?.unavailable });
+      wrapper.innerHTML = bookingFieldsMarkup({ result, enabled: remote?.enabled, can_enable: remote?.can_enable, unavailable: remote?.unavailable, offline: remote?.offline || !connectionAvailable() });
       const replacement = wrapper.firstElementChild;
       if (current) current.replaceWith(replacement);
       else {
@@ -406,10 +421,28 @@
       editor.result = normalizeResult(result) || normalizeResult({});
       indexMedia();
       refreshEditorSummary();
+      updateEditorSubmitAvailability();
+    }
+
+    function updateEditorSubmitAvailability() {
+      const submit = editor?.form?.querySelector('button[type="submit"]');
+      if (!submit) return;
+      const disabled = !connectionAvailable() || remote?.enabled !== true;
+      submit.disabled = disabled;
+      submit.setAttribute('aria-disabled', String(disabled));
+      if (!connectionAvailable()) submit.title = 'Подключитесь к интернету, чтобы сохранить приватный результат';
+      else submit.removeAttribute('title');
     }
 
     async function loadResults(append = false) {
       if (!organization?.id || !client?.phone || loading) return;
+      if (!connectionAvailable()) {
+        loading = false;
+        remote = offlineRemote();
+        renderProfile(profileHost?.open === true);
+        if (editor && !editor.dirty) renderEditor(editor.result);
+        return;
+      }
       const token = contextToken();
       loading = true;
       renderProfile(profileHost?.open === true);
@@ -434,7 +467,9 @@
         indexMedia();
       } catch (error) {
         if (!isCurrent(token)) return;
-        remote = { enabled: false, can_enable: false, unavailable: true, error: message(error) };
+        remote = connectionAvailable()
+          ? { enabled: false, can_enable: false, unavailable: true, error: message(error) }
+          : offlineRemote();
       } finally {
         if (isCurrent(token)) {
           loading = false;
@@ -449,6 +484,12 @@
 
     async function loadBookingResult() {
       if (!editor?.bookingId || !organization?.id) return;
+      if (!connectionAvailable()) {
+        remote = offlineRemote();
+        if (!editor.dirty) renderEditor(editor.result);
+        else updateEditorSubmitAvailability();
+        return;
+      }
       if (!UUID.test(editor.bookingId)) {
         remote = { enabled: false, can_enable: false, unavailable: true };
         renderEditor(editor.result);
@@ -468,7 +509,9 @@
           await loadResults(false);
           return;
         }
-        remote = { enabled: false, can_enable: false, unavailable: true, error: message(error) };
+        remote = connectionAvailable()
+          ? { enabled: false, can_enable: false, unavailable: true, error: message(error) }
+          : offlineRemote();
         if (!editor.dirty) renderEditor(editor.result);
       }
     }
@@ -582,6 +625,12 @@
 
     async function save(input = {}) {
       if (!editor?.form || !organization?.id || !requireWrites()) return { ok: false, optional: true };
+      if (!connectionAvailable() || remote?.offline) {
+        setEditorStatus('Подключитесь к интернету, чтобы сохранить приватный результат.', true);
+        updateEditorSubmitAvailability();
+        return { ok: false, reason: 'offline' };
+      }
+      if (remote?.enabled !== true) return { ok: false, reason: 'access_unavailable' };
       if (preparingFiles > 0) {
         setEditorStatus('Дождитесь подготовки фотографии.', true);
         return { ok: false, reason: 'media_preparing' };
@@ -719,6 +768,35 @@
         if (addButton) openPreferredBooking();
         if (bookingButton) openBooking(bookingButton.dataset.clientResultOpenBooking);
       });
+      global.addEventListener?.('offline', () => {
+        if (remote?.enabled === true && !remote?.offline) remoteBeforeOffline = remote;
+        loading = false;
+        remote = offlineRemote();
+        renderProfile(profileHost?.open === true);
+        if (editor && !editor.dirty) renderEditor(editor.result);
+        else {
+          updateEditorSubmitAvailability();
+          setEditorStatus('Подключитесь к интернету, чтобы сохранить приватный результат.', true);
+        }
+      });
+      global.addEventListener?.('online', () => {
+        if (!remote?.offline) return;
+        if (editor?.dirty && remoteBeforeOffline?.enabled === true) {
+          remote = remoteBeforeOffline;
+          remoteBeforeOffline = null;
+          updateEditorSubmitAvailability();
+          setEditorStatus('Интернет восстановлен. Сохраните результат.');
+          return;
+        }
+        remoteBeforeOffline = null;
+        remote = null;
+        if (editor) {
+          renderEditor(editor.result);
+          void loadBookingResult();
+        }
+        if (profileHost?.open && client?.phone) void loadResults(false);
+        else renderProfile(false);
+      });
     }
 
     function clearClient() {
@@ -726,6 +804,7 @@
       client = null;
       rows = [];
       remote = null;
+      remoteBeforeOffline = null;
       loading = false;
       more = false;
       offset = 0;
