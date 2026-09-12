@@ -11,6 +11,7 @@
   function createClientController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent } = options;
     const select = typeof options.$ === 'function' ? options.$ : selector => document.querySelector(selector);
+    const storage = options.storage || window.localStorage;
     let organization = null;
     let client = null;
     let payload = null;
@@ -41,7 +42,7 @@
     }
     function loadIntent(instrumentId, action) {
       const key = requestKey(instrumentId, action);
-      const raw = window.localStorage.getItem(key);
+      const raw = storage.getItem(key);
       if (!raw) return { key, requestId:secureUuid(), fresh:true };
       const value = JSON.parse(raw);
       if (value.organization_id !== organization?.id || value.instrument_id !== instrumentId || value.action !== action || !value.request_id) {
@@ -51,11 +52,11 @@
     }
     function persistIntent(intent, instrumentId, action) {
       const value = JSON.stringify({ organization_id:organization.id, instrument_id:instrumentId, action, request_id:intent.requestId });
-      window.localStorage.setItem(intent.key, value);
-      if (window.localStorage.getItem(intent.key) !== value) throw new Error('lifecycle_intent_not_saved');
+      storage.setItem(intent.key, value);
+      if (storage.getItem(intent.key) !== value) throw new Error('lifecycle_intent_not_saved');
     }
     function clearIntent(intent) {
-      window.localStorage.removeItem(intent.key);
+      storage.removeItem(intent.key);
     }
     function eventDetails(event, kind) {
       const details = event.details || {};

@@ -30,6 +30,7 @@ try {
       const instrumentId = '33333333-3333-4333-8333-333333333150';
       window.lifecycleCalls = [];
       window.lifecycleNotices = [];
+      window.lifecycleStorage = new Map();
       window.failFirstFreeze = true;
       window.lifecyclePayload = {
         organization_id:organizationId,client_account_id:clientId,current_role:'owner',instruments:[
@@ -65,7 +66,8 @@ try {
       window.lifecycleController = MinutaBenefitLifecycle.createClientController({
         db,$:selector => document.querySelector(selector),escapeHtml:value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[character]),
         notify:value => lifecycleNotices.push(value),requireWrites:() => true,getCurrentUser:() => ({ id:'owner-150' }),
-        getSessionGeneration:() => 1,sessionIsCurrent:() => true,createRequestId:() => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+        storage:{ getItem:key => lifecycleStorage.get(key) || null,setItem:(key,value) => lifecycleStorage.set(key,value),removeItem:key => lifecycleStorage.delete(key) },
+        getSessionGeneration:() => 1,sessionIsCurrent:() => true
       });
       lifecycleController.bind();
       await lifecycleController.setClient({ clientAccountId:clientId }, { id:organizationId,current_role:'owner' });
@@ -85,6 +87,18 @@ try {
     assert.ok(layout.overflow <= 1, `${width}: horizontal overflow ${layout.overflow}`);
     assert.ok(layout.cardWidths.every(value => value > 0 && value <= width), `${width}: cards fit viewport`);
     if (width <= 760) assert.ok(layout.buttonHeights.every(value => value >= 40), `${width}: lifecycle buttons remain touchable`);
+
+    if (width === 390) {
+      await page.locator('[data-client-benefit-action="freeze"]').first().click();
+      await page.waitForFunction(() => lifecycleCalls.filter(call => call.name === 'set_minuta_benefit_lifecycle_v150').length === 1, null, { timeout:3000 });
+      await page.waitForFunction(() => lifecycleCalls.filter(call => call.name === 'get_minuta_benefit_lifecycle_v150').length >= 2, null, { timeout:3000 });
+      await page.locator('[data-client-benefit-action="freeze"]').first().click();
+      await page.waitForFunction(() => lifecyclePayload.instruments[0].status === 'frozen', null, { timeout:3000 });
+      await page.waitForFunction(() => document.querySelectorAll('.client-benefit-status.is-frozen').length === 2, null, { timeout:3000 });
+      const requests = await page.evaluate(() => lifecycleCalls.filter(call => call.name === 'set_minuta_benefit_lifecycle_v150' && call.args.p_instrument.endsWith('3150')).map(call => call.args.p_request_id));
+      assert.equal(requests.length, 2);
+      assert.equal(requests[0], requests[1], 'uncertain retry must reuse lifecycle request id');
+    }
 
     await page.screenshot({ path:resolve(output, `${width}.png`), fullPage:true });
     await page.close();
