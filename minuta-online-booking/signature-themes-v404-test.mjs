@@ -20,7 +20,6 @@ const themes = [
   ['butter', 'Butter Studio'],
   ['celadon', 'Celadon'],
   ['snow-leopard', 'Snow Leopard'],
-  ['apricot-tiger', 'Apricot Tiger'],
   ['blue-hydrangea', 'Blue Hydrangea'],
   ['peach-silk', 'Peach Silk'],
   ['moonlit-lilac', 'Moonlit Lilac'],
@@ -79,7 +78,6 @@ for (const [key, color, group] of [
   ['butter', '#faf9f3', 'featured light'],
   ['celadon', '#ecf7f3', 'featured light natural'],
   ['snow-leopard', '#eaf1f4', 'featured light'],
-  ['apricot-tiger', '#f7dcc2', 'featured light natural'],
   ['mocha-pastel', '#1a1817', 'dark'],
   ['oled-mono', '#000000', 'dark'],
   ['cobalt-forge', '#071226', 'dark'],
@@ -90,25 +88,10 @@ for (const [key, color, group] of [
   assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=731/, 'Кабинет не подключает Signature Collection v731');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=731/, 'Service Worker не кэширует Signature Collection v731');
+assert.match(provider, /provider-themes-signature\.css\?v=732/, 'Кабинет не подключает Signature Collection v732');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=732/, 'Service Worker не кэширует Signature Collection v732');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
-const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
-assert.match(mobileTiger, /background-image:var\(--atmosphere-background\)!important/);
-assert.match(mobileTiger, /background-size:100% 100%!important/);
-assert.match(mobileTiger, /background-repeat:no-repeat!important/);
-assert.doesNotMatch(css, /provider-apricot-tiger(?:-mobile)?\.svg/, 'Apricot Tiger must use a few non-repeating CSS brush strokes');
-assert.doesNotMatch(worker, /provider-apricot-tiger-mobile\.svg/, 'Decorative tiger media must not block a service-worker update');
-const tigerCanvas = css.slice(css.indexOf('/* As in Snow Leopard'), css.indexOf('.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {'));
-assert.match(tigerCanvas, /:is\(\.provider-view,\.schedule-card\)\s*\{\s*background:transparent!important/);
-assert.match(tigerCanvas, /\.provider-view>\.view-title[^}]*background:var\(--theme-surface\)!important/);
-assert.match(tigerCanvas, /gap:12px!important/);
-assert.doesNotMatch(tigerCanvas, /url\(|\.mobile-more-grid|\.provider-booking\s*\{/, 'Tiger stays on one page canvas, not individual tiles or booking cards');
-assert.match(tigerCanvas, /\.schedule-date-picker input\s*\{\s*border:0!important;[\s\S]*?background:transparent!important/, 'Date input must not add a second contour');
-assert.match(tigerCanvas, /\.timeline-stage\s*\{\s*overflow:clip;/, 'Timeline grid must stay inside its rounded stage');
-assert.match(tigerCanvas, /\.timeline-stage:focus-visible\s*\{\s*outline-offset:-3px;/, 'Clipped timeline keeps its keyboard focus visible');
-
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
 assert.match(mobileSnow, /background-image:var\(--atmosphere-background\)!important/);
 assert.match(mobileSnow, /background-size:100% 100%!important/);
@@ -129,4 +112,4 @@ assert.match(worker, /assetResponse[\s\S]*caches\.open\(CACHE\)\)\.put\(request,
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');
 
-console.log('Signature themes v731: Snow Leopard canvas OK');
+console.log('Signature themes v732: Snow Leopard canvas OK');

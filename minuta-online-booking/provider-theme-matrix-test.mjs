@@ -32,9 +32,9 @@ vm.runInContext(catalogSource, catalogContext);
 const themes = [...catalogContext.window.MinutaThemeCatalog.themeKeys];
 const layouts = sourceArray('PROVIDER_LAYOUT_KEYS');
 
-assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'noir-rose', 'cocoa-pearl', 'plum-cashmere', 'obsidian-champagne', 'carbon-ember', 'petrol-steel', 'carbon-crimson', 'mocha-pastel', 'oled-mono', 'cobalt-forge', 'volt-graphite', 'concrete-signal', 'azure-lagoon', 'noir-safari']);
+assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'noir-rose', 'cocoa-pearl', 'plum-cashmere', 'obsidian-champagne', 'carbon-ember', 'petrol-steel', 'carbon-crimson', 'mocha-pastel', 'oled-mono', 'cobalt-forge', 'volt-graphite', 'concrete-signal', 'azure-lagoon', 'noir-safari']);
 assert.deepEqual(layouts, ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']);
-assert.equal(themes.length * layouts.length, 240, 'the supported appearance matrix must contain 240 combinations');
+assert.equal(themes.length * layouts.length, 234, 'the supported appearance matrix must contain 234 combinations');
 
 function parseColor(value) {
   const color = String(value || '').trim();
@@ -158,8 +158,7 @@ assert.doesNotMatch(noirSafariBackground, /linear-gradient\(90deg/, 'Noir Safari
 assert.match(noirSafariCss, /\.provider-body\[data-provider-theme="noir-safari"\] \.ambient\s*\{[^}]*display:none!important/s, 'Noir Safari must hide the generic green and amber ambient lights');
 assert.match(noirSafariCss, /:is\(\s*\.provider-main,\.provider-app,\.provider-workspace,\.provider-view,\.schedule-card\s*\)\s*\{[^}]*background:transparent!important/s, 'Noir Safari must continue the same wallpaper behind the interface instead of exposing a white stage');
 assert.doesNotMatch(signatureCss, /provider-snow-leopard-(?:continuous|mobile|natural)[^"')]*\.(?:webp|png)/, 'Snow Leopard must no longer use spotted bitmap artwork');
-assert.doesNotMatch(signatureCss, /provider-apricot-tiger(?:-mobile)?\.svg/, 'Apricot Tiger must no longer use repeated stripe assets');
-for (const theme of ['snow-leopard', 'apricot-tiger']) {
+for (const theme of ['snow-leopard']) {
   const canvas = signatureCss.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\]\\[data-provider-layout\\]\\s*\\{([^}]*)\\}`))?.[1] || '';
   assert.match(canvas, /background-image:var\(--atmosphere-background\)!important/);
   assert.match(canvas, /background-size:100% 100%!important/);
@@ -173,4 +172,4 @@ assert.match(calmCss, /\.connection-log-entry\s*\{[^}]*background:var\(--theme-s
 assert.match(calmCss, /\.connection-log-actions \.primary\s*\{[^}]*background:var\(--theme-accent\)!important;[^}]*color:var\(--theme-accent-contrast\)!important;/s);
 assert.match(calmCss, /\.connection-log-dialog :is\(\.connection-log-head small,\.connection-log-lead,\.connection-log-entry small\)\s*\{[^}]*var\(--theme-muted\) 82%,var\(--theme-ink\)/s);
 
-console.log('Provider theme matrix checks passed: 40 themes × 6 layouts.');
+console.log('Provider theme matrix checks passed: 39 themes × 6 layouts.');

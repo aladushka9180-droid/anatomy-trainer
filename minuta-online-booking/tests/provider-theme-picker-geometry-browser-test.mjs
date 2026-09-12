@@ -54,7 +54,7 @@ try {
     await page.setViewportSize({ width, height:900 });
     for (const theme of [
       'snow-leopard',
-      'apricot-tiger',
+
       'pearl-zebra',
       'noir-rose',
       'cocoa-pearl',
@@ -81,7 +81,7 @@ try {
           maxRight:Math.max(...rects.map(rect => rect.right)),
         };
       }, theme);
-      assert.equal(result.count, 40, `${theme}/${width}: all theme cards must remain in the picker`);
+      assert.equal(result.count, 39, `${theme}/${width}: all theme cards must remain in the picker`);
       assert.ok(result.radii.every(radius => radius === 13), `${theme}/${width}: selected theme reshaped picker cards into large ovals (${[...new Set(result.radii)].join(', ')})`);
       assert.deepEqual(result.overlaps, [], `${theme}/${width}: picker cards overlap`);
       assert.ok(result.minWidth >= 140, `${theme}/${width}: picker cards became too narrow`);

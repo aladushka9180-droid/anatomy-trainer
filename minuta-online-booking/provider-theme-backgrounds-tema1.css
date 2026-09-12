@@ -1,7 +1,6 @@
 /* Approved TEMA 1 canvases: one viewport composition, never a tiled page texture. */
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
-.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
-.provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
   background-position:center!important;
   background-repeat:no-repeat!important;
   background-size:cover!important;
@@ -22,18 +21,10 @@
     url("provider-pearl-zebra-desktop-v2.webp")!important;
 }
 
-.provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
-  background-color:#f3c49e!important;
-  background-image:
-    linear-gradient(rgba(255,239,224,.30),rgba(250,217,187,.30)),
-    url("provider-apricot-tiger-desktop-v3.webp")!important;
-}
-
 /* The artwork belongs to the outer canvas; operational surfaces remain clean. */
 .provider-body:is(
   [data-provider-theme="snow-leopard"],
-  [data-provider-theme="pearl-zebra"],
-  [data-provider-theme="apricot-tiger"]
+  [data-provider-theme="pearl-zebra"]
 )[data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace,.provider-view,.schedule-card) {
   background-color:transparent!important;
   background-image:none!important;
@@ -41,8 +32,7 @@
 
 .provider-body:is(
   [data-provider-theme="snow-leopard"],
-  [data-provider-theme="pearl-zebra"],
-  [data-provider-theme="apricot-tiger"]
+  [data-provider-theme="pearl-zebra"]
 )[data-provider-layout] :is(
   .provider-sidebar,
   .provider-topbar,
@@ -61,8 +51,7 @@
 
 .provider-body:is(
   [data-provider-theme="snow-leopard"],
-  [data-provider-theme="pearl-zebra"],
-  [data-provider-theme="apricot-tiger"]
+  [data-provider-theme="pearl-zebra"]
 )[data-provider-layout] :is(.provider-booking,.timeline-booking,.calendar-overview-booking,.provider-break,.timeline-break) {
   background-image:none!important;
 }
@@ -74,10 +63,6 @@
 .theme-pearl-zebra .theme-swatch {
   background:#f4ede3 url("provider-pearl-zebra-desktop-v2.webp") center/cover no-repeat!important;
 }
-.theme-apricot-tiger .theme-swatch {
-  background:#f3c49e url("provider-apricot-tiger-desktop-v3.webp") center/cover no-repeat!important;
-}
-
 .provider-body[data-provider-theme][data-provider-layout] .provider-theme-option {
   overflow:hidden!important;
   border-radius:13px!important;
@@ -93,8 +78,7 @@
 
 @media (max-width:760px) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
-  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
-  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
     background-position:center top!important;
     background-size:cover!important;
     background-attachment:fixed!important;
@@ -112,17 +96,11 @@
       url("provider-pearl-zebra-mobile-v2.webp")!important;
   }
 
-  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
-    background-image:
-      linear-gradient(rgba(255,239,224,.34),rgba(250,217,187,.34)),
-      url("provider-apricot-tiger-mobile-v2.webp")!important;
-  }
 }
 
 @media (prefers-reduced-data:reduce) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
-  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
-  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
     background-image:var(--atmosphere-background)!important;
   }
 }

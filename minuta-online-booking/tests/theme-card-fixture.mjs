@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-export const themes = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard', 'apricot-tiger', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'noir-rose', 'cocoa-pearl', 'plum-cashmere', 'obsidian-champagne', 'carbon-ember', 'petrol-steel', 'carbon-crimson', 'mocha-pastel', 'oled-mono', 'cobalt-forge', 'volt-graphite', 'concrete-signal', 'azure-lagoon', 'noir-safari'];
+export const themes = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard', 'pearl-zebra', 'blue-hydrangea', 'peach-silk', 'moonlit-lilac', 'noir-rose', 'cocoa-pearl', 'plum-cashmere', 'obsidian-champagne', 'carbon-ember', 'petrol-steel', 'carbon-crimson', 'mocha-pastel', 'oled-mono', 'cobalt-forge', 'volt-graphite', 'concrete-signal', 'azure-lagoon', 'noir-safari'];
 export const layouts = ['linear','soft','capsule','editorial','bento','split'];
 const marks = ['', 'active', 'client-vip', 'client-favorite', 'client-attention', 'client-vip active', 'client-favorite active', 'client-attention active', 'client-favorite client-vip client-attention'];
 const labels = ['Обычный клиент','Выбранный клиент','VIP-клиент','Избранный клиент','Требует внимания','Выбранный VIP','Выбранный избранный','Выбранный с вниманием','Несколько меток'];

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const themes = ['noir-rose', 'cocoa-pearl', 'plum-cashmere', 'obsidian-champagne'];
+const themes = ['pearl-zebra', 'noir-rose', 'cocoa-pearl', 'plum-cashmere', 'obsidian-champagne'];
 const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.html', 'text/html; charset=utf-8'],

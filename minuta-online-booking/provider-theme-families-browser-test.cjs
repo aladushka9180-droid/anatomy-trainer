@@ -8,8 +8,8 @@ const { chromium } = require('playwright');
 const root = __dirname;
 const catalog = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
-assert.equal(themes.length, 40, 'Каталог тем прочитан не полностью');
-const approvedThemes = new Set(['snow-leopard', 'pearl-zebra', 'apricot-tiger']);
+assert.equal(themes.length, 39, 'Каталог тем прочитан не полностью');
+const approvedThemes = new Set(['snow-leopard', 'pearl-zebra']);
 const familyThemes = themes.filter(theme => !approvedThemes.has(theme));
 const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'azure-lagoon', 'botanical', 'peach-silk', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
 const visibilityThemes = new Set(['sage', 'graphite', 'eco', 'luxury', 'warm', 'peach-silk', 'azure-lagoon', 'botanical', 'oled-mono']);
@@ -104,8 +104,7 @@ const server = http.createServer((request, response) => {
           return { image:style.backgroundImage, repeat:style.backgroundRepeat, size:style.backgroundSize, overflow:document.documentElement.scrollWidth > innerWidth + 2 };
         }, theme);
         const variant = width <= 760 ? 'mobile' : 'desktop';
-        const assetVersion = theme === 'apricot-tiger' && variant === 'desktop' ? 3 : 2;
-        assert.match(approved.image, new RegExp(`provider-${theme}-${variant}-v${assetVersion}\\.webp`), `${theme} ${width}px: утверждённый фон ТЕМЫ 1 потерян`);
+        assert.match(approved.image, new RegExp(`provider-${theme}-${variant}-v2\\.webp`), `${theme} ${width}px: утверждённый фон ТЕМЫ 1 потерян`);
         assert.equal(approved.repeat.split(',').every(value => value.trim() === 'no-repeat'), true, `${theme} ${width}px: утверждённый фон начал повторяться`);
         assert.equal(approved.size.split(',').every(value => value.trim() === 'cover'), true, `${theme} ${width}px: утверждённый фон перестал покрывать холст`);
         assert.equal(approved.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
@@ -116,7 +115,7 @@ const server = http.createServer((request, response) => {
       return { theme, image:swatch ? getComputedStyle(swatch).backgroundImage : 'missing' };
     }), themes);
     for (const preview of previews) assert.notEqual(preview.image, 'none', `${preview.theme}: превью не показывает новый мотив`);
-    console.log('Provider theme family browser matrix: PASS (37 CSS families + 3 approved canvases × 3 widths).');
+    console.log('Provider theme family browser matrix: PASS (37 CSS families + 2 approved canvases × 3 widths).');
   } finally {
     if (browser) await browser.close();
     server.close();

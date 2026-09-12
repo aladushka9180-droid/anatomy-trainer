@@ -107,18 +107,6 @@
 .theme-desert { --theme-preview-bg:#e4cfbf; --theme-preview-surface:#fbf2ea; --theme-preview-line:#b27f65; --theme-preview-accent:#78341f; --theme-preview-radius:14px; }
 .theme-desert .theme-swatch { background-image:radial-gradient(ellipse at 88% 5%,rgba(143,66,43,.3),transparent 48%),linear-gradient(145deg,#dfc6b5,#fbf2ea); }
 
-.provider-body[data-provider-theme="apricot-tiger"] {
-  --theme-bg:#f7dcc2; --theme-surface:#fff7ef; --theme-surface-alt:#efcbaa; --theme-ink:#3b281e;
-  --theme-muted:#714f3e; --theme-line:#a87450; --theme-accent:#6f391f; --theme-accent-soft:#e8b995;
-  --theme-accent-contrast:#fff; --theme-shadow:rgba(92,52,28,.11); --material-card-bg:#fff7ef;
-  --material-card-border:#a87450; --material-radius:14px; --material-control-radius:8px;
-  --signature-sidebar:#efcbaa; --signature-stage:#fbe8d5; --signature-nav-active:#e8b995;
-  --atmosphere-background:radial-gradient(ellipse 42% 7% at 96% 8%,rgba(112,61,33,.17),rgba(112,61,33,.09) 38%,transparent 72%),radial-gradient(ellipse 30% 5% at 84% 16%,rgba(116,65,38,.10),transparent 72%),radial-gradient(ellipse 48% 8% at 4% 92%,rgba(103,56,31,.14),rgba(103,56,31,.06) 42%,transparent 74%),linear-gradient(112deg,transparent 0 48%,rgba(255,255,255,.11) 52%,transparent 57%),linear-gradient(145deg,#f5c69e,#fff0df 55%,#edb783);
-  --atmosphere-panel:#fbe8d5; --atmosphere-panel-strong:#fff7ef;
-}
-.theme-apricot-tiger { --theme-preview-bg:#f5d5b7; --theme-preview-surface:#fff7ef; --theme-preview-line:#a87450; --theme-preview-accent:#6f391f; --theme-preview-radius:10px; --theme-preview-item-radius:3px; }
-.theme-apricot-tiger .theme-swatch { background-image:radial-gradient(ellipse 46% 18% at 92% 16%,rgba(112,61,33,.24),transparent 74%),radial-gradient(ellipse 42% 15% at 8% 86%,rgba(103,56,31,.20),transparent 76%),linear-gradient(112deg,transparent 0 47%,rgba(255,255,255,.18) 52%,transparent 58%),linear-gradient(145deg,#f5c69e,#fff0df 55%,#edb783); background-size:100% 100%; background-repeat:no-repeat; }
-
 .provider-body[data-provider-theme="peach-silk"] {
   --theme-bg:#fbe8e5; --theme-surface:#fffafa; --theme-surface-alt:#f4d4cf; --theme-ink:#4b2f34;
   --theme-muted:#735258; --theme-line:#bd817d; --theme-accent:#8e3146; --theme-accent-soft:#f2cbd0;
@@ -309,7 +297,6 @@
 .provider-body[data-provider-theme="celadon"] { --theme-booking-radius:18px; --theme-client-radius:16px; }
 .provider-body[data-provider-theme="japandi"] { --theme-booking-radius:6px; --theme-client-radius:6px; }
 .provider-body[data-provider-theme="desert"] { --theme-booking-radius:14px; --theme-client-radius:14px; }
-.provider-body[data-provider-theme="apricot-tiger"] { --theme-booking-radius:10px; --theme-client-radius:10px; }
 .provider-body[data-provider-theme="peach-silk"] { --theme-booking-radius:18px; --theme-client-radius:18px; }
 .provider-body[data-provider-theme="pearl"] { --theme-booking-radius:18px; --theme-client-radius:16px; }
 .provider-body[data-provider-theme="snow-leopard"] { --theme-booking-radius:12px; --theme-client-radius:12px; }
@@ -331,7 +318,7 @@
   [data-provider-theme="sage"],[data-provider-theme="nordic"],[data-provider-theme="hitech"],
   [data-provider-theme="coastal"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="eco"],
   [data-provider-theme="celadon"],[data-provider-theme="japandi"],[data-provider-theme="desert"],
-  [data-provider-theme="apricot-tiger"],[data-provider-theme="peach-silk"],[data-provider-theme="pearl"],
+  [data-provider-theme="peach-silk"],[data-provider-theme="pearl"],
   [data-provider-theme="snow-leopard"],[data-provider-theme="mono"],[data-provider-theme="pearl-zebra"],
   [data-provider-theme="graphite"],[data-provider-theme="midnight"],[data-provider-theme="carbon-ember"],
   [data-provider-theme="carbon-crimson"],[data-provider-theme="luxury"],[data-provider-theme="noir-safari"],[data-provider-theme="azure-lagoon"],
@@ -344,7 +331,7 @@
   [data-provider-theme="sage"],[data-provider-theme="nordic"],[data-provider-theme="hitech"],
   [data-provider-theme="coastal"],[data-provider-theme="blue-hydrangea"],[data-provider-theme="eco"],
   [data-provider-theme="celadon"],[data-provider-theme="japandi"],[data-provider-theme="desert"],
-  [data-provider-theme="apricot-tiger"],[data-provider-theme="peach-silk"],[data-provider-theme="pearl"],
+  [data-provider-theme="peach-silk"],[data-provider-theme="pearl"],
   [data-provider-theme="snow-leopard"],[data-provider-theme="mono"],[data-provider-theme="pearl-zebra"],
   [data-provider-theme="graphite"],[data-provider-theme="midnight"],[data-provider-theme="carbon-ember"],
   [data-provider-theme="carbon-crimson"],[data-provider-theme="luxury"],[data-provider-theme="noir-safari"],[data-provider-theme="azure-lagoon"],

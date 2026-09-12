@@ -11,8 +11,8 @@ const playwrightModule = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   : 'playwright');
 const { chromium } = playwrightModule.chromium ? playwrightModule : playwrightModule.default;
 const mime = { '.html':'text/html', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
-const themes = ['snow-leopard', 'pearl-zebra', 'apricot-tiger'];
-const desktopArtworkVersion = theme => theme === 'apricot-tiger' ? 'v3' : 'v2';
+const themes = ['snow-leopard', 'pearl-zebra'];
+const desktopArtworkVersion = () => 'v2';
 
 const browser = await chromium.launch({ headless:true, executablePath:process.env.MINUTA_CHROME_PATH || undefined });
 try {

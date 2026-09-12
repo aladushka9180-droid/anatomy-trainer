@@ -1,12 +1,12 @@
 /* PrimeTime Pro canvas identities.
    Decorative texture lives only on the page canvas at a controlled 2–6% opacity. */
-.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) {
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"])) {
   position:relative;
   isolation:isolate;
   background:var(--theme-bg)!important;
 }
 
-.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"]))::before {
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"]))::before {
   content:"";
   position:fixed;
   inset:0;
@@ -19,18 +19,18 @@
   opacity:var(--theme-canvas-opacity,.04);
 }
 
-.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) > .provider-main {
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"])) > .provider-main {
   position:relative;
   z-index:1;
 }
 
-.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) > .ambient {
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"])) > .ambient {
   display:none!important;
 }
 
 /* Reading and navigation surfaces stay clean and opaque over the canvas.
    The frameless top bar intentionally remains transparent. */
-.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) :is(
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"])) :is(
   .provider-sidebar,.provider-mobile-nav,.schedule-card,.panel,.settings-card,
   .clients-directory,.client-profile,.notification-card,.waitlist-provider-card,
   .portfolio-card,.provider-review-card,.report-summary article,
@@ -41,20 +41,20 @@
   background-image:none!important;
 }
 
-.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) :is(
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"])) :is(
   .provider-app,.provider-main,.provider-workspace,.provider-view
 ) {
   background-color:transparent!important;
   background-image:none!important;
 }
 
-.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) :is(
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"])) :is(
   .booking-sheet,.provider-booking,.timeline-booking,.calendar-overview-booking,.calendar-week-booking
 ) {
   background-image:none!important;
 }
 
-.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) :is(input,select,textarea) {
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"])) :is(input,select,textarea) {
   background-color:var(--theme-surface)!important;
   background-image:none!important;
 }
@@ -307,12 +307,6 @@
   --theme-canvas-opacity:.025;
 }
 
-.provider-body[data-provider-theme="apricot-tiger"],.provider-theme-option.theme-apricot-tiger {
-  --theme-canvas-texture:repeating-radial-gradient(ellipse 90% 18% at 102% 18%,transparent 0 42px,#6f391f 43px 49px,transparent 50px 94px),repeating-radial-gradient(ellipse 88% 16% at -2% 82%,transparent 0 56px,#8a4f2f 57px 63px,transparent 64px 112px);
-  --theme-canvas-size:100% 100%;
-  --theme-canvas-opacity:.04;
-}
-
 .provider-body[data-provider-theme="pearl-zebra"],.provider-theme-option.theme-pearl-zebra {
   --theme-canvas-texture:repeating-radial-gradient(ellipse 104% 58% at 24% -24%,transparent 0 48px,#786759 49px 53px,transparent 54px 104px),repeating-radial-gradient(ellipse 112% 62% at 8% 124%,transparent 0 62px,#9a8777 63px 67px,transparent 68px 126px);
   --theme-canvas-size:100% 100%;
@@ -326,7 +320,7 @@
 }
 
 /* Theme cards preview the same motif that appears on the provider canvas. */
-.provider-theme-option[class*="theme-"]:not(:is(.theme-snow-leopard,.theme-pearl-zebra,.theme-apricot-tiger)) .theme-swatch {
+.provider-theme-option[class*="theme-"]:not(:is(.theme-snow-leopard,.theme-pearl-zebra)) .theme-swatch {
   background-image:var(--theme-canvas-texture)!important;
   background-size:var(--theme-canvas-size,100% 100%)!important;
   background-position:var(--theme-canvas-position,center)!important;
@@ -334,12 +328,12 @@
 }
 
 @media (max-width:760px) {
-  .provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"]))::before {
+  .provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"]))::before {
     position:absolute;
     min-height:100vh;
   }
 }
 
 @media (prefers-reduced-motion:reduce) {
-  .provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"]))::before { transition:none!important; }
+  .provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"]))::before { transition:none!important; }
 }
