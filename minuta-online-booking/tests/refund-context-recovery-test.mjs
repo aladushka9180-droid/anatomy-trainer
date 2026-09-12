@@ -146,7 +146,7 @@ async function harness({ digestTicks = 0 } = {}) {
     freeSlotsController: { invalidateScope() {} }, REPORT_DEMO_SLUG: 'fixture-demo',
   };
   ctx.localStorage = ctx.window.localStorage;
-  for (const name of ['teamCalendarController', 'groupBookingsController', 'integrationController', 'notificationCenterController', 'providerFeedbackController', 'feedbackInboxController',
+  for (const name of ['teamCalendarController', 'groupBookingsController', 'commerceController', 'financeController', 'integrationController', 'notificationCenterController', 'providerFeedbackController', 'feedbackInboxController',
     'clientFieldsController', 'clientRecordsController', 'clientResultsController', 'clientImportController', 'organizationController', 'resourceController', 'shiftController',
     'payrollController', 'benefitController', 'loyaltyController', 'inventoryController', 'retentionController',
     'batchBookingsController', 'bookingPolicyController', 'dataGovernanceController']) ctx[name] = controllerStub();
