@@ -3113,6 +3113,8 @@
         } else status.textContent = 'Не удалось очистить привычки на этом устройстве.';
       });
       openButton.addEventListener('click', () => {
+        const wakeRequested = global.__minutaAssistantWakeRequest === true;
+        global.__minutaAssistantWakeRequest = false;
         refreshRussianVoice();
         dialog.classList.remove('has-answer');
         requestEpoch += 1;
@@ -3138,7 +3140,10 @@
           ? `Вижу открытую запись: ${openingSnapshot.screen.booking.clientName || 'клиент'} · ${openingSnapshot.screen.booking.time || ''}. Можно сказать «перенеси её» или «напиши ей».`
           : directRecognitionAvailable ? (touchDevice ? 'Коснитесь микрофона и говорите. Повторное касание завершит запись.' : 'Ничего не изменится без вашего подтверждения.') : touchDevice ? 'Нажмите микрофон, затем значок диктовки на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
         dialog.showModal();
-        setTimeout(() => (Recognition ? listenButton : input).focus(), 0);
+        setTimeout(() => {
+          if (wakeRequested && directRecognitionAvailable) startRecognition();
+          else (Recognition ? listenButton : input).focus();
+        }, 0);
       });
       closeButton.addEventListener('click', close);
       backButton.addEventListener('click', returnToMainMenu);

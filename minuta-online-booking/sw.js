@@ -73,6 +73,7 @@ const ASSETS = [
   './client-directory.js?v=702',
   './client-results.js?v=702',
   './provider.js?v=702',
+  './voice-wake.js?v=702',
   './provider-feature-assets.js?v=702',
   './client-records.js?v=702',
 ];

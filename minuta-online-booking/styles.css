@@ -5616,6 +5616,22 @@ html.provider-booting .provider-main {
 .voice-assistant-settings>summary { min-height:44px; padding:14px 2px; color:var(--theme-muted,#718278); cursor:pointer; font-size:12px; font-weight:650; }
 .voice-assistant-settings { border-top:1px solid var(--theme-line,#dce7df); }
 .voice-assistant-settings>details>summary { min-height:44px; width:auto; }
+.voice-wake-settings { margin:10px 0 14px; padding:12px; border:1px solid var(--theme-line,#dce7df); border-radius:12px; background:var(--theme-surface-alt,#f7faf8); }
+.voice-wake-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--theme-ink,#173b2c); }
+.voice-wake-heading div { display:grid; gap:3px; }
+.voice-wake-heading strong { font-size:11px; }
+.voice-wake-heading small,.voice-wake-note,.voice-wake-status { color:var(--theme-muted,#718278); font-size:10px; line-height:1.45; }
+.voice-wake-heading small { font-weight:600; }
+.voice-wake-status { margin:8px 0 0; }
+.voice-wake-note { margin:6px 0 0; }
+.voice-wake-switch { position:relative; display:inline-flex; flex:0 0 auto; align-items:center; cursor:pointer; }
+.voice-wake-switch input { position:absolute; opacity:0; width:1px; height:1px; }
+.voice-wake-switch>span { display:block; width:42px; height:25px; padding:3px; border-radius:999px; background:var(--theme-line,#cbd8d0); transition:background .16s ease; }
+.voice-wake-switch>span::after { display:block; width:19px; height:19px; border-radius:50%; background:#fff; box-shadow:0 1px 3px #173b2c33; content:""; transition:transform .16s ease; }
+.voice-wake-switch input:checked+span { background:var(--theme-accent,#235b40); }
+.voice-wake-switch input:checked+span::after { transform:translateX(17px); }
+.voice-wake-switch input:focus-visible+span { outline:2px solid var(--theme-accent,#235b40); outline-offset:3px; }
+.voice-wake-switch input:disabled+span { opacity:.5; cursor:not-allowed; }
 .voice-assistant-examples { display:flex; flex-wrap:wrap; gap:7px; margin-top:11px; }
 .voice-assistant-examples button {
   min-height:44px;

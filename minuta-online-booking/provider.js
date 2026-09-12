@@ -528,6 +528,8 @@ function loadProviderGuidance() {
   ]));
 }
 function loadVoiceAssistant() { return loadProviderFeatureScript('voice-assistant.js'); }
+function loadVoiceWake() { return loadProviderFeatureScript('voice-wake.js'); }
+window.addEventListener('minuta:provider-assistant-ready', () => { void loadVoiceWake().catch(() => {}); }, { once:true });
 document.addEventListener('pointerover', event => {
   if (event.target.closest?.('#openVoiceAssistant') && !window.MinutaVoiceAssistant) void loadVoiceAssistant().catch(() => {});
 }, { passive:true });
