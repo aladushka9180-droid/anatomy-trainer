@@ -42,8 +42,8 @@ begin
   payload:=public.sell_minuta_commercial_product_v147(
     organization_id,null,null,'inventory_item',null,item_id,warehouse_id,3,100,1,'cash',cash_id,gen_random_uuid());
   sale_id:=(payload->>'id')::uuid;
-  select quantity into stock_before from public.inventory_stock_balances
-    where warehouse_id=fixture.warehouse_id and inventory_item_id=fixture.item_id;
+  select balances.quantity into stock_before from public.inventory_stock_balances as balances
+    where balances.warehouse_id=fixture.warehouse_id and balances.inventory_item_id=fixture.item_id;
   select count(*) into transactions_before from public.financial_transactions;
   select count(*) into postings_before from public.financial_postings;
   select count(*) into audit_before from public.commercial_audit_log;
@@ -59,7 +59,7 @@ begin
   perform pg_temp.v148_assert(
     (select count(*)=0 from public.commercial_sale_refunds where sale_id=fixture.sale_id),'mismatch_not_recorded');
   perform pg_temp.v148_assert(
-    (select quantity=stock_before from public.inventory_stock_balances where warehouse_id=fixture.warehouse_id and inventory_item_id=fixture.item_id),'mismatch_stock_unchanged');
+    (select balances.quantity=stock_before from public.inventory_stock_balances as balances where balances.warehouse_id=fixture.warehouse_id and balances.inventory_item_id=fixture.item_id),'mismatch_stock_unchanged');
   perform pg_temp.v148_assert((select count(*)=transactions_before from public.financial_transactions),'mismatch_transactions_unchanged');
   perform pg_temp.v148_assert((select count(*)=postings_before from public.financial_postings),'mismatch_postings_unchanged');
   perform pg_temp.v148_assert((select count(*)=audit_before from public.commercial_audit_log),'mismatch_audit_unchanged');
@@ -77,7 +77,7 @@ begin
   perform pg_temp.v148_assert(
     (select sum(amount_minor)=299 and sum(quantity)=3 from public.commercial_sale_refunds where sale_id=fixture.sale_id),'refund_totals_match');
   perform pg_temp.v148_assert(
-    (select quantity=10 from public.inventory_stock_balances where warehouse_id=fixture.warehouse_id and inventory_item_id=fixture.item_id),'stock_fully_restored');
+    (select balances.quantity=10 from public.inventory_stock_balances as balances where balances.warehouse_id=fixture.warehouse_id and balances.inventory_item_id=fixture.item_id),'stock_fully_restored');
 
   payload:=public.sell_minuta_commercial_product_v147(
     organization_id,null,null,'inventory_item',null,item_id,warehouse_id,0.5,2,0,'cash',cash_id,gen_random_uuid());
