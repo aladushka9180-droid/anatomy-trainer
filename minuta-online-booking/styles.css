@@ -8148,7 +8148,7 @@ html.provider-booting .provider-main {
   }
   .provider-body .booking-step-setting {
     margin-top:14px!important;
-    padding:18px 0!important;
+    padding:18px 14px!important;
     border-top:1px solid var(--theme-line)!important;
     border-bottom:0!important;
   }

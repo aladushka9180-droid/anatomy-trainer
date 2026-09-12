@@ -78,6 +78,8 @@ try {
         const feedbackStyle = getComputedStyle(feedback);
         const surface = document.querySelector('.booking-step-setting');
         const surfaceStyle = getComputedStyle(surface);
+        const stepRect = step.getBoundingClientRect();
+        const surfaceRect = surface.getBoundingClientRect();
         const normalizeColor = value => {
           const probe = document.createElement('span');
           probe.style.color = value;
@@ -93,6 +95,7 @@ try {
           expectedStep:normalizeColor(bodyStyle.getPropertyValue('--theme-ink').trim()),
           expectedFeedback:normalizeColor(bodyStyle.getPropertyValue('--theme-muted').trim()),
           documentOverflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          stepInset:stepRect.left - surfaceRect.left,
           stepClipped:step.scrollWidth > step.clientWidth || step.scrollHeight > step.clientHeight,
           feedbackClipped:feedback.scrollWidth > feedback.clientWidth || feedback.scrollHeight > feedback.clientHeight,
         };
@@ -100,6 +103,7 @@ try {
       if (snapshot.stepColor !== snapshot.expectedStep) failures.push({ width, ...snapshot, problem:'Шаг записи не использует --theme-ink' });
       if (snapshot.feedbackColor !== snapshot.expectedFeedback) failures.push({ width, ...snapshot, problem:'Помощь и обратная связь не использует --theme-muted' });
       if (snapshot.documentOverflow > 1 || snapshot.stepClipped || snapshot.feedbackClipped) failures.push({ width, ...snapshot, problem:'переполнение или обрезание текста' });
+      if (width <= 760 && snapshot.stepInset < 12) failures.push({ width, ...snapshot, problem:'Шаг записи прижат к краю' });
       if (screenshotDirectory && ['sage', 'luxury', 'noir-safari'].includes(theme)) {
         await page.screenshot({ path:path.join(screenshotDirectory, `${theme}-${width}.png`), fullPage:true });
       }
