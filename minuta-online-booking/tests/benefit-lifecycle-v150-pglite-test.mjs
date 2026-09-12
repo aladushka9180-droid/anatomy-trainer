@@ -193,5 +193,18 @@ await assert.rejects(db.exec(rollback), /v150_rollback_blocked_freeze_history_ex
 await db.exec('rollback');
 assert.equal(await scalar("select to_regclass('public.benefit_freeze_periods') is not null value"), true);
 
+// A rollback is allowed only after this isolated fixture removes every v150
+// history row it created. The v149 idempotent application contract must survive
+// both the rollback and the following reapply.
+await db.exec('delete from public.benefit_freeze_periods');
+await db.exec(rollback);
+assert.equal(await scalar("select to_regclass('public.benefit_freeze_periods') is null value"), true);
+assert.equal(await scalar("select to_regprocedure('public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)') is null value"), true);
+assert.equal(await scalar(`select pg_get_functiondef('public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)'::regprocedure)=${q(v149Definition)} value`), true);
+await db.exec(migration);
+assert.equal(await scalar("select to_regclass('public.benefit_freeze_periods') is not null value"), true);
+assert.equal(await scalar("select to_regprocedure('public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)') is not null value"), true);
+assert.equal(await scalar(`select pg_get_functiondef('public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)'::regprocedure)=${q(v149Definition)} value`), true);
+
 console.log('PASS: benefit lifecycle v150 state transitions, expiry, idempotency and history');
 await db.close();
