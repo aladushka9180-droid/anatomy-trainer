@@ -139,6 +139,34 @@ jobs:
           )"
           state="$(grep '^{' <<<"$state"|tail -n 1)"
           jq -e '.prerequisitesReady and (.mode=="ready" or .mode=="full")' <<<"$state" >/dev/null
+          if jq -e '.mode=="full"' <<<"$state" >/dev/null; then
+            psql "$db" -X -q -v ON_ERROR_STOP=1 <<'SQL'
+          begin transaction isolation level repeatable read read only;
+          do $probe$
+          declare target record; workspace jsonb; money jsonb;
+          begin
+            for target in
+              select distinct on (membership.organization_id)
+                membership.organization_id, membership.user_id
+              from public.organization_memberships membership
+              where membership.active and membership.role in ('owner','admin')
+              order by membership.organization_id,
+                case membership.role when 'owner' then 0 else 1 end,
+                membership.user_id
+            loop
+              perform set_config('request.jwt.claim.sub',target.user_id::text,true);
+              workspace:=public.get_minuta_commerce_workspace_v147(target.organization_id);
+              money:=public.get_minuta_money_dashboard_v147(target.organization_id,current_date-30,current_date);
+              if workspace->>'organization_id'<>target.organization_id::text
+                or money->>'organization_id'<>target.organization_id::text then
+                raise exception 'v147_production_read_probe_context_mismatch';
+              end if;
+            end loop;
+          end
+          $probe$;
+          rollback;
+          SQL
+          fi
           jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"validate-production-v147",commitSha:$sha,readOnly:true,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v147-validation.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: "v147-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v147-validation.json", if-no-files-found: error, retention-days: 35 }
