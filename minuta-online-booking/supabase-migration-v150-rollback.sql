@@ -6,9 +6,36 @@ set local search_path=public,extensions,pg_catalog;
 
 do $guard$
 begin
+  if coalesce(obj_description(to_regprocedure('public.get_minuta_benefit_timezone_v150(uuid)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
+     or coalesce(obj_description(to_regprocedure('public.minuta_benefit_frozen_days_v150(text,timestamptz,timestamptz)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
+     or coalesce(obj_description(to_regprocedure('public.sync_minuta_benefit_expiry_v150(uuid,uuid)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
+     or coalesce(obj_description(to_regprocedure('public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
+     or position('minuta_benefit_frozen_days_v150' in pg_get_functiondef(to_regprocedure('public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)')))=0
+     or coalesce(obj_description(to_regprocedure('public.get_minuta_benefit_lifecycle_v150(uuid,uuid)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_v150'
+     or position('sync_minuta_benefit_expiry_v150' in pg_get_functiondef(to_regprocedure('public.get_minuta_benefit_lifecycle_v150(uuid,uuid)')))=0
+     or coalesce(obj_description(to_regprocedure('public.set_minuta_benefit_status(uuid,uuid,text)')::oid,'pg_proc'),'')<>'minuta_benefit_lifecycle_compatibility_v150'
+     or position('set_minuta_benefit_lifecycle_v150' in pg_get_functiondef(to_regprocedure('public.set_minuta_benefit_status(uuid,uuid,text)')))=0 then
+    raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_function_version';
+  end if;
+  if to_regclass('public.benefit_freeze_periods') is null
+     or coalesce(obj_description(to_regclass('public.benefit_freeze_periods')::oid,'pg_class'),'')<>'minuta_benefit_lifecycle_v150'
+     or to_regclass('public.benefit_lifecycle_requests') is null
+     or coalesce(obj_description(to_regclass('public.benefit_lifecycle_requests')::oid,'pg_class'),'')<>'minuta_benefit_lifecycle_v150' then
+    raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_table_version';
+  end if;
+  if coalesce((select obj_description(constraint_row.oid,'pg_constraint')
+    from pg_catalog.pg_constraint constraint_row
+    where constraint_row.conrelid='public.benefit_ledger'::regclass
+      and constraint_row.conname='benefit_ledger_event_type_check'),'')<>'minuta_benefit_lifecycle_v150' then
+    raise exception using errcode='55000',message='v150_rollback_blocked_unexpected_constraint_version';
+  end if;
   if to_regclass('public.benefit_lifecycle_requests') is not null
      and exists(select 1 from public.benefit_lifecycle_requests limit 1) then
     raise exception using errcode='55000',message='v150_rollback_blocked_lifecycle_history_exists';
+  end if;
+  if to_regclass('public.benefit_freeze_periods') is not null
+     and exists(select 1 from public.benefit_freeze_periods limit 1) then
+    raise exception using errcode='55000',message='v150_rollback_blocked_freeze_history_exists';
   end if;
   if to_regclass('public.benefit_ledger') is not null
      and exists(select 1 from public.benefit_ledger where event_type='expired' limit 1) then
@@ -16,17 +43,6 @@ begin
   end if;
 end
 $guard$;
-
-drop function if exists public.get_minuta_benefit_lifecycle_v150(uuid,uuid);
-drop function if exists public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid);
-drop function if exists public.sync_minuta_benefit_expiry_v150(uuid,uuid);
-
-drop table if exists public.benefit_lifecycle_requests;
-drop table if exists public.benefit_freeze_periods;
-
-alter table public.benefit_ledger drop constraint if exists benefit_ledger_event_type_check;
-alter table public.benefit_ledger add constraint benefit_ledger_event_type_check
-  check(event_type in ('issued','reserved','redeemed','released','frozen','activated','cancelled'));
 
 create or replace function public.set_minuta_benefit_status(p_organization uuid,p_instrument uuid,p_status text)
 returns jsonb language plpgsql security definer set search_path to '' as $$
@@ -52,5 +68,19 @@ begin
 end $$;
 revoke all on function public.set_minuta_benefit_status(uuid,uuid,text) from public,anon,authenticated,service_role;
 grant execute on function public.set_minuta_benefit_status(uuid,uuid,text) to authenticated;
+comment on function public.set_minuta_benefit_status(uuid,uuid,text) is 'minuta_benefit_status_v73_restored_by_v150_rollback';
+
+drop function if exists public.get_minuta_benefit_lifecycle_v150(uuid,uuid);
+drop function if exists public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid);
+drop function if exists public.sync_minuta_benefit_expiry_v150(uuid,uuid);
+drop function if exists public.minuta_benefit_frozen_days_v150(text,timestamptz,timestamptz);
+drop function if exists public.get_minuta_benefit_timezone_v150(uuid);
+
+drop table if exists public.benefit_lifecycle_requests;
+drop table if exists public.benefit_freeze_periods;
+
+alter table public.benefit_ledger drop constraint if exists benefit_ledger_event_type_check;
+alter table public.benefit_ledger add constraint benefit_ledger_event_type_check
+  check(event_type in ('issued','reserved','redeemed','released','frozen','activated','cancelled'));
 
 commit;

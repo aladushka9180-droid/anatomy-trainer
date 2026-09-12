@@ -11,7 +11,8 @@ const ids = {
   organization:'00000000-0000-4000-8000-000000000152', client:'00000000-0000-4000-8000-000000000153',
   booking:'00000000-0000-4000-8000-000000000154', instrument:'00000000-0000-4000-8000-000000000155',
   expired:'00000000-0000-4000-8000-000000000156', freeze:'00000000-0000-4000-8000-000000000157',
-  unfreeze:'00000000-0000-4000-8000-000000000158', blockedFreeze:'00000000-0000-4000-8000-000000000159'
+  unfreeze:'00000000-0000-4000-8000-000000000158', blockedFreeze:'00000000-0000-4000-8000-000000000159',
+  location:'00000000-0000-4000-8000-000000000160', legacyFrozen:'00000000-0000-4000-8000-000000000161'
 };
 const q = value => `'${String(value).replaceAll("'", "''")}'`;
 async function scalar(sql, key='value') { return (await db.query(sql)).rows[0]?.[key]; }
@@ -31,6 +32,7 @@ create table public.organization_memberships(organization_id uuid,user_id uuid,r
 create table public.performer_profiles(id uuid primary key,display_name text);
 create table public.client_accounts(id uuid primary key);
 create table public.bookings(id uuid primary key,organization_id uuid,client_account_id uuid);
+create table public.locations(id uuid primary key,organization_id uuid,timezone text,active boolean,is_primary boolean);
 create function public.has_organization_role(p_organization uuid,p_roles text[])
 returns boolean language sql stable security definer set search_path='' as $$
   select exists(select 1 from public.organization_memberships m where m.organization_id=p_organization and m.user_id=auth.uid() and m.active and m.role=any(p_roles))
@@ -74,6 +76,9 @@ returns void language sql security definer set search_path='' as $$
 $$;
 create function public.get_minuta_client_commerce_v147(p_organization uuid,p_client_account uuid)
 returns jsonb language sql stable as $$ select '{}'::jsonb $$;
+create function public.apply_minuta_benefit_v149(
+  p_organization uuid,p_instrument uuid,p_booking uuid,p_action text,p_amount_rub integer default null,p_request_id uuid default null
+) returns jsonb language sql as $$ select jsonb_build_object('organization_id',p_organization,'status','reserved','request_id',p_request_id) $$;
 grant select on public.client_benefit_instruments,public.benefit_redemptions,public.benefit_ledger,public.benefit_audit_log to authenticated;
 insert into auth.users values(${q(ids.owner)}),(${q(ids.outsider)});
 insert into public.organizations values(${q(ids.organization)},'active');
@@ -81,17 +86,33 @@ insert into public.organization_memberships values(${q(ids.organization)},${q(id
 insert into public.performer_profiles values(${q(ids.owner)},'Владелец');
 insert into public.client_accounts values(${q(ids.client)});
 insert into public.bookings values(${q(ids.booking)},${q(ids.organization)},${q(ids.client)});
+insert into public.locations values(${q(ids.location)},${q(ids.organization)},'Europe/Samara',true,true);
+insert into public.client_benefit_instruments(
+  id,organization_id,product_id,client_account_id,request_id,public_code,status,product_snapshot,remaining_visits,expires_on,issued_by
+) values(
+  ${q(ids.legacyFrozen)},${q(ids.organization)},gen_random_uuid(),${q(ids.client)},gen_random_uuid(),'MIN-LEGACY-FROZEN-150','frozen',
+  '{"name":"Старая заморозка","kind":"visit_pass"}',2,pg_catalog.timezone('Europe/Samara',clock_timestamp())::date+20,${q(ids.owner)}
+);
 `);
 
 const migration = readFileSync(root+'supabase-migration-v150.sql','utf8');
+const rollback = readFileSync(root+'supabase-migration-v150-rollback.sql','utf8');
+const v149Definition = await scalar(`select pg_get_functiondef('public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)'::regprocedure) value`);
 await db.exec(migration);
+assert.equal(await scalar(`select count(*)::int value from public.benefit_freeze_periods where instrument_id=${q(ids.legacyFrozen)} and thawed_at is null`), 1);
+// Simulate a v73 call that had already started before the compatibility function became visible.
+await db.exec(`update public.client_benefit_instruments set status='active' where id=${q(ids.legacyFrozen)}`);
 await db.exec(migration);
+assert.equal(await scalar(`select count(*)::int value from public.benefit_freeze_periods where instrument_id=${q(ids.legacyFrozen)} and thawed_at is null`), 0);
+assert.equal(await scalar(`select count(*)::int value from public.benefit_freeze_periods where instrument_id=${q(ids.legacyFrozen)} and thawed_at is not null`), 1);
+assert.equal(await scalar(`select pg_get_functiondef('public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)'::regprocedure)=${q(v149Definition)} value`), true);
+assert.equal(await scalar(`select public.minuta_benefit_frozen_days_v150('Pacific/Kiritimati','2026-09-11 09:59:00+00'::timestamptz,'2026-09-11 10:01:00+00'::timestamptz) value`), 1);
 
 await db.exec(`
 insert into public.client_benefit_instruments(id,organization_id,product_id,client_account_id,request_id,public_code,product_snapshot,remaining_visits,expires_on,issued_by)
 values
-(${q(ids.instrument)},${q(ids.organization)},gen_random_uuid(),${q(ids.client)},gen_random_uuid(),'MIN-LIFECYCLE-150','{"name":"Пакет 5 визитов","kind":"package"}',5,current_date+10,${q(ids.owner)}),
-(${q(ids.expired)},${q(ids.organization)},gen_random_uuid(),${q(ids.client)},gen_random_uuid(),'MIN-EXPIRED-150','{"name":"Старый абонемент","kind":"visit_pass"}',2,current_date-1,${q(ids.owner)});
+(${q(ids.instrument)},${q(ids.organization)},gen_random_uuid(),${q(ids.client)},gen_random_uuid(),'MIN-LIFECYCLE-150','{"name":"Пакет 5 визитов","kind":"package"}',5,pg_catalog.timezone('Europe/Samara',clock_timestamp())::date+10,${q(ids.owner)}),
+(${q(ids.expired)},${q(ids.organization)},gen_random_uuid(),${q(ids.client)},gen_random_uuid(),'MIN-EXPIRED-150','{"name":"Старый абонемент","kind":"visit_pass"}',2,pg_catalog.timezone('Europe/Samara',clock_timestamp())::date-1,${q(ids.owner)});
 insert into public.benefit_ledger(organization_id,instrument_id,event_type,visits_delta,amount_balance_rub,visits_balance,actor_id)
 values(${q(ids.organization)},${q(ids.instrument)},'issued',5,0,5,${q(ids.owner)}),(${q(ids.organization)},${q(ids.expired)},'issued',2,0,2,${q(ids.owner)});
 `);
@@ -116,7 +137,7 @@ await asActor(ids.owner, async () => {
   const parsedThawed = typeof thawed === 'string' ? JSON.parse(thawed) : thawed;
   assert.equal(parsedThawed.status, 'active');
   assert.equal(parsedThawed.extended_days, 3);
-  assert.equal(await scalar(`select expires_on=current_date+13 value from public.client_benefit_instruments where id=${q(ids.instrument)}`), true);
+  assert.equal(await scalar(`select expires_on=pg_catalog.timezone('Europe/Samara',clock_timestamp())::date+13 value from public.client_benefit_instruments where id=${q(ids.instrument)}`), true);
   assert.equal(await scalar(`select close_kind value from public.benefit_freeze_periods where instrument_id=${q(ids.instrument)}`), 'unfrozen');
 
   const replay = await scalar(`select public.set_minuta_benefit_lifecycle_v150(${q(ids.organization)},${q(ids.instrument)},'unfreeze','Возвращение',${q(ids.unfreeze)}) value`);
@@ -161,6 +182,16 @@ await assert.rejects(
 
 assert.equal(await scalar(`select count(*)::int value from public.benefit_lifecycle_requests where organization_id=${q(ids.organization)} and request_id=${q(ids.unfreeze)}`), 1);
 assert.equal(await scalar(`select count(*)::int value from public.benefit_ledger where instrument_id=${q(ids.expired)} and event_type='expired'`), 1);
+
+await db.exec("comment on function public.set_minuta_benefit_status(uuid,uuid,text) is 'minuta_benefit_lifecycle_compatibility_v151'");
+await assert.rejects(db.exec(rollback), /v150_rollback_blocked_unexpected_function_version/);
+await db.exec('rollback');
+assert.equal(await scalar("select to_regprocedure('public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)') is not null value"), true);
+await db.exec("comment on function public.set_minuta_benefit_status(uuid,uuid,text) is 'minuta_benefit_lifecycle_compatibility_v150'");
+await db.exec("delete from public.benefit_lifecycle_requests; delete from public.benefit_ledger where event_type='expired'");
+await assert.rejects(db.exec(rollback), /v150_rollback_blocked_freeze_history_exists/);
+await db.exec('rollback');
+assert.equal(await scalar("select to_regclass('public.benefit_freeze_periods') is not null value"), true);
 
 console.log('PASS: benefit lifecycle v150 state transitions, expiry, idempotency and history');
 await db.close();

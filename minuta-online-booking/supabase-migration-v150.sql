@@ -9,16 +9,19 @@ do $$ begin
      or to_regclass('public.benefit_ledger') is null
      or to_regclass('public.benefit_redemptions') is null
      or to_regclass('public.performer_profiles') is null
+     or to_regclass('public.locations') is null
      or to_regprocedure('public.get_minuta_benefit_role(uuid)') is null
      or to_regprocedure('public.write_minuta_benefit_audit(uuid,text,uuid,jsonb)') is null
-     or to_regprocedure('public.get_minuta_client_commerce_v147(uuid,uuid)') is null then
-    raise exception using errcode='P0001',message='v150_requires_benefits_v73_and_commerce_v147';
+     or to_regprocedure('public.get_minuta_client_commerce_v147(uuid,uuid)') is null
+     or to_regprocedure('public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)') is null then
+    raise exception using errcode='P0001',message='v150_requires_benefits_v73_commerce_v147_and_application_v149';
   end if;
 end $$;
 
 alter table public.benefit_ledger drop constraint if exists benefit_ledger_event_type_check;
 alter table public.benefit_ledger add constraint benefit_ledger_event_type_check
   check(event_type in ('issued','reserved','redeemed','released','frozen','activated','expired','cancelled'));
+comment on constraint benefit_ledger_event_type_check on public.benefit_ledger is 'minuta_benefit_lifecycle_v150';
 
 create table if not exists public.benefit_freeze_periods (
   id uuid primary key default gen_random_uuid(),
@@ -75,20 +78,50 @@ revoke all on public.benefit_freeze_periods,public.benefit_lifecycle_requests fr
 grant select on public.benefit_freeze_periods,public.benefit_lifecycle_requests to authenticated;
 grant select on public.benefit_freeze_periods,public.benefit_lifecycle_requests to service_role;
 
-insert into public.benefit_freeze_periods(
-  organization_id,instrument_id,frozen_at,expires_on_before,freeze_reason,frozen_by
-)
-select instrument.organization_id,instrument.id,instrument.updated_at,instrument.expires_on,'Перенесено из прежней заморозки',instrument.issued_by
-from public.client_benefit_instruments instrument
-where instrument.status='frozen'
-  and not exists(select 1 from public.benefit_freeze_periods period where period.instrument_id=instrument.id and period.thawed_at is null)
-on conflict do nothing;
+comment on table public.benefit_freeze_periods is 'minuta_benefit_lifecycle_v150';
+comment on table public.benefit_lifecycle_requests is 'minuta_benefit_lifecycle_v150';
+
+create or replace function public.get_minuta_benefit_timezone_v150(p_organization uuid)
+returns text language plpgsql stable security definer set search_path to '' as $$
+declare v_timezone text;
+begin
+  select location.timezone into v_timezone
+  from public.locations location
+  where location.organization_id=p_organization and location.active
+  order by location.is_primary desc,location.id
+  limit 1;
+  if v_timezone is null
+     or not exists(select 1 from pg_catalog.pg_timezone_names zone where zone.name=v_timezone) then
+    raise exception using errcode='22023',message='benefit_organization_timezone_unavailable';
+  end if;
+  return v_timezone;
+end $$;
+revoke all on function public.get_minuta_benefit_timezone_v150(uuid) from public,anon,authenticated,service_role;
+comment on function public.get_minuta_benefit_timezone_v150(uuid) is 'minuta_benefit_lifecycle_v150';
+
+create or replace function public.minuta_benefit_frozen_days_v150(
+  p_timezone text,p_frozen_at timestamptz,p_now timestamptz default clock_timestamp()
+) returns integer language plpgsql stable set search_path to '' as $$
+begin
+  if p_timezone is null
+     or not exists(select 1 from pg_catalog.pg_timezone_names zone where zone.name=p_timezone) then
+    raise exception using errcode='22023',message='benefit_organization_timezone_unavailable';
+  end if;
+  return greatest(
+    pg_catalog.timezone(p_timezone,p_now)::date-pg_catalog.timezone(p_timezone,p_frozen_at)::date,
+    0
+  );
+end $$;
+revoke all on function public.minuta_benefit_frozen_days_v150(text,timestamptz,timestamptz) from public,anon,authenticated,service_role;
+comment on function public.minuta_benefit_frozen_days_v150(text,timestamptz,timestamptz) is 'minuta_benefit_lifecycle_v150';
 
 create or replace function public.sync_minuta_benefit_expiry_v150(p_organization uuid,p_client_account uuid default null)
 returns integer language plpgsql security definer set search_path to '' as $$
-declare v_role text; v_row record; v_count integer:=0;
+declare v_role text; v_timezone text; v_today date; v_row record; v_count integer:=0;
 begin
   v_role:=public.get_minuta_benefit_role(p_organization);
+  v_timezone:=public.get_minuta_benefit_timezone_v150(p_organization);
+  v_today:=pg_catalog.timezone(v_timezone,clock_timestamp())::date;
   if p_client_account is not null and not exists(
     select 1 from public.bookings booking
     where booking.organization_id=p_organization and booking.client_account_id=p_client_account
@@ -99,7 +132,7 @@ begin
     select instrument.id,instrument.remaining_amount_rub,instrument.remaining_visits,instrument.expires_on
     from public.client_benefit_instruments instrument
     where instrument.organization_id=p_organization and instrument.status='active'
-      and instrument.expires_on<current_date
+      and instrument.expires_on<v_today
       and (p_client_account is null or instrument.client_account_id=p_client_account)
     for update
   loop
@@ -117,6 +150,7 @@ begin
   return v_count;
 end $$;
 revoke all on function public.sync_minuta_benefit_expiry_v150(uuid,uuid) from public,anon,authenticated,service_role;
+comment on function public.sync_minuta_benefit_expiry_v150(uuid,uuid) is 'minuta_benefit_lifecycle_v150';
 
 create or replace function public.set_minuta_benefit_lifecycle_v150(
   p_organization uuid,p_instrument uuid,p_action text,p_reason text,p_request_id uuid
@@ -124,9 +158,12 @@ create or replace function public.set_minuta_benefit_lifecycle_v150(
 declare
   v_role text; v_instrument public.client_benefit_instruments%rowtype;
   v_request public.benefit_lifecycle_requests%rowtype; v_period public.benefit_freeze_periods%rowtype;
-  v_reason text:=btrim(coalesce(p_reason,'')); v_days integer:=0; v_new_expiry date; v_result jsonb;
+  v_reason text:=btrim(coalesce(p_reason,'')); v_timezone text; v_today date;
+  v_days integer:=0; v_new_expiry date; v_result jsonb;
 begin
   v_role:=public.get_minuta_benefit_role(p_organization);
+  v_timezone:=public.get_minuta_benefit_timezone_v150(p_organization);
+  v_today:=pg_catalog.timezone(v_timezone,clock_timestamp())::date;
   if p_request_id is null then raise exception using errcode='22023',message='benefit_lifecycle_request_id_required'; end if;
   if p_action not in ('freeze','unfreeze') then raise exception using errcode='22023',message='invalid_benefit_lifecycle_action'; end if;
   if char_length(v_reason)>300 then raise exception using errcode='22023',message='benefit_lifecycle_reason_too_long'; end if;
@@ -148,7 +185,7 @@ begin
 
   if p_action='freeze' then
     if v_instrument.status<>'active' then raise exception using errcode='55000',message='invalid_benefit_status_transition'; end if;
-    if v_instrument.expires_on<current_date then raise exception using errcode='55000',message='benefit_expired'; end if;
+    if v_instrument.expires_on<v_today then raise exception using errcode='55000',message='benefit_expired'; end if;
     if v_instrument.remaining_amount_rub=0 and v_instrument.remaining_visits=0 then
       raise exception using errcode='55000',message='benefit_exhausted';
     end if;
@@ -184,7 +221,7 @@ begin
         'Восстановлено для прежней заморозки',v_instrument.issued_by
       ) returning * into v_period;
     end if;
-    v_days:=greatest(current_date-v_period.frozen_at::date,0);
+    v_days:=public.minuta_benefit_frozen_days_v150(v_timezone,v_period.frozen_at,clock_timestamp());
     v_new_expiry:=v_instrument.expires_on+v_days;
     update public.benefit_freeze_periods set thawed_at=now(),expires_on_after=v_new_expiry,
       extended_days=v_days,unfreeze_reason=v_reason,thawed_by=auth.uid(),close_kind='unfrozen'
@@ -211,6 +248,7 @@ begin
 end $$;
 revoke all on function public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid) from public,anon,authenticated,service_role;
 grant execute on function public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid) to authenticated;
+comment on function public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid) is 'minuta_benefit_lifecycle_v150';
 
 create or replace function public.set_minuta_benefit_status(p_organization uuid,p_instrument uuid,p_status text)
 returns jsonb language plpgsql security definer set search_path to '' as $$
@@ -250,6 +288,7 @@ begin
 end $$;
 revoke all on function public.set_minuta_benefit_status(uuid,uuid,text) from public,anon,authenticated,service_role;
 grant execute on function public.set_minuta_benefit_status(uuid,uuid,text) to authenticated;
+comment on function public.set_minuta_benefit_status(uuid,uuid,text) is 'minuta_benefit_lifecycle_compatibility_v150';
 
 create or replace function public.get_minuta_benefit_lifecycle_v150(p_organization uuid,p_client_account uuid default null)
 returns jsonb language plpgsql volatile security definer set search_path to '' as $$
@@ -294,5 +333,38 @@ begin
 end $$;
 revoke all on function public.get_minuta_benefit_lifecycle_v150(uuid,uuid) from public,anon,authenticated,service_role;
 grant execute on function public.get_minuta_benefit_lifecycle_v150(uuid,uuid) to authenticated;
+comment on function public.get_minuta_benefit_lifecycle_v150(uuid,uuid) is 'minuta_benefit_lifecycle_v150';
+
+commit;
+
+-- Phase two starts only after the compatibility function is visible. The table
+-- lock drains any invocation that began with the v73 function before phase one
+-- committed, then backfills and reconciles the exact locked snapshot.
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '2min';
+set local search_path = public, extensions, pg_catalog;
+
+lock table public.client_benefit_instruments in exclusive mode;
+
+insert into public.benefit_freeze_periods(
+  organization_id,instrument_id,frozen_at,expires_on_before,freeze_reason,frozen_by
+)
+select instrument.organization_id,instrument.id,instrument.updated_at,instrument.expires_on,
+  'Перенесено из прежней заморозки',instrument.issued_by
+from public.client_benefit_instruments instrument
+where instrument.status='frozen'
+  and not exists(
+    select 1 from public.benefit_freeze_periods period
+    where period.instrument_id=instrument.id and period.thawed_at is null
+  )
+on conflict do nothing;
+
+update public.benefit_freeze_periods period
+set thawed_at=clock_timestamp(),expires_on_after=instrument.expires_on,extended_days=0,
+  unfreeze_reason='Согласовано при установке v150',close_kind=case when instrument.status='cancelled' then 'cancelled' else 'unfrozen' end
+from public.client_benefit_instruments instrument
+where period.instrument_id=instrument.id and period.organization_id=instrument.organization_id
+  and period.thawed_at is null and instrument.status<>'frozen';
 
 commit;
