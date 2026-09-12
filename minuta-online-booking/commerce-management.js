@@ -66,6 +66,10 @@
     let bound = false;
     const activeWrites = new Set();
 
+    function syncSaleFocusMode() {
+      document.body.classList.toggle('commerce-sale-open', Boolean($('#commerceSaleCreator')?.open));
+    }
+
     const eligibleAccounts = (method = $('#commercePaymentMethod')?.value || 'cash') => (state?.accounts || [])
       .filter(item => item.system_key === null && ['cash', 'bank'].includes(item.account_type))
       .filter(item => method !== 'cash' || item.account_type === 'cash');
@@ -257,13 +261,14 @@
       }, selected);
       creator.hidden = candidates.length === 0;
       if (!candidates.length) creator.open = false;
-      empty.hidden = candidates.length > 0;
-      empty.textContent = sales.length ? 'Все продажи полностью возвращены.' : 'Возврат станет доступен после первой продажи.';
+      empty.hidden = candidates.length > 0 || sales.length === 0;
+      empty.textContent = 'Все продажи полностью возвращены.';
       updateRefundValidity();
     }
 
     function renderRecurring() {
       const rows = state?.recurring_expenses || [];
+      $('#commerceRecurringCount').textContent = String(rows.length);
       $('#commerceRecurringList').innerHTML = rows.length ? rows.map(item => {
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -379,6 +384,7 @@
         $('#commerceDiscount').value = '0';
         selectSaleSeller();
         $('#commerceSaleCreator').open = false;
+        syncSaleFocusMode();
         render();
       }
     }
@@ -475,6 +481,7 @@
       $('#commerceSaleForm')?.addEventListener('submit', event => void submitSale(event));
       $('#commerceSaleForm')?.addEventListener('input', updateSaleValidity);
       $('#commerceSaleForm')?.addEventListener('change', updateSaleValidity);
+      $('#commerceSaleCreator')?.addEventListener('toggle', syncSaleFocusMode);
       $('#commerceRefundForm')?.addEventListener('submit', event => void submitRefund(event));
       $('#commerceRefundSale')?.addEventListener('change', event => {
         if (event.currentTarget.value) selectRefundSale(event.currentTarget.value);
@@ -504,6 +511,7 @@
       load,
       startSale({ bookingId = '', clientId = '' } = {}) {
         $('#commerceSaleCreator').open = true;
+        syncSaleFocusMode();
         if (clientId && [...$('#commerceClient').options].some(option => option.value === clientId)) $('#commerceClient').value = clientId;
         renderBookings();
         if (bookingId && [...$('#commerceBooking').options].some(option => option.value === bookingId)) {
@@ -520,7 +528,13 @@
         $('#commerceWorkspace').hidden = true;
         if (organization?.id) await load();
       },
-      reset() { organization = null; state = null; $('#commerceWorkspace').hidden = true; }
+      reset() {
+        organization = null;
+        state = null;
+        $('#commerceWorkspace').hidden = true;
+        $('#commerceSaleCreator').open = false;
+        syncSaleFocusMode();
+      }
     };
   }
 

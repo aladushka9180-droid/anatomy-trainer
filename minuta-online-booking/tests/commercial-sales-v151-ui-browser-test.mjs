@@ -62,6 +62,8 @@ try {
         panel.classList.toggle('active', !panel.hidden);
       });
       document.querySelector('#organizationWorkspace').hidden = false;
+      document.querySelector('#organizationLoading').hidden = true;
+      document.querySelector('#organizationRoleBadge').textContent = 'Владелец';
       document.querySelectorAll('[data-provider-panel="organization"] .provider-section-anchor').forEach(panel => { panel.hidden = panel.id !== 'commercePanel'; });
       document.querySelector('#commercePanel').hidden = false;
     });
@@ -146,6 +148,8 @@ try {
     assert.equal(await page.locator('#commerceBooking').inputValue(), ids.booking);
     assert.equal(await page.locator('#commerceSeller').inputValue(), ids.seller, 'visit seller defaults to its performer');
     assert.equal(await page.locator('#commerceSaleOptions').getAttribute('open'), null, 'secondary operation details stay compact by default');
+    if (width <= 760) assert.equal(await page.locator('.provider-mobile-nav').isVisible(), false, 'sale focus mode hides the mobile navigation');
+    if (width > 760) assert.equal(await page.locator('#organizationSectionNav').evaluate(element => getComputedStyle(element).position), 'static', 'organization navigation must not cover the active sale');
     assert.deepEqual(await page.locator('#commercePaymentAccount option').allTextContents(), ['Основная касса'], 'cash payment must only offer a cash account');
     await page.screenshot({ path:resolve(output, `sale-compact-${width}.png`), fullPage:true });
     await page.locator('#commerceSaleOptions summary').click();
@@ -264,6 +268,8 @@ try {
       assert.equal(benefitCall.args.p_quantity, 1);
       assert.equal(benefitCall.args.p_client_account, ids.client);
     }
+    if (width <= 760) assert.equal(await page.locator('.provider-mobile-nav').isVisible(), true, 'mobile navigation returns after the sale closes');
+    assert.equal(await page.locator('#commerceRecurring').getAttribute('open'), null, 'recurring expenses stay collapsed by default');
     await page.close();
   }
 } finally {
