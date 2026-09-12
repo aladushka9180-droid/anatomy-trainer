@@ -85,23 +85,29 @@ test('cached-only session path cannot start remote synchronization', () => {
   const handler = actual('handleSession');
   assert.match(handler, /cachedOnly \? null : accessVerified \? true/);
   assert.match(handler, /if \(localSessionOnly\) \{[\s\S]*?return;[\s\S]*?\}\s*if \(navigator\.onLine && !bookingsChannel\) startLiveUpdates/);
-  assert.match(actual('canQueueOfflineBooking'), /providerSessionTrust === 'verified'/);
+  assert.match(actual('canQueueOfflineBooking'), /offlineBookingAccessReady/);
 });
 
-test('a cached unverified identity stays read-only after an offline reload', () => {
+test('a cached identity can queue only from a complete server-verified offline snapshot', () => {
   const box = vm.createContext({
     providerSessionTrust:'cached',
     currentUser:{ id:'provider-1' },
     navigator:{ onLine:false },
     offlineBookingInputsReady:true,
+    offlineBookingAccessReady:false,
     offlineBookingSnapshotFresh:() => true,
     ownServices:[{ active:true }],
     Boolean
   });
   vm.runInContext(actual('canQueueOfflineBooking'), box);
   assert.equal(box.canQueueOfflineBooking(), false);
-  box.providerSessionTrust = 'verified';
+  box.offlineBookingAccessReady = true;
   assert.equal(box.canQueueOfflineBooking(), true);
+  box.offlineBookingSnapshotFresh = () => false;
+  assert.equal(box.canQueueOfflineBooking(), false);
+  box.offlineBookingSnapshotFresh = () => true;
+  box.providerSessionTrust = 'none';
+  assert.equal(box.canQueueOfflineBooking(), false);
 });
 
 test('a failed background access probe keeps cached mode and schedules one retry', async () => {

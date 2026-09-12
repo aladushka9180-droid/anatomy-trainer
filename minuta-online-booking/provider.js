@@ -472,6 +472,7 @@ let offlineBookingFlushPromise = null;
 let offlineBookingSavePromise = Promise.resolve();
 let providerBookingWritePromise = null;
 let offlineBookingInputsReady = false;
+let offlineBookingAccessReady = false;
 let editingOfflineBookingId = '';
 let lastConnectionLogSignature = '';
 let teamCalendarController = null;
@@ -555,6 +556,7 @@ document.addEventListener('click', event => {
 }, true);
 const PROVIDER_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const OFFLINE_BOOKING_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const PROVIDER_OFFLINE_SNAPSHOT_VERSION = 1;
 const providerCacheMaintenance = (async () => {
   await reliability?.removeExpired?.('provider:', PROVIDER_CACHE_MAX_AGE);
 })().catch(() => {});
@@ -658,6 +660,7 @@ async function saveTelegramClientSettings(event) {
 }
 
 function providerCacheKey(name, userId = currentUser?.id) { return `provider:${userId || 'anonymous'}:${name === 'bookings' ? 'bookings-v3' : name}`; }
+function providerOfflineSnapshotKey(userId = currentUser?.id) { return providerCacheKey('offline-booking-snapshot-v1', userId); }
 function sessionIsCurrent(userId, generation) { return currentUser?.id === userId && sessionGeneration === generation; }
 function cachePayload(name, data) {
   if (name !== 'bookings' || !Array.isArray(data)) return data;
@@ -695,6 +698,45 @@ async function hydrateCachedBookings(userId = currentUser?.id) {
   applyCachedBookings(cached);
   return cached;
 }
+function validProviderOfflineSnapshot(snapshot, userId = currentUser?.id) {
+  const data = snapshot?.data;
+  const savedAt = new Date(snapshot?.savedAt).getTime();
+  const verifiedAt = new Date(data?.verifiedAt).getTime();
+  const now = Date.now();
+  if (data?.version !== PROVIDER_OFFLINE_SNAPSHOT_VERSION || data?.userId !== userId
+    || !Number.isFinite(savedAt) || !Number.isFinite(verifiedAt)
+    || savedAt > now + 5 * 60 * 1000 || verifiedAt > now + 5 * 60 * 1000
+    || now - savedAt > PROVIDER_CACHE_MAX_AGE || now - verifiedAt > PROVIDER_CACHE_MAX_AGE
+    || !Array.isArray(data.bookings) || !Array.isArray(data.services)
+    || !Array.isArray(data.schedule) || !data.schedule.length || !Array.isArray(data.daysOff)) return null;
+  return snapshot;
+}
+async function readProviderOfflineSnapshot(userId = currentUser?.id) {
+  if (!userId) return null;
+  try {
+    const snapshot = await reliability?.get(providerOfflineSnapshotKey(userId));
+    const valid = validProviderOfflineSnapshot(snapshot, userId);
+    if (!valid && snapshot) await reliability?.remove?.(providerOfflineSnapshotKey(userId));
+    return valid;
+  } catch { return null; }
+}
+async function saveProviderOfflineSnapshot(userId = currentUser?.id, generation = sessionGeneration) {
+  if (!userId || providerSessionTrust !== 'verified' || !navigator.onLine || !sessionIsCurrent(userId, generation)) return null;
+  const payload = {
+    version:PROVIDER_OFFLINE_SNAPSHOT_VERSION,
+    userId,
+    verifiedAt:new Date().toISOString(),
+    bookings:cachePayload('bookings', allBookings),
+    services:ownServices.filter(item => item?.name !== SCHEDULE_BLOCK_SERVICE_NAME),
+    schedule:scheduleRows,
+    daysOff
+  };
+  try {
+    await reliability?.put(providerOfflineSnapshotKey(userId), payload);
+    if (!sessionIsCurrent(userId, generation)) return null;
+    return await readProviderOfflineSnapshot(userId);
+  } catch { return null; }
+}
 function applyCachedBookings(cached, render = true) {
   if (!cached?.data) return false;
   allBookings = cached.data;
@@ -720,7 +762,29 @@ function bookingDataSignature(items = allBookings) {
   return `${items.length}:${hash >>> 0}`;
 }
 async function hydrateOfflineBookingInputs(userId, generation, cachedBookings) {
-  if (!userId || !cachedBookings) return false;
+  if (!userId) return false;
+  const offlineSnapshot = await readProviderOfflineSnapshot(userId);
+  if (!sessionIsCurrent(userId, generation)) return false;
+  if (offlineSnapshot) {
+    allBookings = offlineSnapshot.data.bookings;
+    bookingsSnapshotSavedAt = String(offlineSnapshot.savedAt || '');
+    bookingsSnapshotFromCache = true;
+    ownServices = offlineSnapshot.data.services.filter(item => item?.name !== SCHEDULE_BLOCK_SERVICE_NAME);
+    scheduleRows = offlineSnapshot.data.schedule;
+    daysOff = offlineSnapshot.data.daysOff;
+    offlineBookingInputsReady = true;
+    offlineBookingAccessReady = true;
+    $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
+    syncSlotIntervalOptions();
+    renderOwnServices();
+    renderSchedule();
+    renderDaysOff();
+    renderBookings();
+    applyWriteAvailability();
+    return true;
+  }
+  offlineBookingAccessReady = false;
+  if (!cachedBookings) return false;
   const [cachedServices, cachedSchedule, cachedDaysOff] = await Promise.all([
     readProviderCache('services', userId),
     readProviderCache('schedule', userId),
@@ -965,7 +1029,18 @@ function offlineBookingSnapshotFresh() {
   return Number.isFinite(savedAt) && Date.now() - savedAt <= PROVIDER_CACHE_MAX_AGE;
 }
 function canQueueOfflineBooking() {
-  return Boolean(providerSessionTrust === 'verified' && currentUser && !navigator.onLine && offlineBookingInputsReady && offlineBookingSnapshotFresh() && ownServices.some(item => item.active));
+  const sessionCanUseOfflineSnapshot = providerSessionTrust === 'verified' || providerSessionTrust === 'cached';
+  return Boolean(sessionCanUseOfflineSnapshot && offlineBookingAccessReady && currentUser && !navigator.onLine && offlineBookingInputsReady && offlineBookingSnapshotFresh() && ownServices.some(item => item.active));
+}
+function offlineBookingStatusText() {
+  if (canQueueOfflineBooking()) return 'Офлайн · можно создавать отложенные записи';
+  if (!currentUser) return 'Нет интернета · войдите после подключения';
+  if (!offlineBookingAccessReady) return offlineBookingInputsReady
+    ? 'Офлайн-копия есть, но не подтверждена для записи · только чтение'
+    : 'Нет полной офлайн-копии · только чтение';
+  if (!offlineBookingSnapshotFresh()) return 'Офлайн-копия устарела · только чтение';
+  if (!ownServices.some(item => item.active)) return 'Нет активных услуг · только чтение';
+  return 'Офлайн · только чтение';
 }
 async function saveOfflineBookingQueue(userId = currentUser?.id, { generation = sessionGeneration, verify = false } = {}) {
   if (!userId || !reliability?.put || !reliability?.get || !sessionIsCurrent(userId, generation)) return false;
@@ -1301,7 +1376,7 @@ function requireBookingWrites() {
   if (bookingUsesDemoData()) { notify('Демо-записи доступны только для просмотра'); return false; }
   if ((writesAllowed || bookingCreationReady) && navigator.onLine && currentUser) return true;
   if (canQueueOfflineBooking()) return true;
-  if (!navigator.onLine) notify('Нет интернета и свежей сохранённой копии · запись пока нельзя отложить');
+  if (!navigator.onLine) notify(offlineBookingStatusText());
   else {
     notify('Проверяем записи и расписание · повторите через несколько секунд');
     synchronizeProvider();
@@ -11530,7 +11605,19 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     ])).map(result => result.status === 'fulfilled' ? result.value : { ok:false });
     if (!sessionIsCurrent(userId, generation) || !navigator.onLine) return false;
     const bookingReady = primaryResults.every(result => result?.ok);
-    offlineBookingInputsReady = primaryResults.every(result => result?.ok || result?.cached);
+    const primarySnapshotVerified = primaryResults.every(result => result?.ok && !result?.cached && !result?.skipped);
+    const offlineSnapshot = primarySnapshotVerified
+      ? await saveProviderOfflineSnapshot(userId, generation)
+      : await readProviderOfflineSnapshot(userId);
+    if (!sessionIsCurrent(userId, generation)) return false;
+    offlineBookingAccessReady = Boolean(offlineSnapshot);
+    offlineBookingInputsReady = offlineBookingAccessReady || primaryResults.every(result => result?.ok || result?.cached);
+    if (!navigator.onLine) {
+      setBookingCreationReady(false);
+      setWritesAllowed(false);
+      setSyncState('offline', offlineBookingStatusText());
+      return false;
+    }
     setBookingCreationReady(bookingReady);
     if (!bookingReady) {
       setWritesAllowed(false);
@@ -11589,7 +11676,7 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     if (!sessionIsCurrent(requestedUserId, requestedGeneration)) return false;
     setWritesAllowed(false);
     setBookingCreationReady(false);
-    setSyncState(navigator.onLine ? 'warning' : 'offline', navigator.onLine ? 'Обновление прервано · повторяем подключение' : 'Нет интернета · только чтение');
+    setSyncState(navigator.onLine ? 'warning' : 'offline', navigator.onLine ? 'Обновление прервано · повторяем подключение' : offlineBookingStatusText());
     scheduleSynchronizationRetry();
     return false;
   });
@@ -11668,6 +11755,7 @@ async function logout() {
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
   offlineBookingInputsReady = false;
+  offlineBookingAccessReady = false;
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
@@ -11716,6 +11804,7 @@ async function handleSession(session) {
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
   offlineBookingInputsReady = false;
+  offlineBookingAccessReady = false;
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
@@ -11864,8 +11953,10 @@ async function handleSession(session) {
   if (!sessionIsCurrent(userId, generation)) return;
   await loadOfflineBookingQueue(userId, generation);
   if (!sessionIsCurrent(userId, generation)) return;
-  if (cachedBookings) setSyncState(localSessionOnly ? (navigator.onLine ? 'warning' : 'offline') : 'checking', localSessionOnly ? `${cachedStateText(cachedBookings.savedAt)} · только чтение` : `Показана копия на ${reliability?.savedAtLabel(cachedBookings.savedAt) || 'последнюю синхронизацию'} · обновляем`);
-  else if (localSessionOnly) setSyncState(navigator.onLine ? 'warning' : 'offline', navigator.onLine ? 'Проверяем связь · только чтение' : 'Нет интернета и сохранённой копии · только чтение');
+  if (localSessionOnly) setSyncState(navigator.onLine ? 'warning' : 'offline', navigator.onLine
+    ? `${bookingsSnapshotSavedAt ? cachedStateText(bookingsSnapshotSavedAt) : 'Сохранённый вход открыт'} · проверяем доступ`
+    : offlineBookingStatusText());
+  else if (cachedBookings) setSyncState('checking', `Показана копия на ${reliability?.savedAtLabel(cachedBookings.savedAt) || 'последнюю синхронизацию'} · обновляем`);
   const name = 'исполнитель';
   $('#welcomeName').textContent = `Здравствуйте, ${name}!`;
   $('#sidebarName').textContent = name;
@@ -14118,7 +14209,7 @@ window.addEventListener('offline', () => {
   synchronizationRetryTimer = null;
   setBookingCreationReady(false);
   setWritesAllowed(false);
-  setSyncState('offline', canQueueOfflineBooking() ? 'Офлайн · новую запись можно отложить до подключения' : 'Нет интернета и полной сохранённой копии · только чтение');
+  setSyncState('offline', offlineBookingStatusText());
   renderOfflineBookingQueue();
   updateNewBookingConnectivity();
   if ($('#newBookingForm')) loadNewBookingSlots();
