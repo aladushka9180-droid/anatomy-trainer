@@ -27,15 +27,12 @@ begin
     raise exception 'v146_execute_acl_invalid';
   end if;
 
-  perform set_config('session_replication_role','replica',true);
   insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
   values
     (v_owner,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','v146-owner@example.invalid',now(),'{}','{}',now(),now()),
     (v_admin,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','v146-admin@example.invalid',now(),'{}','{}',now(),now()),
     (v_specialist,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','v146-specialist@example.invalid',now(),'{}','{}',now(),now()),
     (v_outsider,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','v146-outsider@example.invalid',now(),'{}','{}',now(),now());
-  perform set_config('session_replication_role','origin',true);
-
   insert into public.organizations(id,name,public_slug,created_by)
   values(v_org,'V146 Test Organization','v146-test-organization',v_owner),
         (v_foreign_org,'V146 Foreign Organization','v146-foreign-organization',v_outsider);
