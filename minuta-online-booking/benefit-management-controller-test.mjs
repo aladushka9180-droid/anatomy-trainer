@@ -17,7 +17,7 @@ const ids = [
   'benefitsPanel','benefitsLoading','benefitsUnavailable','benefitsUnavailableText','benefitsWorkspace','benefitsEnabled',
   'benefitProductsCount','benefitInstrumentsCount','benefitProductsList','benefitInstrumentsList','benefitRedemptionsList',
   'benefitProductCreator','benefitIssueCreator','benefitApplyCreator','benefitIssueProduct','benefitIssueClient',
-  'benefitApplyInstrument','benefitApplyBooking','benefitProductServices','benefitProductKind'
+  'benefitApplyInstrument','benefitApplyBooking','benefitApplyAmount','benefitApplyAmountHint','benefitProductServices','benefitProductKind'
 ];
 function makeDom() {
   const elements=Object.fromEntries(ids.map(id=>[id,new MockElement(id)]));
@@ -91,5 +91,37 @@ function controller(dom,rpc,overrides={}) {
   assert.equal(writeCalls,2,'Отклонённый Promise не должен навсегда блокировать следующую запись льгот');
 }
 
-for (const rpc of ['get_minuta_benefit_workspace','set_minuta_benefits_enabled','upsert_minuta_benefit_product','issue_minuta_benefit','set_minuta_benefit_status','apply_minuta_benefit']) assert.match(source,new RegExp(rpc));
+{
+  const dom=makeDom();const calls=[];
+  const data=workspace('org-apply',{enabled:true,
+    services:[{id:'service-a',name:'Массаж спины'},{id:'service-b',name:'Массаж лица'}],
+    clients:[{id:'client-a',client_name:'Клиент',client_phone:'+70000000000'}],
+    bookings:[
+      {id:'booking-good',client_account_id:'client-a',client_name:'Клиент',service_id:'service-a',service_name:'Массаж спины',booking_date:'2026-09-20',status:'confirmed'},
+      {id:'booking-wrong-service',client_account_id:'client-a',client_name:'Клиент',service_id:'service-b',service_name:'Массаж лица',booking_date:'2026-09-20',status:'confirmed'},
+      {id:'booking-used',client_account_id:'client-a',client_name:'Клиент',service_id:'service-a',service_name:'Уже списано',booking_date:'2026-09-21',status:'confirmed'}
+    ],
+    instruments:[{id:'instrument-a',product_id:'product-a',client_account_id:'client-a',public_code:'MIN-APPLY',status:'active',expires_on:'2026-12-01',remaining_visits:2,remaining_amount_rub:0,product_snapshot:{name:'Пакет массажа',kind:'package'},service_balances:[{service_id:'service-a',remaining_units:2}]}],
+    redemptions:[{id:'redemption-used',instrument_id:'instrument-a',booking_id:'booking-used',status:'reserved'}]
+  });
+  const instance=controller(dom,async(name,args)=>{
+    calls.push({name,args});
+    if(name==='get_minuta_benefit_workspace')return {data,error:null};
+    if(name==='apply_minuta_benefit_v149')return {data:{id:'redemption-new',organization_id:'org-apply',status:'reserved'},error:null};
+    throw new Error(`unexpected rpc: ${name}`);
+  });
+  instance.bind();await instance.setOrganization({id:'org-apply',current_role:'owner'});
+  dom.elements.benefitApplyInstrument.value='instrument-a';
+  await listeners.change.at(-1)({target:dom.elements.benefitApplyInstrument});
+  assert.match(dom.elements.benefitApplyBooking.innerHTML,/Массаж спины/);
+  assert.doesNotMatch(dom.elements.benefitApplyBooking.innerHTML,/Массаж лица|Уже списано/);
+  dom.elements.benefitApplyBooking.value='booking-good';
+  const form=new MockElement('benefitApplyForm');
+  await listeners.submit.at(-1)({target:form,submitter:new MockElement('apply'),preventDefault(){}});
+  const application=calls.find(call=>call.name==='apply_minuta_benefit_v149');
+  assert.equal(application.args.p_booking,'booking-good');
+  assert.match(application.args.p_request_id,/^[0-9a-f-]{36}$/i);
+}
+
+for (const rpc of ['get_minuta_benefit_workspace','set_minuta_benefits_enabled','upsert_minuta_benefit_product','issue_minuta_benefit','set_minuta_benefit_status','apply_minuta_benefit_v149','apply_minuta_benefit']) assert.match(source,new RegExp(rpc));
 console.log('benefit management controller tests passed');

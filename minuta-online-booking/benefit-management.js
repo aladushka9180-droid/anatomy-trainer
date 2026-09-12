@@ -108,6 +108,9 @@
     function unsupported(error) {
       return /PGRST202|42883|get_minuta_benefit_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
     }
+    function unsupportedApplication(error) {
+      return /PGRST202|42883[^\n]*apply_minuta_benefit_v149|apply_minuta_benefit_v149[^\n]*(?:does not exist|schema cache)/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
+    }
     function scopeMatches(data,id) { return Boolean(data && String(data.organization_id || '')===String(id)); }
     function rubles(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`; }
     function clientName(id) { const item=payload?.clients?.find(row=>row.id===id); return item ? `${item.client_name} · ${item.client_phone}` : 'Клиент'; }
@@ -200,10 +203,26 @@
       if(!certificate)input.value='';
       $('#benefitApplyAmountHint').textContent=certificate?'Оставьте пустым, чтобы списать стоимость записи, но не больше остатка сертификата.':'Для абонемента и пакета сумма не требуется.';
     }
+    function instrumentSupportsBooking(instrument,booking) {
+      if(!instrument||!booking||booking.client_account_id!==instrument.client_account_id||booking.status==='cancelled')return false;
+      if(String(booking.booking_date)>String(instrument.expires_on))return false;
+      if(payload.redemptions.some(item=>item.booking_id===booking.id&&['reserved','redeemed'].includes(item.status)))return false;
+      const snapshot=instrument.product_snapshot||{};
+      if(snapshot.kind==='certificate')return Number(instrument.remaining_amount_rub)>0;
+      if(Number(instrument.remaining_visits)<1)return false;
+      if(snapshot.kind==='package')return (instrument.service_balances||[]).some(item=>item.service_id===booking.service_id&&Number(item.remaining_units)>0);
+      const services=Array.isArray(snapshot.services)?snapshot.services:[];
+      return !services.length||services.some(item=>item.service_id===booking.service_id);
+    }
+    function instrumentOption(item) {
+      const snapshot=item.product_snapshot||{};
+      const balance=snapshot.kind==='certificate'?rubles(item.remaining_amount_rub):`${item.remaining_visits} посещ.`;
+      return `${snapshot.name||productName(item.product_id)} · ${balance} · ${item.public_code}`;
+    }
     function renderBookingOptions() {
       const instrument=payload.instruments.find(item=>item.id===$('#benefitApplyInstrument').value);
-      const bookings=instrument?payload.bookings.filter(item=>item.client_account_id===instrument.client_account_id):[];
-      $('#benefitApplyBooking').innerHTML=selectOptions(bookings,item=>`${dateLabel(item.booking_date)} · ${item.client_name} · ${item.service_name}`,'Нет подходящих записей этого клиента');
+      const bookings=instrument?payload.bookings.filter(item=>instrumentSupportsBooking(instrument,item)):[];
+      $('#benefitApplyBooking').innerHTML=selectOptions(bookings,item=>`${dateLabel(item.booking_date)} · ${item.client_name} · ${item.service_name}`,'Нет записей, подходящих по клиенту, услуге и сроку');
       renderApplyAmount();
     }
     function render() {
@@ -225,7 +244,7 @@
       $('#benefitIssueClient').innerHTML=selectOptions(payload.clients,item=>`${item.client_name} · ${item.client_phone}`,'Нет клиентов с записями');
       $('#benefitIssueExpiry').min=today;
       const activeInstruments=payload.instruments.filter(item=>item.status==='active'&&item.expires_on>=today);
-      $('#benefitApplyInstrument').innerHTML=selectOptions(activeInstruments,item=>`${item.product_snapshot?.name||productName(item.product_id)} · ${item.public_code}`,'Сначала выдайте продукт клиенту');
+      $('#benefitApplyInstrument').innerHTML=selectOptions(activeInstruments,instrumentOption,'Сначала выдайте продукт клиенту');
       renderBookingOptions();
       renderProductServices();
       const workflow=$('#benefitWorkflowStatus');
@@ -235,7 +254,7 @@
 
     function messageFor(error) {
       const text=`${error?.message||''} ${error?.details||''}`;
-      const rows=[['benefits_disabled','Сначала включите абонементы.'],['booking_benefit_conflict','Для одной записи можно выбрать только один вариант: абонемент или сертификат, бонусы либо промокод.'],['package_units_mismatch','Для пакета выберите услуги и укажите количество посещений для каждой.'],['invalid_benefit_product_service','Выберите действующие услуги и проверьте количество посещений.'],['invalid_benefit_product','Заполните название, цену, срок и данные выбранного типа продукта.'],['benefit_request_conflict','Параметры выдачи изменились. Проверьте форму и повторите.'],['benefit_request_id_required','Не удалось защитить выдачу от повтора. Обновите раздел и попробуйте снова.'],['invalid_benefit_expiry','Срок действия не может быть в прошлом и не должен превышать 10 лет.'],['benefit_product_not_found','Выбранный продукт недоступен. Обновите раздел.'],['benefit_client_not_in_organization','Клиент должен иметь хотя бы одну запись в этой организации.'],['benefit_client_mismatch','Продукт принадлежит другому клиенту.'],['benefit_not_available','Продукт заморожен, закончился или истёк к дате записи.'],['booking_already_has_benefit','К этой записи уже применён другой продукт.'],['complete_visit_before_redemption','Сначала отметьте визит завершённым.'],['insufficient_certificate_balance','Недостаточно средств на сертификате.'],['package_service_exhausted','Эта услуга в пакете закончилась.'],['visit_pass_not_applicable','Абонемент не действует на эту услугу.'],['benefit_reservation_not_found','Резерв для этой записи не найден.'],['owner_required_to_release_redeemed_benefit','Вернуть уже погашенный продукт может только владелец.']];
+      const rows=[['benefits_disabled','Сначала включите абонементы.'],['booking_benefit_conflict','Для одной записи можно выбрать только один вариант: абонемент или сертификат, бонусы либо промокод.'],['package_units_mismatch','Для пакета выберите услуги и укажите количество посещений.'],['invalid_benefit_product_service','Выберите действующие услуги и проверьте количество посещений.'],['invalid_benefit_product','Заполните название, цену, срок и данные выбранного типа продукта.'],['benefit_application_idempotency_conflict','Параметры повторной операции изменились. Обновите раздел и повторите действие.'],['benefit_application_request_id_required','Не удалось защитить применение от повтора. Обновите раздел и попробуйте снова.'],['invalid_benefit_application','Проверьте запись, продукт и сумму сертификата.'],['benefit_request_conflict','Параметры выдачи изменились. Проверьте форму и повторите.'],['benefit_request_id_required','Не удалось защитить выдачу от повтора. Обновите раздел и попробуйте снова.'],['invalid_benefit_expiry','Срок действия не может быть в прошлом и не должен превышать 10 лет.'],['benefit_product_not_found','Выбранный продукт недоступен. Обновите раздел.'],['benefit_client_not_in_organization','Клиент должен иметь хотя бы одну запись в этой организации.'],['benefit_client_mismatch','Продукт принадлежит другому клиенту.'],['benefit_not_available','Продукт заморожен, закончился или истёк к дате записи.'],['booking_already_has_benefit','К этой записи уже применён другой продукт.'],['complete_visit_before_redemption','Сначала отметьте визит завершённым.'],['insufficient_certificate_balance','Недостаточно средств на сертификате.'],['package_service_exhausted','Эта услуга в пакете закончилась.'],['visit_pass_not_applicable','Абонемент не действует на эту услугу.'],['benefit_reservation_not_found','Резерв для этой записи не найден.'],['owner_required_to_release_redeemed_benefit','Вернуть уже погашенный продукт может только владелец.']];
       return rows.find(([key])=>text.includes(key))?.[1]||'Изменение не сохранено. Записи и деньги не затронуты.';
     }
     async function mutate(rpc,parameters,button,success,errorHolder) {
@@ -245,6 +264,24 @@
       let data=null,error=null;
       try{({data,error}=await db.rpc(rpc,parameters));}
       catch(reason){error=reason instanceof Error?reason:{message:String(reason||'')};}
+      if(button)button.textContent=old;const stale=!sessionIsCurrent(userId,generation)||current!==revision||organization?.id!==organizationId;writing=false;
+      if(stale){const next=pendingOrganization;pendingOrganization=undefined;if(next!==undefined)await setOrganization(next);return false;}
+      if(error){const message=messageFor(error);if(errorHolder){$(errorHolder).textContent=message;$(errorHolder).hidden=false;}else notify(message);await load();return false;}
+      if(!scopeMatches(data,organizationId)){notify('Ответ другой организации заблокирован.');await load();return false;}
+      notify(success);await load();return true;
+    }
+    async function applyBenefit(parameters,button,success,errorHolder) {
+      if(!requireWrites()||writing||availability!=='ready'||!scopeMatches(payload,organization?.id))return false;
+      let requestId;
+      try{requestId=uuid();}catch{const message='Не удалось создать защитный номер операции. Обновите страницу и попробуйте снова.';if(errorHolder)showFormError(errorHolder,message);else notify(message);return false;}
+      const guarded={...parameters,p_request_id:requestId};
+      const userId=getCurrentUser()?.id,generation=getSessionGeneration(),organizationId=organization.id,current=++revision;
+      writing=true;setBusy(true);if(errorHolder){$(errorHolder).hidden=true;$(errorHolder).textContent='';}const old=button?.textContent;if(button){button.disabled=true;button.textContent='Сохраняем…';}
+      let data=null,error=null;
+      try {
+        ({data,error}=await db.rpc('apply_minuta_benefit_v149',guarded));
+        if(error&&unsupportedApplication(error))({data,error}=await db.rpc('apply_minuta_benefit',parameters));
+      } catch(reason){error=reason instanceof Error?reason:{message:String(reason||'')};}
       if(button)button.textContent=old;const stale=!sessionIsCurrent(userId,generation)||current!==revision||organization?.id!==organizationId;writing=false;
       if(stale){const next=pendingOrganization;pendingOrganization=undefined;if(next!==undefined)await setOrganization(next);return false;}
       if(error){const message=messageFor(error);if(errorHolder){$(errorHolder).textContent=message;$(errorHolder).hidden=false;}else notify(message);await load();return false;}
@@ -306,13 +343,13 @@
         if(ok){event.target.reset();renderProductServices();$('#benefitProductCreator').open=false;}return;
       }
       if(event.target.id==='benefitIssueForm'){event.preventDefault();await issueBenefit(event);return;}
-      if(event.target.id==='benefitApplyForm'){event.preventDefault();const ok=await mutate('apply_minuta_benefit',{p_organization:organization.id,p_instrument:$('#benefitApplyInstrument').value,p_booking:$('#benefitApplyBooking').value,p_action:'reserve',p_amount_rub:$('#benefitApplyAmount').value?Math.round(Number($('#benefitApplyAmount').value)):null},event.submitter,'Продукт применён к записи','#benefitApplyError');if(ok)$('#benefitApplyCreator').open=false;}
+      if(event.target.id==='benefitApplyForm'){event.preventDefault();const ok=await applyBenefit({p_organization:organization.id,p_instrument:$('#benefitApplyInstrument').value,p_booking:$('#benefitApplyBooking').value,p_action:'reserve',p_amount_rub:$('#benefitApplyAmount').value?Math.round(Number($('#benefitApplyAmount').value)):null},event.submitter,'Продукт применён к записи','#benefitApplyError');if(ok)$('#benefitApplyCreator').open=false;}
     }
     async function click(event) {
       if(event.target.closest('#benefitIssueNew')){newIssue();return;}
       if(event.target.closest('#reloadBenefits')){await load();return;}
       const status=event.target.closest('[data-benefit-status]');if(status)await mutate('set_minuta_benefit_status',{p_organization:organization.id,p_instrument:status.dataset.benefitInstrument,p_status:status.dataset.benefitStatus},status,'Статус обновлён');
-      const action=event.target.closest('[data-benefit-action]');if(action){const redemption=payload.redemptions.find(item=>item.id===action.dataset.benefitRedemption);if(redemption)await mutate('apply_minuta_benefit',{p_organization:organization.id,p_instrument:redemption.instrument_id,p_booking:redemption.booking_id,p_action:action.dataset.benefitAction,p_amount_rub:null},action,action.dataset.benefitAction==='redeem'?'Посещение погашено':'Баланс восстановлен');}
+      const action=event.target.closest('[data-benefit-action]');if(action){const redemption=payload.redemptions.find(item=>item.id===action.dataset.benefitRedemption);if(redemption)await applyBenefit({p_organization:organization.id,p_instrument:redemption.instrument_id,p_booking:redemption.booking_id,p_action:action.dataset.benefitAction,p_amount_rub:null},action,action.dataset.benefitAction==='redeem'?'Посещение погашено':'Баланс восстановлен');}
     }
     async function change(event) {
       if(event.target.id==='benefitsEnabled'){const desired=event.target.checked;const ok=await mutate('set_minuta_benefits_enabled',{p_organization:organization.id,p_enabled:desired},event.target,desired?'Абонементы включены':'Абонементы выключены');if(!ok&&payload)event.target.checked=Boolean(payload.enabled);}
