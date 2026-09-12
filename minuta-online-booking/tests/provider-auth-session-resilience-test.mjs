@@ -143,6 +143,30 @@ test('cross-tab explicit logout revokes cached offline writes and removes device
   assert.match(source, /window\.addEventListener\('storage'[\s\S]*applyProviderLogoutSignal\(signal\.userId\)/);
 });
 
+test('same-tab logout resets the local session even when remote sign-out fails', async () => {
+  const calls = [];
+  const box = vm.createContext({
+    currentUser:{ id:'provider-1' }, offlineBookingQueue:[], sessionGeneration:1,
+    providerSessionTrust:'verified', offlineBookingInputsReady:true, offlineBookingAccessReady:true,
+    bookingsSnapshotSavedAt:'fresh', bookingsSnapshotFromCache:false,
+    displayPreferencesSaveTimer:null, displayPreferencesSaveRevision:0, synchronizationQueued:false,
+    synchronizationRetryTimer:null, cachedProviderVerificationRetryTimer:null,
+    readProviderBookingAttempt:() => null, confirm:() => true,
+    providerAuthStorage:{ forget:() => {}, removeItem:() => {} }, providerAuthStorageKey:'auth-key',
+    broadcastProviderLogout:() => {}, clientResultsController:{reset(){}}, clientRecordsController:{reset(){}},
+    window:{ dispatchEvent(){} }, CustomEvent:class {}, clearTimeout() {},
+    stopLiveUpdates() {}, stopReportDemoUpdates() {}, setWritesAllowed() {}, setBookingCreationReady() {},
+    clearProviderDeviceData:async () => calls.push('cleared'),
+    handleSession:async session => { calls.push(`session:${session}`); box.currentUser = null; },
+    db:{ auth:{ signOut:async () => { calls.push('remote-signout'); throw new TypeError('Failed to fetch'); } } }
+  });
+  vm.runInContext(actual('logout'), box);
+  await box.logout();
+  assert.equal(box.currentUser, null);
+  assert.deepEqual(calls, ['cleared', 'session:null', 'remote-signout']);
+  assert.match(actual('logout'), /await handleSession\(null\);[\s\S]*try \{ await db\.auth\.signOut\(\); \} catch \{\}/);
+});
+
 test('a failed background access probe keeps cached mode and schedules one retry', async () => {
   let retries = 0;
   let upgrades = 0;

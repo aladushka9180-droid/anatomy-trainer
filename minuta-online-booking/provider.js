@@ -11824,7 +11824,11 @@ async function logout() {
   await clearProviderDeviceData(userId);
   clearTimeout(cachedProviderVerificationRetryTimer);
   cachedProviderVerificationRetryTimer = null;
-  await db.auth.signOut();
+  try {
+    await handleSession(null);
+  } finally {
+    try { await db.auth.signOut(); } catch {}
+  }
 }
 
 async function handleSession(session) {
