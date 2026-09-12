@@ -139,7 +139,7 @@ test('cross-tab explicit logout revokes cached offline writes and removes device
     'timer-cleared', 'forgotten', 'removed:sb-fixture-auth-token', 'writes:false', 'booking:false',
     'session:null', 'cleared:provider-1', 'signout:local'
   ]);
-  assert.match(actual('logout'), /broadcastProviderLogout\(userId\)[\s\S]*providerAuthStorage\.forget\(\)/);
+  assert.match(actual('logout'), /providerAuthStorage\.forget\(\);[\s\S]*providerAuthStorage\.removeItem\(providerAuthStorageKey\);[\s\S]*broadcastProviderLogout\(userId\)[\s\S]*await clearProviderDeviceData\(userId\)/);
   assert.match(source, /window\.addEventListener\('storage'[\s\S]*applyProviderLogoutSignal\(signal\.userId\)/);
 });
 

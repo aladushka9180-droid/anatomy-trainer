@@ -11798,6 +11798,11 @@ async function logout() {
   if (offlineBookingQueue.length) logoutWarnings.push(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей.`);
   if (readProviderBookingAttempt(userId)) logoutWarnings.push('Результат последнего создания записи ещё не подтверждён.');
   if (logoutWarnings.length && !confirm(`${logoutWarnings.join('\n')} При выходе защитные данные будут удалены. Всё равно выйти?`)) return;
+  providerSessionTrust = 'none';
+  offlineBookingInputsReady = false;
+  offlineBookingAccessReady = false;
+  providerAuthStorage.forget();
+  providerAuthStorage.removeItem(providerAuthStorageKey);
   broadcastProviderLogout(userId);
   ++sessionGeneration;
   clientResultsController.reset();
@@ -11817,10 +11822,8 @@ async function logout() {
   setWritesAllowed(false);
   setBookingCreationReady(false);
   await clearProviderDeviceData(userId);
-  providerSessionTrust = 'none';
   clearTimeout(cachedProviderVerificationRetryTimer);
   cachedProviderVerificationRetryTimer = null;
-  providerAuthStorage.forget();
   await db.auth.signOut();
 }
 
