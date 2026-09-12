@@ -25,6 +25,8 @@ assert.deepEqual([...mappedThemes].sort(), [...themes].sort(), 'Каждая т�
 assert.equal(new Set(mappedThemes).size, mappedThemes.length, 'В семействах не должно быть дублей');
 
 assert.match(css, /\[data-provider-layout\]:not\(:is\([^)]*snow-leopard[^)]*pearl-zebra[^)]*\)\)::before\s*\{[\s\S]*?pointer-events:none;[\s\S]*?background-image:var\(--theme-canvas-texture\)/);
+assert.match(css, /mask-image:var\(--theme-canvas-mask,none\)/);
+assert.match(css, /background-color:var\(--theme-canvas-color,transparent\)/);
 assert.match(css, /> \.provider-main\s*\{[\s\S]*?z-index:1;/);
 assert.match(css, /> \.ambient\s*\{[\s\S]*?display:none!important;/);
 assert.match(css, /:is\([\s\S]*?\.provider-sidebar[\s\S]*?\.booking-sheet-panel[\s\S]*?\)\s*\{[\s\S]*?background-image:none!important;/);
@@ -39,33 +41,53 @@ for (const theme of themes) {
   assert.ok(opacity >= .02 && opacity <= .06, `${theme}: контраст должен быть в диапазоне 2–6%, получено ${opacity}`);
 }
 
-const lineFreeThemes = [
-  'carbon-crimson', 'celadon', 'loft', 'petrol-steel', 'cobalt-forge',
-  'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk',
-  'cocoa-pearl', 'midnight', 'moonlit-lilac',
-];
+const signatureFamilies = {
+  circuit:['volt-graphite', 'hitech'],
+  constellation:['midnight', 'moonlit-lilac', 'carbon-crimson', 'botanical'],
+  facets:['graphite', 'cobalt-forge', 'azure-lagoon', 'burgundy', 'nordic'],
+};
+for (const [family, familyThemes] of Object.entries(signatureFamilies)) {
+  for (const theme of familyThemes) {
+    const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
+    assert.match(block, new RegExp(`--theme-canvas-mask:var\\(--theme-${family === 'facets' ? 'facets' : family}-mask\\)`), `${theme}: неверная топология ${family}`);
+    assert.match(block, /--theme-canvas-color:#[0-9a-f]{6}/i, `${theme}: нет собственного цветового акцента`);
+    assert.match(block, /--theme-canvas-texture:none/, `${theme}: старый узор смешался с ${family}`);
+  }
+}
+
+const lineFreeThemes = ['carbon-crimson', 'cobalt-forge', 'burgundy', 'midnight', 'moonlit-lilac'];
 for (const theme of lineFreeThemes) {
   const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
   assert.doesNotMatch(block, /linear-gradient/, `${theme}: длинные одиночные линии должны быть заменены локальной фактурой`);
-  assert.match(block, /radial-gradient/, `${theme}: локальная фактура должна сохраняться`);
+  assert.match(block, /--theme-canvas-mask:/, `${theme}: локальная геометрия должна сохраняться`);
 }
-assert.doesNotMatch(provider, /мягкий циановый горизонт|малиновый импульс|кобальтовый импульс/);
+assert.doesNotMatch(provider, /мягк(?:ий|ое) цианов(?:ый|ое) (?:горизонт|свечение)|малинов(?:ый|ые) (?:импульс|искры)|кобальтов(?:ый|ое) (?:импульс|свечение)|строгая сетка|микросетка|цифровая сетка|тени листьев|бархатные переливы|круги на воде/);
 
-const textures = themes.map(theme => css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1].match(/--theme-canvas-texture:([^;]+);/)?.[1]);
-assert.equal(new Set(textures).size, 39, 'У каждой темы должен быть собственный мотив');
-assert.doesNotMatch(css, /url\(/, 'Фактурный слой должен оставаться лёгким CSS без растровых обоев');
+const signatures = themes.map(theme => {
+  const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
+  return [
+    block.match(/--theme-canvas-texture:([^;]+);/)?.[1],
+    block.match(/--theme-canvas-mask:([^;]+);/)?.[1],
+    block.match(/--theme-canvas-color:([^;]+);/)?.[1],
+  ].join('|');
+});
+assert.equal(new Set(signatures).size, 39, 'У каждой темы должно оставаться собственное цветовое прочтение мотива');
+assert.equal((css.match(/url\("data:image\/svg\+xml/g) || []).length, 3, 'Нужно ровно три лёгкие векторные топологии');
+assert.doesNotMatch(css, /url\([^)]*\.(?:png|jpe?g|webp)/i, 'Фактурный слой не должен загружать растровые обои');
 
 assert.match(css, /data-provider-theme="oled-mono"[\s\S]*?radial-gradient\(circle at 1px 1px/);
 assert.doesNotMatch(css.match(/data-provider-theme="oled-mono"[\s\S]*?\n\}/)?.[0] || '', /repeating-linear-gradient/);
-assert.match(css, /data-provider-theme="volt-graphite"[\s\S]*?--theme-canvas-size:64px 64px/);
-assert.match(css, /data-provider-theme="botanical"[\s\S]*?radial-gradient\(ellipse 18% 46%/);
+assert.match(css, /data-provider-theme="volt-graphite"[\s\S]*?--theme-canvas-mask:var\(--theme-circuit-mask\)/);
+assert.match(css, /data-provider-theme="botanical"[\s\S]*?--theme-canvas-mask:var\(--theme-constellation-mask\)/);
+assert.match(css, /data-provider-theme="azure-lagoon"[\s\S]*?--theme-canvas-mask:var\(--theme-facets-mask\)/);
+assert.doesNotMatch(css.match(/data-provider-theme="azure-lagoon"[\s\S]*?\n\}/)?.[0] || '', /repeating-radial-gradient/);
 assert.ok((css.match(/data-provider-theme="blue-hydrangea"[\s\S]*?\n\}/)?.[0].match(/radial-gradient/g) || []).length >= 6);
 assert.match(css, /data-provider-theme="snow-leopard"[\s\S]*?--theme-canvas-size:124px 92px/);
 assert.match(css, /data-provider-theme="luxury"[\s\S]*?repeating-radial-gradient\(ellipse 130% 70%/);
 assert.match(css, /data-provider-theme="warm"[\s\S]*?radial-gradient\(circle at 16% 4%/);
 
-assert.match(provider, /provider-theme-families\.css\?v=733[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=733/);
-assert.match(worker, /\.\/provider-theme-families\.css\?v=733/);
-assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=733/);
+assert.match(provider, /provider-theme-families\.css\?v=734[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=734/);
+assert.match(worker, /\.\/provider-theme-families\.css\?v=734/);
+assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=734/);
 
-console.log('Provider theme families v733: PASS (39 themes, 9 families).');
+console.log('Provider theme families v734: PASS (39 themes, 9 families).');

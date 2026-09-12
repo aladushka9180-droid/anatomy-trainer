@@ -11,8 +11,9 @@ const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => mat
 assert.equal(themes.length, 39, 'Каталог тем прочитан не полностью');
 const approvedThemes = new Set(['snow-leopard', 'pearl-zebra']);
 const familyThemes = themes.filter(theme => !approvedThemes.has(theme));
-const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
-const visibilityThemes = new Set(['sage', 'graphite', 'eco', 'luxury', 'loft', 'celadon', 'petrol-steel', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'warm', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'oled-mono']);
+const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
+const visibilityThemes = new Set(['sage', 'nordic', 'graphite', 'hitech', 'eco', 'luxury', 'loft', 'celadon', 'petrol-steel', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'warm', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'oled-mono', 'volt-graphite']);
+const maskThemes = new Set(['nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'burgundy', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'volt-graphite']);
 const output = process.env.MINUTA_THEME_FAMILY_OUTPUT;
 if (output) fs.mkdirSync(output, { recursive:true });
 
@@ -64,6 +65,8 @@ const server = http.createServer((request, response) => {
           }).filter(Boolean);
           return {
             image:canvas.backgroundImage,
+            mask:canvas.maskImage || canvas.webkitMaskImage,
+            color:canvas.backgroundColor,
             opacity:Number(canvas.opacity),
             position:canvas.position,
             pointerEvents:canvas.pointerEvents,
@@ -74,7 +77,11 @@ const server = http.createServer((request, response) => {
             surfaces,
           };
         }, theme);
-        assert.notEqual(state.image, 'none', `${theme} ${width}px: фоновый мотив не виден`);
+        assert.equal(state.image !== 'none' || state.mask !== 'none', true, `${theme} ${width}px: фоновый мотив не виден`);
+        if (maskThemes.has(theme)) {
+          assert.match(state.mask, /data:image\/svg\+xml/, `${theme} ${width}px: векторная топология не применилась`);
+          assert.notEqual(state.color, 'rgba(0, 0, 0, 0)', `${theme} ${width}px: цвет векторного мотива потерян`);
+        }
         assert.ok(state.opacity >= .02 && state.opacity <= .06, `${theme} ${width}px: неверная сила мотива ${state.opacity}`);
         assert.equal(state.pointerEvents, 'none', `${theme} ${width}px: мотив перехватывает клики`);
         assert.equal(state.zIndex, '0', `${theme} ${width}px: неверный слой фонового холста`);
@@ -112,9 +119,11 @@ const server = http.createServer((request, response) => {
     }
     const previews = await page.evaluate(themeKeys => themeKeys.map(theme => {
       const swatch = document.querySelector(`.provider-theme-option.theme-${theme} .theme-swatch`);
-      return { theme, image:swatch ? getComputedStyle(swatch).backgroundImage : 'missing' };
+      const swatchStyle = swatch ? getComputedStyle(swatch) : null;
+      const overlayStyle = swatch ? getComputedStyle(swatch, '::after') : null;
+      return { theme, image:swatchStyle?.backgroundImage || 'missing', mask:overlayStyle?.maskImage || overlayStyle?.webkitMaskImage || 'none' };
     }), themes);
-    for (const preview of previews) assert.notEqual(preview.image, 'none', `${preview.theme}: превью не показывает новый мотив`);
+    for (const preview of previews) assert.equal(preview.image !== 'none' || preview.mask !== 'none', true, `${preview.theme}: превью не показывает новый мотив`);
     console.log('Provider theme family browser matrix: PASS (37 CSS families + 2 approved canvases × 3 widths).');
   } finally {
     if (browser) await browser.close();
