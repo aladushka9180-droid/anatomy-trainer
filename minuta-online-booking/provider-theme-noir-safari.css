@@ -103,7 +103,7 @@
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(input,textarea)::placeholder {
-  color:#897b6e!important;
+  color:#928477!important;
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(
