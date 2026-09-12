@@ -370,7 +370,10 @@ jobs:
           jq -e '.v148Secure and .classification=="v150-phase1-or-complete-exact" and .v149Exact and .v150Exact and .invalidTimezoneOrganizations==0' <<<"$prior" >/dev/null
           state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql)"
           state="$(grep '^{' <<<"$state"|tail -n 1)"
-          jq -e '.criticalSchemaExact and (.classification=="absent" or (.classification=="exact" and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not)))' <<<"$state" >/dev/null
+          if ! jq -e '.criticalSchemaExact and (.classification=="absent" or (.classification=="exact" and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not)))' <<<"$state" >/dev/null; then
+            jq -c '{classification,presentCount,criticalSchemaExact,criticalSchemaFingerprint,criticalSchemaExpectedFingerprint,criticalSchemaComponentFingerprints,criticalSchemaContract}' <<<"$state"
+            exit 1
+          fi
           invariants="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
           select json_build_object(
             'missingOpen',(select count(*) from public.client_benefit_instruments i where i.status='frozen' and not exists(select 1 from public.benefit_freeze_periods p where p.instrument_id=i.id and p.thawed_at is null)),
