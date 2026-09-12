@@ -321,7 +321,7 @@ jobs:
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v149.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v150.sql
           state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
-          jq -e '.classification=="absent" and .presentCount==0 and (.criticalSchemaFingerprint|type=="string") and (.criticalSchemaComponentFingerprints|type=="object")' <<<"$state" >/dev/null
+          jq -e '.classification=="absent" and .presentCount==0 and .criticalSchemaExact and .criticalSchemaFingerprint==.criticalSchemaExpectedFingerprint and (.criticalSchemaComponentFingerprints|type=="object")' <<<"$state" >/dev/null
           prior="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql | grep '^{' | tail -n 1)"
           jq -e '.v148Secure and .classification=="v150-phase1-or-complete-exact" and .v149Exact and .v150Exact and .invalidTimezoneOrganizations==0 and .expectedBackfill==0' <<<"$prior" >/dev/null
       - name: Create isolated test attestation

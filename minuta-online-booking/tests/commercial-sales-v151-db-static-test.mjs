@@ -162,6 +162,7 @@ assert.match(workflow, /with grant option/);
 assert.match(workflow, /owner to :"drift_role"/);
 assert.match(workflow, /runtime-owner-acl-drift/);
 assert.match(workflow, /\.classification=="absent" and \.presentCount==0/);
+assert.match(workflow, /\.criticalSchemaExact and \.criticalSchemaFingerprint==\.criticalSchemaExpectedFingerprint/);
 assert.match(workflow, /\.criticalSchemaComponentFingerprints\|type=="object"/);
 assert.doesNotMatch(workflow, /psql[^\n]*-[cv][^\n]*:'(?:expected_ref|drift_role)'/);
 for (const line of workflow.split(/\r?\n/)) {
