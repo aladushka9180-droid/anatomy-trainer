@@ -109,6 +109,9 @@ assert.match(integration, /v151_nan_quantity_accepted/);
 assert.match(integration, /v151_over_scale_quantity_accepted/);
 assert.match(integration, /v151_out_of_range_quantity_accepted/);
 assert.match(integration, /v151_subtotal_overflow_accepted/);
+assert.match(integration, /sale_row\.organization_id=fixture\.organization_id and sale_row\.request_id=fixture\.request_id/);
+assert.match(integration, /transaction_row\.organization_id=fixture\.organization_id/);
+assert.doesNotMatch(integration, /\bwhere\s+(?:organization_id|request_id|seller_id|booking_id|sale_id|instrument_id)=/);
 
 assert.match(durable, /call_v147/);
 assert.match(durable, /call_v151/);

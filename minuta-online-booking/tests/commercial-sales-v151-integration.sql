@@ -119,20 +119,20 @@ begin
   sale_id:=(payload->>'id')::uuid;
   transaction_id:=(payload->>'transaction_id')::uuid;
   perform pg_temp.v151_assert((payload->>'seller_id')::uuid=seller_id and (payload->>'total_minor')::bigint=90000,'sale_result');
-  perform pg_temp.v151_assert((select commercial_sales.seller_id=fixture.seller_id and commercial_sales.booking_id=fixture.booking_id and commercial_sales.client_account_id=fixture.client_id and commercial_sales.subtotal_minor=100000 and commercial_sales.discount_minor=10000 and commercial_sales.total_minor=90000 from public.commercial_sales where id=fixture.sale_id),'sale_fields');
+  perform pg_temp.v151_assert((select sale_row.seller_id=fixture.seller_id and sale_row.booking_id=fixture.booking_id and sale_row.client_account_id=fixture.client_id and sale_row.subtotal_minor=100000 and sale_row.discount_minor=10000 and sale_row.total_minor=90000 from public.commercial_sales sale_row where sale_row.id=fixture.sale_id),'sale_fields');
   perform pg_temp.v151_assert((select sale_line.quantity=2 and sale_line.unit_price_minor=50000 and sale_line.discount_minor=10000 from public.commercial_sale_lines sale_line where sale_line.sale_id=fixture.sale_id),'sale_line_fields');
   perform pg_temp.v151_assert((select balance.quantity=8 from public.inventory_stock_balances balance where balance.warehouse_id=fixture.warehouse_id and balance.inventory_item_id=fixture.item_id),'inventory_decrement');
   perform pg_temp.v151_assert((select sum(posting.amount_minor) filter(where posting.side='debit')=90000 and sum(posting.amount_minor) filter(where posting.side='credit')=90000 from public.financial_postings posting where posting.transaction_id=fixture.transaction_id),'cash_balanced');
-  perform pg_temp.v151_assert((select explanation->>'seller_id'=fixture.seller_id::text from public.financial_transactions where id=fixture.transaction_id),'ledger_seller');
-  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_audit_log where subject_id=fixture.sale_id and details->>'seller_id'=fixture.seller_id::text),'audit_seller');
+  perform pg_temp.v151_assert((select transaction_row.explanation->>'seller_id'=fixture.seller_id::text from public.financial_transactions transaction_row where transaction_row.id=fixture.transaction_id),'ledger_seller');
+  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_audit_log audit_row where audit_row.subject_id=fixture.sale_id and audit_row.details->>'seller_id'=fixture.seller_id::text),'audit_seller');
 
   payload:=public.sell_minuta_commercial_product_v151(
     organization_id,booking_id,client_id,seller_id,'inventory_item',null,item_id,warehouse_id,
     2,50000,10000,'cash',cash_id,request_id);
   perform pg_temp.v151_assert((payload->>'replayed')::boolean,'sale_replayed');
-  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_sales where organization_id=fixture.organization_id and request_id=fixture.request_id),'single_sale');
+  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_sales sale_row where sale_row.organization_id=fixture.organization_id and sale_row.request_id=fixture.request_id),'single_sale');
   perform pg_temp.v151_assert((select balance.quantity=8 from public.inventory_stock_balances balance where balance.warehouse_id=fixture.warehouse_id and balance.inventory_item_id=fixture.item_id),'single_stock_write_off');
-  perform pg_temp.v151_assert((select count(*)=1 from public.financial_transactions where organization_id=fixture.organization_id and operation_type='commercial_sale' and source_id=fixture.sale_id),'single_cash_transaction');
+  perform pg_temp.v151_assert((select count(*)=1 from public.financial_transactions transaction_row where transaction_row.organization_id=fixture.organization_id and transaction_row.operation_type='commercial_sale' and transaction_row.source_id=fixture.sale_id),'single_cash_transaction');
 
   begin
     perform public.sell_minuta_commercial_product_v151(
@@ -145,14 +145,14 @@ begin
   perform public.sell_minuta_commercial_product_v151(
     organization_id,null,null,owner_id,'inventory_item',null,item_id,warehouse_id,
     1,25000,0,'manual',bank_id,gen_random_uuid());
-  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_sales where organization_id=fixture.organization_id and booking_id is null and client_account_id is null and seller_id=fixture.owner_id and payment_method='manual' and payment_account_id=fixture.bank_id),'standalone_manual_sale');
+  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_sales sale_row where sale_row.organization_id=fixture.organization_id and sale_row.booking_id is null and sale_row.client_account_id is null and sale_row.seller_id=fixture.owner_id and sale_row.payment_method='manual' and sale_row.payment_account_id=fixture.bank_id),'standalone_manual_sale');
 
   payload:=public.sell_minuta_commercial_product_v151(
     organization_id,booking_id,client_id,seller_id,'benefit_product',pass_id,null,null,
     1,300000,0,'cash',cash_id,benefit_sale_request_id);
   benefit_sale_id:=(payload->>'id')::uuid;
   select sale_line.benefit_instrument_id into chain_instrument_id
-    from public.commercial_sale_lines sale_line where sale_line.sale_id=benefit_sale_id;
+    from public.commercial_sale_lines sale_line where sale_line.sale_id=fixture.benefit_sale_id;
   payload:=public.sell_minuta_commercial_product_v151(
     organization_id,booking_id,client_id,seller_id,'benefit_product',pass_id,null,null,
     1,300000,0,'cash',cash_id,benefit_sale_request_id);
@@ -174,8 +174,8 @@ begin
   payload:=public.set_minuta_benefit_lifecycle_v150(
     organization_id,chain_instrument_id,'freeze','Отпуск клиента',freeze_request_id);
   perform pg_temp.v151_assert((payload->>'replayed')::boolean,'benefit_freeze_replayed');
-  update public.benefit_freeze_periods set frozen_at=clock_timestamp()-interval '2 days'
-    where instrument_id=chain_instrument_id and thawed_at is null;
+  update public.benefit_freeze_periods freeze_row set frozen_at=clock_timestamp()-interval '2 days'
+    where freeze_row.instrument_id=fixture.chain_instrument_id and freeze_row.thawed_at is null;
   payload:=public.set_minuta_benefit_lifecycle_v150(
     organization_id,chain_instrument_id,'unfreeze','Клиент вернулся',unfreeze_request_id);
   payload:=public.set_minuta_benefit_lifecycle_v150(
@@ -187,18 +187,18 @@ begin
   payload:=public.refund_minuta_commercial_sale_v147(
     organization_id,benefit_sale_id,1,300000,'Возврат абонемента',refund_request_id);
   perform pg_temp.v151_assert((payload->>'replayed')::boolean,'benefit_refund_replayed');
-  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_sales where id=benefit_sale_id and request_id=benefit_sale_request_id and status='refunded' and refunded_minor=total_minor),'benefit_sale_single_refunded');
-  perform pg_temp.v151_assert((select count(*)=1 from public.client_benefit_instruments where id=chain_instrument_id and status='cancelled'),'benefit_instrument_cancelled');
-  perform pg_temp.v151_assert((select count(*)=2 from public.benefit_application_requests where instrument_id=chain_instrument_id),'benefit_application_requests_once');
-  perform pg_temp.v151_assert((select count(*)=2 from public.benefit_lifecycle_requests where instrument_id=chain_instrument_id),'benefit_lifecycle_requests_once');
-  perform pg_temp.v151_assert((select count(*)=1 from public.benefit_freeze_periods where instrument_id=chain_instrument_id and thawed_at is not null),'benefit_freeze_closed');
-  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_sale_refunds where sale_id=benefit_sale_id and request_id=refund_request_id),'benefit_refund_single');
-  perform pg_temp.v151_assert((select count(*)=1 from public.financial_transactions where source_type='commercial_sale' and source_id=benefit_sale_id),'benefit_sale_transaction_single');
-  perform pg_temp.v151_assert((select count(*)=1 from public.financial_transactions transaction_row join public.commercial_sale_refunds refund on refund.id=transaction_row.source_id where refund.sale_id=benefit_sale_id and transaction_row.source_type='commercial_sale_refund'),'benefit_refund_transaction_single');
+  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_sales sale_row where sale_row.id=fixture.benefit_sale_id and sale_row.request_id=fixture.benefit_sale_request_id and sale_row.status='refunded' and sale_row.refunded_minor=sale_row.total_minor),'benefit_sale_single_refunded');
+  perform pg_temp.v151_assert((select count(*)=1 from public.client_benefit_instruments instrument_row where instrument_row.id=fixture.chain_instrument_id and instrument_row.status='cancelled'),'benefit_instrument_cancelled');
+  perform pg_temp.v151_assert((select count(*)=2 from public.benefit_application_requests request_row where request_row.instrument_id=fixture.chain_instrument_id),'benefit_application_requests_once');
+  perform pg_temp.v151_assert((select count(*)=2 from public.benefit_lifecycle_requests lifecycle_request where lifecycle_request.instrument_id=fixture.chain_instrument_id),'benefit_lifecycle_requests_once');
+  perform pg_temp.v151_assert((select count(*)=1 from public.benefit_freeze_periods freeze_row where freeze_row.instrument_id=fixture.chain_instrument_id and freeze_row.thawed_at is not null),'benefit_freeze_closed');
+  perform pg_temp.v151_assert((select count(*)=1 from public.commercial_sale_refunds refund_row where refund_row.sale_id=fixture.benefit_sale_id and refund_row.request_id=fixture.refund_request_id),'benefit_refund_single');
+  perform pg_temp.v151_assert((select count(*)=1 from public.financial_transactions transaction_row where transaction_row.source_type='commercial_sale' and transaction_row.source_id=fixture.benefit_sale_id),'benefit_sale_transaction_single');
+  perform pg_temp.v151_assert((select count(*)=1 from public.financial_transactions transaction_row join public.commercial_sale_refunds refund on refund.id=transaction_row.source_id where refund.sale_id=fixture.benefit_sale_id and transaction_row.source_type='commercial_sale_refund'),'benefit_refund_transaction_single');
 
   perform public.sell_minuta_commercial_product_v151(organization_id,booking_id,client_id,seller_id,'benefit_product',package_id,null,null,1,500000,50000,'manual',bank_id,gen_random_uuid());
   perform public.sell_minuta_commercial_product_v151(organization_id,booking_id,client_id,seller_id,'benefit_product',certificate_id,null,null,1,250000,0,'cash',cash_id,gen_random_uuid());
-  perform pg_temp.v151_assert((select count(*)=3 from public.client_benefit_instruments where organization_id=fixture.organization_id and client_account_id=fixture.client_id),'all_benefit_kinds_issued');
+  perform pg_temp.v151_assert((select count(*)=3 from public.client_benefit_instruments instrument_row where instrument_row.organization_id=fixture.organization_id and instrument_row.client_account_id=fixture.client_id),'all_benefit_kinds_issued');
 
   workspace:=public.get_minuta_commerce_workspace_v151(organization_id);
   perform pg_temp.v151_assert(jsonb_array_length(workspace->'sellers')=2,'active_sellers_only');
@@ -208,9 +208,9 @@ begin
   payload:=public.get_minuta_client_commerce_v147(organization_id,client_id);
   perform pg_temp.v151_assert(jsonb_array_length(payload->'sales')=4 and jsonb_array_length(payload->'benefits')=3,'client_card_history');
 
-  before_sales:=(select count(*) from public.commercial_sales where organization_id=fixture.organization_id);
-  before_movements:=(select count(*) from public.inventory_movements where organization_id=fixture.organization_id);
-  before_transactions:=(select count(*) from public.financial_transactions where organization_id=fixture.organization_id);
+  before_sales:=(select count(*) from public.commercial_sales sale_row where sale_row.organization_id=fixture.organization_id);
+  before_movements:=(select count(*) from public.inventory_movements movement_row where movement_row.organization_id=fixture.organization_id);
+  before_transactions:=(select count(*) from public.financial_transactions transaction_row where transaction_row.organization_id=fixture.organization_id);
   begin
     perform public.sell_minuta_commercial_product_v151(
       organization_id,null,null,inactive_seller_id,'inventory_item',null,item_id,warehouse_id,
@@ -265,9 +265,9 @@ begin
   exception when numeric_value_out_of_range then
     if sqlerrm<>'commercial_sale_subtotal_out_of_range' then raise; end if;
   end;
-  perform pg_temp.v151_assert((select count(*) from public.commercial_sales where organization_id=fixture.organization_id)=before_sales,'failed_sales_atomic');
-  perform pg_temp.v151_assert((select count(*) from public.inventory_movements where organization_id=fixture.organization_id)=before_movements,'failed_inventory_atomic');
-  perform pg_temp.v151_assert((select count(*) from public.financial_transactions where organization_id=fixture.organization_id)=before_transactions,'failed_finance_atomic');
+  perform pg_temp.v151_assert((select count(*) from public.commercial_sales sale_row where sale_row.organization_id=fixture.organization_id)=before_sales,'failed_sales_atomic');
+  perform pg_temp.v151_assert((select count(*) from public.inventory_movements movement_row where movement_row.organization_id=fixture.organization_id)=before_movements,'failed_inventory_atomic');
+  perform pg_temp.v151_assert((select count(*) from public.financial_transactions transaction_row where transaction_row.organization_id=fixture.organization_id)=before_transactions,'failed_finance_atomic');
 end
 $test$;
 
