@@ -29,6 +29,7 @@ assert.match(rollback,/v149_rollback_blocked_by_application_history/i);
 assert.match(rollback,/minuta-benefit-application-v149:'\|\|md5\(v_source\)[\s\S]*v149_rollback_newer_function_detected/i);
 assert.match(rollback,/minuta-benefit-application-v149[\s\S]*v149_rollback_newer_table_detected/i);
 assert.match(rollback,/grant execute on function public\.apply_minuta_benefit\(uuid,uuid,uuid,text,integer\) to authenticated/i);
+assert.match(rollback,/set_minuta_benefit_lifecycle_v150[\s\S]*benefit_freeze_periods[\s\S]*v149_rollback_blocked_v150_installed_rollback_v150_first/i);
 assert.match(rollback,/drop function if exists public\.apply_minuta_benefit_v149\(uuid,uuid,uuid,text,integer,uuid\)/i);
 
 assert.match(controller,/db\.rpc\('apply_minuta_benefit_v149',guarded\)/);

@@ -4,6 +4,24 @@ set local lock_timeout='10s';
 do $rollback_guard$
 declare v_source text;v_function_marker text;v_table_marker text;
 begin
+  if to_regprocedure('public.get_minuta_benefit_timezone_v150(uuid)') is not null
+     or to_regprocedure('public.minuta_benefit_frozen_days_v150(text,timestamptz,timestamptz)') is not null
+     or to_regprocedure('public.sync_minuta_benefit_expiry_v150(uuid,uuid)') is not null
+     or to_regprocedure('public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)') is not null
+     or to_regprocedure('public.get_minuta_benefit_lifecycle_v150(uuid,uuid)') is not null
+     or to_regclass('public.benefit_freeze_periods') is not null
+     or to_regclass('public.benefit_lifecycle_requests') is not null
+     or coalesce(obj_description(to_regprocedure('public.set_minuta_benefit_status(uuid,uuid,text)')::oid,'pg_proc'),'')
+          ='minuta_benefit_lifecycle_compatibility_v150'
+     or exists(
+       select 1 from pg_catalog.pg_constraint constraint_row
+       where constraint_row.conrelid=to_regclass('public.benefit_ledger')
+         and constraint_row.conname='benefit_ledger_event_type_check'
+         and coalesce(obj_description(constraint_row.oid,'pg_constraint'),'')='minuta_benefit_lifecycle_v150'
+     ) then
+    raise exception using errcode='55000',
+      message='v149_rollback_blocked_v150_installed_rollback_v150_first';
+  end if;
   if to_regprocedure('public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)') is not null then
     select routine.prosrc,obj_description(routine.oid,'pg_proc')
       into v_source,v_function_marker
