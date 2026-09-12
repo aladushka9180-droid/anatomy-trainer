@@ -308,11 +308,13 @@ begin
   v_hash:=public.minuta_financial_sha256_v129(v_contract);
   select jsonb_object_agg(component.key,public.minuta_financial_sha256_v129(component.value) order by component.key)
     into v_component_hashes from jsonb_each(v_contract) component;
-  if v_hash is distinct from 'b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6' then
+  -- Canonical full fingerprint from real PostgreSQL. Its DDL components matched the
+  -- pinned production backup; runtime owner/ACL remain part of this live fail-closed check.
+  if v_hash is distinct from 'd34367dff997d0ddbc51061f6b0b3f0a41c67f29d07bc5dd6e64ea7de08c3cee' then
     raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150',
       detail=jsonb_build_object(
         'actualFingerprint',v_hash,
-        'expectedFingerprint','b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6',
+        'expectedFingerprint','d34367dff997d0ddbc51061f6b0b3f0a41c67f29d07bc5dd6e64ea7de08c3cee',
         'componentFingerprints',v_component_hashes,
         'contract',v_contract
       )::text;

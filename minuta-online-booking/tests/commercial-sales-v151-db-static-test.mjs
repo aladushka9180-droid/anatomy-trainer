@@ -62,7 +62,9 @@ assert.match(migration, /aclexplode\(coalesce\(procedure_row\.proacl,acldefault\
 assert.match(migration, /p_organization uuid, p_product uuid, p_client_account uuid, p_expires_on date, p_request_id uuid/);
 assert.match(migration, /p_organization uuid, p_warehouse uuid, p_item uuid, p_kind text, p_quantity numeric, p_counted_quantity numeric, p_reason text, p_request_id uuid/);
 assert.match(migration, /financialAccountsSystemKeyIndex/);
-assert.match(migration, /b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6/);
+assert.match(migration, /d34367dff997d0ddbc51061f6b0b3f0a41c67f29d07bc5dd6e64ea7de08c3cee/);
+assert.doesNotMatch(migration, /b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6/);
+assert.match(migration, /DDL components matched the[\s\S]*runtime owner\/ACL remain part of this live fail-closed check/);
 assert.match(migration, /detail=jsonb_build_object/);
 assert.match(migration, /'componentFingerprints',v_component_hashes/);
 assert.match(migration, /'contract',v_contract/);
@@ -90,7 +92,9 @@ assert.match(state, /'runtimeFunctions'/);
 assert.match(state, /financial_accounts_organization_id_system_key_key/);
 assert.match(state, /financialAccountsSystemKeyIndex/);
 assert.match(state, /ownerMatchesDomainTable/);
-assert.match(state, /b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6/);
+assert.match(state, /d34367dff997d0ddbc51061f6b0b3f0a41c67f29d07bc5dd6e64ea7de08c3cee/);
+assert.doesNotMatch(state, /b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6/);
+assert.match(state, /Backup evidence covered DDL only;[\s\S]*owner\/ACL are still evaluated live/);
 
 assert.match(integration, /benefit_sale_replayed/);
 assert.match(integration, /benefit_reserve_replayed/);

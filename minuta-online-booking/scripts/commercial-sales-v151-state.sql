@@ -111,8 +111,10 @@ with v151_proc as (
   select
     value as contract,
     public.minuta_financial_sha256_v129(value) as fingerprint,
-    'b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6'::text as expected_fingerprint,
-    public.minuta_financial_sha256_v129(value)='b85982e038537907ecb9137389b27da5ebca754c537f6c06c095ab1aa6cf84a6' as exact,
+    -- Real-PostgreSQL canonical full contract. Backup evidence covered DDL only;
+    -- owner/ACL are still evaluated live in runtimeFunctions before exact=true.
+    'd34367dff997d0ddbc51061f6b0b3f0a41c67f29d07bc5dd6e64ea7de08c3cee'::text as expected_fingerprint,
+    public.minuta_financial_sha256_v129(value)='d34367dff997d0ddbc51061f6b0b3f0a41c67f29d07bc5dd6e64ea7de08c3cee' as exact,
     (select jsonb_object_agg(component.key,public.minuta_financial_sha256_v129(component.value) order by component.key)
       from jsonb_each(value) component) as component_fingerprints
   from critical_contract
