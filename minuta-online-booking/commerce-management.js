@@ -110,6 +110,51 @@
       }).join('') : '<p class="report-empty-inline">Продаж пока нет.</p>';
     }
 
+    function refundableSales() {
+      return (state?.sales || []).filter(sale => (
+        Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0) > 0
+        && number(sale.line?.quantity) - number(sale.line?.refunded_quantity) > 0
+      ));
+    }
+
+    function selectedRefundSale() {
+      const saleId = $('#commerceRefundSale')?.value || '';
+      return refundableSales().find(sale => sale.id === saleId) || null;
+    }
+
+    function updateRefundValidity() {
+      const submit = $('#commerceRefundSubmit');
+      if (!submit) return false;
+      const sale = selectedRefundSale();
+      const quantity = number($('#commerceRefundQuantity')?.value);
+      const amount = minor($('#commerceRefundAmount')?.value);
+      const reason = $('#commerceRefundReason')?.value.trim() || '';
+      const remainingQuantity = sale ? number(sale.line?.quantity) - number(sale.line?.refunded_quantity) : 0;
+      const remainingAmount = sale ? Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0) : 0;
+      const valid = Boolean(sale && quantity > 0 && quantity <= remainingQuantity && amount > 0 && amount <= remainingAmount && reason.length >= 3);
+      submit.disabled = !valid;
+      return valid;
+    }
+
+    function renderRefundControls() {
+      const sales = state?.sales || [];
+      const candidates = refundableSales();
+      const creator = $('#commerceRefundCreator');
+      const empty = $('#commerceRefundEmpty');
+      const select = $('#commerceRefundSale');
+      if (!creator || !empty || !select) return;
+      const selected = candidates.some(sale => sale.id === select.value) ? select.value : '';
+      select.innerHTML = '<option value="">Выберите продажу</option>' + selectOptions(candidates, sale => {
+        const remainingAmount = Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0);
+        return `${dateText(sale.occurred_at)} · ${sale.line?.item_name || 'Продажа'}${sale.client_name ? ` · ${sale.client_name}` : ''} · осталось ${rubles(remainingAmount)}`;
+      }, selected);
+      creator.hidden = candidates.length === 0;
+      if (!candidates.length) creator.open = false;
+      empty.hidden = candidates.length > 0;
+      empty.textContent = sales.length ? 'Все продажи полностью возвращены.' : 'Возврат станет доступен после первой продажи.';
+      updateRefundValidity();
+    }
+
     function renderRecurring() {
       const rows = state?.recurring_expenses || [];
       $('#commerceRecurringList').innerHTML = rows.length ? rows.map(item => {
@@ -132,6 +177,7 @@
       renderItemControls();
       renderBookings();
       renderSales();
+      renderRefundControls();
       renderRecurring();
       applyWriteAvailability?.($('#commercePanel'));
     }
@@ -197,25 +243,34 @@
       if (ok) { form.reset(); $('#commerceQuantity').value = '1'; $('#commerceDiscount').value = '0'; $('#commerceSaleCreator').open = false; render(); }
     }
 
-    function openRefund(saleId) {
-      const sale = (state?.sales || []).find(item => item.id === saleId);
+    function selectRefundSale(saleId, { focusReason = false } = {}) {
+      const sale = refundableSales().find(item => item.id === saleId);
       if (!sale) return;
-      const quantity = number(sale.line.quantity) - number(sale.line.refunded_quantity);
+      const quantity = number(sale.line?.quantity) - number(sale.line?.refunded_quantity);
       const amount = Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0);
       $('#commerceRefundSale').value = sale.id;
       $('#commerceRefundQuantity').value = String(quantity);
       $('#commerceRefundAmount').value = String(amount / 100);
       $('#commerceRefundReason').value = '';
-      $('#commerceRefundCreator').open = true;
-      $('#commerceRefundReason').focus();
+      updateRefundValidity();
+      if (focusReason) $('#commerceRefundReason').focus();
+    }
+
+    function openRefund(saleId) {
+      const creator = $('#commerceRefundCreator');
+      if (!creator || creator.hidden) return;
+      creator.open = true;
+      selectRefundSale(saleId, { focusReason:true });
     }
 
     async function submitRefund(event) {
       event.preventDefault();
       const form = event.currentTarget;
+      if (!updateRefundValidity()) return;
       const payload = { sale:$('#commerceRefundSale').value, quantity:number($('#commerceRefundQuantity').value), amount:minor($('#commerceRefundAmount').value), reason:$('#commerceRefundReason').value.trim() };
       const ok = await write(form, $('#commerceRefundError'), 'refund', payload, 'refund_minuta_commercial_sale_v147', { p_organization:organization.id, p_sale:payload.sale, p_quantity:payload.quantity, p_amount_minor:payload.amount, p_reason:payload.reason });
       if (ok) { form.reset(); $('#commerceRefundCreator').open = false; }
+      updateRefundValidity();
     }
 
     async function submitRecurring(event) {
@@ -280,6 +335,16 @@
       });
       $('#commerceSaleForm')?.addEventListener('submit', event => void submitSale(event));
       $('#commerceRefundForm')?.addEventListener('submit', event => void submitRefund(event));
+      $('#commerceRefundSale')?.addEventListener('change', event => {
+        if (event.currentTarget.value) selectRefundSale(event.currentTarget.value);
+        else {
+          $('#commerceRefundQuantity').value = '';
+          $('#commerceRefundAmount').value = '';
+          $('#commerceRefundReason').value = '';
+          updateRefundValidity();
+        }
+      });
+      $('#commerceRefundForm')?.addEventListener('input', updateRefundValidity);
       $('#commerceRecurringForm')?.addEventListener('submit', event => void submitRecurring(event));
       $('#commercePanel')?.addEventListener('click', event => {
         const refund = event.target.closest('[data-commerce-refund]');

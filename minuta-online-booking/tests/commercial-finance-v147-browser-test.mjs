@@ -114,6 +114,9 @@ try {
     }, { organizationId, clientId, productId, accountId, expenseId });
     await page.locator('#commerceWorkspace').waitFor({ state:'attached' });
     assert.equal(await page.locator('#moneyProfit').innerText(), '3 800 ₽');
+    assert.equal(await page.locator('#commerceRefundEmpty').innerText(), 'Возврат станет доступен после первой продажи.');
+    assert.equal(await page.locator('#commerceRefundCreator').isHidden(), true);
+    assert.equal(await page.locator('#commerceRefundSubmit').isDisabled(), true);
 
     if (width === 390) {
       await page.locator('#commerceSaleCreator > summary').click();
@@ -128,12 +131,22 @@ try {
       assert.equal(saleRequests.length, 2);
       assert.equal(saleRequests[0], saleRequests[1], 'uncertain retry must reuse the request id');
       assert.equal(await page.locator('#commerceGross').innerText(), '5 000 ₽');
+      assert.equal(await page.locator('#commerceRefundCreator').isVisible(), true);
+      assert.equal(await page.locator('#commerceRefundSale option').count(), 2);
 
       await page.locator('[data-commerce-refund]').click();
+      assert.equal(await page.locator('#commerceRefundSale').inputValue(), '77777777-7777-4777-8777-777777777777');
+      assert.equal(await page.locator('#commerceRefundQuantity').inputValue(), '1');
+      assert.equal(await page.locator('#commerceRefundAmount').inputValue(), '5000');
+      assert.equal(await page.locator('#commerceRefundSubmit').isDisabled(), true);
+      await page.screenshot({ path:resolve(output, 'refund-390.png'), fullPage:true });
       await page.locator('#commerceRefundReason').fill('Возврат по просьбе клиента');
-      await page.locator('#commerceRefundForm button[type="submit"]').click();
+      assert.equal(await page.locator('#commerceRefundSubmit').isEnabled(), true);
+      await page.locator('#commerceRefundSubmit').click();
       await page.waitForFunction(() => window.workspace.sales[0].status === 'refunded');
       assert.equal(await page.locator('#commerceNet').innerText(), '0 ₽');
+      assert.equal(await page.locator('#commerceRefundCreator').isHidden(), true);
+      assert.equal(await page.locator('#commerceRefundEmpty').innerText(), 'Все продажи полностью возвращены.');
 
       await page.locator('#commerceRecurringForm').locator('xpath=..').locator('summary').click();
       await page.locator('#commerceRecurringSupplier').fill('Арендодатель');
