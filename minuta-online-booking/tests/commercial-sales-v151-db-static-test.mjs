@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const migration = read('../supabase-migration-v151.sql');
+const migrationV147 = read('../supabase-migration-v147.sql').replaceAll('\r\n', '\n');
+const migrationV148 = read('../supabase-migration-v148.sql').replaceAll('\r\n', '\n');
 const rollback = read('../supabase-migration-v151-rollback.sql');
 const state = read('../scripts/commercial-sales-v151-state.sql');
 const integration = read('./commercial-sales-v151-integration.sql');
@@ -12,6 +15,17 @@ const durableCleanup = read('./commercial-sales-v151-durable-cleanup.sql');
 const workflow = read('../../.github/workflows/minuta-v151-commercial-sales.yml');
 
 const signature = 'sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)';
+const sourceHash = (sql, name) => {
+  const start = sql.indexOf(`create or replace function public.${name}(`);
+  const bodyStart = sql.indexOf('as $$', start) + 'as $$'.length;
+  const bodyEnd = sql.indexOf('$$;', bodyStart);
+  assert.ok(start >= 0 && bodyStart >= 'as $$'.length && bodyEnd > bodyStart, `missing source for ${name}`);
+  const canonicalJsonbText = `{"source": ${JSON.stringify(sql.slice(bodyStart, bodyEnd))}}`;
+  return createHash('sha256').update(canonicalJsonbText).digest('hex');
+};
+assert.equal(sourceHash(migrationV147, 'sell_minuta_commercial_product_v147'), '220d2742a22230219b41d9dda29bc4649d0bb0f4b62fe8935ce4d42f86aff577');
+assert.equal(sourceHash(migrationV147, 'get_minuta_commerce_workspace_v147'), 'da68cd045c6333e866c467ccdf3060a2a4c94d1547c2500c17cf475b35f292b1');
+assert.equal(sourceHash(migrationV148, 'refund_minuta_commercial_sale_v147'), '9d1ea093ab4552eaac5764a3c8d1ef4458d1f86ccac63c21db78af8092224cca');
 assert.match(migration, /v151_requires_exact_v147_v148_v149_v150/);
 assert.match(migration, /minuta_refund_safety_v148_proportional_rounding/);
 assert.match(migration, /apply_minuta_benefit_v149/);
@@ -27,6 +41,12 @@ assert.match(migration, /commercial_sale_subtotal_out_of_range/);
 assert.match(migration, /benefit_application_requests/);
 assert.match(migration, /benefit_freeze_periods/);
 assert.match(migration, /benefit_ledger_event_type_check/);
+assert.match(migration, /220d2742a22230219b41d9dda29bc4649d0bb0f4b62fe8935ce4d42f86aff577/);
+assert.match(migration, /da68cd045c6333e866c467ccdf3060a2a4c94d1547c2500c17cf475b35f292b1/);
+assert.match(migration, /9d1ea093ab4552eaac5764a3c8d1ef4458d1f86ccac63c21db78af8092224cca/);
+assert.match(migration, /pg_get_constraintdef\(actual\.oid,true\) is distinct from expected\.definition/);
+assert.match(migration, /commercial_sales_seller_id_fkey/);
+assert.match(migration, /622fc10e7cc5e0057dbe2ed345f0f8caab5c39fd78f4dd3e9c79ed6541bbcb7c/);
 assert.match(migration, new RegExp(`revoke all on function public\\.${signature.replace(/[()]/g, '\\$&')} from public,anon,authenticated,service_role`));
 assert.match(migration, new RegExp(`grant execute on function public\\.${signature.replace(/[()]/g, '\\$&')} to authenticated`));
 
@@ -44,6 +64,8 @@ assert.match(state, /authenticatedSaleExecute/);
 assert.match(state, /anonWorkspaceExecute/);
 assert.match(state, /criticalSchemaExact/);
 assert.match(state, /criticalSchemaFingerprint/);
+assert.match(state, /criticalSchemaExpectedFingerprint/);
+assert.match(state, /622fc10e7cc5e0057dbe2ed345f0f8caab5c39fd78f4dd3e9c79ed6541bbcb7c/);
 
 assert.match(integration, /benefit_sale_replayed/);
 assert.match(integration, /benefit_reserve_replayed/);
@@ -76,6 +98,8 @@ assert.match(durableSetup, /insert into public\.locations/);
 assert.match(durableSetup, /insert into public\.bookings/);
 assert.match(durableCleanup, /session_replication_role=replica/);
 assert.match(durableCleanup, /delete from public\.services/);
+assert.match(durableCleanup, /for fixture_row in select \* from minuta_v151_test\.fixture order by run_key/);
+assert.doesNotMatch(durableCleanup, /from minuta_v151_test\.fixture where run_key=/);
 assert.match(durableCleanup, /drop schema if exists minuta_v151_test cascade/);
 
 for (const phase of ['test-v151', 'validate-production-v151', 'apply-production-v151', 'observe-production-v151']) {
@@ -94,6 +118,9 @@ assert.match(workflow, /commercial-sales-v151-durable-concurrency-test\.sh/);
 assert.match(workflow, /if: always\(\)/);
 assert.match(workflow, /v147-v151-sequential-apply/);
 assert.match(workflow, /observed-lock-wait/);
+assert.match(workflow, /financial_transactions_shape_v147_check check\(true\)/);
+assert.match(workflow, /criticalSchemaFingerprint!=\.criticalSchemaExpectedFingerprint/);
+assert.match(workflow, /v147-same-signature-drift/);
 assert.match(workflow, /\.setupSha256==\$setup/);
 assert.match(workflow, /\.durableSha256==\$durable/);
 assert.match(workflow, /\.cleanupSha256==\$cleanup/);

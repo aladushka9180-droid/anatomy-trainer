@@ -126,6 +126,32 @@ jobs:
           test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.get_minuta_commerce_workspace_v151(uuid)') is not null")" = t
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "drop function public.get_minuta_commerce_workspace_v151(uuid);"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -c "alter table public.financial_transactions drop constraint financial_transactions_shape_v147_check; alter table public.financial_transactions add constraint financial_transactions_shape_v147_check check(true);"
+          drift="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
+          jq -e '(.criticalSchemaExact|not) and .criticalSchemaFingerprint!=.criticalSchemaExpectedFingerprint' <<<"$drift" >/dev/null
+          if psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql; then exit 1; fi
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -c "alter table public.financial_accounts drop constraint if exists financial_accounts_account_type_v147_check, drop constraint if exists financial_accounts_system_key_v147_check, drop constraint if exists financial_accounts_system_mapping_v147_check, drop constraint if exists financial_accounts_system_request_v147_check; alter table public.financial_transactions drop constraint if exists financial_transactions_operation_v147_check, drop constraint if exists financial_transactions_source_v147_check, drop constraint if exists financial_transactions_shape_v147_check;"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v147.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v148.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v149.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v150.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 <<'SQL'
+          create or replace function public.sell_minuta_commercial_product_v147(
+            p_organization uuid,p_booking uuid,p_client_account uuid,p_item_kind text,p_benefit_product uuid,
+            p_inventory_item uuid,p_warehouse uuid,p_quantity numeric,p_unit_price_minor bigint,p_discount_minor bigint,
+            p_payment_method text,p_payment_account uuid,p_request_id uuid
+          ) returns jsonb language plpgsql security definer set search_path to '' as $$
+          begin
+            perform ':commerce:'; perform 'commercial_sale_idempotency_conflict';
+            return jsonb_build_object('probe','v147-same-signature-drift');
+          end $$;
+          revoke all on function public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid) from public,anon,authenticated,service_role;
+          grant execute on function public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid) to authenticated;
+          SQL
+          drift="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
+          jq -e '(.criticalSchemaExact|not) and .criticalSchemaFingerprint!=.criticalSchemaExpectedFingerprint' <<<"$drift" >/dev/null
+          if psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql; then exit 1; fi
 
       - name: Clean durable fixture and restore exact test chain
         if: always()
@@ -138,6 +164,7 @@ jobs:
           test -f "$RUNNER_TEMP/v151-test-owned" || exit 0
           psql "$db" -X -q -v ON_ERROR_STOP=1 -v run_key="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -f minuta-online-booking/tests/commercial-sales-v151-durable-cleanup.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "drop function if exists public.get_minuta_commerce_workspace_v151(uuid); drop function if exists public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid);"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -c "alter table public.financial_accounts drop constraint if exists financial_accounts_account_type_v147_check, drop constraint if exists financial_accounts_system_key_v147_check, drop constraint if exists financial_accounts_system_mapping_v147_check, drop constraint if exists financial_accounts_system_request_v147_check; alter table public.financial_transactions drop constraint if exists financial_transactions_operation_v147_check, drop constraint if exists financial_transactions_source_v147_check, drop constraint if exists financial_transactions_shape_v147_check;"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v147.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v148.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v149.sql

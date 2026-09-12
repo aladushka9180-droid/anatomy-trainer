@@ -13,6 +13,7 @@ declare
   v_hash text;
   v_prefix text;
   v_definition text;
+  v_source_hash text;
 begin
   if to_regclass('public.commercial_sales') is null
      or to_regclass('public.commercial_sale_lines') is null
@@ -41,6 +42,72 @@ begin
      or to_regprocedure('public.get_minuta_benefit_lifecycle_v150(uuid,uuid)') is null
      or to_regclass('public.benefit_freeze_periods') is null
      or to_regclass('public.benefit_lifecycle_requests') is null then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) into v_source_hash
+    from pg_catalog.pg_proc where oid='public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)'::regprocedure;
+  if v_source_hash is distinct from '220d2742a22230219b41d9dda29bc4649d0bb0f4b62fe8935ce4d42f86aff577' then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+  select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) into v_source_hash
+    from pg_catalog.pg_proc where oid='public.get_minuta_commerce_workspace_v147(uuid)'::regprocedure;
+  if v_source_hash is distinct from 'da68cd045c6333e866c467ccdf3060a2a4c94d1547c2500c17cf475b35f292b1' then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  if exists(
+    select 1 from (values
+      ('public.financial_accounts'::regclass,'financial_accounts_account_type_v147_check',$constraint$CHECK (account_type = ANY (ARRAY['cash'::text, 'bank'::text, 'receivable'::text, 'service_revenue'::text, 'product_revenue'::text, 'operating_expense'::text, 'supplier_payable'::text, 'payment_channel_commission'::text, 'payroll_expense'::text, 'payroll_payable'::text, 'employee_advance'::text]))$constraint$),
+      ('public.financial_accounts'::regclass,'financial_accounts_system_key_v147_check',$constraint$CHECK (system_key IS NULL OR (system_key = ANY (ARRAY['receivable'::text, 'service_revenue'::text, 'product_revenue'::text, 'operating_expense'::text, 'supplier_payable'::text, 'payment_channel_commission'::text, 'payroll_expense'::text, 'payroll_payable'::text, 'employee_advance'::text])))$constraint$),
+      ('public.financial_accounts'::regclass,'financial_accounts_system_mapping_v147_check',$constraint$CHECK (system_key IS NULL AND (account_type = ANY (ARRAY['cash'::text, 'bank'::text])) AND account_class = 'asset'::text OR system_key = 'receivable'::text AND account_type = 'receivable'::text AND account_class = 'asset'::text OR system_key = 'service_revenue'::text AND account_type = 'service_revenue'::text AND account_class = 'income'::text OR system_key = 'product_revenue'::text AND account_type = 'product_revenue'::text AND account_class = 'income'::text OR system_key = 'operating_expense'::text AND account_type = 'operating_expense'::text AND account_class = 'expense'::text OR system_key = 'supplier_payable'::text AND account_type = 'supplier_payable'::text AND account_class = 'liability'::text OR system_key = 'payment_channel_commission'::text AND account_type = 'payment_channel_commission'::text AND account_class = 'expense'::text OR system_key = 'payroll_expense'::text AND account_type = 'payroll_expense'::text AND account_class = 'expense'::text OR system_key = 'payroll_payable'::text AND account_type = 'payroll_payable'::text AND account_class = 'liability'::text OR system_key = 'employee_advance'::text AND account_type = 'employee_advance'::text AND account_class = 'asset'::text)$constraint$),
+      ('public.financial_accounts'::regclass,'financial_accounts_system_request_v147_check',$constraint$CHECK ((system_key IS NULL) = (creation_request_id IS NOT NULL))$constraint$),
+      ('public.financial_transactions'::regclass,'financial_transactions_operation_v147_check',$constraint$CHECK (operation_type = ANY (ARRAY['visit_service'::text, 'commercial_sale'::text, 'commercial_refund'::text, 'supplier_expense_accrual'::text, 'supplier_expense_payment'::text, 'customer_debt_settlement'::text, 'payroll_accrual'::text, 'payroll_payment'::text, 'payroll_advance'::text, 'payroll_advance_offset'::text, 'reversal'::text]))$constraint$),
+      ('public.financial_transactions'::regclass,'financial_transactions_source_v147_check',$constraint$CHECK (source_type = ANY (ARRAY['booking_outcome'::text, 'commercial_sale'::text, 'commercial_sale_refund'::text, 'financial_expense_source'::text, 'financial_debt_settlement_source'::text, 'financial_payroll_accrual_source'::text, 'financial_payroll_payment_source'::text, 'financial_payroll_advance_source'::text, 'financial_payroll_advance_offset'::text, 'financial_transaction'::text]))$constraint$),
+      ('public.financial_transactions'::regclass,'financial_transactions_shape_v147_check',$constraint$CHECK (operation_type = 'visit_service'::text AND source_type = 'booking_outcome'::text AND reversal_of IS NULL OR operation_type = 'commercial_sale'::text AND source_type = 'commercial_sale'::text AND reversal_of IS NULL OR operation_type = 'commercial_refund'::text AND source_type = 'commercial_sale_refund'::text AND reversal_of IS NULL OR (operation_type = ANY (ARRAY['supplier_expense_accrual'::text, 'supplier_expense_payment'::text])) AND source_type = 'financial_expense_source'::text AND reversal_of IS NULL OR operation_type = 'customer_debt_settlement'::text AND source_type = 'financial_debt_settlement_source'::text AND reversal_of IS NULL OR operation_type = 'payroll_accrual'::text AND source_type = 'financial_payroll_accrual_source'::text AND reversal_of IS NULL OR operation_type = 'payroll_payment'::text AND source_type = 'financial_payroll_payment_source'::text AND reversal_of IS NULL OR operation_type = 'payroll_advance'::text AND source_type = 'financial_payroll_advance_source'::text AND reversal_of IS NULL OR operation_type = 'payroll_advance_offset'::text AND source_type = 'financial_payroll_advance_offset'::text AND reversal_of IS NULL OR operation_type = 'reversal'::text AND source_type = 'financial_transaction'::text AND reversal_of IS NOT NULL AND source_id = reversal_of)$constraint$)
+    ) expected(relation_id,constraint_name,definition)
+    left join pg_catalog.pg_constraint actual
+      on actual.conrelid=expected.relation_id and actual.conname=expected.constraint_name
+    where actual.oid is null or not actual.convalidated
+      or pg_get_constraintdef(actual.oid,true) is distinct from expected.definition
+  ) then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  if not exists(select 1 from pg_catalog.pg_attribute
+       where attrelid='public.commercial_sales'::regclass and attname='seller_id'
+         and format_type(atttypid,atttypmod)='uuid' and not attnotnull and not attisdropped)
+     or exists(
+       select 1 from (values
+        ('public.commercial_sales'::regclass,'commercial_sales_organization_id_request_id_key',$constraint$UNIQUE (organization_id, request_id)$constraint$),
+        ('public.commercial_sales'::regclass,'commercial_sales_payment_account_id_organization_id_fkey',$constraint$FOREIGN KEY (payment_account_id, organization_id) REFERENCES financial_accounts(id, organization_id) ON DELETE RESTRICT$constraint$),
+        ('public.commercial_sales'::regclass,'commercial_sales_seller_id_fkey',$constraint$FOREIGN KEY (seller_id) REFERENCES auth.users(id) ON DELETE SET NULL$constraint$),
+        ('public.commercial_sales'::regclass,'commercial_sales_check1',$constraint$CHECK (total_minor = (subtotal_minor - discount_minor) AND total_minor > 0)$constraint$),
+        ('public.commercial_sales'::regclass,'commercial_sales_check2',$constraint$CHECK (refunded_minor >= 0 AND refunded_minor <= total_minor)$constraint$),
+        ('public.commercial_sales'::regclass,'commercial_sales_request_fingerprint_check',$constraint$CHECK (request_fingerprint ~ '^[0-9a-f]{64}$'::text)$constraint$),
+        ('public.commercial_sales'::regclass,'commercial_sales_status_check',$constraint$CHECK (status = ANY (ARRAY['paid'::text, 'partially_refunded'::text, 'refunded'::text]))$constraint$),
+        ('public.commercial_sales'::regclass,'commercial_sales_payment_method_check',$constraint$CHECK (payment_method = ANY (ARRAY['cash'::text, 'manual'::text]))$constraint$),
+        ('public.commercial_sale_lines'::regclass,'commercial_sale_lines_sale_id_key',$constraint$UNIQUE (sale_id)$constraint$),
+        ('public.commercial_sale_lines'::regclass,'commercial_sale_lines_sale_id_organization_id_fkey',$constraint$FOREIGN KEY (sale_id, organization_id) REFERENCES commercial_sales(id, organization_id) ON DELETE RESTRICT$constraint$),
+        ('public.commercial_sale_lines'::regclass,'commercial_sale_lines_quantity_check',$constraint$CHECK (quantity > 0::numeric)$constraint$),
+        ('public.commercial_sale_lines'::regclass,'commercial_sale_lines_check',$constraint$CHECK (refunded_quantity >= 0::numeric AND refunded_quantity <= quantity)$constraint$),
+        ('public.commercial_sale_lines'::regclass,'commercial_sale_lines_check2',$constraint$CHECK (total_minor = (subtotal_minor - discount_minor) AND total_minor > 0)$constraint$),
+        ('public.commercial_sale_lines'::regclass,'commercial_sale_lines_check3',$constraint$CHECK (item_kind = 'inventory_item'::text AND inventory_item_id IS NOT NULL AND benefit_product_id IS NULL AND warehouse_id IS NOT NULL AND benefit_instrument_id IS NULL AND inventory_movement_id IS NOT NULL OR item_kind = 'benefit_product'::text AND inventory_item_id IS NULL AND benefit_product_id IS NOT NULL AND warehouse_id IS NULL AND benefit_instrument_id IS NOT NULL AND inventory_movement_id IS NULL)$constraint$),
+        ('public.commercial_sale_refunds'::regclass,'commercial_sale_refunds_organization_id_request_id_key',$constraint$UNIQUE (organization_id, request_id)$constraint$),
+        ('public.commercial_sale_refunds'::regclass,'commercial_sale_refunds_sale_id_organization_id_fkey',$constraint$FOREIGN KEY (sale_id, organization_id) REFERENCES commercial_sales(id, organization_id) ON DELETE RESTRICT$constraint$),
+        ('public.commercial_sale_refunds'::regclass,'commercial_sale_refunds_amount_minor_check',$constraint$CHECK (amount_minor > 0)$constraint$),
+        ('public.commercial_sale_refunds'::regclass,'commercial_sale_refunds_quantity_check',$constraint$CHECK (quantity > 0::numeric)$constraint$),
+        ('public.commercial_sale_refunds'::regclass,'commercial_sale_refunds_request_fingerprint_check',$constraint$CHECK (request_fingerprint ~ '^[0-9a-f]{64}$'::text)$constraint$),
+        ('public.financial_transactions'::regclass,'financial_transactions_organization_id_request_id_key',$constraint$UNIQUE (organization_id, request_id)$constraint$),
+        ('public.financial_postings'::regclass,'financial_postings_transaction_id_account_id_side_key',$constraint$UNIQUE (transaction_id, account_id, side)$constraint$),
+        ('public.financial_postings'::regclass,'financial_postings_transaction_id_organization_id_fkey',$constraint$FOREIGN KEY (transaction_id, organization_id) REFERENCES financial_transactions(id, organization_id) ON DELETE RESTRICT$constraint$),
+        ('public.financial_postings'::regclass,'financial_postings_account_id_organization_id_fkey',$constraint$FOREIGN KEY (account_id, organization_id) REFERENCES financial_accounts(id, organization_id) ON DELETE RESTRICT$constraint$)
+       ) expected(relation_id,constraint_name,definition)
+       left join pg_catalog.pg_constraint actual
+         on actual.conrelid=expected.relation_id and actual.conname=expected.constraint_name
+       where actual.oid is null or not actual.convalidated
+         or pg_get_constraintdef(actual.oid,true) is distinct from expected.definition
+     ) then
     raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
   end if;
 
@@ -77,7 +144,10 @@ begin
 
   v_proc:='public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)'::regprocedure;
   v_definition:=pg_get_functiondef(v_proc);
+  select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) into v_source_hash
+    from pg_catalog.pg_proc where oid=v_proc;
   if not (select prosecdef and coalesce(proconfig,'{}')@>array['search_path=""'] from pg_catalog.pg_proc where oid=v_proc)
+     or v_source_hash is distinct from '9d1ea093ab4552eaac5764a3c8d1ef4458d1f86ccac63c21db78af8092224cca'
      or position('v_expected_amount' in v_definition)=0
      or position('commercial_refund_amount_unallocatable' in v_definition)=0
      or position('commercial_refund_amount_mismatch' in v_definition)=0
@@ -87,6 +157,39 @@ begin
      or exists(select 1 from pg_catalog.pg_proc procedure_row,
        lateral aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
        where procedure_row.oid=v_proc and grant_row.grantee=0 and grant_row.privilege_type='EXECUTE') then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  select public.minuta_financial_sha256_v129(jsonb_build_object(
+    'functionSourceHashes',jsonb_build_array(
+      (select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) from pg_catalog.pg_proc where oid='public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)'::regprocedure),
+      (select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) from pg_catalog.pg_proc where oid='public.get_minuta_commerce_workspace_v147(uuid)'::regprocedure),
+      (select public.minuta_financial_sha256_v129(jsonb_build_object('source',prosrc)) from pg_catalog.pg_proc where oid='public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)'::regprocedure)
+    ),
+    'sellerColumn',coalesce((select jsonb_build_object(
+      'type',format_type(atttypid,atttypmod),'notNull',attnotnull)
+      from pg_catalog.pg_attribute where attrelid='public.commercial_sales'::regclass
+        and attname='seller_id' and attnum>0 and not attisdropped),'null'::jsonb),
+    'quantityColumn',coalesce((select jsonb_build_object(
+      'type',format_type(atttypid,atttypmod),'notNull',attnotnull)
+      from pg_catalog.pg_attribute where attrelid='public.commercial_sale_lines'::regclass
+        and attname='quantity' and attnum>0 and not attisdropped),'null'::jsonb),
+    'constraints',coalesce((select jsonb_agg(jsonb_build_object(
+      'table',relation_row.relname,'name',constraint_row.conname,
+      'definition',pg_get_constraintdef(constraint_row.oid,true),'validated',constraint_row.convalidated
+    ) order by relation_row.relname,constraint_row.conname)
+      from pg_catalog.pg_constraint constraint_row
+      join pg_catalog.pg_class relation_row on relation_row.oid=constraint_row.conrelid
+      join pg_catalog.pg_namespace namespace_row on namespace_row.oid=relation_row.relnamespace
+      where namespace_row.nspname='public' and (
+        relation_row.relname=any(array['commercial_sales','commercial_sale_lines','commercial_sale_refunds','financial_postings'])
+        or (relation_row.relname=any(array['financial_accounts','financial_transactions']) and constraint_row.conname like '%v147_check')
+        or (relation_row.relname='financial_transactions' and constraint_row.conname='financial_transactions_organization_id_request_id_key')
+      )),'[]'::jsonb),
+    'index',(select pg_get_indexdef(index_row.indexrelid) from pg_catalog.pg_index index_row
+      where index_row.indexrelid='public.commercial_sales_scope_v147_idx'::regclass)
+  )) into v_hash;
+  if v_hash is distinct from '622fc10e7cc5e0057dbe2ed345f0f8caab5c39fd78f4dd3e9c79ed6541bbcb7c' then
     raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
   end if;
 
