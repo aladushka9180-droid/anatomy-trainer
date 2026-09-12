@@ -1,0 +1,54 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
+const controller = read('../commerce-management.js');
+const html = read('../provider.html');
+const styles = read('../styles.css');
+const provider = read('../provider.js');
+const worker = read('../sw.js');
+
+assert.match(controller, /get_minuta_commerce_workspace_v151/);
+assert.match(controller, /sell_minuta_commercial_product_v151/);
+assert.match(controller, /p_seller:payload\.seller/);
+assert.match(controller, /const activeWrites = new Set\(\)/);
+assert.match(controller, /if \(activeWrites\.has\(writeKey\)\) return false/);
+assert.match(controller, /selectSaleSeller\(booking\.performer_id\)/);
+assert.match(controller, /Продавец:/);
+assert.match(controller, /function updateSaleValidity\(\)/);
+assert.match(controller, /finiteNumbers && result > 0 \? rubles\(result\) : '—'/);
+assert.match(controller, /selectOptions\(items,[\s\S]*selectedItemId/);
+assert.match(controller, /scope === 'sale' \? 'Продажа' : 'Операция'/);
+assert.match(controller, /проведена\. Список обновится после восстановления связи/);
+assert.match(controller, /seller_not_active_member/);
+assert.match(controller, /function renderPaymentAccounts\(/);
+assert.match(controller, /method !== 'cash' \|\| item\.account_type === 'cash'/);
+assert.match(controller, /function renderAudit\(\)/);
+assert.match(controller, /commercial_sale_created:'Продажа проведена'/);
+
+assert.match(html, /id="commerceBooking"[\s\S]*Отдельная продажа/);
+assert.match(html, /value="inventory_item">Товар/);
+assert.match(html, /value="benefit_product">Абонемент, пакет или сертификат/);
+assert.match(html, /id="commerceSeller" required/);
+assert.match(html, /id="commerceQuantity"[\s\S]*min="0\.001"[\s\S]*max="1000000"/);
+assert.match(html, /id="commerceUnitPrice"[\s\S]*id="commerceDiscount"/);
+assert.match(html, /id="commerceWarehouse"/);
+assert.match(html, /value="cash">Наличными[\s\S]*value="manual">Отмечено вручную/);
+assert.match(html, /id="commercePaymentAccount" required/);
+assert.match(html, /id="commerceSaleTotal"/);
+assert.match(html, /id="commerceSaleSubmit"[\s\S]*disabled/);
+assert.match(html, /id="commerceSaleOptions"/);
+assert.match(html, /id="commerceAuditList"/);
+assert.match(styles, /\.commerce-sale-total\{/);
+assert.match(styles, /\.commerce-sale-options\{/);
+assert.match(styles, /\.commerce-audit-row\{/);
+
+assert.match(provider, /data-commerce-booking-sale/);
+assert.match(provider, /openCommerceSale\(\{ bookingId/);
+assert.match(html, /commerce-management\.js\?v=735/);
+assert.match(html, /styles\.css\?v=735/);
+assert.match(worker, /commerce-management\.js\?v=735/);
+assert.match(worker, /styles\.css\?v=735/);
+assert.match(worker, /CACHE_PREFIX}v735/);
+
+console.log('PrimeTime Pro commercial sales v151 UI static checks passed');

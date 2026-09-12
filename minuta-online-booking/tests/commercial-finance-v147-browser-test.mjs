@@ -20,6 +20,7 @@ const clientId = '22222222-2222-4222-8222-222222222222';
 const productId = '33333333-3333-4333-8333-333333333333';
 const accountId = '44444444-4444-4444-8444-444444444444';
 const expenseId = '55555555-5555-4555-8555-555555555555';
+const ownerId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 try {
   for (const width of [390, 760, 1440]) {
@@ -56,7 +57,7 @@ try {
       document.querySelector('#commercePanel').hidden = false;
     });
     await page.addScriptTag({ content:source });
-    await page.evaluate(async ({ organizationId, clientId, productId, accountId, expenseId }) => {
+    await page.evaluate(async ({ organizationId, clientId, productId, accountId, expenseId, ownerId }) => {
       window.commerceCalls = [];
       window.commerceNotices = [];
       window.saleAttempts = 0;
@@ -66,6 +67,7 @@ try {
           { id:accountId, name:'Основная касса', account_type:'cash', system_key:null },
           { id:expenseId, name:'Операционные расходы', account_type:'operating_expense', system_key:'operating_expense' }
         ],
+        sellers:[{ id:ownerId, name:'Владелец', role:'владелец' }],
         clients:[{ id:clientId, name:'Тестовый клиент', phone:'+7 900 000-00-00' }],
         bookings:[{ id:'66666666-6666-4666-8666-666666666666', client_account_id:clientId, client_name:'Тестовый клиент', booking_date:'2026-09-12', booking_time:'15:30:00', service_name:'Массаж' }],
         benefit_products:[{ id:productId, name:'Пакет 5 визитов', kind:'package', sale_price_minor:500000 }],
@@ -73,11 +75,11 @@ try {
       };
       const db = { rpc:async (name, args) => {
         commerceCalls.push({ name, args:structuredClone(args) });
-        if (name === 'get_minuta_commerce_workspace_v147') return { data:structuredClone(workspace), error:null };
-        if (name === 'sell_minuta_commercial_product_v147') {
+        if (name === 'get_minuta_commerce_workspace_v151') return { data:structuredClone(workspace), error:null };
+        if (name === 'sell_minuta_commercial_product_v151') {
           saleAttempts += 1;
           if (saleAttempts === 1) return { data:null, error:{ message:'temporary network error' } };
-          workspace.sales = [{ id:'77777777-7777-4777-8777-777777777777', booking_id:args.p_booking, client_account_id:args.p_client_account, status:'paid', payment_method:args.p_payment_method, total_minor:args.p_unit_price_minor, refunded_minor:0, occurred_at:'2026-09-12T12:00:00Z', line:{ item_name:'Пакет 5 визитов', item_kind:'benefit_product', quantity:1, refunded_quantity:0, unit_price_minor:args.p_unit_price_minor } }];
+          workspace.sales = [{ id:'77777777-7777-4777-8777-777777777777', booking_id:args.p_booking, client_account_id:args.p_client_account, seller_id:args.p_seller, seller_name:'Владелец', status:'paid', payment_method:args.p_payment_method, total_minor:args.p_unit_price_minor, refunded_minor:0, occurred_at:'2026-09-12T12:00:00Z', line:{ item_name:'Пакет 5 визитов', item_kind:'benefit_product', quantity:1, refunded_quantity:0, unit_price_minor:args.p_unit_price_minor } }];
           return { data:{ id:workspace.sales[0].id, organization_id:organizationId, replayed:false }, error:null };
         }
         if (name === 'refund_minuta_commercial_sale_v147') {
@@ -103,7 +105,7 @@ try {
         db, $:selector => document.querySelector(selector),
         escapeHtml:value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[character]),
         notify:value => commerceNotices.push(value), requireWrites:() => true,
-        getCurrentUser:() => ({ id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' }), getSessionGeneration:() => 1,
+        getCurrentUser:() => ({ id:ownerId }), getSessionGeneration:() => 1,
         sessionIsCurrent:() => true, applyWriteAvailability:() => {}
       };
       window.commerceController = MinutaCommerce.createController(common);
@@ -112,7 +114,7 @@ try {
       window.financeController = MinutaCommerce.createFinanceController(common);
       financeController.setOrganization({ id:organizationId, current_role:'owner' });
       await financeController.load({ start:'2026-09-01', end:'2026-09-30' });
-    }, { organizationId, clientId, productId, accountId, expenseId });
+    }, { organizationId, clientId, productId, accountId, expenseId, ownerId });
     await page.locator('#commerceWorkspace').waitFor({ state:'attached' });
     assert.equal(await page.locator('#moneyProfit').innerText(), '3 800 ₽');
     assert.equal(await page.locator('#commerceRefundEmpty').innerText(), 'Возврат станет доступен после первой продажи.');
@@ -128,7 +130,7 @@ try {
       await page.locator('#commerceSaleError').waitFor({ state:'visible' });
       await page.locator('#commerceSaleForm button[type="submit"]').click();
       await page.waitForFunction(() => window.workspace.sales.length === 1);
-      const saleRequests = await page.evaluate(() => commerceCalls.filter(item => item.name === 'sell_minuta_commercial_product_v147').map(item => item.args.p_request_id));
+      const saleRequests = await page.evaluate(() => commerceCalls.filter(item => item.name === 'sell_minuta_commercial_product_v151').map(item => item.args.p_request_id));
       assert.equal(saleRequests.length, 2);
       assert.equal(saleRequests[0], saleRequests[1], 'uncertain retry must reuse the request id');
       assert.equal(await page.locator('#commerceGross').innerText(), '5 000 ₽');
