@@ -13,11 +13,11 @@ assert.match(signature, /data-provider-theme="oled-mono"[\s\S]*?--atmosphere-bac
 assert.match(signature, /data-provider-theme="volt-graphite"[\s\S]*?--atmosphere-background:repeating-linear-gradient\(135deg,rgba\(166,192,68,\.035\) 0 1px,transparent 1px 4px,rgba\(118,132,144,\.035\) 4px 5px,transparent 5px 26px\)/);
 assert.match(signature, /\.theme-oled-mono \.theme-swatch \{ background-image:repeating-linear-gradient/);
 assert.match(signature, /\.theme-volt-graphite \.theme-swatch \{ background-image:repeating-linear-gradient/);
-assert.match(provider, /theme-catalog\.js\?v=721/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v721`/);
-assert.match(worker, /\.\/theme-catalog\.js\?v=721/);
+assert.match(provider, /theme-catalog\.js\?v=722/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v722`/);
+assert.match(worker, /\.\/theme-catalog\.js\?v=722/);
 
 const neutralScheduleRules = schedule.match(/background-image:none!important/g) || [];
 assert.ok(neutralScheduleRules.length >= 2, 'Фоновый узор темы не должен попадать в записи и перерывы');
 
-console.log('Theme background patterns v721: PASS');
+console.log('Theme background patterns v722: PASS');
