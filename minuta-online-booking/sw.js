@@ -81,6 +81,7 @@ const ASSETS = [
 // Warm after the first screen. A cold installation must not wait for tools
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
+  './provider-feedback-inbox.js?v=707',
   './free-slots-compact.css?v=707',
   './vendor/qrcodegen.js?v=707',
   './code-scanner.css?v=707',

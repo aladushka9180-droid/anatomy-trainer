@@ -136,6 +136,7 @@
           <button type="button" data-provider-view="analytics"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-chart"></use></svg></span><span>Статистика</span></button>
           <button type="button" data-provider-view="portfolio"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-image"></use></svg></span><span>Портфолио</span></button>
           <span class="provider-nav-group-label">Система</span>
+          <button type="button" data-provider-view="feedback-inbox"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-info"></use></svg></span><span>Обращения</span></button>
           <button type="button" data-provider-view="settings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-settings"></use></svg></span><span>Настройки</span></button>
         </nav>
         <div class="sidebar-bottom">
@@ -1204,6 +1205,20 @@
           </section>
         </section>
 
+        <section class="provider-view feedback-inbox-view" data-provider-panel="feedback-inbox" hidden>
+          <div class="view-title"><div><span>Помощь и развитие продукта</span><h2 tabindex="-1">Обращения</h2></div><div class="view-title-actions"><span class="feedback-inbox-count" id="feedbackInboxCount" aria-label="Количество обращений">0</span><button class="secondary-button compact-button" type="button" data-feedback-inbox-reload><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Обновить</span></button></div></div>
+          <p class="view-description">Проблемы и предложения, отправленные вашей командой через форму обратной связи.</p>
+          <div class="feedback-inbox-filters" role="group" aria-label="Фильтр обращений">
+            <button class="active" type="button" data-feedback-inbox-filter="all" aria-pressed="true">Все</button>
+            <button type="button" data-feedback-inbox-filter="active" aria-pressed="false">В работе</button>
+            <button type="button" data-feedback-inbox-filter="done" aria-pressed="false">Завершённые</button>
+          </div>
+          <div class="loading-state feedback-inbox-state" id="feedbackInboxLoading" hidden><i></i><span>Загружаем обращения…</span></div>
+          <div class="feedback-inbox-state feedback-inbox-empty" id="feedbackInboxEmpty"><strong>Обращений пока нет</strong><p id="feedbackInboxEmptyText">Здесь появятся проблемы и предложения, отправленные через обратную связь.</p></div>
+          <div class="resource-inline-error feedback-inbox-state" id="feedbackInboxError" role="status" hidden><div><strong>Обращения временно недоступны</strong><small id="feedbackInboxErrorText"></small></div><button class="secondary-button" type="button" data-feedback-inbox-reload>Повторить</button></div>
+          <div class="feedback-inbox-list" id="feedbackInboxList"></div>
+        </section>
+
         <section class="provider-view" data-provider-panel="settings" hidden>
           <div class="view-title"><div><span>Параметры кабинета</span><h2 tabindex="-1">Настройки</h2></div></div>
           <details class="panel settings-quick-start ux-disclosure" id="settingsQuickStart" aria-labelledby="settingsQuickStartTitle">
@@ -1649,6 +1664,7 @@
           <div class="view-title"><div><span>Управление</span><h2>Разделы</h2></div></div>
           <p class="mobile-more-intro">Расписание, услуги и настройки бизнеса.</p>
           <div class="mobile-more-grid">
+            <button type="button" data-provider-view="feedback-inbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-info"></use></svg></span><strong>Обращения</strong><small>Сообщения об ошибках и предложения команды</small></button>
             <button class="mobile-settings-shortcut" type="button" data-provider-view="settings"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-settings"></use></svg></span><strong>Настройки кабинета</strong><small>Оформление, правила и безопасность</small></button>
             <a class="mobile-help-shortcut" href="help/index.html" target="_blank" rel="noopener noreferrer"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg></span><strong>База знаний</strong><small>Пошаговые инструкции по всем разделам</small></a>
             <button type="button" data-open-product-feedback hidden><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-info"></use></svg></span><strong>Обратная связь</strong><small>Сообщить о проблеме или предложить улучшение</small></button>
@@ -1954,6 +1970,7 @@
   <script src="client-fields.js?v=707" defer></script>
   <script src="client-import.js?v=707" defer></script>
   <script src="provider-feedback.js?v=707" defer></script>
+  <script src="provider-feedback-inbox.js?v=707" defer></script>
   <script src="batch-bookings.js?v=707" defer></script>
   <script src="booking-policy-management.js?v=707" defer></script>
   <script src="team-calendar.js?v=707" defer></script>

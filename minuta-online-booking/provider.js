@@ -490,6 +490,7 @@ const organizationFeatureRequests = new Map();
 let organizationFeatureContext = '';
 let organizationFeatureContextRevision = 0;
 let providerFeedbackController = { bind() {}, refreshAvailability() {}, reset() {} };
+let feedbackInboxController = { bind() {}, load() { return Promise.resolve({ ok:false, skipped:true }); }, setOrganization() {}, reset() {} };
 let timelineBookingDrag = null;
 let timelineMovePending = false;
 let scheduleDaySwipe = null;
@@ -2086,7 +2087,7 @@ function groupMobileMoreNavigation() {
     { title:'Ежедневная работа', keys:['bookings','clients','notifications','waitlist'] },
     { title:'Настройка бизнеса', keys:['schedule','services','organization'] },
     { title:'Развитие', keys:['analytics','portfolio'] },
-    { title:'Система', keys:['settings'], extras:['.mobile-help-shortcut','[data-open-product-feedback]'] }
+    { title:'Система', keys:['feedback-inbox','settings'], extras:['.mobile-help-shortcut','[data-open-product-feedback]'] }
   ];
   groups.forEach(({ title, keys, extras = [] }) => {
     const nodes = [
@@ -5493,7 +5494,7 @@ async function testVisitorSystemNotification() {
 
 let activeIosTransition = null;
 let activeIosTransitionCleanup = null;
-const PROVIDER_VIEW_ORDER = ['bookings', 'clients', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'settings', 'more'];
+const PROVIDER_VIEW_ORDER = ['bookings', 'clients', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'feedback-inbox', 'settings', 'more'];
 
 function providerViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
@@ -6132,6 +6133,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
   if (view === 'analytics') renderAnalytics();
   if (view === 'clients' && currentUser && navigator.onLine && !clientAvatarsLoaded) void loadClientAvatars();
   if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
+  if (view === 'feedback-inbox') void feedbackInboxController.load();
   if (view === 'portfolio' && currentUser && navigator.onLine && portfolioSyncDirty) scheduleBookingsReload('portfolio_items');
   if (view === 'waitlist') {
     renderWaitlist();
@@ -11884,6 +11886,7 @@ async function handleSession(session) {
   integrationController.reset();
   notificationCenterController.reset();
   providerFeedbackController.reset();
+  feedbackInboxController.reset();
   clientFieldsController.setOrganization(null);
   clientImportController.setOrganization(null);
   organizationController.reset();
@@ -14685,6 +14688,7 @@ const organizationController = window.MinutaOrganization.createController({
     clientRecordsController.setOrganization(organization);
     clientImportController.setOrganization(organization?.public_slug === REPORT_DEMO_SLUG ? null : organization);
     dataGovernanceController.setOrganization(organization);
+    feedbackInboxController.setOrganization(organization);
     applyDisplayPreferences();
     renderDisplayPreferencesForm();
     refreshSectionNavigation();
@@ -14701,6 +14705,14 @@ providerFeedbackController = window.MinutaProviderFeedback?.createController ? w
   getOrganization:() => organizationController.getActiveOrganization()
 }) : providerFeedbackController;
 providerFeedbackController.bind();
+feedbackInboxController = window.MinutaFeedbackInbox?.createController ? window.MinutaFeedbackInbox.createController({
+  db,
+  $,
+  notify,
+  getCurrentUser:() => currentUser,
+  getOrganization:() => organizationController.getActiveOrganization()
+}) : feedbackInboxController;
+feedbackInboxController.bind();
 freeSlotsController = window.MinutaFreeSlots.createController({
   root: $('#freeSlotsDialog'),
   notify,
