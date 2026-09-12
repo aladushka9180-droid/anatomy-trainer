@@ -72,6 +72,13 @@ try {
     'get_minuta_feedback_inbox_v146',
     'set_minuta_feedback_status_v146'
   ]);
+  await page.evaluate(() => {
+    effects.calls = [];
+    controller.reset();
+    controller.setOrganization({ id:'00000000-0000-4000-8000-000000000010' });
+  });
+  await page.waitForFunction(() => effects.calls.some(call => call.name === 'get_minuta_feedback_inbox_v146'));
+  assert.equal(await page.locator('.feedback-inbox-card').count(), 2, 'direct inbox startup reloads after organization becomes available');
   console.log('Feedback inbox v146 rendering, filters, status update and responsive checks passed.');
 } finally {
   await browser.close();

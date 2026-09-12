@@ -168,6 +168,7 @@
         canManage = false;
         filter = 'all';
         render();
+        if (nextId && $('#dashboard')?.dataset.activeView === 'feedback-inbox') void load({ force:true });
       },
       reset() {
         ++revision;

@@ -23,7 +23,7 @@ assert.doesNotMatch(rollback, /delete from|truncate|drop table|drop column/i);
 
 assert.match(html, /data-provider-panel="feedback-inbox"/);
 assert.match(html, /data-feedback-inbox-filter="active"/);
-assert.match(html, /provider-feedback-inbox\.js\?v=708/);
+assert.match(html, /provider-feedback-inbox\.js\?v=709/);
 assert.match(provider, /view === 'feedback-inbox'\) void feedbackInboxController\.load\(\)/);
 assert.match(provider, /feedbackInboxController\.setOrganization\(organization\)/);
 assert.match(moduleSource, /get_minuta_feedback_inbox_v146/);
@@ -31,8 +31,8 @@ assert.match(moduleSource, /set_minuta_feedback_status_v146/);
 assert.match(moduleSource, /replace\(\/\[&<>"'\]\/g/);
 assert.doesNotMatch(moduleSource, /innerHTML\s*=\s*item\.(message|expected_result)/);
 assert.match(styles, /\.feedback-inbox-card/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v708`/);
-assert.match(worker, /'\.\/provider-feedback-inbox\.js\?v=708'/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v709`/);
+assert.match(worker, /'\.\/provider-feedback-inbox\.js\?v=709'/);
 
 for (const token of ['test-v146','validate-production-v146','apply-production-v146','observe-production-v146','feedback-inbox-v146-integration.sql']) {
   assert.ok(workflow.includes(token), `v146 workflow must include ${token}`);

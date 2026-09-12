@@ -13,6 +13,9 @@ test('portfolio offers explicit camera and gallery or files choices for both pho
   }
   assert.match(html, /data-portfolio-photo-pick="camera"[^>]*>[\s\S]*Снять на камеру/);
   assert.match(html, /data-portfolio-photo-pick="files"[^>]*>[\s\S]*Из галереи или файлов устройства/);
+  assert.match(html, /id="portfolioCameraDialog"/);
+  assert.match(html, /id="portfolioCameraVideo"[^>]+playsinline[^>]+autoplay/);
+  assert.match(html, /src="portfolio-camera\.js\?v=\d+"/);
 });
 
 function pickerHarness() {
@@ -32,7 +35,7 @@ function pickerHarness() {
   for (const side of ['Before', 'After']) for (const source of ['File', 'Camera']) {
     nodes[`#portfolio${side}${source}`] = { value:'old', clicks:0, click() { this.clicks += 1; } };
   }
-  const context = { $:selector => nodes[selector], setTimeout:callback => callback() };
+  const context = { $:selector => nodes[selector], setTimeout:callback => callback(), window:{} };
   vm.createContext(context);
   vm.runInContext("let portfolioPhotoSourceType = '';\n" + js.slice(from, to), context);
   return { context, nodes };
@@ -56,4 +59,19 @@ test('ready-photo choice opens the regular picker without capture', () => {
   context.choosePortfolioPhotoSource('files');
   assert.equal(nodes['#portfolioBeforeFile'].clicks, 1);
   assert.equal(nodes['#portfolioBeforeCamera'].clicks, 0);
+});
+
+test('camera choice opens the in-app camera when supported', () => {
+  const { context, nodes } = pickerHarness();
+  const opened = [];
+  context.window.MinutaPortfolioCamera = { open:options => opened.push(options) };
+  context.openPortfolioPhotoSource('after');
+  context.choosePortfolioPhotoSource('camera');
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0].title, 'Снять фото «После»');
+  assert.equal(typeof opened[0].onCapture, 'function');
+  assert.equal(typeof opened[0].onFallback, 'function');
+  assert.equal(nodes['#portfolioAfterCamera'].clicks, 0);
+  opened[0].onFallback();
+  assert.equal(nodes['#portfolioAfterCamera'].clicks, 1);
 });
