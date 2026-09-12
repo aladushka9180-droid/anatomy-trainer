@@ -930,7 +930,7 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .provider-section-marker { display:block; height:0; scroll-margin-top:78px; }
 .sidebar-bottom { display:grid; gap:13px; margin-top:auto; padding-top:20px; border-top:1px solid #edf1ee; }
 .sidebar-bottom>a { display:flex; align-items:center; gap:9px; padding:0 10px; color:#52675c; text-decoration:none; font-size:12px; font-weight:750; }
-.provider-feedback-link { display:flex; align-items:center; gap:9px; width:100%; padding:0 10px; border:0; background:transparent; color:#52675c; cursor:pointer; font:inherit; font-size:12px; font-weight:750; text-align:left; }
+.provider-feedback-link { display:flex; align-items:center; gap:9px; width:100%; padding:0 10px; border:0; background:transparent; color:var(--theme-muted,#52675c); cursor:pointer; font:inherit; font-size:12px; font-weight:750; text-align:left; }
 .provider-feedback-link .ui-icon { width:16px; height:16px; }
 .provider-user { display:grid; grid-template-columns:38px minmax(0,1fr); align-items:center; gap:10px; padding:12px 10px; border-radius:13px; background:#f6f8f6; }
 .user-avatar { display:grid; place-items:center; width:38px; height:38px; border-radius:12px; background:#183f2d; color:#fff; font-weight:900; }
@@ -1214,7 +1214,7 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .schedule-quick-actions small[data-state="ready"],.schedule-quick-actions small[data-state="saved"] { color:var(--theme-accent,#2f7654); }
 .sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
 .booking-step-setting { display:flex; align-items:center; justify-content:space-between; gap:22px; margin-top:14px; padding:13px 0; border:0; border-bottom:1px solid var(--theme-line,#dce8e0); border-radius:0; background:transparent; }
-.booking-step-setting strong,.booking-step-setting small { display:block; }.booking-step-setting strong { color:#274938; font-size:13px; }.booking-step-setting small { max-width:320px; margin-top:5px; color:#75867d; font-size:10px; line-height:1.45; }
+.booking-step-setting strong,.booking-step-setting small { display:block; }.booking-step-setting strong { color:var(--theme-ink,#274938); font-size:13px; }.booking-step-setting small { max-width:320px; margin-top:5px; color:#75867d; font-size:10px; line-height:1.45; }
 .slot-step-label { display:block; flex:0 0 auto; margin:0; }
 .slot-step-label select { width:150px; min-height:54px; margin:0; padding:10px 42px 10px 20px; border:1.5px solid #438065; border-radius:17px; background-color:#fff; color:#173d2b; font-size:18px; font-weight:700; box-shadow:0 0 0 7px rgba(67,128,101,.09); cursor:pointer; }
 .slot-step-label select:focus { outline:3px solid rgba(67,128,101,.18); outline-offset:2px; }
