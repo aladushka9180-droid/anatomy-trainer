@@ -6,11 +6,27 @@ set local statement_timeout='2min';
 set local search_path=public,extensions,pg_catalog;
 
 do $dependency_guard$
+declare
+  v_name text;
+  v_proc regprocedure;
+  v_relation regclass;
+  v_hash text;
+  v_prefix text;
+  v_definition text;
 begin
   if to_regclass('public.commercial_sales') is null
      or to_regclass('public.commercial_sale_lines') is null
+     or to_regclass('public.commercial_sale_refunds') is null
+     or to_regclass('public.financial_accounts') is null
+     or to_regclass('public.financial_transactions') is null
+     or to_regclass('public.financial_postings') is null
      or to_regclass('public.organization_memberships') is null
      or to_regclass('public.performer_profiles') is null
+     or to_regclass('public.client_benefit_instruments') is null
+     or to_regclass('public.benefit_ledger') is null
+     or to_regclass('public.locations') is null
+     or to_regprocedure('public.minuta_financial_sha256_v129(jsonb)') is null
+     or to_regprocedure('public.apply_minuta_benefit(uuid,uuid,uuid,text,integer)') is null
      or to_regprocedure('public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is null
      or to_regprocedure('public.get_minuta_commerce_workspace_v147(uuid)') is null
      or to_regprocedure('public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)') is null
@@ -25,6 +41,199 @@ begin
      or to_regprocedure('public.get_minuta_benefit_lifecycle_v150(uuid,uuid)') is null
      or to_regclass('public.benefit_freeze_periods') is null
      or to_regclass('public.benefit_lifecycle_requests') is null then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  if not exists(select 1 from pg_catalog.pg_attribute where attrelid='public.commercial_sale_lines'::regclass and attname='quantity' and format_type(atttypid,atttypmod)='numeric(14,3)' and attnotnull)
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.commercial_sales'::regclass and contype='u' and pg_get_constraintdef(oid,true)='UNIQUE (organization_id, request_id)')
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.commercial_sale_lines'::regclass and contype='u' and pg_get_constraintdef(oid,true)='UNIQUE (sale_id)')
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.commercial_sale_refunds'::regclass and contype='u' and pg_get_constraintdef(oid,true)='UNIQUE (organization_id, request_id)')
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.financial_transactions'::regclass and contype='u' and pg_get_constraintdef(oid,true)='UNIQUE (organization_id, request_id)')
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.financial_postings'::regclass and contype='u' and pg_get_constraintdef(oid,true)='UNIQUE (transaction_id, account_id, side)')
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.commercial_sales'::regclass and contype='f' and pg_get_constraintdef(oid,true) like 'FOREIGN KEY (payment_account_id, organization_id) REFERENCES financial_accounts(id, organization_id)%')
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.commercial_sale_lines'::regclass and contype='f' and pg_get_constraintdef(oid,true) like 'FOREIGN KEY (sale_id, organization_id) REFERENCES commercial_sales(id, organization_id)%')
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.commercial_sale_refunds'::regclass and contype='f' and pg_get_constraintdef(oid,true) like 'FOREIGN KEY (sale_id, organization_id) REFERENCES commercial_sales(id, organization_id)%')
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.financial_postings'::regclass and contype='f' and pg_get_constraintdef(oid,true) like 'FOREIGN KEY (transaction_id, organization_id) REFERENCES financial_transactions(id, organization_id)%')
+     or not exists(select 1 from pg_catalog.pg_constraint where conrelid='public.financial_postings'::regclass and contype='f' and pg_get_constraintdef(oid,true) like 'FOREIGN KEY (account_id, organization_id) REFERENCES financial_accounts(id, organization_id)%')
+     or (select count(*)<>7 or not bool_and(convalidated) from pg_catalog.pg_constraint
+       where conrelid=any(array['public.financial_accounts'::regclass,'public.financial_transactions'::regclass])
+       and conname=any(array[
+       'financial_accounts_account_type_v147_check','financial_accounts_system_key_v147_check',
+       'financial_accounts_system_mapping_v147_check','financial_accounts_system_request_v147_check',
+       'financial_transactions_operation_v147_check','financial_transactions_source_v147_check',
+       'financial_transactions_shape_v147_check']))
+     or not exists(select 1 from pg_catalog.pg_index index_row
+       where index_row.indexrelid=to_regclass('public.commercial_sales_scope_v147_idx')
+         and index_row.indrelid='public.commercial_sales'::regclass
+         and pg_get_indexdef(index_row.indexrelid) like 'CREATE INDEX commercial_sales_scope_v147_idx ON public.commercial_sales USING btree (organization_id, occurred_at DESC, id)%')
+     or not (select prosecdef and coalesce(proconfig,'{}')@>array['search_path=""']
+       from pg_catalog.pg_proc where oid='public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)'::regprocedure)
+     or not (select prosecdef and provolatile='s' and coalesce(proconfig,'{}')@>array['search_path=""']
+       from pg_catalog.pg_proc where oid='public.get_minuta_commerce_workspace_v147(uuid)'::regprocedure)
+     or position(':commerce:' in pg_get_functiondef('public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)'::regprocedure))=0
+     or position('commercial_sale_idempotency_conflict' in pg_get_functiondef('public.sell_minuta_commercial_product_v147(uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)'::regprocedure))=0 then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  v_proc:='public.refund_minuta_commercial_sale_v147(uuid,uuid,numeric,bigint,text,uuid)'::regprocedure;
+  v_definition:=pg_get_functiondef(v_proc);
+  if not (select prosecdef and coalesce(proconfig,'{}')@>array['search_path=""'] from pg_catalog.pg_proc where oid=v_proc)
+     or position('v_expected_amount' in v_definition)=0
+     or position('commercial_refund_amount_unallocatable' in v_definition)=0
+     or position('commercial_refund_amount_mismatch' in v_definition)=0
+     or position('p_quantity=v_remaining_quantity' in replace(v_definition,' ',''))=0
+     or not has_function_privilege('authenticated',v_proc,'execute')
+     or has_function_privilege('anon',v_proc,'execute')
+     or exists(select 1 from pg_catalog.pg_proc procedure_row,
+       lateral aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
+       where procedure_row.oid=v_proc and grant_row.grantee=0 and grant_row.privilege_type='EXECUTE') then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  foreach v_name in array array[
+    'public.apply_minuta_benefit_v149(uuid,uuid,uuid,text,integer,uuid)',
+    'public.protect_minuta_benefit_application_v149()',
+    'public.get_minuta_benefit_timezone_v150(uuid)',
+    'public.minuta_benefit_frozen_days_v150(text,timestamptz,timestamptz)',
+    'public.sync_minuta_benefit_expiry_v150(uuid,uuid)',
+    'public.set_minuta_benefit_lifecycle_v150(uuid,uuid,text,text,uuid)',
+    'public.get_minuta_benefit_lifecycle_v150(uuid,uuid)',
+    'public.set_minuta_benefit_status(uuid,uuid,text)'
+  ] loop
+    v_proc:=to_regprocedure(v_name);
+    if v_proc is null then
+      raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+    end if;
+    v_prefix:=case when v_name like '%v149%' or v_name like '%protect_minuta_benefit_application%'
+      then 'minuta-benefit-application-v149:sha256=' else 'minuta_benefit_lifecycle_v150:sha256=' end;
+    select public.minuta_financial_sha256_v129(jsonb_build_object(
+      'source',procedure_row.prosrc,'kind',procedure_row.prokind,'language',language_row.lanname,
+      'owner',pg_get_userbyid(procedure_row.proowner),'volatility',procedure_row.provolatile,
+      'security_definer',procedure_row.prosecdef,'strict',procedure_row.proisstrict,
+      'leakproof',procedure_row.proleakproof,'parallel',procedure_row.proparallel,
+      'result',pg_get_function_result(procedure_row.oid),'arguments',pg_get_function_arguments(procedure_row.oid),
+      'identity_arguments',pg_get_function_identity_arguments(procedure_row.oid),
+      'config',coalesce(to_jsonb(procedure_row.proconfig),'null'::jsonb),
+      'acl',case when v_prefix like 'minuta-benefit%'
+        then coalesce((select jsonb_agg(jsonb_build_object(
+          'grantor',pg_get_userbyid(grant_row.grantor),
+          'grantee',case grant_row.grantee when 0 then 'PUBLIC' else pg_get_userbyid(grant_row.grantee) end,
+          'privilege',grant_row.privilege_type,'grantable',grant_row.is_grantable
+        ) order by pg_get_userbyid(grant_row.grantor),
+          case grant_row.grantee when 0 then 'PUBLIC' else pg_get_userbyid(grant_row.grantee) end,
+          grant_row.privilege_type,grant_row.is_grantable)
+          from aclexplode(procedure_row.proacl) grant_row),'[]'::jsonb)
+        else to_jsonb(coalesce(procedure_row.proacl::text,'')) end
+    )) into v_hash
+    from pg_catalog.pg_proc procedure_row
+    join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
+    where procedure_row.oid=v_proc;
+    if obj_description(v_proc::oid,'pg_proc') is distinct from v_prefix||v_hash then
+      raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+    end if;
+  end loop;
+
+  v_relation:='public.benefit_application_requests'::regclass;
+  select public.minuta_financial_sha256_v129(jsonb_build_object(
+    'kind',relation_row.relkind,'owner',pg_get_userbyid(relation_row.relowner),
+    'row_security',relation_row.relrowsecurity,'force_row_security',relation_row.relforcerowsecurity,
+    'acl',coalesce((select jsonb_agg(jsonb_build_object(
+      'grantor',pg_get_userbyid(grant_row.grantor),
+      'grantee',case grant_row.grantee when 0 then 'PUBLIC' else pg_get_userbyid(grant_row.grantee) end,
+      'privilege',grant_row.privilege_type,'grantable',grant_row.is_grantable
+    ) order by pg_get_userbyid(grant_row.grantor),
+      case grant_row.grantee when 0 then 'PUBLIC' else pg_get_userbyid(grant_row.grantee) end,
+      grant_row.privilege_type,grant_row.is_grantable)
+      from aclexplode(relation_row.relacl) grant_row),'[]'::jsonb),
+    'columns',coalesce((select jsonb_agg(jsonb_build_object(
+      'number',attribute_row.attnum,'name',attribute_row.attname,
+      'type',format_type(attribute_row.atttypid,attribute_row.atttypmod),
+      'not_null',attribute_row.attnotnull,'identity',attribute_row.attidentity,
+      'generated',attribute_row.attgenerated,'default',pg_get_expr(default_row.adbin,default_row.adrelid)
+    ) order by attribute_row.attnum)
+      from pg_catalog.pg_attribute attribute_row
+      left join pg_catalog.pg_attrdef default_row on default_row.adrelid=attribute_row.attrelid and default_row.adnum=attribute_row.attnum
+      where attribute_row.attrelid=relation_row.oid and attribute_row.attnum>0 and not attribute_row.attisdropped),'[]'::jsonb),
+    'constraints',coalesce((select jsonb_agg(jsonb_build_object(
+      'name',constraint_row.conname,'type',constraint_row.contype,'definition',pg_get_constraintdef(constraint_row.oid,true),
+      'validated',constraint_row.convalidated,'deferrable',constraint_row.condeferrable,'deferred',constraint_row.condeferred
+    ) order by constraint_row.conname) from pg_catalog.pg_constraint constraint_row where constraint_row.conrelid=relation_row.oid),'[]'::jsonb),
+    'indexes',coalesce((select jsonb_agg(pg_get_indexdef(index_row.indexrelid) order by index_row.indexrelid::regclass::text)
+      from pg_catalog.pg_index index_row where index_row.indrelid=relation_row.oid),'[]'::jsonb),
+    'policies',coalesce((select jsonb_agg(jsonb_build_object(
+      'name',policy_row.polname,'command',policy_row.polcmd,'permissive',policy_row.polpermissive,
+      'roles',coalesce((select jsonb_agg(pg_get_userbyid(role_oid) order by pg_get_userbyid(role_oid)) from unnest(policy_row.polroles) role_oid),'[]'::jsonb),
+      'using',pg_get_expr(policy_row.polqual,policy_row.polrelid),'check',pg_get_expr(policy_row.polwithcheck,policy_row.polrelid)
+    ) order by policy_row.polname) from pg_catalog.pg_policy policy_row where policy_row.polrelid=relation_row.oid),'[]'::jsonb),
+    'triggers',coalesce((select jsonb_agg(jsonb_build_object(
+      'name',trigger_row.tgname,'enabled',trigger_row.tgenabled,'definition',pg_get_triggerdef(trigger_row.oid,true)
+    ) order by trigger_row.tgname) from pg_catalog.pg_trigger trigger_row
+      where trigger_row.tgrelid=relation_row.oid and not trigger_row.tgisinternal),'[]'::jsonb)
+  )) into v_hash from pg_catalog.pg_class relation_row where relation_row.oid=v_relation;
+  if obj_description(v_relation::oid,'pg_class') is distinct from 'minuta-benefit-application-v149:sha256='||v_hash
+     or has_function_privilege('authenticated','public.apply_minuta_benefit(uuid,uuid,uuid,text,integer)','execute') then
+    raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+  end if;
+
+  foreach v_name in array array['public.benefit_freeze_periods','public.benefit_lifecycle_requests'] loop
+    v_relation:=to_regclass(v_name);
+    select public.minuta_financial_sha256_v129(jsonb_build_object(
+      'kind',relation_row.relkind,'owner',pg_get_userbyid(relation_row.relowner),
+      'row_security',relation_row.relrowsecurity,'force_row_security',relation_row.relforcerowsecurity,
+      'acl',coalesce(relation_row.relacl::text,''),
+      'columns',coalesce((select jsonb_agg(jsonb_build_object(
+        'number',attribute_row.attnum,'name',attribute_row.attname,'type',format_type(attribute_row.atttypid,attribute_row.atttypmod),
+        'not_null',attribute_row.attnotnull,'identity',attribute_row.attidentity,'generated',attribute_row.attgenerated,
+        'default',pg_get_expr(default_row.adbin,default_row.adrelid)
+      ) order by attribute_row.attnum) from pg_catalog.pg_attribute attribute_row
+        left join pg_catalog.pg_attrdef default_row on default_row.adrelid=attribute_row.attrelid and default_row.adnum=attribute_row.attnum
+        where attribute_row.attrelid=relation_row.oid and attribute_row.attnum>0 and not attribute_row.attisdropped),'[]'::jsonb),
+      'constraints',coalesce((select jsonb_agg(jsonb_build_object(
+        'name',constraint_row.conname,'type',constraint_row.contype,'definition',pg_get_constraintdef(constraint_row.oid,true),
+        'validated',constraint_row.convalidated,'deferrable',constraint_row.condeferrable,'deferred',constraint_row.condeferred
+      ) order by constraint_row.conname) from pg_catalog.pg_constraint constraint_row where constraint_row.conrelid=relation_row.oid),'[]'::jsonb),
+      'indexes',coalesce((select jsonb_agg(pg_get_indexdef(index_row.indexrelid) order by index_row.indexrelid::regclass::text)
+        from pg_catalog.pg_index index_row where index_row.indrelid=relation_row.oid),'[]'::jsonb),
+      'policies',coalesce((select jsonb_agg(jsonb_build_object(
+        'name',policy_row.polname,'command',policy_row.polcmd,'permissive',policy_row.polpermissive,
+        'roles',coalesce((select jsonb_agg(pg_get_userbyid(role_oid) order by pg_get_userbyid(role_oid)) from unnest(policy_row.polroles) role_oid),'[]'::jsonb),
+        'using',pg_get_expr(policy_row.polqual,policy_row.polrelid),'check',pg_get_expr(policy_row.polwithcheck,policy_row.polrelid)
+      ) order by policy_row.polname) from pg_catalog.pg_policy policy_row where policy_row.polrelid=relation_row.oid),'[]'::jsonb),
+      'triggers',coalesce((select jsonb_agg(jsonb_build_object(
+        'name',trigger_row.tgname,'enabled',trigger_row.tgenabled,'definition',pg_get_triggerdef(trigger_row.oid,true)
+      ) order by trigger_row.tgname) from pg_catalog.pg_trigger trigger_row
+        where trigger_row.tgrelid=relation_row.oid and not trigger_row.tgisinternal),'[]'::jsonb)
+    )) into v_hash from pg_catalog.pg_class relation_row where relation_row.oid=v_relation;
+    if obj_description(v_relation::oid,'pg_class') is distinct from 'minuta_benefit_lifecycle_v150:sha256='||v_hash then
+      raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
+    end if;
+  end loop;
+
+  select public.minuta_financial_sha256_v129(jsonb_build_object(
+    'name',constraint_row.conname,'type',constraint_row.contype,'definition',pg_get_constraintdef(constraint_row.oid,true),
+    'validated',constraint_row.convalidated,'deferrable',constraint_row.condeferrable,'deferred',constraint_row.condeferred
+  )) into v_hash from pg_catalog.pg_constraint constraint_row
+    where constraint_row.conrelid='public.benefit_ledger'::regclass and constraint_row.conname='benefit_ledger_event_type_check';
+  if v_hash is null or coalesce(obj_description((select oid from pg_catalog.pg_constraint
+      where conrelid='public.benefit_ledger'::regclass and conname='benefit_ledger_event_type_check'),'pg_constraint'),'')
+      <> 'minuta_benefit_lifecycle_v150:sha256='||v_hash
+     or exists(select 1 from public.client_benefit_instruments instrument
+       where instrument.status='frozen' and not exists(select 1 from public.benefit_freeze_periods period
+         where period.instrument_id=instrument.id and period.organization_id=instrument.organization_id and period.thawed_at is null))
+     or exists(select 1 from public.benefit_freeze_periods period join public.client_benefit_instruments instrument
+       on (instrument.id,instrument.organization_id)=(period.instrument_id,period.organization_id)
+       where period.thawed_at is null and instrument.status<>'frozen')
+     or exists(select 1 from public.benefit_freeze_periods where thawed_at is null group by instrument_id having count(*)>1)
+     or exists(
+       select 1 from (select distinct organization_id from public.client_benefit_instruments) organization_row
+       left join lateral (
+         select location.timezone from public.locations location
+         where location.organization_id=organization_row.organization_id and location.active
+         order by location.is_primary desc,location.id limit 1
+       ) chosen on true
+       left join pg_catalog.pg_timezone_names zone on zone.name=chosen.timezone
+       where chosen.timezone is null or zone.name is null
+     ) then
     raise exception using errcode='55000',message='v151_requires_exact_v147_v148_v149_v150';
   end if;
 end
@@ -90,6 +299,8 @@ declare
   v_subtotal bigint;
   v_total bigint;
   v_fingerprint text;
+  v_legacy_fingerprint text;
+  v_sale_fingerprint text;
   v_instrument jsonb;
   v_movement jsonb;
   v_revenue uuid;
@@ -113,6 +324,16 @@ begin
      and (p_inventory_item is null or p_warehouse is null or p_benefit_product is not null) then
     raise exception using errcode='22023',message='invalid_inventory_sale';
   end if;
+  if p_item_kind='inventory_item' and (
+       p_quantity::text in('NaN','Infinity','-Infinity')
+       or p_quantity>99999999999.999
+       or scale(p_quantity)>3
+     ) then
+    raise exception using errcode='22023',message='invalid_inventory_quantity';
+  end if;
+  if round(p_quantity*p_unit_price_minor)>9223372036854775807 then
+    raise exception using errcode='22003',message='commercial_sale_subtotal_out_of_range';
+  end if;
   v_subtotal:=round(p_quantity*p_unit_price_minor)::bigint;
   v_total:=v_subtotal-coalesce(p_discount_minor,0);
   if v_total<=0 then
@@ -126,8 +347,13 @@ begin
   v_fingerprint:=public.minuta_financial_sha256_v129(jsonb_build_array(
     p_organization,p_booking,p_client_account,v_seller,p_item_kind,p_benefit_product,p_inventory_item,p_warehouse,
     p_quantity,p_unit_price_minor,coalesce(p_discount_minor,0),p_payment_method,p_payment_account));
+  v_legacy_fingerprint:=public.minuta_financial_sha256_v129(jsonb_build_array(
+    p_organization,p_booking,p_client_account,p_item_kind,p_benefit_product,p_inventory_item,p_warehouse,
+    p_quantity,p_unit_price_minor,coalesce(p_discount_minor,0),p_payment_method,p_payment_account));
+  v_sale_fingerprint:=case when v_seller=v_actor then v_legacy_fingerprint else v_fingerprint end;
   if v_sale.id is not null then
-    if v_sale.request_fingerprint<>v_fingerprint then
+    if v_sale.request_fingerprint<>v_fingerprint
+       and not (v_sale.seller_id is not distinct from v_seller and v_sale.request_fingerprint=v_legacy_fingerprint) then
       raise exception using errcode='23505',message='commercial_sale_idempotency_conflict';
     end if;
     return jsonb_build_object(
@@ -171,7 +397,7 @@ begin
     subtotal_minor,discount_minor,total_minor,request_id,request_fingerprint,occurred_at
   ) values(
     p_organization,p_booking,p_client_account,v_seller,'paid',p_payment_method,p_payment_account,
-    v_subtotal,coalesce(p_discount_minor,0),v_total,p_request_id,v_fingerprint,now()
+    v_subtotal,coalesce(p_discount_minor,0),v_total,p_request_id,v_sale_fingerprint,now()
   ) returning * into v_sale;
 
   if p_item_kind='benefit_product' then

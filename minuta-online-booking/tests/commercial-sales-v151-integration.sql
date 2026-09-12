@@ -45,6 +45,7 @@ declare
   before_movements bigint;
   before_transactions bigint;
   hash64 text:=repeat('1',64);
+  phone text:='79'||translate(substr(md5(owner_id::text),1,9),'abcdef','012345');
 begin
   perform pg_temp.v151_assert(
     to_regprocedure('public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid)') is not null,
@@ -79,7 +80,7 @@ begin
   insert into public.services(id,performer_id,name,duration_minutes,price_rub,active)
     values(service_id,seller_id,'V151 service',60,2500,true);
   insert into public.client_accounts(id,normalized_phone,access_code_hash)
-    values(client_id,'79990000151',hash64);
+    values(client_id,phone,hash64);
   perform set_config('minuta.booking_organization',organization_id::text,true);
   perform set_config('minuta.booking_location',location_id::text,true);
   insert into public.bookings(
@@ -88,7 +89,7 @@ begin
     payment_status,payment_url,provider_note,booking_policy_snapshot
   ) values(
     booking_id,'V151-'||substr(replace(gen_random_uuid()::text,'-',''),1,10),gen_random_uuid(),seller_id,service_id,
-    'V151 client','79990000151',client_id,current_date,time '15:00',60,2500,2500,'confirmed',0,
+    'V151 client',phone,client_id,current_date,time '15:00',60,2500,2500,'confirmed',0,
     'not_required','','','{}'
   );
   perform set_config('minuta.booking_organization','',true);
@@ -231,6 +232,38 @@ begin
     raise exception 'v151_insufficient_stock_accepted';
   exception when others then
     if sqlerrm not like '%insufficient%' and sqlerrm not like '%negative%' then raise; end if;
+  end;
+  begin
+    perform public.sell_minuta_commercial_product_v151(
+      organization_id,null,null,seller_id,'inventory_item',null,item_id,warehouse_id,
+      'NaN'::numeric,10000,0,'cash',cash_id,gen_random_uuid());
+    raise exception 'v151_nan_quantity_accepted';
+  exception when invalid_parameter_value then
+    if sqlerrm<>'invalid_inventory_quantity' then raise; end if;
+  end;
+  begin
+    perform public.sell_minuta_commercial_product_v151(
+      organization_id,null,null,seller_id,'inventory_item',null,item_id,warehouse_id,
+      1.0001,10000,0,'cash',cash_id,gen_random_uuid());
+    raise exception 'v151_over_scale_quantity_accepted';
+  exception when invalid_parameter_value then
+    if sqlerrm<>'invalid_inventory_quantity' then raise; end if;
+  end;
+  begin
+    perform public.sell_minuta_commercial_product_v151(
+      organization_id,null,null,seller_id,'inventory_item',null,item_id,warehouse_id,
+      100000000000,10000,0,'cash',cash_id,gen_random_uuid());
+    raise exception 'v151_out_of_range_quantity_accepted';
+  exception when invalid_parameter_value then
+    if sqlerrm<>'invalid_inventory_quantity' then raise; end if;
+  end;
+  begin
+    perform public.sell_minuta_commercial_product_v151(
+      organization_id,null,null,seller_id,'inventory_item',null,item_id,warehouse_id,
+      99999999999.999,100000000,0,'cash',cash_id,gen_random_uuid());
+    raise exception 'v151_subtotal_overflow_accepted';
+  exception when numeric_value_out_of_range then
+    if sqlerrm<>'commercial_sale_subtotal_out_of_range' then raise; end if;
   end;
   perform pg_temp.v151_assert((select count(*) from public.commercial_sales where organization_id=fixture.organization_id)=before_sales,'failed_sales_atomic');
   perform pg_temp.v151_assert((select count(*) from public.inventory_movements where organization_id=fixture.organization_id)=before_movements,'failed_inventory_atomic');

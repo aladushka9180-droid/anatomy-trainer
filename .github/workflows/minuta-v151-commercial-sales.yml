@@ -63,7 +63,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
       - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
-      - name: Test exact baseline, guards, lifecycle, rollback and reapply
+      - name: Prove sequential v147 through v151 apply on isolated database
         run: |
           set -euo pipefail
           test "$MINUTA_TEST_PROJECT_REF" != "$MINUTA_PRODUCTION_PROJECT_REF"
@@ -73,41 +73,41 @@ jobs:
           SQL
           )"
           test "$(tr -d '[:space:]' <<<"$marker")" = 1
-          prior="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql)"
-          prior="$(grep '^{' <<<"$prior"|tail -n 1)"
-          jq -e '.v148Secure and .classification=="v150-phase1-or-complete-exact" and .v149Exact and .v150Exact and .invalidTimezoneOrganizations==0' <<<"$prior" >/dev/null
-          invariants="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
-          select json_build_object(
-            'missingOpen',(select count(*) from public.client_benefit_instruments i where i.status='frozen' and not exists(select 1 from public.benefit_freeze_periods p where p.instrument_id=i.id and p.thawed_at is null)),
-            'orphanOpen',(select count(*) from public.benefit_freeze_periods p join public.client_benefit_instruments i on i.id=p.instrument_id where p.thawed_at is null and i.status<>'frozen'),
-            'duplicateOpen',(select count(*) from (select instrument_id from public.benefit_freeze_periods where thawed_at is null group by instrument_id having count(*)<>1) duplicate));
-          SQL
-          )"
-          jq -e '.missingOpen==0 and .orphanOpen==0 and .duplicateOpen==0' <<<"$invariants" >/dev/null
-          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql)"
-          state="$(grep '^{' <<<"$state"|tail -n 1)"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -v run_key="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -f minuta-online-booking/tests/commercial-sales-v151-durable-cleanup.sql
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
           case "$(jq -r .classification <<<"$state")" in
-            exact) psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151-rollback.sql ;;
-            absent) ;;
+            exact) touch "$RUNNER_TEMP/v151-test-owned"; psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151-rollback.sql ;;
+            absent) touch "$RUNNER_TEMP/v151-test-owned" ;;
             *) jq -c . <<<"$state"; exit 1 ;;
           esac
+          prior="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql)"
+          prior="$(grep '^{' <<<"$prior"|tail -n 1)"
+          jq -e '.v148Secure and .classification=="v150-phase1-or-complete-exact" and .v149Exact and .v150Exact and .invalidTimezoneOrganizations==0 and .expectedBackfill==0' <<<"$prior" >/dev/null
+          history="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('applications',(select count(*) from public.benefit_application_requests),'lifecycle',(select count(*) from public.benefit_lifecycle_requests),'freezePeriods',(select count(*) from public.benefit_freeze_periods),'expiredLedger',(select count(*) from public.benefit_ledger where event_type='expired'))")"
+          jq -e '.applications==0 and .lifecycle==0 and .freezePeriods==0 and .expiredLedger==0' <<<"$history" >/dev/null
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v150-rollback.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v149-rollback.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v148-rollback.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v147.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v148.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v149.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v150.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
           exact="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql)"
           exact="$(grep '^{' <<<"$exact"|tail -n 1)"
-          jq -e '.classification=="exact" and .exact and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not)' <<<"$exact" >/dev/null
+          jq -e '.classification=="exact" and .exact and .criticalSchemaExact and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not)' <<<"$exact" >/dev/null
+          prior_after="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql | grep '^{' | tail -n 1)"
+          jq -e '.v148Secure and .v149Exact and .v150Exact and .invalidTimezoneOrganizations==0' <<<"$prior_after" >/dev/null
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/commercial-sales-v151-integration.sql
-          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151-rollback.sql
-          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151-rollback.sql
-          absent="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql)"
-          absent="$(grep '^{' <<<"$absent"|tail -n 1)"
-          jq -e '.classification=="absent" and .presentCount==0' <<<"$absent" >/dev/null
-          prior_after="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql)"
-          prior_after="$(grep '^{' <<<"$prior_after"|tail -n 1)"
-          jq -e '.v148Secure and .classification=="v150-phase1-or-complete-exact" and .v149Exact and .v150Exact' <<<"$prior_after" >/dev/null
-          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
-          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
-          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/commercial-sales-v151-integration.sql
+
+      - name: Prove committed persistence, mixed-version replay and concurrent submit
+        run: bash minuta-online-booking/tests/commercial-sales-v151-durable-concurrency-test.sh "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+
+      - name: Prove partial and newer v151 guards
+        run: |
+          set -euo pipefail
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
           psql "$db" -X -q -v ON_ERROR_STOP=1 <<'SQL'
           create or replace function public.get_minuta_commerce_workspace_v151(p_organization uuid)
           returns jsonb language sql stable security definer set search_path to ''
@@ -126,6 +126,25 @@ jobs:
           test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.get_minuta_commerce_workspace_v151(uuid)') is not null")" = t
           psql "$db" -X -q -v ON_ERROR_STOP=1 -c "drop function public.get_minuta_commerce_workspace_v151(uuid);"
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+
+      - name: Clean durable fixture and restore exact test chain
+        if: always()
+        run: |
+          set -euo pipefail
+          test "$MINUTA_TEST_PROJECT_REF" != "$MINUTA_PRODUCTION_PROJECT_REF"
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v expected_ref="$MINUTA_TEST_PROJECT_REF" -c "select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true")"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          test -f "$RUNNER_TEMP/v151-test-owned" || exit 0
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -v run_key="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -f minuta-online-booking/tests/commercial-sales-v151-durable-cleanup.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -c "drop function if exists public.get_minuta_commerce_workspace_v151(uuid); drop function if exists public.sell_minuta_commercial_product_v151(uuid,uuid,uuid,uuid,text,uuid,uuid,uuid,numeric,bigint,bigint,text,uuid,uuid);"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v147.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v148.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v149.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v150.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
+          jq -e '.classification=="exact" and .criticalSchemaExact' <<<"$state" >/dev/null
       - name: Create isolated test attestation
         env: { SHA: "${{ inputs.commit_sha }}" }
         run: |
@@ -134,9 +153,12 @@ jobs:
             --arg rollback "$(sha256sum minuta-online-booking/supabase-migration-v151-rollback.sql|cut -d' ' -f1)" \
             --arg state "$(sha256sum minuta-online-booking/scripts/commercial-sales-v151-state.sql|cut -d' ' -f1)" \
             --arg integration "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-integration.sql|cut -d' ' -f1)" \
+            --arg setup "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-durable-setup.sql|cut -d' ' -f1)" \
+            --arg durable "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-durable-concurrency-test.sh|cut -d' ' -f1)" \
+            --arg cleanup "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-durable-cleanup.sql|cut -d' ' -f1)" \
             '{status:"success",phase:"test-v151",commitSha:$sha,runId:$run,isolatedDatabase:true,
-              coverage:["v147-v151-exact-baseline","visit-sale","standalone-sale","seller","inventory-atomicity","sale-idempotency","benefit-v149-application","benefit-v150-freeze-unfreeze","benefit-v148-refund","partial-guard","newer-guard","rollback","reapply"],
-              migrationSha256:$migration,rollbackSha256:$rollback,stateSha256:$state,integrationSha256:$integration,productionWritten:false,businessRowsChanged:false}' > "$RUNNER_TEMP/v151-test.json"
+              coverage:["v147-v151-sequential-apply","critical-schema-fingerprint","quantity-boundaries","visit-sale","standalone-sale","seller","inventory-atomicity","sale-idempotency","benefit-v149-application","benefit-v150-freeze-unfreeze","benefit-v148-refund","mixed-version-replay-both-directions","committed-rollback-persistence","two-psql-connections","observed-lock-wait","partial-guard","newer-guard","always-cleanup","reapply"],
+              migrationSha256:$migration,rollbackSha256:$rollback,stateSha256:$state,integrationSha256:$integration,setupSha256:$setup,durableSha256:$durable,cleanupSha256:$cleanup,productionWritten:false,businessRowsChanged:false}' > "$RUNNER_TEMP/v151-test.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with: { name: "v151-test-${{ github.run_id }}", path: "${{ runner.temp }}/v151-test.json", if-no-files-found: error, retention-days: 35 }
 
@@ -169,7 +191,7 @@ jobs:
           jq -e '.v148Secure and .classification=="v150-phase1-or-complete-exact" and .v149Exact and .v150Exact and .invalidTimezoneOrganizations==0' <<<"$prior" >/dev/null
           state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql)"
           state="$(grep '^{' <<<"$state"|tail -n 1)"
-          jq -e '.classification=="absent" or (.classification=="exact" and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not))' <<<"$state" >/dev/null
+          jq -e '.criticalSchemaExact and (.classification=="absent" or (.classification=="exact" and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not)))' <<<"$state" >/dev/null
           invariants="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
           select json_build_object(
             'missingOpen',(select count(*) from public.client_benefit_instruments i where i.status='frozen' and not exists(select 1 from public.benefit_freeze_periods p where p.instrument_id=i.id and p.thawed_at is null)),
@@ -205,7 +227,25 @@ jobs:
           mkdir -p "$RUNNER_TEMP/v151-evidence"/{test,validation,backup,restore}
           check_run "$TEST" .github/workflows/minuta-v151-commercial-sales.yml
           gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v151-test-$TEST" -D "$RUNNER_TEMP/v151-evidence/test"
-          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .isolatedDatabase and (.productionWritten|not) and (.businessRowsChanged|not)' "$RUNNER_TEMP/v151-evidence/test/v151-test.json" >/dev/null
+          jq -e --arg sha "$SHA" \
+            --arg migration "$(sha256sum minuta-online-booking/supabase-migration-v151.sql|cut -d' ' -f1)" \
+            --arg rollback "$(sha256sum minuta-online-booking/supabase-migration-v151-rollback.sql|cut -d' ' -f1)" \
+            --arg state "$(sha256sum minuta-online-booking/scripts/commercial-sales-v151-state.sql|cut -d' ' -f1)" \
+            --arg integration "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-integration.sql|cut -d' ' -f1)" \
+            --arg setup "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-durable-setup.sql|cut -d' ' -f1)" \
+            --arg durable "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-durable-concurrency-test.sh|cut -d' ' -f1)" \
+            --arg cleanup "$(sha256sum minuta-online-booking/tests/commercial-sales-v151-durable-cleanup.sql|cut -d' ' -f1)" '
+            .status=="success" and .commitSha==$sha and .isolatedDatabase
+            and (.productionWritten|not) and (.businessRowsChanged|not)
+            and .migrationSha256==$migration and .rollbackSha256==$rollback and .stateSha256==$state
+            and .integrationSha256==$integration and .setupSha256==$setup and .durableSha256==$durable and .cleanupSha256==$cleanup
+            and (.coverage|index("v147-v151-sequential-apply"))!=null
+            and (.coverage|index("committed-rollback-persistence"))!=null
+            and (.coverage|index("mixed-version-replay-both-directions"))!=null
+            and (.coverage|index("two-psql-connections"))!=null
+            and (.coverage|index("observed-lock-wait"))!=null
+            and (.coverage|index("always-cleanup"))!=null
+          ' "$RUNNER_TEMP/v151-evidence/test/v151-test.json" >/dev/null
           check_run "$VALIDATION" .github/workflows/minuta-v151-commercial-sales.yml
           gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v151-validation-$VALIDATION" -D "$RUNNER_TEMP/v151-evidence/validation"
           jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .readOnly
@@ -239,13 +279,13 @@ jobs:
           jq -e '.v148Secure and .classification=="v150-phase1-or-complete-exact" and .v149Exact and .v150Exact and .invalidTimezoneOrganizations==0' <<<"$prior_before" >/dev/null
           state_before="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql)"
           state_before="$(grep '^{' <<<"$state_before"|tail -n 1)"
-          jq -e '.classification=="absent" or .classification=="exact"' <<<"$state_before" >/dev/null
+          jq -e '.criticalSchemaExact and (.classification=="absent" or .classification=="exact")' <<<"$state_before" >/dev/null
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
           after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('sales',(select count(*) from public.commercial_sales),'lines',(select count(*) from public.commercial_sale_lines),'refunds',(select count(*) from public.commercial_sale_refunds),'movements',(select count(*) from public.inventory_movements),'transactions',(select count(*) from public.financial_transactions),'postings',(select count(*) from public.financial_postings),'instruments',(select count(*) from public.client_benefit_instruments),'applications',(select count(*) from public.benefit_application_requests),'lifecycle',(select count(*) from public.benefit_lifecycle_requests),'freezePeriods',(select count(*) from public.benefit_freeze_periods))")"
           test "$(jq -S . <<<"$after")" = "$(jq -S . <<<"$before")"
           state_after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql)"
           state_after="$(grep '^{' <<<"$state_after"|tail -n 1)"
-          jq -e '.classification=="exact" and .exact and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not)' <<<"$state_after" >/dev/null
+          jq -e '.classification=="exact" and .exact and .criticalSchemaExact and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not)' <<<"$state_after" >/dev/null
           prior_after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql)"
           prior_after="$(grep '^{' <<<"$prior_after"|tail -n 1)"
           jq -e '.v148Secure and .classification=="v150-phase1-or-complete-exact" and .v149Exact and .v150Exact and .invalidTimezoneOrganizations==0' <<<"$prior_after" >/dev/null
@@ -282,7 +322,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/v151-apply"
           gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v151-apply-$APPLY" -D "$RUNNER_TEMP/v151-apply"
           jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .productionWritten and (.businessRowsChanged|not)
-            and .stateAfter.classification=="exact" and .priorAfter.v148Secure and .priorAfter.v149Exact and .priorAfter.v150Exact' "$RUNNER_TEMP/v151-apply/v151-apply.json" >/dev/null
+            and .stateAfter.classification=="exact" and .stateAfter.criticalSchemaExact and .priorAfter.v148Secure and .priorAfter.v149Exact and .priorAfter.v150Exact' "$RUNNER_TEMP/v151-apply/v151-apply.json" >/dev/null
           db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
           bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
           prior="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/benefits-v149-v150-state.sql)"
@@ -290,7 +330,7 @@ jobs:
           jq -e '.v148Secure and .classification=="v150-phase1-or-complete-exact" and .v149Exact and .v150Exact and .invalidTimezoneOrganizations==0' <<<"$prior" >/dev/null
           state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql)"
           state="$(grep '^{' <<<"$state"|tail -n 1)"
-          jq -e '.classification=="exact" and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not)' <<<"$state" >/dev/null
+          jq -e '.classification=="exact" and .criticalSchemaExact and .authenticatedSaleExecute and .authenticatedWorkspaceExecute and (.anonSaleExecute|not) and (.anonWorkspaceExecute|not)' <<<"$state" >/dev/null
           invariants="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
           select json_build_object(
             'missingOpen',(select count(*) from public.client_benefit_instruments i where i.status='frozen' and not exists(select 1 from public.benefit_freeze_periods p where p.instrument_id=i.id and p.thawed_at is null)),
