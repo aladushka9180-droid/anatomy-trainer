@@ -57,7 +57,7 @@ begin
     perform pg_temp.v148_assert(error_text='commercial_refund_amount_mismatch','mismatch_error');
   end;
   perform pg_temp.v148_assert(
-    (select count(*)=0 from public.commercial_sale_refunds where sale_id=fixture.sale_id),'mismatch_not_recorded');
+    (select count(*)=0 from public.commercial_sale_refunds as refunds where refunds.sale_id=fixture.sale_id),'mismatch_not_recorded');
   perform pg_temp.v148_assert(
     (select balances.quantity=stock_before from public.inventory_stock_balances as balances where balances.warehouse_id=fixture.warehouse_id and balances.inventory_item_id=fixture.item_id),'mismatch_stock_unchanged');
   perform pg_temp.v148_assert((select count(*)=transactions_before from public.financial_transactions),'mismatch_transactions_unchanged');
@@ -71,11 +71,11 @@ begin
   perform public.refund_minuta_commercial_sale_v147(organization_id,sale_id,1,99,'Второй частичный возврат',gen_random_uuid());
   perform public.refund_minuta_commercial_sale_v147(organization_id,sale_id,1,100,'Полный возврат остатка',gen_random_uuid());
   perform pg_temp.v148_assert(
-    (select status='refunded' and refunded_minor=total_minor from public.commercial_sales where id=fixture.sale_id),'sale_fully_refunded');
+    (select sales.status='refunded' and sales.refunded_minor=sales.total_minor from public.commercial_sales as sales where sales.id=fixture.sale_id),'sale_fully_refunded');
   perform pg_temp.v148_assert(
-    (select refunded_quantity=quantity from public.commercial_sale_lines where sale_id=fixture.sale_id),'quantity_fully_refunded');
+    (select lines.refunded_quantity=lines.quantity from public.commercial_sale_lines as lines where lines.sale_id=fixture.sale_id),'quantity_fully_refunded');
   perform pg_temp.v148_assert(
-    (select sum(amount_minor)=299 and sum(quantity)=3 from public.commercial_sale_refunds where sale_id=fixture.sale_id),'refund_totals_match');
+    (select sum(refunds.amount_minor)=299 and sum(refunds.quantity)=3 from public.commercial_sale_refunds as refunds where refunds.sale_id=fixture.sale_id),'refund_totals_match');
   perform pg_temp.v148_assert(
     (select balances.quantity=10 from public.inventory_stock_balances as balances where balances.warehouse_id=fixture.warehouse_id and balances.inventory_item_id=fixture.item_id),'stock_fully_restored');
 
@@ -91,11 +91,11 @@ begin
     perform pg_temp.v148_assert(error_text='commercial_refund_amount_unallocatable','tiny_partial_rejected');
   end;
   perform pg_temp.v148_assert(
-    (select refunded_minor=0 and status='paid' from public.commercial_sales where id=fixture.sale_id),'tiny_sale_unchanged');
+    (select sales.refunded_minor=0 and sales.status='paid' from public.commercial_sales as sales where sales.id=fixture.sale_id),'tiny_sale_unchanged');
   perform public.refund_minuta_commercial_sale_v147(
     organization_id,sale_id,0.5,1,'Полный возврат микропродажи',gen_random_uuid());
   perform pg_temp.v148_assert(
-    (select refunded_minor=total_minor and status='refunded' from public.commercial_sales where id=fixture.sale_id),'tiny_full_refund_allowed');
+    (select sales.refunded_minor=sales.total_minor and sales.status='refunded' from public.commercial_sales as sales where sales.id=fixture.sale_id),'tiny_full_refund_allowed');
 end
 $test$;
 
