@@ -53,6 +53,8 @@ try {
         panel.classList.toggle('active', !panel.hidden);
       });
       document.querySelector('#organizationWorkspace').hidden = false;
+      document.querySelector('#organizationLoading').hidden = true;
+      document.querySelector('#organizationRoleBadge').textContent = 'Владелец';
       document.querySelectorAll('[data-provider-panel="organization"] .provider-section-anchor').forEach(panel => { panel.hidden = panel.id !== 'commercePanel'; });
       document.querySelector('#commercePanel').hidden = false;
     });
@@ -117,7 +119,7 @@ try {
     }, { organizationId, clientId, productId, accountId, expenseId, ownerId });
     await page.locator('#commerceWorkspace').waitFor({ state:'attached' });
     assert.equal(await page.locator('#moneyProfit').innerText(), '3 800 ₽');
-    assert.equal(await page.locator('#commerceRefundEmpty').innerText(), 'Возврат станет доступен после первой продажи.');
+    assert.equal(await page.locator('#commerceRefundEmpty').isHidden(), true);
     assert.equal(await page.locator('#commerceRefundCreator').isHidden(), true);
     assert.equal(await page.locator('#commerceRefundSubmit').isDisabled(), true);
 
@@ -182,6 +184,7 @@ try {
       assert.equal(await page.locator('#commerceRefundAmount').inputValue(), '');
       assert.equal(await page.locator('#commerceRefundSubmit').isDisabled(), true, 'partial refund cannot consume the final kopeck before the final quantity');
 
+      await page.locator('#commerceRecurring > summary').click();
       await page.locator('#commerceRecurringForm').locator('xpath=..').locator('summary').click();
       await page.locator('#commerceRecurringSupplier').fill('Арендодатель');
       await page.locator('#commerceRecurringAmount').fill('1200');
