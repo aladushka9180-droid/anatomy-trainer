@@ -1,0 +1,344 @@
+/* PrimeTime Pro canvas identities.
+   Decorative texture lives only on the page canvas at a controlled 2–6% opacity. */
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) {
+  position:relative;
+  isolation:isolate;
+  background:var(--theme-bg)!important;
+}
+
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"]))::before {
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background-image:var(--theme-canvas-texture);
+  background-size:var(--theme-canvas-size,100% 100%);
+  background-position:var(--theme-canvas-position,center top);
+  background-repeat:var(--theme-canvas-repeat,repeat);
+  opacity:var(--theme-canvas-opacity,.04);
+}
+
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) > .provider-main {
+  position:relative;
+  z-index:1;
+}
+
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) > .ambient {
+  display:none!important;
+}
+
+/* Reading and navigation surfaces stay clean and opaque over the canvas. */
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) :is(
+  .provider-sidebar,.provider-topbar,.provider-mobile-nav,.schedule-card,.panel,.settings-card,
+  .clients-directory,.client-profile,.notification-card,.waitlist-provider-card,
+  .portfolio-card,.provider-review-card,.report-summary article,
+  .schedule-toolbar,.date-navigation,.date-strip,.timeline-stage,.booking-sheet-panel,
+  .service-editor,.connection-log-dialog,.client-history-item
+) {
+  background-color:var(--theme-surface)!important;
+  background-image:none!important;
+}
+
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) :is(
+  .provider-app,.provider-main,.provider-workspace,.provider-view
+) {
+  background-color:transparent!important;
+  background-image:none!important;
+}
+
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) :is(
+  .booking-sheet,.provider-booking,.timeline-booking,.calendar-overview-booking,.calendar-week-booking
+) {
+  background-image:none!important;
+}
+
+.provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"])) :is(input,select,textarea) {
+  background-color:var(--theme-surface)!important;
+  background-image:none!important;
+}
+
+/* Editorial grids */
+.provider-body[data-provider-theme="sage"],.provider-theme-option.theme-sage {
+  --theme-canvas-texture:linear-gradient(90deg,transparent 0 22%,#304d3e 22% 22.08%,transparent 22.08% 76%,#304d3e 76% 76.08%,transparent 76.08%),repeating-linear-gradient(0deg,transparent 0 95px,#4f6744 95px 96px,transparent 96px 126px);
+  --theme-canvas-size:100% 100%,100% 126px;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="nordic"],.provider-theme-option.theme-nordic {
+  --theme-canvas-texture:repeating-linear-gradient(90deg,#3d5148 0 1px,transparent 1px 32px),repeating-linear-gradient(0deg,#3d5148 0 1px,transparent 1px 32px);
+  --theme-canvas-size:32px 32px;
+  --theme-canvas-opacity:.03;
+}
+
+.provider-body[data-provider-theme="mono"],.provider-theme-option.theme-mono {
+  --theme-canvas-texture:repeating-linear-gradient(90deg,#111 0 1px,transparent 1px 25%),repeating-linear-gradient(0deg,#111 0 1px,transparent 1px 18px),linear-gradient(90deg,transparent 0 50%,#111 50% 50.12%,transparent 50.12%);
+  --theme-canvas-size:100% 100%,100% 18px,100% 100%;
+  --theme-canvas-opacity:.025;
+}
+
+/* Digital geometry */
+.provider-body[data-provider-theme="graphite"],.provider-theme-option.theme-graphite {
+  --theme-canvas-texture:repeating-linear-gradient(90deg,#a489ff 0 1px,transparent 1px 20px),repeating-linear-gradient(0deg,#a489ff 0 1px,transparent 1px 20px),radial-gradient(circle at 1px 1px,#d1c4ff 0 1px,transparent 1.5px);
+  --theme-canvas-size:20px 20px,20px 20px,80px 80px;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="hitech"],.provider-theme-option.theme-hitech {
+  --theme-canvas-texture:radial-gradient(circle at 1px 1px,#006b7f 0 1.5px,transparent 2px),repeating-linear-gradient(90deg,#006b7f 0 1px,transparent 1px 24px),repeating-linear-gradient(0deg,#006b7f 0 1px,transparent 1px 24px);
+  --theme-canvas-size:48px 48px,24px 24px,24px 24px;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="carbon-crimson"],.provider-theme-option.theme-carbon-crimson {
+  --theme-canvas-texture:linear-gradient(90deg,transparent 0 9%,#e45a79 9% 20%,transparent 20% 27%,#e45a79 27% 30%,transparent 30% 61%,#e45a79 61% 79%,transparent 79%),repeating-linear-gradient(0deg,transparent 0 55px,#7f2d45 55px 56px,transparent 56px 72px);
+  --theme-canvas-size:220px 72px,100% 72px;
+  --theme-canvas-opacity:.04;
+}
+
+.provider-body[data-provider-theme="oled-mono"],.provider-theme-option.theme-oled-mono {
+  --theme-canvas-texture:radial-gradient(circle at 1px 1px,#fff 0 1px,transparent 1.2px),radial-gradient(ellipse at 50% 8%,#fff,transparent 48%);
+  --theme-canvas-size:13px 13px,100% 100%;
+  --theme-canvas-repeat:repeat,no-repeat;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="volt-graphite"],.provider-theme-option.theme-volt-graphite {
+  --theme-canvas-texture:radial-gradient(circle at 1px 1px,#a6c044 0 1.5px,transparent 2px),linear-gradient(90deg,transparent 0 24px,#a6c044 24px 25px,transparent 25px 64px),linear-gradient(0deg,transparent 0 40px,#768490 40px 41px,transparent 41px 64px);
+  --theme-canvas-size:64px 64px;
+  --theme-canvas-opacity:.04;
+}
+
+/* Natural textures */
+.provider-body[data-provider-theme="eco"],.provider-theme-option.theme-eco {
+  --theme-canvas-texture:repeating-radial-gradient(ellipse at -8% 50%,transparent 0 34px,#6a5435 35px 36px,transparent 37px 72px),repeating-radial-gradient(ellipse at 108% 48%,transparent 0 48px,#8c7049 49px 50px,transparent 51px 94px);
+  --theme-canvas-size:100% 180px,100% 240px;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="japandi"],.provider-theme-option.theme-japandi {
+  --theme-canvas-texture:repeating-linear-gradient(4deg,#5f5443 0 1px,transparent 1px 17px),radial-gradient(ellipse at 18% 12%,#8c826f,transparent 42%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-opacity:.025;
+}
+
+.provider-body[data-provider-theme="desert"],.provider-theme-option.theme-desert {
+  --theme-canvas-texture:radial-gradient(circle at 2px 2px,#713b2a 0 1px,transparent 1.4px),radial-gradient(circle at 7px 5px,#b67658 0 1px,transparent 1.5px),radial-gradient(ellipse at 82% 3%,#713b2a,transparent 42%);
+  --theme-canvas-size:17px 19px,23px 29px,100% 100%;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="celadon"],.provider-theme-option.theme-celadon {
+  --theme-canvas-texture:linear-gradient(27deg,transparent 0 44%,#177064 44.2% 44.45%,transparent 44.65%),linear-gradient(151deg,transparent 0 61%,#56ae97 61.15% 61.35%,transparent 61.55%),linear-gradient(83deg,transparent 0 72%,#177064 72.1% 72.28%,transparent 72.48%);
+  --theme-canvas-size:210px 170px,260px 230px,180px 250px;
+  --theme-canvas-opacity:.03;
+}
+
+/* Materials */
+.provider-body[data-provider-theme="luxury"],.provider-theme-option.theme-luxury {
+  --theme-canvas-texture:repeating-radial-gradient(ellipse 130% 70% at -18% 18%,transparent 0 72px,#d7b66f 73px 74px,transparent 75px 138px),repeating-radial-gradient(ellipse 110% 65% at 118% 78%,transparent 0 94px,#f0dfb1 95px 96px,transparent 97px 176px);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.045;
+}
+
+.provider-body[data-provider-theme="loft"],.provider-theme-option.theme-loft {
+  --theme-canvas-texture:radial-gradient(circle at 2px 2px,#d6c8b7 0 1px,transparent 1.4px),radial-gradient(circle at 7px 6px,#8f7560 0 1px,transparent 1.5px),linear-gradient(17deg,transparent 0 63%,#b89c82 63.1% 63.25%,transparent 63.4%);
+  --theme-canvas-size:19px 23px,31px 37px,100% 100%;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="carbon-ember"],.provider-theme-option.theme-carbon-ember {
+  --theme-canvas-texture:repeating-linear-gradient(45deg,#df7f56 0 1px,transparent 1px 8px),repeating-linear-gradient(-45deg,#8d6655 0 1px,transparent 1px 8px);
+  --theme-canvas-size:16px 16px;
+  --theme-canvas-opacity:.03;
+}
+
+.provider-body[data-provider-theme="petrol-steel"],.provider-theme-option.theme-petrol-steel {
+  --theme-canvas-texture:repeating-linear-gradient(0deg,#9eb5b5 0 1px,transparent 1px 5px),linear-gradient(90deg,transparent 0 16%,#cae0df 16.1% 16.25%,transparent 16.4% 73%,#6e8d8c 73.1% 73.25%,transparent 73.4%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-opacity:.025;
+}
+
+.provider-body[data-provider-theme="cobalt-forge"],.provider-theme-option.theme-cobalt-forge {
+  --theme-canvas-texture:radial-gradient(ellipse at 3px 4px,#7fa0d8 0 2px,transparent 2.5px),radial-gradient(ellipse at 17px 12px,#4f80ff 0 1.5px,transparent 2px),linear-gradient(118deg,transparent 0 68%,#91adff 68.1% 68.25%,transparent 68.4%);
+  --theme-canvas-size:29px 23px,41px 37px,100% 100%;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="concrete-signal"],.provider-theme-option.theme-concrete-signal {
+  --theme-canvas-texture:radial-gradient(circle at 2px 2px,#39424a 0 1px,transparent 1.4px),linear-gradient(90deg,#d34c45 0 14px,transparent 14px),linear-gradient(0deg,#d34c45 0 14px,transparent 14px);
+  --theme-canvas-size:23px 29px,240px 180px,240px 180px;
+  --theme-canvas-position:0 0,36px 52px,50px 38px;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="obsidian-champagne"],.provider-theme-option.theme-obsidian-champagne {
+  --theme-canvas-texture:linear-gradient(126deg,transparent 0 23%,#dcc49d 23.1% 23.3%,transparent 23.45% 58%,#b39772 58.1% 58.25%,transparent 58.4%),radial-gradient(ellipse at 84% 4%,#f1dfbf,transparent 42%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.04;
+}
+
+/* Light and mist */
+.provider-body[data-provider-theme="warm"],.provider-theme-option.theme-warm {
+  --theme-canvas-texture:radial-gradient(circle at 16% 4%,#e6ad72,transparent 36%),radial-gradient(circle at 88% 72%,#f1c38d,transparent 42%),radial-gradient(circle at 48% 108%,#bd7853,transparent 34%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.05;
+}
+
+.provider-body[data-provider-theme="lavender"],.provider-theme-option.theme-lavender {
+  --theme-canvas-texture:radial-gradient(ellipse at 18% 14%,#9d8fca,transparent 40%),radial-gradient(ellipse at 82% 26%,#c5b8e4,transparent 45%),radial-gradient(ellipse at 46% 92%,#8779b7,transparent 42%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.045;
+}
+
+.provider-body[data-provider-theme="rose"],.provider-theme-option.theme-rose {
+  --theme-canvas-texture:radial-gradient(ellipse at 8% 22%,#75475a,transparent 38%),radial-gradient(ellipse at 54% 4%,#a46f83,transparent 42%),radial-gradient(ellipse at 94% 78%,#8c5b70,transparent 44%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.04;
+}
+
+.provider-body[data-provider-theme="burgundy"],.provider-theme-option.theme-burgundy {
+  --theme-canvas-texture:repeating-linear-gradient(100deg,transparent 0 42px,#c6aab1 43px 44px,transparent 45px 91px),radial-gradient(ellipse at 82% 0%,#e0c8ce,transparent 48%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-opacity:.03;
+}
+
+.provider-body[data-provider-theme="butter"],.provider-theme-option.theme-butter {
+  --theme-canvas-texture:radial-gradient(circle at 20% -6%,#f0c84f,transparent 44%),radial-gradient(circle at 92% 18%,#ffe7a0,transparent 38%),linear-gradient(112deg,transparent 0 48%,#fff5c9 48.1% 52%,transparent 52.1%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.05;
+}
+
+.provider-body[data-provider-theme="mocha-pastel"],.provider-theme-option.theme-mocha-pastel {
+  --theme-canvas-texture:radial-gradient(ellipse at 12% 16%,#a98078,transparent 40%),radial-gradient(ellipse at 82% 10%,#a99abd,transparent 43%),radial-gradient(ellipse at 68% 92%,#715b65,transparent 45%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.045;
+}
+
+.provider-body[data-provider-theme="noir-rose"],.provider-theme-option.theme-noir-rose {
+  --theme-canvas-texture:radial-gradient(ellipse at 16% 8%,#d39aaa,transparent 42%),radial-gradient(ellipse at 88% 28%,#9b6879,transparent 40%),radial-gradient(ellipse at 50% 110%,#e4b5bf,transparent 42%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.04;
+}
+
+/* Silk, pearl and textile */
+.provider-body[data-provider-theme="pearl"],.provider-theme-option.theme-pearl {
+  --theme-canvas-texture:linear-gradient(112deg,transparent 0 28%,#ffffff 38%,#a8a2c4 46%,#ffffff 54%,transparent 66%),radial-gradient(ellipse at 82% 8%,#d9c8e9,transparent 42%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.05;
+}
+
+.provider-body[data-provider-theme="peach-silk"],.provider-theme-option.theme-peach-silk {
+  --theme-canvas-texture:radial-gradient(ellipse 74% 120% at -8% 44%,transparent 54%,#d57a78 55% 58%,transparent 59%),radial-gradient(ellipse 82% 128% at 108% 54%,transparent 52%,#e6a39b 53% 57%,transparent 58%),linear-gradient(118deg,transparent 0 46%,#fff 49%,transparent 53%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.045;
+}
+
+.provider-body[data-provider-theme="cocoa-pearl"],.provider-theme-option.theme-cocoa-pearl {
+  --theme-canvas-texture:linear-gradient(118deg,transparent 0 31%,#fff1d7 41%,#c5a17a 47%,#fff6e5 54%,transparent 66%),radial-gradient(ellipse at 86% 4%,#f1d3a4,transparent 42%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.045;
+}
+
+.provider-body[data-provider-theme="plum-cashmere"],.provider-theme-option.theme-plum-cashmere {
+  --theme-canvas-texture:repeating-linear-gradient(8deg,#c5acd0 0 1px,transparent 1px 11px),repeating-linear-gradient(98deg,#8e739a 0 1px,transparent 1px 17px),radial-gradient(ellipse at 82% 4%,#e3cfe8,transparent 44%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-opacity:.025;
+}
+
+/* Water and air */
+.provider-body[data-provider-theme="midnight"],.provider-theme-option.theme-midnight {
+  --theme-canvas-texture:linear-gradient(0deg,transparent 0 55%,#61b0df 55.1% 55.35%,transparent 55.5%),radial-gradient(ellipse 70% 18% at 50% 55%,#8fd2f2,transparent 66%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.05;
+}
+
+.provider-body[data-provider-theme="coastal"],.provider-theme-option.theme-coastal {
+  --theme-canvas-texture:repeating-radial-gradient(ellipse at -8% 112%,transparent 0 28px,#2d5b7a 29px 31px,transparent 32px 60px);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="azure-lagoon"],.provider-theme-option.theme-azure-lagoon {
+  --theme-canvas-texture:repeating-radial-gradient(circle at 84% 10%,transparent 0 32px,#167c91 33px 34px,transparent 35px 69px),repeating-radial-gradient(circle at 8% 88%,transparent 0 46px,#63b8c4 47px 48px,transparent 49px 92px);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="moonlit-lilac"],.provider-theme-option.theme-moonlit-lilac {
+  --theme-canvas-texture:radial-gradient(circle at 82% 8%,#e3d9f2 0 7%,transparent 34%),radial-gradient(ellipse at 16% 88%,#8d77a5,transparent 44%),linear-gradient(0deg,transparent 0 62%,#cbbada 62.1% 62.25%,transparent 62.4%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.05;
+}
+
+/* Botanical shadows and watercolor */
+.provider-body[data-provider-theme="botanical"],.provider-theme-option.theme-botanical {
+  --theme-canvas-texture:radial-gradient(ellipse 18% 46% at 8% 18%,#9ab19b 0 45%,transparent 48%),radial-gradient(ellipse 16% 42% at 22% 42%,#778f78 0 43%,transparent 47%),radial-gradient(ellipse 20% 50% at 92% 76%,#a5b6a4 0 44%,transparent 48%),radial-gradient(ellipse 15% 38% at 78% 58%,#829a83 0 42%,transparent 47%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="blue-hydrangea"],.provider-theme-option.theme-blue-hydrangea {
+  --theme-canvas-texture:radial-gradient(circle at 79% 58%,#5c55a4 0 2.2%,transparent 7%),radial-gradient(circle at 73% 64%,#9b90d0 0 2%,transparent 6.8%),radial-gradient(circle at 85% 68%,#736bb6 0 1.8%,transparent 6.5%),radial-gradient(circle at 24% 76%,#6c74b9 0 2.2%,transparent 7%),radial-gradient(circle at 18% 69%,#b2a8df 0 2%,transparent 6.8%),radial-gradient(circle at 31% 82%,#817ac2 0 1.8%,transparent 6.5%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.05;
+}
+
+/* Organic prints */
+.provider-body[data-provider-theme="snow-leopard"],.provider-theme-option.theme-snow-leopard {
+  --theme-canvas-texture:radial-gradient(ellipse at 16px 13px,transparent 0 3px,#5f7180 3.5px 5px,transparent 6px),radial-gradient(ellipse at 58px 44px,transparent 0 2px,#8fa1ad 2.5px 4.5px,transparent 5.5px),radial-gradient(ellipse at 91px 22px,#526571 0 2px,transparent 3px);
+  --theme-canvas-size:124px 92px;
+  --theme-canvas-opacity:.025;
+}
+
+.provider-body[data-provider-theme="apricot-tiger"],.provider-theme-option.theme-apricot-tiger {
+  --theme-canvas-texture:repeating-radial-gradient(ellipse 90% 18% at 102% 18%,transparent 0 42px,#6f391f 43px 49px,transparent 50px 94px),repeating-radial-gradient(ellipse 88% 16% at -2% 82%,transparent 0 56px,#8a4f2f 57px 63px,transparent 64px 112px);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-opacity:.04;
+}
+
+.provider-body[data-provider-theme="pearl-zebra"],.provider-theme-option.theme-pearl-zebra {
+  --theme-canvas-texture:repeating-radial-gradient(ellipse 104% 58% at 24% -24%,transparent 0 48px,#786759 49px 53px,transparent 54px 104px),repeating-radial-gradient(ellipse 112% 62% at 8% 124%,transparent 0 62px,#9a8777 63px 67px,transparent 68px 126px);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-opacity:.035;
+}
+
+.provider-body[data-provider-theme="noir-safari"],.provider-theme-option.theme-noir-safari {
+  --theme-canvas-texture:radial-gradient(ellipse at 14px 12px,transparent 0 4px,#b86c35 5px 7px,transparent 8px),radial-gradient(ellipse at 46px 38px,transparent 0 3px,#d09157 4px 6px,transparent 7px),radial-gradient(circle at 78px 18px,#8b4d29 0 3px,transparent 4px);
+  --theme-canvas-size:96px 72px;
+  --theme-canvas-opacity:.03;
+}
+
+/* Theme cards preview the same motif that appears on the provider canvas. */
+.provider-theme-option[class*="theme-"]:not(:is(.theme-snow-leopard,.theme-pearl-zebra,.theme-apricot-tiger)) .theme-swatch {
+  background-image:var(--theme-canvas-texture)!important;
+  background-size:var(--theme-canvas-size,100% 100%)!important;
+  background-position:var(--theme-canvas-position,center)!important;
+  background-repeat:var(--theme-canvas-repeat,repeat)!important;
+}
+
+@media (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"]))::before {
+    position:absolute;
+    min-height:100vh;
+  }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"],[data-provider-theme="apricot-tiger"]))::before { transition:none!important; }
+}

@@ -39,6 +39,7 @@ const ASSETS = [
   './provider-ui-refinements.css?v=727',
   './provider-schedule-minimal.css?v=727',
   './provider-themes-distinct.css?v=727',
+  './provider-theme-families.css?v=727',
   './provider-theme-backgrounds-tema1.css?v=727',
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=727',
