@@ -31,9 +31,9 @@ for(const required of [
   "to authenticated;"
 ])assert.ok(migration.includes(required),`missing migration v143 contract: ${required}`);
 assert.match(rollback,/drop function if exists public\.reschedule_minuta_provider_booking_v143/);
-assert.match(html,/provider\.js\?v=717/);
-assert.match(worker,/const CACHE = `\$\{CACHE_PREFIX\}v717`/);
-assert.match(worker,/\.\/provider\.js\?v=717/);
+assert.match(html,/provider\.js\?v=718/);
+assert.match(worker,/const CACHE = `\$\{CACHE_PREFIX\}v718`/);
+assert.match(worker,/\.\/provider\.js\?v=718/);
 
 for(const required of [
   'options: [test-v143, validate-production-v143, apply-production-v143, observe-production-v143]',
