@@ -408,6 +408,7 @@ let portfolioRemoteAvailable = false;
 let portfolioDraggedId = '';
 let portfolioPhotoDrafts = { before: null, after: null };
 let portfolioPreviewUrls = [];
+let portfolioPhotoSourceType = '';
 let clientNotes = new Map();
 let pendingClientNotes = new Map();
 let clientLabels = new Map();
@@ -2121,7 +2122,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=705#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=706#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2826,7 +2827,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=705#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=706#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5048,7 +5049,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=705');
+    worker = new Worker('./report-worker.js?v=706');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -13103,6 +13104,37 @@ function setPortfolioPreview(type, source = '') {
   field.querySelector('.portfolio-photo-placeholder').hidden = Boolean(source);
 }
 
+function portfolioPhotoInput(type, source) {
+  const prefix = type === 'before' ? 'portfolioBefore' : 'portfolioAfter';
+  return $(`#${prefix}${source === 'camera' ? 'Camera' : 'File'}`);
+}
+
+function openPortfolioPhotoSource(type) {
+  if (!['before', 'after'].includes(type)) return;
+  portfolioPhotoSourceType = type;
+  $('#portfolioPhotoSourceTitle').textContent = type === 'before' ? 'Добавить фото «До»' : 'Добавить фото «После»';
+  const dialog = $('#portfolioPhotoSourceDialog');
+  if (typeof dialog.showModal === 'function') dialog.showModal();
+  else dialog.setAttribute('open', '');
+  setTimeout(() => dialog.querySelector('[data-portfolio-photo-pick="camera"]')?.focus(), 0);
+}
+
+function closePortfolioPhotoSource() {
+  const dialog = $('#portfolioPhotoSourceDialog');
+  if (dialog.open && typeof dialog.close === 'function') dialog.close();
+  else dialog.removeAttribute('open');
+  portfolioPhotoSourceType = '';
+}
+
+function choosePortfolioPhotoSource(source) {
+  const type = portfolioPhotoSourceType;
+  if (!type || !['camera', 'files'].includes(source)) return;
+  const input = portfolioPhotoInput(type, source);
+  closePortfolioPhotoSource();
+  input.value = '';
+  input.click();
+}
+
 function updatePortfolioPublishControl() {
   const consent = $('#portfolioConsent').checked;
   const published = $('#portfolioPublished');
@@ -13134,6 +13166,7 @@ function openPortfolioEditor(id = '') {
 
 function closePortfolioEditor() {
   portfolioEditorRevision += 1;
+  if ($('#portfolioPhotoSourceDialog')?.open) closePortfolioPhotoSource();
   $('#portfolioEditorDialog').close();
   clearPortfolioPreviews();
 }
@@ -14238,7 +14271,8 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (event.key !== 'Escape') return;
-  if ($('#portfolioEditorDialog').open) closePortfolioEditor();
+  if ($('#portfolioPhotoSourceDialog')?.open) { event.preventDefault(); closePortfolioPhotoSource(); }
+  else if ($('#portfolioEditorDialog').open) closePortfolioEditor();
   else if (!$('#bookingSheet').hidden) closeBookingSheet();
 });
 function resumeProviderConnection(force = false) {
@@ -15186,8 +15220,17 @@ $('#serviceForm').addEventListener('submit', addService);
 $('#serviceDuration').addEventListener('change', () => updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration'));
 bindServiceDefaultDurationPresets('[data-service-default-duration]', '#serviceDefaultDuration');
 $('#portfolioForm').addEventListener('submit', savePortfolioItem);
-$('#portfolioBeforeFile').addEventListener('change', event => handlePortfolioFile('before', event.target.files?.[0]));
-$('#portfolioAfterFile').addEventListener('change', event => handlePortfolioFile('after', event.target.files?.[0]));
+$$('[data-portfolio-photo-source]').forEach(button => button.addEventListener('click', () => openPortfolioPhotoSource(button.dataset.portfolioPhotoSource)));
+$$('[data-portfolio-photo-pick]').forEach(button => button.addEventListener('click', () => choosePortfolioPhotoSource(button.dataset.portfolioPhotoPick)));
+$('[data-close-portfolio-photo-source]').addEventListener('click', closePortfolioPhotoSource);
+$('#portfolioPhotoSourceDialog').addEventListener('click', event => { if (event.target === event.currentTarget) closePortfolioPhotoSource(); });
+$('#portfolioPhotoSourceDialog').addEventListener('close', () => { portfolioPhotoSourceType = ''; });
+['before', 'after'].forEach(type => ['files', 'camera'].forEach(source => {
+  portfolioPhotoInput(type, source).addEventListener('change', event => {
+    handlePortfolioFile(type, event.target.files?.[0]);
+    event.target.value = '';
+  });
+}));
 $('#portfolioConsent').addEventListener('change', updatePortfolioPublishControl);
 $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
