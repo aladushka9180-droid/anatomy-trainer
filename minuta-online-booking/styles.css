@@ -2860,6 +2860,7 @@ html.provider-booting .provider-main {
 .provider-body .benefits-management-grid>section .resource-subhead { margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--theme-line,#e0e8e2); }
 .provider-body .benefits-management-grid>section .organization-create { margin-top:12px; }
 .provider-body .benefit-redemptions { display:grid; gap:10px; padding:15px; border:1px solid var(--theme-line,#e3eae5); border-radius:var(--material-radius,13px); background:var(--theme-surface-alt,#fbfcfb); }
+.provider-body #benefitApplyForm button[type="submit"] { min-height:44px; }
 .provider-body .benefit-service-fieldset { min-width:0; margin:0; padding:11px; border:1px solid var(--theme-line,#dfe7e1); border-radius:12px; background:var(--theme-surface,#fff); }
 .provider-body .benefit-service-fieldset legend { padding:0 5px; color:var(--theme-muted,#667a6f); font-size:9px; font-weight:800; }
 .provider-body .benefit-service-fieldset>small { display:block; margin-top:7px; color:var(--theme-muted,#7b8981); font-size:8px; }
