@@ -38,6 +38,19 @@ for (const theme of themes) {
   const opacity = Number(block.match(/--theme-canvas-opacity:([.\d]+);/)?.[1]);
   assert.ok(opacity >= .02 && opacity <= .06, `${theme}: контраст должен быть в диапазоне 2–6%, получено ${opacity}`);
 }
+
+const lineFreeThemes = [
+  'carbon-crimson', 'celadon', 'loft', 'petrol-steel', 'cobalt-forge',
+  'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk',
+  'cocoa-pearl', 'midnight', 'moonlit-lilac',
+];
+for (const theme of lineFreeThemes) {
+  const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
+  assert.doesNotMatch(block, /linear-gradient/, `${theme}: длинные одиночные линии должны быть заменены локальной фактурой`);
+  assert.match(block, /radial-gradient/, `${theme}: локальная фактура должна сохраняться`);
+}
+assert.doesNotMatch(provider, /мягкий циановый горизонт|малиновый импульс|кобальтовый импульс/);
+
 const textures = themes.map(theme => css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1].match(/--theme-canvas-texture:([^;]+);/)?.[1]);
 assert.equal(new Set(textures).size, 39, 'У каждой темы должен быть собственный мотив');
 assert.doesNotMatch(css, /url\(/, 'Фактурный слой должен оставаться лёгким CSS без растровых обоев');
@@ -51,8 +64,8 @@ assert.match(css, /data-provider-theme="snow-leopard"[\s\S]*?--theme-canvas-size
 assert.match(css, /data-provider-theme="luxury"[\s\S]*?repeating-radial-gradient\(ellipse 130% 70%/);
 assert.match(css, /data-provider-theme="warm"[\s\S]*?radial-gradient\(circle at 16% 4%/);
 
-assert.match(provider, /provider-theme-families\.css\?v=732[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=732/);
-assert.match(worker, /\.\/provider-theme-families\.css\?v=732/);
-assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=732/);
+assert.match(provider, /provider-theme-families\.css\?v=733[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=733/);
+assert.match(worker, /\.\/provider-theme-families\.css\?v=733/);
+assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=733/);
 
-console.log('Provider theme families v732: PASS (39 themes, 9 families).');
+console.log('Provider theme families v733: PASS (39 themes, 9 families).');

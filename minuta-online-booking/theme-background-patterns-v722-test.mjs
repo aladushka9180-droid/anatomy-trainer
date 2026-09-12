@@ -23,11 +23,11 @@ for (const theme of ['snow-leopard', 'pearl-zebra']) {
   assert.match(approved, new RegExp(`provider-${theme}-desktop-v2\\.webp`));
   assert.match(approved, new RegExp(`provider-${theme}-mobile-v2\\.webp`));
 }
-assert.match(provider, /theme-catalog\.js\?v=732/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v732`/);
-assert.match(worker, /\.\/theme-catalog\.js\?v=732/);
+assert.match(provider, /theme-catalog\.js\?v=733/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v733`/);
+assert.match(worker, /\.\/theme-catalog\.js\?v=733/);
 
 const neutralScheduleRules = schedule.match(/background-image:none!important/g) || [];
 assert.ok(neutralScheduleRules.length >= 2, 'Фоновый узор темы не должен попадать в записи и перерывы');
 
-console.log('Theme background patterns v732: PASS');
+console.log('Theme background patterns v733: PASS');

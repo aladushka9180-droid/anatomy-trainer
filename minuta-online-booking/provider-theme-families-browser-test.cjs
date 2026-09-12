@@ -11,8 +11,8 @@ const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => mat
 assert.equal(themes.length, 39, 'Каталог тем прочитан не полностью');
 const approvedThemes = new Set(['snow-leopard', 'pearl-zebra']);
 const familyThemes = themes.filter(theme => !approvedThemes.has(theme));
-const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'azure-lagoon', 'botanical', 'peach-silk', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
-const visibilityThemes = new Set(['sage', 'graphite', 'eco', 'luxury', 'warm', 'peach-silk', 'azure-lagoon', 'botanical', 'oled-mono']);
+const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
+const visibilityThemes = new Set(['sage', 'graphite', 'eco', 'luxury', 'loft', 'celadon', 'petrol-steel', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'warm', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'oled-mono']);
 const output = process.env.MINUTA_THEME_FAMILY_OUTPUT;
 if (output) fs.mkdirSync(output, { recursive:true });
 
