@@ -12,8 +12,9 @@ const updates = read('site-update.js');
 
 assert.match(provider, /const cachedBookings = await hydrateCachedBookings\(userId\)/,
   'The verified user cache must render on online reloads too');
-assert.match(provider, /if \(!userId \|\| !cachedBookings\) return false;/,
-  'Cached booking inputs must hydrate before the network refresh');
+const offlineHydration = provider.match(/async function hydrateOfflineBookingInputs\([\s\S]*?\n\}/)?.[0] || '';
+assert.match(offlineHydration, /readProviderOfflineSnapshot\(userId\)[\s\S]*if \(!cachedBookings\) return false;/,
+  'The atomic offline snapshot and legacy cached inputs must hydrate before the network refresh');
 assert.match(provider, /startLiveUpdates\(\{ catchUpOnSubscribe = true \} = \{\}\)/,
   'Realtime startup must distinguish initial subscription from reconnect');
 assert.match(provider, /startLiveUpdates\(\{ catchUpOnSubscribe:false \}\);\s*await synchronizeProvider\(\);/,
