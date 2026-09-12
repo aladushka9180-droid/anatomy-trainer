@@ -120,19 +120,19 @@ fi
 grep -q 'commercial_sale_idempotency_conflict' "$tmp/seller-conflict.log"
 
 stage=concurrent-primary-start
-PGAPPNAME="$app_a" psql "$db" -X -qAt -v ON_ERROR_STOP=1 >"$tmp/a.log" <<SQL &
+PGAPPNAME="$app_a" psql "$db" -X -qAt -v ON_ERROR_STOP=1 >"$tmp/a.log" 2>&1 <<SQL &
 begin;
 select set_config('request.jwt.claim.sub','$owner',false);
 select public.sell_minuta_commercial_product_v151('$org',null,'$client','$owner','benefit_product','$product',null,null,1,300000,0,'cash','$cash','$request_c');
-select pg_advisory_xact_lock(hashtextextended('$run_key:signal',0));
-select pg_sleep(12);
+select pg_advisory_xact_lock(151,hashtext('$run_key:a-signal') & 2147483647);
+select pg_sleep(20);
 commit;
 SQL
 pid_a=$!
 signalled=false
 stage=concurrent-signal-observation
 for _ in {1..40}; do
-  if psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select not pg_try_advisory_lock(hashtextextended('$run_key:signal',0))" | grep -qx t; then
+  if psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select not pg_try_advisory_lock(151,hashtext('$run_key:a-signal') & 2147483647)" | grep -qx t; then
     signalled=true
     break
   fi
@@ -140,28 +140,53 @@ for _ in {1..40}; do
 done
 test "$signalled" = true
 stage=concurrent-secondary-start
-PGOPTIONS="${PGOPTIONS:-} -c lock_timeout=20000" PGAPPNAME="$app_b" \
-  psql "$db" -X -qAt -v ON_ERROR_STOP=1 >"$tmp/b.log" <<SQL &
+PGAPPNAME="$app_b" psql "$db" -X -qAt -v ON_ERROR_STOP=1 >"$tmp/b.log" 2>&1 <<SQL &
+begin;
+set local lock_timeout='30s';
 select set_config('request.jwt.claim.sub','$owner',false);
+select pg_advisory_xact_lock(151,hashtext('$run_key:b-ready') & 2147483647);
 select public.sell_minuta_commercial_product_v151('$org',null,'$client','$owner','benefit_product','$product',null,null,1,300000,0,'cash','$cash','$request_c');
+commit;
 SQL
 pid_b=$!
 
-observed=false
+# The fixed namespace locks identify A and B without relying on connection
+# metadata. One observer session proves B has an ungranted server lock and that A
+# is its blocker; B reaches this state only after b-ready and inside the real RPC.
 stage=concurrent-lock-observation
-for _ in {1..40}; do
-  if psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=app="$app_b" <<'SQL' | grep -qx t; then
-select exists(
-  select 1 from pg_catalog.pg_stat_activity
-  where application_name=:'app' and state='active' and wait_event_type='Lock'
-);
+psql "$db" -X -q -v ON_ERROR_STOP=1 --set=run_key="$run_key" <<'SQL'
+select set_config('minuta.v151_observer_run_key',:'run_key',false) \gset
+do $observe$
+declare
+  observed boolean:=false;
+begin
+  for attempt in 1..40 loop
+    with primary_session as (
+      select lock_row.pid
+      from pg_catalog.pg_locks lock_row
+      where lock_row.locktype='advisory' and lock_row.classid=151::oid
+        and lock_row.objid=((hashtext(current_setting('minuta.v151_observer_run_key')||':a-signal') & 2147483647)::oid)
+        and lock_row.objsubid=2 and lock_row.granted
+    ), secondary_session as (
+      select lock_row.pid
+      from pg_catalog.pg_locks lock_row
+      where lock_row.locktype='advisory' and lock_row.classid=151::oid
+        and lock_row.objid=((hashtext(current_setting('minuta.v151_observer_run_key')||':b-ready') & 2147483647)::oid)
+        and lock_row.objsubid=2 and lock_row.granted
+    )
+    select exists(
+      select 1 from primary_session primary_row cross join secondary_session secondary_row
+      where primary_row.pid=any(pg_catalog.pg_blocking_pids(secondary_row.pid))
+        and exists(select 1 from pg_catalog.pg_locks waiting
+          where waiting.pid=secondary_row.pid and not waiting.granted)
+    ) into observed;
+    if observed then return; end if;
+    perform pg_sleep(0.25);
+  end loop;
+  raise exception using errcode='55000',message='v151_concurrent_lock_wait_not_observed';
+end
+$observe$;
 SQL
-    observed=true
-    break
-  fi
-  sleep 0.25
-done
-test "$observed" = true
 stage=concurrent-primary-finish
 wait "$pid_a"
 stage=concurrent-secondary-finish
@@ -177,4 +202,4 @@ psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "with sale as(select id from public.com
   | jq -e '.sales==1 and .lines==1 and .instruments==1 and .transactions==1 and .postings==2 and .audit==1' >/dev/null
 
 stage=write-sanitized-result
-jq -n --argjson before "$before_rollback" '{mixedVersionReplayBothDirections:true,committedRollbackPersistence:true,twoPsqlConnections:true,observedLockWait:true,singleCommittedSale:true,beforeRollback:$before}' >"$tmp/result.json"
+jq -n --argjson before "$before_rollback" '{mixedVersionReplayBothDirections:true,committedRollbackPersistence:true,twoPsqlConnections:true,observedLockWait:true,serverLockWaitObserved:true,singleCommittedSale:true,beforeRollback:$before}' >"$tmp/result.json"
