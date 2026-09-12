@@ -7,4 +7,5 @@
 \ir ../supabase-migration-v149-rollback.sql
 \ir benefit-application-v149-rollback-check.sql
 \ir ../supabase-migration-v149.sql
+\ir ../supabase-migration-v149.sql
 \ir benefit-application-v149-integration.sql
