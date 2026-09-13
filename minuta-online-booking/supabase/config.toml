@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.assistant-understand]
 verify_jwt = true
+
+[functions.assistant-speech]
+verify_jwt = true

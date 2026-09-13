@@ -15079,8 +15079,59 @@ function restoreProviderAssistantNavigation() {
   return { ok:true };
 }
 
+async function providerAssistantSynthesizeSpeech(payload = {}, externalSignal = null) {
+  if (!window.MINUTA_CONFIG.assistantCloudSpeechEnabled) return { ok:false, reason:'not_configured' };
+  const generation = sessionGeneration;
+  const userId = currentUser?.id;
+  if (!userId) return { ok:false, reason:'auth_required' };
+  if (!navigator.onLine) return { ok:false, reason:'offline' };
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { ok:false, reason:'invalid_request' };
+  const voice = String(payload.voice || '');
+  if (!['dmitry', 'svetlana'].includes(voice)) return { ok:false, reason:'invalid_voice' };
+  const text = Array.from(String(payload.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()).slice(0, 1200).join('').trim();
+  const body = { text, voice };
+  if (!text || new TextEncoder().encode(JSON.stringify(body)).byteLength > 4 * 1024) return { ok:false, reason:'invalid_request' };
+  const { data:sessionData, error:sessionError } = await db.auth.getSession();
+  const accessToken = sessionData?.session?.access_token || '';
+  if (sessionError || !accessToken || !sessionIsCurrent(userId, generation) || sessionData?.session?.user?.id !== userId) return { ok:false, reason:'stale_session' };
+  const controller = new AbortController();
+  const relayAbort = () => controller.abort(externalSignal?.reason);
+  if (externalSignal?.aborted) relayAbort();
+  else externalSignal?.addEventListener?.('abort', relayAbort, { once:true });
+  const timeoutId = setTimeout(() => controller.abort(new DOMException('Timed out', 'TimeoutError')), 10000);
+  let response;
+  try {
+    response = await fetch(`${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/assistant-speech`, {
+      method:'POST',
+      headers:{
+        apikey:window.MINUTA_CONFIG.supabaseKey,
+        authorization:`Bearer ${accessToken}`,
+        'content-type':'application/json'
+      },
+      body:JSON.stringify(body),
+      cache:'no-store',
+      credentials:'omit',
+      referrerPolicy:'no-referrer',
+      signal:controller.signal
+    });
+  } catch {
+    return { ok:false, reason:controller.signal.aborted ? (externalSignal?.aborted ? 'cancelled' : 'timeout') : 'request_failed' };
+  } finally {
+    clearTimeout(timeoutId);
+    externalSignal?.removeEventListener?.('abort', relayAbort);
+  }
+  if (!sessionIsCurrent(userId, generation)) return { ok:false, reason:'stale_session' };
+  if (!response.ok) return { ok:false, reason:response.status === 429 ? 'rate_limited' : response.status === 503 ? 'not_configured' : 'request_failed' };
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  const audio = await response.blob();
+  if (!contentType.startsWith('audio/') || !audio.size || audio.size > 2 * 1024 * 1024) return { ok:false, reason:'invalid_response' };
+  return { ok:true, audio };
+}
+
 window.MinutaProviderAssistant = Object.freeze({
   remoteUnderstandingEnabled:Boolean(window.MINUTA_CONFIG.assistantRemoteUnderstanding),
+  cloudSpeechEnabled:Boolean(window.MINUTA_CONFIG.assistantCloudSpeechEnabled),
+  synthesizeSpeech:providerAssistantSynthesizeSpeech,
   getAssistantLexicon:providerAssistantLexicon,
   rememberAssistantCorrections:rememberProviderAssistantCorrections,
   getAssistantPreferences:providerAssistantPreferences,
