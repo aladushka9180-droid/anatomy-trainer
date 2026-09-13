@@ -41,11 +41,11 @@
   --theme-accent-contrast:#fff; --theme-shadow:rgba(52,75,86,.09); --material-card-bg:#fffaf2;
   --material-card-border:#91836c; --material-radius:22px; --material-control-radius:999px;
   --signature-sidebar:#e7efed; --signature-stage:#faf5eb; --signature-nav-active:#dbe7eb;
-  --atmosphere-background:repeating-radial-gradient(ellipse at -8% 112%,transparent 0 28px,rgba(45,91,122,.06) 29px 31px,transparent 32px 60px),linear-gradient(145deg,#f5eddd,#fffaf2 60%,#e7efed);
+  --atmosphere-background:#f5eddd;
   --atmosphere-panel:#faf5eb; --atmosphere-panel-strong:#fffaf2;
 }
 .theme-coastal { --theme-preview-bg:#f5eddd; --theme-preview-surface:#fffaf2; --theme-preview-line:#91836c; --theme-preview-accent:#2d5b7a; --theme-preview-radius:16px; --theme-preview-item-radius:999px; }
-.theme-coastal .theme-swatch { background-image:repeating-radial-gradient(ellipse at -8% 112%,transparent 0 18px,rgba(45,91,122,.12) 19px 21px,transparent 22px 40px),linear-gradient(145deg,#f5eddd,#fffaf2); }
+.theme-coastal .theme-swatch { background-image:linear-gradient(#f5eddd,#f5eddd); }
 
 .provider-body[data-provider-theme="blue-hydrangea"] {
   --theme-bg:#e7e6f5; --theme-surface:#fcfbff; --theme-surface-alt:#d9d6ee; --theme-ink:#2f3148;

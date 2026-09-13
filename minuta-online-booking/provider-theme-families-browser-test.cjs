@@ -30,6 +30,10 @@ const approvedBackgrounds = new Map([
     desktop:'provider-cocoa-pearl-desktop-v1.webp',
     mobile:'provider-cocoa-pearl-mobile-v1.webp',
   }],
+  ['coastal', {
+    desktop:'provider-coastal-porcelain-material-v1.webp',
+    mobile:'provider-coastal-porcelain-material-v1.webp',
+  }],
 ]);
 const approvedThemes = new Set(approvedBackgrounds.keys());
 const metalBackgrounds = new Map([
@@ -43,7 +47,7 @@ const metalBackgrounds = new Map([
   }],
 ]);
 const familyThemes = themes.filter(theme => !approvedThemes.has(theme));
-const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'concrete-signal', 'pearl-zebra', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
+const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'concrete-signal', 'pearl-zebra', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'coastal', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
 const visibilityThemes = new Set(['sage', 'nordic', 'graphite', 'hitech', 'eco', 'luxury', 'loft', 'celadon', 'petrol-steel', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'warm', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'oled-mono', 'volt-graphite']);
 const maskThemes = new Set(['nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'burgundy', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'volt-graphite']);
 const output = process.env.MINUTA_THEME_FAMILY_OUTPUT;
@@ -190,7 +194,7 @@ const server = http.createServer((request, response) => {
       return { theme, image:swatchStyle?.backgroundImage || 'missing', mask:overlayStyle?.maskImage || overlayStyle?.webkitMaskImage || 'none' };
     }), themes);
     for (const preview of previews) assert.equal(preview.image !== 'none' || preview.mask !== 'none', true, `${preview.theme}: превью не показывает новый мотив`);
-    console.log('Provider theme family browser matrix: PASS (34 CSS families + 5 approved canvases × 3 widths).');
+    console.log('Provider theme family browser matrix: PASS (33 CSS families + 6 approved canvases × 3 widths).');
   } finally {
     if (browser) await browser.close();
     server.close();
