@@ -54,6 +54,8 @@ globalThis.SpeechRecognition = FakeRecognition;
 class FakeUtterance {
   constructor(text) { this.text = text; }
 }
+const svetlanaSystem = { name:'Microsoft Svetlana Online (Natural)', lang:'ru-RU', voiceURI:'svetlana-ru', default:false, localService:false };
+const dmitrySystem = { name:'Microsoft Dmitry Online (Natural)', lang:'ru-RU', voiceURI:'dmitry-ru', default:false, localService:false };
 const speechSynthesis = {
   cancelCount:0,
   speakCount:0,
@@ -62,7 +64,8 @@ const speechSynthesis = {
     { name:'Ting-Ting', lang:'zh-CN', default:true, localService:true },
     { name:'Microsoft Irina', lang:'ru-RU', default:true, localService:true },
     { name:'Microsoft Pavel', lang:'ru-RU', default:false, localService:true },
-    { name:'Microsoft Svetlana Online (Natural)', lang:'ru-RU', default:false, localService:false }
+    svetlanaSystem,
+    dmitrySystem
   ],
   listeners:new Map(),
   cancel() { this.cancelCount += 1; },
@@ -476,42 +479,46 @@ controller.stopSpeech();
 speechSynthesis.voices = [];
 speechSynthesis.listeners.get('voiceschanged')();
 assert.equal(voiceSelect.disabled, true);
-assert.equal(voicePreviewButton.disabled, false, 'проверка должна позволять повторно запросить список голосов');
+assert.equal(voicePreviewButton.disabled, true, 'без Дмитрия и Светланы нельзя запускать подменный голос');
+assert.deepEqual(voiceSelect.children.map(option => option.textContent), ['Дмитрий — нужен облачный голос', 'Светлана — нужен облачный голос']);
 const speakCountBeforeMissingVoice = speechSynthesis.speakCount;
 voicePreviewButton.emit('click');
 assert.equal(speechSynthesis.speakCount, speakCountBeforeMissingVoice);
-assert.match(status.textContent, /Браузер пока не передал русский голос/);
+assert.match(status.textContent, /Дмитрий и Светлана не найдены/);
 const googleRussian = { name:'Google русский', lang:'ru_RU', voiceURI:'google-ru', default:true, localService:true };
 speechSynthesis.voices = [googleRussian, { name:'English', lang:'en-US', default:true }];
 speechSynthesis.listeners.get('voiceschanged')();
-assert.equal(voiceSelect.disabled, false);
-assert.deepEqual(voiceSelect.children.map(option => option.textContent), ['Google русский'], 'голос Google нельзя скрывать или переименовывать в Дмитрия');
+assert.equal(voiceSelect.disabled, true);
+assert.deepEqual(voiceSelect.children.map(option => option.textContent), ['Дмитрий — нужен облачный голос', 'Светлана — нужен облачный голос'], 'в списке не должно быть Google, Ирины или Павла');
 voicePreviewButton.emit('click');
-assert.equal(speechSynthesis.lastUtterance.voice, googleRussian);
-assert.equal(speechSynthesis.lastUtterance.lang, 'ru-RU');
-assert.equal(JSON.parse(savedSpeech).voiceKey, 'google-ru');
+assert.equal(speechSynthesis.speakCount, speakCountBeforeMissingVoice);
 controller.stopSpeech();
-speechSynthesis.voices.push({ name:'Microsoft Svetlana Online', lang:'ru-RU', voiceURI:'svetlana-ru' });
+speechSynthesis.voices.push(svetlanaSystem, dmitrySystem);
 speechSynthesis.listeners.get('voiceschanged')();
-voiceSelect.value = 'svetlana-ru';
+assert.equal(voiceSelect.disabled, false);
+assert.deepEqual(voiceSelect.children.map(option => option.textContent), ['Дмитрий', 'Светлана']);
+voiceSelect.value = 'dmitry';
 voiceSelect.emit('change');
-assert.equal(JSON.parse(savedSpeech).voiceKey, 'svetlana-ru');
-voiceSelect.value = 'google-ru';
+assert.equal(JSON.parse(savedSpeech).voiceKey, 'dmitry');
+voicePreviewButton.emit('click');
+assert.equal(speechSynthesis.lastUtterance.voice, dmitrySystem, 'Дмитрий должен выбираться явно');
+controller.stopSpeech();
+voiceSelect.value = 'svetlana';
 voiceSelect.emit('change');
 documentStub.emit('visibilitychange');
-assert.equal(voiceSelect.value, 'google-ru', 'обновление списка не должно сбрасывать выбранный голос');
+assert.equal(voiceSelect.value, 'svetlana', 'обновление списка не должно сбрасывать Светлану');
 // Some browsers omit voiceschanged: opening and preview must retry too.
 speechSynthesis.voices = [];
 openButton.emit('click');
 assert.equal(voiceSelect.disabled, true);
-speechSynthesis.voices = [googleRussian];
+speechSynthesis.voices = [svetlanaSystem];
 documentStub.emit('visibilitychange');
 assert.equal(voiceSelect.disabled, false, 'возвращение из настроек должно обновлять список');
 speechSynthesis.voices = [];
 speechSynthesis.listeners.get('voiceschanged')();
-speechSynthesis.voices = [googleRussian];
+speechSynthesis.voices = [svetlanaSystem];
 voicePreviewButton.emit('click');
-assert.equal(speechSynthesis.lastUtterance.voice, googleRussian, 'нажатие проверки должно находить поздно загруженный голос без события');
+assert.equal(speechSynthesis.lastUtterance.voice, svetlanaSystem, 'нажатие проверки должно находить поздно загруженную Светлану без события');
 controller.stopSpeech();
 for (const rate of [1.25, 1.75]) {
   rateInput.value = String(rate);
@@ -530,7 +537,7 @@ for (const percent of [0, 1, 50, 100, 35]) {
   volumeInput.emit('change');
   assert.equal(JSON.parse(savedSpeech).volume, percent / 100);
   assert.equal(JSON.parse(savedSpeech).rate, 1.75, 'громкость не сбрасывает скорость');
-  assert.equal(JSON.parse(savedSpeech).voiceKey, 'google-ru', 'громкость не сбрасывает голос');
+  assert.equal(JSON.parse(savedSpeech).voiceKey, 'svetlana', 'громкость не сбрасывает голос');
   assert.equal(volumeValue.textContent, percent ? `${percent}%` : 'Без звука');
   const before = speechSynthesis.speakCount;
   voicePreviewButton.emit('click');
@@ -561,7 +568,7 @@ for (let i = 0; i < 100 && speakButton.textContent === 'Остановить г�
   spokenParts.push(current.text);
   assert.equal(current.rate, 1.75);
   assert.equal(current.volume, 0.35, 'каждый фрагмент ответа получает громкость');
-  assert.equal(current.voice, googleRussian);
+  assert.equal(current.voice, svetlanaSystem);
   current.onend();
   const afterEndCount = speechSynthesis.speakCount;
   current.onend();
@@ -600,15 +607,15 @@ assert.equal(speechSynthesis.speakCount, afterCloseCount, 'закрытие ди
 controller.destroy();
 assert.equal(speechSynthesis.listeners.has('voiceschanged'), false);
 assert.equal(globalListeners.get('minuta:provider-session-reset')?.size || 0, 0, 'destroy должен снять глобальный обработчик');
-speechSynthesis.voices.push({ name:'Microsoft Svetlana Online', lang:'ru-RU', voiceURI:'svetlana-ru' });
+speechSynthesis.voices.push(dmitrySystem);
 const restoredController = voice.createController({ document:documentStub, bridge });
 restoredController.bind();
-assert.equal(voiceSelect.value, 'google-ru', 'новый контроллер должен восстановить сохранённый выбор Google, даже если доступна Светлана');
+assert.equal(voiceSelect.value, 'svetlana', 'новый контроллер должен восстановить сохранённый выбор Светланы');
 assert.equal(rateInput.value, '1.75', 'сохранённая скорость 1,75× должна восстанавливаться после повторного открытия');
 assert.equal(rateValue.textContent, '1,75×');
 assert.equal(volumeInput.value, '35', 'громкость восстанавливается после перезагрузки');
 restoredController.destroy();
-savedSpeech = JSON.stringify({ voiceKey:'google-ru', rate:1.25 });
+savedSpeech = JSON.stringify({ voiceKey:'dmitry', rate:1.25 });
 const quarterSpeedController = voice.createController({ document:documentStub, bridge });
 quarterSpeedController.bind();
 assert.equal(rateInput.value, '1.25', 'сохранённая скорость 1,25× должна восстанавливаться');

@@ -266,20 +266,31 @@ assert.equal(voice.normalizedSpeechRate('1.3'), 1.3);
 assert.equal(voice.normalizedSpeechRate('1.25'), 1.25, 'скорость 1,25× не должна округляться до 1,3×');
 assert.equal(voice.normalizedSpeechRate('1.75'), 1.75, 'скорость 1,75× не должна округляться до 1,8×');
 assert.equal(voice.normalizedSpeechRate('9'), 2, 'скорость озвучки должна иметь безопасный верхний предел');
-for (const name of ['Google русский', 'Microsoft Irina', 'Microsoft Ирина', 'Microsoft Pavel', 'Microsoft Павел']) {
-  assert.equal(voice.selectRussianVoice([{ name, lang:'ru-RU', default:true, localService:true }])?.name, name, `${name} должен быть доступен как русский голос устройства`);
-  assert.equal(voice.selectRussianVoice([{ name, lang:'ru-RU', default:true, localService:true }, russianVoice]), russianVoice);
+for (const name of ['Google русский', 'Microsoft Irina', 'Microsoft Ирина', 'Microsoft Pavel', 'Microsoft Павел', 'Microsoft Dariya', 'Лев']) {
+  assert.equal(voice.selectRussianVoice([{ name, lang:'ru-RU', default:true, localService:true }]), null, `${name} не должен попадать в каталог помощника`);
 }
 assert.equal(voice.selectRussianVoice([{ name:'Microsoft Дмитрий Online (Natural)', lang:'ru-RU' }])?.name, 'Microsoft Дмитрий Online (Natural)');
 const googleVoice = { name:'Google русский', lang:'ru_RU', default:true, localService:true };
 const dmitryVoice = { name:'Microsoft Dmitry', lang:'ru-RU' };
 assert.equal(voice.selectRussianVoice([googleVoice, dmitryVoice]), dmitryVoice, 'Дмитрий предпочтительнее системного голоса при автоматическом выборе');
 assert.equal(voice.selectRussianVoice([dmitryVoice, russianVoice, googleVoice]), russianVoice);
-assert.equal(voice.selectRussianVoice([googleVoice]), googleVoice, 'Android ru_RU также должен поддерживаться');
+assert.equal(voice.selectRussianVoice([googleVoice]), null, 'Android-голос устройства нельзя маскировать под Дмитрия или Светлану');
 assert.equal(voice.selectRussianVoice([{ name:'Svetlana', lang:'en-US' }]), null, 'имя само по себе не делает голос русским');
 assert.equal(voice.selectRussianVoice([]), null);
+assert.deepEqual(voice.assistantVoiceCatalog([googleVoice, dmitryVoice, russianVoice], false).map(item => ({ id:item.id, label:item.label, available:item.available, source:item.source })), [
+  { id:'dmitry', label:'Дмитрий', available:true, source:'system' },
+  { id:'svetlana', label:'Светлана', available:true, source:'system' }
+]);
+assert.deepEqual(voice.assistantVoiceCatalog([googleVoice], false).map(item => item.available), [false, false]);
+assert.deepEqual(voice.assistantVoiceCatalog([], true).map(item => ({ id:item.id, available:item.available, source:item.source })), [
+  { id:'dmitry', available:true, source:'cloud' },
+  { id:'svetlana', available:true, source:'cloud' }
+]);
 assert.equal(voice.normalizedSpeechRate('0.1'), 0.6, 'скорость озвучки должна иметь безопасный нижний предел');
-assert.equal(voice.speechVoiceKey({ voiceURI:'ru-local', lang:'ru-RU', name:'Русский' }), 'ru-local');
+assert.equal(voice.speechVoiceKey({ voiceURI:'ru-local', lang:'ru-RU', name:'Русский' }), '');
+assert.equal(voice.speechVoiceKey(dmitryVoice), 'dmitry');
+assert.equal(voice.speechVoiceKey(russianVoice), 'svetlana');
+assert.equal(Array.from(voice.boundedCloudSpeechText('а'.repeat(1300))).length, 1200, 'облачный запрос должен иметь жёсткий предел');
 
 assert.equal(voice.interpretCommand('расскажи анекдот', snapshot, now).kind, 'help');
 const howAreYou = voice.interpretCommand('Как дела?', snapshot, now);
