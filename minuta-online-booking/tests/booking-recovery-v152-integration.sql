@@ -37,7 +37,7 @@ select set_config('v152.service',gen_random_uuid()::text,true);
 select set_config('v152.changed_performer',gen_random_uuid()::text,true);
 select set_config('v152.changed_service',gen_random_uuid()::text,true);
 select set_config('v152.token',gen_random_uuid()::text,true);
-select set_config('v152.name',repeat('N',81),true);
+select set_config('v152.name',repeat('N',80),true);
 select set_config('v152.phone','1234567890123456',true);
 select set_config('v152.fingerprint',encode(extensions.digest(
   current_setting('v152.service')||chr(31)||date '2030-01-02'::text||chr(31)||
