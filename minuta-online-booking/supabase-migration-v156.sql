@@ -32,6 +32,10 @@ begin
     if v_marker is not null then
       raise exception using errcode='55000',message='v156_legacy_session_marker_drift';
     end if;
+  elsif v_source_sha256='20e00faa310cf9b115b9fb1c2163e306537f8c4998869e6a4a1608c34e25e68a' then
+    if v_marker is distinct from 'minuta_session_service_change_v156:sha256='||v_source_sha256 then
+      raise exception using errcode='55000',message='v156_preview_session_marker_drift';
+    end if;
   elsif v_source_sha256='ec5124e896aa3ce818ebe2fa6b71181307a90c0c21b6c2732aff007c1413f34f' then
     if v_marker is distinct from 'minuta_session_service_change_v156:sha256='||v_source_sha256 then
       raise exception using errcode='55000',message='v156_session_marker_drift';

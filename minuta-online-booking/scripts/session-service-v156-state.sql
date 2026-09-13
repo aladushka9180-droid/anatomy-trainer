@@ -20,6 +20,8 @@ with function_state as (
     case
       when source_md5='eb5201919de3d76b3ebeae3d3488ab7a'
         and marker is null then 'legacy'
+      when source_sha256='20e00faa310cf9b115b9fb1c2163e306537f8c4998869e6a4a1608c34e25e68a'
+        and marker='minuta_session_service_change_v156:sha256='||source_sha256 then 'preview'
       when source_sha256='ec5124e896aa3ce818ebe2fa6b71181307a90c0c21b6c2732aff007c1413f34f'
         and marker='minuta_session_service_change_v156:sha256='||source_sha256 then 'exact'
       else 'drift'

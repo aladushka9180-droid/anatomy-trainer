@@ -45,7 +45,7 @@ assert.match(integration, /organization_shift_settings[\s\S]*values\(organizatio
 assert.match(integration, /service_id',current_setting\('minuta\.v156_new_service'\)[\s\S]*duration_minutes',60[\s\S]*duration_minutes',59/i, 'integration test must cover another service with same and changed duration');
 assert.match(integration, /booking_outside_active_shift/i, 'integration test must preserve shift validation for changed schedules');
 assert.ok(state.includes(migratedSha256), 'state probe must pin the exact v156 source');
-for (const classification of ["'legacy'", "'exact'", "'drift'", "'absent'"]) {
+for (const classification of ["'legacy'", "'preview'", "'exact'", "'drift'", "'absent'"]) {
   assert.ok(state.includes(classification), `state probe is missing ${classification}`);
 }
 

@@ -87,7 +87,7 @@ jobs:
           state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/session-service-v156-state.sql | grep '^{' | tail -n 1)"
           case "$(jq -r .classification <<<"$state")" in
             exact) psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v156-rollback.sql ;;
-            legacy) ;;
+            legacy|preview) ;;
             *) jq -c . <<<"$state"; exit 1 ;;
           esac
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v156.sql
