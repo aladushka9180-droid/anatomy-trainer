@@ -286,6 +286,7 @@ begin
   end;
 end
 $legacy_rotate_upgrade_bypass_denied$;
+reset role;
 select pg_temp.v155_assert(
   (select account.access_code_hash=encode(extensions.digest(
       'ABCDEF0123456789:'||current_setting('v155.account'),'sha256'),'hex')
@@ -298,6 +299,7 @@ select pg_temp.v155_assert(
       and session_row.session_source='legacy_upgrade'),
   'legacy_rotate_cannot_bypass_proof_required_by_upgrade'
 );
+set local role anon;
 do $legacy_upgrade_wrong_code_denied$
 begin
   begin

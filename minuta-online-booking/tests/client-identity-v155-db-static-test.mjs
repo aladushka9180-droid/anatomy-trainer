@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const migration = readFileSync(new URL('../supabase-migration-v155.sql', import.meta.url), 'utf8').replace(/\r/g, '');
 const rollback = readFileSync(new URL('../supabase-migration-v155-rollback.sql', import.meta.url), 'utf8').replace(/\r/g, '');
 const concurrency = readFileSync(new URL('./client-identity-v155-postgres-concurrency-test.mjs', import.meta.url), 'utf8').replace(/\r/g, '');
+const integration = readFileSync(new URL('./client-identity-v155-integration.sql', import.meta.url), 'utf8').replace(/\r/g, '');
 const v54 = readFileSync(new URL('../supabase-migration-v54.sql', import.meta.url), 'utf8').replace(/\r/g, '');
 const v61 = readFileSync(new URL('../supabase-migration-v61.sql', import.meta.url), 'utf8').replace(/\r/g, '');
 const v76 = readFileSync(new URL('../supabase-migration-v76.sql', import.meta.url), 'utf8').replace(/\r/g, '');
@@ -49,6 +50,7 @@ for (const fingerprint of [
 }
 assert.match(rollback, /v155_rollback_blocked_newer_function_definition/);
 assert.match(rollback, /pg_catalog\.obj_description\(v_function,'pg_proc'\) is distinct from \(\s*case when/);
+assert.match(integration, /\$legacy_rotate_upgrade_bypass_denied\$;\s*reset role;\s*select pg_temp\.v155_assert\([\s\S]*?'legacy_rotate_cannot_bypass_proof_required_by_upgrade'\s*\);\s*set local role anon;/);
 assert.doesNotMatch(migration + rollback, /'roles',policy_row\.polroles/);
 assert.match(migration + rollback, /pg_get_userbyid\(role_oid\)/);
 
