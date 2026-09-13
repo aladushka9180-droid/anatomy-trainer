@@ -915,13 +915,13 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 
 .provider-app { min-height:100vh; display:grid; grid-template-columns:248px minmax(0,1fr); background:#f4f7f5; }
 .provider-sidebar { position:sticky; top:0; display:flex; flex-direction:column; min-height:100vh; padding:26px 18px 18px; border-right:1px solid #e2e9e4; background:#fff; }
-.provider-brand { min-width:0; padding:0 0 24px; border-bottom:1px solid #edf1ee; }
+.provider-brand { min-width:0; padding:0 0 18px; border-bottom:1px solid #edf1ee; }
 .provider-brand>span:last-child { min-width:0; }
 .provider-brand strong { overflow-wrap:anywhere; }
 .provider-brand .brand-mark { width:42px; height:42px; border-radius:13px; }
 .provider-brand-copy { display:block; width:100%; min-width:0; }
-.provider-business-name-action { display:block; width:100%; min-width:0; max-width:100%; padding:0; border:0; border-radius:4px; background:transparent; color:inherit; cursor:pointer; font:inherit; text-align:left; }
-.provider-business-name-action strong { display:inline; color:inherit; text-decoration-color:transparent; text-decoration-line:underline; text-decoration-thickness:1px; text-underline-offset:4px; transition:color .16s ease,text-decoration-color .16s ease; }
+.provider-business-name-action { display:block; width:100%; min-width:0; max-width:100%; margin-top:7px; padding:0; border:0; border-radius:4px; background:transparent; color:inherit; cursor:pointer; font:inherit; text-align:left; }
+.provider-business-name-action strong { display:inline; color:inherit; font-size:18px; font-weight:760; line-height:1.2; letter-spacing:-.025em; text-decoration-color:transparent; text-decoration-line:underline; text-decoration-thickness:1px; text-underline-offset:4px; transition:color .16s ease,text-decoration-color .16s ease; }
 .provider-business-name-action:not(:disabled):hover strong,.provider-business-name-action:not(:disabled):focus-visible strong { color:var(--theme-accent,var(--green)); text-decoration-color:currentColor; }
 .provider-business-name-action:focus-visible { outline:2px solid color-mix(in srgb,var(--theme-accent,var(--green)) 36%,transparent); outline-offset:4px; }
 .provider-business-name-action:disabled { cursor:default; }

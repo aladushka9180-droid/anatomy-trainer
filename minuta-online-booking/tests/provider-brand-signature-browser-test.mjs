@@ -63,6 +63,7 @@ try {
         const tierStyle = getComputedStyle(tier);
         const signatureRect = signature.getBoundingClientRect();
         const cardRect = card.getBoundingClientRect();
+        const nameRect = name.getBoundingClientRect();
         return {
           transform:signatureStyle.textTransform,
           size:Number.parseFloat(signatureStyle.fontSize),
@@ -80,13 +81,14 @@ try {
           nameActionBackground:getComputedStyle(nameAction).backgroundColor,
           nameActionWidth:nameAction.getBoundingClientRect().width,
           copyWidth:copy.getBoundingClientRect().width,
-          nameHeight:name.getBoundingClientRect().height,
+          nameHeight:nameRect.height,
           nameLineHeight:Number.parseFloat(getComputedStyle(name).lineHeight),
+          signatureAboveName:signatureRect.bottom <= nameAction.getBoundingClientRect().top,
           overflow:document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
         };
       }, theme);
       assert.equal(state.transform, 'none', `${theme} ${width}px: подпись снова набрана капсом`);
-      assert.equal(state.size, 12, `${theme} ${width}px: неверный размер подписи`);
+      assert.equal(state.size, 14, `${theme} ${width}px: неверный размер подписи`);
       assert.ok(state.spacing < 0, `${theme} ${width}px: вернулась разреженная подпись (${state.spacing}px)`);
       assert.notEqual(state.nameColor, state.tierColor, `${theme} ${width}px: Pro потерял акцент`);
       assert.ok(state.tierWeight > state.nameWeight, `${theme} ${width}px: Pro не отделён начертанием`);
@@ -109,12 +111,14 @@ try {
       }
       if (output && ['warm', 'midnight', 'petrol-steel'].includes(theme)) {
         await page.evaluate(() => document.activeElement?.blur());
+        await page.mouse.move(width - 4, 896);
         await page.waitForTimeout(180);
         await page.screenshot({ path:path.join(output, `${theme}-${width}.png`) });
       }
       if (width === 1440) {
         assert.equal(state.visible, true, `${theme}: подпись не видна в боковой панели`);
         assert.equal(state.inside, true, `${theme}: подпись вышла за карточку бренда`);
+        assert.equal(state.signatureAboveName, true, `${theme}: PrimeTime Pro должен стоять над названием организации`);
         assert.ok(state.nameHeight <= state.nameLineHeight * 1.15, `${theme}: «Массаж в Ижевске» всё ещё переносится при доступной ширине`);
         assert.ok(state.copyOffset <= 16, `${theme}: освобождённая ширина не передана названию бизнеса`);
         tierColors.add(state.tierColor);

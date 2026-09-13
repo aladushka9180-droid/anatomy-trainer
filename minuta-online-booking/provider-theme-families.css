@@ -441,19 +441,26 @@
   .provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"]))::before { transition:none!important; }
 }
 
-/* The product signature stays secondary to the business name while reflecting each theme. */
+/* The product signature leads the compact identity block while staying secondary in tone. */
 html .provider-body[data-provider-theme][data-provider-layout] .provider-brand.brand .provider-product-signature {
   display:flex!important;
   align-items:baseline;
   gap:.22em;
-  margin-top:4px;
+  margin-top:0;
   color:var(--theme-muted,var(--muted))!important;
-  font-size:12px;
+  font-size:14px;
   font-weight:780;
   line-height:1.2;
   letter-spacing:-.015em!important;
   text-transform:none!important;
   white-space:nowrap;
+}
+
+html .provider-body[data-provider-theme][data-provider-layout] .provider-brand.brand .provider-business-name-action strong {
+  font-size:18px;
+  font-weight:760;
+  line-height:1.2;
+  letter-spacing:-.025em;
 }
 
 html .provider-body[data-provider-theme][data-provider-layout] .provider-brand.brand .provider-product-name {

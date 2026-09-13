@@ -7,7 +7,7 @@ const baseCss = fs.readFileSync(new URL('./styles.css', import.meta.url), 'utf8'
 const provider = fs.readFileSync(new URL('./provider.js', import.meta.url), 'utf8');
 const organization = fs.readFileSync(new URL('./organization.js', import.meta.url), 'utf8');
 
-assert.match(html, /<a class="provider-product-signature-link" href="index\.html" aria-label="PrimeTime Pro — к онлайн-записи"><small class="provider-product-signature" aria-hidden="true"><span class="provider-product-name">PrimeTime<\/span><span class="provider-product-tier">Pro<\/span><\/small><\/a>/);
+assert.match(html, /class="provider-brand-copy"><a class="provider-product-signature-link" href="index\.html" aria-label="PrimeTime Pro — к онлайн-записи"><small class="provider-product-signature" aria-hidden="true"><span class="provider-product-name">PrimeTime<\/span><span class="provider-product-tier">Pro<\/span><\/small><\/a><button class="provider-business-name-action"/, 'PrimeTime Pro должен стоять над названием организации');
 assert.doesNotMatch(html, /class="brand provider-brand"[^\n]*<small>PrimeTime Pro<\/small>/, 'Старая одноцветная подпись осталась в карточке бизнеса');
 assert.match(html, /class="brand provider-brand"[^\n]*class="provider-brand-copy"/, 'Название и подпись не объединены в свободную колонку');
 assert.doesNotMatch(html, /class="brand provider-brand"[^\n]*class="brand-mark"/, 'PT всё ещё занимает место в карточке бизнеса');
@@ -24,7 +24,7 @@ assert.match(organization, /const canEdit = Boolean\(organization\?\.id && organ
 assert.match(provider, /view\.matches\('\[data-edit-provider-business\]'\)[\s\S]*organizationOverviewSection[\s\S]*input\.focus\(\{ preventScroll:true \}\);[\s\S]*input\.select\(\);/, 'Нажатие на название не открывает и не фокусирует редактирование в «Организации»');
 
 const signature = css.match(/\.provider-product-signature\s*\{([\s\S]*?)\n\}/)?.[1] || '';
-assert.match(signature, /font-size:12px;/, 'Подпись осталась слишком мелкой');
+assert.match(signature, /font-size:14px;/, 'Фирменная строка не получила компактный читаемый размер');
 assert.match(signature, /letter-spacing:-\.015em!important;/, 'У подписи осталось разреженное написание');
 assert.match(signature, /text-transform:none!important;/, 'Подпись всё ещё принудительно набрана капсом');
 assert.match(signature, /white-space:nowrap;/, 'PrimeTime Pro может разорваться на две строки');
