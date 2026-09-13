@@ -125,14 +125,30 @@ jobs:
 
           check_exact(){
             local state="$1"
-            jq -e --argjson contract "$expected" '
+            if ! jq -e --argjson contract "$expected" '
               .classification=="exact" and .exact and .presentCount==$contract.versionObjectCount
               and .allFunctionsStructurallyExact and .allTablesExact and .benefitVersionExact
               and ([.functions[]|{signature,sourceHash,access,marker}]
                 == [$contract.functions[]|{signature,sourceHash,access,marker}])
               and ([.tables[].name] == $contract.tables)
               and all(.tables[];.structuralExact and (.marker==($contract.markerPrefix+.schemaHash)))
-            ' <<<"$state" >/dev/null
+            ' <<<"$state" >/dev/null; then
+              echo 'v155_exact_state_mismatch' >&2
+              jq -c '{classification,presentCount,expectedPresentCount,exact,
+                allFunctionsStructurallyExact,allTablesExact,benefitVersionExact,
+                functions:[.functions[]|select(.structuralExact|not)|{signature,access,marker,structuralExact}],
+                tables:[.tables[]|select(.structuralExact|not)|{name,marker,structuralExact}]}' <<<"$state" >&2
+              jq -nc --argjson state "$state" --argjson contract "$expected" '{
+                functionSourceMismatches:[
+                  $state.functions[] as $actual
+                  | $contract.functions[]
+                  | select(.signature==$actual.signature and .sourceHash!=$actual.sourceHash)
+                  | {signature,expectedSourceHash:.sourceHash,actualSourceHash:$actual.sourceHash}
+                ],
+                tableNameMismatch:([$state.tables[].name] != $contract.tables)
+              }' >&2
+              return 1
+            fi
           }
 
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v155.sql
