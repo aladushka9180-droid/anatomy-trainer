@@ -14,7 +14,7 @@ begin
   end if;
   select encode(extensions.digest(convert_to(replace(procedure_row.prosrc,E'\r',''),'UTF8'),'sha256'),'hex')
   into v_source_sha256 from pg_catalog.pg_proc procedure_row where procedure_row.oid=v_function;
-  if v_source_sha256 is distinct from '20e00faa310cf9b115b9fb1c2163e306537f8c4998869e6a4a1608c34e25e68a'
+  if v_source_sha256 is distinct from 'ec5124e896aa3ce818ebe2fa6b71181307a90c0c21b6c2732aff007c1413f34f'
      or pg_catalog.obj_description(v_function,'pg_proc') is distinct from
        'minuta_session_service_change_v156:sha256='||v_source_sha256 then
     raise exception using errcode='55000',message='v156_rollback_blocked_newer_definition';

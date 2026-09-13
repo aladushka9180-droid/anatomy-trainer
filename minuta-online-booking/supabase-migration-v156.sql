@@ -32,7 +32,7 @@ begin
     if v_marker is not null then
       raise exception using errcode='55000',message='v156_legacy_session_marker_drift';
     end if;
-  elsif v_source_sha256='20e00faa310cf9b115b9fb1c2163e306537f8c4998869e6a4a1608c34e25e68a' then
+  elsif v_source_sha256='ec5124e896aa3ce818ebe2fa6b71181307a90c0c21b6c2732aff007c1413f34f' then
     if v_marker is distinct from 'minuta_session_service_change_v156:sha256='||v_source_sha256 then
       raise exception using errcode='55000',message='v156_session_marker_drift';
     end if;
@@ -186,18 +186,18 @@ begin
   ) parsed;
 
   if v_total_duration is distinct from v_booking.duration_minutes then
-    update public.bookings
+    update public.bookings booking
     set service_id = v_primary_service,
         duration_minutes = v_total_duration,
-        original_price_rub = coalesce(original_price_rub, total_price_rub, v_total_price),
+        original_price_rub = coalesce(booking.original_price_rub, booking.total_price_rub, v_total_price),
         total_price_rub = v_total_price
-    where id = v_booking.id;
+    where booking.id = v_booking.id;
   else
-    update public.bookings
+    update public.bookings booking
     set service_id = v_primary_service,
-        original_price_rub = coalesce(original_price_rub, total_price_rub, v_total_price),
+        original_price_rub = coalesce(booking.original_price_rub, booking.total_price_rub, v_total_price),
         total_price_rub = v_total_price
-    where id = v_booking.id;
+    where booking.id = v_booking.id;
   end if;
 
   insert into public.booking_session_revisions (
@@ -215,7 +215,7 @@ revoke all on function public.save_booking_session(uuid,jsonb)
 grant execute on function public.save_booking_session(uuid,jsonb) to authenticated;
 
 comment on function public.save_booking_session(uuid,jsonb) is
-  'minuta_session_service_change_v156:sha256=20e00faa310cf9b115b9fb1c2163e306537f8c4998869e6a4a1608c34e25e68a';
+  'minuta_session_service_change_v156:sha256=ec5124e896aa3ce818ebe2fa6b71181307a90c0c21b6c2732aff007c1413f34f';
 
 do $postcondition$
 declare
@@ -227,7 +227,7 @@ begin
   from pg_catalog.pg_proc procedure_row
   where procedure_row.oid=v_function;
 
-  if v_source_sha256 is distinct from '20e00faa310cf9b115b9fb1c2163e306537f8c4998869e6a4a1608c34e25e68a'
+  if v_source_sha256 is distinct from 'ec5124e896aa3ce818ebe2fa6b71181307a90c0c21b6c2732aff007c1413f34f'
      or pg_catalog.obj_description(v_function,'pg_proc') is distinct from
        'minuta_session_service_change_v156:sha256='||v_source_sha256
      or exists(
