@@ -81,8 +81,10 @@ assert.match(state, /marker='minuta_client_identity_v155:sha256='\|\|runtime\.sc
 assert.match(state, /expectedPresentCount',24/);
 assert.doesNotMatch(state, /^\s*(?:insert|update|delete|truncate|alter|drop|create)\b/im);
 assert.match(counts, /^begin transaction isolation level repeatable read read only;/);
+assert.match(counts, /v155_business_count_prerequisites_missing/);
 assert.match(counts, /'commercialSales'/);
 assert.match(counts, /'benefitLedger'/);
+assert.doesNotMatch(counts, /booking_mutations|booking_outcomes/);
 assert.doesNotMatch(counts, /^\s*(?:insert|update|delete|truncate|alter|drop|create)\b/im);
 
 const job = name => {
