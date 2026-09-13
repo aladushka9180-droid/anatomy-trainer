@@ -49,22 +49,24 @@
 }
 
 .provider-body[data-provider-theme="coastal"][data-provider-layout] {
-  background-color:#f5eddd!important;
-  background-image:url("provider-coastal-porcelain-material-v1.webp")!important;
+  background-color:#f4f1eb!important;
+  background-image:
+    linear-gradient(rgba(250,249,246,.74),rgba(250,249,246,.74)),
+    url("provider-coastal-porcelain-material-v1.webp")!important;
 }
 
 .provider-body[data-provider-theme="midnight"][data-provider-layout] {
-  background-color:#06182f!important;
-  background-image:url("provider-midnight-navy-velvet-v1.webp")!important;
+  background-color:#061426!important;
+  background-image:
+    linear-gradient(rgba(4,15,30,.66),rgba(4,15,30,.66)),
+    url("provider-midnight-navy-velvet-v1.webp")!important;
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] {
-  background-color:#11100f!important;
-  background-image:url("provider-noir-suede-material-v1.webp")!important;
-}
-
-.provider-body[data-provider-theme="midnight"][data-provider-layout] .schedule-card {
-  background-color:rgba(9,29,55,.86)!important;
+  background-color:#0f0f0e!important;
+  background-image:
+    linear-gradient(rgba(15,15,14,.72),rgba(15,15,14,.72)),
+    url("provider-noir-suede-material-v1.webp")!important;
 }
 
 /* The artwork belongs to the outer canvas; operational surfaces remain clean. */
@@ -82,8 +84,31 @@
   background-image:none!important;
 }
 
+.provider-body[data-provider-theme="coastal"][data-provider-layout] .schedule-card {
+  border-color:rgba(150,145,136,.44)!important;
+  background-color:rgba(255,253,248,.96)!important;
+  box-shadow:0 12px 34px rgba(42,61,70,.07)!important;
+}
+
+.provider-body[data-provider-theme="midnight"][data-provider-layout] .schedule-card {
+  border-color:rgba(74,106,137,.48)!important;
+  background-color:rgba(8,28,50,.96)!important;
+  box-shadow:0 12px 34px rgba(0,4,12,.22)!important;
+}
+
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .schedule-card {
-  background-color:rgba(27,25,23,.90)!important;
+  border-color:rgba(104,88,75,.40)!important;
+  background-color:rgba(25,24,23,.97)!important;
+  box-shadow:0 12px 32px rgba(0,0,0,.20)!important;
+}
+
+.provider-body:is(
+  [data-provider-theme="coastal"],
+  [data-provider-theme="midnight"],
+  [data-provider-theme="noir-safari"]
+)[data-provider-layout] :is(.date-navigation,.date-strip,.schedule-toolbar,.timeline-stage) {
+  border-color:color-mix(in srgb,var(--theme-line) 34%,transparent)!important;
+  box-shadow:none!important;
 }
 
 .provider-body:is(
@@ -141,13 +166,25 @@
   background:#28221f url("provider-cocoa-pearl-desktop-v1.webp") center/cover no-repeat!important;
 }
 .theme-coastal .theme-swatch {
-  background:#f5eddd url("provider-coastal-porcelain-material-v1.webp") center/cover no-repeat!important;
+  background-color:#f4f1eb!important;
+  background-image:linear-gradient(rgba(250,249,246,.62),rgba(250,249,246,.62)),url("provider-coastal-porcelain-material-v1.webp")!important;
+  background-position:center!important;
+  background-size:cover!important;
+  background-repeat:no-repeat!important;
 }
 .theme-midnight .theme-swatch {
-  background:#06182f url("provider-midnight-navy-velvet-v1.webp") center/cover no-repeat!important;
+  background-color:#061426!important;
+  background-image:linear-gradient(rgba(4,15,30,.54),rgba(4,15,30,.54)),url("provider-midnight-navy-velvet-v1.webp")!important;
+  background-position:center!important;
+  background-size:cover!important;
+  background-repeat:no-repeat!important;
 }
 .theme-noir-safari .theme-swatch {
-  background:#11100f url("provider-noir-suede-material-v1.webp") center/cover no-repeat!important;
+  background-color:#0f0f0e!important;
+  background-image:linear-gradient(rgba(15,15,14,.60),rgba(15,15,14,.60)),url("provider-noir-suede-material-v1.webp")!important;
+  background-position:center!important;
+  background-size:cover!important;
+  background-repeat:no-repeat!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .provider-theme-option {
   overflow:hidden!important;
@@ -204,6 +241,33 @@
     background-image:
       radial-gradient(ellipse 86% 88% at 50% 45%,rgba(24,14,10,.18) 0%,rgba(24,14,10,.10) 60%,rgba(24,14,10,.03) 100%),
       url("provider-cocoa-pearl-mobile-v1.webp")!important;
+  }
+
+  .provider-body[data-provider-theme="coastal"][data-provider-layout] {
+    background-image:
+      linear-gradient(rgba(250,249,246,.80),rgba(250,249,246,.80)),
+      url("provider-coastal-porcelain-material-v1.webp")!important;
+  }
+
+  .provider-body[data-provider-theme="midnight"][data-provider-layout] {
+    background-image:
+      linear-gradient(rgba(4,15,30,.72),rgba(4,15,30,.72)),
+      url("provider-midnight-navy-velvet-v1.webp")!important;
+  }
+
+  .provider-body[data-provider-theme="noir-safari"][data-provider-layout] {
+    background-image:
+      linear-gradient(rgba(15,15,14,.78),rgba(15,15,14,.78)),
+      url("provider-noir-suede-material-v1.webp")!important;
+  }
+
+  .provider-body:is(
+    [data-provider-theme="coastal"],
+    [data-provider-theme="midnight"],
+    [data-provider-theme="noir-safari"]
+  )[data-provider-layout] .provider-mobile-nav {
+    border-color:color-mix(in srgb,var(--theme-line) 34%,transparent)!important;
+    box-shadow:0 8px 24px color-mix(in srgb,var(--theme-shadow) 72%,transparent)!important;
   }
 
 }

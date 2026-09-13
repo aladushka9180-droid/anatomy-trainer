@@ -1,26 +1,26 @@
 /* Noir Suede: graphite suede surfaces with restrained smoky-cognac accents. */
 .provider-body[data-provider-theme="noir-safari"] {
-  --theme-bg:#11100f;
-  --theme-surface:#1b1917;
-  --theme-surface-alt:#24201d;
-  --theme-ink:#f3eee8;
-  --theme-muted:#b9afa4;
-  --theme-line:#786250;
-  --theme-accent:#aa7249;
-  --theme-accent-soft:#1b120e;
+  --theme-bg:#0f0f0e;
+  --theme-surface:#191817;
+  --theme-surface-alt:#211f1d;
+  --theme-ink:#f4f0eb;
+  --theme-muted:#bcb4ac;
+  --theme-line:#75685c;
+  --theme-accent:#c0885c;
+  --theme-accent-soft:#2b211a;
   --theme-accent-contrast:#160f0b;
-  --theme-shadow:rgba(0,0,0,.52);
+  --theme-shadow:rgba(0,0,0,.36);
   --material-radius:14px;
   --material-control-radius:10px;
-  --material-card-bg:rgba(27,25,23,.94);
-  --material-card-border:#786250;
-  --signature-sidebar:rgba(14,13,12,.94);
-  --signature-stage:rgba(18,17,16,.92);
-  --signature-nav-active:#30251e;
-  --signature-card-shadow:0 16px 42px rgba(0,0,0,.30);
-  --atmosphere-background:#11100f;
-  --atmosphere-panel:rgba(24,22,20,.90);
-  --atmosphere-panel-strong:rgba(29,27,24,.95);
+  --material-card-bg:rgba(25,24,23,.97);
+  --material-card-border:#75685c;
+  --signature-sidebar:rgba(13,13,12,.97);
+  --signature-stage:rgba(20,19,18,.96);
+  --signature-nav-active:#2b211a;
+  --signature-card-shadow:0 14px 34px rgba(0,0,0,.24);
+  --atmosphere-background:#0f0f0e;
+  --atmosphere-panel:rgba(22,21,20,.96);
+  --atmosphere-panel-strong:rgba(27,26,24,.98);
   color-scheme:dark;
   color:var(--theme-ink);
   font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif;
@@ -28,7 +28,7 @@
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] {
   background-color:var(--theme-bg)!important;
-  background-image:url("provider-noir-suede-material-v1.webp")!important;
+  background-image:linear-gradient(rgba(15,15,14,.72),rgba(15,15,14,.72)),url("provider-noir-suede-material-v1.webp")!important;
   background-position:center!important;
   background-repeat:no-repeat!important;
   background-size:cover!important;
@@ -56,14 +56,14 @@
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(
   .provider-sidebar,.provider-mobile-nav
 ) {
-  border-color:rgba(91,74,61,.52)!important;
-  background:rgba(14,13,12,.93)!important;
+  border-color:rgba(104,88,75,.38)!important;
+  background:rgba(13,13,12,.97)!important;
   box-shadow:none!important;
   backdrop-filter:blur(14px);
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-topbar {
-  border-bottom:1px solid rgba(91,74,61,.44)!important;
+  border-bottom:1px solid rgba(104,88,75,.30)!important;
   background:transparent!important;
   box-shadow:none!important;
   backdrop-filter:none!important;
@@ -78,10 +78,10 @@
   .schedule-empty,.service-form,.organization-row,.organization-create,.weekly-schedule-panel,
   .booking-rules-card,.client-history-item,.client-disclosure,.voice-assistant-dialog,.booking-sheet
 ) {
-  border-color:rgba(91,74,61,.62)!important;
-  background:rgba(27,25,23,.92)!important;
+  border-color:rgba(104,88,75,.38)!important;
+  background:rgba(25,24,23,.96)!important;
   color:var(--theme-ink)!important;
-  box-shadow:0 14px 34px rgba(0,0,0,.24)!important;
+  box-shadow:0 12px 30px rgba(0,0,0,.18)!important;
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(
@@ -96,8 +96,8 @@
   input,select,textarea,.field-with-unit,.client-search,.notification-filters,.report-periods,
   .journal-mode-toggle,.calendar-view-toggle,.booking-filters,.provider-section-nav
 ) {
-  border-color:rgba(91,74,61,.60)!important;
-  background:rgba(19,18,17,.92)!important;
+  border-color:rgba(104,88,75,.40)!important;
+  background:rgba(17,17,16,.96)!important;
   color:var(--theme-ink)!important;
   box-shadow:none!important;
 }
@@ -111,8 +111,8 @@
   .sync-tool-button,.voice-assistant-open,.desktop-app-install,.client-profile-back,
   .notification-card-actions button,.report-periods button,.booking-filters button
 ) {
-  border-color:rgba(91,74,61,.64)!important;
-  background:rgba(20,19,18,.91)!important;
+  border-color:rgba(104,88,75,.42)!important;
+  background:rgba(18,18,17,.96)!important;
   color:#e7dfd7!important;
   box-shadow:none!important;
 }
@@ -130,8 +130,8 @@
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(
   .primary,.booking-sheet .primary,.service-form .primary
 ) {
-  border-color:#bc875f!important;
-  background:#aa7249!important;
+  border-color:#c9956b!important;
+  background:#c0885c!important;
   color:#160f0b!important;
   box-shadow:none!important;
 }
@@ -165,14 +165,14 @@
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-brand .brand-mark {
   border-radius:50%!important;
-  font-family:Georgia,"Times New Roman",serif!important;
-  font-weight:600!important;
+  font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif!important;
+  font-weight:700!important;
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-brand strong {
   color:#f3eee8!important;
-  font-family:Georgia,"Times New Roman",serif!important;
-  font-weight:500!important;
+  font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif!important;
+  font-weight:700!important;
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-brand small {
@@ -197,8 +197,8 @@
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(
   .provider-nav button>span:nth-child(2),.sidebar-bottom>a>span,.sidebar-bottom>button>span,.logout-button
 ) {
-  font-family:Georgia,"Times New Roman",serif!important;
-  font-weight:500!important;
+  font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif!important;
+  font-weight:600!important;
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-nav button:hover {
@@ -208,7 +208,7 @@
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-nav button.active {
   border-color:#76553e!important;
-  background:#382b23!important;
+  background:#2c231d!important;
   color:#fff4eb!important;
   box-shadow:inset 4px 0 0 #aa7249!important;
 }
@@ -244,7 +244,7 @@
   isolation:isolate;
   overflow:hidden;
   border-color:#76553e!important;
-  background:#382b23!important;
+  background:#2c231d!important;
   box-shadow:inset 4px 0 0 #aa7249!important;
 }
 
@@ -276,7 +276,7 @@
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(button,a,input,select,textarea):focus-visible {
-  outline:2px solid #aa7249!important;
+  outline:2px solid #c0885c!important;
   outline-offset:2px;
 }
 
@@ -285,7 +285,7 @@
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-mobile-nav button.active {
-  background:#382b23!important;
+  background:#2c231d!important;
   color:#c58d64!important;
   box-shadow:none!important;
 }
@@ -296,7 +296,7 @@
   .report-data-source button.active,.report-mini-toggle button.active
 ) {
   border-color:#76553e!important;
-  background:#382b23!important;
+  background:#2c231d!important;
   color:#c58d64!important;
   box-shadow:inset 3px 0 0 #aa7249!important;
 }
@@ -345,9 +345,10 @@
   .provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(
     .provider-view>.view-title,.provider-view>.view-description,.settings-tabs
   ) {
-    border:1px solid rgba(91,74,61,.58)!important;
-    background:rgba(24,22,20,.91)!important;
-    border-radius:12px!important;
+    border:0!important;
+    background:transparent!important;
+    border-radius:0!important;
+    padding-inline:0!important;
   }
 
   .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-mobile-nav {

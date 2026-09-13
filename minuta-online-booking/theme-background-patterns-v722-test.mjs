@@ -55,24 +55,27 @@ assert.match(approved, /data-provider-theme="coastal"[\s\S]*?provider-coastal-po
 const coastalBackground = [...approved.matchAll(/\.provider-body\[data-provider-theme="coastal"\]\[data-provider-layout\]\s*\{([\s\S]*?)\n\}/g)]
   .map(match => match[1])
   .find(block => block.includes('provider-coastal-porcelain-material-v1.webp')) || '';
-assert.doesNotMatch(coastalBackground, /repeating-|radial-gradient|linear-gradient/i, 'Coastal Porcelain должен оставаться единым однородным материалом');
+assert.match(coastalBackground, /linear-gradient\(rgba\(250,249,246,\.74\),rgba\(250,249,246,\.74\)\)/, 'Coastal Porcelain должен приглушать фактуру однородным светлым слоем');
+assert.doesNotMatch(coastalBackground, /repeating-|radial-gradient/i, 'Coastal Porcelain должен оставаться единым однородным материалом');
 assert.match(approved, /data-provider-theme="midnight"[\s\S]*?provider-midnight-navy-velvet-v1\.webp/);
 const midnightBackground = [...approved.matchAll(/\.provider-body\[data-provider-theme="midnight"\]\[data-provider-layout\]\s*\{([\s\S]*?)\n\}/g)]
   .map(match => match[1])
   .find(block => block.includes('provider-midnight-navy-velvet-v1.webp')) || '';
-assert.doesNotMatch(midnightBackground, /repeating-|radial-gradient|linear-gradient|constellation/i, 'Midnight Navy должен оставаться единым бархатным материалом без созвездий и линий');
+assert.match(midnightBackground, /linear-gradient\(rgba\(4,15,30,\.66\),rgba\(4,15,30,\.66\)\)/, 'Midnight Navy должен приглушать бархат однородным navy-слоем');
+assert.doesNotMatch(midnightBackground, /repeating-|radial-gradient|constellation/i, 'Midnight Navy должен оставаться единым бархатным материалом без созвездий и линий');
 assert.match(approved, /data-provider-theme="noir-safari"[\s\S]*?provider-noir-suede-material-v1\.webp/);
 const noirSuedeBackground = [...approved.matchAll(/\.provider-body\[data-provider-theme="noir-safari"\]\[data-provider-layout\]\s*\{([\s\S]*?)\n\}/g)]
   .map(match => match[1])
   .find(block => block.includes('provider-noir-suede-material-v1.webp')) || '';
-assert.doesNotMatch(noirSuedeBackground, /repeating-|radial-gradient|linear-gradient|leopard|safari/i, 'Noir Suede должен оставаться единым замшевым материалом без животного принта');
+assert.match(noirSuedeBackground, /linear-gradient\(rgba\(15,15,14,\.72\),rgba\(15,15,14,\.72\)\)/, 'Noir Suede должен приглушать замшу однородным графитовым слоем');
+assert.doesNotMatch(noirSuedeBackground, /repeating-|radial-gradient|leopard|safari/i, 'Noir Suede должен оставаться единым замшевым материалом без животного принта');
 assert.doesNotMatch(`${catalog}\n${provider}\n${noirSuede}`, /Noir Safari|органичный леопард|provider-noir-safari-bg/i, 'Видимая тема Noir Suede не должна сохранять прежнее safari-оформление');
 assert.match(approved, /\.provider-layout-options \.provider-layout-option\s*\{[\s\S]*?border-radius:14px!important;[\s\S]*?box-shadow:none!important;/);
-assert.match(provider, /theme-catalog\.js\?v=753/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v753`/);
-assert.match(worker, /\.\/theme-catalog\.js\?v=753/);
+assert.match(provider, /theme-catalog\.js\?v=754/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v754`/);
+assert.match(worker, /\.\/theme-catalog\.js\?v=754/);
 
 const neutralScheduleRules = schedule.match(/background-image:none!important/g) || [];
 assert.ok(neutralScheduleRules.length >= 2, 'Фоновый узор темы не должен попадать в записи и перерывы');
 
-console.log('Theme background patterns v753: PASS');
+console.log('Theme background patterns v754: PASS');
