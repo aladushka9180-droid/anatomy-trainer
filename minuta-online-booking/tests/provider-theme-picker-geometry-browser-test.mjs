@@ -77,6 +77,7 @@ try {
         }
         return {
           count:cards.length,
+          names:Object.fromEntries(cards.map(card => [card.querySelector('input')?.value, card.querySelector('strong')?.textContent || ''])),
           descriptions:Object.fromEntries(cards.map(card => [card.querySelector('input')?.value, card.querySelector('[data-theme-description]')?.textContent || ''])),
           radii,
           overlaps,
@@ -91,7 +92,8 @@ try {
       assert.equal(result.descriptions['petrol-steel'], 'Бирюзовая патина, тёмный металл и медные прожилки');
       assert.equal(result.descriptions['cobalt-forge'], 'Холодная шлифованная сталь и глубокий синий акцент');
       assert.equal(result.descriptions['snow-leopard'], 'Морозный кварц и холодные серо-голубые прожилки');
-      assert.equal(result.descriptions['pearl-zebra'], 'Тёплый жемчужный минерал и тонкие природные линии');
+      assert.equal(result.names['pearl-zebra'], 'Ivory Flow');
+      assert.equal(result.descriptions['pearl-zebra'], 'Тёплая слоновая кость и мягкие дымчато-тауповые волны');
       assert.equal(result.descriptions.luxury, 'Матовый обсидиан и мягкое сияние шампанского');
       assert.equal(result.descriptions['concrete-signal'], 'Холодный светлый бетон и чёткий красный акцент');
       assert.ok(result.radii.every(radius => radius === 13), `${theme}/${width}: selected theme reshaped picker cards into large ovals (${[...new Set(result.radii)].join(', ')})`);

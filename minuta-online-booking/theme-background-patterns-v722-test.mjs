@@ -38,13 +38,13 @@ for (const [theme, assets] of approvedBackgrounds) {
   }
 }
 assert.match(catalog, /defineTheme\('luxury', 'Люкс \/ Премиум', 'Матовый обсидиан и мягкое сияние шампанского'/);
-assert.match(catalog, /defineTheme\('pearl-zebra', 'Pearl Zebra', 'Тёплый жемчужный минерал и тонкие природные линии'/);
+assert.match(catalog, /defineTheme\('pearl-zebra', 'Ivory Flow', 'Тёплая слоновая кость и мягкие дымчато-тауповые волны'/);
 assert.match(catalog, /defineTheme\('concrete-signal', 'Concrete Signal', 'Холодный светлый бетон и чёткий красный акцент'/);
-assert.match(provider, /theme-catalog\.js\?v=747/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v747`/);
-assert.match(worker, /\.\/theme-catalog\.js\?v=747/);
+assert.match(provider, /theme-catalog\.js\?v=748/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v748`/);
+assert.match(worker, /\.\/theme-catalog\.js\?v=748/);
 
 const neutralScheduleRules = schedule.match(/background-image:none!important/g) || [];
 assert.ok(neutralScheduleRules.length >= 2, 'Фоновый узор темы не должен попадать в записи и перерывы');
 
-console.log('Theme background patterns v747: PASS');
+console.log('Theme background patterns v748: PASS');
