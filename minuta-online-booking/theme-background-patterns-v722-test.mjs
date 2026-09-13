@@ -59,11 +59,11 @@ const midnightBackground = [...approved.matchAll(/\.provider-body\[data-provider
   .find(block => block.includes('provider-midnight-navy-velvet-v1.webp')) || '';
 assert.doesNotMatch(midnightBackground, /repeating-|radial-gradient|linear-gradient|constellation/i, 'Midnight Navy должен оставаться единым бархатным материалом без созвездий и линий');
 assert.match(approved, /\.provider-layout-options \.provider-layout-option\s*\{[\s\S]*?border-radius:14px!important;[\s\S]*?box-shadow:none!important;/);
-assert.match(provider, /theme-catalog\.js\?v=751/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v751`/);
-assert.match(worker, /\.\/theme-catalog\.js\?v=751/);
+assert.match(provider, /theme-catalog\.js\?v=752/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v752`/);
+assert.match(worker, /\.\/theme-catalog\.js\?v=752/);
 
 const neutralScheduleRules = schedule.match(/background-image:none!important/g) || [];
 assert.ok(neutralScheduleRules.length >= 2, 'Фоновый узор темы не должен попадать в записи и перерывы');
 
-console.log('Theme background patterns v751: PASS');
+console.log('Theme background patterns v752: PASS');
