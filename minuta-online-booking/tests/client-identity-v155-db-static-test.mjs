@@ -51,6 +51,8 @@ for (const fingerprint of [
 assert.match(rollback, /v155_rollback_blocked_newer_function_definition/);
 assert.match(rollback, /pg_catalog\.obj_description\(v_function,'pg_proc'\) is distinct from \(\s*case when/);
 assert.match(integration, /\$legacy_rotate_upgrade_bypass_denied\$;\s*reset role;\s*select pg_temp\.v155_assert\([\s\S]*?'legacy_rotate_cannot_bypass_proof_required_by_upgrade'\s*\);\s*set local role anon;/);
+assert.match(integration, /set_config\('v155\.initial_booking',[\s\S]*?set_config\('v155\.same_phone_booking'/);
+assert.doesNotMatch(integration, /set local role (?:anon|authenticated|service_role);[\s\S]{0,900}\(select id from public\.bookings/);
 assert.doesNotMatch(migration + rollback, /'roles',policy_row\.polroles/);
 assert.match(migration + rollback, /pg_get_userbyid\(role_oid\)/);
 

@@ -213,6 +213,12 @@ select set_config('v155.bootstrap',(
   ) access
 ),true);
 reset role;
+select set_config('v155.initial_booking',(
+  select id::text from public.bookings where request_id=current_setting('v155.initial_request')::uuid
+),true);
+select set_config('v155.same_phone_booking',(
+  select id::text from public.bookings where request_id=current_setting('v155.same_phone_request')::uuid
+),true);
 
 select pg_temp.v155_assert(
   current_setting('v155.created')::jsonb->>'result_code'='ok'
@@ -349,12 +355,12 @@ insert into public.commercial_sales(
   current_setting('v155.payment_account')::uuid,155000,0,155000,0,gen_random_uuid(),repeat('3',64)
 ),(
   current_setting('v155.sale_visit')::uuid,current_setting('v155.org')::uuid,
-  (select id from public.bookings where request_id=current_setting('v155.same_phone_request')::uuid),
+  current_setting('v155.same_phone_booking')::uuid,
   null,current_setting('v155.owner')::uuid,'paid','cash',
   current_setting('v155.payment_account')::uuid,155000,0,155000,0,gen_random_uuid(),repeat('4',64)
 ),(
   current_setting('v155.sale_visit_conflict')::uuid,current_setting('v155.org')::uuid,
-  (select id from public.bookings where request_id=current_setting('v155.initial_request')::uuid),
+  current_setting('v155.initial_booking')::uuid,
   current_setting('v155.foreign_account')::uuid,current_setting('v155.owner')::uuid,'paid','cash',
   current_setting('v155.payment_account')::uuid,155000,0,155000,0,gen_random_uuid(),repeat('5',64)
 );
@@ -364,13 +370,13 @@ insert into public.client_identity_claim_grants_v155(
   token_hash,issued_by,created_at,expires_at,superseded_at
 ) values(
   current_setting('v155.org')::uuid,'booking',
-  (select id from public.bookings where request_id=current_setting('v155.initial_request')::uuid),
+  current_setting('v155.initial_booking')::uuid,
   current_setting('v155.account')::uuid,gen_random_uuid(),
   encode(extensions.digest(repeat('e',64),'sha256'),'hex'),current_setting('v155.owner')::uuid,
   now()-interval '2 minutes',now()-interval '1 minute',now()-interval '1 minute'
 ),(
   current_setting('v155.wrong_org')::uuid,'booking',
-  (select id from public.bookings where request_id=current_setting('v155.initial_request')::uuid),
+  current_setting('v155.initial_booking')::uuid,
   current_setting('v155.account')::uuid,gen_random_uuid(),
   encode(extensions.digest(repeat('f',64),'sha256'),'hex'),current_setting('v155.owner')::uuid,
   now(),now()+interval '10 minutes',null
@@ -383,7 +389,7 @@ begin
   begin
     perform public.issue_client_identity_claim_grant_v155(
       current_setting('v155.org')::uuid,
-      (select id from public.bookings where request_id=current_setting('v155.initial_request')::uuid),
+      current_setting('v155.initial_booking')::uuid,
       gen_random_uuid(),10
     );
     raise exception 'v155_outsider_claim_issued';
@@ -442,7 +448,7 @@ begin
   begin
     perform public.issue_client_identity_claim_grant_v155(
       current_setting('v155.org')::uuid,
-      (select id from public.bookings where request_id=current_setting('v155.initial_request')::uuid),
+      current_setting('v155.initial_booking')::uuid,
       gen_random_uuid(),10
     );
     raise exception 'v155_service_booking_claim_without_actor';
@@ -463,7 +469,7 @@ $service_staff_actor_required$;
 select set_config('v155.claim_service',(
   select to_jsonb(claim)::text from public.issue_client_identity_claim_grant_v155(
     current_setting('v155.org')::uuid,
-    (select id from public.bookings where request_id=current_setting('v155.initial_request')::uuid),
+    current_setting('v155.initial_booking')::uuid,
     current_setting('v155.claim_request')::uuid,10,current_setting('v155.owner')::uuid
   ) claim
 ),true);
@@ -489,14 +495,14 @@ set local role authenticated;
 select set_config('v155.claim',(
   select to_jsonb(claim)::text from public.issue_client_identity_claim_grant_v155(
     current_setting('v155.org')::uuid,
-    (select id from public.bookings where request_id=current_setting('v155.initial_request')::uuid),
+    current_setting('v155.initial_booking')::uuid,
     current_setting('v155.claim_request')::uuid,10
   ) claim
 ),true);
 select set_config('v155.claim_replay',(
   select to_jsonb(claim)::text from public.issue_client_identity_claim_grant_v155(
     current_setting('v155.org')::uuid,
-    (select id from public.bookings where request_id=current_setting('v155.initial_request')::uuid),
+    current_setting('v155.initial_booking')::uuid,
     current_setting('v155.claim_request')::uuid,10
   ) claim
 ),true);
