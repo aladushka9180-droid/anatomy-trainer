@@ -7983,8 +7983,8 @@ html.provider-booting .provider-main {
    время, имя клиента, перерывы и компактные записи. */
 @media (max-width:420px) {
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:not(.status-block):not(.compact):not(.minute-only) .timeline-booking-copy>strong {
-    font-size:11px;
-    letter-spacing:-.015em;
+    font-size:clamp(10.5px,2.7vw,11px);
+    letter-spacing:-.025em;
   }
 }
 

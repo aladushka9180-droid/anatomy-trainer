@@ -24,14 +24,14 @@ try {
         <span class="timeline-booking-status">Новая</span>
         <span class="timeline-drag-handle" aria-hidden="true"></span>
       </button>
-      <button class="timeline-booking status-confirmed timeline-tight title-wrap-regression" data-open-booking="title-wrap" data-mobile-timeline-top="62" style="position:relative;width:min(280px,calc(100vw - 88px));height:66px;margin-top:16px">
+      <button class="timeline-booking status-confirmed timeline-tight title-wrap-regression" data-open-booking="title-wrap" data-mobile-timeline-top="62" style="position:relative;width:calc(100vw - 88px);height:66px;margin-top:16px">
         <span class="timeline-booking-copy">
-          <strong><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> —&nbsp;углублённый</span><wbr><span class="timeline-service-duration"> · 60 мин</span></strong>
-          <span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">13:00–14:00 · </span><span class="timeline-client-name">Клиент</span></small></span>
+          <strong><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> —&nbsp;углублённый</span> <span class="timeline-service-duration">· 60 мин</span></strong>
+          <span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">15:00–16:00 · </span><span class="timeline-client-name">Якимов Кирилл</span></small></span>
         </span>
         <span class="timeline-drag-handle" aria-hidden="true"></span>
       </button>
-      <div class="timeline-booking status-block" data-mobile-timeline-top="128" style="position:relative;width:min(280px,calc(100vw - 88px));height:66px;margin-top:16px">
+      <div class="timeline-booking status-block" data-mobile-timeline-top="128" style="position:relative;width:calc(100vw - 88px);height:66px;margin-top:16px">
         <span class="timeline-booking-copy"><strong>Ⅱ Перерыв</strong></span>
       </div>
     </body></html>`);
@@ -68,7 +68,7 @@ try {
     assert.ok(layout.badgeWidth <= 72, `VIP is wider than 72px at ${width}px`);
     assert.equal(layout.titlePaddingRight, '0px', `Title keeps a dead right column at ${width}px`);
     assert.ok(Math.abs(layout.titleWidth - (layout.copyWidth - layout.copyPaddingRight)) < 1, `Title does not use the space left by the handle at ${width}px`);
-    assert.equal(layout.copyPaddingRight, 20, `Copy does not reserve the mobile drag handle at ${width}px`);
+    assert.equal(layout.copyPaddingRight, 20, `Copy does not reserve a safe gap before the mobile drag handle at ${width}px`);
     assert.equal(layout.handleDisplay, 'flex', `Drag handle is not visible at ${width}px`);
     assert.equal(layout.handleTouchAction, 'none', `Drag handle cannot keep a touch gesture at ${width}px`);
     assert.ok(layout.handleRect.right <= layout.cardRect.right + .5 && layout.handleRect.left >= layout.cardRect.left, `Drag handle escapes the card at ${width}px`);
@@ -85,25 +85,44 @@ try {
       return {
         fontSize:Number.parseFloat(getComputedStyle(title).fontSize),
         coreTop:core.getBoundingClientRect().top,
+        coreWidth:core.getBoundingClientRect().width,
         variantTop:variant.getBoundingClientRect().top,
+        variantWidth:variant.getBoundingClientRect().width,
         durationTop:duration.getBoundingClientRect().top,
+        durationWidth:duration.getBoundingClientRect().width,
+        titleWidth:title.getBoundingClientRect().width,
+        clientRight:card.querySelector('.timeline-booking-client').getBoundingClientRect().right,
+        handleLeft:card.querySelector('.timeline-drag-handle').getBoundingClientRect().left,
+        clientText:card.querySelector('.timeline-booking-client').innerText,
+        clientOverflow:card.querySelector('.timeline-booking-client').scrollWidth > card.querySelector('.timeline-booking-client').clientWidth,
         overflow:card.scrollWidth > card.clientWidth,
       };
     });
-    assert.equal(titleWrap.fontSize, width <= 420 ? 11 : 12, `Only narrow phones should reduce the service title at ${width}px`);
+    const expectedTitleFontSize = width <= 420 ? Math.min(11, Math.max(10.5, width * .027)) : 12;
+    assert.ok(Math.abs(titleWrap.fontSize - expectedTitleFontSize) < .03, `Only narrow phones should adaptively reduce the service title at ${width}px`);
     assert.ok(Math.abs(titleWrap.variantTop - titleWrap.coreTop) <= 1, `Service variant wraps away from the dash at ${width}px`);
-    assert.ok(titleWrap.durationTop > titleWrap.variantTop + 4, `Duration should use the next line after the full service title at ${width}px`);
+    assert.ok(Math.abs(titleWrap.durationTop - titleWrap.variantTop) <= 6, `Duration wraps despite enough room beside the service title at ${width}px`);
+    assert.equal(titleWrap.clientText, '15:00–16:00 · Якимов Кирилл', `Client row text changed at ${width}px`);
+    assert.equal(titleWrap.clientOverflow, false, `Client row truncates despite the free space before the handle at ${width}px`);
+    assert.ok(titleWrap.clientRight <= titleWrap.handleLeft + .5, `Client row reaches under the drag handle at ${width}px`);
     assert.equal(titleWrap.overflow, false, `Balanced title overflows at ${width}px`);
     assert.equal(await page.locator('.timeline-booking.status-block strong').evaluate(title => Number.parseFloat(getComputedStyle(title).fontSize)), 12, `Break title size changed at ${width}px`);
     if (process.env.MINUTA_VISUAL_DIR) {
       mkdirSync(process.env.MINUTA_VISUAL_DIR, { recursive:true });
-      await page.screenshot({ path:join(process.env.MINUTA_VISUAL_DIR, `mobile-timeline-${width}.png`), fullPage:true });
+      for (const theme of ['warm', 'midnight']) {
+        await page.locator('body').evaluate((body, value) => { body.dataset.providerTheme = value; }, theme);
+        await page.screenshot({ path:join(process.env.MINUTA_VISUAL_DIR, `mobile-timeline-${theme}-${width}.png`), fullPage:true });
+      }
+      await page.locator('body').evaluate(body => { body.dataset.providerTheme = 'warm'; });
     }
   }
   await page.setViewportSize({ width:1440, height:900 });
   assert.equal(await page.locator('.timeline-drag-handle').first().evaluate(handle => getComputedStyle(handle).display), 'none', 'Mobile drag handle must stay hidden on desktop');
   if (process.env.MINUTA_VISUAL_DIR) {
-    await page.screenshot({ path:join(process.env.MINUTA_VISUAL_DIR, 'mobile-timeline-1440.png'), fullPage:true });
+    for (const theme of ['warm', 'midnight']) {
+      await page.locator('body').evaluate((body, value) => { body.dataset.providerTheme = value; }, theme);
+      await page.screenshot({ path:join(process.env.MINUTA_VISUAL_DIR, `mobile-timeline-${theme}-1440.png`), fullPage:true });
+    }
   }
 } finally {
   await browser.close();
