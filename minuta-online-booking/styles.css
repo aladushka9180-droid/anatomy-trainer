@@ -7965,11 +7965,26 @@ html.provider-booting .provider-main {
   }
 }
 
-/* На узких телефонах длинное название использует строку до края карточки,
-   а время и клиент сохраняют прежний размер. */
-@media (max-width:374px) {
+/* Обычная мобильная запись использует всю безопасную ширину до ручки:
+   старый резерв под статус не должен обрезать название или имя клиента. */
+@media (max-width:760px) {
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only):has(.timeline-drag-handle) .timeline-booking-copy {
+    box-sizing:border-box;
+    width:100%!important;
+    padding-right:20px!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only):has(.timeline-drag-handle) .timeline-booking-client-row {
+    width:100%;
+    padding-right:0!important;
+  }
+}
+
+/* На узких телефонах длинное название слегка уплотняется, не затрагивая
+   время, имя клиента, перерывы и компактные записи. */
+@media (max-width:420px) {
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:not(.status-block):not(.compact):not(.minute-only) .timeline-booking-copy>strong {
     font-size:11px;
+    letter-spacing:-.015em;
   }
 }
 

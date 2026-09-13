@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
+const NativeDate = globalThis.Date;
+const fixedNow = NativeDate.parse('2026-09-13T12:00:00+04:00');
+globalThis.Date = class extends NativeDate {
+  constructor(...args) { super(...(args.length ? args : [fixedNow])); }
+  static now() { return fixedNow; }
+};
 const globalListeners = new Map();
 globalThis.addEventListener = (type, listener) => {
   const listeners = globalListeners.get(type) || new Set();

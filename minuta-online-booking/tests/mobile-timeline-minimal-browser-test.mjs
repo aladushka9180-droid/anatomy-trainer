@@ -36,7 +36,7 @@ try {
       </div>
     </body></html>`);
 
-  for (const width of [360, 390, 760]) {
+  for (const width of [360, 390, 420, 760]) {
     await page.setViewportSize({ width, height:844 });
     const layout = await page.locator('.timeline-booking').first().evaluate(card => {
       const copy = card.querySelector('.timeline-booking-copy');
@@ -90,7 +90,7 @@ try {
         overflow:card.scrollWidth > card.clientWidth,
       };
     });
-    assert.equal(titleWrap.fontSize, width <= 374 ? 11 : 12, `Only narrow phones should reduce the service title at ${width}px`);
+    assert.equal(titleWrap.fontSize, width <= 420 ? 11 : 12, `Only narrow phones should reduce the service title at ${width}px`);
     assert.ok(Math.abs(titleWrap.variantTop - titleWrap.coreTop) <= 1, `Service variant wraps away from the dash at ${width}px`);
     assert.ok(titleWrap.durationTop > titleWrap.variantTop + 4, `Duration should use the next line after the full service title at ${width}px`);
     assert.equal(titleWrap.overflow, false, `Balanced title overflows at ${width}px`);

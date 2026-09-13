@@ -1,0 +1,88 @@
+name: Minuta assistant speech Edge release
+run-name: Minuta assistant speech Edge - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character current main commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter DEPLOY_ASSISTANT_SPEECH
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-production-edge-functions
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      SHA: ${{ inputs.commit_sha }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pin exact current main commit and release intent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$CONFIRMATION" = DEPLOY_ASSISTANT_SPEECH
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 24 }
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with: { deno-version: v2.x }
+      - name: Verify the exact speech adapter without external side effects
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/assistant-speech-static-test.mjs
+          deno check minuta-online-booking/supabase/functions/assistant-speech/index.ts
+          deno test minuta-online-booking/supabase/functions/assistant-speech/handler_test.ts
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v1
+        with: { version: 2.117.0 }
+      - name: Deploy only the assistant speech adapter
+        working-directory: minuta-online-booking
+        run: supabase functions deploy assistant-speech --project-ref "$PROJECT_REF" --use-api
+      - name: Prove production blocks anonymous speech
+        run: |
+          set -euo pipefail
+          url="https://$PROJECT_REF.supabase.co/functions/v1/assistant-speech"
+          status="$(curl --silent --show-error --output "$RUNNER_TEMP/assistant-speech-anonymous.json" --write-out '%{http_code}' \
+            --request POST --header 'Origin: https://aladushka9180-droid.github.io' \
+            --header 'Content-Type: application/json' \
+            --data '{"text":"Проверка","voice":"svetlana"}' "$url")"
+          test "$status" = 401
+          jq -n --arg sha "$SHA" --arg url "$url" \
+            '{status:"success",commitSha:$sha,route:$url,anonymousStatus:401,productionWritten:true,realSpeechRequestsCreated:false}' \
+            > "$RUNNER_TEMP/assistant-speech-edge-release.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: assistant-speech-edge-release-${{ github.run_id }}
+          path: ${{ runner.temp }}/assistant-speech-edge-release.json
+          if-no-files-found: error
+          retention-days: 90
