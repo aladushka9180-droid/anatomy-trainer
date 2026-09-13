@@ -25,7 +25,7 @@ const ids = {
   warehouse:'77777777-7777-4777-8777-777777777155',
   cash:'88888888-8888-4888-8888-888888888155'
 };
-const claimToken = 'PTS1-A7B9-C2D4-E6F8-G1H3';
+const claimToken = 'PTS1-A7B9-C2D4-E6F8-A1F3';
 
 try {
   for (const width of [390, 760, 1440]) {
@@ -69,6 +69,7 @@ try {
       window.saleClaimCalls = [];
       window.saleClaimNotices = [];
       window.claimMode = 'success';
+      window.saleMode = 'paid';
       window.nextSaleNumber = 0;
       window.workspace = {
         organization_id:ids.organization,
@@ -97,13 +98,22 @@ try {
             total_minor:args.p_unit_price_minor, refunded_minor:0, occurred_at:new Date().toISOString(),
             line:{ item_name:'Крем', item_kind:'inventory_item', quantity:1, refunded_quantity:0, unit_price_minor:args.p_unit_price_minor }
           });
-          return { data:{ id, organization_id:ids.organization, status:'paid', replayed:false }, error:null };
+          return { data:{
+            id,
+            organization_id:saleMode === 'wrongOrganization' ? crypto.randomUUID() : ids.organization,
+            status:saleMode === 'unconfirmed' ? 'partially_refunded' : 'paid',
+            replayed:false
+          }, error:null };
         }
         if (name === 'issue_client_identity_sale_claim_v155') {
           if (claimMode === 'error') return { data:null, error:{ message:'temporary gateway failure' } };
+          if (claimMode === 'consumed') return { data:null, error:{ message:'client_claim_already_consumed' } };
+          if (claimMode === 'superseded') return { data:null, error:{ message:'client_claim_superseded' } };
+          if (claimMode === 'shortLived') return { data:[{ claim_token:claimToken, claim_expires_at:new Date(Date.now() + 150).toISOString() }], error:null };
           if (claimMode === 'invalid') return { data:{ claim_token:'unsafe', claim_expires_at:'never' }, error:null };
           if (claimMode === 'legacyHex') return { data:[{ claim_token:'ab'.repeat(32), claim_expires_at:new Date(Date.now() + 10 * 60_000).toISOString() }], error:null };
           if (claimMode === 'lowercase') return { data:[{ claim_token:claimToken.toLowerCase(), claim_expires_at:new Date(Date.now() + 10 * 60_000).toISOString() }], error:null };
+          if (claimMode === 'nonHex') return { data:[{ claim_token:'PTS1-G7H9-C2D4-E6F8-A1F3', claim_expires_at:new Date(Date.now() + 10 * 60_000).toISOString() }], error:null };
           if (claimMode === 'tooLong') return { data:[{ claim_token:claimToken, claim_expires_at:new Date(Date.now() + 10 * 60_000 + 1_000).toISOString() }], error:null };
           if (claimMode === 'duplicate') return { data:[
             { claim_token:claimToken, claim_expires_at:new Date(Date.now() + 10 * 60_000).toISOString() },
@@ -146,10 +156,15 @@ try {
     assert.equal(successful.claims[0].args.p_sale, ids.sale);
     assert.match(successful.claims[0].args.p_request_id, /^[0-9a-f-]{36}$/i);
     assert.equal(successful.claims[0].args.p_expires_minutes, 10);
+    assert.deepEqual(Object.keys(successful.claims[0].args).sort(), [
+      'p_expires_minutes', 'p_organization', 'p_request_id', 'p_sale'
+    ], `${width}: authenticated RPC uses only the final required/defaulted v155 arguments`);
     assert.equal(await page.locator('#commerceSaleCreator').getAttribute('open'), '', `${width}: result remains open`);
     assert.equal(await page.locator('#commerceClientAccessCode').innerText(), claimToken, `${width}: exact PTS1 display code is shown`);
     assert.match(await page.locator('#commerceClientAccessExpiry').innerText(), /^Действует до \d{2}\.\d{2}\.?, \d{2}:\d{2}$/);
     assert.match(await page.locator('#commerceClientAccessNote').innerText(), /одноразовый[\s\S]*этой организации/i);
+    assert.equal(await page.evaluate(token => Object.values(localStorage).every(value => !String(value).includes(token)), claimToken), true,
+      `${width}: plaintext claim is never persisted`);
     await page.locator('#commerceClientAccessCopy').click();
     assert.equal(await page.evaluate(() => copiedClientAccessCode), claimToken, `${width}: copy uses exact unformatted token`);
     const layout = await page.locator('#commerceClientAccessResult').evaluate(element => {
@@ -198,7 +213,7 @@ try {
       assert.equal(await page.locator('#commerceClientAccessCode').textContent(), '', 'malformed server response stays fail-closed');
       assert.equal(await page.locator('#commerceClientAccessCode').isHidden(), true, 'malformed code is never displayed');
 
-      for (const mode of ['legacyHex', 'lowercase', 'tooLong', 'duplicate']) {
+      for (const mode of ['legacyHex', 'lowercase', 'nonHex', 'tooLong', 'duplicate']) {
         await page.evaluate(async ({ ids, mode }) => {
           claimMode = mode;
           await saleClaimController.setOrganization({ id:ids.organization });
@@ -209,6 +224,51 @@ try {
         assert.equal(await page.locator('#commerceClientAccessCode').textContent(), '', `${mode}: rejected response leaves no plaintext`);
         assert.equal(await page.locator('#commerceClientAccessCode').isHidden(), true, `${mode}: rejected response is never displayed`);
       }
+
+      for (const terminal of ['consumed', 'superseded']) {
+        await page.evaluate(async ({ ids, terminal }) => {
+          claimMode = terminal;
+          await saleClaimController.setOrganization({ id:ids.organization });
+        }, { ids, terminal });
+        await prepareStandaloneSale();
+        await page.locator('#commerceSaleSubmit').click();
+        await page.locator('#commerceClientAccessRetry').waitFor({ state:'visible' });
+        const terminalState = await page.evaluate(() => ({
+          code:document.querySelector('#commerceClientAccessCode').textContent,
+          stored:Object.keys(localStorage).filter(key => key.includes(':sale-claim')).map(key => localStorage.getItem(key)),
+          sales:saleClaimCalls.filter(call => call.name === 'sell_minuta_commercial_product_v151').length,
+          requestIds:saleClaimCalls.filter(call => call.name === 'issue_client_identity_sale_claim_v155').map(call => call.args.p_request_id)
+        }));
+        assert.equal(terminalState.code, '', `${terminal}: terminal state clears plaintext`);
+        assert.deepEqual(terminalState.stored, [], `${terminal}: stale request intent is removed`);
+        assert.equal(await page.locator('#commerceClientAccessRetry').innerText(), 'Выдать новый код');
+        await page.evaluate(() => { claimMode = 'success'; });
+        await page.locator('#commerceClientAccessRetry').click();
+        await page.locator('#commerceClientAccessCode').waitFor({ state:'visible' });
+        const renewed = await page.evaluate(() => ({
+          sales:saleClaimCalls.filter(call => call.name === 'sell_minuta_commercial_product_v151').length,
+          requestIds:saleClaimCalls.filter(call => call.name === 'issue_client_identity_sale_claim_v155').map(call => call.args.p_request_id)
+        }));
+        assert.equal(renewed.sales, terminalState.sales, `${terminal}: renewal does not repeat sale`);
+        assert.notEqual(renewed.requestIds.at(-1), terminalState.requestIds.at(-1), `${terminal}: renewal uses a fresh request id`);
+      }
+
+      await page.evaluate(async ids => {
+        claimMode = 'shortLived';
+        await saleClaimController.setOrganization({ id:ids.organization });
+      }, ids);
+      await prepareStandaloneSale();
+      await page.locator('#commerceSaleSubmit').click();
+      await page.locator('#commerceClientAccessCode').waitFor({ state:'visible' });
+      const expiredClaimRequest = await page.evaluate(() => saleClaimCalls.filter(call => call.name === 'issue_client_identity_sale_claim_v155').at(-1).args.p_request_id);
+      await page.locator('#commerceClientAccessRetry').waitFor({ state:'visible', timeout:3000 });
+      assert.equal(await page.locator('#commerceClientAccessCode').textContent(), '', 'expired claim clears plaintext');
+      assert.equal(await page.locator('#commerceClientAccessRetry').innerText(), 'Выдать новый код');
+      await page.evaluate(() => { claimMode = 'success'; });
+      await page.locator('#commerceClientAccessRetry').click();
+      await page.locator('#commerceClientAccessCode').waitFor({ state:'visible' });
+      const renewedExpiredRequest = await page.evaluate(() => saleClaimCalls.filter(call => call.name === 'issue_client_identity_sale_claim_v155').at(-1).args.p_request_id);
+      assert.equal(renewedExpiredRequest, expiredClaimRequest, 'expired claim safely rotates through the same idempotency request');
       await page.evaluate(() => saleClaimController.setOrganization(null));
       assert.equal(await page.locator('#commerceClientAccessResult').isHidden(), true, 'organization change clears claim result');
     }
@@ -216,9 +276,22 @@ try {
     if (width === 760) {
       const claimsBefore = await page.evaluate(() => saleClaimCalls.filter(call => call.name === 'issue_client_identity_sale_claim_v155').length);
       await prepareStandaloneSale({ booking:ids.booking });
+      await page.locator('#commerceSaleOptions > summary').click();
+      await page.locator('#commercePaymentMethod').selectOption('manual');
       await page.locator('#commerceSaleSubmit').click();
-      const claimsAfter = await page.evaluate(() => saleClaimCalls.filter(call => call.name === 'issue_client_identity_sale_claim_v155').length);
-      assert.equal(claimsAfter, claimsBefore, 'visit-linked sale must not issue a standalone access claim');
+      await page.locator('#commerceClientAccessCode').waitFor({ state:'visible' });
+      const visit = await page.evaluate(() => ({
+        claims:saleClaimCalls.filter(call => call.name === 'issue_client_identity_sale_claim_v155'),
+        sales:saleClaimCalls.filter(call => call.name === 'sell_minuta_commercial_product_v151'),
+        latestSaleId:workspace.sales[0]?.id
+      }));
+      assert.equal(visit.claims.length, claimsBefore + 1, 'visit-linked paid manual sale issues one access claim');
+      assert.equal(visit.sales.at(-1).args.p_booking, ids.booking);
+      assert.equal(visit.sales.at(-1).args.p_client_account, ids.client);
+      assert.equal(visit.sales.at(-1).args.p_payment_method, 'manual');
+      assert.equal(visit.claims.at(-1).args.p_sale, visit.latestSaleId);
+      assert.equal(await page.locator('#commerceClientAccessCode').innerText(), claimToken);
+      if (output) await page.screenshot({ path:resolve(output, 'visit-sale-client-access-760.png'), fullPage:true });
     }
 
     if (width === 1440) {
@@ -227,6 +300,14 @@ try {
       await page.locator('#commerceSaleSubmit').click();
       const claimsAfter = await page.evaluate(() => saleClaimCalls.filter(call => call.name === 'issue_client_identity_sale_claim_v155').length);
       assert.equal(claimsAfter, claimsBefore, 'sale without client must not issue an access claim');
+      assert.equal(await page.locator('#commerceClientAccessResult').isHidden(), true, 'sale without client never exposes claim UI');
+
+      await page.evaluate(() => { saleMode = 'unconfirmed'; });
+      await prepareStandaloneSale();
+      await page.locator('#commerceSaleSubmit').click();
+      const claimsAfterUnconfirmedSale = await page.evaluate(() => saleClaimCalls.filter(call => call.name === 'issue_client_identity_sale_claim_v155').length);
+      assert.equal(claimsAfterUnconfirmedSale, claimsAfter, 'non-paid sale result must not issue an access claim');
+      assert.equal(await page.locator('#commerceClientAccessResult').isHidden(), true, 'non-paid sale result never exposes claim UI');
     }
 
     await page.close();

@@ -91,6 +91,7 @@
       $('#commerceClientAccessCopy').disabled = false;
       $('#commerceClientAccessRetry').hidden = true;
       $('#commerceClientAccessRetry').disabled = false;
+      $('#commerceClientAccessRetry').textContent = 'Повторить выдачу кода';
     }
 
     function normalizedSaleClaim(data) {
@@ -100,7 +101,7 @@
       if (typeof token !== 'string' || typeof expiresAt !== 'string') return null;
       const expiresTime = Date.parse(expiresAt);
       const now = Date.now();
-      if (!/^PTS1-[A-Z0-9]{4}(?:-[A-Z0-9]{4}){3}$/.test(token) || !Number.isFinite(expiresTime)
+      if (!/^PTS1-[0-9A-F]{4}(?:-[0-9A-F]{4}){3}$/.test(token) || !Number.isFinite(expiresTime)
         || expiresTime <= now || expiresTime > now + 10 * 60_000) return null;
       return { token, expiresAt, expiresTime };
     }
@@ -114,7 +115,7 @@
       $('#commerceClientAccessNote').textContent = 'Продажа уже проведена. Повторная продажа не создаётся.';
     }
 
-    function renderSaleClaimError(message, { retry = true } = {}) {
+    function renderSaleClaimError(message, { retry = true, retryLabel = 'Повторить выдачу кода' } = {}) {
       saleClaimSecret = '';
       clearTimeout(saleClaimExpiryTimer);
       saleClaimExpiryTimer = 0;
@@ -130,6 +131,7 @@
       $('#commerceClientAccessNote').textContent = message;
       $('#commerceClientAccessCopy').hidden = true;
       $('#commerceClientAccessRetry').hidden = !retry;
+      $('#commerceClientAccessRetry').textContent = retryLabel;
       applyWriteAvailability?.(holder);
     }
 
@@ -149,22 +151,39 @@
       $('#commerceClientAccessRetry').hidden = true;
       clearTimeout(saleClaimExpiryTimer);
       saleClaimExpiryTimer = setTimeout(() => {
-        if (saleClaimSecret === claim.token) renderSaleClaimError('Срок кода истёк. Повторите только выдачу кода.');
+        if (saleClaimSecret === claim.token) renderSaleClaimError(
+          'Срок кода истёк. Продажа сохранена — можно безопасно выдать новый код.',
+          { retryLabel:'Выдать новый код' }
+        );
       }, Math.max(0, claim.expiresTime - Date.now()));
     }
 
-    function saleClaimErrorMessage(error) {
+    function saleClaimFailure(error) {
       const source = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+      if (source.includes('client_claim_already_consumed')) {
+        return {
+          message:'Предыдущий код уже использован. Продажа сохранена — при необходимости выдайте новый код.',
+          renew:true,
+          retryLabel:'Выдать новый код'
+        };
+      }
+      if (source.includes('client_claim_superseded')) {
+        return {
+          message:'Предыдущий код уже заменён. Продажа сохранена — при необходимости выдайте новый код.',
+          renew:true,
+          retryLabel:'Выдать новый код'
+        };
+      }
       if (source.includes('client_sale_claim_denied') || source.includes('permission') || source.includes('42501')) {
-        return 'Код может выдать только владелец или администратор. Продажу повторять не нужно.';
+        return { message:'Нет прав на выдачу кода для этой продажи. Продажу повторять не нужно.', retry:false };
       }
       if (source.includes('issue_client_identity_sale_claim_v155') || source.includes('function') || source.includes('schema cache')) {
-        return 'Сервер ещё не поддерживает выдачу кода. Продажу повторять не нужно.';
+        return { message:'Сервер ещё не поддерживает выдачу кода. Продажу повторять не нужно.', retry:false };
       }
       if (source.includes('invalid_client_sale_claim_response')) {
-        return 'Сервер не подтвердил безопасный код. Повторите только выдачу кода.';
+        return { message:'Сервер не подтвердил безопасный код. Повторите только выдачу кода.' };
       }
-      return 'Повторите только выдачу кода — сама продажа уже сохранена.';
+      return { message:'Повторите только выдачу кода — сама продажа уже сохранена.' };
     }
 
     async function issueSaleClaim(target) {
@@ -175,8 +194,10 @@
       }
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
-      const intent = requestIntent(`${organization.id}:sale-claim`, { sale:target.saleId, client:target.clientId });
-      pendingSaleClaim = { ...target, intentKey:intent.key };
+      const intent = uuidPattern.test(String(target.requestId || ''))
+        ? { key:String(target.intentKey || ''), requestId:target.requestId }
+        : requestIntent(`${organization.id}:sale-claim`, { sale:target.saleId, client:target.clientId });
+      pendingSaleClaim = { ...target, intentKey:intent.key, requestId:intent.requestId };
       renderSaleClaimPending();
       try {
         const result = await db.rpc('issue_client_identity_sale_claim_v155', {
@@ -197,7 +218,13 @@
       } catch (error) {
         if (sessionIsCurrent(userId, generation) && organization?.id === target.organizationId
           && pendingSaleClaim?.saleId === target.saleId && pendingSaleClaim?.clientId === target.clientId) {
-          renderSaleClaimError(saleClaimErrorMessage(error));
+          const failure = saleClaimFailure(error);
+          if (failure.renew) {
+            if (pendingSaleClaim.intentKey) clearIntent(pendingSaleClaim.intentKey);
+            pendingSaleClaim.intentKey = '';
+            pendingSaleClaim.requestId = '';
+          }
+          renderSaleClaimError(failure.message, failure);
         }
         return false;
       }
@@ -530,7 +557,10 @@
         p_payment_method:payload.method, p_payment_account:payload.account
       });
       if (outcome?.ok) {
-        const claimTarget = !payload.booking && payload.client && ['cash', 'manual'].includes(payload.method)
+        const paidSale = outcome.data?.status === 'paid'
+          && outcome.data?.organization_id === organization.id
+          && uuidPattern.test(String(outcome.data?.id || ''));
+        const claimTarget = paidSale && payload.client && ['cash', 'manual'].includes(payload.method)
           ? {
               organizationId:organization.id,
               saleId:String(outcome.data?.id || ''),
