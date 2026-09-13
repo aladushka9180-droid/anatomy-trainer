@@ -12,8 +12,8 @@ assert.equal(themes.length, 39, 'Каталог тем прочитан не п�
 const approvedThemes = new Set(['snow-leopard', 'pearl-zebra']);
 const metalBackgrounds = new Map([
   ['cobalt-forge', {
-    desktop:'provider-cobalt-forge-desktop-v2.webp',
-    mobile:'provider-cobalt-forge-mobile-v2.webp',
+    desktop:'provider-cobalt-forge-desktop-v3.webp',
+    mobile:'provider-cobalt-forge-mobile-v3.webp',
   }],
   ['petrol-steel', {
     desktop:'provider-petrol-steel-desktop-v2.webp',
