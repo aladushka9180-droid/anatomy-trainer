@@ -1,4 +1,4 @@
-/* Approved TEMA 1 canvases: one viewport composition, never a tiled page texture. */
+/* Approved full-viewport canvases: one composition, never a tiled page texture. */
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
   background-position:center!important;
@@ -101,6 +101,78 @@
 @media (prefers-reduced-data:reduce) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
   .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
+    background-image:var(--atmosphere-background)!important;
+  }
+}
+
+/* Forged metal canvases for the dark Cobalt Forge and Petrol Steel themes. */
+.provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""]),
+.provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""]) {
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  background-size:cover!important;
+  background-attachment:fixed!important;
+}
+
+.provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""]) {
+  background-color:#071226!important;
+  background-image:
+    radial-gradient(ellipse 78% 112% at 50% 42%,rgba(4,12,28,.72) 0%,rgba(4,12,28,.56) 58%,rgba(2,7,16,.30) 100%),
+    url("provider-cobalt-forge-bg-v1.webp")!important;
+}
+
+.provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""]) {
+  background-color:#0b1b1e!important;
+  background-image:
+    radial-gradient(ellipse 76% 112% at 50% 42%,rgba(3,15,16,.78) 0%,rgba(3,15,16,.58) 58%,rgba(2,8,9,.24) 100%),
+    url("provider-petrol-steel-bg-v1.webp")!important;
+}
+
+.provider-body:is(
+  [data-provider-theme="cobalt-forge"],
+  [data-provider-theme="petrol-steel"]
+)[data-provider-layout] :is(
+  .provider-sidebar,
+  .provider-topbar,
+  .provider-appearance-popover,
+  .date-navigation,
+  .date-strip,
+  .schedule-toolbar,
+  .timeline-stage,
+  .calendar-overview-day,
+  .provider-mobile-nav,
+  .booking-sheet,
+  dialog
+) {
+  background-image:none!important;
+}
+
+.provider-body:is(
+  [data-provider-theme="cobalt-forge"],
+  [data-provider-theme="petrol-steel"]
+)[data-provider-layout] :is(.provider-booking,.timeline-booking,.calendar-overview-booking,.provider-break,.timeline-break) {
+  background-image:none!important;
+}
+
+.theme-cobalt-forge .theme-swatch {
+  background:#071226 url("provider-cobalt-forge-bg-v1.webp") center/cover no-repeat!important;
+}
+
+.theme-petrol-steel .theme-swatch {
+  background:#0b1b1e url("provider-petrol-steel-bg-v1.webp") center/cover no-repeat!important;
+}
+
+@media (max-width:760px) {
+  .provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""]),
+  .provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""]) {
+    background-position:center top!important;
+    background-attachment:scroll!important;
+  }
+}
+
+@media (prefers-reduced-data:reduce) {
+  .provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""]),
+  .provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""]) {
     background-image:var(--atmosphere-background)!important;
   }
 }

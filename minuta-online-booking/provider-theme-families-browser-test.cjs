@@ -10,6 +10,10 @@ const catalog = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
 assert.equal(themes.length, 39, 'Каталог тем прочитан не полностью');
 const approvedThemes = new Set(['snow-leopard', 'pearl-zebra']);
+const metalBackgrounds = new Map([
+  ['cobalt-forge', 'provider-cobalt-forge-bg-v1.webp'],
+  ['petrol-steel', 'provider-petrol-steel-bg-v1.webp'],
+]);
 const familyThemes = themes.filter(theme => !approvedThemes.has(theme));
 const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
 const visibilityThemes = new Set(['sage', 'nordic', 'graphite', 'hitech', 'eco', 'luxury', 'loft', 'celadon', 'petrol-steel', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'warm', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'oled-mono', 'volt-graphite']);
@@ -26,7 +30,11 @@ const server = http.createServer((request, response) => {
   }
   let content = fs.readFileSync(file);
   if (file.endsWith('.html')) content = content.toString().replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<meta[^>]*http-equiv="Content-Security-Policy"[^>]*>/gi, '');
-  response.setHeader('Content-Type', file.endsWith('.css') ? 'text/css' : 'text/html; charset=utf-8');
+  response.setHeader('Content-Type', file.endsWith('.css')
+    ? 'text/css'
+    : file.endsWith('.webp')
+      ? 'image/webp'
+      : 'text/html; charset=utf-8');
   response.end(content);
 });
 
@@ -64,6 +72,9 @@ const server = http.createServer((request, response) => {
             return { selector, image:style.backgroundImage, color:style.backgroundColor };
           }).filter(Boolean);
           return {
+            bodyImage:getComputedStyle(document.body).backgroundImage,
+            bodyRepeat:getComputedStyle(document.body).backgroundRepeat,
+            bodySize:getComputedStyle(document.body).backgroundSize,
             image:canvas.backgroundImage,
             mask:canvas.maskImage || canvas.webkitMaskImage,
             color:canvas.backgroundColor,
@@ -87,6 +98,11 @@ const server = http.createServer((request, response) => {
         assert.equal(state.zIndex, '0', `${theme} ${width}px: неверный слой фонового холста`);
         assert.equal(state.position, width <= 760 ? 'absolute' : 'fixed', `${theme} ${width}px: неверное позиционирование холста`);
         assert.equal(state.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
+        if (metalBackgrounds.has(theme)) {
+          assert.match(state.bodyImage, new RegExp(metalBackgrounds.get(theme).replace('.', '\\.')), `${theme} ${width}px: металлический фон потерян`);
+          assert.equal(state.bodyRepeat.split(',').every(value => value.trim() === 'no-repeat'), true, `${theme} ${width}px: металлический фон начал повторяться`);
+          assert.equal(state.bodySize.split(',').every(value => value.trim() === 'cover'), true, `${theme} ${width}px: металлический фон перестал покрывать холст`);
+        }
         for (const surface of state.surfaces) {
           assert.equal(surface.image, 'none', `${theme} ${width}px ${surface.selector}: узор попал на рабочую поверхность`);
           if (!['.schedule-toolbar', '.provider-topbar'].includes(surface.selector)) {
