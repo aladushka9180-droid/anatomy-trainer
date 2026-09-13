@@ -1341,6 +1341,7 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
   finally { if (offlineBookingFlushPromise === run) offlineBookingFlushPromise = null; }
 }
 const offlineBookingCreateSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"]';
+const offlineOutcomeWriteSelector = '#bookingOutcomeForm button[type="submit"]';
 const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], [data-repeat-booking], [data-quick-repeat-client], [data-client-favorite-service]';
 const writeSelectors = [
   '#newBookingButton', '#mobileNewBookingButton', '[data-create-empty-booking]', '[data-quick-repeat-client]', '[data-client-favorite-service]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
@@ -1362,7 +1363,7 @@ function applyWriteAvailability() {
       delete control.dataset.reliabilityDisabled;
       return;
     }
-    const controlAllowed = writesAllowed || (bookingCreationReady && control.matches(bookingCreationWriteSelector)) || (canQueueOfflineBooking() && control.matches(offlineBookingCreateSelector));
+    const controlAllowed = writesAllowed || (bookingCreationReady && control.matches(bookingCreationWriteSelector)) || (canQueueOfflineBooking() && control.matches(offlineBookingCreateSelector)) || (canQueueOfflineOutcome() && control.matches(offlineOutcomeWriteSelector));
     if (!controlAllowed && !control.disabled) {
       control.disabled = true;
       control.dataset.reliabilityDisabled = 'true';
@@ -1383,6 +1384,15 @@ function setBookingCreationReady(value) {
 }
 function requireWrites() {
   if (writesAllowed && navigator.onLine && currentUser) return true;
+  notify('Изменения временно заблокированы до полной синхронизации');
+  return false;
+}
+function canQueueOfflineOutcome() {
+  return Boolean(currentUser && navigator.onLine === false);
+}
+function requireOutcomeWrites() {
+  if (writesAllowed && navigator.onLine && currentUser) return true;
+  if (canQueueOfflineOutcome()) return true;
   notify('Изменения временно заблокированы до полной синхронизации');
   return false;
 }
@@ -11402,7 +11412,7 @@ async function saveBookingVisitResult(event) {
 
 async function saveBookingOutcome(event) {
   event.preventDefault();
-  if (!requireWrites()) return;
+  if (!requireOutcomeWrites()) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
   const form = event.currentTarget;
@@ -11423,16 +11433,25 @@ async function saveBookingOutcome(event) {
     record.actual_duration_minutes = actualMinutes;
     record.calculated_amount_rub = calculatedAmount;
   }
-  const button = event.submitter;
-  button.disabled = true;
-  button.textContent = 'Сохраняем…';
-  const result = await persistBookingOutcome(record);
+  const button = event.submitter || form.querySelector('button[type="submit"]');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Сохраняем…';
+  }
+  let result;
+  if (!navigator.onLine) result = { ok:false, error:{ message:'offline' } };
+  else {
+    try { result = await persistBookingOutcome(record); }
+    catch (error) { result = { ok:false, error }; }
+  }
   if (!sessionIsCurrent(userId, generation)) return;
   const previousOutcome = bookingOutcomes.get(item.id);
   bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
   const locallySaved = writeLocalOutcomes();
-  button.disabled = false;
-  button.textContent = 'Сохранить результат';
+  if (button?.isConnected !== false) {
+    button.disabled = false;
+    button.textContent = 'Сохранить результат';
+  }
   if (!result.ok && !locallySaved) {
     if (previousOutcome) bookingOutcomes.set(item.id, previousOutcome); else bookingOutcomes.delete(item.id);
     let error = form.querySelector('[data-outcome-save-error]');

@@ -80,7 +80,7 @@ test('remote plus local failure preserves outcome form and never reports saved',
   const form={dataset:{bookingId:'b'},querySelector(){return null;},append(node){this.error=node;}};
   const fields={'#outcomeVisitStatus':{value:'completed'},'#outcomePaymentMethod':{value:'cash'},'#outcomeAmount':{value:'1500'}};
   const box=context(['saveBookingOutcome','cleanOutcomeRecord','pendingOutcomeRecord'],{
-    requireWrites:()=>true,currentUser:{id:'owner'},sessionGeneration:1,sessionIsCurrent:()=>true,
+    requireOutcomeWrites:()=>true,currentUser:{id:'owner'},sessionGeneration:1,sessionIsCurrent:()=>true,navigator:{onLine:true},
     allBookings:[booking],$:id=>fields[id],isPerMinuteBooking:()=>false,bookingMinuteRate:()=>0,
     persistBookingOutcome:async()=>({ok:false,error:{message:'network'}}),writeLocalOutcomes:()=>false,
     bookingOutcomes:new Map([['b',old]]),notify:message=>notices.push(message),
@@ -92,6 +92,63 @@ test('remote plus local failure preserves outcome form and never reports saved',
   assert.equal(fields['#outcomeAmount'].value,'1500');assert.equal(rendered.length,0);
   assert.match(form.error.textContent,/Данные остались в форме/);
   assert.ok(notices.every(message=>!message.includes('Сохранено на устройстве')));
+});
+test('offline outcome is accepted locally and queued without a server request',async()=>{
+  const notices=[],rendered=[];let remoteCalls=0;
+  const button={disabled:false,textContent:'Сохранить результат',isConnected:true};
+  const form={dataset:{bookingId:'b'},querySelector(selector){return selector==='button[type="submit"]'?button:null;},append(){}};
+  const fields={'#outcomeVisitStatus':{value:'completed'},'#outcomePaymentMethod':{value:'cash'},'#outcomeAmount':{value:'3000'}};
+  const box=context(['saveBookingOutcome','cleanOutcomeRecord','pendingOutcomeRecord'],{
+    requireOutcomeWrites:()=>true,currentUser:{id:'owner'},sessionGeneration:1,sessionIsCurrent:()=>true,navigator:{onLine:false},
+    allBookings:[booking],$:id=>fields[id],isPerMinuteBooking:()=>false,bookingMinuteRate:()=>0,
+    persistBookingOutcome:async()=>{remoteCalls++;return{ok:true};},writeLocalOutcomes:()=>true,
+    bookingOutcomes:new Map(),notify:message=>notices.push(message),
+    renderBookings:()=>rendered.push('bookings'),renderClients:()=>rendered.push('clients'),renderAnalytics:()=>rendered.push('analytics'),openBookingSheet:()=>rendered.push('sheet')
+  });
+  await box.saveBookingOutcome({preventDefault(){},currentTarget:form,submitter:null});
+  const pending=box.bookingOutcomes.get('b');
+  assert.equal(remoteCalls,0);
+  assert.equal(button.disabled,false);
+  assert.equal(pending.visit_status,'completed');
+  assert.equal(pending.payment_method,'cash');
+  assert.equal(pending.amount_rub,3000);
+  assert.equal(pending._sync_pending,true);
+  assert.deepEqual(rendered,['bookings','clients','analytics','sheet']);
+  assert.ok(notices.some(message=>message.includes('ожидает синхронизации')));
+});
+test('offline outcome controls stay enabled only for a signed-in user',()=>{
+  const box=context(['canQueueOfflineOutcome'],{currentUser:{id:'owner'},navigator:{onLine:false}});
+  assert.equal(box.canQueueOfflineOutcome(),true);
+  box.currentUser=null;
+  assert.equal(box.canQueueOfflineOutcome(),false);
+  box.currentUser={id:'owner'};
+  box.navigator.onLine=true;
+  assert.equal(box.canQueueOfflineOutcome(),false);
+});
+test('write availability keeps the offline outcome submit button actionable',()=>{
+  const control={disabled:true,dataset:{reliabilityDisabled:'true'},matches:selector=>selector==='#bookingOutcomeForm button[type="submit"]'};
+  const box=context(['canQueueOfflineOutcome','applyWriteAvailability'],{
+    currentUser:{id:'owner'},navigator:{onLine:false},writesAllowed:false,bookingCreationReady:false,
+    writeSelectors:['#bookingOutcomeForm button[type="submit"]'],bookingCreationWriteSelector:'#new',offlineBookingCreateSelector:'#new',offlineOutcomeWriteSelector:'#bookingOutcomeForm button[type="submit"]',
+    canQueueOfflineBooking:()=>false,$$:()=>[control],updateScheduleSaveState:()=>{}
+  });
+  box.applyWriteAvailability();
+  assert.equal(control.disabled,false);
+  assert.equal(Object.hasOwn(control.dataset,'reliabilityDisabled'),false);
+});
+test('a queued outcome is sent and cleared after synchronization returns',async()=>{
+  const pending={booking_id:'b',performer_id:'owner',visit_status:'completed',payment_method:'cash',amount_rub:3000,_sync_pending:true};
+  const saved=[];
+  const box=context(['syncPendingBookingOutcomes','cleanOutcomeRecord'],{
+    currentUser:{id:'owner'},sessionGeneration:1,writesAllowed:true,bookingOutcomes:new Map([['b',pending]]),
+    persistBookingOutcome:async record=>({ok:true,outcome:{...record,updated_at:'server-time'}}),sessionIsCurrent:()=>true,
+    writeLocalOutcomes:()=>{saved.push(true);return true;}
+  });
+  assert.equal(await box.syncPendingBookingOutcomes(),1);
+  const synced=box.bookingOutcomes.get('b');
+  assert.equal(synced._sync_pending,undefined);
+  assert.equal(synced.updated_at,'server-time');
+  assert.equal(saved.length,1);
 });
 test('block duration does not depend on service duration',()=>{
   const box=context(['newBookingDurationMinutes','blockDurationChoices'],{newBookingMode:'block',$:()=>({value:'45'}),selectedNewBookingService:()=>({duration_minutes:120})});
