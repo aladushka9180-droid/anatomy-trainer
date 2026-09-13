@@ -14,19 +14,36 @@ const mime = {
 };
 const probe = `<!doctype html><html><head><meta charset="utf-8"><title>PWA v151</title></head><body><p>v151 PWA probe</p><script>
 window.addEventListener('load',async()=>{
-  await caches.open('massage-izhevsk-v734');
+  await navigator.serviceWorker.register('./stale-worker.js');
+  await navigator.serviceWorker.ready;
+  if(!navigator.serviceWorker.controller) await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
+  const staleCache=await caches.open('massage-izhevsk-stale');
+  const staleResponse=await staleCache.match('./provider.html');
+  const staleShell=staleResponse ? await staleResponse.text() : '';
+  if(!staleShell.includes('data-stale-provider-shell="yes"')) throw new Error('stale shell fixture was not cached');
   const script=document.createElement('script');
-script.src='./site-update.js?v=741';
+script.src='./site-update.js?v=742';
   script.onload=()=>window.dispatchEvent(new Event('load'));
   document.head.append(script);
 },{once:true});
 </script></body></html>`;
 
+let providerRequests = 0;
 const server = createServer((request, response) => {
   const url = new URL(request.url || '/', 'http://127.0.0.1');
   if (url.pathname === '/minuta-online-booking/pwa-v151-test.html') {
     response.writeHead(200, { 'content-type':'text/html; charset=utf-8', 'cache-control':'no-store' });
     response.end(probe);
+    return;
+  }
+  if (url.pathname === '/minuta-online-booking/stale-worker.js') {
+    response.writeHead(200, { 'content-type':'application/javascript; charset=utf-8', 'cache-control':'no-store' });
+    response.end(`self.addEventListener('install',event=>event.waitUntil((async()=>{
+      const cache=await caches.open('massage-izhevsk-stale');
+      await cache.add('./provider.html');
+      await self.skipWaiting();
+    })()));
+    self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));`);
     return;
   }
   const prefix = '/minuta-online-booking/';
@@ -36,6 +53,14 @@ const server = createServer((request, response) => {
   const file = resolve(root, relative);
   if (!file.startsWith(root)) { response.writeHead(403); response.end(); return; }
   try {
+    if (relative === 'provider.html') {
+      providerRequests++;
+      response.writeHead(200, { 'content-type':'text/html; charset=utf-8', 'cache-control':'public, max-age=3600' });
+      response.end(providerRequests === 1
+        ? '<!doctype html><html data-stale-provider-shell="yes"><body>stale provider shell</body></html>'
+        : readFileSync(file));
+      return;
+    }
     response.writeHead(200, { 'content-type':mime[extname(file)] || 'application/octet-stream', 'cache-control':'no-store' });
     response.end(readFileSync(file));
   } catch {
@@ -56,34 +81,39 @@ page.on('pageerror', error => pageErrors.push(error.message));
 
 try {
   await page.goto(`${base}pwa-v151-test.html`, { waitUntil:'load' });
-  await page.waitForFunction(async () => {
-    const registration = await navigator.serviceWorker.ready;
-    return registration.active?.state === 'activated' && Boolean(navigator.serviceWorker.controller);
-  }, null, { timeout:30000 });
+  await page.waitForFunction(() => navigator.serviceWorker.controller?.scriptURL.endsWith('/sw.js?v=742'), null, { timeout:30000 });
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const oldCachePresent = await page.evaluate(async () => (await caches.keys()).includes('massage-izhevsk-stale'));
+    if (!oldCachePresent) break;
+    await new Promise(resolveWait => setTimeout(resolveWait, 20));
+  }
   const state = await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.ready;
     const cacheNames = await caches.keys();
-    const cache = await caches.open('massage-izhevsk-v741');
+    const cache = await caches.open('massage-izhevsk-v742');
     const provider = await cache.match('./provider.html');
-    const commerce = await cache.match('./commerce-management.js?v=741');
-    const styles = await cache.match('./styles.css?v=741');
+    const commerce = await cache.match('./commerce-management.js?v=742');
+    const styles = await cache.match('./styles.css?v=742');
     return {
-      scriptUrl:registration.active?.scriptURL || '', cacheNames,
-      provider:Boolean(provider), commerce:Boolean(commerce), styles:Boolean(styles)
+      scriptUrl:navigator.serviceWorker.controller?.scriptURL || '', cacheNames,
+      provider:Boolean(provider), providerSource:provider ? await provider.text() : '',
+      commerce:Boolean(commerce), styles:Boolean(styles)
     };
   });
-assert.match(state.scriptUrl, /\/sw\.js\?v=741$/);
-  assert.ok(state.cacheNames.includes('massage-izhevsk-v741'), 'v741 cache is installed');
-  assert.ok(!state.cacheNames.includes('massage-izhevsk-v734'), 'obsolete provider cache is removed on activation');
+  assert.match(state.scriptUrl, /\/sw\.js\?v=742$/);
+  assert.ok(state.cacheNames.includes('massage-izhevsk-v742'), 'v742 cache is installed');
+  assert.ok(!state.cacheNames.includes('massage-izhevsk-stale'), 'obsolete provider cache is removed on activation');
   assert.equal(state.provider, true, 'provider shell is cached');
-  assert.equal(state.commerce, true, 'v741 commerce controller is cached');
-  assert.equal(state.styles, true, 'v741 UI styles are cached');
+  assert.ok(providerRequests >= 2, 'service worker install bypasses the stale HTTP cache');
+  assert.match(state.providerSource, /styles\.css\?v=742/, 'fresh provider shell is stored in Cache Storage');
+  assert.doesNotMatch(state.providerSource, /data-stale-provider-shell/, 'stale provider shell never reaches Cache Storage');
+  assert.equal(state.commerce, true, 'v742 commerce controller is cached');
+  assert.equal(state.styles, true, 'v742 UI styles are cached');
 
   await context.setOffline(true);
   const response = await page.goto(`${base}provider.html`, { waitUntil:'domcontentloaded', timeout:15000 });
   assert.ok(response?.ok(), 'provider shell opens while offline');
   assert.equal(await page.locator('#commercePanel').count(), 1, 'offline shell contains the sales panel');
-  const cachedSource = await page.evaluate(async () => (await fetch('./commerce-management.js?v=741')).text());
+  const cachedSource = await page.evaluate(async () => (await fetch('./commerce-management.js?v=742')).text());
   assert.match(cachedSource, /sell_minuta_commercial_product_v151/);
   assert.match(cachedSource, /issue_client_identity_sale_claim_v155/);
   assert.match(cachedSource, /\^PTS1-\[0-9A-F\]\{4\}/);
@@ -96,4 +126,4 @@ assert.match(state.scriptUrl, /\/sw\.js\?v=741$/);
 }
 
 assert.deepEqual(pageErrors, []);
-console.log('PrimeTime Pro commercial sales v151 PWA v741 and offline cache checks passed');
+console.log('PrimeTime Pro commercial sales v151 PWA v742 and offline cache checks passed');
