@@ -24,13 +24,15 @@ assert.match(families, /data-provider-theme="volt-graphite"[\s\S]*?--theme-canva
 assert.match(families, /data-provider-theme="midnight"[\s\S]*?--theme-canvas-mask:var\(--theme-constellation-mask\)/);
 assert.match(families, /data-provider-theme="azure-lagoon"[\s\S]*?--theme-canvas-mask:var\(--theme-facets-mask\)/);
 assert.doesNotMatch(families.match(/data-provider-theme="azure-lagoon"[\s\S]*?\n\}/)?.[0] || '', /repeating-radial-gradient/);
-assert.match(families, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-concrete-signal,\.theme-luxury\)\) \.theme-swatch/);
+assert.match(families, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-concrete-signal,\.theme-luxury,\.theme-cocoa-pearl\)\) \.theme-swatch/);
 const approvedBackgrounds = new Map([
   ['snow-leopard', [['provider-snow-leopard-desktop-v2.webp', 20_000], ['provider-snow-leopard-mobile-v2.webp', 20_000]]],
   ['pearl-zebra', [['provider-pearl-zebra-desktop-v3.webp', 180_000], ['provider-pearl-zebra-mobile-v3.webp', 180_000]]],
   ['concrete-signal', [['provider-concrete-signal-desktop-v1.webp', 900_000], ['provider-concrete-signal-mobile-v1.webp', 900_000]]],
   ['luxury', [['provider-luxury-premium-desktop-v1.webp', 180_000], ['provider-luxury-premium-mobile-v1.webp', 180_000]]],
+  ['cocoa-pearl', [['provider-cocoa-pearl-desktop-v1.webp', 150_000], ['provider-cocoa-pearl-mobile-v1.webp', 150_000]]],
 ]);
+assert.doesNotMatch(approved, /generated_images|\.codex/i, 'Фон темы не должен зависеть от временного каталога генерации');
 for (const [theme, assets] of approvedBackgrounds) {
   for (const [asset, minSize] of assets) {
     assert.match(approved, new RegExp(asset.replaceAll('.', '\\.')));
@@ -39,12 +41,13 @@ for (const [theme, assets] of approvedBackgrounds) {
 }
 assert.match(catalog, /defineTheme\('luxury', 'Люкс \/ Премиум', 'Матовый обсидиан и мягкое сияние шампанского'/);
 assert.match(catalog, /defineTheme\('pearl-zebra', 'Ivory Flow', 'Тёплая слоновая кость и мягкие дымчато-тауповые волны'/);
+assert.match(catalog, /defineTheme\('cocoa-pearl', 'Cocoa Pearl', 'Тёмный какао, живая минеральная фактура и мягкий перламутровый свет'/);
 assert.match(catalog, /defineTheme\('concrete-signal', 'Concrete Signal', 'Холодный светлый бетон и чёткий красный акцент'/);
-assert.match(provider, /theme-catalog\.js\?v=748/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v748`/);
-assert.match(worker, /\.\/theme-catalog\.js\?v=748/);
+assert.match(provider, /theme-catalog\.js\?v=749/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v749`/);
+assert.match(worker, /\.\/theme-catalog\.js\?v=749/);
 
 const neutralScheduleRules = schedule.match(/background-image:none!important/g) || [];
 assert.ok(neutralScheduleRules.length >= 2, 'Фоновый узор темы не должен попадать в записи и перерывы');
 
-console.log('Theme background patterns v748: PASS');
+console.log('Theme background patterns v749: PASS');

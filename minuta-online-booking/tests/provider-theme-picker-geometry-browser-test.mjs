@@ -94,6 +94,7 @@ try {
       assert.equal(result.descriptions['snow-leopard'], 'Морозный кварц и холодные серо-голубые прожилки');
       assert.equal(result.names['pearl-zebra'], 'Ivory Flow');
       assert.equal(result.descriptions['pearl-zebra'], 'Тёплая слоновая кость и мягкие дымчато-тауповые волны');
+      assert.equal(result.descriptions['cocoa-pearl'], 'Тёмный какао, живая минеральная фактура и мягкий перламутровый свет');
       assert.equal(result.descriptions.luxury, 'Матовый обсидиан и мягкое сияние шампанского');
       assert.equal(result.descriptions['concrete-signal'], 'Холодный светлый бетон и чёткий красный акцент');
       assert.ok(result.radii.every(radius => radius === 13), `${theme}/${width}: selected theme reshaped picker cards into large ovals (${[...new Set(result.radii)].join(', ')})`);

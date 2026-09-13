@@ -26,6 +26,10 @@ const approvedBackgrounds = new Map([
     desktop:'provider-luxury-premium-desktop-v1.webp',
     mobile:'provider-luxury-premium-mobile-v1.webp',
   }],
+  ['cocoa-pearl', {
+    desktop:'provider-cocoa-pearl-desktop-v1.webp',
+    mobile:'provider-cocoa-pearl-mobile-v1.webp',
+  }],
 ]);
 const approvedThemes = new Set(approvedBackgrounds.keys());
 const metalBackgrounds = new Map([
@@ -186,7 +190,7 @@ const server = http.createServer((request, response) => {
       return { theme, image:swatchStyle?.backgroundImage || 'missing', mask:overlayStyle?.maskImage || overlayStyle?.webkitMaskImage || 'none' };
     }), themes);
     for (const preview of previews) assert.equal(preview.image !== 'none' || preview.mask !== 'none', true, `${preview.theme}: превью не показывает новый мотив`);
-    console.log('Provider theme family browser matrix: PASS (35 CSS families + 4 approved canvases × 3 widths).');
+    console.log('Provider theme family browser matrix: PASS (34 CSS families + 5 approved canvases × 3 widths).');
   } finally {
     if (browser) await browser.close();
     server.close();

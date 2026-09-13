@@ -2,7 +2,8 @@
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
 .provider-body[data-provider-theme="concrete-signal"][data-provider-layout],
-.provider-body[data-provider-theme="luxury"][data-provider-layout] {
+.provider-body[data-provider-theme="luxury"][data-provider-layout],
+.provider-body[data-provider-theme="cocoa-pearl"][data-provider-layout] {
   background-position:center!important;
   background-repeat:no-repeat!important;
   background-size:cover!important;
@@ -37,12 +38,20 @@
     url("provider-luxury-premium-desktop-v1.webp")!important;
 }
 
+.provider-body[data-provider-theme="cocoa-pearl"][data-provider-layout] {
+  background-color:#28221f!important;
+  background-image:
+    radial-gradient(ellipse 68% 92% at 50% 48%,rgba(24,14,10,.22) 0%,rgba(24,14,10,.12) 58%,rgba(24,14,10,.04) 100%),
+    url("provider-cocoa-pearl-desktop-v1.webp")!important;
+}
+
 /* The artwork belongs to the outer canvas; operational surfaces remain clean. */
 .provider-body:is(
   [data-provider-theme="snow-leopard"],
   [data-provider-theme="pearl-zebra"],
   [data-provider-theme="concrete-signal"],
-  [data-provider-theme="luxury"]
+  [data-provider-theme="luxury"],
+  [data-provider-theme="cocoa-pearl"]
 )[data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace,.provider-view,.schedule-card) {
   background-color:transparent!important;
   background-image:none!important;
@@ -52,7 +61,8 @@
   [data-provider-theme="snow-leopard"],
   [data-provider-theme="pearl-zebra"],
   [data-provider-theme="concrete-signal"],
-  [data-provider-theme="luxury"]
+  [data-provider-theme="luxury"],
+  [data-provider-theme="cocoa-pearl"]
 )[data-provider-layout] :is(
   .provider-sidebar,
   .provider-topbar,
@@ -73,7 +83,8 @@
   [data-provider-theme="snow-leopard"],
   [data-provider-theme="pearl-zebra"],
   [data-provider-theme="concrete-signal"],
-  [data-provider-theme="luxury"]
+  [data-provider-theme="luxury"],
+  [data-provider-theme="cocoa-pearl"]
 )[data-provider-layout] :is(.provider-booking,.timeline-booking,.calendar-overview-booking,.provider-break,.timeline-break) {
   background-image:none!important;
 }
@@ -90,6 +101,9 @@
 }
 .theme-luxury .theme-swatch {
   background:#040506 url("provider-luxury-premium-desktop-v1.webp") center/cover no-repeat!important;
+}
+.theme-cocoa-pearl .theme-swatch {
+  background:#28221f url("provider-cocoa-pearl-desktop-v1.webp") center/cover no-repeat!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .provider-theme-option {
   overflow:hidden!important;
@@ -108,7 +122,8 @@
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
   .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
   .provider-body[data-provider-theme="concrete-signal"][data-provider-layout],
-  .provider-body[data-provider-theme="luxury"][data-provider-layout] {
+  .provider-body[data-provider-theme="luxury"][data-provider-layout],
+  .provider-body[data-provider-theme="cocoa-pearl"][data-provider-layout] {
     background-position:center top!important;
     background-size:cover!important;
     background-attachment:fixed!important;
@@ -138,13 +153,20 @@
       url("provider-luxury-premium-mobile-v1.webp")!important;
   }
 
+  .provider-body[data-provider-theme="cocoa-pearl"][data-provider-layout] {
+    background-image:
+      radial-gradient(ellipse 86% 88% at 50% 45%,rgba(24,14,10,.18) 0%,rgba(24,14,10,.10) 60%,rgba(24,14,10,.03) 100%),
+      url("provider-cocoa-pearl-mobile-v1.webp")!important;
+  }
+
 }
 
 @media (prefers-reduced-data:reduce) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
   .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
   .provider-body[data-provider-theme="concrete-signal"][data-provider-layout],
-  .provider-body[data-provider-theme="luxury"][data-provider-layout] {
+  .provider-body[data-provider-theme="luxury"][data-provider-layout],
+  .provider-body[data-provider-theme="cocoa-pearl"][data-provider-layout] {
     background-image:var(--atmosphere-background)!important;
   }
 }
