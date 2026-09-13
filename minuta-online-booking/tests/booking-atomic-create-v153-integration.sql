@@ -98,7 +98,7 @@ begin
   insert into public.organization_memberships(
     organization_id,user_id,role,is_bookable,active,created_by
   ) values(
-    v_organization,v_source_service.performer_id,'owner',true,true,
+    v_organization,v_source_service.performer_id,'specialist',true,true,
     v_source_service.performer_id
   );
   insert into public.services(
