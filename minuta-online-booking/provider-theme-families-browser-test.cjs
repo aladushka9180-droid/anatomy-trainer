@@ -11,8 +11,14 @@ const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => mat
 assert.equal(themes.length, 39, 'Каталог тем прочитан не полностью');
 const approvedThemes = new Set(['snow-leopard', 'pearl-zebra']);
 const metalBackgrounds = new Map([
-  ['cobalt-forge', 'provider-cobalt-forge-bg-v1.webp'],
-  ['petrol-steel', 'provider-petrol-steel-bg-v1.webp'],
+  ['cobalt-forge', {
+    desktop:'provider-cobalt-forge-desktop-v2.webp',
+    mobile:'provider-cobalt-forge-mobile-v2.webp',
+  }],
+  ['petrol-steel', {
+    desktop:'provider-petrol-steel-desktop-v2.webp',
+    mobile:'provider-petrol-steel-mobile-v2.webp',
+  }],
 ]);
 const familyThemes = themes.filter(theme => !approvedThemes.has(theme));
 const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
@@ -64,6 +70,7 @@ const server = http.createServer((request, response) => {
         const state = await page.evaluate(themeKey => {
           document.body.dataset.providerTheme = themeKey;
           const canvas = getComputedStyle(document.body, '::before');
+          const metalCanvas = getComputedStyle(document.body, '::after');
           const surfaceSelectors = ['.provider-sidebar', '.provider-topbar', '.schedule-card', '.schedule-toolbar'];
           const surfaces = surfaceSelectors.map(selector => {
             const node = document.querySelector(selector);
@@ -75,6 +82,14 @@ const server = http.createServer((request, response) => {
             bodyImage:getComputedStyle(document.body).backgroundImage,
             bodyRepeat:getComputedStyle(document.body).backgroundRepeat,
             bodySize:getComputedStyle(document.body).backgroundSize,
+            metalImage:metalCanvas.backgroundImage,
+            metalRepeat:metalCanvas.backgroundRepeat,
+            metalSize:metalCanvas.backgroundSize,
+            metalPosition:metalCanvas.position,
+            metalPointerEvents:metalCanvas.pointerEvents,
+            metalZIndex:metalCanvas.zIndex,
+            metalWidth:metalCanvas.width,
+            metalHeight:metalCanvas.height,
             image:canvas.backgroundImage,
             mask:canvas.maskImage || canvas.webkitMaskImage,
             color:canvas.backgroundColor,
@@ -99,9 +114,17 @@ const server = http.createServer((request, response) => {
         assert.equal(state.position, width <= 760 ? 'absolute' : 'fixed', `${theme} ${width}px: неверное позиционирование холста`);
         assert.equal(state.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
         if (metalBackgrounds.has(theme)) {
-          assert.match(state.bodyImage, new RegExp(metalBackgrounds.get(theme).replace('.', '\\.')), `${theme} ${width}px: металлический фон потерян`);
-          assert.equal(state.bodyRepeat.split(',').every(value => value.trim() === 'no-repeat'), true, `${theme} ${width}px: металлический фон начал повторяться`);
-          assert.equal(state.bodySize.split(',').every(value => value.trim() === 'cover'), true, `${theme} ${width}px: металлический фон перестал покрывать холст`);
+          const variant = width <= 760 ? 'mobile' : 'desktop';
+          const asset = metalBackgrounds.get(theme)[variant];
+          assert.equal(state.bodyImage, 'none', `${theme} ${width}px: фон снова привязан к высоте документа`);
+          assert.match(state.metalImage, new RegExp(asset.replace('.', '\\.')), `${theme} ${width}px: металлический фон потерян`);
+          assert.equal(state.metalRepeat.split(',').every(value => value.trim() === 'no-repeat'), true, `${theme} ${width}px: металлический фон начал повторяться`);
+          assert.equal(state.metalSize.split(',').every(value => value.trim() === 'cover'), true, `${theme} ${width}px: металлический фон перестал покрывать холст`);
+          assert.equal(state.metalPosition, 'fixed', `${theme} ${width}px: фон растягивается по высоте документа`);
+          assert.equal(state.metalPointerEvents, 'none', `${theme} ${width}px: фон перехватывает клики`);
+          assert.equal(state.metalZIndex, '0', `${theme} ${width}px: неверный слой металлического фона`);
+          assert.equal(Math.round(Number.parseFloat(state.metalWidth)), width, `${theme} ${width}px: фон не совпадает с шириной viewport`);
+          assert.equal(Math.round(Number.parseFloat(state.metalHeight)), 900, `${theme} ${width}px: фон не совпадает с высотой viewport`);
         }
         for (const surface of state.surfaces) {
           assert.equal(surface.image, 'none', `${theme} ${width}px ${surface.selector}: узор попал на рабочую поверхность`);
@@ -111,7 +134,8 @@ const server = http.createServer((request, response) => {
         }
         if ((width === 390 || width === 1440) && visibilityThemes.has(theme)) {
           const withTexture = await page.screenshot();
-          await page.addStyleTag({ content:'.provider-body[data-provider-theme][data-provider-layout]::before{content:none!important}' });
+          const pseudo = metalBackgrounds.has(theme) ? 'after' : 'before';
+          await page.addStyleTag({ content:`.provider-body[data-provider-theme][data-provider-layout]::${pseudo}{content:none!important}` });
           const withoutTexture = await page.screenshot();
           await page.evaluate(() => document.head.lastElementChild.remove());
           assert.equal(withTexture.equals(withoutTexture), false, `${theme} ${width}px: псевдоэлемент вычисляется, но не рисуется`);

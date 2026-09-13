@@ -16,7 +16,7 @@ const probe = `<!doctype html><html><head><meta charset="utf-8"><title>PWA v151<
 window.addEventListener('load',async()=>{
   await caches.open('massage-izhevsk-v734');
   const script=document.createElement('script');
-  script.src='./site-update.js?v=736';
+  script.src='./site-update.js?v=737';
   script.onload=()=>window.dispatchEvent(new Event('load'));
   document.head.append(script);
 },{once:true});
@@ -63,27 +63,27 @@ try {
   const state = await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.ready;
     const cacheNames = await caches.keys();
-    const cache = await caches.open('massage-izhevsk-v736');
+    const cache = await caches.open('massage-izhevsk-v737');
     const provider = await cache.match('./provider.html');
-    const commerce = await cache.match('./commerce-management.js?v=736');
-    const styles = await cache.match('./styles.css?v=736');
+    const commerce = await cache.match('./commerce-management.js?v=737');
+    const styles = await cache.match('./styles.css?v=737');
     return {
       scriptUrl:registration.active?.scriptURL || '', cacheNames,
       provider:Boolean(provider), commerce:Boolean(commerce), styles:Boolean(styles)
     };
   });
-  assert.match(state.scriptUrl, /\/sw\.js\?v=736$/);
-  assert.ok(state.cacheNames.includes('massage-izhevsk-v736'), 'v736 cache is installed');
+  assert.match(state.scriptUrl, /\/sw\.js\?v=737$/);
+  assert.ok(state.cacheNames.includes('massage-izhevsk-v737'), 'v737 cache is installed');
   assert.ok(!state.cacheNames.includes('massage-izhevsk-v734'), 'obsolete provider cache is removed on activation');
   assert.equal(state.provider, true, 'provider shell is cached');
-  assert.equal(state.commerce, true, 'v736 commerce controller is cached');
-  assert.equal(state.styles, true, 'v736 UI styles are cached');
+  assert.equal(state.commerce, true, 'v737 commerce controller is cached');
+  assert.equal(state.styles, true, 'v737 UI styles are cached');
 
   await context.setOffline(true);
   const response = await page.goto(`${base}provider.html`, { waitUntil:'domcontentloaded', timeout:15000 });
   assert.ok(response?.ok(), 'provider shell opens while offline');
   assert.equal(await page.locator('#commercePanel').count(), 1, 'offline shell contains the sales panel');
-  const cachedSource = await page.evaluate(async () => (await fetch('./commerce-management.js?v=736')).text());
+  const cachedSource = await page.evaluate(async () => (await fetch('./commerce-management.js?v=737')).text());
   assert.match(cachedSource, /sell_minuta_commercial_product_v151/);
 } finally {
   await context.setOffline(false).catch(() => {});
@@ -93,4 +93,4 @@ try {
 }
 
 assert.deepEqual(pageErrors, []);
-console.log('PrimeTime Pro commercial sales v151 PWA v736 and offline cache checks passed');
+console.log('PrimeTime Pro commercial sales v151 PWA v737 and offline cache checks passed');

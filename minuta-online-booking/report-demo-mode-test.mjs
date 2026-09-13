@@ -16,8 +16,8 @@ assert.match(provider, /get_minuta_staff_report_bookings_v97'[\s\S]*?p_organizat
 assert.match(provider, /reportDataSource === 'demo' && reportPeriod === 'month'[\s\S]*?reportPeriod = 'quarter'/, 'Демо-режим не открывает период с заполненными данными');
 assert.match(provider, /function reportUsesScopedBookings\(\)[\s\S]*?reportDataSource === 'demo' \|\| reportCanViewTeam/, 'Демо-режим всё ещё зависит от статистики текущей организации');
 assert.match(provider, /function loadSelectedReportData\(\)[\s\S]*?loadReportScopedBookings/, 'Демо-записи не загружаются сразу после выбора режима');
-assert.match(html, /report-demo-live\.js\?v=736/, 'Демо-режим не подключает виртуальное течение времени');
-assert.match(read('sw.js'), /\.\/report-demo-live\.js\?v=736/, 'Service Worker не кэширует виртуальные демо-данные');
+assert.match(html, /report-demo-live\.js\?v=737/, 'Демо-режим не подключает виртуальное течение времени');
+assert.match(read('sw.js'), /\.\/report-demo-live\.js\?v=737/, 'Service Worker не кэширует виртуальные демо-данные');
 assert.match(provider, /function startReportDemoUpdates\(\)[\s\S]*?refreshReportDemoLive/, 'Демо-режим не обновляет данные автоматически');
 assert.match(provider, /function mergeReportDemoRows\(rows\)[\s\S]*?reportDemoBaseRows/, 'Пропущенные дни не могут быть дозаполнены поверх исходных данных');
 assert.match(provider, /function applyReportDemoLiveRows[\s\S]*?controller\.materialize\(reportDemoBaseRows/, 'Локальный демо-набор не создаётся при пустом ответе сервера');

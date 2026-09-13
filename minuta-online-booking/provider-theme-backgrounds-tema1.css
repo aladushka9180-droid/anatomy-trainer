@@ -108,24 +108,44 @@
 /* Forged metal canvases for the dark Cobalt Forge and Petrol Steel themes. */
 .provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""]),
 .provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""]) {
-  background-position:center!important;
-  background-repeat:no-repeat!important;
-  background-size:cover!important;
-  background-attachment:fixed!important;
+  background-image:none!important;
 }
 
 .provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""]) {
   background-color:#071226!important;
-  background-image:
-    radial-gradient(ellipse 78% 112% at 50% 42%,rgba(4,12,28,.72) 0%,rgba(4,12,28,.56) 58%,rgba(2,7,16,.30) 100%),
-    url("provider-cobalt-forge-bg-v1.webp")!important;
 }
 
 .provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""]) {
   background-color:#0b1b1e!important;
+}
+
+/* Keep artwork tied to the viewport, not to the full document height. */
+.provider-body:is(
+  [data-provider-theme="cobalt-forge"],
+  [data-provider-theme="petrol-steel"]
+)[data-provider-layout]:not([data-provider-layout=""])::after {
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background-position:center;
+  background-repeat:no-repeat;
+  background-size:cover;
+}
+
+.provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""])::after {
+  background-color:#071226;
   background-image:
-    radial-gradient(ellipse 76% 112% at 50% 42%,rgba(3,15,16,.78) 0%,rgba(3,15,16,.58) 58%,rgba(2,8,9,.24) 100%),
-    url("provider-petrol-steel-bg-v1.webp")!important;
+    radial-gradient(ellipse 72% 104% at 50% 44%,rgba(3,10,22,.48) 0%,rgba(3,10,22,.34) 56%,rgba(2,7,16,.12) 100%),
+    url("provider-cobalt-forge-desktop-v2.webp");
+}
+
+.provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""])::after {
+  background-color:#0b1b1e;
+  background-image:
+    radial-gradient(ellipse 72% 104% at 50% 44%,rgba(2,13,14,.58) 0%,rgba(2,13,14,.38) 58%,rgba(1,7,8,.10) 100%),
+    url("provider-petrol-steel-desktop-v2.webp");
 }
 
 .provider-body:is(
@@ -155,24 +175,34 @@
 }
 
 .theme-cobalt-forge .theme-swatch {
-  background:#071226 url("provider-cobalt-forge-bg-v1.webp") center/cover no-repeat!important;
+  background:#071226 url("provider-cobalt-forge-desktop-v2.webp") center/cover no-repeat!important;
 }
 
 .theme-petrol-steel .theme-swatch {
-  background:#0b1b1e url("provider-petrol-steel-bg-v1.webp") center/cover no-repeat!important;
+  background:#0b1b1e url("provider-petrol-steel-desktop-v2.webp") center/cover no-repeat!important;
 }
 
 @media (max-width:760px) {
-  .provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""]),
-  .provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""]) {
-    background-position:center top!important;
-    background-attachment:scroll!important;
+  .provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""])::after {
+    background-image:
+      radial-gradient(ellipse 96% 88% at 50% 45%,rgba(3,10,22,.42) 0%,rgba(3,10,22,.28) 60%,rgba(2,7,16,.08) 100%),
+      url("provider-cobalt-forge-mobile-v2.webp");
+    background-position:center top;
+  }
+
+  .provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""])::after {
+    background-image:
+      radial-gradient(ellipse 96% 88% at 50% 45%,rgba(2,13,14,.46) 0%,rgba(2,13,14,.30) 60%,rgba(1,7,8,.08) 100%),
+      url("provider-petrol-steel-mobile-v2.webp");
+    background-position:center top;
   }
 }
 
 @media (prefers-reduced-data:reduce) {
-  .provider-body[data-provider-theme="cobalt-forge"][data-provider-layout]:not([data-provider-layout=""]),
-  .provider-body[data-provider-theme="petrol-steel"][data-provider-layout]:not([data-provider-layout=""]) {
-    background-image:var(--atmosphere-background)!important;
+  .provider-body:is(
+    [data-provider-theme="cobalt-forge"],
+    [data-provider-theme="petrol-steel"]
+  )[data-provider-layout]:not([data-provider-layout=""])::after {
+    background-image:var(--atmosphere-background);
   }
 }
