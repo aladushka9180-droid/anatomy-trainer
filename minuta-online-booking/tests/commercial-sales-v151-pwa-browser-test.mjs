@@ -16,7 +16,7 @@ const probe = `<!doctype html><html><head><meta charset="utf-8"><title>PWA v151<
 window.addEventListener('load',async()=>{
   await caches.open('massage-izhevsk-v734');
   const script=document.createElement('script');
-  script.src='./site-update.js?v=738';
+script.src='./site-update.js?v=740';
   script.onload=()=>window.dispatchEvent(new Event('load'));
   document.head.append(script);
 },{once:true});
@@ -72,7 +72,7 @@ try {
       provider:Boolean(provider), commerce:Boolean(commerce), styles:Boolean(styles)
     };
   });
-  assert.match(state.scriptUrl, /\/sw\.js\?v=738$/);
+assert.match(state.scriptUrl, /\/sw\.js\?v=740$/);
   assert.ok(state.cacheNames.includes('massage-izhevsk-v740'), 'v740 cache is installed');
   assert.ok(!state.cacheNames.includes('massage-izhevsk-v734'), 'obsolete provider cache is removed on activation');
   assert.equal(state.provider, true, 'provider shell is cached');
