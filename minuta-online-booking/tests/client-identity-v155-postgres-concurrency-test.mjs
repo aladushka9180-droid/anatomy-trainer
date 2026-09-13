@@ -203,6 +203,13 @@ const cleanupFixture = async () => {
   await admin.query('begin');
   try {
     await admin.query('set local session_replication_role=replica');
+    const fixtureRequests = [ids.seedRequest, ids.raceRequest, ids.staleRequest];
+    await admin.query(`delete from public.booking_events where booking_id in(
+      select id from public.bookings where request_id=any($1::uuid[])
+    )`, [fixtureRequests]);
+    await admin.query(`delete from public.notification_outbox where booking_id in(
+      select id from public.bookings where request_id=any($1::uuid[])
+    )`, [fixtureRequests]);
     await admin.query('delete from public.client_identity_audit_v155 where client_account_id=$1', [ids.account]);
     await admin.query('delete from public.client_identity_booking_requests_v155 where request_id=any($1::uuid[])', [[ids.raceRequest, ids.staleRequest]]);
     await admin.query(`delete from public.benefit_audit_log
@@ -215,7 +222,7 @@ const cleanupFixture = async () => {
     await admin.query('delete from public.commercial_audit_log where organization_id=$1 and subject_id=$2', [ids.org, ids.visitSale]);
     await admin.query('delete from public.commercial_sales where id=$1', [ids.visitSale]);
     await admin.query('delete from public.financial_accounts where id=$1', [ids.paymentAccount]);
-    await admin.query('delete from public.bookings where request_id=any($1::uuid[])', [[ids.seedRequest, ids.raceRequest, ids.staleRequest]]);
+    await admin.query('delete from public.bookings where request_id=any($1::uuid[])', [fixtureRequests]);
     await admin.query('delete from public.client_identity_sessions_v155 where token_hash=any($1::text[])', [
       saleSessionHash ? [...sessionHashes, saleSessionHash] : sessionHashes
     ]);
@@ -232,6 +239,10 @@ const cleanupFixture = async () => {
     await admin.query('delete from auth.users where id=$1', [ids.actor]);
     const { rows:[cleanup] } = await admin.query(`select
       (select count(*) from public.client_identity_audit_v155 where client_account_id=$1)
+      +(select count(*) from public.booking_events event join public.bookings booking on booking.id=event.booking_id
+        where booking.request_id=any($5::uuid[]))
+      +(select count(*) from public.notification_outbox queue join public.bookings booking on booking.id=queue.booking_id
+        where booking.request_id=any($5::uuid[]))
       +(select count(*) from public.client_identity_booking_requests_v155 where request_id=any($2::uuid[]))
       +(select count(*) from public.benefit_audit_log where organization_id=$3)
       +(select count(*) from public.benefit_ledger where instrument_id=$4)

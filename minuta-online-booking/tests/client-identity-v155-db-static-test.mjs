@@ -304,6 +304,8 @@ assert.match(rollback, /minuta_client_identity_rollback_safe_v155/);
 assert.match(concurrency, /const sessionTokens = \[randomBytes\(32\)[^]*randomBytes\(32\)/);
 assert.match(concurrency, /replayPromise = outcome\(second\.query\(rpcSql/);
 assert.match(concurrency, /await awaitBlocked\(admin, secondPid\)/);
+assert.match(concurrency, /delete from public\.booking_events where booking_id in\(\s*select id from public\.bookings where request_id=any\(\$1::uuid\[\]\)\s*\)/);
+assert.match(concurrency, /delete from public\.notification_outbox where booking_id in\(\s*select id from public\.bookings where request_id=any\(\$1::uuid\[\]\)\s*\)/);
 for (const exactCount of ['bookings:1', 'requests:1', 'redemptions:1', 'ledgers:1', 'identity_audits:1', 'benefit_audits:1']) {
   assert.ok(concurrency.includes(exactCount), `concurrency cardinality missing: ${exactCount}`);
 }
