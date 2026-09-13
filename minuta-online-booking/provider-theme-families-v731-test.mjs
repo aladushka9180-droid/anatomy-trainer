@@ -11,10 +11,10 @@ const families = {
   editorial:['sage', 'nordic', 'mono'],
   digital:['graphite', 'hitech', 'carbon-crimson', 'oled-mono', 'volt-graphite'],
   natural:['eco', 'japandi', 'desert', 'celadon'],
-  materials:['luxury', 'loft', 'carbon-ember', 'petrol-steel', 'cobalt-forge', 'concrete-signal', 'obsidian-champagne', 'cocoa-pearl', 'coastal'],
+  materials:['luxury', 'loft', 'carbon-ember', 'petrol-steel', 'cobalt-forge', 'concrete-signal', 'obsidian-champagne', 'cocoa-pearl', 'coastal', 'midnight'],
   mist:['warm', 'lavender', 'rose', 'burgundy', 'butter', 'mocha-pastel', 'noir-rose'],
   textile:['pearl', 'peach-silk', 'plum-cashmere'],
-  water:['midnight', 'azure-lagoon', 'moonlit-lilac'],
+  water:['azure-lagoon', 'moonlit-lilac'],
   botanical:['botanical', 'blue-hydrangea'],
   organic:['snow-leopard', 'pearl-zebra', 'noir-safari'],
 };
@@ -24,7 +24,7 @@ assert.equal(themes.length, 39, 'Каталог должен содержать 
 assert.deepEqual([...mappedThemes].sort(), [...themes].sort(), 'Каждая тема должна входить ровно в одно визуальное семейство');
 assert.equal(new Set(mappedThemes).size, mappedThemes.length, 'В семействах не должно быть дублей');
 
-assert.match(css, /\[data-provider-layout\]:not\(:is\([^)]*snow-leopard[^)]*pearl-zebra[^)]*concrete-signal[^)]*luxury[^)]*cocoa-pearl[^)]*coastal[^)]*\)\)::before\s*\{[\s\S]*?pointer-events:none;[\s\S]*?background-image:var\(--theme-canvas-texture\)/);
+assert.match(css, /\[data-provider-layout\]:not\(:is\([^)]*snow-leopard[^)]*pearl-zebra[^)]*concrete-signal[^)]*luxury[^)]*cocoa-pearl[^)]*coastal[^)]*midnight[^)]*\)\)::before\s*\{[\s\S]*?pointer-events:none;[\s\S]*?background-image:var\(--theme-canvas-texture\)/);
 assert.match(css, /mask-image:var\(--theme-canvas-mask,none\)/);
 assert.match(css, /background-color:var\(--theme-canvas-color,transparent\)/);
 assert.match(css, /> \.provider-main\s*\{[\s\S]*?z-index:1;/);
@@ -32,7 +32,7 @@ assert.match(css, /> \.ambient\s*\{[\s\S]*?display:none!important;/);
 assert.match(css, /:is\([\s\S]*?\.provider-sidebar[\s\S]*?\.booking-sheet-panel[\s\S]*?\)\s*\{[\s\S]*?background-image:none!important;/);
 assert.match(css, /:is\(input,select,textarea\)\s*\{[\s\S]*?background-image:none!important;/);
 assert.doesNotMatch(css, /booking-client-page|client-pattern|\.client-app/, 'Новый слой не должен затрагивать публичный PrimeTime');
-assert.match(css, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-concrete-signal,\.theme-luxury,\.theme-cocoa-pearl,\.theme-coastal\)\) \.theme-swatch/);
+assert.match(css, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-concrete-signal,\.theme-luxury,\.theme-cocoa-pearl,\.theme-coastal,\.theme-midnight\)\) \.theme-swatch/);
 
 for (const theme of themes) {
   const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
@@ -43,7 +43,7 @@ for (const theme of themes) {
 
 const signatureFamilies = {
   circuit:['volt-graphite', 'hitech'],
-  constellation:['midnight', 'moonlit-lilac', 'carbon-crimson', 'botanical'],
+  constellation:['moonlit-lilac', 'carbon-crimson', 'botanical'],
   facets:['graphite', 'cobalt-forge', 'azure-lagoon', 'burgundy', 'nordic'],
 };
 for (const [family, familyThemes] of Object.entries(signatureFamilies)) {
@@ -55,7 +55,7 @@ for (const [family, familyThemes] of Object.entries(signatureFamilies)) {
   }
 }
 
-const lineFreeThemes = ['carbon-crimson', 'cobalt-forge', 'burgundy', 'midnight', 'moonlit-lilac'];
+const lineFreeThemes = ['carbon-crimson', 'cobalt-forge', 'burgundy', 'moonlit-lilac'];
 for (const theme of lineFreeThemes) {
   const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
   assert.doesNotMatch(block, /linear-gradient/, `${theme}: длинные одиночные линии должны быть заменены локальной фактурой`);
@@ -80,14 +80,16 @@ assert.doesNotMatch(css.match(/data-provider-theme="oled-mono"[\s\S]*?\n\}/)?.[0
 assert.match(css, /data-provider-theme="volt-graphite"[\s\S]*?--theme-canvas-mask:var\(--theme-circuit-mask\)/);
 assert.match(css, /data-provider-theme="botanical"[\s\S]*?--theme-canvas-mask:var\(--theme-constellation-mask\)/);
 assert.match(css, /data-provider-theme="azure-lagoon"[\s\S]*?--theme-canvas-mask:var\(--theme-facets-mask\)/);
+const midnightBlock = css.match(/\.provider-body\[data-provider-theme="midnight"\],\.provider-theme-option\.theme-midnight\s*\{([\s\S]*?)\n\}/m)?.[1] || '';
+assert.doesNotMatch(midnightBlock, /--theme-canvas-mask|constellation|radial-gradient|repeating-|url\(/i, 'Midnight Navy не должен возвращать созвездия, линии или растровый путь семейства');
 assert.doesNotMatch(css.match(/data-provider-theme="azure-lagoon"[\s\S]*?\n\}/)?.[0] || '', /repeating-radial-gradient/);
 assert.ok((css.match(/data-provider-theme="blue-hydrangea"[\s\S]*?\n\}/)?.[0].match(/radial-gradient/g) || []).length >= 6);
 assert.match(css, /data-provider-theme="snow-leopard"[\s\S]*?--theme-canvas-size:124px 92px/);
 assert.match(css, /data-provider-theme="luxury"[\s\S]*?radial-gradient\(ellipse at 4% 0/);
 assert.match(css, /data-provider-theme="warm"[\s\S]*?radial-gradient\(circle at 16% 4%/);
 
-assert.match(provider, /provider-theme-families\.css\?v=750[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=750/);
-assert.match(worker, /\.\/provider-theme-families\.css\?v=750/);
-assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=750/);
+assert.match(provider, /provider-theme-families\.css\?v=751[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=751/);
+assert.match(worker, /\.\/provider-theme-families\.css\?v=751/);
+assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=751/);
 
-console.log('Provider theme families v750: PASS (39 themes, 9 families).');
+console.log('Provider theme families v751: PASS (39 themes, 9 families).');

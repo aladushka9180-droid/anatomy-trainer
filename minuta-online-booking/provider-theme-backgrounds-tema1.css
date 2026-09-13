@@ -4,7 +4,8 @@
 .provider-body[data-provider-theme="concrete-signal"][data-provider-layout],
 .provider-body[data-provider-theme="luxury"][data-provider-layout],
 .provider-body[data-provider-theme="cocoa-pearl"][data-provider-layout],
-.provider-body[data-provider-theme="coastal"][data-provider-layout] {
+.provider-body[data-provider-theme="coastal"][data-provider-layout],
+.provider-body[data-provider-theme="midnight"][data-provider-layout] {
   background-position:center!important;
   background-repeat:no-repeat!important;
   background-size:cover!important;
@@ -51,6 +52,15 @@
   background-image:url("provider-coastal-porcelain-material-v1.webp")!important;
 }
 
+.provider-body[data-provider-theme="midnight"][data-provider-layout] {
+  background-color:#06182f!important;
+  background-image:url("provider-midnight-navy-velvet-v1.webp")!important;
+}
+
+.provider-body[data-provider-theme="midnight"][data-provider-layout] .schedule-card {
+  background-color:rgba(9,29,55,.86)!important;
+}
+
 /* The artwork belongs to the outer canvas; operational surfaces remain clean. */
 .provider-body:is(
   [data-provider-theme="snow-leopard"],
@@ -58,7 +68,8 @@
   [data-provider-theme="concrete-signal"],
   [data-provider-theme="luxury"],
   [data-provider-theme="cocoa-pearl"],
-  [data-provider-theme="coastal"]
+  [data-provider-theme="coastal"],
+  [data-provider-theme="midnight"]
 )[data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace,.provider-view,.schedule-card) {
   background-color:transparent!important;
   background-image:none!important;
@@ -70,7 +81,8 @@
   [data-provider-theme="concrete-signal"],
   [data-provider-theme="luxury"],
   [data-provider-theme="cocoa-pearl"],
-  [data-provider-theme="coastal"]
+  [data-provider-theme="coastal"],
+  [data-provider-theme="midnight"]
 )[data-provider-layout] :is(
   .provider-sidebar,
   .provider-topbar,
@@ -93,7 +105,8 @@
   [data-provider-theme="concrete-signal"],
   [data-provider-theme="luxury"],
   [data-provider-theme="cocoa-pearl"],
-  [data-provider-theme="coastal"]
+  [data-provider-theme="coastal"],
+  [data-provider-theme="midnight"]
 )[data-provider-layout] :is(.provider-booking,.timeline-booking,.calendar-overview-booking,.provider-break,.timeline-break) {
   background-image:none!important;
 }
@@ -117,6 +130,9 @@
 .theme-coastal .theme-swatch {
   background:#f5eddd url("provider-coastal-porcelain-material-v1.webp") center/cover no-repeat!important;
 }
+.theme-midnight .theme-swatch {
+  background:#06182f url("provider-midnight-navy-velvet-v1.webp") center/cover no-repeat!important;
+}
 .provider-body[data-provider-theme][data-provider-layout] .provider-theme-option {
   overflow:hidden!important;
   border-radius:13px!important;
@@ -136,7 +152,8 @@
   .provider-body[data-provider-theme="concrete-signal"][data-provider-layout],
   .provider-body[data-provider-theme="luxury"][data-provider-layout],
   .provider-body[data-provider-theme="cocoa-pearl"][data-provider-layout],
-  .provider-body[data-provider-theme="coastal"][data-provider-layout] {
+  .provider-body[data-provider-theme="coastal"][data-provider-layout],
+  .provider-body[data-provider-theme="midnight"][data-provider-layout] {
     background-position:center top!important;
     background-size:cover!important;
     background-attachment:fixed!important;
@@ -180,7 +197,8 @@
   .provider-body[data-provider-theme="concrete-signal"][data-provider-layout],
   .provider-body[data-provider-theme="luxury"][data-provider-layout],
   .provider-body[data-provider-theme="cocoa-pearl"][data-provider-layout],
-  .provider-body[data-provider-theme="coastal"][data-provider-layout] {
+  .provider-body[data-provider-theme="coastal"][data-provider-layout],
+  .provider-body[data-provider-theme="midnight"][data-provider-layout] {
     background-image:var(--atmosphere-background)!important;
   }
 }

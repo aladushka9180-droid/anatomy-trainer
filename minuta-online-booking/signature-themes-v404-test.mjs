@@ -66,7 +66,7 @@ assert.match(subscription, /\.subscription-plan-card[\s\S]*?border-radius:\s*var
 assert.match(subscription, /\.subscription-plan-label[\s\S]*?color:var\(--theme-accent-contrast/, 'Метка рекомендуемого тарифа не гарантирует контраст темы');
 
 assert.match(script, /defineTheme\('japandi'[\s\S]*?themeColor:'#e9e5dc'/, 'Нет системного theme-color Japandi');
-assert.match(script, /defineTheme\('midnight'[\s\S]*?themeColor:'#061426'/, 'Нет системного theme-color Midnight Navy');
+assert.match(script, /defineTheme\('midnight'[\s\S]*?themeColor:'#06182f'/, 'Нет системного theme-color Midnight Navy');
 assert.match(script, /defineTheme\('mono'[\s\S]*?themeColor:'#f7f6f1'/, 'Нет системного theme-color Editorial Mono');
 assert.match(script, /defineTheme\('desert'[\s\S]*?themeColor:'#ead7c8'/, 'Нет системного theme-color Desert Clay');
 assert.match(script, /defineTheme\('rose'[\s\S]*?themeColor:'#f2eaed'/, 'Нет системного theme-color Rose Smoke');
@@ -88,8 +88,8 @@ for (const [key, color, group] of [
   assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=750/, 'Кабинет не подключает Signature Collection v750');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=750/, 'Service Worker не кэширует Signature Collection v750');
+assert.match(provider, /provider-themes-signature\.css\?v=751/, 'Кабинет не подключает Signature Collection v751');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=751/, 'Service Worker не кэширует Signature Collection v751');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
@@ -112,4 +112,4 @@ assert.match(worker, /assetResponse[\s\S]*caches\.open\(CACHE\)\)\.put\(request,
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');
 
-console.log('Signature themes v750: Snow Leopard canvas OK');
+console.log('Signature themes v751: Snow Leopard canvas OK');
