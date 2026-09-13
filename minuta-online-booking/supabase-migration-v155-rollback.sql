@@ -127,9 +127,10 @@ begin
         where procedure_row.oid=v_function and procedure_row.prosecdef
           and procedure_row.provolatile='v' and procedure_row.proconfig=array['search_path=""']::text[]
           and pg_catalog.pg_get_userbyid(procedure_row.proowner)='postgres')
-      or obj_description(v_function,'pg_proc') is distinct from
+      or pg_catalog.obj_description(v_function,'pg_proc') is distinct from (
         case when v_item.signature='public.assign_booking_client_account()'
           then 'minuta_client_identity_binding_v155' else 'minuta_client_identity_v155' end
+      )
       or exists(select 1 from pg_catalog.pg_proc procedure_row,
         lateral aclexplode(coalesce(procedure_row.proacl,acldefault('f',procedure_row.proowner))) grant_row
         where procedure_row.oid=v_function and grant_row.grantee=0 and grant_row.privilege_type='EXECUTE') then

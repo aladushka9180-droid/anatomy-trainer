@@ -48,6 +48,7 @@ for (const fingerprint of [
   assert.ok(compactMigration.includes(fingerprint.replace(/\s+/g, '')), `missing exact legacy dependency fingerprint: ${fingerprint}`);
 }
 assert.match(rollback, /v155_rollback_blocked_newer_function_definition/);
+assert.match(rollback, /pg_catalog\.obj_description\(v_function,'pg_proc'\) is distinct from \(\s*case when/);
 assert.doesNotMatch(migration + rollback, /'roles',policy_row\.polroles/);
 assert.match(migration + rollback, /pg_get_userbyid\(role_oid\)/);
 
