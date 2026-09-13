@@ -4,10 +4,14 @@ import { dirname, extname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const output = resolve(root, '.tmp-commercial-sales-v151');
-mkdirSync(output, { recursive:true });
+const output = process.env.MINUTA_AUDIT_SCREENSHOTS ? resolve(process.env.MINUTA_AUDIT_SCREENSHOTS) : '';
+if (output) mkdirSync(output, { recursive:true });
 const html = readFileSync(resolve(root, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
 const source = readFileSync(resolve(root, 'commerce-management.js'), 'utf8');
+const providerSource = readFileSync(resolve(root, 'provider.js'), 'utf8');
+const navigation = providerSource.slice(providerSource.indexOf('function providerSectionViewKey('), providerSource.indexOf('function canUseIosTransitions('));
+const features = providerSource.slice(providerSource.indexOf('const organizationFeatureDefinitions ='), providerSource.indexOf('\nbatchBookingsController =', providerSource.indexOf('const organizationFeatureDefinitions =')));
+const saleEntry = providerSource.slice(providerSource.indexOf('async function openCommerceSale('), providerSource.indexOf('\nfunction calendarRangeTitle(', providerSource.indexOf('async function openCommerceSale(')));
 const playwright = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const chromium = playwright.chromium || playwright.default?.chromium;
@@ -57,15 +61,10 @@ try {
       document.body.dataset.providerLayout = 'classic';
       document.querySelector('#authCard').hidden = true;
       document.querySelector('#dashboard').hidden = false;
-      document.querySelectorAll('[data-provider-panel]').forEach(panel => {
-        panel.hidden = panel.dataset.providerPanel !== 'organization';
-        panel.classList.toggle('active', !panel.hidden);
-      });
+      document.querySelectorAll('[data-provider-panel]').forEach(panel => { panel.hidden = panel.dataset.providerPanel !== 'organization'; });
       document.querySelector('#organizationWorkspace').hidden = false;
       document.querySelector('#organizationLoading').hidden = true;
       document.querySelector('#organizationRoleBadge').textContent = 'Владелец';
-      document.querySelectorAll('[data-provider-panel="organization"] .provider-section-anchor').forEach(panel => { panel.hidden = panel.id !== 'commercePanel'; });
-      document.querySelector('#commercePanel').hidden = false;
     });
     await page.addScriptTag({ content:source });
     await page.evaluate(async ids => {
@@ -129,20 +128,52 @@ try {
         }
         return { data:null, error:{ message:`unexpected rpc ${name}` } };
       }};
-      const common = {
-        db, $:selector => document.querySelector(selector),
-        escapeHtml:value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[character]),
-        notify:value => salesNotices.push(value), requireWrites:() => true,
-        getCurrentUser:() => ({ id:ids.owner }), getSessionGeneration:() => 1,
-        sessionIsCurrent:() => true, applyWriteAvailability:() => {}
-      };
-      window.salesController = MinutaCommerce.createController(common);
-      salesController.bind();
-      await salesController.setOrganization({ id:ids.organization, current_role:'owner' });
-      salesController.startSale({ bookingId:ids.booking, clientId:ids.client });
+      Object.assign(window, { salesDb:db });
     }, ids);
+    await page.addScriptTag({ content:`
+      const $=selector=>document.querySelector(selector), $$=selector=>[...document.querySelectorAll(selector)];
+      const providerSectionSelections=new Map(), providerSectionPresentation=new Map(), PROVIDER_SECTION_STORAGE_PREFIX='minuta-provider-subsection-v1', PROVIDER_SECTION_COMPANIONS={};
+      let sectionNavigationFrame=0, currentUser={id:${JSON.stringify(ids.owner)}}, sessionGeneration=1;
+      let resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
+      const organizationFeatureRequests=new Map(); let organizationFeatureContext='',organizationFeatureContextRevision=0;
+      const activeOrganization={id:${JSON.stringify(ids.organization)},current_role:'owner'};
+      const organizationController={getActiveOrganization:()=>activeOrganization};
+      const db=window.salesDb;
+      const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+      const notify=value=>salesNotices.push(value),requireWrites=()=>true,sessionIsCurrent=()=>true,applyWriteAvailability=()=>{};
+      async function loadProviderFeatureScript(){window.featureLoads=(window.featureLoads||0)+1;}
+      function closeBookingSheet(){window.visitEntryClosed=true;}
+      function bookingSourceItems(){return window.workspace.bookings;}
+      function setProviderView(view){
+        document.querySelectorAll('[data-provider-panel]').forEach(panel=>{panel.hidden=panel.dataset.providerPanel!==view;});
+        refreshSectionNavigation();
+      }
+      ${navigation}
+      ${features}
+      ${saleEntry}
+      prepareOrganizationFeatures(activeOrganization);
+      refreshSectionNavigation();
+      const visitEntry=document.createElement('button');
+      visitEntry.type='button';visitEntry.dataset.commerceBookingSale=${JSON.stringify(ids.booking)};visitEntry.textContent='Продать в визите';
+      visitEntry.addEventListener('click',()=>void openCommerceSaleFromBooking(visitEntry.dataset.commerceBookingSale));
+      document.querySelector('#bookingSheet').append(visitEntry);
+      visitEntry.click();
+      window.waitForCommerce=()=>commerceController;
+    ` });
+    await page.waitForFunction(() => Boolean(window.waitForCommerce?.()));
+    await page.evaluate(() => { window.salesController=window.waitForCommerce(); });
 
     await page.locator('#commerceSaleCreator').waitFor({ state:'visible' });
+    assert.equal(await page.evaluate(() => featureLoads), 1, 'commerce loads once through the real lazy feature loader');
+    assert.equal(await page.evaluate(() => visitEntryClosed), true, 'visit sale entry closes the booking sheet');
+    assert.equal(await page.locator('#organizationSectionSelect').inputValue(), 'commercePanel', 'mobile section selector follows the sale target');
+    assert.equal(await page.locator('[data-section-target="commercePanel"]').getAttribute('aria-current'), 'location', 'desktop sales navigation is selected');
+    await page.waitForTimeout(50);
+    const selectedNavigation = await page.locator('[data-section-target="commercePanel"]').evaluate(element => {
+      const rect=element.getBoundingClientRect(), nav=element.closest('nav').getBoundingClientRect();
+      return { visible:getComputedStyle(element).display!=='none', left:rect.left, right:rect.right, navLeft:nav.left, navRight:nav.right };
+    });
+    assert.ok(selectedNavigation.visible && selectedNavigation.left >= selectedNavigation.navLeft - 1 && selectedNavigation.right <= selectedNavigation.navRight + 1, `${width}: selected sales navigation target stays visible`);
     assert.equal(await page.locator('#commerceSaleCreator').getAttribute('open'), '');
     assert.equal(await page.locator('#commerceClient').inputValue(), ids.client);
     assert.equal(await page.locator('#commerceBooking').inputValue(), ids.booking);
@@ -151,7 +182,14 @@ try {
     if (width <= 760) assert.equal(await page.locator('.provider-mobile-nav').isVisible(), false, 'sale focus mode hides the mobile navigation');
     if (width > 760) assert.equal(await page.locator('#organizationSectionNav').evaluate(element => getComputedStyle(element).position), 'static', 'organization navigation must not cover the active sale');
     assert.deepEqual(await page.locator('#commercePaymentAccount option').allTextContents(), ['Основная касса'], 'cash payment must only offer a cash account');
-    await page.screenshot({ path:resolve(output, `sale-compact-${width}.png`), fullPage:true });
+    const firstAction = await page.locator('#commerceSaleSubmit').evaluate(element => { const rect=element.getBoundingClientRect(); return { top:rect.top,bottom:rect.bottom }; });
+    assert.ok(firstAction.top >= 0 && firstAction.bottom <= 900, `${width}: primary sale action must be in the first 900px viewport`);
+    if (width === 390) {
+      const summary = await page.locator('#commerceSaleOptionsSummary').evaluate(element => ({ clientHeight:element.clientHeight, scrollHeight:element.scrollHeight, text:element.innerText }));
+      assert.match(summary.text, /Основной склад[\s\S]*Ирина Мастер[\s\S]*наличные/i);
+      assert.ok(summary.scrollHeight <= summary.clientHeight + 1, '390: compact operation summary must be fully visible');
+    }
+    if (output) await page.screenshot({ path:resolve(output, `sale-compact-${width}.png`), fullPage:true });
     await page.locator('#commerceSaleOptions summary').click();
     assert.equal(await page.locator('#commerceSaleOptions').getAttribute('open'), '');
     await page.locator('#commerceItemKind').selectOption('benefit_product');
@@ -181,7 +219,7 @@ try {
     assert.ok(layout.submit.width > 0 && layout.submit.height >= 43 && layout.submit.display !== 'none' && layout.submit.visibility !== 'hidden' && layout.submit.opacity >= .4, `${width}: sale submit must stay visible`);
     assert.notEqual(layout.submit.background, 'rgba(0, 0, 0, 0)', `${width}: sale submit must keep a visible background`);
     if (width <= 760) assert.ok(layout.controls.every(rect => rect.height >= 40), `${width}: controls must remain touchable`);
-    await page.screenshot({ path:resolve(output, `sale-${width}.png`), fullPage:true });
+    if (output) await page.screenshot({ path:resolve(output, `sale-${width}.png`), fullPage:true });
 
     if (width === 390) {
       await page.evaluate(() => {
