@@ -952,17 +952,22 @@ select pg_temp.v155_assert(
 );
 
 set local role anon;
-select pg_temp.v155_assert(
-  (select count(*)=0 from public.consume_client_identity_sale_claim_v155(
+select set_config('v155.lowercase_sale_consume_count',(
+  select count(*)::text from public.consume_client_identity_sale_claim_v155(
     lower(current_setting('v155.sale_claim_three')::jsonb->>'claim_token'),'sale-device-lowercase',
     current_setting('v155.sale_consume_request')::uuid
-  ))
+  )
+),true);
+reset role;
+select pg_temp.v155_assert(
+  current_setting('v155.lowercase_sale_consume_count')::integer=0
   and exists(select 1 from public.client_identity_claim_grants_v155 grant_row
     where grant_row.request_id=current_setting('v155.sale_claim_request_three')::uuid
       and grant_row.failed_attempts=0 and grant_row.locked_at is null
       and grant_row.consumed_at is null),
   'lowercase_sale_claim_is_rejected_without_state_change'
 );
+set local role anon;
 select set_config('v155.sale_session',(
   select to_jsonb(consumed)::text from public.consume_client_identity_sale_claim_v155(
     current_setting('v155.sale_claim_three')::jsonb->>'claim_token','sale-device',
@@ -1100,6 +1105,7 @@ begin
   end loop;
 end
 $transfer_approval_lockout$;
+reset role;
 select pg_temp.v155_assert(
   exists(select 1 from public.client_identity_transfers_v155 transfer_row
     where transfer_row.transfer_token_hash=encode(extensions.digest(
@@ -1107,6 +1113,7 @@ select pg_temp.v155_assert(
       and transfer_row.failed_attempts=5 and transfer_row.locked_at is not null),
   'fifth_wrong_transfer_approval_locks_transfer'
 );
+set local role anon;
 select set_config('v155.locked_approval',public.approve_client_identity_transfer_v155(
   current_setting('v155.upgraded')::jsonb->>'session_token',
   current_setting('v155.transfer_locked')::jsonb->>'transfer_token',
@@ -1134,6 +1141,7 @@ select pg_temp.v155_assert(
   )),
   'wrong_transfer_consume_returns_no_rows'
 );
+reset role;
 select pg_temp.v155_assert(
   exists(select 1 from public.client_identity_transfers_v155 transfer_row
     where transfer_row.transfer_token_hash=encode(extensions.digest(
@@ -1141,6 +1149,7 @@ select pg_temp.v155_assert(
       and transfer_row.failed_attempts=1 and transfer_row.locked_at is null),
   'wrong_transfer_consume_attempt_is_persisted'
 );
+set local role anon;
 select set_config('v155.approved',public.approve_client_identity_transfer_v155(
   current_setting('v155.upgraded')::jsonb->>'session_token',
   current_setting('v155.transfer')::jsonb->>'transfer_token',

@@ -53,6 +53,9 @@ assert.match(rollback, /pg_catalog\.obj_description\(v_function,'pg_proc'\) is d
 assert.match(integration, /\$legacy_rotate_upgrade_bypass_denied\$;\s*reset role;\s*select pg_temp\.v155_assert\([\s\S]*?'legacy_rotate_cannot_bypass_proof_required_by_upgrade'\s*\);\s*set local role anon;/);
 assert.match(integration, /set_config\('v155\.initial_booking',[\s\S]*?set_config\('v155\.same_phone_booking'/);
 assert.doesNotMatch(integration, /set local role (?:anon|authenticated|service_role);[\s\S]{0,900}\(select id from public\.bookings/);
+assert.match(integration, /set local role anon;\s*select set_config\('v155\.lowercase_sale_consume_count',[\s\S]*?\),true\);\s*reset role;\s*select pg_temp\.v155_assert\([\s\S]*?'lowercase_sale_claim_is_rejected_without_state_change'/);
+assert.match(integration, /\$transfer_approval_lockout\$;\s*reset role;\s*select pg_temp\.v155_assert\([\s\S]*?'fifth_wrong_transfer_approval_locks_transfer'\s*\);\s*set local role anon;/);
+assert.match(integration, /'wrong_transfer_consume_returns_no_rows'\s*\);\s*reset role;\s*select pg_temp\.v155_assert\([\s\S]*?'wrong_transfer_consume_attempt_is_persisted'\s*\);\s*set local role anon;/);
 assert.doesNotMatch(migration + rollback, /'roles',policy_row\.polroles/);
 assert.match(migration + rollback, /pg_get_userbyid\(role_oid\)/);
 
