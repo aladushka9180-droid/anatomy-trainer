@@ -25,7 +25,7 @@ const ids = {
   warehouse:'77777777-7777-4777-8777-777777777155',
   cash:'88888888-8888-4888-8888-888888888155'
 };
-const claimToken = 'ab'.repeat(32);
+const claimToken = 'PTS1-A7B9-C2D4-E6F8-G1H3';
 
 try {
   for (const width of [390, 760, 1440]) {
@@ -102,6 +102,13 @@ try {
         if (name === 'issue_client_identity_sale_claim_v155') {
           if (claimMode === 'error') return { data:null, error:{ message:'temporary gateway failure' } };
           if (claimMode === 'invalid') return { data:{ claim_token:'unsafe', claim_expires_at:'never' }, error:null };
+          if (claimMode === 'legacyHex') return { data:[{ claim_token:'ab'.repeat(32), claim_expires_at:new Date(Date.now() + 10 * 60_000).toISOString() }], error:null };
+          if (claimMode === 'lowercase') return { data:[{ claim_token:claimToken.toLowerCase(), claim_expires_at:new Date(Date.now() + 10 * 60_000).toISOString() }], error:null };
+          if (claimMode === 'tooLong') return { data:[{ claim_token:claimToken, claim_expires_at:new Date(Date.now() + 10 * 60_000 + 1_000).toISOString() }], error:null };
+          if (claimMode === 'duplicate') return { data:[
+            { claim_token:claimToken, claim_expires_at:new Date(Date.now() + 10 * 60_000).toISOString() },
+            { claim_token:claimToken, claim_expires_at:new Date(Date.now() + 10 * 60_000).toISOString() }
+          ], error:null };
           return { data:[{ claim_token:claimToken, claim_expires_at:new Date(Date.now() + 10 * 60_000).toISOString() }], error:null };
         }
         return { data:null, error:{ message:`unexpected rpc ${name}` } };
@@ -140,6 +147,7 @@ try {
     assert.match(successful.claims[0].args.p_request_id, /^[0-9a-f-]{36}$/i);
     assert.equal(successful.claims[0].args.p_expires_minutes, 10);
     assert.equal(await page.locator('#commerceSaleCreator').getAttribute('open'), '', `${width}: result remains open`);
+    assert.equal(await page.locator('#commerceClientAccessCode').innerText(), claimToken, `${width}: exact PTS1 display code is shown`);
     assert.match(await page.locator('#commerceClientAccessExpiry').innerText(), /^Действует до \d{2}\.\d{2}\.?, \d{2}:\d{2}$/);
     assert.match(await page.locator('#commerceClientAccessNote').innerText(), /одноразовый[\s\S]*этой организации/i);
     await page.locator('#commerceClientAccessCopy').click();
@@ -189,6 +197,18 @@ try {
       await page.locator('#commerceClientAccessRetry').waitFor({ state:'visible' });
       assert.equal(await page.locator('#commerceClientAccessCode').textContent(), '', 'malformed server response stays fail-closed');
       assert.equal(await page.locator('#commerceClientAccessCode').isHidden(), true, 'malformed code is never displayed');
+
+      for (const mode of ['legacyHex', 'lowercase', 'tooLong', 'duplicate']) {
+        await page.evaluate(async ({ ids, mode }) => {
+          claimMode = mode;
+          await saleClaimController.setOrganization({ id:ids.organization });
+        }, { ids, mode });
+        await prepareStandaloneSale();
+        await page.locator('#commerceSaleSubmit').click();
+        await page.locator('#commerceClientAccessRetry').waitFor({ state:'visible' });
+        assert.equal(await page.locator('#commerceClientAccessCode').textContent(), '', `${mode}: rejected response leaves no plaintext`);
+        assert.equal(await page.locator('#commerceClientAccessCode').isHidden(), true, `${mode}: rejected response is never displayed`);
+      }
       await page.evaluate(() => saleClaimController.setOrganization(null));
       assert.equal(await page.locator('#commerceClientAccessResult').isHidden(), true, 'organization change clears claim result');
     }

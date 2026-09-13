@@ -95,12 +95,13 @@
 
     function normalizedSaleClaim(data) {
       if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== 'object') return null;
-      const token = String(data[0].claim_token || '').trim();
-      const expiresAt = String(data[0].claim_expires_at || '').trim();
+      const token = data[0].claim_token;
+      const expiresAt = data[0].claim_expires_at;
+      if (typeof token !== 'string' || typeof expiresAt !== 'string') return null;
       const expiresTime = Date.parse(expiresAt);
       const now = Date.now();
-      if (!/^[0-9a-f]{64}$/i.test(token) || !Number.isFinite(expiresTime)
-        || expiresTime <= now - 60_000 || expiresTime > now + 31 * 60_000) return null;
+      if (!/^PTS1-[A-Z0-9]{4}(?:-[A-Z0-9]{4}){3}$/.test(token) || !Number.isFinite(expiresTime)
+        || expiresTime <= now || expiresTime > now + 10 * 60_000) return null;
       return { token, expiresAt, expiresTime };
     }
 
@@ -139,7 +140,7 @@
       holder.classList.remove('is-loading', 'is-error');
       $('#commerceClientAccessTitle').textContent = pendingSaleClaim?.clientName
         ? `Код для ${pendingSaleClaim.clientName}` : 'Передайте код клиенту';
-      $('#commerceClientAccessCode').textContent = claim.token.toUpperCase().replace(/(.{8})(?=.)/g, '$1 ');
+      $('#commerceClientAccessCode').textContent = claim.token;
       $('#commerceClientAccessCode').hidden = false;
       $('#commerceClientAccessExpiry').textContent = `Действует до ${new Date(claim.expiresAt).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`;
       $('#commerceClientAccessExpiry').hidden = false;

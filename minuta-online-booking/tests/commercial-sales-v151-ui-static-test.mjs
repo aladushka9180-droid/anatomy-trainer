@@ -28,7 +28,9 @@ assert.match(controller, /commercial_sale_created:'Продажа проведе
 assert.match(controller, /issue_client_identity_sale_claim_v155/);
 assert.match(controller, /p_organization:organization\.id[\s\S]*p_sale:target\.saleId[\s\S]*p_request_id:intent\.requestId[\s\S]*p_expires_minutes:10/);
 assert.match(controller, /!Array\.isArray\(data\) \|\| data\.length !== 1/);
-assert.match(controller, /\^\[0-9a-f\]\{64\}\$/);
+assert.match(controller, /\^PTS1-\[A-Z0-9\]\{4\}/);
+assert.match(controller, /expiresTime <= now \|\| expiresTime > now \+ 10 \* 60_000/);
+assert.doesNotMatch(controller, /\^\[0-9a-f\]\{64\}\$/i);
 assert.match(controller, /Продажа проведена, код не создан/);
 assert.match(controller, /clearSaleClaimResult\(\); renderBookings\(\); updateSaleValidity\(\)/);
 assert.match(controller, /navigator\.clipboard\.writeText\(saleClaimSecret\)/);

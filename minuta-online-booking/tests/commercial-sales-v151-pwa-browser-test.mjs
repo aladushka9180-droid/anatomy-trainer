@@ -85,6 +85,9 @@ try {
   assert.equal(await page.locator('#commercePanel').count(), 1, 'offline shell contains the sales panel');
   const cachedSource = await page.evaluate(async () => (await fetch('./commerce-management.js?v=739')).text());
   assert.match(cachedSource, /sell_minuta_commercial_product_v151/);
+  assert.match(cachedSource, /issue_client_identity_sale_claim_v155/);
+  assert.match(cachedSource, /\^PTS1-\[A-Z0-9\]\{4\}/);
+  assert.doesNotMatch(cachedSource, /\^\[0-9a-f\]\{64\}\$/i);
 } finally {
   await context.setOffline(false).catch(() => {});
   await context.close();
