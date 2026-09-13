@@ -17,6 +17,7 @@ assert.match(html, /id="organizationForm"[^\n]*id="organizationName"/, 'Посл
 
 const nameAction = baseCss.match(/\.provider-business-name-action\s*\{([\s\S]*?)\n\}/)?.[1] || '';
 assert.match(nameAction, /background:transparent;/, 'Название выглядит постоянной отдельной кнопкой');
+assert.match(nameAction, /width:100%;/, 'Название не использует освобождённую ширину карточки');
 assert.match(nameAction, /max-width:100%;/, 'Длинное название может выйти из карточки');
 assert.match(baseCss, /\.provider-business-name-action:not\(:disabled\):hover strong,\.provider-business-name-action:not\(:disabled\):focus-visible strong\s*\{[^}]*text-decoration-color:currentColor;/, 'Подсказка редактирования не появляется при наведении и фокусе');
 assert.match(organization, /const canEdit = Boolean\(organization\?\.id && organization\.can_manage\);[\s\S]*edit\.disabled = !canEdit;/, 'Переход к редактированию не ограничен правами управления');

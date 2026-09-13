@@ -22,7 +22,7 @@ window.addEventListener('load',async()=>{
   const staleShell=staleResponse ? await staleResponse.text() : '';
   if(!staleShell.includes('data-stale-provider-shell="yes"')) throw new Error('stale shell fixture was not cached');
   const script=document.createElement('script');
-script.src='./site-update.js?v=743';
+script.src='./site-update.js?v=744';
   script.onload=()=>window.dispatchEvent(new Event('load'));
   document.head.append(script);
 },{once:true});
@@ -81,7 +81,7 @@ page.on('pageerror', error => pageErrors.push(error.message));
 
 try {
   await page.goto(`${base}pwa-v151-test.html`, { waitUntil:'load' });
-  await page.waitForFunction(() => navigator.serviceWorker.controller?.scriptURL.endsWith('/sw.js?v=743'), null, { timeout:30000 });
+  await page.waitForFunction(() => navigator.serviceWorker.controller?.scriptURL.endsWith('/sw.js?v=744'), null, { timeout:30000 });
   for (let attempt = 0; attempt < 50; attempt++) {
     const oldCachePresent = await page.evaluate(async () => (await caches.keys()).includes('massage-izhevsk-stale'));
     if (!oldCachePresent) break;
@@ -89,31 +89,31 @@ try {
   }
   const state = await page.evaluate(async () => {
     const cacheNames = await caches.keys();
-    const cache = await caches.open('massage-izhevsk-v743');
+    const cache = await caches.open('massage-izhevsk-v744');
     const provider = await cache.match('./provider.html');
-    const commerce = await cache.match('./commerce-management.js?v=743');
-    const styles = await cache.match('./styles.css?v=743');
+    const commerce = await cache.match('./commerce-management.js?v=744');
+    const styles = await cache.match('./styles.css?v=744');
     return {
       scriptUrl:navigator.serviceWorker.controller?.scriptURL || '', cacheNames,
       provider:Boolean(provider), providerSource:provider ? await provider.text() : '',
       commerce:Boolean(commerce), styles:Boolean(styles)
     };
   });
-  assert.match(state.scriptUrl, /\/sw\.js\?v=743$/);
-  assert.ok(state.cacheNames.includes('massage-izhevsk-v743'), 'v743 cache is installed');
+  assert.match(state.scriptUrl, /\/sw\.js\?v=744$/);
+  assert.ok(state.cacheNames.includes('massage-izhevsk-v744'), 'v744 cache is installed');
   assert.ok(!state.cacheNames.includes('massage-izhevsk-stale'), 'obsolete provider cache is removed on activation');
   assert.equal(state.provider, true, 'provider shell is cached');
   assert.ok(providerRequests >= 2, 'service worker install bypasses the stale HTTP cache');
-  assert.match(state.providerSource, /styles\.css\?v=743/, 'fresh provider shell is stored in Cache Storage');
+  assert.match(state.providerSource, /styles\.css\?v=744/, 'fresh provider shell is stored in Cache Storage');
   assert.doesNotMatch(state.providerSource, /data-stale-provider-shell/, 'stale provider shell never reaches Cache Storage');
-  assert.equal(state.commerce, true, 'v743 commerce controller is cached');
-  assert.equal(state.styles, true, 'v743 UI styles are cached');
+  assert.equal(state.commerce, true, 'v744 commerce controller is cached');
+  assert.equal(state.styles, true, 'v744 UI styles are cached');
 
   await context.setOffline(true);
   const response = await page.goto(`${base}provider.html`, { waitUntil:'domcontentloaded', timeout:15000 });
   assert.ok(response?.ok(), 'provider shell opens while offline');
   assert.equal(await page.locator('#commercePanel').count(), 1, 'offline shell contains the sales panel');
-  const cachedSource = await page.evaluate(async () => (await fetch('./commerce-management.js?v=743')).text());
+  const cachedSource = await page.evaluate(async () => (await fetch('./commerce-management.js?v=744')).text());
   assert.match(cachedSource, /sell_minuta_commercial_product_v151/);
   assert.match(cachedSource, /issue_client_identity_sale_claim_v155/);
   assert.match(cachedSource, /\^PTS1-\[0-9A-F\]\{4\}/);
@@ -126,4 +126,4 @@ try {
 }
 
 assert.deepEqual(pageErrors, []);
-console.log('PrimeTime Pro commercial sales v151 PWA v743 and offline cache checks passed');
+console.log('PrimeTime Pro commercial sales v151 PWA v744 and offline cache checks passed');

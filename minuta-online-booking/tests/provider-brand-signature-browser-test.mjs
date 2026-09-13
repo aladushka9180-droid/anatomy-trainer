@@ -43,6 +43,7 @@ try {
     document.querySelector('#dashboard').hidden = false;
     document.body.dataset.providerLayout = 'capsule';
     document.querySelector('#editProviderBusinessName').disabled = false;
+    document.querySelector('#providerBusinessName').textContent = 'Массаж в Ижевске';
   });
 
   const tierColors = new Set();
@@ -77,6 +78,10 @@ try {
           editIconCount:document.querySelectorAll('.provider-brand-edit,#editProviderBusinessName svg').length,
           nameActionCount:document.querySelectorAll('#editProviderBusinessName.provider-business-name-action').length,
           nameActionBackground:getComputedStyle(nameAction).backgroundColor,
+          nameActionWidth:nameAction.getBoundingClientRect().width,
+          copyWidth:copy.getBoundingClientRect().width,
+          nameHeight:name.getBoundingClientRect().height,
+          nameLineHeight:Number.parseFloat(getComputedStyle(name).lineHeight),
           overflow:document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
         };
       }, theme);
@@ -89,6 +94,7 @@ try {
       assert.equal(state.editIconCount, 0, `${theme} ${width}px: большая кнопка или карандаш редактирования всё ещё видны`);
       assert.equal(state.nameActionCount, 1, `${theme} ${width}px: название бизнеса не стало компактным переходом к редактированию`);
       assert.equal(state.nameActionBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px: название постоянно выглядит как отдельная кнопка`);
+      assert.ok(state.nameActionWidth >= state.copyWidth - 1, `${theme} ${width}px: название не использует освобождённую ширину карточки`);
       assert.equal(state.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
       if (width === 1440 && theme === 'warm') {
         const restingDecoration = await page.locator('#providerBusinessName').evaluate(element => getComputedStyle(element).textDecorationColor);
@@ -109,6 +115,7 @@ try {
       if (width === 1440) {
         assert.equal(state.visible, true, `${theme}: подпись не видна в боковой панели`);
         assert.equal(state.inside, true, `${theme}: подпись вышла за карточку бренда`);
+        assert.ok(state.nameHeight <= state.nameLineHeight * 1.15, `${theme}: «Массаж в Ижевске» всё ещё переносится при доступной ширине`);
         assert.ok(state.copyOffset <= 16, `${theme}: освобождённая ширина не передана названию бизнеса`);
         tierColors.add(state.tierColor);
       }
