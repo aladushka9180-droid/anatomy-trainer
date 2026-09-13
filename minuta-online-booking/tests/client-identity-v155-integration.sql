@@ -615,6 +615,10 @@ select set_config('v155.sale_enrollment_claim_new',(
 reset role;
 select pg_temp.v155_assert(
   current_setting('v155.sale_enrollment_claim_old')::jsonb->>'claim_token'
+    ~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
+  and current_setting('v155.sale_enrollment_claim_new')::jsonb->>'claim_token'
+    ~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
+  and current_setting('v155.sale_enrollment_claim_old')::jsonb->>'claim_token'
     <>current_setting('v155.sale_enrollment_claim_new')::jsonb->>'claim_token'
   and (select count(*)=1 and bool_and(
       grant_row.issue_generation=2
@@ -622,7 +626,13 @@ select pg_temp.v155_assert(
       and grant_row.created_at>now()-interval '1 minute'
       and grant_row.expires_at>now()
       and grant_row.superseded_at is null
-      and grant_row.consumed_at is null)
+      and grant_row.consumed_at is null
+      and grant_row.token_hash=encode(extensions.digest(replace(
+        current_setting('v155.sale_enrollment_claim_new')::jsonb->>'claim_token','-',''
+      ),'sha256'),'hex')
+      and grant_row.token_hash<>encode(extensions.digest(replace(
+        current_setting('v155.sale_enrollment_claim_old')::jsonb->>'claim_token','-',''
+      ),'sha256'),'hex'))
     from public.client_identity_claim_grants_v155 grant_row
     where grant_row.claim_kind='sale'
       and grant_row.commercial_sale_id=current_setting('v155.sale_enrollment')::uuid),
@@ -698,6 +708,13 @@ select pg_temp.v155_assert(
    from public.commercial_sales sale where sale.id=current_setting('v155.sale_visit_conflict')::uuid)
   and current_setting('v155.sale_visit_inspect')::jsonb->>'claim_scope'='purchase'
   and current_setting('v155.sale_visit_inspect')::jsonb->>'claim_status'='active'
+  and current_setting('v155.sale_visit_claim')::jsonb->>'claim_token'
+    ~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
+  and exists(select 1 from public.client_identity_claim_grants_v155 grant_row
+    where grant_row.request_id=current_setting('v155.sale_visit_request')::uuid
+      and grant_row.token_hash=encode(extensions.digest(replace(
+        current_setting('v155.sale_visit_claim')::jsonb->>'claim_token','-',''
+      ),'sha256'),'hex'))
   and not exists(select 1 from public.client_identity_claim_grants_v155 grant_row
     where grant_row.request_id=current_setting('v155.sale_visit_conflict_request')::uuid)
   and exists(select 1 from public.client_identity_audit_v155 audit
@@ -744,6 +761,12 @@ $superseded_request_is_terminal$;
 reset role;
 select pg_temp.v155_assert(
   current_setting('v155.sale_claim_one')::jsonb->>'claim_token'
+    ~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
+  and current_setting('v155.sale_claim_one_replay')::jsonb->>'claim_token'
+    ~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
+  and current_setting('v155.sale_claim_two')::jsonb->>'claim_token'
+    ~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
+  and current_setting('v155.sale_claim_one')::jsonb->>'claim_token'
     =current_setting('v155.sale_claim_one_replay')::jsonb->>'claim_token'
   and current_setting('v155.sale_claim_one')::jsonb->>'claim_token'
     <>current_setting('v155.sale_claim_two')::jsonb->>'claim_token'
@@ -754,6 +777,11 @@ select pg_temp.v155_assert(
   and exists(select 1 from public.client_identity_claim_grants_v155 grant_row
     where grant_row.request_id=current_setting('v155.sale_claim_request_one')::uuid
       and grant_row.superseded_at is not null)
+  and exists(select 1 from public.client_identity_claim_grants_v155 grant_row
+    where grant_row.request_id=current_setting('v155.sale_claim_request_two')::uuid
+      and grant_row.token_hash=encode(extensions.digest(replace(
+        current_setting('v155.sale_claim_two')::jsonb->>'claim_token','-',''
+      ),'sha256'),'hex'))
   and (select count(*)=1 from public.client_identity_claim_grants_v155 grant_row
     where grant_row.claim_kind='sale'
       and grant_row.commercial_sale_id=current_setting('v155.sale')::uuid
@@ -862,6 +890,17 @@ select set_config('v155.sale_claim_three',(
 ),true);
 reset role;
 
+select pg_temp.v155_assert(
+  current_setting('v155.sale_claim_three')::jsonb->>'claim_token'
+    ~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
+  and exists(select 1 from public.client_identity_claim_grants_v155 grant_row
+    where grant_row.request_id=current_setting('v155.sale_claim_request_three')::uuid
+      and grant_row.token_hash=encode(extensions.digest(replace(
+        current_setting('v155.sale_claim_three')::jsonb->>'claim_token','-',''
+      ),'sha256'),'hex')),
+  'generated_sale_claim_is_uppercase_and_hashes_exact_normalized_token'
+);
+
 set local role service_role;
 select set_config('v155.sale_inspect',(
   select to_jsonb(inspected)::text from public.inspect_client_identity_sale_claim_v155(
@@ -872,6 +911,10 @@ select set_config('v155.sale_inspect',(
 select pg_temp.v155_assert(
   (select count(*)=0 from public.inspect_client_identity_sale_claim_v155(
     'PTS1-0000-0000-0000-0000',current_setting('v155.sale_consume_request')::uuid
+  ))
+  and (select count(*)=0 from public.inspect_client_identity_sale_claim_v155(
+    lower(current_setting('v155.sale_claim_three')::jsonb->>'claim_token'),
+    current_setting('v155.sale_consume_request')::uuid
   ))
   and (select count(*)=0 from public.inspect_client_identity_sale_claim_v155(
     'PTS1-DEAD-BEEF-CAFE-BABE',current_setting('v155.sale_expired_consumer')::uuid
@@ -901,6 +944,17 @@ select pg_temp.v155_assert(
 );
 
 set local role anon;
+select pg_temp.v155_assert(
+  (select count(*)=0 from public.consume_client_identity_sale_claim_v155(
+    lower(current_setting('v155.sale_claim_three')::jsonb->>'claim_token'),'sale-device-lowercase',
+    current_setting('v155.sale_consume_request')::uuid
+  ))
+  and exists(select 1 from public.client_identity_claim_grants_v155 grant_row
+    where grant_row.request_id=current_setting('v155.sale_claim_request_three')::uuid
+      and grant_row.failed_attempts=0 and grant_row.locked_at is null
+      and grant_row.consumed_at is null),
+  'lowercase_sale_claim_is_rejected_without_state_change'
+);
 select set_config('v155.sale_session',(
   select to_jsonb(consumed)::text from public.consume_client_identity_sale_claim_v155(
     current_setting('v155.sale_claim_three')::jsonb->>'claim_token','sale-device',

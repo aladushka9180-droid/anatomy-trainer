@@ -33,9 +33,23 @@ const inspectSaleClaim = functionBody('inspect_client_identity_sale_claim_v155')
 const consumeSaleClaim = functionBody('consume_client_identity_sale_claim_v155');
 const issueBookingClaim = functionBody('issue_client_identity_claim_grant_v155');
 const issueSaleClaim = functionBody('issue_client_identity_sale_claim_v155');
+assert.equal(issueSaleClaim.match(/v_token:=upper\(substr\(encode\(extensions\.digest\(/g)?.length, 3,
+  'sale claim initial, replay and reissue paths must generate uppercase tokens');
 for (const lookup of [initialClaimLookup(inspectSaleClaim), initialClaimLookup(consumeSaleClaim)]) {
   assert.match(lookup, /token_hash/);
   assert.doesNotMatch(lookup, /request_id\s*=\s*p_request_id/);
+}
+for (const [label, claimBody] of [
+  ['inspect', inspectSaleClaim],
+  ['consume', consumeSaleClaim]
+]) {
+  assert.match(claimBody,
+    /v_claim_normalized text:=replace\(upper\(btrim\(coalesce\(p_claim_token,''\)\)\),'-',''\)/,
+  `${label} must hash the uppercase no-dash normalized token`);
+  assert.match(claimBody,
+    /if btrim\(coalesce\(p_claim_token,''\)\)!~'\^PTS1-\[0-9A-F\]\{4\}-\[0-9A-F\]\{4\}-\[0-9A-F\]\{4\}-\[0-9A-F\]\{4\}\$'/,
+  `${label} must reject lowercase before normalized hashing`);
+  assert.doesNotMatch(claimBody, /if upper\(btrim\(coalesce\(p_claim_token,''\)\)\)!~/);
 }
 assert.match(consumeSaleClaim, /v_grant\.consume_request_id is distinct from p_request_id/);
 assert.match(consumeSaleClaim, /consume_request_id=p_request_id/);
@@ -337,8 +351,34 @@ const createFixture = async () => {
       from public.issue_client_identity_sale_claim_v155($1,$2,$3,10,$4)`, [
       ids.org, ids.visitSale, ids.saleIssueA, ids.actor
     ]);
-    await admin.query('reset role');
     assert.match(saleClaim?.claim_token || '', /^PTS1-[0-9A-F]{4}(?:-[0-9A-F]{4}){3}$/);
+    const exactInspect = await admin.query(`select *
+      from public.inspect_client_identity_sale_claim_v155($1,$2)`, [
+      saleClaim.claim_token, ids.saleConsumer
+    ]);
+    const lowercaseInspect = await admin.query(`select *
+      from public.inspect_client_identity_sale_claim_v155($1,$2)`, [
+      saleClaim.claim_token.toLowerCase(), ids.saleConsumer
+    ]);
+    assert.equal(exactInspect.rows.length, 1, 'uppercase sale claim must inspect successfully');
+    assert.equal(exactInspect.rows[0].claim_scope, 'purchase');
+    assert.equal(lowercaseInspect.rows.length, 0, 'lowercase sale claim must not inspect');
+    await admin.query('reset role');
+    await admin.query('set local role anon');
+    const lowercaseConsume = await admin.query(`select *
+      from public.consume_client_identity_sale_claim_v155($1,'v155-lowercase-probe',$2)`, [
+      saleClaim.claim_token.toLowerCase(), ids.saleConsumer
+    ]);
+    assert.equal(lowercaseConsume.rows.length, 0, 'lowercase sale claim must not consume');
+    await admin.query('reset role');
+    const expectedClaimHash = sha256(saleClaim.claim_token.replaceAll('-', ''));
+    const { rows:[storedClaim] } = await admin.query(`select token_hash,failed_attempts,consumed_at
+      from public.client_identity_claim_grants_v155 where request_id=$1`, [ids.saleIssueA]);
+    assert.deepEqual(storedClaim, {
+      token_hash:expectedClaimHash,
+      failed_attempts:0,
+      consumed_at:null
+    });
     saleSessionHash = sha256(sha256(
       `v155-sale-session:${saleClaim.claim_token.replaceAll('-', '')}:${ids.saleConsumer}`
     ));
@@ -471,6 +511,8 @@ const runRace = async label => {
     ]);
     assert.match(replacementClaim?.claim_token || '', /^PTS1-[0-9A-F]{4}(?:-[0-9A-F]{4}){3}$/);
     assert.notEqual(replacementClaim.claim_token, saleClaim.claim_token);
+    const originalClaimHash = sha256(saleClaim.claim_token.replaceAll('-', ''));
+    const replacementClaimHash = sha256(replacementClaim.claim_token.replaceAll('-', ''));
     saleConsumePromise = outcome(second.query(`select *
       from public.consume_client_identity_sale_claim_v155($1,'v155-sale-race',$2)`, [
       saleClaim.claim_token, ids.saleConsumer
@@ -486,11 +528,12 @@ const runRace = async label => {
       (select count(*)::integer from public.client_identity_claim_grants_v155 grant_row
        where grant_row.commercial_sale_id=$1 and grant_row.request_id=$2
          and grant_row.superseded_at is not null and grant_row.consumed_at is null
-         and grant_row.failed_attempts=1) as old_grant,
+         and grant_row.failed_attempts=1 and grant_row.token_hash=$8) as old_grant,
       (select count(*)::integer from public.client_identity_claim_grants_v155 grant_row
        where grant_row.commercial_sale_id=$1 and grant_row.request_id=$3
          and grant_row.superseded_at is null and grant_row.consumed_at is null
-         and grant_row.failed_attempts=0) as replacement_grant,
+         and grant_row.failed_attempts=0 and grant_row.token_hash=$9
+         and grant_row.token_hash<>$8) as replacement_grant,
       (select count(*)::integer from public.client_identity_claim_grants_v155 grant_row
        where grant_row.commercial_sale_id=$1
          and grant_row.superseded_at is null and grant_row.consumed_at is null) as active_grants,
@@ -502,7 +545,7 @@ const runRace = async label => {
        where sale.id=$1 and sale.organization_id=$6 and sale.booking_id=$7
          and sale.client_account_id=$5) as exact_visit_sale`, [
       ids.visitSale, ids.saleIssueA, ids.saleIssueB, saleSessionHash,
-      ids.account, ids.org, seedBooking.id
+      ids.account, ids.org, seedBooking.id, originalClaimHash, replacementClaimHash
     ]);
     assert.deepEqual(saleRace, {
       old_grant:1,

@@ -224,9 +224,9 @@ begin
       ('public.claim_client_booking_identity_v155(uuid,text)', '6f88e1601b4ec513d4fa28d5cb2ac17959e2112cd8d4bfa2b084accd7073564c'),
       ('public.upgrade_legacy_client_identity_session_v155(text,text,text)', '154af3794baadfcddbf8dc1c911e461c71de51219d45ea11e70647ae0f6ee1f4'),
       ('public.issue_client_identity_claim_grant_v155(uuid,uuid,uuid,integer,uuid)', 'cb9c05efc30d2ebcff6c8cc54304cc44fa3cf7789be79dc9299d17db523fa63a'),
-      ('public.issue_client_identity_sale_claim_v155(uuid,uuid,uuid,integer,uuid,text)', '75619fced2e7e5abdad4332ffb05933e7cd7a450e0ed73d1eb533263cd842b65'),
-      ('public.inspect_client_identity_sale_claim_v155(text,uuid)', '91e25cafb0f5421964b7ae0a75570e0247c3aecf2f43d001f13affb3771f9a9f'),
-      ('public.consume_client_identity_sale_claim_v155(text,text,uuid)', '19d6b69c56956daafc04f1e75457d3d4b4feaae628fb5aea7c90adc42cfb9963'),
+      ('public.issue_client_identity_sale_claim_v155(uuid,uuid,uuid,integer,uuid,text)', 'f782c940ba505260d42d3de8c7931f4d4a57a7f6d19ae32850c5666a7bad89a2'),
+      ('public.inspect_client_identity_sale_claim_v155(text,uuid)', '26ea57135e1c74846cbbc2756cced5964e054ab9302a0a41dbd3e3626a42f741'),
+      ('public.consume_client_identity_sale_claim_v155(text,text,uuid)', '95867d9f8dce3e2f99f16c844279b55613b8f750870eeedb893fa9d320d1ed1c'),
       ('public.promote_client_identity_v155(text,text)', '0cd89d46354778d111b503eda6b5f8536830ec35b51fabbb998ad55ad796d6e1'),
       ('public.begin_client_identity_transfer_v155(text,text)', '078ff6854ca26891937b170f72c3d76229c4b7170fc61899fdfd4057799ff68a'),
       ('public.approve_client_identity_transfer_v155(text,text,text)', 'a5525e6450290f476d2865cf371e1ed030eb912fb020c8a7e1ca07b0e60eac19'),
@@ -270,7 +270,7 @@ begin
 
   for v_item in select * from (values
     ('public.issue_client_identity_claim_grant_v155(uuid,uuid,uuid,integer,uuid)','cb9c05efc30d2ebcff6c8cc54304cc44fa3cf7789be79dc9299d17db523fa63a'),
-    ('public.issue_client_identity_sale_claim_v155(uuid,uuid,uuid,integer,uuid,text)','75619fced2e7e5abdad4332ffb05933e7cd7a450e0ed73d1eb533263cd842b65')
+    ('public.issue_client_identity_sale_claim_v155(uuid,uuid,uuid,integer,uuid,text)','f782c940ba505260d42d3de8c7931f4d4a57a7f6d19ae32850c5666a7bad89a2')
   ) staff(signature,source_hash) loop
     v_function:=to_regprocedure(v_item.signature);
     if v_function is null or not exists(
@@ -1090,10 +1090,10 @@ begin
         raise exception using errcode='54000',message='client_claim_generation_exhausted';
       end if;
       v_generation:=v_existing.issue_generation+1;
-      v_token:=substr(encode(extensions.digest(
+      v_token:=upper(substr(encode(extensions.digest(
         'v155-sale-claim:'||v_account_secret||':'||p_organization::text||':'||p_sale::text||':'||p_request_id::text||':'||v_actor_key||':'||v_generation::text,
         'sha256'
-      ),'hex'),1,16);
+      ),'hex'),1,16));
       v_token:='PTS1-'||substr(v_token,1,4)||'-'||substr(v_token,5,4)||'-'||substr(v_token,9,4)||'-'||substr(v_token,13,4);
       v_expires:=now()+make_interval(mins=>p_expires_minutes);
       update public.client_identity_claim_grants_v155 set
@@ -1107,10 +1107,10 @@ begin
       return query select v_token,v_expires;
       return;
     end if;
-    v_token:=substr(encode(extensions.digest(
+    v_token:=upper(substr(encode(extensions.digest(
       'v155-sale-claim:'||v_account_secret||':'||p_organization::text||':'||p_sale::text||':'||p_request_id::text||':'||v_actor_key||':'||v_existing.issue_generation::text,
       'sha256'
-    ),'hex'),1,16);
+    ),'hex'),1,16));
     v_token:='PTS1-'||substr(v_token,1,4)||'-'||substr(v_token,5,4)||'-'||substr(v_token,9,4)||'-'||substr(v_token,13,4);
     return query select v_token,v_existing.expires_at;
     return;
@@ -1118,10 +1118,10 @@ begin
   update public.client_identity_claim_grants_v155 set superseded_at=now()
   where claim_kind='sale' and commercial_sale_id=p_sale
     and consumed_at is null and superseded_at is null;
-  v_token:=substr(encode(extensions.digest(
+  v_token:=upper(substr(encode(extensions.digest(
     'v155-sale-claim:'||v_account_secret||':'||p_organization::text||':'||p_sale::text||':'||p_request_id::text||':'||v_actor_key||':1',
     'sha256'
-  ),'hex'),1,16);
+  ),'hex'),1,16));
   v_token:='PTS1-'||substr(v_token,1,4)||'-'||substr(v_token,5,4)||'-'||substr(v_token,9,4)||'-'||substr(v_token,13,4);
   v_expires:=now()+make_interval(mins=>p_expires_minutes);
   insert into public.client_identity_claim_grants_v155(
@@ -1164,7 +1164,7 @@ declare
   v_phone text;
   v_claim_normalized text:=replace(upper(btrim(coalesce(p_claim_token,''))),'-','');
 begin
-  if upper(btrim(coalesce(p_claim_token,'')))!~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
+  if btrim(coalesce(p_claim_token,''))!~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
      or p_request_id is null then
     return;
   end if;
@@ -1251,7 +1251,7 @@ declare
   v_session uuid;
   v_expires timestamptz:=now()+interval '30 days';
 begin
-  if upper(btrim(coalesce(p_claim_token,'')))!~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
+  if btrim(coalesce(p_claim_token,''))!~'^PTS1-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$'
      or p_request_id is null
      or (p_device_name is not null and char_length(btrim(p_device_name)) not between 1 and 120) then
     return;
@@ -2585,8 +2585,8 @@ begin
       ('public.resolve_client_identity_session_v155(text)', '5e65796683092396867739b764af27f594dba2395ae8e573b02a865fbac59fa8','none'),
       ('public.claim_client_booking_identity_v155(uuid,text)', '6f88e1601b4ec513d4fa28d5cb2ac17959e2112cd8d4bfa2b084accd7073564c','public'),
       ('public.upgrade_legacy_client_identity_session_v155(text,text,text)', '154af3794baadfcddbf8dc1c911e461c71de51219d45ea11e70647ae0f6ee1f4','public'),
-      ('public.inspect_client_identity_sale_claim_v155(text,uuid)', '91e25cafb0f5421964b7ae0a75570e0247c3aecf2f43d001f13affb3771f9a9f','service'),
-      ('public.consume_client_identity_sale_claim_v155(text,text,uuid)', '19d6b69c56956daafc04f1e75457d3d4b4feaae628fb5aea7c90adc42cfb9963','public'),
+      ('public.inspect_client_identity_sale_claim_v155(text,uuid)', '26ea57135e1c74846cbbc2756cced5964e054ab9302a0a41dbd3e3626a42f741','service'),
+      ('public.consume_client_identity_sale_claim_v155(text,text,uuid)', '95867d9f8dce3e2f99f16c844279b55613b8f750870eeedb893fa9d320d1ed1c','public'),
       ('public.promote_client_identity_v155(text,text)', '0cd89d46354778d111b503eda6b5f8536830ec35b51fabbb998ad55ad796d6e1','public'),
       ('public.begin_client_identity_transfer_v155(text,text)', '078ff6854ca26891937b170f72c3d76229c4b7170fc61899fdfd4057799ff68a','public'),
       ('public.approve_client_identity_transfer_v155(text,text,text)', 'a5525e6450290f476d2865cf371e1ed030eb912fb020c8a7e1ca07b0e60eac19','public'),
@@ -2627,7 +2627,7 @@ begin
 
   for v_item in select * from (values
     ('public.issue_client_identity_claim_grant_v155(uuid,uuid,uuid,integer,uuid)','cb9c05efc30d2ebcff6c8cc54304cc44fa3cf7789be79dc9299d17db523fa63a'),
-    ('public.issue_client_identity_sale_claim_v155(uuid,uuid,uuid,integer,uuid,text)','75619fced2e7e5abdad4332ffb05933e7cd7a450e0ed73d1eb533263cd842b65')
+    ('public.issue_client_identity_sale_claim_v155(uuid,uuid,uuid,integer,uuid,text)','f782c940ba505260d42d3de8c7931f4d4a57a7f6d19ae32850c5666a7bad89a2')
   ) staff(signature,source_hash) loop
     v_function:=to_regprocedure(v_item.signature);
     if v_function is null or not exists(

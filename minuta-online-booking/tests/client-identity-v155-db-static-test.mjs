@@ -130,6 +130,9 @@ const issueSaleClaim = body(migration, 'issue_client_identity_sale_claim_v155');
 assert.match(issueSaleClaim, /coalesce\(p_expires_minutes,0\) not between 1 and 10/);
 assert.match(migration, /issue_client_identity_sale_claim_v155\(\s*p_organization uuid,\s*p_sale uuid,\s*p_request_id uuid,\s*p_expires_minutes integer default 10,\s*p_actor uuid default null,\s*p_client_phone text default null/s);
 assert.match(issueSaleClaim, /v_token:='PTS1-'\|\|substr\(v_token,1,4\)/);
+assert.equal(issueSaleClaim.match(/v_token:=upper\(substr\(encode\(extensions\.digest\(/g)?.length, 3,
+  'initial, replay and reissue sale claim tokens must all use uppercase digest text');
+assert.doesNotMatch(issueSaleClaim, /v_token:=lower\(/);
 assert.match(issueSaleClaim, /digest\(replace\(v_token,'-',''\),'sha256'\)/);
 assert.doesNotMatch(issueSaleClaim, /and sale\.booking_id is null/);
 assert.match(issueSaleClaim, /sale\.status='paid' and sale\.refunded_minor=0/);
@@ -153,7 +156,10 @@ assert.match(migration, /grant execute on function public\.issue_client_identity
 assert.doesNotMatch(migration, /grant execute on function public\.issue_client_identity_(?:sale_)?claim_grant_v155[^;]*\bto anon\b/);
 const inspectSaleClaim = body(migration, 'inspect_client_identity_sale_claim_v155');
 assert.match(migration, /inspect_client_identity_sale_claim_v155\(\s*p_claim_token text,\s*p_request_id uuid\s*\)\s*returns table\(\s*account_ref text,\s*organization_ref text,\s*claim_scope text,\s*claim_status text,\s*claim_expires_at timestamptz,\s*revision text/s);
+assert.match(inspectSaleClaim, /v_claim_normalized text:=replace\(upper\(btrim\(coalesce\(p_claim_token,''\)\)\),'-',''\)/);
 assert.match(inspectSaleClaim, /grant_row\.claim_kind='sale'[\s\S]*grant_row\.token_hash=encode\(extensions\.digest\(v_claim_normalized,'sha256'\),'hex'\)/);
+assert.match(inspectSaleClaim, /if btrim\(coalesce\(p_claim_token,''\)\)!~'\^PTS1-\[0-9A-F\]\{4\}-\[0-9A-F\]\{4\}-\[0-9A-F\]\{4\}-\[0-9A-F\]\{4\}\$'/);
+assert.doesNotMatch(inspectSaleClaim, /if upper\(btrim\(coalesce\(p_claim_token,''\)\)\)!~/);
 assert.doesNotMatch(inspectSaleClaim, /grant_row\.request_id=p_request_id/);
 assert.match(inspectSaleClaim, /v_grant\.consumed_at is not null/);
 assert.match(inspectSaleClaim, /v_grant\.expires_at<=now\(\)/);
@@ -170,6 +176,8 @@ assert.match(rollback, /drop function public\.inspect_client_identity_sale_claim
 const consumeSaleClaim = body(migration, 'consume_client_identity_sale_claim_v155');
 assert.match(migration, /consume_client_identity_sale_claim_v155\(\s*p_claim_token text,\s*p_device_name text,\s*p_request_id uuid\s*\)\s*returns table\(\s*session_token text,\s*session_scope text,\s*account_ref text,\s*organization_ref text,\s*revision text,/s);
 assert.match(consumeSaleClaim, /v_claim_normalized text:=replace\(upper\(btrim\(coalesce\(p_claim_token,''\)\)\),'-',''\)/);
+assert.match(consumeSaleClaim, /if btrim\(coalesce\(p_claim_token,''\)\)!~'\^PTS1-\[0-9A-F\]\{4\}-\[0-9A-F\]\{4\}-\[0-9A-F\]\{4\}-\[0-9A-F\]\{4\}\$'/);
+assert.doesNotMatch(consumeSaleClaim, /if upper\(btrim\(coalesce\(p_claim_token,''\)\)\)!~/);
 assert.match(consumeSaleClaim, /grant_row\.token_hash=encode\(extensions\.digest\(v_claim_normalized,'sha256'\),'hex'\)/);
 assert.doesNotMatch(consumeSaleClaim, /grant_row\.request_id=p_request_id/);
 assert.match(consumeSaleClaim, /'client-identity-sale:'\|\|v_grant\.organization_id::text\|\|':'\|\|v_grant\.commercial_sale_id::text/);
