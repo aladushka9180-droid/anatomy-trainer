@@ -72,7 +72,9 @@ declare
   v_google jsonb;
 begin
   v_report:=public.get_minuta_utm_funnel_v107(
-    current_setting('minuta.d11.org')::uuid,current_date,current_date
+    current_setting('minuta.d11.org')::uuid,
+    pg_catalog.timezone('Europe/Samara',pg_catalog.now())::date,
+    pg_catalog.timezone('Europe/Samara',pg_catalog.now())::date
   );
   if (v_report#>>'{totals,visitors}')::integer<>2 then raise exception 'd11_total_visitors_mismatch: %',v_report; end if;
   if (v_report#>>'{totals,bookings}')::integer<>1 then raise exception 'd11_total_bookings_mismatch: %',v_report; end if;
