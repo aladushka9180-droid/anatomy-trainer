@@ -22,6 +22,7 @@ assert.match(assistant, /assistantSpeechText\(lastModel\)/, 'озвучка от
 assert.match(assistant, /bridge\.synthesizeSpeech\(\{ text:speechText, voice:voice\.id \}/, 'скрытый снимок нельзя передавать в синтез');
 assert.match(assistant, /Object\.freeze\(\{ id:'dmitry', label:'Дмитрий', azureName:'ru-RU-DmitryNeural' \}\)/);
 assert.match(assistant, /Object\.freeze\(\{ id:'svetlana', label:'Светлана', azureName:'ru-RU-SvetlanaNeural' \}\)/);
+assert.match(assistant, /catalog\.some\(voice => voice\.id === currentKey\) \? currentKey : \(catalog\[0\]\?\.id \|\| ''\)/, 'Недоступный каталог не должен выглядеть пустым: выбранный Дмитрий или Светлана остаётся виден');
 assert.doesNotMatch(assistant.match(/const ASSISTANT_VOICE_CATALOG[\s\S]*?\]\);/)?.[0] || '', /Ирина|Павел|Дарья|Dariya|Лев|Lev/);
 
 assert.match(html, /В каталоге только Дмитрий и Светлана/);

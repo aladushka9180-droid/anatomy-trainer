@@ -2299,7 +2299,9 @@
       });
       const available = catalog.filter(voice => voice.available);
       voiceSelect.disabled = !available.length;
-      voiceSelect.value = available.some(voice => voice.id === currentKey) ? currentKey : (available[0]?.id || '');
+      voiceSelect.value = available.length
+        ? (available.some(voice => voice.id === currentKey) ? currentKey : available[0].id)
+        : (catalog.some(voice => voice.id === currentKey) ? currentKey : (catalog[0]?.id || ''));
       if (voicePreviewButton) voicePreviewButton.disabled = !available.length;
     }
 
