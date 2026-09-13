@@ -30,6 +30,7 @@ const ids = {
   warehouse:'77777777-7777-4777-8777-777777777151',
   cash:'88888888-8888-4888-8888-888888888151',
   bank:'99999999-9999-4999-8999-999999999151',
+  createdAccount:'88888888-8888-4888-8888-888888888152',
   pass:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaa151',
   package:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaa152',
   certificate:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaa153'
@@ -71,6 +72,8 @@ try {
       window.salesCalls = [];
       window.salesNotices = [];
       window.releaseSale = null;
+      window.releaseAccount = null;
+      window.accountMode = 'success';
       window.failNextWorkspaceLoad = false;
       window.workspace = {
         organization_id:ids.organization, finance_enabled:true, benefits_enabled:true, inventory_enabled:true,
@@ -125,6 +128,14 @@ try {
             created_at:sale.occurred_at, details:{ total_minor:sale.total_minor, seller_id:args.p_seller, quantity:args.p_quantity }
           });
           return { data:{ id:sale.id, organization_id:ids.organization, seller_id:args.p_seller, replayed:false }, error:null };
+        }
+        if (name === 'create_minuta_financial_account_v129') {
+          if (accountMode === 'pending-error') {
+            return await new Promise(resolve => { releaseAccount = () => resolve({ data:null, error:{ message:'temporary account error' } }); });
+          }
+          const account = { id:ids.createdAccount, name:args.p_name, account_type:args.p_account_type, system_key:null };
+          workspace.accounts.push(account);
+          return { data:{ ...account, organization_id:ids.organization, currency:'RUB', replayed:false }, error:null };
         }
         return { data:null, error:{ message:`unexpected rpc ${name}` } };
       }};
@@ -308,6 +319,73 @@ try {
     }
     if (width <= 760) assert.equal(await page.locator('.provider-mobile-nav').isVisible(), true, 'mobile navigation returns after the sale closes');
     assert.equal(await page.locator('#commerceRecurring').getAttribute('open'), null, 'recurring expenses stay collapsed by default');
+
+    await page.evaluate(async width => {
+      workspace.accounts = [];
+      accountMode = width === 390 ? 'pending-error' : 'success';
+      await salesController.load();
+      salesController.startSale();
+    }, width);
+    await page.locator('#commerceSaleCreator').waitFor({ state:'visible' });
+    assert.equal(await page.locator('#commerceSaleOptions').getAttribute('open'), '', `${width}: missing payment account opens only the relevant options`);
+    assert.equal(await page.locator('#commercePaymentAccount').isDisabled(), true, `${width}: empty account selector is disabled`);
+    assert.deepEqual(await page.locator('#commercePaymentAccount option').allTextContents(), ['Нет доступной кассы']);
+    assert.equal(await page.locator('#commerceAccountSetup').isVisible(), true, `${width}: account setup is immediately available`);
+    assert.equal(await page.locator('#commerceAccountCreateOpen').isHidden(), true, `${width}: open setup does not duplicate its trigger`);
+    assert.match(await page.locator('#commercePaymentAccountHint').innerText(), /сначала создайте кассу/i);
+    assert.equal(await page.locator('#commerceAccountName').inputValue(), 'Основная касса');
+    assert.equal(await page.locator('#commerceAccountType').inputValue(), 'cash');
+    await page.locator('#commerceUnitPrice').fill('500');
+    assert.equal(await page.locator('#commerceSaleSubmit').isDisabled(), true, `${width}: sale stays fail-closed without an account`);
+    const accountLayout = await page.locator('#commerceAccountSetup').evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const controls = [...element.querySelectorAll('input,select,button')].map(item => item.getBoundingClientRect());
+      return { rect, controls, overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth };
+    });
+    assert.ok(accountLayout.overflow <= 1, `${width}: account setup has no horizontal overflow`);
+    assert.ok(accountLayout.rect.width > 0 && accountLayout.rect.right <= width + 1, `${width}: account setup fits viewport`);
+    assert.ok(accountLayout.controls.every(rect => rect.width > 0 && rect.height >= 40 && rect.right <= width + 1), `${width}: account controls remain usable`);
+    if (output) await page.screenshot({ path:resolve(output, `sale-account-setup-${width}.png`), fullPage:true });
+
+    if (width === 760) {
+      await page.locator('#commercePaymentMethod').selectOption('manual');
+      await page.locator('#commerceAccountName').fill('Расчётный счёт');
+      await page.locator('#commerceAccountType').selectOption('bank');
+    }
+    if (width === 390) {
+      await page.locator('#commerceAccountSubmit').evaluate(button => { button.click(); button.click(); });
+      await page.waitForFunction(() => salesCalls.filter(call => call.name === 'create_minuta_financial_account_v129').length === 1);
+      const firstRequest = await page.evaluate(() => salesCalls.filter(call => call.name === 'create_minuta_financial_account_v129').at(-1).args.p_request_id);
+      await page.evaluate(() => releaseAccount());
+      await page.locator('#commerceAccountError').waitFor({ state:'visible' });
+      await page.evaluate(() => { accountMode = 'success'; });
+      await page.locator('#commerceAccountSubmit').click();
+      await page.waitForFunction(() => workspace.accounts.length === 1);
+      const retriedRequest = await page.evaluate(() => salesCalls.filter(call => call.name === 'create_minuta_financial_account_v129').at(-1).args.p_request_id);
+      assert.equal(retriedRequest, firstRequest, '390: ambiguous retry reuses the account creation request');
+    } else {
+      await page.locator('#commerceAccountSubmit').click();
+      await page.waitForFunction(() => workspace.accounts.length === 1);
+    }
+    const accountCalls = await page.evaluate(() => salesCalls.filter(call => call.name === 'create_minuta_financial_account_v129'));
+    const accountCall = accountCalls.at(-1);
+    assert.equal(accountCall.args.p_organization, ids.organization);
+    assert.match(accountCall.args.p_request_id, /^[0-9a-f-]{36}$/i);
+    assert.equal(accountCall.args.p_name, width === 760 ? 'Расчётный счёт' : 'Основная касса');
+    assert.equal(accountCall.args.p_account_type, width === 760 ? 'bank' : 'cash');
+    assert.deepEqual(Object.keys(accountCall.args).sort(), ['p_account_type', 'p_name', 'p_organization', 'p_request_id']);
+    assert.equal(await page.locator('#commercePaymentAccount').isEnabled(), true, `${width}: created account unlocks payment selection`);
+    assert.equal(await page.locator('#commercePaymentAccount').inputValue(), ids.createdAccount);
+    assert.equal(await page.locator('#commerceAccountSetup').isHidden(), true, `${width}: successful setup returns focus to the sale`);
+    assert.equal(await page.locator('#commerceAccountCreateOpen').isVisible(), true, `${width}: account setup can be reopened later`);
+    assert.equal(await page.locator('#commerceSaleSubmit').isEnabled(), true, `${width}: sale becomes available after account creation`);
+
+    const callsBeforeRoleCheck = accountCalls.length;
+    await page.evaluate(async ids => salesController.setOrganization({ id:ids.organization, current_role:'specialist' }), ids);
+    assert.equal(await page.locator('#commerceAccountCreateOpen').isHidden(), true, `${width}: non-manager cannot see account creation`);
+    await page.locator('#commerceAccountSubmit').evaluate(button => button.click());
+    assert.equal(await page.evaluate(() => salesCalls.filter(call => call.name === 'create_minuta_financial_account_v129').length), callsBeforeRoleCheck,
+      `${width}: role guard blocks a scripted account creation click`);
     await page.close();
   }
 } finally {

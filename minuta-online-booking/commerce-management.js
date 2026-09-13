@@ -307,6 +307,117 @@
       const target = accounts.some(item => item.id === selected) ? selected : accounts[0]?.id || '';
       select.innerHTML = accounts.length ? accountOptions(target) : '<option value="">Нет доступной кассы</option>';
       select.value = target;
+      select.disabled = accounts.length === 0;
+      renderAccountSetup(accounts);
+    }
+
+    function canCreateFinancialAccount() {
+      return ['owner', 'admin'].includes(organization?.current_role);
+    }
+
+    function renderAccountSetup(accounts = eligibleAccounts()) {
+      const allowed = canCreateFinancialAccount();
+      const missing = accounts.length === 0;
+      const setup = $('#commerceAccountSetup');
+      const trigger = $('#commerceAccountCreateOpen');
+      const hint = $('#commercePaymentAccountHint');
+      if (hint) {
+        hint.hidden = !missing;
+        hint.textContent = $('#commercePaymentMethod')?.value === 'cash'
+          ? 'Для наличной оплаты сначала создайте кассу.'
+          : 'Для ручной оплаты сначала создайте кассу или банковский счёт.';
+      }
+      if (!allowed) {
+        if (trigger) trigger.hidden = true;
+        if (setup) setup.hidden = true;
+        return;
+      }
+      if (missing) {
+        if ($('#commerceSaleOptions')) $('#commerceSaleOptions').open = true;
+        if (setup) setup.hidden = false;
+        if (trigger) trigger.hidden = true;
+        const type = $('#commerceAccountType');
+        const name = $('#commerceAccountName');
+        if (type && $('#commercePaymentMethod')?.value === 'cash') type.value = 'cash';
+        if (name && !name.value) name.value = type?.value === 'bank' ? 'Расчётный счёт' : 'Основная касса';
+      } else if (trigger) {
+        trigger.hidden = !setup?.hidden;
+      }
+    }
+
+    function toggleAccountSetup(force) {
+      const setup = $('#commerceAccountSetup');
+      if (!setup || !canCreateFinancialAccount()) return;
+      setup.hidden = typeof force === 'boolean' ? !force : !setup.hidden;
+      const trigger = $('#commerceAccountCreateOpen');
+      if (trigger) trigger.hidden = !setup.hidden;
+      if (!setup.hidden) {
+        setError($('#commerceAccountError'), '');
+        const type = $('#commerceAccountType');
+        const name = $('#commerceAccountName');
+        if (type && $('#commercePaymentMethod')?.value === 'cash') type.value = 'cash';
+        if (name && !name.value) name.value = type?.value === 'bank' ? 'Расчётный счёт' : 'Основная касса';
+        name?.focus({ preventScroll:true });
+      }
+    }
+
+    async function createFinancialAccount() {
+      if (!canCreateFinancialAccount() || !requireWrites() || !organization?.id) return false;
+      const name = $('#commerceAccountName')?.value.trim() || '';
+      const accountType = $('#commerceAccountType')?.value || '';
+      const errorElement = $('#commerceAccountError');
+      if (name.length < 2 || name.length > 120 || !['cash', 'bank'].includes(accountType)) {
+        setError(errorElement, 'Укажите название от 2 до 120 символов и выберите тип.');
+        return false;
+      }
+      const writeKey = `${organization.id}:financial-account`;
+      if (activeWrites.has(writeKey)) return false;
+      const payload = { name, accountType };
+      const intent = requestIntent(`${organization.id}:financial-account`, payload);
+      const button = $('#commerceAccountSubmit');
+      const originalLabel = button.textContent;
+      const organizationId = organization.id;
+      const userId = getCurrentUser()?.id;
+      const generation = getSessionGeneration();
+      activeWrites.add(writeKey);
+      button.disabled = true;
+      button.textContent = 'Создаём…';
+      setError(errorElement, '');
+      try {
+        const result = await db.rpc('create_minuta_financial_account_v129', {
+          p_organization:organizationId,
+          p_request_id:intent.requestId,
+          p_name:name,
+          p_account_type:accountType
+        });
+        if (result.error) throw result.error;
+        const created = result.data;
+        if (!created || !uuidPattern.test(String(created.id || '')) || created.organization_id !== organizationId
+          || created.name !== name || created.account_type !== accountType) throw new Error('invalid_financial_account_response');
+        clearIntent(intent.key);
+        if (!sessionIsCurrent(userId, generation) || organization?.id !== organizationId) return true;
+        try {
+          await load();
+          if (eligibleAccounts().some(item => item.id === created.id)) {
+            $('#commercePaymentAccount').value = created.id;
+            toggleAccountSetup(false);
+          }
+          $('#commerceAccountName').value = '';
+          updateSaleValidity();
+          notify(created.replayed ? 'Касса или счёт уже были созданы — повтор не добавлен' : 'Касса или счёт созданы');
+        } catch {
+          notify('Касса или счёт созданы. Список обновится после восстановления связи');
+        }
+        return true;
+      } catch (error) {
+        if (sessionIsCurrent(userId, generation) && organization?.id === organizationId) setError(errorElement, error);
+        return false;
+      } finally {
+        activeWrites.delete(writeKey);
+        button.textContent = originalLabel;
+        button.disabled = false;
+        applyWriteAvailability?.($('#commerceAccountSetup'));
+      }
     }
 
     function updateSaleOptionsSummary() {
@@ -668,6 +779,11 @@
         updateSaleValidity();
       });
       $('#commercePaymentMethod')?.addEventListener('change', () => { renderPaymentAccounts(); updateSaleValidity(); });
+      $('#commerceAccountCreateOpen')?.addEventListener('click', () => toggleAccountSetup());
+      $('#commerceAccountSubmit')?.addEventListener('click', () => void createFinancialAccount());
+      $('#commerceAccountName')?.addEventListener('keydown', event => {
+        if (event.key === 'Enter') { event.preventDefault(); void createFinancialAccount(); }
+      });
       $('#commerceSaleForm')?.addEventListener('submit', event => void submitSale(event));
       $('#commerceSaleForm')?.addEventListener('input', updateSaleValidity);
       $('#commerceSaleForm')?.addEventListener('change', updateSaleValidity);
@@ -720,7 +836,7 @@
         $('#commerceItem').focus({ preventScroll:true });
       },
       async setOrganization(next) {
-        if (organization?.id === next?.id && state) return;
+        if (organization?.id === next?.id && organization?.current_role === next?.current_role && state) return;
         clearSaleClaimResult();
         organization = next || null;
         state = null;
@@ -733,6 +849,8 @@
         state = null;
         $('#commerceWorkspace').hidden = true;
         $('#commerceSaleCreator').open = false;
+        $('#commerceAccountSetup').hidden = true;
+        setError($('#commerceAccountError'), '');
         syncSaleFocusMode();
       }
     };

@@ -22,7 +22,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="PrimeTime">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=739">
+  <link rel="stylesheet" href="styles.css?v=740">
   <link rel="stylesheet" href="utm-funnel.css?v=738">
   <link rel="stylesheet" href="onboarding.css?v=738">
   <link rel="stylesheet" href="visitor-presence.css?v=738">
@@ -1091,6 +1091,16 @@
                       <label>Оплата<select id="commercePaymentMethod"><option value="cash">Наличными</option><option value="manual">Отмечено вручную</option></select></label>
                       <label>Касса или счёт<select id="commercePaymentAccount" required></select></label>
                       <label>Скидка, ₽<input id="commerceDiscount" type="number" min="0" max="10000000" step="0.01" value="0"></label>
+                      <div class="commerce-account-trigger-row">
+                        <small id="commercePaymentAccountHint" role="status" aria-live="polite">Добавьте кассу или счёт для проведения оплаты.</small>
+                        <button class="secondary-button compact-button" id="commerceAccountCreateOpen" type="button" data-commerce-write>Добавить кассу или счёт</button>
+                      </div>
+                      <section class="commerce-account-setup" id="commerceAccountSetup" aria-labelledby="commerceAccountSetupTitle" hidden>
+                        <div><small>Финансовый учёт</small><strong id="commerceAccountSetupTitle">Новая касса или счёт</strong></div>
+                        <div class="form-row"><label>Название<input id="commerceAccountName" maxlength="120" autocomplete="off" placeholder="Например, Основная касса"></label><label>Тип<select id="commerceAccountType"><option value="cash">Касса</option><option value="bank">Банковский счёт</option></select></label></div>
+                        <p class="form-error" id="commerceAccountError" role="alert" hidden></p>
+                        <button class="secondary-button" id="commerceAccountSubmit" type="button" data-commerce-write>Создать</button>
+                      </section>
                     </div></details>
                     <div class="commerce-sale-commit">
                       <div class="commerce-sale-total" aria-live="polite"><span>Итого к оплате</span><strong id="commerceSaleTotal">—</strong></div>
@@ -2046,7 +2056,7 @@
   <script src="social-auth.js?v=738"></script>
   <script src="organization.js?v=738" defer></script>
   <script src="payment-management.js?v=738" defer></script>
-  <script src="commerce-management.js?v=739" defer></script>
+  <script src="commerce-management.js?v=740" defer></script>
   <script src="integration-management.js?v=738" defer></script>
   <script src="notification-center.js?v=738" defer></script>
   <script src="client-fields.js?v=738" defer></script>
