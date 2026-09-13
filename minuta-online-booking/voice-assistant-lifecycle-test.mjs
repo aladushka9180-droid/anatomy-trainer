@@ -480,7 +480,7 @@ speechSynthesis.voices = [];
 speechSynthesis.listeners.get('voiceschanged')();
 assert.equal(voiceSelect.disabled, true);
 assert.equal(voicePreviewButton.disabled, true, 'без Дмитрия и Светланы нельзя запускать подменный голос');
-assert.deepEqual(voiceSelect.children.map(option => option.textContent), ['Дмитрий — нужен облачный голос', 'Светлана — нужен облачный голос']);
+assert.deepEqual(voiceSelect.children.map(option => option.textContent), ['Дмитрий', 'Светлана']);
 const speakCountBeforeMissingVoice = speechSynthesis.speakCount;
 voicePreviewButton.emit('click');
 assert.equal(speechSynthesis.speakCount, speakCountBeforeMissingVoice);
@@ -489,7 +489,7 @@ const googleRussian = { name:'Google русский', lang:'ru_RU', voiceURI:'go
 speechSynthesis.voices = [googleRussian, { name:'English', lang:'en-US', default:true }];
 speechSynthesis.listeners.get('voiceschanged')();
 assert.equal(voiceSelect.disabled, true);
-assert.deepEqual(voiceSelect.children.map(option => option.textContent), ['Дмитрий — нужен облачный голос', 'Светлана — нужен облачный голос'], 'в списке не должно быть Google, Ирины или Павла');
+assert.deepEqual(voiceSelect.children.map(option => option.textContent), ['Дмитрий', 'Светлана'], 'в списке не должно быть Google, Ирины или Павла');
 voicePreviewButton.emit('click');
 assert.equal(speechSynthesis.speakCount, speakCountBeforeMissingVoice);
 controller.stopSpeech();

@@ -2293,7 +2293,7 @@
       catalog.forEach(voice => {
         const option = doc.createElement('option');
         option.value = voice.id;
-        option.textContent = voice.available ? voice.label : `${voice.label} — нужен облачный голос`;
+        option.textContent = voice.label;
         option.disabled = !voice.available;
         voiceSelect.append(option);
       });
