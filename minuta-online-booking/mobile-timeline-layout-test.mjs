@@ -28,6 +28,8 @@ assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-clien
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-client-visit-wrap \{\s*display:none!important;/, 'Тип клиента снова торчит обрезанной плашкой снизу');
 assert.match(css, /timeline-booking \.timeline-booking-status-icon \{ display:none!important; \}/, 'Галочка завершённого визита снова занимает пустое место в карточке');
 assert.match(provider, /const serviceTitleMarkup = block \? serviceMarkup : `\$\{serviceMarkup\}<wbr><span class="timeline-service-duration"> · \$\{duration\} мин<\/span>`;/, 'Перед длительностью нет безопасной точки переноса, и длинное название переносится раньше свободной границы');
+assert.match(provider, /timeline-service-variant"> —&nbsp;\$\{escapeHtml\(parts\[1\]\)\}/, 'Тире варианта услуги снова остаётся в конце первой строки');
+assert.match(css, /@media \(max-width:374px\)[\s\S]*?timeline-booking\[data-mobile-timeline-top\]:not\(\.status-block\):not\(\.compact\):not\(\.minute-only\) \.timeline-booking-copy>strong \{[^}]*font-size:11px;/, 'На узком телефоне длинное название услуги снова переносится сразу после тире или уменьшает текст перерывов и коротких записей');
 assert.doesNotMatch(provider, /clientDetailsMarkup[\s\S]{0,700}timeline-client-duration/, 'Длительность записи снова попала в строку данных клиента');
 assert.match(css, /\.provider-body \.timeline-service-duration \{[^}]*font-size:\.78em;[^}]*white-space:nowrap;/, 'Длительность рядом с услугой не защищена от отрыва на новую строку');
 

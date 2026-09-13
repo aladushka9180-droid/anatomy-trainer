@@ -57,7 +57,7 @@ const server = http.createServer((request, response) => {
       document.body.classList.add('booking-sheet-open');
     });
 
-    for (const width of [390, 1440]) {
+    for (const width of [360, 390, 1440]) {
       await page.setViewportSize({ width, height:900 });
       await page.waitForTimeout(450);
       const result = await page.evaluate(() => {
@@ -114,7 +114,7 @@ const server = http.createServer((request, response) => {
       centerDateStripSelection(strip);
       bindDateStripResizeCentering(strip);
     });
-    for (const width of [760, 390, 1440]) {
+    for (const width of [760, 390, 360, 1440]) {
       await page.setViewportSize({ width, height:900 });
       await page.waitForTimeout(100);
       const activeState = await page.evaluate(() => {
@@ -181,7 +181,7 @@ const server = http.createServer((request, response) => {
       document.body.append(readability);
     });
 
-    for (const width of [390, 760, 1440]) {
+    for (const width of [360, 390, 760, 1440]) {
       await page.setViewportSize({ width, height:900 });
       for (const textScale of ['default', 'comfortable', 'large']) {
         const readability = await page.evaluate(scale => {
@@ -314,13 +314,13 @@ const server = http.createServer((request, response) => {
       });
       for (const theme of ['sage','graphite','midnight','butter','snow-leopard','noir-safari','oled-mono','volt-graphite']) {
         await page.evaluate(themeKey => { document.body.dataset.providerTheme = themeKey; }, theme);
-        for (const width of [390, 760, 1440]) {
+        for (const width of [360, 390, 760, 1440]) {
           await page.setViewportSize({ width, height:900 });
           await page.screenshot({ path:path.join(output, `${theme}-soft-${width}.png`), fullPage:false });
         }
       }
     }
-    console.log(`Provider schedule theme matrix: ${themeKeys.length} themes × 390/760/1440px OK`);
+    console.log(`Provider schedule theme matrix: ${themeKeys.length} themes × 360/390/760/1440px OK`);
   } finally {
     await browser?.close();
     server.close();

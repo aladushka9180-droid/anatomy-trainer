@@ -7965,6 +7965,14 @@ html.provider-booting .provider-main {
   }
 }
 
+/* На узких телефонах длинное название использует строку до края карточки,
+   а время и клиент сохраняют прежний размер. */
+@media (max-width:374px) {
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:not(.status-block):not(.compact):not(.minute-only) .timeline-booking-copy>strong {
+    font-size:11px;
+  }
+}
+
 /* Месяц: единая минималистичная структура во всех девяти цветовых темах. */
 .provider-body[data-provider-theme] .schedule-card:has(#providerBookings.calendar-overview-month) .schedule-toolbar {
   margin:0 12px;
