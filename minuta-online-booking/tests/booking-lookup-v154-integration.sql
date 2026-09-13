@@ -46,6 +46,7 @@ select set_config('v154.performer',gen_random_uuid()::text,true);
 select set_config('v154.service',gen_random_uuid()::text,true);
 select set_config('v154.token',gen_random_uuid()::text,true);
 select set_config('v154.secret',repeat('a',64),true);
+select set_config('v154.uppercase_secret',repeat('A',64),true);
 select set_config('v154.wrong_secret',repeat('b',64),true);
 
 insert into public.primetime_server_credentials(credential_key,secret_sha256,active)
@@ -118,6 +119,29 @@ select pg_temp.v154_assert(
   )),
   'mismatched_secret_is_neutral'
 );
+reset role;
+update public.primetime_server_credentials
+set secret_sha256=encode(extensions.digest(
+  convert_to(current_setting('v154.uppercase_secret'),'UTF8'),'sha256'
+),'hex')
+where credential_key='booking_lookup_v154';
+set local role anon;
+select set_config('request.headers',jsonb_build_object(
+  'x-primetime-booking-lookup-key',current_setting('v154.uppercase_secret')
+)::text,true);
+select pg_temp.v154_assert(
+  not exists(select 1 from public.lookup_primetime_booking_request_v154(
+    current_setting('v154.request')::uuid
+  )),
+  'uppercase_secret_is_neutral'
+);
+reset role;
+update public.primetime_server_credentials
+set secret_sha256=encode(extensions.digest(
+  convert_to(current_setting('v154.secret'),'UTF8'),'sha256'
+),'hex')
+where credential_key='booking_lookup_v154';
+set local role anon;
 select set_config('request.headers',jsonb_build_object(
   'x-primetime-booking-lookup-key',current_setting('v154.secret')
 )::text,true);

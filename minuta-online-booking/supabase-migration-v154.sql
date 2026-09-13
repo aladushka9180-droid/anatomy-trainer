@@ -173,7 +173,7 @@ begin
   join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
   where procedure_row.oid=v_proc;
 
-  if v_source_hash is distinct from '22d01acce277f80a1d312d071636abebc4581b0b74db328787307df1e0628750'
+  if v_source_hash is distinct from 'a0b2f93d58d65a749022a80d35d2cc766fe24419d6efe4fd5e804e0244157db4'
      or v_marker is distinct from 'minuta_booking_lookup_v154:sha256='||v_contract_hash then
     raise exception using errcode='55000',message='v154_apply_blocked_newer_function_definition';
   end if;
@@ -215,7 +215,7 @@ begin
   v_secret:=v_headers->>'x-primetime-booking-lookup-key';
   if v_secret is null
      or char_length(v_secret)<>64
-     or v_secret!~'^[0-9A-Fa-f]{64}$' then
+     or v_secret!~'^[0-9a-f]{64}$' then
     return;
   end if;
 
@@ -281,7 +281,7 @@ begin
   join pg_catalog.pg_language language_row on language_row.oid=procedure_row.prolang
   where procedure_row.oid=v_proc;
 
-  if v_source_hash is distinct from '22d01acce277f80a1d312d071636abebc4581b0b74db328787307df1e0628750' then
+  if v_source_hash is distinct from 'a0b2f93d58d65a749022a80d35d2cc766fe24419d6efe4fd5e804e0244157db4' then
     raise exception using errcode='55000',message='v154_lookup_source_hash_mismatch';
   end if;
   execute format(

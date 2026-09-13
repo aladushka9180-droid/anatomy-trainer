@@ -77,6 +77,7 @@ select json_build_object(
   'contractHash',contract_hash,
   'marker',marker,
   'owner',owner_name,
+  'headerSecretPattern','^[0-9a-f]{64}$',
   'credentialConfigured',exists(
     select 1 from public.primetime_server_credentials credential
     where credential.credential_key='booking_lookup_v154'

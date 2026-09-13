@@ -270,7 +270,7 @@ jobs:
         env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}", LOOKUP_KEY: "${{ secrets.MINUTA_BOOKING_LOOKUP_KEY_V154 }}" }
         run: |
           set -euo pipefail
-          [[ "$LOOKUP_KEY" =~ ^[0-9A-Fa-f]{64}$ ]]
+          [[ "$LOOKUP_KEY" =~ ^[0-9a-f]{64}$ ]]
           credential_hash="$(printf '%s' "$LOOKUP_KEY" | sha256sum | cut -d' ' -f1)"
           unset LOOKUP_KEY MINUTA_BOOKING_LOOKUP_KEY_V154
           db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"

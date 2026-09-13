@@ -27,7 +27,8 @@ assert.match(migration, /language plpgsql\s+stable/i);
 assert.match(migration, /current_setting\('request\.headers',true\)/i);
 assert.match(migration, /x-primetime-booking-lookup-key/);
 assert.match(migration, /char_length\(v_secret\)<>64/);
-assert.match(migration, /v_secret!~'\^\[0-9A-Fa-f\]\{64\}\$'/);
+assert.match(migration, /v_secret!~'\^\[0-9a-f\]\{64\}\$'/);
+assert.doesNotMatch(migration, /v_secret!~'\^\[0-9A-Fa-f\]\{64\}\$'/);
 assert.match(migration, /credential\.credential_key='booking_lookup_v154'[\s\S]*credential\.active/);
 assert.match(migration, /extensions\.digest\(convert_to\(v_secret,'UTF8'\),'sha256'\)/);
 assert.match(migration, /where booking\.request_id=p_request_id\s+limit 1/);
@@ -60,6 +61,7 @@ for (const label of [
   'malformed_headers_are_neutral',
   'malformed_secret_is_neutral',
   'mismatched_secret_is_neutral',
+  'uppercase_secret_is_neutral',
   'unknown_request_is_neutral',
   'inactive_credential_is_neutral',
   'exact_committed_snapshot_including_manage_token',
@@ -72,9 +74,11 @@ assert.match(state, /'partial-or-newer'/);
 assert.match(state, /has_function_privilege\('anon'/);
 assert.match(state, /not has_function_privilege\('authenticated'/);
 assert.match(state, /not has_function_privilege\('service_role'/);
+assert.match(state, /'headerSecretPattern','\^\[0-9a-f\]\{64\}\$'/);
 assert.doesNotMatch(state, /\b(?:insert|update|delete|truncate|alter|drop|create)\b/i);
 assert.match(contractScript, /createHash\('sha256'\)/);
 assert.match(contractScript, /lookup_primetime_booking_request_v154/);
+assert.match(contractScript, /headerSecretPattern: '\^\[0-9a-f\]\{64\}\$'/);
 
 const job = name => {
   const match = new RegExp(`^  ${name}:\\r?\\n([\\s\\S]*?)(?=^  [a-zA-Z][a-zA-Z0-9-]*:|(?![\\s\\S]))`, 'm').exec(workflow);
@@ -120,6 +124,8 @@ for (const evidence of ['TEST', 'VALIDATION', 'BACKUP', 'RESTORE']) {
 }
 assert.match(applyJob, /test "\$age" -ge 0 && test "\$age" -le 7200/);
 assert.match(applyJob, /MINUTA_BOOKING_LOOKUP_KEY_V154/);
+assert.match(applyJob, /\[\[ "\$LOOKUP_KEY" =~ \^\[0-9a-f\]\{64\}\$ \]\]/);
+assert.doesNotMatch(applyJob, /\[\[ "\$LOOKUP_KEY" =~ \^\[0-9A-Fa-f\]\{64\}\$ \]\]/);
 assert.match(applyJob, /printf '%s' "\$LOOKUP_KEY" \| sha256sum/);
 assert.match(applyJob, /insert into public\.primetime_server_credentials/);
 assert.match(applyJob, /booking-business-counts-v152-v153\.sql/g);

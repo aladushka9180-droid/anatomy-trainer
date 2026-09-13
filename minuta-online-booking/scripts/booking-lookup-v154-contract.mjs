@@ -43,6 +43,7 @@ process.stdout.write(`${JSON.stringify({
   markerPrefix: 'minuta_booking_lookup_v154:sha256=',
   credentialKey: 'booking_lookup_v154',
   header: 'x-primetime-booking-lookup-key',
+  headerSecretPattern: '^[0-9a-f]{64}$',
   executeRoles: ['anon'],
   sourceHash,
   migrationSha256: sha256(migration),
