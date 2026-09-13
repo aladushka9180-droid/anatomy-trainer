@@ -64,7 +64,7 @@ jobs:
       - name: Verify protected connected schedule through PrimeTime
         run: |
           set -euo pipefail
-          base='https://primetime-booking.aladushka9180.chatgpt.site'
+          base='https://primetime-booking.primetime-booking-ru.workers.dev'
           catalog_file="$(mktemp)"
           availability_file="$(mktemp)"
           trap 'rm -f "$catalog_file" "$availability_file"' EXIT
