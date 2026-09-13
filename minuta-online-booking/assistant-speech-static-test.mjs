@@ -6,6 +6,7 @@ const assistant = read('./voice-assistant.js');
 const provider = read('./provider.js');
 const config = read('./config.js');
 const html = read('./provider.html');
+const styles = read('./styles.css');
 const edgeIndex = read('./supabase/functions/assistant-speech/index.ts');
 const edgeHandler = read('./supabase/functions/assistant-speech/handler.ts');
 const supabaseConfig = read('./supabase/config.toml');
@@ -29,6 +30,7 @@ assert.doesNotMatch(assistant.match(/const ASSISTANT_VOICE_CATALOG[\s\S]*?\]\);/
 assert.match(html, /В каталоге только Дмитрий и Светлана/);
 assert.match(html, /другой голос не подставляется/);
 assert.doesNotMatch(html.match(/id="voiceAssistantSpeechHint"[\s\S]*?<\/p>/)?.[0] || '', /Google|Ирина|Павел|Дарья|Лев/);
+assert.match(styles, /@media \(min-width:600px\) and \(max-width:760px\)[\s\S]*?voice-assistant-speech-controls \{ grid-template-columns:repeat\(2,minmax\(0,1fr\)\); \}/, 'На 760 px голосовые настройки должны оставаться компактными в двух колонках');
 
 assert.match(edgeIndex, /Deno\.env\.get\("AZURE_SPEECH_KEY"\)/);
 assert.match(edgeIndex, /Deno\.env\.get\("AZURE_SPEECH_REGION"\)/);

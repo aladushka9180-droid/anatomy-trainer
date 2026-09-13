@@ -5894,6 +5894,11 @@ html.provider-booting .provider-main {
   .voice-result-metrics { grid-template-columns:1fr; }
 }
 
+@media (min-width:600px) and (max-width:760px) {
+  .voice-assistant-speech-controls { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .voice-assistant-speech-controls button { grid-column:1 / -1; }
+}
+
 @media (max-width:340px) {
   .voice-assistant-starters { grid-template-columns:1fr; }
 }
