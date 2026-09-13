@@ -50,7 +50,7 @@ controller.render();
 assert.equal(controller.availability, null, 'render must not turn the initial state into an error');
 assert.equal(element('organizationLoading').hidden, false, 'initial view must keep loading visible');
 assert.equal(element('providerBusinessName').textContent, 'Ваш бизнес', 'до загрузки кабинет должен показывать нейтральное название');
-assert.equal(element('editProviderBusinessName').hidden, true, 'редактирование названия должно ждать доступной организации');
+assert.equal(element('editProviderBusinessName').disabled, true, 'редактирование названия должно ждать доступной организации');
 
 await controller.load();
 assert.equal(rpcCalls, 1, 'first organization load must call get_minuta_workspace exactly once');
@@ -69,7 +69,7 @@ assert.equal(controller.getActiveOrganization()?.id, 'work', 'Рабочая о�
 assert.equal(controller.getOrganizations().length, 2, 'Demo должна оставаться доступной для статистики');
 assert.doesNotMatch(element('organizationSwitcher').innerHTML, /minuta-demo-statistics|>Demo ·/, 'Demo не должна смешиваться с рабочими организациями в переключателе');
 assert.equal(element('providerBusinessName').textContent, 'Рабочая', 'кабинет должен показывать заданное название организации');
-assert.equal(element('editProviderBusinessName').hidden, false, 'владелец должен иметь быстрый переход к изменению названия');
+assert.equal(element('editProviderBusinessName').disabled, false, 'владелец должен иметь быстрый переход к изменению названия');
 
 rpcPayload = {
   organizations: [

@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const providerHtml = readFileSync(resolve(root, 'provider.html'), 'utf8')
-  .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+  .replace(/<script\b([^>]*)>[\s\S]*?<\/script>/gi, (tag, attributes) => /\bsrc="theme-catalog\.js(?:\?[^\"]*)?"/i.test(attributes) ? tag : '');
 const playwrightModule = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href
   : 'playwright');
@@ -45,6 +45,8 @@ try {
     document.body.style.padding = '12px';
     options.style.maxWidth = '1110px';
     options.style.margin = '0 auto';
+    options.style.position = 'relative';
+    options.style.zIndex = '1';
     options.style.opacity = '1';
     options.style.visibility = 'visible';
     for (const option of options.children) option.hidden = false;
@@ -53,9 +55,11 @@ try {
   for (const width of [390, 760, 1440]) {
     await page.setViewportSize({ width, height:900 });
     for (const theme of [
+      'luxury',
       'snow-leopard',
-
       'pearl-zebra',
+      'petrol-steel',
+      'cobalt-forge',
       'noir-rose',
       'cocoa-pearl',
       'plum-cashmere',
@@ -73,6 +77,7 @@ try {
         }
         return {
           count:cards.length,
+          descriptions:Object.fromEntries(cards.map(card => [card.querySelector('input')?.value, card.querySelector('[data-theme-description]')?.textContent || ''])),
           radii,
           overlaps,
           bodyScrollWidth:document.documentElement.scrollWidth,
@@ -82,14 +87,28 @@ try {
         };
       }, theme);
       assert.equal(result.count, 39, `${theme}/${width}: all theme cards must remain in the picker`);
+      assert.ok(Object.values(result.descriptions).every(Boolean), `${theme}/${width}: единый каталог заполнил не все описания`);
+      assert.equal(result.descriptions['petrol-steel'], 'Бирюзовая патина, тёмный металл и медные прожилки');
+      assert.equal(result.descriptions['cobalt-forge'], 'Холодная шлифованная сталь и глубокий синий акцент');
+      assert.equal(result.descriptions['snow-leopard'], 'Морозный кварц и холодные серо-голубые прожилки');
+      assert.equal(result.descriptions['pearl-zebra'], 'Тёплый жемчужный шёлк и мягкие складки');
+      assert.equal(result.descriptions.luxury, 'Чёрный камень и тонкие золотые прожилки');
       assert.ok(result.radii.every(radius => radius === 13), `${theme}/${width}: selected theme reshaped picker cards into large ovals (${[...new Set(result.radii)].join(', ')})`);
       assert.deepEqual(result.overlaps, [], `${theme}/${width}: picker cards overlap`);
       assert.ok(result.minWidth >= 140, `${theme}/${width}: picker cards became too narrow`);
       assert.ok(result.maxRight <= result.viewportWidth + 0.5, `${theme}/${width}: picker overflows the viewport`);
       assert.equal(result.bodyScrollWidth, result.viewportWidth, `${theme}/${width}: horizontal overflow detected`);
       if (output) {
-        await page.locator(`input[value="${theme}"]`).evaluate(input => input.parentElement.scrollIntoView({ block:'center' }));
+        const targetCard = page.locator(`.provider-theme-option:has(input[value="${theme}"])`);
+        await targetCard.evaluate(card => {
+          card.style.order = '-1';
+          card.scrollIntoView({ block:'start' });
+        });
+        await targetCard.screenshot({
+          path: resolve(output, `card-${theme}-${width}.png`),
+        });
         await page.screenshot({ path:resolve(output, `picker-${theme}-${width}.png`) });
+        await targetCard.evaluate(card => card.style.removeProperty('order'));
       }
     }
   }

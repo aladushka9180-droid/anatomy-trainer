@@ -47,6 +47,19 @@ const sw = read('./sw.js');
 const clientThemesCss = read('./client-themes.css');
 const providerThemeKeys = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
 assert.deepEqual(providerThemeKeys, expected, 'Каталог должен совпадать с 39 темами кабинета');
+assert.equal([...providerHtml.matchAll(/<small data-theme-description><\/small>/g)].length, expected.length, 'В карточках кабинета остались отдельные копии описаний');
+const hydratedDescriptions = new Map();
+const descriptionInputs = expected.map(key => ({
+  value:key,
+  closest:() => ({ querySelector:() => ({ set textContent(value) { hydratedDescriptions.set(key, value); } }) })
+}));
+assert.equal(catalog.hydrateProviderThemeDescriptions({ querySelectorAll:() => descriptionInputs }), expected.length, 'Единый каталог заполнил не все описания кабинета');
+for (const theme of catalog.themes) assert.equal(hydratedDescriptions.get(theme.key), theme.description, `${theme.key}: описание кабинета разошлось с каталогом`);
+assert.equal(catalog.theme('petrol-steel').description, 'Бирюзовая патина, тёмный металл и медные прожилки');
+assert.equal(catalog.theme('cobalt-forge').description, 'Холодная шлифованная сталь и глубокий синий акцент');
+assert.equal(catalog.theme('snow-leopard').description, 'Морозный кварц и холодные серо-голубые прожилки');
+assert.equal(catalog.theme('pearl-zebra').description, 'Тёплый жемчужный шёлк и мягкие складки');
+assert.equal(catalog.theme('luxury').description, 'Чёрный камень и тонкие золотые прожилки');
 assert.match(providerHtml, /id="clientAppearanceSettingsCard"/);
 assert.match(providerHtml, /data-section-target="clientAppearanceSettingsCard">Страница для клиентов/);
 assert.match(providerHtml, /id="clientAppearanceTitle">Оформление клиентской страницы/);
@@ -54,11 +67,11 @@ assert.match(providerHtml, /id="clientAppearancePreview"/);
 assert.match(providerHtml, /id="providerClientThemeChooser"/);
 assert.match(providerHtml, /data-client-theme-filter="featured"/);
 assert.match(providerHtml, /Личный выбор клиента меняет оформление только на его устройстве/);
-assert.match(providerHtml, /theme-catalog\.js\?v=742/);
+assert.match(providerHtml, /theme-catalog\.js\?v=743/);
 assert.match(indexHtml, /id="clientThemeDialog"/);
 assert.match(indexHtml, /id="clientHeroTitle"/);
-assert.match(indexHtml, /client-themes\.css\?v=742/);
-assert.match(indexHtml, /theme-catalog\.js\?v=742/);
+assert.match(indexHtml, /client-themes\.css\?v=743/);
+assert.match(indexHtml, /theme-catalog\.js\?v=743/);
 assert.match(providerJs, /current_role !== 'owner'/);
 assert.match(providerJs, /set_minuta_client_page_settings_v118/);
 assert.match(providerJs, /get_minuta_client_page_settings_v118/);
@@ -78,9 +91,9 @@ assert.match(clientThemesCss, /\.availability-suggestion[\s\S]*var\(--client-sur
 assert.match(clientThemesCss, /\.waitlist-cta[\s\S]*var\(--client-surface-alt\)/);
 assert.match(clientThemesCss, /\.booking-faq details\[open\][\s\S]*var\(--client-surface\)/);
 assert.match(clientThemesCss, /\.booking-faq summary[\s\S]*var\(--client-ink\)/);
-assert.match(sw, /const CACHE = `\$\{CACHE_PREFIX\}v742`/);
-assert.match(sw, /theme-catalog\.js\?v=742/);
+assert.match(sw, /const CACHE = `\$\{CACHE_PREFIX\}v743`/);
+assert.match(sw, /theme-catalog\.js\?v=743/);
 assert.match(providerJs, /loadProviderFeatureScript\('voice-assistant\.js'\)/);
 assert.doesNotMatch(providerHtml, /<script[^>]+voice-assistant\.js/);
 
-console.log('client theme selection v742 tests passed');
+console.log('client theme selection v743 tests passed');

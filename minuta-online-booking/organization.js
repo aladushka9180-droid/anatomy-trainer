@@ -67,9 +67,10 @@
       const edit = $('#editProviderBusinessName');
       if (name) name.textContent = visibleName;
       if (!edit) return;
-      edit.hidden = !organization?.id || !organization.can_manage;
+      const canEdit = Boolean(organization?.id && organization.can_manage);
+      edit.disabled = !canEdit;
       edit.setAttribute('aria-label', configuredName ? `Изменить название «${configuredName}»` : 'Указать название бизнеса');
-      edit.title = configuredName ? 'Изменить название бизнеса' : 'Указать название бизнеса';
+      edit.title = configuredName ? `Изменить название «${configuredName}»` : 'Указать название бизнеса';
     }
 
     function emitActiveOrganization() {

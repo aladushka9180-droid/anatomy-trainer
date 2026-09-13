@@ -42,6 +42,7 @@ try {
     document.querySelector('#providerBoot')?.remove();
     document.querySelector('#dashboard').hidden = false;
     document.body.dataset.providerLayout = 'capsule';
+    document.querySelector('#editProviderBusinessName').disabled = false;
   });
 
   const tierColors = new Set();
@@ -54,6 +55,8 @@ try {
         const name = document.querySelector('.provider-product-name');
         const tier = document.querySelector('.provider-product-tier');
         const card = document.querySelector('.provider-brand');
+        const copy = document.querySelector('.provider-brand-copy');
+        const nameAction = document.querySelector('#editProviderBusinessName');
         const signatureStyle = getComputedStyle(signature);
         const nameStyle = getComputedStyle(name);
         const tierStyle = getComputedStyle(tier);
@@ -69,6 +72,11 @@ try {
           tierWeight:Number.parseInt(tierStyle.fontWeight, 10),
           visible:signatureRect.width > 0 && signatureRect.height > 0,
           inside:signatureRect.right <= cardRect.right + 1,
+          copyOffset:copy.getBoundingClientRect().left - cardRect.left,
+          markCount:card.querySelectorAll('.brand-mark').length,
+          editIconCount:document.querySelectorAll('.provider-brand-edit,#editProviderBusinessName svg').length,
+          nameActionCount:document.querySelectorAll('#editProviderBusinessName.provider-business-name-action').length,
+          nameActionBackground:getComputedStyle(nameAction).backgroundColor,
           overflow:document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
         };
       }, theme);
@@ -77,14 +85,32 @@ try {
       assert.ok(state.spacing < 0, `${theme} ${width}px: вернулась разреженная подпись (${state.spacing}px)`);
       assert.notEqual(state.nameColor, state.tierColor, `${theme} ${width}px: Pro потерял акцент`);
       assert.ok(state.tierWeight > state.nameWeight, `${theme} ${width}px: Pro не отделён начертанием`);
+      assert.equal(state.markCount, 0, `${theme} ${width}px: PT всё ещё занимает место`);
+      assert.equal(state.editIconCount, 0, `${theme} ${width}px: большая кнопка или карандаш редактирования всё ещё видны`);
+      assert.equal(state.nameActionCount, 1, `${theme} ${width}px: название бизнеса не стало компактным переходом к редактированию`);
+      assert.equal(state.nameActionBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px: название постоянно выглядит как отдельная кнопка`);
       assert.equal(state.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
+      if (width === 1440 && theme === 'warm') {
+        const restingDecoration = await page.locator('#providerBusinessName').evaluate(element => getComputedStyle(element).textDecorationColor);
+        await page.hover('#editProviderBusinessName');
+        await page.waitForTimeout(180);
+        const hoverDecoration = await page.locator('#providerBusinessName').evaluate(element => getComputedStyle(element).textDecorationColor);
+        assert.notEqual(hoverDecoration, restingDecoration, 'При наведении название не показывает возможность редактирования');
+        await page.locator('#editProviderBusinessName').focus();
+        const focusOutline = await page.locator('#editProviderBusinessName').evaluate(element => getComputedStyle(element).outlineStyle);
+        assert.equal(focusOutline, 'solid', 'Клавиатурный фокус на названии не виден');
+        if (output) await page.screenshot({ path:path.join(output, 'warm-focus-1440.png') });
+      }
+      if (output && ['warm', 'midnight', 'petrol-steel'].includes(theme)) {
+        await page.evaluate(() => document.activeElement?.blur());
+        await page.waitForTimeout(180);
+        await page.screenshot({ path:path.join(output, `${theme}-${width}.png`) });
+      }
       if (width === 1440) {
         assert.equal(state.visible, true, `${theme}: подпись не видна в боковой панели`);
         assert.equal(state.inside, true, `${theme}: подпись вышла за карточку бренда`);
+        assert.ok(state.copyOffset <= 16, `${theme}: освобождённая ширина не передана названию бизнеса`);
         tierColors.add(state.tierColor);
-        if (output && ['warm', 'midnight', 'petrol-steel'].includes(theme)) {
-          await page.screenshot({ path:path.join(output, `${theme}.png`) });
-        }
       }
     }
   }
