@@ -1,6 +1,8 @@
 /* Approved full-viewport canvases: one composition, never a tiled page texture. */
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
-.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
+.provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
+.provider-body[data-provider-theme="concrete-signal"][data-provider-layout],
+.provider-body[data-provider-theme="luxury"][data-provider-layout] {
   background-position:center!important;
   background-repeat:no-repeat!important;
   background-size:cover!important;
@@ -17,14 +19,30 @@
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
   background-color:#f4ede3!important;
   background-image:
-    linear-gradient(rgba(255,251,246,.30),rgba(250,242,232,.30)),
-    url("provider-pearl-zebra-desktop-v2.webp")!important;
+    linear-gradient(rgba(255,251,246,.18),rgba(250,242,232,.18)),
+    url("provider-pearl-zebra-desktop-v3.webp")!important;
+}
+
+.provider-body[data-provider-theme="concrete-signal"][data-provider-layout] {
+  background-color:#e9edef!important;
+  background-image:
+    linear-gradient(rgba(250,251,251,.18),rgba(245,248,249,.18)),
+    url("provider-concrete-signal-desktop-v1.webp")!important;
+}
+
+.provider-body[data-provider-theme="luxury"][data-provider-layout] {
+  background-color:#040506!important;
+  background-image:
+    linear-gradient(rgba(2,3,4,.22),rgba(2,3,4,.22)),
+    url("provider-luxury-premium-desktop-v1.webp")!important;
 }
 
 /* The artwork belongs to the outer canvas; operational surfaces remain clean. */
 .provider-body:is(
   [data-provider-theme="snow-leopard"],
-  [data-provider-theme="pearl-zebra"]
+  [data-provider-theme="pearl-zebra"],
+  [data-provider-theme="concrete-signal"],
+  [data-provider-theme="luxury"]
 )[data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace,.provider-view,.schedule-card) {
   background-color:transparent!important;
   background-image:none!important;
@@ -32,7 +50,9 @@
 
 .provider-body:is(
   [data-provider-theme="snow-leopard"],
-  [data-provider-theme="pearl-zebra"]
+  [data-provider-theme="pearl-zebra"],
+  [data-provider-theme="concrete-signal"],
+  [data-provider-theme="luxury"]
 )[data-provider-layout] :is(
   .provider-sidebar,
   .provider-topbar,
@@ -51,7 +71,9 @@
 
 .provider-body:is(
   [data-provider-theme="snow-leopard"],
-  [data-provider-theme="pearl-zebra"]
+  [data-provider-theme="pearl-zebra"],
+  [data-provider-theme="concrete-signal"],
+  [data-provider-theme="luxury"]
 )[data-provider-layout] :is(.provider-booking,.timeline-booking,.calendar-overview-booking,.provider-break,.timeline-break) {
   background-image:none!important;
 }
@@ -61,7 +83,13 @@
   background:#eaf2f6 url("provider-snow-leopard-desktop-v2.webp") center/cover no-repeat!important;
 }
 .theme-pearl-zebra .theme-swatch {
-  background:#f4ede3 url("provider-pearl-zebra-desktop-v2.webp") center/cover no-repeat!important;
+  background:#f4ede3 url("provider-pearl-zebra-desktop-v3.webp") center/cover no-repeat!important;
+}
+.theme-concrete-signal .theme-swatch {
+  background:#e9edef url("provider-concrete-signal-desktop-v1.webp") center/cover no-repeat!important;
+}
+.theme-luxury .theme-swatch {
+  background:#040506 url("provider-luxury-premium-desktop-v1.webp") center/cover no-repeat!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .provider-theme-option {
   overflow:hidden!important;
@@ -78,7 +106,9 @@
 
 @media (max-width:760px) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
-  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
+  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
+  .provider-body[data-provider-theme="concrete-signal"][data-provider-layout],
+  .provider-body[data-provider-theme="luxury"][data-provider-layout] {
     background-position:center top!important;
     background-size:cover!important;
     background-attachment:fixed!important;
@@ -92,15 +122,29 @@
 
   .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
     background-image:
-      linear-gradient(rgba(255,251,246,.34),rgba(250,242,232,.34)),
-      url("provider-pearl-zebra-mobile-v2.webp")!important;
+      linear-gradient(rgba(255,251,246,.22),rgba(250,242,232,.22)),
+      url("provider-pearl-zebra-mobile-v3.webp")!important;
+  }
+
+  .provider-body[data-provider-theme="concrete-signal"][data-provider-layout] {
+    background-image:
+      linear-gradient(rgba(250,251,251,.22),rgba(245,248,249,.22)),
+      url("provider-concrete-signal-mobile-v1.webp")!important;
+  }
+
+  .provider-body[data-provider-theme="luxury"][data-provider-layout] {
+    background-image:
+      linear-gradient(rgba(2,3,4,.26),rgba(2,3,4,.26)),
+      url("provider-luxury-premium-mobile-v1.webp")!important;
   }
 
 }
 
 @media (prefers-reduced-data:reduce) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout],
-  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
+  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout],
+  .provider-body[data-provider-theme="concrete-signal"][data-provider-layout],
+  .provider-body[data-provider-theme="luxury"][data-provider-layout] {
     background-image:var(--atmosphere-background)!important;
   }
 }

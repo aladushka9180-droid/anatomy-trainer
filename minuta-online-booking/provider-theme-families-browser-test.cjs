@@ -9,7 +9,25 @@ const root = __dirname;
 const catalog = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
 assert.equal(themes.length, 39, 'Каталог тем прочитан не полностью');
-const approvedThemes = new Set(['snow-leopard', 'pearl-zebra']);
+const approvedBackgrounds = new Map([
+  ['snow-leopard', {
+    desktop:'provider-snow-leopard-desktop-v2.webp',
+    mobile:'provider-snow-leopard-mobile-v2.webp',
+  }],
+  ['pearl-zebra', {
+    desktop:'provider-pearl-zebra-desktop-v3.webp',
+    mobile:'provider-pearl-zebra-mobile-v3.webp',
+  }],
+  ['concrete-signal', {
+    desktop:'provider-concrete-signal-desktop-v1.webp',
+    mobile:'provider-concrete-signal-mobile-v1.webp',
+  }],
+  ['luxury', {
+    desktop:'provider-luxury-premium-desktop-v1.webp',
+    mobile:'provider-luxury-premium-mobile-v1.webp',
+  }],
+]);
+const approvedThemes = new Set(approvedBackgrounds.keys());
 const metalBackgrounds = new Map([
   ['cobalt-forge', {
     desktop:'provider-cobalt-forge-desktop-v3.webp',
@@ -21,7 +39,7 @@ const metalBackgrounds = new Map([
   }],
 ]);
 const familyThemes = themes.filter(theme => !approvedThemes.has(theme));
-const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
+const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'concrete-signal', 'pearl-zebra', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
 const visibilityThemes = new Set(['sage', 'nordic', 'graphite', 'hitech', 'eco', 'luxury', 'loft', 'celadon', 'petrol-steel', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'warm', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'oled-mono', 'volt-graphite']);
 const maskThemes = new Set(['nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'burgundy', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'volt-graphite']);
 const output = process.env.MINUTA_THEME_FAMILY_OUTPUT;
@@ -151,10 +169,14 @@ const server = http.createServer((request, response) => {
           return { image:style.backgroundImage, repeat:style.backgroundRepeat, size:style.backgroundSize, overflow:document.documentElement.scrollWidth > innerWidth + 2 };
         }, theme);
         const variant = width <= 760 ? 'mobile' : 'desktop';
-        assert.match(approved.image, new RegExp(`provider-${theme}-${variant}-v2\\.webp`), `${theme} ${width}px: утверждённый фон ТЕМЫ 1 потерян`);
+        const asset = approvedBackgrounds.get(theme)[variant];
+        assert.match(approved.image, new RegExp(asset.replace('.', '\\.')), `${theme} ${width}px: утверждённый фон ТЕМЫ 1 потерян`);
         assert.equal(approved.repeat.split(',').every(value => value.trim() === 'no-repeat'), true, `${theme} ${width}px: утверждённый фон начал повторяться`);
         assert.equal(approved.size.split(',').every(value => value.trim() === 'cover'), true, `${theme} ${width}px: утверждённый фон перестал покрывать холст`);
         assert.equal(approved.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
+        if (output && screenshotThemes.has(theme)) {
+          await page.screenshot({ path:path.join(output, `${theme}-${width}.png`), fullPage:true });
+        }
       }
     }
     const previews = await page.evaluate(themeKeys => themeKeys.map(theme => {
@@ -164,7 +186,7 @@ const server = http.createServer((request, response) => {
       return { theme, image:swatchStyle?.backgroundImage || 'missing', mask:overlayStyle?.maskImage || overlayStyle?.webkitMaskImage || 'none' };
     }), themes);
     for (const preview of previews) assert.equal(preview.image !== 'none' || preview.mask !== 'none', true, `${preview.theme}: превью не показывает новый мотив`);
-    console.log('Provider theme family browser matrix: PASS (37 CSS families + 2 approved canvases × 3 widths).');
+    console.log('Provider theme family browser matrix: PASS (35 CSS families + 4 approved canvases × 3 widths).');
   } finally {
     if (browser) await browser.close();
     server.close();

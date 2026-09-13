@@ -24,7 +24,7 @@ assert.equal(themes.length, 39, 'Каталог должен содержать 
 assert.deepEqual([...mappedThemes].sort(), [...themes].sort(), 'Каждая тема должна входить ровно в одно визуальное семейство');
 assert.equal(new Set(mappedThemes).size, mappedThemes.length, 'В семействах не должно быть дублей');
 
-assert.match(css, /\[data-provider-layout\]:not\(:is\([^)]*snow-leopard[^)]*pearl-zebra[^)]*\)\)::before\s*\{[\s\S]*?pointer-events:none;[\s\S]*?background-image:var\(--theme-canvas-texture\)/);
+assert.match(css, /\[data-provider-layout\]:not\(:is\([^)]*snow-leopard[^)]*pearl-zebra[^)]*concrete-signal[^)]*luxury[^)]*\)\)::before\s*\{[\s\S]*?pointer-events:none;[\s\S]*?background-image:var\(--theme-canvas-texture\)/);
 assert.match(css, /mask-image:var\(--theme-canvas-mask,none\)/);
 assert.match(css, /background-color:var\(--theme-canvas-color,transparent\)/);
 assert.match(css, /> \.provider-main\s*\{[\s\S]*?z-index:1;/);
@@ -32,7 +32,7 @@ assert.match(css, /> \.ambient\s*\{[\s\S]*?display:none!important;/);
 assert.match(css, /:is\([\s\S]*?\.provider-sidebar[\s\S]*?\.booking-sheet-panel[\s\S]*?\)\s*\{[\s\S]*?background-image:none!important;/);
 assert.match(css, /:is\(input,select,textarea\)\s*\{[\s\S]*?background-image:none!important;/);
 assert.doesNotMatch(css, /booking-client-page|client-pattern|\.client-app/, 'Новый слой не должен затрагивать публичный PrimeTime');
-assert.match(css, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra\)\) \.theme-swatch/);
+assert.match(css, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-concrete-signal,\.theme-luxury\)\) \.theme-swatch/);
 
 for (const theme of themes) {
   const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
@@ -83,11 +83,11 @@ assert.match(css, /data-provider-theme="azure-lagoon"[\s\S]*?--theme-canvas-mask
 assert.doesNotMatch(css.match(/data-provider-theme="azure-lagoon"[\s\S]*?\n\}/)?.[0] || '', /repeating-radial-gradient/);
 assert.ok((css.match(/data-provider-theme="blue-hydrangea"[\s\S]*?\n\}/)?.[0].match(/radial-gradient/g) || []).length >= 6);
 assert.match(css, /data-provider-theme="snow-leopard"[\s\S]*?--theme-canvas-size:124px 92px/);
-assert.match(css, /data-provider-theme="luxury"[\s\S]*?repeating-radial-gradient\(ellipse 130% 70%/);
+assert.match(css, /data-provider-theme="luxury"[\s\S]*?radial-gradient\(ellipse at 4% 0/);
 assert.match(css, /data-provider-theme="warm"[\s\S]*?radial-gradient\(circle at 16% 4%/);
 
-assert.match(provider, /provider-theme-families\.css\?v=746[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=746/);
-assert.match(worker, /\.\/provider-theme-families\.css\?v=746/);
-assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=746/);
+assert.match(provider, /provider-theme-families\.css\?v=747[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=747/);
+assert.match(worker, /\.\/provider-theme-families\.css\?v=747/);
+assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=747/);
 
-console.log('Provider theme families v746: PASS (39 themes, 9 families).');
+console.log('Provider theme families v747: PASS (39 themes, 9 families).');

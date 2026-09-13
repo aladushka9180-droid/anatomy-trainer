@@ -91,8 +91,9 @@ try {
       assert.equal(result.descriptions['petrol-steel'], 'Бирюзовая патина, тёмный металл и медные прожилки');
       assert.equal(result.descriptions['cobalt-forge'], 'Холодная шлифованная сталь и глубокий синий акцент');
       assert.equal(result.descriptions['snow-leopard'], 'Морозный кварц и холодные серо-голубые прожилки');
-      assert.equal(result.descriptions['pearl-zebra'], 'Тёплый жемчужный шёлк и мягкие складки');
-      assert.equal(result.descriptions.luxury, 'Чёрный камень и тонкие золотые прожилки');
+      assert.equal(result.descriptions['pearl-zebra'], 'Тёплый жемчужный минерал и тонкие природные линии');
+      assert.equal(result.descriptions.luxury, 'Матовый обсидиан и мягкое сияние шампанского');
+      assert.equal(result.descriptions['concrete-signal'], 'Холодный светлый бетон и чёткий красный акцент');
       assert.ok(result.radii.every(radius => radius === 13), `${theme}/${width}: selected theme reshaped picker cards into large ovals (${[...new Set(result.radii)].join(', ')})`);
       assert.deepEqual(result.overlaps, [], `${theme}/${width}: picker cards overlap`);
       assert.ok(result.minWidth >= 140, `${theme}/${width}: picker cards became too narrow`);
