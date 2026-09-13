@@ -78,6 +78,7 @@ assert.match(state, /source_hash/);
 assert.match(state, /contract_hash/);
 assert.match(state, /no_unexpected_grants/);
 assert.match(state, /marker='minuta_client_identity_v155:sha256='\|\|runtime\.schema_hash/);
+assert.match(state, /trigger_row\.tgconstraint=0/);
 assert.match(state, /expectedPresentCount',24/);
 assert.doesNotMatch(state, /^\s*(?:insert|update|delete|truncate|alter|drop|create)\b/im);
 assert.match(counts, /^begin transaction isolation level repeatable read read only;/);

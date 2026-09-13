@@ -328,7 +328,7 @@ begin
         from pg_catalog.pg_index index_row join pg_catalog.pg_class index_class on index_class.oid=index_row.indexrelid
         where index_row.indrelid=v_table),
       'triggers',(select jsonb_agg(pg_catalog.pg_get_triggerdef(trigger_row.oid,true) order by trigger_row.tgname)
-        from pg_catalog.pg_trigger trigger_row where trigger_row.tgrelid=v_table and not trigger_row.tgisinternal)
+        from pg_catalog.pg_trigger trigger_row where trigger_row.tgrelid=v_table and trigger_row.tgconstraint=0)
     )::text,'UTF8'),'sha256'),'hex'),obj_description(v_table,'pg_class')
     into v_hash,v_marker;
     if v_marker is distinct from 'minuta_client_identity_v155:sha256='||v_hash then
@@ -2520,7 +2520,7 @@ begin
         from pg_catalog.pg_index index_row join pg_catalog.pg_class index_class on index_class.oid=index_row.indexrelid
         where index_row.indrelid=v_table),
       'triggers',(select jsonb_agg(pg_catalog.pg_get_triggerdef(trigger_row.oid,true) order by trigger_row.tgname)
-        from pg_catalog.pg_trigger trigger_row where trigger_row.tgrelid=v_table and not trigger_row.tgisinternal)
+        from pg_catalog.pg_trigger trigger_row where trigger_row.tgrelid=v_table and trigger_row.tgconstraint=0)
     )::text,'UTF8'),'sha256'),'hex') into v_hash;
     execute format('comment on table %s is %L',v_table,'minuta_client_identity_v155:sha256='||v_hash);
   end loop;
@@ -2682,7 +2682,7 @@ begin
         from pg_catalog.pg_index index_row join pg_catalog.pg_class index_class on index_class.oid=index_row.indexrelid
         where index_row.indrelid=v_table),
       'triggers',(select jsonb_agg(pg_catalog.pg_get_triggerdef(trigger_row.oid,true) order by trigger_row.tgname)
-        from pg_catalog.pg_trigger trigger_row where trigger_row.tgrelid=v_table and not trigger_row.tgisinternal)
+        from pg_catalog.pg_trigger trigger_row where trigger_row.tgrelid=v_table and trigger_row.tgconstraint=0)
     )::text,'UTF8'),'sha256'),'hex'),obj_description(v_table,'pg_class')
     into v_hash,v_marker;
     if v_marker is distinct from 'minuta_client_identity_v155:sha256='||v_hash

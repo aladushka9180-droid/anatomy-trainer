@@ -151,7 +151,7 @@ with function_contract(signature,access_mode,expected_marker,version_object) as 
         where index_row.indrelid=relation_row.oid),
       'triggers',(select jsonb_agg(pg_catalog.pg_get_triggerdef(trigger_row.oid,true) order by trigger_row.tgname)
         from pg_catalog.pg_trigger trigger_row
-        where trigger_row.tgrelid=relation_row.oid and not trigger_row.tgisinternal)
+        where trigger_row.tgrelid=relation_row.oid and trigger_row.tgconstraint=0)
     )::text,'UTF8'),'sha256'),'hex') end as schema_hash,
     pg_catalog.obj_description(relation_row.oid,'pg_class') as marker,
     pg_catalog.pg_get_userbyid(relation_row.relowner) as owner_name,

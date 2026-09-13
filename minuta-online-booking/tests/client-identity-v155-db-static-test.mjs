@@ -56,6 +56,8 @@ for (const table of ['sessions', 'claim_grants', 'transfers', 'booking_requests'
 }
 assert.match(migration, /'minuta_client_identity_v155:sha256='\|\|v_hash/);
 assert.match(migration, /v155_apply_blocked_newer_table_definition/);
+assert.equal((migration.match(/trigger_row\.tgconstraint=0/g) ?? []).length, 3);
+assert.equal((rollback.match(/trigger_row\.tgconstraint=0/g) ?? []).length, 1);
 assert.match(migration, /session_scope='account' and claimed_booking_id is null and client_account_id is not null/);
 assert.match(migration, /session_scope='organization' and claimed_booking_id is null and client_account_id is not null and organization_id is not null/);
 for (const reference of ['client_accounts', 'client_identity_sessions_v155', 'bookings']) {
