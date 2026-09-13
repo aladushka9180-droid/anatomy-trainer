@@ -45,6 +45,10 @@ assert.deepEqual(
 assert.match(migration, /aclexplode\(coalesce\([\s\S]*relation_row\.relacl,acldefault\('r',relation_row\.relowner\)/);
 assert.match(migration, /role_row\.rolname in\('anon','authenticated','service_role'\)/);
 assert.match(migration, /v154_apply_blocked_newer_function_definition/);
+assert.match(
+  migration,
+  /22d01acce277f80a1d312d071636abebc4581b0b74db328787307df1e0628750/,
+);
 assert.match(migration, /minuta_booking_lookup_v154:sha256=/);
 assert.doesNotMatch(migration, /booking_lookup_v154'\s*,\s*'[0-9a-f]{64}'/i);
 
