@@ -440,3 +440,27 @@
 @media (prefers-reduced-motion:reduce) {
   .provider-body[data-provider-theme][data-provider-layout]:not(:is([data-provider-theme="snow-leopard"],[data-provider-theme="pearl-zebra"]))::before { transition:none!important; }
 }
+
+/* The product signature stays secondary to the business name while reflecting each theme. */
+html .provider-body[data-provider-theme][data-provider-layout] .provider-brand.brand .provider-product-signature {
+  display:flex!important;
+  align-items:baseline;
+  gap:.22em;
+  margin-top:4px;
+  color:var(--theme-muted,var(--muted))!important;
+  font-size:12px;
+  font-weight:780;
+  line-height:1.2;
+  letter-spacing:-.015em!important;
+  text-transform:none!important;
+  white-space:nowrap;
+}
+
+html .provider-body[data-provider-theme][data-provider-layout] .provider-brand.brand .provider-product-name {
+  color:color-mix(in srgb,var(--theme-ink,var(--ink)) 78%,var(--theme-muted,var(--muted)))!important;
+}
+
+html .provider-body[data-provider-theme][data-provider-layout] .provider-brand.brand .provider-product-tier {
+  color:color-mix(in srgb,var(--theme-accent,#2f7654) 88%,var(--theme-ink,var(--ink)))!important;
+  font-weight:900;
+}

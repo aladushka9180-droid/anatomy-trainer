@@ -31,6 +31,7 @@ jobs:
       - run: node minuta-online-booking/provider-startup-performance-v565-test.mjs
       - run: node minuta-online-booking/help-knowledge-refresh-v565-test.mjs
       - run: node minuta-online-booking/primetime-pro-brand-v598-test.mjs
+      - run: node minuta-online-booking/provider-brand-signature-test.mjs
       - run: node minuta-online-booking/client-theme-selection-v511-test.mjs
       - run: node minuta-online-booking/client-phone-autofill-v515-test.mjs
       - run: node minuta-online-booking/android-recent-calls-static-test.mjs
