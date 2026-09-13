@@ -205,14 +205,14 @@
 .theme-carbon-ember .theme-swatch { background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.045) 0 1px,transparent 1px 5px),radial-gradient(circle at 84% 8%,rgba(212,116,76,.32),transparent 48%),linear-gradient(145deg,#100d0c,#302019); }
 
 .provider-body[data-provider-theme="noir-safari"] {
-  --theme-bg:#120907; --theme-surface:#241308; --theme-surface-alt:#351d0c; --theme-ink:#f7eadc;
-  --theme-muted:#c59b79; --theme-line:#905934; --theme-accent:#ec7d34; --theme-accent-soft:#4b210d;
-  --theme-accent-contrast:#1b0b04; --theme-shadow:rgba(0,0,0,.48); --material-card-bg:rgba(36,19,8,.97);
-  --material-card-border:#905934; --material-radius:18px; --material-control-radius:12px;
-  --signature-sidebar:rgba(14,7,5,.95); --signature-stage:rgba(24,12,7,.94); --signature-nav-active:#4b210d;
+  --theme-bg:#11100f; --theme-surface:#1b1917; --theme-surface-alt:#24201d; --theme-ink:#f3eee8;
+  --theme-muted:#b9afa4; --theme-line:#786250; --theme-accent:#aa7249; --theme-accent-soft:#1b120e;
+  --theme-accent-contrast:#160f0b; --theme-shadow:rgba(0,0,0,.52); --material-card-bg:rgba(27,25,23,.94);
+  --material-card-border:#786250; --material-radius:14px; --material-control-radius:10px;
+  --signature-sidebar:rgba(14,13,12,.94); --signature-stage:rgba(18,17,16,.92); --signature-nav-active:#30251e;
 }
-.theme-noir-safari { --theme-preview-bg:#120907; --theme-preview-surface:#241308; --theme-preview-line:#905934; --theme-preview-accent:#ec7d34; --theme-preview-radius:14px; --theme-preview-item-radius:999px; color:#f7eadc; }
-.theme-noir-safari .theme-swatch { background-image:radial-gradient(ellipse 7px 5px at 14% 18%,rgba(225,111,39,.3) 0 67%,transparent 75%) 0 0/52px 46px,radial-gradient(ellipse 5px 8px at 66% 70%,rgba(225,111,39,.2) 0 68%,transparent 76%) 0 0/52px 46px,linear-gradient(145deg,#0e0604,#321807); }
+.theme-noir-safari { --theme-preview-bg:#11100f; --theme-preview-surface:#1b1917; --theme-preview-line:#786250; --theme-preview-accent:#aa7249; --theme-preview-radius:14px; --theme-preview-item-radius:10px; color:#f3eee8; }
+.theme-noir-safari .theme-swatch { background-image:linear-gradient(#11100f,#11100f); }
 
 .provider-body[data-provider-theme="carbon-crimson"] {
   --theme-bg:#080c12; --theme-surface:#111923; --theme-surface-alt:#1a2733; --theme-ink:#f2f6fa;

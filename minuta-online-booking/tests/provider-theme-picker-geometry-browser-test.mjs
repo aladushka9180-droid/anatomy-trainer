@@ -64,6 +64,7 @@ try {
       'cocoa-pearl',
       'plum-cashmere',
       'obsidian-champagne',
+      'noir-safari',
     ]) {
       const result = await page.evaluate(activeTheme => {
         document.body.dataset.providerTheme = activeTheme;
@@ -97,6 +98,8 @@ try {
       assert.equal(result.descriptions['cocoa-pearl'], 'Тёмный какао, живая минеральная фактура и мягкий перламутровый свет');
       assert.equal(result.descriptions.luxury, 'Матовый обсидиан и мягкое сияние шампанского');
       assert.equal(result.descriptions['concrete-signal'], 'Холодный светлый бетон и чёткий красный акцент');
+      assert.equal(result.names['noir-safari'], 'Noir Suede');
+      assert.equal(result.descriptions['noir-safari'], 'Графитовая замша и мягкий дымчато-коньячный свет');
       assert.ok(result.radii.every(radius => radius === 13), `${theme}/${width}: selected theme reshaped picker cards into large ovals (${[...new Set(result.radii)].join(', ')})`);
       assert.deepEqual(result.overlaps, [], `${theme}/${width}: picker cards overlap`);
       assert.ok(result.minWidth >= 140, `${theme}/${width}: picker cards became too narrow`);

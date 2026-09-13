@@ -11,12 +11,12 @@ const families = {
   editorial:['sage', 'nordic', 'mono'],
   digital:['graphite', 'hitech', 'carbon-crimson', 'oled-mono', 'volt-graphite'],
   natural:['eco', 'japandi', 'desert', 'celadon'],
-  materials:['luxury', 'loft', 'carbon-ember', 'petrol-steel', 'cobalt-forge', 'concrete-signal', 'obsidian-champagne', 'cocoa-pearl', 'coastal', 'midnight'],
+  materials:['luxury', 'loft', 'carbon-ember', 'petrol-steel', 'cobalt-forge', 'concrete-signal', 'obsidian-champagne', 'cocoa-pearl', 'coastal', 'midnight', 'noir-safari'],
   mist:['warm', 'lavender', 'rose', 'burgundy', 'butter', 'mocha-pastel', 'noir-rose'],
   textile:['pearl', 'peach-silk', 'plum-cashmere'],
   water:['azure-lagoon', 'moonlit-lilac'],
   botanical:['botanical', 'blue-hydrangea'],
-  organic:['snow-leopard', 'pearl-zebra', 'noir-safari'],
+  organic:['snow-leopard', 'pearl-zebra'],
 };
 const mappedThemes = Object.values(families).flat();
 
@@ -24,7 +24,7 @@ assert.equal(themes.length, 39, 'Каталог должен содержать 
 assert.deepEqual([...mappedThemes].sort(), [...themes].sort(), 'Каждая тема должна входить ровно в одно визуальное семейство');
 assert.equal(new Set(mappedThemes).size, mappedThemes.length, 'В семействах не должно быть дублей');
 
-assert.match(css, /\[data-provider-layout\]:not\(:is\([^)]*snow-leopard[^)]*pearl-zebra[^)]*concrete-signal[^)]*luxury[^)]*cocoa-pearl[^)]*coastal[^)]*midnight[^)]*\)\)::before\s*\{[\s\S]*?pointer-events:none;[\s\S]*?background-image:var\(--theme-canvas-texture\)/);
+assert.match(css, /\[data-provider-layout\]:not\(:is\([^)]*snow-leopard[^)]*pearl-zebra[^)]*concrete-signal[^)]*luxury[^)]*cocoa-pearl[^)]*coastal[^)]*midnight[^)]*noir-safari[^)]*\)\)::before\s*\{[\s\S]*?pointer-events:none;[\s\S]*?background-image:var\(--theme-canvas-texture\)/);
 assert.match(css, /mask-image:var\(--theme-canvas-mask,none\)/);
 assert.match(css, /background-color:var\(--theme-canvas-color,transparent\)/);
 assert.match(css, /> \.provider-main\s*\{[\s\S]*?z-index:1;/);
@@ -32,7 +32,7 @@ assert.match(css, /> \.ambient\s*\{[\s\S]*?display:none!important;/);
 assert.match(css, /:is\([\s\S]*?\.provider-sidebar[\s\S]*?\.booking-sheet-panel[\s\S]*?\)\s*\{[\s\S]*?background-image:none!important;/);
 assert.match(css, /:is\(input,select,textarea\)\s*\{[\s\S]*?background-image:none!important;/);
 assert.doesNotMatch(css, /booking-client-page|client-pattern|\.client-app/, 'Новый слой не должен затрагивать публичный PrimeTime');
-assert.match(css, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-concrete-signal,\.theme-luxury,\.theme-cocoa-pearl,\.theme-coastal,\.theme-midnight\)\) \.theme-swatch/);
+assert.match(css, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-concrete-signal,\.theme-luxury,\.theme-cocoa-pearl,\.theme-coastal,\.theme-midnight,\.theme-noir-safari\)\) \.theme-swatch/);
 
 for (const theme of themes) {
   const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
@@ -82,14 +82,16 @@ assert.match(css, /data-provider-theme="botanical"[\s\S]*?--theme-canvas-mask:va
 assert.match(css, /data-provider-theme="azure-lagoon"[\s\S]*?--theme-canvas-mask:var\(--theme-facets-mask\)/);
 const midnightBlock = css.match(/\.provider-body\[data-provider-theme="midnight"\],\.provider-theme-option\.theme-midnight\s*\{([\s\S]*?)\n\}/m)?.[1] || '';
 assert.doesNotMatch(midnightBlock, /--theme-canvas-mask|constellation|radial-gradient|repeating-|url\(/i, 'Midnight Navy не должен возвращать созвездия, линии или растровый путь семейства');
+const noirSuedeBlock = css.match(/\.provider-body\[data-provider-theme="noir-safari"\],\.provider-theme-option\.theme-noir-safari\s*\{([\s\S]*?)\n\}/m)?.[1] || '';
+assert.doesNotMatch(noirSuedeBlock, /--theme-canvas-mask|radial-gradient|repeating-|url\(/i, 'Noir Suede не должен возвращать животный принт или растровый путь семейства');
 assert.doesNotMatch(css.match(/data-provider-theme="azure-lagoon"[\s\S]*?\n\}/)?.[0] || '', /repeating-radial-gradient/);
 assert.ok((css.match(/data-provider-theme="blue-hydrangea"[\s\S]*?\n\}/)?.[0].match(/radial-gradient/g) || []).length >= 6);
 assert.match(css, /data-provider-theme="snow-leopard"[\s\S]*?--theme-canvas-size:124px 92px/);
 assert.match(css, /data-provider-theme="luxury"[\s\S]*?radial-gradient\(ellipse at 4% 0/);
 assert.match(css, /data-provider-theme="warm"[\s\S]*?radial-gradient\(circle at 16% 4%/);
 
-assert.match(provider, /provider-theme-families\.css\?v=752[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=752/);
-assert.match(worker, /\.\/provider-theme-families\.css\?v=752/);
-assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=752/);
+assert.match(provider, /provider-theme-families\.css\?v=753[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=753/);
+assert.match(worker, /\.\/provider-theme-families\.css\?v=753/);
+assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=753/);
 
-console.log('Provider theme families v752: PASS (39 themes, 9 families).');
+console.log('Provider theme families v753: PASS (39 themes, 9 families).');

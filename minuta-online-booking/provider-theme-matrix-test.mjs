@@ -152,11 +152,14 @@ assert.doesNotMatch(pearlZebraBackground, /340px 340px/, 'Pearl Zebra must not s
 assert.doesNotMatch(wildlifeCss, /provider-pearl-zebra-smooth-4k-v4\.webp/, 'Pearl Zebra must use calm CSS satin ribbons rather than the former artwork');
 assert.doesNotMatch(wildlifeCss.match(/--atmosphere-background:([^;]+);/)?.[1] || '', /repeating-/, 'Pearl Zebra ribbons must not repeat');
 
-const noirSafariBackground = noirSafariCss.match(/\.provider-body\[data-provider-theme="noir-safari"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(noirSafariBackground, /background-image:linear-gradient\(rgba\(5,4,3,\.08\),rgba\(5,4,3,\.08\)\),var\(--atmosphere-background\)!important/);
-assert.doesNotMatch(noirSafariBackground, /linear-gradient\(90deg/, 'Noir Safari must preserve the approved leopard artwork without directional recoloring');
-assert.match(noirSafariCss, /\.provider-body\[data-provider-theme="noir-safari"\] \.ambient\s*\{[^}]*display:none!important/s, 'Noir Safari must hide the generic green and amber ambient lights');
-assert.match(noirSafariCss, /:is\(\s*\.provider-main,\.provider-app,\.provider-workspace,\.provider-view,\.schedule-card\s*\)\s*\{[^}]*background:transparent!important/s, 'Noir Safari must continue the same wallpaper behind the interface instead of exposing a white stage');
+const noirSuedeBackground = noirSafariCss.match(/\.provider-body\[data-provider-theme="noir-safari"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
+assert.match(noirSuedeBackground, /background-image:url\("provider-noir-suede-material-v1\.webp"\)!important/);
+assert.match(noirSuedeBackground, /background-size:cover!important/);
+assert.match(noirSuedeBackground, /background-repeat:no-repeat!important/);
+assert.doesNotMatch(noirSuedeBackground, /gradient|radial|repeating|provider-noir-safari-bg/i, 'Noir Suede must remain one continuous material without the former animal pattern');
+assert.doesNotMatch(noirSafariCss, /leopard|animal|Noir Safari|provider-noir-safari-bg|radial-gradient|repeating-/i, 'Noir Suede must remove all safari and animal-pattern treatment');
+assert.match(noirSafariCss, /\.provider-body\[data-provider-theme="noir-safari"\] \.ambient\s*\{[^}]*display:none!important/s, 'Noir Suede must hide the generic green and amber ambient lights');
+assert.match(noirSafariCss, /:is\(\s*\.provider-main,\.provider-app,\.provider-workspace,\.provider-view\s*\)\s*\{[^}]*background:transparent!important/s, 'Noir Suede must continue the same material behind the interface instead of exposing a white stage');
 assert.doesNotMatch(signatureCss, /provider-snow-leopard-(?:continuous|mobile|natural)[^"')]*\.(?:webp|png)/, 'Snow Leopard must no longer use spotted bitmap artwork');
 for (const theme of ['snow-leopard']) {
   const canvas = signatureCss.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\]\\[data-provider-layout\\]\\s*\\{([^}]*)\\}`))?.[1] || '';

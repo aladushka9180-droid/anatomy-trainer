@@ -38,6 +38,10 @@ const approvedBackgrounds = new Map([
     desktop:'provider-midnight-navy-velvet-v1.webp',
     mobile:'provider-midnight-navy-velvet-v1.webp',
   }],
+  ['noir-safari', {
+    desktop:'provider-noir-suede-material-v1.webp',
+    mobile:'provider-noir-suede-material-v1.webp',
+  }],
 ]);
 const approvedThemes = new Set(approvedBackgrounds.keys());
 const metalBackgrounds = new Map([
@@ -51,7 +55,7 @@ const metalBackgrounds = new Map([
   }],
 ]);
 const familyThemes = themes.filter(theme => !approvedThemes.has(theme));
-const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'concrete-signal', 'pearl-zebra', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'coastal', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
+const screenshotThemes = new Set(['luxury', 'loft', 'japandi', 'celadon', 'petrol-steel', 'nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'concrete-signal', 'pearl-zebra', 'obsidian-champagne', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'coastal', 'azure-lagoon', 'midnight', 'noir-safari', 'moonlit-lilac', 'botanical', 'blue-hydrangea', 'oled-mono', 'volt-graphite']);
 const visibilityThemes = new Set(['sage', 'nordic', 'graphite', 'hitech', 'eco', 'luxury', 'loft', 'celadon', 'petrol-steel', 'cobalt-forge', 'carbon-crimson', 'obsidian-champagne', 'warm', 'burgundy', 'butter', 'pearl', 'peach-silk', 'cocoa-pearl', 'azure-lagoon', 'midnight', 'moonlit-lilac', 'botanical', 'oled-mono', 'volt-graphite']);
 const maskThemes = new Set(['nordic', 'graphite', 'hitech', 'cobalt-forge', 'carbon-crimson', 'burgundy', 'azure-lagoon', 'moonlit-lilac', 'botanical', 'volt-graphite']);
 const output = process.env.MINUTA_THEME_FAMILY_OUTPUT;
@@ -178,7 +182,9 @@ const server = http.createServer((request, response) => {
         const approved = await page.evaluate(themeKey => {
           document.body.dataset.providerTheme = themeKey;
           const style = getComputedStyle(document.body);
-          return { image:style.backgroundImage, repeat:style.backgroundRepeat, size:style.backgroundSize, overflow:document.documentElement.scrollWidth > innerWidth + 2 };
+          const pseudo = getComputedStyle(document.body, '::before');
+          const schedule = getComputedStyle(document.querySelector('.schedule-card'));
+          return { image:style.backgroundImage, repeat:style.backgroundRepeat, size:style.backgroundSize, pseudoContent:pseudo.content, pseudoMask:pseudo.maskImage || pseudo.webkitMaskImage, scheduleColor:schedule.backgroundColor, overflow:document.documentElement.scrollWidth > innerWidth + 2 };
         }, theme);
         const variant = width <= 760 ? 'mobile' : 'desktop';
         const asset = approvedBackgrounds.get(theme)[variant];
@@ -186,6 +192,11 @@ const server = http.createServer((request, response) => {
         assert.equal(approved.repeat.split(',').every(value => value.trim() === 'no-repeat'), true, `${theme} ${width}px: утверждённый фон начал повторяться`);
         assert.equal(approved.size.split(',').every(value => value.trim() === 'cover'), true, `${theme} ${width}px: утверждённый фон перестал покрывать холст`);
         assert.equal(approved.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
+        if (theme === 'noir-safari') {
+          assert.equal(approved.pseudoContent, 'none', `${theme} ${width}px: вернулся отдельный слой с животным узором`);
+          assert.equal(approved.pseudoMask, 'none', `${theme} ${width}px: вернулась маска животного узора`);
+          assert.notEqual(approved.scheduleColor, 'rgba(0, 0, 0, 0)', `${theme} ${width}px: рабочие карточки должны быть чуть светлее фона`);
+        }
         if (output && screenshotThemes.has(theme)) {
           await page.screenshot({ path:path.join(output, `${theme}-${width}.png`), fullPage:true });
         }
@@ -198,7 +209,7 @@ const server = http.createServer((request, response) => {
       return { theme, image:swatchStyle?.backgroundImage || 'missing', mask:overlayStyle?.maskImage || overlayStyle?.webkitMaskImage || 'none' };
     }), themes);
     for (const preview of previews) assert.equal(preview.image !== 'none' || preview.mask !== 'none', true, `${preview.theme}: превью не показывает новый мотив`);
-    console.log('Provider theme family browser matrix: PASS (32 CSS families + 7 approved canvases × 3 widths).');
+    console.log('Provider theme family browser matrix: PASS (31 CSS families + 8 approved canvases × 3 widths).');
   } finally {
     if (browser) await browser.close();
     server.close();
