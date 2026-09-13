@@ -64,7 +64,157 @@
     let state = null;
     let loading = false;
     let bound = false;
+    let pendingSaleClaim = null;
+    let saleClaimSecret = '';
+    let saleClaimExpiryTimer = 0;
     const activeWrites = new Set();
+
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    function clearSaleClaimResult({ forgetRequest = true } = {}) {
+      saleClaimSecret = '';
+      clearTimeout(saleClaimExpiryTimer);
+      saleClaimExpiryTimer = 0;
+      if (forgetRequest && pendingSaleClaim?.intentKey) clearIntent(pendingSaleClaim.intentKey);
+      if (forgetRequest) pendingSaleClaim = null;
+      const holder = $('#commerceClientAccessResult');
+      if (!holder) return;
+      holder.hidden = true;
+      holder.classList.remove('is-loading', 'is-error');
+      $('#commerceClientAccessTitle').textContent = 'Передайте код клиенту';
+      $('#commerceClientAccessCode').textContent = '';
+      $('#commerceClientAccessCode').hidden = true;
+      $('#commerceClientAccessExpiry').textContent = '';
+      $('#commerceClientAccessExpiry').hidden = true;
+      $('#commerceClientAccessNote').textContent = 'Код одноразовый и открывает только покупки этой организации.';
+      $('#commerceClientAccessCopy').hidden = true;
+      $('#commerceClientAccessCopy').disabled = false;
+      $('#commerceClientAccessRetry').hidden = true;
+      $('#commerceClientAccessRetry').disabled = false;
+    }
+
+    function normalizedSaleClaim(data) {
+      if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== 'object') return null;
+      const token = String(data[0].claim_token || '').trim();
+      const expiresAt = String(data[0].claim_expires_at || '').trim();
+      const expiresTime = Date.parse(expiresAt);
+      const now = Date.now();
+      if (!/^[0-9a-f]{64}$/i.test(token) || !Number.isFinite(expiresTime)
+        || expiresTime <= now - 60_000 || expiresTime > now + 31 * 60_000) return null;
+      return { token, expiresAt, expiresTime };
+    }
+
+    function renderSaleClaimPending() {
+      clearSaleClaimResult({ forgetRequest:false });
+      const holder = $('#commerceClientAccessResult');
+      holder.hidden = false;
+      holder.classList.add('is-loading');
+      $('#commerceClientAccessTitle').textContent = 'Создаём код доступа…';
+      $('#commerceClientAccessNote').textContent = 'Продажа уже проведена. Повторная продажа не создаётся.';
+    }
+
+    function renderSaleClaimError(message, { retry = true } = {}) {
+      saleClaimSecret = '';
+      clearTimeout(saleClaimExpiryTimer);
+      saleClaimExpiryTimer = 0;
+      const holder = $('#commerceClientAccessResult');
+      holder.hidden = false;
+      holder.classList.remove('is-loading');
+      holder.classList.add('is-error');
+      $('#commerceClientAccessTitle').textContent = 'Продажа проведена, код не создан';
+      $('#commerceClientAccessCode').textContent = '';
+      $('#commerceClientAccessCode').hidden = true;
+      $('#commerceClientAccessExpiry').textContent = '';
+      $('#commerceClientAccessExpiry').hidden = true;
+      $('#commerceClientAccessNote').textContent = message;
+      $('#commerceClientAccessCopy').hidden = true;
+      $('#commerceClientAccessRetry').hidden = !retry;
+      applyWriteAvailability?.(holder);
+    }
+
+    function renderSaleClaimSuccess(claim) {
+      saleClaimSecret = claim.token;
+      const holder = $('#commerceClientAccessResult');
+      holder.hidden = false;
+      holder.classList.remove('is-loading', 'is-error');
+      $('#commerceClientAccessTitle').textContent = pendingSaleClaim?.clientName
+        ? `Код для ${pendingSaleClaim.clientName}` : 'Передайте код клиенту';
+      $('#commerceClientAccessCode').textContent = claim.token.toUpperCase().replace(/(.{8})(?=.)/g, '$1 ');
+      $('#commerceClientAccessCode').hidden = false;
+      $('#commerceClientAccessExpiry').textContent = `Действует до ${new Date(claim.expiresAt).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`;
+      $('#commerceClientAccessExpiry').hidden = false;
+      $('#commerceClientAccessNote').textContent = 'Код одноразовый и открывает только покупки этой организации.';
+      $('#commerceClientAccessCopy').hidden = false;
+      $('#commerceClientAccessRetry').hidden = true;
+      clearTimeout(saleClaimExpiryTimer);
+      saleClaimExpiryTimer = setTimeout(() => {
+        if (saleClaimSecret === claim.token) renderSaleClaimError('Срок кода истёк. Повторите только выдачу кода.');
+      }, Math.max(0, claim.expiresTime - Date.now()));
+    }
+
+    function saleClaimErrorMessage(error) {
+      const source = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+      if (source.includes('client_sale_claim_denied') || source.includes('permission') || source.includes('42501')) {
+        return 'Код может выдать только владелец или администратор. Продажу повторять не нужно.';
+      }
+      if (source.includes('issue_client_identity_sale_claim_v155') || source.includes('function') || source.includes('schema cache')) {
+        return 'Сервер ещё не поддерживает выдачу кода. Продажу повторять не нужно.';
+      }
+      if (source.includes('invalid_client_sale_claim_response')) {
+        return 'Сервер не подтвердил безопасный код. Повторите только выдачу кода.';
+      }
+      return 'Повторите только выдачу кода — сама продажа уже сохранена.';
+    }
+
+    async function issueSaleClaim(target) {
+      if (!organization?.id || target?.organizationId !== organization.id
+        || !uuidPattern.test(String(target?.saleId || '')) || !uuidPattern.test(String(target?.clientId || ''))) {
+        renderSaleClaimError('Сервер не подтвердил продажу с выбранным клиентом. Продажу повторять не нужно.', { retry:false });
+        return false;
+      }
+      const userId = getCurrentUser()?.id;
+      const generation = getSessionGeneration();
+      const intent = requestIntent(`${organization.id}:sale-claim`, { sale:target.saleId, client:target.clientId });
+      pendingSaleClaim = { ...target, intentKey:intent.key };
+      renderSaleClaimPending();
+      try {
+        const result = await db.rpc('issue_client_identity_sale_claim_v155', {
+          p_organization:organization.id,
+          p_sale:target.saleId,
+          p_request_id:intent.requestId,
+          p_expires_minutes:10
+        });
+        if (!sessionIsCurrent(userId, generation) || organization?.id !== target.organizationId
+          || pendingSaleClaim?.saleId !== target.saleId || pendingSaleClaim?.clientId !== target.clientId) return false;
+        if (result.error) throw result.error;
+        const claim = normalizedSaleClaim(result.data);
+        if (!claim) throw new Error('invalid_client_sale_claim_response');
+        clearIntent(intent.key);
+        pendingSaleClaim.intentKey = '';
+        renderSaleClaimSuccess(claim);
+        return true;
+      } catch (error) {
+        if (sessionIsCurrent(userId, generation) && organization?.id === target.organizationId
+          && pendingSaleClaim?.saleId === target.saleId && pendingSaleClaim?.clientId === target.clientId) {
+          renderSaleClaimError(saleClaimErrorMessage(error));
+        }
+        return false;
+      }
+    }
+
+    async function copySaleClaim() {
+      if (!saleClaimSecret) return;
+      const button = $('#commerceClientAccessCopy');
+      button.disabled = true;
+      try {
+        await navigator.clipboard.writeText(saleClaimSecret);
+        notify('Код доступа скопирован');
+      } catch {
+        notify('Не удалось скопировать код');
+      } finally {
+        button.disabled = false;
+      }
+    }
 
     function syncSaleFocusMode() {
       document.body.classList.toggle('commerce-sale-open', Boolean($('#commerceSaleCreator')?.open));
@@ -350,12 +500,12 @@
           notify(result.data?.replayed
             ? `${scope === 'sale' ? 'Продажа' : 'Операция'} уже была проведена — повтор не создан`
             : `${scope === 'sale' ? 'Продажа' : 'Операция'} проведена. Список обновится после восстановления связи`);
-          return true;
+          return { ok:true, data:result.data };
         }
         notify(result.data?.replayed
           ? `${scope === 'sale' ? 'Продажа' : 'Операция'} уже была проведена — повтор не создан`
           : `${scope === 'sale' ? 'Продажа' : 'Операция'} проведена`);
-        return true;
+        return { ok:true, data:result.data };
       } finally {
         activeWrites.delete(writeKey);
         submit.textContent = originalLabel;
@@ -371,21 +521,30 @@
       const kind = $('#commerceItemKind').value;
       const quantity = kind === 'benefit_product' ? 1 : number($('#commerceQuantity').value);
       const payload = { kind, item:$('#commerceItem').value, client:$('#commerceClient').value || null, booking:$('#commerceBooking').value || null, seller:$('#commerceSeller').value, warehouse:kind === 'inventory_item' ? $('#commerceWarehouse').value : null, quantity, price:minor($('#commerceUnitPrice').value), discount:minor($('#commerceDiscount').value), method:$('#commercePaymentMethod').value, account:$('#commercePaymentAccount').value };
-      const ok = await write(form, $('#commerceSaleError'), 'sale', payload, 'sell_minuta_commercial_product_v151', {
+      const outcome = await write(form, $('#commerceSaleError'), 'sale', payload, 'sell_minuta_commercial_product_v151', {
         p_organization:organization.id, p_booking:payload.booking, p_client_account:payload.client, p_seller:payload.seller,
         p_item_kind:kind, p_benefit_product:kind === 'benefit_product' ? payload.item : null,
         p_inventory_item:kind === 'inventory_item' ? payload.item : null, p_warehouse:payload.warehouse,
         p_quantity:quantity, p_unit_price_minor:payload.price, p_discount_minor:payload.discount,
         p_payment_method:payload.method, p_payment_account:payload.account
       });
-      if (ok) {
+      if (outcome?.ok) {
+        const claimTarget = !payload.booking && payload.client && ['cash', 'manual'].includes(payload.method)
+          ? {
+              organizationId:organization.id,
+              saleId:String(outcome.data?.id || ''),
+              clientId:payload.client,
+              clientName:(state?.clients || []).find(item => item.id === payload.client)?.name || ''
+            }
+          : null;
         form.reset();
         $('#commerceQuantity').value = '1';
         $('#commerceDiscount').value = '0';
         selectSaleSeller();
-        $('#commerceSaleCreator').open = false;
+        $('#commerceSaleCreator').open = Boolean(claimTarget);
         syncSaleFocusMode();
         render();
+        if (claimTarget) await issueSaleClaim(claimTarget);
       }
     }
 
@@ -471,7 +630,7 @@
       $('#commerceFinanceEnabled')?.addEventListener('change', event => void toggleFinance(event));
       $('#commerceItemKind')?.addEventListener('change', () => { renderItemControls(); updateSaleValidity(); });
       $('#commerceItem')?.addEventListener('change', () => { renderItemControls(); updateSaleValidity(); });
-      $('#commerceClient')?.addEventListener('change', () => { renderBookings(); updateSaleValidity(); });
+      $('#commerceClient')?.addEventListener('change', () => { clearSaleClaimResult(); renderBookings(); updateSaleValidity(); });
       $('#commerceBooking')?.addEventListener('change', event => {
         const booking = (state?.bookings || []).find(item => item.id === event.currentTarget.value);
         if (booking?.client_account_id) { $('#commerceClient').value = booking.client_account_id; renderBookings(); $('#commerceBooking').value = booking.id; selectSaleSeller(booking.performer_id); }
@@ -481,7 +640,14 @@
       $('#commerceSaleForm')?.addEventListener('submit', event => void submitSale(event));
       $('#commerceSaleForm')?.addEventListener('input', updateSaleValidity);
       $('#commerceSaleForm')?.addEventListener('change', updateSaleValidity);
-      $('#commerceSaleCreator')?.addEventListener('toggle', syncSaleFocusMode);
+      $('#commerceSaleCreator')?.addEventListener('toggle', event => {
+        syncSaleFocusMode();
+        if (!event.currentTarget.open) clearSaleClaimResult();
+      });
+      $('#commerceClientAccessCopy')?.addEventListener('click', () => void copySaleClaim());
+      $('#commerceClientAccessRetry')?.addEventListener('click', () => {
+        if (pendingSaleClaim) void issueSaleClaim(pendingSaleClaim);
+      });
       $('#commerceRefundForm')?.addEventListener('submit', event => void submitRefund(event));
       $('#commerceRefundSale')?.addEventListener('change', event => {
         if (event.currentTarget.value) selectRefundSale(event.currentTarget.value);
@@ -510,6 +676,7 @@
       bind,
       load,
       startSale({ bookingId = '', clientId = '' } = {}) {
+        clearSaleClaimResult();
         $('#commerceSaleCreator').open = true;
         syncSaleFocusMode();
         if (clientId && [...$('#commerceClient').options].some(option => option.value === clientId)) $('#commerceClient').value = clientId;
@@ -523,12 +690,14 @@
       },
       async setOrganization(next) {
         if (organization?.id === next?.id && state) return;
+        clearSaleClaimResult();
         organization = next || null;
         state = null;
         $('#commerceWorkspace').hidden = true;
         if (organization?.id) await load();
       },
       reset() {
+        clearSaleClaimResult();
         organization = null;
         state = null;
         $('#commerceWorkspace').hidden = true;
