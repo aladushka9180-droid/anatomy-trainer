@@ -260,6 +260,7 @@ const CLIENT_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all']
 const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
 const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
   { key:'bookings', label:'Записи', icon:'grid' },
+  { key:'messages', label:'Сообщения', icon:'external' },
   { key:'notifications', label:'Уведомления', icon:'bell' },
   { key:'analytics', label:'Статистика', icon:'chart' },
   { key:'schedule', label:'Рабочие часы', icon:'clock' },
@@ -270,12 +271,12 @@ const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
   { key:'waitlist', label:'Ожидание', icon:'clock' },
   { key:'settings', label:'Настройки', icon:'settings' }
 ]);
-const DEFAULT_MOBILE_NAV = Object.freeze(['bookings', 'clients', 'notifications', 'analytics']);
+const DEFAULT_MOBILE_NAV = Object.freeze(['bookings', 'clients', 'messages', 'notifications']);
 const PROVIDER_ROLE_KEYS = Object.freeze(['owner','admin','specialist']);
 const DEFAULT_MOBILE_NAV_BY_ROLE = Object.freeze({
-  owner:Object.freeze(['bookings','clients','notifications','analytics']),
-  admin:Object.freeze(['bookings','clients','notifications','analytics']),
-  specialist:Object.freeze(['bookings','clients','notifications','analytics'])
+  owner:Object.freeze(['bookings','clients','messages','notifications']),
+  admin:Object.freeze(['bookings','clients','messages','notifications']),
+  specialist:Object.freeze(['bookings','clients','messages','notifications'])
 });
 const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v1';
 const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
@@ -309,12 +310,12 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   show_notes: false,
   ios_transitions: true,
   team_calendar_enabled: false,
-  mobile_nav: ['bookings', 'clients', 'notifications', 'analytics'],
+  mobile_nav: ['bookings', 'clients', 'messages', 'notifications'],
   mobile_nav_by_role: DEFAULT_MOBILE_NAV_BY_ROLE,
   view_order_by_role: Object.freeze({
-    owner:Object.freeze(['bookings','analytics','organization','notifications','clients','schedule','services','portfolio','waitlist','settings']),
-    admin:Object.freeze(['bookings','notifications','clients','schedule','organization','analytics','services','waitlist','portfolio','settings']),
-    specialist:Object.freeze(['bookings','schedule','clients','notifications','services','waitlist','analytics','portfolio','organization','settings'])
+    owner:Object.freeze(['bookings','analytics','organization','messages','notifications','clients','schedule','services','portfolio','waitlist','settings']),
+    admin:Object.freeze(['bookings','messages','notifications','clients','schedule','organization','analytics','services','waitlist','portfolio','settings']),
+    specialist:Object.freeze(['bookings','schedule','clients','messages','notifications','services','waitlist','analytics','portfolio','organization','settings'])
   }),
   analytics_goals: Object.freeze({ revenue_rub:0, utilization_percent:70, repeat_percent:35, cancellation_percent:10 }),
   analytics_goals_by_scope: Object.freeze({})
@@ -330,6 +331,8 @@ const PER_MINUTE_BOOKING_MAX = 480;
 const BOOKING_RENDER_PAGE_SIZE = 100;
 const CLIENT_RENDER_PAGE_SIZE = 80;
 let currentUser = null;
+let providerMessagesController = null;
+let providerMessagesOrganizationId = '';
 let providerLoginPhone = '';
 let providerLoginCodeRequested = false;
 let providerLinkPhone = '';
@@ -1874,6 +1877,7 @@ function normalizeMobileNavigation(value) {
 }
 function normalizeProviderRole(value) { return PROVIDER_ROLE_KEYS.includes(value) ? value : 'specialist'; }
 const LEGACY_MOBILE_NAV_SIGNATURES = new Set([
+  'bookings|clients|notifications|analytics',
   'bookings|notifications|analytics|schedule',
   'bookings|analytics|organization|notifications',
   'bookings|notifications|clients|schedule',
@@ -1882,7 +1886,7 @@ const LEGACY_MOBILE_NAV_SIGNATURES = new Set([
 ]);
 function migrateLegacyMobileNavigation(value, version = 0) {
   const normalized = normalizeMobileNavigation(value);
-  return Number(version) < 6 && LEGACY_MOBILE_NAV_SIGNATURES.has(normalized.join('|'))
+  return Number(version) < 9 && LEGACY_MOBILE_NAV_SIGNATURES.has(normalized.join('|'))
     ? [...DEFAULT_MOBILE_NAV]
     : normalized;
 }
@@ -2034,7 +2038,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
   if (!userId) return;
   try {
     localStorage.setItem(providerDisplayStorageKey(userId), JSON.stringify({
-      version: 8,
+      version: 9,
       preferences: displayPreferences,
       updated_at: displayPreferencesUpdatedAt,
       pending: displayPreferencesPending
@@ -2056,7 +2060,7 @@ function restoreDisplayPreferences(user = currentUser) {
 function displayPreferencesServerSnapshot() {
   return {
     ...displayPreferences,
-    version: 8,
+    version: 9,
     updated_at: displayPreferencesUpdatedAt
   };
 }
@@ -2127,7 +2131,7 @@ function groupMobileMoreNavigation() {
     section.remove();
   });
   const groups = [
-    { title:'Ежедневная работа', keys:['bookings','clients','notifications','waitlist'] },
+    { title:'Ежедневная работа', keys:['bookings','clients','messages','notifications','waitlist'] },
     { title:'Настройка бизнеса', keys:['schedule','services','organization'] },
     { title:'Развитие', keys:['analytics','portfolio'] },
     { title:'Система', keys:['feedback-inbox','settings'], extras:['.mobile-help-shortcut','[data-open-product-feedback]'] }
@@ -2904,6 +2908,10 @@ function clientMessageButtonMarkup(item, label = 'Написать клиент�
   const name = item.client_name || 'Клиент';
   const reschedule = `Здравствуйте, ${name}! Ваша запись перенесена. Новые дата и время: укажите здесь.`;
   return `<button class="secondary-button client-message-action" type="button" data-message-client data-client-phone="${escapeHtml(item.client_phone)}" data-client-name="${escapeHtml(name)}" data-message-confirmation="${escapeHtml(composeNotificationMessage('confirmation', item))}" data-message-reminder="${escapeHtml(composeNotificationMessage('reminder', item))}" data-message-reschedule="${escapeHtml(reschedule)}" data-message-cancellation="${escapeHtml(composeNotificationMessage('cancellation', item))}">${escapeHtml(label)}</button>`;
+}
+function providerConversationButtonMarkup(item) {
+  if (isScheduleBlock(item) || item?.is_imported_history || !/^[0-9a-f-]{36}$/i.test(String(item?.id || ''))) return '';
+  return `<button class="primary client-message-action" type="button" data-open-message-booking="${escapeHtml(item.id)}">Открыть диалог</button>`;
 }
 function outcomeStorageKey() { return `massage-booking-outcomes-${currentUser?.id || 'guest'}`; }
 function sessionItemsStorageKey(userId = currentUser?.id) { return `massage-booking-session-items-${userId || 'guest'}`; }
@@ -5735,7 +5743,7 @@ async function testVisitorSystemNotification() {
 
 let activeIosTransition = null;
 let activeIosTransitionCleanup = null;
-const PROVIDER_VIEW_ORDER = ['bookings', 'clients', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'feedback-inbox', 'settings', 'more'];
+const PROVIDER_VIEW_ORDER = ['bookings', 'clients', 'messages', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'feedback-inbox', 'settings', 'more'];
 
 function providerViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
@@ -6376,6 +6384,32 @@ function showRecoverySent() {
   $('#authTitle').textContent = 'Проверьте почту.';
   $('#authDescription').textContent = 'Ссылка для восстановления доступа уже отправлена.';
 }
+function resetProviderMessagesCenter() {
+  providerMessagesController?.destroy?.();
+  providerMessagesController = null;
+  providerMessagesOrganizationId = '';
+}
+async function loadProviderMessagesCenter() {
+  const root = $('#providerMessagesRoot');
+  const organization = organizationController?.getActiveOrganization?.();
+  if (!root || !currentUser || !organization?.id || !window.MinutaProviderMessages?.mount) return null;
+  if (providerMessagesController && providerMessagesOrganizationId === organization.id) {
+    await providerMessagesController.reload();
+    return providerMessagesController;
+  }
+  resetProviderMessagesCenter();
+  providerMessagesOrganizationId = organization.id;
+  providerMessagesController = await window.MinutaProviderMessages.mount({ root, db, organizationId:organization.id });
+  return providerMessagesController;
+}
+async function openProviderMessageForBooking(bookingId) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(bookingId || ''))) return;
+  closeBookingSheet();
+  await Promise.resolve(setProviderView('messages'));
+  const controller = await loadProviderMessagesCenter();
+  const selected = await controller?.openBooking?.(String(bookingId)).catch(() => false);
+  if (!selected) notify('Диалог пока недоступен. Записи и уведомления продолжают работать.');
+}
 function setProviderViewImmediate(view, focusHeading = false) {
   $('#dashboard').dataset.activeView = view;
   if (view === 'bookings' && bookingUsesDemoData()) {
@@ -6406,6 +6440,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
     if (bookingUsesDemoData()) mobileCreate.hidden = true;
   }
   if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); void loadImportantNotificationEvents(); }
+  if (view === 'messages') void loadProviderMessagesCenter();
   if (view === 'analytics') renderAnalytics();
   if (view === 'clients' && currentUser && navigator.onLine && !clientAvatarsLoaded) void loadClientAvatars();
   if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
@@ -6415,7 +6450,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
     renderWaitlist();
     if (currentUser && navigator.onLine && !waitlistLoaded) void loadWaitlist();
   }
-  if (['clients', 'notifications', 'settings', 'organization', 'more'].includes(view)) void loadProviderGuidance().catch(() => {});
+  if (['clients', 'messages', 'notifications', 'settings', 'organization', 'more'].includes(view)) void loadProviderGuidance().catch(() => {});
   if (view === 'organization') {
     if (organizationController.availability === null) organizationController.load();
     else organizationController.render();
@@ -8280,6 +8315,7 @@ function openBookingSheet(id) {
   const statusClass = bookingStatusClass(item);
   const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
   const messageButton = clientMessageButtonMarkup(item);
+  const conversationButton = providerConversationButtonMarkup(item);
   const note = bookingDisplayNote(item);
   const outcome = bookingOutcome(item);
   const minuteRate = bookingMinuteRate(item);
@@ -8343,7 +8379,7 @@ function openBookingSheet(id) {
     ${quickVisitOutcomeMarkup(item)}
     ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
     </div>
-    ${messageButton ? `<div class="booking-sheet-actions booking-message-actions">${messageButton}</div>` : ''}
+    ${conversationButton || messageButton ? `<div class="booking-sheet-actions booking-message-actions">${conversationButton}${messageButton}</div>` : ''}
     ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button>${item.series_id ? `<button class="secondary-button danger" type="button" data-cancel-booking-series="${item.id}">Отменить</button>` : ''}</div>` : ''}
     <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись</button></div>`;
   $('#bookingSheet').hidden = false;
@@ -15403,6 +15439,7 @@ document.addEventListener('click', async event => {
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
+  const openMessageBooking = event.target.closest('[data-open-message-booking]');
   const openAutomaticBreak = event.target.closest('[data-open-automatic-break]');
   const releaseAutomaticBreakButton = event.target.closest('[data-release-automatic-break]');
   const openAutomaticBreakSettingsButton = event.target.closest('[data-open-automatic-break-settings]');
@@ -15468,6 +15505,10 @@ document.addEventListener('click', async event => {
         });
       }));
     }
+  }
+  if (openMessageBooking) {
+    event.preventDefault();
+    void openProviderMessageForBooking(openMessageBooking.dataset.openMessageBooking);
   }
   if (sectionTarget) {
     event.preventDefault();
@@ -16336,6 +16377,7 @@ const organizationController = window.MinutaOrganization.createController({
   onActiveOrganizationChange: organization => {
     const nextClientOrganizationId = organization?.id || '';
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
+    if (clientOrganizationChanged) resetProviderMessagesCenter();
     if (clientOrganizationChanged) freeSlotsController?.invalidateScope();
     activeClientOrganizationId = nextClientOrganizationId;
     if (clientOrganizationChanged) bookingSeriesCancellationRevision += 1;
@@ -16595,7 +16637,7 @@ function providerAssistantOpenBookingId() {
 function providerAssistantScreenContext(readable = false, offline = false) {
   const view = String($('#dashboard')?.dataset.activeView || providerViewFromLocation() || 'bookings');
   const viewLabel = ({
-    bookings:'Записи', clients:'Клиенты', notifications:'Уведомления', waitlist:'Лист ожидания', analytics:'Статистика',
+    bookings:'Записи', clients:'Клиенты', messages:'Сообщения', notifications:'Уведомления', waitlist:'Лист ожидания', analytics:'Статистика',
     schedule:'Рабочие часы', services:'Услуги', organization:'Организация', portfolio:'Портфолио', settings:'Настройки'
   })[view] || 'Кабинет';
   const bookingId = providerAssistantOpenBookingId();
@@ -16852,7 +16894,7 @@ window.MinutaProviderAssistant = Object.freeze({
     return { ok:true, analysis:result.data.analysis };
   },
   openSection(section = '') {
-    const allowed = new Set(['bookings', 'clients', 'notifications', 'waitlist', 'schedule', 'services', 'organization', 'analytics', 'portfolio', 'settings']);
+    const allowed = new Set(['bookings', 'clients', 'messages', 'notifications', 'waitlist', 'schedule', 'services', 'organization', 'analytics', 'portfolio', 'settings']);
     const view = String(section || '');
     if (!currentUser || !allowed.has(view)) return { ok:false, reason:'invalid_request' };
     captureProviderAssistantNavigation();

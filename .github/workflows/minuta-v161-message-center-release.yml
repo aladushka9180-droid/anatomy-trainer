@@ -1,0 +1,185 @@
+name: Minuta v161 message center release
+run-name: Minuta v161 - ${{ inputs.phase }} - ${{ inputs.expected_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        type: choice
+        options: [test, validate-production, apply-production, observe]
+        required: true
+      expected_sha:
+        required: true
+      test_run_id:
+        required: false
+      validation_run_id:
+        required: false
+      backup_run_id:
+        required: false
+      restore_run_id:
+        required: false
+      confirmation:
+        required: false
+
+permissions: { contents: read, actions: read }
+concurrency: { group: minuta-v161-production-database, cancel-in-progress: false }
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.expected_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.expected_sha }}" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "${{ inputs.expected_sha }}"
+          test "${{ github.sha }}" = "${{ inputs.expected_sha }}"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "${{ inputs.expected_sha }}"
+      - run: node minuta-online-booking/tests/message-center-v161-static-test.mjs
+
+  isolated-postgres:
+    if: inputs.phase == 'test'
+    needs: static
+    runs-on: ubuntu-latest
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: MIGRATE_ONLY_ISOLATED_TEST_DATABASE
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.expected_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - run: npm install --prefix "$RUNNER_TEMP/v161-pg" --no-save --ignore-scripts pg@8.16.3
+      - name: Apply baseline and v161 twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"; export MINUTA_TEST_DATABASE_URL="$db"
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/v161-pg/node_modules/pg/lib/index.js"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-state.sql | grep '^{' | tail -1)"
+          case "$(jq -r .classification <<<"$state")" in
+            absent) ;;
+            exact) psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v161-schema-rollback.sql ;;
+            *) exit 1 ;;
+          esac
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v161.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v161.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/message-center-v161-integration.sql
+          node minuta-online-booking/tests/message-center-v161-postgres-concurrency-test.mjs
+      - name: Rollback and reapply rehearsal
+        run: |
+          set -euo pipefail
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-business-counts.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v161-schema-rollback.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v161.sql
+          contract="$(node minuta-online-booking/scripts/message-center-v161-contract.mjs)"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-state.sql | grep '^{' | tail -1)"
+          jq -e --argjson contract "$contract" '.classification=="exact" and .tables==$contract.tables and .functions==$contract.functions' <<<"$state" >/dev/null
+          counts="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-business-counts.sql | grep '^{' | tail -1)"
+          jq -n --arg sha "${{ inputs.expected_sha }}" --argjson contract "$contract" --argjson state "$state" --argjson counts "$counts" \
+            '{status:"success",phase:"test",commitSha:$sha,isolatedDatabase:true,productionWritten:false,contract:$contract,state:$state,counts:$counts}' > "$RUNNER_TEMP/v161-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v161-test-${{ github.run_id }}", path: "${{ runner.temp }}/v161-test.json", if-no-files-found: error, retention-days: 90 }
+
+  production-readonly:
+    if: inputs.phase == 'validate-production' || inputs.phase == 'observe'
+    needs: static
+    runs-on: ubuntu-latest
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.expected_sha }}", persist-credentials: false }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Validate exact or absent production state read-only
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          contract="$(node minuta-online-booking/scripts/message-center-v161-contract.mjs)"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-state.sql | grep '^{' | tail -1)"
+          jq -e --argjson contract "$contract" '.classification=="absent" or (.classification=="exact" and .tables==$contract.tables and .functions==$contract.functions)' <<<"$state" >/dev/null
+          if test "$(jq -r .classification <<<"$state")" = exact; then
+            counts="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-business-counts.sql | grep '^{' | tail -1)"
+          else counts='{"settings":0,"supportAgents":0,"conversations":0,"messages":0,"systemEvents":0,"actions":0,"supportRequests":0,"attachments":0,"auditEvents":0}'; fi
+          jq -n --arg sha "${{ inputs.expected_sha }}" --argjson contract "$contract" --argjson state "$state" --argjson counts "$counts" \
+            '{status:"success",phase:"validate-production",commitSha:$sha,readOnly:true,productionWritten:false,contract:$contract,state:$state,counts:$counts}' > "$RUNNER_TEMP/v161-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v161-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v161-validation.json", if-no-files-found: error, retention-days: 90 }
+
+  production-apply:
+    if: inputs.phase == 'apply-production'
+    needs: static
+    runs-on: ubuntu-latest
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.expected_sha }}", persist-credentials: false }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify exact-SHA prerequisite runs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -n "${{ inputs.test_run_id }}" && test -n "${{ inputs.validation_run_id }}" && test -n "${{ inputs.backup_run_id }}" && test -n "${{ inputs.restore_run_id }}"
+          test "${{ inputs.confirmation }}" = BACKUP_VERIFIED
+          SHA="${{ inputs.expected_sha }}"; TEST="${{ inputs.test_run_id }}"; VALIDATION="${{ inputs.validation_run_id }}"; BACKUP="${{ inputs.backup_run_id }}"; RESTORE="${{ inputs.restore_run_id }}"
+          check_run(){
+            run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"
+            test "$(jq -r .conclusion <<<"$run_json")" = success
+            test "$(jq -r .head_sha <<<"$run_json")" = "$SHA"
+            test "$(jq -r .head_branch <<<"$run_json")" = main
+            test "$(jq -r .event <<<"$run_json")" = workflow_dispatch
+            test "$(jq -r .path <<<"$run_json")" = "$2"
+            age=$(( $(date +%s)-$(date -d "$(jq -r .created_at <<<"$run_json")" +%s) ))
+            test "$age" -ge 0 && test "$age" -le 7200
+          }
+          check_run "$TEST" .github/workflows/minuta-v161-message-center-release.yml
+          check_run "$VALIDATION" .github/workflows/minuta-v161-message-center-release.yml
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          backup_created="$(jq -r .created_at <<<"$run_json")"
+          check_run "$RESTORE" .github/workflows/minuta-supabase-restore-drill.yml
+          test "$(date -d "$(jq -r .created_at <<<"$run_json")" +%s)" -ge "$(date -d "$backup_created" +%s)"
+          evidence="$RUNNER_TEMP/v161-evidence"; mkdir -p "$evidence"/{test,validation,restore}
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v161-test-$TEST" -D "$evidence/test"
+          gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v161-validation-$VALIDATION" -D "$evidence/validation"
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE" -D "$evidence/restore"
+          contract="$(node minuta-online-booking/scripts/message-center-v161-contract.mjs)"
+          jq -e --arg sha "$SHA" --argjson contract "$contract" '.status=="success" and .phase=="test" and .commitSha==$sha and .isolatedDatabase and (.productionWritten|not) and .contract==$contract and .state.classification=="exact"' "$evidence/test/v161-test.json" >/dev/null
+          jq -e --arg sha "$SHA" --argjson contract "$contract" '.status=="success" and .phase=="validate-production" and .commitSha==$sha and .readOnly and (.productionWritten|not) and .contract==$contract and (.state.classification=="absent" or .state.classification=="exact")' "$evidence/validation/v161-validation.json" >/dev/null
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" '.status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed and (.productionWritten|not) and .sourceBackupRunId==$backup and .sourceBackupSha==$sha' "$evidence/restore/minuta-ephemeral-restore.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - name: Apply disabled-by-default migration
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"; bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "${{ inputs.expected_sha }}"
+          contract="$(node minuta-online-booking/scripts/message-center-v161-contract.mjs)"
+          state_before="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-state.sql | grep '^{' | tail -1)"
+          jq -e --argjson contract "$contract" '.classification=="absent" or (.classification=="exact" and .tables==$contract.tables and .functions==$contract.functions)' <<<"$state_before" >/dev/null
+          if test "$(jq -r .classification <<<"$state_before")" = exact; then
+            before="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-business-counts.sql | grep '^{' | tail -1)"
+          else before='{"settings":0,"supportAgents":0,"conversations":0,"messages":0,"systemEvents":0,"actions":0,"supportRequests":0,"attachments":0,"auditEvents":0}'; fi
+          psql "$db" -X -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v161.sql
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-state.sql | grep '^{' | tail -1)"
+          jq -e --argjson contract "$contract" '.classification=="exact" and .tables==$contract.tables and .functions==$contract.functions' <<<"$state" >/dev/null
+          after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v161-business-counts.sql | grep '^{' | tail -1)"
+          test "$(jq -S . <<<"$after")" = "$(jq -S . <<<"$before")"

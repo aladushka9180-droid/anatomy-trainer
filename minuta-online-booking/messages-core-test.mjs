@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';import vm from 'node:vm';import crypto from 'node:crypto';
+const source=fs.readFileSync(new URL('./messages-core.js',import.meta.url),'utf8');
+const memory=new Map();const context={crypto,sessionStorage:{getItem:key=>memory.get(key)||null,setItem:(key,value)=>memory.set(key,value),removeItem:key=>memory.delete(key)}};
+vm.runInNewContext(source,context);const core=context.MinutaMessagesCore;
+assert.ok(core);assert.equal(core.normalizeMessage({}),null);
+const conversation='11111111-1111-4111-8111-111111111111';
+const outbox=core.createOutbox({storage:context.sessionStorage,scope:'test'});const queued=outbox.queue(conversation,'Один раз','client',true);
+let sends=0;const acknowledged=await core.sendOutboxEntry({entry:queued,outbox,online:true,send:async payload=>{sends++;return core.normalizeMessage({id:'22222222-2222-4222-8222-222222222222',conversation_id:conversation,client_request_id:payload.client_request_id,sequence:2,kind:'human',author_kind:'client',body:payload.body,created_at:new Date().toISOString()})}});
+assert.equal(acknowledged.client_request_id,queued.client_request_id);assert.equal(sends,1);assert.equal(outbox.list().length,0);
+const lost=outbox.queue(conversation,'Без дубля','client',true);let lookupId='';const recovered=await core.sendOutboxEntry({entry:lost,outbox,online:true,send:async()=>{throw new TypeError('Failed to fetch')},lookup:async id=>{lookupId=id;return {id:'33333333-3333-4333-8333-333333333333',conversation_id:conversation,client_request_id:id,sequence:3,kind:'human',author_kind:'client',body:'Без дубля',created_at:new Date().toISOString()}}});
+assert.equal(lookupId,lost.client_request_id);assert.equal(recovered.client_request_id,lost.client_request_id);assert.equal(outbox.list().length,0);
+const offline=outbox.queue(conversation,'Позже','client',false);assert.equal((await core.sendOutboxEntry({entry:offline,outbox,online:false,send:async()=>assert.fail()})).status,'queued-offline');
+console.log('messages-core-test: ok');

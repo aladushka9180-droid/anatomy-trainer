@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>PREVIEW · Центр сообщений</title>
+  <link rel="stylesheet" href="messages-center.css?v=161">
+  <style>body{--theme-bg:#111916;--theme-surface:#17231e;--theme-surface-alt:#22332b;--theme-ink:#eef6f0;--theme-muted:#a9bbb0;--theme-line:#3a5145;--theme-accent:#73a987;--theme-accent-soft:#294536;--theme-accent-contrast:#07150d;margin:0;background:#111916;color:#eef6f0;font-family:Inter,system-ui,sans-serif}.preview-warning{padding:9px 16px;background:#ffcf66;color:#251b00;text-align:center;font-size:12px;font-weight:900;letter-spacing:.08em}.preview-wrap{padding:20px}@media(max-width:760px){.preview-wrap{padding:0}}</style>
+</head>
+<body>
+  <div class="preview-warning" role="note">PREVIEW · ТЕСТОВЫЕ ДАННЫЕ · НИЧЕГО НЕ ОТПРАВЛЯЕТСЯ</div>
+  <main class="preview-wrap"><div id="providerMessagesRoot"></div></main>
+  <script src="messages-core.js?v=161"></script><script src="provider-messages-center.js?v=161"></script>
+  <script>
+  (()=>{
+    const ids={conversation:'11111111-1111-4111-8111-111111111111',support:'22222222-2222-4222-8222-222222222222',action:'33333333-3333-4333-8333-333333333333'};
+    const conversations=[
+      {conversation_id:ids.conversation,kind:'client',title:'Анна · preview',service_name:'Массаж спины',booking_code:'PREVIEW-1042',booking_id:'44444444-4444-4444-8444-444444444444',last_activity_at:'2026-09-15T09:40:00Z',last_preview:'Подскажите, где вход?',unread_count:2,can_send:true},
+      {conversation_id:ids.support,kind:'support',title:'Поддержка PrimeTime · preview',last_activity_at:'2026-09-15T08:20:00Z',last_preview:'Специалист ответит здесь',unread_count:0,can_send:true}
+    ];
+    const entries=[
+      {message_id:'55555555-5555-4555-8555-555555555555',conversation_id:ids.conversation,entry_kind:'message',sequence:1,created_at:'2026-09-15T09:20:00Z',sender_role:'client',body:'Здравствуйте! Подскажите, где вход?'},
+      {conversation_id:ids.conversation,entry_kind:'system',sequence:2,created_at:'2026-09-15T09:24:00Z',event_type:'Запись подтверждена'},
+      {message_id:'66666666-6666-4666-8666-666666666666',conversation_id:ids.conversation,entry_kind:'message',sequence:3,created_at:'2026-09-15T09:32:00Z',sender_role:'owner',body:'Вход со двора, рядом с вывеской PrimeTime.'},
+      {message_id:'77777777-7777-4777-8777-777777777777',conversation_id:ids.conversation,entry_kind:'message',sequence:4,created_at:'2026-09-15T09:38:00Z',sender_role:'owner',body:'Предлагаю немного позже.',action:{action_id:ids.action,action_type:'propose_time',state:'proposed',payload:{target_date:'2026-09-16',target_time:'16:30'}}}
+    ];
+    window.previewBridgeState={mode:'online',sequence:4};
+    const bridge={
+      capability:async()=>({enabled:true,support_enabled:true,media_enabled:false,transcription_enabled:false}),
+      listConversations:async()=>{if(window.previewBridgeState.mode==='error')throw Error('preview_error');return MinutaProviderMessages.normalizeConversationEnvelope({items:conversations})},
+      timeline:async({conversationId})=>MinutaProviderMessages.normalizeTimelineEnvelope({items:conversationId===ids.conversation?entries:[]},conversationId),
+      send:async payload=>{if(window.previewBridgeState.mode==='lost-ack')throw TypeError('Failed to fetch');const sequence=++window.previewBridgeState.sequence;const row={message_id:crypto.randomUUID(),conversation_id:payload.conversation_id,client_request_id:payload.client_request_id,entry_kind:'message',sequence,created_at:new Date().toISOString(),sender_role:'owner',body:payload.body};entries.push(row);return MinutaMessagesCore.normalizeMessage({...row,kind:'human',author_kind:'provider'})},
+      lookup:async({requestId})=>entries.map(item=>MinutaMessagesCore.normalizeMessage({...item,kind:item.entry_kind==='system'?'system':'human',author_kind:item.entry_kind==='system'?'system':item.sender_role==='client'?'client':'provider'})).find(item=>item&&item.client_request_id===requestId)||null,
+      markRead:async()=>({}), proposeAction:async()=>({action_id:crypto.randomUUID()}),
+      openSupport:async()=>({conversation_id:ids.support})
+    };
+    const root=document.querySelector('#providerMessagesRoot');
+    window.previewMessageCenter=MinutaProviderMessages.createMessageCenter({root,bridge,actorKind:'provider',scope:'preview-provider',bookingReturnUrl:'provider.html?section=bookings',diagnosticsPreview:()=>[{key:'app_version',label:'Версия интерфейса',value:'preview-v161'},{key:'online',label:'Соединение',value:navigator.onLine}]});
+    window.previewMessageCenter.initialize();
+  })();
+  </script>
+</body>
+</html>

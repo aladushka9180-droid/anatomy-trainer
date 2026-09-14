@@ -72,7 +72,7 @@ const siteUpdate = readFileSync(join(root, 'site-update.js'), 'utf8');
 assert.match(siteUpdate, new RegExp(`sw\\.js\\?v=${version}`), 'Регистрация service worker использует другую версию');
 assert.match(settingsSmartSearch, /cabinetSectionsSearchInput[\s\S]*VIEW_ALIASES[\s\S]*findSections/, 'В меню «Разделы» нет умного поиска');
 assert.match(settingsSmartSearch, /startSectionsVoiceSearch[\s\S]*SpeechRecognition/, 'В меню «Разделы» нет голосового поиска');
-assert.match(provider, /\['clients', 'notifications', 'settings', 'organization', 'more'\]\.includes\(view\)[\s\S]*loadProviderGuidance/, 'Контекстные подсказки и умный поиск не загружаются в нужных разделах');
+assert.match(provider, /\['clients', 'messages', 'notifications', 'settings', 'organization', 'more'\]\.includes\(view\)[\s\S]*loadProviderGuidance/, 'Контекстные подсказки и умный поиск не загружаются в нужных разделах');
 assert.match(settingsNavScroll, /settings-section-picker/, 'На телефоне нет компактного выбора раздела настроек');
 assert.match(settingsNavScroll, /button\?\.click\(\)/, 'Выбор раздела не открывает соответствующую настройку');
 assert.match(indexHtml, /id="specialistFilter"[\s\S]*id="specialists"[\s\S]*role="group"/, 'На клиентской странице нет выбора специалиста');
@@ -180,7 +180,7 @@ assert.match(providerHtml, /Полный текст команды не сохр
 assert.match(provider, /db\.functions\.invoke\('assistant-understand'/, 'Защищённый серверный ИИ-разбор не подключён');
 assert.match(provider, /new TextEncoder\(\)\.encode\(JSON\.stringify\(body\)\)\.byteLength > 24 \* 1024/, 'ИИ-запрос из кабинета не ограничен по размеру');
 assert.match(provider, /openSection\(section = ''\)/, 'Помощник не может безопасно открыть нужный раздел кабинета');
-assert.match(provider, /new Set\(\['bookings', 'clients', 'notifications'.*'settings'\]\)/, 'Навигация помощника не ограничена белым списком разделов');
+assert.match(provider, /new Set\(\['bookings', 'clients', 'messages', 'notifications'.*'settings'\]\)/, 'Навигация помощника не ограничена белым списком разделов');
 assert.match(voiceAssistant, /function workspaceNavigationModel[\s\S]*section:'waitlist'[\s\S]*section:'portfolio'[\s\S]*section:'organization'[\s\S]*section:'analytics'/, 'Прямые команды навигации покрывают не все разделы кабинета');
 assert.match(voiceAssistant, /data-voice-open-client/, 'Поиск клиента не позволяет открыть найденную карточку');
 assert.match(provider, /openClient\(request = \{\}\)[\s\S]*providerAssistantClientLookup[\s\S]*renderClientDetail/, 'Безопасный переход в карточку клиента не подключён');
@@ -561,7 +561,7 @@ assert.match(styles, /Окно ручной записи[\s\S]*?data-provider-th
 assert.match(styles, /Карточка записи Luxury:[\s\S]*?\.booking-sheet-meta \.booking-status\.status-confirmed[\s\S]*?background:#241d12;[\s\S]*?color:#efbd59/, 'Подтверждённая запись Luxury снова использует зелёный статус');
 assert.match(styles, /data-provider-theme="luxury"\] \.booking-sheet-client a,[\s\S]*?\.booking-session-heading button[\s\S]*?color:#e5b75d/, 'Телефон и действия карточки записи Luxury снова стали зелёными');
 assert.match(styles, /data-provider-theme="luxury"\] \.booking-sheet-actions \.whatsapp-action \{[\s\S]*?background:linear-gradient\(145deg,#a9772e,#d9a950[\s\S]*?color:#1c1207!important/, 'WhatsApp в карточке записи Luxury не использует золотую кнопку');
-assert.match(provider, /<div class="booking-sheet-secondary">\s*\$\{bookingSessionMarkup\(item\)\}[\s\S]*?<\/div>\s*(?:\$\{messageButton[\s\S]*?\}\s*)?\$\{item\.status !== 'cancelled'/, 'Дополнительные разделы карточки записи больше не собраны в единый компактный блок');
+assert.match(provider, /<div class="booking-sheet-secondary">\s*\$\{bookingSessionMarkup\(item\)\}[\s\S]*?<\/div>\s*\$\{conversationButton \|\| messageButton[\s\S]*?\}\s*\$\{item\.status !== 'cancelled'/, 'Дополнительные разделы карточки записи больше не собраны в единый компактный блок');
 assert.match(provider, /function sessionServiceOptions[\s\S]*?duration === 1 \? `\$\{money\(price\)\}\/мин` : `\$\{duration\} мин · \$\{money\(price\)\}`/, 'В выборе состава сеанса не показываются длительность и цена услуги');
 assert.match(styles, /data-provider-theme="luxury"\] \.booking-sheet-secondary \{[^}]*margin-top:11px;[^}]*overflow:hidden;[^}]*border-radius:14px;/, 'Компактная группа разделов Luxury потеряла общую поверхность');
 assert.match(styles, /data-provider-theme="luxury"\] \.booking-repeat-action \{[^}]*width:auto!important;[^}]*min-height:36px!important;[^}]*background:transparent!important;/, 'Повтор записи снова стал визуально доминирующей кнопкой Luxury');
@@ -587,9 +587,9 @@ const appearanceSources = [
 assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
 assert.match(appearanceSources[12], /theme:\s*'sage'/, 'Новый кабинет исполнителя не открывается в теме Sage Studio');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
-const defaultMobileNav = ['bookings', 'clients', 'notifications', 'analytics'];
-const defaultMobileNavByRole = { owner:['bookings','clients','notifications','analytics'], admin:['bookings','clients','notifications','analytics'], specialist:['bookings','clients','notifications','analytics'] };
-const defaultViewOrderByRole = { owner:['bookings','analytics','organization','notifications','clients','schedule','services','portfolio','waitlist','settings'], admin:['bookings','notifications','clients','schedule','organization','analytics','services','waitlist','portfolio','settings'], specialist:['bookings','schedule','clients','notifications','services','waitlist','analytics','portfolio','organization','settings'] };
+const defaultMobileNav = ['bookings', 'clients', 'messages', 'notifications'];
+const defaultMobileNavByRole = { owner:['bookings','clients','messages','notifications'], admin:['bookings','clients','messages','notifications'], specialist:['bookings','clients','messages','notifications'] };
+const defaultViewOrderByRole = { owner:['bookings','analytics','organization','messages','notifications','clients','schedule','services','portfolio','waitlist','settings'], admin:['bookings','messages','notifications','clients','schedule','organization','analytics','services','waitlist','portfolio','settings'], specialist:['bookings','schedule','clients','messages','notifications','services','waitlist','analytics','portfolio','organization','settings'] };
 const defaultAnalyticsGoals = { revenue_rub:0, utilization_percent:70, repeat_percent:35, cancellation_percent:10 };
 const defaultAnalyticsGoalsByScope = {};
 for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) {
@@ -637,7 +637,7 @@ assert.match(providerHtml, /data-date-shift="-1"[\s\S]*data-date-shift="1"/, 'В
 assert.match(providerHtml, /data-calendar-view="day"[\s\S]*data-calendar-view="week"[\s\S]*data-calendar-view="month"/, 'В расписании нет переключения дня, недели и месяца');
 assert.match(providerHtml, /id="monthlyScheduleMonth"[^>]*type="month"[\s\S]*id="monthlyScheduleGrid"/, 'Рабочий график нельзя настроить по датам выбранного месяца');
 assert.equal((providerHtml.match(/data-mobile-nav-slot/g) || []).length, 4, 'В настройках нельзя выбрать четыре вкладки мобильной панели');
-assert.match(provider, /DEFAULT_MOBILE_NAV[\s\S]*?'analytics'/, 'Статистика не установлена в мобильной панели по умолчанию');
+assert.match(provider, /DEFAULT_MOBILE_NAV[\s\S]*?'messages'/, 'Сообщения не установлены в мобильной панели по умолчанию');
 assert.match(providerHtml, /data-provider-panel="portfolio"/, 'В кабинете нет раздела портфолио');
 assert.match(providerHtml, /id="portfolioSessions"[^>]*min="1"[^>]*max="999"/, 'Нельзя указать количество проведённых сеансов');
 assert.match(providerHtml, /id="portfolioBeforeFile"[^>]*accept="image\/jpeg,image\/png,image\/webp"/, 'Нет выбора фотографии «До»');
