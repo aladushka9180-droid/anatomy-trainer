@@ -148,7 +148,7 @@
     }
     const valid = data && data.saved === true && data.kind === attempt.kind && data.body === attempt.body
       && String(data.organization_id || '') === attempt.organizationId && String(data.performer_id || '') === attempt.performerId
-      && Number(data.version) >= Math.max(1, attempt.version);
+      && Number(data.version) === attempt.version + 1;
     if (!valid) {
       setTemplateStatus('Сервер не подтвердил сохранение. Нажмите ещё раз — повтор безопасен.');
       renderEditorState();
