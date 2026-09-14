@@ -88,10 +88,10 @@ assert.match(provider, /data-commerce-booking-sale/);
 assert.match(provider, /openCommerceSale\(\{ bookingId/);
 assert.match(provider, /ensureOrganizationFeature\('commercePanel'\)/);
 assert.match(provider, /scrollToProviderSection\(button\)/);
-assert.match(html, /commerce-management\.js\?v=770/);
-assert.match(html, /styles\.css\?v=770/);
-assert.match(worker, /commerce-management\.js\?v=770/);
-assert.match(worker, /styles\.css\?v=770/);
-assert.match(worker, /CACHE_PREFIX}v770/);
+assert.match(html, /commerce-management\.js\?v=771/);
+assert.match(html, /styles\.css\?v=771/);
+assert.match(worker, /commerce-management\.js\?v=771/);
+assert.match(worker, /styles\.css\?v=771/);
+assert.match(worker, /CACHE_PREFIX}v771/);
 
 console.log('PrimeTime Pro commercial sales v151 UI static checks passed');
