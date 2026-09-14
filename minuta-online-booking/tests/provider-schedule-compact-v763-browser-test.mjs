@@ -7,6 +7,11 @@ import { fileURLToPath } from 'node:url';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
+const shareHelperStart = providerSource.indexOf('async function shareProviderClientPage()');
+const shareHelperEnd = providerSource.indexOf('\nfunction clientAppearanceDraftFromForm', shareHelperStart);
+assert.ok(shareHelperStart >= 0 && shareHelperEnd > shareHelperStart, 'Client-page share helper is missing');
+const shareHelper = providerSource.slice(shareHelperStart, shareHelperEnd);
 const output = process.env.MINUTA_SCHEDULE_COMPACT_OUTPUT || '';
 if (output) fs.mkdirSync(output, { recursive:true });
 
@@ -68,7 +73,7 @@ try {
     document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings timeline-view';
-    bookings.innerHTML = '<div class="day-timeline" style="height:620px"><div class="timeline-stage"></div></div>';
+    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:620px;height:620px"><div class="timeline-hours"></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:619px"></i><button class="timeline-booking status-confirmed" type="button" style="top:56px;height:72px">Запись</button></div></div><button class="timeline-day-expand" type="button">Показать весь день до 20:00</button>';
     const activeDate = strip.querySelector('.active');
     const stripRect = strip.getBoundingClientRect();
     const activeRect = activeDate.getBoundingClientRect();
@@ -149,6 +154,20 @@ try {
       const toolbar = rect('.schedule-toolbar');
       const toolbarCopy = rect('.schedule-toolbar>div:first-child');
       const journalToggle = rect('.journal-mode-toggle');
+      const titleHeading = rect('.schedule-view-title h2');
+      const newBookingLabel = newBookingButton.querySelector('span');
+      const newBookingLabelStyle = getComputedStyle(newBookingLabel);
+      const timelineStage = document.querySelector('.timeline-stage');
+      const timelineStageRect = timelineStage.getBoundingClientRect();
+      const timelineStageStyle = getComputedStyle(timelineStage);
+      const timelineLines = [...timelineStage.querySelectorAll('.timeline-grid-line')].map(line => line.getBoundingClientRect());
+      const expand = document.querySelector('.timeline-day-expand');
+      const expandStyle = getComputedStyle(expand);
+      const timelineBooking = timelineStage.querySelector('.timeline-booking');
+      timelineBooking.focus({ preventScroll:true });
+      const timelineFocusWidth = parseFloat(getComputedStyle(timelineBooking).outlineWidth);
+      expand.focus({ preventScroll:true });
+      const expandFocusWidth = parseFloat(getComputedStyle(expand).outlineWidth);
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         clientWidth:document.documentElement.clientWidth,
@@ -194,6 +213,14 @@ try {
         summaryItemCenterDeltas,
         summaryText:[...summary.querySelectorAll('strong,span')].map(item => item.textContent.trim()),
         newBookingHitTarget:newBookingHitTarget === newBookingButton || newBookingButton.contains(newBookingHitTarget),
+        newBookingLabel:newBookingLabel.textContent.trim(),
+        newBookingLabelVisible:newBookingLabelStyle.position === 'static' && newBookingLabel.getBoundingClientRect().width > 0,
+        newBookingPseudo:getComputedStyle(newBookingButton, '::after').content,
+        titleToNewBookingGap:newBookingRect.left - titleHeading.right,
+        timelineStageOverflow:[timelineStageStyle.overflowX,timelineStageStyle.overflowY],
+        timelineLinesInside:timelineLines.every(line => line.left >= timelineStageRect.left - .5 && line.right <= timelineStageRect.right + .5 && line.top >= timelineStageRect.top - .5 && line.bottom <= timelineStageRect.bottom + .5),
+        expand:{ height:expand.getBoundingClientRect().height, lineHeight:parseFloat(expandStyle.lineHeight), marginTop:parseFloat(expandStyle.marginTop), whiteSpace:expandStyle.whiteSpace },
+        focus:{ timeline:timelineFocusWidth, expand:expandFocusWidth },
         toolbarContentCenterDelta:Math.abs((toolbarCopy.top + toolbarCopy.bottom) / 2 - (journalToggle.top + journalToggle.bottom) / 2),
         journalGridGap:rect('#providerBookings').top - journalToggle.bottom,
         quietTodayBackground:quietTodayStyle.backgroundColor,
@@ -214,9 +241,18 @@ try {
     });
     assert.equal(result.overflow, false, `${width}px horizontal overflow`);
     assert.ok(result.newBooking.height >= 44 && result.newBooking.width >= 44, `${width}px New booking target`);
+    assert.ok(result.timelineStageOverflow.every(value => value === 'clip' || value === 'hidden'), `${width}px timeline owner does not clip divider tails: ${JSON.stringify(result)}`);
+    assert.equal(result.timelineLinesInside, true, `${width}px timeline divider leaves its rounded owner: ${JSON.stringify(result)}`);
+    assert.ok(result.expand.height >= 52 && result.expand.lineHeight >= 14 && result.expand.marginTop >= 12, `${width}px full-day action is clipped or crowds the divider: ${JSON.stringify(result)}`);
+    assert.ok(result.focus.timeline >= 2 && result.focus.expand >= 2, `${width}px keyboard focus is not visible: ${JSON.stringify(result)}`);
     if (width <= 760) {
       assert.ok(result.today.height >= 44 && result.today.width >= 44, `${width}px Today target`);
       assert.equal(result.newBookingHitTarget, true, `${width}px New booking button is covered by another layer: ${JSON.stringify(result)}`);
+      assert.equal(result.newBookingLabel, 'Новая запись', `${width}px New booking label changed`);
+      assert.equal(result.newBookingLabelVisible, true, `${width}px full New booking label is hidden: ${JSON.stringify(result)}`);
+      assert.ok(result.newBookingPseudo === 'none' || result.newBookingPseudo === 'normal', `${width}px ambiguous compact label is still rendered: ${JSON.stringify(result)}`);
+      assert.ok(result.titleToNewBookingGap >= 8, `${width}px full New booking label collides with the schedule title: ${JSON.stringify(result)}`);
+      assert.ok(result.newBooking.width >= 108 && result.newBooking.height === 44, `${width}px New booking button changed height or is too narrow: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.previous.height >= 44 && result.next.height >= 44, `${width}px date strip arrows`);
       assert.notEqual(result.previousBackgroundImage, 'none', `${width}px previous arrow lost the edge continuation fade`);
@@ -389,7 +425,7 @@ try {
     bookings.className = 'provider-bookings calendar-overview calendar-overview-week';
     bookings.innerHTML = '<div class="calendar-overview-grid"><article class="calendar-overview-day"><button class="calendar-overview-date" type="button"><span>Пн</span><strong>31</strong><small>авг</small></button><div class="calendar-overview-items"><button class="calendar-overview-booking" type="button"><time>10:00</time><span><strong>Перерыв</strong><small>Занятое время</small></span></button></div></article></div>';
   });
-  for (const { width, height } of [{ width:320, height:700 }, { width:390, height:844 }, { width:760, height:1000 }]) {
+  for (const { width, height } of [{ width:320, height:700 }, { width:360, height:800 }, { width:390, height:844 }, { width:760, height:1000 }]) {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(80);
@@ -435,9 +471,10 @@ try {
     document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings calendar-overview calendar-overview-month';
-    bookings.innerHTML = '<div class="calendar-overview-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div class="calendar-overview-grid"><article class="calendar-overview-day is-selected"><button class="calendar-overview-date" type="button"><strong>1</strong><small class="calendar-overview-count">2 записи</small></button></article></div><div class="calendar-month-mobile-agenda"><section class="calendar-month-agenda-day"><button class="calendar-month-agenda-date" type="button">вторник, 1 сентября</button><div><button class="calendar-overview-booking" type="button"><time>10:30</time><span class="calendar-overview-booking-copy"><strong>Очень длинное название услуги для проверки безопасной ширины</strong><span class="calendar-overview-booking-details"><span class="calendar-overview-client-row"><b>Евгения Белышева с длинным именем</b><span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span></span><small class="calendar-overview-phone">79120000000</small><small class="calendar-overview-visit">Постоянный · 12-й визит</small></span></span></button></div></section></div>';
+    const monthDays = Array.from({ length:35 }, (_, index) => `<article class="calendar-overview-day ${index === 0 ? 'is-selected' : ''}"><button class="calendar-overview-date" type="button"><strong>${index + 1}</strong><small class="calendar-overview-count">${index % 3 ? 'Свободно' : '2 записи'}</small></button></article>`).join('');
+    bookings.innerHTML = `<div class="calendar-overview-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div class="calendar-overview-grid">${monthDays}</div><div class="calendar-month-mobile-agenda"><section class="calendar-month-agenda-day"><button class="calendar-month-agenda-date" type="button">вторник, 1 сентября</button><div><button class="calendar-overview-booking" type="button"><time>10:30</time><span class="calendar-overview-booking-copy"><strong>Очень длинное название услуги для проверки безопасной ширины</strong><span class="calendar-overview-booking-details"><span class="calendar-overview-client-row"><b>Евгения Белышева с длинным именем</b><span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span></span><small class="calendar-overview-phone">79120000000</small><small class="calendar-overview-visit">Постоянный · 12-й визит</small></span></span></button></div></section></div>`;
   });
-  for (const { width, height } of [{ width:320, height:700 }, { width:390, height:844 }, { width:760, height:1000 }]) {
+  for (const { width, height } of [{ width:320, height:700 }, { width:360, height:800 }, { width:390, height:844 }, { width:760, height:1000 }]) {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(80);
@@ -450,6 +487,9 @@ try {
       const badge = card.querySelector('.badge-vip').getBoundingClientRect();
       const copy = card.querySelector('.calendar-overview-booking-copy');
       const copyRect = copy.getBoundingClientRect();
+      const toolbarTitle = document.querySelector('.schedule-toolbar>div:first-child').getBoundingClientRect();
+      const monthGrid = document.querySelector('.calendar-overview-month .calendar-overview-grid').getBoundingClientRect();
+      const monthStyle = getComputedStyle(document.querySelector('#providerBookings'));
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         navArrowDisplays:[...document.querySelectorAll('.date-navigation>.date-nav-button')].map(button => getComputedStyle(button).display),
@@ -460,7 +500,9 @@ try {
         agendaRightInset:cardRect.right - badge.right,
         vipCenterDelta:Math.abs((badge.top + badge.bottom) / 2 - (cardRect.top + cardRect.bottom) / 2),
         vipReserve:parseFloat(getComputedStyle(copy).paddingRight),
-        copyFits:copy.scrollWidth <= copy.clientWidth + 1 && copyRect.right <= cardRect.right + 1
+        copyFits:copy.scrollWidth <= copy.clientWidth + 1 && copyRect.right <= cardRect.right + 1,
+        titleInset:toolbarTitle.left - monthGrid.left,
+        monthPaddingBottom:parseFloat(monthStyle.paddingBottom)
       };
     });
     assert.equal(monthResult.overflow, false, `${width}px month view has horizontal overflow: ${JSON.stringify(monthResult)}`);
@@ -473,6 +515,34 @@ try {
     assert.ok(monthResult.vipCenterDelta <= 1, `${width}px VIP badge is not vertically centered: ${JSON.stringify(monthResult)}`);
     assert.ok(monthResult.vipReserve >= 50 && monthResult.vipReserve <= 56, `${width}px VIP safe reserve changed: ${JSON.stringify(monthResult)}`);
     assert.equal(monthResult.copyFits, true, `${width}px long agenda copy overflows: ${JSON.stringify(monthResult)}`);
+    assert.ok(Math.abs(monthResult.titleInset) <= 1, `${width}px month heading is not aligned with the calendar grid: ${JSON.stringify(monthResult)}`);
+    assert.ok(monthResult.monthPaddingBottom >= 24, `${width}px month content lacks fixed-navigation clearance: ${JSON.stringify(monthResult)}`);
+    if (width >= 360 && width <= 760) {
+      const reachableLastWeek = await page.evaluate(async () => {
+        document.documentElement.style.scrollBehavior = 'auto';
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
+        const scrollers = [document.scrollingElement, ...document.querySelectorAll('*')].filter((node, index, items) => node
+          && items.indexOf(node) === index
+          && node.scrollHeight > node.clientHeight + 1
+          && ['auto','scroll'].includes(getComputedStyle(node).overflowY));
+        scrollers.forEach(node => { node.scrollTop = node.scrollHeight; });
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const days = [...document.querySelectorAll('.calendar-overview-month .calendar-overview-grid>.calendar-overview-day')];
+        const last = days.at(-1).getBoundingClientRect();
+        const nav = document.querySelector('.provider-mobile-nav').getBoundingClientRect();
+        return {
+          gap:nav.top - last.bottom,
+          scrollY,
+          maxScroll:document.documentElement.scrollHeight - innerHeight,
+          rootScrollTop:document.scrollingElement.scrollTop,
+          rootOverflow:getComputedStyle(document.documentElement).overflowY,
+          bodyOverflow:getComputedStyle(document.body).overflowY,
+          scrollers:scrollers.map(node => `${node.tagName}.${node.className}:${node.scrollTop}`)
+        };
+      });
+      assert.ok(reachableLastWeek.gap >= -1, `${width}px final month week remains under fixed navigation: ${JSON.stringify(reachableLastWeek)}`);
+    }
     if (output) await page.screenshot({ path:path.join(output, `schedule-month-${width}.png`), fullPage:false });
   }
 
@@ -485,7 +555,7 @@ try {
     bookings.className = 'provider-bookings schedule-list';
     bookings.innerHTML = '<article class="provider-booking status-confirmed color-auto client-vip"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>10:30<small>до 11:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Общий массаж задней поверхности</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Евгения Белышева</strong><span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span></span><span class="provider-booking-phone">79120000000</span></span></span><span class="provider-booking-chevron">›</span></button></article>';
   });
-  for (const { width, height } of [{ width:320, height:700 }, { width:390, height:844 }, { width:760, height:1000 }]) {
+  for (const { width, height } of [{ width:320, height:700 }, { width:360, height:800 }, { width:390, height:844 }, { width:760, height:1000 }]) {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(80);
@@ -521,7 +591,51 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v778 browser checks: PASS');
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height:844 });
+    const clientShareMenu = await page.evaluate(() => {
+      const button = document.querySelector('#shareProviderClientPage');
+      const details = button.closest('details');
+      button.hidden = false;
+      details.open = true;
+      const menu = details.querySelector(':scope>div').getBoundingClientRect();
+      const rect = button.getBoundingClientRect();
+      const pseudo = getComputedStyle(button, '::after');
+      return {
+        label:button.dataset.compactLabel,
+        pseudo:pseudo.content,
+        height:rect.height,
+        leftGap:rect.left - menu.left,
+        rightGap:menu.right - rect.right,
+        overflow:document.documentElement.scrollWidth > innerWidth + 2
+      };
+    });
+    assert.equal(clientShareMenu.label, 'Поделиться страницей клиента');
+    assert.equal(clientShareMenu.pseudo, '"Поделиться страницей клиента"');
+    assert.ok(clientShareMenu.height >= 44, `${width}px client-page share target is too small`);
+    assert.ok(clientShareMenu.leftGap >= 0 && clientShareMenu.rightGap >= 0, `${width}px client-page share leaves the More menu`);
+    assert.equal(clientShareMenu.overflow, false, `${width}px client-page share adds horizontal overflow`);
+  }
+  await page.addScriptTag({ content:`window.$=selector=>document.querySelector(selector);window.shareNotices=[];window.notify=message=>shareNotices.push(message);${shareHelper}` });
+  const shareResult = await page.evaluate(async () => {
+    const button = document.querySelector('#shareProviderClientPage');
+    button.hidden = false;
+    button.dataset.clientPageUrl = 'https://example.test/public-master';
+    const native=[];
+    Object.defineProperty(navigator, 'share', { configurable:true, value:async payload => native.push(payload) });
+    const nativeOk = await shareProviderClientPage();
+    Object.defineProperty(navigator, 'share', { configurable:true, value:undefined });
+    const copied=[];
+    Object.defineProperty(navigator, 'clipboard', { configurable:true, value:{ writeText:async value => copied.push(value) } });
+    const fallbackOk = await shareProviderClientPage();
+    return { nativeOk, fallbackOk, native, copied, notices:shareNotices };
+  });
+  assert.equal(shareResult.nativeOk, true, 'Native client-page share failed');
+  assert.equal(shareResult.fallbackOk, true, 'Client-page copy fallback failed');
+  assert.equal(shareResult.native[0].url, 'https://example.test/public-master');
+  assert.deepEqual(shareResult.copied, ['https://example.test/public-master']);
+  assert.ok(shareResult.notices.includes('Ссылка на страницу клиента скопирована'));
+  console.log('PrimeTime Pro compact schedule v779 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

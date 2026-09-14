@@ -170,6 +170,9 @@
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar .provider-topbar-tools>div :is(.voice-assistant-open,.topbar-client-link,.free-slots-open-button,.sync-tool-button,.desktop-app-install):hover {
   background:var(--theme-surface-alt)!important;
 }
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar .provider-topbar-tools>div .provider-client-share {
+  grid-column:1 / -1!important;
+}
 
 #dashboard:not([data-active-view="bookings"]) #openFreeSlots,
 .provider-body.booking-demo-mode #openFreeSlots {
@@ -353,7 +356,7 @@
     background-image:linear-gradient(180deg,var(--theme-surface),transparent)!important;
   }
 
-  /* v778: mobile tools use one predictable column and one quiet outer edge. */
+  /* v779: mobile tools use one predictable column and one quiet outer edge. */
   .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>div {
     grid-template-columns:minmax(0,1fr);
     gap:2px;

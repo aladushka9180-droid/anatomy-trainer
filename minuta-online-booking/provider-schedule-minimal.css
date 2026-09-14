@@ -312,7 +312,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   vertical-align:-1px;
 }
 
-/* v778: compact schedule controls keep the working day above the fold. */
+/* v779: compact schedule controls keep the working day above the fold. */
 @media (max-width:760px) {
   .provider-body .provider-view[data-provider-panel="bookings"] {
     padding-top:6px!important;
@@ -635,7 +635,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v778: narrow schedule polish keeps one clear accent and five unobstructed dates. */
+/* v779: narrow schedule polish keeps one clear accent and five unobstructed dates. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme][data-provider-layout] .schedule-card:has(#dateStrip:not([hidden])) {
     gap:0!important;
@@ -820,7 +820,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v778: list controls grow with their second row instead of covering content. */
+/* v779: list controls grow with their second row instead of covering content. */
 @media (max-width:760px) {
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) {
     grid-template-columns:minmax(0,1fr) auto!important;
@@ -876,7 +876,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v778: records-list controls stay compact without nested framing. */
+/* v779: records-list controls stay compact without nested framing. */
 @media (max-width:760px) {
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) {
     grid-template-columns:minmax(0,1fr) auto!important;
@@ -924,7 +924,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v778: finish the physical-phone spacing without adding new decoration. */
+/* v779: finish the physical-phone spacing without adding new decoration. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.active {
     overflow:hidden;
@@ -969,7 +969,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v778: keep weekly navigation singular and give range content a safe reading inset. */
+/* v779: keep weekly navigation singular and give range content a safe reading inset. */
 @media (max-width:760px) {
   .provider-body .date-navigation:has([data-calendar-view="week"].active) {
     grid-template-columns:minmax(96px,.72fr) minmax(0,1fr)!important;
@@ -1012,7 +1012,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v778: stable schedule geometry, honest visibility and readable month agenda. */
+/* v779: stable schedule geometry, honest visibility and readable month agenda. */
 .provider-body .new-booking-readiness {
   margin:0;
   padding:10px 12px;
@@ -1098,5 +1098,75 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     margin:0;
     flex-wrap:nowrap;
     transform:translateY(-50%);
+  }
+}
+
+/* v779: keep mobile schedule geometry clipped and fully reachable. */
+.provider-body[data-provider-theme][data-provider-layout] .timeline-stage {
+  overflow:hidden;
+  overflow:clip;
+}
+.provider-body[data-provider-theme][data-provider-layout] .timeline-stage .timeline-booking:focus-visible {
+  outline:3px solid color-mix(in srgb,var(--theme-accent) 62%,var(--theme-surface));
+  outline-offset:-4px;
+}
+.provider-body[data-provider-theme][data-provider-layout] .timeline-day-expand {
+  display:grid;
+  place-items:center;
+  min-height:52px;
+  margin-top:14px;
+  padding:10px 14px;
+  line-height:1.4;
+  text-align:center;
+}
+.provider-body[data-provider-theme][data-provider-layout] .timeline-day-expand:focus-visible {
+  outline:3px solid var(--theme-accent);
+  outline-offset:2px;
+}
+
+@media (max-width:760px) {
+  .provider-body .schedule-view-title #newBookingButton {
+    width:auto!important;
+    min-width:0!important;
+    min-height:44px!important;
+    padding-inline:13px!important;
+  }
+  .provider-body .schedule-view-title #newBookingButton span {
+    position:static!important;
+    width:auto!important;
+    height:auto!important;
+    margin:0!important;
+    overflow:visible!important;
+    clip:auto!important;
+    white-space:nowrap!important;
+    font-size:11px!important;
+    font-weight:800!important;
+  }
+  .provider-body .schedule-view-title #newBookingButton::after {
+    display:none!important;
+    content:none!important;
+  }
+
+  #dashboard[data-active-view="bookings"] .schedule-card:has(#providerBookings.calendar-overview-month)
+    .schedule-toolbar>div:first-child {
+    margin-inline-start:4px;
+  }
+  #dashboard[data-active-view="bookings"] #providerBookings.calendar-overview-month {
+    padding-bottom:max(24px,env(safe-area-inset-bottom,0px))!important;
+    scroll-padding-bottom:var(--provider-mobile-nav-clearance);
+  }
+  #dashboard[data-active-view="bookings"] #providerBookings.calendar-overview-month>:last-child {
+    scroll-margin-bottom:var(--provider-mobile-nav-clearance);
+  }
+}
+
+@media (min-width:341px) and (max-width:380px) {
+  #dashboard[data-active-view="bookings"] .schedule-card:has(#providerBookings.calendar-overview-week)
+    .schedule-toolbar>div:first-child>strong {
+    overflow:visible;
+    font-size:13px!important;
+    line-height:1.25;
+    text-overflow:clip;
+    white-space:normal;
   }
 }

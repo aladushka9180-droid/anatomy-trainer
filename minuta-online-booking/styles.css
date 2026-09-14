@@ -6863,7 +6863,7 @@ html.provider-booting .provider-main {
   #reportServicesList > *,
   .schedule-list > *,
   .service-manage-list > *,
-  .provider-bookings:not(.timeline-view) > *:not(.calendar-week-timeline),
+  .provider-bookings.schedule-list > *,
   .notification-list > *,
   .days-off-list > * {
     content-visibility:auto;

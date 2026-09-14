@@ -2156,7 +2156,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=778#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=779#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2861,7 +2861,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=778#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=779#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5084,7 +5084,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=778');
+      worker = new Worker('./report-worker.js?v=779');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5611,6 +5611,41 @@ function buildProviderClientUrl(organization = null) {
 function updateProviderClientLinks(organization = null) {
   const url = buildProviderClientUrl(organization);
   $$('.provider-client-link').forEach(link => { link.href = url.href; });
+  const shareButton = $('#shareProviderClientPage');
+  if (shareButton) {
+    const available = Boolean(organization?.public_booking_enabled && organization.public_slug);
+    shareButton.hidden = !available;
+    shareButton.disabled = !available;
+    shareButton.dataset.clientPageUrl = available ? url.href : '';
+  }
+}
+
+async function shareProviderClientPage() {
+  const button = $('#shareProviderClientPage');
+  const url = String(button?.dataset.clientPageUrl || '').trim();
+  if (!url) {
+    notify('Сначала опубликуйте страницу клиента');
+    return false;
+  }
+  const payload = { title:'Страница клиента', text:'Онлайн-запись', url };
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share(payload);
+      button.closest('details')?.removeAttribute('open');
+      return true;
+    } catch (error) {
+      if (error?.name === 'AbortError') return false;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    button.closest('details')?.removeAttribute('open');
+    notify('Ссылка на страницу клиента скопирована');
+    return true;
+  } catch {
+    notify('Не удалось поделиться ссылкой');
+    return false;
+  }
 }
 
 function clientAppearanceDraftFromForm() {
@@ -16666,6 +16701,7 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   setReportFiltersExpanded(false);
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
+$('#shareProviderClientPage')?.addEventListener('click', shareProviderClientPage);
 $('#newBookingButton').addEventListener('click', () => openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }));
 $('#mobileNewBookingButton').addEventListener('click', () => openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }));
 $('#saveSchedule').addEventListener('click', saveSchedule);
