@@ -177,10 +177,11 @@ console.log('Bundled SDK and journal checks passed: bounded attempts, single wri
   const booking = { id:'test-booking', client_name:'Тестовый клиент', client_phone:'+70000000000' };
   let presentationReads = 0;
   let renders = 0;
-  const context = { currentUser:{ id:'test' }, sessionGeneration:1, bookingsRequestRevision:0,
+  const context = { currentUser:{ id:'test' }, sessionGeneration:1, bookingsRequestRevision:0, selectedDate:'2026-09-14',
     navigator:{ onLine:true }, window:h.window, $:() => ({ innerHTML:'' }),
     readProviderCache:async () => null, sessionIsCurrent:() => true,
     queryAllProviderBookings:async () => ({ data:[booking], error:null }),
+    loadAutomaticBookingBreaks:async () => ({ ok:true }),
     loadRemoteBookingColors:async () => { presentationReads++; return true; },
     allBookings:[], bookingDataSignature:() => '', providerBookingRenderRevision:0,
     saveProviderCache:async () => ({ savedAt:'2026-09-05T10:00:00Z' }),

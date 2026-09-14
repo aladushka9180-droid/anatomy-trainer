@@ -155,7 +155,7 @@ const server = http.createServer((request, response) => {
       document.body.dataset.providerLayout = 'soft';
       document.querySelector('#dateStrip>button')?.classList.add('active');
       const fixtureStyle = document.createElement('style');
-      fixtureStyle.textContent = '#scheduleThemeFixture,#scheduleThemeFixture *,#weeklyReadabilityFixture,#weeklyReadabilityFixture *{transition:none!important;animation:none!important}#scheduleThemeFixture>.timeline-view,#scheduleThemeFixture>.calendar-overview-booking,#scheduleThemeFixture>.calendar-week-booking{position:absolute!important;left:-9999px!important}#weeklyReadabilityFixture{position:fixed;left:-9999px;top:0;width:127px;height:62px}#weeklyReadabilityFixture>.calendar-week-booking{position:relative!important;inset:auto!important;width:127px;height:62px}';
+      fixtureStyle.textContent = '#scheduleThemeFixture,#scheduleThemeFixture *,#weeklyReadabilityFixture,#weeklyReadabilityFixture *{transition:none!important;animation:none!important}#scheduleThemeFixture>.timeline-view{display:block!important}#scheduleThemeFixture>.timeline-view,#scheduleThemeFixture>.calendar-overview-booking,#scheduleThemeFixture>.calendar-week-booking{position:absolute!important;left:-9999px!important}#weeklyReadabilityFixture{position:fixed;left:-9999px;top:0;width:127px;height:62px}#weeklyReadabilityFixture>.calendar-week-booking{position:relative!important;inset:auto!important;width:127px;height:62px}';
       document.head.append(fixtureStyle);
       const fixture = document.createElement('div');
       fixture.id = 'scheduleThemeFixture';
