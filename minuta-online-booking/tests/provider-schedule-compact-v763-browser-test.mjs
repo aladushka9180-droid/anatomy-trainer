@@ -97,6 +97,9 @@ try {
       const stripFrame = rect('.date-strip-frame');
       const previous = rect('.date-strip-shift[data-date-shift="-7"]');
       const next = rect('.date-strip-shift[data-date-shift="7"]');
+      const previousStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"]'));
+      const nextStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="7"]'));
+      const previousIconStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"] .ui-icon'));
       const dateButtons = [...document.querySelectorAll('#dateStrip>button')];
       const fullyVisibleDates = dateButtons.filter(button => {
         const item = button.getBoundingClientRect();
@@ -162,6 +165,10 @@ try {
         picker:rect('.schedule-date-picker'),
         previous,
         next,
+        previousBackgroundImage:previousStyle.backgroundImage,
+        nextBackgroundImage:nextStyle.backgroundImage,
+        previousIconColor:previousIconStyle.color,
+        previousIconWidth:parseFloat(previousIconStyle.width),
         fullyVisibleDates,
         intersectingDates,
         activeDate,
@@ -187,6 +194,9 @@ try {
         journalGridGap:rect('#providerBookings').top - journalToggle.bottom,
         quietTodayBackground:quietTodayStyle.backgroundColor,
         quietTodayBackgroundImage:quietTodayStyle.backgroundImage,
+        quietTodayShadow:quietTodayStyle.boxShadow,
+        dateNumberSize:parseFloat(getComputedStyle(activeButton.querySelector('strong')).fontSize),
+        dateCenterDelta:Math.abs((activeDate.top + activeDate.bottom) / 2 - (stripFrame.top + stripFrame.bottom) / 2),
         ordinaryDateBackground:ordinaryDateStyle.backgroundColor,
         ordinaryDateBackgroundImage:ordinaryDateStyle.backgroundImage,
         ordinaryDateShadow:ordinaryDateStyle.boxShadow,
@@ -205,6 +215,10 @@ try {
       assert.equal(result.newBookingHitTarget, true, `${width}px New booking button is covered by another layer: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.previous.height >= 44 && result.next.height >= 44, `${width}px date strip arrows`);
+      assert.notEqual(result.previousBackgroundImage, 'none', `${width}px previous arrow lost the edge continuation fade`);
+      assert.notEqual(result.nextBackgroundImage, 'none', `${width}px next arrow lost the edge continuation fade`);
+      assert.ok(result.previousIconColor, `${width}px previous arrow icon lost its quiet color`);
+      assert.ok(result.previousIconWidth <= 14.5, `${width}px date strip arrow icon became too prominent: ${JSON.stringify(result)}`);
       assert.equal(result.fullyVisibleDates, 5, `${width}px must expose five dates between arrows: ${JSON.stringify(result)}`);
       assert.equal(result.intersectingDates, 5, `${width}px must not expose cropped edge dates: ${JSON.stringify(result)}`);
       assert.ok(Math.abs(result.previous.right - result.stripViewport.left) <= 1, `${width}px previous arrow needs its own safe zone: ${JSON.stringify(result)}`);
@@ -222,6 +236,8 @@ try {
       assert.ok(result.tabHeights.every(tabHeight => tabHeight >= 44), `${width}px period touch targets must remain at least 44px`);
       assert.equal(result.quietTodayBackground, 'rgba(0, 0, 0, 0)', `${width}px unselected Today date competes with the selected date`);
       assert.equal(result.quietTodayBackgroundImage, 'none', `${width}px unselected Today date gained a decorative fill`);
+      assert.notEqual(result.quietTodayShadow, 'none', `${width}px unselected Today date lost its secondary outline`);
+      assert.ok(result.dateCenterDelta <= 1, `${width}px date labels lost their vertical rhythm: ${JSON.stringify(result)}`);
       assert.equal(result.ordinaryDateBackground, 'rgba(0, 0, 0, 0)', `${width}px ordinary date gained a fill`);
       assert.equal(result.ordinaryDateBackgroundImage, 'none', `${width}px ordinary date gained a decorative fill`);
       assert.equal(result.ordinaryDateShadow, 'none', `${width}px ordinary dates must stay quiet`);
@@ -230,6 +246,7 @@ try {
       assert.equal(result.todayButtonShadow, 'none', `${width}px separate Today action gained an extra accent`);
       assert.equal(result.pickerBackground, 'rgba(0, 0, 0, 0)', `${width}px date field gained a nested surface`);
       if (width <= 430) {
+        assert.ok(result.dateNumberSize <= 17.5 && result.dateNumberSize >= 16, `${width}px date number is not calm and readable: ${JSON.stringify(result)}`);
         assert.ok(result.summaryScrollWidth <= result.summaryClientWidth + 1, `${width}px title summary is clipped: ${JSON.stringify(result)}`);
         assert.equal(result.summaryChildrenInside, true, `${width}px title summary children escape their row: ${JSON.stringify(result)}`);
         assert.equal(result.summaryLabelsInside, true, `${width}px title summary labels touch or escape the safe inset: ${JSON.stringify(result)}`);
@@ -486,7 +503,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v775 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v776 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
