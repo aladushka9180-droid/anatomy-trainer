@@ -43,8 +43,11 @@ select pg_temp.v158_assert(
 set local role authenticated;
 select set_config('request.jwt.claim.sub',current_setting('v123.actor'),true);
 select pg_temp.v158_assert(not exists(select 1 from public.get_minuta_provider_automatic_breaks_v158(current_setting('v123.date')::date) where start_time<'13:00' and end_time>'12:00'),'released_segment_disappears');
+reset role;
 select pg_temp.v158_assert(public.minuta_slot_respects_booking_buffer(current_setting('v123.service')::uuid,current_setting('v123.date')::date,'12:00',60,null),'released_slot_is_available');
 select pg_temp.v158_assert(not public.minuta_slot_respects_booking_buffer(current_setting('v123.service')::uuid,current_setting('v123.date')::date,'12:30',60,null),'actual_booking_remains_protected');
+set local role authenticated;
+select set_config('request.jwt.claim.sub',current_setting('v123.actor'),true);
 select set_config('v158.replay',public.release_minuta_provider_automatic_break_v158(
   current_setting('v158.request')::uuid,current_setting('v123.date')::date,'12:00','13:00',current_setting('v158.segment')::jsonb->>'segment_fingerprint'
 )::text,true);
