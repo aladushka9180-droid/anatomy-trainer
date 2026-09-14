@@ -43,7 +43,6 @@ jobs:
       - run: node minuta-online-booking/tests/client-waitlist-browser-test.mjs
       - run: node minuta-online-booking/tests/waitlist-management-browser-test.mjs
       - run: node minuta-online-booking/provider-header-test.mjs
-      - run: node minuta-online-booking/tests/header-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-brand-signature-browser-test.mjs
       - run: node minuta-online-booking/tests/settings-search-navigation-browser-test.mjs
       - run: node minuta-online-booking/tests/contextual-help-labels-browser-test.mjs
@@ -54,3 +53,15 @@ jobs:
           name: minuta-theme-regression
           path: ${{ runner.temp }}/theme-regression
           if-no-files-found: ignore
+  header-states:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
+      - run: npx playwright install --with-deps chromium
+      - name: Check every provider header theme, layout and viewport
+        run: node minuta-online-booking/tests/header-browser-test.mjs
