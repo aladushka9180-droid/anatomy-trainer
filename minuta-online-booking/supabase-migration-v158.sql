@@ -14,6 +14,14 @@ begin
      or to_regprocedure('extensions.digest(bytea,text)') is null then
     raise exception using errcode='55000',message='v158_booking_buffer_release_prerequisites_missing';
   end if;
+  if to_regclass('public.booking_buffer_release_requests_v158') is not null
+     or to_regclass('public.booking_buffer_release_sources_v158') is not null
+     or to_regprocedure('public.minuta_booking_buffer_source_snapshot_v158(public.bookings,integer)') is not null
+     or to_regprocedure('public.minuta_booking_buffer_allows_interval_v158(uuid,date,time without time zone,integer,uuid)') is not null
+     or to_regprocedure('public.get_minuta_provider_automatic_breaks_v158(date)') is not null
+     or to_regprocedure('public.release_minuta_provider_automatic_break_v158(uuid,date,time without time zone,time without time zone,text)') is not null then
+    raise exception using errcode='55000',message='v158_booking_buffer_release_state_not_absent';
+  end if;
   if (select encode(extensions.digest(convert_to(replace(proc.prosrc,E'\r',''),'UTF8'),'sha256'),'hex')
       from pg_catalog.pg_proc proc where proc.oid=to_regprocedure('public.minuta_slot_respects_booking_buffer(uuid,date,time without time zone,integer,uuid)'))
        <>'177d9a40df6aea9ea27612015ea20c8c6afbaf07afd4683122b2578b9550aa74'
@@ -23,14 +31,6 @@ begin
        <>'cad2aa619a3195c818d2263f3d28b98c9c0f62bb026378ebde1ddd7de33d6df8'
      or pg_catalog.obj_description(to_regprocedure('public.enforce_minuta_booking_buffer_v101()'),'pg_proc') is not null then
     raise exception using errcode='55000',message='v158_booking_buffer_release_baseline_drift';
-  end if;
-  if to_regclass('public.booking_buffer_release_requests_v158') is not null
-     or to_regclass('public.booking_buffer_release_sources_v158') is not null
-     or to_regprocedure('public.minuta_booking_buffer_source_snapshot_v158(public.bookings,integer)') is not null
-     or to_regprocedure('public.minuta_booking_buffer_allows_interval_v158(uuid,date,time without time zone,integer,uuid)') is not null
-     or to_regprocedure('public.get_minuta_provider_automatic_breaks_v158(date)') is not null
-     or to_regprocedure('public.release_minuta_provider_automatic_break_v158(uuid,date,time without time zone,time without time zone,text)') is not null then
-    raise exception using errcode='55000',message='v158_booking_buffer_release_state_not_absent';
   end if;
 end
 $guard$;
