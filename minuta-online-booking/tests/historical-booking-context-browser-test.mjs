@@ -21,18 +21,19 @@ const functions=['openNewBookingSheet','openTimelineBookingAtTime','createNewBoo
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingHistoricalPayment','newBookingHistoricalCalculatedAmount','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService','normalizedOutcomePaymentMethod',
   'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingRecentCallsSupported','refreshNewBookingRecentCalls','chooseNewBookingRecentCall','receiveNewBookingRecentCall','newBookingClientPhoneLabel','newBookingClientCandidates',
   'hideNewBookingClientSuggestions','renderNewBookingClientSuggestions','scheduleNewBookingClientSuggestions','restoreNewBookingClientLookupStatus','applyNewBookingClient','selectNewBookingClient','handleNewBookingPhoneInput',
-  'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','bookingDateLabel','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','parseLocalIsoDate','localIsoDate',
+  'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','bookingDateLabel','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','isNewBookingGridTime','newBookingGridSlots','parseLocalIsoDate','localIsoDate',
   'bookingDraftKey','readNewBookingDraft','saveNewBookingDraft','clearNewBookingDraft','bookingColorPicker','compactBookingColorPicker','bookingColor','validBookingColor',
   'saveBookingColor','persistBookingColors','bookingColorStorageKey','bookingColorPendingStorageKey','requireBookingWrites','sessionIsCurrent','captureBookingMetadataContext',
-  'showFormError','clearFormError'];
+  'showFormError','clearFormError','resetServicePublicCardPhotoPreview'];
 const constants=source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];assert.ok(constants);
+const bookingGridConstant=source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0];assert.ok(bookingGridConstant);
 const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision','portfolioEditorRevision'].map(name=>{
   const value=source.match(new RegExp(`^let ${name} = .*;$`,'m'))?.[0];assert.ok(value,`Actual ${name}`);return value;
 }).join('\n');
 const operations=source.match(/^const bookingColorOperations = .*;$/m)?.[0]||'';if(operations)functions.push('beginBookingColorOperation');
 const opening=source.match(/^\$\('#newBookingButton'\)\.addEventListener\('click',[^\n]+/m)?.[0];assert.ok(opening,'Actual opening click handler');
 const metadataDependencies = source.includes('// Background replay') ? source.slice(source.indexOf('// Background replay'), source.indexOf('// Local completion ownership')) : '';
-const loader=[metadataDependencies,constants,revisions,operations,...functions.map(declaration),opening,
+const loader=[metadataDependencies,constants,bookingGridConstant,revisions,operations,...functions.map(declaration),opening,
   listener("document.addEventListener('click', async event => {"),
   listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
 const ids={booking:'11111111-1111-4111-8111-111111111111',service:'22222222-2222-4222-8222-222222222222'};
