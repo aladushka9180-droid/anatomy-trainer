@@ -56,6 +56,10 @@ jobs:
   header-states:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        section: [geometry, tools, appearance]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -63,15 +67,7 @@ jobs:
           node-version: 22
       - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
       - run: npx playwright install --with-deps chromium
-      - name: Check provider header geometry
+      - name: Check provider header ${{ matrix.section }}
         env:
-          MINUTA_HEADER_SECTIONS: geometry
-        run: node minuta-online-booking/tests/header-browser-test.mjs
-      - name: Check provider header tools
-        env:
-          MINUTA_HEADER_SECTIONS: tools
-        run: node minuta-online-booking/tests/header-browser-test.mjs
-      - name: Check provider header appearance menu
-        env:
-          MINUTA_HEADER_SECTIONS: appearance
+          MINUTA_HEADER_SECTIONS: ${{ matrix.section }}
         run: node minuta-online-booking/tests/header-browser-test.mjs
