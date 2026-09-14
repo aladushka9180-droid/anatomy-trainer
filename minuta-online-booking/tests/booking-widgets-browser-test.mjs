@@ -57,6 +57,7 @@ function rpc(name, args, response) {
   if (name === 'get_public_minuta_available_slots_v101') return json(response, [{ booking_date:tomorrow, booking_time:'10:00:00' }]);
   if (['track_public_booking_funnel_event','upsert_public_booking_presence'].includes(name)) return json(response, true);
   if (name === 'get_public_booking_reviews') return json(response, []);
+  if (name === 'get_public_service_cards_v159') return json(response, []);
   unexpected.push(`RPC ${name}`);
   return json(response, { code:'PGRST202', message:`function ${name} does not exist` }, 404);
 }
