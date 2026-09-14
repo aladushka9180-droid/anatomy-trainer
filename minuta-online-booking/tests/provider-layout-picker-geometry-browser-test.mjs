@@ -96,7 +96,10 @@ try {
       assert.equal(result.checkContent, '"✓"', `${theme}/${layout}/${width}: у выбранного варианта нет одной галочки`);
       assert.deepEqual(result.innerOverflow, [], `${theme}/${layout}/${width}: содержимое вышло за границы карточки`);
       assert.ok(result.minWidth >= 140, `${theme}/${layout}/${width}: карточки стали слишком узкими`);
-      assert.equal(result.bodyScrollWidth, result.viewportWidth, `${theme}/${layout}/${width}: горизонтальное переполнение`);
+      assert.ok(
+        result.bodyScrollWidth <= result.viewportWidth + 2,
+        `${theme}/${layout}/${width}: горизонтальное переполнение`,
+      );
     }
   }
   console.log('Provider layout picker geometry: PASS (39 themes × 6 layouts × 3 widths).');

@@ -318,6 +318,18 @@ try {
   assert.equal(scrollbarGutter.short.clientWidth, scrollbarGutter.long.clientWidth, `390px short/long list changed viewport width: ${JSON.stringify(scrollbarGutter)}`);
   assert.equal(scrollbarGutter.short.toolbarTop, scrollbarGutter.long.toolbarTop, `390px short/long list shifted schedule controls: ${JSON.stringify(scrollbarGutter)}`);
   assert.equal(scrollbarGutter.overflow, false, `390px gutter created horizontal overflow: ${JSON.stringify(scrollbarGutter)}`);
+  const dateStripStability = await page.evaluate(() => {
+    const strip = document.querySelector('#dateStrip');
+    const frame = document.querySelector('.date-strip-frame');
+    strip.hidden = false;
+    const visible = frame.getBoundingClientRect();
+    strip.hidden = true;
+    const hidden = frame.getBoundingClientRect();
+    strip.hidden = false;
+    return { visible:{ top:visible.top, height:visible.height }, hidden:{ top:hidden.top, height:hidden.height } };
+  });
+  assert.equal(dateStripStability.visible.top, dateStripStability.hidden.top, `390px filter state shifted the date strip: ${JSON.stringify(dateStripStability)}`);
+  assert.equal(dateStripStability.visible.height, dateStripStability.hidden.height, `390px filter state changed the date strip height: ${JSON.stringify(dateStripStability)}`);
 
   await page.evaluate(() => {
     document.querySelectorAll('[data-calendar-view]').forEach(button => {
@@ -461,7 +473,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v772 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v773 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

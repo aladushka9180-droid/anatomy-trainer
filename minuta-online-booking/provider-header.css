@@ -353,7 +353,7 @@
     background-image:linear-gradient(180deg,var(--theme-surface),transparent)!important;
   }
 
-  /* v772: mobile tools use one predictable column and one quiet outer edge. */
+  /* v773: mobile tools use one predictable column and one quiet outer edge. */
   .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>div {
     grid-template-columns:minmax(0,1fr);
     gap:2px;
