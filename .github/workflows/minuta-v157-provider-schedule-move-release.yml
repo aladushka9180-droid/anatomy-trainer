@@ -1,0 +1,367 @@
+name: Minuta v157 provider schedule move release
+run-name: Minuta v157 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v157
+        required: true
+        default: test-v157
+        type: choice
+        options: [test-v157, validate-production-v157, apply-production-v157, observe-production-v157]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      restore_run_id: { description: Linked offline restore run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful isolated v157 test run ID, required: false, default: "", type: string }
+      validation_run_id: { description: Successful read-only v157 validation run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v157 apply run ID, required: false, default: "", type: string }
+      observation_minutes:
+        description: Read-only production observation duration
+        required: false
+        default: "30"
+        type: choice
+        options: ["30", "60"]
+      confirmation: { description: Enter BACKUP_VERIFIED for production apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency:
+  group: "${{ inputs.phase == 'test-v157' && 'minuta-test-database' || 'minuta-production-database' }}"
+  cancel-in-progress: false
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact main commit and phase
+        env:
+          SHA: "${{ inputs.commit_sha }}"
+          PHASE: "${{ inputs.phase }}"
+          CONFIRMATION: "${{ inputs.confirmation }}"
+          MINUTES: "${{ inputs.observation_minutes }}"
+          GH_TOKEN: "${{ github.token }}"
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            test-v157|validate-production-v157) ;;
+            apply-production-v157) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            observe-production-v157) case "$MINUTES" in 30|60) ;; *) exit 1 ;; esac ;;
+            *) exit 1 ;;
+          esac
+          for file in \
+            minuta-online-booking/supabase-migration-v157.sql \
+            minuta-online-booking/supabase-migration-v157-rollback.sql \
+            minuta-online-booking/provider-schedule-move-v157-static-test.mjs \
+            minuta-online-booking/tests/provider-schedule-move-v157-integration.sql \
+            minuta-online-booking/tests/provider-schedule-move-v157-postgres-concurrency-test.mjs \
+            minuta-online-booking/scripts/provider-schedule-move-v157-contract.mjs \
+            minuta-online-booking/scripts/provider-schedule-move-v157-state.sql; do
+            test -s "$file"
+          done
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: node minuta-online-booking/provider-schedule-move-v157-static-test.mjs
+      - run: node minuta-online-booking/provider-gestures-test.mjs
+      - run: node minuta-online-booking/scripts/provider-schedule-move-v157-contract.mjs >/dev/null
+
+  test-v157:
+    if: inputs.phase == 'test-v157'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+      PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Install isolated PostgreSQL concurrency driver
+        run: npm install --prefix "$RUNNER_TEMP/v157-pg" --no-save --ignore-scripts pg@8.16.3
+      - name: Prove apply, integration, rollback and reapply
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          contract="$(node minuta-online-booking/scripts/provider-schedule-move-v157-contract.mjs)"
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          export MINUTA_TEST_DATABASE_URL="$db"
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/v157-pg/node_modules/pg/lib/index.js"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target
+          where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/provider-schedule-move-v157-state.sql | grep '^{' | tail -n 1)"
+          case "$(jq -r .classification <<<"$state")" in
+            exact)
+              jq -e --argjson contract "$contract" '.exact
+                and ([.functions[]|{signature,sourceHash,access,marker}]
+                  == [$contract.functions[]|{signature,sourceHash,access,marker:(.markerPrefix+":sha256="+.sourceHash)}])
+                and .table.name==$contract.table and .table.structuralExact
+                and .table.marker==($contract.tableMarkerPrefix+.table.schemaHash)' <<<"$state" >/dev/null
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v157-rollback.sql ;;
+            absent) ;;
+            *) jq -c . <<<"$state"; exit 1 ;;
+          esac
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v157.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/provider-schedule-move-v157-integration.sql
+          if psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v157.sql >"$RUNNER_TEMP/v157-repeat.log" 2>&1; then
+            echo 'Raw repeated migration unexpectedly succeeded' >&2; exit 1
+          fi
+          grep -q 'v157_schedule_move_state_not_absent' "$RUNNER_TEMP/v157-repeat.log"
+          applied="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/provider-schedule-move-v157-state.sql | grep '^{' | tail -n 1)"
+          jq -e --argjson contract "$contract" '.classification=="exact" and .exact and (.tableDataRead|not)
+            and ([.functions[]|{signature,sourceHash,access,marker}]
+              == [$contract.functions[]|{signature,sourceHash,access,marker:(.markerPrefix+":sha256="+.sourceHash)}])
+            and .table.name==$contract.table and .table.structuralExact
+            and .table.marker==($contract.tableMarkerPrefix+.table.schemaHash)' <<<"$applied" >/dev/null
+          guard_id="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.provider_schedule_moves_v157(
+            request_id,request_fingerprint,operation,from_snapshot,to_snapshot,status,result
+          ) values(gen_random_uuid(),repeat('0',64),'move','{}','{}','applied','{}') returning request_id;
+          SQL
+          )"
+          [[ "$guard_id" =~ ^[0-9a-f-]{36}$ ]]
+          if psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v157-rollback.sql >"$RUNNER_TEMP/v157-history-rollback.log" 2>&1; then
+            echo 'Rollback unexpectedly removed durable history' >&2; exit 1
+          fi
+          grep -q 'v157_rollback_blocked_durable_history_exists' "$RUNNER_TEMP/v157-history-rollback.log"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -c "delete from public.provider_schedule_moves_v157 where request_id='$guard_id'::uuid"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v157-rollback.sql
+          rolled="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/provider-schedule-move-v157-state.sql | grep '^{' | tail -n 1)"
+          jq -e '.classification=="absent" and (.tableDataRead|not)' <<<"$rolled" >/dev/null
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v157.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/provider-schedule-move-v157-integration.sql
+          node minuta-online-booking/tests/provider-schedule-move-v157-postgres-concurrency-test.mjs
+          reapplied="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/provider-schedule-move-v157-state.sql | grep '^{' | tail -n 1)"
+          jq -e --argjson contract "$contract" '.classification=="exact" and .exact and (.tableDataRead|not)
+            and ([.functions[]|{signature,sourceHash,access,marker}]
+              == [$contract.functions[]|{signature,sourceHash,access,marker:(.markerPrefix+":sha256="+.sourceHash)}])
+            and .table.name==$contract.table and .table.structuralExact
+            and .table.marker==($contract.tableMarkerPrefix+.table.schemaHash)' <<<"$reapplied" >/dev/null
+          jq -n --arg sha "$SHA" --argjson contract "$contract" --argjson state "$reapplied" '{status:"success",phase:"test-v157",commitSha:$sha,contract:$contract,state:$state,cycle:["apply","integration","repeat-refused","history-rollback-refused","rollback","reapply","integration","real-concurrency"],productionWritten:false,businessRowsChanged:false}' > "$RUNNER_TEMP/v157-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v157-test-${{ github.run_id }}", path: "${{ runner.temp }}/v157-test.json", if-no-files-found: error, retention-days: 90 }
+
+  validate-production-v157:
+    if: inputs.phase == 'validate-production-v157'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Read-only production validation
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          contract="$(node minuta-online-booking/scripts/provider-schedule-move-v157-contract.mjs)"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/provider-schedule-move-v157-state.sql | grep '^{' | tail -n 1)"
+          jq -e --argjson contract "$contract" '(.classification=="absent" or (.classification=="exact" and .exact
+            and ([.functions[]|{signature,sourceHash,access,marker}]
+              == [$contract.functions[]|{signature,sourceHash,access,marker:(.markerPrefix+":sha256="+.sourceHash)}])
+            and .table.name==$contract.table and .table.structuralExact
+            and .table.marker==($contract.tableMarkerPrefix+.table.schemaHash)))
+            and (.tableDataRead|not)' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson contract "$contract" --argjson state "$state" '{status:"success",phase:"validate-production-v157",commitSha:$sha,contract:$contract,state:$state,readOnly:true,tableDataRead:false,productionWritten:false}' > "$RUNNER_TEMP/v157-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v157-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v157-validation.json", if-no-files-found: error, retention-days: 90 }
+
+  apply-production-v157:
+    if: inputs.phase == 'apply-production-v157'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - name: Verify pinned test, validation, backup, restore and current main
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          SHA: "${{ inputs.commit_sha }}"
+          BACKUP: "${{ inputs.backup_run_id }}"
+          RESTORE: "${{ inputs.restore_run_id }}"
+          TEST: "${{ inputs.test_run_id }}"
+          VALIDATION: "${{ inputs.validation_run_id }}"
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP" "$RESTORE" "$TEST" "$VALIDATION"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          test_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TEST")"
+          validation_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VALIDATION")"
+          backup_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP")"
+          restore_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESTORE")"
+          check_run(){ local json="$1" path="$2"; test "$(jq -r .conclusion <<<"$json")" = success; test "$(jq -r .head_sha <<<"$json")" = "$SHA"; test "$(jq -r .head_branch <<<"$json")" = main; test "$(jq -r .event <<<"$json")" = workflow_dispatch; test "$(jq -r .path <<<"$json")" = "$path"; }
+          check_run "$test_run" .github/workflows/minuta-v157-provider-schedule-move-release.yml
+          test "$(jq -r .display_title <<<"$test_run")" = "Minuta v157 - test-v157 - $SHA"
+          check_run "$validation_run" .github/workflows/minuta-v157-provider-schedule-move-release.yml
+          test "$(jq -r .display_title <<<"$validation_run")" = "Minuta v157 - validate-production-v157 - $SHA"
+          check_run "$backup_run" .github/workflows/minuta-supabase-backup.yml
+          check_run "$restore_run" .github/workflows/minuta-supabase-restore-drill.yml
+          now="$(date +%s)"
+          test_epoch="$(date -d "$(jq -r .created_at <<<"$test_run")" +%s)"
+          validation_epoch="$(date -d "$(jq -r .created_at <<<"$validation_run")" +%s)"
+          backup_epoch="$(date -d "$(jq -r .created_at <<<"$backup_run")" +%s)"
+          restore_epoch="$(date -d "$(jq -r .created_at <<<"$restore_run")" +%s)"
+          test "$test_epoch" -le "$validation_epoch"
+          test "$validation_epoch" -le "$backup_epoch"
+          test "$backup_epoch" -le "$restore_epoch"
+          test "$((now-test_epoch))" -ge 0 && test "$((now-test_epoch))" -le 21600
+          test "$((now-validation_epoch))" -ge 0 && test "$((now-validation_epoch))" -le 21600
+          test "$((now-backup_epoch))" -ge 0 && test "$((now-backup_epoch))" -le 7200
+          test "$((now-restore_epoch))" -ge 0 && test "$((now-restore_epoch))" -le 7200
+          mkdir -p "$RUNNER_TEMP/v157-evidence"/{test,validation,backup,restore}
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TEST/artifacts" --jq "[.artifacts[]|select(.expired==false and .name==\"v157-test-$TEST\")]|length")" = 1
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VALIDATION/artifacts" --jq "[.artifacts[]|select(.expired==false and .name==\"v157-validation-$VALIDATION\")]|length")" = 1
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v157-test-$TEST" -D "$RUNNER_TEMP/v157-evidence/test"
+          gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v157-validation-$VALIDATION" -D "$RUNNER_TEMP/v157-evidence/validation"
+          contract="$(node minuta-online-booking/scripts/provider-schedule-move-v157-contract.mjs)"
+          jq -e --arg sha "$SHA" --argjson contract "$contract" '.status=="success" and .phase=="test-v157" and .commitSha==$sha and .contract==$contract and (.productionWritten|not) and (.businessRowsChanged|not)' "$RUNNER_TEMP/v157-evidence/test/v157-test.json" >/dev/null
+          jq -e --arg sha "$SHA" --argjson contract "$contract" '.status=="success" and .phase=="validate-production-v157" and .commitSha==$sha and .contract==$contract and .readOnly and (.tableDataRead|not) and (.productionWritten|not)' "$RUNNER_TEMP/v157-evidence/validation/v157-validation.json" >/dev/null
+          backup_artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts")"
+          test "$(jq '[.artifacts[]|select(.expired==false and .size_in_bytes>0)]|length' <<<"$backup_artifacts")" = 1
+          backup_name="$(jq -r '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name' <<<"$backup_artifacts")"
+          [[ "$backup_name" =~ ^minuta-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}Z$ ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$backup_name" -D "$RUNNER_TEMP/v157-evidence/backup"
+          restore_artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESTORE/artifacts")"
+          restore_name="minuta-ephemeral-restore-$RESTORE"
+          test "$(jq --arg name "$restore_name" '[.artifacts[]|select(.expired==false and .size_in_bytes>0 and .name==$name)]|length' <<<"$restore_artifacts")" = 1
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "$restore_name" -D "$RUNNER_TEMP/v157-evidence/restore"
+          mapfile -t dumps < <(find "$RUNNER_TEMP/v157-evidence/backup" -type f -name '*.dump.gpg')
+          mapfile -t checksums < <(find "$RUNNER_TEMP/v157-evidence/backup" -type f -name '*.dump.gpg.sha256')
+          mapfile -t journals < <(find "$RUNNER_TEMP/v157-evidence/backup" -type f -name '*.json')
+          test "${#dumps[@]}" = 1 && test "${#checksums[@]}" = 1 && test "${#journals[@]}" = 1
+          encrypted_sha="$(tr -d '[:space:]' < "${checksums[0]}")"
+          [[ "$encrypted_sha" =~ ^[a-f0-9]{64}$ ]]
+          test "$(sha256sum "${dumps[0]}" | awk '{print $1}')" = "$encrypted_sha"
+          jq -e --arg digest "$encrypted_sha" --arg run "$BACKUP" --arg repository "$GITHUB_REPOSITORY" '.schemaVersion==1 and .operation=="backup" and .status=="success" and .repository==$repository and .workflowRunId==$run and .encryptedSha256==$digest and .encryptedBytes>0 and .archiveEntries>0 and .archiveFormat=="PostgreSQL custom" and .encryption=="OpenPGP symmetric AES-256"' "${journals[0]}" >/dev/null
+          mapfile -t restore_jsons < <(find "$RUNNER_TEMP/v157-evidence/restore" -type f -name '*.json')
+          test "${#restore_jsons[@]}" = 1
+          restore_json="${restore_jsons[0]}"
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" '.status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed and (.productionWritten|not) and .sourceBackupRunId==$backup and .sourceBackupSha==$sha' "$restore_json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply exact v157 schema and verify
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          contract="$(node minuta-online-booking/scripts/provider-schedule-move-v157-contract.mjs)"
+          before="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/provider-schedule-move-v157-state.sql | grep '^{' | tail -n 1)"
+          jq -e --argjson contract "$contract" '(.classification=="absent" or (.classification=="exact" and .exact
+            and ([.functions[]|{signature,sourceHash,access,marker}]
+              == [$contract.functions[]|{signature,sourceHash,access,marker:(.markerPrefix+":sha256="+.sourceHash)}])
+            and .table.name==$contract.table and .table.structuralExact
+            and .table.marker==($contract.tableMarkerPrefix+.table.schemaHash)))
+            and (.tableDataRead|not)' <<<"$before" >/dev/null
+          if test "$(jq -r .classification <<<"$before")" = absent; then
+            psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v157.sql
+          fi
+          after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/provider-schedule-move-v157-state.sql | grep '^{' | tail -n 1)"
+          jq -e --argjson contract "$contract" '.classification=="exact" and .exact and (.tableDataRead|not)
+            and ([.functions[]|{signature,sourceHash,access,marker}]
+              == [$contract.functions[]|{signature,sourceHash,access,marker:(.markerPrefix+":sha256="+.sourceHash)}])
+            and .table.name==$contract.table and .table.structuralExact
+            and .table.marker==($contract.tableMarkerPrefix+.table.schemaHash)' <<<"$after" >/dev/null
+          jq -n --arg sha "$SHA" --argjson contract "$contract" --argjson before "$before" --argjson after "$after" '{status:"success",phase:"apply-production-v157",commitSha:$sha,contract:$contract,before:$before,after:$after,productionWritten:true,businessRowsChanged:false}' > "$RUNNER_TEMP/v157-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v157-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v157-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v157:
+    if: inputs.phase == 'observe-production-v157'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify apply evidence and observe production read-only
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          SHA: "${{ inputs.commit_sha }}"
+          APPLY: "${{ inputs.apply_run_id }}"
+          MINUTES: "${{ inputs.observation_minutes }}"
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          case "$MINUTES" in 30|60) ;; *) exit 1 ;; esac
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run_json")" = success
+          test "$(jq -r .head_sha <<<"$run_json")" = "$SHA"
+          test "$(jq -r .head_branch <<<"$run_json")" = main
+          test "$(jq -r .event <<<"$run_json")" = workflow_dispatch
+          test "$(jq -r .path <<<"$run_json")" = .github/workflows/minuta-v157-provider-schedule-move-release.yml
+          test "$(jq -r .display_title <<<"$run_json")" = "Minuta v157 - apply-production-v157 - $SHA"
+          age=$(( $(date +%s)-$(date -d "$(jq -r .created_at <<<"$run_json")" +%s) ))
+          test "$age" -ge 0 && test "$age" -le 7200
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY/artifacts" --jq "[.artifacts[]|select(.expired==false and .name==\"v157-apply-$APPLY\")]|length")" = 1
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v157-apply-$APPLY" -D "$RUNNER_TEMP/v157-apply"
+          contract="$(node minuta-online-booking/scripts/provider-schedule-move-v157-contract.mjs)"
+          jq -e --arg sha "$SHA" --argjson contract "$contract" '.status=="success" and .phase=="apply-production-v157" and .commitSha==$sha and .contract==$contract and .productionWritten and (.businessRowsChanged|not) and .after.classification=="exact" and .after.exact' "$RUNNER_TEMP/v157-apply/v157-apply.json" >/dev/null
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          first="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/provider-schedule-move-v157-state.sql | grep '^{' | tail -n 1)"
+          jq -e --argjson contract "$contract" '.classification=="exact" and .exact and (.tableDataRead|not)
+            and ([.functions[]|{signature,sourceHash,access,marker}]
+              == [$contract.functions[]|{signature,sourceHash,access,marker:(.markerPrefix+":sha256="+.sourceHash)}])
+            and .table.name==$contract.table and .table.structuralExact
+            and .table.marker==($contract.tableMarkerPrefix+.table.schemaHash)' <<<"$first" >/dev/null
+          node minuta-online-booking/production-health-check.mjs
+          sleep "$((MINUTES*60))"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          second="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/provider-schedule-move-v157-state.sql | grep '^{' | tail -n 1)"
+          test "$(jq -S . <<<"$second")" = "$(jq -S . <<<"$first")"
+          jq -e --argjson contract "$contract" '.classification=="exact" and .exact and (.tableDataRead|not)
+            and ([.functions[]|{signature,sourceHash,access,marker}]
+              == [$contract.functions[]|{signature,sourceHash,access,marker:(.markerPrefix+":sha256="+.sourceHash)}])
+            and .table.name==$contract.table and .table.structuralExact
+            and .table.marker==($contract.tableMarkerPrefix+.table.schemaHash)' <<<"$second" >/dev/null
+          node minuta-online-booking/production-health-check.mjs
+          jq -n --arg sha "$SHA" --arg minutes "$MINUTES" --argjson first "$first" --argjson second "$second" '{status:"success",phase:"observe-production-v157",commitSha:$sha,minutes:($minutes|tonumber),readOnly:true,productionWritten:false,firstState:$first,secondState:$second}' > "$RUNNER_TEMP/v157-observation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v157-observation-${{ github.run_id }}", path: "${{ runner.temp }}/v157-observation.json", if-no-files-found: error, retention-days: 90 }

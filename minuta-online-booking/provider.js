@@ -496,13 +496,22 @@ let providerFeedbackController = { bind() {}, refreshAvailability() {}, reset() 
 let feedbackInboxController = { bind() {}, load() { return Promise.resolve({ ok:false, skipped:true }); }, setOrganization() {}, reset() {} };
 let timelineBookingDrag = null;
 let timelineMovePending = false;
+let timelineMoveConfirmationPending = false;
+let timelineMoveRecoveryPending = false;
+let timelineBookingUndo = null;
+let timelineBookingUndoTimeout = null;
+let timelineBookingUndoInterval = null;
+let timelineBookingUndoHovered = false;
+let timelineBookingUndoFocused = false;
 let scheduleDaySwipe = null;
 let gestureClickSuppressedUntil = 0;
 let sectionNavigationFrame = 0;
 const providerSectionSelections = new Map();
 const providerSectionPresentation = new WeakMap();
 const TIMELINE_TOUCH_HOLD_MS = 380;
-const TIMELINE_DRAG_THRESHOLD_PX = 5;
+const TIMELINE_DRAG_THRESHOLD_PX = 8;
+const TIMELINE_MAGNET_RADIUS_MINUTES = 30;
+const TIMELINE_UNDO_WINDOW_MS = 10000;
 const SCHEDULE_SWIPE_THRESHOLD_PX = 58;
 const reliability = window.MinutaReliability;
 const providerAssetVersion = (() => {
@@ -2136,7 +2145,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=759#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=760#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2841,7 +2850,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=759#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=760#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5064,7 +5073,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=759');
+      worker = new Worker('./report-worker.js?v=760');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6703,7 +6712,7 @@ function timelineTimeFromClick(stage, event) {
   const scaleHeight = Number(stage.dataset.timelineNaturalHeight) || rect.height;
   const position = Math.max(0, Math.min(scaleHeight, event.clientY - rect.top));
   const rawMinute = start + ((position / scaleHeight) * (end - start));
-  const step = 30;
+  const step = scheduleStepForDate(stage.dataset.timelineDate || selectedDate);
   const snappedMinute = Math.floor(rawMinute / step) * step;
   const firstSlot = Math.ceil(start / step) * step;
   const lastSlot = Math.floor((end - 1) / step) * step;
@@ -6725,6 +6734,85 @@ function timelineMinuteFromPointer(stage, clientY, pointerOffsetY, duration, dat
   return Math.max(start, Math.min(end - duration, snapped));
 }
 
+function timelineMoveRestriction(item) {
+  if (!item) return 'Запись не найдена';
+  if (item.is_imported_history) return 'Импортированная запись доступна только для просмотра';
+  if (isScheduleBlock(item)) return 'Перерыв переносится через подробное редактирование';
+  if (item.series_id) return 'Для серии выберите область переноса в карточке записи';
+  if (item.status === 'cancelled') return 'Отменённую запись нельзя переносить';
+  if (bookingIsCompleted(item) || ['completed', 'no_show'].includes(item.status)) return 'Завершённую запись нельзя переносить';
+  if (bookingMoveTimeIsPast(item.booking_date, String(item.booking_time).slice(0, 5))) return 'Начавшуюся или прошедшую запись нельзя переносить';
+  return '';
+}
+
+function timelineBookingMoveSnapshot(item) {
+  return Object.freeze({
+    id:item?.id || '',
+    organization_id:item?.organization_id || null,
+    location_id:item?.location_id || null,
+    service_id:item?.service_id || null,
+    booking_date:item?.booking_date || '',
+    booking_time:item?.booking_time || '',
+    duration_minutes:Number(item?.duration_minutes),
+    status:item?.status || '',
+    total_price_rub:item?.total_price_rub,
+    original_price_rub:item?.original_price_rub,
+    services:item?.services ? Object.freeze({ ...item.services }) : null
+  });
+}
+
+function timelineBookingMatchesMoveSnapshot(item, expected) {
+  return Boolean(item && expected
+    && item.id === expected.id
+    && item.organization_id === expected.organization_id
+    && item.location_id === expected.location_id
+    && item.service_id === expected.service_id
+    && item.booking_date === expected.booking_date
+    && String(item.booking_time).slice(0, 5) === String(expected.booking_time).slice(0, 5)
+    && Number(item.duration_minutes) === Number(expected.duration_minutes)
+    && item.status === expected.status);
+}
+
+function timelineMoveRevenueText(item) {
+  const amount = Math.max(0, Number(item?.total_price_rub ?? item?.original_price_rub ?? item?.services?.price_rub ?? bookingSessionTotal(item)) || 0);
+  return amount > 0 ? `${amount.toLocaleString('ru-RU')} ₽ остаётся в графике` : 'Выручка не изменится';
+}
+
+function timelinePlacementShortLabel(issue) {
+  const reason = String(issue || '').toLowerCase();
+  if (!reason) return 'Свободно';
+  if (reason.includes('перерыв')) return 'Перерыв';
+  if (reason.includes('занят') || reason.includes('запись')) return 'Занято';
+  if (reason.includes('выходн')) return 'Выходной';
+  if (reason.includes('прошл')) return 'Прошедшее время';
+  if (reason.includes('рабоч')) return 'Вне рабочего дня';
+  if (reason.includes('закрыто')) return 'Недоступно';
+  return 'Нельзя поставить';
+}
+
+function timelineMagneticTarget(item, stage, pointerMinute, dateIso = selectedDate) {
+  const start = Number(stage?.dataset.timelineStart);
+  const end = Number(stage?.dataset.timelineEnd);
+  const duration = Math.max(1, Number(item?.duration_minutes || item?.services?.duration_minutes || 60));
+  const step = Math.max(1, scheduleStepForDate(dateIso));
+  const min = Number.isFinite(start) ? start : 0;
+  const max = Number.isFinite(end) ? Math.max(min, end - duration) : 1440 - duration;
+  const bounded = Math.max(min, Math.min(max, pointerMinute));
+  const originalMinute = item?.booking_date === dateIso ? minutesFromTime(item.booking_time) : null;
+  const directIssue = bookingPlacementIssue(item, dateIso, bounded);
+  if (!directIssue) return { minute:bounded, issue:'', magnetized:false, pointerMinute:bounded };
+  for (let offset = step; offset <= TIMELINE_MAGNET_RADIUS_MINUTES; offset += step) {
+    for (const candidate of [bounded - offset, bounded + offset]) {
+      if (candidate < min || candidate > max) continue;
+      if (candidate === originalMinute && bounded !== originalMinute) continue;
+      if (!bookingPlacementIssue(item, dateIso, candidate)) {
+        return { minute:candidate, issue:'', magnetized:true, pointerMinute:bounded, rejectedIssue:directIssue };
+      }
+    }
+  }
+  return { minute:bounded, issue:directIssue, magnetized:false, pointerMinute:bounded };
+}
+
 function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, ignoreSchedule = false } = {}) {
   const duration = Math.max(1, Number(item?.duration_minutes || item?.services?.duration_minutes || 60));
   const endMinute = startMinute + duration;
@@ -6733,6 +6821,7 @@ function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, 
     : 0;
   const candidateIsBlock = isScheduleBlock(item);
   if (dateIso < businessTodayIso() && !allowPast) return 'Нельзя переносить запись в прошлое';
+  if (!allowPast && bookingMoveTimeIsPast(dateIso, timeFromMinutes(startMinute))) return 'Выбранное время уже прошло';
   const date = parseLocalIsoDate(dateIso);
   if (!date) return 'Не удалось определить выбранную дату';
   if (startMinute < 0 || endMinute > 1440) return 'Запись должна завершиться в выбранную дату';
@@ -6771,12 +6860,127 @@ function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, 
     : '';
 }
 
+function clearTimelineBookingUndo() {
+  clearTimeout(timelineBookingUndoTimeout);
+  clearInterval(timelineBookingUndoInterval);
+  timelineBookingUndoTimeout = null;
+  timelineBookingUndoInterval = null;
+  timelineBookingUndoHovered = false;
+  timelineBookingUndoFocused = false;
+  timelineBookingUndo = null;
+  const holder = $('#timelineBookingUndo');
+  if (holder) {
+    holder.hidden = true;
+    holder.classList.remove('is-active', 'is-pending', 'is-paused');
+  }
+  const button = $('#timelineBookingUndoButton');
+  if (button) {
+    button.disabled = false;
+    button.textContent = 'Отменить';
+  }
+}
+
+function updateTimelineBookingUndoCountdown() {
+  if (!timelineBookingUndo) return;
+  const seconds = Math.max(0, Math.ceil((timelineBookingUndo.expiresAt - Date.now()) / 1000));
+  const label = $('#timelineBookingUndoCountdown');
+  if (label) label.textContent = seconds ? `Отмена доступна ещё ${seconds} сек.` : 'Время отмены истекло';
+  if (!seconds) clearTimelineBookingUndo();
+}
+
+function scheduleTimelineBookingUndoCountdown(restartAnimation = false) {
+  if (!timelineBookingUndo) return;
+  clearTimeout(timelineBookingUndoTimeout);
+  clearInterval(timelineBookingUndoInterval);
+  const delay = Math.max(0, timelineBookingUndo.expiresAt - Date.now());
+  timelineBookingUndoInterval = setInterval(updateTimelineBookingUndoCountdown, 1000);
+  timelineBookingUndoTimeout = setTimeout(clearTimelineBookingUndo, delay + 100);
+  const holder = $('#timelineBookingUndo');
+  if (holder && restartAnimation) {
+    holder.classList.remove('is-active');
+    void holder.offsetWidth;
+    holder.classList.add('is-active');
+  }
+}
+
+function pauseTimelineBookingUndoCountdown() {
+  if (!timelineBookingUndo || timelineBookingUndo.paused) return;
+  timelineBookingUndo.remainingMs = Math.max(0, timelineBookingUndo.expiresAt - Date.now());
+  timelineBookingUndo.paused = true;
+  clearTimeout(timelineBookingUndoTimeout);
+  clearInterval(timelineBookingUndoInterval);
+  timelineBookingUndoTimeout = null;
+  timelineBookingUndoInterval = null;
+  $('#timelineBookingUndo')?.classList.add('is-paused');
+}
+
+function resumeTimelineBookingUndoCountdown() {
+  if (!timelineBookingUndo || timelineMovePending || !timelineBookingUndo.paused || timelineBookingUndoHovered || timelineBookingUndoFocused) return;
+  timelineBookingUndo.expiresAt = Date.now() + Math.max(0, timelineBookingUndo.remainingMs || 0);
+  timelineBookingUndo.paused = false;
+  $('#timelineBookingUndo')?.classList.remove('is-paused');
+  updateTimelineBookingUndoCountdown();
+  scheduleTimelineBookingUndoCountdown();
+}
+
+function showTimelineBookingUndo(previous, current) {
+  const holder = $('#timelineBookingUndo');
+  const message = $('#timelineBookingUndoMessage');
+  if (!holder || !message || !previous || !current) {
+    notify(`Запись перенесена на ${String(current?.booking_time || '').slice(0, 5)}`);
+    return;
+  }
+  clearTimelineBookingUndo();
+  timelineBookingUndo = {
+    bookingId:current.id,
+    previous:{
+      booking_date:previous.booking_date,
+      booking_time:String(previous.booking_time).slice(0, 5),
+      service_id:previous.service_id,
+      duration_minutes:Number(previous.duration_minutes),
+      status:previous.status
+    },
+    expected:{
+      booking_date:current.booking_date,
+      booking_time:String(current.booking_time).slice(0, 5),
+      service_id:current.service_id,
+      duration_minutes:Number(current.duration_minutes),
+      status:current.status
+    },
+    moveId:current.schedule_move_id || '',
+    expiresAt:Date.now() + TIMELINE_UNDO_WINDOW_MS,
+    remainingMs:TIMELINE_UNDO_WINDOW_MS,
+    paused:false
+  };
+  const state = timelineBookingUndo;
+  holder.hidden = false;
+  message.textContent = '';
+  const announcement = `Запись перенесена: ${String(previous.booking_time).slice(0, 5)} → ${String(current.booking_time).slice(0, 5)}`;
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => {
+    if (timelineBookingUndo === state) message.textContent = announcement;
+  });
+  else message.textContent = announcement;
+  updateTimelineBookingUndoCountdown();
+  scheduleTimelineBookingUndoCountdown(true);
+}
+
+function timelineBookingMatchesUndoPoint(item, point) {
+  return Boolean(item && point
+    && item.booking_date === point.booking_date
+    && String(item.booking_time).slice(0, 5) === point.booking_time
+    && item.service_id === point.service_id
+    && Number(item.duration_minutes) === point.duration_minutes
+    && item.status === point.status);
+}
+
 function finishTimelineBookingDrag({ restore = true } = {}) {
   const state = timelineBookingDrag;
   if (!state) return;
   clearTimeout(state.holdTimer);
   state.label?.remove();
-  state.card.classList.remove('is-dragging', 'is-drag-pressed');
+  state.preview?.remove();
+  state.stage.classList.remove('is-magnetic-target', 'is-magnetic-invalid');
+  state.card.classList.remove('is-dragging', 'is-drag-pressed', 'is-drag-invalid', 'is-magnetized');
   state.card.removeAttribute('aria-grabbed');
   if (restore && state.card.isConnected) state.card.style.top = state.originalTop;
   document.body.classList.remove('timeline-booking-dragging');
@@ -6792,14 +6996,24 @@ function activateTimelineBookingDrag(state) {
   document.body.classList.add('timeline-booking-dragging');
   state.label = document.createElement('span');
   state.label.className = 'timeline-drag-label';
+  state.label.innerHTML = '<strong></strong><small></small>';
   state.stage.append(state.label);
+  state.preview = document.createElement('span');
+  state.preview.className = 'timeline-drag-preview';
+  state.preview.setAttribute('aria-hidden', 'true');
+  state.stage.append(state.preview);
+  updateTimelineBookingDrag(state, state.startY);
   if (state.pointerType === 'touch') navigator.vibrate?.(12);
 }
 
 function updateTimelineBookingDrag(state, clientY) {
-  const minute = timelineMinuteFromPointer(state.stage, clientY, state.pointerOffsetY, state.duration);
-  if (!Number.isFinite(minute)) return;
+  const pointerMinute = timelineMinuteFromPointer(state.stage, clientY, state.pointerOffsetY, state.duration);
+  if (!Number.isFinite(pointerMinute)) return;
+  const target = timelineMagneticTarget(state.item, state.stage, pointerMinute, state.date);
+  const minute = target.minute;
   state.targetMinute = minute;
+  state.issue = target.issue;
+  state.magnetized = target.magnetized;
   const start = Number(state.stage.dataset.timelineStart);
   const end = Number(state.stage.dataset.timelineEnd);
   const rect = state.stage.getBoundingClientRect();
@@ -6807,14 +7021,120 @@ function updateTimelineBookingDrag(state, clientY) {
   const top = ((minute - start) / (end - start)) * scaleHeight + 2;
   const endTime = timeFromMinutes(minute + state.duration);
   state.card.style.top = `${top}px`;
-  state.label.textContent = `${timeFromMinutes(minute)}–${endTime}`;
-  state.label.style.top = `${Math.max(4, top - 27)}px`;
+  state.card.classList.toggle('is-drag-invalid', Boolean(target.issue));
+  state.card.classList.toggle('is-magnetized', Boolean(target.magnetized));
+  state.stage.classList.toggle('is-magnetic-target', !target.issue);
+  state.stage.classList.toggle('is-magnetic-invalid', Boolean(target.issue));
+  if (state.preview) {
+    state.preview.classList.toggle('is-invalid', Boolean(target.issue));
+    state.preview.classList.toggle('is-magnetized', Boolean(target.magnetized));
+    state.preview.style.top = `${top}px`;
+    state.preview.style.height = `${Math.max(18, (state.duration / 60) * (scaleHeight / ((end - start) / 60)) - 4)}px`;
+  }
+  const strong = state.label?.querySelector('strong');
+  const small = state.label?.querySelector('small');
+  if (strong) strong.textContent = `${timeFromMinutes(minute)}–${endTime}`;
+  if (small) small.textContent = target.issue
+    ? timelinePlacementShortLabel(target.issue)
+    : `${target.magnetized ? 'Подходит · ' : ''}${state.duration} мин · ${timelineMoveRevenueText(state.item)}`;
+  if (state.label) {
+    state.label.classList.toggle('is-invalid', Boolean(target.issue));
+    state.label.classList.toggle('is-magnetized', Boolean(target.magnetized));
+    state.label.style.top = `${Math.max(4, top - 52)}px`;
+    state.label.title = target.issue || 'Свободное время';
+  }
 }
 
-async function persistTimelineBookingMove(state) {
+function timelineMoveAttemptKey(userId = currentUser?.id) {
+  return userId ? `minuta_provider_timeline_move_v157:${userId}` : '';
+}
+
+function readTimelineMoveAttempt(userId = currentUser?.id) {
+  const key = timelineMoveAttemptKey(userId);
+  if (!key) return null;
+  try {
+    const attempt = JSON.parse(sessionStorage.getItem(key) || 'null');
+    if (!attempt || Date.now() - Number(attempt.savedAt || 0) > 30 * 60 * 1000) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+    return attempt;
+  } catch { return null; }
+}
+
+function writeTimelineMoveAttempt(attempt, userId = currentUser?.id) {
+  const key = timelineMoveAttemptKey(userId);
+  if (!key) return false;
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ ...attempt, savedAt:Date.now() }));
+    return true;
+  } catch { return false; }
+}
+
+function clearTimelineMoveAttempt(userId = currentUser?.id) {
+  const key = timelineMoveAttemptKey(userId);
+  if (!key) return;
+  try { sessionStorage.removeItem(key); } catch {}
+}
+
+function providerScheduleMoveErrorMessage(error) {
+  const reason = `${error?.code || ''}:${error?.message || ''}`;
+  const known = {
+    '40001:provider_schedule_booking_changed':'Запись изменилась в другой вкладке. Проверьте её и повторите перенос.',
+    '23P01:provider_schedule_slot_unavailable':'Это время уже занято или недоступно.',
+    '42501:provider_schedule_access_denied':'У вас нет доступа к переносу этой записи.',
+    'P0001:provider_schedule_booking_not_found':'Запись не найдена. Обновите журнал.',
+    'P0001:provider_schedule_booking_not_actionable':'Эту запись уже нельзя переносить.',
+    '55000:provider_schedule_series_requires_editor':'Серию переносите через карточку записи.',
+    '55000:provider_schedule_block_requires_editor':'Перерыв изменяйте через его карточку.',
+    '22023:invalid_provider_schedule_target':'Выберите корректное время переноса.',
+    '22023:provider_schedule_target_in_past':'Выбранное время уже прошло.',
+    '22023:provider_schedule_request_reused':'Запрос уже использован для другого переноса.'
+  };
+  return known[reason] || providerRescheduleErrorMessage(error) || '';
+}
+
+function timelineMoveRpcMissing(error) {
+  const reason = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+  return /PGRST202|42883/.test(reason) || /move_minuta_provider_schedule_booking_v157/i.test(reason) && /not find|does not exist|schema cache/i.test(reason);
+}
+
+function timelineMoveOutcomeUnknown(error) {
+  const reason = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+  return !error || /PGRST00[012]|fetch|network|timeout|timed out|connection|socket|econn|failed to fetch/i.test(reason);
+}
+
+async function moveTimelineBookingAtExpectedState(item, targetDate, targetTime, requestId) {
+  const result = await db.rpc('move_minuta_provider_schedule_booking_v157', {
+    p_request_id:requestId,
+    p_booking:item.id,
+    p_date:targetDate,
+    p_time:`${targetTime}:00`,
+    p_expected_organization:item.organization_id || null,
+    p_expected_location:item.location_id || null,
+    p_expected_service:item.service_id,
+    p_expected_date:item.booking_date,
+    p_expected_time:item.booking_time,
+    p_expected_duration:Number(item.duration_minutes),
+    p_expected_status:item.status
+  });
+  if (result.error) return { error:result.error };
+  const row = result.data;
+  const confirmed = row?.action === 'moved' && row?.request_id === requestId && row?.booking_id === item.id
+    && row?.performer_id === currentUser?.id && String(row?.booking_date) === targetDate
+    && String(row?.booking_time).slice(0, 5) === targetTime && row?.notifications_suppressed === false;
+  return confirmed ? { data:row, error:null } : { error:{ code:'MINUTA_BOOKING_UNCONFIRMED', message:'provider_schedule_move_unconfirmed' } };
+}
+
+async function persistTimelineBookingMove(state, { recovery = false } = {}) {
   if (bookingUsesDemoData()) { renderBookings(); return; }
-  const item = allBookings.find(booking => booking.id === state.bookingId);
-  if (!item || timelineMovePending) {
+  const item = state.item;
+  const currentBeforeMove = allBookings.find(booking => booking.id === state.bookingId);
+  if (!item || !timelineBookingMatchesMoveSnapshot(currentBeforeMove, item) || timelineMovePending) {
+    if (item && currentBeforeMove && !timelineBookingMatchesMoveSnapshot(currentBeforeMove, item)) {
+      clearTimelineMoveAttempt();
+      notify('Запись изменилась в другой вкладке. Проверьте её и повторите перенос.');
+    }
     renderBookings();
     return;
   }
@@ -6824,7 +7144,8 @@ async function persistTimelineBookingMove(state) {
     renderBookings();
     return;
   }
-  const issue = bookingPlacementIssue(item, state.date, state.targetMinute);
+  const restriction = timelineMoveRestriction(item);
+  const issue = restriction || bookingPlacementIssue(item, state.date, state.targetMinute);
   if (issue) {
     notify(issue);
     renderBookings();
@@ -6835,8 +7156,8 @@ async function persistTimelineBookingMove(state) {
     return;
   }
   timelineMovePending = true;
-  state.card.classList.add('is-saving-position');
-  state.card.setAttribute('aria-busy', 'true');
+  state.card?.classList.add('is-saving-position');
+  state.card?.setAttribute('aria-busy', 'true');
   const userId = currentUser.id;
   const generation = sessionGeneration;
   const { data: availableSlots, error: availabilityError } = await getProviderAvailableSlots({
@@ -6856,25 +7177,251 @@ async function persistTimelineBookingMove(state) {
     renderBookings();
     return;
   }
-  const { error } = await updateBookingAtExpectedState(item, { booking_date:state.date, booking_time:`${targetTime}:00` }, userId);
+  const requestId = state.requestId || createOfflineBookingId();
+  state.requestId = requestId;
+  writeTimelineMoveAttempt({
+    operation:'move',
+    requestId,
+    bookingId:item.id,
+    targetDate:state.date,
+    targetTime,
+    expected:{
+      organization_id:item.organization_id || null,
+      location_id:item.location_id || null,
+      service_id:item.service_id,
+      booking_date:item.booking_date,
+      booking_time:item.booking_time,
+      duration_minutes:Number(item.duration_minutes),
+      status:item.status
+    }
+  }, userId);
+  let moved;
+  let error;
+  try {
+    ({ data:moved, error } = await moveTimelineBookingAtExpectedState(item, state.date, targetTime, requestId));
+  } catch (failure) {
+    error = failure;
+  }
   timelineMovePending = false;
   if (!sessionIsCurrent(userId, generation)) return;
   if (error) {
-    notify(providerRescheduleErrorMessage(error) || 'Не удалось подтвердить перенос. Проверьте актуальную запись.');
+    const missing = timelineMoveRpcMissing(error);
+    const uncertain = !missing && timelineMoveOutcomeUnknown(error);
+    if (!uncertain) clearTimelineMoveAttempt(userId);
+    notify(missing ? 'Безопасный перенос обновляется на сервере. Пока используйте карточку записи.' : uncertain ? 'Ответ сервера не получен. Проверяем результат автоматически.' : providerScheduleMoveErrorMessage(error) || 'Не удалось подтвердить перенос. Проверьте актуальную запись.');
     await loadBookings({ silent:true });
     return;
   }
-  if (!isScheduleBlock(item)) notifyTelegramClient(item.id, 'rescheduled');
+  clearTimelineMoveAttempt(userId);
+  const previous = { ...item };
   await refreshAfterWrite();
-  notify(`Запись перенесена на ${targetTime}`);
+  const current = allBookings.find(booking => booking.id === item.id) || {
+    ...item,
+    booking_date:state.date,
+    booking_time:`${targetTime}:00`,
+    schedule_move_id:moved?.move_id
+  };
+  current.schedule_move_id = moved?.move_id || current.schedule_move_id;
+  showTimelineBookingUndo(previous, current);
+  if (recovery) notify(`Перенос подтверждён: ${targetTime}`);
+}
+
+async function confirmTimelineBookingMove(state) {
+  if (!state || timelineMoveConfirmationPending) return;
+  const item = state.item;
+  const current = allBookings.find(booking => booking.id === state.bookingId);
+  const targetTime = timeFromMinutes(state.targetMinute);
+  const originalTime = String(item?.booking_time || '').slice(0, 5);
+  const issue = timelineMoveRestriction(item) || state.issue || bookingPlacementIssue(item, state.date, state.targetMinute);
+  renderBookings();
+  if (!item || targetTime === originalTime) return;
+  if (!timelineBookingMatchesMoveSnapshot(current, item)) {
+    notify('Запись изменилась в другой вкладке. Проверьте её и повторите перенос.');
+    return;
+  }
+  if (issue) {
+    notify(issue);
+    return;
+  }
+  timelineMoveConfirmationPending = true;
+  const confirmed = await requestProviderConfirmation({
+    title:'Перенести запись?',
+    message:`${originalTime} → ${targetTime} · ${state.duration} мин. ${timelineMoveRevenueText(item)}. Перед сохранением свободное время проверится ещё раз.`,
+    confirmLabel:'Перенести'
+  });
+  timelineMoveConfirmationPending = false;
+  if (!confirmed) return;
+  await persistTimelineBookingMove(state);
+}
+
+async function performTimelineBookingUndo(undo, requestId, { recovery = false } = {}) {
+  if (!undo || !requestId || timelineMovePending || !currentUser?.id) return;
+  const item = allBookings.find(booking => booking.id === undo.bookingId);
+  if (!timelineBookingMatchesUndoPoint(item, undo.expected)) {
+    clearTimelineMoveAttempt();
+    clearTimelineBookingUndo();
+    notify('Запись уже изменилась. Отмена не выполнена.');
+    await loadBookings({ silent:true });
+    return;
+  }
+  const button = $('#timelineBookingUndoButton');
+  const holder = $('#timelineBookingUndo');
+  pauseTimelineBookingUndoCountdown();
+  timelineMovePending = true;
+  holder?.classList.add('is-pending');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Отменяем…';
+  }
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  writeTimelineMoveAttempt({
+    operation:'undo',requestId,moveId:undo.moveId,bookingId:undo.bookingId,
+    previous:undo.previous,expected:undo.expected
+  }, userId);
+  let data;
+  let error;
+  try {
+    ({ data, error } = await db.rpc('undo_minuta_provider_schedule_booking_v157', {
+      p_request_id:requestId,
+      p_move:undo.moveId
+    }));
+  } catch (failure) {
+    error = failure;
+  }
+  timelineMovePending = false;
+  if (!sessionIsCurrent(userId, generation)) return;
+  const confirmed = !error && data?.action === 'undone' && data?.request_id === requestId
+    && data?.booking_id === undo.bookingId && data?.performer_id === userId
+    && String(data?.booking_date) === undo.previous.booking_date
+    && String(data?.booking_time).slice(0, 5) === undo.previous.booking_time;
+  if (!confirmed) {
+    const missing = timelineMoveRpcMissing(error);
+    const uncertain = !missing && timelineMoveOutcomeUnknown(error);
+    if (!uncertain) clearTimelineMoveAttempt(userId);
+    holder?.classList.remove('is-pending');
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Отменить';
+    }
+    resumeTimelineBookingUndoCountdown();
+    notify(missing ? 'Безопасная отмена обновляется на сервере. Повторите позже.' : uncertain ? 'Ответ сервера не получен. Проверяем отмену автоматически.' : providerScheduleMoveErrorMessage(error) || 'Не удалось отменить перенос. Проверьте актуальную запись.');
+    await loadBookings({ silent:true });
+    return;
+  }
+  clearTimelineMoveAttempt(userId);
+  clearTimelineBookingUndo();
+  await refreshAfterWrite();
+  notify(`${recovery ? 'Отмена подтверждена' : 'Перенос отменён'} · ${undo.previous.booking_time}`);
+}
+
+async function undoLastTimelineBookingMove() {
+  const undo = timelineBookingUndo;
+  if (!undo || timelineMovePending || !currentUser?.id) return;
+  await performTimelineBookingUndo(undo, createOfflineBookingId());
+}
+
+async function recoverPendingTimelineBookingMove() {
+  const attempt = readTimelineMoveAttempt();
+  if (!attempt || timelineMoveRecoveryPending || timelineMovePending || bookingUsesDemoData() || !currentUser?.id) return;
+  timelineMoveRecoveryPending = true;
+  try {
+    const userId = currentUser.id;
+    const generation = sessionGeneration;
+    let receipt;
+    try {
+      receipt = await db.rpc('get_minuta_provider_schedule_move_v157', { p_request_id:attempt.requestId });
+    } catch (failure) {
+      receipt = { error:failure };
+    }
+  if (!sessionIsCurrent(userId, generation)) {
+    timelineMoveRecoveryPending = false;
+    return;
+  }
+  if (!receipt.error && attempt.operation === 'undo' && receipt.data?.action === 'undone' && receipt.data?.booking_id === attempt.bookingId) {
+    clearTimelineMoveAttempt(userId);
+    clearTimelineBookingUndo();
+    await refreshAfterWrite();
+    notify(`Отмена подтверждена · ${String(receipt.data.booking_time).slice(0, 5)}`);
+    timelineMoveRecoveryPending = false;
+    return;
+  }
+  if (!receipt.error && attempt.operation !== 'undo' && receipt.data?.action === 'moved' && receipt.data?.booking_id === attempt.bookingId) {
+    clearTimelineMoveAttempt(userId);
+    const current = allBookings.find(booking => booking.id === attempt.bookingId);
+    if (current && receipt.data?.move_id) {
+      current.schedule_move_id = receipt.data.move_id;
+      showTimelineBookingUndo({ id:attempt.bookingId, ...attempt.expected }, current);
+    }
+    notify(`Перенос подтверждён: ${String(receipt.data.booking_time).slice(0, 5)}`);
+    timelineMoveRecoveryPending = false;
+    return;
+  }
+  if (timelineMoveRpcMissing(receipt.error)) {
+    clearTimelineMoveAttempt(userId);
+    timelineMoveRecoveryPending = false;
+    return;
+  }
+  if (receipt.error && timelineMoveOutcomeUnknown(receipt.error)) {
+    timelineMoveRecoveryPending = false;
+    return;
+  }
+  if (receipt.error) {
+    clearTimelineMoveAttempt(userId);
+    timelineMoveRecoveryPending = false;
+    return;
+  }
+  const current = allBookings.find(booking => booking.id === attempt.bookingId);
+  if (attempt.operation === 'undo') {
+    if (current && timelineBookingMatchesUndoPoint(current, attempt.expected)) {
+      timelineMoveRecoveryPending = false;
+      await performTimelineBookingUndo({
+        bookingId:attempt.bookingId,moveId:attempt.moveId,
+        previous:attempt.previous,expected:attempt.expected,
+        expiresAt:Date.now() + TIMELINE_UNDO_WINDOW_MS,remainingMs:TIMELINE_UNDO_WINDOW_MS,paused:false
+      }, attempt.requestId, { recovery:true });
+      return;
+    }
+    clearTimelineMoveAttempt(userId);
+    timelineMoveRecoveryPending = false;
+    return;
+  }
+  const expected = current && timelineBookingMatchesUndoPoint(current, {
+    booking_date:attempt.expected.booking_date,
+    booking_time:String(attempt.expected.booking_time).slice(0, 5),
+    service_id:attempt.expected.service_id,
+    duration_minutes:Number(attempt.expected.duration_minutes),
+    status:attempt.expected.status
+  });
+  if (expected) {
+    await persistTimelineBookingMove({
+      item:timelineBookingMoveSnapshot(current),
+      bookingId:current.id,
+      date:attempt.targetDate,
+      targetMinute:minutesFromTime(attempt.targetTime),
+      duration:Number(current.duration_minutes),
+      requestId:attempt.requestId,
+      card:document.createElement('span')
+    }, { recovery:true });
+  } else {
+    clearTimelineMoveAttempt(userId);
+  }
+  } finally {
+    timelineMoveRecoveryPending = false;
+  }
 }
 
 function beginTimelineBookingDrag(event, card) {
-  if (timelineBookingDrag || scheduleDaySwipe || timelineMovePending || !writesAllowed || event.button !== 0 || card.classList.contains('status-cancelled')) return;
+  if (timelineBookingDrag || scheduleDaySwipe || timelineMovePending || timelineMoveConfirmationPending || !writesAllowed || event.button !== 0 || !card.hasAttribute('data-timeline-movable')) return;
   if ((event.pointerType === 'touch' || event.pointerType === 'pen') && !event.target.closest('.timeline-drag-handle')) return;
   const stage = card.closest('.timeline-stage');
   const item = allBookings.find(booking => booking.id === card.dataset.openBooking);
   if (!stage || !item) return;
+  const restriction = timelineMoveRestriction(item);
+  if (restriction) {
+    notify(restriction);
+    return;
+  }
   const rect = card.getBoundingClientRect();
   const visualTop = Number.parseFloat(card.style.top) || 0;
   const timelineTop = Number(card.dataset.mobileTimelineTop) || visualTop;
@@ -6883,6 +7430,7 @@ function beginTimelineBookingDrag(event, card) {
     pointerType:event.pointerType,
     card,
     stage,
+    item:timelineBookingMoveSnapshot(item),
     bookingId:item.id,
     date:selectedDate,
     duration:Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60)),
@@ -6893,7 +7441,10 @@ function beginTimelineBookingDrag(event, card) {
     targetMinute:minutesFromTime(item.booking_time),
     active:false,
     holdTimer:null,
-    label:null
+    label:null,
+    preview:null,
+    issue:'',
+    magnetized:false
   };
   timelineBookingDrag = state;
   card.classList.add('is-drag-pressed');
@@ -6953,14 +7504,13 @@ function setTimelineKeyboardMinute(stage, minute) {
   const value = Math.max(start, Math.min(end, minute));
   const time = timeFromMinutes(value);
   stage.dataset.timelineKeyboardMinute = String(value);
-  stage.setAttribute('aria-valuenow', String(value));
-  stage.setAttribute('aria-valuetext', time);
+  stage.setAttribute('aria-label', `Выбор свободного времени. Выбрано ${time}. Стрелками измените время, Enter создаст запись`);
   return time;
 }
 
 document.addEventListener('keydown', event => {
   const stage = event.target.closest?.('[data-create-booking-at]');
-  if (!stage) return;
+  if (!stage || event.target.closest?.('.timeline-booking')) return;
   const current = timelineKeyboardMinute(stage);
   const moves = { ArrowLeft:-5, ArrowDown:-5, ArrowRight:5, ArrowUp:5, PageDown:-30, PageUp:30 };
   if (Object.hasOwn(moves, event.key)) {
@@ -7136,6 +7686,11 @@ function renderTimeline(sourceItems) {
     return { item, index, duration, top, visualTop:top, height, minuteOnly };
   });
   stackMinuteTimelineItems(timelineItems);
+  const nextTimelineBookingId = currentClock
+    ? timelineItems
+      .filter(({ item }) => !item.automatic_break && item.status !== 'cancelled' && minutesFromTime(item.booking_time) > currentClock.minutes)
+      .sort((left, right) => minutesFromTime(left.item.booking_time) - minutesFromTime(right.item.booking_time))[0]?.item?.id || ''
+    : '';
   const totalHeight = Math.max(naturalTimelineHeight, ...timelineItems.map(entry => entry.visualTop + entry.height + 4));
   const labels = [];
   const lines = [];
@@ -7178,6 +7733,18 @@ function renderTimeline(sourceItems) {
       ? ''
       : clientBadgeMarkup(item.client_phone, tightMobile ? { limit:1, showLabels:false } : mobileTimeline ? { limit:1, showLabels:true } : { limit:1 });
     const imported = Boolean(item.is_imported_history);
+    const moveRestriction = timelineMoveRestriction(item);
+    const movable = !imported && !moveRestriction;
+    const itemStartMinute = minutesFromTime(item.booking_time);
+    const temporalClass = currentClock && item.status !== 'cancelled'
+      ? currentClock.minutes >= itemStartMinute && currentClock.minutes < itemStartMinute + duration
+        ? ' is-current-booking'
+        : item.id === nextTimelineBookingId
+          ? ' is-next-booking'
+          : itemStartMinute + duration <= currentClock.minutes
+            ? ' is-past-booking'
+            : ''
+      : '';
     const timelineStatus = block
       ? ''
       : imported
@@ -7196,21 +7763,21 @@ function renderTimeline(sourceItems) {
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
       <span class="timeline-booking-copy">${mobileBadgeMarkup}<strong>${serviceTitleMarkup}</strong>${timelineClientRow}${desktopBadgeMarkup}${renderedNote}</span>
       ${renderedStatus}`;
-    const dragHandle = imported ? '' : '<span class="timeline-drag-handle" aria-hidden="true"></span>';
+    const dragHandle = movable ? '<span class="timeline-drag-handle" aria-hidden="true"></span>' : '';
     const tight = tightMobile ? ' timeline-tight' : '';
-    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${notePresence ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
+    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${notePresence ? ' has-note' : ''}${highlightClasses}${temporalClass}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
     const timelineStyle = `top:${visualTop + 2}px;height:${height}px${tightMobile ? ';padding:5px 9px!important;overflow:hidden!important' : ''}`;
     return item.automatic_break
       ? `<div class="${className}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
-      : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : 'Зажмите и перетащите, чтобы изменить время'}">${cardContent}${dragHandle}</button>`;
+      : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} ${movable ? 'data-timeline-movable aria-describedby="timelineMoveInstruction" aria-keyshortcuts="Shift+ArrowUp Shift+ArrowDown"' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : moveRestriction || 'Перетащите или нажмите Shift и стрелку, чтобы изменить время'}">${cardContent}${dragHandle}</button>`;
   }).join('');
   const expandTimeline = timelineWasCompacted
     ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`
     : '';
   const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}${nowMarker}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group" tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись">${lines.join('')}${nowMarker}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
   if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
 }
 
@@ -10103,6 +10670,7 @@ function renderCalendarOverview(view) {
 }
 
 function renderBookings() {
+  if (timelineBookingDrag) finishTimelineBookingDrag();
   const holder = $('#providerBookings');
   renderBookingDataSourceNotice();
   updateBookingQueryTools();
@@ -13661,6 +14229,7 @@ async function loadBookings(options = {}) {
   bookingsSnapshotSavedAt = String(savedSnapshot?.savedAt || new Date().toISOString());
   bookingsSnapshotFromCache = false;
   if (!providerBookingRenderRevision || previousSignature !== bookingDataSignature()) renderBookingData();
+  if (!options.skipTimelineMoveRecovery) queueMicrotask(() => { void recoverPendingTimelineBookingMove(); });
   return { ok: true };
 }
 
@@ -13810,7 +14379,7 @@ document.addEventListener('pointerup', event => {
     }
     gestureClickSuppressedUntil = Date.now() + 450;
     finishTimelineBookingDrag({ restore:false });
-    persistTimelineBookingMove(state);
+    void confirmTimelineBookingMove(state);
     return;
   }
   if (scheduleDaySwipe?.pointerId === event.pointerId) finishScheduleDaySwipe(scheduleDaySwipe, event);
@@ -13819,6 +14388,58 @@ document.addEventListener('pointerup', event => {
 document.addEventListener('pointercancel', event => {
   if (timelineBookingDrag?.pointerId === event.pointerId) finishTimelineBookingDrag();
   if (scheduleDaySwipe?.pointerId === event.pointerId) finishScheduleDaySwipe(scheduleDaySwipe, { ...event, clientX:scheduleDaySwipe.startX });
+});
+
+document.addEventListener('keydown', event => {
+  const card = event.target.closest?.('.timeline-booking[data-timeline-movable]');
+  if (!card || !event.shiftKey || !['ArrowUp', 'ArrowDown'].includes(event.key) || timelineMovePending || timelineMoveConfirmationPending) return;
+  const item = allBookings.find(booking => booking.id === card.dataset.openBooking);
+  const stage = card.closest('.timeline-stage');
+  if (!item || !stage) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const step = Math.max(1, scheduleStepForDate(selectedDate));
+  const raw = minutesFromTime(item.booking_time) + (event.key === 'ArrowUp' ? -step : step);
+  const target = timelineMagneticTarget(item, stage, raw, selectedDate);
+  const state = {
+    item:timelineBookingMoveSnapshot(item),
+    bookingId:item.id,
+    date:selectedDate,
+    targetMinute:target.minute,
+    duration:Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60)),
+    issue:target.issue
+  };
+  void confirmTimelineBookingMove(state).finally(() => requestAnimationFrame(() => {
+    document.querySelector(`.timeline-booking[data-open-booking="${CSS.escape(String(item.id))}"]`)?.focus();
+  }));
+});
+
+document.addEventListener('click', event => {
+  if (event.target.closest('#timelineBookingUndoButton')) void undoLastTimelineBookingMove();
+});
+
+document.addEventListener('pointerenter', event => {
+  if (!event.target.closest?.('#timelineBookingUndo')) return;
+  timelineBookingUndoHovered = true;
+  pauseTimelineBookingUndoCountdown();
+}, true);
+
+document.addEventListener('pointerleave', event => {
+  if (!event.target.closest?.('#timelineBookingUndo')) return;
+  timelineBookingUndoHovered = false;
+  resumeTimelineBookingUndoCountdown();
+}, true);
+
+document.addEventListener('focusin', event => {
+  if (!event.target.closest?.('#timelineBookingUndo')) return;
+  timelineBookingUndoFocused = true;
+  pauseTimelineBookingUndoCountdown();
+});
+
+document.addEventListener('focusout', event => {
+  if (!event.target.closest?.('#timelineBookingUndo')) return;
+  timelineBookingUndoFocused = false;
+  resumeTimelineBookingUndoCountdown();
 });
 
 document.addEventListener('click', async event => {

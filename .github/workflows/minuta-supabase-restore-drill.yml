@@ -13,6 +13,16 @@ on:
         options:
           - ephemeral
           - dedicated-recovery
+      backup_run_id:
+        description: Optional exact successful backup run ID for an ephemeral drill
+        required: false
+        default: ""
+        type: string
+      commit_sha:
+        description: Optional exact current main SHA for an ephemeral drill
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -254,6 +264,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ inputs.commit_sha || github.sha }}
           persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -265,13 +276,25 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          REQUESTED_BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          runs="$(gh api --method GET \
-            "repos/$GITHUB_REPOSITORY/actions/workflows/minuta-supabase-backup.yml/runs" \
-            -f branch=main -f status=success -F per_page=10)"
-          run="$(jq -c '[.workflow_runs[] | select(.conclusion=="success" and .head_branch=="main")][0]' <<<"$runs")"
-          test "$run" != null
+          if test -n "$EXPECTED_SHA"; then
+            [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+            test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+            test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          fi
+          if test -n "$REQUESTED_BACKUP_RUN_ID"; then
+            [[ "$REQUESTED_BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$REQUESTED_BACKUP_RUN_ID")"
+          else
+            runs="$(gh api --method GET \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/minuta-supabase-backup.yml/runs" \
+              -f branch=main -f status=success -F per_page=10)"
+            run="$(jq -c '[.workflow_runs[] | select(.conclusion=="success" and .head_branch=="main")][0]' <<<"$runs")"
+            test "$run" != null
+          fi
           run_id="$(jq -r '.id' <<<"$run")"
           head_sha="$(jq -r '.head_sha' <<<"$run")"
           created_at="$(jq -r '.created_at' <<<"$run")"
@@ -285,6 +308,12 @@ jobs:
           test "$(jq -r '.path' <<<"$details")" = '.github/workflows/minuta-supabase-backup.yml'
           test "$(jq -r '.head_repository.full_name' <<<"$details")" = "$GITHUB_REPOSITORY"
           test "$(jq -r '.head_sha' <<<"$details")" = "$head_sha"
+          test "$(jq -r '.head_branch' <<<"$details")" = main
+          test "$(jq -r '.conclusion' <<<"$details")" = success
+          if test -n "$REQUESTED_BACKUP_RUN_ID"; then
+            test "$(jq -r '.event' <<<"$details")" = workflow_dispatch
+          fi
+          if test -n "$EXPECTED_SHA"; then test "$head_sha" = "$EXPECTED_SHA"; fi
           comparison="$(gh api "repos/$GITHUB_REPOSITORY/compare/$head_sha...main")"
           case "$(jq -r '.status' <<<"$comparison")" in
             ahead|identical) ;;

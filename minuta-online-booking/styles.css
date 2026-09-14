@@ -4531,24 +4531,43 @@ html.provider-booting .provider-main {
 /* Перетаскивание записей и перелистывание дня. */
 #providerBookings { touch-action:pan-y; }
 #providerBookings.is-day-swiping { position:relative; z-index:3; transform:translate3d(var(--day-swipe-x,0),0,0); cursor:grabbing; user-select:none; transition:none!important; will-change:transform; }
-.timeline-booking[data-open-booking] { cursor:grab; touch-action:pan-y; -webkit-user-drag:none; }
+.timeline-booking[data-timeline-movable] { cursor:grab; touch-action:pan-y; -webkit-user-drag:none; }
 .timeline-drag-handle { display:none; }
-.timeline-booking[data-open-booking].is-drag-pressed { cursor:grabbing; }
-.timeline-booking[data-open-booking].is-dragging { z-index:30!important; cursor:grabbing; pointer-events:none; opacity:.9; transform:scale(1.012)!important; box-shadow:0 14px 34px rgba(25,65,45,.22)!important; transition:none!important; will-change:top; }
-.timeline-booking[data-open-booking].is-saving-position { cursor:progress; opacity:.76; }
-.timeline-drag-label { position:absolute; z-index:31; left:14px; display:block; min-width:84px; padding:5px 9px; border:1px solid color-mix(in srgb,var(--theme-accent,#236947) 26%,transparent); border-radius:999px; background:var(--theme-surface,#fff); color:var(--theme-ink,#173d2b); box-shadow:0 6px 18px rgba(22,55,38,.16); pointer-events:none; font-size:10px; font-weight:950; font-variant-numeric:tabular-nums; text-align:center; white-space:nowrap; }
+.timeline-booking[data-timeline-movable].is-drag-pressed { cursor:grabbing; }
+.timeline-booking[data-timeline-movable].is-dragging { z-index:30!important; cursor:grabbing; pointer-events:none; opacity:.92; transform:translateX(2px) scale(1.012)!important; box-shadow:0 14px 34px rgba(25,65,45,.22)!important; transition:transform 120ms ease!important; will-change:top,transform; }
+.timeline-booking[data-timeline-movable].is-dragging.is-magnetized { transform:translateX(4px) scale(1.018)!important; }
+.timeline-booking[data-timeline-movable].is-dragging.is-drag-invalid { opacity:.72; transform:translateX(10px) scale(.992)!important; box-shadow:0 10px 24px rgba(126,64,39,.16)!important; }
+.timeline-booking[data-timeline-movable].is-saving-position { cursor:progress; opacity:.76; }
+.timeline-stage.is-magnetic-target { box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--theme-accent,#236947) 25%,transparent); }
+.timeline-stage.is-magnetic-invalid { box-shadow:inset 0 0 0 1px color-mix(in srgb,#b45e48 28%,transparent); }
+.timeline-drag-preview { position:absolute; z-index:12; right:8px; left:8px; min-height:18px; border:1px dashed color-mix(in srgb,var(--theme-accent,#236947) 62%,transparent); border-radius:12px; background:color-mix(in srgb,var(--theme-accent-soft,#e5f4ea) 54%,transparent); box-shadow:inset 3px 0 0 color-mix(in srgb,var(--theme-accent,#236947) 70%,transparent); pointer-events:none; transition:top 110ms ease,height 110ms ease,background-color 110ms ease; }
+.timeline-drag-preview.is-magnetized { border-style:solid; background:color-mix(in srgb,var(--theme-accent-soft,#e5f4ea) 78%,transparent); }
+.timeline-drag-preview.is-invalid { border-color:color-mix(in srgb,#b45e48 68%,transparent); background:color-mix(in srgb,#b45e48 11%,transparent); box-shadow:inset 3px 0 0 color-mix(in srgb,#b45e48 70%,transparent); }
+.timeline-drag-label { position:absolute; z-index:31; left:14px; display:grid; min-width:154px; gap:1px; padding:7px 10px; border:1px solid color-mix(in srgb,var(--theme-accent,#236947) 26%,transparent); border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-ink,#173d2b); box-shadow:0 8px 24px rgba(22,55,38,.17); pointer-events:none; font-variant-numeric:tabular-nums; text-align:left; white-space:nowrap; }
+.timeline-drag-label strong { font-size:11px; font-weight:950; line-height:1.2; }
+.timeline-drag-label small { color:var(--theme-muted,#687970); font-size:8px; font-weight:800; line-height:1.25; }
+.timeline-drag-label.is-magnetized { border-color:color-mix(in srgb,var(--theme-accent,#236947) 52%,transparent); }
+.timeline-drag-label.is-invalid { border-color:color-mix(in srgb,#b45e48 42%,transparent); color:#873e2f; }
+.timeline-booking.is-past-booking:not(.is-dragging) { opacity:.72; filter:saturate(.78); }
+.timeline-booking.is-current-booking:not(.is-dragging) { box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent,#236947) 52%,transparent),0 10px 28px color-mix(in srgb,var(--theme-accent,#236947) 15%,transparent)!important; }
+.timeline-booking.is-current-booking::after { position:absolute; z-index:2; top:8px; right:8px; width:7px; height:7px; border-radius:50%; background:var(--theme-accent,#236947); box-shadow:0 0 0 0 color-mix(in srgb,var(--theme-accent,#236947) 34%,transparent); content:""; animation:timeline-current-pulse 2.4s ease-out infinite; }
+.timeline-booking.is-next-booking:not(.is-dragging) { box-shadow:0 0 0 1px color-mix(in srgb,var(--theme-accent,#236947) 32%,transparent)!important; }
+.timeline-now-marker { background:linear-gradient(90deg,var(--theme-accent,#235b40),color-mix(in srgb,var(--theme-accent,#235b40) 42%,transparent),var(--theme-accent,#235b40)); background-size:180% 100%; animation:timeline-now-flow 4.2s ease-in-out infinite; }
+.timeline-now-marker::before { animation:timeline-current-pulse 2.4s ease-out infinite; }
+@keyframes timeline-now-flow { 50% { background-position:100% 0; } }
+@keyframes timeline-current-pulse { 70%,100% { box-shadow:0 0 0 9px transparent; } }
 .timeline-booking-dragging,.timeline-booking-dragging * { cursor:grabbing!important; user-select:none!important; }
 
 @media (max-width:760px) {
-  .timeline-drag-label { left:8px; min-width:78px; padding:4px 7px; font-size:9px; }
-  .timeline-booking[data-open-booking] .timeline-drag-handle {
+  .timeline-drag-label { left:8px; min-width:142px; padding:6px 8px; }
+  .timeline-booking[data-timeline-movable] .timeline-drag-handle {
     position:absolute;
     z-index:4;
     top:50%;
-    right:1px;
+    right:0;
     display:flex;
-    width:26px;
-    height:38px;
+    width:44px;
+    height:44px;
     align-items:center;
     justify-content:center;
     border-radius:9px;
@@ -4558,8 +4577,13 @@ html.provider-booting .provider-main {
     touch-action:none;
     transform:translateY(-50%);
   }
-  .timeline-booking[data-open-booking] .timeline-drag-handle::before { content:'⠿'; }
-  .provider-body[data-provider-theme] .timeline-booking[data-open-booking]:has(.timeline-drag-handle) .timeline-booking-copy { padding-right:20px!important; }
+  .timeline-booking[data-timeline-movable] .timeline-drag-handle::before { content:'⠿'; }
+  .provider-body[data-provider-theme] .timeline-booking[data-open-booking]:has(.timeline-drag-handle) .timeline-booking-copy { padding-right:44px!important; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .timeline-booking.is-current-booking::after,.timeline-now-marker,.timeline-now-marker::before { animation:none!important; }
+  .timeline-drag-preview { transition:none; }
 }
 
 /* Mobile Luxury + Строгая геометрия: единый финальный слой. */
