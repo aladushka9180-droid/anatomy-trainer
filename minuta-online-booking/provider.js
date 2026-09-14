@@ -2156,7 +2156,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=782#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=783#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2861,7 +2861,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=782#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=783#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5084,7 +5084,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=782');
+      worker = new Worker('./report-worker.js?v=783');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6907,29 +6907,32 @@ function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, 
     });
     if (dayOff) return dayOff.all_day ? 'На эту дату установлен выходной' : 'Это время закрыто в исключениях расписания';
   }
-  let bufferConflict = false;
   const conflict = allBookings.find(other => {
     if (other.id === item.id || other.status === 'cancelled' || other.booking_date !== dateIso) return false;
     const otherStart = minutesFromTime(other.booking_time);
     const otherEnd = otherStart + Math.max(1, Number(other.duration_minutes || other.services?.duration_minutes || 60));
-    const buffer = automaticBuffer && !candidateIsBlock && !isScheduleBlock(other) ? automaticBuffer : 0;
-    if (startMinute < otherEnd && endMinute > otherStart) return true;
-    if (!buffer || startMinute >= otherEnd + buffer || endMinute <= otherStart - buffer) return false;
-    if (respectAutomaticBreakReleases && automaticBookingBreaksRemoteAvailable && automaticBookingBreakSegments.has(dateIso)) {
-      const blockedByActiveSegment = automaticBookingBreakSegments.get(dateIso).some(segment => {
-        const segmentStart = minutesFromTime(segment.start_time);
-        const segmentEnd = minutesFromTime(segment.end_time);
-        return startMinute < segmentEnd && endMinute > segmentStart;
-      });
-      if (!blockedByActiveSegment) return false;
-    }
-    bufferConflict = true;
-    return true;
+    return startMinute < otherEnd && endMinute > otherStart;
   });
-  return conflict
-    ? (bufferConflict
-      ? `Рядом с записью в ${String(conflict.booking_time).slice(0, 5)} действует перерыв ${automaticBuffer} мин`
-      : `В ${String(conflict.booking_time).slice(0, 5)} уже есть запись`)
+  if (conflict) return `В ${String(conflict.booking_time).slice(0, 5)} уже есть запись`;
+  if (!automaticBuffer || candidateIsBlock) return '';
+  if (respectAutomaticBreakReleases && automaticBookingBreaksRemoteAvailable && automaticBookingBreakSegments.has(dateIso)) {
+    const segment = automaticBookingBreakSegments.get(dateIso).find(entry => {
+      const segmentStart = minutesFromTime(String(entry.start_time || '').slice(0, 5));
+      const segmentEnd = minutesFromTime(String(entry.end_time || '').slice(0, 5));
+      return startMinute < segmentEnd && endMinute > segmentStart;
+    });
+    return segment
+      ? `В ${String(segment.start_time).slice(0, 5)}–${String(segment.end_time).slice(0, 5)} действует перерыв: автоматический буфер`
+      : '';
+  }
+  const bufferedConflict = allBookings.find(other => {
+    if (other.id === item.id || other.status === 'cancelled' || other.booking_date !== dateIso || isScheduleBlock(other)) return false;
+    const otherStart = minutesFromTime(other.booking_time);
+    const otherEnd = otherStart + Math.max(1, Number(other.duration_minutes || other.services?.duration_minutes || 60));
+    return startMinute < otherEnd + automaticBuffer && endMinute > otherStart - automaticBuffer;
+  });
+  return bufferedConflict
+    ? `Рядом с записью в ${String(bufferedConflict.booking_time).slice(0, 5)} действует перерыв ${automaticBuffer} мин`
     : '';
 }
 
@@ -9531,7 +9534,7 @@ async function loadNewBookingSlots() {
     const [availability] = await Promise.all([
       getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date }),
       bookingPolicy.booking_buffer_enabled
-        ? loadAutomaticBookingBreaks(date, currentUser?.id, sessionGeneration)
+        ? loadAutomaticBookingBreaks(date, currentUser?.id, sessionGeneration).catch(() => ({ ok:false }))
         : Promise.resolve({ ok:true })
     ]);
     ({ data, error } = availability);
@@ -9569,9 +9572,20 @@ function newBookingPreferredUnavailableMarkup() {
   if (!preferredTime || newBookingSlots.includes(preferredTime)) return '';
   const date = $('#newBookingDate')?.value || '';
   const preferredPast = date === businessTodayIso() && bookingMoveTimeIsPast(date, preferredTime);
+  const duration = newBookingDurationMinutes();
+  const placementIssue = !preferredPast && duration
+    ? bookingPlacementIssue(
+      { id:'new-booking-preferred-candidate', duration_minutes:duration },
+      date,
+      minutesFromTime(preferredTime),
+      { respectAutomaticBreakReleases:true }
+    )
+    : '';
   const copy = preferredPast
     ? `<strong>${escapeHtml(preferredTime)} уже прошло.</strong><br>${newBookingMode === 'client' ? 'Откройте нужное прошедшее время прямо в расписании.' : 'Для «Занять время» выберите будущее окно или другую дату.'}`
-    : `Ранее выбранное время ${escapeHtml(preferredTime)} сейчас недоступно. Выберите другое.`;
+    : placementIssue
+      ? `<strong>${escapeHtml(preferredTime)} недоступно.</strong><br>${escapeHtml(placementIssue)}. Выберите другое время или длительность.`
+      : `Ранее выбранное время ${escapeHtml(preferredTime)} сейчас недоступно: услуга не помещается в доступное окно. Выберите другое время или длительность.`;
   return `<div class="booking-time-warning">${copy}</div>`;
 }
 
@@ -10381,7 +10395,8 @@ async function createNewBooking(event) {
     showFormError('#newBookingError', 'Для записи в прошлом нужен интернет: сервер должен проверить права и пересечения.');
     return;
   }
-  const placementIssue = bookingPlacementIssue(
+  const serverConfirmedCurrentSlot = !historical && !block && newBookingSlots.includes(newBookingTime);
+  const placementIssue = serverConfirmedCurrentSlot ? '' : bookingPlacementIssue(
     { id:'new-booking-validation', duration_minutes:durationMinutes, client_phone:phone },
     date,
     minutesFromTime(newBookingTime),
@@ -16395,8 +16410,7 @@ window.MinutaProviderAssistant = Object.freeze({
       .filter(item => String(item?.booking_date || '') === date)
       .map(item => String(item.booking_time || '').slice(0, 5))
       .filter(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)
-        && minutesFromTime(time) > currentMinute
-        && !bookingPlacementIssue({ id:'voice-assistant-candidate', duration_minutes:duration }, date, minutesFromTime(time)));
+        && minutesFromTime(time) > currentMinute);
     return { ok:true, slots:[...new Set(slots)].sort(), durationMinutes:duration };
   },
   prepareBookingDraft(plan = {}) {

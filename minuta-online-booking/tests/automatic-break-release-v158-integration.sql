@@ -45,7 +45,18 @@ select set_config('request.jwt.claim.sub',current_setting('v123.actor'),true);
 select pg_temp.v158_assert(not exists(select 1 from public.get_minuta_provider_automatic_breaks_v158(current_setting('v123.date')::date) where start_time<'13:00' and end_time>'12:00'),'released_segment_disappears');
 reset role;
 select pg_temp.v158_assert(public.minuta_slot_respects_booking_buffer(current_setting('v123.service')::uuid,current_setting('v123.date')::date,'12:00',60,null),'released_slot_is_available');
+select pg_temp.v158_assert(exists(
+  select 1 from public.get_available_slots_v101(current_setting('v123.service')::uuid,current_setting('v123.date')::date,current_setting('v123.date')::date,null)
+  where booking_time='12:00'
+),'released_slot_is_listed_by_provider_rpc');
+select set_config('v158.released_code',public.provider_book_appointment(
+  current_setting('v123.service')::uuid,current_setting('v123.date')::date,'12:00','V158 released full','79990000183'
+),true);
+select pg_temp.v158_assert(exists(
+  select 1 from public.bookings where booking_code=current_setting('v158.released_code') and booking_time='12:00'
+),'released_slot_passes_write_authorization');
 select pg_temp.v158_assert(not public.minuta_slot_respects_booking_buffer(current_setting('v123.service')::uuid,current_setting('v123.date')::date,'12:30',60,null),'actual_booking_remains_protected');
+select pg_temp.v158_assert(not public.minuta_slot_respects_booking_buffer(current_setting('v123.service')::uuid,current_setting('v123.date')::date,'10:30',30,null),'unreleased_buffer_remains_protected');
 set local role authenticated;
 select set_config('request.jwt.claim.sub',current_setting('v123.actor'),true);
 select set_config('v158.replay',public.release_minuta_provider_automatic_break_v158(
