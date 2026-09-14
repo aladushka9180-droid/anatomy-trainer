@@ -13761,7 +13761,7 @@ async function signup(event) {
       data: {
         display_name: name,
         minuta_onboarding_status: 'pending',
-        minuta_onboarding_version: 1
+        minuta_onboarding_version: 2
       },
       emailRedirectTo: new URL('provider.html', location.href).href
     }

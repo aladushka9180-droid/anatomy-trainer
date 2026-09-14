@@ -1,25 +1,143 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {createServer} from 'node:http';
-import {resolve,dirname,extname,sep} from 'node:path';
-import {fileURLToPath,pathToFileURL} from 'node:url';
-const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const {chromium,devices}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
-const providerHtml=readFileSync(resolve(root,'provider.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace('</body>','<script src="/onboarding.js"></script></body>');
-const mime={'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.svg':'image/svg+xml','.woff2':'font/woff2','.png':'image/png','.webp':'image/webp'};
-const server=createServer((req,res)=>{const file=decodeURIComponent(req.url.split('?')[0]);if(file==='/'){res.setHeader('content-type',mime['.html']);return res.end(providerHtml);}const target=resolve(root,'.'+file);if(!target.startsWith(root+sep)||req.method!=='GET'){res.statusCode=400;return res.end();}try{res.setHeader('content-type',mime[extname(target)]||'application/octet-stream');res.end(readFileSync(target));}catch{res.statusCode=404;res.end();}});
-await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
-const browser=await chromium.launch({...(process.env.MINUTA_CHROME_PATH?{executablePath:process.env.MINUTA_CHROME_PATH}:{channel:'chrome'}),headless:true});
-async function fixture(width,mode,device={}){const context=await browser.newContext({...device,viewport:{width,height:device.viewport?.height||900}});await context.route('**/*',r=>r.request().url().startsWith(origin)?r.continue():r.abort());const page=await context.newPage();await page.goto(origin);await page.evaluate(async mode=>{
-  document.documentElement.classList.remove('provider-booting');document.documentElement.classList.add('top-level');document.querySelector('#providerBoot').hidden=true;
-  const user={id:'11111111-1111-4111-8111-111111111111',user_metadata:{minuta_onboarding_status:'pending',display_name:'Тестовый мастер'}};
-  const state=window.fixture={services:[],schedule:[],complete:0,refresh:0,inserts:0,upserts:0,statusWrites:0,mode};
-  const db={from(table){return {select(){return {eq:async()=>({data:structuredClone(table==='services'?state.services:state.schedule),error:state.mode==='read-fail'?{code:'08006',message:'network failure'}:null})};},async insert(rows){state.inserts++;if(state.mode==='permission')return {error:{code:'42501',message:'permission denied'}};state.services.push(...structuredClone(rows));return {error:state.mode==='lost'?{code:'08006',message:'lost response'}:null};},async upsert(rows){state.upserts++;if(rows.some(row=>row.weekday<1||row.weekday>7))return {error:{code:'23514',message:'provider_schedule_weekday_check'}};if(state.mode==='schema')return {error:{code:'PGRST204',message:'missing column'}};state.schedule=structuredClone(rows);return {error:state.mode==='lost'?{code:'08006',message:'lost response'}:null};}};},auth:{async updateUser({data}){state.statusWrites++;Object.assign(user.user_metadata,data);return {data:{user},error:state.mode==='lost'?{code:'08006',message:'lost response'}:null};},async getUser(){return {data:{user},error:null};}}};
-  await window.MinutaProviderOnboarding.handleSession({db,user,refresh:async()=>{state.refresh++;},onComplete:()=>{state.complete++;}});
-},mode);for(let i=0;i<3;i++)await page.locator('[data-onboarding-next]').click();return page;}
-const capture=async(p,name)=>{if(process.env.MINUTA_AUDIT_SCREENSHOTS)await p.screenshot({path:resolve(process.env.MINUTA_AUDIT_SCREENSHOTS,name+'.png'),fullPage:true});};
-// Device geometry/UA/touch emulation in Chromium, not a physical iPhone or Safari-engine claim.
-if(!process.env.ONBOARDING_EXPECT_ISO_ERROR)for(const name of ['iPhone 13','Pixel 7']){const profile=devices[name];const p=await fixture(profile.viewport.width,'normal',profile);await capture(p,`onboarding-mobile-${name.replaceAll(' ','-')}`);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await p.evaluate(()=>navigator.maxTouchPoints>0),true);const button=await p.locator('[data-onboarding-next]').boundingBox();assert.ok(button.height>=44);await p.locator('[data-onboarding-next]').tap();await p.locator('#providerOnboarding').waitFor({state:'hidden'});assert.equal(await p.evaluate(()=>fixture.complete),1);await p.context().close();}
-for(const width of [390,760,1440]){const p=await fixture(width,'normal');await capture(p,`onboarding-${process.env.ONBOARDING_EXPECT_ISO_ERROR?'before':'after'}-${width}`);await p.locator('[data-onboarding-next]').click();if(process.env.ONBOARDING_EXPECT_ISO_ERROR){await p.locator('.onboarding-error').waitFor();assert.equal(await p.evaluate(()=>fixture.complete),0);}else{await p.locator('#providerOnboarding').waitFor({state:'hidden'});assert.equal(await p.evaluate(()=>fixture.complete),1);assert.deepEqual(await p.evaluate(()=>fixture.schedule.map(r=>r.weekday).sort()),[1,2,3,4,5,6,7]);}await p.context().close();}
-if(!process.env.ONBOARDING_EXPECT_ISO_ERROR){for(const mode of ['lost','permission','schema','offline']){const p=await fixture(390,mode);if(mode==='offline')await p.context().setOffline(true);await p.locator('[data-onboarding-next]').click();if(mode==='lost'){await p.locator('#providerOnboarding').waitFor({state:'hidden'});assert.equal(await p.evaluate(()=>fixture.complete),1);assert.equal(await p.evaluate(()=>fixture.inserts),1);}else{await p.locator('.onboarding-error').waitFor();const message=await p.locator('.onboarding-error').innerText();assert.match(message,mode==='permission'?/прав|доступ/i:mode==='schema'?/верси|обнов/i:/интернет|соединен/i);await capture(p,`onboarding-${mode}-390`);if(mode==='schema'){const ids=await p.evaluate(()=>fixture.services.map(s=>s.id));assert.ok(ids.every(id=>/^[0-9a-f-]{36}$/.test(id)));await p.evaluate(()=>fixture.mode='normal');await p.locator('[data-onboarding-next]').click();await p.locator('#providerOnboarding').waitFor({state:'hidden'});assert.equal(await p.evaluate(()=>fixture.inserts),1,'Retry must reuse previously saved services');assert.deepEqual(await p.evaluate(()=>fixture.services.map(s=>s.id)),ids);assert.equal(await p.evaluate(()=>fixture.complete),1);}}await p.context().close();}}
-await browser.close();await new Promise(r=>server.close(r));console.log(process.env.ONBOARDING_EXPECT_ISO_ERROR?'CONFIRMED old controller fails ISO weekday constraint on step 4 at 390/760/1440':'PASS onboarding ISO weekdays, saved-lost-response recovery and distinct offline/permission/schema errors');
+import { readFileSync, mkdirSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { resolve, dirname, extname, sep } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const { chromium, devices } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
+const html = '<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/onboarding.css"><body><script src="/service-presets-catalog.js"></script><script src="/onboarding.js"></script></body></html>';
+const mime = { '.css':'text/css', '.js':'text/javascript' };
+const server = createServer((request, response) => {
+  const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
+  if (pathname === '/') { response.setHeader('content-type', 'text/html; charset=utf-8'); response.end(html); return; }
+  const target = resolve(root, `.${pathname}`);
+  if (!target.startsWith(root + sep)) { response.writeHead(400).end(); return; }
+  try { response.setHeader('content-type', mime[extname(target)] || 'application/octet-stream'); response.end(readFileSync(target)); }
+  catch { response.writeHead(404).end(); }
+});
+
+await new Promise((done, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', done); });
+const origin = `http://127.0.0.1:${server.address().port}`;
+const browser = await chromium.launch({ ...(process.env.MINUTA_CHROME_PATH ? { executablePath:process.env.MINUTA_CHROME_PATH } : { channel:'chrome' }), headless:true });
+const screenshotDir = process.env.MINUTA_AUDIT_SCREENSHOTS;
+if (screenshotDir) mkdirSync(screenshotDir, { recursive:true });
+
+async function fixture(width, mode = 'normal', device = {}) {
+  const browserContext = await browser.newContext({ ...device, viewport:{ width, height:device.viewport?.height || 920 } });
+  await browserContext.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+  const page = await browserContext.newPage();
+  await page.goto(origin);
+  await page.evaluate(async modeValue => {
+    const user = { id:'11111111-1111-4111-8111-111111111111', user_metadata:{ minuta_onboarding_status:'pending', display_name:'Тестовый мастер' } };
+    const state = window.fixture = { mode:modeValue, rpcCalls:[], schedule:[], complete:0, refresh:0, statusWrites:0, scheduleAttempts:0 };
+    const db = {
+      async rpc(name, args) {
+        state.rpcCalls.push({ name, args:structuredClone(args) });
+        if (state.mode === 'permission') return { data:null, error:{ code:'42501', message:'permission denied' } };
+        if (state.mode === 'schema') return { data:null, error:{ code:'PGRST202', message:'function not found' } };
+        if (state.mode === 'retry' && state.rpcCalls.length === 1) return { data:null, error:{ code:'08006', message:'connection lost' } };
+        return { data:{ replayed:state.rpcCalls.length > 1, created_count:args.p_services.length }, error:null };
+      },
+      from(table) {
+        return { async upsert(rows) {
+          state.scheduleAttempts += 1;
+          if (table !== 'provider_schedule') return { error:{ message:'unexpected table' } };
+          if (state.mode === 'schedule-fail' && state.scheduleAttempts === 1) return { error:{ code:'08006', message:'schedule write failed' } };
+          state.schedule = structuredClone(rows);
+          return { error:null };
+        } };
+      },
+      auth:{
+        async updateUser({ data }) { state.statusWrites += 1; Object.assign(user.user_metadata, data); return { data:{ user }, error:null }; },
+        async getUser() { return { data:{ user }, error:null }; }
+      }
+    };
+    await window.MinutaProviderOnboarding.handleSession({ db, user, refresh:async () => { state.refresh += 1; }, onComplete:() => { state.complete += 1; } });
+  }, mode);
+  return { page, browserContext };
+}
+
+async function chooseProfessionAndAdvance(page, { withService = true } = {}) {
+  await page.locator('.onboarding-chips label').filter({ has:page.locator('[data-onboarding-profession][value="massage_therapist"]') }).click();
+  await page.locator('.onboarding-chips label').filter({ has:page.locator('[data-onboarding-profession][value="esthetician"]') }).click();
+  await page.locator('[data-onboarding-next]').click();
+  if (withService) {
+    await page.locator('[data-onboarding-preset="massage_full_body"]').click();
+    await page.locator('[data-service-price]').fill('2500');
+  }
+  await page.locator('[data-onboarding-next]').click();
+  await page.locator('[data-onboarding-next]').click();
+}
+
+try {
+  for (const width of [390, 760, 1440]) {
+    const current = await fixture(width);
+    const { page } = current;
+    assert.equal(await page.locator('[data-onboarding-profession]').count(), 12);
+    const firstTap = await page.locator('[data-onboarding-profession]').first().evaluate(element => element.closest('label').getBoundingClientRect().height);
+    assert.ok(firstTap >= 44);
+    await chooseProfessionAndAdvance(page);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+    assert.equal(await page.evaluate(() => fixture.rpcCalls.length), 0, 'Services must not be created before final confirmation');
+    if (screenshotDir) await page.screenshot({ path:resolve(screenshotDir, `onboarding-service-presets-${width}.png`), fullPage:true });
+    const finalButton = page.locator('[data-onboarding-next]');
+    assert.ok(await finalButton.evaluate(element => element.getBoundingClientRect().height) >= 44);
+    await finalButton.click();
+    await page.locator('#providerOnboarding').waitFor({ state:'hidden' });
+    const saved = await page.evaluate(() => ({ complete:fixture.complete, calls:fixture.rpcCalls, schedule:fixture.schedule, statusWrites:fixture.statusWrites }));
+    assert.equal(saved.complete, 1);
+    assert.equal(saved.calls.length, 1);
+    assert.equal(saved.calls[0].args.p_professions.length, 2);
+    assert.equal(saved.calls[0].args.p_services.length, 1);
+    assert.deepEqual(saved.schedule.map(row => row.weekday).sort(), [1,2,3,4,5,6,7]);
+    assert.equal(saved.statusWrites, 1);
+    await current.browserContext.close();
+  }
+
+  const skip = await fixture(390);
+  await chooseProfessionAndAdvance(skip.page, { withService:false });
+  await skip.page.locator('[data-onboarding-next]').click();
+  await skip.page.locator('#providerOnboarding').waitFor({ state:'hidden' });
+  assert.equal(await skip.page.evaluate(() => fixture.rpcCalls[0].args.p_services.length), 0, 'Skipping service presets must be supported');
+  await skip.browserContext.close();
+
+  for (const mode of ['permission', 'schema', 'retry', 'schedule-fail', 'offline']) {
+    const current = await fixture(390, mode);
+    await chooseProfessionAndAdvance(current.page);
+    if (mode === 'offline') await current.browserContext.setOffline(true);
+    await current.page.locator('[data-onboarding-next]').click();
+    if (mode === 'permission' || mode === 'schema' || mode === 'offline') {
+      await current.page.locator('.onboarding-error').waitFor();
+      const message = await current.page.locator('.onboarding-error').innerText();
+      assert.match(message, mode === 'permission' ? /прав|доступ/i : mode === 'schema' ? /сервер|обнов/i : /соединен|подключ/i);
+      assert.equal(await current.page.evaluate(() => fixture.complete), 0);
+    } else {
+      await current.page.locator('.onboarding-error').waitFor();
+      const firstRequest = await current.page.evaluate(() => fixture.rpcCalls[0].args.p_request);
+      await current.page.locator('[data-onboarding-next]').click();
+      await current.page.locator('#providerOnboarding').waitFor({ state:'hidden' });
+      const retryState = await current.page.evaluate(() => ({ complete:fixture.complete, calls:fixture.rpcCalls, schedule:fixture.schedule }));
+      assert.equal(retryState.complete, 1);
+      assert.ok(retryState.calls.length >= 1);
+      assert.ok(retryState.calls.every(call => call.args.p_request === firstRequest));
+      assert.equal(retryState.schedule.length, 7);
+    }
+    await current.browserContext.close();
+  }
+
+  for (const name of ['iPhone 13', 'Pixel 7']) {
+    const profile = devices[name];
+    const current = await fixture(profile.viewport.width, 'normal', profile);
+    await current.page.locator('.onboarding-chips label').first().tap();
+    assert.equal(await current.page.evaluate(() => navigator.maxTouchPoints > 0), true);
+    assert.equal(await current.page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+    await current.browserContext.close();
+  }
+
+  console.log('PASS onboarding v2: multi-profession presets, explicit confirmation, skip, retry, schedule recovery and 390/760/1440 geometry.');
+} finally {
+  await browser.close();
+  server.closeAllConnections();
+  await new Promise(resolveClose => server.close(resolveClose));
+}
