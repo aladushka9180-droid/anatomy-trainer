@@ -10,6 +10,8 @@ function declaration(name){
 }
 assert.match(source,/booking-repeat-actions[^\n]+bookingClientProfileActionMarkup\(item\)/,'Current booking exposes the full client profile action');
 assert.match(source,/imported-history-readonly[\s\S]*?bookingClientProfileActionMarkup|bookingClientProfileActionMarkup\(item\)[\s\S]*?imported-history-readonly/,'Imported history exposes the same client profile action');
+assert.match(source,/booking-sheet-detail/,'Booking details have an isolated layout modifier');
+assert.match(source,/bookingClientProfileActionMarkup\(item, \{ primary:true \}\)/,'Imported history promotes the profile action');
 assert.match(source,/if \(openClientProfile\) openClientProfileFromBooking/,'Delegated click opens the shared profile');
 assert.match(source,/bookingClientOverviewMarkup\(item\)[\s\S]*?id="bookingOutcomeForm"/,'Client context is added without removing visit result and payment controls');
 
@@ -28,7 +30,8 @@ try{
     var normalizePhone=value=>String(value||'').replace(/\\D/g,''),closeClientProfileDialogs=()=>{};
     var bookingSourceItems=()=>[item],isScheduleBlock=()=>false,buildClients=()=>[{phone:'79990000001',imported:{visit_count:4},bookings:[completed,later,item]}];
     var bookingOutcome=booking=>booking.outcome||{visit_status:'scheduled',amount_rub:0};
-    var clientFavoriteServiceFacts=()=>[{name:'Массаж спины'}];
+    var favoriteServiceNameKey=value=>String(value||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').replace(/[^a-zа-я0-9]+/giu,' ').trim();
+    var clientFavoriteServiceFacts=()=>[{name:'Массаж спины'},{name:'Лимфодренажный массаж'}];
     var serviceName=value=>value,money=value=>new Intl.NumberFormat('ru-RU').format(value)+' ₽';
     var escapeHtml=value=>String(value);
     var notify=text=>effects.push(['notify',text]),closeBookingSheet=()=>effects.push(['close']);
@@ -50,18 +53,25 @@ try{
   assert.equal(await page.evaluate(()=>clientNextBookingAfter(buildClients()[0],item,new Date('2026-09-06T00:00:00')).id),'booking-2');
   await page.locator('#clientOverview').evaluate((host)=>{host.innerHTML=bookingClientOverviewMarkup(item,new Date('2026-09-06T00:00:00'));});
   const overview=page.locator('.booking-client-overview');
+  assert.equal(await overview.getAttribute('open'),null,'History is closed by default');
+  assert.match(await overview.locator('summary').textContent(),/История клиента\s*·\s*4 визита\s*·\s*2[\s ]?000 ₽/);
   assert.doesNotMatch(await overview.textContent(),/12 сент\. · 10:00/,'The open booking is not repeated as the next visit');
   assert.match(await overview.textContent(),/20 сент\. · 12:00/);
-  assert.match(await overview.textContent(),/История клиента\s*4 визита · 2[\s ]?000 ₽/);
-  assert.match(await overview.textContent(),/Последний визит: 4 сент\. 2026 г\./);
-  assert.match(await overview.textContent(),/Любимые услуги\s*Массаж спины/);
+  assert.match(await overview.textContent(),/Последний визит\s*4 сент\. 2026 г\./);
+  assert.doesNotMatch(await overview.textContent(),/Любимые услуги\s*Массаж спины/,'Current service is not repeated among favorites');
+  assert.match(await overview.textContent(),/Любимые услуги\s*Лимфодренажный массаж/);
+  await overview.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await overview.getAttribute('open'),'','Keyboard opens native history disclosure');
   await page.evaluate(()=>{buildClients=()=>[{phone:'79990000001',bookings:[item]}];document.querySelector('#clientOverview').innerHTML=bookingClientOverviewMarkup(item,new Date('2026-09-06T00:00:00'));});
-  assert.match(await overview.textContent(),/Первый визит\s*Истории посещений пока нет/);
+  assert.match(await overview.locator('summary').textContent(),/Первый визит/);
+  assert.match(await overview.textContent(),/История посещений\s*Пока нет/);
   assert.match(await overview.textContent(),/Следующая запись\s*Не запланирована\s*После этой записи новых визитов нет/);
   assert.doesNotMatch(await overview.textContent(),/Визитов\s*0|Получено\s*0 ₽|Последний визит\s*Нет/);
   await page.addStyleTag({content:styles});
   await page.locator('body').evaluate(body=>{body.className='provider-body';body.dataset.providerTheme='graphite';});
   await page.locator('#clientOverview').evaluate(host=>host.insertAdjacentHTML('beforeend','<div class="booking-sheet-actions booking-repeat-actions"><button>Карточка клиента</button><button class="booking-repeat-action">Повторить запись</button></div>'));
+  await overview.evaluate(element=>{element.open=true;});
   await page.setViewportSize({width:760,height:900});
   const desktopLayout=await page.evaluate(()=>{const articles=[...document.querySelectorAll('.booking-client-overview article')].map(node=>node.getBoundingClientRect());const buttons=[...document.querySelectorAll('.booking-repeat-actions button')].map(node=>node.getBoundingClientRect());return {articles:articles.map(({x,y,width,height})=>({x,y,width,height})),buttons:buttons.map(({x,y,width,height})=>({x,y,width,height}))};});
   assert.equal(Math.round(desktopLayout.articles[0].y),Math.round(desktopLayout.articles[1].y),'Client context remains a compact two-column row at 760px');

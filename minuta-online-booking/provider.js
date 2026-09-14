@@ -8184,10 +8184,10 @@ function bookingEmptyMarkup(message, extraClass = '') {
   return `<div class="provider-empty schedule-empty${extraClass ? ` ${escapeHtml(extraClass)}` : ''}"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>${escapeHtml(message)}</small><button class="primary schedule-empty-create" type="button" data-create-empty-booking>${uiIcon('plus')}<span>Создать запись</span></button></div>`;
 }
 
-function bookingClientProfileActionMarkup(item) {
+function bookingClientProfileActionMarkup(item, { primary = false } = {}) {
   const phone = normalizePhone(item?.client_phone);
   if (!phone || isScheduleBlock(item)) return '';
-  return `<button class="secondary-button" type="button" data-open-client-profile="${escapeHtml(phone)}" data-client-booking-id="${escapeHtml(item.id)}">${uiIcon('user')} Карточка клиента</button>`;
+  return `<button class="${primary ? 'primary ' : 'secondary-button '}booking-client-profile-action" type="button" data-open-client-profile="${escapeHtml(phone)}" data-client-booking-id="${escapeHtml(item.id)}">${uiIcon('user')}<span>Открыть карточку клиента</span></button>`;
 }
 
 function clientCompletedVisits(client, now = new Date()) {
@@ -8245,18 +8245,60 @@ function bookingClientOverviewMarkup(item, now = new Date()) {
   const lastVisitDate = lastVisit?.booking_date || client.imported?.last_visit_on || '';
   const lastVisitText = lastVisitDate ? new Date(`${lastVisitDate}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' }) : '';
   const upcomingText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })} · ${String(upcoming.booking_time).slice(0,5)}` : '';
-  const favorites = clientFavoriteServiceFacts(completedVisits).map(service => service.name);
+  const currentServiceKey = favoriteServiceNameKey(item?.services?.name || '');
+  const favorites = clientFavoriteServiceFacts(completedVisits.filter(booking => favoriteServiceNameKey(booking.services?.name || '') !== currentServiceKey))
+    .map(service => service.name)
+    .filter(name => favoriteServiceNameKey(name) !== currentServiceKey);
   const hasHistory = visits > 0 || spent > 0 || Boolean(lastVisitDate);
   const historyMarkup = hasHistory
-    ? `<article class="booking-client-history"><small>История клиента</small><strong>${visits} ${reportVisitWord(visits)} · ${money(spent)}</strong><span>Последний визит: ${escapeHtml(lastVisitText || 'дата неизвестна')}</span></article>`
-    : '<article class="booking-client-history is-empty"><small>О клиенте</small><strong>Первый визит</strong><span>Истории посещений пока нет</span></article>';
+    ? `<article class="booking-client-history"><small>Последний визит</small><strong>${escapeHtml(lastVisitText || 'Дата неизвестна')}</strong></article>`
+    : '<article class="booking-client-history is-empty"><small>История посещений</small><strong>Пока нет</strong></article>';
   const upcomingMarkup = upcoming
     ? `<article class="booking-client-next"><small>Следующая запись</small><strong>${escapeHtml(upcomingText)}</strong><span>${escapeHtml(serviceName(upcoming.services?.name || 'Услуга'))}</span></article>`
     : '<article class="booking-client-next is-empty"><small>Следующая запись</small><strong>Не запланирована</strong><span>После этой записи новых визитов нет</span></article>';
-  return `<section class="booking-client-overview${hasHistory ? '' : ' is-first-visit'}" aria-label="Сведения о клиенте">
-    <div class="booking-client-overview-stats">${historyMarkup}${upcomingMarkup}</div>
-    ${favorites.length ? `<div class="booking-client-overview-favorites"><small>Любимые услуги</small><span>${favorites.map(name => `<b>${escapeHtml(name)}</b>`).join('')}</span></div>` : ''}
-  </section>`;
+  const summary = hasHistory ? `История клиента · ${visits} ${reportVisitWord(visits)} · ${money(spent)}` : 'Первый визит';
+  return `<details class="booking-client-overview booking-sheet-disclosure${hasHistory ? '' : ' is-first-visit'}">
+    <summary><strong>${escapeHtml(summary)}</strong></summary>
+    <div class="booking-client-overview-body" aria-label="Сведения о клиенте">
+      <div class="booking-client-overview-stats">${historyMarkup}${upcomingMarkup}</div>
+      ${favorites.length ? `<div class="booking-client-overview-favorites"><small>Любимые услуги</small><span>${favorites.map(name => `<b>${escapeHtml(name)}</b>`).join('')}</span></div>` : ''}
+    </div>
+  </details>`;
+}
+
+function bookingDetailSeriesMarkup(item) {
+  const occurrence = Number(item?.series_occurrence || 0);
+  const storedTotal = Number(item?.booking_series?.occurrence_count || 0);
+  const total = item?.series_id
+    ? Math.max(storedTotal, occurrence, ...allBookings.filter(entry => entry.series_id === item.series_id).map(entry => Number(entry.series_occurrence || 0)))
+    : 0;
+  return item?.series_id && occurrence > 0
+    ? `<span class="booking-detail-series">Серия · ${occurrence}${total > 1 ? ` из ${total}` : ''}</span>`
+    : '';
+}
+
+function bookingDetailHeaderMarkup(item, date, duration, statusText, statusClass, priceText, extraMarkup = '') {
+  const imported = Boolean(item?.is_imported_history);
+  const compactStatus = imported ? 'Импорт' : bookingStatus(item);
+  const statusAccessibility = compactStatus !== statusText ? ` aria-label="${escapeHtml(statusText)}" title="${escapeHtml(statusText)}"` : '';
+  return `<div class="booking-detail-heading">
+      <small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
+      <span class="booking-status status-${statusClass}"${statusAccessibility}>${escapeHtml(compactStatus)}</span>
+    </div>
+    <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
+    <div class="booking-detail-facts" aria-label="${escapeHtml(`Время ${String(item.booking_time).slice(0, 5)}, длительность ${duration} минут, стоимость ${priceText}`)}">
+      <strong>${String(item.booking_time).slice(0, 5)}</strong><i aria-hidden="true">·</i><span>${duration} мин</span><i aria-hidden="true">·</i><span>${escapeHtml(priceText)}</span>
+    </div>
+    ${extraMarkup ? `<div class="booking-detail-signals">${extraMarkup}</div>` : ''}`;
+}
+
+function bookingDetailClientMarkup(item, { editableAvatar = true } = {}) {
+  const phoneValue = String(item?.client_phone || '');
+  const phoneHref = escapeHtml(phoneValue.replace(/[^+\d]/g, ''));
+  const avatar = editableAvatar
+    ? clientAvatarEditorMarkup(item.client_phone, item.client_name, item.id)
+    : `<span class="booking-sheet-client-avatar">${clientAvatarContent(item.client_phone, item.client_name)}</span>`;
+  return `<div class="booking-sheet-client">${avatar}<div class="booking-sheet-client-copy"><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name || 'Клиент')}</strong>${clientBadgeMarkup(item.client_phone, { limit:1, showLabels:true })}</div><a href="tel:${phoneHref}">${escapeHtml(phoneValue)}</a></div></div>`;
 }
 
 function bookingClientResultMarkup(item) {
@@ -8295,7 +8337,6 @@ function openBookingSheet(id) {
   const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
   const statusText = bookingStatus(item, true);
   const statusClass = bookingStatusClass(item);
-  const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
   const messageButton = clientMessageButtonMarkup(item);
   const note = bookingDisplayNote(item);
   const outcome = bookingOutcome(item);
@@ -8303,17 +8344,16 @@ function openBookingSheet(id) {
   const actualMinutes = Number(outcome.actual_duration_minutes || 0);
   const calculatedAmount = Number(outcome.calculated_amount_rub || (actualMinutes ? actualMinutes * minuteRate : bookingSessionTotal(item)));
   const amount = Number(outcome.amount_rub || calculatedAmount);
-  $('#bookingSheet').classList.remove('booking-sheet-wide');
+  $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet', 'booking-sheet-detail');
   applyClientHighlightClasses($('#bookingSheet'), isScheduleBlock(item) ? '' : item.client_phone, 'booking-sheet-');
   if (item.is_imported_history) {
     const sourceName = String(item.source_provider_name || 'Прежний журнал').trim();
-    $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
-      <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
-      <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
-      <div class="booking-sheet-summary"><div class="booking-sheet-client"><div class="booking-sheet-client-copy"><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name || 'Клиент')}</strong></div><a href="tel:${phone}">${escapeHtml(item.client_phone || '')}</a></div></div><div class="booking-sheet-price"><small>Стоимость по журналу</small><strong>${money(bookingSessionTotal(item))}</strong></div></div>
+    $('#bookingSheet').classList.add('booking-sheet-detail');
+    $('#bookingSheetContent').innerHTML = `${bookingDetailHeaderMarkup(item, date, duration, statusText, statusClass, money(bookingSessionTotal(item)))}
+      <div class="booking-sheet-summary">${bookingDetailClientMarkup(item, { editableAvatar:false })}</div>
       ${bookingClientOverviewMarkup(item)}
-      <div class="booking-sheet-actions">${bookingClientProfileActionMarkup(item)}</div>
-      <div class="booking-sheet-block imported-history-readonly"><span>${uiIcon('download')}</span><div><small>Источник: ${escapeHtml(sourceName)}</small><strong>Архивная запись доступна только для просмотра.</strong>${item.source_note ? `<p>${escapeHtml(item.source_note)}</p>` : ''}</div></div>`;
+      <div class="booking-sheet-actions booking-detail-primary-action">${bookingClientProfileActionMarkup(item, { primary:true })}</div>
+      <details class="booking-sheet-disclosure imported-history-readonly"><summary><strong>Импорт · ${escapeHtml(sourceName)}</strong></summary><div class="imported-history-readonly-body"><strong>Архивная запись доступна только для просмотра.</strong>${item.source_note ? `<p>${escapeHtml(item.source_note)}</p>` : ''}</div></details>`;
     $('#bookingSheet').hidden = false;
     document.body.classList.add('booking-sheet-open');
     return;
@@ -8338,10 +8378,10 @@ function openBookingSheet(id) {
     $('#bookingBlockNoteForm')?.addEventListener('submit', saveBookingBlockNote);
     return;
   }
-  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
-    <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
-    <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span>${autoCompleteSettingsActionMarkup(item)}${bookingSeriesMarkup(item)}</div>
-    <div class="booking-sheet-summary"><div class="booking-sheet-client">${clientAvatarEditorMarkup(item.client_phone, item.client_name, item.id)}<div class="booking-sheet-client-copy"><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}</div><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>${isPerMinuteBooking(item) ? 'Тариф' : 'Стоимость'}</small><strong>${isPerMinuteBooking(item) ? `${money(minuteRate)}/мин` : money(bookingSessionTotal(item))}</strong></div></div>
+  $('#bookingSheet').classList.add('booking-sheet-detail');
+  const bookingDetailPrice = isPerMinuteBooking(item) ? `${money(minuteRate)}/мин` : money(bookingSessionTotal(item));
+  $('#bookingSheetContent').innerHTML = `${bookingDetailHeaderMarkup(item, date, duration, statusText, statusClass, bookingDetailPrice, `${autoCompleteSettingsActionMarkup(item)}${bookingDetailSeriesMarkup(item)}`)}
+    <div class="booking-sheet-summary">${bookingDetailClientMarkup(item)}</div>
     ${bookingClientOverviewMarkup(item)}
     <div class="booking-sheet-actions booking-repeat-actions">${bookingClientProfileActionMarkup(item)}<button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button><button class="secondary-button booking-repeat-action" type="button" data-commerce-booking-sale="${item.id}">${uiIcon('plus')} Продать</button></div>
     <div class="booking-sheet-secondary">
@@ -8406,7 +8446,7 @@ function trapBookingSheetFocus(event) {
   const sheet = $('#bookingSheet');
   if (event.key !== 'Tab' || sheet?.hidden) return;
   const panel = sheet.querySelector('.booking-sheet-panel');
-  const focusable = [...panel.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+  const focusable = [...panel.querySelectorAll('a[href], button:not([disabled]), summary, input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
     .filter(element => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
   if (!focusable.length) { event.preventDefault(); panel.focus?.(); return; }
   const first = focusable[0];
@@ -11201,7 +11241,7 @@ function closeBookingSheet() {
   newBookingHistoricalMode = false;
   resetServicePublicCardPhotoPreview('edit');
   $('#bookingSheet').hidden = true;
-  $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet');
+  $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet', 'booking-sheet-detail');
   delete $('#bookingSheet').dataset.bookingId;
   delete $('#bookingSheet').dataset.assistantContext;
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
