@@ -314,6 +314,52 @@
 }
 
 @media (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title {
+    display:grid;
+    grid-template-columns:minmax(0,max-content) auto minmax(8px,1fr) auto;
+    grid-template-rows:auto auto;
+    align-items:end;
+    gap:0 8px;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title>div:first-child,
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title>.view-title-actions {
+    display:contents;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title>div:first-child>span {
+    grid-column:1 / 3;
+    grid-row:1;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title h2 {
+    grid-column:1;
+    grid-row:2;
+    min-width:0;
+    overflow-wrap:normal;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title #clientsCount {
+    grid-column:2;
+    grid-row:2;
+    align-self:end;
+    margin:0 0 1px;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title [data-create-empty-booking] {
+    grid-column:4;
+    grid-row:1 / 3;
+    align-self:end;
+    width:auto;
+    min-width:0;
+    min-height:44px;
+    margin:0;
+    padding:0 14px;
+    overflow:visible;
+    font-size:11px;
+    white-space:nowrap;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title [data-create-empty-booking]::first-letter {
+    font-size:inherit;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title [data-create-empty-booking]>span {
+    display:inline;
+  }
   .clients-layout.is-detail>.client-profile { background:var(--theme-surface)!important; }
   .provider-body[data-provider-theme][data-provider-layout] .client-profile { padding:12px; }
   .client-profile-head { grid-template-columns:1fr; grid-template-rows:auto; justify-items:center; gap:7px; padding-top:0; text-align:center; }
@@ -346,6 +392,19 @@
   .client-milestone-icon { width:40px; height:40px; }
   .client-profile-tabs { gap:0; justify-content:space-between; margin-inline:-2px; }
   .client-profile-tabs button { flex:1; padding-inline:9px; }
+}
+
+@media (max-width:350px) {
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title {
+    grid-template-columns:minmax(0,max-content) auto minmax(0,1fr);
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title [data-create-empty-booking] {
+    grid-column:1 / -1;
+    grid-row:3;
+    justify-self:stretch;
+    width:100%;
+    margin-top:10px;
+  }
 }
 
 @media (max-width:420px) {
