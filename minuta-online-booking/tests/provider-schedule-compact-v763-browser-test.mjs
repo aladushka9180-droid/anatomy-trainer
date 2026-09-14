@@ -105,6 +105,8 @@ try {
       const previousStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"]'));
       const nextStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="7"]'));
       const previousIconStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"] .ui-icon'));
+      const previousMarkStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"]'), '::before');
+      const nextMarkStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="7"]'), '::before');
       const stripFadeBefore = getComputedStyle(document.querySelector('.date-strip-frame'), '::before');
       const stripFadeAfter = getComputedStyle(document.querySelector('.date-strip-frame'), '::after');
       const dateButtons = [...document.querySelectorAll('#dateStrip>button')];
@@ -192,6 +194,8 @@ try {
         nextBackgroundImage:nextStyle.backgroundImage,
         previousIconColor:previousIconStyle.color,
         previousIconWidth:parseFloat(previousIconStyle.width),
+        previousIconDisplay:previousIconStyle.display,
+        chevronSizes:[parseFloat(previousMarkStyle.width), parseFloat(previousMarkStyle.height), parseFloat(nextMarkStyle.width), parseFloat(nextMarkStyle.height)],
         stripFadeBefore:{ backgroundImage:stripFadeBefore.backgroundImage, pointerEvents:stripFadeBefore.pointerEvents, width:parseFloat(stripFadeBefore.width) },
         stripFadeAfter:{ backgroundImage:stripFadeAfter.backgroundImage, pointerEvents:stripFadeAfter.pointerEvents, width:parseFloat(stripFadeAfter.width) },
         fullyVisibleDates,
@@ -265,10 +269,11 @@ try {
       assert.ok(result.nav.height <= 50, `${width}px mobile navigation is still too tall: ${JSON.stringify(result.nav)}`);
       assert.ok(result.navTargets.length === 5 && result.navTargets.every(target => target.height >= 44 && target.width >= 44), `${width}px mobile navigation targets are not accessible: ${JSON.stringify(result.navTargets)}`);
       assert.ok(result.workspacePaddingBottom >= result.nav.height + (height - result.nav.bottom) + 16, `${width}px compact mobile navigation lacks safe clearance: ${JSON.stringify(result)}`);
-      assert.notEqual(result.previousBackgroundImage, 'none', `${width}px previous arrow lost the edge continuation fade`);
-      assert.notEqual(result.nextBackgroundImage, 'none', `${width}px next arrow lost the edge continuation fade`);
+      assert.equal(result.previousBackgroundImage, 'none', `${width}px previous chevron regained a heavy background`);
+      assert.equal(result.nextBackgroundImage, 'none', `${width}px next chevron regained a heavy background`);
       assert.ok(result.previousIconColor, `${width}px previous arrow icon lost its quiet color`);
-      assert.ok(result.previousIconWidth <= 14.5, `${width}px date strip arrow icon became too prominent: ${JSON.stringify(result)}`);
+      assert.equal(result.previousIconDisplay, 'none', `${width}px long arrow icon is still visible: ${JSON.stringify(result)}`);
+      assert.ok(result.chevronSizes.every(size => size >= 9 && size <= 12), `${width}px date strip chevrons are not compact: ${JSON.stringify(result)}`);
       const expectedDates = width >= 600 ? 7 : 5;
       assert.equal(result.fullyVisibleDates, expectedDates, `${width}px exposes the wrong date count between arrows: ${JSON.stringify(result)}`);
       assert.equal(result.intersectingDates, expectedDates, `${width}px exposes cropped edge dates: ${JSON.stringify(result)}`);
@@ -278,8 +283,8 @@ try {
       assert.ok(result.stripFadeAfter.width >= 12 && result.stripFadeAfter.width <= 16, `${width}px next edge fade is too wide`);
       assert.notEqual(result.stripFadeBefore.backgroundImage, 'none', `${width}px previous continuation hint is missing`);
       assert.notEqual(result.stripFadeAfter.backgroundImage, 'none', `${width}px next continuation hint is missing`);
-      assert.ok(Math.abs(result.previous.right - result.stripViewport.left) <= 1, `${width}px previous arrow needs its own safe zone: ${JSON.stringify(result)}`);
-      assert.ok(Math.abs(result.next.left - result.stripViewport.right) <= 1, `${width}px next arrow needs its own safe zone: ${JSON.stringify(result)}`);
+      assert.ok(result.previous.right - result.stripViewport.left >= 11 && result.previous.right - result.stripViewport.left <= 13, `${width}px previous 44px target must overlap only the date edge gutter: ${JSON.stringify(result)}`);
+      assert.ok(result.stripViewport.right - result.next.left >= 11 && result.stripViewport.right - result.next.left <= 13, `${width}px next 44px target must overlap only the date edge gutter: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateVisible, true, `${width}px selected date must remain visible: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateValue, '2026-09-15', `${width}px fixture selected date changed`);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its accent`);
@@ -621,7 +626,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  for (const width of [390, 1440]) {
+  for (const width of [390, 760, 1440]) {
     await page.setViewportSize({ width, height:844 });
     const clientShareMenu = await page.evaluate(() => {
       const button = document.querySelector('#shareProviderClientPage');
@@ -640,8 +645,8 @@ try {
         overflow:document.documentElement.scrollWidth > innerWidth + 2
       };
     });
-    assert.equal(clientShareMenu.label, 'Поделиться страницей клиента');
-    assert.equal(clientShareMenu.pseudo, '"Поделиться страницей клиента"');
+    assert.equal(clientShareMenu.label, 'Поделиться ссылкой для записи');
+    assert.equal(clientShareMenu.pseudo, '"Поделиться ссылкой для записи"');
     assert.ok(clientShareMenu.height >= 44, `${width}px client-page share target is too small`);
     assert.ok(clientShareMenu.leftGap >= 0 && clientShareMenu.rightGap >= 0, `${width}px client-page share leaves the More menu`);
     assert.equal(clientShareMenu.overflow, false, `${width}px client-page share adds horizontal overflow`);
