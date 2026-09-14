@@ -309,7 +309,7 @@
   vertical-align:-1px;
 }
 
-/* v766: compact schedule controls keep the working day above the fold. */
+/* v767: compact schedule controls keep the working day above the fold. */
 @media (max-width:760px) {
   .provider-body .provider-view[data-provider-panel="bookings"] {
     padding-top:6px!important;
@@ -632,7 +632,7 @@
   }
 }
 
-/* v766: narrow schedule polish keeps one clear accent and five unobstructed dates. */
+/* v767: narrow schedule polish keeps one clear accent and five unobstructed dates. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme][data-provider-layout] .schedule-card:has(#dateStrip:not([hidden])) {
     gap:0!important;
@@ -771,7 +771,7 @@
   }
 }
 
-/* v766: list controls grow with their second row instead of covering content. */
+/* v767: list controls grow with their second row instead of covering content. */
 @media (max-width:760px) {
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) {
     grid-template-columns:minmax(0,1fr) auto!important;
@@ -827,30 +827,30 @@
   }
 }
 
-/* v766: records-list controls keep one quiet row per task at phone widths. */
+/* v767: records-list controls stay compact without nested framing. */
 @media (max-width:760px) {
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) {
-    grid-template-columns:minmax(0,1fr)!important;
-    grid-template-rows:auto auto auto!important;
-    align-items:stretch!important;
-    gap:6px!important;
-    padding:6px 0 8px!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-rows:auto auto!important;
+    align-items:center!important;
+    gap:4px 8px!important;
+    padding:4px 0 8px!important;
   }
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden]))>div:first-child {
     grid-column:1!important;
-    grid-row:2!important;
+    grid-row:1!important;
     width:100%;
     min-width:0;
-    padding:0 4px;
+    padding:0;
   }
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) .journal-mode-toggle {
-    grid-column:1!important;
+    grid-column:2!important;
     grid-row:1!important;
     justify-self:end;
   }
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) .booking-filters:not([hidden]) {
-    grid-column:1!important;
-    grid-row:3!important;
+    grid-column:1/-1!important;
+    grid-row:2!important;
     gap:6px!important;
     padding:0!important;
     overflow:visible;

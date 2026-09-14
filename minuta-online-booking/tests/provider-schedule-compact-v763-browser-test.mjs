@@ -193,7 +193,6 @@ try {
     if (output) await page.screenshot({ path:path.join(output, `schedule-compact-${width}.png`), fullPage:false });
   }
 
-  await page.setViewportSize({ width:390, height:844 });
   await page.evaluate(() => {
     const filters = document.querySelector('.booking-filters');
     filters.hidden = false;
@@ -201,38 +200,44 @@ try {
     bookings.className = 'provider-bookings schedule-list';
     bookings.innerHTML = '<div class="provider-empty schedule-empty"><strong>Записей нет</strong><small>На выбранный период всё свободно.</small></div>';
   });
-  await page.waitForTimeout(80);
-  const listResult = await page.evaluate(() => {
-    const rect = selector => document.querySelector(selector).getBoundingClientRect();
-    const toolbar = rect('.schedule-toolbar');
-    const filters = rect('.booking-filters');
-    const bookings = rect('#providerBookings');
-    const nav = rect('.provider-mobile-nav');
-    const workspace = document.querySelector('.provider-workspace');
-    const navLabels = [...document.querySelectorAll('.provider-mobile-nav>button span')];
-    return {
-      overflow:document.documentElement.scrollWidth > innerWidth + 2,
-      toolbar,
-      filters,
-      bookings,
-      nav,
-      workspacePaddingBottom:parseFloat(getComputedStyle(workspace).paddingBottom),
-      navLabelsFit:navLabels.every(label => label.scrollWidth <= label.clientWidth + 1),
-      filterButtons:[...document.querySelectorAll('.booking-filters button')].map(button => ({
-        height:button.getBoundingClientRect().height,
-        scrollWidth:button.scrollWidth,
-        clientWidth:button.clientWidth
-      }))
-    };
-  });
-  assert.equal(listResult.overflow, false, `390px list has horizontal overflow: ${JSON.stringify(listResult)}`);
-  assert.ok(listResult.toolbar.height >= 100, `390px list toolbar did not grow for tabs: ${JSON.stringify(listResult)}`);
-  assert.ok(listResult.filters.top >= listResult.toolbar.top && listResult.filters.bottom <= listResult.toolbar.bottom + 1, `390px tabs escape toolbar: ${JSON.stringify(listResult)}`);
-  assert.ok(listResult.bookings.top >= listResult.toolbar.bottom - 1, `390px list content is covered by controls: ${JSON.stringify(listResult)}`);
-  assert.ok(listResult.filterButtons.every(button => button.height >= 44 && button.scrollWidth <= button.clientWidth + 1), `390px list tabs are clipped: ${JSON.stringify(listResult)}`);
-  assert.equal(listResult.navLabelsFit, true, `390px mobile navigation labels are clipped: ${JSON.stringify(listResult)}`);
-  assert.ok(listResult.workspacePaddingBottom >= listResult.nav.height + (844 - listResult.nav.bottom) + 16, `390px mobile navigation lacks safe clearance: ${JSON.stringify(listResult)}`);
-  if (output) await page.screenshot({ path:path.join(output, 'schedule-list-390.png'), fullPage:false });
+  for (const { width, height } of [{ width:320, height:700 }, { width:390, height:844 }, { width:430, height:900 }, { width:760, height:1000 }]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(80);
+    const listResult = await page.evaluate(() => {
+      const rect = selector => document.querySelector(selector).getBoundingClientRect();
+      const toolbar = rect('.schedule-toolbar');
+      const copy = rect('.schedule-toolbar>div:first-child');
+      const toggle = rect('.journal-mode-toggle');
+      const filters = rect('.booking-filters');
+      const bookings = rect('#providerBookings');
+      const nav = rect('.provider-mobile-nav');
+      const workspace = document.querySelector('.provider-workspace');
+      const navLabels = [...document.querySelectorAll('.provider-mobile-nav>button span')];
+      return {
+        overflow:document.documentElement.scrollWidth > innerWidth + 2,
+        toolbar, copy, toggle, filters, bookings, nav,
+        firstRowFits:copy.right <= toggle.left - 6,
+        filterOuterBorder:getComputedStyle(document.querySelector('.booking-filters')).borderTopWidth,
+        workspacePaddingBottom:parseFloat(getComputedStyle(workspace).paddingBottom),
+        navLabelsFit:navLabels.every(label => label.scrollWidth <= label.clientWidth + 1),
+        filterButtons:[...document.querySelectorAll('.booking-filters button')].map(button => ({
+          height:button.getBoundingClientRect().height,
+          scrollWidth:button.scrollWidth,
+          clientWidth:button.clientWidth
+        }))
+      };
+    });
+    assert.equal(listResult.overflow, false, `${width}px list has horizontal overflow: ${JSON.stringify(listResult)}`);
+    assert.ok(listResult.toolbar.height >= 96 && listResult.toolbar.height <= 116, `${width}px list toolbar is not compact: ${JSON.stringify(listResult)}`);
+    assert.equal(listResult.firstRowFits, true, `${width}px list heading overlaps the mode toggle: ${JSON.stringify(listResult)}`);
+    assert.equal(listResult.filterOuterBorder, '0px', `${width}px duplicate filter frame returned`);
+    assert.ok(listResult.filters.top >= listResult.toolbar.top && listResult.filters.bottom <= listResult.toolbar.bottom + 1, `${width}px tabs escape toolbar: ${JSON.stringify(listResult)}`);
+    assert.ok(listResult.bookings.top >= listResult.toolbar.bottom - 1, `${width}px list content is covered by controls: ${JSON.stringify(listResult)}`);
+    assert.ok(listResult.filterButtons.every(button => button.height >= 44 && button.scrollWidth <= button.clientWidth + 1), `${width}px list tabs are clipped: ${JSON.stringify(listResult)}`);
+    if (width >= 390) assert.equal(listResult.navLabelsFit, true, `${width}px mobile navigation labels are clipped: ${JSON.stringify(listResult)}`);
+    assert.ok(listResult.workspacePaddingBottom >= listResult.nav.height + (height - listResult.nav.bottom) + 16, `${width}px mobile navigation lacks safe clearance: ${JSON.stringify(listResult)}`);
+    if (output) await page.screenshot({ path:path.join(output, `schedule-list-${width}.png`), fullPage:false });
+  }
 
   await page.evaluate(() => { document.querySelector('.provider-topbar-tools').open = true; });
   const share = await page.locator('#openFreeSlots').boundingBox();
@@ -243,7 +248,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v766 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v767 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
