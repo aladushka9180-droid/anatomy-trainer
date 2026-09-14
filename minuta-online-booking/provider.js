@@ -2149,7 +2149,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=762#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=763#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2854,7 +2854,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=762#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=763#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5077,7 +5077,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=762');
+      worker = new Worker('./report-worker.js?v=763');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6450,7 +6450,10 @@ function centerDateStripSelection(dateStrip) {
   if (!dateStrip || dateStrip.scrollWidth <= dateStrip.clientWidth) return;
   const active = dateStrip.querySelector('[data-booking-date].active');
   if (!active) return;
-  const target = active.offsetLeft - (dateStrip.clientWidth - active.offsetWidth) / 2;
+  const stripRect = dateStrip.getBoundingClientRect();
+  const activeRect = active.getBoundingClientRect();
+  const activeContentLeft = activeRect.left - stripRect.left + dateStrip.scrollLeft;
+  const target = activeContentLeft - (dateStrip.clientWidth - activeRect.width) / 2;
   const previousBehavior = dateStrip.style.scrollBehavior;
   dateStrip.style.scrollBehavior = 'auto';
   dateStrip.scrollLeft = Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, target));

@@ -311,7 +311,7 @@
   vertical-align:-1px;
 }
 
-/* v762: compact schedule controls keep the working day above the fold. */
+/* v763: compact schedule controls keep the working day above the fold. */
 @media (max-width:760px) {
   .provider-body .provider-view[data-provider-panel="bookings"] {
     padding-top:6px!important;
@@ -631,5 +631,141 @@
   }
   .provider-body .schedule-view-title #newBookingButton {
     min-height:44px;
+  }
+}
+
+/* v763: narrow schedule polish keeps one clear accent and five unobstructed dates. */
+@media (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] .schedule-card:has(#dateStrip:not([hidden])) {
+    gap:0!important;
+  }
+
+  #dashboard[data-active-view="bookings"] .calendar-view-toggle button {
+    min-height:44px!important;
+  }
+
+  #dashboard[data-active-view="bookings"] .date-navigation>.date-today-button,
+  #dashboard[data-active-view="bookings"] .date-navigation>.date-today-button.is-current {
+    min-width:88px!important;
+    min-height:44px!important;
+    border:1px solid color-mix(in srgb,var(--theme-line) 72%,transparent)!important;
+    background:transparent!important;
+    color:var(--theme-muted)!important;
+    box-shadow:none!important;
+  }
+  #dashboard[data-active-view="bookings"] .date-navigation>.date-today-button:not(.is-current) {
+    color:var(--theme-ink)!important;
+  }
+  #dashboard[data-active-view="bookings"] .schedule-date-picker input {
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame {
+    display:grid!important;
+    grid-template-columns:44px minmax(0,1fr) 44px!important;
+    grid-template-rows:62px!important;
+    align-items:stretch!important;
+    min-height:62px;
+    overflow:hidden!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip {
+    grid-column:2!important;
+    grid-row:1!important;
+    gap:4px!important;
+    width:100%!important;
+    min-width:0!important;
+    min-height:62px!important;
+    padding:3px 0!important;
+    scroll-padding-inline:0!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button,
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.active {
+    display:grid!important;
+    grid-template-rows:10px 22px 10px!important;
+    align-content:center!important;
+    gap:1px!important;
+    flex:0 0 calc((100% - 16px) / 5)!important;
+    padding:3px 1px!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip-shift {
+    position:static!important;
+    top:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    left:auto!important;
+    z-index:1;
+    grid-row:1!important;
+    align-self:stretch!important;
+    width:44px!important;
+    height:62px!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    opacity:.72!important;
+    transform:none!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip-shift[data-date-shift="-7"] {
+    grid-column:1!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip-shift[data-date-shift="7"] {
+    grid-column:3!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.is-today:not(.active) {
+    background:transparent!important;
+    color:color-mix(in srgb,var(--theme-accent) 58%,var(--theme-muted))!important;
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--theme-accent) 20%,transparent)!important;
+  }
+
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button span,
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button small {
+    line-height:10px!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button strong {
+    line-height:22px!important;
+  }
+
+  #dashboard[data-active-view="bookings"] .schedule-toolbar {
+    height:52px!important;
+    min-height:52px!important;
+    padding:4px 0!important;
+    box-sizing:border-box;
+  }
+  #dashboard[data-active-view="bookings"] .journal-mode-toggle button:focus-visible {
+    outline:2px solid color-mix(in srgb,var(--theme-accent) 58%,transparent)!important;
+    outline-offset:2px!important;
+  }
+}
+
+@media (max-width:430px) {
+  .provider-body .schedule-title-line {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:22px 16px!important;
+    align-content:center!important;
+    justify-items:start!important;
+    gap:0!important;
+    overflow:visible!important;
+  }
+  .provider-body .schedule-view-title h2 {
+    font-size:21px!important;
+  }
+  .provider-body .schedule-title-line .dashboard-summary {
+    width:max-content!important;
+    max-width:100%!important;
+    min-height:16px!important;
+    height:16px!important;
+    padding:0!important;
+    gap:4px!important;
+    overflow:visible!important;
+  }
+  .provider-body .schedule-title-line .dashboard-summary strong {
+    font-size:11px!important;
+  }
+  .provider-body .schedule-title-line .dashboard-summary i {
+    height:10px!important;
   }
 }

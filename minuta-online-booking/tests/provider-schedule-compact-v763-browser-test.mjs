@@ -23,7 +23,12 @@ const server = http.createServer((request, response) => {
       .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<meta[^>]*http-equiv="Content-Security-Policy"[^>]*>/gi, '');
   }
-  response.setHeader('Content-Type', file.endsWith('.css') ? 'text/css' : 'text/html; charset=utf-8');
+  const contentType = file.endsWith('.css')
+    ? 'text/css'
+    : file.endsWith('.svg')
+      ? 'image/svg+xml'
+      : 'text/html; charset=utf-8';
+  response.setHeader('Content-Type', contentType);
   response.end(content);
 });
 
@@ -62,38 +67,61 @@ try {
     bookings.className = 'provider-bookings timeline-view';
     bookings.innerHTML = '<div class="day-timeline" style="height:620px"><div class="timeline-stage"></div></div>';
     const activeDate = strip.querySelector('.active');
-    strip.scrollLeft = Math.max(0, activeDate.offsetLeft - (strip.clientWidth - activeDate.offsetWidth) / 2);
+    const stripRect = strip.getBoundingClientRect();
+    const activeRect = activeDate.getBoundingClientRect();
+    strip.scrollLeft = Math.max(0, activeRect.left - stripRect.left + strip.scrollLeft - (strip.clientWidth - activeRect.width) / 2);
   });
 
-  for (const { width, height } of [{ width:390, height:844 }, { width:760, height:1000 }, { width:1440, height:1000 }]) {
+  for (const { width, height } of [{ width:360, height:800 }, { width:390, height:844 }, { width:760, height:1000 }, { width:1440, height:1000 }]) {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => {
       const strip = document.querySelector('#dateStrip');
       const activeDate = strip.querySelector('.active');
       strip.style.scrollBehavior = 'auto';
-      strip.scrollLeft = Math.max(0, activeDate.offsetLeft - (strip.clientWidth - activeDate.offsetWidth) / 2);
+      const stripRect = strip.getBoundingClientRect();
+      const activeRect = activeDate.getBoundingClientRect();
+      strip.scrollLeft = Math.max(0, activeRect.left - stripRect.left + strip.scrollLeft - (strip.clientWidth - activeRect.width) / 2);
     });
     await page.waitForTimeout(80);
     const result = await page.evaluate(() => {
       const rect = selector => document.querySelector(selector).getBoundingClientRect();
       const strip = rect('#dateStrip');
+      const stripFrame = rect('.date-strip-frame');
       const previous = rect('.date-strip-shift[data-date-shift="-7"]');
       const next = rect('.date-strip-shift[data-date-shift="7"]');
-      const fullyVisibleDates = [...document.querySelectorAll('#dateStrip>button')].filter(button => {
+      const dateButtons = [...document.querySelectorAll('#dateStrip>button')];
+      const fullyVisibleDates = dateButtons.filter(button => {
         const item = button.getBoundingClientRect();
-        return item.left >= previous.right - 1 && item.right <= next.left + 1;
+        return item.left >= strip.left - 1 && item.right <= strip.right + 1;
+      }).length;
+      const intersectingDates = dateButtons.filter(button => {
+        const item = button.getBoundingClientRect();
+        return item.right > strip.left + 1 && item.left < strip.right - 1;
       }).length;
       const tab = document.querySelector('[data-calendar-view="day"]');
+      const tabs = [...document.querySelectorAll('[data-calendar-view]')].map(item => item.getBoundingClientRect().height);
       const tabAccent = getComputedStyle(tab, '::after');
       const activeButton = document.querySelector('#dateStrip>button.active');
       const activeDate = activeButton.getBoundingClientRect();
+      const quietTodayButton = document.querySelector('#dateStrip>button.is-today:not(.active)');
+      const quietTodayStyle = getComputedStyle(quietTodayButton);
+      const ordinaryDateStyle = getComputedStyle(document.querySelector('#dateStrip>button:not(.active):not(.is-today)'));
+      const todayButtonStyle = getComputedStyle(document.querySelector('[data-date-today]'));
+      const pickerStyle = getComputedStyle(document.querySelector('#scheduleDatePicker'));
+      const summary = document.querySelector('.schedule-title-line .dashboard-summary');
+      const summaryRect = summary.getBoundingClientRect();
+      const summaryChildrenInside = [...summary.children].every(child => {
+        const item = child.getBoundingClientRect();
+        return item.left >= summaryRect.left - 1 && item.right <= summaryRect.right + 1;
+      });
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         scheduleTop:rect('#providerBookings').top,
         topbar:rect('.provider-topbar'),
         title:rect('.schedule-view-title'),
         navigation:rect('.date-navigation'),
-        strip:rect('.date-strip-frame'),
+        strip:stripFrame,
+        stripViewport:strip,
         toolbar:rect('.schedule-toolbar'),
         newBooking:rect('#newBookingButton'),
         today:rect('[data-date-today]'),
@@ -101,14 +129,29 @@ try {
         previous,
         next,
         fullyVisibleDates,
+        intersectingDates,
         activeDate,
         activeDateValue:activeButton.dataset.bookingDate,
         activeDateBackground:getComputedStyle(activeButton).backgroundColor,
-        activeDateVisible:activeDate.left >= previous.right - 1 && activeDate.right <= next.left + 1,
+        activeDateVisible:activeDate.left >= strip.left - 1 && activeDate.right <= strip.right + 1,
         stripScrollLeft:document.querySelector('#dateStrip').scrollLeft,
         stripScrollWidth:document.querySelector('#dateStrip').scrollWidth,
         tabBackground:getComputedStyle(tab).backgroundColor,
         tabAccentHeight:tabAccent.height,
+        tabHeights:tabs,
+        summary:summaryRect,
+        summaryScrollWidth:summary.scrollWidth,
+        summaryClientWidth:summary.clientWidth,
+        summaryChildrenInside,
+        quietTodayBackground:quietTodayStyle.backgroundColor,
+        quietTodayBackgroundImage:quietTodayStyle.backgroundImage,
+        ordinaryDateBackground:ordinaryDateStyle.backgroundColor,
+        ordinaryDateBackgroundImage:ordinaryDateStyle.backgroundImage,
+        ordinaryDateShadow:ordinaryDateStyle.boxShadow,
+        todayButtonBackground:todayButtonStyle.backgroundColor,
+        todayButtonBackgroundImage:todayButtonStyle.backgroundImage,
+        todayButtonShadow:todayButtonStyle.boxShadow,
+        pickerBackground:pickerStyle.backgroundColor,
         navBottom:rect('.provider-mobile-nav').bottom,
         viewportHeight:innerHeight
       };
@@ -120,22 +163,45 @@ try {
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.previous.height >= 44 && result.next.height >= 44, `${width}px date strip arrows`);
       assert.equal(result.fullyVisibleDates, 5, `${width}px must expose five dates between arrows: ${JSON.stringify(result)}`);
+      assert.equal(result.intersectingDates, 5, `${width}px must not expose cropped edge dates: ${JSON.stringify(result)}`);
+      assert.ok(Math.abs(result.previous.right - result.stripViewport.left) <= 1, `${width}px previous arrow needs its own safe zone: ${JSON.stringify(result)}`);
+      assert.ok(Math.abs(result.next.left - result.stripViewport.right) <= 1, `${width}px next arrow needs its own safe zone: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateVisible, true, `${width}px selected date must remain visible: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateValue, '2026-09-15', `${width}px fixture selected date changed`);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its accent`);
-      assert.ok(result.scheduleTop >= height * .3 && result.scheduleTop <= height * .42, `${width}px schedule begins: ${JSON.stringify(result)}`);
+      assert.ok(result.scheduleTop >= height * .3 && result.scheduleTop <= height * .4, `${width}px schedule begins: ${JSON.stringify(result)}`);
       assert.ok(Math.abs(result.viewportHeight - result.navBottom) <= 9, `${width}px fixed navigation moved from the bottom`);
       assert.equal(result.tabBackground, 'rgba(0, 0, 0, 0)', `${width}px period tabs are not flat`);
       assert.equal(result.tabAccentHeight, '2px', `${width}px selected period needs a thin accent`);
+      assert.ok(result.tabHeights.every(tabHeight => tabHeight >= 44), `${width}px period touch targets must remain at least 44px`);
+      assert.equal(result.quietTodayBackground, 'rgba(0, 0, 0, 0)', `${width}px unselected Today date competes with the selected date`);
+      assert.equal(result.quietTodayBackgroundImage, 'none', `${width}px unselected Today date gained a decorative fill`);
+      assert.equal(result.ordinaryDateBackground, 'rgba(0, 0, 0, 0)', `${width}px ordinary date gained a fill`);
+      assert.equal(result.ordinaryDateBackgroundImage, 'none', `${width}px ordinary date gained a decorative fill`);
+      assert.equal(result.ordinaryDateShadow, 'none', `${width}px ordinary dates must stay quiet`);
+      assert.equal(result.todayButtonBackground, 'rgba(0, 0, 0, 0)', `${width}px separate Today action must stay quiet`);
+      assert.equal(result.todayButtonBackgroundImage, 'none', `${width}px separate Today action gained a decorative fill`);
+      assert.equal(result.todayButtonShadow, 'none', `${width}px separate Today action gained an extra accent`);
+      assert.equal(result.pickerBackground, 'rgba(0, 0, 0, 0)', `${width}px date field gained a nested surface`);
+      if (width <= 430) {
+        assert.ok(result.summaryScrollWidth <= result.summaryClientWidth + 1, `${width}px title summary is clipped: ${JSON.stringify(result)}`);
+        assert.equal(result.summaryChildrenInside, true, `${width}px title summary children escape their row: ${JSON.stringify(result)}`);
+        assert.ok(result.summary.right <= result.newBooking.left - 6, `${width}px title summary overlaps New booking: ${JSON.stringify(result)}`);
+      }
     }
-    if (output) await page.screenshot({ path:path.join(output, `schedule-compact-${width}.png`), fullPage:true });
+    if (output) await page.screenshot({ path:path.join(output, `schedule-compact-${width}.png`), fullPage:false });
   }
 
   await page.evaluate(() => { document.querySelector('.provider-topbar-tools').open = true; });
   const share = await page.locator('#openFreeSlots').boundingBox();
   assert.ok(share && share.height >= 44, 'Share remains available inside More');
   assert.equal(await page.locator('.schedule-view-title #openFreeSlots').count(), 0, 'Share must not return beside New booking');
-  console.log('PrimeTime Pro compact schedule v762 browser checks: PASS');
+  assert.equal(await page.getByRole('button', { name:'Новая запись' }).count(), 1, 'New booking needs its stable accessible name');
+  assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('title'), 'Лента');
+  assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
+  assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
+  console.log('PrimeTime Pro compact schedule v763 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
