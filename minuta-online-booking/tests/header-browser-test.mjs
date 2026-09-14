@@ -69,13 +69,13 @@ try{
         const items=[...menu.querySelectorAll(':scope>:is(button,a)')];
         const rects=items.map(item=>item.getBoundingClientRect());
         const mobile=innerWidth<=760;
-        if(items.length!==5)errors.push('wrong tool count');
-        if(menuRect.width>(mobile?245:253)||menuRect.height>(mobile?250:155))errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
+        if(items.length!==6)errors.push('wrong tool count');
+        if(menuRect.width>(mobile?245:253)||menuRect.height>(mobile?290:203))errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
         if(menuRect.left<0||menuRect.right>innerWidth+1)errors.push('menu overflow');
         if(Math.abs(menuRect.right-summaryRect.right)>1)errors.push('menu is not right aligned');
         const rows=new Set(rects.map(rect=>Math.round(rect.top)));
         const columns=new Set(rects.map(rect=>Math.round(rect.left)));
-        if(mobile?(rows.size!==5||columns.size!==1):(rows.size!==3||columns.size!==2))errors.push('menu grid rhythm changed');
+        if(mobile?(rows.size!==6||columns.size!==1):(rows.size!==4||columns.size!==2))errors.push('menu grid rhythm changed');
         for(let index=0;index<items.length;index++){
           const item=items[index],rect=rects[index];
           if(rect.width<44||rect.height<44)errors.push(`small menu control ${item.id}`);
@@ -140,7 +140,7 @@ try{
     console.log(`Header appearance: ${width}px checked`);
   }
   await page.evaluate(()=>{document.querySelector('#providerAppearanceMenu').open=false;});
-  assert.deepEqual(failures,[]);
+  assert.equal(failures.length,0,`Header matrix failures (${failures.length}): ${JSON.stringify(failures.slice(0,50))}`);
   await page.evaluate(()=>{document.querySelector('.provider-topbar-tools').open=false;document.querySelector('#desktopAppInstallButton').hidden=true;});
   if(requestedSections.has('geometry')){
     await page.locator('#syncState').click();await page.getByRole('dialog').waitFor({state:'visible'});
