@@ -131,11 +131,11 @@ const server = http.createServer((request, response) => {
       document.querySelector('[data-calendar-view="week"]')?.classList.add('active');
       document.querySelector('#dateStrip').hidden = true;
       return {
-        topControlsVisible:[...document.querySelectorAll('.date-navigation>.date-nav-button')].every(button => getComputedStyle(button).display !== 'none'),
+        topControlsHidden:[...document.querySelectorAll('.date-navigation>.date-nav-button')].every(button => getComputedStyle(button).display === 'none'),
         stripControlsHidden:getComputedStyle(document.querySelector('.date-strip-frame')).display === 'none'
       };
     });
-    assert.equal(alternateView.topControlsVisible, true, 'В режимах недели и месяца нужны верхние стрелки');
+    assert.equal(alternateView.topControlsHidden, true, 'В режиме недели верхние дублирующие стрелки должны быть скрыты');
     assert.equal(alternateView.stripControlsHidden, true, 'Стрелки скрытой дневной ленты не должны оставаться на экране');
 
     await page.setViewportSize({ width:1440, height:900 });

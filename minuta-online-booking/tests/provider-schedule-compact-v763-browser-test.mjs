@@ -123,6 +123,19 @@ try {
         return item.left >= summaryRect.left + 3 && item.right <= summaryRect.right - 3
           && label.scrollWidth <= label.clientWidth + 1;
       });
+      const summaryItemCenterDeltas = [...summary.querySelectorAll(':scope>div')].map(item => {
+        const itemRect = item.getBoundingClientRect();
+        const labels = [...item.querySelectorAll('strong,span')].map(label => label.getBoundingClientRect());
+        const contentLeft = Math.min(...labels.map(label => label.left));
+        const contentRight = Math.max(...labels.map(label => label.right));
+        return Math.abs((contentLeft + contentRight) / 2 - (itemRect.left + itemRect.right) / 2);
+      });
+      const newBookingButton = document.querySelector('#newBookingButton');
+      const newBookingRect = newBookingButton.getBoundingClientRect();
+      const newBookingHitTarget = document.elementFromPoint(
+        (newBookingRect.left + newBookingRect.right) / 2,
+        (newBookingRect.top + newBookingRect.bottom) / 2
+      );
       const toolbar = rect('.schedule-toolbar');
       const toolbarCopy = rect('.schedule-toolbar>div:first-child');
       const journalToggle = rect('.journal-mode-toggle');
@@ -158,7 +171,9 @@ try {
         summaryClientWidth:summary.clientWidth,
         summaryChildrenInside,
         summaryLabelsInside,
+        summaryItemCenterDeltas,
         summaryText:[...summary.querySelectorAll('strong,span')].map(item => item.textContent.trim()),
+        newBookingHitTarget:newBookingHitTarget === newBookingButton || newBookingButton.contains(newBookingHitTarget),
         toolbarContentCenterDelta:Math.abs((toolbarCopy.top + toolbarCopy.bottom) / 2 - (journalToggle.top + journalToggle.bottom) / 2),
         journalGridGap:rect('#providerBookings').top - journalToggle.bottom,
         quietTodayBackground:quietTodayStyle.backgroundColor,
@@ -178,6 +193,7 @@ try {
     assert.ok(result.newBooking.height >= 44 && result.newBooking.width >= 44, `${width}px New booking target`);
     if (width <= 760) {
       assert.ok(result.today.height >= 44 && result.today.width >= 44, `${width}px Today target`);
+      assert.equal(result.newBookingHitTarget, true, `${width}px New booking button is covered by another layer: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.previous.height >= 44 && result.next.height >= 44, `${width}px date strip arrows`);
       assert.equal(result.fullyVisibleDates, 5, `${width}px must expose five dates between arrows: ${JSON.stringify(result)}`);
@@ -208,6 +224,7 @@ try {
         assert.ok(result.summaryScrollWidth <= result.summaryClientWidth + 1, `${width}px title summary is clipped: ${JSON.stringify(result)}`);
         assert.equal(result.summaryChildrenInside, true, `${width}px title summary children escape their row: ${JSON.stringify(result)}`);
         assert.equal(result.summaryLabelsInside, true, `${width}px title summary labels touch or escape the safe inset: ${JSON.stringify(result)}`);
+        assert.ok(result.summaryItemCenterDeltas.every(delta => delta <= 1), `${width}px title summary items are not centered in their thirds: ${JSON.stringify(result)}`);
         assert.deepEqual(result.summaryText, ['0', 'сегодня', '5', 'впереди', '8', 'услуг'], `${width}px title summary fixture changed`);
         assert.ok(result.summary.top >= result.newBooking.bottom - 1, `${width}px title summary must use its own full-width row: ${JSON.stringify(result)}`);
         assert.ok(result.summary.right <= result.title.right + 1, `${width}px title summary escapes the title area: ${JSON.stringify(result)}`);
@@ -241,6 +258,7 @@ try {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         toolbar, copy, toggle, filters, bookings, nav,
         firstRowFits:copy.right <= toggle.left - 6,
+        controlsToFiltersGap:filters.top - Math.max(copy.bottom, toggle.bottom),
         filterOuterBorder:getComputedStyle(document.querySelector('.booking-filters')).borderTopWidth,
         workspacePaddingBottom:parseFloat(getComputedStyle(workspace).paddingBottom),
         navLabelsFit:navLabels.every(label => label.scrollWidth <= label.clientWidth + 1),
@@ -252,8 +270,9 @@ try {
       };
     });
     assert.equal(listResult.overflow, false, `${width}px list has horizontal overflow: ${JSON.stringify(listResult)}`);
-    assert.ok(listResult.toolbar.height >= 96 && listResult.toolbar.height <= 116, `${width}px list toolbar is not compact: ${JSON.stringify(listResult)}`);
+    assert.ok(listResult.toolbar.height >= 96 && listResult.toolbar.height <= 124, `${width}px list toolbar is not compact: ${JSON.stringify(listResult)}`);
     assert.equal(listResult.firstRowFits, true, `${width}px list heading overlaps the mode toggle: ${JSON.stringify(listResult)}`);
+    assert.ok(listResult.controlsToFiltersGap >= 10, `${width}px list filters crowd the journal toggle: ${JSON.stringify(listResult)}`);
     assert.equal(listResult.filterOuterBorder, '0px', `${width}px duplicate filter frame returned`);
     assert.ok(listResult.filters.top >= listResult.toolbar.top && listResult.filters.bottom <= listResult.toolbar.bottom + 1, `${width}px tabs escape toolbar: ${JSON.stringify(listResult)}`);
     assert.ok(listResult.bookings.top >= listResult.toolbar.bottom - 1, `${width}px list content is covered by controls: ${JSON.stringify(listResult)}`);
@@ -272,6 +291,118 @@ try {
     assert.ok(bottomGap >= 16, `${width}px final list card reaches the fixed navigation after scroll: ${bottomGap}px`);
   }
 
+  await page.evaluate(() => {
+    document.querySelectorAll('[data-calendar-view]').forEach(button => {
+      button.classList.toggle('active', button.dataset.calendarView === 'week');
+    });
+    document.querySelector('#selectedDateTitle').textContent = '31 августа — 6 сентября 2026 г.';
+    document.querySelector('#selectedDateSummary').textContent = '2 записи · 3 перерыва';
+    const bookings = document.querySelector('#providerBookings');
+    bookings.className = 'provider-bookings calendar-overview calendar-overview-week';
+    bookings.innerHTML = '<div class="calendar-overview-grid"><article class="calendar-overview-day"><button class="calendar-overview-date" type="button"><span>Пн</span><strong>31</strong><small>авг</small></button><div class="calendar-overview-items"><button class="calendar-overview-booking" type="button"><time>10:00</time><span><strong>Перерыв</strong><small>Занятое время</small></span></button></div></article></div>';
+  });
+  for (const { width, height } of [{ width:320, height:700 }, { width:390, height:844 }, { width:760, height:1000 }]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(80);
+    const weekResult = await page.evaluate(() => {
+      const rect = selector => document.querySelector(selector).getBoundingClientRect();
+      const nav = rect('.date-navigation');
+      const tabs = rect('.calendar-view-toggle');
+      const toolbar = rect('.schedule-toolbar');
+      const titleElement = document.querySelector('#selectedDateTitle');
+      const title = titleElement.getBoundingClientRect();
+      const day = rect('.calendar-overview-week .calendar-overview-day');
+      const date = rect('.calendar-overview-week .calendar-overview-date');
+      const booking = rect('.calendar-overview-week .calendar-overview-booking');
+      const time = rect('.calendar-overview-week .calendar-overview-booking time');
+      return {
+        overflow:document.documentElement.scrollWidth > innerWidth + 2,
+        navArrowDisplays:[...document.querySelectorAll('.date-navigation>.date-nav-button')].map(button => getComputedStyle(button).display),
+        tabsRightDelta:Math.abs(nav.right - tabs.right),
+        titleInset:title.left - toolbar.left,
+        titleFits:titleElement.scrollWidth <= titleElement.clientWidth + 1 && titleElement.scrollHeight <= titleElement.clientHeight + 1,
+        titleBox:{ clientWidth:titleElement.clientWidth, scrollWidth:titleElement.scrollWidth, clientHeight:titleElement.clientHeight, scrollHeight:titleElement.scrollHeight, whiteSpace:getComputedStyle(titleElement).whiteSpace },
+        dateInset:date.left - day.left,
+        timeInset:time.left - booking.left
+      };
+    });
+    assert.equal(weekResult.overflow, false, `${width}px week view has horizontal overflow: ${JSON.stringify(weekResult)}`);
+    assert.ok(weekResult.navArrowDisplays.every(display => display === 'none'), `${width}px week view duplicates navigation arrows: ${JSON.stringify(weekResult)}`);
+    assert.ok(weekResult.tabsRightDelta <= 1, `${width}px week tabs do not span the navigation row: ${JSON.stringify(weekResult)}`);
+    assert.ok(weekResult.titleInset >= 8, `${width}px week range title touches the outer edge: ${JSON.stringify(weekResult)}`);
+    assert.equal(weekResult.titleFits, true, `${width}px week range title is clipped: ${JSON.stringify(weekResult)}`);
+    assert.ok(weekResult.dateInset >= 11, `${width}px week day title touches its card edge: ${JSON.stringify(weekResult)}`);
+    assert.ok(weekResult.timeInset >= 11, `${width}px week booking time touches its card edge: ${JSON.stringify(weekResult)}`);
+    if (output) await page.screenshot({ path:path.join(output, `schedule-week-${width}.png`), fullPage:false });
+  }
+
+  await page.evaluate(() => {
+    document.querySelectorAll('[data-calendar-view]').forEach(button => {
+      button.classList.toggle('active', button.dataset.calendarView === 'month');
+    });
+    document.querySelector('#selectedDateTitle').textContent = 'Сентябрь 2026 г.';
+    document.querySelector('#selectedDateSummary').textContent = '5 записей · 3 перерыва';
+    const bookings = document.querySelector('#providerBookings');
+    bookings.className = 'provider-bookings calendar-overview calendar-overview-month';
+    bookings.innerHTML = '<div class="calendar-overview-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div class="calendar-overview-grid"><article class="calendar-overview-day is-selected"><button class="calendar-overview-date" type="button"><strong>1</strong><small class="calendar-overview-count">2 записи</small></button></article></div>';
+  });
+  for (const { width, height } of [{ width:320, height:700 }, { width:390, height:844 }, { width:760, height:1000 }]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(80);
+    const monthResult = await page.evaluate(() => {
+      const nav = document.querySelector('.date-navigation').getBoundingClientRect();
+      const tabs = document.querySelector('.calendar-view-toggle').getBoundingClientRect();
+      return {
+        overflow:document.documentElement.scrollWidth > innerWidth + 2,
+        navArrowDisplays:[...document.querySelectorAll('.date-navigation>.date-nav-button')].map(button => getComputedStyle(button).display),
+        stripArrowDisplays:[...document.querySelectorAll('.date-strip-shift')].map(button => getComputedStyle(button).display),
+        tabsRightDelta:Math.abs(nav.right - tabs.right)
+      };
+    });
+    assert.equal(monthResult.overflow, false, `${width}px month view has horizontal overflow: ${JSON.stringify(monthResult)}`);
+    assert.ok(monthResult.navArrowDisplays.every(display => display === 'none'), `${width}px month view duplicates navigation arrows: ${JSON.stringify(monthResult)}`);
+    assert.ok(monthResult.stripArrowDisplays.every(display => display !== 'none'), `${width}px month view loses the date-strip arrows: ${JSON.stringify(monthResult)}`);
+    assert.ok(monthResult.tabsRightDelta <= 1, `${width}px month tabs do not span the navigation row: ${JSON.stringify(monthResult)}`);
+    if (output) await page.screenshot({ path:path.join(output, `schedule-month-${width}.png`), fullPage:false });
+  }
+
+  await page.evaluate(() => {
+    document.querySelectorAll('[data-calendar-view]').forEach(button => {
+      button.classList.toggle('active', button.dataset.calendarView === 'day');
+    });
+    const bookings = document.querySelector('#providerBookings');
+    bookings.className = 'provider-bookings schedule-list';
+    bookings.innerHTML = '<article class="provider-booking status-confirmed color-auto client-vip"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>10:30<small>до 11:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Общий массаж задней поверхности</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Евгения Белышева</strong><span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span></span><span class="provider-booking-phone">79120000000</span></span></span><span class="provider-booking-chevron">›</span></button></article>';
+  });
+  for (const { width, height } of [{ width:320, height:700 }, { width:390, height:844 }, { width:760, height:1000 }]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(80);
+    const cardResult = await page.evaluate(() => {
+      const open = document.querySelector('.provider-booking-open');
+      const openRect = open.getBoundingClientRect();
+      const timeRect = open.querySelector('.booking-time-column strong').getBoundingClientRect();
+      const rowRect = open.querySelector('.booking-client-name-row').getBoundingClientRect();
+      const badgeRect = open.querySelector('.client-badges').getBoundingClientRect();
+      const phone = open.querySelector('.provider-booking-phone');
+      return {
+        overflow:document.documentElement.scrollWidth > innerWidth + 2,
+        timeInset:timeRect.left - openRect.left,
+        vipRightGap:rowRect.right - badgeRect.right,
+        phoneVisible:phone.getBoundingClientRect().width > 0,
+        phoneFits:phone.scrollWidth <= phone.clientWidth + 1
+      };
+    });
+    assert.equal(cardResult.overflow, false, `${width}px record card has horizontal overflow: ${JSON.stringify(cardResult)}`);
+    assert.ok(cardResult.timeInset >= 8, `${width}px record time touches the card edge: ${JSON.stringify(cardResult)}`);
+    assert.ok(cardResult.vipRightGap <= 1, `${width}px VIP badge is not aligned to the right: ${JSON.stringify(cardResult)}`);
+    assert.equal(cardResult.phoneVisible, true, `${width}px record phone is missing`);
+    assert.equal(cardResult.phoneFits, true, `${width}px record phone is clipped`);
+    if (output) await page.screenshot({ path:path.join(output, `schedule-list-card-${width}.png`), fullPage:false });
+  }
+
   await page.evaluate(() => { document.querySelector('.provider-topbar-tools').open = true; });
   const share = await page.locator('#openFreeSlots').boundingBox();
   assert.ok(share && share.height >= 44, 'Share remains available inside More');
@@ -281,7 +412,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v768 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v769 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
