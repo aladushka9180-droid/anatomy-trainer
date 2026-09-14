@@ -10,9 +10,16 @@ begin
     raise exception using errcode='55000',message='v159_service_cards_prerequisites_missing';
   end if;
   if to_regclass('public.service_public_details_v159') is not null
-     or to_regprocedure('public.get_public_service_cards_v159(uuid[])') is not null
-     or exists(select 1 from storage.buckets where id='service-images') then
+     or to_regprocedure('public.get_public_service_cards_v159(uuid[])') is not null then
     raise exception using errcode='55000',message='v159_service_cards_state_not_absent';
+  end if;
+  if exists(
+    select 1 from storage.buckets b
+    where b.id='service-images'
+      and (b.name<>'service-images' or b.public or b.file_size_limit is distinct from 2097152
+        or b.allowed_mime_types is distinct from array['image/webp']::text[])
+  ) or exists(select 1 from storage.objects where bucket_id='service-images') then
+    raise exception using errcode='55000',message='v159_service_images_bucket_conflict';
   end if;
 end $$;
 
@@ -46,7 +53,11 @@ create policy service_public_details_owner_read_v159 on public.service_public_de
   for select to authenticated using(exists(select 1 from public.services s where s.id=service_id and s.performer_id=auth.uid()));
 
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
-values('service-images','service-images',false,2097152,array['image/webp']);
+values('service-images','service-images',false,2097152,array['image/webp'])
+on conflict(id) do nothing;
+
+create index booking_reviews_service_public_v159_idx on public.booking_reviews(service_id,created_at desc)
+  where published;
 
 create function public.minuta_service_image_is_public_v159(p_path text)
 returns boolean language sql stable security definer set search_path to '' as $$

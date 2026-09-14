@@ -1,4 +1,5 @@
 -- Roll back v159 only while no service details or media exist.
+-- The empty Storage bucket is intentionally retained: Supabase requires bucket deletion through its Storage API.
 begin;
 do $$ begin
   if to_regclass('public.service_public_details_v159') is null then
@@ -12,7 +13,7 @@ drop policy if exists service_images_read_v159 on storage.objects;
 drop policy if exists service_images_delete_v159 on storage.objects;
 drop policy if exists service_images_update_v159 on storage.objects;
 drop policy if exists service_images_insert_v159 on storage.objects;
-delete from storage.buckets where id='service-images';
+drop index if exists public.booking_reviews_service_public_v159_idx;
 drop function public.get_public_service_reviews_v159(uuid);
 drop function public.get_public_service_cards_v159(uuid[]);
 drop function public.save_minuta_service_v159(uuid,text,integer,integer,boolean,text,text[],text,text,text,integer,integer);
