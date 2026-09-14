@@ -299,6 +299,26 @@ try {
     assert.ok(bottomGap >= 16, `${width}px final list card reaches the fixed navigation after scroll: ${bottomGap}px`);
   }
 
+  await page.setViewportSize({ width:390, height:3000 });
+  const scrollbarGutter = await page.evaluate(() => {
+    const bookings = document.querySelector('#providerBookings');
+    const originalMarkup = bookings.innerHTML;
+    const originalMinHeight = bookings.style.minHeight;
+    bookings.replaceChildren();
+    bookings.style.minHeight = '0px';
+    void bookings.getBoundingClientRect();
+    const short = { clientWidth:document.documentElement.clientWidth, toolbarTop:document.querySelector('.schedule-toolbar').getBoundingClientRect().top };
+    bookings.style.minHeight = '5000px';
+    void bookings.getBoundingClientRect();
+    const long = { clientWidth:document.documentElement.clientWidth, toolbarTop:document.querySelector('.schedule-toolbar').getBoundingClientRect().top };
+    bookings.innerHTML = originalMarkup;
+    bookings.style.minHeight = originalMinHeight;
+    return { short, long, overflow:document.documentElement.scrollWidth > innerWidth + 2 };
+  });
+  assert.equal(scrollbarGutter.short.clientWidth, scrollbarGutter.long.clientWidth, `390px short/long list changed viewport width: ${JSON.stringify(scrollbarGutter)}`);
+  assert.equal(scrollbarGutter.short.toolbarTop, scrollbarGutter.long.toolbarTop, `390px short/long list shifted schedule controls: ${JSON.stringify(scrollbarGutter)}`);
+  assert.equal(scrollbarGutter.overflow, false, `390px gutter created horizontal overflow: ${JSON.stringify(scrollbarGutter)}`);
+
   await page.evaluate(() => {
     document.querySelectorAll('[data-calendar-view]').forEach(button => {
       button.classList.toggle('active', button.dataset.calendarView === 'week');
@@ -441,7 +461,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v771 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v772 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
