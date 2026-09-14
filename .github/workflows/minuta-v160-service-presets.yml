@@ -79,7 +79,13 @@ jobs:
           set -euo pipefail
           node minuta-online-booking/scripts/migration-config-guard.mjs
           db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
-          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" -c "select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true")"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*)
+          from minuta_migration_guard.target
+          where project_ref = :'expected_ref'
+            and allow_migrations is true;
+          SQL
+          )"
           test "$(tr -d '[:space:]' <<<"$marker")" = 1
           present="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.minuta_professions_v160') is not null")"
           if test "$present" = t; then psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v160-rollback.sql; fi
