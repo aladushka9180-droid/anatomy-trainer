@@ -63,5 +63,15 @@ jobs:
           node-version: 22
       - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
       - run: npx playwright install --with-deps chromium
-      - name: Check every provider header theme, layout and viewport
+      - name: Check provider header geometry
+        env:
+          MINUTA_HEADER_SECTIONS: geometry
+        run: node minuta-online-booking/tests/header-browser-test.mjs
+      - name: Check provider header tools
+        env:
+          MINUTA_HEADER_SECTIONS: tools
+        run: node minuta-online-booking/tests/header-browser-test.mjs
+      - name: Check provider header appearance menu
+        env:
+          MINUTA_HEADER_SECTIONS: appearance
         run: node minuta-online-booking/tests/header-browser-test.mjs
