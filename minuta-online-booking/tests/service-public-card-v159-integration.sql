@@ -37,7 +37,7 @@ begin
   from unnest(booking_ids) booking_id;
   insert into public.booking_outcomes(booking_id,performer_id,visit_status,payment_method,amount_rub) values
     (booking_ids[1],owner_id,'completed','cash',2500),(booking_ids[2],owner_id,'completed','cash',2500),
-    (booking_ids[3],owner_id,'completed','cash',2500),(booking_ids[4],owner_id,'scheduled',null,0);
+    (booking_ids[3],owner_id,'completed','cash',2500),(booking_ids[4],owner_id,'scheduled','cash',0);
   insert into public.booking_reviews(booking_id,performer_id,service_id,client_account_id,rating,review_text,published,created_at) values
     (booking_ids[1],owner_id,service_id,client_id,5,'Полезный отзыв',true,now()-interval '2 hour'),
     (booking_ids[2],owner_id,service_id,client_id,4,'',true,now()-interval '1 hour'),
