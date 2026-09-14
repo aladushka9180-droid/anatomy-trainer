@@ -30,7 +30,7 @@ for (const required of [
   '<span class="sr-only">Дата</span><input id="newBookingDate"',
   'id="newBookingModeToggle"',
   "newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : '';",
-  'submit.disabled = !newBookingTime;',
+  'submit.disabled = !newBookingTime || !creationAllowed;',
   "service:block ? '' : service,",
   "db.rpc('get_provider_block_slots_v141'",
   "db.rpc('create_provider_block_v141'",
