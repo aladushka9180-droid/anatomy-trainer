@@ -57,6 +57,10 @@ select pg_temp.v158_assert(exists(
 ),'released_slot_passes_write_authorization');
 select pg_temp.v158_assert(not public.minuta_slot_respects_booking_buffer(current_setting('v123.service')::uuid,current_setting('v123.date')::date,'12:30',60,null),'actual_booking_remains_protected');
 select pg_temp.v158_assert(not public.minuta_slot_respects_booking_buffer(current_setting('v123.service')::uuid,current_setting('v123.date')::date,'10:30',30,null),'unreleased_buffer_remains_protected');
+delete from public.bookings where booking_code=current_setting('v158.released_code');
+select pg_temp.v158_assert(not exists(
+  select 1 from public.bookings where booking_code=current_setting('v158.released_code')
+),'released_write_fixture_is_removed_before_source_change');
 set local role authenticated;
 select set_config('request.jwt.claim.sub',current_setting('v123.actor'),true);
 select set_config('v158.replay',public.release_minuta_provider_automatic_break_v158(
