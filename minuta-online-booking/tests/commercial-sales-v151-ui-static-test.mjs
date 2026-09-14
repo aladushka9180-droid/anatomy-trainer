@@ -88,10 +88,12 @@ assert.match(provider, /data-commerce-booking-sale/);
 assert.match(provider, /openCommerceSale\(\{ bookingId/);
 assert.match(provider, /ensureOrganizationFeature\('commercePanel'\)/);
 assert.match(provider, /scrollToProviderSection\(button\)/);
-assert.match(html, /commerce-management\.js\?v=786/);
-assert.match(html, /styles\.css\?v=786/);
-assert.match(worker, /commerce-management\.js\?v=786/);
-assert.match(worker, /styles\.css\?v=786/);
-assert.match(worker, /CACHE_PREFIX}v786/);
+const release = worker.match(/CACHE_PREFIX}v(\d+)/)?.[1];
+assert.ok(release, 'Не удалось определить версию PrimeTime Pro');
+assert.match(html, new RegExp(`commerce-management\\.js\\?v=${release}`));
+assert.match(html, new RegExp(`styles\\.css\\?v=${release}`));
+assert.match(worker, new RegExp(`commerce-management\\.js\\?v=${release}`));
+assert.match(worker, new RegExp(`styles\\.css\\?v=${release}`));
+assert.match(worker, new RegExp(`CACHE_PREFIX}v${release}`));
 
 console.log('PrimeTime Pro commercial sales v151 UI static checks passed');
