@@ -11,7 +11,7 @@ assert.match(provider, /milestoneCard\.classList\.toggle\('is-max-level', facts\
 assert.match(css, /\.client-milestone-card\.is-max-level\s*\{/, 'Maximum level compact styling exists');
 assert.equal((html.match(/data-client-profile-jump=/g) || []).length, 4, 'Profile exposes four familiar navigation sections');
 assert.equal((html.match(/data-client-profile-panel=/g) || []).length, 4, 'Profile navigation owns four true content panels');
-assert.equal((html.match(/role="tab"/g) || []).length, 4, 'Profile navigation uses accessible tab semantics');
+assert.equal((html.match(/role="tab"[^>]*data-client-profile-jump=/g) || []).length, 4, 'Profile navigation uses accessible tab semantics');
 assert.equal((html.match(/class="client-summary-icon"/g) || []).length, 4, 'Every client fact has a restrained visual icon');
 assert.match(html, /class="client-orbit-jewel"/, 'Premium relationship frame has a small crown marker');
 assert.match(provider, /function activateClientProfileJump\(/, 'Profile navigation reuses the existing client sections');
