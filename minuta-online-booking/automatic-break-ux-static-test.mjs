@@ -1,0 +1,35 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const read=path=>readFileSync(new URL(path,import.meta.url),'utf8');
+const provider=read('./provider.js');
+const styles=`${read('./styles.css')}\n${read('./provider-schedule-minimal.css')}`;
+
+assert.match(provider, /<button class="\$\{className\}" type="button" data-open-automatic-break/);
+assert.match(provider, /Автоматический · из правил записи/);
+assert.match(provider, /aria-haspopup="dialog" aria-controls="bookingSheet"/);
+assert.match(provider, /if \(openAutomaticBreak\) \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*return;/);
+assert.match(provider, /timelineStage && !openBooking && !openAutomaticBreak/);
+assert.match(provider, /release_minuta_provider_automatic_break_v158/);
+assert.match(provider, /p_expected_segment_fingerprint:expectedFingerprint/);
+assert.match(provider, /initialFocus:'cancel'/);
+assert.match(provider, /initialFocus === 'cancel'[\s\S]*\[value="cancel"\]/);
+assert.match(provider, /function trapBookingSheetFocus\([\s\S]*event\.key !== 'Tab'[\s\S]*document\.activeElement[\s\S]*last\.focus\(\)[\s\S]*first\.focus\(\)/);
+assert.match(provider, /#bookingSheet'[\s\S]*addEventListener\('keydown', trapBookingSheetFocus\)/);
+assert.match(provider, /Освободить только это время/);
+assert.match(provider, /Интервал образован \$\{sourceCount\} пересекающимися буферами/);
+assert.match(provider, /Отключить все автоматические перерывы/);
+assert.match(provider, /data-open-automatic-break-settings/);
+assert.match(provider, /details\.open = true;[\s\S]*bookingBufferEnabled/);
+assert.match(provider, /data-release-automatic-break\]:not\(:disabled\)[\s\S]*data-open-automatic-break-settings/);
+assert.match(provider, /get_minuta_provider_automatic_breaks_v158/);
+assert.match(provider, /automaticBookingBreakSegments\.set\(dateIso/);
+assert.match(provider, /async function releaseAutomaticBreak[\s\S]*const userId = currentUser\?\.id[\s\S]*sessionIsCurrent\(userId, generation\)[\s\S]*loadAutomaticBookingBreaks\(dateIso, userId, generation\)/);
+assert.match(provider, /const releasedSegments = previousSegments\.filter[\s\S]*const breakRefresh = await loadAutomaticBookingBreaks[\s\S]*if \(!breakRefresh\.ok\)[\s\S]*Не удалось обновить остальные перерывы/);
+assert.match(provider, /if \(result\.error\)[\s\S]*if \(missing\)[\s\S]*automaticBookingBreakSegments\.delete\(dateIso\)[\s\S]*automaticBookingBreaksRemoteAvailable = false/);
+assert.match(provider, /async function disableAutomaticBookingBreaks[\s\S]*const userId = currentUser\?\.id[\s\S]*sessionIsCurrent\(userId, generation\)[\s\S]*eq\('performer_id', userId\)/);
+assert.match(provider, /readAutomaticBreakReleaseAttempt\(userId[\s\S]*automaticBreakReleaseAttemptKey\(userId\)/);
+assert.doesNotMatch(styles, /automatic-break\s*\{[^}]*pointer-events\s*:\s*none/i);
+assert.match(styles, /timeline-booking\.automatic-break\s*\{[^}]*border-style:dashed/i);
+assert.match(styles, /timeline-booking\.automatic-break:focus-visible/i);
+console.log('automatic break UX static test passed');

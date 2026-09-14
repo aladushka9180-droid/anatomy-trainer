@@ -274,6 +274,20 @@
   box-shadow:none!important;
 }
 
+.provider-body[data-provider-theme] .timeline-view .timeline-booking.automatic-break {
+  border-style:dashed!important;
+  border-color:color-mix(in srgb,var(--theme-accent) 42%,var(--theme-line))!important;
+  background:repeating-linear-gradient(135deg,
+    color-mix(in srgb,var(--theme-surface-alt) var(--schedule-break-surface-weight),var(--theme-surface)) 0 9px,
+    color-mix(in srgb,var(--theme-accent-soft) 34%,var(--theme-surface)) 9px 18px)!important;
+  cursor:pointer;
+}
+
+.provider-body[data-provider-theme] .timeline-view .timeline-booking.automatic-break:hover {
+  border-color:color-mix(in srgb,var(--theme-accent) 68%,var(--theme-line))!important;
+  box-shadow:0 5px 14px color-mix(in srgb,var(--theme-accent) 14%,transparent)!important;
+}
+
 .provider-body[data-provider-theme] :is(
   .timeline-booking.status-block,
   .timeline-booking.automatic-break

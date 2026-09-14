@@ -371,6 +371,9 @@ let bookingNotes = new Map();
 let pendingBookingNotes = new Set();
 let outcomesRemoteAvailable = false;
 let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, auto_complete_payment_method: 'cash', visitor_notifications_enabled: false, booking_buffer_enabled: false, booking_buffer_minutes: 60 };
+let automaticBookingBreakSegments = new Map();
+let automaticBookingBreaksRemoteAvailable = false;
+let automaticBreakSheetInvoker = null;
 let displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
 let displayPreferencesUpdatedAt = 0;
 let displayPreferencesPending = false;
@@ -1364,6 +1367,7 @@ const writeSelectors = [
   '[data-retry-notification-outbox]',
   '[data-booking-status]', '[data-cancel-booking-series]', '#bookingSeriesCancelForm button[type="submit"]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]',
   '[data-repeat-booking]', '[data-client-avatar-input]', '[data-remove-client-avatar]'
+  ,'[data-release-automatic-break]'
 ];
 function applyWriteAvailability() {
   $$(writeSelectors.join(',')).forEach(control => {
@@ -2145,7 +2149,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=760#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=761#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2850,7 +2854,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=760#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=761#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5073,7 +5077,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=760');
+      worker = new Worker('./report-worker.js?v=761');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5307,7 +5311,7 @@ function notify(message) {
   clearTimeout(notify.timer);
   notify.timer = setTimeout(() => { toast.hidden = true; }, 2800);
 }
-function requestProviderConfirmation({ title = 'Подтвердите действие', message = '', confirmLabel = 'Подтвердить' } = {}) {
+function requestProviderConfirmation({ title = 'Подтвердите действие', message = '', confirmLabel = 'Подтвердить', initialFocus = 'confirm' } = {}) {
   const dialog = $('#providerConfirmDialog');
   if (!dialog || typeof dialog.showModal !== 'function') return Promise.resolve(window.confirm(message));
   $('#providerConfirmTitle').textContent = title;
@@ -5317,7 +5321,9 @@ function requestProviderConfirmation({ title = 'Подтвердите дейс�
   return new Promise(resolve => {
     dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirm'), { once:true });
     dialog.showModal();
-    requestAnimationFrame(() => $('#providerConfirmSubmit')?.focus());
+    requestAnimationFrame(() => (initialFocus === 'cancel'
+      ? dialog.querySelector('[value="cancel"]')
+      : $('#providerConfirmSubmit'))?.focus());
   });
 }
 function visitorVisitTimeLabel(value) {
@@ -6407,6 +6413,11 @@ function selectScheduleDate(value) {
   rememberSelectedDate();
   renderDateStrip();
   setFilter('day');
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (userId) void loadAutomaticBookingBreaks(nextDate, userId, generation).then(result => {
+    if (result.ok && selectedDate === nextDate && sessionIsCurrent(userId, generation)) renderBookings();
+  });
 }
 
 function shiftScheduleDate(direction) {
@@ -7608,6 +7619,27 @@ function stackMinuteTimelineItems(timelineItems, gap = 6) {
 
 function automaticBookingBreaks(items, dateIso = selectedDate) {
   if (!bookingPolicy.booking_buffer_enabled) return [];
+  if (automaticBookingBreaksRemoteAvailable && automaticBookingBreakSegments.has(dateIso)) {
+    return automaticBookingBreakSegments.get(dateIso).map((segment, index) => {
+      const start = String(segment.start_time || '').slice(0, 5);
+      const end = String(segment.end_time || '').slice(0, 5);
+      const duration = Math.max(1, minutesFromTime(end) - minutesFromTime(start));
+      return {
+        id:`automatic-break:${dateIso}:${start}:${end}:${index}`,
+        performer_id:currentUser?.id || '',
+        booking_date:dateIso,
+        booking_time:`${start}:00`,
+        duration_minutes:duration,
+        client_name:'Перерыв',
+        client_phone:SCHEDULE_BLOCK_PHONE,
+        status:'confirmed',
+        automatic_break:true,
+        automatic_break_source_count:Math.max(1, Number(segment.source_count) || 1),
+        automatic_break_fingerprint:String(segment.segment_fingerprint || ''),
+        services:{ name:'Перерыв', duration_minutes:duration }
+      };
+    });
+  }
   const buffer = Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60));
   const date = parseLocalIsoDate(dateIso);
   if (!date) return [];
@@ -7627,19 +7659,34 @@ function automaticBookingBreaks(items, dateIso = selectedDate) {
   const candidates = bookings.flatMap(item => {
     const start = minutesFromTime(item.booking_time);
     const end = start + Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60));
-    return [[Math.max(workStart, start - buffer), start], [end, Math.min(workEnd, end + buffer)]];
-  }).filter(([start, end]) => end > start);
-  const clearSegments = candidates.flatMap(candidate => occupied.reduce((segments, [occupiedStart, occupiedEnd]) => segments.flatMap(([start, end]) => {
+    const source = {
+      bookingId:String(item.id || ''),
+      bookingDate:item.booking_date,
+      bookingTime:String(item.booking_time || '').slice(0, 5),
+      duration:Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60))
+    };
+    return [
+      { start:Math.max(workStart, start - buffer), end:start, side:'before', source },
+      { start:end, end:Math.min(workEnd, end + buffer), side:'after', source }
+    ];
+  }).filter(candidate => candidate.end > candidate.start);
+  const subtractRange = (segments, [occupiedStart, occupiedEnd]) => segments.flatMap(([start, end]) => {
     if (occupiedEnd <= start || occupiedStart >= end) return [[start, end]];
     return [[start, Math.min(end, occupiedStart)], [Math.max(start, occupiedEnd), end]].filter(([left, right]) => right > left);
-  }), [candidate])).sort((left, right) => left[0] - right[0]);
-  const merged = [];
-  clearSegments.forEach(([start, end]) => {
-    const previous = merged.at(-1);
-    if (previous && start <= previous[1]) previous[1] = Math.max(previous[1], end);
-    else merged.push([start, end]);
   });
-  return merged.map(([start, end], index) => ({
+  const clearSegments = candidates.flatMap(candidate => {
+    const segments = occupied.reduce((current, occupiedRange) => subtractRange(current, occupiedRange), [[candidate.start, candidate.end]]);
+    return segments.map(([start, end]) => ({ start, end, sourceKey:`${candidate.source.bookingId}:${candidate.side}` }));
+  }).sort((left, right) => left.start - right.start);
+  const merged = [];
+  clearSegments.forEach(({ start, end, sourceKey }) => {
+    const previous = merged.at(-1);
+    if (previous && start <= previous.end) {
+      previous.end = Math.max(previous.end, end);
+      previous.sources.add(sourceKey);
+    } else merged.push({ start, end, sources:new Set([sourceKey]) });
+  });
+  return merged.map(({ start, end, sources }, index) => ({
     id:`automatic-break:${dateIso}:${start}:${end}:${index}`,
     performer_id:currentUser?.id || '',
     booking_date:dateIso,
@@ -7649,8 +7696,26 @@ function automaticBookingBreaks(items, dateIso = selectedDate) {
     client_phone:SCHEDULE_BLOCK_PHONE,
     status:'confirmed',
     automatic_break:true,
+    automatic_break_source_count:sources.size,
     services:{ name:'Перерыв', duration_minutes:end - start }
   }));
+}
+
+async function loadAutomaticBookingBreaks(dateIso = selectedDate, userId = currentUser?.id, generation = sessionGeneration) {
+  if (!userId || !parseLocalIsoDate(dateIso)) return { ok:false };
+  const result = await db.rpc('get_minuta_provider_automatic_breaks_v158', { p_date:dateIso });
+  if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true };
+  if (result.error) {
+    const missing = isMissingRpc(result.error, 'get_minuta_provider_automatic_breaks_v158');
+    if (missing) {
+      automaticBookingBreakSegments.delete(dateIso);
+      automaticBookingBreaksRemoteAvailable = false;
+    }
+    return { ok:false, missing };
+  }
+  automaticBookingBreakSegments.set(dateIso, Array.isArray(result.data) ? result.data : []);
+  automaticBookingBreaksRemoteAvailable = true;
+  return { ok:true };
 }
 
 function renderTimeline(sourceItems) {
@@ -7752,8 +7817,11 @@ function renderTimeline(sourceItems) {
       : statusClass === 'visited'
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
-    const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга', item.service_id);
-    const serviceTitleMarkup = block ? serviceMarkup : `${serviceMarkup} <span class="timeline-service-duration">· ${duration} мин</span>`;
+    const serviceMarkup = block ? escapeHtml(item.automatic_break ? 'Автоперерыв' : item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга', item.service_id);
+    const automaticBreakSourceMarkup = item.automatic_break
+      ? '<span class="timeline-automatic-break-source">Автоматический · из правил записи</span>'
+      : '';
+    const serviceTitleMarkup = block ? `${serviceMarkup}${automaticBreakSourceMarkup}` : `${serviceMarkup} <span class="timeline-service-duration">· ${duration} мин</span>`;
     const renderedNote = mobileTimeline ? '' : bookingNotePresenceMarkup(note, 'timeline-booking-note-presence');
     const renderedStatus = mobileTimeline ? '' : timelineStatus;
     const mobileBadgeMarkup = mobileTimeline ? badgeMarkup : '';
@@ -7769,7 +7837,7 @@ function renderTimeline(sourceItems) {
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
     const timelineStyle = `top:${visualTop + 2}px;height:${height}px${tightMobile ? ';padding:5px 9px!important;overflow:hidden!important' : ''}`;
     return item.automatic_break
-      ? `<div class="${className}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
+      ? `<button class="${className}" type="button" data-open-automatic-break data-automatic-break-date="${escapeHtml(item.booking_date)}" data-automatic-break-start="${startTime}" data-automatic-break-end="${endTime}" data-automatic-break-source-count="${Number(item.automatic_break_source_count) || 1}" data-automatic-break-fingerprint="${escapeHtml(item.automatic_break_fingerprint || '')}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-haspopup="dialog" aria-controls="bookingSheet" aria-label="${ariaLabel}. Открыть управление перерывом" title="Открыть управление автоматическим перерывом">${cardContent}</button>`
       : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} ${movable ? 'data-timeline-movable aria-describedby="timelineMoveInstruction" aria-keyshortcuts="Shift+ArrowUp Shift+ArrowDown"' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : moveRestriction || 'Перетащите или нажмите Shift и стрелку, чтобы изменить время'}">${cardContent}${dragHandle}</button>`;
   }).join('');
   const expandTimeline = timelineWasCompacted
@@ -8018,6 +8086,199 @@ function openBookingSheet(id) {
   $('#outcomePaymentMethod')?.addEventListener('change', () => { updateOutcomeMinuteCalculation(); toggleOutcomePaymentFields(); });
   toggleOutcomePaymentFields();
   updateOutcomeMinuteCalculation();
+}
+
+function automaticBreakReleaseAttemptKey(userId = currentUser?.id) {
+  return `minuta-automatic-break-release-v158-${userId || 'anonymous'}`;
+}
+
+function readAutomaticBreakReleaseAttempt(userId = currentUser?.id) {
+  try { return JSON.parse(sessionStorage.getItem(automaticBreakReleaseAttemptKey(userId)) || 'null'); }
+  catch { return null; }
+}
+
+function writeAutomaticBreakReleaseAttempt(attempt, userId = currentUser?.id) {
+  try { sessionStorage.setItem(automaticBreakReleaseAttemptKey(userId), JSON.stringify(attempt)); }
+  catch { /* A private browser may deny session storage; server idempotency still applies to this attempt. */ }
+}
+
+function clearAutomaticBreakReleaseAttempt(requestId = '', userId = currentUser?.id) {
+  try {
+    const attempt = readAutomaticBreakReleaseAttempt(userId);
+    if (!requestId || attempt?.requestId === requestId) sessionStorage.removeItem(automaticBreakReleaseAttemptKey(userId));
+  } catch { /* no-op */ }
+}
+
+function trapBookingSheetFocus(event) {
+  const sheet = $('#bookingSheet');
+  if (event.key !== 'Tab' || sheet?.hidden) return;
+  const panel = sheet.querySelector('.booking-sheet-panel');
+  const focusable = [...panel.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter(element => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
+  if (!focusable.length) { event.preventDefault(); panel.focus?.(); return; }
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+$('#bookingSheet')?.addEventListener('keydown', trapBookingSheetFocus);
+
+function openAutomaticBreakSheet(source) {
+  const dateIso = String(source?.dataset.automaticBreakDate || '');
+  const start = String(source?.dataset.automaticBreakStart || '').slice(0, 5);
+  const end = String(source?.dataset.automaticBreakEnd || '').slice(0, 5);
+  const sourceCount = Math.max(1, Number(source?.dataset.automaticBreakSourceCount) || 1);
+  const fingerprint = String(source?.dataset.automaticBreakFingerprint || '');
+  const date = parseLocalIsoDate(dateIso);
+  if (!date || !/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return;
+  const sheet = $('#bookingSheet');
+  automaticBreakSheetInvoker = source;
+  sheet.dataset.assistantContext = 'automatic-break';
+  sheet.classList.remove('booking-sheet-wide');
+  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
+    <h2 id="bookingSheetTitle">Автоматический перерыв</h2>
+    <div class="booking-sheet-meta"><strong>${start}–${end}</strong><span>Из правил записи</span></div>
+    <div class="booking-sheet-block automatic-break-explanation"><span aria-hidden="true">◼</span><div><small>Буфер до или после записи</small><strong>Это время закрыто автоматически, чтобы между визитами оставался перерыв.</strong><p>${sourceCount > 1 ? `Интервал образован ${sourceCount} пересекающимися буферами. Освобождение завершится только после безопасного исключения каждого источника.` : 'Можно освободить только этот интервал. Остальные автоматические и ручные перерывы останутся.'}</p></div></div>
+    <div class="booking-sheet-actions automatic-break-actions">
+      <button class="primary" type="button" data-release-automatic-break data-automatic-break-date="${escapeHtml(dateIso)}" data-automatic-break-start="${start}" data-automatic-break-end="${end}" data-automatic-break-source-count="${sourceCount}" data-automatic-break-fingerprint="${escapeHtml(fingerprint)}" ${automaticBookingBreaksRemoteAvailable && fingerprint ? '' : 'disabled'}>Освободить только это время</button>
+      <button class="secondary-button" type="button" data-open-automatic-break-settings>Настроить правило</button>
+    </div>
+    ${automaticBookingBreaksRemoteAvailable && fingerprint ? '' : '<p class="booking-sheet-warning">Точечное освобождение станет доступно после проверки интервала сервером.</p>'}
+    <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-disable-automatic-breaks>Отключить все автоматические перерывы</button></div>`;
+  sheet.hidden = false;
+  document.body.classList.add('booking-sheet-open');
+  applyWriteAvailability();
+  requestAnimationFrame(() => $('#bookingSheetContent [data-release-automatic-break]:not(:disabled), #bookingSheetContent [data-open-automatic-break-settings]')?.focus());
+}
+
+async function openAutomaticBreakSettings() {
+  automaticBreakSheetInvoker = null;
+  closeBookingSheet();
+  await Promise.resolve(setProviderView('settings'));
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  const sectionButton = $('[data-provider-panel="settings"] [data-section-target="bookingRulesCard"]')
+    || $('[data-section-target="bookingRulesCard"]');
+  if (sectionButton) scrollToProviderSection(sectionButton);
+  const details = $('#bookingRulesCard .booking-advanced-settings');
+  if (details) details.open = true;
+  const input = $('#bookingBufferEnabled');
+  const setting = input?.closest('.booking-buffer-setting');
+  setting?.classList.add('is-guided');
+  requestAnimationFrame(() => input?.focus({ preventScroll:true }));
+  setTimeout(() => setting?.classList.remove('is-guided'), 1800);
+}
+
+async function releaseAutomaticBreak(button) {
+  if (!requireWrites() || !automaticBookingBreaksRemoteAvailable) return;
+  const userId = currentUser?.id || '';
+  const generation = sessionGeneration;
+  if (!userId) return;
+  const dateIso = String(button.dataset.automaticBreakDate || '');
+  const start = String(button.dataset.automaticBreakStart || '').slice(0, 5);
+  const end = String(button.dataset.automaticBreakEnd || '').slice(0, 5);
+  const sourceCount = Math.max(1, Number(button.dataset.automaticBreakSourceCount) || 1);
+  const expectedFingerprint = String(button.dataset.automaticBreakFingerprint || '');
+  if (!expectedFingerprint) return;
+  const confirmed = await requestProviderConfirmation({
+    title:'Освободить только это время?',
+    message:sourceCount > 1
+      ? `Интервал создан ${sourceCount} пересекающимися буферами. Все их источники будут исключены только для ${start}–${end}; остальные перерывы сохранятся.`
+      : `Интервал ${start}–${end} станет свободным. Правило и остальные автоматические перерывы сохранятся.`,
+    confirmLabel:'Освободить время',
+    initialFocus:'cancel'
+  });
+  if (!confirmed || !sessionIsCurrent(userId, generation)) return;
+  const fingerprint = `${dateIso}|${start}|${end}|${expectedFingerprint}`;
+  const stored = readAutomaticBreakReleaseAttempt(userId);
+  const requestId = stored?.fingerprint === fingerprint && stored?.requestId ? stored.requestId : createOfflineBookingId();
+  const attempt = { requestId, fingerprint, savedAt:Date.now() };
+  writeAutomaticBreakReleaseAttempt(attempt, userId);
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Освобождаем…';
+  const { data, error } = await db.rpc('release_minuta_provider_automatic_break_v158', {
+    p_request_id:requestId,
+    p_date:dateIso,
+    p_start:`${start}:00`,
+    p_end:`${end}:00`,
+    p_expected_segment_fingerprint:expectedFingerprint
+  });
+  const released = !error && data?.action === 'released' && data?.request_id === requestId;
+  if (!sessionIsCurrent(userId, generation)) {
+    if (released) clearAutomaticBreakReleaseAttempt(requestId, userId);
+    return;
+  }
+  if (button.isConnected) {
+    button.disabled = false;
+    button.textContent = label;
+  }
+  if (!released) {
+    if (!window.MinutaProviderReadFetch?.isConnectionError?.(error)) clearAutomaticBreakReleaseAttempt(requestId, userId);
+    const reason = String(error?.message || '');
+    notify(reason.includes('buffer_interval_changed')
+      ? 'Перерыв уже изменился. Обновите расписание и откройте его снова.'
+      : 'Не удалось освободить время. Ничего не изменено.');
+    return;
+  }
+  clearAutomaticBreakReleaseAttempt(requestId, userId);
+  const previousSegments = automaticBookingBreakSegments.get(dateIso) || [];
+  const releasedSegments = previousSegments.filter(segment => {
+    const segmentStart = String(segment.start_time || '').slice(0, 5);
+    const segmentEnd = String(segment.end_time || '').slice(0, 5);
+    return String(segment.segment_fingerprint || '') !== expectedFingerprint && (segmentStart !== start || segmentEnd !== end);
+  });
+  automaticBookingBreakSegments.set(dateIso, releasedSegments);
+  const breakRefresh = await loadAutomaticBookingBreaks(dateIso, userId, generation);
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (!breakRefresh.ok) {
+    automaticBookingBreakSegments.set(dateIso, releasedSegments);
+    automaticBookingBreaksRemoteAvailable = true;
+  }
+  automaticBreakSheetInvoker = null;
+  closeBookingSheet();
+  renderBookingData();
+  requestAnimationFrame(() => $('.timeline-stage')?.focus({ preventScroll:true }));
+  notify(breakRefresh.ok
+    ? 'Это время свободно. Остальные перерывы сохранены.'
+    : 'Время освобождено. Не удалось обновить остальные перерывы — обновите расписание.');
+}
+
+async function disableAutomaticBookingBreaks(button) {
+  if (!requireWrites()) return;
+  const userId = currentUser?.id || '';
+  const generation = sessionGeneration;
+  if (!userId) return;
+  const confirmed = await requestProviderConfirmation({
+    title:'Отключить все автоматические перерывы?',
+    message:'Исчезнут все интервалы, созданные правилом буфера до и после записи. Ручные перерывы останутся.',
+    confirmLabel:'Отключить все',
+    initialFocus:'cancel'
+  });
+  if (!confirmed || !sessionIsCurrent(userId, generation)) return;
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Отключаем…';
+  const { error } = await db.from('booking_policies').update({ booking_buffer_enabled:false }).eq('performer_id', userId);
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (button.isConnected) {
+    button.disabled = false;
+    button.textContent = label;
+  }
+  if (error) { notify('Не удалось отключить автоматические перерывы'); return; }
+  bookingPolicy = { ...bookingPolicy, booking_buffer_enabled:false };
+  if ($('#bookingBufferEnabled')) $('#bookingBufferEnabled').checked = false;
+  automaticBreakSheetInvoker = null;
+  closeBookingSheet();
+  renderBookingData();
+  requestAnimationFrame(() => $('.timeline-stage')?.focus({ preventScroll:true }));
+  notify('Автоматические перерывы отключены. Ручные сохранены.');
+  await refreshAfterWrite();
 }
 
 function openBookingSeriesCancellation(id) {
@@ -10466,6 +10727,8 @@ async function createNewBooking(event) {
 }
 
 function closeBookingSheet() {
+  const returnFocus = $('#bookingSheet').dataset.assistantContext === 'automatic-break' ? automaticBreakSheetInvoker : null;
+  automaticBreakSheetInvoker = null;
   bookingSeriesCancellationRevision += 1;
   bookingEditorRevision += 1;
   editingOfflineBookingId = '';
@@ -10476,6 +10739,7 @@ function closeBookingSheet() {
   delete $('#bookingSheet').dataset.assistantContext;
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
   document.body.classList.remove('booking-sheet-open');
+  if (returnFocus?.isConnected) requestAnimationFrame(() => returnFocus.focus({ preventScroll:true }));
 }
 
 async function openCommerceSale({ bookingId = '', clientId = '' } = {}) {
@@ -12606,6 +12870,8 @@ async function handleSession(session) {
     displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
     displayPreferencesUpdatedAt = 0;
     displayPreferencesPending = false;
+    automaticBookingBreakSegments = new Map();
+    automaticBookingBreaksRemoteAvailable = false;
     telegramClientSettings = { ...DEFAULT_TELEGRAM_CLIENT_SETTINGS };
   }
   applyDisplayPreferences();
@@ -14222,6 +14488,8 @@ async function loadBookings(options = {}) {
   }
   const previousSignature = bookingDataSignature();
   allBookings = data || [];
+  await loadAutomaticBookingBreaks(selectedDate, userId, generation);
+  if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   if (!options.deferPresentation) await loadRemoteBookingColors(userId, generation);
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   const savedSnapshot = await saveProviderCache('bookings', allBookings, userId);
@@ -14503,6 +14771,10 @@ document.addEventListener('click', async event => {
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
+  const openAutomaticBreak = event.target.closest('[data-open-automatic-break]');
+  const releaseAutomaticBreakButton = event.target.closest('[data-release-automatic-break]');
+  const openAutomaticBreakSettingsButton = event.target.closest('[data-open-automatic-break-settings]');
+  const disableAutomaticBreaksButton = event.target.closest('[data-disable-automatic-breaks]');
   const openClientProfile = event.target.closest('[data-open-client-profile]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
   const commerceBookingSale = event.target.closest('[data-commerce-booking-sale]');
@@ -14716,6 +14988,15 @@ document.addEventListener('click', async event => {
   if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));
   if (dateToday) restoreDefaultScheduleView();
   if (date) selectScheduleDate(date.dataset.bookingDate);
+  if (openAutomaticBreak) {
+    event.preventDefault();
+    event.stopPropagation();
+    openAutomaticBreakSheet(openAutomaticBreak);
+    return;
+  }
+  if (releaseAutomaticBreakButton) { await releaseAutomaticBreak(releaseAutomaticBreakButton); return; }
+  if (openAutomaticBreakSettingsButton) { await openAutomaticBreakSettings(); return; }
+  if (disableAutomaticBreaksButton) { await disableAutomaticBookingBreaks(disableAutomaticBreaksButton); return; }
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
   if (commerceBookingSale) await openCommerceSaleFromBooking(commerceBookingSale.dataset.commerceBookingSale);
   if (commerceClientSale) await openCommerceSale({ clientId:commerceClientSale.dataset.commerceClientSale || '' });
@@ -14737,7 +15018,7 @@ document.addEventListener('click', async event => {
   if (favoriteServiceButton) openFavoriteServiceBooking(favoriteServiceButton.dataset.clientFavoriteService);
   if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
   if (createEmptyBooking && requireBookingWrites()) openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() });
-  if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
+  if (timelineStage && !openBooking && !openAutomaticBreak) openTimelineBooking(timelineStage, event);
   if (editBooking) openBookingEditor(editBooking.dataset.editBooking);
   if (cancelBookingSeriesButton) openBookingSeriesCancellation(cancelBookingSeriesButton.dataset.cancelBookingSeries);
   if (editBookingSession) openSessionComposer(editBookingSession.dataset.editBookingSession);
