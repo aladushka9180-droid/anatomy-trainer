@@ -16,11 +16,11 @@ begin
   end if;
   if (select encode(extensions.digest(convert_to(replace(proc.prosrc,E'\r',''),'UTF8'),'sha256'),'hex')
       from pg_catalog.pg_proc proc where proc.oid=to_regprocedure('public.minuta_slot_respects_booking_buffer(uuid,date,time without time zone,integer,uuid)'))
-       <>'64230944d18df6c741a2659e70204528b66f56d712a409da3a39935e6e8b5503'
+       <>'177d9a40df6aea9ea27612015ea20c8c6afbaf07afd4683122b2578b9550aa74'
      or pg_catalog.obj_description(to_regprocedure('public.minuta_slot_respects_booking_buffer(uuid,date,time without time zone,integer,uuid)'),'pg_proc') is not null
      or (select encode(extensions.digest(convert_to(replace(proc.prosrc,E'\r',''),'UTF8'),'sha256'),'hex')
       from pg_catalog.pg_proc proc where proc.oid=to_regprocedure('public.enforce_minuta_booking_buffer_v101()'))
-       <>'282ede95c6ed88217ad3c706a44c7dee70f08346b493cc23b2e75fe556daef9d'
+       <>'cad2aa619a3195c818d2263f3d28b98c9c0f62bb026378ebde1ddd7de33d6df8'
      or pg_catalog.obj_description(to_regprocedure('public.enforce_minuta_booking_buffer_v101()'),'pg_proc') is not null then
     raise exception using errcode='55000',message='v158_booking_buffer_release_baseline_drift';
   end if;

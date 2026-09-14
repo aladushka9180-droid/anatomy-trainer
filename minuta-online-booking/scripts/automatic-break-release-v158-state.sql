@@ -6,8 +6,8 @@ with function_contract(signature,access_mode,expected_marker,expected_volatility
   ('public.minuta_booking_buffer_allows_interval_v158(uuid,date,time without time zone,integer,uuid)','none','minuta_booking_buffer_allows_interval_v158','s',true,true,null),
   ('public.get_minuta_provider_automatic_breaks_v158(date)','authenticated','minuta_provider_automatic_breaks_v158','s',true,true,null),
   ('public.release_minuta_provider_automatic_break_v158(uuid,date,time without time zone,time without time zone,text)','authenticated','minuta_provider_automatic_break_release_v158','v',true,true,null),
-  ('public.minuta_slot_respects_booking_buffer(uuid,date,time without time zone,integer,uuid)','none','minuta_slot_respects_booking_buffer_v158','s',true,false,'64230944d18df6c741a2659e70204528b66f56d712a409da3a39935e6e8b5503'),
-  ('public.enforce_minuta_booking_buffer_v101()','none','enforce_minuta_booking_buffer_v158','v',true,false,'282ede95c6ed88217ad3c706a44c7dee70f08346b493cc23b2e75fe556daef9d')
+  ('public.minuta_slot_respects_booking_buffer(uuid,date,time without time zone,integer,uuid)','none','minuta_slot_respects_booking_buffer_v158','s',true,false,'177d9a40df6aea9ea27612015ea20c8c6afbaf07afd4683122b2578b9550aa74'),
+  ('public.enforce_minuta_booking_buffer_v101()','none','enforce_minuta_booking_buffer_v158','v',true,false,'cad2aa619a3195c818d2263f3d28b98c9c0f62bb026378ebde1ddd7de33d6df8')
 ), function_runtime as (
   select contract.*,proc.oid,
     case when proc.oid is null then null else encode(extensions.digest(convert_to(replace(proc.prosrc,E'\r',''),'UTF8'),'sha256'),'hex') end source_hash,
