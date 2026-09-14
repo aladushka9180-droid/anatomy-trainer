@@ -11,7 +11,7 @@ const [css, provider] = await Promise.all([
 
 assert.match(
   css,
-  /\.unified-notification-panel #unifiedNotificationWorkspace>\.settings-check\s*\{[^}]*grid-template-columns:20px minmax\(0,1fr\)[^}]*min-height:52px[^}]*\}/s,
+  /\.unified-notification-panel #unifiedNotificationWorkspace \.smart-delivery-page>\.settings-check\s*\{[^}]*grid-template-columns:20px minmax\(0,1fr\)[^}]*min-height:52px[^}]*\}/s,
   'the unified notification switch must use a compact two-column card',
 );
 assert.match(

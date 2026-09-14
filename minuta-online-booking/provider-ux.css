@@ -208,7 +208,7 @@
 .provider-body[data-provider-theme][data-provider-layout] .settings-quick-start { padding:8px 18px; }
 .provider-body .settings-quick-start[open] { padding-bottom:18px; }
 .provider-body .settings-quick-start-head { margin-top:12px; }
-.provider-body[data-provider-theme][data-provider-layout] .unified-notification-panel:not([open]) { padding-block:8px; }
+.provider-body[data-provider-theme][data-provider-layout] details.unified-notification-panel:not([open]) { padding-block:8px; }
 .provider-body[data-provider-theme][data-provider-layout] :is(.view-description,.organization-invite-help,.settings-card>p) {
   font-size:calc(14px + var(--provider-text-step,0px)); line-height:1.5; color:var(--theme-muted);
 }
