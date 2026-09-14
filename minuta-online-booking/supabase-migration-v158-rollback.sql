@@ -103,24 +103,34 @@ begin
      or regexp_replace(coalesce(new.client_phone, ''), '\D', '', 'g') = '0000000000' then
     return new;
   end if;
+
   if tg_op = 'UPDATE'
      and new.performer_id is not distinct from old.performer_id
      and new.booking_date is not distinct from old.booking_date
      and new.booking_time is not distinct from old.booking_time
      and new.duration_minutes is not distinct from old.duration_minutes
      and not (old.status = 'cancelled' and new.status <> 'cancelled')
-     and (regexp_replace(coalesce(old.client_phone, ''), '\D', '', 'g') = '0000000000')
-       = (regexp_replace(coalesce(new.client_phone, ''), '\D', '', 'g') = '0000000000') then
+     and (
+       regexp_replace(coalesce(old.client_phone, ''), '\D', '', 'g') = '0000000000'
+     ) = (
+       regexp_replace(coalesce(new.client_phone, ''), '\D', '', 'g') = '0000000000'
+     ) then
     return new;
   end if;
+
   select policy.booking_buffer_enabled, policy.booking_buffer_minutes
   into v_enabled, v_minutes
   from public.booking_policies policy
   where policy.performer_id = new.performer_id;
-  if not coalesce(v_enabled, false) then return new; end if;
+
+  if not coalesce(v_enabled, false) then
+    return new;
+  end if;
+
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(new.performer_id::text || new.booking_date::text, 0)
   );
+
   if exists (
     select 1
     from public.bookings booking
@@ -129,11 +139,19 @@ begin
       and booking.status <> 'cancelled'
       and regexp_replace(coalesce(booking.client_phone, ''), '\D', '', 'g') <> '0000000000'
       and (tg_op = 'INSERT' or booking.id <> new.id)
-      and tsrange(new.booking_date + new.booking_time,new.booking_date + new.booking_time + make_interval(mins => new.duration_minutes),'[)')
-        && tsrange(booking.booking_date + booking.booking_time - make_interval(mins => v_minutes),booking.booking_date + booking.booking_time + make_interval(mins => booking.duration_minutes + v_minutes),'[)')
+      and tsrange(
+        new.booking_date + new.booking_time,
+        new.booking_date + new.booking_time + make_interval(mins => new.duration_minutes),
+        '[)'
+      ) && tsrange(
+        booking.booking_date + booking.booking_time - make_interval(mins => v_minutes),
+        booking.booking_date + booking.booking_time + make_interval(mins => booking.duration_minutes + v_minutes),
+        '[)'
+      )
   ) then
     raise exception using errcode = 'P0001', message = 'booking_buffer_conflict';
   end if;
+
   return new;
 end;
 $$;

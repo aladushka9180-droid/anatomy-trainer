@@ -63,6 +63,7 @@ jobs:
             minuta-online-booking/supabase-migration-v158-rollback.sql \
             minuta-online-booking/automatic-break-release-v158-static-test.mjs \
             minuta-online-booking/tests/automatic-break-release-v158-integration.sql \
+            minuta-online-booking/tests/automatic-break-release-v158-test-baseline-repair.sql \
             minuta-online-booking/tests/automatic-break-release-v158-postgres-concurrency-test.mjs \
             minuta-online-booking/scripts/automatic-break-release-v158-contract.mjs \
             minuta-online-booking/scripts/automatic-break-release-v158-state.sql; do
@@ -119,6 +120,13 @@ jobs:
                 and all(.tables[]; .structuralExact and .marker==($contract.tableMarkerPrefix+.schemaHash))' <<<"$state" >/dev/null
               psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v158-rollback.sql ;;
             absent) ;;
+            partial-or-newer)
+              jq -e '.presentCount==0 and .triggerExact
+                and ([.functions[] | select(.signature=="public.minuta_slot_respects_booking_buffer(uuid,date,time without time zone,integer,uuid)") | .sourceHash] == ["177d9a40df6aea9ea27612015ea20c8c6afbaf07afd4683122b2578b9550aa74"])
+                and ([.functions[] | select(.signature=="public.enforce_minuta_booking_buffer_v101()") | .sourceHash] == ["8556d1e7d93888d60934487d7a9fb61cf07f809f0fa670f3bf322cb897c14a8f"])' <<<"$state" >/dev/null
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/automatic-break-release-v158-test-baseline-repair.sql
+              repaired="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/automatic-break-release-v158-state.sql | grep '^{' | tail -n 1)"
+              jq -e '.classification=="absent" and .baselineExact and .triggerExact and (.tableDataRead|not)' <<<"$repaired" >/dev/null ;;
             *) jq -c . <<<"$state"; exit 1 ;;
           esac
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v158.sql
