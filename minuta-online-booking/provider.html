@@ -482,14 +482,18 @@
 
         <section class="provider-view" data-provider-panel="notifications" hidden>
           <div class="view-title"><div><span>Связь с клиентами</span><h2>Уведомления</h2></div><div class="view-title-actions"><span class="notification-total" id="notificationCount">0</span><button class="secondary-button notification-settings-button" type="button" data-open-notification-templates>Настроить сообщения</button><button class="refresh-button" id="refreshNotifications" type="button" aria-label="Обновить уведомления"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg></button></div></div>
-          <p class="view-description">Сообщения клиентам и сотрудникам, статусы доставки и ошибки, которые требуют внимания.</p>
-          <div class="notification-summary" aria-label="Сводка уведомлений">
-            <div><strong id="notificationPendingCount">0</strong><span>к отправке</span></div>
-            <i></i><div><strong id="notificationSoonCount">0</strong><span>на сегодня</span></div>
-            <i></i><div><strong id="notificationSentCount">0</strong><span>отправлено</span></div>
-          </div>
+          <p class="view-description">Важные изменения записей и состояние автоматической доставки.</p>
+          <section class="panel notification-events-panel" aria-labelledby="importantNotificationsTitle">
+            <div class="notification-toolbar"><div><small>Требует внимания</small><h3 id="importantNotificationsTitle">Важные события</h3><p>Новые действия клиентов и команды без рутинного шума.</p></div><button class="secondary-button notification-mark-all" id="markImportantEventsRead" type="button" hidden>Прочитать все</button></div>
+            <div class="important-notification-list" id="importantNotificationList" aria-live="polite"><div class="loading-state compact"><i></i><span>Загружаем события…</span></div></div>
+          </section>
           <section class="panel notification-queue-panel notification-primary-queue">
-            <div class="notification-toolbar"><div><small>Требует внимания</small><h3>Сообщения клиентам</h3></div><div class="notification-toolbar-actions"><button class="secondary-button notification-mark-all" id="markAllNotificationsSent" type="button" hidden>Отметить все</button><div class="notification-filters"><button class="active" type="button" data-notification-filter="pending">К отправке</button><button type="button" data-notification-filter="sent">Отправлено</button><button type="button" data-notification-filter="all">Все</button></div></div></div>
+            <div class="notification-toolbar"><div><small>Исходящие</small><h3>Доставка</h3><p>Подготовленные напоминания и подтверждённые статусы отправки.</p></div><div class="notification-toolbar-actions"><button class="secondary-button notification-mark-all" id="markAllNotificationsSent" type="button" hidden>Отметить все</button><div class="notification-filters"><button class="active" type="button" data-notification-filter="pending">К отправке</button><button type="button" data-notification-filter="sent">Отправлено</button><button type="button" data-notification-filter="all">Все</button></div></div></div>
+            <div class="notification-summary" aria-label="Сводка уведомлений">
+              <div><strong id="notificationPendingCount">0</strong><span>непрочитано</span></div>
+              <i></i><div><strong id="notificationSoonCount">0</strong><span>сегодня</span></div>
+              <i></i><div><strong id="notificationSentCount">0</strong><span>ошибки доставки</span></div>
+            </div>
             <div data-contextual-help data-help-label="Как это работает?" data-help-slug="notification-queue" data-help-question="Объясни безопасную ручную отправку сообщений и разницу между отметкой в PrimeTime Pro и подтверждённой доставкой."></div>
             <div class="notification-list" id="notificationList" aria-live="polite"></div>
           </section>
@@ -504,7 +508,7 @@
             </div>
           </details>
           <section class="panel notification-queue-panel" id="automaticNotificationPanel" hidden>
-            <div class="notification-toolbar"><div><small>Автоматически</small><h3>Telegram мастеру</h3></div><span class="notification-total" id="automaticNotificationCount">Очередь обработана</span></div>
+            <div class="notification-toolbar"><div><small>Автоматически</small><h3>Статус автодоставки</h3><p>Технические статусы каналов; ошибки остаются заметными.</p></div><span class="notification-total" id="automaticNotificationCount">Очередь обработана</span></div>
             <div class="notification-list" id="automaticNotificationList" aria-live="polite"></div>
           </section>
           <section class="panel notification-queue-panel visitor-notification-panel" id="visitorNotificationPanel" hidden>
@@ -687,7 +691,7 @@
             <div class="report-smart-actions" id="reportSmartActions" aria-live="polite"></div>
           </section>
           <details class="report-period-details" data-report-section="overview"><summary>Подробнее за период</summary><section class="report-insight" id="reportInsight" aria-live="polite"><small>Главное за период</small><p>Статистика появится после первых завершённых визитов.</p></section></details>
-          <section class="report-last-change" id="reportLastChange" data-report-section="money" hidden aria-live="polite"><div class="report-last-change-label"><small>Последнее изменение</small><time id="reportLastChangeTime"></time></div><div class="report-last-change-main"><strong id="reportLastChangeTitle"></strong><span id="reportLastChangeEffect"></span><small id="reportLastChangeActor"></small></div><details class="report-event-history"><summary>Последние 100 изменений</summary><div class="report-event-list" id="reportEventList"></div></details></section>
+          <section class="report-last-change" id="reportLastChange" data-report-section="money" hidden aria-live="polite"><div class="report-last-change-context"><small>Запись</small><strong id="reportLastChangeContext"></strong></div><div class="report-last-change-main"><small>Последнее изменение</small><strong id="reportLastChangeTitle"></strong><span id="reportLastChangeEffect"></span><div class="report-last-change-meta"><time id="reportLastChangeTime"></time><span id="reportLastChangeActor"></span></div></div><details class="report-event-history"><summary>История · до 100 событий</summary><div class="report-event-list" id="reportEventList"></div></details></section>
           <div class="report-summary" data-report-section="money">
             <article hidden><small>Отмечено полученным</small><strong id="reportRevenue">0 ₽</strong><span id="reportRevenueTrend">Без сравнения</span></article>
             <article class="report-summary-primary"><small>Стоимость оказанных услуг</small><strong id="reportCompletedValue">0 ₽</strong><span>По состоявшимся визитам</span></article>
@@ -1865,12 +1869,14 @@
     <div class="notification-template-dialog-head"><div><small>Ваши тексты</small><h2 id="notificationTemplatesTitle">Шаблоны сообщений</h2></div><button type="button" data-close-notification-templates aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <p class="template-help">Переменные: <b>{имя}</b>, <b>{услуга}</b>, <b>{дата}</b>, <b>{время}</b>, <b>{адрес}</b>.</p>
     <form id="notificationTemplatesForm" class="notification-template-form">
-      <label>Подтверждение записи<textarea id="templateConfirmation" rows="4" maxlength="900"></textarea></label>
-      <label>Напоминание перед визитом<textarea id="templateReminder" rows="4" maxlength="900"></textarea></label>
-      <label>Отмена записи<textarea id="templateCancellation" rows="4" maxlength="900"></textarea></label>
-      <button class="primary" type="submit">Сохранить</button>
+      <div class="notification-template-fields">
+        <label>Подтверждение записи<textarea id="templateConfirmation" rows="4" maxlength="900"></textarea></label>
+        <label>Напоминание перед визитом<textarea id="templateReminder" rows="4" maxlength="900"></textarea></label>
+        <label>Отмена записи<textarea id="templateCancellation" rows="4" maxlength="900"></textarea></label>
+        <p class="notification-device-note">WhatsApp не сообщает сайту о доставке — отметку об отправке ставите вы.</p>
+      </div>
+      <div class="notification-template-actions"><button class="primary" type="submit">Сохранить</button></div>
     </form>
-    <p class="notification-device-note">WhatsApp не сообщает сайту о доставке — отметку об отправке ставите вы.</p>
   </dialog>
   <dialog class="client-messaging-dialog" id="clientMessagingDialog" aria-labelledby="clientMessagingTitle" aria-describedby="clientMessagingHelp">
     <div class="client-messaging-head"><div><small>Связь с клиентом</small><h2 id="clientMessagingTitle">Написать клиенту</h2></div><button type="button" data-close-client-messaging aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>

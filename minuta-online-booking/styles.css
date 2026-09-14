@@ -7700,6 +7700,98 @@ html.provider-booting .provider-main {
 .provider-body[data-provider-theme] .notification-device-note { border:1px solid color-mix(in srgb,#d69b37 34%,var(--theme-line)); background:color-mix(in srgb,#d69b37 10%,var(--theme-surface)); color:var(--theme-ink); }
 .provider-body[data-provider-theme] .notification-filters button.active { color:var(--theme-accent-contrast,#fff)!important; }
 
+/* Важные события — основная спокойная лента; доставка остаётся вторичной. */
+.notification-events-panel { margin-top:16px; padding:18px; border:1px solid var(--theme-line,var(--line)); border-radius:18px; background:var(--theme-surface,#fff); box-shadow:none; }
+.notification-toolbar>div>p { max-width:620px; margin:5px 0 0; color:var(--theme-muted,var(--muted)); font-size:9px; line-height:1.45; }
+.important-notification-list { display:grid; gap:14px; margin-top:14px; }
+.important-notification-group { display:grid; gap:6px; }
+.important-notification-group h4 { margin:0; color:var(--theme-muted,var(--muted)); font-size:9px; font-weight:850; letter-spacing:.06em; text-transform:uppercase; }
+.important-notification-card { display:grid; grid-template-columns:8px minmax(0,1fr) 16px; align-items:center; gap:10px; width:100%; min-height:66px; padding:11px 12px; border:0; border-bottom:1px solid var(--theme-line,var(--line)); border-radius:0; background:transparent; color:var(--theme-ink,var(--ink)); cursor:pointer; text-align:left; }
+.important-notification-card:last-child { border-bottom:0; }
+.important-notification-card>i { width:7px; height:7px; border:1px solid var(--theme-line,var(--line)); border-radius:50%; background:transparent; }
+.important-notification-card.is-unread>i { border-color:var(--theme-accent,var(--green)); background:var(--theme-accent,var(--green)); box-shadow:0 0 0 4px var(--theme-accent-soft,var(--soft)); }
+.important-notification-card.is-unread { background:color-mix(in srgb,var(--theme-accent-soft,var(--soft)) 34%,transparent); }
+.important-notification-copy { display:grid; gap:4px; min-width:0; }
+.important-notification-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.important-notification-head strong { min-width:0; font-size:12px; line-height:1.35; }
+.important-notification-head time { flex:none; color:var(--theme-muted,var(--muted)); font-size:9px; font-variant-numeric:tabular-nums; }
+.important-notification-context,.important-notification-meta,.important-notification-effect { display:block; overflow-wrap:anywhere; }
+.important-notification-context { color:var(--theme-ink,var(--ink)); font-size:10px; line-height:1.4; }
+.important-notification-meta { color:var(--theme-muted,var(--muted)); font-size:9px; }
+.important-notification-effect { color:var(--theme-accent,var(--green)); font-size:9px; font-weight:800; line-height:1.4; }
+.important-notification-arrow { color:var(--theme-muted,var(--muted)); font-size:22px; font-weight:300; }
+.important-notification-card:hover { background:var(--theme-surface-alt,#f7faf8); }
+.important-notification-card:focus-visible { outline:3px solid color-mix(in srgb,var(--theme-accent,var(--green)) 34%,transparent); outline-offset:1px; }
+.notification-primary-queue { margin-top:12px; }
+.notification-primary-queue .notification-summary { margin-top:12px; }
+
+/* Все поверхности уведомлений наследуют выбранную тему. */
+.provider-body[data-provider-theme] :is(.notification-events-panel,.notification-queue-panel,.notification-card,.notification-summary,.notification-filters,.notification-preview blockquote,.notification-empty) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .notification-summary { background:var(--theme-surface-alt); }
+.provider-body[data-provider-theme] .notification-summary :is(span) { color:var(--theme-muted); }
+.provider-body[data-provider-theme] .notification-summary i { background:var(--theme-line); }
+.provider-body[data-provider-theme] .notification-filters { background:var(--theme-surface-alt); }
+.provider-body[data-provider-theme] .notification-filters button { color:var(--theme-muted); }
+.provider-body[data-provider-theme] .notification-filters button.active { background:var(--theme-accent); color:var(--theme-accent-contrast,#fff)!important; box-shadow:none; }
+.provider-body[data-provider-theme] .notification-card-icon { background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .notification-card :is(p,.notification-card-head>span,.notification-card-head>b) { color:var(--theme-muted); }
+.provider-body[data-provider-theme] .notification-card-actions :is(a,button) { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-accent); }
+
+/* История: контекст, одно последнее изменение и внутренняя прокрутка полного журнала. */
+.report-last-change { grid-template-columns:minmax(180px,.85fr) minmax(260px,1.35fr) auto; align-items:start; gap:20px; padding:16px 18px; }
+.report-last-change-context,.report-last-change-main { display:grid; gap:4px; min-width:0; }
+.report-last-change-context>small,.report-last-change-main>small { color:var(--theme-muted,var(--muted)); font-size:8px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+.report-last-change-context>strong { font-size:11px; font-weight:750; line-height:1.4; }
+.report-last-change-main>strong { font-size:12px; line-height:1.35; }
+.report-last-change-main>span { color:var(--theme-accent,var(--green)); font-size:10px; font-weight:800; line-height:1.4; }
+.report-last-change-meta { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:2px; color:var(--theme-muted,var(--muted)); font-size:9px; }
+.report-last-change-meta :is(time,span) { color:inherit; font-size:inherit; }
+.report-event-history>summary { min-width:150px; }
+.report-event-list article { grid-template-columns:72px minmax(0,1fr); gap:13px; padding:11px 10px; }
+.report-event-list time { display:grid; align-content:start; gap:3px; font-variant-numeric:tabular-nums; }
+.report-event-list time b { color:var(--theme-ink,var(--ink)); font-size:10px; }
+.report-event-list p { margin:0; color:var(--theme-muted,var(--muted)); font-size:9px; line-height:1.4; }
+.report-event-list strong { font-size:11px; line-height:1.35; }
+.report-event-list span { color:var(--theme-accent,var(--green)); font-size:9px; font-weight:800; line-height:1.4; }
+
+/* Компактный диалог шаблонов с безопасной зоной и фиксированным сохранением. */
+.provider-body[data-provider-theme] .notification-template-dialog { box-sizing:border-box; max-height:min(760px,calc(100dvh - 32px)); padding:0; overflow:hidden; border:1px solid var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); box-shadow:0 28px 90px var(--theme-shadow,rgba(17,48,33,.24)); }
+.notification-template-dialog[open] { display:flex; flex-direction:column; }
+.notification-template-dialog-head { flex:none; padding:20px 22px 12px; }
+.provider-body[data-provider-theme] .notification-template-dialog-head>div>small { color:var(--theme-muted)!important; }
+.notification-template-dialog-head h2 { color:var(--theme-ink,var(--ink)); font-size:clamp(22px,3vw,28px); line-height:1.15; }
+.provider-body[data-provider-theme] .template-help { flex:none; margin:0; padding:0 22px 13px; color:var(--theme-muted); }
+.provider-body[data-provider-theme] .template-help b { color:var(--theme-accent); }
+.notification-template-form { display:flex; flex:1; min-height:0; flex-direction:column; gap:0; margin:0; }
+.notification-template-fields { display:grid; flex:1; min-height:0; gap:13px; padding:2px 22px 16px; overflow:auto; overscroll-behavior:contain; }
+.provider-body[data-provider-theme] .notification-template-form label { color:var(--theme-ink); }
+.provider-body[data-provider-theme] .notification-template-form textarea { box-sizing:border-box; min-height:92px; max-height:136px; padding:11px 12px; border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); font-size:12px; line-height:1.45; }
+.provider-body[data-provider-theme] .notification-template-form textarea:focus { outline:3px solid color-mix(in srgb,var(--theme-accent) 25%,transparent); border-color:var(--theme-accent); }
+.provider-body[data-provider-theme] .notification-device-note { margin:0; border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-muted); }
+.notification-template-actions { flex:none; padding:12px 22px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--theme-line,var(--line)); background:var(--theme-surface,#fff); }
+.notification-template-actions .primary { width:100%; min-height:46px; }
+
+@media (max-width:760px) {
+  .notification-events-panel,.notification-queue-panel { padding:14px 12px; }
+  .notification-toolbar>div>p { font-size:10px; }
+  .important-notification-head { align-items:flex-start; }
+  .important-notification-head strong { font-size:13px; }
+  .important-notification-context { font-size:11px; }
+  .important-notification-card { grid-template-columns:8px minmax(0,1fr) 14px; min-height:72px; padding:11px 5px; }
+  .notification-primary-queue .notification-summary { display:none; }
+  .report-last-change { grid-template-columns:1fr; gap:11px; padding:15px; }
+  .report-last-change-context { padding-bottom:10px; border-bottom:1px solid var(--theme-line,var(--line)); }
+  .report-event-list { max-height:min(48vh,360px); }
+  .report-event-list article { grid-template-columns:62px minmax(0,1fr); gap:10px; padding-inline:5px; }
+  .notification-template-dialog { width:calc(100% - 12px); max-height:calc(100dvh - 12px - env(safe-area-inset-top)); border-radius:18px; }
+  .notification-template-dialog-head { padding:16px 16px 9px; }
+  .notification-template-dialog-head h2 { max-width:260px; font-size:23px; }
+  .provider-body[data-provider-theme] .template-help { padding:0 16px 11px; font-size:10px; }
+  .notification-template-fields { gap:12px; padding:2px 16px 14px; }
+  .provider-body[data-provider-theme] .notification-template-form textarea { min-height:104px; max-height:124px; font-size:14px; resize:none; }
+  .notification-template-actions { padding:10px 16px calc(10px + env(safe-area-inset-bottom)); }
+}
+
 /* Mobile booking details: selected information stays readable without collisions. */
 .calendar-month-mobile-agenda { display:none; }
 
@@ -9612,3 +9704,22 @@ html.provider-booting .provider-main {
   }
   .provider-body .provider-mobile-nav>button>span { line-height:1.1; }
 }
+
+/* Important booking events stay readable after every theme and layout material layer. */
+.provider-body[data-provider-theme] .provider-view[data-provider-panel="notifications"] :is(.notification-events-panel,.notification-queue-panel) {
+  border-color:var(--theme-line)!important;
+  background:var(--theme-surface)!important;
+  background-image:none!important;
+  color:var(--theme-ink)!important;
+}
+.provider-body[data-provider-theme] .provider-view[data-provider-panel="notifications"] :is(.notification-toolbar h3,.important-notification-head strong,.important-notification-context) { color:var(--theme-ink)!important; }
+.provider-body[data-provider-theme] .provider-view[data-provider-panel="notifications"] :is(.notification-toolbar p,.important-notification-group h4,.important-notification-head time,.important-notification-meta) { color:var(--theme-muted)!important; }
+.provider-body[data-provider-theme] .provider-view[data-provider-panel="notifications"] .important-notification-card {
+  border-color:var(--theme-line)!important;
+  background:transparent!important;
+  color:var(--theme-ink)!important;
+  box-shadow:none!important;
+}
+.provider-body[data-provider-theme] .provider-view[data-provider-panel="notifications"] .important-notification-card:is(:hover,:focus-visible) { background:var(--theme-surface-alt)!important; }
+.provider-body[data-provider-theme] .provider-view[data-provider-panel="notifications"] .important-notification-card.is-unread { background:color-mix(in srgb,var(--theme-accent-soft) 54%,var(--theme-surface))!important; }
+.provider-body[data-provider-theme] .provider-view[data-provider-panel="notifications"] .important-notification-effect { color:var(--theme-accent)!important; }

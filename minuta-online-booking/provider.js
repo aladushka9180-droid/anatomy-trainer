@@ -337,6 +337,7 @@ let providerLinkCodeRequested = false;
 let currentFilter = restoreScheduleFilter();
 let calendarView = currentFilter === 'day' ? restoreCalendarView() : 'day';
 let notificationFilter = 'pending';
+let importantNotificationState = { key:'', rows:[], status:'idle' };
 let reportPeriod = 'last30';
 let reportCustomStart = '';
 let reportCustomEnd = '';
@@ -4812,19 +4813,86 @@ function renderAnalytics() {
 }
 
 let reportEventState = { key:'', rows:[], status:'idle' };
-function reportEventTitle(event) {
-  const labels={booking_created_online:'Новая онлайн-запись',booking_created_manual:'Запись создана мастером',booking_created_admin:'Запись создана администратором',booking_rescheduled:'Запись перенесена',booking_cancelled:'Запись отменена',booking_restored:'Запись восстановлена',service_changed:'Услуга изменена',performer_changed:'Мастер изменён',duration_changed:'Длительность изменена',visit_completed:'Визит отмечен как состоявшийся',visit_no_show:'Клиент не пришёл',visit_reopened:'Результат визита отменён',payment_received:'Получена оплата',payment_adjusted:'Оплата скорректирована',payment_method_changed:'Способ оплаты изменён',booking_updated:'Запись изменена'};
-  return `${labels[event.event_type]||'Запись изменена'} · ${event.client_name||'Клиент'} · ${event.service_name||'Услуга'}`;
+const REPORT_EVENT_ACTIONS = Object.freeze({
+  booking_created_online:'Новая запись онлайн',
+  booking_created_manual:'Запись создана',
+  booking_created_admin:'Запись создана',
+  booking_rescheduled:'Дата или время изменены',
+  booking_cancelled:'Запись отменена',
+  booking_restored:'Запись восстановлена',
+  service_changed:'Услуга изменена',
+  performer_changed:'Исполнитель изменён',
+  duration_changed:'Длительность изменена',
+  visit_completed:'Визит отмечен состоявшимся',
+  visit_no_show:'Отмечена неявка',
+  visit_reopened:'Результат визита отменён',
+  payment_received:'Получена оплата',
+  payment_adjusted:'Оплата скорректирована',
+  payment_method_changed:'Способ оплаты изменён',
+  booking_updated:'Запись изменена'
+});
+const REPORT_EVENT_ROLE_LABELS = Object.freeze({ client:'Клиент',admin:'Администратор',owner:'Владелец',specialist:'Сотрудник',system:'Система' });
+function reportEventIsImport(event) {
+  const source = String(event?.details?.source || event?.details?.completion_source || '').trim().toLowerCase();
+  return ['import','imported','imported_history','historical_import','history_import'].includes(source);
+}
+function reportEventAction(event) {
+  if (reportEventIsImport(event)) return 'Запись импортирована';
+  if (event?.event_type === 'booking_created_online' && event?.actor_role === 'client') return 'Новая запись от клиента';
+  return REPORT_EVENT_ACTIONS[event?.event_type] || 'Запись изменена';
+}
+function reportEventTitle(event) { return reportEventAction(event); }
+function reportEventContext(event) { return `${event?.client_name || 'Клиент'} · ${event?.service_name || 'Услуга'}`; }
+function reportEventActor(event) {
+  const role = reportEventIsImport(event) ? 'Импорт' : REPORT_EVENT_ROLE_LABELS[event?.actor_role];
+  if (!role) return 'Автор не указан';
+  if (role === 'Импорт') return role;
+  const rawName = String(event?.actor_name || '').trim();
+  const generic = new Set(['Клиент','Администратор','Владелец','Сотрудник','Система','Импорт','Мастер']);
+  return rawName && !generic.has(rawName) ? `${role} · ${rawName}` : role;
+}
+function reportEventSignedMoney(value) {
+  const amount = Number(value || 0);
+  return amount ? `${amount > 0 ? '+' : '−'}${new Intl.NumberFormat('ru-RU').format(Math.abs(amount))}\u00a0₽` : '';
 }
 function reportEventEffect(event) {
-  const parts=[],add=(value,label)=>{const amount=Number(value||0);if(amount)parts.push(`${amount>0?'+':'−'}${money(Math.abs(amount))} ${label}`);};
-  add(event.delta_planned_rub,'к плану');add(event.delta_completed_rub,'оказано');add(event.delta_received_rub,'получено');const minutes=Number(event.delta_duration_minutes||0);if(minutes)parts.push(`${minutes>0?'+':'−'}${Math.abs(minutes)} мин`);return parts.join(' · ')||'Финансовые показатели не изменились';
+  const parts = [];
+  const planned = Number(event?.delta_planned_rub || 0);
+  const completed = Number(event?.delta_completed_rub || 0);
+  const received = Number(event?.delta_received_rub || 0);
+  const minutes = Number(event?.delta_duration_minutes || 0);
+  const created = ['booking_created_online','booking_created_manual','booking_created_admin'].includes(event?.event_type);
+  const occupancy = created || ['booking_cancelled','booking_restored','booking_rescheduled'].includes(event?.event_type);
+  if (planned) parts.push(`Ожидаемая выручка ${reportEventSignedMoney(planned)}`);
+  if (completed) parts.push(`Стоимость оказанных услуг ${reportEventSignedMoney(completed)}`);
+  if (received) parts.push(`Получено ${reportEventSignedMoney(received)}`);
+  if (minutes) parts.push(`${occupancy ? 'Занятость' : 'Длительность'} ${minutes > 0 ? '+' : '−'}${Math.abs(minutes)} мин`);
+  return parts.join(' · ');
+}
+function reportEventDateTime(event, dateOptions = {}) {
+  const date = new Date(event?.occurred_at);
+  if (Number.isNaN(date.getTime())) return { date:'Дата не указана', time:'', iso:'' };
+  return {
+    date:date.toLocaleDateString('ru-RU', dateOptions.date || { day:'2-digit',month:'2-digit' }),
+    time:date.toLocaleTimeString('ru-RU', dateOptions.time || { hour:'2-digit',minute:'2-digit' }),
+    iso:event.occurred_at
+  };
 }
 function renderReportEvents(rows) {
   if (reportCanViewTeam && reportPerformerFilter && reportPerformerFilter !== 'all') rows = rows.filter(event => String(event.performer_id || '') === reportPerformerFilter);
   const panel=$('#reportLastChange'),list=$('#reportEventList');if(!panel||!list)return;panel.hidden=!rows.length;if(!rows.length){list.innerHTML='';return;}
-  const latest=rows[0],date=new Date(latest.occurred_at);$('#reportLastChangeTime').textContent=date.toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});$('#reportLastChangeTime').dateTime=latest.occurred_at;$('#reportLastChangeTitle').textContent=reportEventTitle(latest);$('#reportLastChangeEffect').textContent=reportEventEffect(latest);$('#reportLastChangeActor').textContent=`Изменил: ${latest.actor_name||'Система'} · синхронизировано`;
-  list.innerHTML=rows.map(event=>`<article><time>${new Date(event.occurred_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</time><div><strong>${escapeHtml(reportEventTitle(event))}</strong><span>${escapeHtml(reportEventEffect(event))}</span><small>${escapeHtml(event.actor_name||'Система')}</small></div></article>`).join('');
+  const latest=rows[0],latestMoment=reportEventDateTime(latest,{date:{day:'numeric',month:'short'}}),latestEffect=reportEventEffect(latest);
+  $('#reportLastChangeContext').textContent=reportEventContext(latest);
+  $('#reportLastChangeTime').textContent=[latestMoment.date,latestMoment.time].filter(Boolean).join(', ');
+  $('#reportLastChangeTime').dateTime=latestMoment.iso;
+  $('#reportLastChangeTitle').textContent=reportEventAction(latest);
+  $('#reportLastChangeEffect').textContent=latestEffect;
+  $('#reportLastChangeEffect').hidden=!latestEffect;
+  $('#reportLastChangeActor').textContent=`Автор: ${reportEventActor(latest)}`;
+  list.innerHTML=rows.map(event=>{
+    const moment=reportEventDateTime(event),effect=reportEventEffect(event);
+    return `<article data-report-event-id="${escapeHtml(event.id)}"><time datetime="${escapeHtml(moment.iso)}"><span>${escapeHtml(moment.date)}</span><b>${escapeHtml(moment.time)}</b></time><div><strong>${escapeHtml(reportEventAction(event))}</strong><p>${escapeHtml(reportEventContext(event))}</p>${effect?`<span>${escapeHtml(effect)}</span>`:''}<small>Автор: ${escapeHtml(reportEventActor(event))}</small></div></article>`;
+  }).join('');
 }
 async function loadReportEvents(range) {
   const userId=currentUser?.id||'',generation=sessionGeneration,organizationId=reportOrganizationId(),key=reportSessionKey(organizationId,range.start,range.end);
@@ -5124,6 +5192,132 @@ async function setNotificationMark(key, status) {
   writeNotificationStorage('marks', local);
   return true;
 }
+const IMPORTANT_NOTIFICATION_EVENT_TYPES = new Set([
+  'booking_created_online','booking_created_manual','booking_created_admin','booking_rescheduled','booking_cancelled',
+  'booking_restored','service_changed','performer_changed','duration_changed','visit_completed','visit_no_show',
+  'visit_reopened','payment_received','payment_adjusted','payment_method_changed'
+]);
+function importantNotificationStorageName() {
+  const organizationId = organizationController?.getActiveOrganization?.()?.id || 'personal';
+  return `important-events-${organizationId}`;
+}
+function importantNotificationReadState() {
+  const value = readNotificationStorage(importantNotificationStorageName(), { initialized:false,ids:[] });
+  return { initialized:value?.initialized === true, ids:Array.isArray(value?.ids) ? value.ids.map(String) : [] };
+}
+function writeImportantNotificationReadState(value) {
+  writeNotificationStorage(importantNotificationStorageName(), { initialized:true,ids:[...new Set(value.ids.map(String))].slice(-500) });
+}
+function importantNotificationEventIsRelevant(event) {
+  if (!event?.id || reportEventIsImport(event) || event.actor_role === 'owner') return false;
+  if (event.actor_role === 'client') return IMPORTANT_NOTIFICATION_EVENT_TYPES.has(event.event_type) || event.event_type === 'booking_updated';
+  if (!['admin','specialist','system'].includes(event.actor_role)) return false;
+  if (event.event_type === 'booking_updated') return false;
+  if (event.actor_role === 'system' && !['booking_cancelled','booking_restored','payment_received','payment_adjusted'].includes(event.event_type)) return false;
+  return IMPORTANT_NOTIFICATION_EVENT_TYPES.has(event.event_type);
+}
+function importantNotificationRows() { return importantNotificationState.rows.filter(importantNotificationEventIsRelevant); }
+function initializeImportantNotificationReads(rows) {
+  const state = importantNotificationReadState();
+  if (state.initialized) return;
+  writeImportantNotificationReadState({ ids:rows.map(event => String(event.id)) });
+}
+function importantNotificationUnreadRows() {
+  const readIds = new Set(importantNotificationReadState().ids);
+  return importantNotificationRows().filter(event => !readIds.has(String(event.id)));
+}
+function markImportantNotificationRead(id) {
+  const state = importantNotificationReadState();
+  if (!state.ids.includes(String(id))) state.ids.push(String(id));
+  writeImportantNotificationReadState(state);
+}
+function markAllImportantNotificationsRead() {
+  const state = importantNotificationReadState();
+  state.ids.push(...importantNotificationRows().map(event => String(event.id)));
+  writeImportantNotificationReadState(state);
+  renderNotifications();
+}
+function notificationEventVisitLabel(event) {
+  const booking = allBookings.find(item => String(item.id || '') === String(event.booking_id || ''));
+  const dateValue = event.booking_date || booking?.booking_date;
+  const rawTime = event?.details?.new_time || booking?.booking_time;
+  const time = rawTime ? String(rawTime).slice(0,5) : '';
+  if (!dateValue) return time ? `Визит в ${time}` : '';
+  const date = parseLocalIsoDate(dateValue);
+  const label = Number.isNaN(date.getTime()) ? String(dateValue) : date.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+  return `${label}${time ? ` в ${time}` : ''}`;
+}
+function importantNotificationGroupMarkup(label, rows, readIds) {
+  if (!rows.length) return '';
+  return `<section class="important-notification-group"><h4>${escapeHtml(label)}</h4>${rows.map(event => {
+    const unread=!readIds.has(String(event.id)),effect=reportEventEffect(event),moment=reportEventDateTime(event),visit=notificationEventVisitLabel(event);
+    return `<button class="important-notification-card${unread?' is-unread':''}" type="button" data-open-important-event="${escapeHtml(event.id)}"><i aria-hidden="true"></i><span class="important-notification-copy"><span class="important-notification-head"><strong>${escapeHtml(reportEventAction(event))}</strong><time datetime="${escapeHtml(moment.iso)}">${escapeHtml(moment.time || moment.date)}</time></span><span class="important-notification-context">${escapeHtml(reportEventContext(event))}${visit?` · ${escapeHtml(visit)}`:''}</span><span class="important-notification-meta">Автор: ${escapeHtml(reportEventActor(event))}</span>${effect?`<span class="important-notification-effect">${escapeHtml(effect)}</span>`:''}</span><span class="important-notification-arrow" aria-hidden="true">›</span></button>`;
+  }).join('')}</section>`;
+}
+function renderImportantNotifications() {
+  const holder=$('#importantNotificationList'),markAll=$('#markImportantEventsRead');
+  if (!holder) return;
+  if (importantNotificationState.status === 'loading' || importantNotificationState.status === 'idle') {
+    holder.innerHTML='<div class="loading-state compact"><i></i><span>Загружаем события…</span></div>';
+    if (markAll) markAll.hidden=true;
+    return;
+  }
+  if (importantNotificationState.status === 'failed') {
+    holder.innerHTML='<div class="provider-empty notification-empty"><span class="provider-empty-icon">!</span><strong>События временно недоступны</strong><small>Полный журнал по-прежнему доступен в «Статистика» → «Деньги».</small></div>';
+    if (markAll) markAll.hidden=true;
+    return;
+  }
+  const rows=importantNotificationRows(),readIds=new Set(importantNotificationReadState().ids),today=businessTodayIso();
+  const sorted=[...rows].sort((a,b)=>Number(readIds.has(String(a.id)))-Number(readIds.has(String(b.id)))||new Date(b.occurred_at)-new Date(a.occurred_at));
+  const todayRows=sorted.filter(event=>localIsoDate(new Date(event.occurred_at))===today);
+  const earlierRows=sorted.filter(event=>localIsoDate(new Date(event.occurred_at))!==today);
+  if (markAll) {
+    const unread=rows.filter(event=>!readIds.has(String(event.id))).length;
+    markAll.hidden=unread===0;
+    markAll.textContent=unread?`Прочитать все · ${unread}`:'Прочитать все';
+  }
+  holder.innerHTML=rows.length
+    ? importantNotificationGroupMarkup('Сегодня',todayRows,readIds)+importantNotificationGroupMarkup('Ранее',earlierRows,readIds)
+    : '<div class="provider-empty notification-empty"><span class="provider-empty-icon">✓</span><strong>Важных событий пока нет</strong><small>Здесь появятся новые действия клиентов и команды. Полная история остаётся в статистике.</small></div>';
+}
+async function loadImportantNotificationEvents({ force=false }={}) {
+  const userId=currentUser?.id||'',generation=sessionGeneration,organizationId=reportOrganizationId();
+  const key=`${organizationId}:${userId}`;
+  if (!organizationId||!currentUser||!navigator.onLine) { renderImportantNotifications(); return; }
+  if (!force&&importantNotificationState.key===key&&['loading','ready'].includes(importantNotificationState.status)) { renderImportantNotifications(); return; }
+  importantNotificationState={key,rows:[],status:'loading'};
+  renderImportantNotifications();
+  const end=parseLocalIsoDate(businessTodayIso()),start=new Date(end);start.setDate(start.getDate()-89);
+  let response=await db.rpc('get_minuta_booking_events_v97',{p_organization:organizationId,p_start:localIsoDate(start),p_end:localIsoDate(end),p_limit:100,p_offset:0});
+  if (response.error&&(response.error.code==='PGRST202'||/could not find.*get_minuta_booking_events|function .* does not exist/i.test(response.error.message||''))) response=await db.rpc('get_minuta_booking_events',{p_organization:organizationId,p_start:localIsoDate(start),p_end:localIsoDate(end),p_limit:100});
+  if (!sessionIsCurrent(userId,generation)||importantNotificationState.key!==key) return;
+  const rows=Array.isArray(response.data?.events)?response.data.events:[];
+  importantNotificationState=response.error?{key,rows:[],status:'failed'}:{key,rows,status:'ready'};
+  if (!response.error) initializeImportantNotificationReads(importantNotificationRows());
+  renderNotifications();
+}
+async function openImportantNotificationEvent(id) {
+  const event=importantNotificationState.rows.find(item=>String(item.id)===String(id));
+  if (!event) return;
+  markImportantNotificationRead(event.id);
+  renderNotifications();
+  const booking=allBookings.find(item=>String(item.id||'')===String(event.booking_id||''));
+  if (booking) {
+    await Promise.resolve(setProviderView('bookings'));
+    openBookingSheet(booking.id);
+    return;
+  }
+  reportPeriod='all';
+  $$('[data-report-period]').forEach(button=>button.classList.toggle('active',button.dataset.reportPeriod===reportPeriod));
+  resetReportSessionState();
+  await Promise.resolve(setProviderView('analytics'));
+  setReportSubview('money');
+  loadSelectedReportData();
+  renderAnalytics();
+  const history=$('.report-event-history');
+  if (history) history.open=true;
+  $('#reportLastChange')?.scrollIntoView({block:'center'});
+}
 function renderAutomaticNotifications() {
   const panel = $('#automaticNotificationPanel');
   const holder = $('#automaticNotificationList');
@@ -5215,23 +5409,25 @@ function renderNotificationTemplates() {
 function renderNotifications() {
   const holder = $('#notificationList');
   if (!holder || !currentUser) return;
+  renderImportantNotifications();
   renderAutomaticNotifications();
   const now = new Date();
-  const nextDay = new Date(now.getTime() + 24 * 3600000);
   const marks = notificationMarks();
   const tasks = buildNotificationTasks().map(task => ({ ...task, mark: marks[task.key] || '', isDue: task.dueAt <= now }));
   const pending = tasks.filter(task => task.isDue && task.mark !== 'sent').length;
-  const soon = tasks.filter(task => task.mark !== 'sent' && task.dueAt > now && task.dueAt <= nextDay).length;
-  const sent = tasks.filter(task => task.mark === 'sent').length;
-  $('#notificationPendingCount').textContent = String(pending);
-  $('#notificationSoonCount').textContent = String(soon);
-  $('#notificationSentCount').textContent = String(sent);
-  $('#notificationCount').textContent = String(tasks.length);
-  $('#notificationBadge').textContent = pending > 9 ? '9+' : String(pending);
-  $('#notificationBadge').hidden = pending === 0;
+  const importantRows=importantNotificationRows(),importantUnread=importantNotificationUnreadRows().length;
+  const importantToday=importantRows.filter(event=>localIsoDate(new Date(event.occurred_at))===businessTodayIso()).length;
+  const failedDeliveries=notificationOutbox.filter(item=>item.status==='failed').length;
+  const attentionCount=pending+importantUnread+failedDeliveries;
+  $('#notificationPendingCount').textContent = String(importantUnread);
+  $('#notificationSoonCount').textContent = String(importantToday);
+  $('#notificationSentCount').textContent = String(failedDeliveries);
+  $('#notificationCount').textContent = String(attentionCount);
+  $('#notificationBadge').textContent = attentionCount > 9 ? '9+' : String(attentionCount);
+  $('#notificationBadge').hidden = attentionCount === 0;
   $$('[data-mobile-notification-badge]').forEach(badge => {
-    badge.textContent = pending > 9 ? '9+' : String(pending);
-    badge.hidden = pending === 0;
+    badge.textContent = attentionCount > 9 ? '9+' : String(attentionCount);
+    badge.hidden = attentionCount === 0;
   });
   const markAllButton = $('#markAllNotificationsSent');
   if (markAllButton) {
@@ -6200,7 +6396,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
     mobileCreate.hidden = !['bookings', 'clients'].includes(view);
     if (bookingUsesDemoData()) mobileCreate.hidden = true;
   }
-  if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
+  if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); void loadImportantNotificationEvents(); }
   if (view === 'analytics') renderAnalytics();
   if (view === 'clients' && currentUser && navigator.onLine && !clientAvatarsLoaded) void loadClientAvatars();
   if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
@@ -12242,6 +12438,7 @@ async function loadBookingSettings() {
   renderVisitorVisits();
   renderNotificationTemplates();
   renderNotifications();
+  if (!document.querySelector('[data-provider-panel="notifications"]')?.hidden) void loadImportantNotificationEvents();
   return { ok: notificationSettingsRemoteAvailable, optional: true };
 }
 
@@ -13036,6 +13233,7 @@ async function handleSession(session) {
     notificationSettingsRemoteAvailable = false;
     notificationOutbox = [];
     notificationOutboxRemoteAvailable = false;
+    importantNotificationState = { key:'', rows:[], status:'idle' };
     visitorVisits = [];
     visitorVisitsRemoteAvailable = false;
     visitorVisitsInitialized = false;
@@ -14847,6 +15045,8 @@ document.addEventListener('click', async event => {
   const sectionTarget = event.target.closest('[data-section-target]');
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
   const markAllNotificationsButton = event.target.closest('#markAllNotificationsSent');
+  const importantNotificationButton = event.target.closest('[data-open-important-event]');
+  const markImportantEventsButton = event.target.closest('#markImportantEventsRead');
   const inventorySectionButton = event.target.closest('[data-inventory-section]');
   const reportFilterToggle = event.target.closest('#reportFilterToggle');
   const reportSourceButton = event.target.closest('[data-report-source]');
@@ -14963,6 +15163,8 @@ document.addEventListener('click', async event => {
     renderNotifications();
   }
   if (markAllNotificationsButton) await markAllDueNotificationsSent(markAllNotificationsButton);
+  if (importantNotificationButton) await openImportantNotificationEvent(importantNotificationButton.dataset.openImportantEvent);
+  if (markImportantEventsButton) markAllImportantNotificationsRead();
   if (inventorySectionButton) setInventorySection(inventorySectionButton.dataset.inventorySection, true);
   if (reportFilterToggle) setReportFiltersExpanded(reportFilterToggle.getAttribute('aria-expanded') !== 'true');
   if (reportSourceButton && reportSourceButton.dataset.reportSource !== reportDataSource) {
@@ -15795,6 +15997,7 @@ const organizationController = window.MinutaOrganization.createController({
     if (clientOrganizationChanged) {
       importedClients = [];
       importedBookingHistory = [];
+      importantNotificationState = { key:'', rows:[], status:'idle' };
       selectedClientPhone = '';
       const clientSearch = $('#clientSearch');
       if (clientSearch) clientSearch.value = '';
@@ -16698,7 +16901,11 @@ $('#syncState').addEventListener('click', () => { renderConnectionLog(); $('#con
 $('#connectionLogRefresh').addEventListener('click', manualSynchronizeProvider);
 $$('[data-close-connection-log]').forEach(button => button.addEventListener('click', () => $('#connectionLogDialog').close()));
 $('#clearConnectionLog').addEventListener('click', () => { try { localStorage.removeItem(connectionLogKey()); } catch {} lastConnectionLogSignature = ''; renderConnectionLog(); });
-$('#refreshNotifications').addEventListener('click', synchronizeProvider);
+$('#refreshNotifications').addEventListener('click', () => {
+  importantNotificationState.status='idle';
+  void synchronizeProvider();
+  void loadImportantNotificationEvents({force:true});
+});
 $('#reportPendingMetric')?.addEventListener('click', () => handleReportAction('pending'));
 $('#reportPendingMetric')?.addEventListener('keydown', event => {
   if (event.key === 'Enter' || event.key === ' ') {
