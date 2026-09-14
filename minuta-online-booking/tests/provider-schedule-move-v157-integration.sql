@@ -13,7 +13,12 @@ select set_config('v157.created_code',public.provider_book_appointment(
 ),true);
 select set_config('v157.booking',(select id::text from public.bookings
   where booking_code=current_setting('v157.created_code')),true);
-update public.bookings set client_phone='79990000157'
+-- The legacy five-argument fixture helper predates organization scoping.
+-- Complete the synthetic booking so it matches a real organization booking.
+update public.bookings set
+  client_phone='79990000157',
+  organization_id=current_setting('v123.org')::uuid,
+  location_id=current_setting('v123.loc')::uuid
 where id=current_setting('v157.booking')::uuid;
 select set_config('v157.status',(select status from public.bookings where id=current_setting('v157.booking')::uuid),true);
 select set_config('v157.move_request',gen_random_uuid()::text,true);

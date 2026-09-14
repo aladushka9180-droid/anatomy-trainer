@@ -48,7 +48,11 @@ try {
     fixture.service,fixture.date,'10:00','V157 concurrency client','0000000000'
   ])).rows[0].code;
   fixture.booking = (await admin.query('select id,status from public.bookings where booking_code=$1',[code])).rows[0];
-  await admin.query("update public.bookings set client_phone='79990000157' where id=$1",[fixture.booking.id]);
+  // The legacy five-argument fixture helper predates organization scoping.
+  // Complete the synthetic booking so it matches a real organization booking.
+  await admin.query(`update public.bookings
+    set client_phone='79990000157', organization_id=$2, location_id=$3
+    where id=$1`,[fixture.booking.id,fixture.org,fixture.loc]);
   await admin.query('commit');
 
   const first = await connect();
