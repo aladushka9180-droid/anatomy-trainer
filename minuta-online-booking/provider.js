@@ -14229,7 +14229,11 @@ async function loadBookings(options = {}) {
   bookingsSnapshotSavedAt = String(savedSnapshot?.savedAt || new Date().toISOString());
   bookingsSnapshotFromCache = false;
   if (!providerBookingRenderRevision || previousSignature !== bookingDataSignature()) renderBookingData();
-  if (!options.skipTimelineMoveRecovery) queueMicrotask(() => { void recoverPendingTimelineBookingMove(); });
+  if (!options.skipTimelineMoveRecovery) {
+    const recover = () => { void recoverPendingTimelineBookingMove(); };
+    if (typeof queueMicrotask === 'function') queueMicrotask(recover);
+    else if (typeof setTimeout === 'function') setTimeout(recover, 0);
+  }
   return { ok: true };
 }
 
