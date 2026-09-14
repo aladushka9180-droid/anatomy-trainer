@@ -311,7 +311,7 @@
   vertical-align:-1px;
 }
 
-/* v774: compact schedule controls keep the working day above the fold. */
+/* v775: compact schedule controls keep the working day above the fold. */
 @media (max-width:760px) {
   .provider-body .provider-view[data-provider-panel="bookings"] {
     padding-top:6px!important;
@@ -634,7 +634,7 @@
   }
 }
 
-/* v774: narrow schedule polish keeps one clear accent and five unobstructed dates. */
+/* v775: narrow schedule polish keeps one clear accent and five unobstructed dates. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme][data-provider-layout] .schedule-card:has(#dateStrip:not([hidden])) {
     gap:0!important;
@@ -773,7 +773,7 @@
   }
 }
 
-/* v774: list controls grow with their second row instead of covering content. */
+/* v775: list controls grow with their second row instead of covering content. */
 @media (max-width:760px) {
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) {
     grid-template-columns:minmax(0,1fr) auto!important;
@@ -829,7 +829,7 @@
   }
 }
 
-/* v774: records-list controls stay compact without nested framing. */
+/* v775: records-list controls stay compact without nested framing. */
 @media (max-width:760px) {
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) {
     grid-template-columns:minmax(0,1fr) auto!important;
@@ -877,7 +877,7 @@
   }
 }
 
-/* v774: finish the physical-phone spacing without adding new decoration. */
+/* v775: finish the physical-phone spacing without adding new decoration. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.active {
     overflow:hidden;
@@ -922,7 +922,7 @@
   }
 }
 
-/* v774: keep weekly navigation singular and give range content a safe reading inset. */
+/* v775: keep weekly navigation singular and give range content a safe reading inset. */
 @media (max-width:760px) {
   .provider-body .date-navigation:has([data-calendar-view="week"].active) {
     grid-template-columns:minmax(96px,.72fr) minmax(0,1fr)!important;
@@ -965,7 +965,7 @@
   }
 }
 
-/* v774: stable schedule geometry, honest visibility and readable month agenda. */
+/* v775: stable schedule geometry, honest visibility and readable month agenda. */
 .provider-body .new-booking-readiness {
   margin:0;
   padding:10px 12px;
@@ -1005,12 +1005,12 @@
 
   #dashboard[data-active-view="bookings"] .schedule-card:has(.calendar-view-toggle [data-calendar-view="day"].active)
     .schedule-toolbar:not(:has(.booking-filters:not([hidden]))) {
-    grid-template-rows:44px 44px!important;
-    height:112px!important;
-    min-height:112px!important;
-    margin-bottom:0!important;
-    padding:4px 0 8px!important;
-    gap:12px 8px!important;
+    grid-template-rows:44px!important;
+    height:60px!important;
+    min-height:60px!important;
+    margin-bottom:8px!important;
+    padding:4px 0 12px!important;
+    gap:0 8px!important;
   }
 
   #providerBookings.calendar-overview-month .calendar-month-mobile-agenda .calendar-overview-booking {

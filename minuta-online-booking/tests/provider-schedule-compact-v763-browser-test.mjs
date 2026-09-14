@@ -75,7 +75,10 @@ try {
     strip.scrollLeft = Math.max(0, activeRect.left - stripRect.left + strip.scrollLeft - (strip.clientWidth - activeRect.width) / 2);
   });
 
-  const timelineScheduleTops = new Map();
+  const timelineGridTops = new Map();
+  const timelineToolbarTops = new Map();
+  const timelineCopyTops = new Map();
+  const timelineToggleTops = new Map();
   const timelineClientWidths = new Map();
   for (const { width, height } of [{ width:320, height:700 }, { width:360, height:800 }, { width:390, height:844 }, { width:430, height:900 }, { width:760, height:1000 }, { width:1440, height:1000 }]) {
     await page.setViewportSize({ width, height });
@@ -145,12 +148,15 @@ try {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         clientWidth:document.documentElement.clientWidth,
         scheduleTop:rect('#providerBookings').top,
+        timelineTop:rect('.day-timeline').top,
         topbar:rect('.provider-topbar'),
         title:rect('.schedule-view-title'),
         navigation:rect('.date-navigation'),
         strip:stripFrame,
         stripViewport:strip,
         toolbar,
+        toolbarCopy,
+        journalToggle,
         newBooking:rect('#newBookingButton'),
         today:rect('[data-date-today]'),
         picker:rect('.schedule-date-picker'),
@@ -207,7 +213,7 @@ try {
       assert.equal(result.activeDateValue, '2026-09-15', `${width}px fixture selected date changed`);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its accent`);
       assert.ok(result.activeDateMarkerContent === 'none' || result.activeDateMarkerDisplay === 'none', `${width}px selected date regained a second lower marker: ${JSON.stringify(result)}`);
-      assert.ok(result.scheduleTop >= 350 && result.scheduleTop <= 430, `${width}px schedule begins: ${JSON.stringify(result)}`);
+      assert.ok(result.scheduleTop >= 330 && result.scheduleTop <= 430, `${width}px schedule begins: ${JSON.stringify(result)}`);
       assert.ok(result.toolbarContentCenterDelta <= 2, `${width}px day heading and journal toggle are not aligned: ${JSON.stringify(result)}`);
       assert.ok(result.journalGridGap >= 8, `${width}px timeline grid touches the journal toggle: ${JSON.stringify(result)}`);
       assert.ok(Math.abs(result.viewportHeight - result.navBottom) <= 9, `${width}px fixed navigation moved from the bottom`);
@@ -232,7 +238,10 @@ try {
         assert.ok(result.summary.top >= result.newBooking.bottom - 1, `${width}px title summary must use its own full-width row: ${JSON.stringify(result)}`);
         assert.ok(result.summary.right <= result.title.right + 1, `${width}px title summary escapes the title area: ${JSON.stringify(result)}`);
       }
-      timelineScheduleTops.set(width, result.scheduleTop);
+      timelineGridTops.set(width, result.timelineTop);
+      timelineToolbarTops.set(width, result.toolbar.top);
+      timelineCopyTops.set(width, result.toolbarCopy.top);
+      timelineToggleTops.set(width, result.journalToggle.top);
       timelineClientWidths.set(width, result.clientWidth);
     }
     if (output) await page.screenshot({ path:path.join(output, `schedule-compact-${width}.png`), fullPage:false });
@@ -282,7 +291,11 @@ try {
     assert.equal(listResult.filterOuterBorder, '0px', `${width}px duplicate filter frame returned`);
     assert.ok(listResult.filters.top >= listResult.toolbar.top && listResult.filters.bottom <= listResult.toolbar.bottom + 1, `${width}px tabs escape toolbar: ${JSON.stringify(listResult)}`);
     assert.ok(listResult.bookings.top >= listResult.toolbar.bottom - 1, `${width}px list content is covered by controls: ${JSON.stringify(listResult)}`);
-    assert.ok(Math.abs(listResult.bookings.top - timelineScheduleTops.get(width)) <= 1, `${width}px timeline/list content boundary jumps: ${JSON.stringify(listResult)}`);
+    const timelineInsetFromFilters = timelineGridTops.get(width) - listResult.filters.top;
+    assert.ok(timelineInsetFromFilters >= 8 && timelineInsetFromFilters <= 24, `${width}px timeline grid does not begin near list content: ${JSON.stringify({ timelineGridTop:timelineGridTops.get(width), filtersTop:listResult.filters.top, timelineInsetFromFilters })}`);
+    assert.ok(Math.abs(listResult.toolbar.top - timelineToolbarTops.get(width)) <= 1, `${width}px timeline/list toolbar top jumps: ${JSON.stringify(listResult)}`);
+    assert.ok(Math.abs(listResult.copy.top - timelineCopyTops.get(width)) <= 1, `${width}px timeline/list day heading jumps: ${JSON.stringify(listResult)}`);
+    assert.ok(Math.abs(listResult.toggle.top - timelineToggleTops.get(width)) <= 1, `${width}px timeline/list mode toggle jumps: ${JSON.stringify(listResult)}`);
     assert.equal(listResult.clientWidth, timelineClientWidths.get(width), `${width}px scrollbar changes the schedule width`);
     assert.ok(listResult.filterButtons.every(button => button.height >= 44 && button.scrollWidth <= button.clientWidth + 1), `${width}px list tabs are clipped: ${JSON.stringify(listResult)}`);
     if (width >= 390) assert.equal(listResult.navLabelsFit, true, `${width}px mobile navigation labels are clipped: ${JSON.stringify(listResult)}`);
@@ -473,7 +486,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v774 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v775 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
