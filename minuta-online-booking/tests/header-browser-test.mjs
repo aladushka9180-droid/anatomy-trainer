@@ -45,6 +45,7 @@ try{
       });
       failures.push(...errors.map(error=>({theme,layout,width,scale,error})));combinations++;
     }
+    console.log(`Header geometry: ${width}px checked`);
   }
   let menuCombinations=0;
   for(const width of [320,360,390,430,760,1440]){
@@ -94,6 +95,7 @@ try{
       });
       failures.push(...errors.map(error=>({theme,layout,width,scale,error})));menuCombinations++;
     }
+    console.log(`Header tools: ${width}px checked`);
   }
   let appearanceCombinations=0;
   for(const width of [320,390,760,1440]){
@@ -134,6 +136,7 @@ try{
       });
       failures.push(...errors.map(error=>({theme,layout,width,scale,error})));appearanceCombinations++;
     }
+    console.log(`Header appearance: ${width}px checked`);
   }
   await page.evaluate(()=>{document.querySelector('#providerAppearanceMenu').open=false;});
   assert.deepEqual(failures,[]);
