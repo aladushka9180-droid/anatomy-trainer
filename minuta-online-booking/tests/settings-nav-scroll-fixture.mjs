@@ -11,7 +11,8 @@ export async function startSettingsNavFixture(){
   const url=new URL(req.url,'http://localhost');
   if(url.pathname==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">${links}<link rel="stylesheet" href="settings-nav-scroll.css"><body class="provider-body" data-provider-theme="snow-leopard" data-provider-layout="soft"><main data-provider-panel="settings" style="margin:16px">${nav}<p>Проверка вкладок: без данных клиентов</p></main><script src="settings-nav-scroll.js"></script></body>`);return;}
   const name=decodeURIComponent(url.pathname.slice(1));if(name.includes('..'))throw Error();
-  res.setHeader('Content-Type',name.endsWith('.css')?'text/css':name.endsWith('.js')?'text/javascript':'application/octet-stream');res.end(await readFile(path.join(root,name)));
+  const type=name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css':name.endsWith('.js')?'text/javascript':name.endsWith('.svg')?'image/svg+xml':name.endsWith('.png')?'image/png':name.endsWith('.webp')?'image/webp':name.endsWith('.woff2')?'font/woff2':'application/octet-stream';
+  res.setHeader('Content-Type',type);res.end(await readFile(path.join(root,name)));
  }catch{res.writeHead(404).end();}});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  return {server,url:`http://127.0.0.1:${server.address().port}/`};
