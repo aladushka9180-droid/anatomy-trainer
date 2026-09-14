@@ -66,9 +66,12 @@ for (const asset of assets) {
   assert.ok(!lazyScripts.some(script => asset.split('?')[0] === `./${script}`), `${asset} must be runtime-cached`);
   assert.ok(!asset.includes('xlsx-'), 'The XLSX exporter must not block service-worker installation');
 }
+const textAsset = /\.(?:css|html|js|json|svg|webmanifest)$/i;
 const precacheBytes = assets.reduce((total, asset) => {
   const relative = asset.split('?')[0].replace(/^\.\//, '');
-  return total + statSync(resolve(root, relative)).size;
+  const absolute = resolve(root, relative);
+  if (!textAsset.test(relative)) return total + statSync(absolute).size;
+  return total + Buffer.byteLength(readFileSync(absolute, 'utf8').replace(/\r\n/g, '\n'));
 }, 0);
 assert.ok(precacheBytes <= 3.51 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
