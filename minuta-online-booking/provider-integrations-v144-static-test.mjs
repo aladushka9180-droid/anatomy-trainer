@@ -45,7 +45,8 @@ assert.match(transfer, /clientTransferRollbackButton/);
 assert.match(transfer, /downloadProviderTransferExport/);
 assert.match(transfer, /rollback_minuta_provider_transfer_v144/);
 assert.match(worker, /provider-integrations\.css\?v=\d+/);
-assert.match(worker, /integration-management\.js\?v=\d+/);
+assert.doesNotMatch(worker, /integration-management\.js\?v=\d+/,
+  'Server-dependent integration controls must be runtime-cached');
 
 assert.match(styles, /grid-template-columns:\s*repeat\(2/);
 assert.match(styles, /@media \(max-width: 760px\)[\s\S]*grid-template-columns:\s*1fr/);

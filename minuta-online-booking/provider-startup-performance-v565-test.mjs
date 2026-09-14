@@ -60,10 +60,12 @@ for (const script of lazyScripts) {
 
 const assetBlock = worker.match(/const ASSETS = \[([\s\S]*?)\];/)?.[1] || '';
 const assets = [...assetBlock.matchAll(/'([^']+)'/g)].map(match => match[1]);
+const onlineOnlyScripts = ['notification-center.js', 'telegram-auth.js', 'integration-management.js', 'provider-feedback.js'];
 assert.ok(assets.length > 0 && assets.length <= 75, `Unexpected core precache size: ${assets.length}`);
 for (const asset of assets) {
   assert.ok(!asset.startsWith('./help/images/'), 'Help screenshots must be runtime-cached');
   assert.ok(!lazyScripts.some(script => asset.split('?')[0] === `./${script}`), `${asset} must be runtime-cached`);
+  assert.ok(!onlineOnlyScripts.some(script => asset.split('?')[0] === `./${script}`), `${asset} must be runtime-cached`);
   assert.ok(!asset.includes('xlsx-'), 'The XLSX exporter must not block service-worker installation');
 }
 const textAsset = /\.(?:css|html|js|json|svg|webmanifest)$/i;
@@ -84,4 +86,4 @@ assert.match(updates, /const CHECK_INTERVAL_MS = 15 \* 60 \* 1000;/, 'Update int
 assert.ok(!updates.includes("addEventListener('focus'"), 'Focus must not trigger update storms');
 assert.ok(!updates.includes("addEventListener('pageshow'"), 'Pageshow must not trigger update storms');
 
-console.log(`Provider startup performance v786: PASS (${assets.length} core files, ${precacheBytes} bytes)`);
+console.log(`Provider startup performance v788: PASS (${assets.length} core files, ${precacheBytes} bytes)`);
