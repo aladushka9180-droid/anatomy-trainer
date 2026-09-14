@@ -497,16 +497,31 @@
             <div data-contextual-help data-help-label="Как это работает?" data-help-slug="notification-queue" data-help-question="Объясни безопасную ручную отправку сообщений и разницу между отметкой в PrimeTime Pro и подтверждённой доставкой."></div>
             <div class="notification-list" id="notificationList" aria-live="polite"></div>
           </section>
-          <details class="panel unified-notification-panel ux-disclosure" id="unifiedNotificationPanel" hidden>
-            <summary><strong>Настроить каналы доставки</strong><span class="panel-count" id="unifiedNotificationState">Выключен</span></summary>
-            <p>Telegram, email, SMS, MAX и push используют одну очередь, статусы доставки и безопасный повтор. Канал нельзя включить, пока сервер не подтвердит адрес получателя.</p>
+          <section class="panel unified-notification-panel smart-delivery-panel" id="unifiedNotificationPanel" aria-labelledby="smartDeliveryTitle" hidden>
+            <div class="smart-delivery-head"><div><small>Автоматически</small><h3 id="smartDeliveryTitle">Умная доставка</h3><p>Одно событие, один разрешённый маршрут и понятный статус без дублей.</p></div><span class="panel-count" id="unifiedNotificationState">Выключена</span></div>
+            <div class="smart-delivery-tabs" role="tablist" aria-label="Настройки умной доставки">
+              <button class="active" type="button" role="tab" aria-selected="true" data-unified-tab="events">События</button>
+              <button type="button" role="tab" aria-selected="false" data-unified-tab="channels">Каналы</button>
+              <button type="button" role="tab" aria-selected="false" data-unified-tab="deliveries">Доставка</button>
+            </div>
             <div class="resource-inline-error" id="unifiedNotificationUnavailable" hidden><div><strong>Центр каналов временно недоступен</strong><small id="unifiedNotificationUnavailableText"></small></div><button class="secondary-button" id="reloadUnifiedNotifications" type="button">Повторить</button></div>
             <div id="unifiedNotificationWorkspace" hidden>
-              <label class="settings-check"><input id="unifiedNotificationsEnabled" type="checkbox"><span><strong>Включить единую очередь</strong><small>Сначала подключите конкретные каналы. По умолчанию всё выключено.</small></span></label>
-              <div class="unified-notification-channels" id="unifiedNotificationChannels"></div>
-              <details class="resource-audit"><summary><span><small>Последние 100 событий</small><strong>Доставка по каналам</strong></span></summary><div class="organization-audit-list" id="unifiedNotificationDeliveries"></div></details>
+              <section class="smart-delivery-page" role="tabpanel" data-unified-page="events">
+                <label class="settings-check"><input id="unifiedNotificationsEnabled" type="checkbox"><span><strong>Автоматическая доставка</strong><small>Отправка начинается только по подключённым каналам и подтверждённым согласиям.</small></span></label>
+                <div class="smart-delivery-plan-note"><strong>Тарифные ограничения пока не включены</strong><small>Внешняя стоимость SMS и WhatsApp всегда показывается отдельно до активации. Автопокупок и списаний нет.</small></div>
+                <div class="smart-event-groups" id="unifiedNotificationEvents"></div>
+              </section>
+              <section class="smart-delivery-page" role="tabpanel" data-unified-page="channels" hidden>
+                <div class="smart-channel-intro"><strong>Сначала предпочтение клиента, затем разрешённый резерв</strong><small>После подтверждённого успеха цепочка останавливается. Недоступные каналы нельзя включить.</small></div>
+                <div class="unified-notification-channels" id="unifiedNotificationChannels"></div>
+              </section>
+              <section class="smart-delivery-page" role="tabpanel" data-unified-page="deliveries" hidden>
+                <div class="smart-delivery-filters" role="group" aria-label="Фильтр доставок"><button class="active" type="button" data-unified-delivery-filter="attention">Внимание</button><button type="button" data-unified-delivery-filter="transit">В пути</button><button type="button" data-unified-delivery-filter="delivered">Доставлено</button><button type="button" data-unified-delivery-filter="all">Все</button></div>
+                <div class="organization-audit-list smart-delivery-list" id="unifiedNotificationDeliveries"></div>
+              </section>
+              <div class="smart-delivery-savebar"><small id="unifiedNotificationSaveState" role="status" aria-live="polite">Изменений нет</small><button class="primary compact-button" id="saveUnifiedNotifications" type="button" disabled>Сохранить</button></div>
             </div>
-          </details>
+          </section>
           <section class="panel notification-queue-panel" id="automaticNotificationPanel" hidden>
             <div class="notification-toolbar"><div><small>Автоматически</small><h3>Статус автодоставки</h3><p>Технические статусы каналов; ошибки остаются заметными.</p></div><span class="notification-total" id="automaticNotificationCount">Очередь обработана</span></div>
             <div class="notification-list" id="automaticNotificationList" aria-live="polite"></div>

@@ -62,8 +62,11 @@ assert.match(center, /нужна проверка/);
 assert.match(center, /Telegram мог принять сообщение; автоматический повтор отключён/);
 assert.match(center, /item\.status === 'failed' && !state\.deliveryUnknown/);
 assert.match(center, /try \{[\s\S]*db\.rpc\('get_minuta_notification_workspace'[\s\S]*\} catch \(error\) \{/);
-assert.equal((center.match(/rejected = true;/g) || []).length, 3, 'master, channel and retry must handle rejected RPC promises');
-assert.equal((center.match(/finally \{/g) || []).length, 3, 'writes must clear busy state in finally');
+assert.match(center, /async function save\(\)[\s\S]*try \{[\s\S]*set_minuta_notification_channel[\s\S]*set_minuta_notification_master[\s\S]*catch \{/,
+  'one save action must handle rejected master and channel RPC promises');
+assert.match(center, /async function click\(event\)[\s\S]*retry_notification_outbox[\s\S]*catch \{/,
+  'retry must handle rejected RPC promises');
+assert.ok((center.match(/finally \{/g) || []).length >= 2, 'writes must clear busy state in finally');
 
 assert.match(rollback, /v88_rollback_requires_empty_unified_outbox/i);
 assert.match(rollback, /drop table if exists public\.notification_recipient_endpoints/i);

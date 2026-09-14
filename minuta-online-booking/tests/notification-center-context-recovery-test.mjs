@@ -43,7 +43,8 @@ function fixture(handler) {
   const ids = [
     'unifiedNotificationPanel', 'unifiedNotificationUnavailable', 'unifiedNotificationWorkspace',
     'unifiedNotificationUnavailableText', 'unifiedNotificationsEnabled', 'unifiedNotificationState',
-    'unifiedNotificationChannels', 'unifiedNotificationDeliveries', 'reloadUnifiedNotifications'
+    'unifiedNotificationEvents', 'unifiedNotificationChannels', 'unifiedNotificationDeliveries',
+    'unifiedNotificationSaveState', 'saveUnifiedNotifications', 'reloadUnifiedNotifications'
   ];
   const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
   const listeners = new Map();
@@ -174,10 +175,11 @@ await test('foreign mutation acknowledgement is not announced and authoritative 
   await f.controller.setOrganization({ id:'organization-a' });
   f.elements.unifiedNotificationsEnabled.checked = false;
   await f.listeners.get('change')({ target:f.elements.unifiedNotificationsEnabled });
+  await f.listeners.get('click')({ target:{ closest:selector => selector === '#saveUnifiedNotifications' ? {} : null } });
   assert.deepEqual(f.rpcCalls.map(call => call.name), [
     'get_minuta_notification_workspace', 'set_minuta_notification_master', 'get_minuta_notification_workspace'
   ]);
-  assert.deepEqual(f.notifications, ['Сервер не подтвердил изменение центра уведомлений']);
+  assert.deepEqual(f.notifications, ['Не удалось сохранить настройки доставки']);
   assert.equal(f.elements.unifiedNotificationWorkspace.hidden, false);
   assert.equal(f.elements.unifiedNotificationsEnabled.checked, false);
 });
@@ -217,7 +219,7 @@ await test('retry without an exact acknowledgement never reports success', async
   f.controller.bind();
   await f.controller.setOrganization({ id:'organization-a' });
   await f.listeners.get('click')({
-    target:{ closest:() => ({ dataset:{ unifiedRetry:'failed-a' } }) }
+    target:{ closest:selector => selector === '[data-unified-retry]' ? { dataset:{ unifiedRetry:'failed-a' } } : null }
   });
   assert.deepEqual(f.notifications, ['Сервер не подтвердил повтор уведомления']);
 });

@@ -1,7 +1,7 @@
 (function initMinutaNotificationCenter(global) {
   'use strict';
 
-  const CHANNEL_LABELS = { telegram:'Telegram', email:'Email', sms:'SMS', max:'MAX', push:'Push' };
+  const CHANNEL_LABELS = { telegram:'Telegram', max:'MAX', whatsapp:'WhatsApp', sms:'SMS', vk:'VK', email:'Email', push:'Push' };
   const AUDIENCE_LABELS = { provider:'Команде', client:'Клиентам' };
   const STATUS_LABELS = { pending:'в очереди', sending:'передаётся каналу', sent:'передано каналу', failed:'ошибка', cancelled:'отменено' };
   const EVENT_LABELS = {
@@ -9,6 +9,26 @@
     booking_rescheduled:'Запись перенесена', booking_cancelled:'Запись отменена',
     booking_reminder:'Напоминание', booking_confirmation_request:'Запрос подтверждения записи'
   };
+  const EVENT_GROUPS = [
+    { title:'При записи', items:[
+      { key:'booking_created', setting:'booking_created_enabled', title:'Новая запись', timing:'Сразу после создания', template:'Данные записи и контакты клиента', preview:'Новая запись: имя, услуга, дата и время.' },
+      { key:'booking_confirmed', setting:'booking_confirmed_enabled', title:'Подтверждение', timing:'Сразу после подтверждения', template:'Шаблон подтверждения', preview:'Запись подтверждена. Клиент видит услугу, дату и время.' }
+    ] },
+    { title:'Перед визитом', items:[
+      { key:'booking_confirmation_request', setting:'booking_confirmation_request_enabled', title:'Запрос подтверждения', timingSetting:'confirmation_request_minutes_before', template:'Запрос подтверждения', preview:'Пожалуйста, подтвердите, что запись остаётся в силе.' },
+      { key:'booking_reminder', setting:'booking_reminder_enabled', title:'Напоминание', timingSetting:'reminder_minutes_before', template:'Шаблон напоминания', preview:'Напоминание о предстоящем визите.' },
+      { key:'booking_rescheduled', setting:'booking_rescheduled_enabled', title:'Перенос', timing:'Сразу после изменения', template:'Новые дата и время', preview:'Дата или время записи изменены.' },
+      { key:'booking_cancelled', setting:'booking_cancelled_enabled', title:'Отмена', timing:'Сразу после отмены', template:'Шаблон отмены', preview:'Запись отменена. Повторное приглашение автоматически не отправляется.' }
+    ] },
+    { title:'После визита', items:[
+      { key:'review_request', title:'Просьба об отзыве', locked:true, badge:'Доступно в Pro', reason:'Планировщик и отдельное согласие клиента ещё не подключены.', timing:'После завершённого визита', template:'Будущий шаблон отзыва', preview:'Сейчас сообщения не создаются.' }
+    ] },
+    { title:'Возвращаемость', items:[
+      { key:'repeat_visit', title:'Повторный визит', locked:true, badge:'Доступно в Pro', reason:'Маркетинговые события выключены до явного согласия клиента.', timing:'Только по настроенному интервалу', template:'Будущий шаблон возвращения', preview:'Сейчас сообщения не создаются.' },
+      { key:'birthday', title:'День рождения', locked:true, badge:'Доступно в Pro', reason:'Нужны дата рождения и отдельное согласие на поздравления.', timing:'По расписанию и часовому поясу', template:'Будущий шаблон поздравления', preview:'Сейчас сообщения не создаются.' }
+    ] }
+  ];
+  const CHANNEL_CATALOG = ['telegram','max','whatsapp','sms','vk','email','push'];
   const CHANNELS = new Set(Object.keys(CHANNEL_LABELS));
   const AUDIENCES = new Set(Object.keys(AUDIENCE_LABELS));
   const OUTBOX_STATUSES = new Set(Object.keys(STATUS_LABELS));
@@ -131,11 +151,29 @@
     let busy = false;
     let revision = 0;
     let unavailableMessage = '';
+    let activeTab = 'events';
+    let deliveryFilter = 'attention';
+    let draftMaster = false;
+    let draftChannels = new Map();
+    let dirty = false;
 
     function missing(error) {
       return /PGRST202|42883|get_minuta_notification_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
     }
     function manager() { return ['owner', 'admin'].includes(String(payload?.current_role || '')); }
+    function channelKey(audience, channel) { return `${audience}:${channel}`; }
+    function resetDraft() {
+      draftMaster = Boolean(payload?.settings?.enabled);
+      draftChannels = new Map((payload?.channels || []).map(item => [channelKey(item.audience, item.channel), Boolean(item.enabled)]));
+      dirty = false;
+    }
+    function setDirty(value = true) {
+      dirty = value;
+      const save = $('#saveUnifiedNotifications');
+      const state = $('#unifiedNotificationSaveState');
+      if (save) save.disabled = busy || !manager() || !dirty;
+      if (state) state.textContent = dirty ? 'Есть несохранённые изменения' : 'Изменений нет';
+    }
     function endpointConfigured(audience, channel) {
       return (payload?.endpoints || []).some((item) => item.audience === audience && item.channel === channel && item.active && item.configured);
     }
@@ -157,15 +195,60 @@
       };
       return { recipient:true, gateway:true, ready:true, note:item.enabled ? 'Подключён и включён' : 'Подключён · выключён' };
     }
+    function channelCost(channel) {
+      if (channel === 'sms') return 'Стоимость каждого SMS задаёт выбранный провайдер и подтверждает до активации.';
+      if (channel === 'whatsapp') return 'Требуются WhatsApp Cloud API, бизнес-аккаунт, согласие и одобренные шаблоны; стоимость внешняя.';
+      return '';
+    }
+    function unsupportedChannel(channel) {
+      if (channel === 'whatsapp') return 'Официальный Cloud API ещё не подключён к серверной очереди.';
+      if (channel === 'vk') return 'Нужны сообщество VK, разрешение клиента и проверка webhook.';
+      return '';
+    }
+    function channelRows(channel) {
+      return (payload?.channels || []).filter(item => item.channel === channel);
+    }
+    function channelSummary(channel) {
+      const unsupported = unsupportedChannel(channel);
+      if (unsupported) return { label:'Недоступен', tone:'unavailable', detail:unsupported };
+      const rows = channelRows(channel);
+      if (!rows.length) return { label:'Недоступен', tone:'unavailable', detail:'Канал не поддерживается текущим серверным контрактом.' };
+      const states = rows.map(channelState);
+      if (states.some(state => state.ready)) return {
+        label:'Подключён', tone:'connected',
+        detail:states.every(state => state.ready) ? 'Сервер и получатели подтверждены.' : 'Подключён не для всех получателей.'
+      };
+      const detail = states.find(state => state.note)?.note || 'Требуется подключение.';
+      return { label:'Нужно подключить', tone:'setup', detail };
+    }
+    function enabledChannelNames() {
+      const names = new Set();
+      for (const item of payload?.channels || []) {
+        const enabled = draftChannels.has(channelKey(item.audience, item.channel))
+          ? draftChannels.get(channelKey(item.audience, item.channel)) : item.enabled;
+        if (enabled && channelState(item).ready) names.add(CHANNEL_LABELS[item.channel] || item.channel);
+      }
+      return [...names];
+    }
+    function eventTiming(item) {
+      if (item.timing) return item.timing;
+      const minutes = Number(payload?.settings?.[item.timingSetting]) || 0;
+      if (!minutes) return 'По серверному расписанию';
+      if (minutes % 1440 === 0) return `За ${minutes / 1440} дн. до визита`;
+      if (minutes % 60 === 0) return `За ${minutes / 60} ч. до визита`;
+      return `За ${minutes} мин. до визита`;
+    }
     function setBusy(value) {
       busy = value;
       $('#unifiedNotificationPanel')?.querySelectorAll('button,input').forEach((item) => {
         item.disabled = value || item.dataset.requiresEndpoint === 'true' || (item.dataset.managerOnly === 'true' && !manager());
       });
+      setDirty(dirty);
     }
     function reset() {
       revision += 1;
       organization = null; payload = null; available = null; deliveryHealth = null; currentUserId = ''; busy = false; unavailableMessage = '';
+      activeTab = 'events'; deliveryFilter = 'attention'; draftMaster = false; draftChannels = new Map(); dirty = false;
       if ($('#unifiedNotificationPanel')) $('#unifiedNotificationPanel').hidden = true;
     }
     function current(requestRevision, organizationId) {
@@ -239,12 +322,14 @@
       available = true;
       unavailableMessage = '';
       payload = normalized;
+      resetDraft();
       render();
     }
     async function setOrganization(next) {
       revision += 1;
       organization = next?.id ? next : null;
       payload = null; available = null; deliveryHealth = null; currentUserId = ''; busy = false; unavailableMessage = '';
+      activeTab = 'events'; deliveryFilter = 'attention'; draftMaster = false; draftChannels = new Map(); dirty = false;
       if (!organization) { reset(); return; }
       render();
       await load();
@@ -261,24 +346,58 @@
         global.refreshSectionNavigation?.();
         return;
       }
-      const enabled = Boolean(payload?.settings?.enabled);
+      $('#unifiedNotificationPanel').querySelectorAll('[data-unified-tab]').forEach(button => {
+        const selected = button.dataset.unifiedTab === activeTab;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-selected', String(selected));
+      });
+      $('#unifiedNotificationPanel').querySelectorAll('[data-unified-page]').forEach(page => {
+        page.hidden = page.dataset.unifiedPage !== activeTab;
+      });
+      const enabled = draftMaster;
       $('#unifiedNotificationsEnabled').checked = enabled;
       $('#unifiedNotificationsEnabled').dataset.managerOnly = 'true';
       $('#unifiedNotificationsEnabled').disabled = !manager() || busy;
       const channels = Array.isArray(payload.channels) ? payload.channels : [];
       const readyChannels = channels.filter(item => channelState(item).ready);
-      const activeChannels = readyChannels.filter(item => item.enabled);
+      const activeChannels = readyChannels.filter(item => draftChannels.get(channelKey(item.audience, item.channel)) === true);
       $('#unifiedNotificationState').textContent = enabled
-        ? (activeChannels.length ? `Включено: ${activeChannels.length}` : 'Нет включённых каналов')
-        : 'Выключен';
-      $('#unifiedNotificationChannels').innerHTML = channels.map((item) => {
-        const state = channelState(item);
-        const canToggle = manager() && state.ready;
-        return `<label class="unified-channel-card"><input type="checkbox" data-manager-only="true" data-unified-audience="${escapeHtml(item.audience)}" data-unified-channel="${escapeHtml(item.channel)}" ${item.enabled ? 'checked' : ''} ${canToggle ? '' : 'disabled data-requires-endpoint="true"'}><span><strong>${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(state.note)}</small></span></label>`;
+        ? (activeChannels.length ? `Работает · ${activeChannels.length}` : 'Нужен канал')
+        : 'Выключена';
+      const routeNames = enabledChannelNames();
+      $('#unifiedNotificationEvents').innerHTML = EVENT_GROUPS.map(group => `<section class="smart-event-group"><h4>${escapeHtml(group.title)}</h4><div>${group.items.map(item => {
+        const eventEnabled = item.locked ? false : Boolean(payload?.settings?.[item.setting]);
+        const status = item.locked ? item.badge : (eventEnabled ? 'Включено' : 'Выключено');
+        const recipient = item.locked ? 'Только после отдельного согласия клиента' : 'Клиентам и команде по разрешённым правилам';
+        const route = item.locked ? 'Нет активного маршрута' : (routeNames.length ? routeNames.join(' → ') : 'Подключённый канал не выбран');
+        return `<details class="smart-event-row${item.locked ? ' is-locked' : ''}"><summary><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.locked ? item.reason : eventTiming(item))}</small></span><em>${escapeHtml(status)}</em><b aria-hidden="true">›</b></summary><div class="smart-event-detail"><dl><div><dt>Получатель</dt><dd>${escapeHtml(recipient)}</dd></div><div><dt>Когда</dt><dd>${escapeHtml(eventTiming(item))}</dd></div><div><dt>Каналы</dt><dd>${escapeHtml(route)}</dd></div><div><dt>Шаблон</dt><dd>${escapeHtml(item.template)}</dd></div></dl><p><small>Предпросмотр</small>${escapeHtml(item.preview)}</p></div></details>`;
+      }).join('')}</div></section>`).join('');
+      $('#unifiedNotificationChannels').innerHTML = CHANNEL_CATALOG.map(channel => {
+        const summary = channelSummary(channel);
+        const rows = channelRows(channel);
+        const controls = rows.map(item => {
+          const state = channelState(item);
+          const canToggle = manager() && state.ready;
+          const checked = draftChannels.get(channelKey(item.audience, item.channel)) === true;
+          return `<label class="smart-channel-toggle"><input type="checkbox" data-manager-only="true" data-unified-audience="${escapeHtml(item.audience)}" data-unified-channel="${escapeHtml(item.channel)}" ${checked ? 'checked' : ''} ${canToggle ? '' : 'disabled data-requires-endpoint="true"'}><span><strong>${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(state.note)}</small></span></label>`;
+        }).join('');
+        const cost = channelCost(channel);
+        return `<article class="smart-channel-row" data-channel-state="${escapeHtml(summary.tone)}"><div class="smart-channel-title"><span><strong>${escapeHtml(CHANNEL_LABELS[channel] || channel)}</strong><small>${escapeHtml(summary.detail)}</small></span><em>${escapeHtml(summary.label)}</em></div>${controls ? `<div class="smart-channel-controls">${controls}</div>` : ''}${cost ? `<p>${escapeHtml(cost)}</p>` : ''}</article>`;
       }).join('');
       const outbox = Array.isArray(payload.outbox) ? payload.outbox : [];
       const outboxById = new Map(outbox.map(item => [String(item.id || ''), item]));
-      $('#unifiedNotificationDeliveries').innerHTML = outbox.length ? outbox.map((item) => {
+      $('#unifiedNotificationPanel').querySelectorAll('[data-unified-delivery-filter]').forEach(button => {
+        const selected = button.dataset.unifiedDeliveryFilter === deliveryFilter;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-pressed', String(selected));
+      });
+      const filteredOutbox = outbox.filter(item => {
+        if (deliveryFilter === 'all') return true;
+        if (deliveryFilter === 'delivered') return Boolean(item.delivered_at);
+        if (deliveryFilter === 'transit') return !item.delivered_at && ['pending','sending','sent'].includes(item.status);
+        return item.status === 'failed' || item.status === 'cancelled' || item.last_error_code === 'telegram_delivery_unknown';
+      });
+      $('#unifiedNotificationDeliveries').innerHTML = filteredOutbox.length ? filteredOutbox.map((item) => {
         const state = deliveryStatus(item);
         const context = item.context || {};
         const appointment = [context.client_name, context.service_name, context.booking_date, String(context.booking_time || '').slice(0,5)].filter(Boolean).join(' · ');
@@ -296,65 +415,78 @@
         const retry = item.status === 'failed' && !state.deliveryUnknown
           ? `<button class="secondary-button" style="min-height:44px" type="button" data-unified-retry="${escapeHtml(item.id)}">Повторить</button>`
           : '';
-        return `<article class="organization-audit-data-row"><div><strong>${escapeHtml(EVENT_LABELS[item.kind] || item.kind)} · ${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(details)}${escapeHtml(error)}</small></div><span><em>${escapeHtml(state.label)}</em>${retry}</span></article>`;
+        return `<article class="organization-audit-data-row smart-delivery-row"><div><strong>${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(EVENT_LABELS[item.kind] || item.kind)}</strong><small>${escapeHtml(details)}${escapeHtml(error)}</small></div><span><em>${escapeHtml(state.label)}</em>${retry}</span></article>`;
       }).join('')
-        : '<div class="provider-empty compact-empty"><strong>Единая очередь пока пуста</strong><small>Сообщения появятся после подключения хотя бы одного канала.</small></div>';
+        : `<div class="provider-empty compact-empty"><strong>${deliveryFilter === 'attention' ? 'Ошибок, требующих внимания, нет' : 'В этой группе пока пусто'}</strong><small>Здесь показываются только подтверждённые сервером попытки доставки.</small></div>`;
       setBusy(busy);
+      setDirty(dirty);
       global.refreshSectionNavigation?.();
     }
-    async function change(event) {
-      if (!organization || !manager() || busy || !requireWrites()) return;
-      const organizationId = organization.id;
-      const operationRevision = revision;
+    function change(event) {
+      if (!organization || !manager() || busy) return;
       if (event.target.id === 'unifiedNotificationsEnabled') {
-        setBusy(true);
-        const enabled = event.target.checked;
-        let result = null;
-        let rejected = false;
-        try {
-          result = await db.rpc('set_minuta_notification_master', { p_organization:organizationId, p_enabled:enabled });
-        } catch {
-          rejected = true;
-        } finally {
-          if (current(operationRevision, organizationId)) setBusy(false);
-        }
-        if (!current(operationRevision, organizationId)) return;
-        if (rejected || result?.error) { notify('Не удалось изменить центр уведомлений'); await load(); return; }
-        const normalized = normalizeWorkspace(result?.data, organizationId, currentUserId);
-        if (!normalized) { notify('Сервер не подтвердил изменение центра уведомлений'); await load(); return; }
-        payload = normalized;
+        draftMaster = event.target.checked;
+        setDirty();
         render();
-        notify(enabled ? 'Единый центр уведомлений включён' : 'Единый центр уведомлений выключен');
         return;
       }
       if (!event.target.matches('[data-unified-channel]')) return;
-      setBusy(true);
       const audience = event.target.dataset.unifiedAudience;
       const channel = event.target.dataset.unifiedChannel;
-      const enabled = event.target.checked;
-      let result = null;
-      let rejected = false;
+      draftChannels.set(channelKey(audience, channel), event.target.checked);
+      setDirty();
+      render();
+    }
+    async function save() {
+      if (!organization || !manager() || busy || !dirty || !requireWrites()) return;
+      const organizationId = organization.id;
+      const operationRevision = revision;
+      const changedChannels = (payload?.channels || []).filter(item =>
+        Boolean(item.enabled) !== Boolean(draftChannels.get(channelKey(item.audience, item.channel))));
+      const masterChanged = Boolean(payload?.settings?.enabled) !== draftMaster;
+      let normalized = payload;
+      let saved = 0;
+      setBusy(true);
       try {
-        result = await db.rpc('set_minuta_notification_channel', {
-          p_organization:organizationId,
-          p_audience:audience,
-          p_channel:channel,
-          p_enabled:enabled
-        });
+        for (const item of changedChannels) {
+          const result = await db.rpc('set_minuta_notification_channel', {
+            p_organization:organizationId,
+            p_audience:item.audience,
+            p_channel:item.channel,
+            p_enabled:Boolean(draftChannels.get(channelKey(item.audience, item.channel)))
+          });
+          if (result?.error) throw result.error;
+          normalized = normalizeWorkspace(result?.data, organizationId, currentUserId);
+          if (!normalized) throw new Error('notification_channel_ack_invalid');
+          saved += 1;
+        }
+        if (masterChanged) {
+          const result = await db.rpc('set_minuta_notification_master', { p_organization:organizationId, p_enabled:draftMaster });
+          if (result?.error) throw result.error;
+          normalized = normalizeWorkspace(result?.data, organizationId, currentUserId);
+          if (!normalized) throw new Error('notification_master_ack_invalid');
+          saved += 1;
+        }
       } catch {
-        rejected = true;
+        if (!current(operationRevision, organizationId)) return;
+        notify(saved ? 'Часть настроек не сохранена. Сверяем состояние.' : 'Не удалось сохранить настройки доставки');
+        await load();
+        return;
       } finally {
         if (current(operationRevision, organizationId)) setBusy(false);
       }
       if (!current(operationRevision, organizationId)) return;
-      if (rejected || result?.error) { notify('Не удалось изменить канал'); await load(); return; }
-      const normalized = normalizeWorkspace(result?.data, organizationId, currentUserId);
-      if (!normalized) { notify('Сервер не подтвердил изменение канала'); await load(); return; }
       payload = normalized;
+      resetDraft();
       render();
-      notify('Настройка канала сохранена');
+      notify(saved ? 'Настройки доставки сохранены' : 'Изменений нет');
     }
     async function click(event) {
+      const tab = event.target.closest('[data-unified-tab]');
+      if (tab) { activeTab = tab.dataset.unifiedTab; render(); return; }
+      const filter = event.target.closest('[data-unified-delivery-filter]');
+      if (filter) { deliveryFilter = filter.dataset.unifiedDeliveryFilter; render(); return; }
+      if (event.target.closest('#saveUnifiedNotifications')) { await save(); return; }
       const retry = event.target.closest('[data-unified-retry]');
       if (!retry || !organization || busy || !requireWrites()) return;
       const organizationId = organization.id;
