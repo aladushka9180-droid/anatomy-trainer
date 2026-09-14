@@ -29,9 +29,9 @@ assert.match(css, /background-size:cover/);
 assert.match(css, /max-width:760px[\s\S]*provider-cobalt-forge-mobile-v3\.webp/);
 assert.match(css, /max-width:760px[\s\S]*provider-petrol-steel-mobile-v2\.webp/);
 assert.match(css, /prefers-reduced-data:reduce/);
-assert.match(html, /provider-theme-backgrounds-tema1\.css\?v=794/);
+assert.match(html, /provider-theme-backgrounds-tema1\.css\?v=795/);
 assert.doesNotMatch(html, /provider-theme-metal-backgrounds\.css/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v794`/);
-assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=794/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v795`/);
+assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=795/);
 
-console.log('Provider metal backgrounds v794: PASS');
+console.log('Provider metal backgrounds v795: PASS');
