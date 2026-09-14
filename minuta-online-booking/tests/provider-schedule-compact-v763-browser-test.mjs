@@ -261,6 +261,11 @@ try {
       timelineToggleTops.set(width, result.journalToggle.top);
       timelineClientWidths.set(width, result.clientWidth);
     }
+    if (width > 760) {
+      assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its solid accent`);
+      assert.equal(result.quietTodayBackground, 'rgba(0, 0, 0, 0)', `${width}px Today date competes with the selected date`);
+      assert.notEqual(result.quietTodayShadow, 'none', `${width}px Today date lost its secondary outline`);
+    }
     if (output) await page.screenshot({ path:path.join(output, `schedule-compact-${width}.png`), fullPage:false });
   }
 
@@ -503,7 +508,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v776 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v777 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

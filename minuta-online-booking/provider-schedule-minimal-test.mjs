@@ -34,15 +34,15 @@ assert.match(styles, /timeline-booking-client[\s\S]*provider-booking-note-full[\
 assert.match(styles, /data-provider-theme\][\s\S]*timeline-booking\.status-block[\s\S]*var\(--schedule-break-surface-weight\)[\s\S]*background-image:none!important;[\s\S]*color:color-mix\(in srgb,var\(--theme-muted\) 72%,var\(--theme-ink\)\)!important;/s);
 assert.match(styles, /data-provider-theme\][\s\S]*timeline-booking\.status-block[\s\S]*timeline-booking-copy>strong::before[\s\S]*linear-gradient\(90deg,currentColor/s);
 assert.match(styles, /#providerBookings\.calendar-overview-month \.calendar-overview-booking\.status-block[\s\S]*var\(--schedule-break-surface-weight\)[\s\S]*box-shadow:none!important;/s);
-assert.match(styles, /v776: compact schedule controls[\s\S]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)[\s\S]*min-height:44px!important[\s\S]*calc\(\(100% - 24px\) \/ 5\)[\s\S]*grid-template-columns:44px 44px/s);
-assert.match(styles, /v776: narrow schedule polish[\s\S]*grid-template-columns:44px minmax\(0,1fr\) 44px!important[\s\S]*calc\(\(100% - 16px\) \/ 5\)!important[\s\S]*position:static!important/s);
-assert.match(styles, /v776: records-list controls stay compact without nested framing[\s\S]*grid-template-rows:auto auto!important[\s\S]*grid-row:2!important[\s\S]*border:0!important/s);
+assert.match(styles, /v777: compact schedule controls[\s\S]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)[\s\S]*min-height:44px!important[\s\S]*calc\(\(100% - 24px\) \/ 5\)[\s\S]*grid-template-columns:44px 44px/s);
+assert.match(styles, /v777: narrow schedule polish[\s\S]*grid-template-columns:44px minmax\(0,1fr\) 44px!important[\s\S]*calc\(\(100% - 16px\) \/ 5\)!important[\s\S]*position:static!important/s);
+assert.match(styles, /v777: records-list controls stay compact without nested framing[\s\S]*grid-template-rows:auto auto!important[\s\S]*grid-row:2!important[\s\S]*border:0!important/s);
 assert.match(styles, /grid-template-rows:10px 22px 10px!important[\s\S]*line-height:10px!important[\s\S]*height:52px!important/s);
 assert.match(styles, /is-today:not\(\.active\)[\s\S]*background:transparent!important[\s\S]*26%,transparent/s);
 assert.match(styles, /date-strip-shift[\s\S]*linear-gradient\(90deg[\s\S]*var\(--theme-ink\) 66%,transparent[\s\S]*width:14px!important[\s\S]*linear-gradient\(270deg/s);
 assert.match(styles, /@media \(max-width:430px\)[\s\S]*date-strip-frame>\.date-strip>button strong[\s\S]*font-size:17px!important/s);
 assert.match(styles, /@media \(max-width:430px\)[\s\S]*\.schedule-title-line\s*\{[^}]*display:contents!important;[\s\S]*\.dashboard-summary\s*\{[^}]*grid-column:1\/-1!important;[^}]*width:100%!important;/s);
-assert.match(styles, /v776: list controls grow[\s\S]*:has\(\.booking-filters:not\(\[hidden\]\)\)[\s\S]*height:auto!important[\s\S]*\.schedule-controls\s*\{[^}]*display:contents!important;[\s\S]*\.booking-filters\s*\{[^}]*grid-row:2!important;/s);
+assert.match(styles, /v777: list controls grow[\s\S]*:has\(\.booking-filters:not\(\[hidden\]\)\)[\s\S]*height:auto!important[\s\S]*\.schedule-controls\s*\{[^}]*display:contents!important;[\s\S]*\.booking-filters\s*\{[^}]*grid-row:2!important;/s);
 assert.match(styles, /--provider-mobile-nav-clearance:max\(112px,calc\(96px \+ env\(safe-area-inset-bottom,0px\)\)\)[\s\S]*padding-bottom:var\(--provider-mobile-nav-clearance\)!important;/s);
 assert.match(script, /const swipeSurface = event\.target\.closest\('#providerBookings'\)/);
 assert.match(script, /if \(dateShift\) shiftScheduleDate\(Number\(dateShift\.dataset\.dateShift\)\)/);
@@ -50,7 +50,7 @@ assert.match(script, /activeRect\.left - stripRect\.left \+ dateStrip\.scrollLef
 assert.match(script, /todayButton\.classList\.toggle\('is-current', current\)[\s\S]*setAttribute\('aria-pressed', String\(current\)\)/);
 assert.match(script, /function updateJournalModeButtons\(\)[\s\S]*modeToggle\.hidden = Boolean\(teamCalendarController\?\.isTeamMode\) \|\| calendarView !== 'day';/);
 assert.match(script, /function setTeamCalendarMode\(active, options = \{\}\)[\s\S]*modeToggle\.hidden = teamMode \|\| calendarView !== 'day';/);
-assert.match(styles, /v776: stable schedule geometry[\s\S]*scrollbar-gutter:stable;[\s\S]*overflow-y:scroll;[\s\S]*\.journal-mode-toggle\[hidden\][\s\S]*display:none!important;[\s\S]*grid-template-rows:44px!important;[\s\S]*height:60px!important;[\s\S]*calendar-month-mobile-agenda[\s\S]*padding:10px!important;[\s\S]*padding-right:56px;/s);
+assert.match(styles, /v777: stable schedule geometry[\s\S]*scrollbar-gutter:stable;[\s\S]*overflow-y:scroll;[\s\S]*\.journal-mode-toggle\[hidden\][\s\S]*display:none!important;[\s\S]*grid-template-rows:44px!important;[\s\S]*height:60px!important;[\s\S]*calendar-month-mobile-agenda[\s\S]*padding:10px!important;[\s\S]*padding-right:56px;/s);
 assert.match(refinements, /#providerBookings\.calendar-overview-month > \.calendar-overview-grid \.calendar-overview-booking \{[^}]*grid-template-columns:36px minmax\(0,1fr\);/s);
 assert.doesNotMatch(refinements, /@media\(max-width:760px\)[\s\S]*#providerBookings\.calendar-overview-month \.calendar-overview-booking \{[^}]*padding:3px 1px;/s);
 assert.match(script, /const bookingFormLauncherSelector = '#newBookingButton, #mobileNewBookingButton, \[data-create-empty-booking\]';/);
