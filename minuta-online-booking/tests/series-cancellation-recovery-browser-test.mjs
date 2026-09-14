@@ -43,13 +43,20 @@ const revisionDeclaration = ['bookingSeriesCancellationRevision', 'bookingEditor
     assert.ok(declaration, `Actual lifecycle declaration: ${name}`);
     return declaration.replace(/^let /, 'var ');
   }).join('\n');
+const bookingFormLauncherSelector = source.match(
+  /^const bookingFormLauncherSelector = .*;$/m,
+)?.[0];
+assert.ok(
+  bookingFormLauncherSelector,
+  'Production booking form launcher selector must be present',
+);
 const writeSelectors = source.match(/^const writeSelectors = \[[\s\S]*?^\];/m)?.[0];
 assert.ok(writeSelectors, 'Production write selectors must be present');
 const orgStart = source.indexOf('onActiveOrganizationChange: organization => {');
 const orgEnd = source.indexOf('\n  }\n});', orgStart);
 assert.ok(orgStart >= 0 && orgEnd > orgStart, 'Production organization callback boundary must be present');
 const orgBody = source.slice(source.indexOf('{', orgStart) + 1, orgEnd);
-const loader = `${writeSelectors}\n${functions.map(declaration).join('\n')}\n${click}\n${escape}\n${reset}`;
+const loader = `${bookingFormLauncherSelector}\n${writeSelectors}\n${functions.map(declaration).join('\n')}\n${click}\n${escape}\n${reset}`;
 const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 let browser;
