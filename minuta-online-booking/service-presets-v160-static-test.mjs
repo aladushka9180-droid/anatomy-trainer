@@ -38,6 +38,7 @@ assert.match(migration, /preset\.catalog_version=p_catalog_version[\s\S]*preset\
 assert.match(migration, /minuta_service_preset_requests_v160[\s\S]*primary key\(performer_id,request_id\)/);
 assert.match(migration, /extensions\.digest\([\s\S]*'sha256'/);
 assert.match(migration, /service-preset-request:[^\n]+160/);
+assert.match(migration, /service-preset-state[^\n]+160/);
 assert.match(migration, /service_preset_request_conflict/);
 assert.match(migration, /return v_existing_request\.result\|\|jsonb_build_object\('replayed',true\)/);
 assert.match(migration, /minuta_normalize_service_name_v160[\s\S]*normalize\(coalesce\(value,''\),NFKC\)[\s\S]*\[\[:space:\]\]\+/);

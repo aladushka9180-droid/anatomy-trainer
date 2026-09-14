@@ -10,6 +10,7 @@
 .onboarding-icon-button, .onboarding-later, .onboarding-text-button { border: 0; background: transparent; color: #ad6649; font: inherit; font-weight: 800; cursor: pointer; }
 .onboarding-icon-button { width: 44px; height: 44px; border: 1px solid #dfcfc2; border-radius: 50%; font-size: 24px; }
 .onboarding-later { justify-self: end; padding: 12px; }
+.onboarding-later { min-height:44px; }
 .onboarding-progress { height: 3px; background: #eadfd5; }
 .onboarding-progress i { display: block; width: var(--progress); height: 100%; background: #b66a4a; transition: width .35s ease; }
 .onboarding-content { width: min(100% - 40px, 1040px); margin: 0 auto; padding: clamp(42px, 7vh, 86px) 0 40px; }
@@ -35,6 +36,7 @@
 .onboarding-chips label, .onboarding-days label { cursor: pointer; }
 .onboarding-chips span { display: block; padding: 13px 18px; border: 1px solid #dfcfc2; border-radius: 999px; background: rgba(255,255,255,.72); font-weight: 800; }
 .onboarding-chips .is-selected span { color: white; border-color: #b66a4a; background: #b66a4a; }
+.onboarding-choice:focus-within, .onboarding-chips label:focus-within, .onboarding-days label:focus-within { outline:2px solid #b66a4a; outline-offset:3px; }
 .onboarding-service-list { display: grid; gap: 12px; }
 .onboarding-service { display: grid; grid-template-columns: 46px minmax(220px, 1fr) 150px 120px; align-items: end; gap: 14px; padding: 18px; border: 1px solid #dfcfc2; border-radius: 22px; background: rgba(255,255,255,.66); opacity: .66; }
 .onboarding-service.is-selected { opacity: 1; border-color: #c99178; }
@@ -77,6 +79,7 @@
 .onboarding-error { margin: 0 auto 0 0; color: #a33c32; font-weight: 800; }
 .onboarding-link-note { margin:18px 0 0; font-size:14px; line-height:1.5; color:#745f54; }
 @media (max-width: 720px) {
+  .provider-onboarding { padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); box-sizing:border-box; }
   .onboarding-topbar { min-height: 64px; grid-template-columns: 44px 1fr auto; padding: 10px 16px; }
   .onboarding-topbar > span { text-align: center; font-size: 10px; }
   .onboarding-later { padding: 8px 0; font-size: 12px; }

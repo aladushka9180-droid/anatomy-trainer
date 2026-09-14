@@ -415,6 +415,9 @@ begin
     'catalog_version',p_catalog_version,'locale',v_locale,
     'professions',to_jsonb(v_professions),'services',v_validated
   )::text,'UTF8'),'sha256'),'hex');
+  -- Serialize all preset state changes for one provider, even when different
+  -- request IDs arrive concurrently from separate tabs.
+  perform pg_advisory_xact_lock(hashtextextended(v_uid::text||':service-preset-state',160));
   perform pg_advisory_xact_lock(hashtextextended(v_uid::text||':service-preset-request:'||p_request::text,160));
   select * into v_existing_request from public.minuta_service_preset_requests_v160 request
   where request.performer_id=v_uid and request.request_id=p_request for update;

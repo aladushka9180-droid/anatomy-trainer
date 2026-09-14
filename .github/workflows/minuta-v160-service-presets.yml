@@ -1,0 +1,195 @@
+name: Minuta v160 service presets
+run-name: Minuta v160 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v160
+        required: true
+        default: test-v160
+        type: choice
+        options: [test-v160, validate-production-v160, apply-production-v160, observe-production-v160]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful isolated v160 test run ID, required: false, default: "", type: string }
+      validation_run_id: { description: Successful read-only v160 validation run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter BACKUP_VERIFIED for production apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency:
+  group: "${{ inputs.phase == 'test-v160' && 'minuta-test-database' || 'minuta-production-database' }}"
+  cancel-in-progress: false
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact main commit and required files
+        env:
+          SHA: "${{ inputs.commit_sha }}"
+          PHASE: "${{ inputs.phase }}"
+          CONFIRMATION: "${{ inputs.confirmation }}"
+          GH_TOKEN: "${{ github.token }}"
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            test-v160|validate-production-v160|observe-production-v160) ;;
+            apply-production-v160) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            *) exit 1 ;;
+          esac
+          for file in \
+            minuta-online-booking/supabase-migration-v160.sql \
+            minuta-online-booking/supabase-migration-v160-rollback.sql \
+            minuta-online-booking/tests/service-presets-v160-integration.sql \
+            minuta-online-booking/service-presets-v160-static-test.mjs; do test -s "$file"; done
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: node minuta-online-booking/service-presets-v160-static-test.mjs && node minuta-online-booking/service-presets-ui-static-test.mjs
+      - run: node --check minuta-online-booking/provider.js && node --check minuta-online-booking/onboarding.js && node --check minuta-online-booking/service-presets.js
+
+  test-v160:
+    if: inputs.phase == 'test-v160'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+      PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply, integrate, roll back and reapply in the isolated database
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" -c "select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true")"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          present="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.minuta_professions_v160') is not null")"
+          if test "$present" = t; then psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v160-rollback.sql; fi
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v160.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/service-presets-v160-integration.sql
+          if psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v160.sql >"$RUNNER_TEMP/v160-repeat.log" 2>&1; then echo 'Repeated migration unexpectedly succeeded' >&2; exit 1; fi
+          grep -q 'v160_service_presets_state_not_absent' "$RUNNER_TEMP/v160-repeat.log"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v160-rollback.sql
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.minuta_professions_v160') is null")" = t
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v160.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/service-presets-v160-integration.sql
+          jq -n --arg sha "$SHA" '{status:"success",phase:"test-v160",commitSha:$sha,cycle:["apply","integration","repeat-refused","rollback","reapply","integration"],productionWritten:false}' > "$RUNNER_TEMP/v160-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v160-test-${{ github.run_id }}", path: "${{ runner.temp }}/v160-test.json", if-no-files-found: error, retention-days: 90 }
+
+  validate-production-v160:
+    if: inputs.phase == 'validate-production-v160'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Read-only production state
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('professions',to_regclass('public.minuta_professions_v160') is not null,'presets',to_regclass('public.minuta_service_presets_v160') is not null,'choices',to_regclass('public.minuta_performer_professions_v160') is not null,'requests',to_regclass('public.minuta_service_preset_requests_v160') is not null,'create_rpc',to_regprocedure('public.create_provider_services_from_presets_v160(uuid,integer,text[],jsonb)') is not null,'state_rpc',to_regprocedure('public.get_provider_service_preset_state_v160()') is not null)")"
+          jq -e '([.professions,.presets,.choices,.requests,.create_rpc,.state_rpc]|all) or ([.professions,.presets,.choices,.requests,.create_rpc,.state_rpc]|any|not)' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"validate-production-v160",commitSha:$sha,state:$state,readOnly:true,productionWritten:false}' > "$RUNNER_TEMP/v160-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v160-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v160-validation.json", if-no-files-found: error, retention-days: 90 }
+
+  apply-production-v160:
+    if: inputs.phase == 'apply-production-v160'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify fresh backup and exact proof runs
+        env:
+          SHA: "${{ inputs.commit_sha }}"
+          BACKUP_RUN: "${{ inputs.backup_run_id }}"
+          TEST_RUN: "${{ inputs.test_run_id }}"
+          VALIDATION_RUN: "${{ inputs.validation_run_id }}"
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP_RUN" "$TEST_RUN" "$VALIDATION_RUN"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          backup="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN")"
+          test_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TEST_RUN")"
+          validation="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VALIDATION_RUN")"
+          test "$(jq -r .conclusion <<<"$backup")" = success
+          test "$(jq -r .path <<<"$backup")" = .github/workflows/minuta-supabase-backup.yml
+          backup_epoch="$(date -d "$(jq -r .updated_at <<<"$backup")" +%s)"
+          test "$(( $(date +%s) - backup_epoch ))" -le 93600
+          test "$(jq -r .head_sha <<<"$backup")" = "$SHA"
+          for run in "$test_run" "$validation"; do test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$SHA"; test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v160-service-presets.yml; done
+          test "$(jq -r .display_title <<<"$test_run")" = "Minuta v160 - test-v160 - $SHA"
+          test "$(jq -r .display_title <<<"$validation")" = "Minuta v160 - validate-production-v160 - $SHA"
+      - name: Apply exact migration once and verify
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          present="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.minuta_professions_v160') is not null")"
+          if test "$present" = f; then psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v160.sql; fi
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('professions',(select count(*)=12 from public.minuta_professions_v160),'presets',(select count(*)=83 from public.minuta_service_presets_v160),'create_rpc',to_regprocedure('public.create_provider_services_from_presets_v160(uuid,integer,text[],jsonb)') is not null,'state_rpc',to_regprocedure('public.get_provider_service_preset_state_v160()') is not null)")"
+          jq -e '[.professions,.presets,.create_rpc,.state_rpc]|all' <<<"$state" >/dev/null
+
+  observe-production-v160:
+    if: inputs.phase == 'observe-production-v160'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Observe production without writes
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('professions',(select count(*)=12 from public.minuta_professions_v160),'presets',(select count(*)=83 from public.minuta_service_presets_v160),'create_rpc',to_regprocedure('public.create_provider_services_from_presets_v160(uuid,integer,text[],jsonb)') is not null,'state_rpc',to_regprocedure('public.get_provider_service_preset_state_v160()') is not null)")"
+          jq -e '[.professions,.presets,.create_rpc,.state_rpc]|all' <<<"$state" >/dev/null

@@ -35,7 +35,7 @@ async function fixture(width = 390, mode = 'normal') {
     const catalog = window.MinutaServicePresetCatalog;
     const user = { id:'11111111-1111-4111-8111-111111111111', user_metadata:{} };
     const calls = [];
-    window.fixture = { mode, calls, saved:0 };
+    window.fixture = { mode, calls, saved:0, edited:0 };
     const db = { async rpc(name, args) {
       calls.push({ name, args:structuredClone(args) });
       if (mode === 'retry' && calls.length === 1) return { data:null, error:{ message:'network failure' } };
@@ -46,7 +46,8 @@ async function fixture(width = 390, mode = 'normal') {
       user,
       existingServices:[{ id:'existing-1', name:'Массаж лица', duration_minutes:30, price_rub:1000, active:true }],
       professionIds:['massage_therapist'],
-      onSaved:async () => { window.fixture.saved += 1; }
+      onSaved:async () => { window.fixture.saved += 1; },
+      onExisting:() => { window.fixture.edited += 1; }
     });
     const applyTheme = theme => {
       const palette = theme.palette;
@@ -70,6 +71,38 @@ async function fixture(width = 390, mode = 'normal') {
 }
 
 try {
+  const entry = await fixture(390);
+  await entry.page.evaluate(() => {
+    document.querySelector('#servicePresetsDialog').close();
+    window.currentUser = { id:'22222222-2222-4222-8222-222222222222', user_metadata:{ minuta_profession_ids:['massage_therapist'] } };
+    window.ownServices = [];
+    window.db = { rpc:async name => name === 'get_provider_service_preset_state_v160'
+      ? { data:{ catalog_version:null, profession_ids:[] }, error:null }
+      : { data:{ created_count:0 }, error:null } };
+  });
+  await entry.page.locator('body > [data-open-service-presets]').click();
+  await entry.page.locator('#servicePresetsDialog').waitFor({ state:'visible' });
+  assert.equal(await entry.page.locator('[data-service-profession][value="massage_therapist"]').isChecked(), true, 'Metadata profession fallback must survive an empty server state');
+  await entry.browserContext.close();
+
+  const changedProfession = await fixture(390);
+  await changedProfession.page.locator('[data-service-presets-next]').click();
+  await changedProfession.page.locator('[data-service-preset="massage_full_body"]').click();
+  await changedProfession.page.locator('[data-draft-price]').fill('2500');
+  await changedProfession.page.locator('[data-service-presets-back]').click();
+  await changedProfession.page.locator('.service-profession-chip').filter({ has:changedProfession.page.locator('[data-service-profession][value="esthetician"]') }).click();
+  await changedProfession.page.locator('.service-profession-chip').filter({ has:changedProfession.page.locator('[data-service-profession][value="massage_therapist"]') }).click();
+  await changedProfession.page.locator('[data-service-presets-next]').click();
+  assert.equal(await changedProfession.page.locator('[data-service-draft]').count(), 0, 'Deselecting a profession must remove its preset drafts');
+  await changedProfession.browserContext.close();
+
+  const existingEdit = await fixture(390);
+  await existingEdit.page.locator('[data-service-presets-next]').click();
+  await existingEdit.page.locator('[data-service-preset="massage_face"]').click();
+  await existingEdit.page.locator('#servicePresetsDialog').waitFor({ state:'hidden' });
+  assert.equal(await existingEdit.page.evaluate(() => fixture.edited), 1, 'Existing service should open its editor callback');
+  await existingEdit.browserContext.close();
+
   const { page, browserContext } = await fixture(390);
   const professions = page.locator('[data-service-profession]');
   assert.equal(await professions.count(), 12);

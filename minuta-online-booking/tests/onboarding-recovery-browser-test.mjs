@@ -37,6 +37,7 @@ async function fixture(width, mode = 'normal', device = {}) {
         if (state.mode === 'permission') return { data:null, error:{ code:'42501', message:'permission denied' } };
         if (state.mode === 'schema') return { data:null, error:{ code:'PGRST202', message:'function not found' } };
         if (state.mode === 'retry' && state.rpcCalls.length === 1) return { data:null, error:{ code:'08006', message:'connection lost' } };
+        if (state.mode === 'conflict' && state.rpcCalls.length === 1) return { data:null, error:{ code:'23505', message:'service_preset_request_conflict' } };
         return { data:{ replayed:state.rpcCalls.length > 1, created_count:args.p_services.length }, error:null };
       },
       from(table) {
@@ -53,6 +54,11 @@ async function fixture(width, mode = 'normal', device = {}) {
         async getUser() { return { data:{ user }, error:null }; }
       }
     };
+    if (state.mode === 'invalid-price') localStorage.setItem(`minuta-onboarding-v2:${user.id}`, JSON.stringify({ version:2, data:{
+      requestId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', format:'solo', professionIds:['massage_therapist'],
+      services:[{ itemId:'massage_full_body', presetId:'massage_full_body', name:'Массаж всего тела', duration:60, price:'-50' }],
+      expanded:[], search:'', days:['1','2','3','4','5'], start:'10:00', end:'19:00'
+    } }));
     await window.MinutaProviderOnboarding.handleSession({ db, user, refresh:async () => { state.refresh += 1; }, onComplete:() => { state.complete += 1; } });
   }, mode);
   return { page, browserContext };
@@ -71,6 +77,23 @@ async function chooseProfessionAndAdvance(page, { withService = true } = {}) {
 }
 
 try {
+  const changedProfession = await fixture(390);
+  await changedProfession.page.locator('.onboarding-chips label').filter({ has:changedProfession.page.locator('[data-onboarding-profession][value="massage_therapist"]') }).click();
+  await changedProfession.page.locator('[data-onboarding-next]').click();
+  await changedProfession.page.locator('[data-onboarding-preset="massage_full_body"]').click();
+  await changedProfession.page.locator('[data-service-price]').fill('2500');
+  await changedProfession.page.locator('[data-onboarding-back]').click();
+  await changedProfession.page.locator('.onboarding-chips label').filter({ has:changedProfession.page.locator('[data-onboarding-profession][value="esthetician"]') }).click();
+  await changedProfession.page.locator('.onboarding-chips label').filter({ has:changedProfession.page.locator('[data-onboarding-profession][value="massage_therapist"]') }).click();
+  await changedProfession.page.locator('[data-onboarding-next]').click();
+  assert.equal(await changedProfession.page.locator('[data-onboarding-service]').count(), 0, 'Deselecting a profession must remove its preset drafts');
+  await changedProfession.browserContext.close();
+
+  const invalidPrice = await fixture(390, 'invalid-price');
+  await invalidPrice.page.locator('[data-onboarding-next]').click();
+  assert.equal(await invalidPrice.page.locator('[data-service-price]').inputValue(), '', 'Invalid persisted prices must return as blank');
+  await invalidPrice.browserContext.close();
+
   for (const width of [390, 760, 1440]) {
     const current = await fixture(width);
     const { page } = current;
@@ -125,6 +148,20 @@ try {
     }
     await current.browserContext.close();
   }
+
+  const conflict = await fixture(390, 'conflict');
+  await chooseProfessionAndAdvance(conflict.page);
+  await conflict.page.locator('[data-onboarding-next]').click();
+  await conflict.page.locator('.onboarding-error').waitFor();
+  assert.match(await conflict.page.locator('.onboarding-error').innerText(), /прошл|проверь/i);
+  const oldRequest = await conflict.page.evaluate(() => fixture.rpcCalls[0].args.p_request);
+  await conflict.page.locator('[data-onboarding-next]').click();
+  await conflict.page.locator('[data-onboarding-next]').click();
+  await conflict.page.locator('[data-onboarding-next]').click();
+  await conflict.page.locator('#providerOnboarding').waitFor({ state:'hidden' });
+  const newRequest = await conflict.page.evaluate(() => fixture.rpcCalls[1].args.p_request);
+  assert.notEqual(newRequest, oldRequest, 'A processed conflicting request must rotate before retry');
+  await conflict.browserContext.close();
 
   for (const name of ['iPhone 13', 'Pixel 7']) {
     const profile = devices[name];

@@ -29,11 +29,16 @@ for (const unsafe of ['лечение', 'омоложение', 'детокс', 
   assert.doesNotMatch(services.map(item => item.name).join(' ').toLowerCase(), new RegExp(unsafe));
 }
 
-assert.match(provider, /data-open-service-presets[\s\S]*Добавить по шаблону/);
+assert.match(provider, /data-open-service-presets[\s\S]*Шаблоны/);
+assert.match(provider, /data-open-service-creator[\s\S]*Добавить услугу/);
 assert.match(provider, /service-presets-catalog\.js\?v=\d+[\s\S]*onboarding\.js\?v=\d+/);
 assert.match(provider, /provider\.js\?v=\d+[\s\S]*service-presets\.js\?v=\d+/);
+const cacheVersion = worker.match(/CACHE_PREFIX\}v(\d+)/)?.[1];
+assert.ok(cacheVersion, 'Service worker cache version missing');
+assert.deepEqual([...new Set([...provider.matchAll(/\?v=(\d+)/g)].map(match => match[1]))], [cacheVersion], 'Provider resources must match the cache version');
+assert.deepEqual([...new Set([...worker.matchAll(/\?v=(\d+)/g)].map(match => match[1]))], [cacheVersion], 'Precached resources must match the cache version');
 for (const file of ['service-presets.css', 'service-presets-catalog.js', 'service-presets.js']) {
-  assert.match(worker, new RegExp(file.replace('.', '\\.')));
+  assert.match(worker, new RegExp(`${file.replace('.', '\\.')}\\?v=${cacheVersion}`));
 }
 assert.match(controller, /create_provider_services_from_presets_v160/);
 assert.match(controller, /p_request:state\.requestId/);

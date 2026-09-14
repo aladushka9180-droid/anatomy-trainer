@@ -2,6 +2,7 @@
 // npm install --no-save pg; node tests/service-presets-v160-postgres-test.mjs
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -53,6 +54,42 @@ try {
   assert.equal(state?.anonExecute, false);
   assert.equal(state?.serviceRoleExecute, false);
 
+  const raceOwner = randomUUID();
+  await client.query('begin');
+  await client.query('set local session_replication_role=replica');
+  await client.query(`insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+    values($1,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',$2,now(),'{}','{}',now(),now())`, [raceOwner, `${raceOwner}@example.invalid`]);
+  await client.query('set local session_replication_role=origin');
+  await client.query(`insert into public.performer_profiles(id,display_name) values($1,'V160 concurrent owner')`, [raceOwner]);
+  await client.query('commit');
+  const createRaceClient = async suffix => {
+    const connection = new Client({ connectionString:process.env.MINUTA_TEST_DATABASE_URL, application_name:`minuta-v160-race-${suffix}`, ...(tls ? { ssl:tls } : {}) });
+    await connection.connect();
+    await connection.query("set statement_timeout='120s'; set lock_timeout='15s'");
+    await connection.query(`select set_config('request.jwt.claim.sub',$1,false)`, [raceOwner]);
+    await connection.query('set role authenticated');
+    return connection;
+  };
+  const raceA = await createRaceClient('a');
+  const raceB = await createRaceClient('b');
+  try {
+    const [first, second] = await Promise.all([
+      raceA.query(`select public.create_provider_services_from_presets_v160($1,1,array['massage_therapist'],'[]'::jsonb) result`, [randomUUID()]),
+      raceB.query(`select public.create_provider_services_from_presets_v160($1,1,array['nail_artist'],'[]'::jsonb) result`, [randomUUID()])
+    ]);
+    assert.deepEqual(first.rows[0].result.profession_ids, ['massage_therapist']);
+    assert.deepEqual(second.rows[0].result.profession_ids, ['nail_artist']);
+    const finalChoices = (await client.query(`select array_agg(profession_id order by profession_id) professions from public.minuta_performer_professions_v160 where performer_id=$1`, [raceOwner])).rows[0].professions;
+    assert.ok(JSON.stringify(finalChoices) === JSON.stringify(['massage_therapist']) || JSON.stringify(finalChoices) === JSON.stringify(['nail_artist']), 'Concurrent owner state must be one complete request, never a union');
+  } finally {
+    await raceA.query('reset role').catch(() => {});
+    await raceB.query('reset role').catch(() => {});
+    await raceA.end().catch(() => {});
+    await raceB.end().catch(() => {});
+    await client.query(`delete from public.performer_profiles where id=$1`, [raceOwner]);
+    await client.query(`delete from auth.users where id=$1`, [raceOwner]);
+  }
+
   await client.query(read('supabase-migration-v160-rollback.sql'));
   applied = false;
   let removed = (await client.query(`select
@@ -70,7 +107,7 @@ try {
     to_regclass('public.minuta_service_presets_v160') is null catalog_removed,
     to_regclass('public.services_normalized_name_v160_idx') is null index_removed`)).rows[0];
   assert.deepEqual(removed, { rpc_removed:true, catalog_removed:true, index_removed:true });
-  console.log('PASS: v160 apply, catalog parity, owner isolation, exact replay, conflict, duplicate guard, rollback and clean reapply');
+  console.log('PASS: v160 apply, catalog parity, owner isolation, concurrent owner state, exact replay, conflict, duplicate guard, rollback and clean reapply');
 } finally {
   try { await client.query('rollback'); } catch {}
   if (applied) {

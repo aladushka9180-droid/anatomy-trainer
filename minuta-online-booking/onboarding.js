@@ -37,9 +37,10 @@
     draft.services = (Array.isArray(draft.services) ? draft.services : []).filter(item => item && typeof item === 'object').map(item => ({
       itemId:String(item.itemId || `custom-${newRequestId()}`),
       presetId:item.presetId && catalog?.preset(item.presetId) ? String(item.presetId) : null,
+      professionId:item.presetId && catalog?.preset(item.presetId) ? catalog.preset(item.presetId).professionId : null,
       name:String(item.name || '').slice(0, 120),
       duration:Math.max(5, Math.min(480, Math.round(Number(item.duration) || 60))),
-      price:item.price === '' ? '' : String(Math.max(0, Math.round(Number(item.price) || 0)))
+      price:item.price === '' || !Number.isInteger(Number(item.price)) || Number(item.price) < 0 || Number(item.price) > 1000000 ? '' : String(Number(item.price))
     }));
     draft.expanded = (Array.isArray(draft.expanded) ? draft.expanded : []).filter(id => draft.professionIds.includes(id));
     draft.days = [...new Set((Array.isArray(draft.days) ? draft.days : fallback.days).map(day => String(day) === '0' ? '7' : String(day)).filter(day => /^[1-7]$/.test(day)))];
@@ -113,7 +114,7 @@
       const profession = catalog.profession(id);
       const expanded = state.expanded.includes(id);
       const services = expanded ? profession.services : profession.services.slice(0, 6);
-      return `<section class="onboarding-preset-group"><div><h2>${escapeHtml(profession.label)}</h2><span>${profession.services.length}</span></div><div class="onboarding-preset-grid">${services.map(presetMarkup).join('')}</div>${profession.services.length > 6 ? `<button class="onboarding-text-button" type="button" data-onboarding-show-more="${id}">${expanded ? 'Скрыть дополнительные' : `Показать ещё · ${profession.services.length - 6}`}</button>` : ''}</section>`;
+      return `<section class="onboarding-preset-group"><div><h2>${escapeHtml(profession.label)}</h2><span>${profession.services.length}</span></div><div class="onboarding-preset-grid">${services.map(presetMarkup).join('')}</div>${profession.services.length > 6 ? `<button class="onboarding-text-button" type="button" data-onboarding-show-more="${id}" aria-expanded="${expanded}">${expanded ? 'Скрыть дополнительные' : `Показать ещё · ${profession.services.length - 6}`}</button>` : ''}</section>`;
     }).join('');
   }
 
@@ -169,7 +170,11 @@
     if (busy || !state) return;
     const target = event.target;
     if (target.name === 'onboardingFormat') state.format = target.value;
-    if (target.matches('[data-onboarding-profession]')) state.professionIds = [...root.querySelectorAll('[data-onboarding-profession]:checked')].map(input => input.value);
+    if (target.matches('[data-onboarding-profession]')) {
+      state.professionIds = [...root.querySelectorAll('[data-onboarding-profession]:checked')].map(input => input.value);
+      state.services = state.services.filter(service => !service.professionId || state.professionIds.includes(service.professionId));
+      state.expanded = state.expanded.filter(id => state.professionIds.includes(id));
+    }
     if (target.matches('[data-onboarding-search]')) {
       state.search = target.value;
       const selection = [target.selectionStart, target.selectionEnd];
@@ -213,6 +218,7 @@
       error = document.createElement('p');
       error.className = 'onboarding-error';
       error.setAttribute('role', 'alert');
+      error.tabIndex = -1;
       root.querySelector('.onboarding-footer').prepend(error);
     }
     error.textContent = message;
@@ -222,7 +228,7 @@
   function errorMessage(error) {
     if (!navigator.onLine) return 'Нет соединения. Настройки сохранены в черновике — повторите после подключения.';
     const text = `${error?.code || ''} ${error?.message || ''}`;
-    if (/service_preset_idempotency_conflict/.test(text)) return 'Черновик изменился после прошлой попытки. Вернитесь назад и откройте настройку заново.';
+    if (/service_preset_(?:request|idempotency)_conflict/.test(text)) return 'Сервер уже обработал прошлый вариант. Проверьте текущий список и подтвердите его ещё раз.';
     if (/duplicate_service_name/.test(text)) return 'Услуга с таким названием уже существует. Существующая услуга не изменена.';
     if (/invalid_service_preset|invalid_profession/.test(text)) return 'Каталог обновился. Обновите страницу и выберите услуги снова.';
     if (/42501|permission|row.level|forbidden/i.test(text)) return 'Недостаточно прав для сохранения. Войдите заново; черновик останется на устройстве.';
@@ -268,7 +274,7 @@
         preset_id:service.presetId,
         name:service.name.trim().replace(/\s+/g, ' '),
         duration_minutes:Number(service.duration),
-        price_rub:Math.round(Number(service.price))
+        price_rub:Number(service.price)
       }));
       const { error:servicesError } = await operationContext.db.rpc('create_provider_services_from_presets_v160', {
         p_request:settings.requestId,
@@ -293,6 +299,12 @@
     } catch (error) {
       if (generation !== operationGeneration || context?.user?.id !== operationContext.user.id) return;
       busy = false;
+      const errorText = `${error?.code || ''} ${error?.message || ''}`;
+      if (/service_preset_(?:request|idempotency)_conflict/.test(errorText)) {
+        state.requestId = newRequestId();
+        step = 2;
+        saveDraft();
+      }
       render();
       showError(errorMessage(error));
     }
@@ -322,7 +334,7 @@
       if (!preset) return;
       const index = state.services.findIndex(item => item.presetId === preset.id);
       if (index >= 0) state.services.splice(index, 1);
-      else state.services.push({ itemId:preset.id, presetId:preset.id, name:preset.name, duration:preset.defaultDuration, price:'' });
+      else state.services.push({ itemId:preset.id, presetId:preset.id, professionId:preset.professionId, name:preset.name, duration:preset.defaultDuration, price:'' });
       saveDraft();
       render(`[data-onboarding-preset="${preset.id}"]`);
       return;

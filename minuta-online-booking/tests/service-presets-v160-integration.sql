@@ -154,21 +154,32 @@ end $$;
 
 -- partial_failure_rollback
 select set_config('v160.before_partial',(select count(*)::text from public.services where performer_id=current_setting('v160.owner')::uuid),true);
+select set_config('v160.before_professions',(select count(*)::text from public.minuta_performer_professions_v160 where performer_id=current_setting('v160.owner')::uuid),true);
+create function pg_temp.v160_fail_second_insert() returns trigger language plpgsql as $$
+begin
+  if new.name='Вторая падает' then raise exception 'v160_forced_second_insert_failure'; end if;
+  return new;
+end $$;
+create trigger v160_fail_second_insert before insert on public.services
+for each row execute function pg_temp.v160_fail_second_insert();
 set local role authenticated;
 do $$ begin
   begin
     perform public.create_provider_services_from_presets_v160(gen_random_uuid(),1,array['massage_therapist'],jsonb_build_array(
       jsonb_build_object('item_id','valid-first','preset_id',null,'name','Не должна сохраниться','duration_minutes',30,'price_rub',100),
-      jsonb_build_object('item_id','invalid-second','preset_id',null,'name','Без цены','duration_minutes',30)
+      jsonb_build_object('item_id','forced-second','preset_id',null,'name','Вторая падает','duration_minutes',30,'price_rub',200)
     ));
     raise exception 'partial_failure_was_accepted';
-  exception when invalid_parameter_value then
-    if position('invalid_service_payload' in sqlerrm)=0 then raise; end if;
+  exception when raise_exception then
+    if position('v160_forced_second_insert_failure' in sqlerrm)=0 then raise; end if;
   end;
 end $$;
 reset role;
+drop trigger v160_fail_second_insert on public.services;
 select pg_temp.v160_assert((select count(*)=current_setting('v160.before_partial')::integer
   from public.services where performer_id=current_setting('v160.owner')::uuid),'partial_failure_rollback');
+select pg_temp.v160_assert((select count(*)=current_setting('v160.before_professions')::integer
+  from public.minuta_performer_professions_v160 where performer_id=current_setting('v160.owner')::uuid),'partial_profession_rollback');
 
 -- zero_items_allowed
 select set_config('request.jwt.claim.sub',current_setting('v160.zero'),true);

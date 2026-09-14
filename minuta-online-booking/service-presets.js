@@ -79,7 +79,7 @@
       const profession = catalog.profession(id);
       const expanded = state.expanded.has(id);
       const visible = expanded ? profession.services : profession.services.slice(0, 6);
-      return `<section class="service-preset-group"><div class="service-preset-group-head"><h3>${escapeHtml(profession.label)}</h3><span>${profession.services.length}</span></div><div class="service-preset-options">${visible.map(presetButton).join('')}</div>${profession.services.length > 6 ? `<button class="service-presets-more" type="button" data-service-presets-more="${id}">${expanded ? 'Скрыть дополнительные' : `Показать ещё · ${profession.services.length - 6}`}</button>` : ''}</section>`;
+      return `<section class="service-preset-group"><div class="service-preset-group-head"><h3>${escapeHtml(profession.label)}</h3><span>${profession.services.length}</span></div><div class="service-preset-options">${visible.map(presetButton).join('')}</div>${profession.services.length > 6 ? `<button class="service-presets-more" type="button" data-service-presets-more="${id}" aria-expanded="${expanded}">${expanded ? 'Скрыть дополнительные' : `Показать ещё · ${profession.services.length - 6}`}</button>` : ''}</section>`;
     }).join('');
   }
 
@@ -126,7 +126,7 @@
     if (new Set(names).size !== names.length) return 'Названия выбранных услуг должны различаться.';
     if (drafts.some(item => existingFor(item.name))) return 'Одна из услуг уже добавлена. Уберите её или измените название.';
     if (drafts.some(item => !Number.isInteger(Number(item.duration)) || Number(item.duration) < 5 || Number(item.duration) > 480)) return 'Длительность должна быть от 5 до 480 минут.';
-    if (drafts.some(item => item.price === '' || !Number.isFinite(Number(item.price)) || Number(item.price) < 0 || Number(item.price) > 1000000)) return 'Укажите свою цену для каждой услуги.';
+    if (drafts.some(item => item.price === '' || !Number.isInteger(Number(item.price)) || Number(item.price) < 0 || Number(item.price) > 1000000)) return 'Укажите свою цену в целых рублях для каждой услуги.';
     return '';
   }
 
@@ -137,7 +137,7 @@
     dialog.innerHTML = `<div class="service-presets-shell">
       <header class="service-presets-top"><button type="button" data-service-presets-back ${first ? 'hidden' : ''} aria-label="Назад">←</button><span>Шаг ${state.step} из 3</span><button type="button" data-close-service-presets aria-label="Закрыть">×</button></header>
       <main>${first ? professionStep() : state.step === 2 ? serviceStep() : reviewStep()}</main>
-      <footer>${state.error ? `<p role="alert">${escapeHtml(state.error)}</p>` : '<span></span>'}<button class="primary" type="button" data-service-presets-next ${busy ? 'disabled' : ''}>${busy ? 'Добавляем…' : nextLabel}</button></footer>
+      <footer>${state.error ? `<p role="alert" tabindex="-1">${escapeHtml(state.error)}</p>` : '<span></span>'}<button class="primary" type="button" data-service-presets-next ${busy ? 'disabled' : ''}>${busy ? 'Добавляем…' : nextLabel}</button></footer>
     </div>`;
   }
 
@@ -178,7 +178,7 @@
       preset_id:item.presetId,
       name:item.name.trim().replace(/\s+/g, ' '),
       duration_minutes:Number(item.duration),
-      price_rub:Math.round(Number(item.price))
+      price_rub:Number(item.price)
     }));
     try {
       const result = await context.db.rpc('create_provider_services_from_presets_v160', {
@@ -188,9 +188,16 @@
         p_services:payload
       });
       if (result.error) throw result.error;
+      try {
+        await context.onSaved?.(result.data);
+      } catch {
+        busy = false;
+        state.error = 'Услуги сохранены, но список не обновился. Закройте окно и обновите страницу.';
+        render('[role="alert"]');
+        return;
+      }
       busy = false;
       dialog.close();
-      await context.onSaved?.(result.data);
     } catch (error) {
       busy = false;
       const message = String(error?.message || error || '');
@@ -203,7 +210,7 @@
             : /42501|permission|auth/i.test(message)
               ? 'Недостаточно прав. Войдите в кабинет заново.'
               : 'Не удалось добавить услуги. Данные не изменены — можно безопасно повторить.';
-      render();
+      render('[role="alert"]');
     }
   }
 
@@ -240,6 +247,12 @@
     const target = event.target;
     if (target.matches('[data-service-profession]')) {
       state.professionIds = [...dialog.querySelectorAll('[data-service-profession]:checked')].map(input => input.value);
+      for (const [id, draft] of state.drafts) {
+        if (draft.professionId && !state.professionIds.includes(draft.professionId)) state.drafts.delete(id);
+      }
+      for (const id of state.expanded) {
+        if (!state.professionIds.includes(id)) state.expanded.delete(id);
+      }
       state.error = '';
       target.closest('label')?.classList.toggle('is-selected', target.checked);
       return;
@@ -285,7 +298,7 @@
     let professionIds = Array.isArray(currentUser.user_metadata?.minuta_profession_ids) ? currentUser.user_metadata.minuta_profession_ids : [];
     try {
       const { data, error } = await db.rpc('get_provider_service_preset_state_v160');
-      if (!error && Array.isArray(data?.profession_ids)) professionIds = data.profession_ids;
+      if (!error && data?.catalog_version && Array.isArray(data?.profession_ids)) professionIds = data.profession_ids;
     } catch {}
     opening = false;
     button.disabled = false;
