@@ -352,4 +352,26 @@
   .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] header.provider-topbar {
     background-image:linear-gradient(180deg,var(--theme-surface),transparent)!important;
   }
+
+  /* v768: mobile tools use one predictable column and one quiet outer edge. */
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>div {
+    grid-template-columns:minmax(0,1fr);
+    gap:2px;
+    width:min(244px,calc(100vw - 24px));
+    padding:6px;
+    box-sizing:border-box;
+    border-color:color-mix(in srgb,var(--theme-line) 74%,transparent);
+    border-radius:16px;
+    box-shadow:0 10px 24px color-mix(in srgb,var(--theme-shadow) 45%,transparent);
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar .provider-topbar-tools>div :is(.voice-assistant-open,.topbar-client-link,.free-slots-open-button,.sync-tool-button,.desktop-app-install) {
+    justify-content:flex-start!important;
+    align-items:center!important;
+    flex-direction:row!important;
+    height:44px!important;
+    padding-inline:12px!important;
+    gap:10px!important;
+    font-weight:700!important;
+    text-align:left!important;
+  }
 }

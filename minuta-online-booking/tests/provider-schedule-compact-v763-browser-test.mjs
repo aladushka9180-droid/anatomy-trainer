@@ -62,6 +62,9 @@ try {
     }).join('');
     document.querySelector('#selectedDateTitle').textContent = 'Вторник, 15 сентября';
     document.querySelector('#selectedDateSummary').textContent = '2 записи · 2 перерыва';
+    document.querySelector('#todayBookingsCount').textContent = '0';
+    document.querySelector('#newBookingsCount').textContent = '5';
+    document.querySelector('#activeServicesCount').textContent = '8';
     document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings timeline-view';
@@ -103,6 +106,7 @@ try {
       const tabAccent = getComputedStyle(tab, '::after');
       const activeButton = document.querySelector('#dateStrip>button.active');
       const activeDate = activeButton.getBoundingClientRect();
+      const activeDateMarker = getComputedStyle(activeButton, '::after');
       const quietTodayButton = document.querySelector('#dateStrip>button.is-today:not(.active)');
       const quietTodayStyle = getComputedStyle(quietTodayButton);
       const ordinaryDateStyle = getComputedStyle(document.querySelector('#dateStrip>button:not(.active):not(.is-today)'));
@@ -114,6 +118,14 @@ try {
         const item = child.getBoundingClientRect();
         return item.left >= summaryRect.left - 1 && item.right <= summaryRect.right + 1;
       });
+      const summaryLabelsInside = [...summary.querySelectorAll('strong,span')].every(label => {
+        const item = label.getBoundingClientRect();
+        return item.left >= summaryRect.left + 3 && item.right <= summaryRect.right - 3
+          && label.scrollWidth <= label.clientWidth + 1;
+      });
+      const toolbar = rect('.schedule-toolbar');
+      const toolbarCopy = rect('.schedule-toolbar>div:first-child');
+      const journalToggle = rect('.journal-mode-toggle');
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         scheduleTop:rect('#providerBookings').top,
@@ -122,7 +134,7 @@ try {
         navigation:rect('.date-navigation'),
         strip:stripFrame,
         stripViewport:strip,
-        toolbar:rect('.schedule-toolbar'),
+        toolbar,
         newBooking:rect('#newBookingButton'),
         today:rect('[data-date-today]'),
         picker:rect('.schedule-date-picker'),
@@ -133,6 +145,8 @@ try {
         activeDate,
         activeDateValue:activeButton.dataset.bookingDate,
         activeDateBackground:getComputedStyle(activeButton).backgroundColor,
+        activeDateMarkerContent:activeDateMarker.content,
+        activeDateMarkerDisplay:activeDateMarker.display,
         activeDateVisible:activeDate.left >= strip.left - 1 && activeDate.right <= strip.right + 1,
         stripScrollLeft:document.querySelector('#dateStrip').scrollLeft,
         stripScrollWidth:document.querySelector('#dateStrip').scrollWidth,
@@ -143,6 +157,10 @@ try {
         summaryScrollWidth:summary.scrollWidth,
         summaryClientWidth:summary.clientWidth,
         summaryChildrenInside,
+        summaryLabelsInside,
+        summaryText:[...summary.querySelectorAll('strong,span')].map(item => item.textContent.trim()),
+        toolbarContentCenterDelta:Math.abs((toolbarCopy.top + toolbarCopy.bottom) / 2 - (journalToggle.top + journalToggle.bottom) / 2),
+        journalGridGap:rect('#providerBookings').top - journalToggle.bottom,
         quietTodayBackground:quietTodayStyle.backgroundColor,
         quietTodayBackgroundImage:quietTodayStyle.backgroundImage,
         ordinaryDateBackground:ordinaryDateStyle.backgroundColor,
@@ -169,7 +187,10 @@ try {
       assert.equal(result.activeDateVisible, true, `${width}px selected date must remain visible: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateValue, '2026-09-15', `${width}px fixture selected date changed`);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its accent`);
+      assert.ok(result.activeDateMarkerContent === 'none' || result.activeDateMarkerDisplay === 'none', `${width}px selected date regained a second lower marker: ${JSON.stringify(result)}`);
       assert.ok(result.scheduleTop >= 300 && result.scheduleTop <= 360, `${width}px schedule begins: ${JSON.stringify(result)}`);
+      assert.ok(result.toolbarContentCenterDelta <= 2, `${width}px day heading and journal toggle are not aligned: ${JSON.stringify(result)}`);
+      assert.ok(result.journalGridGap >= 8, `${width}px timeline grid touches the journal toggle: ${JSON.stringify(result)}`);
       assert.ok(Math.abs(result.viewportHeight - result.navBottom) <= 9, `${width}px fixed navigation moved from the bottom`);
       assert.equal(result.tabBackground, 'rgba(0, 0, 0, 0)', `${width}px period tabs are not flat`);
       assert.equal(result.tabAccentHeight, '2px', `${width}px selected period needs a thin accent`);
@@ -186,6 +207,8 @@ try {
       if (width <= 430) {
         assert.ok(result.summaryScrollWidth <= result.summaryClientWidth + 1, `${width}px title summary is clipped: ${JSON.stringify(result)}`);
         assert.equal(result.summaryChildrenInside, true, `${width}px title summary children escape their row: ${JSON.stringify(result)}`);
+        assert.equal(result.summaryLabelsInside, true, `${width}px title summary labels touch or escape the safe inset: ${JSON.stringify(result)}`);
+        assert.deepEqual(result.summaryText, ['0', 'сегодня', '5', 'впереди', '8', 'услуг'], `${width}px title summary fixture changed`);
         assert.ok(result.summary.top >= result.newBooking.bottom - 1, `${width}px title summary must use its own full-width row: ${JSON.stringify(result)}`);
         assert.ok(result.summary.right <= result.title.right + 1, `${width}px title summary escapes the title area: ${JSON.stringify(result)}`);
       }
@@ -200,8 +223,9 @@ try {
     bookings.className = 'provider-bookings schedule-list';
     bookings.innerHTML = '<div class="provider-empty schedule-empty"><strong>Записей нет</strong><small>На выбранный период всё свободно.</small></div>';
   });
-  for (const { width, height } of [{ width:320, height:700 }, { width:390, height:844 }, { width:430, height:900 }, { width:760, height:1000 }]) {
+  for (const { width, height } of [{ width:320, height:700 }, { width:360, height:800 }, { width:390, height:844 }, { width:430, height:900 }, { width:760, height:1000 }]) {
     await page.setViewportSize({ width, height });
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(80);
     const listResult = await page.evaluate(() => {
       const rect = selector => document.querySelector(selector).getBoundingClientRect();
@@ -237,6 +261,15 @@ try {
     if (width >= 390) assert.equal(listResult.navLabelsFit, true, `${width}px mobile navigation labels are clipped: ${JSON.stringify(listResult)}`);
     assert.ok(listResult.workspacePaddingBottom >= listResult.nav.height + (height - listResult.nav.bottom) + 16, `${width}px mobile navigation lacks safe clearance: ${JSON.stringify(listResult)}`);
     if (output) await page.screenshot({ path:path.join(output, `schedule-list-${width}.png`), fullPage:false });
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(80);
+    const bottomGap = await page.evaluate(() => {
+      const last = document.querySelector('#providerBookings>:last-child').getBoundingClientRect();
+      const nav = document.querySelector('.provider-mobile-nav').getBoundingClientRect();
+      return nav.top - last.bottom;
+    });
+    assert.ok(bottomGap >= 16, `${width}px final list card reaches the fixed navigation after scroll: ${bottomGap}px`);
   }
 
   await page.evaluate(() => { document.querySelector('.provider-topbar-tools').open = true; });
@@ -248,7 +281,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v767 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v768 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

@@ -11,7 +11,7 @@ try{
   const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
   await page.goto(url);
   assert.deepEqual(pageErrors,[],'Header fixture must execute real status/verification initialization');
-  for(const width of [320,390,760,761,768,1440,1920]){
+  for(const width of [320,360,390,430,760,761,768,1440,1920]){
     await page.setViewportSize({width,height:1000});
     for(const layout of layouts)for(const theme of themes)for(const scale of ['default','large']){
       await page.evaluate(scale=>{document.body.dataset.providerTextScale=scale;},scale);
@@ -47,7 +47,7 @@ try{
     }
   }
   let menuCombinations=0;
-  for(const width of [320,390,760,1440]){
+  for(const width of [320,360,390,430,760,1440]){
     await page.setViewportSize({width,height:1000});
     for(const layout of layouts)for(const theme of themes)for(const scale of ['default','large']){
       await page.evaluate(({layout,theme,scale})=>{
@@ -66,13 +66,14 @@ try{
         const summaryRect=summary.getBoundingClientRect();
         const items=[...menu.querySelectorAll(':scope>:is(button,a)')];
         const rects=items.map(item=>item.getBoundingClientRect());
+        const mobile=innerWidth<=760;
         if(items.length!==5)errors.push('wrong tool count');
-        if(menuRect.width>253||menuRect.height>155)errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
+        if(menuRect.width>(mobile?245:253)||menuRect.height>(mobile?250:155))errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
         if(menuRect.left<0||menuRect.right>innerWidth+1)errors.push('menu overflow');
         if(Math.abs(menuRect.right-summaryRect.right)>1)errors.push('menu is not right aligned');
         const rows=new Set(rects.map(rect=>Math.round(rect.top)));
         const columns=new Set(rects.map(rect=>Math.round(rect.left)));
-        if(rows.size!==3||columns.size!==2)errors.push('menu is not a 2x3 grid');
+        if(mobile?(rows.size!==5||columns.size!==1):(rows.size!==3||columns.size!==2))errors.push('menu grid rhythm changed');
         for(let index=0;index<items.length;index++){
           const item=items[index],rect=rects[index];
           if(rect.width<44||rect.height<44)errors.push(`small menu control ${item.id}`);
@@ -80,6 +81,10 @@ try{
           if(item.scrollWidth>item.clientWidth+1)errors.push(`clipped menu label ${item.id}`);
           if(!item.getAttribute('aria-label'))errors.push(`missing menu label ${item.id}`);
           if(!item.dataset.compactLabel)errors.push(`missing compact menu label ${item.id}`);
+          if(mobile){
+            const itemStyle=getComputedStyle(item);
+            if(itemStyle.flexDirection!=='row'||itemStyle.alignItems!=='center'||itemStyle.textAlign!=='left')errors.push(`uneven mobile menu content ${item.id}`);
+          }
         }
         for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){
           const a=rects[i],b=rects[j];
