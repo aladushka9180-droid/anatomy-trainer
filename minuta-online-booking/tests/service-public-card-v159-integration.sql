@@ -47,8 +47,8 @@ end $fixture$;
 
 select set_config('request.jwt.claim.sub',current_setting('v159.owner'),true);
 set local role authenticated;
-select pg_temp.v159_assert(public.save_minuta_service_v159(current_setting('v159.service')::uuid,'Очень длинное точное название услуги',75,3100,true,
-  'Короткое описание без медицинских обещаний.',array['Первое','Второе','Третье'],'Точное ограничение мастера.','', '',null,null),'owner_can_save');
+select pg_temp.v159_assert((public.save_minuta_service_v159(current_setting('v159.service')::uuid,'Очень длинное точное название услуги',75,3100,true,
+  'Короткое описание без медицинских обещаний.',array['Первое','Второе','Третье'],'Точное ограничение мастера.','', '',null,null)->>'saved')::boolean,'owner_can_save');
 reset role;
 
 select pg_temp.v159_assert((select count(*)=2 from public.get_public_service_cards_v159(array[current_setting('v159.service')::uuid,current_setting('v159.empty_service')::uuid])),'full_and_empty_rows');

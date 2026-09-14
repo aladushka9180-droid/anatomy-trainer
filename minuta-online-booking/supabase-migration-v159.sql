@@ -86,10 +86,11 @@ create function public.save_minuta_service_v159(
   p_service uuid,p_name text,p_duration_minutes integer,p_price_rub integer,p_active boolean,
   p_short_description text default '',p_highlights text[] default '{}'::text[],p_important_note text default '',
   p_photo_storage_path text default '',p_photo_alt text default '',p_photo_width integer default null,p_photo_height integer default null
-) returns boolean language plpgsql security definer set search_path to '' as $$
+) returns jsonb language plpgsql security definer set search_path to '' as $$
 declare
   v_uid uuid:=auth.uid(); v_description text:=btrim(coalesce(p_short_description,''));
   v_highlights text[]; v_note text:=btrim(coalesce(p_important_note,'')); v_path text:=btrim(coalesce(p_photo_storage_path,''));
+  v_retired_path text:='';
 begin
   if v_uid is null then raise exception 'authentication_required' using errcode='42501'; end if;
   if not exists(select 1 from public.services s where s.id=p_service and s.performer_id=v_uid) then
@@ -108,19 +109,23 @@ begin
     or split_part(v_path,'/',4) !~ '^[0-9a-f-]{36}\.webp$' or split_part(v_path,'/',5)<>''
     or p_photo_width is null or p_photo_height is null or p_photo_width not between 1 and 5000 or p_photo_height not between 1 and 5000
   ) then raise exception 'service_photo_path_invalid' using errcode='22023'; end if;
+  if v_path<>'' and not exists(select 1 from storage.objects object where object.bucket_id='service-images' and object.name=v_path) then
+    raise exception 'service_photo_missing' using errcode='22023';
+  end if;
   if v_path='' then p_photo_width:=null;p_photo_height:=null;p_photo_alt:=''; end if;
+  select d.photo_storage_path into v_retired_path from public.service_public_details_v159 d where d.service_id=p_service for update;
   update public.services set name=btrim(p_name),duration_minutes=p_duration_minutes,price_rub=p_price_rub,active=p_active
   where id=p_service and performer_id=v_uid;
   if v_description='' and cardinality(v_highlights)=0 and v_note='' and v_path='' then
     delete from public.service_public_details_v159 d where d.service_id=p_service;
-    return true;
+    return jsonb_build_object('saved',true,'retired_path',coalesce(v_retired_path,''));
   end if;
   insert into public.service_public_details_v159(service_id,short_description,highlights,important_note,photo_storage_path,photo_alt,photo_width,photo_height)
   values(p_service,v_description,v_highlights,v_note,v_path,left(btrim(coalesce(p_photo_alt,'')),160),p_photo_width,p_photo_height)
   on conflict(service_id) do update set short_description=excluded.short_description,highlights=excluded.highlights,
     important_note=excluded.important_note,photo_storage_path=excluded.photo_storage_path,photo_alt=excluded.photo_alt,
     photo_width=excluded.photo_width,photo_height=excluded.photo_height,updated_at=now();
-  return true;
+  return jsonb_build_object('saved',true,'retired_path',case when coalesce(v_retired_path,'')<>v_path then coalesce(v_retired_path,'') else '' end);
 end $$;
 revoke all on function public.save_minuta_service_v159(uuid,text,integer,integer,boolean,text,text[],text,text,text,integer,integer) from public;
 grant execute on function public.save_minuta_service_v159(uuid,text,integer,integer,boolean,text,text[],text,text,text,integer,integer) to authenticated;
