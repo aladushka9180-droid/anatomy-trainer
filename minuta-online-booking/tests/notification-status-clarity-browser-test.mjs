@@ -49,6 +49,10 @@ try {
     await controller.setOrganization({ id:'organization-a' });
   });
 
+  await page.locator('#unifiedNotificationPanel').evaluate(panel => { panel.hidden = false; });
+  await page.locator('[data-unified-tab="deliveries"]').evaluate(button => button.click());
+  await page.locator('[data-unified-delivery-filter="all"]').evaluate(button => button.click());
+
   const content = await page.locator('#unifiedNotificationDeliveries').textContent();
   assert.match(content, /Запрос подтверждения записи/);
   assert.match(content, /передано каналу/);
@@ -64,7 +68,6 @@ try {
   assert.doesNotMatch(content, /отправлено/);
   assert.equal(await page.locator('[data-unified-retry="primary"]').count(), 1);
   assert.equal(await page.locator('[data-unified-retry="unknown"]').count(), 0);
-  await page.locator('#unifiedNotificationDeliveries').evaluate(node => { node.closest('details').open = true; });
   for (const width of [390, 760, 1440]) {
     await page.setViewportSize({ width, height:900 });
     const geometry = await page.locator('#unifiedNotificationPanel').evaluate(panel => ({
