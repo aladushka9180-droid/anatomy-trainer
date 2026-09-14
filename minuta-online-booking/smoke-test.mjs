@@ -70,8 +70,8 @@ assert.ok(serviceWorkerVersions.length > 0, 'Service worker не содержи�
 assert.ok(serviceWorkerVersions.every(value => value === version), `Service worker содержит ресурсы не текущей версии v${version}`);
 const siteUpdate = readFileSync(join(root, 'site-update.js'), 'utf8');
 assert.match(siteUpdate, new RegExp(`sw\\.js\\?v=${version}`), 'Регистрация service worker использует другую версию');
-assert.match(settingsSmartSearch, /cabinetSectionsSearchInput[\s\S]*VIEW_ALIASES[\s\S]*findSections/, 'В меню «Разделы» нет умного поиска');
-assert.match(settingsSmartSearch, /startSectionsVoiceSearch[\s\S]*SpeechRecognition/, 'В меню «Разделы» нет голосового поиска');
+assert.match(settingsSmartSearch, /CABINET_SEARCH_REGISTRY_VERSION[\s\S]*CABINET_SEARCH_REGISTRY[\s\S]*cabinetSectionsSearchInput[\s\S]*findSections/, 'В меню «Разделы» нет версионированного реестра умного поиска');
+assert.doesNotMatch(settingsSmartSearch, /cabinetSectionsSearchInput[^`]*Найти раздел голосом/, 'Навигационный запрос не должен уходить во внешнее распознавание речи');
 assert.match(provider, /\['clients', 'messages', 'notifications', 'settings', 'organization', 'more'\]\.includes\(view\)[\s\S]*loadProviderGuidance/, 'Контекстные подсказки и умный поиск не загружаются в нужных разделах');
 assert.match(settingsNavScroll, /settings-section-picker/, 'На телефоне нет компактного выбора раздела настроек');
 assert.match(settingsNavScroll, /button\?\.click\(\)/, 'Выбор раздела не открывает соответствующую настройку');
