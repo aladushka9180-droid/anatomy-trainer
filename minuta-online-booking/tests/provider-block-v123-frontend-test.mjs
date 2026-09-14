@@ -12,6 +12,7 @@ const extract=(start,end)=>{
  return source.slice(a,b);
 };
 const contextCode=extract('function activeProviderBlockContext(', 'function providerBlockLocationOptions(');
+const gridCode=extract('const NEW_BOOKING_GRID_MINUTES = 30;', 'function syncSlotIntervalOptions(');
 const slotsCode=extract('async function loadNewBookingSlots()', 'function renderNewBookingTimePicker(');
 const createCode=extract('async function createNewBooking(event)', 'function closeBookingSheet(');
 const idCode=extract('function bookingIdFromRpcResult(', 'function findCreatedBooking(');
@@ -33,6 +34,7 @@ function fixture({duration=15,serviceDuration=60,servicesAvailable=true,organiza
  ]}:null;
  const sandbox={console,Date,JSON,Set,Number,String,navigator:{onLine:online},$:selector=>fields[selector],
   currentUser:{id:'actor'},sessionGeneration:3,sessionIsCurrent:()=>true,
+  bookingCreationReady:true,writesAllowed:true,
   organizationController:{getActiveOrganization:()=>organizations},
   newBookingMode:'block',newBookingHistoricalMode:false,newBookingOutsideSchedule:false,
   newBookingTime:'10:00',newBookingPreferredTime:'10:00',newBookingSlots:[],newBookingHour:'',newBookingSlotsRequestId:0,
@@ -60,7 +62,7 @@ function fixture({duration=15,serviceDuration=60,servicesAvailable=true,organiza
   getProviderAvailableSlots:async()=>{throw Error('service-duration availability fallback forbidden');},
   db:{from:()=>{throw Error('direct booking UPDATE/DELETE forbidden');},rpc:async(name,args)=>{
    calls.push({name,args:plain(args)});
-   if(name==='get_provider_block_slots_v141')return {data:[{booking_time:'10:00:00'},{booking_time:'10:05:00'}],error:null};
+   if(name==='get_provider_block_slots_v141')return {data:[{booking_time:'10:00:00'},{booking_time:'10:05:00'},{booking_time:'10:30:00'}],error:null};
    assert.equal(name,'create_provider_block_v141','no provider_book_appointment/book_appointment fallback');
    const next=responses.shift();
    if(typeof next==='function')return next(args);
@@ -69,7 +71,7 @@ function fixture({duration=15,serviceDuration=60,servicesAvailable=true,organiza
     payment_required:false,notifications_suppressed:true},error:null};
   }}
  };
- vm.createContext(sandbox);vm.runInContext(contextCode+idCode+createCode,sandbox);
+ vm.createContext(sandbox);vm.runInContext(contextCode+gridCode+idCode+createCode,sandbox);
  const submit=()=>sandbox.createNewBooking({preventDefault(){},currentTarget:fields['#newBookingForm'],submitter:fields['#newBookingSubmit']});
  const slots=async()=>{vm.runInContext(slotsCode,sandbox);await sandbox.loadNewBookingSlots();};
  return {sandbox,fields,calls,writes,errors,notices,submit,slots,get generated(){return generated;}};
@@ -79,7 +81,7 @@ test('actual duration-aware slots admit 15 minutes independently of a 60-minute 
  const f=fixture();await f.slots();
  assert.deepEqual(f.calls,[{name:'get_provider_block_slots_v141',args:{p_organization:'organization-explicit',p_location:'branch-selected',
   p_date:'2099-01-04',p_duration:15,p_ignore_booking:null}}]);
- assert.deepEqual(plain(f.sandbox.newBookingSlots),['10:00','10:05']);assert.equal(f.sandbox.newBookingTime,'10:00');
+ assert.deepEqual(plain(f.sandbox.newBookingSlots),['10:00','10:30']);assert.equal(f.sandbox.newBookingTime,'10:00');
 });
 test('actual context excludes disabled locations and uses an explicit active organization',()=>{
  const f=fixture();assert.equal(f.sandbox.activeProviderBlockContext('branch-disabled').locationId,'branch-primary');
@@ -118,7 +120,7 @@ for(const field of ['#newBookingBlockNote','#newBookingBlockTitle','#newBookingL
  });
 }
 for(const [label,change] of [
- ['duration',f=>{f.sandbox.testDuration=30;}],['time',f=>{f.sandbox.newBookingTime='10:05';}],
+ ['duration',f=>{f.sandbox.testDuration=30;}],['time',f=>{f.sandbox.newBookingTime='10:30';}],
  ['date',f=>{f.fields['#newBookingDate'].value='2099-01-05';}]
 ]){
  test(`changed ${label} is refused after unknown transport outcome`,async()=>{

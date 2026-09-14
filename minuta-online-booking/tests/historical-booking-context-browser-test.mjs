@@ -463,7 +463,7 @@ cases.push([
     assert.equal(await page.locator('.booking-time-slots-nearby [data-new-booking-time].active').textContent(),'15:00');
     assert.equal(await page.locator('.booking-more-times').getAttribute('open'),null);
     assert.deepEqual(await page.locator('.booking-more-times [data-new-booking-time]').allTextContents(),['14:00','15:00','16:00']);
-    assert.match(await page.locator('.booking-more-times > summary').innerText(),/Шаг 5 мин/);
+    assert.match(await page.locator('.booking-more-times > summary').innerText(),/Шаг 30 мин/);
     await page.locator('.booking-more-times > summary').click();
     assert.equal(await page.locator('.booking-more-times [data-new-booking-time="15:00"]').getAttribute('aria-pressed'),'true');
     await page.locator('.booking-more-times [data-new-booking-time="16:00"]').click();

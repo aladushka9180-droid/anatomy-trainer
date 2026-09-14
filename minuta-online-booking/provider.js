@@ -6964,6 +6964,16 @@ function scheduleStepForDate(dateIso) {
   return Number.isInteger(step) && step >= 5 && step <= 60 ? step : 5;
 }
 
+const NEW_BOOKING_GRID_MINUTES = 30;
+
+function isNewBookingGridTime(value) {
+  return /^([01]\d|2[0-3]):(?:00|30)$/.test(String(value || ''));
+}
+
+function newBookingGridSlots(slots) {
+  return [...new Set((slots || []).map(time => String(time || '').slice(0, 5)).filter(isNewBookingGridTime))].sort();
+}
+
 function syncSlotIntervalOptions(value = $('#slotInterval')?.value) {
   $$('.slot-step-options [data-slot-interval]').forEach(button => {
     button.setAttribute('aria-selected', String(button.dataset.slotInterval === String(value || '5')));
@@ -6978,7 +6988,7 @@ function timelineTimeFromClick(stage, event) {
   const scaleHeight = Number(stage.dataset.timelineNaturalHeight) || rect.height;
   const position = Math.max(0, Math.min(scaleHeight, event.clientY - rect.top));
   const rawMinute = start + ((position / scaleHeight) * (end - start));
-  const step = scheduleStepForDate(stage.dataset.timelineDate || selectedDate);
+  const step = NEW_BOOKING_GRID_MINUTES;
   const snappedMinute = Math.floor(rawMinute / step) * step;
   const firstSlot = Math.ceil(start / step) * step;
   const lastSlot = Math.floor((end - 1) / step) * step;
@@ -7774,15 +7784,22 @@ function openTimelineBookingAtTime(time, dateIso = selectedDate) {
 
 function timelineKeyboardMinute(stage) {
   const start = Number(stage.dataset.timelineStart || 0);
-  const end = Math.max(start, Number(stage.dataset.timelineEnd || start) - 5);
+  const end = Math.max(start, Number(stage.dataset.timelineEnd || start) - 1);
+  const firstSlot = Math.ceil(start / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
+  const lastSlot = Math.floor(end / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
   const stored = Number(stage.dataset.timelineKeyboardMinute);
-  return Math.max(start, Math.min(end, Number.isFinite(stored) ? stored : start));
+  if (firstSlot > lastSlot) return start;
+  const aligned = Math.floor((Number.isFinite(stored) ? stored : firstSlot) / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
+  return Math.max(firstSlot, Math.min(lastSlot, aligned));
 }
 
 function setTimelineKeyboardMinute(stage, minute) {
   const start = Number(stage.dataset.timelineStart || 0);
-  const end = Math.max(start, Number(stage.dataset.timelineEnd || start) - 5);
-  const value = Math.max(start, Math.min(end, minute));
+  const end = Math.max(start, Number(stage.dataset.timelineEnd || start) - 1);
+  const firstSlot = Math.ceil(start / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
+  const lastSlot = Math.floor(end / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
+  const aligned = Math.floor(Number(minute || firstSlot) / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
+  const value = firstSlot <= lastSlot ? Math.max(firstSlot, Math.min(lastSlot, aligned)) : start;
   const time = timeFromMinutes(value);
   stage.dataset.timelineKeyboardMinute = String(value);
   stage.setAttribute('aria-label', `Выбор свободного времени. Выбрано ${time}. Стрелками измените время, Enter создаст запись`);
@@ -7793,7 +7810,7 @@ document.addEventListener('keydown', event => {
   const stage = event.target.closest?.('[data-create-booking-at]');
   if (!stage || event.target.closest?.('.timeline-booking')) return;
   const current = timelineKeyboardMinute(stage);
-  const moves = { ArrowLeft:-5, ArrowDown:-5, ArrowRight:5, ArrowUp:5, PageDown:-30, PageUp:30 };
+  const moves = { ArrowLeft:-30, ArrowDown:-30, ArrowRight:30, ArrowUp:30, PageDown:-60, PageUp:60 };
   if (Object.hasOwn(moves, event.key)) {
     event.preventDefault();
     setTimelineKeyboardMinute(stage, current + moves[event.key]);
@@ -9126,8 +9143,8 @@ function bookingQuickTimeSlots(slots) {
   return quick.length ? quick : available.slice(0, 12);
 }
 
-function bookingNearbyTimeSlots(slots, selectedTime = '') {
-  const available = [...new Set((slots || []).filter(time => /^\d{2}:\d{2}$/.test(String(time))))].sort();
+function bookingNearbyTimeSlots(slots, selectedTime = '', referenceTime = selectedTime) {
+  const available = newBookingGridSlots(slots);
   if (!available.length) return [];
   const value = available.includes(selectedTime) ? selectedTime : '';
   const minuteValue = time => minutesFromTime(time);
@@ -9136,14 +9153,15 @@ function bookingNearbyTimeSlots(slots, selectedTime = '') {
     return distance || left.localeCompare(right);
   })[0] || '';
   const chosen = [];
-  if (value) {
-    const selectedMinutes = minuteValue(value);
+  const reference = /^\d{2}:\d{2}$/.test(String(referenceTime || '')) ? String(referenceTime) : value;
+  if (reference) {
+    const selectedMinutes = minuteValue(reference);
     const before = available.filter(time => minuteValue(time) < selectedMinutes);
     const after = available.filter(time => minuteValue(time) > selectedMinutes);
-    const previous = closestTo(before, selectedMinutes - 30);
-    const next = closestTo(after, selectedMinutes + 30);
+    const previous = closestTo(before, selectedMinutes - NEW_BOOKING_GRID_MINUTES);
+    const next = closestTo(after, selectedMinutes + NEW_BOOKING_GRID_MINUTES);
     if (previous) chosen.push(previous);
-    chosen.push(value);
+    if (value) chosen.push(value);
     if (next) chosen.push(next);
     for (const time of [...available].sort((left, right) => {
       const distance = Math.abs(minuteValue(left) - selectedMinutes) - Math.abs(minuteValue(right) - selectedMinutes);
@@ -9156,7 +9174,7 @@ function bookingNearbyTimeSlots(slots, selectedTime = '') {
     const first = available[0];
     chosen.push(first);
     const start = minuteValue(first);
-    for (const target of [start + 30, start + 60]) {
+    for (const target of [start + NEW_BOOKING_GRID_MINUTES, start + (NEW_BOOKING_GRID_MINUTES * 2)]) {
       const next = closestTo(available.filter(time => !chosen.includes(time) && minuteValue(time) >= target), target)
         || available.find(time => !chosen.includes(time));
       if (next) chosen.push(next);
@@ -9167,9 +9185,7 @@ function bookingNearbyTimeSlots(slots, selectedTime = '') {
 
 function bookingRemainingTimeSlots(slots, nearbySlots, selectedTime = '') {
   const nearby = new Set(nearbySlots || []);
-  return [...new Set((slots || []).filter(time => /^\d{2}:\d{2}$/.test(String(time))))]
-    .sort()
-    .filter(time => Number(time.slice(3, 5)) % 5 === 0)
+  return newBookingGridSlots(slots)
     .filter(time => time === selectedTime || !nearby.has(time));
 }
 
@@ -9180,7 +9196,7 @@ function bookingRemainingTimeMarkup(slots, nearbySlots, selectedTime = '') {
     ? selectedTime
     : remaining.find(time => time >= selectedTime) || remaining.at(-1);
   return `<details class="booking-more-times" data-scroll-time="${scrollTime}">
-    <summary><span>Показать остальные</span><small>Шаг 5 мин · ещё ${remaining.length}</small></summary>
+    <summary><span>Показать остальные</span><small>Шаг 30 мин · ещё ${remaining.length}</small></summary>
     <div class="booking-time-slots booking-time-slots-all">${remaining.map(time => `<button type="button" class="${time === selectedTime ? 'active' : ''}" aria-pressed="${time === selectedTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
   </details>`;
 }
@@ -9712,14 +9728,14 @@ function offlineCandidateSlots(serviceId, dateIso, requestedDuration = 0) {
   const weekday = ((date.getDay() + 6) % 7) + 1;
   const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
   if (schedule?.enabled === false) return [];
-  const step = scheduleStepForDate(dateIso);
   const duration = Math.max(1, Number(requestedDuration || service.duration_minutes || 60));
   const start = minutesFromTime(schedule?.start_time || '10:00');
   const end = minutesFromTime(schedule?.end_time || '20:00');
   const now = new Date();
   const earliest = dateIso === businessTodayIso() ? (now.getHours() * 60) + now.getMinutes() : start;
   const slots = [];
-  for (let minute = start; minute + duration <= end; minute += step) {
+  const firstSlot = Math.ceil(start / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
+  for (let minute = firstSlot; minute + duration <= end; minute += NEW_BOOKING_GRID_MINUTES) {
     if (minute < earliest) continue;
     const issue = bookingPlacementIssue({ id:'offline-candidate', duration_minutes:duration }, dateIso, minute);
     const queuedConflict = offlineBookingQueue.some(item => {
@@ -9887,7 +9903,7 @@ async function loadNewBookingSlots() {
     renderNewBookingOutsideSchedulePrompt({ preferredTime });
     return;
   }
-  newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5)).filter(time => !bookingMoveTimeIsPast(date, time) && !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration },
+  newBookingSlots = newBookingGridSlots(data.map(slot => String(slot.booking_time).slice(0, 5))).filter(time => !bookingMoveTimeIsPast(date, time) && !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration },
     date,
     minutesFromTime(time),
     { respectAutomaticBreakReleases:true }
@@ -9945,7 +9961,7 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
     const selectionSummary = newBookingTime
       ? `<div class="booking-time-selection-summary"><div><strong>Запись: ${newBookingTime}–${endTime}</strong><span>${duration} мин × ${new Intl.NumberFormat('ru-RU').format(minutePrice)} ₽</span></div><div><span>Итого</span><strong>${new Intl.NumberFormat('ru-RU').format(totalPrice)} ₽</strong></div></div>`
       : '';
-    const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime);
+    const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime, newBookingPreferredTime);
     holder.innerHTML = `${offline ? `<div class="booking-time-warning">${newBookingPreferredTime || newBookingTime || 'Выбранное время'} сохранится как отложенный запрос. Сервер проверит его после подключения.</div>` : ''}${preferredUnavailable}
       <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : 'Свободное время рядом'}</span></div>
       <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
@@ -9953,10 +9969,10 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
     activateBookingRemainingTimeScroll(holder);
     return;
   }
-  const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime);
+  const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime, newBookingPreferredTime);
   const preferredUnavailable = newBookingPreferredUnavailableMarkup();
   holder.innerHTML = `${offline ? '<div class="booking-time-warning">Предварительные варианты из последней сохранённой копии. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable}
-    <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут`}</span></div>
+    <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : 'Шаг записи — 30 минут'}</span></div>
     <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
     ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)}`;
   activateBookingRemainingTimeScroll(holder);
@@ -10712,6 +10728,8 @@ async function createNewBooking(event) {
           ? 'Выберите дату.'
           : !newBookingTime
             ? 'Выберите время записи.'
+            : !historical && !isNewBookingGridTime(newBookingTime)
+              ? 'Выберите начало получасового интервала.'
             : historical && (!Number.isInteger(historicalAmount) || historicalAmount < 0 || historicalAmount > 1000000)
               ? 'Укажите полученную сумму от 0 до 1 000 000 ₽.'
             : '';
