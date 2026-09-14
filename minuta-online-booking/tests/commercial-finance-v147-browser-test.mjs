@@ -8,6 +8,7 @@ const output = resolve(root, '.tmp-commerce-v147');
 mkdirSync(output, { recursive:true });
 const html = readFileSync(resolve(root, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
 const source = readFileSync(resolve(root, 'commerce-management.js'), 'utf8');
+const financeSource = readFileSync(resolve(root, 'finance-center.js'), 'utf8');
 const playwright = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const chromium = playwright.chromium || playwright.default?.chromium;
@@ -59,6 +60,7 @@ try {
       document.querySelector('#commercePanel').hidden = false;
     });
     await page.addScriptTag({ content:source });
+    await page.addScriptTag({ content:financeSource });
     await page.evaluate(async ({ organizationId, clientId, productId, accountId, expenseId, ownerId }) => {
       window.commerceCalls = [];
       window.commerceNotices = [];
@@ -100,6 +102,7 @@ try {
           return { data:{ id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', organization_id:organizationId, replayed:false }, error:null };
         }
         if (name === 'get_minuta_money_dashboard_v147') return { data:{ organization_id:organizationId, income_minor:500000, expense_minor:120000, expense_structure:[{ name:'Аренда', amount_minor:120000 }], recent_operations:[{ id:'1', operation_type:'commercial_sale', occurred_at:'2026-09-12T12:00:00Z', amount_minor:500000 }] }, error:null };
+        if (name === 'get_minuta_finance_expenses_v163') return { data:{ organization_id:organizationId, expense_minor:120000, daily_expenses:[{ date:'2026-09-12', amount_minor:120000 }], expense_structure:[{ category_key:'rent', amount_minor:120000 }], operations:[], accounts:[{ id:accountId, name:'Основная касса', account_type:'cash' }] }, error:null };
         if (name === 'set_minuta_finance_enabled_v133') return { data:{ organization_id:organizationId, enabled:args.p_enabled }, error:null };
         return { data:null, error:{ message:`unexpected rpc ${name}` } };
       }};
@@ -113,12 +116,14 @@ try {
       window.commerceController = MinutaCommerce.createController(common);
       commerceController.bind();
       await commerceController.setOrganization({ id:organizationId, current_role:'owner' });
-      window.financeController = MinutaCommerce.createFinanceController(common);
+      window.financeController = MinutaFinanceCenter.createController(common);
+      financeController.bind();
       financeController.setOrganization({ id:organizationId, current_role:'owner' });
+      financeController.updateSnapshot({ range:{ start:'2026-09-01', end:'2026-09-30' }, source:'own', receivedRub:5000, serviceValueRub:5000, debtRub:0, completedCount:1, knownPaymentCount:1, daily:[{ date:'2026-09-12', receivedRub:5000 }], operations:[] });
       await financeController.load({ start:'2026-09-01', end:'2026-09-30' });
     }, { organizationId, clientId, productId, accountId, expenseId, ownerId });
     await page.locator('#commerceWorkspace').waitFor({ state:'attached' });
-    assert.equal(await page.locator('#moneyProfit').innerText(), '3 800 ₽');
+    assert.equal(await page.locator('#financeNet').innerText(), '3 800 ₽');
     assert.equal(await page.locator('#commerceRefundEmpty').isHidden(), true);
     assert.equal(await page.locator('#commerceRefundCreator').isHidden(), true);
     assert.equal(await page.locator('#commerceRefundSubmit').isDisabled(), true);
@@ -210,7 +215,14 @@ try {
       });
       document.querySelector('[data-provider-panel="analytics"]').dataset.reportTab = 'money';
     });
-    await page.locator('#moneyDashboardWorkspace').waitFor({ state:'visible' });
+    await page.locator('#financeCenter').waitFor({ state:'visible' });
+    await page.locator('#financeCenter').scrollIntoViewIfNeeded();
+    const financeVisual = await page.evaluate(() => ({
+      heroBackground:getComputedStyle(document.querySelector('.finance-hero')).backgroundColor,
+      actionHidden:document.querySelector('#financeAddExpense').hidden
+    }));
+    assert.notEqual(financeVisual.heroBackground, 'rgba(0, 0, 0, 0)', `${width}: finance hero must remain visible`);
+    assert.equal(financeVisual.actionHidden, false, `${width}: owner must see the primary expense action`);
     const moneyOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.ok(moneyOverflow <= 1, `${width}: money dashboard horizontal overflow ${moneyOverflow}`);
     await page.screenshot({ path:resolve(output, `money-${width}.png`), fullPage:true });

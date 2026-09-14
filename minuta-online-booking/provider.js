@@ -1374,7 +1374,7 @@ const writeSelectors = [
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
-  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-loyalty-write]', '[data-inventory-write]', '[data-organization-policy-write]', '[data-group-booking-write]', '[data-batch-booking-write]', '[data-retention-write]', '#visitorNotificationsEnabled', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
+  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-loyalty-write]', '[data-inventory-write]', '[data-finance-write]', '[data-organization-policy-write]', '[data-group-booking-write]', '[data-batch-booking-write]', '[data-retention-write]', '#visitorNotificationsEnabled', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
   '[data-retry-notification-outbox]',
   '[data-booking-status]', '[data-cancel-booking-series]', '#bookingSeriesCancelForm button[type="submit"]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]',
   '[data-repeat-booking]', '[data-client-avatar-input]', '[data-remove-client-avatar]'
@@ -2166,7 +2166,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=795#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=796#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2871,7 +2871,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=795#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=796#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4736,6 +4736,30 @@ function renderAnalytics() {
     paymentEvidence.hidden = unknownPaymentCount === 0;
     paymentEvidence.innerHTML = unknownPaymentCount ? `<summary>Точность оплаты · ${completed.length - unknownPaymentCount} из ${completed.length} визитов</summary><p>Оплата не указана: ${unknownPaymentCount} ${reportVisitWord(unknownPaymentCount)} на сумму ${escapeHtml(money(importedValue))}. Эта сумма сохранена в стоимости услуг, но не считается полученной или подтверждённым долгом. Отчёт относится к датам визитов, а не банковских операций.</p>` : '';
   }
+  const financeDaily = new Map();
+  const financeOperations = [];
+  let financeReceived = 0;
+  let financeDebt = 0;
+  completed.forEach((item, index) => {
+    const outcome = bookingOutcome(item);
+    if (globalThis.MinutaReportReconciliation.paymentUnknown(item, outcome)) return;
+    const recorded = Math.max(0, reportReceivedAmount(item));
+    const refundedPrepayment = item.payment_status === 'refunded'
+      ? Math.min(recorded, Math.max(0, Number(item.deposit_amount_rub) || 0))
+      : 0;
+    const received = Math.max(0, recorded - refundedPrepayment);
+    financeReceived += received;
+    financeDebt += Math.max(0, reportServiceValue(item) - received);
+    if (received > 0) financeDaily.set(item.booking_date, (financeDaily.get(item.booking_date) || 0) + received);
+    const service = bookingSession(item).map(entry => serviceName(entry.title || '')).filter(Boolean).join(', ') || serviceName(item.services?.name || 'Визит');
+    if (recorded > 0) financeOperations.push({ date:item.booking_date, order:index, description:service, category:item.client_name || 'Оплата за визит', amountRub:recorded, type:'Получено' });
+    if (refundedPrepayment > 0) financeOperations.push({ date:item.booking_date, order:index + .5, description:'Возврат предоплаты', category:item.client_name || service, amountRub:-refundedPrepayment, type:'Возврат' });
+  });
+  financeController?.updateSnapshot?.({
+    range, source:reportDataSource, receivedRub:financeReceived, serviceValueRub:completedValue,
+    debtRub:financeDebt, completedCount:completed.length, knownPaymentCount,
+    daily:[...financeDaily].map(([date, receivedRub]) => ({ date, receivedRub })), operations:financeOperations
+  });
   const receivedLabel = 'Отмечено полученным';
   const heroCaption = $('#reportHeroRevenue')?.closest('article')?.querySelector('small');
   if (heroCaption) heroCaption.textContent = receivedLabel;
@@ -5161,7 +5185,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=795');
+      worker = new Worker('./report-worker.js?v=796');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -16306,9 +16330,10 @@ const paymentController = window.MinutaPayments?.createController ? window.Minut
 }) : { bind() {}, load() { return Promise.resolve(); }, setOrganization() {}, reset() {}, isCheckoutEnabled() { return false; } };
 paymentController.bind();
 
-financeController = window.MinutaCommerce?.createFinanceController ? window.MinutaCommerce.createFinanceController({
-  db, $, escapeHtml, notify
+financeController = window.MinutaFinanceCenter?.createController ? window.MinutaFinanceCenter.createController({
+  db, $, escapeHtml, notify, requireWrites, applyWriteAvailability
 }) : { load() { return Promise.resolve(); }, setOrganization() {}, reset() {} };
+financeController.bind?.();
 window.addEventListener('minuta:reload-money-dashboard', () => void financeController.load(reportRange(), { force:true }));
 
 const integrationController = window.MinutaIntegrations?.createController ? window.MinutaIntegrations.createController({
@@ -17584,11 +17609,13 @@ function initializeProviderUx() {
   }
   const textScale = $('.provider-text-scale-picker');
   if (textScale) $('.provider-layout-picker')?.before(textScale);
-  const evidence = document.createElement('details');
-  evidence.id = 'reportPaymentEvidence';
-  evidence.className = 'report-payment-evidence';
-  evidence.hidden = true;
-  $('#reportCommandCenter')?.before(evidence);
+  if (!$('#reportPaymentEvidence')) {
+    const evidence = document.createElement('details');
+    evidence.id = 'reportPaymentEvidence';
+    evidence.className = 'report-payment-evidence';
+    evidence.hidden = true;
+    $('#reportCommandCenter')?.before(evidence);
+  }
   // Secondary starter commands stay reachable without filling the first screen.
   const examples = $('.voice-assistant-examples');
   $$('#voiceAssistantStarters>button:nth-child(n+5)').forEach(button => examples?.append(button));

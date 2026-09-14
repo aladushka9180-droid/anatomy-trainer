@@ -31,14 +31,13 @@ const script=`
   var setReportText=(s,v)=>{const n=$(s);if(n)n.textContent=v;},setReportSubview=()=>{},updateReportFilterSummary=()=>{},previousReportRange=()=>null,setReportTrend=()=>{};
   var bookingIsCompleted=()=>true,renderReportUtilization=()=>40,renderReportRetention=()=>{},loadReportTeamAnalytics=()=>{},renderReportUtmFunnel=()=>{},loadReportUtmFunnel=()=>{},loadReportEvents=()=>{};
   var renderReportFunnel=()=>{},renderReportHeatmap=()=>{},renderReportCommandCenter=()=>{},providerPerformance={measure:()=>1,record(){}};
+  var financeController={updateSnapshot(){}};
   var notify=()=>{},reportExportFilename=(r,ext)=>'synthetic-report.'+ext;
   window.exports=[];var reportExportDownload=(blob,filename)=>exports.push({blob,filename});
   window.pdfText=[];const originalFillText=CanvasRenderingContext2D.prototype.fillText;
   CanvasRenderingContext2D.prototype.fillText=function(text,...args){pdfText.push(String(text));return originalFillText.call(this,text,...args);};
   ${moduleSource}
   ${names.map(declaration).join('\n')}
-  // The production UX initializer inserts this report node dynamically.
-  ${source.slice(source.indexOf("  const evidence = document.createElement('details');"),source.indexOf('  // Secondary starter commands'))}
 `;
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
