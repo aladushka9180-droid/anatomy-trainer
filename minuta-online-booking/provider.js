@@ -2156,7 +2156,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=784#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=785#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2861,7 +2861,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=784#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=785#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5084,7 +5084,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=784');
+      worker = new Worker('./report-worker.js?v=785');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6874,10 +6874,10 @@ function timelineMagneticTarget(item, stage, pointerMinute, dateIso = selectedDa
   return { minute:bounded, issue:directIssue, magnetized:false, pointerMinute:bounded };
 }
 
-function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, ignoreSchedule = false, respectAutomaticBreakReleases = false } = {}) {
+function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, ignoreSchedule = false, ignoreAutomaticBuffer = false, respectAutomaticBreakReleases = false } = {}) {
   const duration = Math.max(1, Number(item?.duration_minutes || item?.services?.duration_minutes || 60));
   const endMinute = startMinute + duration;
-  const automaticBuffer = bookingPolicy.booking_buffer_enabled
+  const automaticBuffer = bookingPolicy.booking_buffer_enabled && !ignoreAutomaticBuffer
     ? Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60))
     : 0;
   const candidateIsBlock = isScheduleBlock(item);
@@ -9579,19 +9579,17 @@ function newBookingPreferredUnavailableMarkup() {
   const date = $('#newBookingDate')?.value || '';
   const preferredPast = date === businessTodayIso() && bookingMoveTimeIsPast(date, preferredTime);
   const duration = newBookingDurationMinutes();
-  const placementIssue = !preferredPast && duration
-    ? bookingPlacementIssue(
-      { id:'new-booking-preferred-candidate', duration_minutes:duration },
-      date,
-      minutesFromTime(preferredTime),
-      { respectAutomaticBreakReleases:true }
-    )
-    : '';
+  const candidate = { id:'new-booking-preferred-candidate', duration_minutes:duration };
+  const startMinute = minutesFromTime(preferredTime);
+  const hardIssue = preferredPast ? '' : bookingPlacementIssue(candidate, date, startMinute, { ignoreAutomaticBuffer:true });
+  const bufferIssue = preferredPast || hardIssue ? '' : bookingPlacementIssue(candidate, date, startMinute, { respectAutomaticBreakReleases:true });
   const copy = preferredPast
     ? `<strong>${escapeHtml(preferredTime)} уже прошло.</strong><br>${newBookingMode === 'client' ? 'Откройте нужное прошедшее время прямо в расписании.' : 'Для «Занять время» выберите будущее окно или другую дату.'}`
-    : placementIssue
-      ? `<strong>${escapeHtml(preferredTime)} недоступно.</strong><br>${escapeHtml(placementIssue)}. Выберите другое время или длительность.`
-      : `Ранее выбранное время ${escapeHtml(preferredTime)} сейчас недоступно: услуга не помещается в доступное окно. Выберите другое время или длительность.`;
+    : hardIssue
+      ? `<strong>Услуга на ${duration} мин не помещается в ${escapeHtml(preferredTime)}.</strong><br>${escapeHtml(hardIssue)}.`
+      : bufferIssue
+        ? `<strong>${escapeHtml(preferredTime)} закрыто неосвобождённым автоматическим перерывом.</strong><br>${escapeHtml(bufferIssue)}. Освободите этот перерыв в расписании или выберите другое окно.`
+      : `Ранее выбранное время ${escapeHtml(preferredTime)} сейчас недоступно. Выберите другое.`;
   return `<div class="booking-time-warning">${copy}</div>`;
 }
 

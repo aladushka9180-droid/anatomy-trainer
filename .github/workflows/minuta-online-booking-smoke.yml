@@ -37,6 +37,7 @@ jobs:
       - run: node minuta-online-booking/android-recent-calls-static-test.mjs
       - run: node minuta-online-booking/client-page-settings-v118-static-test.mjs
       - run: node minuta-online-booking/booking-widgets-static-test.mjs
+      - run: node --test minuta-online-booking/tests/automatic-break-slot-release-browser-test.mjs minuta-online-booking/tests/booking-concurrency-short-block-test.mjs
       - run: node minuta-online-booking/tests/client-profile-polish-static-test.mjs
       - run: node minuta-online-booking/client-profile-v135-static-test.mjs
       - run: node minuta-online-booking/tests/free-slots-default-times-test.mjs

@@ -20,6 +20,14 @@ update public.booking_policies set booking_buffer_enabled=true where performer_i
 set local role authenticated;
 select set_config('request.jwt.claim.sub',current_setting('v123.actor'),true);
 select set_config('v158.segment',(select row_to_json(segment)::text from public.get_minuta_provider_automatic_breaks_v158(current_setting('v123.date')::date) segment where start_time='12:00' and end_time='13:00'),true);
+do $$ begin
+  begin
+    perform public.provider_book_appointment(current_setting('v123.service')::uuid,current_setting('v123.date')::date,'12:00','V158 blocked probe','79990000180');
+    raise exception 'expected_booking_buffer_conflict';
+  exception when raise_exception then
+    if sqlerrm<>'booking_buffer_conflict' then raise; end if;
+  end;
+end $$;
 reset role;
 select pg_temp.v158_assert(current_setting('v158.segment')::jsonb->>'source_count'='2','merged_segment_has_every_source');
 select set_config('v158.request',gen_random_uuid()::text,true);
