@@ -9594,3 +9594,21 @@ html.provider-booting .provider-main {
   color:var(--theme-accent-contrast,#fff)!important;
 }
 .provider-body[data-provider-theme] #commerceSaleSubmit.primary:disabled { opacity:.46; }
+
+/* v780: compact mobile navigation keeps five accessible actions without covering the schedule. */
+@media (max-width:760px) {
+  .provider-body .provider-mobile-nav {
+    bottom:max(0px,env(safe-area-inset-bottom,0px))!important;
+    padding:1px 4px!important;
+  }
+  .provider-body .provider-mobile-nav>button {
+    min-height:44px!important;
+    gap:1px!important;
+    padding:2px!important;
+  }
+  .provider-body .provider-mobile-nav>button>.ui-icon {
+    width:16px;
+    height:16px;
+  }
+  .provider-body .provider-mobile-nav>button>span { line-height:1.1; }
+}

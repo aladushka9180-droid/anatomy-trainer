@@ -163,6 +163,8 @@ try {
       const timelineLines = [...timelineStage.querySelectorAll('.timeline-grid-line')].map(line => line.getBoundingClientRect());
       const expand = document.querySelector('.timeline-day-expand');
       const expandStyle = getComputedStyle(expand);
+      const mobileNav = document.querySelector('.provider-mobile-nav');
+      const workspace = document.querySelector('.provider-workspace');
       const timelineBooking = timelineStage.querySelector('.timeline-booking');
       timelineBooking.focus({ preventScroll:true });
       const timelineFocusWidth = parseFloat(getComputedStyle(timelineBooking).outlineWidth);
@@ -235,7 +237,12 @@ try {
         todayButtonBackgroundImage:todayButtonStyle.backgroundImage,
         todayButtonShadow:todayButtonStyle.boxShadow,
         pickerBackground:pickerStyle.backgroundColor,
-        navBottom:rect('.provider-mobile-nav').bottom,
+        nav:rect('.provider-mobile-nav'),
+        navTargets:[...mobileNav.querySelectorAll(':scope>button')].map(button => {
+          const item = button.getBoundingClientRect();
+          return { height:item.height, width:item.width };
+        }),
+        workspacePaddingBottom:parseFloat(getComputedStyle(workspace).paddingBottom),
         viewportHeight:innerHeight
       };
     });
@@ -255,6 +262,9 @@ try {
       assert.ok(result.newBooking.width >= 108 && result.newBooking.height === 44, `${width}px New booking button changed height or is too narrow: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.previous.height >= 44 && result.next.height >= 44, `${width}px date strip arrows`);
+      assert.ok(result.nav.height <= 50, `${width}px mobile navigation is still too tall: ${JSON.stringify(result.nav)}`);
+      assert.ok(result.navTargets.length === 5 && result.navTargets.every(target => target.height >= 44 && target.width >= 44), `${width}px mobile navigation targets are not accessible: ${JSON.stringify(result.navTargets)}`);
+      assert.ok(result.workspacePaddingBottom >= result.nav.height + (height - result.nav.bottom) + 16, `${width}px compact mobile navigation lacks safe clearance: ${JSON.stringify(result)}`);
       assert.notEqual(result.previousBackgroundImage, 'none', `${width}px previous arrow lost the edge continuation fade`);
       assert.notEqual(result.nextBackgroundImage, 'none', `${width}px next arrow lost the edge continuation fade`);
       assert.ok(result.previousIconColor, `${width}px previous arrow icon lost its quiet color`);
@@ -279,7 +289,7 @@ try {
       assert.ok(result.journalGridGap >= 8, `${width}px timeline grid touches the journal toggle: ${JSON.stringify(result)}`);
       assert.ok(result.strip.top - result.navigation.bottom >= 7 && result.strip.top - result.navigation.bottom <= 9, `${width}px date controls and strip lost the 8px rhythm: ${JSON.stringify(result)}`);
       assert.ok(result.toolbar.top - result.strip.bottom >= 7 && result.toolbar.top - result.strip.bottom <= 9, `${width}px date strip and day heading lost the 8px rhythm: ${JSON.stringify(result)}`);
-      assert.ok(Math.abs(result.viewportHeight - result.navBottom) <= 9, `${width}px fixed navigation moved from the bottom`);
+      assert.ok(Math.abs(result.viewportHeight - result.nav.bottom) <= 1, `${width}px compact navigation must use the viewport edge while preserving safe-area`);
       assert.equal(result.tabBackground, 'rgba(0, 0, 0, 0)', `${width}px period tabs are not flat`);
       assert.equal(result.tabAccentHeight, '2px', `${width}px selected period needs a thin accent`);
       assert.ok(result.tabHeights.every(tabHeight => tabHeight >= 44), `${width}px period touch targets must remain at least 44px`);
@@ -317,6 +327,26 @@ try {
     }
     if (output) await page.screenshot({ path:path.join(output, `schedule-compact-${width}.png`), fullPage:false });
   }
+
+  await page.setViewportSize({ width:360, height:720 });
+  const shortDayFold = await page.evaluate(() => {
+    window.scrollTo(0, 0);
+    const timeline = document.querySelector('.day-timeline');
+    timeline.style.height = '216px';
+    timeline.style.setProperty('--timeline-height', '216px');
+    const expand = document.querySelector('.timeline-day-expand').getBoundingClientRect();
+    const nav = document.querySelector('.provider-mobile-nav').getBoundingClientRect();
+    const hit = document.elementFromPoint((expand.left + expand.right) / 2, (expand.top + expand.bottom) / 2);
+    return {
+      expand:{ top:expand.top, bottom:expand.bottom, height:expand.height },
+      nav:{ top:nav.top, bottom:nav.bottom, height:nav.height },
+      visibleAboveNav:Math.min(expand.bottom, nav.top) - expand.top,
+      centerReachable:hit?.classList.contains('timeline-day-expand') || Boolean(hit?.closest?.('.timeline-day-expand'))
+    };
+  });
+  assert.ok(shortDayFold.visibleAboveNav >= 44, `360x720 full-day action is not usefully visible before scrolling: ${JSON.stringify(shortDayFold)}`);
+  assert.equal(shortDayFold.centerReachable, true, `360x720 fixed navigation covers the full-day action center: ${JSON.stringify(shortDayFold)}`);
+  if (output) await page.screenshot({ path:path.join(output, 'schedule-short-day-360x720.png'), fullPage:false });
 
   await page.evaluate(() => {
     const filters = document.querySelector('.booking-filters');
@@ -635,7 +665,7 @@ try {
   assert.equal(shareResult.native[0].url, 'https://example.test/public-master');
   assert.deepEqual(shareResult.copied, ['https://example.test/public-master']);
   assert.ok(shareResult.notices.includes('Ссылка на страницу клиента скопирована'));
-  console.log('PrimeTime Pro compact schedule v779 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v780 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
