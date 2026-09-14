@@ -10,12 +10,13 @@ begin if ok is distinct from true then raise exception 'v159_assert:%',label; en
 do $fixture$
 declare
   owner_id uuid:=gen_random_uuid(); other_id uuid:=gen_random_uuid(); organization_id uuid:=gen_random_uuid(); location_id uuid:=gen_random_uuid();
-  service_id uuid:=gen_random_uuid(); empty_service_id uuid:=gen_random_uuid(); client_id uuid:=gen_random_uuid();
-  booking_ids uuid[]:=array[gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid()];
+  service_id uuid:=gen_random_uuid(); empty_service_id uuid:=gen_random_uuid(); one_service_id uuid:=gen_random_uuid(); client_id uuid:=gen_random_uuid();
+  booking_ids uuid[]:=array[gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid()];
   phone text:='79'||translate(substr(md5(owner_id::text),1,9),'abcdef','012345');
 begin
   perform set_config('v159.owner',owner_id::text,true); perform set_config('v159.other',other_id::text,true);
   perform set_config('v159.service',service_id::text,true); perform set_config('v159.empty_service',empty_service_id::text,true);
+  perform set_config('v159.one_service',one_service_id::text,true);
   set local session_replication_role=replica;
   insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values
     (owner_id,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',owner_id::text||'@example.invalid',now(),'{}','{}',now(),now()),
@@ -29,20 +30,25 @@ begin
   insert into public.locations(id,organization_id,name,timezone,address,active,is_primary)
     values(location_id,organization_id,'V159 location','Europe/Samara','V159 address',true,true);
   insert into public.services(id,performer_id,name,duration_minutes,price_rub,active) values
-    (service_id,owner_id,'V159 service',60,2500,true),(empty_service_id,owner_id,'V159 empty',30,1000,true);
+    (service_id,owner_id,'V159 service',60,2500,true),(empty_service_id,owner_id,'V159 empty',30,1000,true),
+    (one_service_id,owner_id,'V159 one review',45,1800,true);
   insert into public.client_accounts(id,normalized_phone,access_code_hash) values(client_id,phone,repeat('1',64));
   perform set_config('minuta.booking_organization',organization_id::text,true); perform set_config('minuta.booking_location',location_id::text,true);
   insert into public.bookings(id,booking_code,manage_token,performer_id,service_id,client_name,client_phone,client_account_id,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,deposit_amount_rub,payment_status,payment_url,provider_note,booking_policy_snapshot)
   select booking_id,'V159-'||row_number() over()||substr(replace(booking_id::text,'-',''),1,7),gen_random_uuid(),owner_id,service_id,'V159 Client',phone,client_id,current_date,(time '09:00'+(row_number() over()*interval '2 hour'))::time,60,2500,2500,'confirmed',0,'not_required','','','{}'
-  from unnest(booking_ids) booking_id;
+  from unnest(booking_ids[1:4]) booking_id;
+  insert into public.bookings(id,booking_code,manage_token,performer_id,service_id,client_name,client_phone,client_account_id,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,deposit_amount_rub,payment_status,payment_url,provider_note,booking_policy_snapshot)
+  values(booking_ids[5],'V159-5'||substr(replace(booking_ids[5]::text,'-',''),1,7),gen_random_uuid(),owner_id,one_service_id,'V159 Client',phone,client_id,current_date,time '18:00',45,1800,1800,'confirmed',0,'not_required','','','{}');
   insert into public.booking_outcomes(booking_id,performer_id,visit_status,payment_method,amount_rub) values
     (booking_ids[1],owner_id,'completed','cash',2500),(booking_ids[2],owner_id,'completed','cash',2500),
-    (booking_ids[3],owner_id,'completed','cash',2500),(booking_ids[4],owner_id,'scheduled','cash',0);
+    (booking_ids[3],owner_id,'completed','cash',2500),(booking_ids[4],owner_id,'scheduled','cash',0),
+    (booking_ids[5],owner_id,'completed','cash',1800);
   insert into public.booking_reviews(booking_id,performer_id,service_id,client_account_id,rating,review_text,published,created_at) values
     (booking_ids[1],owner_id,service_id,client_id,5,'Полезный отзыв',true,now()-interval '2 hour'),
     (booking_ids[2],owner_id,service_id,client_id,4,'',true,now()-interval '1 hour'),
     (booking_ids[3],owner_id,service_id,client_id,1,'Скрытый отзыв',false,now()),
-    (booking_ids[4],owner_id,service_id,client_id,1,'Незавершённый визит',true,now());
+    (booking_ids[4],owner_id,service_id,client_id,1,'Незавершённый визит',true,now()),
+    (booking_ids[5],owner_id,one_service_id,client_id,5,'Единственный отзыв',true,now());
 end $fixture$;
 
 select set_config('request.jwt.claim.sub',current_setting('v159.owner'),true);
@@ -51,9 +57,10 @@ select pg_temp.v159_assert((public.save_minuta_service_v159(current_setting('v15
   'Короткое описание без медицинских обещаний.',array['Первое','Второе','Третье'],'Точное ограничение мастера.','', '',null,null)->>'saved')::boolean,'owner_can_save');
 reset role;
 
-select pg_temp.v159_assert((select count(*)=2 from public.get_public_service_cards_v159(array[current_setting('v159.service')::uuid,current_setting('v159.empty_service')::uuid])),'full_and_empty_rows');
+select pg_temp.v159_assert((select count(*)=3 from public.get_public_service_cards_v159(array[current_setting('v159.service')::uuid,current_setting('v159.empty_service')::uuid,current_setting('v159.one_service')::uuid])),'many_one_and_empty_rows');
 select pg_temp.v159_assert((select total_reviews=2 and average_rating=4.5 and latest_review_text='Полезный отзыв' from public.get_public_service_cards_v159(array[current_setting('v159.service')::uuid]) limit 1),'only_completed_published_reviews');
 select pg_temp.v159_assert((select short_description='' and cardinality(highlights)=0 and important_note='' and photo_storage_path='' and total_reviews=0 from public.get_public_service_cards_v159(array[current_setting('v159.empty_service')::uuid]) limit 1),'empty_has_no_placeholder');
+select pg_temp.v159_assert((select total_reviews=1 and average_rating=5.0 and latest_review_text='Единственный отзыв' from public.get_public_service_cards_v159(array[current_setting('v159.one_service')::uuid]) limit 1),'service_reviews_one');
 select pg_temp.v159_assert((select count(*)=2 from public.get_public_service_reviews_v159(current_setting('v159.service')::uuid)),'service_reviews_many');
 select pg_temp.v159_assert(not ((select to_jsonb(card) from public.get_public_service_cards_v159(array[current_setting('v159.service')::uuid]) card limit 1) ?| array['client_phone','client_account_id','booking_id','performer_id']),'public_card_has_no_pii');
 select pg_temp.v159_assert(not ((select to_jsonb(review) from public.get_public_service_reviews_v159(current_setting('v159.service')::uuid) review limit 1) ?| array['client_phone','client_account_id','booking_id','performer_id']),'public_reviews_have_no_pii');

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const migration = read('./supabase-migration-v159.sql');
 const rollback = read('./supabase-migration-v159-rollback.sql');
+const integration = read('./tests/service-public-card-v159-integration.sql');
 
 assert.match(migration,/create table public\.service_public_details_v159/i);
 assert.match(migration,/force row level security/i);
@@ -18,4 +19,7 @@ assert.doesNotMatch(migration,/returns table\([^)]*(client_phone|client_account_
 assert.match(rollback,/v159_rollback_blocked_service_content_exists/i);
 assert.doesNotMatch(rollback,/delete from storage\.buckets/i);
 assert.match(rollback,/drop index if exists public\.booking_reviews_service_public_v159_idx/i);
+assert.match(integration,/empty_has_no_placeholder/i);
+assert.match(integration,/service_reviews_one/i);
+assert.match(integration,/service_reviews_many/i);
 console.log('service public card v159 static test passed');
