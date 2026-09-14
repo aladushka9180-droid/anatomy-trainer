@@ -32,8 +32,8 @@ assert.match(provider, /учтено в статистике/);
 assert.match(provider, /newBookingTime = preferredTime \|\| '';/);
 assert.match(styles, /\.new-booking-historical-payment \{/);
 assert.match(styles, /grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
-assert.match(html, /provider\.js\?v=790/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v790`/);
-assert.match(worker, /\.\/provider\.js\?v=790/);
+assert.match(html, /provider\.js\?v=791/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v791`/);
+assert.match(worker, /\.\/provider\.js\?v=791/);
 
 console.log('Historical paid booking v145 static checks passed.');
