@@ -57,7 +57,7 @@ try {
   await awaitBlocked(admin,thirdPid);
   await first.query('commit');
   const booked=await bookingRace;
-  assert.match(booked.rows[0].code,/^PT-/i);
+  assert.match(booked.rows[0].code,/^MIN-/i);
   assert.equal((await admin.query("select count(*)::integer n from public.bookings where performer_id=$1 and booking_date=$2 and booking_time='12:00' and status<>'cancelled'",[fixture.actor,fixture.date])).rows[0].n,1);
   console.log('PASS: v158 release replay and booking race serialize without duplicate history');
 } finally {
