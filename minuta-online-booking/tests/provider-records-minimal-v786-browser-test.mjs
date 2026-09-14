@@ -264,7 +264,7 @@ try {
       if (output) await page.screenshot({ path:path.join(output, `records-${layout}-${width}.png`), fullPage:false });
     }
   }
-  console.log('PrimeTime Pro record metadata and mobile navigation v785: PASS at 390/760');
+  console.log('PrimeTime Pro record metadata and mobile navigation v786: PASS at 390/760');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
