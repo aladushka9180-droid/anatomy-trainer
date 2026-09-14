@@ -355,7 +355,7 @@ assert.match(provider, /bookingNoteStorageKey\(userId\).*localStorage\.removeIte
 assert.match(provider, /Заметка сохранена на этом устройстве/, 'Интерфейс скрывает ошибку серверного сохранения заметки');
 assert.match(provider, /pendingBookingNotes\.has\(item\.id\)/, 'Синхронизация может затереть локальную заметку после ошибки RPC');
 assert.match(provider, /function clientBadgeMarkup/, 'В записях не отображаются метки клиента');
-assert.match(provider, /class="booking-sheet-client-name"[\s\S]*clientBadgeMarkup\(item\.client_phone, \{ limit:3, showLabels:true \}\)/, 'Метки в карточке записи не стоят в строке с именем');
+assert.match(provider, /class="booking-sheet-client-name"[\s\S]*clientBadgeMarkup\(item\.client_phone, \{ limit:1, showLabels:true \}\)/, 'Главная метка в карточке записи не стоит в строке с именем');
 assert.match(provider, /function clientIsNew/, 'Новый клиент не определяется автоматически');
 assert.match(provider, /const VISIT_WINDOW_DAYS = 30;/, 'Номер визита не ограничен последними 30 днями');
 assert.match(provider, /const REGULAR_CLIENT_COMPLETED_VISITS = 10;/, 'Постоянный клиент определяется раньше 10 завершённых сеансов');
@@ -451,7 +451,7 @@ assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20"
 assert.match(styles, /\.booking-client-avatar-control \.client-avatar-picker>small \{ position:absolute; right:3px; bottom:2px;/, 'Кнопка фотографии снова закрывает центр аватара');
 assert.match(styles, /\.booking-client-avatar-control \.client-avatar-picker \{[^}]*width:48px;[^}]*height:48px;[^}]*margin:0;/, 'Общий отступ label снова опускает аватар клиента');
 assert.doesNotMatch(provider, /booking-sheet-client-label">Клиент<\/small>/, 'Очевидная подпись «Клиент» снова занимает место в резюме записи');
-assert.match(provider, /class="booking-sheet-client">\$\{clientAvatarEditorMarkup[\s\S]*class="booking-sheet-client-copy"><div class="booking-sheet-client-name"/, 'Имя и телефон не собраны рядом с аватаром в единую группу');
+assert.match(provider, /function bookingDetailClientMarkup[\s\S]*class="booking-sheet-client">\$\{avatar\}<div class="booking-sheet-client-copy"><div class="booking-sheet-client-name"/, 'Имя и телефон не собраны рядом с аватаром в единую группу');
 assert.match(styles, /\.booking-sheet-client \{[^}]*display:flex;[^}]*align-items:center;/, 'Данные клиента больше не центрируются по аватару');
 assert.match(styles, /\.booking-sheet-client>\.booking-client-avatar-control \{[^}]*flex:0 0 var\(--booking-client-avatar-size\);[^}]*align-self:center;[^}]*transform:none;/, 'Аватар снова зависит от высоты строк текста');
 assert.match(styles, /\.booking-sheet-client-copy \{[^}]*display:grid;[^}]*align-content:center;[^}]*row-gap:2px;/, 'Имя и телефон клиента снова разошлись по высоте');

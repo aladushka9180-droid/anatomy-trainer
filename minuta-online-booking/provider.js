@@ -8383,7 +8383,7 @@ function openBookingSheet(id) {
   $('#bookingSheetContent').innerHTML = `${bookingDetailHeaderMarkup(item, date, duration, statusText, statusClass, bookingDetailPrice, `${autoCompleteSettingsActionMarkup(item)}${bookingDetailSeriesMarkup(item)}`)}
     <div class="booking-sheet-summary">${bookingDetailClientMarkup(item)}</div>
     ${bookingClientOverviewMarkup(item)}
-    <div class="booking-sheet-actions booking-repeat-actions">${bookingClientProfileActionMarkup(item)}<button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button><button class="secondary-button booking-repeat-action" type="button" data-commerce-booking-sale="${item.id}">${uiIcon('plus')} Продать</button></div>
+    <div class="booking-sheet-actions booking-repeat-actions">${bookingClientProfileActionMarkup(item, { primary:true })}<button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button><button class="secondary-button booking-repeat-action" type="button" data-commerce-booking-sale="${item.id}">${uiIcon('plus')} Продать</button></div>
     <div class="booking-sheet-secondary">
     ${bookingSessionMarkup(item)}
     ${bookingClientLabelsMarkup(item.client_phone, item.id)}

@@ -8,7 +8,7 @@ function declaration(name){
   const start=source.search(new RegExp(`^function ${name}\\(`,'m'));assert.ok(start>=0,`Actual ${name}`);
   const end=source.indexOf('\n}',start)+2;assert.ok(end>start);return source.slice(start,end);
 }
-assert.match(source,/booking-repeat-actions[^\n]+bookingClientProfileActionMarkup\(item\)/,'Current booking exposes the full client profile action');
+assert.match(source,/booking-repeat-actions[^\n]+bookingClientProfileActionMarkup\(item, \{ primary:true \}\)/,'Current booking exposes the full client profile as the primary action');
 assert.match(source,/imported-history-readonly[\s\S]*?bookingClientProfileActionMarkup|bookingClientProfileActionMarkup\(item\)[\s\S]*?imported-history-readonly/,'Imported history exposes the same client profile action');
 assert.match(source,/booking-sheet-detail/,'Booking details have an isolated layout modifier');
 assert.match(source,/bookingClientProfileActionMarkup\(item, \{ primary:true \}\)/,'Imported history promotes the profile action');

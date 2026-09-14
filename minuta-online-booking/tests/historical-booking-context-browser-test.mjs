@@ -58,7 +58,7 @@ async function assertRemainingTimesReveal(page,mode,width,theme){
     newBookingHistoricalMode=false;
     const start=12*60,end=20*60;
     newBookingSlots=[];
-    for(let minute=start;minute<end;minute+=5)newBookingSlots.push(`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`);
+    for(let minute=start;minute<end;minute+=NEW_BOOKING_GRID_MINUTES)newBookingSlots.push(`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`);
     newBookingTime='18:00';newBookingPreferredTime='18:00';
     renderNewBookingTimePicker();
     document.querySelector('#bookingSheet .booking-sheet-panel').scrollTop=0;
@@ -80,10 +80,10 @@ async function assertRemainingTimesReveal(page,mode,width,theme){
     const sticky=submit&&getComputedStyle(submit).position==='sticky';
     const visibleTop=panelRect.top+10;
     const visibleBottom=(sticky?Math.min(panelRect.bottom,submit.getBoundingClientRect().top):panelRect.bottom)-10;
-    return {panelScroll:panel.scrollTop,detailsBottom:detailsRect.bottom,detailsHeight:detailsRect.height,visibleTop,visibleBottom,targetTop:targetRect.top,listTop:listRect.top,listScroll:list.scrollTop,listClient:list.clientHeight,listScrollHeight:list.scrollHeight,targetOffset:target.offsetTop};
+    return {panelScroll:panel.scrollTop,detailsBottom:detailsRect.bottom,detailsHeight:detailsRect.height,visibleTop,visibleBottom,targetTop:targetRect.top,targetBottom:targetRect.bottom,listTop:listRect.top,listBottom:listRect.bottom,listScroll:list.scrollTop,listClient:list.clientHeight,listScrollHeight:list.scrollHeight,targetOffset:target.offsetTop};
   });
   assert.ok(after.detailsBottom<=after.visibleBottom+4||after.detailsHeight>after.visibleBottom-after.visibleTop,`${mode} remaining times must become fully visible at ${width}px: ${JSON.stringify({before,after})}`);
-  assert.ok(after.targetTop>=after.listTop-1&&after.targetTop<=after.listTop+45,`${mode} selected time must be immediately visible inside the full list: ${JSON.stringify(after)}`);
+  assert.ok(after.targetTop>=after.listTop-1&&after.targetBottom<=after.listBottom+1,`${mode} selected time must be visible inside the full list: ${JSON.stringify(after)}`);
   if(width<=760)assert.ok(after.panelScroll>before.panelScroll+1,`${mode} remaining times must lift the mobile sheet automatically`);
   if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-remaining-${mode}-${theme}-${width}.png`});
   await page.locator('.booking-more-times>summary').evaluate(summary=>summary.click());

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
+import {themes,layouts} from './theme-card-fixture.mjs';
 
 const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
 const css=[
@@ -20,6 +21,7 @@ assert.match(source,/classList\.add\('booking-sheet-detail'\)/,'Real booking det
 assert.match(source,/bookingDetailHeaderMarkup\(item,[\s\S]*?bookingDetailClientMarkup\(item/,'Real detail sheet uses the compact header and client block');
 assert.match(source,/editableAvatar:false/,'Imported history uses a static avatar');
 assert.match(source,/bookingClientProfileActionMarkup\(item, \{ primary:true \}\)/,'Imported profile action is primary');
+assert.match(source,/booking-repeat-actions[^\n]+bookingClientProfileActionMarkup\(item, \{ primary:true \}\)/,'Regular booking profile action is primary');
 assert.match(source,/clientBadgeMarkup\(item\.client_phone, \{ limit:1, showLabels:true \}\)/,'Detail client block shows only the highest-priority badge');
 assert.match(source,/classList\.remove\('booking-sheet-wide', 'new-booking-sheet', 'booking-sheet-detail'\)/,'Closing clears the detail modifier');
 assert.match(source,/addEventListener\('keydown', trapBookingSheetFocus\)/,'Existing detail focus trap remains active');
@@ -80,7 +82,7 @@ try{
       document.querySelector('#bookingSheetContent').innerHTML=bookingDetailHeaderMarkup(item,new Date('2026-09-12T12:00:00'),90,'Подтверждена','confirmed','4 500 ₽',bookingDetailSeriesMarkup(item))+
         '<div class="booking-sheet-summary">'+bookingDetailClientMarkup(item)+'</div>'+
         '<details class="booking-client-overview booking-sheet-disclosure is-first-visit"><summary><strong>Первый визит</strong></summary><div class="booking-client-overview-body"><div class="booking-client-overview-stats"><article><small>История посещений</small><strong>Пока нет</strong></article></div></div></details>'+
-        '<div class="booking-sheet-actions booking-repeat-actions">'+bookingClientProfileActionMarkup(item)+'<button class="secondary-button booking-repeat-action">Повторить запись</button></div>';
+        '<div class="booking-sheet-actions booking-repeat-actions">'+bookingClientProfileActionMarkup(item,{primary:true})+'<button class="secondary-button booking-repeat-action">Повторить запись</button></div>';
     };
     renderImported();
   `});
@@ -105,17 +107,10 @@ try{
   assert.equal(await page.evaluate(()=>document.activeElement===document.querySelector('.booking-sheet-close')),true,'Tab from the last control wraps to the first dialog control');
   await page.evaluate(()=>{document.querySelector('.booking-client-overview').open=false;document.querySelector('.imported-history-readonly').open=false;});
 
-  const variants=[
-    {theme:'graphite',layout:'capsule',surface:'#ffffff',alt:'#f4f7f5',ink:'#183326',muted:'#718278',accent:'#2f7654'},
-    {theme:'luxury',layout:'linear',surface:'#070809',alt:'#17130d',ink:'#f5efe3',muted:'#c7baa4',accent:'#e5b75d'},
-    {theme:'midnight',layout:'soft',surface:'#101d31',alt:'#16263c',ink:'#f5f8ff',muted:'#91a0b3',accent:'#3e88b8'}
-  ];
+  const variants=themes.flatMap(theme=>layouts.map(layout=>({theme,layout})));
   for(const variant of variants){
     await page.locator('body').evaluate((body,value)=>{
       body.dataset.providerTheme=value.theme;body.dataset.providerLayout=value.layout;
-      body.style.setProperty('--theme-surface',value.surface);body.style.setProperty('--theme-surface-alt',value.alt);
-      body.style.setProperty('--theme-ink',value.ink);body.style.setProperty('--theme-muted',value.muted);
-      body.style.setProperty('--theme-accent',value.accent);body.style.setProperty('--theme-accent-soft',value.alt);
     },variant);
     for(const width of [390,760,1440]){
       await page.setViewportSize({width,height:900});
@@ -146,7 +141,7 @@ try{
       assert.ok(metrics.actionCenterDelta<=1,`${variant.theme}/${variant.layout}/${width}: icon and action label are centered together`);
       if(width===760)assert.ok(metrics.panel.width<=641&&metrics.panel.width>=620,`${variant.theme}/${variant.layout}: 760px content stays compact`);
       if(width===1440)assert.ok(metrics.panel.width<=621,`${variant.theme}/${variant.layout}: desktop detail stays compact`);
-      if(process.env.MINUTA_UI_SCREENSHOT&&variant.theme==='graphite')await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-${width}.png`});
+      if(process.env.MINUTA_UI_SCREENSHOT&&variant.theme==='graphite'&&variant.layout==='capsule')await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-${width}.png`});
     }
   }
 
@@ -158,7 +153,7 @@ try{
   assert.equal(await page.locator('.booking-sheet-client-name .badge-vip').count(),1,'VIP remains visible as the single priority badge');
   assert.equal(await page.locator('.booking-client-overview').getAttribute('open'),null,'First-visit disclosure is closed');
   assert.equal(await page.locator('.booking-client-overview>summary').textContent(),'Первый визит');
-  assert.ok((await page.locator('.booking-client-profile-action').getAttribute('class')).includes('secondary-button'),'Normal detail keeps its secondary profile action');
+  assert.ok((await page.locator('.booking-client-profile-action').getAttribute('class')).includes('primary'),'Normal detail keeps the client profile as the primary action');
 
-  console.log('booking detail sheet minimal browser test: OK');
+  console.log(`booking detail sheet minimal browser test: OK (${variants.length*3} theme/layout/viewport combinations)`);
 }finally{await browser.close();}
