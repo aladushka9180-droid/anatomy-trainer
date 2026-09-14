@@ -66,13 +66,13 @@ try{
         const summaryRect=summary.getBoundingClientRect();
         const items=[...menu.querySelectorAll(':scope>:is(button,a)')];
         const rects=items.map(item=>item.getBoundingClientRect());
-        if(items.length!==4)errors.push('wrong tool count');
-        if(menuRect.width>253||menuRect.height>107)errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
+        if(items.length!==5)errors.push('wrong tool count');
+        if(menuRect.width>253||menuRect.height>155)errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
         if(menuRect.left<0||menuRect.right>innerWidth+1)errors.push('menu overflow');
         if(Math.abs(menuRect.right-summaryRect.right)>1)errors.push('menu is not right aligned');
         const rows=new Set(rects.map(rect=>Math.round(rect.top)));
         const columns=new Set(rects.map(rect=>Math.round(rect.left)));
-        if(rows.size!==2||columns.size!==2)errors.push('menu is not a 2x2 grid');
+        if(rows.size!==3||columns.size!==2)errors.push('menu is not a 2x3 grid');
         for(let index=0;index<items.length;index++){
           const item=items[index],rect=rects[index];
           if(rect.width<44||rect.height<44)errors.push(`small menu control ${item.id}`);
