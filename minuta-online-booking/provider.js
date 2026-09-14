@@ -7918,6 +7918,7 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
   const holder = $('#providerBookings');
   const mobileList = window.matchMedia('(max-width: 760px)').matches;
   holder.className = 'provider-bookings schedule-list';
+  holder.dataset.recordsFilter = currentFilter;
   if (!items.length) {
     holder.innerHTML = bookingEmptyMarkup(emptyMessage);
     applyWriteAvailability();
@@ -7939,13 +7940,18 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item);
     const fullTitle = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
     const title = block ? fullTitle : serviceScheduleName(fullTitle, item.service_id);
-    const details = block ? `Занятое время · ${duration} мин` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
-    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${item.is_imported_history ? ' is-imported-history' : ''}${block ? '' : clientHighlightClasses(item.client_phone)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}">
-      <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(fullTitle)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности">
+    const breakOrigin = item.automatic_break ? 'Автоматический · по правилам' : 'Ручной';
+    const details = block ? `${breakOrigin} перерыв` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
+    const openAttributes = item.automatic_break
+      ? `data-open-automatic-break data-automatic-break-date="${escapeHtml(item.booking_date)}" data-automatic-break-start="${time}" data-automatic-break-end="${endTime}" data-automatic-break-source-count="${Number(item.automatic_break_source_count) || 1}" data-automatic-break-fingerprint="${escapeHtml(item.automatic_break_fingerprint || '')}" data-booking-duration="${duration}" aria-haspopup="dialog" aria-controls="bookingSheet"`
+      : `data-open-booking="${escapeHtml(item.id)}"`;
+    const actionLabel = item.automatic_break ? 'Открыть управление перерывом' : 'Открыть подробности';
+    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${item.is_imported_history ? ' is-imported-history' : ''}${block ? ' is-schedule-block' : clientHighlightClasses(item.client_phone)}${item.automatic_break ? ' automatic-break' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}">
+      <button class="provider-booking-open" type="button" ${openAttributes} aria-label="${escapeHtml(fullTitle)}, с ${time} до ${endTime}, ${escapeHtml(details)}. ${actionLabel}">
         <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
-        <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${statusText}</span></span>
-        ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, { limit:1, showLabels:mobileList }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
-        <span class="provider-booking-signals">${bookingSeriesMarkup(item)}${notePresence}${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">${item.payment_status === 'paid' ? 'Оплачено' : item.payment_status === 'refunded' ? 'Возврат' : 'Ждёт оплаты'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</span></span>
+        <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3></span>
+        ${block ? `<span class="provider-booking-client-line"><span class="booking-break-origin">${breakOrigin}</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, { limit:1, showLabels:mobileList }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
+        <span class="provider-booking-signals">${block ? '' : `<span class="booking-status">${statusText}</span>`}${bookingSeriesMarkup(item)}${notePresence}${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">${item.payment_status === 'paid' ? 'Оплачено' : item.payment_status === 'refunded' ? 'Возврат' : 'Ждёт оплаты'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</span></span>
         <span class="provider-booking-chevron" aria-hidden="true">›</span>
       </button>
     </article>`;

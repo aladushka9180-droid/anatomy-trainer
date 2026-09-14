@@ -61,6 +61,11 @@ assert.match(script, /id="newBookingReadiness" role="status" aria-live="polite" 
 assert.match(script, /submit\.disabled = !newBookingTime \|\| !creationAllowed;/);
 assert.match(script, /if \(changed && bookingCreationReady\) void loadNewBookingSlots\(\);/);
 assert.match(script, /const phone = block \|\| !displayPreferences\.show_phone \? '' : String\(item\.client_phone \|\| ''\);/);
+assert.match(script, /holder\.dataset\.recordsFilter = currentFilter;/);
+assert.match(script, /const breakOrigin = item\.automatic_break \? 'Автоматический · по правилам' : 'Ручной';/);
+assert.match(script, /block \? ' is-schedule-block' : clientHighlightClasses\(item\.client_phone\)/);
+assert.match(script, /provider-booking-signals[^`]*\$\{block \? '' : `<span class="booking-status">\$\{statusText\}<\/span>`\}/s);
+assert.doesNotMatch(script, /block \? `<span class="provider-booking-client-line"><strong>Занятое время<\/strong><span>\$\{duration\} мин<\/span><\/span>`/);
 assert.doesNotMatch(styles, /#[0-9a-f]{3,8}\b/i, 'Новая геометрия не должна добавлять отдельную палитру');
 assert.match(styles, /v783: keep mobile schedule geometry clipped[\s\S]*\.timeline-stage\s*\{[^}]*overflow:clip;[\s\S]*\.timeline-day-expand\s*\{[^}]*min-height:52px;[^}]*line-height:1\.4;[\s\S]*#newBookingButton span\s*\{[^}]*position:static!important;[\s\S]*calendar-overview-month\s*\{[^}]*padding-bottom:max\(24px,env\(safe-area-inset-bottom,0px\)\)!important;/s);
 assert.match(coreStyles, /\.provider-bookings\.schedule-list > \*[\s\S]*content-visibility:auto;/s);
@@ -69,5 +74,9 @@ assert.doesNotMatch(coreStyles, /\.provider-bookings:not\(\.timeline-view\) > \*
 assert.match(script, /function updateProviderClientLinks\(organization = null\)[\s\S]*organization\?\.public_booking_enabled && organization\.public_slug[\s\S]*shareButton\.dataset\.clientPageUrl = available \? url\.href : '';/s);
 assert.match(script, /async function shareProviderClientPage\(\)[\s\S]*typeof navigator\.share === 'function'[\s\S]*error\?\.name === 'AbortError'[\s\S]*navigator\.clipboard\.writeText\(url\)[\s\S]*Ссылка на страницу клиента скопирована/s);
 assert.match(script, /#shareProviderClientPage'\)\?\.addEventListener\('click', shareProviderClientPage\)/);
+assert.match(styles, /v781: compact record cards and keep the mobile navigation geometry honest[\s\S]*--provider-mobile-nav-clearance:max\(80px,calc\(64px \+ env\(safe-area-inset-bottom,0px\)\)\)[\s\S]*--provider-mobile-nav-item-radius:999px[\s\S]*min-height:44px!important/s);
+assert.match(styles, /schedule-list\[data-records-filter="day"\][\s\S]*booking-time-column>span\s*\{[^}]*display:none!important;/s);
+assert.match(styles, /schedule-list \.provider-booking-top h3\s*\{[^}]*-webkit-line-clamp:2!important;/s);
+assert.match(styles, /schedule-list \.provider-booking\.is-schedule-block \.provider-booking-open\s*\{[^}]*min-height:64px!important;/s);
 
 console.log('Provider minimal schedule controls: OK');
