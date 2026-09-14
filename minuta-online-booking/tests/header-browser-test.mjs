@@ -4,6 +4,7 @@ import {startHeaderFixture} from './header-fixture.mjs';
 import {themes,layouts} from './theme-card-fixture.mjs';
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 const {server,url}=await startHeaderFixture();
+const requestedSections=new Set((process.env.MINUTA_HEADER_SECTIONS||'geometry,tools,appearance').split(',').map(value=>value.trim()).filter(Boolean));
 let browser;
 try{
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
@@ -11,7 +12,7 @@ try{
   const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
   await page.goto(url);
   assert.deepEqual(pageErrors,[],'Header fixture must execute real status/verification initialization');
-  for(const width of [320,360,390,430,760,761,768,1440,1920]){
+  if(requestedSections.has('geometry'))for(const width of [320,360,390,430,760,761,768,1440,1920]){
     await page.setViewportSize({width,height:1000});
     for(const layout of layouts)for(const theme of themes)for(const scale of ['default','large']){
       await page.evaluate(scale=>{document.body.dataset.providerTextScale=scale;},scale);
@@ -48,7 +49,7 @@ try{
     console.log(`Header geometry: ${width}px checked`);
   }
   let menuCombinations=0;
-  for(const width of [320,360,390,430,760,1440]){
+  if(requestedSections.has('tools'))for(const width of [320,360,390,430,760,1440]){
     await page.setViewportSize({width,height:1000});
     for(const layout of layouts)for(const theme of themes)for(const scale of ['default','large']){
       await page.evaluate(({layout,theme,scale})=>{
@@ -98,7 +99,7 @@ try{
     console.log(`Header tools: ${width}px checked`);
   }
   let appearanceCombinations=0;
-  for(const width of [320,390,760,1440]){
+  if(requestedSections.has('appearance'))for(const width of [320,390,760,1440]){
     await page.setViewportSize({width,height:1000});
     for(const layout of layouts)for(const theme of themes)for(const scale of ['default','large']){
       await page.evaluate(({layout,theme,scale})=>{
