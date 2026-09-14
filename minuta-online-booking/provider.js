@@ -1352,7 +1352,8 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
   try { return await run; }
   finally { if (offlineBookingFlushPromise === run) offlineBookingFlushPromise = null; }
 }
-const offlineBookingCreateSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"]';
+const bookingFormLauncherSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking]';
+const offlineBookingCreateSelector = `${bookingFormLauncherSelector}, #newBookingForm button[type="submit"]`;
 const offlineOutcomeWriteSelector = '#bookingOutcomeForm button[type="submit"]';
 const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], [data-repeat-booking], [data-quick-repeat-client], [data-client-favorite-service]';
 const writeSelectors = [
@@ -1376,7 +1377,7 @@ function applyWriteAvailability() {
       delete control.dataset.reliabilityDisabled;
       return;
     }
-    const controlAllowed = writesAllowed || (bookingCreationReady && control.matches(bookingCreationWriteSelector)) || (canQueueOfflineBooking() && control.matches(offlineBookingCreateSelector)) || (canQueueOfflineOutcome() && control.matches(offlineOutcomeWriteSelector));
+    const controlAllowed = control.matches(bookingFormLauncherSelector) || writesAllowed || (bookingCreationReady && control.matches(bookingCreationWriteSelector)) || (canQueueOfflineBooking() && control.matches(offlineBookingCreateSelector)) || (canQueueOfflineOutcome() && control.matches(offlineOutcomeWriteSelector));
     if (!controlAllowed && !control.disabled) {
       control.disabled = true;
       control.dataset.reliabilityDisabled = 'true';
@@ -1390,10 +1391,16 @@ function applyWriteAvailability() {
 function setWritesAllowed(value) {
   writesAllowed = Boolean(value);
   applyWriteAvailability();
+  if ($('#newBookingForm')) updateNewBookingConnectivity();
 }
 function setBookingCreationReady(value) {
+  const changed = bookingCreationReady !== Boolean(value);
   bookingCreationReady = Boolean(value);
   applyWriteAvailability();
+  if ($('#newBookingForm')) {
+    updateNewBookingConnectivity();
+    if (changed && bookingCreationReady) void loadNewBookingSlots();
+  }
 }
 function requireWrites() {
   if (writesAllowed && navigator.onLine && currentUser) return true;
@@ -2149,7 +2156,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=769#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=770#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2854,7 +2861,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=769#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=770#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5077,7 +5084,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=769');
+      worker = new Worker('./report-worker.js?v=770');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -9443,6 +9450,12 @@ async function loadNewBookingSlots() {
     updateNewBookingSubmitCaption();
     return;
   }
+  if (!bookingCreationReady && !writesAllowed) {
+    holder.innerHTML = '<div class="booking-time-warning new-booking-readiness-note"><strong>Проверяем записи и свободное время…</strong><br>Форма уже открыта. Создание станет доступно автоматически после безопасной сверки.</div>';
+    updateNewBookingConnectivity();
+    synchronizeProvider();
+    return;
+  }
   holder.innerHTML = '<span>Ищем свободное время…</span>';
   const mode = newBookingMode;
   const locationId = $('#newBookingLocation')?.value || '';
@@ -9602,11 +9615,18 @@ function updateNewBookingSubmitCaption() {
   const historicalAmount = historicalAmountValue === '' ? Number.NaN : Math.round(Number(historicalAmountValue));
   const historicalAmountValid = Number.isInteger(historicalAmount) && historicalAmount >= 0 && historicalAmount <= 1000000;
   const historicalCaption = 'Сохранить';
+  const creationAllowed = navigator.onLine
+    ? Boolean(currentUser && (writesAllowed || bookingCreationReady))
+    : canQueueOfflineBooking();
   submit.textContent = editingOfflineBookingId ? 'Сохранить исправление' : newBookingHistoricalMode ? historicalCaption : !navigator.onLine && newBookingMode === 'client' ? 'Сохранить до подключения' : newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
-  submit.disabled = !newBookingTime;
+  submit.disabled = !newBookingTime || !creationAllowed;
   if (newBookingHistoricalMode && historicalMethod !== 'unpaid' && !historicalAmountValid) submit.disabled = true;
   if (historicalOffline) submit.disabled = true;
-  submit.title = historicalOffline ? 'Запись в прошлом создаётся только при подключении к интернету' : submit.disabled ? 'Сначала выберите время в расписании' : '';
+  submit.title = historicalOffline
+    ? 'Запись в прошлом создаётся только при подключении к интернету'
+    : !creationAllowed
+      ? (navigator.onLine ? 'Дождитесь безопасной сверки записей и расписания' : offlineBookingStatusText())
+      : submit.disabled ? 'Сначала выберите время в расписании' : '';
 }
 
 function updateNewBookingConnectivity() {
@@ -9616,6 +9636,17 @@ function updateNewBookingConnectivity() {
   const today = businessTodayIso();
   const historical = bookingDate < today || (bookingDate === today && newBookingHistoricalMode);
   newBookingHistoricalMode = historical;
+  const creationAllowed = offline ? canQueueOfflineBooking() : Boolean(currentUser && (writesAllowed || bookingCreationReady));
+  const readiness = $('#newBookingReadiness');
+  if (readiness) {
+    readiness.hidden = creationAllowed && !offline;
+    readiness.dataset.state = creationAllowed ? (offline ? 'offline' : 'ready') : 'checking';
+    readiness.textContent = creationAllowed
+      ? 'Офлайн: запрос сохранится на устройстве, а сервер проверит свободное время после подключения.'
+      : offline
+        ? offlineBookingStatusText()
+        : 'Проверяем записи и свободное время. Создание станет доступно автоматически.';
+  }
   const modeToggle = $('#newBookingModeToggle');
   if (modeToggle) modeToggle.hidden = historical;
   const blockButton = $('[data-new-booking-mode="block"]');
@@ -10000,6 +10031,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker sr-only">${preset.offlineEdit ? 'Отложенная запись' : preset.clientName ? 'Повторный визит' : 'Расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : `Новая запись${newBookingPreferredTime ? ` · ${escapeHtml(bookingDateLabel(date))}, ${escapeHtml(newBookingPreferredTime)}` : ''}`}</span></h2>
     <form class="booking-editor-form new-booking-form" id="newBookingForm">
+      <p class="new-booking-readiness" id="newBookingReadiness" role="status" aria-live="polite" hidden></p>
       <div class="new-booking-mode-toggle" id="newBookingModeToggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
         <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Имя, номер целиком или последние 4 цифры</small></div></div>

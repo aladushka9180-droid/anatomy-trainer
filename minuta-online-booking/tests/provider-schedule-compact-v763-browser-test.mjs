@@ -75,6 +75,8 @@ try {
     strip.scrollLeft = Math.max(0, activeRect.left - stripRect.left + strip.scrollLeft - (strip.clientWidth - activeRect.width) / 2);
   });
 
+  const timelineScheduleTops = new Map();
+  const timelineClientWidths = new Map();
   for (const { width, height } of [{ width:320, height:700 }, { width:360, height:800 }, { width:390, height:844 }, { width:430, height:900 }, { width:760, height:1000 }, { width:1440, height:1000 }]) {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => {
@@ -141,6 +143,7 @@ try {
       const journalToggle = rect('.journal-mode-toggle');
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
+        clientWidth:document.documentElement.clientWidth,
         scheduleTop:rect('#providerBookings').top,
         topbar:rect('.provider-topbar'),
         title:rect('.schedule-view-title'),
@@ -204,7 +207,7 @@ try {
       assert.equal(result.activeDateValue, '2026-09-15', `${width}px fixture selected date changed`);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its accent`);
       assert.ok(result.activeDateMarkerContent === 'none' || result.activeDateMarkerDisplay === 'none', `${width}px selected date regained a second lower marker: ${JSON.stringify(result)}`);
-      assert.ok(result.scheduleTop >= 300 && result.scheduleTop <= 360, `${width}px schedule begins: ${JSON.stringify(result)}`);
+      assert.ok(result.scheduleTop >= 350 && result.scheduleTop <= 430, `${width}px schedule begins: ${JSON.stringify(result)}`);
       assert.ok(result.toolbarContentCenterDelta <= 2, `${width}px day heading and journal toggle are not aligned: ${JSON.stringify(result)}`);
       assert.ok(result.journalGridGap >= 8, `${width}px timeline grid touches the journal toggle: ${JSON.stringify(result)}`);
       assert.ok(Math.abs(result.viewportHeight - result.navBottom) <= 9, `${width}px fixed navigation moved from the bottom`);
@@ -229,6 +232,8 @@ try {
         assert.ok(result.summary.top >= result.newBooking.bottom - 1, `${width}px title summary must use its own full-width row: ${JSON.stringify(result)}`);
         assert.ok(result.summary.right <= result.title.right + 1, `${width}px title summary escapes the title area: ${JSON.stringify(result)}`);
       }
+      timelineScheduleTops.set(width, result.scheduleTop);
+      timelineClientWidths.set(width, result.clientWidth);
     }
     if (output) await page.screenshot({ path:path.join(output, `schedule-compact-${width}.png`), fullPage:false });
   }
@@ -256,6 +261,7 @@ try {
       const navLabels = [...document.querySelectorAll('.provider-mobile-nav>button span')];
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
+        clientWidth:document.documentElement.clientWidth,
         toolbar, copy, toggle, filters, bookings, nav,
         firstRowFits:copy.right <= toggle.left - 6,
         controlsToFiltersGap:filters.top - Math.max(copy.bottom, toggle.bottom),
@@ -276,6 +282,8 @@ try {
     assert.equal(listResult.filterOuterBorder, '0px', `${width}px duplicate filter frame returned`);
     assert.ok(listResult.filters.top >= listResult.toolbar.top && listResult.filters.bottom <= listResult.toolbar.bottom + 1, `${width}px tabs escape toolbar: ${JSON.stringify(listResult)}`);
     assert.ok(listResult.bookings.top >= listResult.toolbar.bottom - 1, `${width}px list content is covered by controls: ${JSON.stringify(listResult)}`);
+    assert.ok(Math.abs(listResult.bookings.top - timelineScheduleTops.get(width)) <= 1, `${width}px timeline/list content boundary jumps: ${JSON.stringify(listResult)}`);
+    assert.equal(listResult.clientWidth, timelineClientWidths.get(width), `${width}px scrollbar changes the schedule width`);
     assert.ok(listResult.filterButtons.every(button => button.height >= 44 && button.scrollWidth <= button.clientWidth + 1), `${width}px list tabs are clipped: ${JSON.stringify(listResult)}`);
     if (width >= 390) assert.equal(listResult.navLabelsFit, true, `${width}px mobile navigation labels are clipped: ${JSON.stringify(listResult)}`);
     assert.ok(listResult.workspacePaddingBottom >= listResult.nav.height + (height - listResult.nav.bottom) + 16, `${width}px mobile navigation lacks safe clearance: ${JSON.stringify(listResult)}`);
@@ -343,9 +351,11 @@ try {
     });
     document.querySelector('#selectedDateTitle').textContent = 'Сентябрь 2026 г.';
     document.querySelector('#selectedDateSummary').textContent = '5 записей · 3 перерыва';
+    document.querySelector('.journal-mode-toggle').hidden = true;
+    document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings calendar-overview calendar-overview-month';
-    bookings.innerHTML = '<div class="calendar-overview-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div class="calendar-overview-grid"><article class="calendar-overview-day is-selected"><button class="calendar-overview-date" type="button"><strong>1</strong><small class="calendar-overview-count">2 записи</small></button></article></div>';
+    bookings.innerHTML = '<div class="calendar-overview-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div class="calendar-overview-grid"><article class="calendar-overview-day is-selected"><button class="calendar-overview-date" type="button"><strong>1</strong><small class="calendar-overview-count">2 записи</small></button></article></div><div class="calendar-month-mobile-agenda"><section class="calendar-month-agenda-day"><button class="calendar-month-agenda-date" type="button">вторник, 1 сентября</button><div><button class="calendar-overview-booking" type="button"><time>10:30</time><span class="calendar-overview-booking-copy"><strong>Очень длинное название услуги для проверки безопасной ширины</strong><span class="calendar-overview-booking-details"><span class="calendar-overview-client-row"><b>Евгения Белышева с длинным именем</b><span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span></span><small class="calendar-overview-phone">79120000000</small><small class="calendar-overview-visit">Постоянный · 12-й визит</small></span></span></button></div></section></div>';
   });
   for (const { width, height } of [{ width:320, height:700 }, { width:390, height:844 }, { width:760, height:1000 }]) {
     await page.setViewportSize({ width, height });
@@ -354,17 +364,35 @@ try {
     const monthResult = await page.evaluate(() => {
       const nav = document.querySelector('.date-navigation').getBoundingClientRect();
       const tabs = document.querySelector('.calendar-view-toggle').getBoundingClientRect();
+      const card = document.querySelector('.calendar-month-mobile-agenda .calendar-overview-booking');
+      const cardRect = card.getBoundingClientRect();
+      const time = card.querySelector('time').getBoundingClientRect();
+      const badge = card.querySelector('.badge-vip').getBoundingClientRect();
+      const copy = card.querySelector('.calendar-overview-booking-copy');
+      const copyRect = copy.getBoundingClientRect();
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         navArrowDisplays:[...document.querySelectorAll('.date-navigation>.date-nav-button')].map(button => getComputedStyle(button).display),
         stripArrowDisplays:[...document.querySelectorAll('.date-strip-shift')].map(button => getComputedStyle(button).display),
-        tabsRightDelta:Math.abs(nav.right - tabs.right)
+        tabsRightDelta:Math.abs(nav.right - tabs.right),
+        toggleDisplay:getComputedStyle(document.querySelector('.journal-mode-toggle')).display,
+        agendaInset:time.left - cardRect.left,
+        agendaRightInset:cardRect.right - badge.right,
+        vipCenterDelta:Math.abs((badge.top + badge.bottom) / 2 - (cardRect.top + cardRect.bottom) / 2),
+        vipReserve:parseFloat(getComputedStyle(copy).paddingRight),
+        copyFits:copy.scrollWidth <= copy.clientWidth + 1 && copyRect.right <= cardRect.right + 1
       };
     });
     assert.equal(monthResult.overflow, false, `${width}px month view has horizontal overflow: ${JSON.stringify(monthResult)}`);
     assert.ok(monthResult.navArrowDisplays.every(display => display === 'none'), `${width}px month view duplicates navigation arrows: ${JSON.stringify(monthResult)}`);
     assert.ok(monthResult.stripArrowDisplays.every(display => display !== 'none'), `${width}px month view loses the date-strip arrows: ${JSON.stringify(monthResult)}`);
     assert.ok(monthResult.tabsRightDelta <= 1, `${width}px month tabs do not span the navigation row: ${JSON.stringify(monthResult)}`);
+    assert.equal(monthResult.toggleDisplay, 'none', `${width}px month view exposes the day-only journal toggle`);
+    assert.ok(monthResult.agendaInset >= 9, `${width}px month agenda text touches the card edge: ${JSON.stringify(monthResult)}`);
+    assert.ok(monthResult.agendaRightInset >= 9, `${width}px VIP badge touches the card edge: ${JSON.stringify(monthResult)}`);
+    assert.ok(monthResult.vipCenterDelta <= 1, `${width}px VIP badge is not vertically centered: ${JSON.stringify(monthResult)}`);
+    assert.ok(monthResult.vipReserve >= 50 && monthResult.vipReserve <= 56, `${width}px VIP safe reserve changed: ${JSON.stringify(monthResult)}`);
+    assert.equal(monthResult.copyFits, true, `${width}px long agenda copy overflows: ${JSON.stringify(monthResult)}`);
     if (output) await page.screenshot({ path:path.join(output, `schedule-month-${width}.png`), fullPage:false });
   }
 
@@ -372,6 +400,7 @@ try {
     document.querySelectorAll('[data-calendar-view]').forEach(button => {
       button.classList.toggle('active', button.dataset.calendarView === 'day');
     });
+    document.querySelector('.journal-mode-toggle').hidden = false;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings schedule-list';
     bookings.innerHTML = '<article class="provider-booking status-confirmed color-auto client-vip"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>10:30<small>до 11:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Общий массаж задней поверхности</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Евгения Белышева</strong><span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span></span><span class="provider-booking-phone">79120000000</span></span></span><span class="provider-booking-chevron">›</span></button></article>';
@@ -412,7 +441,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v769 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v770 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

@@ -129,12 +129,27 @@ test('write availability keeps the offline outcome submit button actionable',()=
   const control={disabled:true,dataset:{reliabilityDisabled:'true'},matches:selector=>selector==='#bookingOutcomeForm button[type="submit"]'};
   const box=context(['canQueueOfflineOutcome','applyWriteAvailability'],{
     currentUser:{id:'owner'},navigator:{onLine:false},writesAllowed:false,bookingCreationReady:false,
-    writeSelectors:['#bookingOutcomeForm button[type="submit"]'],bookingCreationWriteSelector:'#new',offlineBookingCreateSelector:'#new',offlineOutcomeWriteSelector:'#bookingOutcomeForm button[type="submit"]',
+    writeSelectors:['#bookingOutcomeForm button[type="submit"]'],bookingFormLauncherSelector:'#launcher',bookingCreationWriteSelector:'#new',offlineBookingCreateSelector:'#new',offlineOutcomeWriteSelector:'#bookingOutcomeForm button[type="submit"]',
     canQueueOfflineBooking:()=>false,$$:()=>[control],updateScheduleSaveState:()=>{}
   });
   box.applyWriteAvailability();
   assert.equal(control.disabled,false);
   assert.equal(Object.hasOwn(control.dataset,'reliabilityDisabled'),false);
+});
+test('booking form launcher stays actionable while submit remains protected',()=>{
+  const selector='#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking]';
+  const launcher={disabled:true,dataset:{reliabilityDisabled:'true'},matches:value=>value===selector};
+  const submit={disabled:false,dataset:{},matches:value=>value==='#newBookingForm button[type="submit"]'};
+  const box=context(['canQueueOfflineOutcome','applyWriteAvailability'],{
+    currentUser:{id:'owner'},navigator:{onLine:true},writesAllowed:false,bookingCreationReady:false,
+    writeSelectors:['#newBookingButton','#newBookingForm button[type="submit"]'],bookingFormLauncherSelector:selector,
+    bookingCreationWriteSelector:'#newBookingForm button[type="submit"]',offlineBookingCreateSelector:'#newBookingForm button[type="submit"]',offlineOutcomeWriteSelector:'#outcome',
+    canQueueOfflineBooking:()=>false,$$:()=>[launcher,submit],updateScheduleSaveState:()=>{}
+  });
+  box.applyWriteAvailability();
+  assert.equal(launcher.disabled,false);
+  assert.equal(submit.disabled,true);
+  assert.equal(submit.dataset.reliabilityDisabled,'true');
 });
 test('a queued outcome is sent and cleared after synchronization returns',async()=>{
   const pending={booking_id:'b',performer_id:'owner',visit_status:'completed',payment_method:'cash',amount_rub:3000,_sync_pending:true};
