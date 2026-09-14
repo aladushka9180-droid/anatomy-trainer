@@ -312,7 +312,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   vertical-align:-1px;
 }
 
-/* v777: compact schedule controls keep the working day above the fold. */
+/* v778: compact schedule controls keep the working day above the fold. */
 @media (max-width:760px) {
   .provider-body .provider-view[data-provider-panel="bookings"] {
     padding-top:6px!important;
@@ -635,7 +635,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v777: narrow schedule polish keeps one clear accent and five unobstructed dates. */
+/* v778: narrow schedule polish keeps one clear accent and five unobstructed dates. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme][data-provider-layout] .schedule-card:has(#dateStrip:not([hidden])) {
     gap:0!important;
@@ -670,7 +670,27 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     grid-template-rows:62px!important;
     align-items:stretch!important;
     min-height:62px;
+    margin-top:8px!important;
+    margin-bottom:8px!important;
     overflow:hidden!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame::before,
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame::after {
+    content:"";
+    position:absolute;
+    z-index:2;
+    top:0;
+    bottom:1px;
+    width:14px;
+    pointer-events:none;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame::before {
+    left:44px;
+    background:linear-gradient(90deg,color-mix(in srgb,var(--theme-surface) 48%,transparent),transparent);
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame::after {
+    right:44px;
+    background:linear-gradient(270deg,color-mix(in srgb,var(--theme-surface) 48%,transparent),transparent);
   }
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip {
     grid-column:2!important;
@@ -756,6 +776,13 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
+@media (min-width:600px) and (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button,
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.active {
+    flex-basis:calc((100% - 24px) / 7)!important;
+  }
+}
+
 @media (max-width:430px) {
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button strong {
     font-size:17px!important;
@@ -793,7 +820,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v777: list controls grow with their second row instead of covering content. */
+/* v778: list controls grow with their second row instead of covering content. */
 @media (max-width:760px) {
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) {
     grid-template-columns:minmax(0,1fr) auto!important;
@@ -849,7 +876,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v777: records-list controls stay compact without nested framing. */
+/* v778: records-list controls stay compact without nested framing. */
 @media (max-width:760px) {
   #dashboard[data-active-view="bookings"] .schedule-toolbar:has(.booking-filters:not([hidden])) {
     grid-template-columns:minmax(0,1fr) auto!important;
@@ -897,7 +924,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v777: finish the physical-phone spacing without adding new decoration. */
+/* v778: finish the physical-phone spacing without adding new decoration. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.active {
     overflow:hidden;
@@ -942,7 +969,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v777: keep weekly navigation singular and give range content a safe reading inset. */
+/* v778: keep weekly navigation singular and give range content a safe reading inset. */
 @media (max-width:760px) {
   .provider-body .date-navigation:has([data-calendar-view="week"].active) {
     grid-template-columns:minmax(96px,.72fr) minmax(0,1fr)!important;
@@ -985,7 +1012,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v777: stable schedule geometry, honest visibility and readable month agenda. */
+/* v778: stable schedule geometry, honest visibility and readable month agenda. */
 .provider-body .new-booking-readiness {
   margin:0;
   padding:10px 12px;
@@ -1012,7 +1039,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
 
   #dashboard[data-active-view="bookings"] .schedule-card:has(.calendar-view-toggle [data-calendar-view="day"].active)
     .date-strip-frame {
-    margin-top:2px!important;
+    margin-top:8px!important;
     border-bottom:1px solid color-mix(in srgb,var(--theme-line) 62%,transparent)!important;
   }
 

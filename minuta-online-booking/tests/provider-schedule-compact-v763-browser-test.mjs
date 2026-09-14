@@ -100,6 +100,8 @@ try {
       const previousStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"]'));
       const nextStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="7"]'));
       const previousIconStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"] .ui-icon'));
+      const stripFadeBefore = getComputedStyle(document.querySelector('.date-strip-frame'), '::before');
+      const stripFadeAfter = getComputedStyle(document.querySelector('.date-strip-frame'), '::after');
       const dateButtons = [...document.querySelectorAll('#dateStrip>button')];
       const fullyVisibleDates = dateButtons.filter(button => {
         const item = button.getBoundingClientRect();
@@ -169,6 +171,8 @@ try {
         nextBackgroundImage:nextStyle.backgroundImage,
         previousIconColor:previousIconStyle.color,
         previousIconWidth:parseFloat(previousIconStyle.width),
+        stripFadeBefore:{ backgroundImage:stripFadeBefore.backgroundImage, pointerEvents:stripFadeBefore.pointerEvents, width:parseFloat(stripFadeBefore.width) },
+        stripFadeAfter:{ backgroundImage:stripFadeAfter.backgroundImage, pointerEvents:stripFadeAfter.pointerEvents, width:parseFloat(stripFadeAfter.width) },
         fullyVisibleDates,
         intersectingDates,
         activeDate,
@@ -219,8 +223,15 @@ try {
       assert.notEqual(result.nextBackgroundImage, 'none', `${width}px next arrow lost the edge continuation fade`);
       assert.ok(result.previousIconColor, `${width}px previous arrow icon lost its quiet color`);
       assert.ok(result.previousIconWidth <= 14.5, `${width}px date strip arrow icon became too prominent: ${JSON.stringify(result)}`);
-      assert.equal(result.fullyVisibleDates, 5, `${width}px must expose five dates between arrows: ${JSON.stringify(result)}`);
-      assert.equal(result.intersectingDates, 5, `${width}px must not expose cropped edge dates: ${JSON.stringify(result)}`);
+      const expectedDates = width >= 600 ? 7 : 5;
+      assert.equal(result.fullyVisibleDates, expectedDates, `${width}px exposes the wrong date count between arrows: ${JSON.stringify(result)}`);
+      assert.equal(result.intersectingDates, expectedDates, `${width}px exposes cropped edge dates: ${JSON.stringify(result)}`);
+      assert.equal(result.stripFadeBefore.pointerEvents, 'none', `${width}px previous edge fade intercepts date gestures`);
+      assert.equal(result.stripFadeAfter.pointerEvents, 'none', `${width}px next edge fade intercepts date gestures`);
+      assert.ok(result.stripFadeBefore.width >= 12 && result.stripFadeBefore.width <= 16, `${width}px previous edge fade is too wide`);
+      assert.ok(result.stripFadeAfter.width >= 12 && result.stripFadeAfter.width <= 16, `${width}px next edge fade is too wide`);
+      assert.notEqual(result.stripFadeBefore.backgroundImage, 'none', `${width}px previous continuation hint is missing`);
+      assert.notEqual(result.stripFadeAfter.backgroundImage, 'none', `${width}px next continuation hint is missing`);
       assert.ok(Math.abs(result.previous.right - result.stripViewport.left) <= 1, `${width}px previous arrow needs its own safe zone: ${JSON.stringify(result)}`);
       assert.ok(Math.abs(result.next.left - result.stripViewport.right) <= 1, `${width}px next arrow needs its own safe zone: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateVisible, true, `${width}px selected date must remain visible: ${JSON.stringify(result)}`);
@@ -230,6 +241,8 @@ try {
       assert.ok(result.scheduleTop >= 330 && result.scheduleTop <= 430, `${width}px schedule begins: ${JSON.stringify(result)}`);
       assert.ok(result.toolbarContentCenterDelta <= 2, `${width}px day heading and journal toggle are not aligned: ${JSON.stringify(result)}`);
       assert.ok(result.journalGridGap >= 8, `${width}px timeline grid touches the journal toggle: ${JSON.stringify(result)}`);
+      assert.ok(result.strip.top - result.navigation.bottom >= 7 && result.strip.top - result.navigation.bottom <= 9, `${width}px date controls and strip lost the 8px rhythm: ${JSON.stringify(result)}`);
+      assert.ok(result.toolbar.top - result.strip.bottom >= 7 && result.toolbar.top - result.strip.bottom <= 9, `${width}px date strip and day heading lost the 8px rhythm: ${JSON.stringify(result)}`);
       assert.ok(Math.abs(result.viewportHeight - result.navBottom) <= 9, `${width}px fixed navigation moved from the bottom`);
       assert.equal(result.tabBackground, 'rgba(0, 0, 0, 0)', `${width}px period tabs are not flat`);
       assert.equal(result.tabAccentHeight, '2px', `${width}px selected period needs a thin accent`);
@@ -508,7 +521,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  console.log('PrimeTime Pro compact schedule v777 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v778 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
