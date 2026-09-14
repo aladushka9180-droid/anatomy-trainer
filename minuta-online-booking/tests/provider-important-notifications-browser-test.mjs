@@ -5,7 +5,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fileURLToPath } from 'node:url';
 
-const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
+const playwrightModule = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
+const { chromium } = playwrightModule.default || playwrightModule;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = process.env.MINUTA_IMPORTANT_NOTIFICATIONS_OUTPUT || '';
 if (output) fs.mkdirSync(output, { recursive:true });

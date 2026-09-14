@@ -98,7 +98,8 @@ try {
   await new Promise((done, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', done); });
   const origin = `http://127.0.0.1:${server.address().port}`;
   const modulePath = process.env.MINUTA_PLAYWRIGHT_MODULE;
-  const { chromium, devices } = await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
+  const playwrightModule = await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
+  const { chromium, devices } = playwrightModule.default || playwrightModule;
   browser = await chromium.launch({ headless:true,
     ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
   const target = `${origin}${prefix}provider.html`;
