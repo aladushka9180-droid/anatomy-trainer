@@ -50,7 +50,7 @@ function harness(userAgent = 'Android') {
       templates:[{ kind:'reminder', body:'Личный текст для {имя}: {услуга}, {дата} {время}, {адрес}', version:4, updated_at:'2026-09-15T00:00:00Z' }] }, error:null };
     saveAttempts += 1;
     if (saveAttempts === 1) throw new Error('network response lost');
-    return { data:{ saved:true, organization_id:organizationId, performer_id:performerId, kind:payload.p_kind, body:payload.p_body, version:5, updated_at:'2026-09-15T00:01:00Z' }, error:null };
+    return { data:{ saved:true, organization_id:organizationId, performer_id:performerId, kind:payload.p_kind, body:payload.p_body, version:payload.p_expected_version + 1, updated_at:'2026-09-15T00:01:00Z' }, error:null };
   } };
   window.MinutaClientMessaging.configure({ db, getOrganization:() => ({ id:organizationId }), getCurrentUser:() => ({ id:performerId }), requireWrites:() => true });
   const click = async (selector,target) => {
