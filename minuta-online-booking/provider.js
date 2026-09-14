@@ -412,6 +412,9 @@ let providerReviews = [];
 let providerReviewsState = 'idle';
 let portfolioRemoteAvailable = false;
 let portfolioDraggedId = '';
+let portfolioActionTrigger = null;
+let portfolioActionReturnFocus = true;
+const portfolioPublicationPending = new Set();
 let portfolioPhotoDrafts = { before: null, after: null };
 let portfolioPreviewUrls = [];
 let portfolioPhotoSourceType = '';
@@ -2163,7 +2166,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=791#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=792#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2868,7 +2871,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=791#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=792#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5158,7 +5161,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=791');
+      worker = new Worker('./report-worker.js?v=792');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -14378,13 +14381,14 @@ function portfolioAfterLabel(item) { return item.session_count ? `После ${i
 function portfolioPhotoMarkup(item, type) {
   const photo = portfolioPhoto(item, type);
   const label = type === 'before' ? 'До' : portfolioAfterLabel(item);
-  if (!photo?.signed_url) return `<div class="portfolio-photo"><div class="portfolio-photo-empty">Фото «${label}» не добавлено</div><span>${label}</span></div>`;
+  if (!photo?.signed_url) return `<div class="portfolio-photo"><div class="portfolio-photo-empty">${uiIcon('image')}<span>Фото не добавлено</span></div><span>${label}</span></div>`;
   return `<figure class="portfolio-photo"><img src="${escapeHtml(photo.signed_url)}" alt="${escapeHtml(photo.alt_text || `${item.procedure_name} — ${label.toLowerCase()}`)}" loading="lazy"><span>${label}</span></figure>`;
 }
 
 function renderPortfolio() {
   const list = $('#portfolioManageList');
   if (!list) return;
+  if ($('#portfolioActionDialog')?.open) closePortfolioActions({ restoreFocus:false });
   const publishedCount = portfolioItems.filter(item => item.published).length;
   $('#portfolioCount').textContent = `${portfolioItems.length} ${portfolioCountLabel(portfolioItems.length, 'работа', 'работы', 'работ')}`;
   if ($('#portfolioBadge')) $('#portfolioBadge').textContent = String(portfolioItems.length);
@@ -14399,13 +14403,105 @@ function renderPortfolio() {
     list.innerHTML = `<div class="provider-empty portfolio-empty-state"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Покажите клиентам результат</strong><small>Добавьте фотографии «До» и «После». Работа появится на странице клиента только после подтверждения согласия на публикацию.</small><div class="portfolio-empty-actions"><button class="primary compact-button" type="button" data-open-portfolio-editor>Добавить первую работу</button></div></div>`;
     return;
   }
-  list.innerHTML = portfolioItems.map((item, index) => `<article class="portfolio-card" draggable="true" data-portfolio-card="${item.id}">
+  list.innerHTML = portfolioItems.map((item, index) => `<article class="portfolio-card" draggable="true" data-portfolio-card="${escapeHtml(item.id)}">
     <div class="portfolio-card-photos">${portfolioPhotoMarkup(item, 'before')}${portfolioPhotoMarkup(item, 'after')}</div>
-    <div class="portfolio-card-body"><h3>${escapeHtml(item.procedure_name)}</h3><small>${escapeHtml(item.body_area || 'Зона не указана')}${item.session_count ? ` · ${item.session_count} ${portfolioSessionWord(item.session_count)}` : ''}</small>${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}<span class="portfolio-card-status ${item.published ? 'published' : ''}">${item.published ? 'Опубликовано' : 'Черновик'}</span></div>
-    <div class="portfolio-card-actions"><button type="button" data-portfolio-move="up" data-portfolio-id="${item.id}" ${index === 0 ? 'hidden disabled' : ''} aria-label="Переместить работу выше">↑ Выше</button><button type="button" data-portfolio-move="down" data-portfolio-id="${item.id}" ${index === portfolioItems.length - 1 ? 'hidden disabled' : ''} aria-label="Переместить работу ниже">↓ Ниже</button><button class="portfolio-edit" type="button" data-edit-portfolio="${item.id}">Изменить</button><details class="portfolio-more"><summary aria-label="Другие действия с работой">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-portfolio="${item.id}">${uiIcon('trash')}<span>Удалить работу</span></button></div></details></div>
+    <div class="portfolio-card-body"><div class="portfolio-card-copy"><div class="portfolio-card-heading"><h3>${escapeHtml(item.procedure_name)}</h3><span class="portfolio-card-status ${item.published ? 'published' : ''}">${item.published ? 'Опубликовано' : 'Черновик'}</span></div><small>${escapeHtml(item.body_area || 'Зона не указана')}${item.session_count ? ` · ${item.session_count} ${portfolioSessionWord(item.session_count)}` : ''}</small>${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}</div><button class="portfolio-card-menu-trigger" type="button" data-portfolio-actions="${escapeHtml(item.id)}" aria-label="Действия с работой «${escapeHtml(item.procedure_name)}»" aria-haspopup="dialog" aria-controls="portfolioActionDialog" aria-expanded="false">${uiIcon('more')}</button></div>
   </article>`).join('');
   $('#portfolioOrderStatus').textContent = `${portfolioItems.length} ${portfolioCountLabel(portfolioItems.length, 'работа', 'работы', 'работ')}, опубликовано ${publishedCount}`;
   applyWriteAvailability();
+}
+
+function portfolioActionMarkup(item) {
+  const index = portfolioItems.findIndex(entry => entry.id === item.id);
+  const publishHelp = !item.published && !item.consent_confirmed_at ? '<small>Сначала подтвердите согласие клиента</small>' : '';
+  return `<button type="button" data-edit-portfolio="${escapeHtml(item.id)}">${uiIcon('edit')}<span><strong>Изменить</strong></span></button>
+    ${index > 0 ? `<button type="button" data-portfolio-move="up" data-portfolio-id="${escapeHtml(item.id)}"><span class="portfolio-action-arrow" aria-hidden="true">↑</span><span><strong>Переместить выше</strong></span></button>` : ''}
+    ${index >= 0 && index < portfolioItems.length - 1 ? `<button type="button" data-portfolio-move="down" data-portfolio-id="${escapeHtml(item.id)}"><span class="portfolio-action-arrow" aria-hidden="true">↓</span><span><strong>Переместить ниже</strong></span></button>` : ''}
+    <button type="button" data-portfolio-published="${item.published ? 'false' : 'true'}" data-portfolio-id="${escapeHtml(item.id)}">${uiIcon(item.published ? 'lock' : 'check')}<span><strong>${item.published ? 'Снять с публикации' : 'Опубликовать'}</strong>${publishHelp}</span></button>
+    <button class="danger" type="button" data-delete-portfolio="${escapeHtml(item.id)}">${uiIcon('trash')}<span><strong>Удалить</strong></span></button>`;
+}
+
+function positionPortfolioActionDialog() {
+  const dialog = $('#portfolioActionDialog');
+  if (!dialog?.open || !portfolioActionTrigger) return;
+  const mobile = window.matchMedia('(max-width:600px)').matches;
+  dialog.classList.toggle('is-mobile-sheet', mobile);
+  dialog.setAttribute('aria-modal', mobile ? 'true' : 'false');
+  dialog.style.removeProperty('left');
+  dialog.style.removeProperty('top');
+  if (mobile) return;
+  const gutter = 12;
+  const gap = 8;
+  const triggerRect = portfolioActionTrigger.getBoundingClientRect();
+  const dialogRect = dialog.getBoundingClientRect();
+  const left = Math.max(gutter, Math.min(triggerRect.right - dialogRect.width, window.innerWidth - dialogRect.width - gutter));
+  const nav = document.querySelector('.provider-mobile-nav');
+  const navRect = nav && getComputedStyle(nav).display !== 'none' ? nav.getBoundingClientRect() : null;
+  const viewportBottom = navRect?.height ? Math.min(window.innerHeight - gutter, navRect.top - gap) : window.innerHeight - gutter;
+  const below = triggerRect.bottom + gap;
+  const above = triggerRect.top - dialogRect.height - gap;
+  const top = below + dialogRect.height <= viewportBottom ? below : Math.max(gutter, Math.min(above, viewportBottom - dialogRect.height));
+  dialog.style.left = `${Math.round(left)}px`;
+  dialog.style.top = `${Math.round(top)}px`;
+}
+
+function openPortfolioActions(trigger) {
+  const dialog = $('#portfolioActionDialog');
+  const item = portfolioItems.find(entry => entry.id === trigger?.dataset.portfolioActions);
+  if (!dialog || !item) return;
+  if (dialog.open) closePortfolioActions({ restoreFocus:false });
+  portfolioActionTrigger = trigger;
+  portfolioActionReturnFocus = true;
+  trigger.setAttribute('aria-expanded', 'true');
+  $('#portfolioActionTitle').textContent = item.procedure_name || 'Действия';
+  $('#portfolioActionList').innerHTML = portfolioActionMarkup(item);
+  document.body.classList.add('portfolio-actions-open');
+  if (window.matchMedia('(max-width:600px)').matches && typeof dialog.showModal === 'function') dialog.showModal();
+  else if (typeof dialog.show === 'function') dialog.show();
+  else dialog.setAttribute('open', '');
+  positionPortfolioActionDialog();
+  setTimeout(() => dialog.querySelector('.portfolio-action-list button')?.focus(), 0);
+}
+
+function closePortfolioActions({ restoreFocus = true } = {}) {
+  const dialog = $('#portfolioActionDialog');
+  if (!dialog?.open) return;
+  portfolioActionReturnFocus = restoreFocus;
+  if (typeof dialog.close === 'function') {
+    dialog.close();
+    finishPortfolioActionClose();
+  }
+  else {
+    dialog.removeAttribute('open');
+    finishPortfolioActionClose();
+  }
+}
+
+function finishPortfolioActionClose() {
+  const trigger = portfolioActionTrigger;
+  trigger?.setAttribute('aria-expanded', 'false');
+  document.body.classList.remove('portfolio-actions-open');
+  $('#portfolioActionDialog')?.classList.remove('is-mobile-sheet');
+  const shouldRestore = portfolioActionReturnFocus;
+  portfolioActionTrigger = null;
+  portfolioActionReturnFocus = true;
+  if (shouldRestore && trigger?.isConnected) requestAnimationFrame(() => trigger.focus());
+}
+
+function focusPortfolioActionTrigger(id) {
+  requestAnimationFrame(() => $$('[data-portfolio-actions]').find(button => button.dataset.portfolioActions === String(id || ''))?.focus());
+}
+
+function trapPortfolioActionFocus(event) {
+  const dialog = $('#portfolioActionDialog');
+  if (!dialog?.open || !window.matchMedia('(max-width:600px)').matches || event.key !== 'Tab') return false;
+  const focusable = [...dialog.querySelectorAll('button:not([disabled]),a[href]')].filter(node => !node.hidden);
+  if (!focusable.length) return false;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); return true; }
+  if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); return true; }
+  return false;
 }
 
 async function signedPortfolioUrl(path) {
@@ -14756,9 +14852,9 @@ async function savePortfolioItem(event) {
 }
 
 async function deletePortfolioItem(id) {
-  if (!requireWrites()) return;
+  if (!requireWrites()) return false;
   const item = portfolioItems.find(entry => entry.id === id);
-  if (!item || !confirm('Удалить эту работу и связанные фотографии?')) return;
+  if (!item || !confirm('Удалить эту работу и связанные фотографии?')) return false;
   const paths = (item.photos || []).map(photo => photo.storage_path).filter(Boolean);
   let deleted = false;
   try {
@@ -14769,10 +14865,73 @@ async function deletePortfolioItem(id) {
       deleted = !check.error && !check.data;
     }
   } catch { /* Keep Storage intact until removal from the catalog is confirmed. */ }
-  if (!deleted) { notify('Удаление не подтверждено. Исходные фотографии не удалены. Обновите портфолио и повторите.'); return; }
+  if (!deleted) { notify('Удаление не подтверждено. Исходные фотографии не удалены. Обновите портфолио и повторите.'); return false; }
   const cleaned = await removePortfolioStorage(paths);
   notify(cleaned ? 'Работа удалена' : 'Работа удалена из портфолио. Файлы пока остались в хранилище — очистка не подтверждена.');
   await loadPortfolio();
+  return true;
+}
+
+function focusAfterPortfolioDelete(previousIndex) {
+  requestAnimationFrame(() => {
+    const triggers = $$('[data-portfolio-actions]');
+    const next = triggers[Math.min(Math.max(0, previousIndex), Math.max(0, triggers.length - 1))];
+    (next || $('[data-open-portfolio-editor]'))?.focus();
+  });
+}
+
+async function readPortfolioPublication(id, published) {
+  try {
+    const { data, error } = await db.from('portfolio_items').select('id,published,updated_at').eq('id', id).eq('performer_id', currentUser.id).maybeSingle();
+    return !error && data && Boolean(data.published) === published ? data : null;
+  } catch { return null; }
+}
+
+async function setPortfolioPublished(id, published) {
+  if (!requireWrites()) return;
+  const item = portfolioItems.find(entry => entry.id === id);
+  if (!item || portfolioPublicationPending.has(id)) return;
+  if (published && !item.consent_confirmed_at) {
+    notify('Подтвердите согласие клиента перед публикацией');
+    openPortfolioEditor(id);
+    return;
+  }
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  let confirmed = null;
+  portfolioPublicationPending.add(id);
+  try {
+    const metadata = {
+      procedure_name:item.procedure_name,
+      body_area:item.body_area || '',
+      session_count:item.session_count ?? null,
+      description:item.description || '',
+      sort_order:item.sort_order,
+      published,
+      consent_confirmed_at:item.consent_confirmed_at
+    };
+    const { data, error } = await db.rpc('save_provider_portfolio_item', {
+      p_item_id:id,
+      p_expected_updated_at:item.updated_at,
+      p_item:metadata,
+      p_photos:[]
+    });
+    if (!error && data?.ok) confirmed = { id, published, updated_at:data.updated_at || item.updated_at };
+  } catch { /* Verify the final state before offering a retry. */ }
+  try {
+    if (!sessionIsCurrent(userId, generation)) return;
+    if (!confirmed) confirmed = await readPortfolioPublication(id, published);
+    if (!sessionIsCurrent(userId, generation)) return;
+    if (!confirmed) {
+      notify(`Не удалось подтвердить ${published ? 'публикацию' : 'снятие с публикации'}. Обновите портфолио перед повтором.`);
+      return;
+    }
+    Object.assign(item, confirmed);
+    renderPortfolio();
+    notify(published ? 'Работа опубликована' : 'Работа снята с публикации');
+  } finally {
+    portfolioPublicationPending.delete(id);
+  }
 }
 
 async function persistPortfolioOrder(message = 'Порядок работ сохранён') {
@@ -15229,6 +15388,9 @@ document.addEventListener('click', async event => {
   const editPortfolio = event.target.closest('[data-edit-portfolio]');
   const deletePortfolio = event.target.closest('[data-delete-portfolio]');
   const movePortfolio = event.target.closest('[data-portfolio-move]');
+  const portfolioActions = event.target.closest('[data-portfolio-actions]');
+  const closePortfolioActionButton = event.target.closest('[data-close-portfolio-actions]');
+  const portfolioPublished = event.target.closest('[data-portfolio-published]');
   const openNotification = event.target.closest('[data-open-notification]');
   const sentNotification = event.target.closest('[data-sent-notification]');
   const restoreNotification = event.target.closest('[data-restore-notification]');
@@ -15431,11 +15593,31 @@ document.addEventListener('click', async event => {
     resetServicePublicCardPhotoPreview('create');
     $('#serviceCreatorDialog').close();
   }
+  if (portfolioActions) { event.preventDefault(); openPortfolioActions(portfolioActions); return; }
+  if (closePortfolioActionButton) { closePortfolioActions(); return; }
   if (openPortfolioEditorButton) openPortfolioEditor();
   if (closePortfolioEditorButton) closePortfolioEditor();
-  if (editPortfolio) openPortfolioEditor(editPortfolio.dataset.editPortfolio);
-  if (movePortfolio) await movePortfolioItem(movePortfolio.dataset.portfolioId, movePortfolio.dataset.portfolioMove);
-  if (deletePortfolio) await deletePortfolioItem(deletePortfolio.dataset.deletePortfolio);
+  if (editPortfolio) { closePortfolioActions({ restoreFocus:false }); openPortfolioEditor(editPortfolio.dataset.editPortfolio); }
+  if (movePortfolio) {
+    const id = movePortfolio.dataset.portfolioId;
+    closePortfolioActions({ restoreFocus:false });
+    await movePortfolioItem(id, movePortfolio.dataset.portfolioMove);
+    focusPortfolioActionTrigger(id);
+  }
+  if (portfolioPublished) {
+    const id = portfolioPublished.dataset.portfolioId;
+    closePortfolioActions({ restoreFocus:false });
+    await setPortfolioPublished(id, portfolioPublished.dataset.portfolioPublished === 'true');
+    if (!$('#portfolioEditorDialog').open) focusPortfolioActionTrigger(id);
+  }
+  if (deletePortfolio) {
+    const id = deletePortfolio.dataset.deletePortfolio;
+    const previousIndex = portfolioItems.findIndex(item => item.id === id);
+    closePortfolioActions({ restoreFocus:false });
+    const deleted = await deletePortfolioItem(id);
+    if (deleted) focusAfterPortfolioDelete(previousIndex);
+    else focusPortfolioActionTrigger(id);
+  }
   if (openNotification) {
     await setNotificationMark(openNotification.dataset.openNotification, 'opened');
     setTimeout(renderNotifications, 0);
@@ -15756,6 +15938,7 @@ document.addEventListener('change', async event => {
 });
 
 document.addEventListener('keydown', event => {
+  if (trapPortfolioActionFocus(event)) return;
   const profileTab = event.target.closest?.('[data-client-profile-jump][role="tab"]');
   if (profileTab && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) {
     event.preventDefault();
@@ -15769,7 +15952,8 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (event.key !== 'Escape') return;
-  if ($('#portfolioCameraDialog')?.open) { event.preventDefault(); window.MinutaPortfolioCamera?.close?.(); }
+  if ($('#portfolioActionDialog')?.open) { event.preventDefault(); closePortfolioActions(); }
+  else if ($('#portfolioCameraDialog')?.open) { event.preventDefault(); window.MinutaPortfolioCamera?.close?.(); }
   else if ($('#portfolioPhotoSourceDialog')?.open) { event.preventDefault(); closePortfolioPhotoSource(); }
   else if ($('#portfolioEditorDialog').open) closePortfolioEditor();
   else if (!$('#bookingSheet').hidden) closeBookingSheet();
@@ -16838,6 +17022,14 @@ $$('[data-portfolio-photo-pick]').forEach(button => button.addEventListener('cli
 $('[data-close-portfolio-photo-source]').addEventListener('click', closePortfolioPhotoSource);
 $('#portfolioPhotoSourceDialog').addEventListener('click', event => { if (event.target === event.currentTarget) closePortfolioPhotoSource(); });
 $('#portfolioPhotoSourceDialog').addEventListener('close', () => { portfolioPhotoSourceType = ''; });
+$('#portfolioActionDialog').addEventListener('close', finishPortfolioActionClose);
+$('#portfolioActionDialog').addEventListener('cancel', event => { event.preventDefault(); closePortfolioActions(); });
+$('#portfolioActionDialog').addEventListener('click', event => { if (event.target === event.currentTarget) closePortfolioActions(); });
+document.addEventListener('pointerdown', event => {
+  const dialog = $('#portfolioActionDialog');
+  if (dialog?.open && !dialog.contains(event.target) && !event.target.closest?.('[data-portfolio-actions]')) closePortfolioActions();
+}, true);
+window.addEventListener('resize', positionPortfolioActionDialog);
 ['before', 'after'].forEach(type => ['files', 'camera'].forEach(source => {
   portfolioPhotoInput(type, source).addEventListener('change', event => {
     handlePortfolioFile(type, event.target.files?.[0]);
