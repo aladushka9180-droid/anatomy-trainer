@@ -159,7 +159,8 @@ select set_config('request.jwt.claim.sub',current_setting('v123.actor'),true);
 do $$ begin
   begin
     perform public.move_minuta_provider_schedule_booking_v157(
-      gen_random_uuid(),current_setting('v157.booking')::uuid,current_date,'12:00',
+      gen_random_uuid(),current_setting('v157.booking')::uuid,
+      (clock_timestamp() at time zone 'Europe/Samara')::date-1,'12:00',
       current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,
       current_setting('v123.service')::uuid,current_setting('v123.date')::date,'10:00',
       60,current_setting('v157.status')
