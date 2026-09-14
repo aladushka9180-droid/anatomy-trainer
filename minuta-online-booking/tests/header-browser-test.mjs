@@ -142,8 +142,10 @@ try{
   await page.evaluate(()=>{document.querySelector('#providerAppearanceMenu').open=false;});
   assert.deepEqual(failures,[]);
   await page.evaluate(()=>{document.querySelector('.provider-topbar-tools').open=false;document.querySelector('#desktopAppInstallButton').hidden=true;});
-  await page.locator('#syncState').click();await page.getByRole('dialog').waitFor({state:'visible'});
-  assert.match(await page.getByRole('dialog').innerText(),/дополнительные данные сохранены/);
+  if(requestedSections.has('geometry')){
+    await page.locator('#syncState').click();await page.getByRole('dialog').waitFor({state:'visible'});
+    assert.match(await page.getByRole('dialog').innerText(),/дополнительные данные сохранены/);
+  }
   assert.deepEqual(pageErrors,[],'Header matrix and dialog must not hide script errors');
   console.log(`Header browser: ${combinations} headers, ${menuCombinations} tool menus and ${appearanceCombinations} appearance menus; 44px targets, no clipping/overlap.`);
 }finally{await browser?.close();server.close();}
