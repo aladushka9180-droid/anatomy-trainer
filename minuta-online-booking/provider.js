@@ -2902,8 +2902,8 @@ function whatsappLink(item, type = 'reminder') {
 function clientMessageButtonMarkup(item, label = 'Написать клиенту') {
   if (isScheduleBlock(item) || !normalizePhone(item.client_phone)) return '';
   const name = item.client_name || 'Клиент';
-  const reschedule = `Здравствуйте, ${name}! Ваша запись перенесена. Новые дата и время: укажите здесь.`;
-  return `<button class="secondary-button client-message-action" type="button" data-message-client data-client-phone="${escapeHtml(item.client_phone)}" data-client-name="${escapeHtml(name)}" data-message-confirmation="${escapeHtml(composeNotificationMessage('confirmation', item))}" data-message-reminder="${escapeHtml(composeNotificationMessage('reminder', item))}" data-message-reschedule="${escapeHtml(reschedule)}" data-message-cancellation="${escapeHtml(composeNotificationMessage('cancellation', item))}">${escapeHtml(label)}</button>`;
+  const date = new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+  return `<button class="secondary-button client-message-action" type="button" data-message-client data-client-phone="${escapeHtml(item.client_phone)}" data-client-name="${escapeHtml(name)}" data-message-service="${escapeHtml(serviceName(item.services?.name || 'Услуга'))}" data-message-date="${escapeHtml(date)}" data-message-time="${escapeHtml(String(item.booking_time || '').slice(0,5))}" data-message-address="${escapeHtml(notificationAddress)}">${escapeHtml(label)}</button>`;
 }
 function outcomeStorageKey() { return `massage-booking-outcomes-${currentUser?.id || 'guest'}`; }
 function sessionItemsStorageKey(userId = currentUser?.id) { return `massage-booking-session-items-${userId || 'guest'}`; }
@@ -16392,6 +16392,12 @@ const organizationController = window.MinutaOrganization.createController({
   }
 });
 organizationController.bind();
+window.MinutaClientMessaging?.configure({
+  db,
+  getOrganization:() => organizationController.getActiveOrganization(),
+  getCurrentUser:() => currentUser,
+  requireWrites
+});
 dataGovernanceController.bind();
 providerFeedbackController = window.MinutaProviderFeedback?.createController ? window.MinutaProviderFeedback.createController({
   db,

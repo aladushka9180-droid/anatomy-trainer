@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const migration = fs.readFileSync(new URL('./supabase-migration-v161.sql', import.meta.url), 'utf8');
+const rollback = fs.readFileSync(new URL('./supabase-migration-v161-rollback.sql', import.meta.url), 'utf8');
+const html = fs.readFileSync(new URL('./provider.html', import.meta.url), 'utf8');
+const source = fs.readFileSync(new URL('./client-messaging.js', import.meta.url), 'utf8');
+const provider = fs.readFileSync(new URL('./provider.js', import.meta.url), 'utf8');
+const styles = fs.readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+const worker = fs.readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
+
+assert.match(migration, /create table public\.provider_message_templates_v161/);
+assert.match(migration, /primary key\(organization_id,performer_id,kind\)/);
+assert.match(migration, /references public\.organization_memberships\(organization_id,user_id\)/);
+assert.match(migration, /kind in \('reminder','reschedule','cancellation'\)/);
+assert.match(migration, /char_length\(body\) between 1 and 4000/);
+assert.match(migration, /version bigint not null default 1/);
+assert.match(migration, /last_idempotency_key uuid not null/);
+assert.match(migration, /enable row level security/);
+assert.match(migration, /force row level security/);
+assert.match(migration, /performer_id=\(select auth\.uid\(\)\)/);
+assert.match(migration, /create function public\.get_provider_message_templates_v161\(p_organization uuid\)/);
+assert.match(migration, /create function public\.save_provider_message_template_v161/);
+assert.match(migration, /v_row\.last_idempotency_key=p_idempotency_key/);
+assert.match(migration, /pg_advisory_xact_lock\(pg_catalog\.hashtextextended/);
+assert.match(migration, /message_template_version_conflict/);
+assert.match(rollback, /v161_message_templates_rollback_would_delete_data/);
+
+for (const kind of ['reminder','reschedule','cancellation']) assert.match(html, new RegExp(`data-message-preset="${kind}"`));
+assert.doesNotMatch(html, /data-message-preset="confirmation"/);
+for (const token of ['имя','услуга','дата','время','адрес']) assert.ok(html.includes(`data-message-variable="{${token}}"`));
+assert.match(html, /id="saveClientMessageTemplate"/);
+assert.match(html, /id="resetClientMessageTemplate"/);
+assert.match(html, /id="clientMessagingPreview"/);
+assert.match(html, /id="clientMessagingSendChooser"/);
+assert.match(source, /get_provider_message_templates_v161/);
+assert.match(source, /save_provider_message_template_v161/);
+assert.match(source, /idempotencyKey:makeIdempotencyKey\(\)/);
+assert.match(source, /Ответ о сохранении не получен/);
+assert.match(source, /сайт только откроет выбранное приложение|открыто\. Проверьте получателя/);
+assert.doesNotMatch(source, /localStorage|sessionStorage/);
+assert.match(provider, /MinutaClientMessaging\?\.configure/);
+assert.match(provider, /data-message-service=/);
+assert.match(styles, /\.client-message-preview/);
+assert.match(styles, /\.client-message-send/);
+assert.match(styles, /max-height:calc\(100dvh - 12px\)/);
+const coreAssets = worker.match(/const ASSETS = \[([\s\S]*?)\];/)?.[1] || '';
+const optionalAssets = worker.match(/const OPTIONAL_ASSETS = \[([\s\S]*?)\];/)?.[1] || '';
+assert.doesNotMatch(coreAssets, /client-messaging\.js/, 'Messaging editor must not block the first-screen cache install');
+assert.match(optionalAssets, /client-messaging\.js/, 'Messaging editor remains available after optional warmup');
+
+console.log('Provider message templates v161: tenant binding, RLS, versioned idempotent RPCs and compact manual-send UI contracts passed.');

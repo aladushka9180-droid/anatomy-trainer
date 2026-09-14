@@ -1904,23 +1904,37 @@
     <div class="client-messaging-head"><div><small>Связь с клиентом</small><h2 id="clientMessagingTitle">Написать клиенту</h2></div><button type="button" data-close-client-messaging aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <div class="client-messaging-recipient"><strong id="clientMessagingName"></strong><span id="clientMessagingPhone"></span></div>
     <div class="client-message-presets" role="group" aria-label="Шаблон сообщения">
-      <button type="button" data-message-preset="confirmation">Подтверждение</button>
       <button type="button" data-message-preset="reminder">Напоминание</button>
       <button type="button" data-message-preset="reschedule">Перенос</button>
       <button type="button" data-message-preset="cancellation">Отмена записи</button>
       <button type="button" data-message-preset="custom">Свой текст</button>
     </div>
-    <label class="client-message-text" for="clientMessagingText">Сообщение<textarea id="clientMessagingText" rows="5" maxlength="4000"></textarea></label>
-    <div class="client-message-copy-actions"><button class="secondary-button" id="copyClientMessage" type="button">Скопировать текст</button><button class="secondary-button" id="copyClientPhone" type="button">Скопировать номер</button></div>
-    <div class="client-message-channels" role="group" aria-label="Открыть приложение для отправки">
-      <button type="button" data-message-channel="whatsapp">WhatsApp</button>
-      <button type="button" data-message-channel="telegram">Telegram</button>
-      <button type="button" data-message-channel="max">MAX</button>
-      <button type="button" data-message-channel="vk">VK</button>
-      <button type="button" data-message-channel="sms">SMS</button>
-      <button type="button" data-message-channel="email" hidden>Почта</button>
+    <div class="client-message-template-actions">
+      <button class="secondary-button" id="saveClientMessageTemplate" type="button">Сохранить как шаблон</button>
+      <button type="button" id="resetClientMessageTemplate">Вернуть стандартный текст</button>
     </div>
-    <p class="client-message-status" id="clientMessagingHelp">Сообщение отправляете вы в выбранном приложении. Для MAX и VK выберите получателя; в VK также вставьте скопированный текст. SMS оплачиваются по тарифу оператора.</p>
+    <p class="client-message-template-status" id="clientMessagingTemplateStatus" role="status" aria-live="polite"></p>
+    <div class="client-message-variables" role="group" aria-label="Вставить данные записи">
+      <span>Вставить:</span>
+      <button type="button" data-message-variable="{имя}">Имя</button>
+      <button type="button" data-message-variable="{услуга}">Услуга</button>
+      <button type="button" data-message-variable="{дата}">Дата</button>
+      <button type="button" data-message-variable="{время}">Время</button>
+      <button type="button" data-message-variable="{адрес}">Адрес</button>
+    </div>
+    <label class="client-message-text" for="clientMessagingText">Сообщение<textarea id="clientMessagingText" rows="5" maxlength="4000"></textarea></label>
+    <div class="client-message-preview" aria-live="polite"><small>Будет отправлено</small><p id="clientMessagingPreview"></p></div>
+    <div class="client-message-copy-actions"><button type="button" id="copyClientMessage">Скопировать текст</button><button type="button" id="copyClientPhone">Скопировать номер</button></div>
+    <button class="primary client-message-send" id="clientMessagingSendChooser" type="button" aria-expanded="false" aria-controls="clientMessagingChannels">Отправить</button>
+    <div class="client-message-channels" id="clientMessagingChannels" role="group" aria-label="Выбрать приложение для отправки" hidden>
+      <button type="button" data-message-channel="whatsapp"><strong>WhatsApp</strong><small>Откроется приложение</small></button>
+      <button type="button" data-message-channel="telegram"><strong>Telegram</strong><small>Откроется поиск по номеру</small></button>
+      <button type="button" data-message-channel="max"><strong>MAX</strong><small>Откроется приложение</small></button>
+      <button type="button" data-message-channel="vk"><strong>VK</strong><small>Нужно выбрать получателя</small></button>
+      <button type="button" data-message-channel="sms"><strong>SMS</strong><small>По тарифу оператора</small></button>
+      <button type="button" data-message-channel="email"><strong>Почта</strong><small data-message-channel-note>Нет email клиента</small></button>
+    </div>
+    <p class="client-message-status" id="clientMessagingHelp">Сообщение не отправится автоматически: сайт только откроет выбранное приложение.</p>
     <p class="client-message-status" id="clientMessagingStatus" role="status" aria-live="polite"></p>
   </dialog>
   <dialog class="service-creator-dialog" id="serviceCreatorDialog" aria-labelledby="serviceCreatorTitle">
