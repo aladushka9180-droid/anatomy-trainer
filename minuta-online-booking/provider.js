@@ -2156,7 +2156,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=780#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=782#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2861,7 +2861,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=780#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=782#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5084,7 +5084,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=780');
+      worker = new Worker('./report-worker.js?v=782');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6874,7 +6874,7 @@ function timelineMagneticTarget(item, stage, pointerMinute, dateIso = selectedDa
   return { minute:bounded, issue:directIssue, magnetized:false, pointerMinute:bounded };
 }
 
-function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, ignoreSchedule = false } = {}) {
+function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, ignoreSchedule = false, respectAutomaticBreakReleases = false } = {}) {
   const duration = Math.max(1, Number(item?.duration_minutes || item?.services?.duration_minutes || 60));
   const endMinute = startMinute + duration;
   const automaticBuffer = bookingPolicy.booking_buffer_enabled
@@ -6907,15 +6907,27 @@ function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, 
     });
     if (dayOff) return dayOff.all_day ? 'На эту дату установлен выходной' : 'Это время закрыто в исключениях расписания';
   }
+  let bufferConflict = false;
   const conflict = allBookings.find(other => {
     if (other.id === item.id || other.status === 'cancelled' || other.booking_date !== dateIso) return false;
     const otherStart = minutesFromTime(other.booking_time);
     const otherEnd = otherStart + Math.max(1, Number(other.duration_minutes || other.services?.duration_minutes || 60));
     const buffer = automaticBuffer && !candidateIsBlock && !isScheduleBlock(other) ? automaticBuffer : 0;
-    return startMinute < otherEnd + buffer && endMinute > otherStart - buffer;
+    if (startMinute < otherEnd && endMinute > otherStart) return true;
+    if (!buffer || startMinute >= otherEnd + buffer || endMinute <= otherStart - buffer) return false;
+    if (respectAutomaticBreakReleases && automaticBookingBreaksRemoteAvailable && automaticBookingBreakSegments.has(dateIso)) {
+      const blockedByActiveSegment = automaticBookingBreakSegments.get(dateIso).some(segment => {
+        const segmentStart = minutesFromTime(segment.start_time);
+        const segmentEnd = minutesFromTime(segment.end_time);
+        return startMinute < segmentEnd && endMinute > segmentStart;
+      });
+      if (!blockedByActiveSegment) return false;
+    }
+    bufferConflict = true;
+    return true;
   });
   return conflict
-    ? (automaticBuffer && !candidateIsBlock && !isScheduleBlock(conflict)
+    ? (bufferConflict
       ? `Рядом с записью в ${String(conflict.booking_time).slice(0, 5)} действует перерыв ${automaticBuffer} мин`
       : `В ${String(conflict.booking_time).slice(0, 5)} уже есть запись`)
     : '';
@@ -9516,7 +9528,13 @@ async function loadNewBookingSlots() {
       p_ignore_booking:null
     }));
   } else {
-    ({ data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date }));
+    const [availability] = await Promise.all([
+      getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date }),
+      bookingPolicy.booking_buffer_enabled
+        ? loadAutomaticBookingBreaks(date, currentUser?.id, sessionGeneration)
+        : Promise.resolve({ ok:true })
+    ]);
+    ({ data, error } = availability);
   }
   if (!requestIsCurrent()) return;
   if (error) {
@@ -9528,7 +9546,11 @@ async function loadNewBookingSlots() {
     renderNewBookingOutsideSchedulePrompt({ preferredTime });
     return;
   }
-  newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5)).filter(time => !bookingMoveTimeIsPast(date, time) && !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration }, date, minutesFromTime(time)));
+  newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5)).filter(time => !bookingMoveTimeIsPast(date, time) && !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration },
+    date,
+    minutesFromTime(time),
+    { respectAutomaticBreakReleases:true }
+  ));
   if (!newBookingSlots.length) {
     renderNewBookingOutsideSchedulePrompt({ preferredTime });
     return;
@@ -10363,7 +10385,7 @@ async function createNewBooking(event) {
     { id:'new-booking-validation', duration_minutes:durationMinutes, client_phone:phone },
     date,
     minutesFromTime(newBookingTime),
-    historical ? { allowPast:true, ignoreSchedule:true } : undefined
+    historical ? { allowPast:true, ignoreSchedule:true } : { respectAutomaticBreakReleases:true }
   );
   if (placementIssue) {
     showFormError('#newBookingError', `${placementIssue}. Выберите другое время или длительность.`);

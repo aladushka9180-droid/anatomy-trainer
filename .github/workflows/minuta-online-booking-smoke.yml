@@ -63,6 +63,7 @@ jobs:
       - run: node minuta-online-booking/booking-funnel-v137-static-test.mjs
       - run: node minuta-online-booking/yandex-booking-v140-static-test.mjs
       - run: node minuta-online-booking/booking-workflows-v141-static-test.mjs
+      - run: node minuta-online-booking/tests/automatic-break-released-slot-provider-test.mjs
       - run: node minuta-online-booking/provider-reschedule-v143-static-test.mjs
       - run: node minuta-online-booking/historical-paid-booking-v145-static-test.mjs
       - run: node --test minuta-online-booking/tests/provider-auth-session-resilience-test.mjs minuta-online-booking/tests/provider-offline-cold-start-test.mjs
