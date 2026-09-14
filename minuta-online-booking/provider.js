@@ -401,6 +401,8 @@ let visitorNotificationSaving = false;
 let visitorNotificationAudioContext = null;
 let visitorPresenceTimer = null;
 let ownServices = [];
+let servicePublicDetails = new Map();
+let servicePublicDetailsReady = false;
 let serviceDurationDefaults = {};
 let serviceScheduleNames = {};
 let serviceScheduleNamesUpdatedAt = 0;
@@ -585,6 +587,10 @@ const PORTFOLIO_BUCKET = 'portfolio-images';
 const PORTFOLIO_INPUT_LIMIT = 12 * 1024 * 1024;
 const PORTFOLIO_OUTPUT_LIMIT = 8 * 1024 * 1024;
 const PORTFOLIO_MAX_EDGE = 2000;
+const SERVICE_IMAGE_BUCKET = 'service-images';
+const SERVICE_IMAGE_INPUT_LIMIT = 12 * 1024 * 1024;
+const SERVICE_IMAGE_OUTPUT_LIMIT = 2 * 1024 * 1024;
+const SERVICE_IMAGE_MAX_EDGE = 1200;
 const CLIENT_AVATAR_BUCKET = 'client-avatars';
 const CLIENT_AVATAR_INPUT_LIMIT = 8 * 1024 * 1024;
 const CLIENT_AVATAR_OUTPUT_LIMIT = 2 * 1024 * 1024;
@@ -2157,7 +2163,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=789#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=790#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2862,7 +2868,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=789#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=790#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5152,7 +5158,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=789');
+      worker = new Worker('./report-worker.js?v=790');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -8833,9 +8839,133 @@ function durationOptions(selected) {
   return durations.map(value => `<option value="${value}" ${value === Number(selected) ? 'selected' : ''}>${value === 1 ? '1 мин (цена за минуту)' : `${value} мин`}</option>`).join('');
 }
 
+function servicePublicCardEditorMarkup(prefix, details = {}) {
+  const highlights = Array.isArray(details.highlights) ? details.highlights.slice(0, 3) : [];
+  while (highlights.length < 3) highlights.push('');
+  const hasPhoto = Boolean(details.photo_storage_path);
+  return `<section class="service-public-card-editor" aria-labelledby="${prefix}ServicePublicCardTitle">
+    <div><strong id="${prefix}ServicePublicCardTitle">Карточка для клиента</strong><small>Покажем «Подробнее» только когда здесь есть содержание.</small></div>
+    <figure class="service-photo-preview" id="${prefix}ServicePhotoPreview" ${hasPhoto ? '' : 'hidden'}><img id="${prefix}ServicePhotoPreviewImage" alt="Предпросмотр фото услуги"></figure>
+    <label>Фото услуги<input id="${prefix}ServicePhoto" type="file" accept="image/jpeg,image/png,image/webp"><small>Одно фото до 12 МБ. Перед загрузкой уменьшим и сохраним в WebP.</small></label>
+    ${hasPhoto ? `<label class="service-photo-remove"><input id="${prefix}ServicePhotoRemove" type="checkbox"><span>Удалить текущее фото</span></label>` : ''}
+    <label>Короткое описание<textarea id="${prefix}ServiceShortDescription" rows="3" maxlength="360" placeholder="Что входит в услугу и для кого она">${escapeHtml(details.short_description || '')}</textarea></label>
+    <div class="service-highlight-fields"><span>До трёх особенностей</span>${highlights.map(value => `<input data-${prefix}-service-highlight maxlength="120" value="${escapeHtml(value)}" placeholder="Особенность услуги">`).join('')}</div>
+    <details ${details.important_note ? 'open' : ''}><summary>Важно — только если есть ограничения</summary><label>Что клиенту нужно знать<textarea id="${prefix}ServiceImportantNote" rows="3" maxlength="500">${escapeHtml(details.important_note || '')}</textarea></label></details>
+  </section>`;
+}
+
+function bindServicePublicCardEditor(prefix, details = {}) {
+  const input = $(`#${prefix}ServicePhoto`);
+  const preview = $(`#${prefix}ServicePhotoPreview`);
+  const image = $(`#${prefix}ServicePhotoPreviewImage`);
+  if (input) input.onchange = () => {
+    const file = input.files?.[0];
+    if (!file || !preview || !image) return;
+    if (image.dataset.objectUrl) URL.revokeObjectURL(image.dataset.objectUrl);
+    image.dataset.objectUrl = URL.createObjectURL(file);
+    image.src = image.dataset.objectUrl;
+    preview.hidden = false;
+    const remove = $(`#${prefix}ServicePhotoRemove`);
+    if (remove) remove.checked = false;
+  };
+  const removePhoto = $(`#${prefix}ServicePhotoRemove`);
+  if (removePhoto) removePhoto.onchange = event => {
+    if (!preview) return;
+    preview.hidden = event.currentTarget.checked;
+    if (!event.currentTarget.checked && image?.src) preview.hidden = false;
+  };
+  if (details.photo_storage_path && image) {
+    void db.storage.from(SERVICE_IMAGE_BUCKET).createSignedUrl(details.photo_storage_path, 900).then(({ data }) => {
+      if (data?.signedUrl && image.isConnected) { image.src = data.signedUrl; preview.hidden = false; }
+    });
+  }
+}
+
+function readServicePublicCardFields(prefix) {
+  return {
+    shortDescription:$(`#${prefix}ServiceShortDescription`)?.value.trim() || '',
+    highlights:$$(`[data-${prefix}-service-highlight]`).map(input => input.value.trim()).filter(Boolean),
+    importantNote:$(`#${prefix}ServiceImportantNote`)?.value.trim() || '',
+    file:$(`#${prefix}ServicePhoto`)?.files?.[0] || null,
+    removePhoto:$(`#${prefix}ServicePhotoRemove`)?.checked === true
+  };
+}
+
+function resetServicePublicCardPhotoPreview(prefix) {
+  const preview = $(`#${prefix}ServicePhotoPreview`);
+  const image = $(`#${prefix}ServicePhotoPreviewImage`);
+  if (image?.dataset.objectUrl) URL.revokeObjectURL(image.dataset.objectUrl);
+  if (image) { image.removeAttribute('src'); delete image.dataset.objectUrl; }
+  if (preview) preview.hidden = true;
+}
+
+async function prepareServiceImage(file) {
+  if (!['image/jpeg','image/png','image/webp'].includes(file?.type) || file.size > SERVICE_IMAGE_INPUT_LIMIT) throw new Error('service_image_invalid');
+  const image = await decodePortfolioImage(file);
+  const scale = Math.min(1, SERVICE_IMAGE_MAX_EDGE / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const context = canvas.getContext('2d', { alpha:false });
+  context.fillStyle = '#fff'; context.fillRect(0, 0, width, height); context.drawImage(image, 0, 0, width, height); image.close?.();
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', .82));
+  if (!blob || blob.size > SERVICE_IMAGE_OUTPUT_LIMIT) throw new Error('service_image_too_large');
+  return { blob,width,height };
+}
+
+async function persistServiceWithPublicCard({ serviceId,name,duration,price,active,prefix,existing = {} }) {
+  const fields = readServicePublicCardFields(prefix);
+  if (fields.highlights.length > 3) throw new Error('service_details_invalid');
+  let photoPath = fields.removePhoto ? '' : (existing.photo_storage_path || '');
+  let photoWidth = fields.removePhoto ? null : (existing.photo_width || null);
+  let photoHeight = fields.removePhoto ? null : (existing.photo_height || null);
+  let uploadedPath = '';
+  if (fields.file) {
+    const prepared = await prepareServiceImage(fields.file);
+    uploadedPath = `${currentUser.id}/services/${serviceId}/${createPortfolioPhotoId()}.webp`;
+    const { error } = await db.storage.from(SERVICE_IMAGE_BUCKET).upload(uploadedPath, prepared.blob, { contentType:'image/webp',cacheControl:'31536000',upsert:false });
+    if (error) throw error;
+    photoPath = uploadedPath; photoWidth = prepared.width; photoHeight = prepared.height;
+  }
+  const result = await db.rpc('save_minuta_service_v159', {
+    p_service:serviceId,p_name:name,p_duration_minutes:duration,p_price_rub:Math.round(price),p_active:active,
+    p_short_description:fields.shortDescription,p_highlights:fields.highlights,p_important_note:fields.importantNote,
+    p_photo_storage_path:photoPath,p_photo_alt:photoPath ? `Фото услуги «${name}»` : '',p_photo_width:photoWidth,p_photo_height:photoHeight
+  });
+  if (result.error) {
+    const [detailsCheck,serviceCheck] = await Promise.all([
+      db.rpc('get_minuta_service_public_details_v159', { p_service:serviceId }),
+      db.from('services').select('name,duration_minutes,price_rub,active').eq('id',serviceId).eq('performer_id',currentUser.id).maybeSingle()
+    ]);
+    const reconciled = detailsCheck.data?.[0] || {};
+    const detailSaved = (reconciled.short_description || '') === fields.shortDescription
+      && JSON.stringify(reconciled.highlights || []) === JSON.stringify(fields.highlights)
+      && (reconciled.important_note || '') === fields.importantNote
+      && (reconciled.photo_storage_path || '') === photoPath;
+    const serviceSaved = !serviceCheck.error && serviceCheck.data?.name === name
+      && Number(serviceCheck.data?.duration_minutes) === duration && Number(serviceCheck.data?.price_rub) === Math.round(price)
+      && serviceCheck.data?.active === active;
+    if (!detailSaved || !serviceSaved) {
+      // Delete a rejected upload only after the server has confirmed that it was not linked.
+      if (uploadedPath && !detailsCheck.error && (reconciled.photo_storage_path || '') !== uploadedPath) await db.storage.from(SERVICE_IMAGE_BUCKET).remove([uploadedPath]);
+      throw result.error;
+    }
+    result.data = { saved:true,retired_path:existing.photo_storage_path && existing.photo_storage_path !== photoPath ? existing.photo_storage_path : '' };
+  }
+  const retiredPath = result.data?.retired_path || '';
+  if (retiredPath && retiredPath !== photoPath) await db.storage.from(SERVICE_IMAGE_BUCKET).remove([retiredPath]);
+  return true;
+}
+
 function openServiceEditor(id) {
   const item = ownServices.find(service => service.id === id);
   if (!item) return;
+  if (!servicePublicDetailsReady) {
+    notify('Карточка услуги не загрузилась. Обновите данные и повторите.');
+    return;
+  }
+  const details = servicePublicDetails.get(id) || {};
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Редактирование услуги</small><h2 id="bookingSheetTitle">Настройте услугу</h2>
     <form class="booking-editor-form service-edit-form" id="serviceEditForm" data-service-id="${item.id}">
@@ -8843,6 +8973,7 @@ function openServiceEditor(id) {
       ${serviceScheduleNameSettingMarkup({ prefix:'edit', fullName:item.name, serviceId:item.id })}
       <div class="service-edit-row"><label>Длительность<select id="editServiceDuration" required>${durationOptions(item.duration_minutes)}</select></label><label>Цена, ₽<input id="editServicePrice" type="number" min="0" max="1000000" step="1" value="${item.price_rub}" required></label></div>
       <div class="service-default-duration" id="editServiceDefaultDurationField" ${Number(item.duration_minutes) === 1 ? '' : 'hidden'}><div><label for="editServiceDefaultDuration">Обычная длительность, минут</label><small>Автоматически подставляется при новой записи.</small></div><input id="editServiceDefaultDuration" type="number" inputmode="numeric" min="1" max="480" step="1" value="${serviceDefaultDuration(item.id)}"><div class="service-default-duration-presets"><button type="button" data-edit-service-default-duration="30">30</button><button type="button" data-edit-service-default-duration="45">45</button><button type="button" data-edit-service-default-duration="60">60</button><button type="button" data-edit-service-default-duration="90">90</button></div></div>
+      ${servicePublicCardEditorMarkup('edit', details)}
       <label class="service-visibility-option"><input id="editServiceActive" type="checkbox" ${item.active ? 'checked' : ''}><span><strong>Показывать в онлайн-записи</strong><small>${item.active ? 'Клиенты могут выбрать эту услугу' : 'Сейчас услуга скрыта от клиентов'}</small></span></label>
       <p class="form-error" id="serviceEditError" hidden></p>
       <div class="service-edit-actions"><button class="secondary-button" type="button" data-close-booking-sheet>Отмена</button><button class="primary" type="submit">Сохранить изменения</button></div>
@@ -8854,6 +8985,7 @@ function openServiceEditor(id) {
   $('#editServiceActive').addEventListener('change', updateEditServiceVisibilityHint);
   bindServiceScheduleNameSetting({ prefix:'edit', nameSelector:'#editServiceName' });
   bindServiceDefaultDurationPresets('[data-edit-service-default-duration]', '#editServiceDefaultDuration');
+  bindServicePublicCardEditor('edit', details);
   setTimeout(() => $('#editServiceName')?.focus(), 0);
 }
 
@@ -8880,11 +9012,12 @@ async function saveServiceChanges(event) {
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  const { error } = await db.from('services').update({ name, duration_minutes: duration, price_rub: Math.round(price), active }).eq('id', id).eq('performer_id', currentUser.id);
-  if (error) {
+  try {
+    await persistServiceWithPublicCard({ serviceId:id,name,duration,price,active,prefix:'edit',existing:servicePublicDetails.get(id) || {} });
+  } catch {
     button.disabled = false;
     button.textContent = 'Сохранить изменения';
-    showFormError('#serviceEditError', 'Не удалось сохранить услугу. Попробуйте ещё раз.');
+    showFormError('#serviceEditError', 'Не удалось сохранить услугу и карточку. Проверьте фото и попробуйте ещё раз.');
     return;
   }
   if (duration === 1) await saveServiceDefaultDuration(id, defaultDuration);
@@ -11045,6 +11178,7 @@ function closeBookingSheet() {
   bookingEditorRevision += 1;
   editingOfflineBookingId = '';
   newBookingHistoricalMode = false;
+  resetServicePublicCardPhotoPreview('edit');
   $('#bookingSheet').hidden = true;
   $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet');
   delete $('#bookingSheet').dataset.bookingId;
@@ -13212,6 +13346,8 @@ async function handleSession(session) {
     waitlistRequests = [];
     waitlistRemoteAvailable = false;
     ownServices = [];
+    servicePublicDetails = new Map();
+    servicePublicDetailsReady = false;
     portfolioItems = [];
     providerReviews = [];
     providerReviewsState = 'idle';
@@ -13717,8 +13853,16 @@ async function addService(event) {
   const button = event.submitter;
   button.disabled = true;
   const { data:createdService, error } = await db.from('services').insert({ performer_id: currentUser.id, name, price_rub: Math.round(price), duration_minutes: duration, active: true }).select('id').single();
+  if (error) { button.disabled = false; showFormError('#serviceError', 'Не удалось добавить услугу.'); return; }
+  try {
+    await persistServiceWithPublicCard({ serviceId:createdService.id,name,duration,price,active:true,prefix:'create',existing:{} });
+  } catch {
+    await db.from('services').delete().eq('id', createdService.id).eq('performer_id', currentUser.id);
+    button.disabled = false;
+    showFormError('#serviceError', 'Не удалось сохранить карточку услуги. Проверьте фото и попробуйте ещё раз.');
+    return;
+  }
   button.disabled = false;
-  if (error) { showFormError('#serviceError', 'Не удалось добавить услугу.'); return; }
   if (duration === 1 && createdService?.id) await saveServiceDefaultDuration(createdService.id, defaultDuration);
   const scheduleNameSynced = createdService?.id && scheduleNameEnabled ? await saveServiceScheduleName(createdService.id, true, scheduleName) : true;
   event.target.reset();
@@ -14662,7 +14806,12 @@ function renderOwnServices() {
     list.innerHTML = `<button class="provider-empty provider-empty-action" type="button" data-open-service-creator aria-label="Добавить первую услугу"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Услуг пока нет</strong><small>Нажмите здесь, чтобы добавить первую — она сразу появится у клиентов.</small></button>`;
     return;
   }
-  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? `Поминутно · ${money(item.price_rub)}/мин · обычно ${serviceDefaultDuration(item.id)} мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`).join('');
+  list.innerHTML = ownServices.map(item => {
+    const card = servicePublicDetails.get(item.id);
+    const cardReady = Boolean(card && (card.short_description || card.important_note || card.photo_storage_path || card.highlights?.length));
+    const meta = Number(item.duration_minutes) === 1 ? `Поминутно · ${money(item.price_rub)}/мин · обычно ${serviceDefaultDuration(item.id)} мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`;
+    return `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${meta}${cardReady ? ' · Карточка заполнена' : ''}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`;
+  }).join('');
 }
 
 async function toggleServiceVisibility(button) {
@@ -14721,6 +14870,7 @@ async function loadOwnServices(options = {}) {
     if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
     if (cached?.data) {
       ownServices = cached.data.filter(item => item?.name !== SCHEDULE_BLOCK_SERVICE_NAME);
+      servicePublicDetailsReady = false;
       renderOwnServices();
       return { ok: false, cached: true, savedAt: cached.savedAt };
     }
@@ -14728,6 +14878,10 @@ async function loadOwnServices(options = {}) {
     return { ok: false };
   }
   ownServices = (data || []).filter(item => item?.name !== SCHEDULE_BLOCK_SERVICE_NAME);
+  const detailsResult = await db.rpc('get_minuta_service_public_details_v159', { p_service:null });
+  if (!sessionIsCurrent(userId, generation)) return { ok:false,stale:true };
+  servicePublicDetailsReady = !detailsResult.error;
+  if (servicePublicDetailsReady) servicePublicDetails = new Map((detailsResult.data || []).map(item => [item.service_id,item]));
   await saveProviderCache('services', ownServices, userId);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   renderOwnServices();
@@ -15264,14 +15418,19 @@ document.addEventListener('click', async event => {
   if (closeNotificationTemplates) $('#notificationTemplatesDialog').close();
   if (openServiceCreator) {
     $('#serviceForm').reset();
+    resetServicePublicCardPhotoPreview('create');
     $('#serviceDuration').value = '60';
     $('#serviceDefaultDuration').value = '60';
     updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
     clearFormError('#serviceError');
     $('#serviceCreatorDialog').showModal();
     bindServiceScheduleNameSetting({ prefix:'create', nameSelector:'#serviceName' });
+    bindServicePublicCardEditor('create');
   }
-  if (closeServiceCreator) $('#serviceCreatorDialog').close();
+  if (closeServiceCreator) {
+    resetServicePublicCardPhotoPreview('create');
+    $('#serviceCreatorDialog').close();
+  }
   if (openPortfolioEditorButton) openPortfolioEditor();
   if (closePortfolioEditorButton) closePortfolioEditor();
   if (editPortfolio) openPortfolioEditor(editPortfolio.dataset.editPortfolio);
@@ -15447,6 +15606,7 @@ document.addEventListener('click', async event => {
     await toggleServiceVisibility(toggle);
   }
   if (remove && confirm('Удалить услугу? Отменённые тестовые записи будут очищены.')) {
+    const servicePhotoPath = servicePublicDetails.get(remove.dataset.deleteService)?.photo_storage_path || '';
     let { data, error } = await db.rpc('provider_delete_service', { p_service: remove.dataset.deleteService });
     if (error?.code === '23503' && /organization_waitlist_requests/.test(`${error.message || ''} ${error.details || ''}`)) {
       // Preserve scoped waitlist history instead of removing its service.
@@ -15456,7 +15616,10 @@ document.addEventListener('click', async event => {
     }
     if (error) notify('Не удалось удалить услугу');
     else {
-      if (data === 'deleted') await saveServiceScheduleName(remove.dataset.deleteService, false, '');
+      if (data === 'deleted') {
+        await saveServiceScheduleName(remove.dataset.deleteService, false, '');
+        if (servicePhotoPath) await db.storage.from(SERVICE_IMAGE_BUCKET).remove([servicePhotoPath]);
+      }
       notify(data === 'deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
     }
     await refreshAfterWrite();

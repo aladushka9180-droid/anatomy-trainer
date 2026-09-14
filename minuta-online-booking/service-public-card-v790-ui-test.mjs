@@ -1,0 +1,46 @@
+#!/usr/bin/env node
+// PrimeTime public service-card UI release contract.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
+const app = read('./app.js');
+const provider = read('./provider.js');
+const html = read('./index.html');
+const providerHtml = read('./provider.html');
+const css = read('./styles.css');
+const worker = read('./sw.js');
+const release = worker.match(/CACHE_PREFIX}v(\d+)/)?.[1];
+
+assert.ok(release,'worker release missing');
+assert.match(app,/serviceCardHasContent/);
+assert.match(app,/void loadServiceCards\(revision\)/);
+assert.match(app,/createSignedUrl\(card\.photo_storage_path, 900\)/);
+assert.match(app,/get_public_service_reviews_v159/);
+assert.match(app,/if \(!service \|\| !serviceCardHasContent\(card\)\) return/);
+assert.match(app,/preserveTrigger:true/);
+assert.match(app,/const closeServiceDetailsButton = event\.target\.closest/);
+assert.doesNotMatch(app,/const closeServiceDetails = event\.target\.closest/);
+assert.doesNotMatch(app,/function serviceDescription/);
+assert.equal((app.match(/loadPublicReviews\(\);/g)||[]).length,0,'global mixed review feed must not load');
+assert.doesNotMatch(html,/Если вы плохо себя чувствуете/);
+assert.match(html,/data-open-service-reviews/);
+assert.match(html,/serviceReviewsDialog/);
+assert.match(html,/loading="lazy" decoding="async"/);
+assert.match(provider,/SERVICE_IMAGE_MAX_EDGE = 1200/);
+assert.match(provider,/SERVICE_IMAGE_OUTPUT_LIMIT = 2 \* 1024 \* 1024/);
+assert.match(provider,/canvas\.toBlob\(resolve, 'image\/webp', \.82\)/);
+assert.match(provider,/save_minuta_service_v159/);
+assert.match(provider,/reconciled\.photo_storage_path/);
+assert.match(provider,/retired_path/);
+assert.match(provider,/if \(!servicePublicDetailsReady\)/);
+assert.equal((providerHtml.match(/data-create-service-highlight/g)||[]).length,3);
+assert.match(css,/\.service-card-dialog\[open\] \{ display:grid; grid-template-rows:minmax\(0,1fr\) auto; \}/);
+assert.match(css,/padding:12px 25px calc\(12px \+ env\(safe-area-inset-bottom\)\)/);
+assert.match(css,/@media \(max-width:760px\)[\s\S]*\.service-card-dialog \{ padding:0; \}/);
+assert.match(html,new RegExp(`styles\\.css\\?v=${release}`));
+assert.match(html,new RegExp(`app\\.js\\?v=${release}`));
+assert.match(providerHtml,new RegExp(`styles\\.css\\?v=${release}`));
+assert.match(providerHtml,new RegExp(`provider\\.js\\?v=${release}`));
+assert.match(worker,new RegExp(`\\./app\\.js\\?v=${release}`));
+assert.match(worker,new RegExp(`\\./provider\\.js\\?v=${release}`));
+console.log(`service public card UI v${release} static test passed`);

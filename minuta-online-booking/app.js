@@ -1,8 +1,9 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
 const yookassaPaymentEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/yookassa-create-payment`;
-const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, branchShiftScheduling: false, groupBookingSafety: true, organization: null, clientPage: { theme_key:'sage', headline_key:'massage-time' }, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
+const state = { step: 1, services: [], serviceCards: new Map(), serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, branchShiftScheduling: false, groupBookingSafety: true, organization: null, clientPage: { theme_key:'sage', headline_key:'massage-time' }, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
 let servicesLoadRevision = 0;
+let serviceDetailsTrigger = null;
 let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
 let selectionValidationBlocked = false;
@@ -499,17 +500,30 @@ function isMissingRpc(error, name) {
   return /(?:PGRST202|42883)/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text);
 }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
-function serviceDescription(value) {
-  const name = serviceName(value).toLowerCase();
-  if (name.includes('спортив')) return 'Интенсивная работа с мышцами для людей с регулярной физической нагрузкой. Темп и сила воздействия подбираются индивидуально.';
-  if (name.includes('комплекс')) return 'Продолжительный сеанс с последовательной проработкой основных зон тела. Подходит, когда хочется уделить внимание всему телу за один визит.';
-  if (name.includes('обеих сторон')) return 'Работа с передней и задней поверхностями тела в рамках одного сеанса. Интенсивность согласуется перед началом.';
-  if (name.includes('задней поверхности')) return 'Последовательная работа со спиной, поясницей и задней поверхностью ног с учётом ваших пожеланий.';
-  if (name.includes('голов')) return 'Сеанс с акцентом на спину, руки и область головы. Сила воздействия подбирается по вашим ощущениям.';
-  if (name.includes('ног') || name.includes('рук')) return 'Локальный массаж выбранной зоны. Перед началом можно уточнить, чему уделить больше внимания — ногам или рукам.';
-  if (name.includes('углуб')) return 'Более продолжительная и детальная работа со спиной и шейно-воротниковой зоной.';
-  if (name.includes('швз') || name.includes('спин')) return 'Базовый сеанс для спины и шейно-воротниковой зоны. Подходит для первого знакомства и регулярного ухода.';
-  return 'Индивидуальный сеанс массажа. Зоны и интенсивность работы согласуются с исполнителем перед началом.';
+
+function serviceCardHasContent(card) {
+  return Boolean(card && (card.short_description || card.important_note || card.photo_storage_path
+    || (Array.isArray(card.highlights) && card.highlights.length) || Number(card.total_reviews) > 0));
+}
+
+function reviewCountLabel(value) {
+  const count = Number(value || 0);
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  const noun = mod100 >= 11 && mod100 <= 14 ? 'отзывов' : mod10 === 1 ? 'отзыв' : mod10 >= 2 && mod10 <= 4 ? 'отзыва' : 'отзывов';
+  return `${count} ${noun}`;
+}
+
+async function loadServiceCards(revision) {
+  const ids = state.services.map(item => item.id).filter(Boolean).slice(0, 100);
+  state.serviceCards = new Map();
+  if (!ids.length) return;
+  let result;
+  try { result = await db.rpc('get_public_service_cards_v159', { p_service_ids:ids }); }
+  catch { return; }
+  if (revision !== servicesLoadRevision || result.error) return;
+  state.serviceCards = new Map((result.data || []).map(item => [item.service_id, item]));
+  renderServices();
 }
 
 function rejectRequestedBookingLink(message = 'Эта ссылка больше недоступна.') {
@@ -649,6 +663,7 @@ async function loadServices() {
   setBookingStatus(locationServices.length ? 'open' : 'closed', locationServices.length ? 'Запись открыта' : 'В этом филиале пока нет доступных услуг');
   renderSpecialists();
   renderServices();
+  void loadServiceCards(revision);
   if (state.organization) {
     void registerBookingPageVisit();
     void trackBookingFunnelEvent('page_opened');
@@ -761,7 +776,9 @@ function renderServices() {
     const duration = Number(item.duration_minutes) === 1 ? 'Поминутная оплата' : durationLabel(item.duration_minutes);
     const performer = showPerformer ? ` · ${escapeHtml(item.performer_profiles?.display_name || 'Специалист')}` : '';
     const label = `${serviceName(item.name)}, ${duration}, ${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? ' за минуту' : ''}`;
-    return `<div class="service-option-row"><button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-label="${escapeHtml(label)}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${duration}${performer}</small></span><span class="option-price">${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? '/мин' : ''}</span></button><button class="service-info-button" type="button" data-service-info="${escapeHtml(item.id)}" aria-label="Подробнее: ${escapeHtml(serviceName(item.name))}" aria-haspopup="dialog"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-info"></use></svg></button></div>`;
+    const more = serviceCardHasContent(state.serviceCards.get(item.id))
+      ? `<button class="service-info-button" type="button" data-service-info="${escapeHtml(item.id)}" aria-label="Подробнее: ${escapeHtml(serviceName(item.name))}" aria-haspopup="dialog"><span>Подробнее</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>` : '';
+    return `<div class="service-option-row"><button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-label="${escapeHtml(label)}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${duration}${performer}</small></span><span class="option-price">${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? '/мин' : ''}</span></button>${more}</div>`;
   }).join('');
   $('#serviceDetailsButton').hidden = true;
   renderRepeatBookingNotice();
@@ -794,15 +811,81 @@ function renderSpecialists() {
   ].join('');
 }
 
-function openServiceDetails(serviceId = state.serviceId) {
+async function openServiceDetails(serviceId = state.serviceId, { preserveTrigger = false } = {}) {
   const service = state.services.find(item => item.id === serviceId);
-  if (!service) return;
+  const card = state.serviceCards.get(serviceId);
+  if (!service || !serviceCardHasContent(card)) return;
+  if (!preserveTrigger) serviceDetailsTrigger = document.activeElement;
   $('#serviceDetailsTitle').textContent = serviceName(service.name);
-  $('#serviceDetailsText').textContent = serviceDescription(service.name);
+  const description = $('#serviceDetailsText');
+  description.textContent = card.short_description || '';
+  description.hidden = !card.short_description;
+  const highlights = (Array.isArray(card.highlights) ? card.highlights : []).slice(0, 3);
+  $('#serviceDetailsHighlights').innerHTML = highlights.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  $('#serviceDetailsHighlights').hidden = !highlights.length;
   $('#serviceDetailsDuration').textContent = `${Number(service.duration_minutes) === 1 ? 'Поминутная оплата' : `${service.duration_minutes} мин`} · ${service.performer_profiles?.display_name || 'Мастер'}`;
   $('#serviceDetailsPrice').textContent = `${money(service.price_rub)}${Number(service.duration_minutes) === 1 ? '/мин' : ''}`;
-  $('#serviceDetailsDialog').showModal();
+  const reviewCount = Number(card.total_reviews || 0);
+  const review = $('#serviceDetailsReview');
+  review.hidden = reviewCount < 1;
+  $('#serviceDetailsRating').textContent = reviewCount ? `★ ${Number(card.average_rating || 0).toLocaleString('ru-RU', { minimumFractionDigits:1, maximumFractionDigits:1 })} · ${reviewCountLabel(reviewCount)}` : '';
+  const quote = $('#serviceDetailsLatestReview');
+  quote.textContent = card.latest_review_text || '';
+  quote.hidden = !card.latest_review_text;
+  const important = $('#serviceDetailsImportant');
+  important.hidden = !card.important_note;
+  important.open = false;
+  $('#serviceDetailsImportantText').textContent = card.important_note || '';
+  const media = $('#serviceDetailsMedia');
+  const image = $('#serviceDetailsImage');
+  media.hidden = true;
+  image.removeAttribute('src');
+  image.alt = card.photo_alt || `Фото услуги «${serviceName(service.name)}»`;
+  image.width = Number(card.photo_width || 0);
+  image.height = Number(card.photo_height || 0);
   $('#serviceDetailsDialog').dataset.serviceId = service.id;
+  if (!$('#serviceDetailsDialog').open) $('#serviceDetailsDialog').showModal();
+  if (card.photo_storage_path) {
+    const { data } = await db.storage.from('service-images').createSignedUrl(card.photo_storage_path, 900);
+    if ($('#serviceDetailsDialog').open && $('#serviceDetailsDialog').dataset.serviceId === service.id && data?.signedUrl) {
+      image.src = data.signedUrl;
+      media.hidden = false;
+    }
+  }
+}
+
+function closeServiceDetails({ restoreFocus = true } = {}) {
+  if ($('#serviceDetailsDialog').open) $('#serviceDetailsDialog').close();
+  if (restoreFocus && serviceDetailsTrigger?.isConnected) serviceDetailsTrigger.focus();
+}
+
+function serviceReviewMarkup(item) {
+  const text = item.review_text ? `<p>${escapeHtml(item.review_text)}</p>` : '<p class="review-without-text">Оценка без текста</p>';
+  return `<article><div>${reviewStars(item.rating)}<time datetime="${escapeHtml(item.created_at)}">${new Date(item.created_at).toLocaleDateString('ru-RU', { day:'numeric',month:'long',year:'numeric' })}</time></div>${text}</article>`;
+}
+
+async function openServiceReviews() {
+  const serviceId = $('#serviceDetailsDialog').dataset.serviceId;
+  const service = state.services.find(item => item.id === serviceId);
+  const card = state.serviceCards.get(serviceId);
+  if (!service || Number(card?.total_reviews || 0) < 1) return;
+  closeServiceDetails({ restoreFocus:false });
+  $('#serviceReviewsDialog').dataset.serviceId = serviceId;
+  $('#serviceReviewsTitle').textContent = serviceName(service.name);
+  $('#serviceReviewsSummary').textContent = `★ ${Number(card.average_rating || 0).toLocaleString('ru-RU', { minimumFractionDigits:1,maximumFractionDigits:1 })} · ${reviewCountLabel(card.total_reviews)} после завершённых визитов`;
+  $('#serviceReviewsList').innerHTML = '<div class="loading-state"><i></i><span>Загружаем отзывы…</span></div>';
+  $('#serviceReviewsDialog').showModal();
+  const { data, error } = await db.rpc('get_public_service_reviews_v159', { p_service:serviceId });
+  if (!$('#serviceReviewsDialog').open || $('#serviceReviewsDialog').dataset.serviceId !== serviceId) return;
+  $('#serviceReviewsList').innerHTML = error || !data?.length
+    ? '<p class="service-reviews-empty">Отзывы временно не загрузились.</p>'
+    : data.map(serviceReviewMarkup).join('');
+}
+
+function closeServiceReviews() {
+  const serviceId = $('#serviceReviewsDialog').dataset.serviceId;
+  if ($('#serviceReviewsDialog').open) $('#serviceReviewsDialog').close();
+  if (serviceId) void openServiceDetails(serviceId, { preserveTrigger:true });
 }
 
 function renderDates() {
@@ -1454,8 +1537,10 @@ document.addEventListener('click', event => {
   const moreDates = event.target.closest('#moreDates');
   const serviceDetails = event.target.closest('#serviceDetailsButton');
   const serviceInfo = event.target.closest('[data-service-info]');
-  const closeServiceDetails = event.target.closest('[data-close-service-details]');
+  const closeServiceDetailsButton = event.target.closest('[data-close-service-details]');
   const chooseServiceDetails = event.target.closest('[data-choose-service-details]');
+  const openServiceReviewsButton = event.target.closest('[data-open-service-reviews]');
+  const closeServiceReviewsButton = event.target.closest('[data-close-service-reviews]');
   const suggestedDate = event.target.closest('[data-suggested-date]');
   const next = event.target.closest('[data-next]');
   const back = event.target.closest('[data-back]');
@@ -1506,9 +1591,11 @@ document.addEventListener('click', event => {
   }
   if (period && !period.disabled) { state.period = period.dataset.timePeriod; state.hour = ''; state.time = ''; renderTimes(); }
   if (moreDates) { state.moreDates = true; renderDates(); }
-  if (serviceInfo) openServiceDetails(serviceInfo.dataset.serviceInfo);
-  if (serviceDetails) openServiceDetails();
-  if (closeServiceDetails || chooseServiceDetails) $('#serviceDetailsDialog').close();
+  if (serviceInfo) void openServiceDetails(serviceInfo.dataset.serviceInfo);
+  if (serviceDetails) void openServiceDetails();
+  if (openServiceReviewsButton) void openServiceReviews();
+  if (closeServiceReviewsButton) closeServiceReviews();
+  if (closeServiceDetailsButton || chooseServiceDetails) closeServiceDetails({ restoreFocus:!chooseServiceDetails });
   if (chooseServiceDetails) {
     const choice = visibleServices().find(item => item.id === $('#serviceDetailsDialog').dataset.serviceId);
     if (choice) { bookingInputChanged(); state.serviceId = choice.id; state.availability = new Map(); state.time = ''; renderServices(); void showStep(2); }
@@ -1526,6 +1613,10 @@ $('#clientThemeOptions')?.addEventListener('change', event => {
   applyClientPagePresentation();
 });
 $('#clientThemeDialog')?.addEventListener('click', event => { if (event.target === $('#clientThemeDialog')) $('#clientThemeDialog').close(); });
+$('#serviceDetailsDialog')?.addEventListener('click', event => { if (event.target === $('#serviceDetailsDialog')) closeServiceDetails(); });
+$('#serviceReviewsDialog')?.addEventListener('click', event => { if (event.target === $('#serviceReviewsDialog')) closeServiceReviews(); });
+$('#serviceDetailsDialog')?.addEventListener('cancel', event => { event.preventDefault(); closeServiceDetails(); });
+$('#serviceReviewsDialog')?.addEventListener('cancel', event => { event.preventDefault(); closeServiceReviews(); });
 $('#clientName').addEventListener('input', bookingInputChanged);
 $('#clientPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); bookingInputChanged(); });
 $('#bookingBenefitCode')?.addEventListener('input', bookingInputChanged);
@@ -1578,5 +1669,4 @@ applyClientPagePresentation();
 renderDates();
 renderTimes();
 void loadServices().then(valid => { if (valid) publicGroupBookingsController.load(); });
-loadPublicReviews();
 updateSubmitAvailability();
