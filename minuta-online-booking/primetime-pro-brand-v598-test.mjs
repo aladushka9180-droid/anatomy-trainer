@@ -8,21 +8,24 @@ const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 const read = (name, encoding = 'utf8') => readFileSync(join(root, name), encoding);
 const readProject = (name, encoding = 'utf8') => readFileSync(join(projectRoot, name), encoding);
 const provider = read('provider.html');
+const worker = read('sw.js');
+const release = worker.match(/CACHE_PREFIX\}v(\d+)/)?.[1];
+assert.ok(release, 'не удалось определить версию PrimeTime Pro');
 const manifest = JSON.parse(read('provider.webmanifest'));
 
 assert.match(provider, /<title>PrimeTime Pro — кабинет исполнителя<\/title>/);
 assert.match(provider, /apple-mobile-web-app-title" content="PrimeTime"/);
 assert.match(provider, /<span class="provider-boot-mark"[^>]*>PT<\/span>/);
 assert.match(provider, /<span class="brand-mark">PT<\/span><span><strong>PrimeTime Pro<\/strong>/);
-assert.match(provider, /rel="icon" href="provider-icon\.svg\?v=786"/);
-assert.match(provider, /property="og:image" content="[^"]+\/provider-og\.png\?v=786"/);
-assert.match(provider, /name="twitter:image" content="[^"]+\/provider-og\.png\?v=786"/);
+assert.match(provider, new RegExp(`rel="icon" href="provider-icon\\.svg\\?v=${release}"`));
+assert.match(provider, new RegExp(`property="og:image" content="[^"]+/provider-og\\.png\\?v=${release}"`));
+assert.match(provider, new RegExp(`name="twitter:image" content="[^"]+/provider-og\\.png\\?v=${release}"`));
 assert.equal(manifest.name, 'PrimeTime Pro — кабинет');
 assert.equal(manifest.short_name, 'PrimeTime');
 assert.deepEqual(manifest.icons.map(icon => icon.src), [
-  'provider-icon-192.png?v=786',
-  'provider-icon-512.png?v=786',
-  'provider-icon-maskable-512.png?v=786',
+  `provider-icon-192.png?v=${release}`,
+  `provider-icon-512.png?v=${release}`,
+  `provider-icon-maskable-512.png?v=${release}`,
 ]);
 
 const publicBrandFiles = [
@@ -74,11 +77,10 @@ assert.match(read('my-bookings.js'), /minuta-client-session-v1/, 'ключ де�
 assert.match(read('theme-catalog.js'), /window\.MinutaThemeCatalog/, 'совместимый внутренний API должен сохраниться');
 assert.match(read('app.js'), /book_minuta_appointment/, 'совместимый RPC должен сохраниться');
 
-const worker = read('sw.js');
-assert.match(worker, /CACHE_PREFIX\}v786/);
-assert.match(worker, /provider\.webmanifest\?v=786/);
+assert.match(worker, new RegExp(`CACHE_PREFIX\\}v${release}`));
+assert.match(worker, new RegExp(`provider\\.webmanifest\\?v=${release}`));
 assert.match(worker, /provider-icon\.svg/);
 assert.doesNotMatch(worker, /provider-og\.png/, 'social preview artwork must not block the offline shell installation');
-assert.match(provider, /provider\.js\?v=786/);
+assert.match(provider, new RegExp(`provider\\.js\\?v=${release}`));
 
-console.log(`PrimeTime Pro brand v786: PASS (${publicBrandFiles.length} public text surfaces)`);
+console.log(`PrimeTime Pro brand v${release}: PASS (${publicBrandFiles.length} public text surfaces)`);
