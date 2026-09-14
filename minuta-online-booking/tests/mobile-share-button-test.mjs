@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { resolve, extname, sep } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
+const { chromium } = createRequire(import.meta.url)('playwright');
 const root = fileURLToPath(new URL('../',import.meta.url));
 const html = readFileSync(resolve(root,'provider.html'),'utf8')
   .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'')
@@ -31,6 +32,8 @@ try {
     document.querySelector('#authCard').hidden=true;
     document.querySelector('#dashboard').hidden=false;
     document.querySelector('#dashboard').dataset.activeView='bookings';
+    const featureStyle=document.querySelector('template[data-provider-feature="share"]')?.content.querySelector('link')?.cloneNode(true);
+    if(featureStyle) document.head.append(featureStyle);
   });
   await page.addScriptTag({url:url+'/free-slots-share.js'});
   await page.evaluate(()=>{
@@ -48,19 +51,19 @@ try {
     await page.setViewportSize({width,height:900});
     for(const theme of ['sage','luxury','hitech']) {
       await page.evaluate(theme=>{document.body.dataset.providerTheme=theme;document.body.dataset.providerLayout='soft';},theme);
+      await page.evaluate(()=>{document.querySelector('.provider-topbar-tools').open=true;});
       const button=page.locator('#openFreeSlots');
       assert.equal(await button.isVisible(),true,theme+'/'+width);
       const bounds=await button.boundingBox();
       if(width<=760) assert.ok(bounds.height>=44 && bounds.width>=44,'Touch target '+theme+'/'+width+' '+JSON.stringify(bounds));
       assert.ok(bounds.x>=0 && bounds.x+bounds.width<=width+1,'Button outside viewport');
-      const next=await page.locator('#newBookingButton').boundingBox();
-      assert.ok(bounds.x+bounds.width<=next.x+1 || next.y>=bounds.y+bounds.height-1,'Buttons overlap');
+      assert.equal(await page.locator('.schedule-view-title #openFreeSlots').count(),0,'Share must not compete with the primary action');
       await button.click();
       await page.waitForFunction(()=>document.querySelector('#freeSlotsDialog').open);
       assert.equal(await page.locator('#freeSlotsDialog').isVisible(),true);
       await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
       assert.equal(await page.locator('[name="freeSlotsBookingMode"][value="general"]').isChecked(),true);
-      assert.ok(await page.locator('#freeSlotsDialog').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1),'Dialog must not overflow horizontally');
+      assert.ok(await page.locator('#freeSlotsDialog').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1),'Dialog must not overflow horizontally '+theme+'/'+width);
       assert.equal(await page.locator('#freeSlotsFormatSettings').evaluate(el=>el.tagName),'DIV');
       assert.equal(await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]+span').isVisible(),true,'No disclosure needed to choose format');
       for (const format of ['hourly','intervals']) {
@@ -68,13 +71,16 @@ try {
         assert.equal(await page.locator(`[name="freeSlotsTimeFormat"][value="${format}"]`).isChecked(),true);
         const option = await page.locator(`[name="freeSlotsTimeFormat"][value="${format}"]+span`).boundingBox();
         assert.ok(option.height>=44 && option.width>=44,'Format touch target');
-        assert.ok(await page.locator('#freeSlotsDialog').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1),'Format controls overflow');
+        assert.ok(await page.locator('#freeSlotsDialog').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1),'Format controls overflow '+theme+'/'+width+'/'+format);
       }
       if(process.env.FREE_SLOTS_SCREENSHOT && width===390 && theme==='sage') await page.screenshot({path:process.env.FREE_SLOTS_SCREENSHOT});
       await page.locator('[data-close-free-slots]').click();
     }
   }
   await page.setViewportSize({width:390,height:900});
+  await page.evaluate(()=>{document.querySelector('#dashboard').dataset.activeView='clients';document.querySelector('.provider-topbar-tools').open=true;});
+  assert.equal(await page.locator('#openFreeSlots').isVisible(),false,'Share is contextual to bookings');
+  await page.evaluate(()=>{document.querySelector('#dashboard').dataset.activeView='bookings';});
   await page.evaluate(()=>document.body.classList.add('booking-demo-mode'));
   assert.equal(await page.locator('#openFreeSlots').isVisible(),false,'Demo must not publish real availability');
   assert.deepEqual(errors,[]);

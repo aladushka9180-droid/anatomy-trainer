@@ -10,6 +10,10 @@ const worker = read('sw.js');
 assert.match(html, /provider-schedule-minimal\.css\?v=\d+/);
 assert.match(worker, /\.\/provider-schedule-minimal\.css\?v=\d+/);
 assert.match(html, /class="date-strip-frame"[\s\S]*data-date-shift="-7"[\s\S]*id="dateStrip"[\s\S]*data-date-shift="7"/);
+assert.match(html, /class="provider-topbar-tools"[\s\S]*id="openFreeSlots"[\s\S]*data-compact-label="Поделиться"/);
+assert.doesNotMatch(html, /schedule-view-title[\s\S]{0,900}id="openFreeSlots"/);
+assert.match(html, /id="newBookingButton"[^>]*aria-label="Новая запись"[^>]*data-compact-label="Новая"/);
+assert.match(html, /schedule-date-picker[\s\S]*ui-icons\.svg#icon-calendar[\s\S]*id="scheduleDatePicker"/);
 assert.match(styles, /\.date-navigation:has\(\[data-calendar-view="day"\]\.active\)>\.date-nav-button\s*\{[^}]*display:none!important;/s);
 assert.match(styles, /\.date-strip-shift\[data-date-shift="-7"\]\s*\{[^}]*left:8px;/s);
 assert.match(styles, /\.date-strip-shift\[data-date-shift="7"\]\s*\{[^}]*right:8px;/s);
@@ -27,8 +31,10 @@ assert.match(styles, /timeline-booking-client[\s\S]*provider-booking-note-full[\
 assert.match(styles, /data-provider-theme\][\s\S]*timeline-booking\.status-block[\s\S]*var\(--schedule-break-surface-weight\)[\s\S]*background-image:none!important;[\s\S]*color:color-mix\(in srgb,var\(--theme-muted\) 72%,var\(--theme-ink\)\)!important;/s);
 assert.match(styles, /data-provider-theme\][\s\S]*timeline-booking\.status-block[\s\S]*timeline-booking-copy>strong::before[\s\S]*linear-gradient\(90deg,currentColor/s);
 assert.match(styles, /#providerBookings\.calendar-overview-month \.calendar-overview-booking\.status-block[\s\S]*var\(--schedule-break-surface-weight\)[\s\S]*box-shadow:none!important;/s);
+assert.match(styles, /v762: compact schedule controls[\s\S]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)[\s\S]*min-height:44px!important[\s\S]*calc\(\(100% - 24px\) \/ 5\)[\s\S]*grid-template-columns:44px 44px/s);
 assert.match(script, /const swipeSurface = event\.target\.closest\('#providerBookings'\)/);
 assert.match(script, /if \(dateShift\) shiftScheduleDate\(Number\(dateShift\.dataset\.dateShift\)\)/);
+assert.match(script, /todayButton\.classList\.toggle\('is-current', current\)[\s\S]*setAttribute\('aria-pressed', String\(current\)\)/);
 assert.doesNotMatch(styles, /#[0-9a-f]{3,8}\b/i, 'Новая геометрия не должна добавлять отдельную палитру');
 
 console.log('Provider minimal schedule controls: OK');

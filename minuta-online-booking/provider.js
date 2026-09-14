@@ -2149,7 +2149,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=761#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=762#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2854,7 +2854,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=761#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=762#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5077,7 +5077,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=761');
+      worker = new Worker('./report-worker.js?v=762');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6518,7 +6518,12 @@ function renderDateStrip() {
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
   const todayButton = $('[data-date-today]');
-  if (todayButton) todayButton.hidden = false;
+  if (todayButton) {
+    const current = selectedDate === todayIso && calendarView === 'day' && currentFilter === 'day';
+    todayButton.hidden = false;
+    todayButton.classList.toggle('is-current', current);
+    todayButton.setAttribute('aria-pressed', String(current));
+  }
   if (rebuildStrip || selectionChanged) requestAnimationFrame(() => centerDateStripSelection(dateStrip));
   bindDateStripResizeCentering(dateStrip);
   if (!dateStrip.dataset.scrollInteractionsBound) {
