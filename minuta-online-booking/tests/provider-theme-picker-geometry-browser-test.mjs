@@ -60,6 +60,7 @@ try {
       'pearl-zebra',
       'petrol-steel',
       'cobalt-forge',
+      'ash-flame',
       'noir-rose',
       'cocoa-pearl',
       'plum-cashmere',
@@ -88,7 +89,7 @@ try {
           maxRight:Math.max(...rects.map(rect => rect.right)),
         };
       }, theme);
-      assert.equal(result.count, 39, `${theme}/${width}: all theme cards must remain in the picker`);
+      assert.equal(result.count, 40, `${theme}/${width}: all theme cards must remain in the picker`);
       assert.ok(Object.values(result.descriptions).every(Boolean), `${theme}/${width}: единый каталог заполнил не все описания`);
       assert.equal(result.descriptions['petrol-steel'], 'Бирюзовая патина, тёмный металл и медные прожилки');
       assert.equal(result.descriptions['cobalt-forge'], 'Холодная шлифованная сталь и глубокий синий акцент');

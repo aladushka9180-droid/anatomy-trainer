@@ -15,11 +15,11 @@ const context = {
 vm.createContext(context);
 vm.runInContext(read('./theme-catalog.js'), context);
 const catalog = context.window.MinutaThemeCatalog;
-const expected = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard','pearl-zebra','blue-hydrangea','peach-silk','moonlit-lilac','noir-rose','cocoa-pearl','plum-cashmere','obsidian-champagne','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal','azure-lagoon','noir-safari'];
+const expected = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','ash-flame','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard','pearl-zebra','blue-hydrangea','peach-silk','moonlit-lilac','noir-rose','cocoa-pearl','plum-cashmere','obsidian-champagne','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal','azure-lagoon','noir-safari'];
 assert.deepEqual([...catalog.themeKeys], expected);
-assert.equal(new Set(catalog.themeKeys).size, 39);
+assert.equal(new Set(catalog.themeKeys).size, 40);
 assert.equal(catalog.clientThemes.length, 24);
-assert.deepEqual([...catalog.clientThemeKeys], expected.filter(key => !['blue-hydrangea','peach-silk','moonlit-lilac','noir-rose','cocoa-pearl','plum-cashmere','obsidian-champagne','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal'].includes(key)));
+assert.deepEqual([...catalog.clientThemeKeys], expected.filter(key => !['blue-hydrangea','peach-silk','moonlit-lilac','ash-flame','noir-rose','cocoa-pearl','plum-cashmere','obsidian-champagne','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal'].includes(key)));
 for (const theme of catalog.themes) {
   assert.ok(theme.label && theme.description && theme.groups.length);
   for (const key of ['bg','surface','surfaceAlt','ink','muted','line','accent','accentSoft','contrast','shadow','pattern','themeColor']) assert.ok(theme.palette[key], `${theme.key}: ${key}`);
@@ -49,7 +49,7 @@ const providerRelease = sw.match(/CACHE_PREFIX\}v(\d+)/)?.[1];
 const clientRelease = indexHtml.match(/theme-catalog\.js\?v=(\d+)/)?.[1];
 assert.ok(providerRelease && clientRelease, 'Не удалось определить версии ресурсов тем');
 const providerThemeKeys = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
-assert.deepEqual(providerThemeKeys, expected, 'Каталог должен совпадать с 39 темами кабинета');
+assert.deepEqual(providerThemeKeys, expected, 'Каталог должен совпадать с 40 темами кабинета');
 assert.equal([...providerHtml.matchAll(/<small data-theme-description><\/small>/g)].length, expected.length, 'В карточках кабинета остались отдельные копии описаний');
 const hydratedDescriptions = new Map();
 const descriptionInputs = expected.map(key => ({

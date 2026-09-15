@@ -17,7 +17,7 @@ const themes = new Map(context.window.MinutaThemeCatalog.themes.map(theme => [th
 const changedThemes = [
   'sage', 'nordic', 'hitech', 'coastal', 'blue-hydrangea', 'eco', 'celadon',
   'japandi', 'desert', 'peach-silk', 'pearl', 'snow-leopard',
-  'mono', 'pearl-zebra', 'graphite', 'midnight', 'carbon-ember', 'carbon-crimson',
+  'mono', 'pearl-zebra', 'graphite', 'midnight', 'ash-flame', 'carbon-ember', 'carbon-crimson',
   'luxury', 'azure-lagoon', 'noir-safari', 'noir-rose', 'cocoa-pearl',
   'plum-cashmere', 'obsidian-champagne',
 ];

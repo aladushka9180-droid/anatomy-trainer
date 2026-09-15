@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v813`;
+const CACHE = `${CACHE_PREFIX}v815`;
 
 // Only the provider shell and its first-screen dependencies block installation.
 // Secondary sections, help media and decorative theme images are cached on use.
@@ -39,14 +39,14 @@ const ASSETS = [
   './provider-theme-noir-safari.css?v=811',
   './client-directory.css?v=811',
   './provider-ui-refinements.css?v=811',
-  './provider-schedule-minimal.css?v=811',
-  './provider-themes-distinct.css?v=813',
-  './provider-theme-families.css?v=811',
+  './provider-schedule-minimal.css?v=815',
+  './provider-themes-distinct.css?v=815',
+  './provider-theme-families.css?v=815',
   './provider-theme-backgrounds-tema1.css?v=811',
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=811',
+  './site-update.js?v=815',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
   './social-auth.js?v=811',
@@ -67,7 +67,7 @@ const ASSETS = [
   './data-governance.js?v=811',
   './report-reconciliation.js?v=811',
   './report-demo-live.js?v=811',
-  './theme-catalog.js?v=811',
+  './theme-catalog.js?v=815',
   './provider-color-mode.js?v=811',
   './client-directory.js?v=811',
   './client-results.js?v=811',

@@ -128,6 +128,16 @@
   --theme-canvas-opacity:.035;
 }
 
+.provider-body[data-provider-theme="ash-flame"],.provider-theme-option.theme-ash-flame {
+  --theme-canvas-texture:none;
+  --theme-canvas-mask:var(--theme-constellation-mask);
+  --theme-canvas-color:#48a9ff;
+  --theme-canvas-size:920px 560px;
+  --theme-canvas-position:center top;
+  --theme-preview-canvas-size:132px 80px;
+  --theme-canvas-opacity:.035;
+}
+
 .provider-body[data-provider-theme="oled-mono"],.provider-theme-option.theme-oled-mono {
   --theme-canvas-texture:radial-gradient(circle at 1px 1px,#fff 0 1px,transparent 1.2px),radial-gradient(ellipse at 50% 8%,#fff,transparent 48%);
   --theme-canvas-size:13px 13px,100% 100%;

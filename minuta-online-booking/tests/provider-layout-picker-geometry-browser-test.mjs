@@ -102,7 +102,7 @@ try {
       );
     }
   }
-  console.log('Provider layout picker geometry: PASS (39 themes × 6 layouts × 3 widths).');
+  console.log('Provider layout picker geometry: PASS (40 themes × 6 layouts × 3 widths).');
 } finally {
   await browser.close();
 }

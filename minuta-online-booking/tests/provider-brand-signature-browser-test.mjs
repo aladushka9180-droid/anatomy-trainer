@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const catalog = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
-assert.equal(themes.length, 39, 'Каталог тем прочитан не полностью');
+assert.equal(themes.length, 40, 'Каталог тем прочитан не полностью');
 const output = process.env.MINUTA_BRAND_OUTPUT;
 if (output) fs.mkdirSync(output, { recursive:true });
 
@@ -126,7 +126,7 @@ try {
     }
   }
   assert.ok(tierColors.size >= 20, `Акцент Pro недостаточно меняется между темами: ${tierColors.size}`);
-  console.log('Provider brand signature browser matrix: PASS (39 themes × 3 widths)');
+  console.log('Provider brand signature browser matrix: PASS (40 themes × 3 widths)');
 } finally {
   if (browser) await browser.close();
   server.close();

@@ -9,7 +9,7 @@ const worker = fs.readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
 const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
 const families = {
   editorial:['sage', 'nordic', 'mono'],
-  digital:['graphite', 'hitech', 'carbon-crimson', 'oled-mono', 'volt-graphite'],
+  digital:['graphite', 'hitech', 'carbon-crimson', 'ash-flame', 'oled-mono', 'volt-graphite'],
   natural:['eco', 'japandi', 'desert', 'celadon'],
   materials:['luxury', 'loft', 'carbon-ember', 'petrol-steel', 'cobalt-forge', 'concrete-signal', 'obsidian-champagne', 'cocoa-pearl', 'coastal', 'midnight', 'noir-safari'],
   mist:['warm', 'lavender', 'rose', 'burgundy', 'butter', 'mocha-pastel', 'noir-rose'],
@@ -20,7 +20,7 @@ const families = {
 };
 const mappedThemes = Object.values(families).flat();
 
-assert.equal(themes.length, 39, 'Каталог должен содержать 39 тем');
+assert.equal(themes.length, 40, 'Каталог должен содержать 40 тем');
 assert.deepEqual([...mappedThemes].sort(), [...themes].sort(), 'Каждая тема должна входить ровно в одно визуальное семейство');
 assert.equal(new Set(mappedThemes).size, mappedThemes.length, 'В семействах не должно быть дублей');
 
@@ -43,7 +43,7 @@ for (const theme of themes) {
 
 const signatureFamilies = {
   circuit:['volt-graphite', 'hitech'],
-  constellation:['moonlit-lilac', 'carbon-crimson', 'botanical'],
+  constellation:['moonlit-lilac', 'carbon-crimson', 'botanical', 'ash-flame'],
   facets:['graphite', 'cobalt-forge', 'azure-lagoon', 'burgundy', 'nordic'],
 };
 for (const [family, familyThemes] of Object.entries(signatureFamilies)) {
@@ -55,7 +55,7 @@ for (const [family, familyThemes] of Object.entries(signatureFamilies)) {
   }
 }
 
-const lineFreeThemes = ['carbon-crimson', 'cobalt-forge', 'burgundy', 'moonlit-lilac'];
+const lineFreeThemes = ['carbon-crimson', 'cobalt-forge', 'burgundy', 'moonlit-lilac', 'ash-flame'];
 for (const theme of lineFreeThemes) {
   const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
   assert.doesNotMatch(block, /linear-gradient/, `${theme}: длинные одиночные линии должны быть заменены локальной фактурой`);
@@ -71,7 +71,7 @@ const signatures = themes.map(theme => {
     block.match(/--theme-canvas-color:([^;]+);/)?.[1],
   ].join('|');
 });
-assert.equal(new Set(signatures).size, 39, 'У каждой темы должно оставаться собственное цветовое прочтение мотива');
+assert.equal(new Set(signatures).size, 40, 'У каждой темы должно оставаться собственное цветовое прочтение мотива');
 assert.equal((css.match(/url\("data:image\/svg\+xml/g) || []).length, 3, 'Нужно ровно три лёгкие векторные топологии');
 assert.doesNotMatch(css, /url\([^)]*\.(?:png|jpe?g|webp)/i, 'Фактурный слой не должен загружать растровые обои');
 
@@ -90,8 +90,8 @@ assert.match(css, /data-provider-theme="snow-leopard"[\s\S]*?--theme-canvas-size
 assert.match(css, /data-provider-theme="luxury"[\s\S]*?radial-gradient\(ellipse at 4% 0/);
 assert.match(css, /data-provider-theme="warm"[\s\S]*?radial-gradient\(circle at 16% 4%/);
 
-assert.match(provider, /provider-theme-families\.css\?v=811[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=811/);
-assert.match(worker, /\.\/provider-theme-families\.css\?v=811/);
+assert.match(provider, /provider-theme-families\.css\?v=815[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=811/);
+assert.match(worker, /\.\/provider-theme-families\.css\?v=815/);
 assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=811/);
 
-console.log('Provider theme families v811: PASS (39 themes, 9 families).');
+console.log('Provider theme families v815: PASS (40 themes, 9 families).');
