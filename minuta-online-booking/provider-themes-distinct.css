@@ -320,6 +320,12 @@
   background:var(--ash-flame-action-soft)!important;
   color:var(--ash-flame-action-ink)!important;
 }
+.provider-body[data-provider-theme="ash-flame"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(.journal-mode-toggle,.booking-filters) button.active {
+  border-color:var(--ash-flame-action-line)!important;
+  background:var(--ash-flame-action-soft)!important;
+  color:var(--ash-flame-action-ink)!important;
+  box-shadow:inset 0 -2px 0 var(--ash-flame-action)!important;
+}
 .provider-body[data-provider-theme="ash-flame"][data-provider-layout] .timeline-empty-state>span {
   border:1px solid var(--ash-flame-action-line)!important;
   background:var(--ash-flame-action-soft)!important;
