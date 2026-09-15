@@ -3,7 +3,7 @@ const js=fs.readFileSync(new URL('./client-messages.js',import.meta.url),'utf8')
 for(const rpc of ['get_minuta_client_message_capability_v162','open_minuta_client_conversation_v162','list_minuta_client_conversations_v162','get_minuta_client_message_timeline_v162','send_minuta_client_message_v162','mark_minuta_client_message_read_v162','prepare_minuta_message_action_v162','apply_minuta_message_action_v162','open_minuta_client_support_v162'])assert.ok(js.includes(rpc),rpc);
 assert.ok(js.includes('p_booking_code'));assert.ok(js.includes("sessionStorage"));assert.ok(!/manage_token|p_booking:|recipient_id/.test(js));assert.ok(!/localStorage\.getItem\(SESSION_KEY/.test(js));
 assert.ok(!/sessionToken\.slice|scope:`client:\$\{/.test(js));
-for(const asset of ['messages-center.css?v=806','messages-core.js?v=806','provider-messages-center.js?v=806','client-messages.js?v=806'])assert.ok(html.includes(asset),asset);
+for(const asset of ['messages-center.css?v=807','messages-core.js?v=807','provider-messages-center.js?v=807','client-messages.js?v=807'])assert.ok(html.includes(asset),asset);
 assert.ok(html.includes('Content-Security-Policy'));assert.ok(html.includes('my-bookings.html'));
 assert.ok(bookingsHtml.includes('href="messages.html"'));assert.ok(bookingsJs.includes('bookingMessagesUrl(item.booking_code)'));assert.ok(!/messages\.html[^\n]*manage_token/.test(bookingsJs));
 console.log('client-messages-static-test: ok');
