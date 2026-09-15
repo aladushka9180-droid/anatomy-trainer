@@ -997,6 +997,11 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .provider-view { width:min(1160px,100%); margin:0 auto; padding-top:32px; }
 .view-title { display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .view-title-actions { display:flex; align-items:center; gap:8px; }.view-title-actions .compact-button { min-height:42px; padding:0 16px; font-size:11px; }
+.services-view-switch { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); min-width:226px; padding:3px; border:1px solid var(--theme-line,#dce7df); border-radius:15px; background:color-mix(in srgb,var(--theme-surface,#fff) 72%,transparent); box-sizing:border-box; }
+.services-view-switch button { display:flex; align-items:center; justify-content:center; gap:5px; min-width:0; min-height:38px; padding:0 14px; border:0; border-radius:11px; background:transparent; color:var(--theme-muted,#718278); font-family:inherit; font-size:12px; font-weight:800; line-height:1.2; white-space:nowrap; cursor:pointer; }
+.services-view-switch button[aria-pressed="true"] { background:var(--theme-accent-soft,#e8f3ec); color:var(--theme-accent,#2d704e); box-shadow:0 1px 2px color-mix(in srgb,var(--theme-shadow,rgba(24,52,39,.14)) 28%,transparent); }
+.services-view-switch button:focus-visible { outline:2px solid var(--theme-accent,#2d704e); outline-offset:1px; }
+.services-view-switch button:disabled { cursor:wait; opacity:.72; }
 .schedule-view-title .view-title-actions .compact-button { width:auto; margin-top:0; }
 .view-title>div:first-child>span:not(.panel-count) { color:#718278; font-size:10px; font-weight:850; letter-spacing:.13em; text-transform:uppercase; }
 .view-title h2 { margin:4px 0 0; font-size:30px; letter-spacing:-.05em; }
@@ -8402,15 +8407,20 @@ html.provider-booting .provider-main {
   }
   .provider-body .provider-view[data-provider-panel="services"]>.view-title .view-title-actions {
     display:grid!important;
-    grid-template-columns:auto minmax(0,1fr)!important;
+    grid-template-columns:minmax(0,1fr)!important;
     gap:10px!important;
     width:100%!important;
     min-width:0;
   }
+  .provider-body .provider-view[data-provider-panel="services"] .services-view-switch {
+    width:100%;
+    min-width:0;
+  }
   .provider-body .provider-view[data-provider-panel="services"]>.view-title .primary {
-    width:100%!important;
+    width:auto!important;
     min-width:0!important;
     max-width:none!important;
+    justify-self:start;
     padding:0 14px!important;
     white-space:normal;
   }

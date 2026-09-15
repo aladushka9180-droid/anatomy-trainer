@@ -339,7 +339,28 @@
     grid-column:2;
     grid-row:2;
     align-self:end;
-    margin:0 0 1px;
+    justify-self:start;
+    display:inline-flex;
+    align-items:center;
+    min-width:0;
+    width:auto;
+    height:auto;
+    margin:0 0 3px;
+    padding:0;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    color:var(--theme-muted)!important;
+    font-size:11px;
+    line-height:1;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title #clientsCount::before {
+    content:'·';
+    margin-right:7px;
+    color:color-mix(in srgb,var(--theme-muted) 68%,transparent);
+    font-weight:700;
   }
   .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title [data-create-empty-booking] {
     grid-column:4;

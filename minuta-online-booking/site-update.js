@@ -4,7 +4,7 @@
   if (!('serviceWorker' in navigator)) return;
 
   const scriptUrl = document.currentScript?.src || location.href;
-  const workerUrl = new URL('./sw.js?v=803', scriptUrl).href;
+  const workerUrl = new URL('./sw.js?v=804', scriptUrl).href;
   const CHECK_INTERVAL_MS = 15 * 60 * 1000;
   let registration = null;
   let currentController = navigator.serviceWorker.controller;

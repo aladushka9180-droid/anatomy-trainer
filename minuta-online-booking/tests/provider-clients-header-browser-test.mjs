@@ -60,9 +60,10 @@ try {
       const button = rect('[data-create-empty-booking]');
       const label = rect('[data-create-empty-booking] span');
       const description = rect('[data-provider-panel="clients"] .view-description');
+      const countStyle = getComputedStyle(document.querySelector('#clientsCount'));
       const overlap = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > .5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > .5;
       return {
-        title, heading, count, button, label, description,
+        title, heading, count, button, label, description, countStyle:{ background:countStyle.backgroundColor, border:countStyle.borderTopWidth, radius:countStyle.borderRadius },
         overflow:document.documentElement.scrollWidth > innerWidth + 1,
         headingCountOverlap:overlap(heading, count),
         countButtonOverlap:overlap(count, button),
@@ -85,6 +86,9 @@ try {
       assert.ok(Math.abs(state.button.bottom - Math.max(state.heading.bottom, state.count.bottom)) <= 4, `${prefix}: ordinary mobile keeps the action on the title row`);
       assert.ok(state.count.left >= state.heading.right + 6, `${prefix}: count follows the title with breathing room`);
       assert.ok(state.button.left >= state.count.right + 8, `${prefix}: action keeps a clear outer gap`);
+      assert.ok(state.count.width <= 56, `${prefix}: count stays a compact title detail (${state.count.width}px)`);
+      assert.equal(state.countStyle.background, 'rgba(0, 0, 0, 0)', `${prefix}: count does not create a competing capsule`);
+      assert.equal(state.countStyle.border, '0px', `${prefix}: count has no separate outline`);
     }
     combinations += 1;
   }

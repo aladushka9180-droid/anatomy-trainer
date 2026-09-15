@@ -16,6 +16,11 @@
   const existingByName = () => new Map((context?.existingServices || []).map(item => [catalog.normalizeName(item.name), item]));
   const existingFor = name => existingByName().get(catalog.normalizeName(name)) || null;
   const rubles = value => `${Number(value || 0).toLocaleString('ru-RU')} ₽`;
+  const setCatalogTab = value => {
+    document.querySelectorAll('[data-service-catalog-tab]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.serviceCatalogTab === value));
+    });
+  };
 
   function newState(professionIds = []) {
     return {
@@ -40,6 +45,10 @@
     dialog.addEventListener('change', handleInput);
     dialog.addEventListener('cancel', event => {
       if (busy) event.preventDefault();
+    });
+    dialog.addEventListener('close', () => {
+      setCatalogTab('services');
+      context?.onClose?.();
     });
     document.body.append(dialog);
   }
@@ -217,7 +226,7 @@
   function handleClick(event) {
     const button = event.target.closest('button');
     if (!button || busy) return;
-    if (button.matches('[data-close-service-presets]')) { dialog.close(); context?.onClose?.(); return; }
+    if (button.matches('[data-close-service-presets]')) { dialog.close(); return; }
     if (button.matches('[data-service-presets-back]')) { state.step = Math.max(1, state.step - 1); state.error = ''; render(); return; }
     if (button.matches('[data-service-preset]')) { togglePreset(button.dataset.servicePreset); state.error = ''; render(`[data-service-preset="${button.dataset.servicePreset}"]`); return; }
     if (button.matches('[data-service-presets-more]')) {
@@ -283,6 +292,7 @@
     context = options;
     state = newState(options.professionIds || []);
     busy = false;
+    setCatalogTab('presets');
     render();
     if (!dialog.open) dialog.showModal();
     requestAnimationFrame(() => dialog.querySelector('[data-service-profession]')?.focus());
