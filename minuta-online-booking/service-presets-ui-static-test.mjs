@@ -51,6 +51,8 @@ assert.match(onboarding, /type="checkbox" data-onboarding-profession/);
 assert.match(onboarding, /create_provider_services_from_presets_v160/);
 assert.match(onboarding, /minuta_onboarding_version:VERSION/);
 assert.match(styles, /min-height:44px/);
+assert.equal([...styles.matchAll(/var\(--theme-surface-strong,var\(--theme-surface,#fff\)\)/g)].length, 5);
+assert.doesNotMatch(styles, /var\(--theme-surface-strong,#fff\)/);
 assert.match(styles, /@media \(max-width:760px\)/);
 assert.match(styles, /@media \(max-width:480px\)/);
 
