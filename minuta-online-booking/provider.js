@@ -17585,6 +17585,7 @@ if (typeof providerSectionMobileQuery.addEventListener === 'function') providerS
 else providerSectionMobileQuery.addListener?.(refreshSectionNavigation);
 window.addEventListener('popstate', () => {
   if (!currentUser || $('#dashboard').hidden) return;
+  if (window.MinutaProviderHelpWorkspace?.handlesCurrentHistory?.()) return;
   const nextFilter = restoreScheduleFilter();
   currentFilter = nextFilter;
   calendarView = nextFilter === 'day' ? restoreCalendarView() : 'day';

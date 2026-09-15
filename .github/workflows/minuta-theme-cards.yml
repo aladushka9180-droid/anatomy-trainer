@@ -45,6 +45,7 @@ jobs:
       - run: node minuta-online-booking/provider-header-test.mjs
       - run: node minuta-online-booking/tests/provider-brand-signature-browser-test.mjs
       - run: node minuta-online-booking/tests/settings-search-navigation-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-help-workspace-browser-test.mjs
       - run: node minuta-online-booking/tests/contextual-help-labels-browser-test.mjs
       - name: Upload visual regression evidence
         if: failure()

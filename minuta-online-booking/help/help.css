@@ -232,3 +232,7 @@ main { width: min(1060px, calc(100% - 48px)); margin: 0 auto; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+body[data-provider-embedded="true"] .help-header,
+body[data-provider-embedded="true"] .help-footer,
+body[data-provider-embedded="true"] > .skip-link { display:none!important; }
+body[data-provider-embedded="true"] { min-height:100%; padding-top:0; }

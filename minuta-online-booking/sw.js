@@ -29,6 +29,7 @@ const ASSETS = [
   './provider-themes-wildlife.css?v=801',
   './settings-nav-scroll.css?v=801',
   './settings-smart-search.css?v=801',
+  './provider-help-workspace.css?v=801',
   './contextual-help.css?v=801',
   './settings-mobile-minimalism.css?v=801',
   './client-records.css?v=801',
@@ -70,6 +71,7 @@ const ASSETS = [
   './client-directory.js?v=801',
   './client-results.js?v=801',
   './provider.js?v=801',
+  './provider-help-workspace.js?v=801',
   './voice-wake.js?v=801',
   './provider-feature-assets.js?v=801',
 ];
