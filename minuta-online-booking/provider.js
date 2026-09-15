@@ -5753,6 +5753,7 @@ function providerViewFromLocation() {
 
 function prepareProviderViewBeforeSession(view = providerViewFromLocation()) {
   const safeView = PROVIDER_VIEW_ORDER.includes(view) ? view : 'bookings';
+  if (safeView === 'settings') void loadProviderGuidance().catch(() => {});
   const dashboard = $('#dashboard');
   if (dashboard) dashboard.dataset.activeView = safeView;
   $$('[data-provider-view]').forEach(button => {
