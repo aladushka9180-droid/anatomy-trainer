@@ -248,6 +248,24 @@
   --atmosphere-background:radial-gradient(ellipse at 84% 0,rgba(225,165,182,.08),transparent 42%),linear-gradient(145deg,#242126,#2b272e 58%,#252227);
   --atmosphere-panel:#2d2930; --atmosphere-panel-strong:#37313a;
 }
+.provider-body[data-provider-theme="noir-rose"][data-provider-layout] {
+  background-image:
+    radial-gradient(ellipse at 84% 0,rgba(225,165,182,.08),transparent 42%),
+    linear-gradient(145deg,#242126,#2b272e 58%,#252227) !important;
+  background-size:100% 100%, 100% 100%;
+  position:relative;
+  isolation:isolate;
+}
+.provider-body[data-provider-theme="noir-rose"][data-provider-layout]::after {
+  content:"♡";
+  position:fixed;
+  right:6vw;
+  bottom:3vh;
+  z-index:-1;
+  color:rgba(225,165,182,.13);
+  font:400 clamp(110px,18vw,180px)/.8 Georgia,"Times New Roman",serif;
+  pointer-events:none;
+}
 .theme-noir-rose { --theme-preview-bg:#242126; --theme-preview-surface:#37313a; --theme-preview-line:#79727b; --theme-preview-accent:#e1a5b6; --theme-preview-radius:14px; --theme-preview-item-radius:999px; color:#f3ecef; }
 .theme-noir-rose .theme-swatch { background-image:radial-gradient(ellipse at 84% 0,rgba(225,165,182,.16),transparent 52%),linear-gradient(145deg,#242126,#37313a); }
 
