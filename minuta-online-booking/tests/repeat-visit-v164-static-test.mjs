@@ -37,6 +37,8 @@ test('repeat creation checks the signed source before one transactional copy', (
   assert.match(repeat, /total_price_rub=p_total_price_rub/);
   assert.match(repeat, /'repeat_materials',v_preview->'materials'/);
   assert.match(repeat, /public\.provider_book_appointment\(/, 'provider-created repeats must use the attributed provider entrypoint');
+  assert.match(repeat, /set_config\('minuta\.booking_organization',v_source\.organization_id::text,true\)/, 'repeat creation must retain the source organization');
+  assert.match(repeat, /set_config\('minuta\.booking_location',v_source\.location_id::text,true\)/, 'repeat creation must retain the source location');
   assert.doesNotMatch(repeat, /booking_source='(?:provider|admin)_manual'/, 'immutable creation attribution must not be rewritten');
   assert.doesNotMatch(repeat, /booking_source='provider_repeat'/, 'v92 attribution remains immutable');
   assert.match(repeat, /other\.status<>'cancelled'/);

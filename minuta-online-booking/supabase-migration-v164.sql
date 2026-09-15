@@ -116,6 +116,7 @@ declare
   v_actor uuid:=auth.uid();
   v_preview jsonb;
   v_created jsonb;
+  v_source public.bookings%rowtype;
   v_existing public.bookings%rowtype;
   v_booking public.bookings%rowtype;
   v_code text;
@@ -123,6 +124,8 @@ declare
   v_addon_total integer;
   v_primary_price integer;
   v_duration integer;
+  v_previous_organization text:=current_setting('minuta.booking_organization',true);
+  v_previous_location text:=current_setting('minuta.booking_location',true);
 begin
   if v_actor is null then raise exception using errcode='42501',message='authentication_required'; end if;
   if p_request_id is null or p_source_booking is null or p_date is null or p_time is null then
@@ -153,11 +156,20 @@ begin
   v_primary_price:=p_total_price_rub-v_addon_total;
   if v_primary_price not between 0 and 1000000 then raise exception using errcode='22023',message='invalid_repeat_price'; end if;
 
+  select * into v_source from public.bookings booking
+  where booking.id=p_source_booking and booking.performer_id=v_actor;
+  if not found or v_source.organization_id is null or v_source.location_id is null then
+    raise exception using errcode='55000',message='repeat_source_scope_unavailable';
+  end if;
+  perform set_config('minuta.booking_organization',v_source.organization_id::text,true);
+  perform set_config('minuta.booking_location',v_source.location_id::text,true);
   v_created:=public.provider_book_appointment(
     p_request_id,(v_preview->'items'->0->>'service_id')::uuid,p_date,p_time,
     coalesce(nullif(btrim(p_client_name),''),v_preview->>'client_name'),
     coalesce(nullif(btrim(p_client_phone),''),v_preview->>'client_phone')
   );
+  perform set_config('minuta.booking_organization',coalesce(v_previous_organization,''),true);
+  perform set_config('minuta.booking_location',coalesce(v_previous_location,''),true);
   v_code:=v_created->>'booking_code';
   select * into v_booking from public.bookings booking where booking.request_id=p_request_id for update;
   if not found or v_booking.performer_id<>v_actor or v_booking.booking_code<>v_code then
