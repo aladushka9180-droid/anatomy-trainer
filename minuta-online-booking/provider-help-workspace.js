@@ -7,6 +7,7 @@
   const HELP_TYPES = new Set(['index', 'article', 'category']);
   const SAFE_KEY = /^[a-z0-9][a-z0-9-]{0,79}$/;
   const SENSITIVE_PARAM = /^(?:access|refresh|id)?_?token$|^(?:code|session|password|secret)$/i;
+  const HELP_BASE_PATH = new URL('help/', window.location.href).pathname;
   const HELP_LINK_SELECTOR = '.provider-help-link, .mobile-help-shortcut, .settings-help-link';
   const workspace = document.createElement('section');
   workspace.id = 'providerHelpWorkspace';
@@ -66,13 +67,13 @@
     let url;
     try { url = new URL(value, base); } catch { return null; }
     if (url.origin !== window.location.origin) return null;
-    const path = url.pathname.replace(/\/+$/, '');
-    if (path.endsWith('/help') || path.endsWith('/help/index.html')) return { type:'index' };
-    if (path.endsWith('/help/article.html')) {
+    const path = url.pathname;
+    if (path === HELP_BASE_PATH || path === `${HELP_BASE_PATH}index.html`) return { type:'index' };
+    if (path === `${HELP_BASE_PATH}article.html`) {
       const slug = url.searchParams.get('slug') || '';
       return SAFE_KEY.test(slug) ? { type:'article', slug } : null;
     }
-    if (path.endsWith('/help/category.html')) {
+    if (path === `${HELP_BASE_PATH}category.html`) {
       const category = url.searchParams.get('category') || '';
       return SAFE_KEY.test(category) ? { type:'category', category } : null;
     }
@@ -124,12 +125,12 @@
     activeRoute = route;
     title.textContent = route.type === 'article' ? 'Инструкция' : route.type === 'category' ? 'Раздел базы знаний' : 'База знаний';
     externalLink.href = next;
-    loading.hidden = false;
     if (force || frameRouteUrl !== next) {
+      loading.hidden = false;
       if (frameRouteUrl && frame.contentWindow) frame.contentWindow.location.replace(next);
       else frame.src = next;
       frameRouteUrl = next;
-    }
+    } else loading.hidden = true;
   }
 
   function openWorkspace(route, { focus = true } = {}) {
