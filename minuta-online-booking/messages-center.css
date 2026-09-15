@@ -40,7 +40,9 @@
 
 .message-center-notice { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:12px 14px; border:1px solid var(--mc-line); border-radius:14px; background:var(--mc-surface-alt); color:var(--mc-muted); }
 .message-center-notice strong { display:block; color:var(--mc-ink); }
+.message-center-notice-actions { display:flex; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .message-center-notice button { min-height:40px; padding:8px 12px; border:1px solid var(--mc-line); border-radius:11px; background:var(--mc-surface); color:var(--mc-ink); cursor:pointer; }
+.message-center-notice .message-center-enable { border-color:transparent; background:var(--mc-accent); color:var(--mc-contrast); font-weight:850; }
 
 .message-center-workspace { display:grid; grid-template-columns:minmax(260px,340px) minmax(0,1fr); min-height:min(720px,calc(100dvh - 230px)); overflow:hidden; border:1px solid var(--mc-line); border-radius:22px; background:var(--mc-surface); }
 .message-center-conversations { display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--mc-line); }
@@ -194,6 +196,7 @@
   .message-center-heading p { margin-top:5px; }
   .message-center-state { font-size:11px; }
   .message-center-notice { display:grid; }
+  .message-center-notice-actions { display:grid; justify-content:stretch; }
   .message-center-notice button { width:100%; }
   .message-center-media-help { margin-left:0; }
   .message-center-dialog-actions { display:grid; grid-template-columns:1fr 1fr; }

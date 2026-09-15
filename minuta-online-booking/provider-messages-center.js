@@ -4,6 +4,7 @@
   const core = global.MinutaMessagesCore;
   const PROVIDER_RPC_MAP = Object.freeze({
     capability:'get_minuta_message_capability_v162',
+    setCapability:'set_minuta_message_center_settings_v162',
     openConversation:'open_minuta_provider_conversation_v162',
     listConversations:'list_minuta_provider_conversations_v162',
     timeline:'get_minuta_provider_message_timeline_v162',
@@ -133,6 +134,20 @@
           reason:String(data.reason || '')
         };
       },
+      async setCapability({ enabled, supportEnabled = false }) {
+        const data = unwrap(await call('setCapability', {
+          p_organization:organizationId,
+          p_client_chat_enabled:enabled === true,
+          p_support_enabled:supportEnabled === true
+        }));
+        return {
+          enabled:data?.enabled === true || data?.client_chat_enabled === true,
+          media_enabled:data?.media_enabled === true,
+          transcription_enabled:data?.transcription_enabled === true,
+          support_enabled:data?.support_enabled === true,
+          reason:String(data?.reason || '')
+        };
+      },
       async listConversations({ beforeActivity = null, beforeId = null, query = '' } = {}) {
         const data = await call('listConversations', {
           p_organization:organizationId,
@@ -251,6 +266,7 @@
     const actorKind = options.actorKind === 'client' ? 'client' : 'provider';
     if (!root || !bridge || !core) throw new Error('message_center_contract_required');
     const scope = core.identifier(options.scope) || actorKind;
+    const canManageSettings = actorKind === 'provider' && options.canManageSettings === true && typeof bridge.setCapability === 'function';
     const outbox = core.createOutbox({ storage:options.storage || global.sessionStorage, scope });
     let capability = { enabled:false, media_enabled:false, transcription_enabled:false, support_enabled:false };
     let conversations = [];
@@ -270,7 +286,7 @@
     root.innerHTML = `<section class="message-center-shell" aria-labelledby="messageCenterTitle">
       <header class="message-center-heading"><div class="message-center-heading-copy"><small class="message-center-eyebrow">${actorKind === 'provider' ? 'Связь с клиентами' : 'Личный раздел'}</small><h1 id="messageCenterTitle" tabindex="-1">Сообщения</h1><p>Переписка по записям и отдельная помощь PrimeTime.</p></div><span class="message-center-state" data-message-connection role="status" aria-live="polite">Проверяем доступ…</span></header>
       <div class="message-center-toolbar"><label class="message-center-search"><span class="sr-only">Поиск диалогов</span><svg aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg><input type="search" maxlength="120" placeholder="Найти клиента или запись" data-message-search></label><label class="message-center-unread"><input type="checkbox" data-message-unread><span>Только непрочитанные</span></label></div>
-      <div class="message-center-notice" data-message-notice hidden><div><strong data-message-notice-title></strong><span data-message-notice-text></span></div><button type="button" data-message-reload>Повторить</button></div>
+      <div class="message-center-notice" data-message-notice hidden><div><strong data-message-notice-title></strong><span data-message-notice-text></span></div><div class="message-center-notice-actions"><button type="button" data-message-reload>Повторить</button><button class="message-center-enable" type="button" data-message-enable hidden>Включить сообщения</button></div></div>
       <div class="message-center-workspace" data-message-workspace data-mobile-pane="list">
         <aside class="message-center-conversations" aria-label="Диалоги"><div class="message-center-conversation-head"><strong>Диалоги</strong><span data-message-total>0</span></div><ul class="message-center-list" data-message-list></ul><div class="message-center-support-cta" data-message-support-cta hidden><p>Помощник сначала покажет безопасное решение. К человеку можно перейти явно.</p><button type="button" data-message-open-support>Поддержка PrimeTime</button></div></aside>
         <section class="message-center-thread" aria-labelledby="messageThreadTitle"><header class="message-center-thread-head"><button class="message-center-back" type="button" data-message-back aria-label="Назад к диалогам"><svg aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg></button><div class="message-center-thread-title"><strong id="messageThreadTitle" tabindex="-1">Выберите диалог</strong><span data-message-thread-subtitle></span></div><a class="message-center-booking-link" data-message-booking-link href="my-bookings.html" hidden>Запись</a><details class="message-center-thread-actions" data-message-provider-actions hidden><summary>Действия</summary><div>${Object.entries(ACTION_LABELS).map(([key,label]) => `<button type="button" data-message-propose="${key}">${escapeHtml(label)}</button>`).join('')}</div></details></header>
@@ -280,6 +296,7 @@
       </div>
       <dialog class="message-center-dialog" data-message-confirm-dialog aria-labelledby="messageConfirmTitle"><form method="dialog" data-message-confirm-form><header class="message-center-dialog-head"><h2 id="messageConfirmTitle">Подтвердите действие</h2><button class="message-center-dialog-close" type="button" data-message-dialog-close aria-label="Закрыть">×</button></header><div class="message-center-dialog-body"><p data-message-confirm-summary></p><div data-message-proposed-time hidden><label>Дата<input type="date" data-message-action-date></label><label>Время<input type="time" data-message-action-time></label></div><div data-message-action-note hidden><label><span data-message-action-note-label>Текст для клиента</span><textarea maxlength="2000" rows="4" data-message-action-note-input></textarea></label></div><p class="message-center-dialog-error" data-message-confirm-error role="alert" hidden></p></div><footer class="message-center-dialog-actions"><button type="button" data-message-dialog-close>Отмена</button><button type="submit" data-message-confirm-submit>Подтвердить</button></footer></form></dialog>
       <dialog class="message-center-dialog" data-message-support-dialog aria-labelledby="messageSupportTitle"><form method="dialog" data-message-support-form><header class="message-center-dialog-head"><h2 id="messageSupportTitle">Поддержка PrimeTime</h2><button class="message-center-dialog-close" type="button" data-message-dialog-close aria-label="Закрыть">×</button></header><div class="message-center-dialog-body"><p>Опишите вопрос. Ничего не будет отправлено, пока вы не нажмёте «Передать человеку».</p><label>Сообщение<textarea maxlength="2000" required data-message-support-text></textarea></label><details class="message-center-diagnostics"><summary>Что можно приложить</summary><ul data-message-diagnostics></ul></details><label class="message-center-consent"><input type="checkbox" data-message-diagnostics-consent><span>Разрешаю приложить только перечисленную диагностику. Логи, секреты и персональные данные не отправляются.</span></label><p class="message-center-dialog-error" data-message-support-error role="alert" hidden></p></div><footer class="message-center-dialog-actions"><button type="button" data-message-dialog-close>Не отправлять</button><button type="submit">Передать человеку</button></footer></form></dialog>
+      <dialog class="message-center-dialog" data-message-settings-dialog aria-labelledby="messageSettingsTitle"><form method="dialog" data-message-settings-form><header class="message-center-dialog-head"><h2 id="messageSettingsTitle">Включить сообщения</h2><button class="message-center-dialog-close" type="button" data-message-dialog-close aria-label="Закрыть">×</button></header><div class="message-center-dialog-body"><p>Клиенты с подтверждённым доступом к записи смогут писать вам в PrimeTime. Никаких сообщений автоматически отправлено не будет.</p><p>Поддержка, файлы, голос и расшифровка останутся выключены.</p><p class="message-center-dialog-error" data-message-settings-error role="alert" hidden></p></div><footer class="message-center-dialog-actions"><button type="button" data-message-dialog-close>Отмена</button><button type="submit" data-message-settings-submit>Включить</button></footer></form></dialog>
     </section>`;
 
     const find = selector => root.querySelector(selector);
@@ -604,12 +621,40 @@
         setConnection('error', 'Раздел пока выключен');
         setNotice('Сообщения ещё не подключены', capability.reason || 'Схема v162 или доступ организации не подтверждены. Остальные разделы работают.');
         listNode.innerHTML = '<li class="message-center-empty"><div><strong>Раздел пока недоступен</strong><p>Здесь не показаны тестовые собеседники или фиктивные статусы.</p></div></li>';
+        find('[data-message-enable]').hidden = !canManageSettings;
         return false;
       }
+      find('[data-message-enable]').hidden = true;
       await loadConversations();
       await flushOutbox();
       schedulePoll();
       return true;
+    }
+
+    function openSettingsActivation(trigger) {
+      if (!canManageSettings || capability.enabled) return;
+      lastDialogTrigger = trigger;
+      find('[data-message-settings-error]').hidden = true;
+      find('[data-message-settings-dialog]').showModal();
+    }
+
+    async function submitSettingsActivation(event) {
+      event.preventDefault();
+      if (!canManageSettings || capability.enabled) return;
+      const submit = find('[data-message-settings-submit]');
+      const errorNode = find('[data-message-settings-error]');
+      submit.disabled = true;
+      errorNode.hidden = true;
+      try {
+        const result = await bridge.setCapability({ enabled:true, supportEnabled:false });
+        if (result?.enabled !== true || result?.support_enabled === true) throw new Error('message_activation_unconfirmed');
+        capability = result;
+        closeDialog(find('[data-message-settings-dialog]'));
+        await initialize();
+      } catch {
+        errorNode.textContent = 'Сервер не подтвердил включение. Настройки не считаются изменёнными.';
+        errorNode.hidden = false;
+      } finally { submit.disabled = false; }
     }
 
     root.addEventListener('click', event => {
@@ -632,6 +677,8 @@
       if (proposal) { openProposal(proposal.dataset.messagePropose, proposal); return; }
       const support = event.target.closest('[data-message-open-support]');
       if (support) { openSupport(support); return; }
+      const enable = event.target.closest('[data-message-enable]');
+      if (enable) { openSettingsActivation(enable); return; }
       if (event.target.closest('[data-message-reload]')) { void loadConversations(); return; }
       if (event.target.closest('[data-message-back]')) {
         workspace.dataset.mobilePane = 'list';
@@ -645,6 +692,7 @@
     input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); composer.requestSubmit(); } });
     find('[data-message-confirm-form]').addEventListener('submit', submitAction);
     find('[data-message-support-form]').addEventListener('submit', submitSupport);
+    find('[data-message-settings-form]').addEventListener('submit', submitSettingsActivation);
     find('[data-message-search]').addEventListener('input', event => {
       clearTimeout(callbacks.get('search'));
       query = event.target.value.trim().toLocaleLowerCase('ru-RU');

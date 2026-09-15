@@ -23,9 +23,11 @@
       {message_id:'66666666-6666-4666-8666-666666666666',conversation_id:ids.conversation,entry_kind:'message',sequence:3,created_at:'2026-09-15T09:32:00Z',sender_role:'owner',body:'Вход со двора, рядом с вывеской PrimeTime.'},
       {message_id:'77777777-7777-4777-8777-777777777777',conversation_id:ids.conversation,entry_kind:'message',sequence:4,created_at:'2026-09-15T09:38:00Z',sender_role:'owner',body:'Предлагаю немного позже.',action:{action_id:ids.action,action_type:'propose_time',state:'proposed',payload:{target_date:'2026-09-16',target_time:'16:30'}}}
     ];
-    window.previewBridgeState={mode:'online',sequence:4};
+    const activationPreview=new URLSearchParams(location.search).has('activation');
+    window.previewBridgeState={mode:'online',sequence:4,capabilityEnabled:!activationPreview};
     const bridge={
-      capability:async()=>({enabled:true,support_enabled:true,media_enabled:false,transcription_enabled:false}),
+      capability:async()=>({enabled:window.previewBridgeState.capabilityEnabled,support_enabled:!activationPreview,media_enabled:false,transcription_enabled:false}),
+      setCapability:async()=>{window.previewBridgeState.capabilityEnabled=true;return {enabled:true,support_enabled:false,media_enabled:false,transcription_enabled:false}},
       listConversations:async()=>{if(window.previewBridgeState.mode==='error')throw Error('preview_error');return MinutaProviderMessages.normalizeConversationEnvelope({items:conversations})},
       timeline:async({conversationId})=>MinutaProviderMessages.normalizeTimelineEnvelope({items:conversationId===ids.conversation?entries:[]},conversationId),
       send:async payload=>{if(window.previewBridgeState.mode==='lost-ack')throw TypeError('Failed to fetch');const sequence=++window.previewBridgeState.sequence;const row={message_id:crypto.randomUUID(),conversation_id:payload.conversation_id,client_request_id:payload.client_request_id,entry_kind:'message',sequence,created_at:new Date().toISOString(),sender_role:'owner',body:payload.body};entries.push(row);return MinutaMessagesCore.normalizeMessage({...row,kind:'human',author_kind:'provider'})},
@@ -34,7 +36,7 @@
       openSupport:async()=>({conversation_id:ids.support})
     };
     const root=document.querySelector('#providerMessagesRoot');
-    window.previewMessageCenter=MinutaProviderMessages.createMessageCenter({root,bridge,actorKind:'provider',scope:'preview-provider',bookingReturnUrl:'provider.html?section=bookings',diagnosticsPreview:()=>[{key:'app_version',label:'Версия интерфейса',value:'preview-v162'},{key:'online',label:'Соединение',value:navigator.onLine}]});
+    window.previewMessageCenter=MinutaProviderMessages.createMessageCenter({root,bridge,actorKind:'provider',scope:'preview-provider',canManageSettings:activationPreview,bookingReturnUrl:'provider.html?section=bookings',diagnosticsPreview:()=>[{key:'app_version',label:'Версия интерфейса',value:'preview-v162'},{key:'online',label:'Соединение',value:navigator.onLine}]});
     window.previewMessageCenter.initialize();
   })();
   </script>
