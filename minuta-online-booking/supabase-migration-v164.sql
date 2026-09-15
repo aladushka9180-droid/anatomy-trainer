@@ -8,7 +8,7 @@ begin
      or to_regclass('public.inventory_movements') is null
      or to_regclass('public.inventory_service_usage') is null
      or to_regclass('public.booking_resource_allocations') is null
-     or to_regprocedure('public.book_appointment(uuid,uuid,date,time without time zone,text,text)') is null
+     or to_regprocedure('public.provider_book_appointment(uuid,uuid,date,time without time zone,text,text)') is null
      or to_regprocedure('extensions.digest(bytea,text)') is null then
     raise exception using errcode='55000',message='v164_repeat_visit_prerequisites_missing';
   end if;
@@ -115,10 +115,10 @@ create or replace function public.provider_repeat_appointment_v164(
 declare
   v_actor uuid:=auth.uid();
   v_preview jsonb;
+  v_created jsonb;
   v_existing public.bookings%rowtype;
   v_booking public.bookings%rowtype;
   v_code text;
-  v_token uuid;
   v_source_total integer;
   v_addon_total integer;
   v_primary_price integer;
@@ -153,12 +153,12 @@ begin
   v_primary_price:=p_total_price_rub-v_addon_total;
   if v_primary_price not between 0 and 1000000 then raise exception using errcode='22023',message='invalid_repeat_price'; end if;
 
-  select result.booking_code,result.manage_token into v_code,v_token
-  from public.book_appointment(
+  v_created:=public.provider_book_appointment(
     p_request_id,(v_preview->'items'->0->>'service_id')::uuid,p_date,p_time,
     coalesce(nullif(btrim(p_client_name),''),v_preview->>'client_name'),
     coalesce(nullif(btrim(p_client_phone),''),v_preview->>'client_phone')
-  ) result;
+  );
+  v_code:=v_created->>'booking_code';
   select * into v_booking from public.bookings booking where booking.request_id=p_request_id for update;
   if not found or v_booking.performer_id<>v_actor or v_booking.booking_code<>v_code then
     raise exception using errcode='55000',message='provider_booking_acknowledgement_mismatch';
@@ -192,7 +192,6 @@ begin
     duration_minutes=v_duration,
     original_price_rub=v_source_total,
     total_price_rub=p_total_price_rub,
-    booking_source='provider_manual',
     provider_note=btrim(coalesce(p_comment,'')),
     booking_policy_snapshot=coalesce(booking.booking_policy_snapshot,'{}'::jsonb)||jsonb_build_object(
       'repeat_source_id',p_source_booking,'repeat_source_signature',p_source_signature,

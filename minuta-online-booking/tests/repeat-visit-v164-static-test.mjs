@@ -29,14 +29,15 @@ test('preview is authenticated, server-derived, and signs the complete repeat pa
 test('repeat creation checks the signed source before one transactional copy', () => {
   const repeat = body(migration, 'create or replace function public.provider_repeat_appointment_v164', '-- A repeated visit consumes');
   assert.match(repeat, /pg_advisory_xact_lock/);
-  assert.ok(repeat.indexOf("v_preview->>'source_signature' is distinct from") < repeat.indexOf('public.book_appointment('));
+  assert.ok(repeat.indexOf("v_preview->>'source_signature' is distinct from") < repeat.indexOf('public.provider_book_appointment('));
   assert.match(repeat, /message='repeat_source_changed'/);
   assert.match(repeat, /delete from public\.booking_session_items/);
   assert.match(repeat, /insert into public\.booking_session_items/);
   assert.match(repeat, /provider_note=btrim\(coalesce\(p_comment,''\)\)/);
   assert.match(repeat, /total_price_rub=p_total_price_rub/);
   assert.match(repeat, /'repeat_materials',v_preview->'materials'/);
-  assert.match(repeat, /booking_source='provider_manual'/, 'provider-created repeats must keep provider attribution');
+  assert.match(repeat, /public\.provider_book_appointment\(/, 'provider-created repeats must use the attributed provider entrypoint');
+  assert.doesNotMatch(repeat, /booking_source='(?:provider|admin)_manual'/, 'immutable creation attribution must not be rewritten');
   assert.doesNotMatch(repeat, /booking_source='provider_repeat'/, 'v92 attribution remains immutable');
   assert.match(repeat, /other\.status<>'cancelled'/);
 });

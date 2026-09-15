@@ -79,7 +79,8 @@ select pg_temp.v164_assert(public.provider_repeat_appointment_v164(
 reset role;
 
 select pg_temp.v164_assert((select count(*)=1 from public.bookings where request_id=current_setting('minuta.v164.request')::uuid
-  and duration_minutes=90 and total_price_rub=3700 and provider_note='Новый комментарий' and booking_source='provider_manual'
+  and duration_minutes=90 and total_price_rub=3700 and provider_note='Новый комментарий' and booking_source in ('admin_manual','provider_manual')
+  and created_by_user_id=(select owner_id from pg_temp.v164_fixture)
   and booking_policy_snapshot->>'repeat_source_id'=(select source_id::text from pg_temp.v164_fixture)),'booking_exact');
 select pg_temp.v164_assert((select count(*)=2 and sum(price_rub)=3700 from public.booking_session_items
   where booking_id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid),'session_exact');
