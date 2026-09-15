@@ -131,11 +131,11 @@
 .provider-body[data-provider-theme="ash-flame"],.provider-theme-option.theme-ash-flame {
   --theme-canvas-texture:none;
   --theme-canvas-mask:var(--theme-constellation-mask);
-  --theme-canvas-color:#48a9ff;
+  --theme-canvas-color:#2A9DFF;
   --theme-canvas-size:920px 560px;
   --theme-canvas-position:center top;
   --theme-preview-canvas-size:132px 80px;
-  --theme-canvas-opacity:.035;
+  --theme-canvas-opacity:.045;
 }
 
 .provider-body[data-provider-theme="oled-mono"],.provider-theme-option.theme-oled-mono {
