@@ -36,19 +36,19 @@ begin
   end if;
   if v_present=13 and exists(
     select 1 from (values
-      ('public.message_center_settings_v162'::regclass),
-      ('public.message_support_agents_v162'::regclass),
-      ('public.message_conversations_v162'::regclass),
-      ('public.message_participants_v162'::regclass),
-      ('public.conversation_messages_v162'::regclass),
-      ('public.conversation_system_events_v162'::regclass),
-      ('public.conversation_message_actions_v162'::regclass),
-      ('public.message_action_confirmations_v162'::regclass),
-      ('public.message_read_receipts_v162'::regclass),
-      ('public.message_attachments_v162'::regclass),
-      ('public.message_support_requests_v162'::regclass),
-      ('public.message_idempotency_receipts_v162'::regclass),
-      ('public.message_audit_events_v162'::regclass)
+      (to_regclass('public.message_center_settings_v162')),
+      (to_regclass('public.message_support_agents_v162')),
+      (to_regclass('public.message_conversations_v162')),
+      (to_regclass('public.message_participants_v162')),
+      (to_regclass('public.conversation_messages_v162')),
+      (to_regclass('public.conversation_system_events_v162')),
+      (to_regclass('public.conversation_message_actions_v162')),
+      (to_regclass('public.message_action_confirmations_v162')),
+      (to_regclass('public.message_read_receipts_v162')),
+      (to_regclass('public.message_attachments_v162')),
+      (to_regclass('public.message_support_requests_v162')),
+      (to_regclass('public.message_idempotency_receipts_v162')),
+      (to_regclass('public.message_audit_events_v162'))
     ) item(value)
     where obj_description(item.value,'pg_class') is distinct from 'minuta_message_center_v162'
   ) then
