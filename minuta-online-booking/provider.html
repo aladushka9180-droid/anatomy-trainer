@@ -23,6 +23,7 @@
   <meta name="apple-mobile-web-app-title" content="PrimeTime">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="styles.css?v=796">
+  <link rel="stylesheet" href="messages-center.css?v=796">
   <link rel="stylesheet" href="utm-funnel.css?v=796">
   <link rel="stylesheet" href="onboarding.css?v=796">
   <link rel="stylesheet" href="service-presets.css?v=796">
@@ -127,6 +128,7 @@
           <span class="provider-nav-group-label">Работа</span>
           <button class="active" type="button" data-provider-view="bookings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-grid"></use></svg></span><span>Записи</span></button>
           <button type="button" data-provider-view="clients"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg></span><span>Клиенты</span></button>
+          <button type="button" data-provider-view="messages"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-external"></use></svg></span><span>Сообщения</span></button>
           <button type="button" data-provider-view="notifications"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-bell"></use></svg></span><span>Уведомления</span><b id="notificationBadge" hidden>0</b></button>
           <button type="button" data-provider-view="waitlist"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></span><span>Лист ожидания</span><b id="waitlistBadge" hidden>0</b></button>
           <span class="provider-nav-group-label">Управление</span>
@@ -479,6 +481,10 @@
               </div>
             </section>
           </div>
+        </section>
+
+        <section class="provider-view" data-provider-panel="messages" hidden>
+          <div id="providerMessagesRoot" data-provider-messages-root><div class="message-center-loading" role="status"><i></i><span>Проверяем доступ к сообщениям…</span></div></div>
         </section>
 
         <section class="provider-view" data-provider-panel="notifications" hidden>
@@ -1770,6 +1776,7 @@
             <button type="button" data-open-product-feedback hidden><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-info"></use></svg></span><strong>Обратная связь</strong><small>Сообщить о проблеме или предложить улучшение</small></button>
             <button type="button" data-provider-view="bookings"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-grid"></use></svg></span><strong>Записи</strong><small>Лента времени, список и управление визитами</small></button>
             <button type="button" data-provider-view="clients"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-users"></use></svg></span><strong>Клиенты</strong><small>История, контакты, заметки и личные метки</small></button>
+            <button type="button" data-provider-view="messages"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></span><strong>Сообщения</strong><small>Диалоги по записям и поддержка PrimeTime</small></button>
             <button type="button" data-provider-view="notifications"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-bell"></use></svg></span><strong>Уведомления</strong><small>Сообщения клиентам и шаблоны</small></button>
             <button type="button" data-provider-view="schedule"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg></span><strong>Рабочие часы</strong><small>Доступность, перерывы и выходные</small></button>
             <button type="button" data-provider-view="services"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg></span><strong>Услуги</strong><small>Цены, длительность и доступность</small></button>
@@ -1785,8 +1792,8 @@
       <nav class="provider-mobile-nav" aria-label="Разделы кабинета">
         <button class="active" type="button" data-provider-view="bookings"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-grid"></use></svg><span>Записи</span></button>
         <button type="button" data-provider-view="clients"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-users"></use></svg><span>Клиенты</span></button>
+        <button type="button" data-provider-view="messages"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Сообщения</span></button>
         <button type="button" data-provider-view="notifications"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-bell"></use></svg><span>Уведомления</span><b class="mobile-nav-badge" data-mobile-notification-badge hidden>0</b></button>
-        <button type="button" data-provider-view="analytics"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-chart"></use></svg><span>Статистика</span></button>
         <button type="button" data-provider-view="more"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Разделы</span></button>
       </nav>
     </section>
@@ -2151,6 +2158,8 @@
   <script src="booking-widgets.js?v=796" defer></script>
   <script src="provider-feature-assets.js?v=796" defer></script>
   <script src="portfolio-camera.js?v=796" defer></script>
+  <script src="messages-core.js?v=796" defer></script>
+  <script src="provider-messages-center.js?v=796" defer></script>
   <script src="provider.js?v=796" defer></script>
   <script src="service-presets.js?v=796" defer></script>
   <script src="primetime-handoff.js?v=796" defer></script>

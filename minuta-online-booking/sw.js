@@ -79,6 +79,11 @@ const ASSETS = [
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
   './index.html',
+  './messages.html',
+  './messages-center.css?v=796',
+  './messages-core.js?v=796',
+  './provider-messages-center.js?v=796',
+  './client-messages.js?v=796',
   './provider-portfolio-responsive.css?v=796',
   './service-presets-catalog.js?v=796',
   './app.js?v=796',
@@ -143,7 +148,7 @@ self.addEventListener('fetch', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const requestedView = event.notification.data?.view;
-  const view = ['bookings', 'clients', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'settings', 'more'].includes(requestedView) ? requestedView : 'notifications';
+  const view = ['bookings', 'clients', 'messages', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'settings', 'more'].includes(requestedView) ? requestedView : 'notifications';
   const targetUrl = new URL(event.notification.data?.url || `./provider.html?view=${view}`, self.location.href).href;
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type:'window', includeUncontrolled:true });
@@ -164,6 +169,7 @@ function navigationShell(request) {
   if (path.endsWith('/help/') || path.endsWith('/help/index.html')) return './help/index.html';
   if (path.endsWith('/booking.html')) return './booking.html';
   if (path.endsWith('/my-bookings.html')) return './my-bookings.html';
+  if (path.endsWith('/messages.html')) return './messages.html';
   if (path.endsWith('/waitlist.html')) return './waitlist.html';
   if (path.endsWith('/provider.html')) return './provider.html';
   if (path.endsWith('/privacy.html')) return './privacy.html';

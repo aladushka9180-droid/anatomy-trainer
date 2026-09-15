@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';
+const js=fs.readFileSync(new URL('./provider-messages-center.js',import.meta.url),'utf8');const css=fs.readFileSync(new URL('./messages-center.css',import.meta.url),'utf8');const preview=fs.readFileSync(new URL('./provider-messages-preview.html',import.meta.url),'utf8');const providerHtml=fs.readFileSync(new URL('./provider.html',import.meta.url),'utf8');const providerJs=fs.readFileSync(new URL('./provider.js',import.meta.url),'utf8');
+for(const rpc of ['get_minuta_message_capability_v162','open_minuta_provider_conversation_v162','list_minuta_provider_conversations_v162','get_minuta_provider_message_timeline_v162','send_minuta_provider_message_v162','mark_minuta_provider_message_read_v162','propose_minuta_message_action_v162','open_minuta_provider_support_v162'])assert.ok(js.includes(rpc),rpc);
+for(const state of ['Только непрочитанные','Нет сети','Диалогов пока нет','Сообщения пока недоступны','Отправка не подтверждена'])assert.ok(js.includes(state),state);
+assert.ok(js.includes('data-message-diagnostics-consent'));assert.ok(js.includes('disabled aria-describedby="messageMediaAvailability"'));assert.ok(!/manage_token|recipient_id|https?:\/\/wa\.me|https?:\/\/t\.me/.test(js));
+for(const width of ['760px','420px'])assert.ok(css.includes(width));assert.ok(preview.includes('ТЕСТОВЫЕ ДАННЫЕ'));assert.ok(preview.includes('previewBridgeState'));
+for(const marker of ['data-provider-view="messages"','data-provider-panel="messages"','provider-messages-center.js?v=796'])assert.ok(providerHtml.includes(marker),marker);
+assert.ok(providerHtml.includes('data-provider-panel="notifications"'));assert.ok(providerJs.includes('openProviderMessageForBooking'));assert.ok(providerJs.includes("view === 'messages'"));
+assert.ok(js.includes('target_date:'));assert.ok(js.includes('target_time:'));assert.ok(js.includes('data-message-action-note-input'));
+console.log('provider-messages-static-test: ok');

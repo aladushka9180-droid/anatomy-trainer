@@ -68,6 +68,7 @@ function paymentSummary(item) {
 }
 function bookingDate(item) { const date = new Date(`${item.booking_date}T12:00:00`); return date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
 function bookingManageUrl(token) { const url = new URL('booking.html', location.href); url.hash = `token=${encodeURIComponent(token)}`; return url.href; }
+function bookingMessagesUrl(code) { const url = new URL('messages.html', location.href); url.searchParams.set('booking', String(code || '')); return url.href; }
 function repeatBookingUrl(serviceId) { const url = new URL('index.html', location.href); url.searchParams.set('service', serviceId); url.searchParams.set('repeat', '1'); return url.href; }
 function ratingStars(value) { const rating = Math.max(0, Math.min(5, Number(value) || 0)); return `${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}`; }
 
@@ -82,8 +83,10 @@ function renderBookings(items) {
       ? `<a class="client-booking-action repeat-action" href="${escapeHtml(repeatBookingUrl(item.service_id))}">Записаться снова</a>` : '';
     const review = item.review_eligible
       ? `<button class="client-booking-action review-action" type="button" data-open-review="${escapeHtml(item.manage_token)}">${reviewed ? 'Изменить отзыв' : 'Оставить отзыв'}</button>` : '';
+    const messages = item.booking_code
+      ? `<a class="client-booking-action" href="${escapeHtml(bookingMessagesUrl(item.booking_code))}">Сообщения</a>` : '';
     const reviewResult = reviewed ? `<div class="client-review-result"><span aria-label="Ваша оценка: ${item.review_rating} из 5">${ratingStars(item.review_rating)}</span>${item.review_text ? `<p>${escapeHtml(item.review_text)}</p>` : ''}</div>` : '';
-    return `<article class="client-booking-item status-${escapeHtml(item.status)}"><div class="client-booking-item-head"><span>${escapeHtml(statusLabel(item.status))}</span><small>${escapeHtml(item.performer_name)}</small></div><h2>${escapeHtml(serviceName(item.service_name))}</h2><div class="client-booking-when"><strong>${escapeHtml(bookingDate(item))}</strong><span>${escapeHtml(String(item.booking_time).slice(0, 5))} · ${escapeHtml(item.duration_minutes)} мин</span></div><div class="client-booking-meta"><span>Стоимость <strong>${escapeHtml(money(item.price_rub))}</strong></span>${Number(item.deposit_amount_rub || 0) > 0 ? `<span>Предоплата <strong>${escapeHtml(paymentSummary(item))}</strong></span>` : ''}</div>${reviewResult}<div class="client-booking-actions"><a class="primary" href="${escapeHtml(bookingManageUrl(item.manage_token))}">${['cancelled', 'completed', 'no_show'].includes(item.status) ? 'Посмотреть запись' : 'Управлять записью'}</a>${repeat}${review}</div></article>`;
+    return `<article class="client-booking-item status-${escapeHtml(item.status)}"><div class="client-booking-item-head"><span>${escapeHtml(statusLabel(item.status))}</span><small>${escapeHtml(item.performer_name)}</small></div><h2>${escapeHtml(serviceName(item.service_name))}</h2><div class="client-booking-when"><strong>${escapeHtml(bookingDate(item))}</strong><span>${escapeHtml(String(item.booking_time).slice(0, 5))} · ${escapeHtml(item.duration_minutes)} мин</span></div><div class="client-booking-meta"><span>Стоимость <strong>${escapeHtml(money(item.price_rub))}</strong></span>${Number(item.deposit_amount_rub || 0) > 0 ? `<span>Предоплата <strong>${escapeHtml(paymentSummary(item))}</strong></span>` : ''}</div>${reviewResult}<div class="client-booking-actions"><a class="primary" href="${escapeHtml(bookingManageUrl(item.manage_token))}">${['cancelled', 'completed', 'no_show'].includes(item.status) ? 'Посмотреть запись' : 'Управлять записью'}</a>${messages}${repeat}${review}</div></article>`;
   }).join('');
 }
 
