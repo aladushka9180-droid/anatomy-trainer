@@ -553,7 +553,6 @@ function loadProviderFeatureScript(path) {
 function loadProviderGuidance() {
   return loadProviderFeatureScript('help/help-data.js').then(() => Promise.all([
     loadProviderFeatureScript('contextual-help.js'),
-    loadProviderFeatureScript('settings-nav-scroll.js'),
     loadProviderFeatureScript('settings-smart-search.js')
   ]));
 }
@@ -2189,7 +2188,7 @@ function renderProviderAppearanceMenu(colorState = null) {
     button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
   });
   const icon = $('#providerAppearanceIcon');
-  if (icon) icon.setAttribute('href', `ui-icons.svg?v=810#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
+  if (icon) icon.setAttribute('href', `ui-icons.svg?v=811#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
   const summary = menu.querySelector(':scope>summary');
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
@@ -2894,7 +2893,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> —&nbsp;${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=810#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=811#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5189,7 +5188,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=810');
+      worker = new Worker('./report-worker.js?v=811');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5761,8 +5760,6 @@ async function testVisitorSystemNotification() {
   notify(delivered && soundPlayed ? 'Уведомление и звук работают' : delivered ? 'Уведомление работает, звук заблокирован браузером' : 'Не удалось показать системное уведомление');
 }
 
-let activeIosTransition = null;
-let activeIosTransitionCleanup = null;
 const PROVIDER_VIEW_ORDER = ['bookings', 'clients', 'messages', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'feedback-inbox', 'settings', 'more'];
 
 function providerViewFromLocation() {
@@ -6299,47 +6296,13 @@ function scheduleSectionNavigationUpdate() {
   });
 }
 
-function canUseIosTransitions() {
-  return displayPreferences?.ios_transitions !== false
-    && typeof document.startViewTransition === 'function'
-    && window.matchMedia('(max-width: 760px)').matches
-    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-function runIosTransition({ current, next, update, direction = 'forward', name = 'ios-provider-panel' }) {
-  if (!current || current.hidden || !canUseIosTransitions()) { update(); return null; }
-  activeIosTransition?.skipTransition();
-  activeIosTransitionCleanup?.();
-  const root = document.documentElement;
-  root.classList.add('ios-view-transition');
-  root.dataset.iosTransitionDirection = direction;
-  current.style.viewTransitionName = name;
-  let target = null;
-  const cleanup = () => {
-    current.style.viewTransitionName = '';
-    if (target && target !== current) target.style.viewTransitionName = '';
-    root.classList.remove('ios-view-transition');
-    delete root.dataset.iosTransitionDirection;
-  };
-  try {
-    const transition = document.startViewTransition(() => {
-      update();
-      target = next?.() || null;
-      if (target) target.style.viewTransitionName = name;
-    });
-    activeIosTransition = transition;
-    activeIosTransitionCleanup = cleanup;
-    transition.finished.finally(() => {
-      if (activeIosTransition !== transition) return;
-      cleanup();
-      activeIosTransition = null;
-      activeIosTransitionCleanup = null;
-    });
-    return transition;
-  } catch {
-    cleanup();
-    update();
-    return null;
-  }
+function canUseIosTransitions() { return false; }
+function runIosTransition({ update }) {
+  // Animating a full provider view forces browsers to snapshot or composite a
+  // very large live dashboard. On some devices that freezes the main thread
+  // and leaves navigation unable to receive another click.
+  update();
+  return null;
 }
 function setAuthTabImmediate(tab) {
   recoveryMode = false;

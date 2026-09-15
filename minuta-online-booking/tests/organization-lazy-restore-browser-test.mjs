@@ -41,7 +41,7 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
     const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
     const providerSectionSelections=new Map(), providerSectionPresentation=new Map(), PROVIDER_SECTION_STORAGE_PREFIX='minuta-provider-subsection-v1', PROVIDER_SECTION_COMPANIONS={};
     let sectionNavigationFrame=0, currentUser={id:'user-a'}, sessionGeneration=1;
-    let resourceController=null,shiftController=null,payrollController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
+    let resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
     const organizationFeatureRequests=new Map(); let organizationFeatureContext='',organizationFeatureContextRevision=0;
     const organizationController={getActiveOrganization:()=>window.activeOrg};
     const db={},escapeHtml=x=>x,requireWrites=()=>true,applyWriteAvailability=()=>{},notify=x=>window.notices.push(x);
@@ -50,7 +50,7 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
     ${navigation}
     ${features}
     for (const [id, definition] of organizationFeatureDefinitions) {
-      const apiName=({'resourcesPanel':'MinutaResources','shiftsPanel':'MinutaShifts','payrollPanel':'MinutaPayroll','benefitsPanel':'MinutaBenefits','loyaltyPanel':'MinutaLoyalty','inventoryPanel':'MinutaInventory','retentionPanel':'MinutaRetention'})[id];
+      const apiName=({'resourcesPanel':'MinutaResources','shiftsPanel':'MinutaShifts','payrollPanel':'MinutaPayroll','commercePanel':'MinutaCommerce','benefitsPanel':'MinutaBenefits','loyaltyPanel':'MinutaLoyalty','inventoryPanel':'MinutaInventory','retentionPanel':'MinutaRetention'})[id];
       window[apiName]={createController:()=>({bind(){window.binds++;},async setOrganization(org){window.sets++;const panel=document.getElementById(id);panel.hidden=false;panel.querySelector('.loading-state').hidden=true;const workspace=panel.querySelector('[id$="Workspace"]');if(workspace)workspace.hidden=false;}})};
     }
     prepareOrganizationFeatures(window.activeOrg);
