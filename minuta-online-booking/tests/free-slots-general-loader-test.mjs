@@ -33,13 +33,20 @@ const db = { from(table) {
 } };
 const context = vm.createContext({ db, currentUser:{ id:'own' }, sessionGeneration:1,
   sessionIsCurrent:() => !stale, organizationController:{ getActiveOrganization:() => ({ id:'org' }) },
-  window:{ MinutaFreeSlots:{ calculateFreeWindows:value => { payload = value; return ['checked']; } } }
+  window:{ MinutaFreeSlots:{ calculateFreeWindows:value => {
+    payload = value;
+    const windows = ['checked'];
+    Object.defineProperty(windows, 'days', { value:[{ booking_date:'2026-09-06', status:'available', max_duration_minutes:60 }], enumerable:false });
+    return windows;
+  } } }
 });
 vm.runInContext(source.slice(start, end), context);
 const args = { context:{ performerId:'own', organizationId:'org', resourceScheduling:true, branchShiftScheduling:true,
   services:[{ performer_id:'own', location_ids:['branch'] }] }, locationId:'branch', from:'2026-09-06', to:'2026-09-07' };
 const load = () => context.getFreeSlotsGeneralAvailability(args);
-assert.deepEqual(Array.from((await load()).data), ['checked']);
+const first = await load();
+assert.deepEqual(Array.from(first.data), ['checked']);
+assert.equal(first.days[0].status, 'available', 'Daily status report must reach the publication controller');
 assert.equal(payload.bookings.length, 1201, 'Must read beyond both server cap and first REST page');
 assert.ok(calls.every(call => call.filters.some(filter => filter[0] === 'eq' && filter[1] === 'performer_id' && filter[2] === 'own')));
 assert.ok(calls.filter(call => call.table === 'bookings').every(call => !call.filters.some(filter => ['organization_id', 'location_id'].includes(filter[1]))), 'Bookings in another branch/org still occupy this master');

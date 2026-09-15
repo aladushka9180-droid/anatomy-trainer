@@ -235,8 +235,9 @@ async function getFreeSlotsGeneralAvailability({ context, locationId, from, to }
   if (schedule.error) throw schedule.error;
   if (policy.error) throw policy.error;
   if (!sessionIsCurrent(userId, generation) || (organizationController.getActiveOrganization()?.id || null) !== context.organizationId) throw new Error('stale_session');
-  return { data:window.MinutaFreeSlots.calculateFreeWindows({ from, to, schedule:schedule.data, daysOff, bookings, groups, policy:policy.data,
-    shifts:{ enabled:context.branchShiftScheduling, shifts:shiftRows, absences }, performerId:userId, locationId }) };
+  const windows = window.MinutaFreeSlots.calculateFreeWindows({ from, to, schedule:schedule.data, daysOff, bookings, groups, policy:policy.data,
+    shifts:{ enabled:context.branchShiftScheduling, shifts:shiftRows, absences }, performerId:userId, locationId });
+  return { data:windows, days:Array.isArray(windows.days) ? windows.days : [] };
 }
 const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';

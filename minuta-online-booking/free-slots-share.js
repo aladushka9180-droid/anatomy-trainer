@@ -87,6 +87,10 @@
     }), windows);
   }
 
+  function availabilityDay(date, status, maximum = 0) {
+    return { booking_date:date, status, max_duration_minutes:maximum };
+  }
+
   // General windows describe ONE master's time, not availability of a chosen service.
   // The caller must supply fresh, complete, authenticated rows for that master only.
   function calculateFreeWindows({ from, to, schedule, daysOff, bookings, groups, policy, shifts = null, performerId, locationId, now }) {
@@ -95,25 +99,40 @@
     const buffer = policy?.booking_buffer_enabled ? Number(policy.booking_buffer_minutes) : 0;
     if (!Number.isFinite(buffer) || buffer < 0 || buffer > 1440) throw new Error('invalid_booking_buffer');
     const result = [];
+    const days = [];
     for (const date of dateSpan(from, to)) {
       if (date < clock.today) continue;
       const weekday = parseDate(date).getDay() || 7;
       const day = schedule.find(row => Number(row.weekday) === weekday);
-      if (!day?.enabled) continue;
+      if (!day?.enabled) {
+        days.push(availabilityDay(date, day ? 'closed' : 'not_scheduled'));
+        continue;
+      }
       let windows = [[timeMinutes(day.start_time), timeMinutes(day.end_time)]];
       if (windows[0][1] <= windows[0][0]) throw new Error('invalid_working_hours');
       const breakOf = row => row.break_start || row.break_end
         ? [[timeMinutes(row.break_start), timeMinutes(row.break_end)]] : [];
       windows = subtractIntervals(windows, breakOf(day));
       if (shifts?.enabled) {
-        if (shifts.absences.some(row => row.active && row.performer_id === performerId && row.starts_on <= date && row.ends_on >= date)) continue;
-        windows = windows.flatMap(([left, right]) => shifts.shifts
-          .filter(row => row.active && row.performer_id === performerId && row.location_id === locationId && row.shift_date === date)
+        if (shifts.absences.some(row => row.active && row.performer_id === performerId && row.starts_on <= date && row.ends_on >= date)) {
+          days.push(availabilityDay(date, 'closed'));
+          continue;
+        }
+        const dayShifts = shifts.shifts
+          .filter(row => row.active && row.performer_id === performerId && row.location_id === locationId && row.shift_date === date);
+        if (!dayShifts.length) {
+          days.push(availabilityDay(date, 'not_scheduled'));
+          continue;
+        }
+        windows = windows.flatMap(([left, right]) => dayShifts
           .flatMap(row => subtractIntervals([[Math.max(left, timeMinutes(row.start_time)), Math.min(right, timeMinutes(row.end_time))]], breakOf(row)))
           .filter(([left, right]) => right > left));
       }
       const off = daysOff.filter(row => row.off_date === date);
-      if (off.some(row => row.all_day)) continue;
+      if (off.some(row => row.all_day)) {
+        days.push(availabilityDay(date, 'closed'));
+        continue;
+      }
       const busy = off.map(row => [timeMinutes(row.start_time), timeMinutes(row.end_time)]);
       for (const row of [...bookings.filter(row => row.status !== 'cancelled'), ...groups.filter(row => ['published', 'closed'].includes(row.status))]) {
         const rowDate = row.booking_date || row.event_date;
@@ -127,15 +146,21 @@
       }
       windows = subtractIntervals(windows, busy);
       const unique = new Set();
+      const dayWindows = [];
       for (const [left, right] of windows.sort((a, b) => a[0] - b[0] || b[1] - a[1])) {
         const start = Math.max(Math.ceil(left), date === clock.today ? clock.cutoff : 0);
         const end = Math.min(1440, Math.floor(right));
         const key = `${start}|${end}`;
         if (end <= start || unique.has(key)) continue;
         unique.add(key);
-        result.push({ booking_date:date, start_time:minuteTime(start), end_time:minuteTime(end), duration_minutes:end - start });
+        const window = { booking_date:date, start_time:minuteTime(start), end_time:minuteTime(end), duration_minutes:end - start };
+        dayWindows.push(window);
+        result.push(window);
       }
+      days.push(availabilityDay(date, dayWindows.length ? 'available' : 'busy',
+        dayWindows.reduce((maximum, window) => Math.max(maximum, window.duration_minutes), 0)));
     }
+    Object.defineProperty(result, 'days', { value:days, enumerable:false });
     return result;
   }
 
@@ -146,32 +171,49 @@
     return [hours ? `${hours} ${unit}` : '', rest ? `${rest} мин` : ''].filter(Boolean).join(' ');
   }
 
-  function buildGeneralPublication(from, to, data, windows) {
+  function summarizeAvailabilityDays(from, to, windows, dayStates = []) {
+    const states = new Map(dayStates.map(day => [String(day.booking_date || ''), day.status]));
+    return dateSpan(from, to).map(date => {
+      const dayWindows = windows.filter(row => row.booking_date === date);
+      return { date, windows:dayWindows, status:dayWindows.length ? 'available' : (states.get(date) || 'busy'),
+        maximum:dayWindows.reduce((value, item) => Math.max(value, Number(item.duration_minutes) || 0), 0) };
+    });
+  }
+
+  function buildGeneralPublication(from, to, data, windows, dayStates = windows?.days) {
     const dates = dateSpan(from, to);
     const hourly = data.timeFormat === 'hourly';
     const compact = data.textLayout === 'compact';
     const rowBreak = data.blankLine ? '\n\n' : '\n';
-    const rows = dates.map(date => {
-      const dayWindows = windows.filter(row => row.booking_date === date);
-      const times = [...new Set(dayWindows.flatMap(item => {
+    const rows = summarizeAvailabilityDays(from, to, windows, Array.isArray(dayStates) ? dayStates : []).map(row => {
+      const times = [...new Set(row.windows.flatMap(item => {
         const starts = [];
         // General mode has no service duration: advertise complete free HOURS,
         // not an unchecked promise that any procedure fits at these starts.
         for (let start = Math.ceil(timeMinutes(item.start_time) / 60) * 60; start + 60 <= timeMinutes(item.end_time); start += 60) starts.push(minuteTime(start));
         return starts;
       }))].sort();
-      return { date, windows:dayWindows, times };
-    }).filter(row => hourly ? row.times.length : row.windows.length);
+      return { ...row, times };
+    });
     const heading = compact || dates.length !== 1 ? 'Свободные окна для записи:' : `Свободные окна на ${formatDate(from)}:`;
     const target = data.locationLabel || '';
-    const body = rows.length ? rows.map(row => {
-      const availability = hourly ? row.times.join(', ') : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join(compact ? '; ' : '\n');
-      if (compact) return `${formatCompactDate(row.date)}, ${availability}`;
-      return `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${availability}`;
-    }).join(rowBreak)
-      : hourly ? 'На выбранный период целых свободных часов нет. Более короткие окна смотрите по ссылке.' : 'На выбранный период свободных окон пока нет.';
+    const emptyLabel = status => status === 'closed'
+      ? 'Выходной или день закрыт.'
+      : status === 'not_scheduled' ? 'Рабочий график не задан.' : 'Свободного времени нет — день полностью занят.';
+    const body = rows.map(row => {
+      let availability = emptyLabel(row.status);
+      if (row.windows.length) availability = hourly
+        ? (row.times.length ? row.times.join(', ') : 'На этот день целых свободных часов нет; доступны только более короткие окна.')
+        : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join(compact ? '; ' : '\n');
+      const maximum = row.maximum ? `${compact ? 'макс.' : 'Максимальный непрерывный интервал:'} ${durationLabel(row.maximum)}` : '';
+      if (compact) return row.windows.length
+        ? `${formatCompactDate(row.date)}, ${availability}${maximum ? ` · ${maximum}` : ''}`
+        : `${formatCompactDate(row.date)} — ${availability.replace(/\.$/, '')}`;
+      return `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${[availability, maximum].filter(Boolean).join('\n')}`;
+    }).join(rowBreak);
+    const hasWindows = rows.some(row => row.windows.length);
     const intro = [data.showHeading === false ? '' : heading, target].filter(Boolean).join('\n');
-    return `${intro ? `${intro}\n` : ''}${body}\n\n${rows.length ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
+    return `${intro ? `${intro}\n` : ''}${body}\n\n${hasWindows ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
   }
 
   // Select real server-confirmed starts, never manufacture hours from working hours.
@@ -450,6 +492,7 @@
     const keepTextButton = dialog.querySelector('#keepFreeSlotsText');
     let serverContext = null;
     let serverSlots = [];
+    let serverDays = [];
     let requestRevision = 0;
     let publicationReady = false;
     let publicationText = '';
@@ -477,6 +520,7 @@
       checkingPublication = false;
       publicationScope = '';
       serverContext = null;
+      serverDays = [];
       selectionContext = '';
       selectedTimes.clear();
       manualSelection = false;
@@ -717,7 +761,9 @@
       const hasSelection = chosenSlots.length > 0;
       const nextText = !hasSelection && serverSlots.length
         ? 'Отметьте время, которое хотите включить в публикацию.'
-        : (generalMode() ? buildGeneralPublication : buildPublication)(model.from, model.to, model.publicationData, chosenSlots);
+        : generalMode()
+          ? buildGeneralPublication(model.from, model.to, model.publicationData, chosenSlots, serverDays)
+          : buildPublication(model.from, model.to, model.publicationData, chosenSlots);
       applyGeneratedText(nextText);
       selectionSummary.textContent = `${manualSelection ? 'Выбрано вручную' : 'Свободные начала сеанса'} · ${selectedTimes.size}`;
       const trackingUrl = model.trackingUrl;
@@ -746,6 +792,7 @@
     function showUnavailable(message) {
       publicationReady = false;
       serverSlots = [];
+      serverDays = [];
       applyGeneratedText('Свободное время не опубликовано: сервер не подтвердил доступные слоты.');
       bookingLink.removeAttribute('href');
       bookingLink.textContent = '';
@@ -814,7 +861,13 @@
         if (result?.error) throw result.error;
         if (!Array.isArray(result?.data)) throw new Error('invalid_availability_response');
         serverSlots = currentRows(result.data);
-        if (!generalMode()) renderTimeChoices(`${serviceSelect.value}|${locationSelect.value}|${from}|${to}`);
+        if (generalMode()) {
+          serverDays = summarizeAvailabilityDays(from, to, serverSlots, Array.isArray(result.days) ? result.days : [])
+            .map(day => availabilityDay(day.date, day.status, day.maximum));
+        } else {
+          serverDays = [];
+          renderTimeChoices(`${serviceSelect.value}|${locationSelect.value}|${from}|${to}`);
+        }
         publicationReady = true;
         publicationScope = scope;
         dialog.removeAttribute('aria-busy');

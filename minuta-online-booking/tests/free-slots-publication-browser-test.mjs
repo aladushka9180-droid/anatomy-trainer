@@ -72,6 +72,7 @@ try {
   await page.locator('#open').click();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   assert.ok((await text()).includes('10:00–20:00 · 10 часов'));
+  assert.ok((await text()).includes('Максимальный непрерывный интервал: 10 часов'));
   assert.ok(!(await text()).includes('Массаж'));
   assert.ok(!(await text()).includes('Рамиль'));
   assert.equal(await page.locator('#freeSlotsService').isVisible(),false);
@@ -183,6 +184,13 @@ try {
   assert.equal(await page.evaluate(()=>window.copied.length),copiedBefore);
   assert.ok((await text()).includes('17:00, 18:00, 19:00'));
   assert.ok(!(await text()).includes('16:00'));
+  for(let attempt=0;attempt<3 && await page.evaluate(length=>window.copied.length===length,copiedBefore);attempt++){
+    await page.locator('#copyFreeSlots').click();
+    await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  }
+  assert.equal(await page.evaluate(()=>window.copied.length),copiedBefore+1);
+  assert.ok((await page.evaluate(()=>window.copied.at(-1))).includes('Максимальный непрерывный интервал: 3 часа'));
+  assert.ok(!(await page.evaluate(()=>window.copied.at(-1))).includes('16:00'));
   await page.locator('[name="freeSlotsTimeFormat"][value="intervals"]').check();
   assert.ok((await text()).includes('17:00–20:00 · 3 часа'));
   // The open dialog refreshes when its time boundary passes, without a new user click.
