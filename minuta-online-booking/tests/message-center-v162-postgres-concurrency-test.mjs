@@ -90,13 +90,14 @@ try{
 } finally {
   for(const c of clients){try{await c.query('rollback');await c.query('reset role');}catch{}}
   if(fixture?.actor){
-    await admin.query('begin');await admin.query('set local session_replication_role=replica');
+    await admin.query('begin');
     await admin.query('delete from public.message_audit_events_v162 where organization_id=$1',[fixture.org]);
     await admin.query('delete from public.message_idempotency_receipts_v162 where actor_key=$1',[`support:${fixture.actor}`]);
     await admin.query("delete from public.message_idempotency_receipts_v162 where actor_key like 'client-session:%' and response->>'action_id'=$1",[fixture.action]);
     await admin.query('delete from public.message_conversations_v162 where organization_id=$1',[fixture.org]);
     await admin.query('delete from public.message_center_settings_v162 where organization_id=$1',[fixture.org]);
     await admin.query('delete from public.client_identity_sessions_v155 where token_hash=$1',[sha256(fixture.sessionToken)]);
+    await admin.query('set local session_replication_role=replica');
     await admin.query("select set_config('v162.cleanup_actor',$1,true),set_config('v162.cleanup_org',$2,true)",[fixture.actor,fixture.org]);
     await admin.query(`do $$ declare item record;v_actor uuid:=current_setting('v162.cleanup_actor')::uuid;
       v_org uuid:=current_setting('v162.cleanup_org')::uuid;begin

@@ -68,7 +68,11 @@ jobs:
           state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/message-center-v162-state.sql | grep '^{' | tail -1)"
           case "$(jq -r .classification <<<"$state")" in
             absent) ;;
-            exact) psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v162-schema-rollback.sql ;;
+            exact)
+              psql "$db" -X -q -v ON_ERROR_STOP=1 --set=isolated_confirm="$MINUTA_TEST_MIGRATION_CONFIRM" \
+                -f minuta-online-booking/scripts/message-center-v162-isolated-reset.sql
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v162-schema-rollback.sql
+              ;;
             *) exit 1 ;;
           esac
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v162.sql
