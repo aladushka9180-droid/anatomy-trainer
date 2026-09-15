@@ -138,6 +138,11 @@
   --theme-canvas-opacity:.045;
 }
 
+.provider-theme-option.theme-ash-flame .theme-swatch {
+  background-color:#0D151F!important;
+  background-image:radial-gradient(ellipse at 8% 100%,rgba(184,58,50,.72),transparent 45%),radial-gradient(ellipse at 88% 0,rgba(42,157,255,.28),transparent 42%),linear-gradient(145deg,#080E16,#0D151F 56%,#172330)!important;
+}
+
 .provider-body[data-provider-theme="oled-mono"],.provider-theme-option.theme-oled-mono {
   --theme-canvas-texture:radial-gradient(circle at 1px 1px,#fff 0 1px,transparent 1.2px),radial-gradient(ellipse at 50% 8%,#fff,transparent 48%);
   --theme-canvas-size:13px 13px,100% 100%;
