@@ -14,6 +14,19 @@
     dataGovernanceCard:{ aliases:'данные документы хранение скачать экспорт выгрузка удалить удаление очистка конфиденциальность политика резервная копия восстановление', companions:[] },
     accountSettingsCard:{ aliases:'безопасность аккаунт профиль пароль логин вход телефон sms код telegram vk вконтакте яндекс привязать восстановить доступ данные документы хранение скачать экспорт выгрузка удалить очистка конфиденциальность политика', companions:['dataGovernanceCard'] }
   });
+  const SETTINGS_ROUTE = Object.freeze({ section:'settings-section', target:'settings-target' });
+  const SETTINGS_BREADCRUMB = Object.freeze(['Разделы', 'Настройки кабинета']);
+  const SETTINGS_GROUP_META = Object.freeze([
+    { id:'cabinet-layout', section:'appearanceSettingsCard', selector:'.provider-layout-picker', title:'Структура интерфейса', aliases:'структура компоновка расположение блоков вид интерфейса' },
+    { id:'cabinet-themes', section:'appearanceSettingsCard', selector:'.provider-theme-picker', focusSelector:'[data-provider-theme-filter="all"]', activateSelector:'[data-provider-theme-filter="all"]', title:'Темы', itemBreadcrumb:'Все темы', aliases:'тема темы теме тему тем оформление дизайн внешний вид цвет материал палитра фон стиль обои' },
+    { id:'cabinet-text-size', section:'appearanceSettingsCard', selector:'.provider-text-scale-picker', title:'Размер текста', aliases:'шрифт масштаб крупный мелкий комфортный размер текста' },
+    { id:'booking-card-view', section:'appearanceSettingsCard', selector:'.booking-card-settings', title:'Карточки записей', aliases:'карточка записи подробность компактно данные клиента заметки телефон' },
+    { id:'client-page-themes', section:'clientAppearanceSettingsCard', selector:'.provider-client-theme-chooser', title:'Темы страницы для клиентов', aliases:'клиентская тема темы оформление страницы для клиентов дизайн сайта' },
+    { id:'client-page-heading', section:'clientAppearanceSettingsCard', selector:'.client-headline-picker', title:'Текст вверху страницы', aliases:'заголовок приветствие текст клиентской страницы' },
+    { id:'client-messages', section:'telegramClientSettingsCard', selector:'.telegram-event-settings', title:'Сообщения клиентам', aliases:'уведомления напоминания telegram телеграм отправлять клиенту' },
+    { id:'app-transitions', section:'installAppCard', selector:'.motion-settings', title:'Переходы', aliases:'анимация плавность движение смена разделов' },
+    { id:'app-quick-sections', section:'installAppCard', selector:'.mobile-navigation-settings', title:'Быстрые разделы', aliases:'нижняя панель вкладки навигация меню телефона порядок разделов' }
+  ]);
   const STOP_WORDS = new Set('а без бы в вам вас весь где для до его ее ещё же за и из или как кабинет кабинета ли мне мой на не но о от по при про с со что чтобы это я хочу хотим нужно надо можно найти покажи показать посмотреть смотреть открыть перейти поменять изменить настроить включить выключить отключить убрать добавить создать сделать настройка настройки параметр параметры'.split(' '));
   const EN_LAYOUT = '`qwertyuiop[]asdfghjkl;\'zxcvbnm,.';
   const RU_LAYOUT = 'ёйцукенгшщзхъфывапролджэячсмитьбю';
@@ -134,11 +147,63 @@
   function focusableElement(element) {
     if (!element) return null;
     if (element.matches('input,select,textarea,button,a,summary')) return element;
+    if (element.matches('fieldset')) return element;
     if (element.matches('label')) {
       if (element.htmlFor) return document.getElementById(element.htmlFor) || element;
       return element.querySelector('input,select,textarea,button') || element;
     }
     return element.closest('details')?.querySelector('summary') || element.closest('.settings-card') || element;
+  }
+
+  function stableSlug(value) {
+    return normalize(value).replace(/\s+/g, '-').slice(0, 72) || 'target';
+  }
+
+  function groupMetaFor(element, targetId) {
+    return SETTINGS_GROUP_META.find(meta => meta.section === targetId && element?.closest(meta.selector)) || null;
+  }
+
+  function stableItemId(element, targetId, label) {
+    const control = element.matches?.('input,select,textarea,button') ? element : element.querySelector?.('input,select,textarea,button');
+    if (control?.id) return `settings:${targetId}:control:${control.id}`;
+    if (control?.name && control?.value) return `settings:${targetId}:control:${stableSlug(control.name)}:${stableSlug(control.value)}`;
+    if (element.id) return `settings:${targetId}:element:${element.id}`;
+    const href = element.getAttribute?.('href');
+    if (href) return `settings:${targetId}:link:${stableSlug(href)}`;
+    return `settings:${targetId}:item:${stableSlug(label)}`;
+  }
+
+  function settingsRecord({ id, targetId, sectionTitle, label, description = '', element, anchorElement = element, activateElement = null, aliases = '', keywords = '', type = 'item', breadcrumb = [] }) {
+    const aliasList = [...new Set(String(aliases || '').split('|').flatMap(alias => {
+      const normalized = normalize(alias);
+      return normalized ? [normalized, ...normalized.split(' ')] : [];
+    }).filter(Boolean))];
+    const fullBreadcrumb = [...SETTINGS_BREADCRUMB, sectionTitle, ...breadcrumb, ...(breadcrumb.at(-1) === label || sectionTitle === label ? [] : [label])];
+    anchorElement?.setAttribute?.('data-settings-search-anchor', id);
+    return {
+      id,
+      title:label,
+      anchor:id,
+      view:'settings',
+      targetId,
+      settingsSection:targetId,
+      settingsTarget:id,
+      sectionTitle,
+      label,
+      displayLabel:label,
+      description,
+      element,
+      anchorElement,
+      activateElement,
+      aliases:aliasList,
+      keywords:normalize(keywords),
+      breadcrumb:fullBreadcrumb,
+      route:{ view:'settings', section:targetId, target:id },
+      kind:'deep-setting',
+      type,
+      labelCorpus:normalize(label),
+      corpus:normalize(`${label} ${aliases} ${keywords} ${fullBreadcrumb.join(' ')}`)
+    };
   }
 
   function buildIndex() {
@@ -152,17 +217,57 @@
       const sectionTitle = button.textContent.replace(/\s+/g, ' ').trim();
       const sectionText = roots.map(root => root.textContent).join(' ');
       const sectionElement = roots.find(root => !root.classList.contains('provider-section-marker')) || roots[0];
-      records.push({ targetId, sectionTitle, label:sectionTitle, description:'Открыть раздел настроек', element:focusableElement(sectionElement), corpus:normalize(`${sectionTitle} ${sectionText} ${meta.aliases}`), type:'section' });
+      records.push(settingsRecord({
+        id:`settings:${targetId}`,
+        targetId,
+        sectionTitle,
+        label:sectionTitle,
+        description:'Открыть раздел настроек',
+        element:focusableElement(sectionElement),
+        anchorElement:sectionElement,
+        aliases:meta.aliases,
+        keywords:sectionText,
+        type:'section'
+      }));
+      for (const group of SETTINGS_GROUP_META.filter(entry => entry.section === targetId)) {
+        const groupElement = roots.map(root => root.matches(group.selector) ? root : root.querySelector(group.selector)).find(Boolean);
+        if (!groupElement) continue;
+        records.push(settingsRecord({
+          id:`settings:${targetId}:group:${group.id}`,
+          targetId,
+          sectionTitle,
+          label:group.title,
+          description:`Открыть настройку «${group.title}»`,
+          element:group.focusSelector ? groupElement.querySelector(group.focusSelector) || focusableElement(groupElement) : focusableElement(groupElement),
+          anchorElement:groupElement,
+          activateElement:group.activateSelector ? groupElement.querySelector(group.activateSelector) : null,
+          aliases:group.aliases,
+          keywords:groupElement.textContent,
+          type:'group'
+        }));
+      }
       const seen = new Set();
       for (const root of roots) {
         for (const element of root.querySelectorAll('h3,legend,label,summary,button,a.settings-help-link')) {
-          if (element.closest('[hidden]') || element.matches('[data-section-target]')) continue;
+          if (element.matches('[data-section-target]')) continue;
           const label = directText(element).slice(0, 100);
           const normalizedLabel = normalize(label);
           if (label.length < 3 || seen.has(normalizedLabel)) continue;
           seen.add(normalizedLabel);
           const context = (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 260);
-          records.push({ targetId, sectionTitle, label, description:context === label ? '' : context, element:focusableElement(element), corpus:normalize(`${label} ${context} ${sectionTitle}`), type:'item' });
+          const group = groupMetaFor(element, targetId);
+          records.push(settingsRecord({
+            id:stableItemId(element, targetId, label),
+            targetId,
+            sectionTitle,
+            label,
+            description:context === label ? '' : context,
+            element:focusableElement(element),
+            anchorElement:element,
+            keywords:context,
+            type:'item',
+            breadcrumb:group ? [group.itemBreadcrumb || group.title] : []
+          }));
         }
       }
     }
@@ -170,15 +275,21 @@
   }
 
   function recordScore(record, query) {
+    const phrase = normalize(query);
+    const title = normalize(record.label);
+    const typeBoost = record.type === 'group' ? 20 : record.type === 'item' ? 10 : 0;
+    if (phrase === title) return 1400 + typeBoost;
+    if (record.aliases.includes(phrase)) return 1300 + typeBoost;
+    if (phrase.length >= 3 && title.startsWith(phrase)) return 1000 + typeBoost;
+    if (phrase.length >= 3 && record.aliases.some(alias => alias.startsWith(phrase))) return 900 + typeBoost;
     const tokens = usefulTokens(query);
     const words = record.corpus.split(' ').filter(Boolean);
     const tokenScores = tokens.map(token => tokenScore(token, words));
     const matched = tokenScores.filter(Boolean).length;
     if (!matched || matched / tokens.length < 0.6) return 0;
-    const phrase = normalize(query);
     return tokenScores.reduce((sum, score) => sum + score, 0)
-      + (phrase.length >= 3 && record.corpus.includes(phrase) ? 48 : 0)
-      + (record.type === 'item' ? 14 : 0)
+      + (phrase.length >= 3 && record.corpus.includes(phrase) ? 320 : 0)
+      + typeBoost
       + Math.round((matched / tokens.length) * 12);
   }
 
@@ -198,11 +309,11 @@
     const variants = queryVariants(value);
     const ranked = records.map(record => ({ ...record, score:Math.max(...variants.map(query => recordScore(record, query))) }))
       .filter(record => record.score > 0)
-      .sort((left, right) => right.score - left.score || (left.type === right.type ? 0 : left.type === 'item' ? -1 : 1) || left.label.localeCompare(right.label, 'ru'));
+      .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id, 'ru'));
     const unique = [];
     const keys = new Set();
     for (const record of ranked) {
-      const key = `${record.targetId}:${normalize(record.label)}`;
+      const key = record.id;
       if (keys.has(key)) continue;
       keys.add(key);
       unique.push(record);
@@ -229,23 +340,89 @@
     });
   }
 
-  function showResult(record) {
+  function syncSettingsRoute(record, mode = 'push') {
+    if (mode === 'none') return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('view');
+    url.searchParams.set('section', 'settings');
+    url.searchParams.set(SETTINGS_ROUTE.section, record.settingsSection);
+    url.searchParams.set(SETTINGS_ROUTE.target, record.settingsTarget);
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl === currentUrl && mode !== 'replace') return;
+    window.history[mode === 'replace' ? 'replaceState' : 'pushState']({
+      ...(window.history.state || {}),
+      providerView:'settings',
+      settingsSection:record.settingsSection,
+      settingsTarget:record.settingsTarget
+    }, '', nextUrl);
+  }
+
+  function revealSettingsTarget(target) {
+    if (!target) return false;
+    for (let details = target.closest('details'); details; details = details.parentElement?.closest('details')) details.open = true;
+    const filteredTheme = target.closest('[data-theme-groups]');
+    if (filteredTheme) {
+      const filterButton = filteredTheme.closest('fieldset')?.querySelector('[data-provider-theme-filter="all"],[data-client-theme-filter="all"]')
+        || filteredTheme.closest('details')?.querySelector('[data-provider-theme-filter="all"],[data-client-theme-filter="all"]')
+        || filteredTheme.closest('form')?.querySelector('[data-provider-theme-filter="all"],[data-client-theme-filter="all"]');
+      filterButton?.click();
+    }
+    return !target.closest('[hidden]') && getComputedStyle(target).display !== 'none';
+  }
+
+  function waitForSettingsPanel(callback, attempts = 40) {
+    if (!panel.hidden) { callback(); return; }
+    if (attempts <= 0) { status.textContent = 'Настройка найдена, но раздел сейчас недоступен.'; return; }
+    requestAnimationFrame(() => waitForSettingsPanel(callback, attempts - 1));
+  }
+
+  function showResult(record, { historyMode = 'push', closeSearch = true } = {}) {
     const sectionButton = [...nav.querySelectorAll('[data-section-target]')].find(button => button.dataset.sectionTarget === record.targetId && !button.hidden);
-    if (!sectionButton) return;
-    sectionButton.click();
-    closeResults();
-    clearTimeout(highlightTimer);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const target = record.element || document.getElementById(record.targetId);
-      if (!target) return;
-      for (let details = target.closest('details'); details; details = details.parentElement?.closest('details')) details.open = true;
-      target.classList.add('settings-search-highlight');
-      target.scrollIntoView({ behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'center' });
-      if (!target.matches('input,select,textarea,button,a,summary')) target.setAttribute('tabindex', '-1');
-      target.focus?.({ preventScroll:true });
-      highlightTimer = setTimeout(() => target.classList.remove('settings-search-highlight'), 2600);
-      status.textContent = `Открыто: ${record.sectionTitle}${record.label !== record.sectionTitle ? ` → ${record.label}` : ''}.`;
-    }));
+    if (!sectionButton) { status.textContent = 'Настройка найдена, но этот раздел сейчас недоступен.'; return; }
+    if (closeSearch) closeResults();
+    waitForSettingsPanel(() => {
+      sectionButton.click();
+      syncSettingsRoute(record, historyMode);
+      clearTimeout(highlightTimer);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const anchor = record.anchorElement || record.element || document.getElementById(record.targetId);
+        const focusTarget = record.element || anchor;
+        if (record.activateElement && record.activateElement.getAttribute('aria-pressed') !== 'true') record.activateElement.click();
+        if (!anchor || !revealSettingsTarget(anchor)) {
+          status.textContent = 'Настройка найдена, но сейчас недоступна. Проверьте права и выбранную организацию.';
+          return;
+        }
+        anchor.classList.add('settings-search-highlight');
+        anchor.scrollIntoView({ behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'center' });
+        if (!focusTarget.matches('input,select,textarea,button,a,summary,[tabindex]')) focusTarget.setAttribute('tabindex', '-1');
+        focusTarget.focus?.({ preventScroll:true });
+        highlightTimer = setTimeout(() => anchor.classList.remove('settings-search-highlight'), 2600);
+        status.textContent = `Открыто: ${record.breadcrumb.join(' → ')}.`;
+      }));
+    });
+  }
+
+  function restoreSettingsRoute(attempts = 30) {
+    const params = new URLSearchParams(window.location.search);
+    if ((params.get('section') || params.get('view')) !== 'settings') return false;
+    const requestedTarget = params.get(SETTINGS_ROUTE.target);
+    const requestedSection = params.get(SETTINGS_ROUTE.section);
+    if (!requestedTarget && !requestedSection) return false;
+    const records = buildIndex();
+    const record = requestedTarget
+      ? records.find(item => item.settingsTarget === requestedTarget)
+      : records.find(item => item.settingsSection === requestedSection && item.type === 'section');
+    if (!record) {
+      if (attempts > 0) {
+        requestAnimationFrame(() => restoreSettingsRoute(attempts - 1));
+        return true;
+      }
+      status.textContent = 'Ссылка ведёт к настройке, которая сейчас недоступна.';
+      return false;
+    }
+    showResult(record, { historyMode:'none', closeSearch:false });
+    return true;
   }
 
   function renderSearch(value = input.value) {
@@ -272,7 +449,7 @@
       button.setAttribute('role', 'option');
       button.setAttribute('aria-selected', 'false');
       const path = document.createElement('small');
-      path.textContent = record.sectionTitle;
+      path.textContent = record.breadcrumb.join(' → ');
       const title = document.createElement('strong');
       title.textContent = record.label;
       const description = document.createElement('span');
@@ -483,8 +660,33 @@
       };
     }
 
+    function safeCabinetDeepRecord(record) {
+      if (record.type === 'section' || record.type === 'group') return true;
+      return record.anchorElement?.matches('.provider-theme-option')
+        && record.element?.matches('input[type="radio"][name="providerTheme"]');
+    }
+
+    function cabinetDeepAliasMatch(record, phrase) {
+      if (!record.settingsTarget) return false;
+      if (record.type !== 'section') return record.aliases?.includes(phrase) || false;
+      const sectionAliases = {
+        bookingRulesCard:['правила'],
+        accountSettingsCard:['безопасность']
+      };
+      return sectionAliases[record.settingsSection]?.includes(phrase) || false;
+    }
+
     function buildSectionsIndex() {
-      const records = CABINET_SEARCH_REGISTRY.map(registryRecord).filter(Boolean);
+      const direct = CABINET_SEARCH_REGISTRY.map(registryRecord).filter(Boolean);
+      const settingsViewElement = navigationElement('settings');
+      const deep = settingsViewElement
+        ? buildIndex().filter(safeCabinetDeepRecord).map(record => ({
+            ...record,
+            registryVersion:CABINET_SEARCH_REGISTRY_VERSION,
+            viewElement:settingsViewElement
+          }))
+        : [];
+      const records = [...deep, ...direct];
       const ids = new Set();
       return records.filter(record => {
         if (ids.has(record.id)) return false;
@@ -524,8 +726,11 @@
       if (!tokenTotal) return 0;
       const labelTokenTotal = tokens.reduce((sum, token) => sum + scorer(token, labelWords), 0);
       const labelBoost = labelTokenTotal * 4;
-      if (!typo && (phrase === normalize(record.label) || phrase === normalize(record.displayLabel))) return 500 + tokenTotal + labelBoost;
-      if (!typo && (normalize(record.label).startsWith(phrase) || normalize(record.displayLabel).startsWith(phrase))) return 420 + tokenTotal + labelBoost;
+      if (!typo && record.settingsTarget && ((record.type !== 'section' && phrase === normalize(record.label)) || cabinetDeepAliasMatch(record, phrase))) {
+        return 650 + tokenTotal + labelBoost;
+      }
+      if (!typo && (!record.settingsTarget || record.type !== 'section') && (phrase === normalize(record.label) || phrase === normalize(record.displayLabel))) return 500 + tokenTotal + labelBoost;
+      if (!typo && (!record.settingsTarget || record.type !== 'section') && (normalize(record.label).startsWith(phrase) || normalize(record.displayLabel).startsWith(phrase))) return 420 + tokenTotal + labelBoost;
       if (!typo && tokens.every(token => words.some(word => word === token || word.startsWith(token)))) return 330 + tokenTotal + labelBoost;
       if (!typo && record.corpus.includes(phrase)) return 250 + tokenTotal + labelBoost;
       return (typo ? 100 : 180) + tokenTotal + labelBoost;
@@ -606,6 +811,12 @@
     function openSectionResult(record) {
       closeSectionsResults();
       sectionsStatus.textContent = `Открываем: ${record.displayLabel}.`;
+      if (record.settingsTarget) {
+        const navigate = navigationElement('settings');
+        navigate?.click();
+        afterViewReady('settings', () => showResult(record, { historyMode:'replace', closeSearch:false }));
+        return;
+      }
       const navigate = record.view !== 'more' ? navigationElement(record.view) : null;
       navigate?.click();
       afterViewReady(record.view, () => requestAnimationFrame(() => {
@@ -666,7 +877,11 @@
         button.setAttribute('role', 'option');
         button.setAttribute('aria-selected', 'false');
         const path = document.createElement('small');
-        path.textContent = popular ? 'Пример' : record.suggested ? 'Возможно, вы искали' : record.kind === 'section' ? 'Раздел' : 'Действие';
+        path.textContent = popular
+          ? 'Пример'
+          : record.breadcrumb?.length
+            ? `${record.suggested ? 'Возможно: ' : ''}${record.breadcrumb.join(' → ')}`
+            : record.suggested ? 'Возможно, вы искали' : record.kind === 'section' ? 'Раздел' : 'Действие';
         const title = document.createElement('strong');
         appendHighlightedText(title, record.displayLabel, query);
         const description = document.createElement('span');
@@ -733,5 +948,15 @@
   }
 
   const sectionsSearch = initializeSectionsSearch();
-  window.MinutaSettingsSearch = Object.freeze({ normalize, swapKeyboardLayout, findSettings, cabinetRegistryVersion:sectionsSearch?.registryVersion || 0, cabinetRegistry:sectionsSearch?.registry || [], findSections:sectionsSearch?.findSections || (() => []) });
+  window.addEventListener('popstate', () => requestAnimationFrame(() => requestAnimationFrame(restoreSettingsRoute)));
+  requestAnimationFrame(() => requestAnimationFrame(restoreSettingsRoute));
+  window.MinutaSettingsSearch = Object.freeze({
+    normalize,
+    swapKeyboardLayout,
+    findSettings,
+    cabinetRegistryVersion:sectionsSearch?.registryVersion || 0,
+    cabinetRegistry:sectionsSearch?.registry || [],
+    findSections:sectionsSearch?.findSections || (() => []),
+    restoreSettingsRoute
+  });
 })();

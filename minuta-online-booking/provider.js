@@ -5774,6 +5774,10 @@ function syncProviderViewHistory(view, mode = 'push') {
   url.searchParams.delete('view');
   if (view === 'bookings') url.searchParams.delete('section');
   else url.searchParams.set('section', view);
+  if (view !== 'settings') {
+    url.searchParams.delete('settings-section');
+    url.searchParams.delete('settings-target');
+  }
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (nextUrl === currentUrl && mode !== 'replace') return;
