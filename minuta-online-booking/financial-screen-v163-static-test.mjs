@@ -85,6 +85,9 @@ assert.match(events, /supplier_expense_payment/);
 assert.match(events, /payroll_payment/);
 
 const screen = migration.match(/create or replace function public\.get_minuta_finance_screen_v163[\s\S]*?\n\$\$;/i)?.[0] || '';
+assert.match(screen,
+  /active_visit_ledger[\s\S]*booking\.booking_date\+booking\.booking_time[\s\S]*at time zone v_timezone[\s\S]*>=v_period_start/,
+  'posted visit debt must use the same local business date as its income event');
 for (const invariant of [
   "outcome.visit_status='completed'",
   "outcome.completion_source='manual'",

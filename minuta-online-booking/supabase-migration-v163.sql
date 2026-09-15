@@ -775,7 +775,8 @@ begin
     join public.bookings booking on booking.id=visit.source_id and booking.organization_id=p_organization
     where visit.organization_id=p_organization and visit.operation_type='visit_service'
       and visit.source_type='booking_outcome'
-      and visit.occurred_at>=v_period_start and visit.occurred_at<v_period_end
+      and ((booking.booking_date+booking.booking_time) at time zone v_timezone)>=v_period_start
+      and ((booking.booking_date+booking.booking_time) at time zone v_timezone)<v_period_end
       and (p_performer is null or booking.performer_id=p_performer)
       and not exists(select 1 from public.financial_transactions reversal
         where reversal.organization_id=p_organization and reversal.reversal_of=visit.id)
