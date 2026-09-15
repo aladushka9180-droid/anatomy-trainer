@@ -18,7 +18,7 @@ begin
   perform set_config('minuta.v164_location',location_id::text,true); perform set_config('minuta.v164_primary',primary_service_id::text,true);
   perform set_config('minuta.v164_addon',addon_service_id::text,true); perform set_config('minuta.v164_source',source_id::text,true);
   perform set_config('minuta.v164_warehouse',warehouse_id::text,true); perform set_config('minuta.v164_material',material_id::text,true);
-  perform set_config('minuta.v164_phone',phone,true); perform set_config('minuta.v164_date',(current_date+30)::text,true);
+  perform set_config('minuta.v164_phone',phone,true);
 
   set local session_replication_role=replica;
   insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
@@ -66,12 +66,12 @@ select pg_temp.v164_assert((current_setting('minuta.v164.preview')::jsonb->'mate
 select set_config('minuta.v164.request',gen_random_uuid()::text,true);
 select set_config('minuta.v164.created',public.provider_repeat_appointment_v164(
   current_setting('minuta.v164.request')::uuid,current_setting('minuta.v164_source')::uuid,
-  current_setting('minuta.v164.preview')::jsonb->>'source_signature',current_setting('minuta.v164.date')::date,'14:00',
+  current_setting('minuta.v164.preview')::jsonb->>'source_signature',current_date+31,'14:00',
   'V164 client',current_setting('minuta.v164.phone'),3700,'Новый комментарий'
 )::text,true);
 select pg_temp.v164_assert(public.provider_repeat_appointment_v164(
   current_setting('minuta.v164.request')::uuid,current_setting('minuta.v164_source')::uuid,
-  current_setting('minuta.v164.preview')::jsonb->>'source_signature',current_setting('minuta.v164.date')::date,'14:00',
+  current_setting('minuta.v164.preview')::jsonb->>'source_signature',current_date+31,'14:00',
   'V164 client',current_setting('minuta.v164.phone'),3700,'Новый комментарий'
 )->>'booking_id'=current_setting('minuta.v164.created')::jsonb->>'booking_id','idempotent_replay');
 reset role;
@@ -89,7 +89,7 @@ set local role authenticated;
 do $$ begin
   begin
     perform public.provider_repeat_appointment_v164(gen_random_uuid(),current_setting('minuta.v164_source')::uuid,
-      current_setting('minuta.v164.preview')::jsonb->>'source_signature',current_setting('minuta.v164.date')::date,'17:00',
+      current_setting('minuta.v164.preview')::jsonb->>'source_signature',current_date+31,'17:00',
       'V164 client',current_setting('minuta.v164.phone'),3700,'Новый комментарий');
     raise exception 'stale_source_accepted';
   exception when raise_exception then if sqlerrm<>'repeat_source_changed' then raise; end if; end;

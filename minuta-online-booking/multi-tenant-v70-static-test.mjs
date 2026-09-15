@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const migration = await readFile(join(directory, 'supabase-migration-v70.sql'), 'utf8');
+const repeatMigration = await readFile(join(directory, 'supabase-migration-v164.sql'), 'utf8');
 const provider = await readFile(join(directory, 'provider.js'), 'utf8');
 const html = await readFile(join(directory, 'provider.html'), 'utf8');
 const styles = await readFile(join(directory, 'styles.css'), 'utf8');
@@ -24,7 +25,8 @@ for (const action of ['select', 'insert', 'update', 'delete']) {
 
 assert.match(provider, /data-repeat-booking[\s\S]*Повторить запись/i, 'booking sheet must expose the repeat action');
 assert.match(provider, /openRepeatBookingFromSheet[\s\S]*clientName:[\s\S]*clientPhone:[\s\S]*serviceId:/i, 'repeat action must prefill the client and service');
-assert.match(provider, /openRepeatBookingFromSheet[\s\S]*ownServices\.some\([\s\S]*service\.active[\s\S]*Эта услуга сейчас отключена/i, 'repeat action must not silently substitute an inactive service');
+assert.match(provider, /openRepeatBookingFromSheet[\s\S]*get_provider_repeat_visit_v164/i, 'repeat action must request a fresh server snapshot');
+assert.match(repeatMigration, /booking_session_items[\s\S]{0,500}services service[\s\S]{0,250}service\.active[\s\S]{0,150}repeat_service_unavailable/i, 'repeat action must fail closed when any source service is inactive');
 assert.match(provider, /CLIENT_AVATAR_BUCKET = 'client-avatars'/i, 'provider must use the private avatar bucket');
 assert.match(provider, /prepareClientAvatar[\s\S]*Math\.min\(sourceWidth, sourceHeight\)[\s\S]*image\/webp/i, 'avatars must be square-cropped and converted before upload');
 assert.match(provider, /from\('client_avatars'\)\.upsert[\s\S]*onConflict:'performer_id,client_phone'/i, 'avatar metadata must replace only the current provider client');
