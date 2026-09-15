@@ -4,7 +4,7 @@ for(const rpc of ['get_minuta_message_capability_v162','set_minuta_message_cente
 for(const state of ['Только непрочитанные','Нет сети','Диалогов пока нет','Сообщения пока недоступны','Отправка не подтверждена'])assert.ok(js.includes(state),state);
 assert.ok(js.includes('data-message-diagnostics-consent'));assert.ok(js.includes('disabled aria-describedby="messageMediaAvailability"'));assert.ok(!/manage_token|recipient_id|https?:\/\/wa\.me|https?:\/\/t\.me/.test(js));
 for(const width of ['760px','420px'])assert.ok(css.includes(width));assert.ok(preview.includes('ТЕСТОВЫЕ ДАННЫЕ'));assert.ok(preview.includes('previewBridgeState'));
-for(const marker of ['data-provider-view="messages"','data-provider-panel="messages"','provider-messages-center.js?v=800'])assert.ok(providerHtml.includes(marker),marker);
+for(const marker of ['data-provider-view="messages"','data-provider-panel="messages"','provider-messages-center.js?v=801'])assert.ok(providerHtml.includes(marker),marker);
 assert.ok(providerHtml.includes('data-provider-panel="notifications"'));assert.ok(providerJs.includes('openProviderMessageForBooking'));assert.ok(providerJs.includes("view === 'messages'"));
 assert.ok(providerJs.includes("['owner','admin'].includes"));assert.ok(js.includes('data-message-settings-form'));assert.ok(js.includes('supportEnabled:false'));assert.ok(preview.includes('activationPreview'));
 assert.ok(js.includes('target_date:'));assert.ok(js.includes('target_time:'));assert.ok(js.includes('data-message-action-note-input'));
