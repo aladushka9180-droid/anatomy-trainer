@@ -192,6 +192,7 @@ begin
     duration_minutes=v_duration,
     original_price_rub=v_source_total,
     total_price_rub=p_total_price_rub,
+    booking_source='provider_manual',
     provider_note=btrim(coalesce(p_comment,'')),
     booking_policy_snapshot=coalesce(booking.booking_policy_snapshot,'{}'::jsonb)||jsonb_build_object(
       'repeat_source_id',p_source_booking,'repeat_source_signature',p_source_signature,

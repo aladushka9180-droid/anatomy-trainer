@@ -36,6 +36,7 @@ test('repeat creation checks the signed source before one transactional copy', (
   assert.match(repeat, /provider_note=btrim\(coalesce\(p_comment,''\)\)/);
   assert.match(repeat, /total_price_rub=p_total_price_rub/);
   assert.match(repeat, /'repeat_materials',v_preview->'materials'/);
+  assert.match(repeat, /booking_source='provider_manual'/, 'provider-created repeats must keep provider attribution');
   assert.doesNotMatch(repeat, /booking_source='provider_repeat'/, 'v92 attribution remains immutable');
   assert.match(repeat, /other\.status<>'cancelled'/);
 });
