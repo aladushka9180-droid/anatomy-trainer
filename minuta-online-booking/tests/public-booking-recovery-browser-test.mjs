@@ -45,6 +45,13 @@ function rpc(name, args, res) {
     services:[{ id:ids.service, performer_id:ids.performer, name:'Тестовая услуга', duration_minutes:60,
       price_rub:1000, location_ids:[ids.a, ids.b], performer_profiles:{ display_name:'Тестовый мастер' } }]
   });
+  if (name === 'get_public_service_cards_v159') return json(res, [{
+    service_id:ids.service,
+    short_description:'Короткое описание тестовой услуги',
+    important_note:'Тестовая памятка перед визитом',
+    highlights:['Проверенный сценарий'],
+    total_reviews:0
+  }]);
   if (name === 'get_public_minuta_available_slots_v101') return json(res,
     scenario.busy ? [] : scenario.todaySlots ? [...['10:00','15:00','16:00','16:15','19:00'].map(time=>({booking_date:'2026-09-08',booking_time:time+':00'})),{booking_date:'2026-09-09',booking_time:'10:00:00'}] : [{ booking_date:day, booking_time:'10:00:00' }]);
   if (name === 'book_minuta_appointment') {
