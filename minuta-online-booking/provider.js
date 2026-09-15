@@ -16435,7 +16435,7 @@ const organizationController = window.MinutaOrganization.createController({
   onActiveOrganizationChange: organization => {
     const nextClientOrganizationId = organization?.id || '';
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
-    if (clientOrganizationChanged) resetProviderMessagesCenter();
+    if (clientOrganizationChanged && typeof resetProviderMessagesCenter === 'function') resetProviderMessagesCenter();
     if (clientOrganizationChanged) freeSlotsController?.invalidateScope();
     activeClientOrganizationId = nextClientOrganizationId;
     if (clientOrganizationChanged) bookingSeriesCancellationRevision += 1;
