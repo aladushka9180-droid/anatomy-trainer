@@ -24,6 +24,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="styles.css?v=799">
   <link rel="stylesheet" href="messages-center.css?v=799">
+  <link rel="stylesheet" href="finance-center.css?v=799">
   <link rel="stylesheet" href="utm-funnel.css?v=799">
   <link rel="stylesheet" href="onboarding.css?v=799">
   <link rel="stylesheet" href="service-presets.css?v=799">
@@ -689,6 +690,7 @@
             <button id="reportTabClients" type="button" data-report-view="clients">Клиенты</button>
             <button id="reportTabTeam" type="button" data-report-view="team">Команда</button>
           </nav>
+          <div id="financeCenterRoot" data-report-section="money" hidden></div>
           <section class="report-command-center" id="reportCommandCenter" data-report-section="overview" aria-labelledby="reportCommandTitle">
             <div class="report-command-copy">
               <div class="report-command-heading">
@@ -2160,6 +2162,8 @@
   <script src="portfolio-camera.js?v=799" defer></script>
   <script src="messages-core.js?v=799" defer></script>
   <script src="provider-messages-center.js?v=799" defer></script>
+  <script src="finance-center.js?v=799" defer></script>
+  <script src="finance-center-provider.js?v=799" defer></script>
   <script src="provider.js?v=799" defer></script>
   <script src="service-presets.js?v=799" defer></script>
   <script src="primetime-handoff.js?v=799" defer></script>

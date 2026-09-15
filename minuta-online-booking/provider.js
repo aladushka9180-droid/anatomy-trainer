@@ -16352,8 +16352,8 @@ const paymentController = window.MinutaPayments?.createController ? window.Minut
 }) : { bind() {}, load() { return Promise.resolve(); }, setOrganization() {}, reset() {}, isCheckoutEnabled() { return false; } };
 paymentController.bind();
 
-financeController = window.MinutaCommerce?.createFinanceController ? window.MinutaCommerce.createFinanceController({
-  db, $, escapeHtml, notify
+financeController = window.MinutaFinanceProvider?.createController ? window.MinutaFinanceProvider.createController({
+  db, $, notify, requireWrites
 }) : { load() { return Promise.resolve(); }, setOrganization() {}, reset() {} };
 window.addEventListener('minuta:reload-money-dashboard', () => void financeController.load(reportRange(), { force:true }));
 

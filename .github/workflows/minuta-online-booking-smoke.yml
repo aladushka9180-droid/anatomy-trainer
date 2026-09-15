@@ -63,6 +63,7 @@ jobs:
       - run: node --check minuta-online-booking/tests/benefit-public-v115-postgres-concurrency-test.mjs && node --check minuta-online-booking/integration-management.js
       - run: node minuta-online-booking/visit-outcome-defaults-v124-static-test.mjs
       - run: node minuta-online-booking/financial-ledger-v129-static-test.mjs
+      - run: node minuta-online-booking/financial-screen-v163-static-test.mjs && node minuta-online-booking/finance-center-ui-static-test.mjs && node minuta-online-booking/finance-center-provider-static-test.mjs && node minuta-online-booking/finance-center-v163-integration-static-test.mjs
       - run: node minuta-online-booking/payroll-ledger-v136-static-test.mjs
       - run: node minuta-online-booking/booking-funnel-v137-static-test.mjs
       - run: node minuta-online-booking/yandex-booking-v140-static-test.mjs
