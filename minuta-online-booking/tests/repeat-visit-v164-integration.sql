@@ -59,9 +59,6 @@ end $fixture$;
 
 select set_config('minuta.v164_owner',(select owner_id::text from pg_temp.v164_fixture),true);
 select set_config('minuta.v164_source',(select source_id::text from pg_temp.v164_fixture),true);
-select set_config('minuta.v164_warehouse',(select warehouse_id::text from pg_temp.v164_fixture),true);
-select set_config('minuta.v164_material',(select material_id::text from pg_temp.v164_fixture),true);
-select set_config('minuta.v164_phone','79990000001',true);
 select set_config('request.jwt.claim.sub',current_setting('minuta.v164_owner'),true);
 set local role authenticated;
 select set_config('minuta.v164.preview',public.get_provider_repeat_visit_v164(current_setting('minuta.v164_source')::uuid)::text,true);
@@ -72,30 +69,30 @@ select set_config('minuta.v164.request',gen_random_uuid()::text,true);
 select set_config('minuta.v164.created',public.provider_repeat_appointment_v164(
   current_setting('minuta.v164.request')::uuid,current_setting('minuta.v164_source')::uuid,
   current_setting('minuta.v164.preview')::jsonb->>'source_signature',current_date+31,'14:00',
-  'V164 client',current_setting('minuta.v164.phone'),3700,'Новый комментарий'
+  'V164 client','79990000001',3700,'Новый комментарий'
 )::text,true);
 select pg_temp.v164_assert(public.provider_repeat_appointment_v164(
   current_setting('minuta.v164.request')::uuid,current_setting('minuta.v164_source')::uuid,
   current_setting('minuta.v164.preview')::jsonb->>'source_signature',current_date+31,'14:00',
-  'V164 client',current_setting('minuta.v164.phone'),3700,'Новый комментарий'
+  'V164 client','79990000001',3700,'Новый комментарий'
 )->>'booking_id'=current_setting('minuta.v164.created')::jsonb->>'booking_id','idempotent_replay');
 reset role;
 
 select pg_temp.v164_assert((select count(*)=1 from public.bookings where request_id=current_setting('minuta.v164.request')::uuid
   and duration_minutes=90 and total_price_rub=3700 and provider_note='Новый комментарий' and booking_source='provider_manual'
-  and booking_policy_snapshot->>'repeat_source_id'=current_setting('minuta.v164_source')),'booking_exact');
+  and booking_policy_snapshot->>'repeat_source_id'=(select source_id::text from pg_temp.v164_fixture)),'booking_exact');
 select pg_temp.v164_assert((select count(*)=2 and sum(price_rub)=3700 from public.booking_session_items
   where booking_id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid),'session_exact');
 select pg_temp.v164_assert((select booking_policy_snapshot->'repeat_materials'->0->>'quantity'='3' from public.bookings
   where id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid),'material_snapshot_exact');
 
-update public.booking_session_items set price_rub=3100 where booking_id=current_setting('minuta.v164_source')::uuid and item_kind='primary';
+update public.booking_session_items set price_rub=3100 where booking_id=(select source_id from pg_temp.v164_fixture) and item_kind='primary';
 set local role authenticated;
 do $$ begin
   begin
     perform public.provider_repeat_appointment_v164(gen_random_uuid(),current_setting('minuta.v164_source')::uuid,
       current_setting('minuta.v164.preview')::jsonb->>'source_signature',current_date+31,'17:00',
-      'V164 client',current_setting('minuta.v164.phone'),3700,'Новый комментарий');
+      'V164 client','79990000001',3700,'Новый комментарий');
     raise exception 'stale_source_accepted';
   exception when raise_exception then if sqlerrm<>'repeat_source_changed' then raise; end if; end;
 end $$;
@@ -103,8 +100,8 @@ reset role;
 select pg_temp.v164_assert((select count(*)=1 from public.bookings where request_id=current_setting('minuta.v164.request')::uuid),'stale_source_created_nothing');
 
 insert into public.booking_outcomes(booking_id,performer_id,visit_status,payment_method,amount_rub)
-values((current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid,current_setting('minuta.v164_owner')::uuid,'completed','cash',3700);
-select pg_temp.v164_assert((select quantity=7 from public.inventory_stock_balances where warehouse_id=current_setting('minuta.v164_warehouse')::uuid and inventory_item_id=current_setting('minuta.v164_material')::uuid),'repeat_material_consumed');
+values((current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid,(select owner_id from pg_temp.v164_fixture),'completed','cash',3700);
+select pg_temp.v164_assert((select quantity=7 from public.inventory_stock_balances where warehouse_id=(select warehouse_id from pg_temp.v164_fixture) and inventory_item_id=(select material_id from pg_temp.v164_fixture)),'repeat_material_consumed');
 select pg_temp.v164_assert((select count(*)=1 and min(quantity_delta)=-3 from public.inventory_movements
   where booking_id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid and movement_type='service_use'),'one_exact_material_movement');
 
