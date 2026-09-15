@@ -15,7 +15,6 @@ const ASSETS = [
   './icon.svg',
   './ui-icons.svg',
   './styles.css?v=800',
-  './finance-center.css?v=800',
   './utm-funnel.css?v=800',
   './onboarding.css?v=800',
   './visitor-presence.css?v=800',
@@ -70,17 +69,17 @@ const ASSETS = [
   './provider-color-mode.js?v=800',
   './client-directory.js?v=800',
   './client-results.js?v=800',
-  './finance-center.js?v=800',
-  './finance-center-provider.js?v=800',
   './provider.js?v=800',
   './voice-wake.js?v=800',
   './provider-feature-assets.js?v=800',
-  './client-records.js?v=800',
 ];
 
 // Warm after the first screen. A cold installation must not wait for tools
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
+  './finance-center.css?v=800',
+  './finance-center.js?v=800',
+  './finance-center-provider.js?v=800',
   './index.html',
   './messages.html',
   './messages-center.css?v=800',
