@@ -151,6 +151,7 @@
     let lastSelectedMaster = '';
     let generation = 0;
     const root = () => $('#financeCenterRoot');
+    const analytics = () => root()?.closest('#analyticsView');
     const isManager = () => Boolean(organization?.id && ['owner', 'admin'].includes(organization.current_role));
 
     function setManagerVisibility() {
@@ -222,6 +223,7 @@
       generation += 1;
       if (center) global.MinutaFinanceCenter?.destroy(center);
       center = null;
+      analytics()?.classList.remove('finance-center-mounted');
       lastDirectory = new Map();
       lastSelectedMaster = '';
     }
@@ -241,6 +243,7 @@
       }
       const currentGeneration = generation;
       center = global.MinutaFinanceCenter.init({ root:root(), adapter, periods:PERIODS, onNotice:message => notify?.(message) });
+      analytics()?.classList.add('finance-center-mounted');
       await center.ready;
       if (currentGeneration !== generation) return;
     }

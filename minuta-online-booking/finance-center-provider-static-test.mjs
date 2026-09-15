@@ -55,5 +55,7 @@ assert.match(source, /initialize_minuta_finance_screen_v163/);
 assert.match(source, /p_request_id:payload\.requestId/);
 assert.match(source, /raw\.organization_id !== context\.organizationId/);
 assert.match(source, /raw\.currency !== 'RUB'/);
+assert.match(source, /classList\.add\('finance-center-mounted'\)/);
+assert.match(source, /classList\.remove\('finance-center-mounted'\)/);
 
 console.log('Finance center provider adapter contract passed.');

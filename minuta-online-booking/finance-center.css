@@ -14,5 +14,5 @@
 .finance-center__main-metrics dd.is-compact,.finance-center__trust-metrics dd.is-compact{font-size:clamp(.86rem,2.1vw,1.25rem)}
 .finance-center__main-metrics dd.is-ultra-compact,.finance-center__trust-metrics dd.is-ultra-compact{font-size:clamp(.72rem,1.8vw,1rem)}
 .finance-center [hidden]{display:none!important}
-#analyticsView[data-report-tab="money"] [data-report-section="money"]:not(#financeCenterRoot),#analyticsView[data-report-tab="money"] .report-filters,#analyticsView[data-report-tab="money"] .report-data-source,#analyticsView[data-report-tab="money"] #reportLoadState{display:none!important}
-#analyticsView[data-report-tab="money"] #financeCenterRoot:not([hidden]){display:block!important}
+#analyticsView.finance-center-mounted[data-report-tab="money"] [data-report-section="money"]:not(#financeCenterRoot),#analyticsView.finance-center-mounted[data-report-tab="money"] .report-filters,#analyticsView.finance-center-mounted[data-report-tab="money"] .report-data-source,#analyticsView.finance-center-mounted[data-report-tab="money"] #reportLoadState{display:none!important}
+#analyticsView.finance-center-mounted[data-report-tab="money"] #financeCenterRoot:not([hidden]){display:block!important}
