@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const read = name => readFileSync(new URL(name, import.meta.url), 'utf8').replaceAll('\r\n', '\n');
 const migration = read('./supabase-migration-v163.sql');
 const rollback = read('./supabase-migration-v163-rollback.sql');
+const workflow = read('../.github/workflows/minuta-v163-finance-center.yml');
 
 for (const table of [
   'organization_finance_categories_v163',
@@ -35,6 +36,12 @@ for (const signature of [
 assert.match(migration, /v163_requires_current_financial_ledger_through_v151/);
 assert.match(migration, /get_minuta_commerce_workspace_v151\(uuid\)/);
 assert.match(migration, /minuta_refund_safety_v148_proportional_rounding/);
+assert.match(workflow, /commercial-sales-v151-state\.sql/);
+assert.match(workflow, /v163-test-owned-v151[\s\S]*supabase-migration-v151-rollback\.sql/,
+  'isolated test must restore an initially absent v151 dependency');
+assert.match(workflow, /v163-test-owned[\s\S]*organization_finance_categories_v163'\) is null/,
+  'isolated test must restore an initially absent v163 layer');
+assert.match(workflow, /testBaselineRestored:true/);
 assert.doesNotMatch(migration, /insert into public\.financial_transactions/i,
   'v163 must reuse the single existing ledger instead of writing a second transaction path');
 assert.doesNotMatch(migration, /select setting\.organization_id,seed\.system_key/i,

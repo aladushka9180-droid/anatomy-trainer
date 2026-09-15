@@ -50,6 +50,9 @@ jobs:
           for file in \
             minuta-online-booking/supabase-migration-v163.sql \
             minuta-online-booking/supabase-migration-v163-rollback.sql \
+            minuta-online-booking/supabase-migration-v151.sql \
+            minuta-online-booking/supabase-migration-v151-rollback.sql \
+            minuta-online-booking/scripts/commercial-sales-v151-state.sql \
             minuta-online-booking/tests/financial-screen-v163-integration-test.sql \
             minuta-online-booking/financial-screen-v163-static-test.mjs \
             minuta-online-booking/finance-center-ui-static-test.mjs \
@@ -101,8 +104,20 @@ jobs:
           SQL
           )"
           test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          v151_state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
+          case "$(jq -r .classification <<<"$v151_state")" in
+            exact) ;;
+            absent)
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151.sql
+              touch "$RUNNER_TEMP/v163-test-owned-v151"
+              ;;
+            *) jq -c . <<<"$v151_state"; exit 1 ;;
+          esac
           if test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.organization_finance_categories_v163') is not null")" = t; then
+            touch "$RUNNER_TEMP/v163-test-preexisting"
             psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v163-rollback.sql
+          else
+            touch "$RUNNER_TEMP/v163-test-owned"
           fi
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v163.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/financial-screen-v163-integration-test.sql
@@ -115,7 +130,33 @@ jobs:
           test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.organization_finance_categories_v163') is null")" = t
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v163.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/financial-screen-v163-integration-test.sql
-          jq -n --arg sha "$SHA" '{status:"success",phase:"test-v163",commitSha:$sha,cycle:["apply","integration","repeat-refused","rollback","reapply","integration"],productionWritten:false,businessRowsChanged:false}' > "$RUNNER_TEMP/v163-test.json"
+      - name: Restore isolated database schema baseline
+        if: always()
+        run: |
+          set -euo pipefail
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          if test -f "$RUNNER_TEMP/v163-test-owned" || test -f "$RUNNER_TEMP/v163-test-preexisting"; then
+            if test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.organization_finance_categories_v163') is not null")" = t; then
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v163-rollback.sql
+            fi
+          fi
+          if test -f "$RUNNER_TEMP/v163-test-owned-v151"; then
+            psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v151-rollback.sql
+          fi
+          if test -f "$RUNNER_TEMP/v163-test-preexisting"; then
+            psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v163.sql
+          fi
+          if test -f "$RUNNER_TEMP/v163-test-owned"; then
+            test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.organization_finance_categories_v163') is null")" = t
+          fi
+          if test -f "$RUNNER_TEMP/v163-test-owned-v151"; then
+            restored="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/commercial-sales-v151-state.sql | grep '^{' | tail -n 1)"
+            test "$(jq -r .classification <<<"$restored")" = absent
+          fi
+      - name: Create isolated test attestation
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          jq -n --arg sha "$SHA" '{status:"success",phase:"test-v163",commitSha:$sha,cycle:["dependency-setup","apply","integration","repeat-refused","rollback","reapply","integration","baseline-restored"],productionWritten:false,businessRowsChanged:false,testBaselineRestored:true}' > "$RUNNER_TEMP/v163-test.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with: { name: "v163-test-${{ github.run_id }}", path: "${{ runner.temp }}/v163-test.json", if-no-files-found: error, retention-days: 90 }
 
