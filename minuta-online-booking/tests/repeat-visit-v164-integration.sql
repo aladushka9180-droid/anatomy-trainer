@@ -6,6 +6,10 @@ set local search_path=public,extensions,pg_catalog;
 
 create function pg_temp.v164_assert(ok boolean,label text) returns void language plpgsql as $$
 begin if ok is distinct from true then raise exception 'v164_assert:%',label; end if; end $$;
+create table pg_temp.v164_fixture(
+  owner_id uuid,organization_id uuid,location_id uuid,primary_service_id uuid,addon_service_id uuid,
+  source_id uuid,warehouse_id uuid,material_id uuid,phone text
+) on commit drop;
 
 do $fixture$
 declare
@@ -14,11 +18,7 @@ declare
   warehouse_id uuid:=gen_random_uuid(); material_id uuid:=gen_random_uuid();
   phone text:='79'||translate(substr(md5(owner_id::text),1,9),'abcdef','012345');
 begin
-  perform set_config('minuta.v164_owner',owner_id::text,true); perform set_config('minuta.v164_org',organization_id::text,true);
-  perform set_config('minuta.v164_location',location_id::text,true); perform set_config('minuta.v164_primary',primary_service_id::text,true);
-  perform set_config('minuta.v164_addon',addon_service_id::text,true); perform set_config('minuta.v164_source',source_id::text,true);
-  perform set_config('minuta.v164_warehouse',warehouse_id::text,true); perform set_config('minuta.v164_material',material_id::text,true);
-  perform set_config('minuta.v164_phone',phone,true);
+  insert into pg_temp.v164_fixture values(owner_id,organization_id,location_id,primary_service_id,addon_service_id,source_id,warehouse_id,material_id,phone);
 
   set local session_replication_role=replica;
   insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
@@ -57,6 +57,10 @@ begin
   perform public.set_minuta_inventory_service_usage(organization_id,addon_service_id,material_id,1);
 end $fixture$;
 
+select set_config('minuta.v164_owner',owner_id::text,true),set_config('minuta.v164_source',source_id::text,true),
+  set_config('minuta.v164_warehouse',warehouse_id::text,true),set_config('minuta.v164_material',material_id::text,true),
+  set_config('minuta.v164_phone',phone,true)
+from pg_temp.v164_fixture;
 select set_config('request.jwt.claim.sub',current_setting('minuta.v164_owner'),true);
 set local role authenticated;
 select set_config('minuta.v164.preview',public.get_provider_repeat_visit_v164(current_setting('minuta.v164_source')::uuid)::text,true);
