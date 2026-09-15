@@ -75,7 +75,7 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false, note 
     currentUser:{ id:actorA }, sessionGeneration:1, selectedDate:createdDate, writesAllowed:true,pendingClientNotes:new Map(),
     localStorage:{setItem(){},getItem:()=>null},
     clientNotes:new Map([['79990000001', 'Ранее сохранённая заметка']]),
-    activeClientOrganizationId:orgId,
+    activeClientOrganizationId:orgId, newBookingRepeatVisit:null,
     newBookingMode:'client', newBookingTime:'10:00', newBookingHistoricalMode:true,
     newBookingOutsideSchedule:false, editingOfflineBookingId:'',
     ownServices:[{ id:serviceId, active:true, duration_minutes:60, name:'Услуга', price_rub:1000 }],

@@ -42,6 +42,7 @@ begin
   values(source_id,'V164-'||substr(replace(source_id::text,'-',''),1,10),gen_random_uuid(),owner_id,primary_service_id,'V164 client',phone,
     current_date+30,'10:00',90,3500,3500,'confirmed',0,'not_required','','Исходный комментарий','{}');
   perform set_config('minuta.booking_organization','',true); perform set_config('minuta.booking_location','',true);
+  delete from public.booking_session_items where booking_id=source_id;
   insert into public.booking_session_items(booking_id,performer_id,position,item_kind,service_id,title,duration_minutes,price_rub,extends_duration) values
     (source_id,owner_id,1,'primary',primary_service_id,'V164 primary',60,3000,true),
     (source_id,owner_id,2,'addon',addon_service_id,'V164 addon',30,500,true);
