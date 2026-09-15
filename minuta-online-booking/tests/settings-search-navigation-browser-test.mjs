@@ -12,6 +12,8 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const artifactDir = process.env.SETTINGS_SEARCH_ARTIFACT_DIR || '';
 const providerSource = await readFile(path.join(root, 'provider.js'), 'utf8');
 assert.match(providerSource, /view !== 'settings'[\s\S]*searchParams\.delete\('settings-section'\)[\s\S]*searchParams\.delete\('settings-target'\)/, 'Переход из настроек должен очищать глубокую цель');
+assert.match(providerSource, /view === 'settings'[\s\S]*get\('settings-section'\)[\s\S]*providerSectionSelections\.set\(view, routedTarget\)/, 'URL подраздела должен иметь приоритет над сохранённым локальным выбором при старте');
+assert.match(providerSource, /function rememberProviderSection[\s\S]*set\('settings-section', target\)[\s\S]*delete\('settings-target'\)/, 'Ручной переход между подразделами должен сбрасывать устаревшую глубокую цель');
 
 async function startFixture() {
   const server = createServer(async (request, response) => {

@@ -6073,6 +6073,13 @@ function providerSectionStorageKey(nav) {
 function rememberedProviderSection(nav) {
   const view = providerSectionViewKey(nav);
   if (!view) return '';
+  if (view === 'settings') {
+    const routedTarget = new URLSearchParams(window.location.search).get('settings-section') || '';
+    if (routedTarget) {
+      providerSectionSelections.set(view, routedTarget);
+      return routedTarget;
+    }
+  }
   if (providerSectionSelections.has(view)) return providerSectionSelections.get(view);
   const key = providerSectionStorageKey(nav);
   let target = '';
@@ -6088,6 +6095,16 @@ function rememberProviderSection(button) {
   if (!nav || !view || !target) return;
   providerSectionSelections.set(view, target);
   try { localStorage.setItem(providerSectionStorageKey(nav), target); } catch {}
+  if (view === 'settings') {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('view');
+    url.searchParams.set('section', 'settings');
+    url.searchParams.set('settings-section', target);
+    url.searchParams.delete('settings-target');
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.replaceState({ ...(window.history.state || {}), providerView:'settings', settingsSection:target }, '', nextUrl);
+  }
 }
 
 function providerSectionSelector(nav) {
