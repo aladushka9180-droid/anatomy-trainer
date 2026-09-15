@@ -102,6 +102,7 @@ select pg_temp.v164_assert((select count(*)=1 from public.bookings where request
 
 insert into public.booking_outcomes(booking_id,performer_id,visit_status,payment_method,amount_rub)
 values((current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid,(select owner_id from pg_temp.v164_fixture),'completed','cash',3700);
+select public.consume_minuta_inventory_for_booking((current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid);
 select pg_temp.v164_assert((select quantity=7 from public.inventory_stock_balances where warehouse_id=(select warehouse_id from pg_temp.v164_fixture) and inventory_item_id=(select material_id from pg_temp.v164_fixture)),'repeat_material_consumed');
 select pg_temp.v164_assert((select count(*)=1 and min(quantity_delta)=-3 from public.inventory_movements
   where booking_id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid and movement_type='service_use'),'one_exact_material_movement');
