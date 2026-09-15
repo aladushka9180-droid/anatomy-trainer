@@ -83,7 +83,7 @@ async function fixture(){
     var allBookings=['A','B'].map(name=>({id:ids[name],client_name:'Перерыв '+name,client_phone:SCHEDULE_BLOCK_PHONE,
       booking_date:'2099-09-06',booking_time:'10:00:00',duration_minutes:60,status:'confirmed',provider_note:'Исходная заметка '+name}));
     var bookingSourceItems=()=>allBookings,bookingStatus=()=> 'Подтверждена',bookingStatusClass=()=> 'confirmed';
-    var clientMessageButtonMarkup=()=>'',bookingOutcome=()=>({}),bookingMinuteRate=()=>0,bookingSessionTotal=()=>0,applyClientHighlightClasses=()=>{},resetServicePublicCardPhotoPreview=()=>{};
+    var clientMessageButtonMarkup=()=>'',providerConversationButtonMarkup=()=>'',bookingOutcome=()=>({}),bookingMinuteRate=()=>0,bookingSessionTotal=()=>0,applyClientHighlightClasses=()=>{},resetServicePublicCardPhotoPreview=()=>{};
     var effects=[],gates=[];
     var renderBookingData=()=>effects.push({kind:'render-list'});
     var notify=text=>effects.push({kind:'notify',text});
