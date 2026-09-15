@@ -26,10 +26,12 @@ try{
   fixture.date=(await admin.query("select current_setting('v123.date') value")).rows[0].value;
   const conversation=randomUUID(),participant=randomUUID();
   await admin.query(`insert into public.message_center_settings_v162(organization_id,support_enabled,updated_by)
-    values($1,true,$2); insert into public.message_conversations_v162(id,conversation_kind,organization_id,subject)
-    values($3,'support',$1,'v162 concurrency'); insert into public.message_participants_v162
-    (id,conversation_id,participant_kind,user_id,participant_role) values($4,$3,'support_user',$2,'support')`,
-    [fixture.org,fixture.actor,conversation,participant]);
+    values($1,true,$2)`,[fixture.org,fixture.actor]);
+  await admin.query(`insert into public.message_conversations_v162(id,conversation_kind,organization_id,subject)
+    values($1,'support',$2,'v162 concurrency')`,[conversation,fixture.org]);
+  await admin.query(`insert into public.message_participants_v162
+    (id,conversation_id,participant_kind,user_id,participant_role) values($1,$2,'support_user',$3,'support')`,
+    [participant,conversation,fixture.actor]);
   const account=randomUUID(),clientConversation=randomUUID(),clientParticipant=randomUUID(),providerParticipant=randomUUID();
   const actionMessage=randomUUID(),action=randomUUID(),sessionToken=randomBytes(32).toString('hex');
   fixture.account=account;fixture.sessionToken=sessionToken;
@@ -41,20 +43,19 @@ try{
   await admin.query('update public.bookings set organization_id=$2,location_id=$3,client_account_id=$4,client_phone=$5 where id=$1',
     [fixture.booking,fixture.org,fixture.loc,account,'79990000160']);
   await admin.query(`insert into public.client_identity_sessions_v155(client_account_id,token_hash,session_scope,session_source,expires_at)
-    values($1,$2,'account','legacy_upgrade',now()+interval '1 day');
-    insert into public.message_conversations_v162(id,conversation_kind,organization_id,primary_booking_id,client_account_id,next_sequence)
-    values($3,'client',$4,$5,$1,1);
-    insert into public.message_participants_v162(id,conversation_id,participant_kind,client_account_id,participant_role)
-    values($6,$3,'client_account',$1,'client');
-    insert into public.message_participants_v162(id,conversation_id,participant_kind,user_id,participant_role)
-    values($7,$3,'organization_user',$8,'specialist');
-    insert into public.conversation_messages_v162(id,conversation_id,sequence,sender_participant_id,message_kind,client_request_id,payload_sha256)
-    values($9,$3,1,$7,'action',$10,$11);
-    insert into public.conversation_message_actions_v162(id,conversation_id,message_id,booking_id,action_type,public_payload,expected_booking_sha256,expires_at)
-    select $12,$3,$9,$5,'propose_time',jsonb_build_object('target_date',$13::date,'target_time','11:00'),
-      public.minuta_message_booking_sha256_v162(booking),now()+interval '1 day' from public.bookings booking where booking.id=$5`,
-    [account,sha256(sessionToken),clientConversation,fixture.org,fixture.booking,clientParticipant,providerParticipant,
-      fixture.actor,actionMessage,randomUUID(),sha256('action'),action,fixture.date]);
+    values($1,$2,'account','legacy_upgrade',now()+interval '1 day')`,[account,sha256(sessionToken)]);
+  await admin.query(`insert into public.message_conversations_v162(id,conversation_kind,organization_id,primary_booking_id,client_account_id,next_sequence)
+    values($1,'client',$2,$3,$4,1)`,[clientConversation,fixture.org,fixture.booking,account]);
+  await admin.query(`insert into public.message_participants_v162(id,conversation_id,participant_kind,client_account_id,participant_role)
+    values($1,$2,'client_account',$3,'client')`,[clientParticipant,clientConversation,account]);
+  await admin.query(`insert into public.message_participants_v162(id,conversation_id,participant_kind,user_id,participant_role)
+    values($1,$2,'organization_user',$3,'specialist')`,[providerParticipant,clientConversation,fixture.actor]);
+  await admin.query(`insert into public.conversation_messages_v162(id,conversation_id,sequence,sender_participant_id,message_kind,client_request_id,payload_sha256)
+    values($1,$2,1,$3,'action',$4,$5)`,[actionMessage,clientConversation,providerParticipant,randomUUID(),sha256('action')]);
+  await admin.query(`insert into public.conversation_message_actions_v162(id,conversation_id,message_id,booking_id,action_type,public_payload,expected_booking_sha256,expires_at)
+    select $1,$2,$3,$4,'propose_time',jsonb_build_object('target_date',$5::date,'target_time','11:00'),
+      public.minuta_message_booking_sha256_v162(booking),now()+interval '1 day' from public.bookings booking where booking.id=$4`,
+    [action,clientConversation,actionMessage,fixture.booking,fixture.date]);
   fixture.action=action;
   const otherCode=(await admin.query('select public.provider_book_appointment($1,$2,$3,$4,$5) code',
     [fixture.service,fixture.date,'12:00','V162 same-account isolation','0000000000'])).rows[0].code;
@@ -90,11 +91,11 @@ try{
   for(const c of clients){try{await c.query('rollback');await c.query('reset role');}catch{}}
   if(fixture?.actor){
     await admin.query('begin');await admin.query('set local session_replication_role=replica');
-    await admin.query(`delete from public.message_audit_events_v162 where organization_id=$1;
-      delete from public.message_idempotency_receipts_v162 where actor_key=$2;
-      delete from public.message_idempotency_receipts_v162 where actor_key like 'client-session:%' and response->>'action_id'=$3;
-      delete from public.message_conversations_v162 where organization_id=$1;
-      delete from public.message_center_settings_v162 where organization_id=$1`,[fixture.org,`support:${fixture.actor}`,fixture.action]);
+    await admin.query('delete from public.message_audit_events_v162 where organization_id=$1',[fixture.org]);
+    await admin.query('delete from public.message_idempotency_receipts_v162 where actor_key=$1',[`support:${fixture.actor}`]);
+    await admin.query("delete from public.message_idempotency_receipts_v162 where actor_key like 'client-session:%' and response->>'action_id'=$1",[fixture.action]);
+    await admin.query('delete from public.message_conversations_v162 where organization_id=$1',[fixture.org]);
+    await admin.query('delete from public.message_center_settings_v162 where organization_id=$1',[fixture.org]);
     await admin.query('delete from public.client_identity_sessions_v155 where token_hash=$1',[sha256(fixture.sessionToken)]);
     await admin.query("select set_config('v162.cleanup_actor',$1,true),set_config('v162.cleanup_org',$2,true)",[fixture.actor,fixture.org]);
     await admin.query(`do $$ declare item record;v_actor uuid:=current_setting('v162.cleanup_actor')::uuid;
