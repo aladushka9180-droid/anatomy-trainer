@@ -16,7 +16,7 @@ declare
   owner_id uuid:=gen_random_uuid(); organization_id uuid:=gen_random_uuid(); location_id uuid:=gen_random_uuid();
   primary_service_id uuid:=gen_random_uuid(); addon_service_id uuid:=gen_random_uuid(); source_id uuid:=gen_random_uuid();
   warehouse_id uuid:=gen_random_uuid(); material_id uuid:=gen_random_uuid();
-  phone text:='79'||translate(substr(md5(owner_id::text),1,9),'abcdef','012345');
+  phone text:='79990000001';
 begin
   insert into pg_temp.v164_fixture values(owner_id,organization_id,location_id,primary_service_id,addon_service_id,source_id,warehouse_id,material_id,phone);
 
