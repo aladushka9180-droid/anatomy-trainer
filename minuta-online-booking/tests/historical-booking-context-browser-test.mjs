@@ -16,6 +16,7 @@ function declaration(name){
   assert.ok(end>start,`Actual function end ${name}`);return source.slice(start,end);
 }
 function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf('\n});',start);assert.ok(start>=0&&end>start);return source.slice(start,end+4);}
+function listenerContaining(prefix,marker){const markerAt=source.indexOf(marker),start=source.lastIndexOf(prefix,markerAt),end=source.indexOf('\n});',markerAt);assert.ok(markerAt>=0&&start>=0&&end>markerAt);return source.slice(start,end+4);}
 const functions=['openNewBookingSheet','openTimelineBookingAtTime','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','loadNewBookingSlots','renderNewBookingTimePicker','newBookingPreferredUnavailableMarkup','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeSlots','bookingRemainingTimeMarkup','activateBookingRemainingTimeScroll','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
   'renderNewBookingOutsideSchedulePrompt','newBookingOutsideScheduleLabel',
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingHistoricalPayment','newBookingHistoricalCalculatedAmount','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService','normalizedOutcomePaymentMethod',
@@ -35,7 +36,7 @@ const opening=source.match(/^\$\('#newBookingButton'\)\.addEventListener\('click
 const metadataDependencies = source.includes('// Background replay') ? source.slice(source.indexOf('// Background replay'), source.indexOf('// Local completion ownership')) : '';
 const loader=[metadataDependencies,constants,bookingGridConstant,revisions,operations,...functions.map(declaration),opening,
   listener("document.addEventListener('click', async event => {"),
-  listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
+  listenerContaining("document.addEventListener('keydown', event => {","const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
 const ids={booking:'11111111-1111-4111-8111-111111111111',service:'22222222-2222-4222-8222-222222222222'};
 const origin='https://historical-context.test/';
 const expectMinimalBookingForm=process.env.MINUTA_EXPECT_PREVIOUS!=='1';
@@ -112,6 +113,7 @@ async function fixture(){
     var readProviderBookingAttempt=()=>null;
     var newBookingTime='',newBookingSlots=[],newBookingHour='',newBookingPreferredTime='',newBookingSlotsRequestId=0,newBookingHistoricalMode=false,newBookingOutsideSchedule=false,newBookingMode='client';
     var PER_MINUTE_BOOKING_MIN=1,PER_MINUTE_BOOKING_MAX=480,serviceDurationDefaults={},serviceScheduleNames={},SCHEDULE_BLOCK_PHONE='0000000000',gestureClickSuppressedUntil=0;
+    var trapPortfolioActionFocus=()=>false;
     var ownServices=[{id:ids.service,active:true,name:'Тестовая услуга',duration_minutes:60,price_rub:1000}],scheduleRows=[];
     var allBookings=[],clientNotes=new Map(),pendingClientNotes=new Map(),bookingColors=new Map(),pendingBookingColors=new Set(),clientFixtures=[];
     var newBookingClientSuggestionMap=new Map(),newBookingClientSuggestionTimer=null,newBookingAutoFilledPhone='',newBookingAutoFilledName='',newBookingClientBaseTitle='Новая запись',newBookingClientBaseSubtitle='Только необходимое для записи';

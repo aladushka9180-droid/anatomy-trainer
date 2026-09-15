@@ -24,6 +24,13 @@ function listener(startText) {
   assert.ok(start >= 0 && end > start, 'Actual production listener missing');
   return source.slice(start, end + 4);
 }
+function listenerContaining(startText, marker) {
+  const markerAt = source.indexOf(marker);
+  const start = source.lastIndexOf(startText, markerAt);
+  const end = source.indexOf('\n});', markerAt);
+  assert.ok(markerAt >= 0 && start >= 0 && end > markerAt, 'Actual production listener missing');
+  return source.slice(start, end + 4);
+}
 const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'renderBookingEditTimePicker', 'bookingQuickTimeSlots', 'bookingExactTimeMarkup', 'closeBookingSheet',
   'providerRescheduleRpcMissing', 'providerRescheduleErrorMessage', 'updateBookingAtExpectedStateLegacy', 'updateBookingAtExpectedState', 'bookingMoveTimeIsPast', 'updateBookingMovePreview', 'blockDurationChoices',
   'sessionIsCurrent', 'requireWrites', 'providerAssistantIsoDate', 'isScheduleBlock', 'bookingDateLabel', 'escapeHtml',
@@ -53,7 +60,10 @@ const loader = [metadataDependencies,lifecycle, resetHooks, orgHook, colorConsta
   declaration('saveBookingColor').replace('function saveBookingColor(', 'function actualSaveBookingColor('),
   declaration('saveBookingNote').replace('function saveBookingNote(', 'function actualSaveBookingNote('),
   listener("document.addEventListener('click', async event => {"),
-  listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
+  listenerContaining(
+    "document.addEventListener('keydown', event => {",
+    "const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');",
+  )].join('\n');
 const ids = { A:'11111111-1111-4111-8111-111111111111', B:'22222222-2222-4222-8222-222222222222', block:'66666666-6666-4666-8666-666666666666',
   service:'33333333-3333-4333-8333-333333333333', seriesA:'44444444-4444-4444-8444-444444444444', seriesB:'55555555-5555-4555-8555-555555555555' };
 const reply = { data:{ series_id:ids.seriesA, action:'reschedule', scope:'following', affected_count:1,
@@ -94,7 +104,7 @@ async function fixture(holdAt = '') {
     var ids=${JSON.stringify(ids)}, responseFixture=${JSON.stringify(reply)}, holdAt=${JSON.stringify(holdAt)};
     var currentUser={id:'same-provider'}, sessionGeneration=7, activeClientOrganizationId='org-A';
     var bookingEditTime='', bookingEditSlots=[], bookingEditHour='', editingOfflineBookingId='', newBookingHistoricalMode=false;
-    var gestureClickSuppressedUntil=0, writesAllowed=true;
+    var gestureClickSuppressedUntil=0, writesAllowed=true, trapPortfolioActionFocus=()=>false;
     var freeSlotsController={invalidateScope(){}}, providerReadFetch={cancelPendingReads(){}};
     var SCHEDULE_BLOCK_PHONE='0000000000', bookingColors=new Map(), bookingNotes=new Map(), bookingOutcomes=new Map();
     var pendingBookingColors=new Set(), pendingBookingNotes=new Set(), pendingClientNotes=new Map();
@@ -106,7 +116,7 @@ async function fixture(holdAt = '') {
     allBookings.push({id:ids.block,series_id:null,service_id:ids.service,services:ownServices[0],duration_minutes:60,
       organization_id:'org-A',location_id:'location-A',booking_date:'2099-09-05',booking_time:'10:00:00',status:'confirmed',client_name:'Перерыв',client_phone:SCHEDULE_BLOCK_PHONE});
     var $=selector=>document.querySelector(selector), $$=selector=>[...document.querySelectorAll(selector)];
-    var businessTodayIso=()=> '2099-09-04', scheduleStepForDate=()=>5, applyClientHighlightClasses=()=>{};
+    var businessTodayIso=()=> '2099-09-04', scheduleStepForDate=()=>5, applyClientHighlightClasses=()=>{}, resetServicePublicCardPhotoPreview=()=>{};
     var effects=[], gates=[], slotCalls=[], notices=[];
     var boundary=(kind,value)=>{effects.push({kind});return kind===holdAt
       ?new Promise((resolve,reject)=>gates.push({kind,resolve:override=>resolve(override===undefined?value:override),reject})):Promise.resolve(value);};

@@ -5,7 +5,9 @@ import test from 'node:test';
 
 // Actual slot-controller function, synthetic duration-aware server boundary.
 // This diagnoses the short-block UI contract, not concurrent PostgreSQL behavior.
-const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8');
+const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
+const declaration=name=>{const from=source.search(new RegExp(`^function ${name}\\(`,'m')),to=source.indexOf('\n}',from);assert.ok(from>=0&&to>from,`Actual ${name}`);return source.slice(from,to+2);};
+const gridHelpers=`${source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0]||''}\n${declaration('isNewBookingGridTime')}\n${declaration('newBookingGridSlots')}`;
 const start=source.indexOf('async function loadNewBookingSlots()');
 const end=source.indexOf('function renderNewBookingTimePicker(',start);
 assert.ok(start>=0&&end>start);
@@ -22,7 +24,7 @@ async function fixture(serviceDuration){
   activeProviderBlockContext:()=>({organizationId:'organization',locationId:'location'}),
   db:{rpc:async(name,args)=>{assert.equal(name,'get_provider_block_slots_v141');calls.push(args);return {data:[{booking_time:'10:00:00'}],error:null};}},
   getProviderAvailableSlots:async()=>{throw Error(`legacy service-duration RPC called for ${serviceDuration}`);}};
- vm.createContext(sandbox);vm.runInContext(source.slice(start,end),sandbox);await sandbox.loadNewBookingSlots();return {sandbox,calls};
+ vm.createContext(sandbox);vm.runInContext(`${gridHelpers}\n${source.slice(start,end)}`,sandbox);await sandbox.loadNewBookingSlots();return {sandbox,calls};
 }
 test('control: fifteen-minute block offered when service also fits twenty-minute gap',async()=>{
  const f=await fixture(15);assert.equal(f.sandbox.newBookingTime,'10:00');
@@ -44,7 +46,7 @@ test('late response for an old service and date cannot replace the selected 18:0
   renderNewBookingOutsideSchedulePrompt(){},renderNewBookingTimePicker(){},updateNewBookingDurationControl(){},updateNewBookingSubmitCaption(){},updateNewBookingConnectivity(){},clearFormError(){},synchronizeProvider(){},
   loadAutomaticBookingBreaks:async()=>({ok:true}),
   getProviderAvailableSlots:args=>new Promise(resolve=>pending.push({args,resolve})),db:{rpc:async()=>({data:[],error:null})}};
- vm.createContext(sandbox);vm.runInContext(source.slice(start,end),sandbox);
+ vm.createContext(sandbox);vm.runInContext(`${gridHelpers}\n${source.slice(start,end)}`,sandbox);
  const oldRequest=sandbox.loadNewBookingSlots();
  fields['#newBookingService'].value='service-b';fields['#newBookingDate'].value='2027-01-05';
  const currentRequest=sandbox.loadNewBookingSlots();

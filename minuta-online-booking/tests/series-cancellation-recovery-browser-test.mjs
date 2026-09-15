@@ -26,12 +26,22 @@ function listener(startText, from = 0) {
   assert.ok(end > start, 'Missing listener end');
   return source.slice(start, end + 4);
 }
+function listenerContaining(startText, marker) {
+  const markerAt = source.indexOf(marker);
+  const start = source.lastIndexOf(startText, markerAt);
+  const end = source.indexOf('\n});', markerAt);
+  assert.ok(markerAt >= 0 && start >= 0 && end > markerAt, `Missing production listener containing ${marker}`);
+  return source.slice(start, end + 4);
+}
 const functions = ['openBookingSeriesCancellation', 'cancelBookingSeries', 'closeBookingSheet',
   'sessionIsCurrent', 'requireWrites', 'applyWriteAvailability', 'bookingOutcome',
   'actionableSeriesBookings', 'seriesBookingCountLabel', 'bookingSeriesScopeMarkup',
   'seriesRpcErrorMessage', 'showFormError', 'clearFormError', 'escapeHtml'];
 const click = listener("document.addEventListener('click', async event => {");
-const escape = listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');");
+const escape = listenerContaining(
+  "document.addEventListener('keydown', event => {",
+  "const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');",
+);
 const resetPrefix = "window.addEventListener('minuta:provider-session-reset'";
 const resetHooks = [...source.matchAll(/window\.addEventListener\('minuta:provider-session-reset'/g)]
   .map(match => listener(resetPrefix, match.index));
@@ -97,13 +107,13 @@ async function fixture() {
   await page.addScriptTag({ content:`
     var currentUser={id:'same-provider'}, sessionGeneration=7, activeClientOrganizationId='org-A';
     ${revisionDeclaration}
-    var gestureClickSuppressedUntil=0, writesAllowed=true;
+    var gestureClickSuppressedUntil=0, writesAllowed=true, trapPortfolioActionFocus=()=>false;
     var bookingCreationReady=false, editingOfflineBookingId='', newBookingHistoricalMode=false;
     var bookingIds=${JSON.stringify(ids)}, seriesIds=${JSON.stringify(series)};
     var bookingOutcomes=new Map(), allBookings=['A','B'].map(label=>({id:bookingIds[label],series_id:seriesIds[label],
       series_occurrence:1,booking_series:{occurrence_count:1},booking_date:'2099-09-05',booking_time:'10:00:00',status:'confirmed'}));
     var $=selector=>document.querySelector(selector), $$=selector=>[...document.querySelectorAll(selector)];
-    var businessTodayIso=()=> '2099-09-05', uiIcon=()=>'', applyClientHighlightClasses=()=>{}, updateScheduleSaveState=()=>{};
+    var businessTodayIso=()=> '2099-09-05', uiIcon=()=>'', applyClientHighlightClasses=()=>{}, resetServicePublicCardPhotoPreview=()=>{}, updateScheduleSaveState=()=>{};
     var resetEffects=[], providerReadFetch={cancelPendingReads(){resetEffects.push('reads');}}, REPORT_DEMO_SLUG='demo';
     var freeSlotsController={invalidateScope(){resetEffects.push('free-slots');}};
     var calls=[], notices=[], telegram=[], refreshes=0, holds=[], refreshHolds=[], holdRefresh=false;

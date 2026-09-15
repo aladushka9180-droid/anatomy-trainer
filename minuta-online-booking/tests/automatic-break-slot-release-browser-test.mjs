@@ -3,7 +3,14 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-const source = readFileSync(new URL('../provider.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../provider.js', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
+const declaration = name => {
+  const start = source.search(new RegExp(`^function ${name}\\(`, 'm'));
+  const end = source.indexOf('\n}', start);
+  assert.ok(start >= 0 && end > start, `actual ${name}`);
+  return source.slice(start, end + 2);
+};
+const gridHelpers = `${source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0] || ''}\n${declaration('isNewBookingGridTime')}\n${declaration('newBookingGridSlots')}`;
 const placementStart = source.indexOf('function bookingPlacementIssue(');
 const placementEnd = source.indexOf('function clearTimelineBookingUndo(', placementStart);
 const slotsStart = source.indexOf('async function loadNewBookingSlots()');
@@ -22,7 +29,7 @@ const minutesFromTime = value => {
   return hours * 60 + minutes;
 };
 
-async function slotFixture(serverSlots, remainingBreaks = []) {
+async function slotFixture(serverSlots, remainingBreaks = [], preferredTime = '15:45') {
   const fields = {
     '#newBookingService': { value:'service' },
     '#newBookingDate': { value:'2027-01-04' },
@@ -36,7 +43,7 @@ async function slotFixture(serverSlots, remainingBreaks = []) {
     $:selector => fields[selector],
     newBookingMode:'client',
     newBookingHistoricalMode:false,
-    newBookingPreferredTime:'15:45',
+    newBookingPreferredTime:preferredTime,
     newBookingSlots:[],
     newBookingTime:'',
     newBookingHour:'',
@@ -81,19 +88,19 @@ async function slotFixture(serverSlots, remainingBreaks = []) {
   };
   vm.createContext(sandbox);
   vm.runInContext(source.slice(placementStart, placementEnd), sandbox);
-  vm.runInContext(source.slice(slotsStart, slotsEnd), sandbox);
+  vm.runInContext(`${gridHelpers}\n${source.slice(slotsStart, slotsEnd)}`, sandbox);
   await sandbox.loadNewBookingSlots();
   return sandbox;
 }
 
-test('server-authorized slot inside a released automatic buffer remains selectable', async () => {
-  const sandbox = await slotFixture(['15:45:00']);
-  assert.deepEqual([...sandbox.newBookingSlots], ['15:45']);
-  assert.equal(sandbox.newBookingTime, '15:45');
+test('server-authorized half-hour slot inside a released automatic buffer remains selectable', async () => {
+  const sandbox = await slotFixture(['16:00:00'], [], '16:00');
+  assert.deepEqual([...sandbox.newBookingSlots], ['16:00']);
+  assert.equal(sandbox.newBookingTime, '16:00');
 });
 
 test('a stale server slot that overlaps the real booking remains rejected locally', async () => {
-  const sandbox = await slotFixture(['15:20:00']);
+  const sandbox = await slotFixture(['15:30:00']);
   assert.deepEqual([...sandbox.newBookingSlots], []);
 });
 

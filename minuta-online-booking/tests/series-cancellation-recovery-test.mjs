@@ -71,7 +71,8 @@ function harness() {
     showFormError:(selector, message) => effects.push(['error', selector, message]),
     notifyTelegramClient:(id, status) => effects.push(['clientNotification', id, status]),
     refreshAfterWrite:async () => { effects.push(['refresh']); },
-    notify:message => effects.push(['toast', message]), seriesBookingCountLabel:String
+    notify:message => effects.push(['toast', message]), seriesBookingCountLabel:String,
+    resetServicePublicCardPhotoPreview(){}
   });
   vm.runInContext(`${revisionDeclaration}\n${resetHook}\n${orgHook}\n${controller}`, context);
   const open = (id = 'A') => { context.openBookingSeriesCancellation(ids[id]); return nodes['#bookingSeriesCancelForm']; };

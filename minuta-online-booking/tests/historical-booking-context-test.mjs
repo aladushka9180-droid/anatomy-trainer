@@ -90,7 +90,7 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false, note 
     newBookingDurationMinutes:() => 60, businessTodayIso:() => '2026-09-06',
     minutesFromTime:time => Number(time.slice(0, 2)) * 60 + Number(time.slice(3)),
     bookingPlacementIssue:() => '', organizationController:{ getActiveOrganization:() => ({ id:orgId }) },
-    applyClientHighlightClasses(){},
+    applyClientHighlightClasses(){}, resetServicePublicCardPhotoPreview(){},
     sessionStorage:{ removeItem:key => { effects.push(['clearDraft', key]); storage.delete(key); } },
     selectScheduleDate:date => { state.selectedDate = date; effects.push(['selectDate', date]); },
     refreshAfterWrite:async () => { effects.push(['refresh', state.currentUser.id]); return deferRefresh ? refresh : true; },

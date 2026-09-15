@@ -21,6 +21,10 @@ function listener(prefix){
   const start=source.indexOf(prefix),end=source.indexOf('\n});',start);
   assert.ok(start>=0&&end>start,`Missing actual listener ${prefix}`);return source.slice(start,end+4);
 }
+function listenerContaining(prefix, marker){
+  const markerAt=source.indexOf(marker),start=source.lastIndexOf(prefix,markerAt),end=source.indexOf('\n});',markerAt);
+  assert.ok(markerAt>=0&&start>=0&&end>markerAt,`Missing actual listener containing ${marker}`);return source.slice(start,end+4);
+}
 const constants=source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];
 assert.ok(constants,'Actual color definitions');
 const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision','portfolioEditorRevision'].map(name=>
@@ -42,7 +46,7 @@ const metadataDependencies = source.includes('// Background replay') ? source.sl
 const loader=[metadataDependencies,constants,revisions,resets,orgHook,operations,...functions.map(declaration),
   listener("document.addEventListener('change', async event => {"),
   listener("document.addEventListener('click', async event => {"),
-  listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
+  listenerContaining("document.addEventListener('keydown', event => {","const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
 const ids={A:'11111111-1111-4111-8111-111111111111',B:'22222222-2222-4222-8222-222222222222'};
 const origin='https://metadata-context.test/';
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
@@ -73,12 +77,13 @@ async function fixture(){
     var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
     var freeSlotsController={invalidateScope(){}},providerReadFetch={cancelPendingReads(){}};
     var gestureClickSuppressedUntil=0,writesAllowed=true,editingOfflineBookingId='',newBookingHistoricalMode=false;
+    var trapPortfolioActionFocus=()=>false;
     var SCHEDULE_BLOCK_PHONE='0000000000';
     var bookingColors=new Map(),pendingBookingColors=new Set(),bookingNotes=new Map(),pendingBookingNotes=new Set(),clientNotes=new Map();
     var allBookings=['A','B'].map(name=>({id:ids[name],client_name:'Перерыв '+name,client_phone:SCHEDULE_BLOCK_PHONE,
       booking_date:'2099-09-06',booking_time:'10:00:00',duration_minutes:60,status:'confirmed',provider_note:'Исходная заметка '+name}));
     var bookingSourceItems=()=>allBookings,bookingStatus=()=> 'Подтверждена',bookingStatusClass=()=> 'confirmed';
-    var clientMessageButtonMarkup=()=>'',bookingOutcome=()=>({}),bookingMinuteRate=()=>0,bookingSessionTotal=()=>0,applyClientHighlightClasses=()=>{};
+    var clientMessageButtonMarkup=()=>'',bookingOutcome=()=>({}),bookingMinuteRate=()=>0,bookingSessionTotal=()=>0,applyClientHighlightClasses=()=>{},resetServicePublicCardPhotoPreview=()=>{};
     var effects=[],gates=[];
     var renderBookingData=()=>effects.push({kind:'render-list'});
     var notify=text=>effects.push({kind:'notify',text});

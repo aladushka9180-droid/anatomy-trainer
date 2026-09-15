@@ -110,6 +110,7 @@ function harness(pendingStage = null) {
     selectScheduleDate:date => effects.push(['selectDate', date]),
     refreshAfterWrite:() => stage('refresh', null),
     notify:message => effects.push(['toast', message]), seriesBookingCountLabel:String,
+    resetServicePublicCardPhotoPreview(){},
     openBookingSheet:id => {
       effects.push(['openBookingSheet', id]);
       // Presentation boundary mirrors only the visible identity change at the

@@ -14,6 +14,9 @@ function declaration(name) {
 }
 
 const controller = [
+  source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0] || '',
+  declaration('isNewBookingGridTime'),
+  declaration('newBookingGridSlots'),
   declaration('bookingPlacementIssue'),
   declaration('loadNewBookingSlots'),
   declaration('newBookingPreferredUnavailableMarkup')
@@ -108,10 +111,10 @@ const bookingAt1500 = [{
   duration_minutes:40, status:'confirmed', client_phone:'79990000000'
 }];
 
-test('released automatic break keeps the server-confirmed 15:45 slot after refresh', async () => {
-  const result = await fixture({ serverSlots:['15:45:00', '16:40:00'], segments:[], bookings:bookingAt1500 });
-  assert.deepEqual([...result.sandbox.newBookingSlots], ['15:45', '16:40']);
-  assert.equal(result.sandbox.newBookingTime, '15:45');
+test('released automatic break keeps server-confirmed half-hour slots after refresh', async () => {
+  const result = await fixture({ serverSlots:['16:00:00', '16:30:00'], segments:[], bookings:bookingAt1500, preferred:'16:00' });
+  assert.deepEqual([...result.sandbox.newBookingSlots], ['16:00', '16:30']);
+  assert.equal(result.sandbox.newBookingTime, '16:00');
   assert.equal(result.warning(), '');
   assert.equal(result.automaticBreakRefreshes, 1);
   assert.equal(result.pickerRendered, 1);
@@ -119,21 +122,22 @@ test('released automatic break keeps the server-confirmed 15:45 slot after refre
 
 test('an unreleased server break remains forbidden with the exact interval', async () => {
   const result = await fixture({
-    serverSlots:['16:40:00'],
+    serverSlots:['17:00:00'],
     segments:[{ start_time:'15:40:00', end_time:'16:40:00' }],
-    bookings:bookingAt1500
+    bookings:bookingAt1500,
+    preferred:'16:00'
   });
-  assert.deepEqual([...result.sandbox.newBookingSlots], ['16:40']);
+  assert.deepEqual([...result.sandbox.newBookingSlots], ['17:00']);
   assert.match(result.warning(), /15:40–16:40 действует перерыв: автоматический буфер/);
 });
 
 test('a real booking overlap remains forbidden with the conflicting start time', async () => {
-  const result = await fixture({ serverSlots:['16:40:00'], segments:[], bookings:bookingAt1500, preferred:'15:20' });
+  const result = await fixture({ serverSlots:['17:00:00'], segments:[], bookings:bookingAt1500, preferred:'15:30' });
   assert.match(result.warning(), /В 15:00 уже есть запись/);
 });
 
 test('a service that extends beyond the workday remains forbidden with the duration reason', async () => {
-  const result = await fixture({ serverSlots:['15:30:00'], segments:[], preferred:'15:45', duration:30, workEnd:'16:00' });
+  const result = await fixture({ serverSlots:['15:00:00'], segments:[], preferred:'15:30', duration:60, workEnd:'16:00' });
   assert.match(result.warning(), /Запись должна оставаться в пределах рабочего дня/);
 });
 
