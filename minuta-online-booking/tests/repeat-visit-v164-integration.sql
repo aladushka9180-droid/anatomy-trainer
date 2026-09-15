@@ -84,7 +84,7 @@ select pg_temp.v164_assert((select count(*)=1 from public.bookings where request
   and booking_policy_snapshot->>'repeat_source_id'=(select source_id::text from pg_temp.v164_fixture)),'booking_exact');
 select pg_temp.v164_assert((select count(*)=2 and sum(price_rub)=3700 from public.booking_session_items
   where booking_id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid),'session_exact');
-select pg_temp.v164_assert((select booking_policy_snapshot->'repeat_materials'->0->>'quantity'='3' from public.bookings
+select pg_temp.v164_assert((select (booking_policy_snapshot->'repeat_materials'->0->>'quantity')::numeric=3 from public.bookings
   where id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid),'material_snapshot_exact');
 
 update public.booking_session_items set price_rub=3100 where booking_id=(select source_id from pg_temp.v164_fixture) and item_kind='primary';
