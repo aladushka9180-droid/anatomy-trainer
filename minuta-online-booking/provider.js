@@ -452,6 +452,7 @@ let newBookingModeState = {
   client:{ serviceId:'', durationMinutes:60 },
   block:{ durationMinutes:60 }
 };
+let newBookingRepeatVisit = null;
 let recentlyCreatedBookingId = '';
 let recentlyCreatedBookingTimer = null;
 let scheduleRows = [];
@@ -848,7 +849,7 @@ function readProviderBookingAttempt(userId = currentUser?.id) {
     const attempt = JSON.parse(sessionStorage.getItem(providerBookingAttemptKey(userId)) || 'null');
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(attempt?.requestId || ''))
       || !/^[0-9a-f]{64}$/i.test(String(attempt?.fingerprint || ''))
-      || attempt?.surface !== 'new-booking') return null;
+      || !['new-booking','repeat-booking'].includes(attempt?.surface)) return null;
     return {
       requestId:attempt.requestId,
       fingerprint:attempt.fingerprint,
@@ -889,7 +890,11 @@ async function providerBookingFingerprint(payload) {
     normalizePhone(payload.phone),
     Number(payload.durationMinutes || 0),
     String(payload.note || '').trim(),
-    String(payload.color || '')
+    String(payload.color || ''),
+    String(payload.repeatSourceId || ''),
+    String(payload.repeatSourceSignature || ''),
+    Number(payload.repeatTotalPrice || 0),
+    String(payload.repeatComment || '').trim()
   ]);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
@@ -898,12 +903,13 @@ function providerBookingDefiniteRejection(error) {
   const code = String(error?.code || '');
   const message = String(error?.message || '');
   if (code === '23P01') return true;
-  if (code === '42501') return ['authentication_required', 'provider_service_access_denied'].includes(message);
-  if (code === '22023') return ['provider_request_id_required', 'request_id_required', 'invalid_booking_data', 'invalid_client_data'].includes(message);
+  if (code === '42501') return ['authentication_required', 'provider_service_access_denied', 'repeat_source_access_denied'].includes(message);
+  if (code === '22023') return ['provider_request_id_required', 'request_id_required', 'invalid_booking_data', 'invalid_client_data', 'invalid_repeat_booking', 'invalid_repeat_price', 'invalid_repeat_comment'].includes(message);
   return code === 'P0001' && [
     'request_conflict', 'invalid_booking_data', 'invalid_client_data', 'service_unavailable',
     'slot_unavailable', 'resource_unavailable', 'booking_buffer_conflict',
-    'booking_organization_required', 'booking_location_unavailable', 'booking_performer_unavailable'
+    'booking_organization_required', 'booking_location_unavailable', 'booking_performer_unavailable',
+    'repeat_source_unavailable', 'repeat_source_changed', 'repeat_service_unavailable', 'repeat_material_unavailable'
   ].includes(message);
 }
 function providerBookingReplyIsValid(data, requestId) {
@@ -953,12 +959,24 @@ async function submitProviderBookingAttempt(payload) {
     };
     let reply;
     try {
-      reply = await db.rpc('provider_book_appointment', { p_request_id:attempt.requestId, ...params });
+      reply = payload.repeatSourceId
+        ? await db.rpc('provider_repeat_appointment_v164', {
+          p_request_id:attempt.requestId,
+          p_source_booking:payload.repeatSourceId,
+          p_source_signature:payload.repeatSourceSignature,
+          p_date:payload.date,
+          p_time:`${String(payload.time).slice(0, 5)}:00`,
+          p_client_name:String(payload.name || '').trim(),
+          p_client_phone:String(payload.phone || '').trim(),
+          p_total_price_rub:payload.repeatTotalPrice,
+          p_comment:String(payload.repeatComment || '').trim()
+        })
+        : await db.rpc('provider_book_appointment', { p_request_id:attempt.requestId, ...params });
     } catch (error) {
       reply = { data:null, error };
     }
     if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true, attempt };
-    if (isMissingProviderBookingRequestRpc(reply?.error)) {
+    if (!payload.repeatSourceId && isMissingProviderBookingRequestRpc(reply?.error)) {
       // The legacy function has no request identity. Persist the one-shot latch
       // before the call so a lost response or tab crash can never auto-repeat it.
       attempt = { ...attempt, legacyFallback:true, legacyUncertain:true };
@@ -5047,6 +5065,7 @@ function reportExportEnd(item, duration) {
 }
 function reportExportSource(item) {
   const source = String(item.booking_source || '').toLowerCase();
+  if (item.booking_policy_snapshot?.repeat_source_id) return 'Повторная запись мастером';
   if (source === 'client_online') return 'Онлайн';
   if (source === 'admin_manual') return 'Администратор';
   if (source === 'provider_repeat') return 'Повторная запись мастером';
@@ -8860,6 +8879,7 @@ function selectedNewBookingService() {
 
 function newBookingDurationMinutes() {
   if (newBookingMode === 'block') return Number($('#newBookingBlockDuration')?.value || 60);
+  if (newBookingRepeatVisit) return Math.max(1, Number(newBookingRepeatVisit.duration_minutes || 0));
   const service = selectedNewBookingService();
   if (!service) return 0;
   return Number(service.duration_minutes) === 1
@@ -10467,7 +10487,7 @@ function updateNewBookingHeading() {
 }
 
 function setNewBookingMode(mode) {
-  const nextMode = mode === 'block' ? 'block' : 'client';
+  const nextMode = !newBookingRepeatVisit && mode === 'block' ? 'block' : 'client';
   const previousMode = newBookingMode;
   if (previousMode === 'client') {
     newBookingModeState.client.serviceId = $('#newBookingService')?.value || newBookingModeState.client.serviceId;
@@ -10499,9 +10519,9 @@ function setNewBookingMode(mode) {
   $('#newBookingBlockNoteField').hidden = !block;
   const locationField = $('#newBookingLocationField');
   if (locationField) locationField.hidden = !block || activeProviderBlockContext($('#newBookingLocation')?.value || '').locations.length <= 1;
-  $('#newBookingAdvancedSummary').textContent = block ? 'Заметка и цвет' : 'Заметка, цвет и серия';
+  $('#newBookingAdvancedSummary').textContent = block ? 'Заметка и цвет' : newBookingRepeatVisit ? 'Заметка клиента и цвет' : 'Заметка, цвет и серия';
   const recurrence = $('#newBookingRecurrence');
-  if (recurrence) recurrence.hidden = block;
+  if (recurrence) recurrence.hidden = block || Boolean(newBookingRepeatVisit);
   updateNewBookingHeading();
   $('#newBookingSectionTitle').textContent = block ? 'Перерыв' : 'Клиент и услуга';
   $('#newBookingSectionSubtitle').textContent = block ? 'Название, длительность и время' : newBookingClientBaseSubtitle;
@@ -10510,8 +10530,9 @@ function setNewBookingMode(mode) {
   const serviceSelect = $('#newBookingService');
   const selectedService = newBookingModeState.client.serviceId || serviceSelect.value;
   serviceSelect.innerHTML = serviceOptions(selectedService, true) || '<option value="">Нет активных услуг</option>';
-  serviceSelect.closest('label').hidden = block;
+  serviceSelect.closest('label').hidden = block || Boolean(newBookingRepeatVisit);
   serviceSelect.required = !block;
+  serviceSelect.disabled = Boolean(newBookingRepeatVisit);
   if (!block && selectedService) serviceSelect.value = selectedService;
   if ($('#newBookingBlockDurationField')) $('#newBookingBlockDurationField').hidden = !block;
   if ($('#newBookingBlockDuration')) $('#newBookingBlockDuration').value = String(newBookingModeState.block.durationMinutes || 60);
@@ -10523,11 +10544,66 @@ function setNewBookingMode(mode) {
   loadNewBookingSlots();
 }
 
+function normalizeRepeatVisitPreview(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const items = Array.isArray(value.items) ? value.items.map(entry => ({
+    kind:entry?.kind === 'primary' ? 'primary' : 'addon',
+    service_id:String(entry?.service_id || ''),
+    title:String(entry?.title || '').trim().slice(0, 120),
+    duration_minutes:Math.round(Number(entry?.duration_minutes || 0)),
+    price_rub:Math.round(Number(entry?.price_rub || 0)),
+    extends_duration:entry?.kind === 'primary' ? true : Boolean(entry?.extends_duration)
+  })) : [];
+  const materials = Array.isArray(value.materials) ? value.materials.map(entry => ({
+    inventory_item_id:String(entry?.inventory_item_id || ''),
+    name:String(entry?.name || '').trim().slice(0, 120),
+    unit:String(entry?.unit || '').trim().slice(0, 30),
+    quantity:Number(entry?.quantity || 0)
+  })) : [];
+  const primary = items.find(entry => entry.kind === 'primary');
+  const duration = Math.round(Number(value.duration_minutes || 0));
+  const price = Math.round(Number(value.total_price_rub || 0));
+  if (!/^[0-9a-f-]{36}$/i.test(String(value.source_booking_id || ''))
+    || !/^[0-9a-f]{64}$/i.test(String(value.source_signature || ''))
+    || !primary?.service_id || items.length > 20 || duration < 1 || duration > 480
+    || price < 0 || price > 10000000
+    || items.some(entry => !entry.title || entry.duration_minutes < 0 || entry.duration_minutes > 480 || entry.price_rub < 0 || entry.price_rub > 1000000)
+    || materials.some(entry => !entry.inventory_item_id || !entry.name || !(entry.quantity > 0))) return null;
+  return {
+    source_booking_id:String(value.source_booking_id),
+    source_signature:String(value.source_signature),
+    client_name:String(value.client_name || '').trim().slice(0, 80),
+    client_phone:String(value.client_phone || '').trim().slice(0, 40),
+    primary_service_id:primary.service_id,
+    duration_minutes:duration,
+    total_price_rub:price,
+    comment:String(value.comment || '').trim().slice(0, 1000),
+    items,
+    materials
+  };
+}
+
+function repeatVisitPreviewMarkup(repeat) {
+  if (!repeat) return '';
+  const addonTotal = repeat.items.filter(entry => entry.kind === 'addon').reduce((sum, entry) => sum + entry.price_rub, 0);
+  const services = repeat.items.map(entry => `<div class="repeat-visit-row"><span><strong>${escapeHtml(entry.title)}</strong><small>${entry.kind === 'primary' ? 'Основная услуга' : entry.extends_duration ? `Дополнительно · +${entry.duration_minutes} мин` : 'Дополнительно · без увеличения времени'}</small></span><b>${money(entry.price_rub)}</b></div>`).join('');
+  const materials = repeat.materials.length
+    ? repeat.materials.map(entry => `<li><span>${escapeHtml(entry.name)}</span><b>${escapeHtml(new Intl.NumberFormat('ru-RU', { maximumFractionDigits:3 }).format(entry.quantity))} ${escapeHtml(entry.unit)}</b></li>`).join('')
+    : '<li class="repeat-visit-empty">Для услуг не заданы нормы расхода</li>';
+  return `<section class="repeat-visit-preview" id="repeatVisitPreview" aria-labelledby="repeatVisitPreviewTitle">
+    <div class="repeat-visit-heading"><div><small>Копия исходного визита</small><strong id="repeatVisitPreviewTitle">${repeat.items.length} ${repeat.items.length === 1 ? 'услуга' : repeat.items.length < 5 ? 'услуги' : 'услуг'} · ${repeat.duration_minutes} мин</strong></div><span>Проверим ещё раз при создании</span></div>
+    <div class="repeat-visit-services">${services}</div>
+    <details class="repeat-visit-materials" ${repeat.materials.length ? 'open' : ''}><summary>Материалы <small>${repeat.materials.length ? `${repeat.materials.length} поз.` : 'нет норм'}</small></summary><ul>${materials}</ul><p>Количество сохранено из исходного визита; остаток проверится при завершении новой записи.</p></details>
+    <div class="repeat-visit-fields"><label>Итоговая цена, ₽<input id="repeatVisitTotalPrice" type="number" inputmode="numeric" min="${addonTotal}" max="${Math.min(10000000, addonTotal + 1000000)}" step="1" value="${repeat.total_price_rub}" required></label><label>Комментарий к визиту<textarea id="repeatVisitComment" maxlength="1000" rows="3" placeholder="Комментарий из исходного визита">${escapeHtml(repeat.comment)}</textarea></label></div>
+  </section>`;
+}
+
 function openNewBookingSheet(preferredTime = '', preset = {}) {
   if (bookingUsesDemoData()) { notify('Демо-записи доступны только для просмотра'); return; }
   delete $('#bookingSheet').dataset.bookingId;
   $('#bookingSheet').dataset.assistantContext = 'new-booking';
   const services = ownServices.filter(item => item.active);
+  newBookingRepeatVisit = normalizeRepeatVisitPreview(preset.repeatVisit);
   const draft = preset.clientName ? null : readNewBookingDraft();
   const blockContext = activeProviderBlockContext(draft?.locationId || '');
   const selectedService = services.find(item => item.id === (preset.serviceId || draft?.serviceId)) || services[0];
@@ -10566,6 +10642,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
           <details class="new-booking-block-fields new-booking-block-title" id="newBookingBlockFields" hidden><summary><span id="newBookingBlockTitleSummary">Добавить название</span></summary><label><span class="sr-only">Название перерыва</span><input id="newBookingBlockTitle" maxlength="80" placeholder="Например, обед или личное дело"></label></details>
           <label class="new-booking-service-field"><span class="sr-only" id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
           <p class="booking-time-warning" id="newBookingClientServiceUnavailable" ${services.length ? 'hidden' : ''}>Для записи клиента сначала добавьте активную услугу. Занять время можно уже сейчас.</p>
+          ${repeatVisitPreviewMarkup(newBookingRepeatVisit)}
           <label id="newBookingBlockDurationField" hidden>Длительность<select id="newBookingBlockDuration">${blockDurationChoices(60)}</select></label>
           <div class="new-booking-minute-duration" id="newBookingDurationField" hidden>
             <div class="new-booking-minute-heading"><label for="newBookingDuration">Длительность, минут</label><strong id="newBookingDurationSummary" role="status" aria-live="polite"></strong></div>
@@ -10627,6 +10704,13 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingInterval').value = String(draft?.interval || '1');
   const draftColor = $(`[name="newBookingColor"][value="${CSS.escape(String(preset.color || draft?.color || BOOKING_COLOR_DEFAULT))}"]`);
   if (draftColor) draftColor.checked = true;
+  if (newBookingRepeatVisit) {
+    $('#newBookingModeToggle').hidden = true;
+    $('#newBookingService').disabled = true;
+    $('#newBookingService').closest('label').hidden = true;
+    $('#newBookingRecurrence').hidden = true;
+    $('#newBookingAdvancedSummary').textContent = 'Заметка клиента и цвет';
+  }
   $('#newBookingContactPicker')?.addEventListener('click', chooseNewBookingContact);
   $('#newBookingRecentCalls')?.addEventListener('click', chooseNewBookingRecentCall);
   refreshNewBookingContactPicker();
@@ -10707,19 +10791,47 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   }, 0);
 }
 
-function openRepeatBookingFromSheet(id) {
+async function openRepeatBookingFromSheet(id) {
   if (!requireBookingWrites()) return;
   const item = allBookings.find(booking => booking.id === id);
   if (!item || isScheduleBlock(item)) return;
-  if (!ownServices.some(service => service.id === item.service_id && service.active)) {
-    notify('Эта услуга сейчас отключена. Сначала включите её в разделе «Услуги».');
+  if (!navigator.onLine) {
+    notify('Для полного повтора нужно подключение: перед созданием проверим услуги, материалы и цену.');
+    return;
+  }
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const organizationId = activeClientOrganizationId;
+  await loadOwnServices({ silent:true });
+  if (!sessionIsCurrent(userId, generation) || activeClientOrganizationId !== organizationId) return;
+  const { data, error } = await db.rpc('get_provider_repeat_visit_v164', { p_booking:id });
+  if (!sessionIsCurrent(userId, generation) || activeClientOrganizationId !== organizationId) return;
+  if (error) {
+    const reason = String(error.message || '');
+    notify(reason.includes('repeat_service_unavailable')
+      ? 'Одна из услуг исходного визита отключена. Обновите состав и повторите.'
+      : reason.includes('repeat_material_unavailable')
+        ? 'Один из материалов исходного визита больше недоступен. Обновите нормы расхода.'
+        : /get_provider_repeat_visit_v164|schema cache|could not find/i.test(reason)
+          ? 'Полный повтор визита ещё не установлен на сервере.'
+          : 'Не удалось заново проверить исходный визит. Обновите журнал и повторите.');
+    return;
+  }
+  const repeatVisit = normalizeRepeatVisitPreview(data);
+  if (!repeatVisit) {
+    notify('Сервер вернул неполный состав визита. Запись не создавалась.');
+    return;
+  }
+  if (!ownServices.some(service => service.id === repeatVisit.primary_service_id && service.active)) {
+    notify('Основная услуга исходного визита больше недоступна. Обновите состав и повторите.');
     return;
   }
   openNewBookingSheet('', {
-    clientName: item.client_name,
-    clientPhone: item.client_phone,
-    serviceId: item.service_id,
-    durationMinutes:item.duration_minutes
+    clientName:repeatVisit.client_name || item.client_name,
+    clientPhone:repeatVisit.client_phone || item.client_phone,
+    serviceId:repeatVisit.primary_service_id,
+    durationMinutes:repeatVisit.duration_minutes,
+    repeatVisit
   });
 }
 
@@ -10801,6 +10913,7 @@ async function createNewBooking(event) {
   if (!requireBookingWrites()) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
+  const repeatVisit = newBookingRepeatVisit;
   const block = newBookingMode === 'block';
   const name = block ? ($('#newBookingBlockTitle').value.trim() || 'Перерыв') : $('#newBookingName').value.trim();
   const phone = block ? SCHEDULE_BLOCK_PHONE : $('#newBookingPhone').value.trim();
@@ -10819,6 +10932,9 @@ async function createNewBooking(event) {
     : 'cash';
   const historicalAmountValue = $('#newBookingHistoricalAmount')?.value ?? '';
   const historicalAmount = historicalPaymentMethod === 'unpaid' ? 0 : historicalAmountValue === '' ? Number.NaN : Math.round(Number(historicalAmountValue));
+  const repeatTotalPrice = repeatVisit ? Math.round(Number($('#repeatVisitTotalPrice')?.value)) : 0;
+  const repeatComment = repeatVisit ? String($('#repeatVisitComment')?.value || '').trim() : '';
+  const repeatAddonTotal = repeatVisit ? repeatVisit.items.filter(entry => entry.kind === 'addon').reduce((sum, entry) => sum + entry.price_rub, 0) : 0;
   if (historical && (submittedForm !== $('#newBookingForm') || $('#bookingSheet').hidden)) return;
   const validationError = name.length < 2
     ? (block ? 'Укажите название перерыва.' : 'Укажите имя клиента.')
@@ -10836,6 +10952,8 @@ async function createNewBooking(event) {
               ? 'Выберите начало получасового интервала.'
             : historical && (!Number.isInteger(historicalAmount) || historicalAmount < 0 || historicalAmount > 1000000)
               ? 'Укажите полученную сумму от 0 до 1 000 000 ₽.'
+            : repeatVisit && (!Number.isInteger(repeatTotalPrice) || repeatTotalPrice < repeatAddonTotal || repeatTotalPrice > Math.min(10000000, repeatAddonTotal + 1000000))
+              ? `Укажите итоговую цену от ${money(repeatAddonTotal)} до ${money(Math.min(10000000, repeatAddonTotal + 1000000))}.`
             : '';
   if (validationError) {
     showFormError('#newBookingError', validationError);
@@ -11165,8 +11283,12 @@ async function createNewBooking(event) {
     }
   } else {
     const write = await submitProviderBookingAttempt({
-      surface:'new-booking', service, date, time:newBookingTime, name, phone,
-      durationMinutes, note, color
+      surface:repeatVisit ? 'repeat-booking' : 'new-booking', service, date, time:newBookingTime, name, phone,
+      durationMinutes, note, color,
+      repeatSourceId:repeatVisit?.source_booking_id || '',
+      repeatSourceSignature:repeatVisit?.source_signature || '',
+      repeatTotalPrice,
+      repeatComment
     });
     if (!sessionIsCurrent(userId, generation)) return;
     const recoveredLegacyBooking = !write.ok && write.legacyUncertain
@@ -11216,6 +11338,16 @@ async function createNewBooking(event) {
         ? 'Расписание изменяется в другой вкладке. Обновите журнал и повторите попытку.'
       : reason.includes('slot_unavailable') || reason.includes('booking_buffer_conflict')
       ? (reason.includes('booking_buffer_conflict') ? 'Это время попадает в перерыв до или после другой записи. Выберите другое.' : 'Это время уже занято. Выберите другое.')
+      : reason.includes('repeat_source_changed')
+        ? 'Исходный визит изменился. Закройте форму и снова нажмите «Повторить запись», чтобы увидеть свежий состав.'
+      : reason.includes('repeat_service_unavailable')
+        ? 'Одна из услуг исходного визита отключена или удалена. Обновите состав исходного визита перед повтором.'
+      : reason.includes('repeat_material_unavailable')
+        ? 'Один из материалов исходного визита больше недоступен. Обновите нормы расхода и повторите.'
+      : reason.includes('invalid_repeat_price')
+        ? 'Итоговая цена не соответствует составу визита. Проверьте сумму и повторите.'
+      : /provider_repeat_appointment_v164|schema cache|could not find/i.test(reason)
+        ? 'Сервер пока не поддерживает полный повтор визита. Обновите страницу или обратитесь к администратору.'
       : reason.includes('service_unavailable')
         ? 'Услуга недоступна для записи. Обновите список услуг.'
         : reason.includes('invalid_client_data')
@@ -11244,7 +11376,7 @@ async function createNewBooking(event) {
       return;
     }
   }
-  if (!block && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
+  if (!block && !repeatVisit && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
     const adjusted = await applyPerMinuteBookingTerms([createdBooking.id], serviceModel, durationMinutes);
     if (!adjusted.ok) {
       const rollback = await rollbackCreatedBookings([createdBooking.id]);
@@ -11303,6 +11435,7 @@ function closeBookingSheet() {
   bookingEditorRevision += 1;
   editingOfflineBookingId = '';
   newBookingHistoricalMode = false;
+  newBookingRepeatVisit = null;
   resetServicePublicCardPhotoPreview('edit');
   $('#bookingSheet').hidden = true;
   $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet', 'booking-sheet-detail');

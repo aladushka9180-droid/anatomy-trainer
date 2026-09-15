@@ -153,3 +153,33 @@ test('only one provider booking write can be in flight', async () => {
   assert.equal((await first).ok, true);
   assert.equal(calls.length, 1);
 });
+
+test('full repeat uses the dedicated atomic RPC and never falls back to the legacy booking API', async () => {
+  const calls = [];
+  const repeatPayload = Object.freeze({
+    ...payload, surface:'repeat-booking',
+    repeatSourceId:'44444444-4444-4444-8444-444444444444',
+    repeatSourceSignature:'a'.repeat(64), repeatTotalPrice:4700,
+    repeatComment:'Без масла лаванды'
+  });
+  const { box } = boxWithRpc(async (name, params) => {
+    calls.push({ name, params });
+    return successFor(params);
+  });
+  const result = await box.submitProviderBookingAttempt(repeatPayload);
+  assert.equal(result.ok, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, 'provider_repeat_appointment_v164');
+  assert.equal(calls[0].params.p_source_booking, repeatPayload.repeatSourceId);
+  assert.equal(calls[0].params.p_source_signature, repeatPayload.repeatSourceSignature);
+  assert.equal(calls[0].params.p_total_price_rub, 4700);
+  assert.equal(calls[0].params.p_comment, repeatPayload.repeatComment);
+});
+
+test('definite stale repeat refusal clears the protected request identity', async () => {
+  const repeatPayload = { ...payload, surface:'repeat-booking', repeatSourceId:'44444444-4444-4444-8444-444444444444', repeatSourceSignature:'b'.repeat(64), repeatTotalPrice:3500 };
+  const { box, sessionStorage } = boxWithRpc(async () => ({ data:null, error:{ code:'P0001', message:'repeat_source_changed' } }));
+  const result = await box.submitProviderBookingAttempt(repeatPayload);
+  assert.equal(result.definite, true);
+  assert.deepEqual([...sessionStorage.values], []);
+});

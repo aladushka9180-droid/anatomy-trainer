@@ -37,7 +37,7 @@ test('rollback removes only the new overload and preserves legacy five-argument 
 test('provider persists request identity, uses the overload, and falls back only on its exact absence', () => {
   const submit = functionBody(provider, 'submitProviderBookingAttempt', 'readConnectionLog');
   assert.ok(submit.indexOf('saveProviderBookingAttempt(attempt, userId)') < submit.indexOf("db.rpc('provider_book_appointment', { p_request_id:attempt.requestId"));
-  assert.match(submit, /if \(isMissingProviderBookingRequestRpc\(reply\?\.error\)\)/);
+  assert.match(submit, /if \(!payload\.repeatSourceId && isMissingProviderBookingRequestRpc\(reply\?\.error\)\)/);
   assert.doesNotMatch(submit, /db\.rpc\('book_appointment'/);
   assert.match(submit, /legacyFallback:true, legacyUncertain:true/);
   assert.match(submit, /if \(attempt\.legacyUncertain \|\| attempt\.legacyFallback\) return/);
