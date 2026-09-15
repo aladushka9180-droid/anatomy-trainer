@@ -153,10 +153,12 @@
 .messages-page-nav { display:flex; align-items:center; gap:8px; }
 .messages-page-nav a { min-height:42px; padding:10px 13px; border:1px solid var(--client-line,#cbd5ce); border-radius:13px; color:inherit; font-size:12px; font-weight:800; text-decoration:none; }
 .messages-page-main { max-width:1400px; margin:0 auto; padding:8px clamp(10px,4vw,34px) 30px; }
-.messages-page-access { max-width:560px; margin:8vh auto 0; padding:26px; border:1px solid var(--client-line,#cbd5ce); border-radius:22px; background:var(--client-surface,#fff); text-align:center; }
+.messages-page-access { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; max-width:560px; margin:8vh auto 0; padding:26px; border:1px solid var(--client-line,#cbd5ce); border-radius:22px; background:var(--client-surface,#fff); text-align:center; }
+.messages-page-access > :is(small,h1,p) { flex:0 0 100%; }
 .messages-page-access h1 { margin:0; font-size:30px; }
 .messages-page-access p { color:var(--client-muted,#66736b); }
 .messages-page-access a { display:inline-flex; align-items:center; min-height:44px; padding:9px 15px; border-radius:12px; background:var(--client-accent,#496d58); color:var(--client-contrast,#fff); font-weight:800; text-decoration:none; }
+.messages-page-access a + a { border:1px solid var(--client-line,#cbd5ce); background:transparent; color:var(--client-ink,#253029); }
 .messages-preview-banner { padding:8px 12px; background:#fff1c7; color:#503500; font:800 12px/1.4 system-ui,sans-serif; text-align:center; }
 
 @keyframes message-center-spin { to { transform:rotate(360deg); } }

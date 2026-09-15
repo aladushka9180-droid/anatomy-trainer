@@ -117,7 +117,7 @@
 
   function showAccess(root, message) {
     root.classList.add('message-center');
-    root.innerHTML = `<section class="message-center-access" aria-labelledby="messagesAccessTitle"><small>Личный раздел</small><h1 id="messagesAccessTitle">Сообщения</h1><p role="status">${message}</p><a class="message-center-access-primary" href="my-bookings.html">Войти через «Мои записи»</a><a href="index.html">На главную</a></section>`;
+    root.innerHTML = `<section class="messages-page-access" aria-labelledby="messagesAccessTitle"><small>Личный раздел</small><h1 id="messagesAccessTitle">Сообщения</h1><p role="status">${message}</p><a href="my-bookings.html">Войти через «Мои записи»</a><a href="index.html">На главную</a></section>`;
   }
 
   async function mount(options = {}) {
