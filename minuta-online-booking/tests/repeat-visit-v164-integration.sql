@@ -57,10 +57,11 @@ begin
   perform public.set_minuta_inventory_service_usage(organization_id,addon_service_id,material_id,1);
 end $fixture$;
 
-select set_config('minuta.v164_owner',owner_id::text,true),set_config('minuta.v164_source',source_id::text,true),
-  set_config('minuta.v164_warehouse',warehouse_id::text,true),set_config('minuta.v164_material',material_id::text,true),
-  set_config('minuta.v164_phone',phone,true)
-from pg_temp.v164_fixture;
+select set_config('minuta.v164_owner',(select owner_id::text from pg_temp.v164_fixture),true);
+select set_config('minuta.v164_source',(select source_id::text from pg_temp.v164_fixture),true);
+select set_config('minuta.v164_warehouse',(select warehouse_id::text from pg_temp.v164_fixture),true);
+select set_config('minuta.v164_material',(select material_id::text from pg_temp.v164_fixture),true);
+select set_config('minuta.v164_phone','79990000001',true);
 select set_config('request.jwt.claim.sub',current_setting('minuta.v164_owner'),true);
 set local role authenticated;
 select set_config('minuta.v164.preview',public.get_provider_repeat_visit_v164(current_setting('minuta.v164_source')::uuid)::text,true);
