@@ -102,6 +102,12 @@ select pg_temp.v164_assert((select count(*)=1 from public.bookings where request
 
 insert into public.booking_outcomes(booking_id,performer_id,visit_status,payment_method,amount_rub)
 values((current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid,(select owner_id from pg_temp.v164_fixture),'completed','cash',3700);
+select pg_temp.v164_assert((select organization_id is not null and location_id is not null from public.bookings
+  where id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid),'repeat_booking_scope');
+select pg_temp.v164_assert((select visit_status='completed' from public.booking_outcomes
+  where booking_id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid),'repeat_outcome_completed');
+select pg_temp.v164_assert((select enabled and auto_deduct_completed_visits from public.organization_inventory_settings
+  where organization_id=(select organization_id from public.bookings where id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid)),'repeat_inventory_enabled');
 select public.consume_minuta_inventory_for_booking((current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid);
 select pg_temp.v164_assert((select count(*)=1 and min(quantity_delta)=-3 and min(quantity_after)=7 from public.inventory_movements
   where booking_id=(current_setting('minuta.v164.created')::jsonb->>'booking_id')::uuid and movement_type='service_use'),'one_exact_material_movement');
