@@ -80,6 +80,7 @@ const OPTIONAL_ASSETS = [
   './finance-center.css?v=800',
   './finance-center.js?v=800',
   './finance-center-provider.js?v=800',
+  './client-records.js?v=800',
   './index.html',
   './messages.html',
   './messages-center.css?v=800',
