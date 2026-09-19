@@ -33,7 +33,7 @@ for (const view of desktopViews) {
 }
 
 assert.doesNotMatch(html, /mobile-priority-shortcuts/, 'Быстрые ссылки не должны дублировать мобильный каталог разделов');
-for (const label of ['Помощник', 'Обновить данные', 'Страница клиента']) {
+for (const label of ['Помощник', 'Открыть PrimeTime', 'Ссылка для записи', 'Поделиться', 'Обновить', 'Установить']) {
   assert.match(html, new RegExp(`<span>${label}</span>`), `В меню инструментов отсутствует видимая подпись «${label}»`);
 }
 
