@@ -2325,17 +2325,34 @@ html body.provider-body[data-provider-theme][data-provider-layout]
 
   html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip {
     justify-content:flex-start!important;
-    overflow-x:hidden!important;
-    scroll-snap-type:none!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    scroll-snap-type:x mandatory!important;
     scroll-behavior:auto!important;
-    touch-action:pan-y!important;
-    overscroll-behavior-x:contain!important;
+    touch-action:pan-x pan-y!important;
+    overscroll-behavior-x:none!important;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
   }
+
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip::-webkit-scrollbar { display:none; }
 
   html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button {
     scroll-snap-align:center;
     scroll-snap-stop:normal;
     transition:opacity .12s ease,background-color .12s ease,color .12s ease!important;
+  }
+
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip.is-swipe-scrolling>button.active:not(.is-swipe-candidate) {
+    border-color:transparent!important;
+    background:transparent!important;
+    color:var(--theme-muted)!important;
+  }
+
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.is-swipe-candidate {
+    border-color:var(--schedule-active-color)!important;
+    background:var(--schedule-active-color)!important;
+    color:var(--schedule-active-contrast)!important;
   }
 
   .provider-body #dashboard[data-active-view="bookings"] .dashboard-summary::before,

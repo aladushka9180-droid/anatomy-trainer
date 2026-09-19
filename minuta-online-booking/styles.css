@@ -8161,6 +8161,11 @@ html.provider-booting .provider-main {
 @media (max-width:760px) {
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only):has(.timeline-drag-handle) .timeline-booking-copy {
     box-sizing:border-box;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-rows:auto auto!important;
+    align-content:center!important;
+    column-gap:6px!important;
     width:100%!important;
     padding-right:clamp(35px,9vw,44px)!important;
   }
@@ -8168,9 +8173,27 @@ html.provider-booting .provider-main {
     width:100%;
     padding-right:0!important;
   }
-  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:not(.status-block) .timeline-booking-copy>strong { display:grid!important; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:4px; }
-  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .timeline-service-title { min-width:0; overflow-wrap:anywhere; }
-  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .timeline-service-duration { grid-column:2; }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-booking-copy>strong { display:contents!important; }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-service-title {
+    grid-column:1 / -1;
+    grid-row:1;
+    min-width:0;
+    overflow:visible;
+    overflow-wrap:normal;
+    text-overflow:clip;
+    white-space:nowrap;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-service-duration {
+    grid-column:2;
+    grid-row:2;
+    align-self:center;
+    margin:0;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-booking-client-row {
+    grid-column:1;
+    grid-row:2;
+    min-width:0;
+  }
 }
 
 /* На узких телефонах длинное название слегка уплотняется, не затрагивая

@@ -110,8 +110,8 @@ const server = http.createServer((request, response) => {
         assert.ok(result.previousGap >= 0, `${width}px: левая стрелка перекрывает первую дату (${result.previousGap}px)`);
         assert.ok(result.nextGap >= 0, `${width}px: правая стрелка перекрывает последнюю дату (${result.nextGap}px)`);
       } else {
-        assert.equal(result.stripOverflowX, 'hidden', `${width}px: выбранная дата может визуально уехать из фиксированного центра`);
-        assert.doesNotMatch(result.stripTouchAction, /pan-x/, `${width}px: нативная горизонтальная прокрутка конкурирует с фиксированной каруселью`);
+        assert.equal(result.stripOverflowX, 'auto', `${width}px: нативная инерция ленты дат отключена`);
+        assert.match(result.stripTouchAction, /pan-x/, `${width}px: лента дат не принимает горизонтальный жест`);
         assert.match(result.stripTouchAction, /pan-y/, `${width}px: карусель дат блокирует вертикальный скролл`);
       }
       assert.equal(result.oldControlsHidden, true, `${width}px: старые стрелки остались видимы`);
@@ -377,14 +377,16 @@ const server = http.createServer((request, response) => {
       }
     }
 
-    for (const width of [390, 760]) {
+    for (const width of [360, 390, 760]) {
       await page.setViewportSize({ width, height:900 });
-      const fixedCenterSelection = await page.evaluate(() => {
+      const fixedCenterSelection = await page.evaluate(async () => {
         selectedDate = '2026-12-29';
         renderDateStrip({ forceCenter:true, instantCenter:true });
         const strip = document.querySelector('#dateStrip');
         const originalSelect = window.selectScheduleDate;
+        let commitCount = 0;
         window.selectScheduleDate = value => {
+          commitCount += 1;
           selectedDate = value;
           renderDateStrip({ instantCenter:true });
           renderSelectedDateTitle('day');
@@ -399,39 +401,64 @@ const server = http.createServer((request, response) => {
           picker:document.querySelector('#scheduleDatePicker').value,
           centerDelta:centerDelta()
         });
-        const swipe = (startX, moves, endX) => {
+        const nativeSwipe = async dayDelta => {
+          const startCommitCount = commitCount;
+          const buttons = [...strip.querySelectorAll('[data-booking-date]')];
+          const activeIndex = buttons.findIndex(button => button.classList.contains('active'));
+          const target = buttons[activeIndex + dayDelta];
+          const viewport = strip.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
+          const targetLeft = strip.scrollLeft + (targetRect.left + targetRect.right - viewport.left - viewport.right) / 2;
           const start = new Event('touchstart', { bubbles:true, cancelable:true });
-          Object.defineProperty(start, 'touches', { value:[{ clientX:startX, clientY:20 }] });
+          Object.defineProperty(start, 'touches', { value:[{ clientX:240, clientY:20 }] });
           strip.dispatchEvent(start);
+          const inlineSnap = strip.style.getPropertyValue('scroll-snap-type');
+          const inlineSnapPriority = strip.style.getPropertyPriority('scroll-snap-type');
+          strip.style.setProperty('scroll-snap-type', 'none', 'important');
           const frames = [];
-          moves.forEach(clientX => {
+          for (const ratio of [.25,.58,1]) {
             const move = new Event('touchmove', { bubbles:true, cancelable:true });
-            Object.defineProperty(move, 'touches', { value:[{ clientX, clientY:21 }] });
+            Object.defineProperty(move, 'touches', { value:[{ clientX:240 - Math.sign(dayDelta) * 100 * ratio, clientY:21 }] });
             strip.dispatchEvent(move);
-            frames.push({ ...snapshot(), prevented:move.defaultPrevented });
-          });
+            strip.scrollLeft += (targetLeft - strip.scrollLeft) * ratio;
+            strip.dispatchEvent(new Event('scroll'));
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            frames.push({ ...snapshot(), commitCount });
+          }
+          strip.scrollLeft = targetLeft;
+          strip.dispatchEvent(new Event('scroll'));
+          if (inlineSnap) strip.style.setProperty('scroll-snap-type', inlineSnap, inlineSnapPriority);
+          else strip.style.removeProperty('scroll-snap-type');
           const end = new Event('touchend', { bubbles:true, cancelable:true });
-          Object.defineProperty(end, 'changedTouches', { value:[{ clientX:endX, clientY:22 }] });
+          Object.defineProperty(end, 'changedTouches', { value:[{ clientX:140, clientY:22 }] });
           strip.dispatchEvent(end);
-          return { frames, end:snapshot() };
+          strip.dispatchEvent(new Event('scrollend'));
+          await new Promise(resolve => setTimeout(resolve, 180));
+          return { frames, end:snapshot(), startCommitCount, commitCount };
         };
         const initial = snapshot();
-        const left = swipe(270, [220,170,120], 100);
-        const right = swipe(110, [160,210], 235);
-        const rapidLeft = swipe(270, [215,160], 130);
+        const left = await nativeSwipe(5);
+        const right = await nativeSwipe(-3);
+        const rapidLeft = await nativeSwipe(7);
         const result = {
           initial, left, right, rapidLeft,
-          diagnostics:{ media:matchMedia('(max-width: 760px)').matches, bound:strip.dataset.scrollInteractionsBound, touchAction:getComputedStyle(strip).touchAction, shiftType:typeof shiftScheduleDate }
+          diagnostics:{ media:matchMedia('(max-width: 760px)').matches, bound:strip.dataset.scrollInteractionsBound, touchAction:getComputedStyle(strip).touchAction, snap:getComputedStyle(strip).scrollSnapType, overflow:getComputedStyle(strip).overflowX }
         };
         window.selectScheduleDate = originalSelect;
         return result;
       });
-      const frames = [...fixedCenterSelection.left.frames, fixedCenterSelection.left.end, ...fixedCenterSelection.right.frames, fixedCenterSelection.right.end, ...fixedCenterSelection.rapidLeft.frames, fixedCenterSelection.rapidLeft.end];
-      assert.ok(frames.every(frame => frame.active === frame.picker), `${width}px: жест рассинхронизировал активную дату и поле: ${JSON.stringify(fixedCenterSelection)}`);
-      assert.ok(frames.every(frame => frame.centerDelta <= 1), `${width}px: выбранная дата ушла из фиксированного центра: ${JSON.stringify(fixedCenterSelection)}`);
-      assert.notEqual(fixedCenterSelection.left.end.active, fixedCenterSelection.initial.active, `${width}px: левый жест потерял все шаги: ${JSON.stringify(fixedCenterSelection)}`);
+      for (const gesture of [fixedCenterSelection.left,fixedCenterSelection.right,fixedCenterSelection.rapidLeft]) {
+        assert.ok(gesture.frames.every(frame => frame.commitCount === gesture.startCommitCount), `${width}px: инерция создаёт запросы на промежуточных датах: ${JSON.stringify(fixedCenterSelection)}`);
+        assert.ok(gesture.commitCount - gesture.startCommitCount <= 1, `${width}px: жест коммитит больше одной даты: ${JSON.stringify(fixedCenterSelection)}`);
+        assert.equal(gesture.end.active, gesture.end.picker, `${width}px: settle рассинхронизировал дату и поле: ${JSON.stringify(fixedCenterSelection)}`);
+        assert.ok(gesture.end.centerDelta <= 1, `${width}px: settle не вернул дату в центр: ${JSON.stringify(fixedCenterSelection)}`);
+      }
+      assert.ok(fixedCenterSelection.left.end.active !== fixedCenterSelection.initial.active || fixedCenterSelection.rapidLeft.end.active !== fixedCenterSelection.initial.active, `${width}px: левые жесты потеряли все шаги: ${JSON.stringify(fixedCenterSelection)}`);
       assert.notEqual(fixedCenterSelection.right.end.active, fixedCenterSelection.left.end.active, `${width}px: обратный жест не изменил дату: ${JSON.stringify(fixedCenterSelection)}`);
       assert.notEqual(fixedCenterSelection.rapidLeft.end.active, fixedCenterSelection.right.end.active, `${width}px: быстрый повторный жест потерян: ${JSON.stringify(fixedCenterSelection)}`);
+      assert.equal(fixedCenterSelection.diagnostics.overflow, 'auto', `${width}px: нет native horizontal scroll`);
+      assert.match(fixedCenterSelection.diagnostics.snap, /x mandatory/, `${width}px: нет одиночного native snap к дате`);
+      assert.match(fixedCenterSelection.diagnostics.touchAction, /pan-x/);
     }
 
     await page.emulateMedia({ reducedMotion:'reduce' });

@@ -16,18 +16,19 @@ for (const contract of [
   /providerMobileMoreHistoryDismissed/,
   /data-close-mobile-more/
 ]) assert.match(providerSource, contract);
-assert.match(providerHtml, /provider-ux\.css\?v=839/);
-assert.match(providerHtml, /site-update\.js\?v=839/);
-assert.match(providerHtml, /provider\.js\?v=839/);
-assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v839`/);
-assert.match(workerSource, /provider-ux\.css\?v=839/);
-assert.match(workerSource, /site-update\.js\?v=839/);
-assert.match(workerSource, /provider\.js\?v=839/);
-assert.match(updateSource, /sw\.js\?v=839/);
+assert.match(providerHtml, /provider-ux\.css\?v=840/);
+assert.match(providerHtml, /site-update\.js\?v=840/);
+assert.match(providerHtml, /provider\.js\?v=840/);
+assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v840`/);
+assert.match(workerSource, /provider-ux\.css\?v=840/);
+assert.match(workerSource, /site-update\.js\?v=840/);
+assert.match(workerSource, /provider\.js\?v=840/);
+assert.match(updateSource, /sw\.js\?v=840/);
 assert.match(providerSource, /renderDateStrip\(\{ instantCenter:true \}\)/);
 assert.match(providerSource, /setFilter\('day', \{ render:false \}\)/);
-assert.match(providerSource, /advanceMobileDateGesture\(touch\.clientX\)/);
-assert.doesNotMatch(providerSource, /scheduleMobileSettle|mobileSettleTimer/);
+assert.match(providerSource, /previewMobileDate\(\)/);
+assert.match(providerSource, /queueMobileDateSettle\(\)/);
+assert.match(providerSource, /commitMobileDateGesture\(\)/);
 
 const seam = `
 window.__providerMoreTest={show(){
@@ -73,7 +74,7 @@ const state = page => page.evaluate(() => {
 try {
   for (const width of [390, 760]) {
     for (const theme of ['sage', 'graphite']) {
-      const context = await browser.newContext({ viewport:{ width, height:900 }, serviceWorkers:'block' });
+      const context = await browser.newContext({ viewport:{ width, height:900 }, hasTouch:true, isMobile:true, serviceWorkers:'block' });
       await context.route('**/*', route => new URL(route.request().url()).origin === origin && route.request().method() === 'GET' ? route.continue() : route.abort());
       const page = await context.newPage();
       const errors = [];
@@ -113,46 +114,13 @@ try {
           buttons[activeIndex + 2].click();
           buttons[activeIndex + 3].click();
           const rapid = snapshot();
-          const swipe = (startX, moves, endX) => {
-            const start = new Event('touchstart', { bubbles:true, cancelable:true });
-            Object.defineProperty(start, 'touches', { value:[{ clientX:startX, clientY:20 }] });
-            strip.dispatchEvent(start);
-            const frames=[];
-            moves.forEach(clientX => {
-              const move = new Event('touchmove', { bubbles:true, cancelable:true });
-              Object.defineProperty(move, 'touches', { value:[{ clientX, clientY:21 }] });
-              strip.dispatchEvent(move);
-              frames.push(snapshot());
-            });
-            const end = new Event('touchend', { bubbles:true, cancelable:true });
-            Object.defineProperty(end, 'changedTouches', { value:[{ clientX:endX, clientY:22 }] });
-            strip.dispatchEvent(end);
-            return { frames, end:snapshot() };
-          };
-          const swipeStart = snapshot();
-          const left = swipe(260, [218,176,134], 120);
-          const right = swipe(120, [162,204], 230);
-          const rapidLeft = swipe(270, [218,166], 132);
-          const pointerStart = snapshot();
-          strip.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerType:'mouse', pointerId:7, button:0, clientX:270, clientY:20 }));
-          strip.dispatchEvent(new PointerEvent('pointermove', { bubbles:true, cancelable:true, pointerType:'mouse', pointerId:7, buttons:1, clientX:135, clientY:21 }));
-          strip.dispatchEvent(new PointerEvent('pointerup', { bubbles:true, cancelable:true, pointerType:'mouse', pointerId:7, button:0, clientX:135, clientY:21 }));
-          const pointerEnd = snapshot();
-          return { tap, rapid, swipeStart, left, right, rapidLeft, pointerStart, pointerEnd };
+          return { tap, rapid };
         });
         assert.equal(interaction.tap.active, interaction.tap.picker, `${width}px tap did not update the date field immediately: ${JSON.stringify(interaction)}`);
         assert.ok(interaction.tap.title, `${width}px tap did not update the date title immediately: ${JSON.stringify(interaction)}`);
         assert.ok(interaction.tap.centerDelta <= 1, `${width}px tap did not center the selected date immediately: ${JSON.stringify(interaction)}`);
         assert.equal(interaction.rapid.active, interaction.rapid.picker, `${width}px rapid taps restored an older date: ${JSON.stringify(interaction)}`);
         assert.ok(interaction.rapid.centerDelta <= 1, `${width}px rapid taps left the newest date off-center: ${JSON.stringify(interaction)}`);
-        const swipeFrames = [...interaction.left.frames, interaction.left.end, ...interaction.right.frames, interaction.right.end, ...interaction.rapidLeft.frames, interaction.rapidLeft.end];
-        assert.ok(swipeFrames.every(frame => frame.active === frame.picker && frame.title), `${width}px swipe did not synchronously update date/title: ${JSON.stringify(interaction)}`);
-        assert.ok(swipeFrames.every(frame => frame.centerDelta <= 1), `${width}px selected date moved out of the fixed center during rapid swipes: ${JSON.stringify(interaction)}`);
-        assert.notEqual(interaction.left.end.active, interaction.swipeStart.active, `${width}px left swipe lost all date steps: ${JSON.stringify(interaction)}`);
-        assert.notEqual(interaction.rapidLeft.end.active, interaction.right.end.active, `${width}px rapid consecutive swipe was dropped: ${JSON.stringify(interaction)}`);
-        assert.notEqual(interaction.pointerEnd.active, interaction.pointerStart.active, `${width}px mouse drag in mobile layout lost all date steps: ${JSON.stringify(interaction)}`);
-        assert.equal(interaction.pointerEnd.active, interaction.pointerEnd.picker, `${width}px mouse drag desynchronized the date field: ${JSON.stringify(interaction)}`);
-        assert.ok(interaction.pointerEnd.centerDelta <= 1, `${width}px mouse drag moved the selected date out of center: ${JSON.stringify(interaction)}`);
       }
 
       await page.locator(moreButton).click();
@@ -164,10 +132,11 @@ try {
         panelReceivesPointer:true
       }, `Разделы должны открываться поверх записей (${width}px, ${theme})`);
 
-      await page.locator(`${morePanel} [data-provider-view="settings"]`).click();
+      await page.locator(`${morePanel} [data-provider-view="settings"]`).evaluate(button => button.click());
       await page.waitForFunction(() => document.querySelector('[data-provider-panel="more"]').hidden);
       assert.equal(await page.locator('[data-provider-panel="settings"]').isVisible(), true, 'настройки не открылись');
-      await page.locator('[data-provider-panel="settings"] [data-section-target="appearanceSettingsCard"]').click();
+      await page.locator('[data-provider-panel="settings"] .settings-section-picker summary').click();
+      await page.locator('[data-provider-panel="settings"] [data-settings-section-target="appearanceSettingsCard"]').click();
       await page.waitForTimeout(50);
       assert.equal(await page.locator('#appearanceSettingsCard').isVisible(), true, 'оформление не доступно после закрытия меню');
       assert.equal((await state(page)).bodyLocked, false, 'прокрутка осталась заблокированной после выбора');

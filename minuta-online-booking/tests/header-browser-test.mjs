@@ -70,12 +70,14 @@ try{
         const rects=items.map(item=>item.getBoundingClientRect());
         const mobile=innerWidth<=760;
         if(items.length!==6)errors.push('wrong tool count');
-        if(menuRect.width>(mobile?245:253)||menuRect.height>(mobile?294:204))errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
+        if(menuRect.width>(mobile?245:269)||menuRect.height>295)errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
         if(menuRect.left<0||menuRect.right>innerWidth+1)errors.push('menu overflow');
         if(Math.abs(menuRect.right-summaryRect.right)>1)errors.push('menu is not right aligned');
         const rows=new Set(rects.map(rect=>Math.round(rect.top)));
         const columns=new Set(rects.map(rect=>Math.round(rect.left)));
-        if(mobile?(rows.size!==6||columns.size!==1):(rows.size!==4||columns.size!==2))errors.push('menu grid rhythm changed');
+        if(rows.size!==6||columns.size!==1)errors.push('tools must be one vertical list');
+        const expectedLabels=['Помощник','Открыть PrimeTime','Ссылка для записи','Поделиться','Обновить','Установить'];
+        if(items.some((item,index)=>item.textContent.trim()!==expectedLabels[index]))errors.push('tool order or label changed');
         for(let index=0;index<items.length;index++){
           const item=items[index],rect=rects[index];
           if(rect.width<44||rect.height<44)errors.push(`small menu control ${item.id}`);
@@ -83,10 +85,9 @@ try{
           if(item.scrollWidth>item.clientWidth+1)errors.push(`clipped menu label ${item.id}`);
           if(!item.getAttribute('aria-label'))errors.push(`missing menu label ${item.id}`);
           if(!item.dataset.compactLabel)errors.push(`missing compact menu label ${item.id}`);
-          if(mobile){
-            const itemStyle=getComputedStyle(item);
-            if(itemStyle.flexDirection!=='row'||itemStyle.alignItems!=='center'||itemStyle.textAlign!=='left')errors.push(`uneven mobile menu content ${item.id}`);
-          }
+          const itemStyle=getComputedStyle(item);
+          if(itemStyle.display!=='flex'||itemStyle.flexDirection!=='row'||itemStyle.alignItems!=='center'||!['flex-start','start'].includes(itemStyle.justifyContent))errors.push(`uneven menu content ${item.id} (${itemStyle.display}/${itemStyle.flexDirection}/${itemStyle.alignItems}/${itemStyle.justifyContent})`);
+          if(itemStyle.color!==getComputedStyle(document.body).color)errors.push(`foreign tool text color ${item.id}`);
         }
         for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){
           const a=rects[i],b=rects[j];

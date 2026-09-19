@@ -84,6 +84,7 @@ function timelineMarkup() {
 
     for (const theme of ['sage', 'midnight']) {
       await page.evaluate(value => { document.body.dataset.providerTheme = value; }, theme);
+      await page.waitForTimeout(250);
       const geometry = await page.evaluate(() => {
         const box = selector => document.querySelector(selector).getBoundingClientRect();
         const style = selector => getComputedStyle(document.querySelector(selector));
@@ -91,11 +92,26 @@ function timelineMarkup() {
         const workspace = box('.provider-workspace');
         const brand = box('.provider-product-signature-link');
         const active = style('.provider-nav button.active');
+        const navButton = style('.provider-nav button');
         const activeDate = style('#dateStrip>button.active');
         const booking = style('.timeline-booking:not(.status-block)');
         const breakIcon = getComputedStyle(document.querySelector('.timeline-booking.status-block .timeline-booking-copy>strong'), '::before');
         const visit = style('.timeline-client-visit');
         const name = style('.timeline-client-name');
+        const recordRect = box('.timeline-booking:not(.status-block)');
+        const breakRect = box('.timeline-booking.automatic-break');
+        const recordTime = box('.timeline-booking:not(.status-block) .timeline-booking-time');
+        const breakTime = box('.timeline-booking.automatic-break .timeline-booking-time');
+        const recordCopy = box('.timeline-booking:not(.status-block) .timeline-booking-copy');
+        const breakCopy = box('.timeline-booking.automatic-break .timeline-booking-copy');
+        const recordMeta = box('.timeline-booking-client-row');
+        const breakMeta = box('.timeline-automatic-break-source');
+        const duration = style('.timeline-service-duration');
+        const accentProbe = document.createElement('i');
+        accentProbe.style.color = 'var(--theme-accent)';
+        document.body.append(accentProbe);
+        const themeAccent = getComputedStyle(accentProbe).color;
+        accentProbe.remove();
         return {
           sidebarWidth:sidebar.width,
           sidebarRadius:style('.provider-sidebar').borderRadius,
@@ -104,6 +120,13 @@ function timelineMarkup() {
           businessDisplay:style('.provider-business-name-action').display,
           topbarHeight:box('.provider-topbar').height,
           activeBackground:active.backgroundColor,
+          themeAccent,
+          desktopAccent:getComputedStyle(document.body).getPropertyValue('--pt-desktop-accent').trim(),
+          sidebarPosition:style('.provider-sidebar').position,
+          sidebarOverflowY:style('.provider-sidebar').overflowY,
+          sidebarScrolls:document.querySelector('.provider-sidebar').scrollHeight > document.querySelector('.provider-sidebar').clientHeight + 1,
+          navFontSize:navButton.fontSize,
+          navHeight:box('.provider-nav button').height,
           activeImage:active.backgroundImage,
           activeDateBackground:activeDate.backgroundColor,
           titleBorderRadius:style('.schedule-view-title').borderRadius,
@@ -116,6 +139,13 @@ function timelineMarkup() {
           visitBorder:visit.borderTopWidth,
           visitWeight:visit.fontWeight,
           nameWeight:name.fontWeight,
+          timelineHeightDelta:Math.abs(recordRect.height-breakRect.height),
+          timeStartDelta:Math.abs(recordTime.left-breakTime.left),
+          copyStartDelta:Math.abs(recordCopy.left-breakCopy.left),
+          metaTopDelta:Math.abs((recordMeta.top-recordRect.top)-(breakMeta.top-breakRect.top)),
+          durationRadius:duration.borderRadius,
+          durationBackground:duration.backgroundColor,
+          durationColor:duration.color,
           overflow:document.documentElement.scrollWidth > innerWidth + 2
         };
       });
@@ -125,8 +155,13 @@ function timelineMarkup() {
       assert.ok(geometry.brandCenterDelta <= 1, `${theme}: PrimeTime Pro не центрирован`);
       assert.equal(geometry.businessDisplay, 'none', `${theme}: название бизнеса не убрано`);
       assert.equal(Math.round(geometry.topbarHeight), 58, `${theme}: верхняя строка некомпактна`);
-      assert.equal(geometry.activeBackground, 'rgb(18, 147, 95)', `${theme}: активное меню не сплошное зелёное`);
-      assert.equal(geometry.activeDateBackground, 'rgb(18, 147, 95)', `${theme}: дата не сплошная зелёная`);
+      assert.equal(geometry.activeBackground, geometry.themeAccent, `${theme}: активное меню не использует акцент темы (${geometry.desktopAccent})`);
+      assert.equal(geometry.activeDateBackground, geometry.themeAccent, `${theme}: дата не использует акцент темы`);
+      assert.equal(geometry.sidebarPosition, 'relative', `${theme}: сайдбар остался sticky`);
+      assert.equal(geometry.sidebarOverflowY, 'visible', `${theme}: сайдбар сохранил свою прокрутку`);
+      assert.equal(geometry.sidebarScrolls, false, `${theme}: сайдбар остался внутренне прокручиваемым`);
+      assert.equal(geometry.navFontSize, '14px', `${theme}: мелкий текст навигации`);
+      assert.ok(geometry.navHeight >= 42, `${theme}: малая строка навигации`);
       assert.equal(geometry.activeImage, 'none', `${theme}: у активного меню остался градиент`);
       assert.equal(geometry.titleBorderRadius, '0px', `${theme}: заголовок остался отдельной карточкой`);
       assert.equal(geometry.summaryBorder, '0px', `${theme}: сводка осталась плашкой`);
@@ -137,6 +172,13 @@ function timelineMarkup() {
       assert.equal(geometry.visitBackground, 'rgba(0, 0, 0, 0)', `${theme}: визит остался плашкой`);
       assert.equal(geometry.visitBorder, '0px', `${theme}: у визита осталась рамка`);
       assert.ok(Number(geometry.nameWeight) > Number(geometry.visitWeight), `${theme}: имя клиента не отделено по весу`);
+      assert.ok(geometry.timelineHeightDelta <= 1, `${theme}: высота записи и автоперерыва различается`);
+      assert.ok(geometry.timeStartDelta <= 1, `${theme}: колонки времени не совпадают`);
+      assert.ok(geometry.copyStartDelta <= 1, `${theme}: начало текста записи и автоперерыва не совпадает`);
+      assert.ok(geometry.metaTopDelta <= 2, `${theme}: вторые строки карточек не совпадают (${geometry.metaTopDelta}px)`);
+      assert.equal(geometry.durationRadius, '999px', `${theme}: длительность не оформлена как мета-плашка`);
+      assert.notEqual(geometry.durationBackground, 'rgba(0, 0, 0, 0)', `${theme}: мета-плашка без фона`);
+      if (theme === 'midnight') assert.notEqual(geometry.durationColor, 'rgb(18, 147, 95)', `${theme}: в длительность протёк старый зелёный`);
       assert.equal(geometry.overflow, false, `${theme}: горизонтальный overflow`);
       if (output) await page.screenshot({ path:path.join(output, `desktop-${theme}-1440.png`), fullPage:true });
     }

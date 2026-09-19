@@ -237,6 +237,7 @@ try {
       const timelineServiceTitleElement = timelineBooking.querySelector('.timeline-service-title');
       const timelineServiceTitle = timelineServiceTitleElement.getBoundingClientRect();
       const timelineServiceDuration = timelineBooking.querySelector('.timeline-service-duration').getBoundingClientRect();
+      const timelineClientRow = timelineBooking.querySelector('.timeline-booking-client-row').getBoundingClientRect();
       const timelineDragHandle = timelineBooking.querySelector('.timeline-drag-handle').getBoundingClientRect();
       timelineBooking.focus({ preventScroll:true });
       const timelineFocusWidth = parseFloat(getComputedStyle(timelineBooking).outlineWidth);
@@ -337,8 +338,10 @@ try {
         bookingRightInset:timelineStageRect.right - timelineBookingRect.right,
         dragHandleInside:timelineDragHandle.right <= timelineBookingRect.right + .5 && timelineDragHandle.left >= timelineBookingRect.left,
         durationTopDelta:Math.abs(timelineServiceDuration.top - timelineServiceName.top),
+        durationMetaDelta:Math.abs(timelineServiceDuration.top - timelineClientRow.top),
         durationHandleGap:timelineDragHandle.left - timelineServiceDuration.right,
         serviceTitleLineCount:timelineServiceTitle.height / parseFloat(getComputedStyle(timelineServiceTitleElement).lineHeight),
+        serviceTitleFullyVisible:timelineServiceTitleElement.scrollWidth <= timelineServiceTitleElement.clientWidth + 1,
         serviceTitleHandleGap:timelineDragHandle.left - timelineServiceTitle.right,
         breakInside:breakRect.top >= timelineStageRect.top && breakRect.bottom <= timelineStageRect.bottom,
         lastHourInside:lastHourRect.top >= timelineViewRect.top && lastHourRect.bottom <= timelineViewRect.bottom + 1,
@@ -407,8 +410,8 @@ try {
       assert.ok(result.hourStageGap >= 5, `${width}px hour label touches the timeline stage: ${JSON.stringify(result)}`);
       assert.ok(result.bookingRightInset >= 2 && result.bookingRightInset <= 5, `${width}px booking does not use the released right width: ${JSON.stringify(result)}`);
       assert.equal(result.dragHandleInside, true, `${width}px drag handle escapes the booking: ${JSON.stringify(result)}`);
-      assert.ok(result.durationTopDelta <= 2 && result.durationHandleGap >= 0, `${width}px duration is not stable on the service title row: ${JSON.stringify(result)}`);
-      if (width >= 390) assert.ok(result.serviceTitleLineCount <= 1.1 && result.serviceTitleHandleGap >= 0, `${width}px service title wraps before the real handle boundary: ${JSON.stringify(result)}`);
+      assert.ok(result.durationMetaDelta <= 2 && result.durationHandleGap >= 0, `${width}px duration is not stable on the metadata row: ${JSON.stringify(result)}`);
+      assert.ok(result.serviceTitleLineCount <= 1.1 && (width < 360 || result.serviceTitleFullyVisible) && result.serviceTitleHandleGap >= 0, `${width}px service title wraps or clips before the real handle boundary: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.focus.pickerWidth >= 2 && result.focus.pickerOffset <= -2 && result.focus.pickerRadius === result.focus.pickerBaseRadius, `${width}px date picker focus ring escapes its rounded field: ${JSON.stringify(result)}`);
       assert.ok(result.pickerInput.textAlign === 'center' && result.pickerInput.paddingRight >= 24 && result.pickerInput.paddingLeft === 0, `${width}px date text is not centered inside its own arrow-safe zone: ${JSON.stringify(result)}`);
@@ -865,7 +868,7 @@ try {
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('title'), 'Список');
   assert.equal(await page.getByRole('button', { name:'Временная лента' }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.getByRole('button', { name:'Компактный список' }).getAttribute('aria-pressed'), 'false');
-  for (const width of [390, 760, 1440]) {
+  for (const width of [360, 390, 760, 1440]) {
     await page.setViewportSize({ width, height:844 });
     const clientShareMenu = await page.evaluate(() => {
       const button = document.querySelector('#shareProviderClientPage');
@@ -884,8 +887,8 @@ try {
         overflow:document.documentElement.scrollWidth > innerWidth + 2
       };
     });
-    assert.equal(clientShareMenu.label, 'Поделиться ссылкой для записи');
-    assert.equal(clientShareMenu.pseudo, '"Поделиться ссылкой для записи"');
+    assert.equal(clientShareMenu.label, 'Ссылка для записи');
+    assert.equal(clientShareMenu.pseudo, '"Ссылка для записи"');
     assert.ok(clientShareMenu.height >= 44, `${width}px client-page share target is too small`);
     assert.ok(clientShareMenu.leftGap >= 0 && clientShareMenu.rightGap >= 0, `${width}px client-page share leaves the More menu`);
     assert.equal(clientShareMenu.overflow, false, `${width}px client-page share adds horizontal overflow`);

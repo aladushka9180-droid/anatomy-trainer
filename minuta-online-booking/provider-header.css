@@ -121,18 +121,26 @@
   top:calc(100% + 8px);
   right:0;
   display:none;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:4px;
-  width:min(252px,calc(100vw - 24px));
+  grid-template-columns:minmax(0,1fr);
+  gap:2px;
+  width:min(268px,calc(100vw - 24px));
+  max-height:calc(100vh - 96px);
   padding:6px;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
   border:1px solid var(--theme-line);
   border-radius:14px;
   background:var(--theme-surface);
   box-shadow:0 18px 44px var(--theme-shadow);
 }
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools[open]>div { display:grid; }
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar:has(.provider-topbar-tools[open]) {
+  margin-bottom:286px!important;
+}
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar .provider-topbar-tools>div :is(.voice-assistant-open,.topbar-client-link,.free-slots-open-button,.sync-tool-button,.desktop-app-install) {
   display:flex!important;
+  align-items:center!important;
   justify-content:flex-start!important;
   grid-column:auto!important;
   grid-row:auto!important;
@@ -146,8 +154,10 @@
   border-radius:10px!important;
   background:transparent!important;
   color:var(--theme-ink)!important;
-  font-size:clamp(11px,calc(11px + var(--provider-text-step,0px)),13px)!important;
+  font-size:clamp(12px,calc(12px + var(--provider-text-step,0px)),14px)!important;
+  font-weight:650!important;
   line-height:1.2!important;
+  text-align:left!important;
   text-decoration:none;
 }
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar .provider-topbar-tools>div :is(.voice-assistant-open,.topbar-client-link,.free-slots-open-button,.sync-tool-button,.desktop-app-install)>span {
@@ -171,7 +181,7 @@
   background:var(--theme-surface-alt)!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar .provider-topbar-tools>div .provider-client-share {
-  grid-column:1 / -1!important;
+  grid-column:auto!important;
 }
 
 #dashboard:not([data-active-view="bookings"]) #openFreeSlots,

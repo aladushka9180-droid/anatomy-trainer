@@ -6554,6 +6554,9 @@ function setProviderViewImmediate(view, focusHeading = false) {
   if (view === 'analytics') renderAnalytics();
   if (view === 'clients' && currentUser && navigator.onLine && !clientAvatarsLoaded) void loadClientAvatars();
   if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
+  if (view === 'settings' && !document.querySelector('.settings-nav-scroll-shell')) {
+    void loadProviderFeatureScript('settings-nav-scroll.js').then(refreshSectionNavigation).catch(() => {});
+  }
   if (view === 'feedback-inbox') void feedbackInboxController.load();
   if (view === 'portfolio' && currentUser && navigator.onLine && portfolioSyncDirty) scheduleBookingsReload('portfolio_items');
   if (view === 'waitlist') {
@@ -6985,31 +6988,54 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     let suppressClick = false;
     let touchStartX = null;
     let touchStartY = null;
-    let touchAnchorX = null;
     let touchIntent = '';
     let touchMoved = false;
-    const mobileDateStep = () => {
+    let mobileSettleTimer = 0;
+    let mobileScrollFrame = 0;
+    const nearestMobileDate = () => {
       const buttons = [...dateStrip.querySelectorAll('[data-booking-date]')];
-      const activeIndex = buttons.findIndex(button => button.classList.contains('active'));
-      const active = buttons[activeIndex];
-      const neighbor = buttons[activeIndex + 1] || buttons[activeIndex - 1];
-      if (!active || !neighbor) return 36;
-      const activeRect = active.getBoundingClientRect();
-      const neighborRect = neighbor.getBoundingClientRect();
-      const centerDistance = Math.abs((neighborRect.left + neighborRect.right - activeRect.left - activeRect.right) / 2);
-      return Math.max(30, Math.min(52, centerDistance * .72));
+      const stripRect = dateStrip.getBoundingClientRect();
+      const center = (stripRect.left + stripRect.right) / 2;
+      return buttons.reduce((closest, button) => {
+        const rect = button.getBoundingClientRect();
+        const distance = Math.abs((rect.left + rect.right) / 2 - center);
+        return !closest || distance < closest.distance ? { button, distance } : closest;
+      }, null)?.button || null;
     };
-    const advanceMobileDateGesture = clientX => {
-      if (!Number.isFinite(clientX) || touchAnchorX === null) return 0;
-      const delta = clientX - touchAnchorX;
-      const step = mobileDateStep();
-      const count = Math.trunc(Math.abs(delta) / step);
-      if (!count) return 0;
-      const direction = delta < 0 ? 1 : -1;
-      touchAnchorX += (delta < 0 ? -1 : 1) * count * step;
-      shiftScheduleDate(direction * count);
-      touchMoved = true;
-      return count;
+    const previewMobileDate = () => {
+      if (!window.matchMedia('(max-width: 760px)').matches) return null;
+      const candidate = nearestMobileDate();
+      dateStrip.classList.toggle('is-swipe-scrolling', Boolean(candidate));
+      dateStrip.querySelectorAll('.is-swipe-candidate').forEach(button => button.classList.remove('is-swipe-candidate'));
+      candidate?.classList.add('is-swipe-candidate');
+      return candidate;
+    };
+    const clearMobileDatePreview = () => {
+      dateStrip.classList.remove('is-swipe-scrolling');
+      dateStrip.querySelectorAll('.is-swipe-candidate').forEach(button => button.classList.remove('is-swipe-candidate'));
+    };
+    const commitMobileDateGesture = () => {
+      if (!window.matchMedia('(max-width: 760px)').matches) return;
+      if (touchStartX !== null || dragPointerId !== null) {
+        queueMobileDateSettle();
+        return;
+      }
+      if (mobileSettleTimer) window.clearTimeout(mobileSettleTimer);
+      mobileSettleTimer = 0;
+      const candidate = previewMobileDate();
+      const nextDate = candidate?.dataset.bookingDate || '';
+      clearMobileDatePreview();
+      if (!nextDate) return;
+      if (nextDate === selectedDate) {
+        centerDateStripSelection(dateStrip, { instant:true });
+        return;
+      }
+      selectScheduleDate(nextDate);
+    };
+    const queueMobileDateSettle = () => {
+      if (!window.matchMedia('(max-width: 760px)').matches) return;
+      if (mobileSettleTimer) window.clearTimeout(mobileSettleTimer);
+      mobileSettleTimer = window.setTimeout(commitMobileDateGesture, 140);
     };
     const clampScroll = value => Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, value));
     const stopWheelAnimation = () => {
@@ -7055,13 +7081,14 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       const delta = event.clientX - dragStartX;
       if (!hasDragged && Math.abs(delta) < 4) return;
       if (window.matchMedia('(max-width: 760px)').matches) {
-        const step = mobileDateStep();
-        const count = Math.trunc(Math.abs(delta) / step);
-        if (!count) return;
-        hasDragged = true;
-        dragStartX += (delta < 0 ? -1 : 1) * count * step;
+        if (!hasDragged) {
+          hasDragged = true;
+          dateStrip.setPointerCapture?.(event.pointerId);
+          dateStrip.classList.add('is-dragging');
+        }
         event.preventDefault();
-        shiftScheduleDate(delta < 0 ? count : -count);
+        dateStrip.scrollLeft = clampScroll(dragStartScrollLeft - delta);
+        previewMobileDate();
         return;
       }
       if (!hasDragged) {
@@ -7080,7 +7107,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       dragPointerId = null;
       dateStrip.classList.remove('is-dragging');
       if (dateStrip.hasPointerCapture?.(event.pointerId)) dateStrip.releasePointerCapture(event.pointerId);
-      if (suppressClick && window.matchMedia('(max-width: 760px)').matches) centerDateStripSelection(dateStrip, { instant:true });
+      if (suppressClick && window.matchMedia('(max-width: 760px)').matches) requestAnimationFrame(commitMobileDateGesture);
     };
     dateStrip.addEventListener('pointerup', finishDrag);
     dateStrip.addEventListener('pointercancel', finishDrag);
@@ -7089,7 +7116,6 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       dateStrip.dataset.programmaticCenterUntil = '0';
       touchStartX = event.touches[0].clientX;
       touchStartY = event.touches[0].clientY;
-      touchAnchorX = touchStartX;
       touchIntent = '';
       touchMoved = false;
     }, { passive:true });
@@ -7102,32 +7128,25 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
         touchIntent = Math.abs(deltaX) > Math.abs(deltaY) * 1.15 ? 'horizontal' : 'vertical';
       }
       if (touchIntent !== 'horizontal') return;
-      event.preventDefault();
-      advanceMobileDateGesture(touch.clientX);
-    }, { passive:false });
+      touchMoved = Math.abs(deltaX) >= 8;
+      if (touchMoved) previewMobileDate();
+    }, { passive:true });
     dateStrip.addEventListener('touchend', event => {
-      const touch = event.changedTouches[0];
-      if (touchIntent === 'horizontal' && touch && !touchMoved && touchAnchorX !== null && Math.abs(touch.clientX - touchAnchorX) >= 22) {
-        shiftScheduleDate(touch.clientX < touchAnchorX ? 1 : -1);
-        touchMoved = true;
-      }
       const handled = touchIntent === 'horizontal' && touchMoved;
       touchStartX = null;
       touchStartY = null;
-      touchAnchorX = null;
       touchIntent = '';
       touchMoved = false;
       if (!handled) return;
       suppressClick = true;
-      event.preventDefault();
-      centerDateStripSelection(dateStrip, { instant:true });
-    }, { passive:false });
+      queueMobileDateSettle();
+    }, { passive:true });
     dateStrip.addEventListener('touchcancel', () => {
       touchStartX = null;
       touchStartY = null;
-      touchAnchorX = null;
       touchIntent = '';
       touchMoved = false;
+      queueMobileDateSettle();
     }, { passive:true });
     dateStrip.addEventListener('click', event => {
       if (!suppressClick) return;
@@ -7137,6 +7156,17 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     }, true);
     dateStrip.addEventListener('scroll', () => {
       if (!wheelFrame && dragPointerId === null) wheelTarget = dateStrip.scrollLeft;
+      if (!window.matchMedia('(max-width: 760px)').matches || Date.now() < Number(dateStrip.dataset.programmaticCenterUntil || 0)) return;
+      if (!mobileScrollFrame) mobileScrollFrame = requestAnimationFrame(() => {
+        mobileScrollFrame = 0;
+        previewMobileDate();
+      });
+      queueMobileDateSettle();
+    }, { passive:true });
+    dateStrip.addEventListener('scrollend', () => {
+      if (!window.matchMedia('(max-width: 760px)').matches || Date.now() < Number(dateStrip.dataset.programmaticCenterUntil || 0)) return;
+      if (touchStartX !== null || dragPointerId !== null) return;
+      commitMobileDateGesture();
     }, { passive:true });
     dateStrip.dataset.scrollInteractionsBound = 'true';
   }

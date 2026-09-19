@@ -440,9 +440,10 @@ try {
 
   await page.setViewportSize({ width:390, height:844 });
   await page.setContent(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="${fixture.url}settings-nav-scroll.css"><style>.provider-section-nav{display:flex;width:260px;overflow-x:auto;gap:8px}.provider-section-nav button{flex:0 0 112px}</style><body class="provider-body" data-tab-clicks="0"><main data-provider-panel="settings"><nav class="provider-section-nav"><button class="active" data-section-target="one">Оформление</button><button data-section-target="two">Уведомления</button><button data-section-target="three">Приложение</button><button data-section-target="four">Безопасность</button></nav></main><script>document.addEventListener('click',event=>{if(event.target.closest('[data-section-target]'))document.body.dataset.tabClicks=String(Number(document.body.dataset.tabClicks)+1)})</script><script src="${fixture.url}settings-nav-scroll.js"></script>`);
-  await page.waitForSelector('.settings-section-picker select');
-  assert.equal(await page.locator('.settings-section-picker option').count(), 4, 'Список не показывает все разделы');
-  await page.locator('.settings-section-picker select').selectOption('three');
+  await page.waitForSelector('.settings-section-picker>summary');
+  assert.equal(await page.locator('[data-settings-section-target]').count(), 4, 'Список не показывает все разделы');
+  await page.locator('.settings-section-picker>summary').click();
+  await page.locator('[data-settings-section-target="three"]').click();
   assert.equal(await page.locator('body').getAttribute('data-tab-clicks'), '1', 'Выбор не открыл нужный раздел');
   console.log('Settings and sections search browser regression: OK');
 } finally {

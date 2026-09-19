@@ -13,7 +13,7 @@ const artifactDir = process.env.SETTINGS_PICKER_ARTIFACT_DIR || '';
 try {
   const page = await browser.newPage({ viewport:{ width:390, height:844 } });
   await page.goto(fixture.url);
-  await page.locator('.settings-section-picker select').waitFor({ state:'visible' });
+  await page.locator('.settings-section-picker>summary').waitFor({ state:'visible' });
 
   await page.evaluate(() => {
     const main = document.querySelector('[data-provider-panel="settings"]');
@@ -70,7 +70,7 @@ try {
         const stuck = await picker.evaluate(element => {
           const box = element.getBoundingClientRect();
           const shell = element.parentElement;
-          const style = getComputedStyle(element);
+          const style = getComputedStyle(element.querySelector('summary'));
           return {
             top:shell.getBoundingClientRect().top,
             height:box.height,
@@ -101,21 +101,26 @@ try {
   }
 
   await page.setViewportSize({ width:390, height:844 });
-  const select = page.locator('.settings-section-picker select');
+  const summary = page.locator('.settings-section-picker>summary');
   await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus(); });
   await page.keyboard.press('Tab');
   const focus = await page.locator('.settings-section-picker').evaluate(element => {
     const style = getComputedStyle(element);
-    return { active:document.activeElement === element.querySelector('select'), outlineStyle:style.outlineStyle, outlineWidth:style.outlineWidth };
+    return { active:document.activeElement === element.querySelector('summary'), outlineStyle:getComputedStyle(element.querySelector('summary')).outlineStyle, outlineWidth:getComputedStyle(element.querySelector('summary')).outlineWidth };
   });
   assert.equal(focus.active, true, `Клавиатурный фокус не попал в селектор: ${JSON.stringify(focus)}`);
   assert.notEqual(focus.outlineStyle, 'none', `Фокус селектора не виден: ${JSON.stringify(focus)}`);
   assert.notEqual(focus.outlineWidth, '0px', `Фокус селектора не виден: ${JSON.stringify(focus)}`);
   await page.evaluate(() => document.activeElement?.blur());
-  await select.click();
-  assert.equal(await select.evaluate(element => document.activeElement === element), true, 'Нативный селектор не получает фокус по нажатию');
+  await summary.click();
+  assert.equal(await summary.evaluate(element => document.activeElement === element), true, 'Компактная строка не получает фокус по нажатию');
+  assert.equal(await page.locator('.settings-section-picker').evaluate(element => element.open), true, 'Меню не открылось по явному tap');
+  if (artifactDir) await page.screenshot({ path:path.join(artifactDir, 'settings-picker-dark-390-open.png'), fullPage:false });
   await page.keyboard.press('Escape');
-  await select.selectOption('long-section');
+  assert.equal(await page.locator('.settings-section-picker').evaluate(element => element.open), false, 'Escape не закрыл меню');
+  await summary.click();
+  await page.locator('[data-settings-section-target="long-section"]').click();
+  assert.equal(await page.locator('.settings-section-picker').evaluate(element => element.open), false, 'Выбор раздела не закрыл меню');
   await page.waitForFunction(() => document.querySelector('.settings-section-picker-current')?.textContent.startsWith('Очень длинное'));
   const longName = await page.locator('.settings-section-picker-current').evaluate(element => ({
     text:element.textContent,
@@ -131,6 +136,23 @@ try {
   assert.ok(longName.right < longName.pickerRight, `Текст перекрывает шеврон: ${JSON.stringify(longName)}`);
   assert.ok(longName.pageWidth <= longName.viewport, `Длинное название создало переполнение: ${JSON.stringify(longName)}`);
   assert.match(longName.text, /^Очень длинное название/);
+  await summary.click();
+  await page.locator('[data-test-lead]').click({ position:{ x:8, y:8 } });
+  assert.equal(await page.locator('.settings-section-picker').evaluate(element => element.open), false, 'Tap снаружи не закрыл меню');
+  await summary.click();
+  await page.evaluate(() => scrollTo(0, 120));
+  assert.equal(await page.locator('.settings-section-picker').evaluate(element => element.open), false, 'Прокрутка страницы не закрыла меню');
+  await summary.click();
+  await page.evaluate(() => dispatchEvent(new PopStateEvent('popstate')));
+  assert.equal(await page.locator('.settings-section-picker').evaluate(element => element.open), false, 'Back/popstate не закрыл меню');
+  await summary.click();
+  await page.evaluate(() => {
+    const panel = document.querySelector('[data-provider-panel="settings"]');
+    panel.hidden = true;
+    panel.classList.remove('active');
+  });
+  await page.waitForFunction(() => !document.querySelector('.settings-section-picker').open);
+  assert.equal(await page.locator('.settings-section-picker').evaluate(element => element.open), false, 'Смена экрана не закрыла меню');
 
   const fullContext = await browser.newContext({
     viewport:{ width:390, height:844 },
