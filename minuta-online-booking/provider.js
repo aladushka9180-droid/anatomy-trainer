@@ -6887,31 +6887,10 @@ function centerDateStripSelection(dateStrip, options = {}) {
   if (smooth && typeof dateStrip.scrollTo === 'function') dateStrip.scrollTo({ left:nextLeft, behavior:'smooth' });
   else {
     const inlineScrollBehavior = dateStrip.style.scrollBehavior;
-    const inlineScrollSnapType = dateStrip.style.scrollSnapType;
-    if (instant) {
-      dateStrip.getAnimations?.().forEach(animation => animation.cancel());
-      dateStrip.style.scrollSnapType = 'none';
-    }
     dateStrip.style.scrollBehavior = 'auto';
     dateStrip.scrollLeft = nextLeft;
     dateStrip.style.scrollBehavior = inlineScrollBehavior;
-    if (instant) requestAnimationFrame(() => { dateStrip.style.scrollSnapType = inlineScrollSnapType; });
   }
-}
-
-function animateMobileDateStripRecentering(dateStrip, previousDateIso, nextDateIso) {
-  if (!dateStrip || !previousDateIso || previousDateIso === nextDateIso) return;
-  if (!window.matchMedia('(max-width: 760px)').matches || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const previous = parseLocalIsoDate(previousDateIso);
-  const next = parseLocalIsoDate(nextDateIso);
-  if (!previous || !next || typeof dateStrip.animate !== 'function') return;
-  const direction = next > previous ? 1 : -1;
-  const activeWidth = dateStrip.querySelector('[data-booking-date].active')?.getBoundingClientRect().width || 52;
-  dateStrip.getAnimations?.().forEach(animation => animation.cancel());
-  dateStrip.animate([
-    { transform:`translateX(${direction * Math.min(64, activeWidth + 6)}px)`, opacity:.84 },
-    { transform:'translateX(0)', opacity:1 }
-  ], { duration:190, easing:'cubic-bezier(.22,.75,.25,1)' });
 }
 
 function bindDateStripResizeCentering(dateStrip) {
@@ -6983,7 +6962,6 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
   });
   updateDateStripEmphasis(dateStrip);
   dateStrip.dataset.selectedDate = selectedDate;
-  if (mobileCenteredRange && rebuildStrip) animateMobileDateStripRecentering(dateStrip, previousSelectedDate, selectedDate);
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
   const todayButton = $('[data-date-today]');
