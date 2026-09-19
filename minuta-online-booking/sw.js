@@ -65,7 +65,6 @@ const ASSETS = [
   './client-results.js?v=811',
   './provider-service-actions.js?v=811',
   './provider.js?v=837',
-  './provider-help-workspace.js?v=811',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=837',
 ];
@@ -80,6 +79,7 @@ const OPTIONAL_ASSETS = [
   './privacy.js?v=811',
   './settings-nav-scroll.css?v=811',
   './settings-smart-search.css?v=811',
+  './provider-help-workspace.js?v=811',
   './provider-help-workspace.css?v=811',
   './contextual-help.css?v=811',
   './settings-mobile-minimalism.css?v=811',
