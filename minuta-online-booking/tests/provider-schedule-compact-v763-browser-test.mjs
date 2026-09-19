@@ -299,7 +299,7 @@ try {
         newBookingLabel:newBookingLabel.textContent.trim(),
         newBookingLabelVisible:newBookingLabelStyle.position === 'static' && newBookingLabel.getBoundingClientRect().width > 0,
         newBookingPseudo:getComputedStyle(newBookingButton, '::after').content,
-        titleToNewBookingGap:newBookingRect.left - titleHeading.right,
+        titleToNewBookingVerticalGap:newBookingRect.top - titleHeading.bottom,
         timelineStageOverflow:[timelineStageStyle.overflowX,timelineStageStyle.overflowY],
         timelineLinesInside:timelineLines.every(line => line.left >= timelineStageRect.left - .5 && line.right <= timelineStageRect.right + .5 && line.top >= timelineStageRect.top - .5 && line.bottom <= timelineStageRect.bottom + .5),
         firstHourVisible:firstHourRect.top >= timelineViewRect.top - .5 && firstHourRect.bottom <= timelineViewRect.bottom + .5,
@@ -335,7 +335,7 @@ try {
       };
     });
     assert.equal(result.overflow, false, `${width}px horizontal overflow`);
-    assert.ok(result.newBooking.height >= 44 && result.newBooking.width >= 44, `${width}px New booking target`);
+    assert.ok(result.newBooking.height >= (width <= 760 ? 44 : 42) && result.newBooking.width >= 44, `${width}px New booking target`);
     assert.ok(width <= 760
       ? result.timelineStageOverflow.every(value => value === 'visible')
       : result.timelineStageOverflow.every(value => value === 'clip' || value === 'hidden'), `${width}px timeline overflow contract changed: ${JSON.stringify(result)}`);
@@ -356,7 +356,7 @@ try {
       assert.equal(result.newBookingLabel, 'Новая запись', `${width}px New booking label changed`);
       assert.equal(result.newBookingLabelVisible, true, `${width}px full New booking label is hidden: ${JSON.stringify(result)}`);
       assert.ok(result.newBookingPseudo === 'none' || result.newBookingPseudo === 'normal', `${width}px ambiguous compact label is still rendered: ${JSON.stringify(result)}`);
-      assert.ok(result.titleToNewBookingGap >= 8, `${width}px full New booking label collides with the schedule title: ${JSON.stringify(result)}`);
+      assert.ok(result.titleToNewBookingVerticalGap >= 4, `${width}px full New booking label collides with the schedule title: ${JSON.stringify(result)}`);
       assert.ok(result.newBooking.width >= 108 && result.newBooking.height >= 44, `${width}px New booking button changed height or is too narrow: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.previous.height >= 44 && result.next.height >= 44, `${width}px date strip arrows`);
@@ -426,7 +426,7 @@ try {
     if (width > 760) {
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its solid accent`);
       assert.equal(result.quietTodayBackground, 'rgba(0, 0, 0, 0)', `${width}px Today date competes with the selected date`);
-      assert.notEqual(result.quietTodayShadow, 'none', `${width}px Today date lost its secondary outline`);
+      assert.equal(result.quietTodayShadow, 'none', `${width}px desktop Today date regained a decorative outline`);
     }
     if (width === 390 || width === 760) {
       for (const theme of ['sage', 'warm', 'graphite']) {

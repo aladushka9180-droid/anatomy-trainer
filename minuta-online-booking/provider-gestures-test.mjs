@@ -34,7 +34,7 @@ assert.match(source, /state\.card\.closest\('#providerBookings'\)[\s\S]*schedule
 assert.match(source, /event\.target\.closest\('#providerBookings'\)/, 'свайп расписания должен оставаться на ленте записей');
 assert.doesNotMatch(source, /event\.target\.closest\('#providerBookings,#dateStrip'\)/, 'лента дат должна использовать нативную прокрутку без JS-перехвата');
 assert.match(source, /classList\.toggle\('is-today', isToday\)/, 'сегодняшняя дата должна подсвечиваться независимо от выбранной');
-assert.match(source, /rangeStart\.setDate\(rangeStart\.getDate\(\) - 28\)[\s\S]*rangeEnd\.setDate\(rangeEnd\.getDate\(\) \+ 62\)/, 'лента должна показывать даты дальше одной недели');
+assert.match(source, /rangeStart\.setDate\(rangeStart\.getDate\(\) - \(mobileCenteredRange \? 120 : 28\)\)[\s\S]*rangeEnd\.setDate\(rangeEnd\.getDate\(\) \+ \(mobileCenteredRange \? 120 : 62\)\)/, 'мобильная лента должна держать 241 дату для сильной инерционной прокрутки');
 assert.match(source, /dateStrip\.addEventListener\('wheel',[\s\S]*requestAnimationFrame\(animateWheel\)[\s\S]*passive:false/, 'колесо мыши должно плавно прокручивать даты по горизонтали');
 const pointerDownBlock = source.slice(
   source.indexOf("dateStrip.addEventListener('pointerdown'"),
