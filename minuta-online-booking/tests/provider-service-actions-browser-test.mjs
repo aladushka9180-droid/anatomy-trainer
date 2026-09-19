@@ -157,6 +157,7 @@ try {
   await summaries.first().press('Enter');
   await page.locator('.service-actions-layer [data-delete-service="first"]').waitFor({ state:'visible' });
   assert.equal(await summaries.first().getAttribute('aria-expanded'), 'true');
+  await page.waitForFunction(() => document.activeElement?.dataset.deleteService === 'first');
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.deleteService), 'first', 'Focus must move to the first action');
   await summaries.nth(1).press('Enter');
   await page.locator('.service-actions-layer [data-delete-service="middle"]').waitFor({ state:'visible' });
