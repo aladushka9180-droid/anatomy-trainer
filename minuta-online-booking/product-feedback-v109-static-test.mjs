@@ -46,7 +46,7 @@ assert.match(feedback, /db\.storage\.from\(BUCKET\)\.remove\(\[screenshotPath\]\
 assert.doesNotMatch(feedback, /navigator\.userAgent\b/);
 assert.doesNotMatch(feedback, /location\.(search|hash)/);
 
-assert.match(worker, /CACHE = `\$\{CACHE_PREFIX\}v811`/);
+assert.match(worker, /CACHE = `\$\{CACHE_PREFIX\}v\d+`/);
 assert.doesNotMatch(worker, /'\.\/provider-feedback\.js\?v=811'/,
   'Серверный центр обращений должен кэшироваться по запросу, а не задерживать установку кабинета');
 

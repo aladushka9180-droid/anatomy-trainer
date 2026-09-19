@@ -38,7 +38,8 @@ for (const theme of themes) {
   const block = css.match(new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\],\\.provider-theme-option\\.theme-${theme}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] || '';
   assert.match(block, /--theme-canvas-texture:/, `${theme}: нет фонового мотива`);
   const opacity = Number(block.match(/--theme-canvas-opacity:([.\d]+);/)?.[1]);
-  assert.ok(opacity >= .02 && opacity <= .06, `${theme}: контраст должен быть в диапазоне 2–6%, получено ${opacity}`);
+  const minimumOpacity = /--theme-canvas-texture:none/.test(block) ? 0 : .02;
+  assert.ok(opacity >= minimumOpacity && opacity <= .06, `${theme}: контраст должен быть в диапазоне ${minimumOpacity * 100}–6%, получено ${opacity}`);
 }
 
 const signatureFamilies = {
@@ -71,7 +72,9 @@ const signatures = themes.map(theme => {
     block.match(/--theme-canvas-color:([^;]+);/)?.[1],
   ].join('|');
 });
-assert.equal(new Set(signatures).size, 40, 'У каждой темы должно оставаться собственное цветовое прочтение мотива');
+const neutralThemes = themes.filter((theme, index) => signatures[index] === 'none||');
+assert.deepEqual(neutralThemes.sort(), ['noir-safari', 'sage'], 'Только темы со своим отдельным фоном могут обходиться без семейного мотива');
+assert.equal(new Set(signatures.filter(signature => signature !== 'none||')).size, 38, 'У каждой темы с семейным мотивом должно оставаться собственное цветовое прочтение');
 assert.equal((css.match(/url\("data:image\/svg\+xml/g) || []).length, 3, 'Нужно ровно три лёгкие векторные топологии');
 assert.doesNotMatch(css, /url\([^)]*\.(?:png|jpe?g|webp)/i, 'Фактурный слой не должен загружать растровые обои');
 
@@ -90,8 +93,11 @@ assert.match(css, /data-provider-theme="snow-leopard"[\s\S]*?--theme-canvas-size
 assert.match(css, /data-provider-theme="luxury"[\s\S]*?radial-gradient\(ellipse at 4% 0/);
 assert.match(css, /data-provider-theme="warm"[\s\S]*?radial-gradient\(circle at 16% 4%/);
 
-assert.match(provider, /provider-theme-families\.css\?v=819[\s\S]*?provider-theme-backgrounds-tema1\.css\?v=811/);
-assert.match(worker, /\.\/provider-theme-families\.css\?v=819/);
-assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=811/);
+const familyRelease = provider.match(/provider-theme-families\.css\?v=(\d+)/)?.[1];
+const backgroundRelease = provider.match(/provider-theme-backgrounds-tema1\.css\?v=(\d+)/)?.[1];
+assert.ok(familyRelease && backgroundRelease, 'Версии слоёв тем не определены');
+assert.match(provider, new RegExp(`provider-theme-families\\.css\\?v=${familyRelease}[\\s\\S]*?provider-theme-backgrounds-tema1\\.css\\?v=${backgroundRelease}`));
+assert.match(worker, new RegExp(`\\.\\/provider-theme-families\\.css\\?v=${familyRelease}`));
+assert.match(worker, new RegExp(`\\.\\/provider-theme-backgrounds-tema1\\.css\\?v=${backgroundRelease}`));
 
 console.log('Provider theme families v819: PASS (40 themes, 9 families).');

@@ -10,8 +10,12 @@ const providerHtml = read('./provider.html');
 const css = read('./styles.css');
 const worker = read('./sw.js');
 const release = worker.match(/CACHE_PREFIX}v(\d+)/)?.[1];
+const stylesRelease = html.match(/styles\.css\?v=(\d+)/)?.[1];
+const providerStylesRelease = providerHtml.match(/styles\.css\?v=(\d+)/)?.[1];
+const appRelease = html.match(/app\.js\?v=(\d+)/)?.[1];
+const providerRelease = providerHtml.match(/src=["']provider\.js\?v=(\d+)/)?.[1];
 
-assert.ok(release,'worker release missing');
+assert.ok(release && stylesRelease && providerStylesRelease && appRelease && providerRelease,'release versions missing');
 assert.match(app,/serviceCardHasContent/);
 assert.match(app,/void loadServiceCards\(revision\)/);
 assert.match(app,/createSignedUrl\(card\.photo_storage_path, 900\)/);
@@ -37,10 +41,7 @@ assert.equal((providerHtml.match(/data-create-service-highlight/g)||[]).length,3
 assert.match(css,/\.service-card-dialog\[open\] \{ display:grid; grid-template-rows:minmax\(0,1fr\) auto; \}/);
 assert.match(css,/padding:12px 25px calc\(12px \+ env\(safe-area-inset-bottom\)\)/);
 assert.match(css,/@media \(max-width:760px\)[\s\S]*\.service-card-dialog \{ padding:0; \}/);
-assert.match(html,new RegExp(`styles\\.css\\?v=${release}`));
-assert.match(html,new RegExp(`app\\.js\\?v=${release}`));
-assert.match(providerHtml,new RegExp(`styles\\.css\\?v=${release}`));
-assert.match(providerHtml,new RegExp(`provider\\.js\\?v=${release}`));
-assert.match(worker,new RegExp(`\\./app\\.js\\?v=${release}`));
-assert.match(worker,new RegExp(`\\./provider\\.js\\?v=${release}`));
+assert.match(worker,new RegExp(`\\./styles\\.css\\?v=${providerStylesRelease}`));
+assert.match(worker,new RegExp(`\\./app\\.js\\?v=${appRelease}`));
+assert.match(worker,new RegExp(`\\./provider\\.js\\?v=${providerRelease}`));
 console.log(`service public card UI v${release} static test passed`);

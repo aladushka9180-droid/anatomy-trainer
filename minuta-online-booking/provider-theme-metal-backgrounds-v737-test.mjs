@@ -31,7 +31,7 @@ assert.match(css, /max-width:760px[\s\S]*provider-petrol-steel-mobile-v2\.webp/)
 assert.match(css, /prefers-reduced-data:reduce/);
 assert.match(html, /provider-theme-backgrounds-tema1\.css\?v=811/);
 assert.doesNotMatch(html, /provider-theme-metal-backgrounds\.css/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v811`/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v\d+`/);
 assert.match(worker, /\.\/provider-theme-backgrounds-tema1\.css\?v=811/);
 
 console.log('Provider metal backgrounds v811: PASS');

@@ -32,8 +32,9 @@ assert.match(provider, /учтено в статистике/);
 assert.match(provider, /newBookingTime = preferredTime \|\| '';/);
 assert.match(styles, /\.new-booking-historical-payment \{/);
 assert.match(styles, /grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
-assert.match(html, /provider\.js\?v=811/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v811`/);
-assert.match(worker, /\.\/provider\.js\?v=811/);
+const providerRelease = html.match(/src=["']provider\.js\?v=(\d+)/)?.[1];
+assert.ok(providerRelease, 'provider asset version missing');
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v\d+`/);
+assert.match(worker, new RegExp(`\\.\\/provider\\.js\\?v=${providerRelease}`));
 
 console.log('Historical paid booking v145 static checks passed.');

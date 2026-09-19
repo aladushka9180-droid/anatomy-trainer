@@ -11,15 +11,16 @@ const signatureStyles = readFileSync(join(root, 'provider-themes-signature.css')
 const cacheVersion = serviceWorker.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)?.[1];
 assert.ok(cacheVersion, 'Не удалось определить текущую версию кэша');
 const version = cacheVersion;
+const referencedVersion = (source, asset) => source.match(new RegExp(`(?:src|href)=["']${asset.replaceAll('.', '\\.')}\\?v=(\\d+)`))?.[1];
 
-// Nested CSS assets must advance with the HTML and service-worker manifest too.
+// Nested CSS assets may keep their own immutable version; every local file must exist.
 for (const file of readdirSync(root).filter(name => name.endsWith('.css'))) {
   const css = readFileSync(join(root, file), 'utf8');
   for (const match of css.matchAll(/url\(\s*['"]?([^'"\s)]+)/g)) {
     const url = match[1];
     if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(url)) continue;
-    const assetVersion = url.match(/[?&]v=(\d+)(?:[&#]|$)/)?.[1];
-    if (assetVersion) assert.equal(assetVersion, version, `${file}: ${url} не совпадает с кэшем v${version}`);
+    const localPath = url.split(/[?#]/)[0];
+    assert.ok(existsSync(join(root, localPath)), `${file}: отсутствует ${localPath}`);
   }
 }
 
@@ -34,14 +35,14 @@ for (const page of pages) {
   }
   const resourceVersions = [...html.matchAll(/[?&]v=(\d+)/g)].map(match => match[1]);
   assert.ok(resourceVersions.length > 0, `${page}: нет версий локальных ресурсов`);
-  assert.ok(resourceVersions.every(value => value === version), `${page}: версии ресурсов не совпадают с кэшем v${version}`);
+  assert.ok(resourceVersions.every(value => /^\d+$/.test(value)), `${page}: найдена некорректная версия ресурса`);
 }
 
 for (const page of ['index.html', 'provider.html', 'booking.html', 'my-bookings.html']) {
   const html = readFileSync(join(root, page), 'utf8');
   assert.match(html, /vendor\/supabase-2\.112\.4\.min\.js/, `${page}: SDK Supabase не закреплён локально`);
   assert.match(html, /integrity="sha384-/, `${page}: нет контроля целостности SDK`);
-  assert.match(html, new RegExp(`reliability\\.js\\?v=${version}`), `${page}: не подключён слой надёжности`);
+  assert.match(html, /reliability\.js\?v=\d+/, `${page}: не подключён версионированный слой надёжности`);
   assert.doesNotMatch(html, /https:\/\/\*\.supabase\.co/, `${page}: CSP разрешает любой проект Supabase`);
 }
 
@@ -67,7 +68,7 @@ const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 const providerManifest = JSON.parse(readFileSync(join(root, 'provider.webmanifest'), 'utf8'));
 const serviceWorkerVersions = [...serviceWorker.matchAll(/[?&]v=(\d+)/g)].map(match => match[1]);
 assert.ok(serviceWorkerVersions.length > 0, 'Service worker не содержит версий ресурсов');
-assert.ok(serviceWorkerVersions.every(value => value === version), `Service worker содержит ресурсы не текущей версии v${version}`);
+assert.ok(serviceWorkerVersions.every(value => /^\d+$/.test(value)), 'Service worker содержит некорректную версию ресурса');
 const siteUpdate = readFileSync(join(root, 'site-update.js'), 'utf8');
 assert.match(siteUpdate, new RegExp(`sw\\.js\\?v=${version}`), 'Регистрация service worker использует другую версию');
 assert.match(settingsSmartSearch, /CABINET_SEARCH_REGISTRY_VERSION[\s\S]*CABINET_SEARCH_REGISTRY[\s\S]*cabinetSectionsSearchInput[\s\S]*findSections/, 'В меню «Разделы» нет версионированного реестра умного поиска');
@@ -237,12 +238,12 @@ assert.match(provider, /Интернет восстановлен · данны�
 assert.match(providerHtml, /id="recoverySentAddress"[\s\S]*id="retryPasswordRecovery"/, 'Восстановление пароля не объясняет доставку письма и повторную отправку');
 assert.match(providerHtml, /Отдельная оплата не требуется[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет бесплатный доступ и передачу ссылки');
 assert.match(organization, /providerInviteLink[\s\S]*navigator\.clipboard\.writeText/, 'Ссылку для сотрудника нельзя скопировать');
-assert.match(providerHtml, new RegExp(`team-calendar\\.js\\?v=${version}`), 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /team-calendar\.js\?v=\d+/, 'Кабинет не подключает версионированный контроллер командного календаря');
 for (const asset of ['resource-management.js','shift-management.js','payroll-management.js','benefit-management.js','retention-management.js']) {
   assert.match(provider, new RegExp(`script:'${asset.replace('.', '\\.')}'`), `Кабинет не подключает ${asset} по запросу`);
   assert.doesNotMatch(providerHtml, new RegExp(`<script[^>]+${asset.replace('.', '\\.')}`), `${asset} снова блокирует первый экран`);
 }
-assert.match(providerHtml, new RegExp(`booking-policy-management\\.js\\?v=${version}`), 'Кабинет не подключает правила филиалов');
+assert.match(providerHtml, /booking-policy-management\.js\?v=\d+/, 'Кабинет не подключает версионированные правила филиалов');
 for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollEndDate','payrollPlansList','payrollPeriodsList','payrollItemsList','payrollPlanForm','payrollPeriodForm','payrollAdjustmentForm','payrollAuditList']) {
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент зарплат ${id}`);
 }
@@ -318,7 +319,8 @@ assert.doesNotMatch(provider, /renderSplitBookingView|splitBookingId/, 'В ка�
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
 assert.doesNotMatch(provider.match(/function setFilter\(filter\)[\s\S]*?\n\}/)?.[0] || '', /journalMode = 'list'/, 'Возврат к фильтру «День» оставляет журнал в режиме списка');
 assert.match(provider, /if \(currentFilter === 'day' && journalMode === 'timeline'\) renderTimeline\(items\)/, 'Мобильная версия не может отрисовать временную ленту');
-assert.match(provider, /timelineFullDay[\s\S]*data-expand-timeline/, 'Длинный пустой хвост мобильной ленты нельзя свернуть и раскрыть по запросу');
+assert.match(provider, /const fullBounds = timelineBounds\(items\)/, 'Границы временной ленты не подстраиваются под рабочий день и записи');
+assert.doesNotMatch(provider, /timelineFullDay|data-expand-timeline/, 'В ленте вернулся отдельный переключатель пустого хвоста');
 assert.match(provider, /journalMode === 'timeline'/, 'Дублирующие фильтры не скрываются в режиме временной ленты');
 assert.doesNotMatch(providerHtml, /mobile-priority-shortcuts/, 'Быстрые ссылки дублируют нижнюю навигацию');
 assert.match(provider, /height < 54 \? ' compact'/, 'Записи до 45 минут снова получают переполняющийся обычный макет');
@@ -797,10 +799,10 @@ const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
 assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker не совпадает');
 for (const asset of ['styles.css', 'config.js', 'reliability.js', 'organization.js', 'team-calendar.js', 'provider.js']) {
-  assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
+  const assetVersion = referencedVersion(providerHtml, asset);
+  assert.ok(assetVersion, `Кабинет не подключает версионированный ${asset}`);
+  assert.match(worker, new RegExp(`${asset.replaceAll('.', '\\.')}\\?v=${assetVersion}`), `Service Worker не кэширует версию ${asset} из HTML`);
 }
-assert.match(providerHtml, new RegExp(`href="styles\\.css\\?v=${version}"`), 'Кабинет запрашивает CSS по адресу, которого нет в precache');
-assert.match(providerHtml, new RegExp(`src="provider\\.js\\?v=${version}"`), 'Кабинет запрашивает JavaScript по адресу, которого нет в precache');
 assert.match(worker, /'\.\/ui-icons\.svg',/, 'Service Worker не кэширует URL иконок без query для офлайн-страниц');
 assert.match(worker, /event\.request\.mode === 'navigate'/, 'Навигация не отделена от статических ресурсов');
 assert.match(worker, /key\.startsWith\(CACHE_PREFIX\)/, 'Service Worker может удалить чужие кэши');

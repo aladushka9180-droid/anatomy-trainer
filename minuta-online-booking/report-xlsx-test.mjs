@@ -10,6 +10,8 @@ const workerSource = readFileSync(join(root, 'report-worker.js'), 'utf8');
 const serviceWorkerSource = readFileSync(join(root, 'sw.js'), 'utf8');
 const version = serviceWorkerSource.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)?.[1];
 assert.ok(version, 'Не удалось определить версию отчёта');
+const workerVersion = source.match(/new Worker\('\.\/report-worker\.js\?v=(\d+)'\)/)?.[1];
+assert.ok(workerVersion, 'Не удалось определить версию worker отчёта');
 const start = source.indexOf('function reportXmlText');
 const end = source.indexOf('function exportBookingsXlsx');
 assert.ok(start >= 0 && end > start, 'Не найден генератор Excel-отчёта');
@@ -35,8 +37,7 @@ for (const name of ['[Content_Types].xml', 'xl/workbook.xml', 'xl/styles.xml', '
 }
 assert.ok(binaryText.includes('Аладушка &amp; партнёры'), 'Текст отчёта не экранирован для Excel');
 assert.match(source, /async function exportBookingsXlsxInBackground\(privacy='masked'\)/, 'Фоновый экспорт не принимает настройку приватности');
-assert.match(source, new RegExp(`new Worker\\('\\.\\/report-worker\\.js\\?v=${version}'\\)`), 'Excel-отчёт не передаётся отдельному worker текущей версии');
-assert.match(serviceWorkerSource, new RegExp(`report-worker\\.js\\?v=${version}`), 'Worker отчёта не включён в текущий PWA-кэш');
+assert.match(serviceWorkerSource, new RegExp(`report-worker\\.js\\?v=${workerVersion}`), 'Worker отчёта не включён в PWA-кэш с версией страницы');
 assert.match(source, /button\.dataset\.reportExport === 'xlsx'\) void exportBookingsXlsxInBackground\(privacy\)/, 'Кнопка отчёта не подключена к фоновому экспорту XLSX');
 assert.match(source, /exportBookingsXlsx\(privacy\)/, 'При недоступном worker нет безопасного синхронного экспорта');
 
