@@ -6920,13 +6920,41 @@ function renderDateStrip() {
   updateCalendarViewControls();
 }
 
+function bookingCountWord(count) {
+  const absolute = Math.abs(Number(count) || 0) % 100;
+  const last = absolute % 10;
+  if (absolute > 10 && absolute < 20) return 'записей';
+  if (last === 1) return 'запись';
+  if (last >= 2 && last <= 4) return 'записи';
+  return 'записей';
+}
+
+function nextBookingSummaryDate(todayIso) {
+  const [year, month, day] = String(todayIso || '').split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + 1));
+  return Number.isFinite(next.getTime()) ? next.toISOString().slice(0, 10) : '';
+}
+
+function bookingSummaryStats(items, todayIso, isBlock = isScheduleBlock) {
+  const tomorrowIso = nextBookingSummaryDate(todayIso);
+  const active = (Array.isArray(items) ? items : [])
+    .filter(item => item?.status !== 'cancelled' && !isBlock(item));
+  return {
+    todayCount:active.filter(item => item.booking_date === todayIso).length,
+    tomorrowCount:active.filter(item => item.booking_date === tomorrowIso).length,
+    upcomingCount:active.filter(item => item.booking_date >= todayIso).length
+  };
+}
+
 function updateBookingStats() {
   const today = businessTodayIso();
-  const active = bookingSourceItems().filter(item => item.status !== 'cancelled' && !isScheduleBlock(item));
-  const todayCount = active.filter(item => item.booking_date === today).length;
-  const upcomingCount = active.filter(item => item.booking_date >= today).length;
+  const { todayCount, tomorrowCount, upcomingCount } = bookingSummaryStats(bookingSourceItems(), today);
   $('#todayBookingsCount').textContent = String(todayCount);
+  $('#tomorrowBookingsCount').textContent = String(tomorrowCount);
   $('#newBookingsCount').textContent = String(upcomingCount);
+  $('#todayBookingsLabel').textContent = `${bookingCountWord(todayCount)} сегодня`;
+  $('#tomorrowBookingsLabel').textContent = `${bookingCountWord(tomorrowCount)} завтра`;
+  $('#upcomingBookingsLabel').textContent = `${bookingCountWord(upcomingCount)} впереди`;
   const sidebarBadge = $('#newBookingsBadge');
   if (sidebarBadge) {
     sidebarBadge.textContent = String(upcomingCount);
@@ -15189,11 +15217,9 @@ async function movePortfolioItem(id, direction) {
 
 function renderOwnServices() {
   const list = $('#serviceManageList');
-  const activeCount = ownServices.filter(item => item.active).length;
   refreshSettingsQuickStart();
   $('#servicesCount').textContent = String(ownServices.length);
   if ($('#servicesBadge')) $('#servicesBadge').textContent = String(ownServices.length);
-  $('#activeServicesCount').textContent = String(activeCount);
   if (!ownServices.length) {
     list.innerHTML = `<button class="provider-empty provider-empty-action" type="button" data-open-service-creator aria-label="Добавить первую услугу"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Услуг пока нет</strong><small>Нажмите здесь, чтобы добавить первую — она сразу появится у клиентов.</small></button>`;
     return;

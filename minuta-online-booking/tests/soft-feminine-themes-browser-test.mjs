@@ -60,8 +60,8 @@ try {
     document.querySelector('#todayLabel').textContent = 'Пятница, 12 сентября';
     document.querySelector('#currentTimeLabel').textContent = '14:30';
     document.querySelector('#todayBookingsCount').textContent = '4';
+    document.querySelector('#tomorrowBookingsCount').textContent = '1';
     document.querySelector('#newBookingsCount').textContent = '2';
-    document.querySelector('#activeServicesCount').textContent = '8';
     document.querySelector('#selectedDateTitle').textContent = 'Сегодня, 12 сентября';
     document.querySelector('#selectedDateSummary').textContent = '4 записи · 5 ч 30 мин';
     document.querySelector('#dateStrip').innerHTML = [10, 11, 12, 13, 14].map(day => `<button type="button" class="${day === 12 ? 'active' : ''}"><span>${day === 12 ? 'Пт' : day < 12 ? 'Ср' : 'Сб'}</span><strong>${day}</strong><small>сентября</small></button>`).join('');

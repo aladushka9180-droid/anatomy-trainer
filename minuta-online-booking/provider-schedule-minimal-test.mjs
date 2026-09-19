@@ -9,12 +9,38 @@ const styles = read('provider-schedule-minimal.css');
 const refinements = read('provider-ui-refinements.css');
 const worker = read('sw.js');
 
+const summaryHelpersStart = script.indexOf('function bookingCountWord(count)');
+const summaryHelpersEnd = script.indexOf('\nfunction updateBookingStats()', summaryHelpersStart);
+assert.ok(summaryHelpersStart >= 0 && summaryHelpersEnd > summaryHelpersStart, 'Booking summary helpers are missing');
+const summaryHelpers = new Function(`${script.slice(summaryHelpersStart, summaryHelpersEnd)}; return { bookingCountWord, bookingSummaryStats };`)();
+assert.equal(summaryHelpers.bookingCountWord(0), 'записей');
+assert.equal(summaryHelpers.bookingCountWord(1), 'запись');
+assert.equal(summaryHelpers.bookingCountWord(2), 'записи');
+assert.equal(summaryHelpers.bookingCountWord(5), 'записей');
+assert.deepEqual(
+  summaryHelpers.bookingSummaryStats([], '2026-09-30', () => false),
+  { todayCount:0, tomorrowCount:0, upcomingCount:0 }
+);
+assert.deepEqual(
+  summaryHelpers.bookingSummaryStats([
+    { booking_date:'2026-09-30', status:'confirmed' },
+    { booking_date:'2026-10-01', status:'new' },
+    { booking_date:'2026-10-01', status:'confirmed' },
+    { booking_date:'2026-10-02', status:'confirmed' },
+    { booking_date:'2026-10-01', status:'cancelled' },
+    { booking_date:'2026-10-01', status:'confirmed', block:true }
+  ], '2026-09-30', item => item.block === true),
+  { todayCount:1, tomorrowCount:2, upcomingCount:4 },
+  'Summary must follow the organization date across a month boundary and exclude cancelled records and blocks'
+);
+
 assert.match(html, /provider-schedule-minimal\.css\?v=\d+/);
 assert.match(worker, /\.\/provider-schedule-minimal\.css\?v=\d+/);
 assert.match(html, /class="date-strip-frame"[\s\S]*data-date-shift="-7"[\s\S]*id="dateStrip"[\s\S]*data-date-shift="7"/);
 assert.match(html, /class="provider-topbar-tools"[\s\S]*id="shareProviderClientPage"[\s\S]*Поделиться ссылкой для записи[\s\S]*id="openFreeSlots"[\s\S]*data-compact-label="Поделиться"/);
 assert.doesNotMatch(html, /schedule-view-title[\s\S]{0,900}id="openFreeSlots"/);
 assert.match(html, /id="newBookingButton"[^>]*aria-label="Новая запись"[^>]*data-compact-label="Новая запись"/);
+assert.match(html, /id="todayBookingsCount"[\s\S]*id="tomorrowBookingsCount"[\s\S]*id="newBookingsCount"/);
 assert.match(html, /data-journal-mode="timeline"[^>]*aria-label="Временная лента"[^>]*title="Лента"[^>]*aria-pressed="true"/);
 assert.match(html, /data-journal-mode="list"[^>]*aria-label="Компактный список"[^>]*title="Список"[^>]*aria-pressed="false"/);
 assert.match(html, /schedule-date-picker[\s\S]*ui-icons\.svg#icon-calendar[\s\S]*id="scheduleDatePicker"/);
@@ -51,7 +77,9 @@ assert.match(script, /if \(dateShift\) shiftScheduleDate\(Number\(dateShift\.dat
 assert.match(script, /activeRect\.left - stripRect\.left \+ dateStrip\.scrollLeft/);
 assert.match(script, /function updateDateStripEmphasis\(dateStrip\)[\s\S]*Math\.min\(3, Math\.abs\(index - activeIndex\)\)[\s\S]*button\.dataset\.dateDistance = String\(distance\)/s);
 assert.match(script, /button\.classList\.toggle\('active', active\)[\s\S]*updateDateStripEmphasis\(dateStrip\)/s);
-assert.match(styles, /v821: reference-led mobile schedule[\s\S]*data-date-distance="2"[\s\S]*data-date-distance="1"[\s\S]*data-date-distance="0"[\s\S]*--date-card-height:76px/s);
+assert.match(styles, /v822: reference-led mobile schedule[\s\S]*data-date-distance="2"[\s\S]*data-date-distance="1"[\s\S]*data-date-distance="0"[\s\S]*--date-card-height:70px/s);
+assert.match(styles, /v822: compose the mobile journal[\s\S]*margin:64px 12px 0!important;[\s\S]*border-radius:22px 22px 0 0!important;[\s\S]*margin:0 12px 14px!important;[\s\S]*border-radius:0 0 22px 22px!important;/s);
+assert.match(styles, /\.timeline-view\s*\{[\s\S]*padding:12px 12px max\(22px,var\(--provider-mobile-nav-clearance\)\)!important;[\s\S]*overflow:visible!important;/s);
 assert.match(styles, /provider-mobile-nav>button\.active[\s\S]*background:var\(--theme-accent-soft\)!important;[\s\S]*mobile-nav-badge[\s\S]*background:var\(--theme-accent\)!important;/s);
 assert.match(styles, /timeline-booking\.automatic-break[\s\S]*background-image:none!important;/s);
 assert.match(script, /todayButton\.classList\.toggle\('is-current', current\)[\s\S]*setAttribute\('aria-pressed', String\(current\)\)/);

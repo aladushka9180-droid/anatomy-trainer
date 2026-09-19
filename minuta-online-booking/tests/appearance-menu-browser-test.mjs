@@ -26,8 +26,8 @@ document.querySelector('#syncState').className='sync-state is-online';
 document.querySelector('#syncState span').textContent='Синхронизировано';
 document.querySelector('#syncVerifiedAt').textContent='Сверка 10.09, 14:30';
 document.querySelector('#todayBookingsCount').textContent='2';
+document.querySelector('#tomorrowBookingsCount').textContent='1';
 document.querySelector('#newBookingsCount').textContent='5';
-document.querySelector('#activeServicesCount').textContent='8';
 document.querySelector('#selectedDateTitle').textContent='Сегодня';
 document.querySelector('#selectedDateSummary').textContent='2 записи · 1 перерыв';
 document.querySelector('#desktopAppInstallButton').hidden=true;
@@ -101,7 +101,8 @@ export async function startAppearanceFixture(port=0){
 }
 
 async function run(){
-  const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
+  const playwright=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
+  const chromium=playwright.chromium||playwright.default?.chromium;
   const {server,url}=await startAppearanceFixture();
   let browser;
   try{
@@ -116,7 +117,7 @@ async function run(){
         await page.locator('#providerAppearanceMenu>summary').click();
         const result=await page.evaluate(()=>{
           const menu=document.querySelector('.provider-appearance-popover').getBoundingClientRect();
-          const bodyStyle=getComputedStyle(document.body),workspaceStyle=getComputedStyle(document.querySelector('.provider-app')),surfaceStyle=getComputedStyle(document.querySelector('.schedule-card'));
+          const bodyStyle=getComputedStyle(document.body),workspaceStyle=getComputedStyle(document.querySelector('.provider-app')),surfaceStyle=getComputedStyle(document.querySelector('.date-navigation'));
           const timelineCardStyle=getComputedStyle(document.querySelector('.timeline-booking')),timelineHeadingStyle=getComputedStyle(document.querySelector('#appearanceTimelineHeading'));
           return {
             requested:document.body.dataset.providerColorMode,resolved:document.body.dataset.providerResolvedColorMode,
@@ -135,7 +136,7 @@ async function run(){
         assert.deepEqual(result.pressed,[mode]);
         assert.ok(result.menu.left>=0&&result.menu.right<=width+1&&result.menu.bottom<=1000,'Меню оформления вышло за экран');
         assert.ok(result.scrollWidth<=width+1,'Страница получила горизонтальную прокрутку');
-        assert.notEqual(result.surfaceBackground,'rgba(0, 0, 0, 0)');
+        assert.notEqual(result.surfaceBackground,'rgba(0, 0, 0, 0)',`Visible schedule control lost its surface: ${JSON.stringify({width,mode,result})}`);
         assert.equal(result.timelineHeadingColor,result.timelineCardColor,'Название записи потеряло контраст');
         await page.keyboard.press('Escape');
         assert.equal(await page.locator('#providerAppearanceMenu').getAttribute('open'),null);

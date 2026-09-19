@@ -41,6 +41,7 @@ const server = http.createServer((request, response) => {
       document.documentElement.classList.remove('provider-booting', 'requires-top-level');
       document.querySelector('#providerBoot')?.remove();
       document.querySelector('#dashboard').hidden = false;
+      document.querySelector('#dashboard').dataset.activeView = 'bookings';
       document.body.dataset.providerTheme = 'sage';
       document.body.dataset.providerLayout = 'soft';
       document.querySelector('[data-calendar-view="day"]')?.classList.add('active');
@@ -70,6 +71,7 @@ const server = http.createServer((request, response) => {
         const navigationStyle = getComputedStyle(document.querySelector('.date-navigation'));
         const strip = document.querySelector('#dateStrip');
         const stripStyle = getComputedStyle(strip);
+        const frameStyle = getComputedStyle(document.querySelector('.date-strip-frame'));
         const toolbarStyle = getComputedStyle(document.querySelector('.schedule-toolbar'));
         const bookingsStyle = getComputedStyle(document.querySelector('#providerBookings'));
         return {
@@ -81,7 +83,13 @@ const server = http.createServer((request, response) => {
           nextGap:next.left - dates.at(-1).right,
           oldControlsHidden:[...document.querySelectorAll('.date-navigation>.date-nav-button')].every(button => getComputedStyle(button).display === 'none'),
           overflow:document.documentElement.scrollWidth > innerWidth + 2,
-          quietSurfaces:[navigationStyle,stripStyle,toolbarStyle].every(style => style.borderRadius === '0px' && style.boxShadow === 'none'),
+          quietSurfaces:innerWidth <= 760
+            ? [navigationStyle,frameStyle,toolbarStyle].every(style => parseFloat(style.borderTopWidth) <= 1 && parseFloat(style.borderRightWidth) <= 1)
+              && navigationStyle.borderTopLeftRadius === '22px'
+              && frameStyle.borderBottomLeftRadius === '22px'
+              && toolbarStyle.borderTopLeftRadius === '22px'
+            : [navigationStyle,stripStyle,toolbarStyle].every(style => style.borderRadius === '0px' && style.boxShadow === 'none'),
+          surfaceGeometry:[navigationStyle,frameStyle,toolbarStyle].map(style => ({ radius:style.borderRadius, topLeft:style.borderTopLeftRadius, bottomLeft:style.borderBottomLeftRadius, borderTop:style.borderTopWidth, borderRight:style.borderRightWidth, shadow:style.boxShadow })),
           bookingsRadius:bookingsStyle.borderRadius,
           stripScrollable:strip.scrollWidth > strip.clientWidth,
           stripOverflowX:stripStyle.overflowX,
@@ -100,7 +108,7 @@ const server = http.createServer((request, response) => {
       }
       assert.equal(result.oldControlsHidden, true, `${width}px: старые стрелки остались видимы`);
       assert.equal(result.overflow, false, `${width}px: появился горизонтальный overflow`);
-      assert.equal(result.quietSurfaces, true, `${width}px: у внутренних поверхностей остались тяжёлые рамки`);
+      assert.equal(result.quietSurfaces, true, `${width}px: поверхности расписания потеряли спокойную геометрию ${JSON.stringify(result.surfaceGeometry)}`);
       assert.equal(result.bookingsRadius, '0px', `${width}px: рабочая область осталась вложенной карточкой`);
       if (width > 760) assert.ok(result.panelCenterDelta <= 2, 'На ПК карточка записи не центрирована');
       else assert.ok(result.panelBottomDelta <= 2, 'На телефоне карточка должна оставаться у нижнего края');
