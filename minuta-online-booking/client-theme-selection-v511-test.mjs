@@ -46,8 +46,9 @@ const appJs = read('./app.js');
 const sw = read('./sw.js');
 const clientThemesCss = read('./client-themes.css');
 const providerRelease = sw.match(/CACHE_PREFIX\}v(\d+)/)?.[1];
+const providerThemeRelease = providerHtml.match(/theme-catalog\.js\?v=(\d+)/)?.[1];
 const clientRelease = indexHtml.match(/theme-catalog\.js\?v=(\d+)/)?.[1];
-assert.ok(providerRelease && clientRelease, 'Не удалось определить версии ресурсов тем');
+assert.ok(providerRelease && providerThemeRelease && clientRelease, 'Не удалось определить версии ресурсов тем');
 const providerThemeKeys = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
 assert.deepEqual(providerThemeKeys, expected, 'Каталог должен совпадать с 40 темами кабинета');
 assert.equal([...providerHtml.matchAll(/<small data-theme-description><\/small>/g)].length, expected.length, 'В карточках кабинета остались отдельные копии описаний');
@@ -72,7 +73,7 @@ assert.match(providerHtml, /id="clientAppearancePreview"/);
 assert.match(providerHtml, /id="providerClientThemeChooser"/);
 assert.match(providerHtml, /data-client-theme-filter="featured"/);
 assert.match(providerHtml, /Личный выбор клиента меняет оформление только на его устройстве/);
-assert.match(providerHtml, new RegExp(`theme-catalog\\.js\\?v=${providerRelease}`));
+assert.match(providerHtml, new RegExp(`theme-catalog\\.js\\?v=${providerThemeRelease}`));
 assert.match(indexHtml, /id="clientThemeDialog"/);
 assert.match(indexHtml, /id="clientHeroTitle"/);
 assert.match(indexHtml, new RegExp(`client-themes\\.css\\?v=${clientRelease}`));
@@ -97,7 +98,7 @@ assert.match(clientThemesCss, /\.waitlist-cta[\s\S]*var\(--client-surface-alt\)/
 assert.match(clientThemesCss, /\.booking-faq details\[open\][\s\S]*var\(--client-surface\)/);
 assert.match(clientThemesCss, /\.booking-faq summary[\s\S]*var\(--client-ink\)/);
 assert.match(sw, new RegExp(`const CACHE = ` + '`\\$\\{CACHE_PREFIX\\}v' + `${providerRelease}` + '`'));
-assert.match(sw, new RegExp(`theme-catalog\\.js\\?v=${providerRelease}`));
+assert.match(sw, new RegExp(`theme-catalog\\.js\\?v=${providerThemeRelease}`));
 assert.match(providerJs, /loadProviderFeatureScript\('voice-assistant\.js'\)/);
 assert.doesNotMatch(providerHtml, /<script[^>]+voice-assistant\.js/);
 
