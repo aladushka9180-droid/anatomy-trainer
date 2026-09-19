@@ -294,6 +294,8 @@ const server = http.createServer((request, response) => {
             const title = document.querySelector('#selectedDateTitle');
             const titleStyle = getComputedStyle(title);
             const visibleTitle = title.querySelector('.selected-date-title-mobile');
+            const scheduleHeading = document.querySelector('.schedule-view-title h2').getBoundingClientRect();
+            const action = document.querySelector('#newBookingButton').getBoundingClientRect();
             return {
               count:buttons.length,
               activeIndex:buttons.indexOf(active),
@@ -313,6 +315,14 @@ const server = http.createServer((request, response) => {
               futureLineHeight:parseFloat(futureLabel.lineHeight),
               futureLeft:future.getBoundingClientRect().left,
               summaryLeft:summary.getBoundingClientRect().left,
+              futureBottom:future.getBoundingClientRect().bottom,
+              summaryBottom:summary.getBoundingClientRect().bottom,
+              tabsTop:document.querySelector('.date-navigation').getBoundingClientRect().top,
+              headingBottom:scheduleHeading.bottom,
+              summaryTop:summary.getBoundingClientRect().top,
+              actionBottom:action.bottom,
+              actionCenter:(action.top + action.bottom) / 2,
+              summaryCenter:(summary.getBoundingClientRect().top + summary.getBoundingClientRect().bottom) / 2,
               titleText:visibleTitle?.textContent || title.textContent,
               titleTextOverflow:titleStyle.textOverflow,
               titleFits:title.scrollWidth <= title.clientWidth + 1,
@@ -324,19 +334,19 @@ const server = http.createServer((request, response) => {
           renderDateStrip();
           document.querySelector('#selectedDateSummary').textContent = '1 запись · 2 перерыва';
           renderSelectedDateTitle('day');
-          await new Promise(resolve => setTimeout(resolve, 520));
+          await new Promise(resolve => setTimeout(resolve, 820));
           const start = measure();
           selectedDate = '2026-10-06';
           renderDateStrip();
           document.querySelector('#selectedDateSummary').textContent = 'Свободный день';
           renderSelectedDateTitle('day');
-          await new Promise(resolve => setTimeout(resolve, 520));
+          await new Promise(resolve => setTimeout(resolve, 820));
           const far = measure();
           selectedDate = '2026-09-19';
           renderDateStrip();
           document.querySelector('#selectedDateSummary').textContent = '1 запись · 2 перерыва';
           renderSelectedDateTitle('day');
-          await new Promise(resolve => setTimeout(resolve, 520));
+          await new Promise(resolve => setTimeout(resolve, 820));
           const returned = measure();
           return { start, far, returned };
         }, theme);
@@ -348,7 +358,12 @@ const server = http.createServer((request, response) => {
           assert.deepEqual(state.summaryBorder, ['0px','0px','0px','0px'], `${theme} ${width}px ${stateName}: у сводки осталась декоративная рамка`);
           assert.equal(state.summaryOutline, 'none', `${theme} ${width}px ${stateName}: у сводки осталась обводка`);
           assert.equal(state.summaryShadow, 'none', `${theme} ${width}px ${stateName}: у сводки осталась теневая обводка`);
-          assert.notEqual(state.summaryBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px ${stateName}: пропал компактный фон сводки`);
+          assert.equal(state.summaryBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px ${stateName}: у сводки осталась цветная подложка`);
+          assert.ok(state.futureBottom <= state.summaryBottom + 1, `${theme} ${width}px ${stateName}: строка «Всего впереди» вышла из сводки`);
+          assert.ok(state.tabsTop - state.summaryBottom >= 8, `${theme} ${width}px ${stateName}: вкладки «День / Неделя» перекрывают сводку`);
+          assert.ok(state.headingBottom <= state.summaryTop, `${theme} ${width}px ${stateName}: заголовок «Расписание» не поднят над сводкой`);
+          assert.ok(Math.abs(state.actionCenter - state.summaryCenter) <= 2, `${theme} ${width}px ${stateName}: сводка и «Новая запись» не выровнены по центру`);
+          assert.ok(state.tabsTop - Math.max(state.summaryBottom, state.actionBottom) >= 8, `${theme} ${width}px ${stateName}: вкладки заходят на кнопку или сводку`);
           assert.equal(state.titleFits, true, `${theme} ${width}px ${stateName}: полный день недели обрезан`);
           assert.equal(state.titleTextOverflow, 'clip', `${theme} ${width}px ${stateName}: заголовок вновь использует многоточие`);
           if (width <= 390) {
@@ -494,7 +509,7 @@ const server = http.createServer((request, response) => {
 
     await page.evaluate(() => {
       document.body.dataset.providerLayout = 'soft';
-      document.querySelector('#dateStrip>button')?.classList.add('active');
+      if (!document.querySelector('#dateStrip>button.active')) document.querySelector('#dateStrip>button')?.classList.add('active');
       const fixtureStyle = document.createElement('style');
       fixtureStyle.textContent = '#scheduleThemeFixture,#scheduleThemeFixture *,#weeklyReadabilityFixture,#weeklyReadabilityFixture *{transition:none!important;animation:none!important}#scheduleThemeFixture>.timeline-view{display:block!important}#scheduleThemeFixture>.timeline-view,#scheduleThemeFixture>.calendar-overview-booking,#scheduleThemeFixture>.calendar-week-booking{position:absolute!important;left:-9999px!important}#weeklyReadabilityFixture{position:fixed;left:-9999px;top:0;width:127px;height:62px}#weeklyReadabilityFixture>.calendar-week-booking{position:relative!important;inset:auto!important;width:127px;height:62px}';
       document.head.append(fixtureStyle);
@@ -564,7 +579,11 @@ const server = http.createServer((request, response) => {
           const fixture = document.querySelector('#scheduleThemeFixture');
           const normals = [...fixture.querySelectorAll('.timeline-booking:not(.status-block),.provider-booking:not(.status-block),.calendar-overview-booking:not(.status-block),.calendar-week-booking:not(.is-block)')];
           const rests = [...fixture.querySelectorAll('.timeline-booking.status-block,.provider-booking.status-block,.calendar-overview-booking.status-block,.calendar-week-booking.is-block')];
-          const activeDate = getComputedStyle(document.querySelector('#dateStrip>button.active'));
+          const activeDate = getComputedStyle(document.querySelector('#dateStrip>button[aria-pressed="true"]'));
+          const activeTab = document.querySelector('.calendar-view-toggle button.active');
+          const activeTabStyle = getComputedStyle(activeTab);
+          const activeTabMarker = getComputedStyle(activeTab, '::after');
+          const summaryStrong = getComputedStyle(document.querySelector('.dashboard-summary strong'));
           const colorCanvas = document.createElement('canvas');
           colorCanvas.width = colorCanvas.height = 1;
           const colorContext = colorCanvas.getContext('2d', { willReadFrequently:true });
@@ -608,10 +627,19 @@ const server = http.createServer((request, response) => {
           const accentBackground = accentProbeStyle.backgroundColor;
           const accentBorderColor = accentProbeStyle.borderColor;
           accentProbe.remove();
+          const themeAccentProbe = document.createElement('span');
+          themeAccentProbe.style.background = 'var(--theme-accent)';
+          fixture.append(themeAccentProbe);
+          const themeAccent = getComputedStyle(themeAccentProbe).backgroundColor;
+          themeAccentProbe.remove();
           return {
             normal,
             rest,
             activeDateBackground:activeDate.backgroundColor,
+            activeTabColor:activeTabStyle.color,
+            activeTabMarker:activeTabMarker.backgroundColor,
+            summaryStrongColor:summaryStrong.color,
+            themeAccent,
             accentBackground,
             accentBorderColor,
             monthAutoBackground,
@@ -623,6 +651,11 @@ const server = http.createServer((request, response) => {
         }, theme);
         assert.equal(cards.normal.length, 4, `${theme} ${width}px: проверены не все режимы записей`);
         assert.equal(cards.rest.length, 4, `${theme} ${width}px: проверены не все режимы перерывов`);
+        if (width <= 760) {
+          assert.equal(cards.activeTabColor, cards.themeAccent, `${theme} ${width}px: активная вкладка не использует акцент темы`);
+          assert.equal(cards.activeTabMarker, cards.themeAccent, `${theme} ${width}px: линия активной вкладки не использует акцент темы`);
+          assert.equal(cards.summaryStrongColor, cards.themeAccent, `${theme} ${width}px: цифры сводки не используют акцент темы`);
+        }
         cards.normal.forEach((card, index) => {
           assert.equal(card.image, 'none', `${theme} ${width}px: лишний рисунок у записи ${index + 1}`);
           assert.ok(card.contrast >= 4.5, `${theme} ${width}px: низкий контраст записи ${index + 1} (${card.contrast.toFixed(2)})`);

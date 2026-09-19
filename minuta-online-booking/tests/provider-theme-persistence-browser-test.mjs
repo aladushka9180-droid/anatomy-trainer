@@ -9,8 +9,8 @@ const providerSource = readFileSync(path.join(root, 'provider.js'), 'utf8');
 const scheduleCss = readFileSync(path.join(root, 'provider-schedule-minimal.css'), 'utf8');
 const workerSource = readFileSync(path.join(root, 'sw.js'), 'utf8');
 
-assert.match(scheduleCss, /--schedule-active-color\s*:\s*#0d805c/i, 'schedule must expose the approved solid brand green');
-assert.match(scheduleCss, /background:var\(--schedule-active-color\)!important/, 'active mobile schedule controls must use the brand green directly');
+assert.match(scheduleCss, /--schedule-active-color\s*:\s*var\(--theme-accent\)/i, 'schedule must inherit the active theme accent');
+assert.match(scheduleCss, /background:var\(--schedule-active-color\)!important/, 'active mobile schedule controls must use the theme accent directly');
 assert.doesNotMatch(workerSource, /localStorage|indexedDB\.(?:deleteDatabase|open)/, 'a PWA update must not rewrite persisted display preferences');
 
 const seam = `

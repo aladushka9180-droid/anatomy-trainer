@@ -79,7 +79,7 @@ assert.match(script, /function dateStripSwipeStep\([\s\S]*Math\.abs\(deltaX\) < 
 assert.match(script, /touchstart[\s\S]*touchend[\s\S]*scheduleMobileSettle\(170\)/s);
 assert.doesNotMatch(script, /touchend[\s\S]*shiftScheduleDate\(step\)/s);
 assert.match(script, /rangeStart\.getDate\(\) - \(mobileCenteredRange \? 120 : 28\)[\s\S]*rangeMode = mobileCenteredRange \? 'inertial'/s);
-assert.match(styles, /v832:[\s\S]*overflow-x:auto!important;[\s\S]*scroll-snap-type:x proximity;[\s\S]*touch-action:pan-x pan-y!important;/s);
+assert.match(styles, /v833:[\s\S]*overflow-x:auto!important;[\s\S]*scroll-snap-type:x proximity;[\s\S]*touch-action:pan-x pan-y!important;/s);
 assert.match(script, /centerDateStripSelection\(dateStrip, options = \{\}\)[\s\S]*behavior:'smooth'/s);
 assert.match(script, /function updateDateStripEmphasis\(dateStrip\)[\s\S]*Math\.min\(3, Math\.abs\(index - activeIndex\)\)[\s\S]*button\.dataset\.dateDistance = String\(distance\)/s);
 assert.match(script, /button\.classList\.toggle\('active', active\)[\s\S]*updateDateStripEmphasis\(dateStrip\)/s);
@@ -105,7 +105,7 @@ assert.match(script, /const breakOrigin = item\.automatic_break \? 'Автома
 assert.match(script, /block \? ' is-schedule-block' : clientHighlightClasses\(item\.client_phone\)/);
 assert.match(script, /provider-booking-signals[^`]*\$\{block \? '' : `<span class="booking-status">\$\{statusText\}<\/span>\$\{visitMarkup\}`\}/s);
 assert.doesNotMatch(script, /block \? `<span class="provider-booking-client-line"><strong>Занятое время<\/strong><span>\$\{duration\} мин<\/span><\/span>`/);
-assert.deepEqual([...new Set([...styles.matchAll(/#[0-9a-f]{3,8}\b/gi)].map(match => match[0].toLowerCase()))], ['#0d805c', '#fff'], 'Экран расписания должен использовать только утверждённый action accent и его контраст');
+assert.deepEqual([...new Set([...styles.matchAll(/#[0-9a-f]{3,8}\b/gi)].map(match => match[0].toLowerCase()))], [], 'Экран расписания должен брать акцент и контраст из текущей темы');
 assert.match(styles, /v786: keep mobile schedule geometry clipped[\s\S]*\.timeline-stage\s*\{[^}]*overflow:clip;[\s\S]*#newBookingButton span\s*\{[^}]*position:static!important;[\s\S]*calendar-overview-month\s*\{[^}]*padding-bottom:max\(24px,env\(safe-area-inset-bottom,0px\)\)!important;/s);
 assert.doesNotMatch(script, /timelineFullDay|timelineWasCompacted|data-expand-timeline|Показать весь день/);
 assert.doesNotMatch(styles, /timeline-day-expand/);
