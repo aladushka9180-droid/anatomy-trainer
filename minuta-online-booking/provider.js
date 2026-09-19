@@ -6968,8 +6968,10 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     const immediateCenter = instantCenter || fixedMobileCenter;
     const smoothSelection = !immediateCenter && selectionChanged && !rebuildStrip && Boolean(previousSelectedDate);
     const center = () => centerDateStripSelection(dateStrip, { smooth:smoothSelection, instant:immediateCenter });
-    if (immediateCenter) center();
-    else requestAnimationFrame(center);
+    if (immediateCenter) {
+      center();
+      if (fixedMobileCenter) requestAnimationFrame(center);
+    } else requestAnimationFrame(center);
     if (!immediateCenter) window.setTimeout(center, 220);
   }
   bindDateStripResizeCentering(dateStrip);
