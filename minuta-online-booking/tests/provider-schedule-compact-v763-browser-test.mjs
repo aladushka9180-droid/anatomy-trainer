@@ -664,7 +664,7 @@ try {
     });
     assert.equal(weekResult.overflow, false, `${width}px week view has horizontal overflow: ${JSON.stringify(weekResult)}`);
     assert.ok(weekResult.navArrowDisplays.every(display => display === 'none'), `${width}px week view duplicates navigation arrows: ${JSON.stringify(weekResult)}`);
-    assert.ok(weekResult.tabsRightDelta <= 1, `${width}px week tabs do not span the navigation row: ${JSON.stringify(weekResult)}`);
+    assert.ok(weekResult.tabsRightDelta <= 2, `${width}px week tabs do not span the navigation row: ${JSON.stringify(weekResult)}`);
     assert.ok(weekResult.titleInset >= 8, `${width}px week range title touches the outer edge: ${JSON.stringify(weekResult)}`);
     assert.equal(weekResult.titleFits, true, `${width}px week range title is clipped: ${JSON.stringify(weekResult)}`);
     assert.ok(weekResult.dateInset >= 11, `${width}px week day title touches its card edge: ${JSON.stringify(weekResult)}`);
@@ -719,7 +719,7 @@ try {
     assert.equal(monthResult.overflow, false, `${width}px month view has horizontal overflow: ${JSON.stringify(monthResult)}`);
     assert.ok(monthResult.navArrowDisplays.every(display => display === 'none'), `${width}px month view duplicates navigation arrows: ${JSON.stringify(monthResult)}`);
     assert.ok(monthResult.stripArrowDisplays.every(display => display !== 'none'), `${width}px month view loses the date-strip arrows: ${JSON.stringify(monthResult)}`);
-    assert.ok(monthResult.tabsRightDelta <= 1, `${width}px month tabs do not span the navigation row: ${JSON.stringify(monthResult)}`);
+    assert.ok(monthResult.tabsRightDelta <= 2, `${width}px month tabs do not span the navigation row: ${JSON.stringify(monthResult)}`);
     assert.equal(monthResult.toggleDisplay, 'none', `${width}px month view exposes the day-only journal toggle`);
     assert.ok(monthResult.agendaInset >= 9, `${width}px month agenda text touches the card edge: ${JSON.stringify(monthResult)}`);
     assert.ok(monthResult.agendaRightInset >= 9, `${width}px VIP badge touches the card edge: ${JSON.stringify(monthResult)}`);

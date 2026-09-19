@@ -8245,25 +8245,18 @@ function scheduleCreateHintStorageKey(userId = currentUser?.id) {
 
 function scheduleCreateHintVisible({ userId = currentUser?.id, hasExistingBookings = allBookings.length > 0 } = {}) {
   if (!userId) return false;
+  const key = scheduleCreateHintStorageKey(userId);
+  let state;
   try {
-    const state = localStorage.getItem(scheduleCreateHintStorageKey(userId));
-    if (state === 'dismissed') return false;
-    if (state === 'pending') return true;
-    if (hasExistingBookings) {
-      localStorage.setItem(scheduleCreateHintStorageKey(userId), 'dismissed');
-      return false;
-    }
-    localStorage.setItem(scheduleCreateHintStorageKey(userId), 'pending');
-  } catch {
-    return !hasExistingBookings;
-  }
-  return true;
+    state = localStorage.getItem(key);
+    if (state === 'dismissed' || state === 'pending') return state === 'pending';
+    localStorage.setItem(key, hasExistingBookings ? 'dismissed' : 'pending');
+  } catch { return !hasExistingBookings; }
+  return !hasExistingBookings;
 }
 
 function scheduleCreateHintMarkup(options) {
-  return scheduleCreateHintVisible(options)
-    ? `<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>`
-    : '';
+  return scheduleCreateHintVisible(options) ? `<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>` : '';
 }
 
 function dismissScheduleCreateHint(userId = currentUser?.id, root = document) {

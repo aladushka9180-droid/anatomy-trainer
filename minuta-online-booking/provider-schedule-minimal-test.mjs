@@ -81,7 +81,7 @@ assert.match(script, /centerDateStripSelection\(dateStrip, options = \{\}\)[\s\S
 assert.match(script, /function updateDateStripEmphasis\(dateStrip\)[\s\S]*Math\.min\(3, Math\.abs\(index - activeIndex\)\)[\s\S]*button\.dataset\.dateDistance = String\(distance\)/s);
 assert.match(script, /button\.classList\.toggle\('active', active\)[\s\S]*updateDateStripEmphasis\(dateStrip\)/s);
 assert.match(styles, /v823: reference-led mobile schedule[\s\S]*data-date-distance="2"[\s\S]*data-date-distance="1"[\s\S]*data-date-distance="0"[\s\S]*--date-card-width:clamp\(46px,12\.2vw,56px\)[\s\S]*--date-card-height:58px/s);
-assert.match(styles, /v822: compose the mobile journal[\s\S]*margin:64px var\(--schedule-mobile-card-inset,4px\) 0!important;[\s\S]*border-radius:22px 22px 0 0!important;[\s\S]*margin:0 var\(--schedule-mobile-card-inset,4px\) 14px!important;[\s\S]*border-radius:0 0 22px 22px!important;/s);
+assert.match(styles, /v822: compose the mobile journal[\s\S]*margin:50px var\(--schedule-mobile-card-inset,4px\) 0!important;[\s\S]*border-radius:22px 22px 0 0!important;[\s\S]*margin:0 var\(--schedule-mobile-card-inset,4px\) 6px!important;[\s\S]*border-radius:0 0 22px 22px!important;/s);
 assert.match(styles, /\.timeline-view\s*\{[\s\S]*padding:12px 12px max\(22px,var\(--provider-mobile-nav-clearance\)\)!important;[\s\S]*overflow:visible!important;/s);
 assert.match(styles, /provider-mobile-nav>button\.active[\s\S]*background:var\(--theme-accent-soft\)!important;[\s\S]*mobile-nav-badge[\s\S]*background:var\(--theme-accent\)!important;/s);
 assert.match(styles, /timeline-booking\.automatic-break[\s\S]*background-image:none!important;/s);
