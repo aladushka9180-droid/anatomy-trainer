@@ -73,10 +73,13 @@ assert.match(styles, /v786: list controls grow[\s\S]*:has\(\.booking-filters:not
 assert.match(styles, /--provider-mobile-nav-clearance:max\(96px,calc\(80px \+ env\(safe-area-inset-bottom,0px\)\)\)[\s\S]*padding-bottom:var\(--provider-mobile-nav-clearance\)!important;/s);
 assert.match(coreStyles, /v786: compact mobile navigation[\s\S]*bottom:max\(0px,env\(safe-area-inset-bottom,0px\)\)!important;[\s\S]*padding:1px 4px!important;[\s\S]*min-height:44px!important;[\s\S]*gap:1px!important;/s);
 assert.match(script, /const swipeSurface = event\.target\.closest\('#providerBookings'\)/);
-assert.match(script, /if \(dateShift\) shiftScheduleDate\(Number\(dateShift\.dataset\.dateShift\)\)/);
+assert.match(script, /if \(dateShift\) \{[\s\S]*date-strip-frame[\s\S]*shiftScheduleDate\(Number\(dateShift\.dataset\.dateShift\), \{ weekStep \}\);[\s\S]*\}/s);
 assert.match(script, /activeRect\.left - stripRect\.left \+ dateStrip\.scrollLeft/);
 assert.match(script, /function dateStripSwipeStep\([\s\S]*Math\.abs\(deltaX\) < threshold[\s\S]*return deltaX < 0 \? 1 : -1;/s);
-assert.match(script, /touchstart[\s\S]*touchend[\s\S]*shiftScheduleDate\(step\)/s);
+assert.match(script, /touchstart[\s\S]*touchend[\s\S]*scheduleMobileSettle\(170\)/s);
+assert.doesNotMatch(script, /touchend[\s\S]*shiftScheduleDate\(step\)/s);
+assert.match(script, /rangeStart\.getDate\(\) - \(mobileCenteredRange \? 120 : 28\)[\s\S]*rangeMode = mobileCenteredRange \? 'inertial'/s);
+assert.match(styles, /v832:[\s\S]*overflow-x:auto!important;[\s\S]*scroll-snap-type:x proximity;[\s\S]*touch-action:pan-x pan-y!important;/s);
 assert.match(script, /centerDateStripSelection\(dateStrip, options = \{\}\)[\s\S]*behavior:'smooth'/s);
 assert.match(script, /function updateDateStripEmphasis\(dateStrip\)[\s\S]*Math\.min\(3, Math\.abs\(index - activeIndex\)\)[\s\S]*button\.dataset\.dateDistance = String\(distance\)/s);
 assert.match(script, /button\.classList\.toggle\('active', active\)[\s\S]*updateDateStripEmphasis\(dateStrip\)/s);

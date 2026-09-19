@@ -12,6 +12,14 @@ const helperStart = providerSource.indexOf('function updateDateStripEmphasis(');
 const helperEnd = providerSource.indexOf('function bookingCountWord(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Помощники адаптивной ленты дат не найдены');
 const dateStripResizeHelpers = providerSource.slice(helperStart, helperEnd);
+const titleHelperStart = providerSource.indexOf('function renderSelectedDateTitle(');
+const titleHelperEnd = providerSource.indexOf('function calendarOverviewBookingMarkup(', titleHelperStart);
+assert.ok(titleHelperStart >= 0 && titleHelperEnd > titleHelperStart, 'Помощник мобильного заголовка дня не найден');
+const selectedDateTitleHelper = providerSource.slice(titleHelperStart, titleHelperEnd);
+const shiftHelperStart = providerSource.indexOf('function shiftScheduleDate(');
+const shiftHelperEnd = providerSource.indexOf('function refreshBusinessDay(', shiftHelperStart);
+assert.ok(shiftHelperStart >= 0 && shiftHelperEnd > shiftHelperStart, 'Помощник перехода по неделям не найден');
+const shiftScheduleDateHelper = providerSource.slice(shiftHelperStart, shiftHelperEnd);
 const themeKeys = [...themeCatalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
 assert.ok(themeKeys.length >= 20, 'Каталог тем не прочитан');
 const output = process.env.MINUTA_SCHEDULE_OUTPUT;
@@ -102,8 +110,9 @@ const server = http.createServer((request, response) => {
         assert.ok(result.previousGap >= 0, `${width}px: левая стрелка перекрывает первую дату (${result.previousGap}px)`);
         assert.ok(result.nextGap >= 0, `${width}px: правая стрелка перекрывает последнюю дату (${result.nextGap}px)`);
       } else {
-        assert.equal(result.stripOverflowX, 'hidden', `${width}px: лента дат допускает независимую прокрутку`);
-        assert.match(result.stripTouchAction, /pan-y/, `${width}px: карусель дат не оставляет вертикальный жест странице`);
+        assert.equal(result.stripOverflowX, 'auto', `${width}px: лента дат не получила нативную инерционную прокрутку`);
+        assert.match(result.stripTouchAction, /pan-x/, `${width}px: лента дат не принимает горизонтальный жест`);
+        assert.match(result.stripTouchAction, /pan-y/, `${width}px: карусель дат блокирует вертикальный скролл`);
       }
       assert.equal(result.oldControlsHidden, true, `${width}px: старые стрелки остались видимы`);
       assert.equal(result.overflow, false, `${width}px: появился горизонтальный overflow`);
@@ -205,6 +214,9 @@ const server = http.createServer((request, response) => {
       window.businessTodayIso = () => '2026-09-19';
       window.parseLocalIsoDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? new Date(`${value}T12:00:00`) : null;
       window.localIsoDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+      window.calendarRangeTitle = () => selectedDate === businessTodayIso()
+        ? 'Сегодня'
+        : parseLocalIsoDate(selectedDate).toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' });
       window.weekStartFor = value => {
         const result = new Date(value);
         result.setDate(result.getDate() - ((result.getDay() + 6) % 7));
@@ -220,6 +232,48 @@ const server = http.createServer((request, response) => {
       strip.replaceChildren();
       Object.keys(strip.dataset).forEach(key => delete strip.dataset[key]);
     });
+    await page.addScriptTag({ content:selectedDateTitleHelper });
+    await page.addScriptTag({ content:shiftScheduleDateHelper });
+
+    for (const width of [390, 760, 1440]) {
+      await page.setViewportSize({ width, height:900 });
+      const weekArrows = await page.evaluate(() => {
+        const originalSelect = window.selectScheduleDate;
+        const destinations = [];
+        window.selectScheduleDate = value => {
+          destinations.push(value);
+          selectedDate = value;
+          document.querySelector('#scheduleDatePicker').value = value;
+          renderDateStrip();
+          renderSelectedDateTitle('day');
+        };
+        calendarView = 'day';
+        selectedDate = '2026-12-29';
+        shiftScheduleDate(1, { weekStep:innerWidth <= 760 });
+        const forward = {
+          selectedDate,
+          activeDate:document.querySelector('#dateStrip .active')?.dataset.bookingDate,
+          title:document.querySelector('#selectedDateTitle .selected-date-title-mobile')?.textContent
+        };
+        selectedDate = '2027-01-05';
+        shiftScheduleDate(-1, { weekStep:innerWidth <= 760 });
+        const back = {
+          selectedDate,
+          activeDate:document.querySelector('#dateStrip .active')?.dataset.bookingDate,
+          title:document.querySelector('#selectedDateTitle .selected-date-title-mobile')?.textContent
+        };
+        window.selectScheduleDate = originalSelect;
+        return { destinations, forward, back };
+      });
+      const stepDays = width <= 760 ? 7 : 1;
+      const expectedForward = width <= 760 ? '2027-01-05' : '2026-12-30';
+      const expectedBack = width <= 760 ? '2026-12-29' : '2027-01-04';
+      assert.equal(weekArrows.forward.selectedDate, expectedForward, `${width}px: правая стрелка сместила дату не на ${stepDays} дней`);
+      assert.equal(weekArrows.back.selectedDate, expectedBack, `${width}px: левая стрелка сместила дату не на ${stepDays} дней`);
+      assert.equal(weekArrows.forward.activeDate, expectedForward, `${width}px: правая стрелка не обновила выбранную дату`);
+      assert.equal(weekArrows.back.activeDate, expectedBack, `${width}px: левая стрелка не обновила выбранную дату`);
+      assert.match(weekArrows.forward.title || '', /^[А-ЯЁ][а-яё]+$/, `${width}px: переход не обновил полный день недели`);
+    }
 
     for (const width of [360, 390, 760]) {
       await page.setViewportSize({ width, height:900 });
@@ -237,6 +291,9 @@ const server = http.createServer((request, response) => {
             const futureStyle = getComputedStyle(future);
             const summaryStyle = getComputedStyle(summary);
             const futureLabel = getComputedStyle(future, '::before');
+            const title = document.querySelector('#selectedDateTitle');
+            const titleStyle = getComputedStyle(title);
+            const visibleTitle = title.querySelector('.selected-date-title-mobile');
             return {
               count:buttons.length,
               activeIndex:buttons.indexOf(active),
@@ -248,34 +305,52 @@ const server = http.createServer((request, response) => {
               futureLabel:futureLabel.content,
               futureOverflow:futureStyle.overflow,
               summaryOverflow:summaryStyle.overflow,
+              summaryBorder:[summaryStyle.borderTopWidth,summaryStyle.borderRightWidth,summaryStyle.borderBottomWidth,summaryStyle.borderLeftWidth],
+              summaryOutline:summaryStyle.outlineStyle,
+              summaryShadow:summaryStyle.boxShadow,
+              summaryBackground:summaryStyle.backgroundColor,
               futurePaddingLeft:parseFloat(futureStyle.paddingLeft),
               futureLineHeight:parseFloat(futureLabel.lineHeight),
               futureLeft:future.getBoundingClientRect().left,
               summaryLeft:summary.getBoundingClientRect().left,
+              titleText:visibleTitle?.textContent || title.textContent,
+              titleTextOverflow:titleStyle.textOverflow,
+              titleFits:title.scrollWidth <= title.clientWidth + 1,
+              dayState:document.querySelector('#selectedDateSummary').textContent,
               overflow:document.documentElement.scrollWidth > innerWidth + 2
             };
           };
           selectedDate = '2026-09-19';
           renderDateStrip();
-          await new Promise(resolve => setTimeout(resolve, 240));
+          document.querySelector('#selectedDateSummary').textContent = '1 запись · 2 перерыва';
+          renderSelectedDateTitle('day');
+          await new Promise(resolve => setTimeout(resolve, 520));
           const start = measure();
           selectedDate = '2026-10-06';
           renderDateStrip();
-          const animated = strip.getAnimations().some(animation => animation.playState === 'running');
-          await new Promise(resolve => setTimeout(resolve, 240));
+          document.querySelector('#selectedDateSummary').textContent = 'Свободный день';
+          renderSelectedDateTitle('day');
+          await new Promise(resolve => setTimeout(resolve, 520));
           const far = measure();
           selectedDate = '2026-09-19';
           renderDateStrip();
-          await new Promise(resolve => setTimeout(resolve, 240));
+          document.querySelector('#selectedDateSummary').textContent = '1 запись · 2 перерыва';
+          renderSelectedDateTitle('day');
+          await new Promise(resolve => setTimeout(resolve, 520));
           const returned = measure();
-          return { start, far, returned, animated };
+          return { start, far, returned };
         }, theme);
         for (const [stateName, state] of Object.entries({ start:mobileCentering.start, far:mobileCentering.far, returned:mobileCentering.returned })) {
-          assert.equal(state.count, 7, `${theme} ${width}px ${stateName}: мобильный диапазон не равен семи датам`);
-          assert.equal(state.activeIndex, 3, `${theme} ${width}px ${stateName}: выбранная дата не в центральной ячейке`);
+          assert.ok(state.count >= 200, `${theme} ${width}px ${stateName}: мобильной ленте не хватае запаса для сильного flick`);
           assert.equal(state.activeDate, state.picker, `${theme} ${width}px ${stateName}: календарь и активная дата рассинхронизированы`);
           assert.ok(state.centerDelta <= 1.5, `${theme} ${width}px ${stateName}: центр выбранной даты смещён на ${state.centerDelta}px`);
           assert.equal(state.overflow, false, `${theme} ${width}px ${stateName}: появился горизонтальный overflow`);
+          assert.deepEqual(state.summaryBorder, ['0px','0px','0px','0px'], `${theme} ${width}px ${stateName}: у сводки осталась декоративная рамка`);
+          assert.equal(state.summaryOutline, 'none', `${theme} ${width}px ${stateName}: у сводки осталась обводка`);
+          assert.equal(state.summaryShadow, 'none', `${theme} ${width}px ${stateName}: у сводки осталась теневая обводка`);
+          assert.notEqual(state.summaryBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px ${stateName}: пропал компактный фон сводки`);
+          assert.equal(state.titleFits, true, `${theme} ${width}px ${stateName}: полный день недели обрезан`);
+          assert.equal(state.titleTextOverflow, 'clip', `${theme} ${width}px ${stateName}: заголовок вновь использует многоточие`);
           if (width <= 390) {
             assert.match(state.futureLabel, /Всего впереди/, `${theme} ${width}px ${stateName}: пропал полный мобильный лейбл «Всего впереди»`);
             assert.equal(state.futureOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Всего впереди» обрезается собственным контейнером`);
@@ -286,11 +361,65 @@ const server = http.createServer((request, response) => {
           }
         }
         assert.equal(mobileCentering.far.activeDate, '2026-10-06', `${theme} ${width}px: дальний переход не выбрал 06.10`);
-        assert.equal(mobileCentering.far.rangeStart, '2026-10-03', `${theme} ${width}px: дальний диапазон не пересобран слева`);
-        assert.equal(mobileCentering.far.rangeEnd, '2026-10-09', `${theme} ${width}px: дальний диапазон не пересобран справа`);
+        assert.equal(mobileCentering.start.titleText, 'Суббота', `${theme} ${width}px: заголовок не показал полный день недели`);
+        assert.equal(mobileCentering.start.dayState, '1 запись · 2 перерыва', `${theme} ${width}px: счётчики занятого дня потеряны`);
+        assert.equal(mobileCentering.far.titleText, 'Вторник', `${theme} ${width}px: перелистывание не обновило день недели`);
+        assert.equal(mobileCentering.far.dayState, 'Свободный день', `${theme} ${width}px: свободное состояние дня потеряно`);
+        assert.ok(mobileCentering.far.rangeStart < mobileCentering.far.activeDate && mobileCentering.far.activeDate < mobileCentering.far.rangeEnd, `${theme} ${width}px: сильному flick некуда двигаться`);
         assert.equal(mobileCentering.returned.activeDate, '2026-09-19', `${theme} ${width}px: возврат к сегодня не сработал`);
-        assert.equal(mobileCentering.animated, true, `${theme} ${width}px: перестройка дат не анимирована`);
       }
+    }
+
+    for (const width of [390, 760]) {
+      await page.setViewportSize({ width, height:900 });
+      const inertialSelection = await page.evaluate(async () => {
+        selectedDate = '2026-12-29';
+        renderDateStrip({ forceCenter:true });
+        await new Promise(resolve => setTimeout(resolve, 520));
+        const strip = document.querySelector('#dateStrip');
+        const originalSelect = window.selectScheduleDate;
+        const selected = [];
+        window.selectScheduleDate = value => {
+          selected.push(value);
+          selectedDate = value;
+          renderDateStrip();
+          renderSelectedDateTitle('day');
+        };
+        const settleAt = async offset => {
+          const buttons = [...strip.querySelectorAll('[data-booking-date]')];
+          const activeIndex = buttons.findIndex(button => button.dataset.bookingDate === selectedDate);
+          const target = buttons[Math.max(0, Math.min(buttons.length - 1, activeIndex + offset))];
+          const stripRect = strip.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
+          strip.dataset.programmaticCenterUntil = '0';
+          strip.scrollLeft += (targetRect.left + targetRect.right - stripRect.left - stripRect.right) / 2;
+          strip.dispatchEvent(new Event('scroll'));
+          await new Promise(resolve => setTimeout(resolve, 240));
+          await new Promise(resolve => setTimeout(resolve, 520));
+          return { date:selectedDate, active:strip.querySelector('.active')?.dataset.bookingDate };
+        };
+        const weak = await settleAt(2);
+        const medium = await settleAt(8);
+        const strong = await settleAt(18);
+        const beforeRepeat = selected.length;
+        strip.dataset.programmaticCenterUntil = '0';
+        strip.style.scrollBehavior = 'auto';
+        strip.scrollLeft -= 5 * 42;
+        strip.dispatchEvent(new Event('scroll'));
+        await new Promise(resolve => setTimeout(resolve, 60));
+        strip.scrollLeft -= 7 * 42;
+        strip.dispatchEvent(new Event('scroll'));
+        await new Promise(resolve => setTimeout(resolve, 760));
+        strip.style.removeProperty('scroll-behavior');
+        const repeatedCalls = selected.length - beforeRepeat;
+        window.selectScheduleDate = originalSelect;
+        return { weak, medium, strong, repeatedCalls, selected };
+      });
+      assert.equal(inertialSelection.weak.date, '2026-12-31', `${width}px: слабый жест не выбрал ближайшую дату`);
+      assert.ok(inertialSelection.medium.date > inertialSelection.weak.date, `${width}px: средний flick не пролистал дальше слабого`);
+      assert.ok(inertialSelection.strong.date > inertialSelection.medium.date, `${width}px: сильный flick не пролистал дальше недели`);
+      assert.equal(inertialSelection.strong.active, inertialSelection.strong.date, `${width}px: финальная дата не центрирована`);
+      assert.equal(inertialSelection.repeatedCalls, 1, `${width}px: повторный жест во время замедления вызвал несколько загрузок`);
     }
 
     await page.emulateMedia({ reducedMotion:'reduce' });

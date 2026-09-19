@@ -6774,9 +6774,14 @@ function updateCalendarViewControls() {
     : calendarView === 'week'
       ? ['Показать предыдущую неделю', 'Показать следующую неделю']
       : ['Показать предыдущий месяц', 'Показать следующий месяц'];
-  const navigationButtons = $$('[data-date-shift]');
-  navigationButtons[0]?.setAttribute('aria-label', labels[0]);
-  navigationButtons[1]?.setAttribute('aria-label', labels[1]);
+  const mobileDayCarousel = calendarView === 'day' && matchMedia('(max-width:760px)').matches;
+  $$('[data-date-shift]').forEach(button => {
+    const direction = Number(button.dataset.dateShift) < 0 ? 0 : 1;
+    const carouselWeek = mobileDayCarousel && Boolean(button.closest('.date-strip-frame'));
+    button.setAttribute('aria-label', carouselWeek
+      ? (direction ? 'Показать следующую неделю' : 'Показать предыдущую неделю')
+      : labels[direction]);
+  });
   updateJournalModeButtons();
   updateBookingQueryTools();
 }
@@ -6816,7 +6821,7 @@ function selectScheduleDate(value) {
   });
 }
 
-function shiftScheduleDate(direction) {
+function shiftScheduleDate(direction, { weekStep = false } = {}) {
   const date = parseLocalIsoDate(selectedDate) || parseLocalIsoDate(businessTodayIso());
   if (calendarView === 'month') {
     const selectedDay = date.getDate();
@@ -6824,7 +6829,10 @@ function shiftScheduleDate(direction) {
     date.setMonth(date.getMonth() + direction);
     const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0, 12).getDate();
     date.setDate(Math.min(selectedDay, lastDay));
-  } else date.setDate(date.getDate() + (calendarView === 'week' ? direction * 7 : direction));
+  } else {
+    const dayStep = calendarView === 'week' || (calendarView === 'day' && weekStep) ? 7 : 1;
+    date.setDate(date.getDate() + direction * dayStep);
+  }
   selectScheduleDate(localIsoDate(date));
 }
 
@@ -6870,6 +6878,7 @@ function centerDateStripSelection(dateStrip, options = {}) {
   const target = activeContentLeft - (dateStrip.clientWidth - activeRect.width) / 2;
   const nextLeft = Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, target));
   const smooth = options.smooth === true && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  dateStrip.dataset.programmaticCenterUntil = String(Date.now() + (smooth ? 460 : 100));
   if (smooth && typeof dateStrip.scrollTo === 'function') dateStrip.scrollTo({ left:nextLeft, behavior:'smooth' });
   else {
     const inlineScrollBehavior = dateStrip.style.scrollBehavior;
@@ -6924,16 +6933,16 @@ function renderDateStrip({ forceCenter = false } = {}) {
   const rangeEnd = mobileCenteredRange
     ? new Date(selected)
     : new Date(todayWeekStart > weekStart ? todayWeekStart : weekStart);
-  rangeStart.setDate(rangeStart.getDate() - (mobileCenteredRange ? 3 : 28));
-  rangeEnd.setDate(rangeEnd.getDate() + (mobileCenteredRange ? 3 : 62));
+  rangeStart.setDate(rangeStart.getDate() - (mobileCenteredRange ? 120 : 28));
+  rangeEnd.setDate(rangeEnd.getDate() + (mobileCenteredRange ? 120 : 62));
   const rangeStartIso = localIsoDate(rangeStart);
   const rangeEndIso = localIsoDate(rangeEnd);
   const rangeDays = Math.round((Date.UTC(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()) - Date.UTC(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate())) / 86400000) + 1;
-  const rangeMode = mobileCenteredRange ? 'centered' : 'extended';
+  const rangeMode = mobileCenteredRange ? 'inertial' : 'extended';
   const currentRangeContainsSelection = dateStrip.dataset.rangeStart <= selectedDate && selectedDate <= dateStrip.dataset.rangeEnd;
   const currentRangeContainsToday = dateStrip.dataset.rangeStart <= todayIso && todayIso <= dateStrip.dataset.rangeEnd;
   const rebuildStrip = dateStrip.dataset.rangeMode !== rangeMode
-    || (mobileCenteredRange ? dateStrip.dataset.selectedDate !== selectedDate : !currentRangeContainsSelection || !currentRangeContainsToday)
+    || (mobileCenteredRange ? !currentRangeContainsSelection : !currentRangeContainsSelection || !currentRangeContainsToday)
     || dateStrip.dataset.today !== todayIso;
   const previousSelectedDate = dateStrip.dataset.selectedDate || '';
   const selectionChanged = previousSelectedDate !== selectedDate;
@@ -6989,6 +6998,27 @@ function renderDateStrip({ forceCenter = false } = {}) {
     let suppressClick = false;
     let touchStartX = null;
     let touchStartY = null;
+    let mobileSettleTimer = 0;
+    const settleMobileDate = () => {
+      mobileSettleTimer = 0;
+      if (!window.matchMedia('(max-width: 760px)').matches) return;
+      if (Number(dateStrip.dataset.programmaticCenterUntil || 0) > Date.now()) return;
+      const stripRect = dateStrip.getBoundingClientRect();
+      const center = (stripRect.left + stripRect.right) / 2;
+      const nearest = [...dateStrip.querySelectorAll('[data-booking-date]')].reduce((best, button) => {
+        const rect = button.getBoundingClientRect();
+        const distance = Math.abs((rect.left + rect.right) / 2 - center);
+        return !best || distance < best.distance ? { button, distance } : best;
+      }, null)?.button;
+      const nextDate = nearest?.dataset.bookingDate;
+      if (!nextDate) return;
+      if (nextDate !== selectedDate) selectScheduleDate(nextDate);
+      else centerDateStripSelection(dateStrip, { smooth:true });
+    };
+    const scheduleMobileSettle = (delay = 150) => {
+      if (mobileSettleTimer) clearTimeout(mobileSettleTimer);
+      mobileSettleTimer = window.setTimeout(settleMobileDate, delay);
+    };
     const clampScroll = value => Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, value));
     const stopWheelAnimation = () => {
       if (wheelFrame) cancelAnimationFrame(wheelFrame);
@@ -7053,6 +7083,9 @@ function renderDateStrip({ forceCenter = false } = {}) {
     dateStrip.addEventListener('pointercancel', finishDrag);
     dateStrip.addEventListener('touchstart', event => {
       if (event.touches.length !== 1) return;
+      if (mobileSettleTimer) clearTimeout(mobileSettleTimer);
+      mobileSettleTimer = 0;
+      dateStrip.dataset.programmaticCenterUntil = '0';
       touchStartX = event.touches[0].clientX;
       touchStartY = event.touches[0].clientY;
     }, { passive:true });
@@ -7065,8 +7098,7 @@ function renderDateStrip({ forceCenter = false } = {}) {
       touchStartY = null;
       if (!step) return;
       suppressClick = true;
-      event.preventDefault();
-      shiftScheduleDate(step);
+      scheduleMobileSettle(170);
     }, { passive:false });
     dateStrip.addEventListener('touchcancel', () => {
       touchStartX = null;
@@ -7080,6 +7112,8 @@ function renderDateStrip({ forceCenter = false } = {}) {
     }, true);
     dateStrip.addEventListener('scroll', () => {
       if (!wheelFrame && dragPointerId === null) wheelTarget = dateStrip.scrollLeft;
+      if (window.matchMedia('(max-width: 760px)').matches
+        && Number(dateStrip.dataset.programmaticCenterUntil || 0) <= Date.now()) scheduleMobileSettle();
     }, { passive:true });
     dateStrip.dataset.scrollInteractionsBound = 'true';
   }
@@ -11681,6 +11715,26 @@ function calendarRangeTitle(view = calendarView) {
     : start.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' });
 }
 
+function renderSelectedDateTitle(view = calendarView) {
+  const holder = $('#selectedDateTitle');
+  if (!holder) return;
+  const defaultTitle = calendarRangeTitle(view);
+  if (view !== 'day') {
+    holder.textContent = defaultTitle;
+    return;
+  }
+  const weekday = parseLocalIsoDate(selectedDate).toLocaleDateString('ru-RU', { weekday:'long' });
+  const mobileTitle = weekday ? `${weekday[0].toLocaleUpperCase('ru-RU')}${weekday.slice(1)}` : defaultTitle;
+  holder.replaceChildren();
+  const defaultLabel = document.createElement('span');
+  defaultLabel.className = 'selected-date-title-default';
+  defaultLabel.textContent = defaultTitle;
+  const mobileLabel = document.createElement('span');
+  mobileLabel.className = 'selected-date-title-mobile';
+  mobileLabel.textContent = mobileTitle;
+  holder.append(defaultLabel, mobileLabel);
+}
+
 function calendarOverviewBookingMarkup(item, compact) {
   const time = String(item.booking_time || '').slice(0, 5);
   const block = isScheduleBlock(item);
@@ -11825,7 +11879,7 @@ function renderCalendarOverview(view) {
     ? `${calendarWeekTimelineMarkup(days, byDate, today)}<div class="calendar-overview-grid calendar-week-mobile-list" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>`
     : `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>${mobileMonthAgenda}`;
   if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
-  $('#selectedDateTitle').textContent = calendarRangeTitle(view);
+  renderSelectedDateTitle(view);
   const clientCount = visible.filter(item => !isScheduleBlock(item)).length;
   const blockCount = visible.length - clientCount;
   $('#selectedDateSummary').textContent = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : 'Записей нет', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
@@ -11836,7 +11890,7 @@ function renderBookings() {
   const holder = $('#providerBookings');
   renderBookingDataSourceNotice();
   updateBookingQueryTools();
-  $('#selectedDateTitle').textContent = calendarRangeTitle(calendarView);
+  renderSelectedDateTitle(calendarView);
   if (bookingUsesDemoData() && reportScopedBookingsState.status !== 'ready') {
     const failed = reportScopedBookingsState.status === 'failed';
     holder.className = 'provider-bookings';
@@ -16102,7 +16156,12 @@ document.addEventListener('click', async event => {
     setCalendarView('day');
     selectScheduleDate(calendarOpenDate.dataset.calendarOpenDate);
   }
-  if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));
+  if (dateShift) {
+    const weekStep = calendarView === 'day'
+      && Boolean(dateShift.closest('.date-strip-frame'))
+      && matchMedia('(max-width:760px)').matches;
+    shiftScheduleDate(Number(dateShift.dataset.dateShift), { weekStep });
+  }
   if (dateToday) restoreDefaultScheduleView();
   if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openAutomaticBreak) {

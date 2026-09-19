@@ -2183,3 +2183,69 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     transform:none!important;
   }
 }
+
+/* v832: the mobile summary keeps its compact fill without a decorative edge,
+   while the day card repeats only the weekday already represented by the date
+   carousel. */
+.selected-date-title-mobile {
+  display:none;
+}
+
+@media (max-width:760px) {
+  html body.provider-body[data-provider-theme][data-provider-layout]
+    #dashboard[data-active-view="bookings"] .schedule-title-line .dashboard-summary {
+    padding:6px 8px!important;
+    border:0!important;
+    outline:0!important;
+    border-radius:10px!important;
+    background:var(--theme-accent-soft)!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    overflow:visible!important;
+  }
+
+  html body.provider-body[data-provider-theme][data-provider-layout]
+    .date-strip-frame>.date-strip {
+    justify-content:flex-start!important;
+    overflow-x:auto!important;
+    scroll-snap-type:x proximity;
+    scroll-behavior:smooth;
+    touch-action:pan-x pan-y!important;
+    overscroll-behavior-x:contain!important;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  html body.provider-body[data-provider-theme][data-provider-layout]
+    .date-strip-frame>.date-strip>button {
+    scroll-snap-align:center;
+    scroll-snap-stop:normal;
+  }
+
+  html body.provider-body[data-provider-theme][data-provider-layout]
+    #dashboard[data-active-view="bookings"] .schedule-title-line .dashboard-summary::before,
+  html body.provider-body[data-provider-theme][data-provider-layout]
+    #dashboard[data-active-view="bookings"] .schedule-title-line .dashboard-summary::after {
+    display:none!important;
+    content:none!important;
+  }
+
+  html body.provider-body[data-provider-theme][data-provider-layout]
+    #dashboard[data-active-view="bookings"] .schedule-toolbar #selectedDateTitle {
+    overflow:visible!important;
+    text-overflow:clip!important;
+    white-space:nowrap!important;
+  }
+
+  html body.provider-body[data-provider-theme][data-provider-layout]
+    #dashboard[data-active-view="bookings"] .schedule-toolbar #selectedDateTitle .selected-date-title-default {
+    display:none!important;
+  }
+
+  html body.provider-body[data-provider-theme][data-provider-layout]
+    #dashboard[data-active-view="bookings"] .schedule-toolbar #selectedDateTitle .selected-date-title-mobile {
+    display:block!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+    white-space:nowrap!important;
+  }
+}
