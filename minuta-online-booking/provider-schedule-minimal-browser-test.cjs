@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 const root = __dirname;
 const themeCatalog = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
-const helperStart = providerSource.indexOf('function centerDateStripSelection(');
+const helperStart = providerSource.indexOf('function updateDateStripEmphasis(');
 const helperEnd = providerSource.indexOf('function renderDateStrip()', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Помощники адаптивной ленты дат не найдены');
 const dateStripResizeHelpers = providerSource.slice(helperStart, helperEnd);
@@ -45,7 +45,7 @@ const server = http.createServer((request, response) => {
       document.body.dataset.providerLayout = 'soft';
       document.querySelector('[data-calendar-view="day"]')?.classList.add('active');
       const strip = document.querySelector('#dateStrip');
-      strip.innerHTML = Array.from({ length:7 }, (_, index) => `<button type="button"><span>день</span><strong>${index + 1}</strong><small>сент</small></button>`).join('');
+      strip.innerHTML = Array.from({ length:7 }, (_, index) => `<button type="button" class="${index === 3 ? 'active' : ''}" data-booking-date="2026-09-0${index + 1}" data-date-distance="${Math.abs(index - 3)}"><span>день</span><strong>${index + 1}</strong><small>сент</small></button>`).join('');
       if (!strip.closest('.date-strip-frame')) {
         const frame = document.createElement('div');
         frame.className = 'date-strip-frame';
@@ -111,12 +111,13 @@ const server = http.createServer((request, response) => {
     await page.evaluate(() => {
       const strip = document.querySelector('#dateStrip');
       strip.innerHTML = Array.from({ length:91 }, (_, index) => `<button type="button" data-booking-date="2026-10-${String(index + 1).padStart(2, '0')}" class="${index === 70 ? 'active' : ''}"><span>день</span><strong>${index + 1}</strong><small>окт</small></button>`).join('');
+      updateDateStripEmphasis(strip);
       centerDateStripSelection(strip);
       bindDateStripResizeCentering(strip);
     });
     for (const width of [760, 390, 360, 1440]) {
       await page.setViewportSize({ width, height:900 });
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(300);
       const activeState = await page.evaluate(() => {
         const strip = document.querySelector('#dateStrip').getBoundingClientRect();
         const active = document.querySelector('#dateStrip .active').getBoundingClientRect();
@@ -125,6 +126,32 @@ const server = http.createServer((request, response) => {
       });
       assert.equal(activeState.visible, true, `${width}px: выбранная дата ушла из видимой области после смены ширины (${JSON.stringify(activeState)})`);
     }
+
+    await page.setViewportSize({ width:390, height:900 });
+    const movingEmphasis = await page.evaluate(async () => {
+      const strip = document.querySelector('#dateStrip');
+      const measure = () => [...strip.querySelectorAll('button')].map(button => ({
+        active:button.classList.contains('active'),
+        distance:button.dataset.dateDistance,
+        width:button.getBoundingClientRect().width,
+        height:button.getBoundingClientRect().height
+      }));
+      const before = measure();
+      const next = strip.querySelectorAll('button')[72];
+      strip.querySelector('.active').classList.remove('active');
+      next.classList.add('active');
+      updateDateStripEmphasis(strip);
+      centerDateStripSelection(strip);
+      await new Promise(resolve => setTimeout(resolve, 240));
+      return { before, after:measure() };
+    });
+    const beforeActive = movingEmphasis.before.find(item => item.active);
+    const afterActive = movingEmphasis.after.find(item => item.active);
+    assert.equal(beforeActive.distance, '0', 'Выбранная дата не получила нулевую дистанцию');
+    assert.equal(afterActive.distance, '0', 'Акцент не переехал на новую выбранную дату');
+    assert.ok(afterActive.width > movingEmphasis.after.find(item => item.distance === '1').width, 'Выбранная дата не крупнее соседней');
+    assert.ok(movingEmphasis.after.find(item => item.distance === '1').width > movingEmphasis.after.find(item => item.distance === '2').width, 'Ближайшая дата не крупнее дальней');
+    assert.ok(movingEmphasis.after.find(item => item.distance === '2').width > movingEmphasis.after.find(item => item.distance === '3').width, 'Крайняя дата не слабее средней');
 
     const alternateView = await page.evaluate(() => {
       document.querySelector('[data-calendar-view="day"]')?.classList.remove('active');

@@ -76,9 +76,9 @@
 
 /* Editorial grids */
 .provider-body[data-provider-theme="sage"],.provider-theme-option.theme-sage {
-  --theme-canvas-texture:linear-gradient(90deg,transparent 0 22%,#304d3e 22% 22.08%,transparent 22.08% 76%,#304d3e 76% 76.08%,transparent 76.08%),repeating-linear-gradient(0deg,transparent 0 95px,#4f6744 95px 96px,transparent 96px 126px);
-  --theme-canvas-size:100% 100%,100% 126px;
-  --theme-canvas-opacity:.035;
+  --theme-canvas-texture:none;
+  --theme-canvas-size:auto;
+  --theme-canvas-opacity:0;
 }
 
 .provider-body[data-provider-theme="nordic"],.provider-theme-option.theme-nordic {

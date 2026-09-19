@@ -518,7 +518,7 @@
 .provider-booking-client-line { flex-wrap:wrap; align-items:center; }
 .timeline-client-visit-wrap { display:inline; }
 
-.provider-body[data-provider-theme="sage"] { --theme-bg:#f4f7f5; --theme-surface:#fff; --theme-surface-alt:#f8faf9; --theme-ink:#183425; --theme-muted:#64736b; --theme-line:#dfe6e1; --theme-accent:#235b40; --theme-accent-soft:#e9eeeb; --theme-accent-contrast:#fff; --theme-shadow:rgba(29,70,48,.12); }
+.provider-body[data-provider-theme="sage"] { --theme-bg:#f6f8f6; --theme-surface:#fff; --theme-surface-alt:#f0f7f3; --theme-ink:#183b2e; --theme-muted:#708378; --theme-line:#d8e6dd; --theme-accent:#287a58; --theme-accent-soft:#e9f6ee; --theme-accent-contrast:#fff; --theme-shadow:rgba(31,89,64,.07); }
 .provider-body[data-provider-theme="nordic"] { --theme-bg:#f3f6fb; --theme-surface:#fff; --theme-surface-alt:#f7f9fd; --theme-ink:#182437; --theme-muted:#627188; --theme-line:#dde5f0; --theme-accent:#3568e8; --theme-accent-soft:#e9efff; --theme-accent-contrast:#fff; --theme-shadow:rgba(36,66,118,.13); }
 .provider-body[data-provider-theme="warm"] { --theme-bg:#f6f1ea; --theme-surface:#fffdfa; --theme-surface-alt:#faf6f0; --theme-ink:#332923; --theme-muted:#78695f; --theme-line:#eadfd4; --theme-accent:#a9664c; --theme-accent-soft:#f2e6dd; --theme-accent-contrast:#080503; --theme-shadow:rgba(92,65,48,.14); }
 .provider-body[data-provider-theme="graphite"] { --theme-bg:#11171b; --theme-surface:#1a2228; --theme-surface-alt:#161d22; --theme-ink:#f1f4f6; --theme-muted:#99a7b1; --theme-line:#2d3941; --theme-accent:#8b7cf6; --theme-accent-soft:#292741; --theme-accent-contrast:#171428; --theme-shadow:rgba(0,0,0,.38); color-scheme:dark; }

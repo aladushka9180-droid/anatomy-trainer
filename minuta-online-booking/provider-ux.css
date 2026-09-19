@@ -150,7 +150,7 @@
 .provider-body[data-provider-theme][data-provider-layout] {
   --client-state-surface:var(--theme-surface);
   --client-state-selected:color-mix(in srgb,var(--theme-surface) 88%,var(--theme-accent));
-  --workspace-secondary:color-mix(in srgb,var(--theme-muted) 75%,var(--theme-ink));
+  --workspace-secondary:color-mix(in srgb,var(--theme-muted) 66%,var(--theme-ink));
 }
 .provider-body[data-provider-theme][data-provider-layout] :is(
   .client-list-item,.provider-booking,.timeline-booking

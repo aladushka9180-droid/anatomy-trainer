@@ -6738,6 +6738,16 @@ function refreshBusinessDay() {
   renderBookingData();
 }
 
+function updateDateStripEmphasis(dateStrip) {
+  if (!dateStrip) return;
+  const buttons = [...dateStrip.querySelectorAll('[data-booking-date]')];
+  const activeIndex = buttons.findIndex(button => button.classList.contains('active'));
+  buttons.forEach((button, index) => {
+    const distance = activeIndex < 0 ? 3 : Math.min(3, Math.abs(index - activeIndex));
+    button.dataset.dateDistance = String(distance);
+  });
+}
+
 function centerDateStripSelection(dateStrip) {
   if (!dateStrip || dateStrip.scrollWidth <= dateStrip.clientWidth) return;
   const active = dateStrip.querySelector('[data-booking-date].active');
@@ -6760,6 +6770,7 @@ function bindDateStripResizeCentering(dateStrip) {
     if (!width || Math.abs(width - previousWidth) < 1) return;
     previousWidth = width;
     requestAnimationFrame(() => centerDateStripSelection(dateStrip));
+    window.setTimeout(() => centerDateStripSelection(dateStrip), 220);
   };
   if ('ResizeObserver' in window) new ResizeObserver(entries => recenterForWidth(entries[0]?.contentRect?.width)).observe(dateStrip);
   window.addEventListener('resize', () => recenterForWidth(dateStrip.clientWidth), { passive:true });
@@ -6809,6 +6820,7 @@ function renderDateStrip() {
     if (isToday) button.setAttribute('aria-current', 'date');
     else button.removeAttribute('aria-current');
   });
+  updateDateStripEmphasis(dateStrip);
   dateStrip.dataset.selectedDate = selectedDate;
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
@@ -6819,7 +6831,10 @@ function renderDateStrip() {
     todayButton.classList.toggle('is-current', current);
     todayButton.setAttribute('aria-pressed', String(current));
   }
-  if (rebuildStrip || selectionChanged) requestAnimationFrame(() => centerDateStripSelection(dateStrip));
+  if (rebuildStrip || selectionChanged) {
+    requestAnimationFrame(() => centerDateStripSelection(dateStrip));
+    window.setTimeout(() => centerDateStripSelection(dateStrip), 220);
+  }
   bindDateStripResizeCentering(dateStrip);
   if (!dateStrip.dataset.scrollInteractionsBound) {
     let wheelTarget = dateStrip.scrollLeft;

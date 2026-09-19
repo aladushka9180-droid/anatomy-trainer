@@ -1,15 +1,14 @@
 /* Theme identity pass: each close neighbour gets a distinct hue, material and geometry. */
 .provider-body[data-provider-theme="sage"] {
-  --theme-bg:#f1f3eb; --theme-surface:#fffefa; --theme-surface-alt:#e6eadc; --theme-ink:#2d382a;
-  --theme-muted:#5f6858; --theme-line:#89947e; --theme-accent:#4f6744; --theme-accent-soft:#dde5d4;
-  --theme-accent-contrast:#fff; --theme-shadow:rgba(68,82,59,.09); --material-card-bg:#fffefa;
-  --material-card-border:#89947e; --material-radius:2px; --material-control-radius:2px;
-  --signature-sidebar:#e6eadc; --signature-stage:#f7f8f2; --signature-nav-active:#dde5d4;
-  --atmosphere-background:linear-gradient(90deg,rgba(79,103,68,.035) 1px,transparent 1px) 0 0/40px 40px,radial-gradient(ellipse at 10% 4%,rgba(125,145,104,.14),transparent 34%),linear-gradient(145deg,#eff2e9,#fffefa 62%,#e5eadb);
-  --atmosphere-panel:#f7f8f2; --atmosphere-panel-strong:#fffefa;
+  --theme-bg:#f6f8f6; --theme-surface:#fff; --theme-surface-alt:#f0f7f3; --theme-ink:#183b2e;
+  --theme-muted:#708378; --theme-line:#d8e6dd; --theme-accent:#287a58; --theme-accent-soft:#e9f6ee;
+  --theme-accent-contrast:#fff; --theme-shadow:rgba(31,89,64,.07); --material-card-bg:#fff;
+  --material-card-border:#d8e6dd; --material-radius:16px; --material-control-radius:12px;
+  --signature-sidebar:#fff; --signature-stage:#f6f8f6; --signature-nav-active:#e9f6ee;
+  --atmosphere-background:#f6f8f6; --atmosphere-panel:#f6f8f6; --atmosphere-panel-strong:#fff;
 }
-.theme-sage { --theme-preview-bg:#f1f3eb; --theme-preview-surface:#fffefa; --theme-preview-line:#89947e; --theme-preview-accent:#4f6744; --theme-preview-radius:2px; --theme-preview-item-radius:1px; }
-.theme-sage .theme-swatch { background-image:linear-gradient(90deg,rgba(79,103,68,.1) 1px,transparent 1px) 0 0/22px 22px,radial-gradient(ellipse at 10% 4%,rgba(125,145,104,.2),transparent 44%),linear-gradient(145deg,#eff2e9,#fffefa); }
+.theme-sage { --theme-preview-bg:#f6f8f6; --theme-preview-surface:#fff; --theme-preview-line:#d8e6dd; --theme-preview-accent:#287a58; --theme-preview-radius:16px; --theme-preview-item-radius:12px; }
+.theme-sage .theme-swatch { background:#f6f8f6; background-image:none; }
 
 .provider-body[data-provider-theme="nordic"] {
   --theme-bg:#e8ece9; --theme-surface:#fbfcfa; --theme-surface-alt:#d9dfda; --theme-ink:#222d31;

@@ -49,6 +49,11 @@ assert.match(coreStyles, /v786: compact mobile navigation[\s\S]*bottom:max\(0px,
 assert.match(script, /const swipeSurface = event\.target\.closest\('#providerBookings'\)/);
 assert.match(script, /if \(dateShift\) shiftScheduleDate\(Number\(dateShift\.dataset\.dateShift\)\)/);
 assert.match(script, /activeRect\.left - stripRect\.left \+ dateStrip\.scrollLeft/);
+assert.match(script, /function updateDateStripEmphasis\(dateStrip\)[\s\S]*Math\.min\(3, Math\.abs\(index - activeIndex\)\)[\s\S]*button\.dataset\.dateDistance = String\(distance\)/s);
+assert.match(script, /button\.classList\.toggle\('active', active\)[\s\S]*updateDateStripEmphasis\(dateStrip\)/s);
+assert.match(styles, /v821: reference-led mobile schedule[\s\S]*data-date-distance="2"[\s\S]*data-date-distance="1"[\s\S]*data-date-distance="0"[\s\S]*--date-card-height:76px/s);
+assert.match(styles, /provider-mobile-nav>button\.active[\s\S]*background:var\(--theme-accent-soft\)!important;[\s\S]*mobile-nav-badge[\s\S]*background:var\(--theme-accent\)!important;/s);
+assert.match(styles, /timeline-booking\.automatic-break[\s\S]*background-image:none!important;/s);
 assert.match(script, /todayButton\.classList\.toggle\('is-current', current\)[\s\S]*setAttribute\('aria-pressed', String\(current\)\)/);
 assert.match(script, /function updateJournalModeButtons\(\)[\s\S]*modeToggle\.hidden = Boolean\(teamCalendarController\?\.isTeamMode\) \|\| calendarView !== 'day';/);
 assert.match(script, /function setTeamCalendarMode\(active, options = \{\}\)[\s\S]*modeToggle\.hidden = teamMode \|\| calendarView !== 'day';/);
