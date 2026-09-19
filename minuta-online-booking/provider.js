@@ -351,7 +351,6 @@ let topbarClockTimer = null;
 let deferredInstallPrompt = window.MinutaPwaInstall?.currentPrompt?.() || null;
 let journalMode = restoreJournalMode();
 let selectedDate = restoreSelectedDate();
-let timelineFullDay = false;
 let bookingSearchQuery = '';
 let bookingStatusFilter = 'all';
 let bookingSourceFilter = 'all';
@@ -6532,7 +6531,6 @@ function restoreDefaultScheduleView() {
   calendarView = 'day';
   currentFilter = 'day';
   journalMode = 'timeline';
-  timelineFullDay = false;
   bookingSearchQuery = '';
   bookingStatusFilter = 'all';
   bookingSourceFilter = 'all';
@@ -6679,7 +6677,6 @@ function setCalendarView(view) {
   const next = ['day', 'week', 'month'].includes(view) ? view : 'day';
   if (next === calendarView && currentFilter === 'day') return;
   calendarView = next;
-  timelineFullDay = false;
   currentFilter = 'day';
   try {
     localStorage.setItem(CALENDAR_VIEW_KEY, calendarView);
@@ -6700,7 +6697,6 @@ function selectScheduleDate(value) {
   const date = parseLocalIsoDate(value);
   if (!date) return;
   const nextDate = localIsoDate(date);
-  if (selectedDate !== nextDate) timelineFullDay = false;
   selectedDate = nextDate;
   rememberSelectedDate();
   renderDateStrip();
@@ -6748,7 +6744,15 @@ function updateDateStripEmphasis(dateStrip) {
   });
 }
 
-function centerDateStripSelection(dateStrip) {
+function dateStripSwipeStep(startX, startY, endX, endY, threshold = 36) {
+  const deltaX = Number(endX) - Number(startX);
+  const deltaY = Number(endY) - Number(startY);
+  if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return 0;
+  if (Math.abs(deltaX) < threshold || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return 0;
+  return deltaX < 0 ? 1 : -1;
+}
+
+function centerDateStripSelection(dateStrip, options = {}) {
   if (!dateStrip || dateStrip.scrollWidth <= dateStrip.clientWidth) return;
   const active = dateStrip.querySelector('[data-booking-date].active');
   if (!active) return;
@@ -6756,10 +6760,15 @@ function centerDateStripSelection(dateStrip) {
   const activeRect = active.getBoundingClientRect();
   const activeContentLeft = activeRect.left - stripRect.left + dateStrip.scrollLeft;
   const target = activeContentLeft - (dateStrip.clientWidth - activeRect.width) / 2;
-  const previousBehavior = dateStrip.style.scrollBehavior;
-  dateStrip.style.scrollBehavior = 'auto';
-  dateStrip.scrollLeft = Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, target));
-  dateStrip.style.scrollBehavior = previousBehavior;
+  const nextLeft = Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, target));
+  const smooth = options.smooth === true && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (smooth && typeof dateStrip.scrollTo === 'function') dateStrip.scrollTo({ left:nextLeft, behavior:'smooth' });
+  else {
+    const inlineScrollBehavior = dateStrip.style.scrollBehavior;
+    dateStrip.style.scrollBehavior = 'auto';
+    dateStrip.scrollLeft = nextLeft;
+    dateStrip.style.scrollBehavior = inlineScrollBehavior;
+  }
 }
 
 function bindDateStripResizeCentering(dateStrip) {
@@ -6795,7 +6804,8 @@ function renderDateStrip() {
   const currentRangeContainsSelection = dateStrip.dataset.rangeStart <= selectedDate && selectedDate <= dateStrip.dataset.rangeEnd;
   const currentRangeContainsToday = dateStrip.dataset.rangeStart <= todayIso && todayIso <= dateStrip.dataset.rangeEnd;
   const rebuildStrip = dateStrip.dataset.rangeMode !== 'extended' || !currentRangeContainsSelection || !currentRangeContainsToday || dateStrip.dataset.today !== todayIso;
-  const selectionChanged = dateStrip.dataset.selectedDate !== selectedDate;
+  const previousSelectedDate = dateStrip.dataset.selectedDate || '';
+  const selectionChanged = previousSelectedDate !== selectedDate;
   if (rebuildStrip) {
     const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
     dateStrip.innerHTML = Array.from({ length: rangeDays }, (_, index) => {
@@ -6832,8 +6842,9 @@ function renderDateStrip() {
     todayButton.setAttribute('aria-pressed', String(current));
   }
   if (rebuildStrip || selectionChanged) {
-    requestAnimationFrame(() => centerDateStripSelection(dateStrip));
-    window.setTimeout(() => centerDateStripSelection(dateStrip), 220);
+    const smoothSelection = selectionChanged && !rebuildStrip && Boolean(previousSelectedDate);
+    requestAnimationFrame(() => centerDateStripSelection(dateStrip, { smooth:smoothSelection }));
+    window.setTimeout(() => centerDateStripSelection(dateStrip, { smooth:smoothSelection }), 220);
   }
   bindDateStripResizeCentering(dateStrip);
   if (!dateStrip.dataset.scrollInteractionsBound) {
@@ -6844,6 +6855,8 @@ function renderDateStrip() {
     let dragStartScrollLeft = 0;
     let hasDragged = false;
     let suppressClick = false;
+    let touchStartX = null;
+    let touchStartY = null;
     const clampScroll = value => Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, value));
     const stopWheelAnimation = () => {
       if (wheelFrame) cancelAnimationFrame(wheelFrame);
@@ -6906,6 +6919,27 @@ function renderDateStrip() {
     };
     dateStrip.addEventListener('pointerup', finishDrag);
     dateStrip.addEventListener('pointercancel', finishDrag);
+    dateStrip.addEventListener('touchstart', event => {
+      if (event.touches.length !== 1) return;
+      touchStartX = event.touches[0].clientX;
+      touchStartY = event.touches[0].clientY;
+    }, { passive:true });
+    dateStrip.addEventListener('touchend', event => {
+      const touch = event.changedTouches[0];
+      const step = touch && touchStartX !== null
+        ? dateStripSwipeStep(touchStartX, touchStartY, touch.clientX, touch.clientY)
+        : 0;
+      touchStartX = null;
+      touchStartY = null;
+      if (!step) return;
+      suppressClick = true;
+      event.preventDefault();
+      shiftScheduleDate(step);
+    }, { passive:false });
+    dateStrip.addEventListener('touchcancel', () => {
+      touchStartX = null;
+      touchStartY = null;
+    }, { passive:true });
     dateStrip.addEventListener('click', event => {
       if (!suppressClick) return;
       suppressClick = false;
@@ -8100,18 +8134,7 @@ function renderTimeline(sourceItems) {
   const mobileTimeline = window.matchMedia('(max-width: 760px)').matches;
   const fullBounds = timelineBounds(items);
   let { start, end } = fullBounds;
-  const lastBookingEnd = items.reduce((latest, item) => {
-    const itemStart = minutesFromTime(item.booking_time);
-    const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
-    return Math.max(latest, itemStart + duration);
-  }, start);
   const currentClock = selectedDate === businessTodayIso() ? businessClock() : null;
-  const currentTimeEnd = currentClock && currentClock.minutes >= start && currentClock.minutes <= fullBounds.end
-    ? Math.ceil((currentClock.minutes + 30) / 60) * 60
-    : start;
-  const compactEnd = Math.min(fullBounds.end, Math.max(start + 180, Math.ceil((lastBookingEnd + 30) / 60) * 60, currentTimeEnd));
-  const timelineWasCompacted = mobileTimeline && !timelineFullDay && fullBounds.end - compactEnd >= 120;
-  if (timelineWasCompacted) end = compactEnd;
   const hourHeight = mobileTimeline ? 72 : 76;
   const naturalTimelineHeight = ((end - start) / 60) * hourHeight;
   const timelineItems = items.map((item, index) => {
@@ -8215,12 +8238,9 @@ function renderTimeline(sourceItems) {
       ? `<button class="${className}" type="button" data-open-automatic-break data-automatic-break-date="${escapeHtml(item.booking_date)}" data-automatic-break-start="${startTime}" data-automatic-break-end="${endTime}" data-automatic-break-source-count="${Number(item.automatic_break_source_count) || 1}" data-automatic-break-fingerprint="${escapeHtml(item.automatic_break_fingerprint || '')}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-haspopup="dialog" aria-controls="bookingSheet" aria-label="${ariaLabel}. Открыть управление перерывом" title="Открыть управление автоматическим перерывом">${cardContent}</button>`
       : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} ${movable ? 'data-timeline-movable aria-describedby="timelineMoveInstruction" aria-keyshortcuts="Shift+ArrowUp Shift+ArrowDown"' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : moveRestriction || 'Перетащите или нажмите Shift и стрелку, чтобы изменить время'}">${cardContent}${dragHandle}</button>`;
   }).join('');
-  const expandTimeline = timelineWasCompacted
-    ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`
-    : '';
   const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group" tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись">${lines.join('')}${nowMarker}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group" tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись">${lines.join('')}${nowMarker}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
   if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
 }
 
@@ -15677,7 +15697,6 @@ document.addEventListener('click', async event => {
   const favoriteServiceButton = event.target.closest('[data-client-favorite-service]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
-  const expandTimeline = event.target.closest('[data-expand-timeline]');
   const createEmptyBooking = event.target.closest('[data-create-empty-booking]');
   const editBooking = event.target.closest('[data-edit-booking]');
   const cancelBookingSeriesButton = event.target.closest('[data-cancel-booking-series]');
@@ -15900,10 +15919,6 @@ document.addEventListener('click', async event => {
   if (filter) setFilter(filter.dataset.filter);
   if (journalView) setJournalMode(journalView.dataset.journalMode);
   if (calendarViewButton) setCalendarView(calendarViewButton.dataset.calendarView);
-  if (expandTimeline) {
-    timelineFullDay = true;
-    renderBookings();
-  }
   if (calendarOpenDate) {
     setCalendarView('day');
     selectScheduleDate(calendarOpenDate.dataset.calendarOpenDate);

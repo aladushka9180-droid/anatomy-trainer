@@ -36,7 +36,7 @@ assert.deepEqual(
 
 assert.match(html, /provider-schedule-minimal\.css\?v=\d+/);
 assert.match(worker, /\.\/provider-schedule-minimal\.css\?v=\d+/);
-assert.match(html, /class="date-strip-frame"[\s\S]*data-date-shift="-7"[\s\S]*id="dateStrip"[\s\S]*data-date-shift="7"/);
+assert.match(html, /class="date-strip-frame"[\s\S]*data-date-shift="-1"[\s\S]*id="dateStrip"[\s\S]*data-date-shift="1"/);
 assert.match(html, /class="provider-topbar-tools"[\s\S]*id="shareProviderClientPage"[\s\S]*Поделиться ссылкой для записи[\s\S]*id="openFreeSlots"[\s\S]*data-compact-label="Поделиться"/);
 assert.doesNotMatch(html, /schedule-view-title[\s\S]{0,900}id="openFreeSlots"/);
 assert.match(html, /id="newBookingButton"[^>]*aria-label="Новая запись"[^>]*data-compact-label="Новая запись"/);
@@ -45,8 +45,8 @@ assert.match(html, /data-journal-mode="timeline"[^>]*aria-label="Временн�
 assert.match(html, /data-journal-mode="list"[^>]*aria-label="Компактный список"[^>]*title="Список"[^>]*aria-pressed="false"/);
 assert.match(html, /schedule-date-picker[\s\S]*ui-icons\.svg#icon-calendar[\s\S]*id="scheduleDatePicker"/);
 assert.match(styles, /\.date-navigation:has\(\[data-calendar-view="day"\]\.active\)>\.date-nav-button,[\s\S]*\.date-navigation:has\(\[data-calendar-view="week"\]\.active\)>\.date-nav-button,[\s\S]*\.date-navigation:has\(\[data-calendar-view="month"\]\.active\)>\.date-nav-button\s*\{[^}]*display:none!important;/s);
-assert.match(styles, /\.date-strip-shift\[data-date-shift="-7"\]\s*\{[^}]*left:8px;/s);
-assert.match(styles, /\.date-strip-shift\[data-date-shift="7"\]\s*\{[^}]*right:8px;/s);
+assert.match(styles, /\.date-strip-shift\[data-date-shift="-1"\]\s*\{[^}]*left:8px;/s);
+assert.match(styles, /\.date-strip-shift\[data-date-shift="1"\]\s*\{[^}]*right:8px;/s);
 assert.match(styles, /\.date-strip-frame>\.date-strip\s*\{[^}]*box-sizing:border-box;/s);
 assert.match(styles, /not\(\[data-provider-layout="split"\]\)[\s\S]*\.schedule-card:has\(#dateStrip:not\(\[hidden\]\)\)[\s\S]*border-radius:0!important;/s);
 assert.match(styles, /@media \(min-width:761px\)[\s\S]*\.booking-sheet\s*\{[^}]*place-items:center;[\s\S]*\.booking-sheet-panel\s*\{[^}]*margin-bottom:0;/s);
@@ -68,17 +68,20 @@ assert.match(styles, /grid-template-rows:10px 22px 10px!important[\s\S]*line-hei
 assert.match(styles, /is-today:not\(\.active\)[\s\S]*background:transparent!important[\s\S]*26%,transparent/s);
 assert.match(styles, /date-strip-frame>\.date-strip-shift[\s\S]*width:44px!important[\s\S]*background:transparent!important[\s\S]*\.ui-icon\s*\{[^}]*display:none!important[\s\S]*border-width:0 1\.7px 1\.7px 0/s);
 assert.match(styles, /@media \(max-width:430px\)[\s\S]*date-strip-frame>\.date-strip>button strong[\s\S]*font-size:17px!important/s);
-assert.match(styles, /@media \(max-width:430px\)[\s\S]*\.schedule-title-line\s*\{[^}]*display:contents!important;[\s\S]*\.dashboard-summary\s*\{[^}]*grid-column:1\/-1!important;[^}]*width:100%!important;/s);
+assert.match(styles, /\.dashboard-summary\s*\{[^}]*grid-column:1!important;[^}]*grid-template-columns:auto auto auto!important;[^}]*width:max-content!important;[\s\S]*Всего впереди —/s);
 assert.match(styles, /v786: list controls grow[\s\S]*:has\(\.booking-filters:not\(\[hidden\]\)\)[\s\S]*height:auto!important[\s\S]*\.schedule-controls\s*\{[^}]*display:contents!important;[\s\S]*\.booking-filters\s*\{[^}]*grid-row:2!important;/s);
 assert.match(styles, /--provider-mobile-nav-clearance:max\(96px,calc\(80px \+ env\(safe-area-inset-bottom,0px\)\)\)[\s\S]*padding-bottom:var\(--provider-mobile-nav-clearance\)!important;/s);
 assert.match(coreStyles, /v786: compact mobile navigation[\s\S]*bottom:max\(0px,env\(safe-area-inset-bottom,0px\)\)!important;[\s\S]*padding:1px 4px!important;[\s\S]*min-height:44px!important;[\s\S]*gap:1px!important;/s);
 assert.match(script, /const swipeSurface = event\.target\.closest\('#providerBookings'\)/);
 assert.match(script, /if \(dateShift\) shiftScheduleDate\(Number\(dateShift\.dataset\.dateShift\)\)/);
 assert.match(script, /activeRect\.left - stripRect\.left \+ dateStrip\.scrollLeft/);
+assert.match(script, /function dateStripSwipeStep\([\s\S]*Math\.abs\(deltaX\) < threshold[\s\S]*return deltaX < 0 \? 1 : -1;/s);
+assert.match(script, /touchstart[\s\S]*touchend[\s\S]*shiftScheduleDate\(step\)/s);
+assert.match(script, /centerDateStripSelection\(dateStrip, options = \{\}\)[\s\S]*behavior:'smooth'/s);
 assert.match(script, /function updateDateStripEmphasis\(dateStrip\)[\s\S]*Math\.min\(3, Math\.abs\(index - activeIndex\)\)[\s\S]*button\.dataset\.dateDistance = String\(distance\)/s);
 assert.match(script, /button\.classList\.toggle\('active', active\)[\s\S]*updateDateStripEmphasis\(dateStrip\)/s);
 assert.match(styles, /v823: reference-led mobile schedule[\s\S]*data-date-distance="2"[\s\S]*data-date-distance="1"[\s\S]*data-date-distance="0"[\s\S]*--date-card-width:clamp\(46px,12\.2vw,56px\)[\s\S]*--date-card-height:58px/s);
-assert.match(styles, /v822: compose the mobile journal[\s\S]*margin:64px 12px 0!important;[\s\S]*border-radius:22px 22px 0 0!important;[\s\S]*margin:0 12px 14px!important;[\s\S]*border-radius:0 0 22px 22px!important;/s);
+assert.match(styles, /v822: compose the mobile journal[\s\S]*margin:64px var\(--schedule-mobile-card-inset,4px\) 0!important;[\s\S]*border-radius:22px 22px 0 0!important;[\s\S]*margin:0 var\(--schedule-mobile-card-inset,4px\) 14px!important;[\s\S]*border-radius:0 0 22px 22px!important;/s);
 assert.match(styles, /\.timeline-view\s*\{[\s\S]*padding:12px 12px max\(22px,var\(--provider-mobile-nav-clearance\)\)!important;[\s\S]*overflow:visible!important;/s);
 assert.match(styles, /provider-mobile-nav>button\.active[\s\S]*background:var\(--theme-accent-soft\)!important;[\s\S]*mobile-nav-badge[\s\S]*background:var\(--theme-accent\)!important;/s);
 assert.match(styles, /timeline-booking\.automatic-break[\s\S]*background-image:none!important;/s);
@@ -99,8 +102,10 @@ assert.match(script, /const breakOrigin = item\.automatic_break \? 'Автома
 assert.match(script, /block \? ' is-schedule-block' : clientHighlightClasses\(item\.client_phone\)/);
 assert.match(script, /provider-booking-signals[^`]*\$\{block \? '' : `<span class="booking-status">\$\{statusText\}<\/span>\$\{visitMarkup\}`\}/s);
 assert.doesNotMatch(script, /block \? `<span class="provider-booking-client-line"><strong>Занятое время<\/strong><span>\$\{duration\} мин<\/span><\/span>`/);
-assert.doesNotMatch(styles, /#[0-9a-f]{3,8}\b/i, 'Новая геометрия не должна добавлять отдельную палитру');
-assert.match(styles, /v786: keep mobile schedule geometry clipped[\s\S]*\.timeline-stage\s*\{[^}]*overflow:clip;[\s\S]*\.timeline-day-expand\s*\{[^}]*min-height:52px;[^}]*line-height:1\.4;[\s\S]*#newBookingButton span\s*\{[^}]*position:static!important;[\s\S]*calendar-overview-month\s*\{[^}]*padding-bottom:max\(24px,env\(safe-area-inset-bottom,0px\)\)!important;/s);
+assert.deepEqual([...new Set([...styles.matchAll(/#[0-9a-f]{3,8}\b/gi)].map(match => match[0].toLowerCase()))], ['#0d805c'], 'Экран расписания должен использовать единственный локальный action accent');
+assert.match(styles, /v786: keep mobile schedule geometry clipped[\s\S]*\.timeline-stage\s*\{[^}]*overflow:clip;[\s\S]*#newBookingButton span\s*\{[^}]*position:static!important;[\s\S]*calendar-overview-month\s*\{[^}]*padding-bottom:max\(24px,env\(safe-area-inset-bottom,0px\)\)!important;/s);
+assert.doesNotMatch(script, /timelineFullDay|timelineWasCompacted|data-expand-timeline|Показать весь день/);
+assert.doesNotMatch(styles, /timeline-day-expand/);
 assert.match(coreStyles, /\.provider-bookings\.schedule-list > \*[\s\S]*content-visibility:auto;/s);
 assert.doesNotMatch(coreStyles, /\.provider-bookings:not\(\.timeline-view\) > \*:not\(\.calendar-week-timeline\)[\s\S]*content-visibility:auto;/s,
   'Calendar structure must contribute its real height to mobile scrolling');

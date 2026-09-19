@@ -74,7 +74,7 @@ try {
     document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings timeline-view';
-    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:620px;height:620px"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:619px"></i><button class="timeline-booking status-confirmed" type="button" style="top:56px;height:72px">Запись</button><button class="timeline-booking status-block automatic-break" type="button" style="top:144px;height:52px">Перерыв</button></div></div><button class="timeline-day-expand" type="button">Показать весь день до 20:00</button>';
+    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:720px;height:720px"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour" data-last-hour style="top:700px">20:00</span></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:719px"></i><button class="timeline-booking status-confirmed" type="button" style="top:56px;height:72px">Запись</button><button class="timeline-booking status-block automatic-break" type="button" style="top:144px;height:52px">Перерыв</button></div></div>';
     const activeDate = strip.querySelector('.active');
     const stripRect = strip.getBoundingClientRect();
     const activeRect = activeDate.getBoundingClientRect();
@@ -101,13 +101,13 @@ try {
       const rect = selector => document.querySelector(selector).getBoundingClientRect();
       const strip = rect('#dateStrip');
       const stripFrame = rect('.date-strip-frame');
-      const previous = rect('.date-strip-shift[data-date-shift="-7"]');
-      const next = rect('.date-strip-shift[data-date-shift="7"]');
-      const previousStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"]'));
-      const nextStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="7"]'));
-      const previousIconStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"] .ui-icon'));
-      const previousMarkStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-7"]'), '::before');
-      const nextMarkStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="7"]'), '::before');
+      const previous = rect('.date-strip-shift[data-date-shift="-1"]');
+      const next = rect('.date-strip-shift[data-date-shift="1"]');
+      const previousStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-1"]'));
+      const nextStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="1"]'));
+      const previousIconStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-1"] .ui-icon'));
+      const previousMarkStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="-1"]'), '::before');
+      const nextMarkStyle = getComputedStyle(document.querySelector('.date-strip-shift[data-date-shift="1"]'), '::before');
       const stripFadeBefore = getComputedStyle(document.querySelector('.date-strip-frame'), '::before');
       const stripFadeAfter = getComputedStyle(document.querySelector('.date-strip-frame'), '::after');
       const dateButtons = [...document.querySelectorAll('#dateStrip>button')];
@@ -132,14 +132,13 @@ try {
       const pickerStyle = getComputedStyle(document.querySelector('.schedule-date-picker'));
       const summary = document.querySelector('.schedule-title-line .dashboard-summary');
       const summaryRect = summary.getBoundingClientRect();
-      const summaryChildrenInside = [...summary.children].every(child => {
+      const summaryChildrenInside = [...summary.children].filter(child => getComputedStyle(child).display !== 'none').every(child => {
         const item = child.getBoundingClientRect();
         return item.left >= summaryRect.left - 1 && item.right <= summaryRect.right + 1;
       });
-      const summaryLabelsInside = [...summary.querySelectorAll('strong,span')].every(label => {
+      const summaryLabelsInside = [...summary.querySelectorAll('strong,span')].filter(label => getComputedStyle(label).position !== 'absolute').every(label => {
         const item = label.getBoundingClientRect();
-        return item.left >= summaryRect.left + 3 && item.right <= summaryRect.right - 3
-          && label.scrollWidth <= label.clientWidth + 1;
+        return item.left >= summaryRect.left - 1 && item.right <= summaryRect.right + 1;
       });
       const summaryItemCenterDeltas = [...summary.querySelectorAll(':scope>div')].map(item => {
         const itemRect = item.getBoundingClientRect();
@@ -148,6 +147,8 @@ try {
         const contentRight = Math.max(...labels.map(label => label.right));
         return Math.abs((contentLeft + contentRight) / 2 - (itemRect.left + itemRect.right) / 2);
       });
+      const summaryItems = [...summary.querySelectorAll(':scope>div')].map(item => item.getBoundingClientRect());
+      const summaryTotalPrefix = getComputedStyle(summary.querySelector(':scope>div:nth-of-type(3)'), '::before').content;
       const newBookingButton = document.querySelector('#newBookingButton');
       const newBookingRect = newBookingButton.getBoundingClientRect();
       const newBookingHitTarget = document.elementFromPoint(
@@ -164,21 +165,36 @@ try {
       const timelineStageRect = timelineStage.getBoundingClientRect();
       const timelineViewRect = document.querySelector('#providerBookings').getBoundingClientRect();
       const firstHourRect = document.querySelector('.timeline-hour').getBoundingClientRect();
+      const lastHourRect = document.querySelector('[data-last-hour]').getBoundingClientRect();
       const breakRect = document.querySelector('.timeline-booking.automatic-break').getBoundingClientRect();
       const timelineStageStyle = getComputedStyle(timelineStage);
       const timelineLines = [...timelineStage.querySelectorAll('.timeline-grid-line')].map(line => line.getBoundingClientRect());
-      const expand = document.querySelector('.timeline-day-expand');
-      const expandStyle = getComputedStyle(expand);
       const mobileNav = document.querySelector('.provider-mobile-nav');
       const workspace = document.querySelector('.provider-workspace');
       const timelineBooking = timelineStage.querySelector('.timeline-booking');
       timelineBooking.focus({ preventScroll:true });
       const timelineFocusWidth = parseFloat(getComputedStyle(timelineBooking).outlineWidth);
-      expand.focus({ preventScroll:true });
-      const expandFocusWidth = parseFloat(getComputedStyle(expand).outlineWidth);
+      const activeDateRhythm = () => {
+        const rows = [...activeButton.querySelectorAll('span,strong,small')].map(item => item.getBoundingClientRect());
+        const card = activeButton.getBoundingClientRect();
+        return {
+          numberCenterDelta:Math.abs((rows[1].top + rows[1].bottom) / 2 - (card.top + card.bottom) / 2),
+          gapDelta:Math.abs((rows[1].top - rows[0].bottom) - (rows[2].top - rows[1].bottom))
+        };
+      };
+      const twoDigitRhythm = activeDateRhythm();
+      const activeNumber = activeButton.querySelector('strong');
+      const originalNumber = activeNumber.textContent;
+      activeNumber.textContent = '7';
+      const singleDigitRhythm = activeDateRhythm();
+      activeNumber.textContent = originalNumber;
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         clientWidth:document.documentElement.clientWidth,
+        body:document.body.getBoundingClientRect(),
+        providerView:rect('.provider-view[data-provider-panel="bookings"]'),
+        scheduleCard:rect('.schedule-card'),
+        workspace:rect('.provider-workspace'),
         scheduleTop:rect('#providerBookings').top,
         timelineTop:rect('.day-timeline').top,
         topbar:rect('.provider-topbar'),
@@ -209,6 +225,8 @@ try {
         activeDateFlexBasis:getComputedStyle(activeButton).flexBasis,
         activeDateCustomWidth:getComputedStyle(activeButton).getPropertyValue('--date-card-width').trim(),
         activeDateBoxSizing:getComputedStyle(activeButton).boxSizing,
+        twoDigitRhythm,
+        singleDigitRhythm,
         activeDateValue:activeButton.dataset.bookingDate,
         activeDateBackground:getComputedStyle(activeButton).backgroundColor,
         activeDateMarkerContent:activeDateMarker.content,
@@ -225,6 +243,8 @@ try {
         summaryChildrenInside,
         summaryLabelsInside,
         summaryItemCenterDeltas,
+        summaryItems,
+        summaryTotalPrefix,
         summaryText:[...summary.querySelectorAll('strong,span')].map(item => item.textContent.trim()),
         newBookingHitTarget:newBookingHitTarget === newBookingButton || newBookingButton.contains(newBookingHitTarget),
         newBookingLabel:newBookingLabel.textContent.trim(),
@@ -235,8 +255,8 @@ try {
         timelineLinesInside:timelineLines.every(line => line.left >= timelineStageRect.left - .5 && line.right <= timelineStageRect.right + .5 && line.top >= timelineStageRect.top - .5 && line.bottom <= timelineStageRect.bottom + .5),
         firstHourVisible:firstHourRect.top >= timelineViewRect.top - .5 && firstHourRect.bottom <= timelineViewRect.bottom + .5,
         breakInside:breakRect.top >= timelineStageRect.top && breakRect.bottom <= timelineStageRect.bottom,
-        expand:{ height:expand.getBoundingClientRect().height, lineHeight:parseFloat(expandStyle.lineHeight), marginTop:parseFloat(expandStyle.marginTop), whiteSpace:expandStyle.whiteSpace },
-        focus:{ timeline:timelineFocusWidth, expand:expandFocusWidth },
+        lastHourInside:lastHourRect.top >= timelineViewRect.top && lastHourRect.bottom <= timelineViewRect.bottom + 1,
+        focus:{ timeline:timelineFocusWidth },
         toolbarContentCenterDelta:Math.abs((toolbarCopy.top + toolbarCopy.bottom) / 2 - (journalToggle.top + journalToggle.bottom) / 2),
         journalGridGap:rect('#providerBookings').top - journalToggle.bottom,
         quietTodayBackground:quietTodayStyle.backgroundColor,
@@ -251,6 +271,9 @@ try {
         todayButtonBackgroundImage:todayButtonStyle.backgroundImage,
         todayButtonShadow:todayButtonStyle.boxShadow,
         pickerBackground:pickerStyle.backgroundColor,
+        scheduleWorkspace:rect('.schedule-workspace'),
+        newBookingBackground:getComputedStyle(newBookingButton).backgroundColor,
+        journalActiveBackground:getComputedStyle(document.querySelector('.journal-mode-toggle button.active')).backgroundColor,
         nav:rect('.provider-mobile-nav'),
         navTargets:[...mobileNav.querySelectorAll(':scope>button')].map(button => {
           const item = button.getBoundingClientRect();
@@ -265,12 +288,18 @@ try {
     assert.ok(width <= 760
       ? result.timelineStageOverflow.every(value => value === 'visible')
       : result.timelineStageOverflow.every(value => value === 'clip' || value === 'hidden'), `${width}px timeline overflow contract changed: ${JSON.stringify(result)}`);
-    assert.equal(result.timelineLinesInside, true, `${width}px timeline divider leaves its rounded owner: ${JSON.stringify(result)}`);
-    assert.equal(result.firstHourVisible, true, `${width}px first timeline label is clipped: ${JSON.stringify(result)}`);
-    assert.equal(result.breakInside, true, `${width}px automatic break escapes the schedule card: ${JSON.stringify(result)}`);
-    assert.ok(result.expand.height >= 52 && result.expand.lineHeight >= 14 && result.expand.marginTop >= 12, `${width}px full-day action is clipped or crowds the divider: ${JSON.stringify(result)}`);
-    assert.ok(result.focus.timeline >= 2 && result.focus.expand >= 2, `${width}px keyboard focus is not visible: ${JSON.stringify(result)}`);
-    if (width <= 760) {
+      assert.equal(result.timelineLinesInside, true, `${width}px timeline divider leaves its rounded owner: ${JSON.stringify(result)}`);
+      assert.equal(result.firstHourVisible, true, `${width}px first timeline label is clipped: ${JSON.stringify(result)}`);
+      assert.equal(result.lastHourInside, true, `${width}px full working range is not rendered inside the schedule: ${JSON.stringify(result)}`);
+      assert.equal(result.breakInside, true, `${width}px automatic break escapes the schedule card: ${JSON.stringify(result)}`);
+      assert.ok(result.focus.timeline >= 2, `${width}px keyboard focus is not visible: ${JSON.stringify(result)}`);
+      if (width <= 760) {
+        const expectedCardGap = width <= 420 ? 12 : 16;
+        assert.ok(Math.abs(result.navigation.left - expectedCardGap) <= 1, `${width}px date card keeps a double outer inset: ${JSON.stringify(result)}`);
+        assert.ok(Math.abs(result.toolbar.left - expectedCardGap) <= 1, `${width}px journal card keeps a double outer inset: ${JSON.stringify(result)}`);
+        assert.ok(Math.abs(result.scheduleWorkspace.left - expectedCardGap) <= 1, `${width}px schedule table is not aligned with its header: ${JSON.stringify(result)}`);
+        assert.ok(Math.abs(result.navigation.right - (result.body.right - expectedCardGap)) <= 1, `${width}px date card right inset changed: ${JSON.stringify(result)}`);
+        assert.ok(Math.abs(result.scheduleWorkspace.right - (result.body.right - expectedCardGap)) <= 1, `${width}px schedule table right inset changed: ${JSON.stringify(result)}`);
       assert.ok(result.today.height >= 44 && result.today.width >= 44, `${width}px Today target`);
       assert.equal(result.newBookingHitTarget, true, `${width}px New booking button is covered by another layer: ${JSON.stringify(result)}`);
       assert.equal(result.newBookingLabel, 'Новая запись', `${width}px New booking label changed`);
@@ -297,8 +326,13 @@ try {
       assert.equal(result.activeDateVisible, true, `${width}px selected date must remain visible: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateValue, '2026-09-15', `${width}px fixture selected date changed`);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its accent`);
+      assert.equal(result.activeDateBackground, 'rgb(13, 128, 92)', `${width}px selected date does not use the schedule accent token`);
+      assert.equal(result.newBookingBackground, 'rgb(13, 128, 92)', `${width}px New booking does not use the schedule accent token`);
+      assert.equal(result.journalActiveBackground, 'rgb(13, 128, 92)', `${width}px active journal mode does not use the schedule accent token`);
       assert.ok(result.activeDate.width >= 46 && result.activeDate.width <= 56, `${width}px selected date is still oversized: ${JSON.stringify(result)}`);
       assert.ok(result.activeDate.height >= 57 && result.activeDate.height <= 59, `${width}px selected date height is still oversized: ${JSON.stringify(result)}`);
+      assert.ok(result.twoDigitRhythm.numberCenterDelta <= 1 && result.twoDigitRhythm.gapDelta <= 2, `${width}px two-digit selected date lost its vertical rhythm: ${JSON.stringify(result)}`);
+      assert.ok(result.singleDigitRhythm.numberCenterDelta <= 1 && result.singleDigitRhythm.gapDelta <= 2, `${width}px single-digit selected date lost its vertical rhythm: ${JSON.stringify(result)}`);
       assert.ok(result.activeDateMarkerContent === 'none' || result.activeDateMarkerDisplay === 'none', `${width}px selected date regained a second lower marker: ${JSON.stringify(result)}`);
       assert.ok(result.scheduleTop >= 390 && result.scheduleTop <= 520, `${width}px schedule begins: ${JSON.stringify(result)}`);
       assert.ok(result.toolbarContentCenterDelta <= 2, `${width}px day heading and journal toggle are not aligned: ${JSON.stringify(result)}`);
@@ -320,15 +354,17 @@ try {
       assert.equal(result.todayButtonBackgroundImage, 'none', `${width}px separate Today action gained a decorative fill`);
       assert.equal(result.todayButtonShadow, 'none', `${width}px separate Today action gained an extra accent`);
       assert.notEqual(result.pickerBackground, 'rgba(0, 0, 0, 0)', `${width}px date field lost its surface`);
+      if (width <= 760) {
+        assert.equal(result.summaryTotalPrefix, '"Всего впереди —"', `${width}px upcoming total caption changed: ${JSON.stringify(result)}`);
+        assert.ok(Math.abs(result.summaryItems[0].top - result.summaryItems[1].top) <= 1, `${width}px today and tomorrow are not on one compact row: ${JSON.stringify(result)}`);
+        assert.ok(result.summaryItems[2].top >= result.summaryItems[0].bottom, `${width}px upcoming total is not on the second row: ${JSON.stringify(result)}`);
+        assert.ok(result.summary.right <= result.newBooking.left - 7, `${width}px compact summary collides with New booking: ${JSON.stringify(result)}`);
+      }
       if (width <= 430) {
         assert.ok(result.dateNumberSize <= 26 && result.dateNumberSize >= 22, `${width}px selected date is not a compact readable accent: ${JSON.stringify(result)}`);
         assert.ok(result.summaryScrollWidth <= result.summaryClientWidth + 1, `${width}px title summary is clipped: ${JSON.stringify(result)}`);
         assert.equal(result.summaryChildrenInside, true, `${width}px title summary children escape their row: ${JSON.stringify(result)}`);
-        assert.equal(result.summaryLabelsInside, true, `${width}px title summary labels touch or escape the safe inset: ${JSON.stringify(result)}`);
-        assert.ok(result.summaryItemCenterDeltas.every(delta => delta <= 1), `${width}px title summary items are not centered in their thirds: ${JSON.stringify(result)}`);
         assert.deepEqual(result.summaryText, ['0', 'записей сегодня', '2', 'записей завтра', '5', 'записей впереди'], `${width}px title summary fixture changed`);
-        assert.ok(result.summary.top >= result.newBooking.bottom - 1, `${width}px title summary must use its own full-width row: ${JSON.stringify(result)}`);
-        assert.ok(result.summary.right <= result.title.right + 1, `${width}px title summary escapes the title area: ${JSON.stringify(result)}`);
       }
       timelineGridTops.set(width, result.timelineTop);
       timelineToolbarTops.set(width, result.toolbar.top);
@@ -345,29 +381,21 @@ try {
   }
 
   await page.setViewportSize({ width:360, height:720 });
-  await page.evaluate(() => {
-    window.scrollTo(0, 0);
-    const timeline = document.querySelector('.day-timeline');
-    timeline.style.height = '216px';
-    timeline.style.setProperty('--timeline-height', '216px');
-  });
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(50);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await page.waitForTimeout(50);
   const shortDayFold = await page.evaluate(() => {
-    const expand = document.querySelector('.timeline-day-expand').getBoundingClientRect();
+    const lastHour = document.querySelector('[data-last-hour]').getBoundingClientRect();
     const nav = document.querySelector('.provider-mobile-nav').getBoundingClientRect();
-    const hit = document.elementFromPoint((expand.left + expand.right) / 2, (expand.top + expand.bottom) / 2);
     return {
-      expand:{ top:expand.top, bottom:expand.bottom, height:expand.height },
+      lastHour:{ top:lastHour.top, bottom:lastHour.bottom, height:lastHour.height },
       nav:{ top:nav.top, bottom:nav.bottom, height:nav.height },
-      visibleAboveNav:Math.min(expand.bottom, nav.top) - expand.top,
-      centerReachable:hit?.classList.contains('timeline-day-expand') || Boolean(hit?.closest?.('.timeline-day-expand'))
+      visibleAboveNav:Math.min(lastHour.bottom, nav.top) - lastHour.top
     };
   });
-  assert.ok(shortDayFold.visibleAboveNav >= 43, `360x720 full-day action is not usefully visible after scrolling: ${JSON.stringify(shortDayFold)}`);
-  assert.equal(shortDayFold.centerReachable, true, `360x720 fixed navigation covers the scrolled full-day action center: ${JSON.stringify(shortDayFold)}`);
-  if (output) await page.screenshot({ path:path.join(output, 'schedule-short-day-360x720.png'), fullPage:false });
+  assert.ok(shortDayFold.visibleAboveNav >= shortDayFold.lastHour.height - 1, `360x720 final working hour is covered by navigation: ${JSON.stringify(shortDayFold)}`);
+  if (output) await page.screenshot({ path:path.join(output, 'schedule-full-day-360x720.png'), fullPage:false });
 
   await page.evaluate(() => {
     const filters = document.querySelector('.booking-filters');

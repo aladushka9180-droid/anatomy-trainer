@@ -50,7 +50,7 @@ const server = http.createServer((request, response) => {
       if (!strip.closest('.date-strip-frame')) {
         const frame = document.createElement('div');
         frame.className = 'date-strip-frame';
-        frame.innerHTML = '<button class="date-strip-shift" type="button" data-date-shift="-7" aria-label="Предыдущая неделя">‹</button><button class="date-strip-shift" type="button" data-date-shift="7" aria-label="Следующая неделя">›</button>';
+        frame.innerHTML = '<button class="date-strip-shift" type="button" data-date-shift="-1" aria-label="Предыдущий день">‹</button><button class="date-strip-shift" type="button" data-date-shift="1" aria-label="Следующий день">›</button>';
         strip.before(frame);
         frame.insertBefore(strip, frame.lastElementChild);
       }
@@ -65,8 +65,8 @@ const server = http.createServer((request, response) => {
         const box = selector => document.querySelector(selector).getBoundingClientRect();
         const panel = box('.booking-sheet-panel');
         const frame = box('.date-strip-frame');
-        const previous = box('.date-strip-shift[data-date-shift="-7"]');
-        const next = box('.date-strip-shift[data-date-shift="7"]');
+        const previous = box('.date-strip-shift[data-date-shift="-1"]');
+        const next = box('.date-strip-shift[data-date-shift="1"]');
         const dates = [...document.querySelectorAll('#dateStrip>button')].map(button => button.getBoundingClientRect());
         const navigationStyle = getComputedStyle(document.querySelector('.date-navigation'));
         const strip = document.querySelector('#dateStrip');
@@ -160,6 +160,45 @@ const server = http.createServer((request, response) => {
     assert.ok(afterActive.width > movingEmphasis.after.find(item => item.distance === '1').width, 'Выбранная дата не крупнее соседней');
     assert.ok(movingEmphasis.after.find(item => item.distance === '1').width > movingEmphasis.after.find(item => item.distance === '2').width, 'Ближайшая дата не крупнее дальней');
     assert.ok(movingEmphasis.after.find(item => item.distance === '2').width > movingEmphasis.after.find(item => item.distance === '3').width, 'Крайняя дата не слабее средней');
+
+    for (const width of [390, 760]) {
+      await page.setViewportSize({ width, height:900 });
+      const transitions = await page.evaluate(async () => {
+        const strip = document.querySelector('#dateStrip');
+        const move = async step => {
+          const buttons = [...strip.querySelectorAll('button')];
+          const current = buttons.findIndex(button => button.classList.contains('active'));
+          buttons[current].classList.remove('active');
+          buttons[current + step].classList.add('active');
+          updateDateStripEmphasis(strip);
+          centerDateStripSelection(strip, { smooth:true });
+          await new Promise(resolve => setTimeout(resolve, 280));
+          centerDateStripSelection(strip, { smooth:true });
+          await new Promise(resolve => setTimeout(resolve, 280));
+          const active = strip.querySelector('.active').getBoundingClientRect();
+          const viewport = strip.getBoundingClientRect();
+          return {
+            index:buttons.findIndex(button => button.classList.contains('active')),
+            centerDelta:Math.abs((active.left + active.right) / 2 - (viewport.left + viewport.right) / 2),
+            width:active.width,
+            height:active.height
+          };
+        };
+        const states=[];
+        for (const step of [1, 1, 1, -1, -1]) states.push(await move(step));
+        return {
+          states,
+          swipeForward:dateStripSwipeStep(280, 120, 190, 124),
+          swipeBack:dateStripSwipeStep(120, 120, 210, 124),
+          verticalIgnored:dateStripSwipeStep(200, 100, 190, 190)
+        };
+      });
+      assert.equal(transitions.swipeForward, 1, `${width}px: свайп влево не выбирает следующий день`);
+      assert.equal(transitions.swipeBack, -1, `${width}px: свайп вправо не выбирает предыдущий день`);
+      assert.equal(transitions.verticalIgnored, 0, `${width}px: вертикальный жест ошибочно листает даты`);
+      assert.ok(transitions.states.every(state => state.centerDelta <= 1.5), `${width}px: выбранная дата дёргается или не остаётся по центру (${JSON.stringify(transitions)})`);
+      assert.ok(transitions.states.every(state => state.width >= 46 && state.width <= 56 && state.height >= 57 && state.height <= 59), `${width}px: размер выбранной даты меняется при последовательных переходах (${JSON.stringify(transitions)})`);
+    }
 
     const alternateView = await page.evaluate(() => {
       document.querySelector('[data-calendar-view="day"]')?.classList.remove('active');
