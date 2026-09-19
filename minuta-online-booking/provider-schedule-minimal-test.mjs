@@ -102,7 +102,7 @@ assert.match(script, /const breakOrigin = item\.automatic_break \? 'Автома
 assert.match(script, /block \? ' is-schedule-block' : clientHighlightClasses\(item\.client_phone\)/);
 assert.match(script, /provider-booking-signals[^`]*\$\{block \? '' : `<span class="booking-status">\$\{statusText\}<\/span>\$\{visitMarkup\}`\}/s);
 assert.doesNotMatch(script, /block \? `<span class="provider-booking-client-line"><strong>Занятое время<\/strong><span>\$\{duration\} мин<\/span><\/span>`/);
-assert.deepEqual([...new Set([...styles.matchAll(/#[0-9a-f]{3,8}\b/gi)].map(match => match[0].toLowerCase()))], ['#0d805c'], 'Экран расписания должен использовать единственный локальный action accent');
+assert.deepEqual([...new Set([...styles.matchAll(/#[0-9a-f]{3,8}\b/gi)].map(match => match[0].toLowerCase()))], ['#0d805c', '#fff'], 'Экран расписания должен использовать только утверждённый action accent и его контраст');
 assert.match(styles, /v786: keep mobile schedule geometry clipped[\s\S]*\.timeline-stage\s*\{[^}]*overflow:clip;[\s\S]*#newBookingButton span\s*\{[^}]*position:static!important;[\s\S]*calendar-overview-month\s*\{[^}]*padding-bottom:max\(24px,env\(safe-area-inset-bottom,0px\)\)!important;/s);
 assert.doesNotMatch(script, /timelineFullDay|timelineWasCompacted|data-expand-timeline|Показать весь день/);
 assert.doesNotMatch(styles, /timeline-day-expand/);

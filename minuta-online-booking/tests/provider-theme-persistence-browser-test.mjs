@@ -9,8 +9,8 @@ const providerSource = readFileSync(path.join(root, 'provider.js'), 'utf8');
 const scheduleCss = readFileSync(path.join(root, 'provider-schedule-minimal.css'), 'utf8');
 const workerSource = readFileSync(path.join(root, 'sw.js'), 'utf8');
 
-assert.doesNotMatch(scheduleCss, /--schedule-action-accent\s*:\s*#0d805c/i, 'schedule must not freeze the Sage accent for other themes');
-assert.match(scheduleCss, /background:var\(--theme-accent\)!important/, 'active schedule controls must use the current theme accent directly');
+assert.match(scheduleCss, /--schedule-active-color\s*:\s*#0d805c/i, 'schedule must expose the approved solid brand green');
+assert.match(scheduleCss, /background:var\(--schedule-active-color\)!important/, 'active mobile schedule controls must use the brand green directly');
 assert.doesNotMatch(workerSource, /localStorage|indexedDB\.(?:deleteDatabase|open)/, 'a PWA update must not rewrite persisted display preferences');
 
 const seam = `
@@ -42,8 +42,11 @@ window.__providerThemePersistenceTest={
     probe.style.color='var(--theme-accent)';
     document.body.append(probe);
     const accent=getComputedStyle(probe).color;
+    probe.style.color='var(--schedule-active-color)';
+    const scheduleAccent=getComputedStyle(probe).color;
     probe.remove();
-    return {theme:displayPreferences.theme,bodyTheme:document.body.dataset.providerTheme,mode:displayPreferences.color_mode,accent,active:active?getComputedStyle(active).backgroundColor:null,pending:displayPreferencesPending};
+    const activeStyle=active?getComputedStyle(active):null;
+    return {theme:displayPreferences.theme,bodyTheme:document.body.dataset.providerTheme,mode:displayPreferences.color_mode,accent,scheduleAccent,active:activeStyle?.backgroundColor||null,activeImage:activeStyle?.backgroundImage||null,pending:displayPreferencesPending};
   },
   themes:[...PROVIDER_THEME_KEYS]
 };`;
@@ -101,8 +104,8 @@ try {
       await page.evaluate(({ userId, theme }) => window.__providerThemePersistenceTest.set(userId, theme), { userId, theme });
       await page.waitForTimeout(220);
       snapshot = await page.evaluate(() => window.__providerThemePersistenceTest.snapshot());
-      assert.equal(snapshot.active, snapshot.accent, `${width}px/${theme}: active schedule control uses another theme's accent`);
-      if (theme === 'warm') assert.notEqual(snapshot.active, 'rgb(13, 128, 92)', `${width}px: Warm Beige still contains the fixed green action accent`);
+      assert.equal(snapshot.active, snapshot.scheduleAccent, `${width}px/${theme}: active schedule control lost the approved brand green`);
+      assert.equal(snapshot.activeImage, 'none', `${width}px/${theme}: active schedule control gained a gradient`);
     }
   }
 
@@ -111,7 +114,7 @@ try {
   await page.waitForFunction(() => Boolean(window.__providerThemePersistenceTest));
   snapshot = await page.evaluate(({ userId }) => window.__providerThemePersistenceTest.restore(userId), { userId });
   assert.equal(snapshot.theme, 'sage', 'returning from Warm Beige to Sage did not survive reload');
-  assert.equal(snapshot.active, snapshot.accent, 'Sage lost its own green accent after returning from another theme');
+  assert.equal(snapshot.active, snapshot.scheduleAccent, 'schedule brand green did not survive returning from another theme');
 
   await context.close();
 } finally {
