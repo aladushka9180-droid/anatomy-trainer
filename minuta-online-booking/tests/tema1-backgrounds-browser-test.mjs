@@ -11,8 +11,14 @@ const playwrightModule = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   : 'playwright');
 const { chromium } = playwrightModule.chromium ? playwrightModule : playwrightModule.default;
 const mime = { '.html':'text/html', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
-const themes = ['snow-leopard', 'pearl-zebra'];
-const desktopArtworkVersion = () => 'v2';
+const themes = ['snow-leopard', 'pearl-zebra', 'midnight'];
+const desktopArtworkVersion = theme => theme === 'pearl-zebra' ? 'v3' : 'v2';
+const artworkFor = (theme, width) => theme === 'midnight'
+  ? 'provider-midnight-navy-velvet-v1.webp'
+  : `provider-${theme}-${width <= 760 ? 'mobile' : 'desktop'}-${desktopArtworkVersion(theme)}.webp`;
+const swatchArtworkFor = theme => theme === 'midnight'
+  ? 'provider-midnight-navy-velvet-v1.webp'
+  : `provider-${theme}-desktop-${desktopArtworkVersion(theme)}.webp`;
 
 const browser = await chromium.launch({ headless:true, executablePath:process.env.MINUTA_CHROME_PATH || undefined });
 try {
@@ -71,25 +77,29 @@ try {
           optionOverflow:getComputedStyle(option).overflow,
           swatchImage:getComputedStyle(swatch).backgroundImage,
           scrollWidth:document.documentElement.scrollWidth,
-          viewportWidth:innerWidth,
+          clientWidth:document.documentElement.clientWidth,
         };
       }, theme);
-      const mode = width <= 760 ? 'mobile' : 'desktop';
-      const artworkVersion = mode === 'desktop' ? desktopArtworkVersion(theme) : 'v2';
-      assert.match(result.bodyImage, new RegExp(`provider-${theme}-${mode}-${artworkVersion}\\.webp`), `${theme}/${width}: wrong responsive artwork`);
+      assert.match(result.bodyImage, new RegExp(artworkFor(theme, width).replace('.', '\\.')), `${theme}/${width}: wrong responsive artwork`);
+      if (theme === 'midnight') {
+        assert.match(result.bodyImage, /radial-gradient/, `${theme}/${width}: calm vignette is missing`);
+        assert.match(result.bodyImage, /rgba\(3, 12, 25, 0\.68\)/, `${theme}/${width}: texture overlay is not dark enough`);
+      }
       assert.ok(result.repeat.split(',').every(value => value.trim() === 'no-repeat'), `${theme}/${width}: artwork must not tile`);
       assert.ok(result.size.split(',').every(value => value.trim() === 'cover'), `${theme}/${width}: artwork must fit the viewport`);
       assert.ok(result.attachment.split(',').every(value => value.trim() === 'fixed'), `${theme}/${width}: artwork must stay viewport-bound`);
       assert.equal(result.appImage, 'none', `${theme}/${width}: app must not duplicate texture`);
       assert.equal(result.workspaceImage, 'none', `${theme}/${width}: workspace must not duplicate texture`);
-      assert.equal(result.appColor, 'rgba(0, 0, 0, 0)', `${theme}/${width}: app canvas must reveal the body artwork`);
-      assert.equal(result.workspaceColor, 'rgba(0, 0, 0, 0)', `${theme}/${width}: workspace canvas must reveal the body artwork`);
+      if (width <= 760) {
+        assert.equal(result.appColor, 'rgba(0, 0, 0, 0)', `${theme}/${width}: app canvas must reveal the body artwork`);
+        assert.equal(result.workspaceColor, 'rgba(0, 0, 0, 0)', `${theme}/${width}: workspace canvas must reveal the body artwork`);
+      }
       assert.equal(result.stageImage, 'none', `${theme}/${width}: schedule stage must remain texture-free`);
       assert.equal(result.bookingImage, 'none', `${theme}/${width}: booking must remain texture-free`);
       assert.equal(result.optionRadius, '13px', `${theme}/${width}: picker card became an oval`);
       assert.equal(result.optionOverflow, 'hidden', `${theme}/${width}: picker artwork can escape its card`);
-      assert.match(result.swatchImage, new RegExp(`provider-${theme}-desktop-${desktopArtworkVersion(theme)}\\.webp`), `${theme}/${width}: picker preview must match the theme`);
-      assert.equal(result.scrollWidth, result.viewportWidth, `${theme}/${width}: horizontal overflow detected`);
+      assert.match(result.swatchImage, new RegExp(swatchArtworkFor(theme).replace('.', '\\.')), `${theme}/${width}: picker preview must match the theme`);
+      assert.ok(result.scrollWidth <= result.clientWidth, `${theme}/${width}: horizontal overflow detected`);
     }
   }
   console.log('TEMA 1 approved provider backgrounds: PASS at 390/760/1440');

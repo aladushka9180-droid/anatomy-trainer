@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v835`;
+const CACHE = `${CACHE_PREFIX}v836`;
 
 // Only the provider shell and its first-screen dependencies block installation.
 // Secondary sections, help media and decorative theme images are cached on use.
@@ -7,14 +7,14 @@ const ASSETS = [
   './provider.html',
   './offline.html',
   './offline.js',
-  './provider.webmanifest?v=835',
-  './provider-icon-192.png?v=835',
-  './provider-icon-512.png?v=835',
-  './provider-icon-maskable-512.png?v=835',
-  './provider-icon.svg?v=835',
+  './provider.webmanifest?v=836',
+  './provider-icon-192.png?v=836',
+  './provider-icon-512.png?v=836',
+  './provider-icon-maskable-512.png?v=836',
+  './provider-icon.svg?v=836',
   './icon.svg',
   './ui-icons.svg',
-  './styles.css?v=821',
+  './styles.css?v=836',
   './utm-funnel.css?v=811',
   './onboarding.css?v=811',
   './visitor-presence.css?v=811',
@@ -23,7 +23,7 @@ const ASSETS = [
   './provider-themes-signature.css?v=811',
   './provider-themes-calm.css?v=811',
   './provider-layout-responsive.css?v=811',
-  './provider-ux.css?v=835',
+  './provider-ux.css?v=836',
   './provider-service-actions.css?v=811',
   './provider-header.css?v=811',
   './client-themes.css?v=811',
@@ -32,14 +32,14 @@ const ASSETS = [
   './client-results.css?v=811',
   './client-directory.css?v=811',
   './provider-ui-refinements.css?v=811',
-  './provider-schedule-minimal.css?v=835',
+  './provider-schedule-minimal.css?v=836',
   './provider-themes-distinct.css?v=821',
   './provider-theme-families.css?v=821',
-  './provider-theme-backgrounds-tema1.css?v=811',
+  './provider-theme-backgrounds-tema1.css?v=836',
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=835',
+  './site-update.js?v=836',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
   './social-auth.js?v=811',
@@ -64,16 +64,16 @@ const ASSETS = [
   './client-directory.js?v=811',
   './client-results.js?v=811',
   './provider-service-actions.js?v=811',
-  './provider.js?v=835',
+  './provider.js?v=836',
   './provider-help-workspace.js?v=811',
   './voice-wake.js?v=811',
-  './provider-feature-assets.js?v=835',
+  './provider-feature-assets.js?v=836',
 ];
 
 // Warm after the first screen. A cold installation must not wait for tools
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
-  './provider-schedule-desktop-reference.css?v=835',
+  './provider-schedule-desktop-reference.css?v=836',
   './provider-theme-noir-safari.css?v=811',
   './index.html',
   './redirect.js?v=826',

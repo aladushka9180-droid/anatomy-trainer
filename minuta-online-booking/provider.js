@@ -6864,14 +6864,6 @@ function updateDateStripEmphasis(dateStrip) {
   });
 }
 
-function dateStripSwipeStep(startX, startY, endX, endY, threshold = 36) {
-  const deltaX = Number(endX) - Number(startX);
-  const deltaY = Number(endY) - Number(startY);
-  if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return 0;
-  if (Math.abs(deltaX) < threshold || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return 0;
-  return deltaX < 0 ? 1 : -1;
-}
-
 function centerDateStripSelection(dateStrip, options = {}) {
   if (!dateStrip || dateStrip.scrollWidth <= dateStrip.clientWidth) return;
   const active = dateStrip.querySelector('[data-booking-date].active');
@@ -7083,12 +7075,12 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     }, { passive:true });
     dateStrip.addEventListener('touchend', event => {
       const touch = event.changedTouches[0];
-      const step = touch && touchStartX !== null
-        ? dateStripSwipeStep(touchStartX, touchStartY, touch.clientX, touch.clientY)
-        : 0;
+      const deltaX = touch && touchStartX !== null ? touch.clientX - touchStartX : 0;
+      const deltaY = touch && touchStartY !== null ? touch.clientY - touchStartY : 0;
+      const swiped = Math.abs(deltaX) >= 36 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
       touchStartX = null;
       touchStartY = null;
-      if (!step) return;
+      if (!swiped) return;
       suppressClick = true;
       event.preventDefault();
       settleMobileDate({ instant:true });
@@ -8366,8 +8358,6 @@ function renderTimeline(sourceItems) {
     const timeRange = `${startTime}–${endTime}`;
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
-    // Карточкам до 45 минут нужен компактный двухстрочный макет: обычные
-    // внутренние отступы и крупная метка клиента не помещаются в их высоту.
     const compactMobile = mobileTimeline && height < 54;
     const compact = height < 54 ? ' compact' : '';
     const tightMobile = mobileTimeline && !minuteOnly && duration <= 60;
@@ -8415,7 +8405,7 @@ function renderTimeline(sourceItems) {
     const automaticBreakSourceMarkup = item.automatic_break
       ? '<span class="timeline-automatic-break-source">Автоматический · из правил записи</span>'
       : '';
-    const serviceTitleMarkup = block ? `${serviceMarkup}${automaticBreakSourceMarkup}` : `${serviceMarkup} <span class="timeline-service-duration">· ${duration} мин</span>`;
+    const serviceTitleMarkup = block ? `${serviceMarkup}${automaticBreakSourceMarkup}` : `<span class="timeline-service-title">${serviceMarkup}</span><span class="timeline-service-duration">· ${duration} мин</span>`;
     const renderedNote = mobileTimeline ? '' : bookingNotePresenceMarkup(note, 'timeline-booking-note-presence');
     const renderedStatus = mobileTimeline ? '' : timelineStatus;
     const mobileBadgeMarkup = mobileTimeline ? badgeMarkup : '';
@@ -8435,8 +8425,9 @@ function renderTimeline(sourceItems) {
       : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} ${movable ? 'data-timeline-movable aria-describedby="timelineMoveInstruction" aria-keyshortcuts="Shift+ArrowUp Shift+ArrowDown"' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : moveRestriction || 'Перетащите или нажмите Shift и стрелку, чтобы изменить время'}">${cardContent}${dragHandle}</button>`;
   }).join('');
   const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
+  const emptyHintTop = Math.max(30, Math.min(120, Math.max(60, 720 - start), (end - start) / 2)) / 60 * hourHeight;
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group" tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись">${lines.join('')}${nowMarker}${scheduleCreateHintMarkup()}${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px;--timeline-empty-hint-top:${emptyHintTop}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group" tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись">${lines.join('')}${nowMarker}${scheduleCreateHintMarkup()}${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
   if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
 }
 

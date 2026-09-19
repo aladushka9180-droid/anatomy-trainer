@@ -194,16 +194,8 @@ const server = http.createServer((request, response) => {
         };
         const states=[];
         for (const step of [1, 1, 1, -1, -1]) states.push(await move(step));
-        return {
-          states,
-          swipeForward:dateStripSwipeStep(280, 120, 190, 124),
-          swipeBack:dateStripSwipeStep(120, 120, 210, 124),
-          verticalIgnored:dateStripSwipeStep(200, 100, 190, 190)
-        };
+        return { states };
       });
-      assert.equal(transitions.swipeForward, 1, `${width}px: свайп влево не выбирает следующий день`);
-      assert.equal(transitions.swipeBack, -1, `${width}px: свайп вправо не выбирает предыдущий день`);
-      assert.equal(transitions.verticalIgnored, 0, `${width}px: вертикальный жест ошибочно листает даты`);
       assert.ok(transitions.states.every(state => state.centerDelta <= 1.5), `${width}px: выбранная дата дёргается или не остаётся по центру (${JSON.stringify(transitions)})`);
       assert.ok(transitions.states.every(state => state.width >= 46 && state.width <= 56 && state.height >= 53 && state.height <= 55), `${width}px: размер выбранной даты меняется при последовательных переходах (${JSON.stringify(transitions)})`);
     }

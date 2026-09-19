@@ -11,6 +11,7 @@ const playwright = process.env.MINUTA_PLAYWRIGHT_MODULE
 const chromium = playwright.chromium || playwright.default?.chromium;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
+assert.match(providerSource, /--timeline-empty-hint-top:\$\{emptyHintTop\}px/, 'Timeline does not expose the adaptive empty-day hint position');
 const shareHelperStart = providerSource.indexOf('async function shareProviderClientPage()');
 const shareHelperEnd = providerSource.indexOf('\nfunction clientAppearanceDraftFromForm', shareHelperStart);
 assert.ok(shareHelperStart >= 0 && shareHelperEnd > shareHelperStart, 'Client-page share helper is missing');
@@ -88,7 +89,7 @@ try {
     document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings timeline-view';
-    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:720px;height:720px"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour" data-last-hour style="top:700px">20:00</span></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:719px"></i><button class="timeline-booking status-confirmed" type="button" style="top:56px;height:72px">Запись</button><button class="timeline-booking status-block automatic-break" type="button" style="top:144px;height:52px">Перерыв</button></div></div>';
+    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:720px;--timeline-empty-hint-top:144px;height:720px"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour timeline-half-hour" style="top:36px">10:30</span><span class="timeline-hour" data-last-hour style="top:700px">20:00</span></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:719px"></i><button class="timeline-booking status-confirmed" data-mobile-timeline-top data-open-booking data-timeline-movable type="button" style="top:56px;height:72px"><span class="timeline-booking-copy"><strong><span class="timeline-service-title"><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> — углублённый</span></span><span class="timeline-service-duration">· 60 мин</span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:00 · </span>Екатерина</small></span></span><span class="timeline-drag-handle"></span></button><button class="timeline-booking status-block automatic-break" data-mobile-timeline-top type="button" style="top:144px;height:52px"><span class="timeline-booking-copy"><strong>Автоперерыв</strong></span></button></div></div>';
     const activeDate = strip.querySelector('.active');
     const stripRect = strip.getBoundingClientRect();
     const activeRect = activeDate.getBoundingClientRect();
@@ -198,8 +199,11 @@ try {
         (newBookingRect.top + newBookingRect.bottom) / 2
       );
       const toolbar = rect('.schedule-toolbar');
+      const toolbarStyle = getComputedStyle(document.querySelector('.schedule-toolbar'));
       const toolbarCopy = rect('.schedule-toolbar>div:first-child');
       const journalToggle = rect('.journal-mode-toggle');
+      const journalTargets = [...document.querySelectorAll('.journal-mode-toggle button')].map(button => button.getBoundingClientRect());
+      const periodTabs = rect('.calendar-view-toggle');
       const titleHeading = rect('.schedule-view-title h2');
       const newBookingLabel = newBookingButton.querySelector('span');
       const newBookingLabelStyle = getComputedStyle(newBookingLabel);
@@ -207,13 +211,31 @@ try {
       const timelineStageRect = timelineStage.getBoundingClientRect();
       const timelineViewRect = document.querySelector('#providerBookings').getBoundingClientRect();
       const firstHourRect = document.querySelector('.timeline-hour').getBoundingClientRect();
+      const firstHalfHourRect = document.querySelector('.timeline-hour.timeline-half-hour').getBoundingClientRect();
       const lastHourRect = document.querySelector('[data-last-hour]').getBoundingClientRect();
       const breakRect = document.querySelector('.timeline-booking.automatic-break').getBoundingClientRect();
       const timelineStageStyle = getComputedStyle(timelineStage);
       const timelineLines = [...timelineStage.querySelectorAll('.timeline-grid-line')].map(line => line.getBoundingClientRect());
       const mobileNav = document.querySelector('.provider-mobile-nav');
       const workspace = document.querySelector('.provider-workspace');
+      const picker = document.querySelector('.schedule-date-picker');
+      const pickerStyleBeforeFocus = getComputedStyle(picker);
+      const pickerInput = picker.querySelector('input');
+      const pickerInputStyle = getComputedStyle(pickerInput);
+      const pickerInputRect = pickerInput.getBoundingClientRect();
+      picker.querySelector('input').focus({ preventScroll:true });
+      const pickerFocusStyle = getComputedStyle(picker);
+      const pickerFocus = {
+        width:parseFloat(pickerFocusStyle.outlineWidth),
+        offset:parseFloat(pickerFocusStyle.outlineOffset),
+        radius:pickerFocusStyle.borderRadius,
+        baseRadius:pickerStyleBeforeFocus.borderRadius
+      };
       const timelineBooking = timelineStage.querySelector('.timeline-booking');
+      const timelineBookingRect = timelineBooking.getBoundingClientRect();
+      const timelineServiceName = timelineBooking.querySelector('.timeline-service-core').getBoundingClientRect();
+      const timelineServiceDuration = timelineBooking.querySelector('.timeline-service-duration').getBoundingClientRect();
+      const timelineDragHandle = timelineBooking.querySelector('.timeline-drag-handle').getBoundingClientRect();
       timelineBooking.focus({ preventScroll:true });
       const timelineFocusWidth = parseFloat(getComputedStyle(timelineBooking).outlineWidth);
       const accentProbe = document.createElement('i');
@@ -253,8 +275,11 @@ try {
         strip:stripFrame,
         stripViewport:strip,
         toolbar,
+        toolbarBox:{ height:toolbarStyle.height, minHeight:toolbarStyle.minHeight, padding:[toolbarStyle.paddingTop,toolbarStyle.paddingBottom], boxSizing:toolbarStyle.boxSizing },
         toolbarCopy,
         journalToggle,
+        journalTargetSizes:journalTargets.map(item => ({ width:item.width, height:item.height })),
+        periodTabs,
         newBooking:rect('#newBookingButton'),
         today:rect('[data-date-today]'),
         picker:rect('.schedule-date-picker'),
@@ -304,11 +329,19 @@ try {
         timelineStageOverflow:[timelineStageStyle.overflowX,timelineStageStyle.overflowY],
         timelineLinesInside:timelineLines.every(line => line.left >= timelineStageRect.left - .5 && line.right <= timelineStageRect.right + .5 && line.top >= timelineStageRect.top - .5 && line.bottom <= timelineStageRect.bottom + .5),
         firstHourVisible:firstHourRect.top >= timelineViewRect.top - .5 && firstHourRect.bottom <= timelineViewRect.bottom + .5,
+        timelineGutter:timelineStageRect.left - timelineViewRect.left,
+        hourOuterInset:firstHourRect.left - timelineViewRect.left,
+        hourStageGap:Math.min(timelineStageRect.left - firstHourRect.right, timelineStageRect.left - firstHalfHourRect.right),
+        bookingRightInset:timelineStageRect.right - timelineBookingRect.right,
+        dragHandleInside:timelineDragHandle.right <= timelineBookingRect.right + .5 && timelineDragHandle.left >= timelineBookingRect.left,
+        durationTopDelta:Math.abs(timelineServiceDuration.top - timelineServiceName.top),
+        durationHandleGap:timelineDragHandle.left - timelineServiceDuration.right,
         breakInside:breakRect.top >= timelineStageRect.top && breakRect.bottom <= timelineStageRect.bottom,
         lastHourInside:lastHourRect.top >= timelineViewRect.top && lastHourRect.bottom <= timelineViewRect.bottom + 1,
-        focus:{ timeline:timelineFocusWidth },
+        focus:{ timeline:timelineFocusWidth, pickerWidth:pickerFocus.width, pickerOffset:pickerFocus.offset, pickerRadius:pickerFocus.radius, pickerBaseRadius:pickerFocus.baseRadius },
+        pickerInput:{ width:pickerInputRect.width, textAlign:pickerInputStyle.textAlign, paddingLeft:parseFloat(pickerInputStyle.paddingLeft), paddingRight:parseFloat(pickerInputStyle.paddingRight) },
         toolbarContentCenterDelta:Math.abs((toolbarCopy.top + toolbarCopy.bottom) / 2 - (journalToggle.top + journalToggle.bottom) / 2),
-        journalGridGap:rect('#providerBookings').top - journalToggle.bottom,
+        journalGridGap:rect('.day-timeline').top - journalToggle.bottom,
         quietTodayBackground:quietTodayStyle.backgroundColor,
         quietTodayBackgroundImage:quietTodayStyle.backgroundImage,
         quietTodayShadow:quietTodayStyle.boxShadow,
@@ -336,7 +369,7 @@ try {
       };
     });
     assert.equal(result.overflow, false, `${width}px horizontal overflow`);
-    assert.ok(result.newBooking.height >= (width <= 760 ? 44 : 42) && result.newBooking.width >= 44, `${width}px New booking target`);
+      assert.ok(result.newBooking.height >= (width <= 760 ? 44 : 42) && result.newBooking.width >= 44, `${width}px New booking target`);
     assert.ok(width <= 760
       ? result.timelineStageOverflow.every(value => value === 'visible')
       : result.timelineStageOverflow.every(value => value === 'clip' || value === 'hidden'), `${width}px timeline overflow contract changed: ${JSON.stringify(result)}`);
@@ -362,7 +395,18 @@ try {
       assert.ok(result.title.top >= result.topbar.bottom, `${width}px summary row overlaps the top bar: ${JSON.stringify(result)}`);
       assert.ok(result.title.height <= 46, `${width}px schedule heading still reserves a redundant row: ${JSON.stringify(result)}`);
       assert.ok(result.newBooking.width >= 108 && result.newBooking.height >= 44, `${width}px New booking button changed height or is too narrow: ${JSON.stringify(result)}`);
+      assert.ok(result.periodTabs.top - result.newBooking.bottom >= 8 && result.periodTabs.top - result.newBooking.bottom <= 12, `${width}px New booking and period tabs lost their calm gap: ${JSON.stringify(result)}`);
+      assert.ok(result.toolbar.height <= 62, `${width}px day summary header is still too tall: ${JSON.stringify(result)}`);
+      assert.ok(result.journalTargetSizes.every(target => target.width >= 44 && target.height >= 44), `${width}px journal toggle target is below 44px: ${JSON.stringify(result)}`);
+      assert.ok(result.timelineGutter >= 42 && result.timelineGutter <= 46, `${width}px timeline keeps an excessive time gutter: ${JSON.stringify(result)}`);
+      assert.ok(result.hourOuterInset >= 6 && result.hourOuterInset <= 12, `${width}px hour label is not safely shifted left: ${JSON.stringify(result)}`);
+      assert.ok(result.hourStageGap >= 5, `${width}px hour label touches the timeline stage: ${JSON.stringify(result)}`);
+      assert.ok(result.bookingRightInset >= 2 && result.bookingRightInset <= 5, `${width}px booking does not use the released right width: ${JSON.stringify(result)}`);
+      assert.equal(result.dragHandleInside, true, `${width}px drag handle escapes the booking: ${JSON.stringify(result)}`);
+      assert.ok(result.durationTopDelta <= 2 && result.durationHandleGap >= 0, `${width}px duration is not stable on the service title row: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
+      assert.ok(result.focus.pickerWidth >= 2 && result.focus.pickerOffset <= -2 && result.focus.pickerRadius === result.focus.pickerBaseRadius, `${width}px date picker focus ring escapes its rounded field: ${JSON.stringify(result)}`);
+      assert.ok(result.pickerInput.textAlign === 'center' && result.pickerInput.paddingRight >= 24 && result.pickerInput.paddingLeft === 0, `${width}px date text is not centered inside its own arrow-safe zone: ${JSON.stringify(result)}`);
       assert.ok(result.previous.height >= 44 && result.next.height >= 44, `${width}px date strip arrows`);
       assert.ok(result.nav.height <= 50, `${width}px mobile navigation is still too tall: ${JSON.stringify(result.nav)}`);
       assert.ok(result.navTargets.length === 5 && result.navTargets.every(target => target.height >= 44 && target.width >= 44), `${width}px mobile navigation targets are not accessible: ${JSON.stringify(result.navTargets)}`);
@@ -473,6 +517,11 @@ try {
       await page.waitForTimeout(220);
     }
     if (output) await page.screenshot({ path:path.join(output, `schedule-compact-${width}.png`), fullPage:false });
+    if (output && width === 390) {
+      await page.focus('#scheduleDatePicker');
+      await page.screenshot({ path:path.join(output, 'schedule-picker-focus-390.png'), fullPage:false });
+      await page.evaluate(() => document.querySelector('#scheduleDatePicker').blur());
+    }
   }
 
   await page.setViewportSize({ width:390, height:844 });
@@ -521,15 +570,16 @@ try {
   await page.setViewportSize({ width:360, height:720 });
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(50);
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.mouse.move(180, 360);
+  await page.mouse.wheel(0, 2000);
   await page.waitForTimeout(50);
   const shortDayFold = await page.evaluate(() => {
-    const lastHour = document.querySelector('[data-last-hour]').getBoundingClientRect();
+    const lastHourRect = document.querySelector('[data-last-hour]').getBoundingClientRect();
     const nav = document.querySelector('.provider-mobile-nav').getBoundingClientRect();
     return {
-      lastHour:{ top:lastHour.top, bottom:lastHour.bottom, height:lastHour.height },
+      lastHour:{ top:lastHourRect.top, bottom:lastHourRect.bottom, height:lastHourRect.height },
       nav:{ top:nav.top, bottom:nav.bottom, height:nav.height },
-      visibleAboveNav:Math.min(lastHour.bottom, nav.top) - lastHour.top
+      visibleAboveNav:Math.min(lastHourRect.bottom, nav.top) - lastHourRect.top
     };
   });
   assert.ok(shortDayFold.visibleAboveNav >= shortDayFold.lastHour.height - 1, `360x720 final working hour is covered by navigation: ${JSON.stringify(shortDayFold)}`);
