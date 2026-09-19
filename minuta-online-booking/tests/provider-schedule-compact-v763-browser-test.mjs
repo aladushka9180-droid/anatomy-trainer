@@ -205,6 +205,10 @@ try {
         fullyVisibleDates,
         intersectingDates,
         activeDate,
+        activeDateCssWidth:getComputedStyle(activeButton).width,
+        activeDateFlexBasis:getComputedStyle(activeButton).flexBasis,
+        activeDateCustomWidth:getComputedStyle(activeButton).getPropertyValue('--date-card-width').trim(),
+        activeDateBoxSizing:getComputedStyle(activeButton).boxSizing,
         activeDateValue:activeButton.dataset.bookingDate,
         activeDateBackground:getComputedStyle(activeButton).backgroundColor,
         activeDateMarkerContent:activeDateMarker.content,
@@ -293,6 +297,8 @@ try {
       assert.equal(result.activeDateVisible, true, `${width}px selected date must remain visible: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateValue, '2026-09-15', `${width}px fixture selected date changed`);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its accent`);
+      assert.ok(result.activeDate.width >= 46 && result.activeDate.width <= 56, `${width}px selected date is still oversized: ${JSON.stringify(result)}`);
+      assert.ok(result.activeDate.height >= 57 && result.activeDate.height <= 59, `${width}px selected date height is still oversized: ${JSON.stringify(result)}`);
       assert.ok(result.activeDateMarkerContent === 'none' || result.activeDateMarkerDisplay === 'none', `${width}px selected date regained a second lower marker: ${JSON.stringify(result)}`);
       assert.ok(result.scheduleTop >= 390 && result.scheduleTop <= 520, `${width}px schedule begins: ${JSON.stringify(result)}`);
       assert.ok(result.toolbarContentCenterDelta <= 2, `${width}px day heading and journal toggle are not aligned: ${JSON.stringify(result)}`);
@@ -315,7 +321,7 @@ try {
       assert.equal(result.todayButtonShadow, 'none', `${width}px separate Today action gained an extra accent`);
       assert.notEqual(result.pickerBackground, 'rgba(0, 0, 0, 0)', `${width}px date field lost its surface`);
       if (width <= 430) {
-        assert.ok(result.dateNumberSize <= 34 && result.dateNumberSize >= 24, `${width}px selected date is not the strongest readable accent: ${JSON.stringify(result)}`);
+        assert.ok(result.dateNumberSize <= 26 && result.dateNumberSize >= 22, `${width}px selected date is not a compact readable accent: ${JSON.stringify(result)}`);
         assert.ok(result.summaryScrollWidth <= result.summaryClientWidth + 1, `${width}px title summary is clipped: ${JSON.stringify(result)}`);
         assert.equal(result.summaryChildrenInside, true, `${width}px title summary children escape their row: ${JSON.stringify(result)}`);
         assert.equal(result.summaryLabelsInside, true, `${width}px title summary labels touch or escape the safe inset: ${JSON.stringify(result)}`);
