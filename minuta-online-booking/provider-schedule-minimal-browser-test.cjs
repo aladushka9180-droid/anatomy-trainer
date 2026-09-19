@@ -9,7 +9,7 @@ const root = __dirname;
 const themeCatalog = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
 const helperStart = providerSource.indexOf('function updateDateStripEmphasis(');
-const helperEnd = providerSource.indexOf('function renderDateStrip()', helperStart);
+const helperEnd = providerSource.indexOf('function bookingCountWord(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Помощники адаптивной ленты дат не найдены');
 const dateStripResizeHelpers = providerSource.slice(helperStart, helperEnd);
 const themeKeys = [...themeCatalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
@@ -102,9 +102,8 @@ const server = http.createServer((request, response) => {
         assert.ok(result.previousGap >= 0, `${width}px: левая стрелка перекрывает первую дату (${result.previousGap}px)`);
         assert.ok(result.nextGap >= 0, `${width}px: правая стрелка перекрывает последнюю дату (${result.nextGap}px)`);
       } else {
-        assert.equal(result.stripScrollable, true, `${width}px: лента дат не прокручивается`);
-        assert.equal(result.stripOverflowX, 'auto', `${width}px: горизонтальная прокрутка ленты отключена`);
-        assert.match(result.stripTouchAction, /pan-x/, `${width}px: горизонтальный жест ленты перехватывается`);
+        assert.equal(result.stripOverflowX, 'hidden', `${width}px: лента дат допускает независимую прокрутку`);
+        assert.match(result.stripTouchAction, /pan-y/, `${width}px: карусель дат не оставляет вертикальный жест странице`);
       }
       assert.equal(result.oldControlsHidden, true, `${width}px: старые стрелки остались видимы`);
       assert.equal(result.overflow, false, `${width}px: появился горизонтальный overflow`);
@@ -198,6 +197,145 @@ const server = http.createServer((request, response) => {
       assert.equal(transitions.verticalIgnored, 0, `${width}px: вертикальный жест ошибочно листает даты`);
       assert.ok(transitions.states.every(state => state.centerDelta <= 1.5), `${width}px: выбранная дата дёргается или не остаётся по центру (${JSON.stringify(transitions)})`);
       assert.ok(transitions.states.every(state => state.width >= 46 && state.width <= 56 && state.height >= 53 && state.height <= 55), `${width}px: размер выбранной даты меняется при последовательных переходах (${JSON.stringify(transitions)})`);
+    }
+
+    await page.evaluate(() => {
+      window.$ = selector => document.querySelector(selector);
+      window.$$ = selector => [...document.querySelectorAll(selector)];
+      window.businessTodayIso = () => '2026-09-19';
+      window.parseLocalIsoDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? new Date(`${value}T12:00:00`) : null;
+      window.localIsoDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+      window.weekStartFor = value => {
+        const result = new Date(value);
+        result.setDate(result.getDate() - ((result.getDay() + 6) % 7));
+        return result;
+      };
+      window.currentFilter = 'day';
+      window.calendarView = 'day';
+      window.journalMode = 'timeline';
+      window.teamCalendarController = null;
+      window.updateCalendarViewControls = () => {};
+      window.selectedDate = '2026-09-19';
+      const strip = document.querySelector('#dateStrip');
+      strip.replaceChildren();
+      Object.keys(strip.dataset).forEach(key => delete strip.dataset[key]);
+    });
+
+    for (const width of [360, 390, 760]) {
+      await page.setViewportSize({ width, height:900 });
+      for (const theme of ['sage', 'midnight']) {
+        const mobileCentering = await page.evaluate(async themeKey => {
+          document.body.dataset.providerTheme = themeKey;
+          const strip = document.querySelector('#dateStrip');
+          const measure = () => {
+            const buttons = [...strip.querySelectorAll('[data-booking-date]')];
+            const active = strip.querySelector('[data-booking-date].active');
+            const stripRect = strip.getBoundingClientRect();
+            const activeRect = active?.getBoundingClientRect();
+            const summary = document.querySelector('.schedule-title-line .dashboard-summary');
+            const future = summary.querySelector('div:nth-of-type(3)');
+            const futureStyle = getComputedStyle(future);
+            const summaryStyle = getComputedStyle(summary);
+            const futureLabel = getComputedStyle(future, '::before');
+            return {
+              count:buttons.length,
+              activeIndex:buttons.indexOf(active),
+              activeDate:active?.dataset.bookingDate,
+              picker:document.querySelector('#scheduleDatePicker').value,
+              rangeStart:strip.dataset.rangeStart,
+              rangeEnd:strip.dataset.rangeEnd,
+              centerDelta:activeRect ? Math.abs((activeRect.left + activeRect.right - stripRect.left - stripRect.right) / 2) : 999,
+              futureLabel:futureLabel.content,
+              futureOverflow:futureStyle.overflow,
+              summaryOverflow:summaryStyle.overflow,
+              futurePaddingLeft:parseFloat(futureStyle.paddingLeft),
+              futureLineHeight:parseFloat(futureLabel.lineHeight),
+              futureLeft:future.getBoundingClientRect().left,
+              summaryLeft:summary.getBoundingClientRect().left,
+              overflow:document.documentElement.scrollWidth > innerWidth + 2
+            };
+          };
+          selectedDate = '2026-09-19';
+          renderDateStrip();
+          await new Promise(resolve => setTimeout(resolve, 240));
+          const start = measure();
+          selectedDate = '2026-10-06';
+          renderDateStrip();
+          const animated = strip.getAnimations().some(animation => animation.playState === 'running');
+          await new Promise(resolve => setTimeout(resolve, 240));
+          const far = measure();
+          selectedDate = '2026-09-19';
+          renderDateStrip();
+          await new Promise(resolve => setTimeout(resolve, 240));
+          const returned = measure();
+          return { start, far, returned, animated };
+        }, theme);
+        for (const [stateName, state] of Object.entries({ start:mobileCentering.start, far:mobileCentering.far, returned:mobileCentering.returned })) {
+          assert.equal(state.count, 7, `${theme} ${width}px ${stateName}: мобильный диапазон не равен семи датам`);
+          assert.equal(state.activeIndex, 3, `${theme} ${width}px ${stateName}: выбранная дата не в центральной ячейке`);
+          assert.equal(state.activeDate, state.picker, `${theme} ${width}px ${stateName}: календарь и активная дата рассинхронизированы`);
+          assert.ok(state.centerDelta <= 1.5, `${theme} ${width}px ${stateName}: центр выбранной даты смещён на ${state.centerDelta}px`);
+          assert.equal(state.overflow, false, `${theme} ${width}px ${stateName}: появился горизонтальный overflow`);
+          if (width <= 390) {
+            assert.match(state.futureLabel, /Всего впереди/, `${theme} ${width}px ${stateName}: пропал полный мобильный лейбл «Всего впереди»`);
+            assert.equal(state.futureOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Всего впереди» обрезается собственным контейнером`);
+            assert.equal(state.summaryOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Всего впереди» обрезается сводкой`);
+            assert.ok(state.futurePaddingLeft >= 2, `${theme} ${width}px ${stateName}: у первой буквы «В» нет безопасного отступа`);
+            assert.ok(state.futureLineHeight >= 13, `${theme} ${width}px ${stateName}: строке «Всего впереди» не хватает высоты`);
+            assert.ok(state.futureLeft >= state.summaryLeft, `${theme} ${width}px ${stateName}: строка «Всего впереди» ушла за левую границу сводки`);
+          }
+        }
+        assert.equal(mobileCentering.far.activeDate, '2026-10-06', `${theme} ${width}px: дальний переход не выбрал 06.10`);
+        assert.equal(mobileCentering.far.rangeStart, '2026-10-03', `${theme} ${width}px: дальний диапазон не пересобран слева`);
+        assert.equal(mobileCentering.far.rangeEnd, '2026-10-09', `${theme} ${width}px: дальний диапазон не пересобран справа`);
+        assert.equal(mobileCentering.returned.activeDate, '2026-09-19', `${theme} ${width}px: возврат к сегодня не сработал`);
+        assert.equal(mobileCentering.animated, true, `${theme} ${width}px: перестройка дат не анимирована`);
+      }
+    }
+
+    await page.emulateMedia({ reducedMotion:'reduce' });
+    const reducedMotionAnimation = await page.evaluate(() => {
+      selectedDate = '2026-09-20';
+      renderDateStrip();
+      return document.querySelector('#dateStrip').getAnimations().some(animation => animation.playState === 'running');
+    });
+    assert.equal(reducedMotionAnimation, false, 'prefers-reduced-motion должен отключать анимацию перестройки дат');
+    await page.emulateMedia({ reducedMotion:'no-preference' });
+
+    for (const width of [360, 390, 760]) {
+      await page.setViewportSize({ width, height:900 });
+      for (const timelineHeight of [144, 720]) {
+        const tail = await page.evaluate(height => {
+          const bookings = document.querySelector('#providerBookings');
+          bookings.className = 'provider-bookings timeline-view';
+          bookings.innerHTML = `<div class="day-timeline" style="--timeline-height:${height}px"><div class="timeline-hours"></div><div class="timeline-stage" style="--timeline-height:${height}px"><button class="timeline-booking status-confirmed" style="top:${height - 72}px;height:68px"><span class="timeline-booking-time"><b>19:00</b><small>–20:00</small></span><span class="timeline-booking-copy"><strong>Последняя запись</strong></span></button></div></div>`;
+          const stage = bookings.querySelector('.timeline-stage').getBoundingClientRect();
+          const card = bookings.querySelector('.timeline-booking').getBoundingClientRect();
+          const holder = bookings.getBoundingClientRect();
+          const scheduleWorkspace = document.querySelector('.schedule-workspace').getBoundingClientRect();
+          const providerView = document.querySelector('[data-provider-panel="bookings"]').getBoundingClientRect();
+          const providerWorkspace = document.querySelector('.provider-workspace').getBoundingClientRect();
+          const dashboard = document.querySelector('#dashboard').getBoundingClientRect();
+          const clearance = parseFloat(getComputedStyle(document.body).getPropertyValue('--provider-mobile-nav-clearance')) || 80;
+          return {
+            holderTail:holder.bottom - stage.bottom,
+            documentTail:document.documentElement.scrollHeight - stage.bottom,
+            scrollHeight:document.documentElement.scrollHeight,
+            viewportHeight:innerHeight,
+            scheduleWorkspaceTail:scheduleWorkspace.bottom - stage.bottom,
+            providerViewTail:providerView.bottom - stage.bottom,
+            providerWorkspaceTail:providerWorkspace.bottom - stage.bottom,
+            dashboardTail:dashboard.bottom - stage.bottom,
+            clearance,
+            cardInside:card.bottom <= stage.bottom + 1,
+            overflow:document.documentElement.scrollWidth > innerWidth + 2
+          };
+        }, timelineHeight);
+        assert.ok(tail.holderTail <= 20, `${width}px ${timelineHeight}px: внутри расписания остался пустой хвост ${tail.holderTail}px`);
+        assert.ok(tail.scrollHeight <= Math.max(tail.viewportHeight, tail.scrollHeight - tail.documentTail + tail.clearance + 36), `${width}px ${timelineHeight}px: после расписания осталось лишних ${JSON.stringify(tail)}`);
+        assert.equal(tail.cardInside, true, `${width}px ${timelineHeight}px: последняя карточка обрезана`);
+        assert.equal(tail.overflow, false, `${width}px ${timelineHeight}px: появился горизонтальный overflow`);
+      }
     }
 
     const alternateView = await page.evaluate(() => {
@@ -350,6 +488,7 @@ const server = http.createServer((request, response) => {
             monthAutoBackground,
             restIconContent:restIcon.content,
             restIconImage:restIcon.backgroundImage,
+            restIconShadow:restIcon.boxShadow,
             overflow:document.documentElement.scrollWidth > innerWidth + 2
           };
         }, theme);
@@ -361,6 +500,9 @@ const server = http.createServer((request, response) => {
           if (index === 2) {
             assert.equal(card.background, cards.monthAutoBackground, `${theme} ${width}px: компактная месячная запись потеряла нейтральный фон`);
             assert.equal(card.shadow, 'none', `${theme} ${width}px: месячная запись получила лишнюю постоянную тень`);
+          } else if (width > 760 && index === 0) {
+            assert.equal(card.shadow, 'none', `${theme} ${width}px: ПК-записи не нужна декоративная тень`);
+            assert.ok(card.surfaceContrast >= 1.04, `${theme} ${width}px: ПК-запись сливается с поверхностью (${card.surfaceContrast.toFixed(2)})`);
           } else {
             assert.equal(card.background, cards.accentBackground, `${theme} ${width}px: запись ${index + 1} не использует акцент выбранной темы`);
             assert.equal(card.borderColor, cards.accentBorderColor, `${theme} ${width}px: рамка записи ${index + 1} не использует акцент выбранной темы`);
@@ -376,7 +518,10 @@ const server = http.createServer((request, response) => {
         });
         assert.notEqual(cards.normal[0].background, cards.rest[0].background, `${theme} ${width}px: запись и перерыв не различаются`);
         assert.equal(cards.restIconContent, '""', `${theme} ${width}px: у перерыва нет значка паузы`);
-        assert.notEqual(cards.restIconImage, 'none', `${theme} ${width}px: значок паузы не отображается`);
+        if (width > 760) {
+          assert.equal(cards.restIconImage, 'none', `${theme} ${width}px: ПК-значок паузы должен быть сплошным`);
+          assert.notEqual(cards.restIconShadow, 'none', `${theme} ${width}px: вторая полоса ПК-значка паузы не отображается`);
+        } else assert.notEqual(cards.restIconImage, 'none', `${theme} ${width}px: значок паузы не отображается`);
         assert.equal(cards.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
       }
     }

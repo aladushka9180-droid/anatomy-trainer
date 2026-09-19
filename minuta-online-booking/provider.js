@@ -6665,7 +6665,7 @@ function restoreDefaultScheduleView() {
   updateJournalModeButtons();
   updateBookingQueryTools();
   syncScheduleContextHistory();
-  renderDateStrip();
+  renderDateStrip({ forceCenter:true });
   renderBookings();
 }
 
@@ -6879,6 +6879,21 @@ function centerDateStripSelection(dateStrip, options = {}) {
   }
 }
 
+function animateMobileDateStripRecentering(dateStrip, previousDateIso, nextDateIso) {
+  if (!dateStrip || !previousDateIso || previousDateIso === nextDateIso) return;
+  if (!window.matchMedia('(max-width: 760px)').matches || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const previous = parseLocalIsoDate(previousDateIso);
+  const next = parseLocalIsoDate(nextDateIso);
+  if (!previous || !next || typeof dateStrip.animate !== 'function') return;
+  const direction = next > previous ? 1 : -1;
+  const activeWidth = dateStrip.querySelector('[data-booking-date].active')?.getBoundingClientRect().width || 52;
+  dateStrip.getAnimations?.().forEach(animation => animation.cancel());
+  dateStrip.animate([
+    { transform:`translateX(${direction * Math.min(64, activeWidth + 6)}px)`, opacity:.84 },
+    { transform:'translateX(0)', opacity:1 }
+  ], { duration:190, easing:'cubic-bezier(.22,.75,.25,1)' });
+}
+
 function bindDateStripResizeCentering(dateStrip) {
   if (!dateStrip || dateStrip.dataset.resizeObserverBound) return;
   let previousWidth = dateStrip.clientWidth;
@@ -6894,24 +6909,32 @@ function bindDateStripResizeCentering(dateStrip) {
   dateStrip.dataset.resizeObserverBound = 'true';
 }
 
-function renderDateStrip() {
+function renderDateStrip({ forceCenter = false } = {}) {
   const dateStrip = $('#dateStrip');
   if (!dateStrip) return;
   const todayIso = businessTodayIso();
   const today = parseLocalIsoDate(todayIso);
   const selected = parseLocalIsoDate(selectedDate) || today;
+  const mobileCenteredRange = window.matchMedia('(max-width: 760px)').matches;
   const weekStart = weekStartFor(selected);
   const todayWeekStart = weekStartFor(today);
-  const rangeStart = new Date(todayWeekStart < weekStart ? todayWeekStart : weekStart);
-  const rangeEnd = new Date(todayWeekStart > weekStart ? todayWeekStart : weekStart);
-  rangeStart.setDate(rangeStart.getDate() - 28);
-  rangeEnd.setDate(rangeEnd.getDate() + 62);
+  const rangeStart = mobileCenteredRange
+    ? new Date(selected)
+    : new Date(todayWeekStart < weekStart ? todayWeekStart : weekStart);
+  const rangeEnd = mobileCenteredRange
+    ? new Date(selected)
+    : new Date(todayWeekStart > weekStart ? todayWeekStart : weekStart);
+  rangeStart.setDate(rangeStart.getDate() - (mobileCenteredRange ? 3 : 28));
+  rangeEnd.setDate(rangeEnd.getDate() + (mobileCenteredRange ? 3 : 62));
   const rangeStartIso = localIsoDate(rangeStart);
   const rangeEndIso = localIsoDate(rangeEnd);
   const rangeDays = Math.round((Date.UTC(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()) - Date.UTC(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate())) / 86400000) + 1;
+  const rangeMode = mobileCenteredRange ? 'centered' : 'extended';
   const currentRangeContainsSelection = dateStrip.dataset.rangeStart <= selectedDate && selectedDate <= dateStrip.dataset.rangeEnd;
   const currentRangeContainsToday = dateStrip.dataset.rangeStart <= todayIso && todayIso <= dateStrip.dataset.rangeEnd;
-  const rebuildStrip = dateStrip.dataset.rangeMode !== 'extended' || !currentRangeContainsSelection || !currentRangeContainsToday || dateStrip.dataset.today !== todayIso;
+  const rebuildStrip = dateStrip.dataset.rangeMode !== rangeMode
+    || (mobileCenteredRange ? dateStrip.dataset.selectedDate !== selectedDate : !currentRangeContainsSelection || !currentRangeContainsToday)
+    || dateStrip.dataset.today !== todayIso;
   const previousSelectedDate = dateStrip.dataset.selectedDate || '';
   const selectionChanged = previousSelectedDate !== selectedDate;
   if (rebuildStrip) {
@@ -6924,7 +6947,7 @@ function renderDateStrip() {
       const fullDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       return `<button type="button" data-booking-date="${iso}" aria-label="${fullDate}"><span>${label}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</small></button>`;
     }).join('');
-    dateStrip.dataset.rangeMode = 'extended';
+    dateStrip.dataset.rangeMode = rangeMode;
     dateStrip.dataset.rangeStart = rangeStartIso;
     dateStrip.dataset.rangeEnd = rangeEndIso;
     dateStrip.dataset.today = todayIso;
@@ -6940,6 +6963,7 @@ function renderDateStrip() {
   });
   updateDateStripEmphasis(dateStrip);
   dateStrip.dataset.selectedDate = selectedDate;
+  if (mobileCenteredRange && rebuildStrip) animateMobileDateStripRecentering(dateStrip, previousSelectedDate, selectedDate);
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
   const todayButton = $('[data-date-today]');
@@ -6949,7 +6973,7 @@ function renderDateStrip() {
     todayButton.classList.toggle('is-current', current);
     todayButton.setAttribute('aria-pressed', String(current));
   }
-  if (rebuildStrip || selectionChanged) {
+  if (rebuildStrip || selectionChanged || forceCenter) {
     const smoothSelection = selectionChanged && !rebuildStrip && Boolean(previousSelectedDate);
     requestAnimationFrame(() => centerDateStripSelection(dateStrip, { smooth:smoothSelection }));
     window.setTimeout(() => centerDateStripSelection(dateStrip, { smooth:smoothSelection }), 220);
