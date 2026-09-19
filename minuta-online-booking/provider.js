@@ -7052,6 +7052,16 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       if (event.pointerId !== dragPointerId) return;
       const delta = event.clientX - dragStartX;
       if (!hasDragged && Math.abs(delta) < 4) return;
+      if (window.matchMedia('(max-width: 760px)').matches) {
+        const step = mobileDateStep();
+        const count = Math.trunc(Math.abs(delta) / step);
+        if (!count) return;
+        hasDragged = true;
+        dragStartX += (delta < 0 ? -1 : 1) * count * step;
+        event.preventDefault();
+        shiftScheduleDate(delta < 0 ? count : -count);
+        return;
+      }
       if (!hasDragged) {
         hasDragged = true;
         dateStrip.setPointerCapture?.(event.pointerId);
@@ -7068,6 +7078,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       dragPointerId = null;
       dateStrip.classList.remove('is-dragging');
       if (dateStrip.hasPointerCapture?.(event.pointerId)) dateStrip.releasePointerCapture(event.pointerId);
+      if (suppressClick && window.matchMedia('(max-width: 760px)').matches) centerDateStripSelection(dateStrip, { instant:true });
     };
     dateStrip.addEventListener('pointerup', finishDrag);
     dateStrip.addEventListener('pointercancel', finishDrag);

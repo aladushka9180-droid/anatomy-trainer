@@ -133,7 +133,12 @@ try {
           const left = swipe(260, [218,176,134], 120);
           const right = swipe(120, [162,204], 230);
           const rapidLeft = swipe(270, [218,166], 132);
-          return { tap, rapid, swipeStart, left, right, rapidLeft };
+          const pointerStart = snapshot();
+          strip.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerType:'mouse', pointerId:7, button:0, clientX:270, clientY:20 }));
+          strip.dispatchEvent(new PointerEvent('pointermove', { bubbles:true, cancelable:true, pointerType:'mouse', pointerId:7, buttons:1, clientX:135, clientY:21 }));
+          strip.dispatchEvent(new PointerEvent('pointerup', { bubbles:true, cancelable:true, pointerType:'mouse', pointerId:7, button:0, clientX:135, clientY:21 }));
+          const pointerEnd = snapshot();
+          return { tap, rapid, swipeStart, left, right, rapidLeft, pointerStart, pointerEnd };
         });
         assert.equal(interaction.tap.active, interaction.tap.picker, `${width}px tap did not update the date field immediately: ${JSON.stringify(interaction)}`);
         assert.ok(interaction.tap.title, `${width}px tap did not update the date title immediately: ${JSON.stringify(interaction)}`);
@@ -145,6 +150,9 @@ try {
         assert.ok(swipeFrames.every(frame => frame.centerDelta <= 1), `${width}px selected date moved out of the fixed center during rapid swipes: ${JSON.stringify(interaction)}`);
         assert.notEqual(interaction.left.end.active, interaction.swipeStart.active, `${width}px left swipe lost all date steps: ${JSON.stringify(interaction)}`);
         assert.notEqual(interaction.rapidLeft.end.active, interaction.right.end.active, `${width}px rapid consecutive swipe was dropped: ${JSON.stringify(interaction)}`);
+        assert.notEqual(interaction.pointerEnd.active, interaction.pointerStart.active, `${width}px mouse drag in mobile layout lost all date steps: ${JSON.stringify(interaction)}`);
+        assert.equal(interaction.pointerEnd.active, interaction.pointerEnd.picker, `${width}px mouse drag desynchronized the date field: ${JSON.stringify(interaction)}`);
+        assert.ok(interaction.pointerEnd.centerDelta <= 1, `${width}px mouse drag moved the selected date out of center: ${JSON.stringify(interaction)}`);
       }
 
       await page.locator(moreButton).click();
