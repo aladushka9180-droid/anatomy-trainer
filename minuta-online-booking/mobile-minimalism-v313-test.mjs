@@ -6,7 +6,7 @@ const js = read('provider.js');
 const html = read('provider.html');
 
 const checks = [
-  [css.includes('.provider-body[data-provider-theme][data-provider-layout] .day-timeline { grid-template-columns:44px minmax(0,1fr); }'), 'единая мобильная шкала 44 px'],
+  [css.includes('.provider-body[data-provider-theme][data-provider-layout] .day-timeline { grid-template-columns:40px minmax(0,1fr); }'), 'единая мобильная шкала 40 px'],
   [css.includes('.clients-layout:not(.is-detail) .client-profile'), 'общий mobile master-detail клиентов'],
   [css.includes('.mobile-more-grid button[hidden] { display:none!important; }'), 'скрытие дублей в разделе «Все разделы»'],
   [css.includes('grid-template-columns:repeat(3,minmax(0,1fr))'), 'сетка периодов 3×2'],

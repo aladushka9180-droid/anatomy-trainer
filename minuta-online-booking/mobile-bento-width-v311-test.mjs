@@ -15,17 +15,17 @@ assert.match(
 );
 assert.match(
   styles,
-  /data-provider-layout\] \.day-timeline \{ grid-template-columns:44px minmax\(0,1fr\); \}/,
+  /data-provider-layout\] \.day-timeline \{ grid-template-columns:40px minmax\(0,1fr\); \}/,
   'Колонка часов на телефоне должна быть компактной, но читаемой',
 );
 assert.match(
   styles,
-  /data-provider-layout\] \.timeline-booking \{ right:4px; left:5px; \}/,
+  /data-provider-layout\] \.timeline-booking \{ right:3px; left:4px; \}/,
   'Карточки записей не используют доступную ширину временной шкалы',
 );
 assert.match(
   styles,
-  /data-provider-layout\] \.timeline-day-expand \{ width:calc\(100% - 44px\); \}/,
+  /data-provider-layout\] \.timeline-day-expand \{ width:calc\(100% - 40px\); \}/,
   'Кнопка продолжения дня не выровнена по расширенной колонке записей',
 );
 

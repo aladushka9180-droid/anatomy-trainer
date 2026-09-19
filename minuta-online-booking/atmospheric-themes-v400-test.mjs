@@ -28,6 +28,6 @@ assert.ok(
   'Матовый Hitech-цвет должен применяться после общего правила активного дня'
 );
 assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v\d+`;/, 'Версия кэша приложения не определена');
-assert.match(provider, /styles\.css\?v=821/, 'Кабинет не подключает актуальные стили');
+assert.match(provider, /styles\.css\?v=836/, 'Кабинет не подключает актуальные стили');
 
 console.log('Atmospheric provider themes v400: OK');
