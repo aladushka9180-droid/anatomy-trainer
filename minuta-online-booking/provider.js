@@ -6964,11 +6964,13 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     todayButton.setAttribute('aria-pressed', String(current));
   }
   if (rebuildStrip || selectionChanged || forceCenter) {
-    const smoothSelection = !instantCenter && selectionChanged && !rebuildStrip && Boolean(previousSelectedDate);
-    const center = () => centerDateStripSelection(dateStrip, { smooth:smoothSelection, instant:instantCenter });
-    if (instantCenter) center();
+    const fixedMobileCenter = mobileCenteredRange;
+    const immediateCenter = instantCenter || fixedMobileCenter;
+    const smoothSelection = !immediateCenter && selectionChanged && !rebuildStrip && Boolean(previousSelectedDate);
+    const center = () => centerDateStripSelection(dateStrip, { smooth:smoothSelection, instant:immediateCenter });
+    if (immediateCenter) center();
     else requestAnimationFrame(center);
-    if (!instantCenter) window.setTimeout(center, 220);
+    if (!immediateCenter) window.setTimeout(center, 220);
   }
   bindDateStripResizeCentering(dateStrip);
   if (!dateStrip.dataset.scrollInteractionsBound) {
@@ -6981,27 +6983,31 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     let suppressClick = false;
     let touchStartX = null;
     let touchStartY = null;
-    let mobileSettleTimer = 0;
-    const settleMobileDate = ({ instant = false } = {}) => {
-      if (mobileSettleTimer) clearTimeout(mobileSettleTimer);
-      mobileSettleTimer = 0;
-      if (!window.matchMedia('(max-width: 760px)').matches) return;
-      if (Number(dateStrip.dataset.programmaticCenterUntil || 0) > Date.now()) return;
-      const stripRect = dateStrip.getBoundingClientRect();
-      const center = (stripRect.left + stripRect.right) / 2;
-      const nearest = [...dateStrip.querySelectorAll('[data-booking-date]')].reduce((best, button) => {
-        const rect = button.getBoundingClientRect();
-        const distance = Math.abs((rect.left + rect.right) / 2 - center);
-        return !best || distance < best.distance ? { button, distance } : best;
-      }, null)?.button;
-      const nextDate = nearest?.dataset.bookingDate;
-      if (!nextDate) return;
-      if (nextDate !== selectedDate) selectScheduleDate(nextDate);
-      else centerDateStripSelection(dateStrip, { smooth:!instant, instant });
+    let touchAnchorX = null;
+    let touchIntent = '';
+    let touchMoved = false;
+    const mobileDateStep = () => {
+      const buttons = [...dateStrip.querySelectorAll('[data-booking-date]')];
+      const activeIndex = buttons.findIndex(button => button.classList.contains('active'));
+      const active = buttons[activeIndex];
+      const neighbor = buttons[activeIndex + 1] || buttons[activeIndex - 1];
+      if (!active || !neighbor) return 36;
+      const activeRect = active.getBoundingClientRect();
+      const neighborRect = neighbor.getBoundingClientRect();
+      const centerDistance = Math.abs((neighborRect.left + neighborRect.right - activeRect.left - activeRect.right) / 2);
+      return Math.max(30, Math.min(52, centerDistance * .72));
     };
-    const scheduleMobileSettle = (delay = 150) => {
-      if (mobileSettleTimer) clearTimeout(mobileSettleTimer);
-      mobileSettleTimer = window.setTimeout(settleMobileDate, delay);
+    const advanceMobileDateGesture = clientX => {
+      if (!Number.isFinite(clientX) || touchAnchorX === null) return 0;
+      const delta = clientX - touchAnchorX;
+      const step = mobileDateStep();
+      const count = Math.trunc(Math.abs(delta) / step);
+      if (!count) return 0;
+      const direction = delta < 0 ? 1 : -1;
+      touchAnchorX += (delta < 0 ? -1 : 1) * count * step;
+      shiftScheduleDate(direction * count);
+      touchMoved = true;
+      return count;
     };
     const clampScroll = value => Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, value));
     const stopWheelAnimation = () => {
@@ -7067,27 +7073,48 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     dateStrip.addEventListener('pointercancel', finishDrag);
     dateStrip.addEventListener('touchstart', event => {
       if (event.touches.length !== 1) return;
-      if (mobileSettleTimer) clearTimeout(mobileSettleTimer);
-      mobileSettleTimer = 0;
       dateStrip.dataset.programmaticCenterUntil = '0';
       touchStartX = event.touches[0].clientX;
       touchStartY = event.touches[0].clientY;
+      touchAnchorX = touchStartX;
+      touchIntent = '';
+      touchMoved = false;
     }, { passive:true });
+    dateStrip.addEventListener('touchmove', event => {
+      if (touchStartX === null || event.touches.length !== 1 || !window.matchMedia('(max-width: 760px)').matches) return;
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - touchStartX;
+      const deltaY = touch.clientY - touchStartY;
+      if (!touchIntent && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 6) {
+        touchIntent = Math.abs(deltaX) > Math.abs(deltaY) * 1.15 ? 'horizontal' : 'vertical';
+      }
+      if (touchIntent !== 'horizontal') return;
+      event.preventDefault();
+      advanceMobileDateGesture(touch.clientX);
+    }, { passive:false });
     dateStrip.addEventListener('touchend', event => {
       const touch = event.changedTouches[0];
-      const deltaX = touch && touchStartX !== null ? touch.clientX - touchStartX : 0;
-      const deltaY = touch && touchStartY !== null ? touch.clientY - touchStartY : 0;
-      const swiped = Math.abs(deltaX) >= 36 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
+      if (touchIntent === 'horizontal' && touch && !touchMoved && touchAnchorX !== null && Math.abs(touch.clientX - touchAnchorX) >= 22) {
+        shiftScheduleDate(touch.clientX < touchAnchorX ? 1 : -1);
+        touchMoved = true;
+      }
+      const handled = touchIntent === 'horizontal' && touchMoved;
       touchStartX = null;
       touchStartY = null;
-      if (!swiped) return;
+      touchAnchorX = null;
+      touchIntent = '';
+      touchMoved = false;
+      if (!handled) return;
       suppressClick = true;
       event.preventDefault();
-      settleMobileDate({ instant:true });
+      centerDateStripSelection(dateStrip, { instant:true });
     }, { passive:false });
     dateStrip.addEventListener('touchcancel', () => {
       touchStartX = null;
       touchStartY = null;
+      touchAnchorX = null;
+      touchIntent = '';
+      touchMoved = false;
     }, { passive:true });
     dateStrip.addEventListener('click', event => {
       if (!suppressClick) return;
@@ -7097,9 +7124,6 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     }, true);
     dateStrip.addEventListener('scroll', () => {
       if (!wheelFrame && dragPointerId === null) wheelTarget = dateStrip.scrollLeft;
-      if (window.matchMedia('(max-width: 760px)').matches
-        && touchStartX === null
-        && Number(dateStrip.dataset.programmaticCenterUntil || 0) <= Date.now()) scheduleMobileSettle();
     }, { passive:true });
     dateStrip.dataset.scrollInteractionsBound = 'true';
   }

@@ -16,17 +16,18 @@ for (const contract of [
   /providerMobileMoreHistoryDismissed/,
   /data-close-mobile-more/
 ]) assert.match(providerSource, contract);
-assert.match(providerHtml, /provider-ux\.css\?v=836/);
-assert.match(providerHtml, /site-update\.js\?v=836/);
-assert.match(providerHtml, /provider\.js\?v=836/);
-assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v836`/);
-assert.match(workerSource, /provider-ux\.css\?v=836/);
-assert.match(workerSource, /site-update\.js\?v=836/);
-assert.match(workerSource, /provider\.js\?v=836/);
-assert.match(updateSource, /sw\.js\?v=836/);
+assert.match(providerHtml, /provider-ux\.css\?v=837/);
+assert.match(providerHtml, /site-update\.js\?v=837/);
+assert.match(providerHtml, /provider\.js\?v=837/);
+assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v837`/);
+assert.match(workerSource, /provider-ux\.css\?v=837/);
+assert.match(workerSource, /site-update\.js\?v=837/);
+assert.match(workerSource, /provider\.js\?v=837/);
+assert.match(updateSource, /sw\.js\?v=837/);
 assert.match(providerSource, /renderDateStrip\(\{ instantCenter:true \}\)/);
 assert.match(providerSource, /setFilter\('day', \{ render:false \}\)/);
-assert.match(providerSource, /settleMobileDate\(\{ instant:true \}\)/);
+assert.match(providerSource, /advanceMobileDateGesture\(touch\.clientX\)/);
+assert.doesNotMatch(providerSource, /scheduleMobileSettle|mobileSettleTimer/);
 
 const seam = `
 window.__providerMoreTest={show(){
@@ -112,30 +113,38 @@ try {
           buttons[activeIndex + 2].click();
           buttons[activeIndex + 3].click();
           const rapid = snapshot();
-          const start = new Event('touchstart', { bubbles:true, cancelable:true });
-          Object.defineProperty(start, 'touches', { value:[{ clientX:250, clientY:20 }] });
-          strip.dispatchEvent(start);
-          strip.scrollLeft += 120;
-          const viewport = strip.getBoundingClientRect();
-          const center = (viewport.left + viewport.right) / 2;
-          const expectedSwipe = [...strip.querySelectorAll('[data-booking-date]')].reduce((best, button) => {
-            const rect = button.getBoundingClientRect();
-            const distance = Math.abs((rect.left + rect.right) / 2 - center);
-            return !best || distance < best.distance ? { date:button.dataset.bookingDate, distance } : best;
-          }, null)?.date;
-          const end = new Event('touchend', { bubbles:true, cancelable:true });
-          Object.defineProperty(end, 'changedTouches', { value:[{ clientX:110, clientY:22 }] });
-          strip.dispatchEvent(end);
-          return { tap, rapid, swipe:snapshot(), expectedSwipe };
+          const swipe = (startX, moves, endX) => {
+            const start = new Event('touchstart', { bubbles:true, cancelable:true });
+            Object.defineProperty(start, 'touches', { value:[{ clientX:startX, clientY:20 }] });
+            strip.dispatchEvent(start);
+            const frames=[];
+            moves.forEach(clientX => {
+              const move = new Event('touchmove', { bubbles:true, cancelable:true });
+              Object.defineProperty(move, 'touches', { value:[{ clientX, clientY:21 }] });
+              strip.dispatchEvent(move);
+              frames.push(snapshot());
+            });
+            const end = new Event('touchend', { bubbles:true, cancelable:true });
+            Object.defineProperty(end, 'changedTouches', { value:[{ clientX:endX, clientY:22 }] });
+            strip.dispatchEvent(end);
+            return { frames, end:snapshot() };
+          };
+          const swipeStart = snapshot();
+          const left = swipe(260, [218,176,134], 120);
+          const right = swipe(120, [162,204], 230);
+          const rapidLeft = swipe(270, [218,166], 132);
+          return { tap, rapid, swipeStart, left, right, rapidLeft };
         });
         assert.equal(interaction.tap.active, interaction.tap.picker, `${width}px tap did not update the date field immediately: ${JSON.stringify(interaction)}`);
         assert.ok(interaction.tap.title, `${width}px tap did not update the date title immediately: ${JSON.stringify(interaction)}`);
         assert.ok(interaction.tap.centerDelta <= 1, `${width}px tap did not center the selected date immediately: ${JSON.stringify(interaction)}`);
         assert.equal(interaction.rapid.active, interaction.rapid.picker, `${width}px rapid taps restored an older date: ${JSON.stringify(interaction)}`);
         assert.ok(interaction.rapid.centerDelta <= 1, `${width}px rapid taps left the newest date off-center: ${JSON.stringify(interaction)}`);
-        assert.equal(interaction.swipe.active, interaction.expectedSwipe, `${width}px swipe release selected a stale date: ${JSON.stringify(interaction)}`);
-        assert.equal(interaction.swipe.active, interaction.swipe.picker, `${width}px swipe did not update the date field immediately: ${JSON.stringify(interaction)}`);
-        assert.ok(interaction.swipe.centerDelta <= 1, `${width}px swipe release did not center immediately: ${JSON.stringify(interaction)}`);
+        const swipeFrames = [...interaction.left.frames, interaction.left.end, ...interaction.right.frames, interaction.right.end, ...interaction.rapidLeft.frames, interaction.rapidLeft.end];
+        assert.ok(swipeFrames.every(frame => frame.active === frame.picker && frame.title), `${width}px swipe did not synchronously update date/title: ${JSON.stringify(interaction)}`);
+        assert.ok(swipeFrames.every(frame => frame.centerDelta <= 1), `${width}px selected date moved out of the fixed center during rapid swipes: ${JSON.stringify(interaction)}`);
+        assert.notEqual(interaction.left.end.active, interaction.swipeStart.active, `${width}px left swipe lost all date steps: ${JSON.stringify(interaction)}`);
+        assert.notEqual(interaction.rapidLeft.end.active, interaction.right.end.active, `${width}px rapid consecutive swipe was dropped: ${JSON.stringify(interaction)}`);
       }
 
       await page.locator(moreButton).click();

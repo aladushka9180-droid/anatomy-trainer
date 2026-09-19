@@ -8162,7 +8162,7 @@ html.provider-booting .provider-main {
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only):has(.timeline-drag-handle) .timeline-booking-copy {
     box-sizing:border-box;
     width:100%!important;
-    padding-right:44px!important;
+    padding-right:clamp(35px,9vw,44px)!important;
   }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only):has(.timeline-drag-handle) .timeline-booking-client-row {
     width:100%;
@@ -8175,9 +8175,9 @@ html.provider-booting .provider-main {
 
 /* На узких телефонах длинное название слегка уплотняется, не затрагивая
    время, имя клиента, перерывы и компактные записи. */
-@media (max-width:420px) {
+@media (max-width:760px) {
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:not(.status-block):not(.compact):not(.minute-only) .timeline-booking-copy>strong {
-    font-size:clamp(10.5px,2.7vw,11px);
+    font-size:clamp(10.5px,2.7vw,12px);
     letter-spacing:-.025em;
   }
 }

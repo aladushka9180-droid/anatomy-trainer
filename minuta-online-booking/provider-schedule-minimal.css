@@ -2325,17 +2325,17 @@ html body.provider-body[data-provider-theme][data-provider-layout]
 
   html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip {
     justify-content:flex-start!important;
-    overflow-x:auto!important;
-    scroll-snap-type:x proximity;
-    scroll-behavior:smooth;
-    touch-action:pan-x pan-y!important;
+    overflow-x:hidden!important;
+    scroll-snap-type:none!important;
+    scroll-behavior:auto!important;
+    touch-action:pan-y!important;
     overscroll-behavior-x:contain!important;
-    -webkit-overflow-scrolling:touch;
   }
 
   html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button {
     scroll-snap-align:center;
     scroll-snap-stop:normal;
+    transition:opacity .12s ease,background-color .12s ease,color .12s ease!important;
   }
 
   .provider-body #dashboard[data-active-view="bookings"] .dashboard-summary::before,

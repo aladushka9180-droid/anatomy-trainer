@@ -234,6 +234,8 @@ try {
       const timelineBooking = timelineStage.querySelector('.timeline-booking');
       const timelineBookingRect = timelineBooking.getBoundingClientRect();
       const timelineServiceName = timelineBooking.querySelector('.timeline-service-core').getBoundingClientRect();
+      const timelineServiceTitleElement = timelineBooking.querySelector('.timeline-service-title');
+      const timelineServiceTitle = timelineServiceTitleElement.getBoundingClientRect();
       const timelineServiceDuration = timelineBooking.querySelector('.timeline-service-duration').getBoundingClientRect();
       const timelineDragHandle = timelineBooking.querySelector('.timeline-drag-handle').getBoundingClientRect();
       timelineBooking.focus({ preventScroll:true });
@@ -336,6 +338,8 @@ try {
         dragHandleInside:timelineDragHandle.right <= timelineBookingRect.right + .5 && timelineDragHandle.left >= timelineBookingRect.left,
         durationTopDelta:Math.abs(timelineServiceDuration.top - timelineServiceName.top),
         durationHandleGap:timelineDragHandle.left - timelineServiceDuration.right,
+        serviceTitleLineCount:timelineServiceTitle.height / parseFloat(getComputedStyle(timelineServiceTitleElement).lineHeight),
+        serviceTitleHandleGap:timelineDragHandle.left - timelineServiceTitle.right,
         breakInside:breakRect.top >= timelineStageRect.top && breakRect.bottom <= timelineStageRect.bottom,
         lastHourInside:lastHourRect.top >= timelineViewRect.top && lastHourRect.bottom <= timelineViewRect.bottom + 1,
         focus:{ timeline:timelineFocusWidth, pickerWidth:pickerFocus.width, pickerOffset:pickerFocus.offset, pickerRadius:pickerFocus.radius, pickerBaseRadius:pickerFocus.baseRadius },
@@ -404,6 +408,7 @@ try {
       assert.ok(result.bookingRightInset >= 2 && result.bookingRightInset <= 5, `${width}px booking does not use the released right width: ${JSON.stringify(result)}`);
       assert.equal(result.dragHandleInside, true, `${width}px drag handle escapes the booking: ${JSON.stringify(result)}`);
       assert.ok(result.durationTopDelta <= 2 && result.durationHandleGap >= 0, `${width}px duration is not stable on the service title row: ${JSON.stringify(result)}`);
+      if (width >= 390) assert.ok(result.serviceTitleLineCount <= 1.1 && result.serviceTitleHandleGap >= 0, `${width}px service title wraps before the real handle boundary: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.focus.pickerWidth >= 2 && result.focus.pickerOffset <= -2 && result.focus.pickerRadius === result.focus.pickerBaseRadius, `${width}px date picker focus ring escapes its rounded field: ${JSON.stringify(result)}`);
       assert.ok(result.pickerInput.textAlign === 'center' && result.pickerInput.paddingRight >= 24 && result.pickerInput.paddingLeft === 0, `${width}px date text is not centered inside its own arrow-safe zone: ${JSON.stringify(result)}`);
@@ -546,13 +551,14 @@ try {
     const buttonRect = button.getBoundingClientRect();
     const labelRect = label.getBoundingClientRect();
     const viewport = strip.getBoundingClientRect();
+    const selectedRect = selected.getBoundingClientRect();
     const probe = document.createElement('i');
     probe.style.color = 'var(--schedule-active-color)';
     document.body.append(probe);
     const expectedScheduleAccent = getComputedStyle(probe).color;
     probe.remove();
     return {
-      fullyVisible:buttonRect.left >= viewport.left - 1 && buttonRect.right <= viewport.right + 1,
+      selectedCenterDelta:Math.abs((selectedRect.left + selectedRect.right - viewport.left - viewport.right) / 2),
       labelInside:labelRect.left >= buttonRect.left - 1 && labelRect.right <= buttonRect.right + 1 && labelRect.bottom <= buttonRect.bottom + 1,
       label:label.textContent.trim(),
       selectedBackground:getComputedStyle(selected).backgroundColor,
@@ -560,7 +566,7 @@ try {
       expectedScheduleAccent
     };
   });
-  assert.equal(rightEdgeDate.fullyVisible, true, `390px date 22 is cropped: ${JSON.stringify(rightEdgeDate)}`);
+  assert.ok(rightEdgeDate.selectedCenterDelta <= 1, `390px selected date left the fixed center: ${JSON.stringify(rightEdgeDate)}`);
   assert.equal(rightEdgeDate.labelInside, true, `390px date 22 month label is clipped: ${JSON.stringify(rightEdgeDate)}`);
   assert.equal(rightEdgeDate.label, 'сент', 'date 22 month label changed');
   assert.equal(rightEdgeDate.selectedBackground, rightEdgeDate.expectedScheduleAccent, `390px selected date 19 lost the solid brand green: ${JSON.stringify(rightEdgeDate)}`);
