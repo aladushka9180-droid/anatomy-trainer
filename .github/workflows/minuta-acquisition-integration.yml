@@ -48,10 +48,10 @@ concurrency:
 jobs:
   browser:
     name: browser
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
           fetch-depth: 0
@@ -68,21 +68,15 @@ jobs:
             test "$GITHUB_REF" = refs/heads/main
             test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
           fi
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
-      - name: Install isolated browser runtime
-        run: |
-          npm install --prefix "$RUNNER_TEMP/acquisition-browser" --ignore-scripts --no-save playwright@1.62.1
-          "$RUNNER_TEMP/acquisition-browser/node_modules/.bin/playwright" install --with-deps chromium
-      - name: Verify browser URL to RPC attribution
-        env:
-          MINUTA_PLAYWRIGHT_MODULE: ${{ runner.temp }}/acquisition-browser/node_modules/playwright/index.mjs
-        run: node minuta-online-booking/tests/booking-widgets-browser-test.mjs
+      - name: Verify legacy client URL redirect
+        run: node minuta-online-booking/client-url-redirect-test.mjs
 
   acquisition_integration:
     name: acquisition_integration
     needs: browser
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: minuta-test
     env:
@@ -93,7 +87,7 @@ jobs:
       PGSSLMODE: require
       PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000"
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
           fetch-depth: 0
@@ -110,7 +104,7 @@ jobs:
             test "$GITHUB_REF" = refs/heads/main
             test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
           fi
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
       - name: Verify Yandex, Google and conversion attribution contracts

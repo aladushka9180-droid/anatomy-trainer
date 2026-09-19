@@ -2050,7 +2050,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v826: compact mobile journal header. Touch targets stay at least 44px while
+/* v827: compact mobile journal header. Touch targets stay at least 44px while
    the working timeline starts earlier and every theme keeps its own accent. */
 @media (max-width:760px) {
   .provider-body .schedule-view-title {

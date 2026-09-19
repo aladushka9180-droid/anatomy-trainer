@@ -41,7 +41,7 @@ function snapshot(read, requiredModules = modules) {
   }
   for (const module of [...modules, 'report-reconciliation.js']) if (!files.has(module)) files.set(module, read(module));
   for(const page of ['index.html','booking.html','my-bookings.html','waitlist.html']) if(!files.has(page)) files.set(page,read(page));
-  for (const module of requiredModules) assert.ok(assets.includes(`./${module}?v=${version}`), `${module} missing from cache manifest`);
+  for (const module of requiredModules) assert.ok(assets.some(asset => asset.split('?')[0] === `./${module}`), `${module} missing from cache manifest`);
   return { version, files, assets, cache:`${cachePrefix}v${version}` };
 }
 const newModules = [...modules, 'report-reconciliation.js'];
@@ -49,15 +49,19 @@ const oldRelease = snapshot(oldFile, ['group-bookings.js', 'provider.js']);
 const newCoreModules = ['group-bookings.js', 'provider.js', 'report-reconciliation.js'];
 const offlineModules = [...new Set([...newCoreModules, ...executableModules])];
 const newRelease = snapshot(newFile, newCoreModules);
-assert.ok(newRelease.assets.includes(`./report-reconciliation.js?v=${newRelease.version}`), 'New report module must be cached');
+assert.ok(newRelease.assets.some(asset => asset.split('?')[0] === './report-reconciliation.js'), 'New report module must be cached');
 assert.ok(!newRelease.assets.includes(`./benefit-management.js?v=${newRelease.version}`), 'Benefits must be cached on first use, not during install');
 assert.ok(!newRelease.assets.includes(`./retention-management.js?v=${newRelease.version}`), 'Retention must be cached on first use, not during install');
 assert.notEqual(newRelease.version, oldRelease.version, 'The candidate must have a new cache version');
 
-function shell(version, route) {
-  return `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Isolated PWA update</title><link rel="manifest" href="./provider.webmanifest?v=${version}">
-    <body data-release="${version}" data-route="${route}"><h1>Isolated resource update</h1>
-    ${[...executableModules, ...(version === newRelease.version ? ['report-reconciliation.js'] : [])].map(module => `<script src="./${module}?v=${version}"></script>`).join('\n')}</body></html>`;
+const moduleRequest = (release, module) => release.assets.find(asset => asset.split('?')[0] === `./${module}`)
+  || `./${module}?v=${release.version}`;
+
+function shell(release, route) {
+  const modules = [...executableModules, ...(release === newRelease ? ['report-reconciliation.js'] : [])];
+  return `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Isolated PWA update</title><link rel="manifest" href="./provider.webmanifest?v=${release.version}">
+    <body data-release="${release.version}" data-route="${route}"><h1>Isolated resource update</h1>
+    ${modules.map(module => `<script src="${moduleRequest(release, module)}"></script>`).join('\n')}</body></html>`;
 }
 const mime = { '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.webmanifest':'application/manifest+json',
   '.html':'text/html', '.png':'image/png', '.webp':'image/webp', '.jpg':'image/jpeg' };
@@ -78,12 +82,12 @@ const server = createServer((request, response) => {
       response.writeHead(404).end('Not found'); return;
     }
     const url = new URL(request.url, 'http://localhost');
-    if (failNewAsset && relative === 'group-bookings.js' && url.searchParams.get('v') === newRelease.version) {
+    if (failNewAsset && relative === 'provider.js' && url.searchParams.get('v') === newRelease.version) {
       failedAssetRequests += 1;
       response.writeHead(503, { 'Cache-Control':'no-store' }).end('Simulated incomplete release'); return;
     }
     // Inert navigation shells prevent auth/bootstrap and user-data requests. Worker/assets remain real bytes.
-    const content = relative.endsWith('.html') && relative!=='offline.html' ? Buffer.from(shell(phase.version,relative)) : phase.files.get(relative);
+    const content = relative.endsWith('.html') && relative!=='offline.html' ? Buffer.from(shell(phase,relative)) : phase.files.get(relative);
     response.writeHead(200, { 'Content-Type':mime[extname(relative)] || 'application/octet-stream',
       'Cache-Control':'no-store', 'Service-Worker-Allowed':prefix,
       'Content-Security-Policy':"default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self'; object-src 'none'; base-uri 'none'" });
@@ -138,17 +142,18 @@ try {
   }, {prefix,version:oldRelease.version,modules});
 
   async function cacheHashes(release, requestedModules = release === newRelease ? newCoreModules : modules) {
-    return page.evaluate(async ({ cacheName, prefix, version, modules }) => {
+    const requests = Object.fromEntries(requestedModules.map(module => [module, moduleRequest(release, module)]));
+    return page.evaluate(async ({ cacheName, prefix, requests }) => {
       const cache = await caches.open(cacheName);
       const result = {};
-      for (const module of modules) {
-        const response = await cache.match(`${prefix}${module}?v=${version}`);
+      for (const [module, request] of Object.entries(requests)) {
+        const response = await cache.match(`${prefix}${request.replace(/^\.\//, '')}`);
         if (!response) throw new Error(`Missing cached module ${module}`);
         const bytes = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
         result[module] = [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
       }
       return result;
-    }, { cacheName:release.cache, prefix, version:release.version, modules:requestedModules });
+    }, { cacheName:release.cache, prefix, requests });
   }
   const expectedHashes = (release, requestedModules = release === newRelease ? newCoreModules : modules) =>
     Object.fromEntries(requestedModules.map(module => [module, sha(release.files.get(module))]));
@@ -204,23 +209,27 @@ try {
     }
   });
   await page.reload();
-  const offlineHashes = await page.evaluate(async ({ prefix, version, modules }) => {
+  const offlineRequests = Object.fromEntries(offlineModules.map(module => [module, moduleRequest(newRelease, module)]));
+  const offlineHashes = await page.evaluate(async ({ prefix, requests }) => {
     const result = {};
-    for (const module of modules) {
-      const response = await fetch(`${prefix}${module}?v=${version}`);
+    for (const [module, request] of Object.entries(requests)) {
+      const response = await fetch(`${prefix}${request.replace(/^\.\//, '')}`);
       if (!response.ok) throw new Error(`Offline module HTTP ${response.status}`);
       const bytes = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
       result[module] = [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
     }
     return result;
-  }, { prefix, version:newRelease.version, modules:offlineModules });
+  }, { prefix, requests:offlineRequests });
   assert.deepEqual(offlineHashes, expectedHashes(newRelease, offlineModules));
   assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version);
   assert.equal(await page.evaluate(() => Boolean(window.MinutaGroupBookings && window.MinutaBenefits)), true);
   assert.equal(await page.evaluate(() => typeof window.MinutaReportReconciliation?.amounts), 'function');
   assert.deepEqual(await cacheHashes(newRelease, offlineModules), expectedHashes(newRelease, offlineModules));
-  for (const module of offlineModules) assert.ok(resourceResponses.some(response =>
-    response.url.endsWith(`/${module}?v=${newRelease.version}`) && response.serviceWorker), `${module} must be served by the real worker offline`);
+  for (const module of offlineModules) {
+    const expected = offlineRequests[module].replace(/^\.\//, '');
+    assert.ok(resourceResponses.some(response => response.url.endsWith(`/${expected}`) && response.serviceWorker),
+      `${module} must be served by the real worker offline`);
+  }
   assert.deepEqual(externalRequests, []);
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(serverErrors, []);

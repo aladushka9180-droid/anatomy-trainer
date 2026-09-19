@@ -16,14 +16,14 @@ for (const contract of [
   /providerMobileMoreHistoryDismissed/,
   /data-close-mobile-more/
 ]) assert.match(providerSource, contract);
-assert.match(providerHtml, /provider-ux\.css\?v=825/);
-assert.match(providerHtml, /site-update\.js\?v=826/);
-assert.match(providerHtml, /provider\.js\?v=825/);
-assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v826`/);
-assert.match(workerSource, /provider-ux\.css\?v=825/);
-assert.match(workerSource, /site-update\.js\?v=826/);
-assert.match(workerSource, /provider\.js\?v=825/);
-assert.match(updateSource, /sw\.js\?v=826/);
+assert.match(providerHtml, /provider-ux\.css\?v=827/);
+assert.match(providerHtml, /site-update\.js\?v=827/);
+assert.match(providerHtml, /provider\.js\?v=827/);
+assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v827`/);
+assert.match(workerSource, /provider-ux\.css\?v=827/);
+assert.match(workerSource, /site-update\.js\?v=827/);
+assert.match(workerSource, /provider\.js\?v=827/);
+assert.match(updateSource, /sw\.js\?v=827/);
 
 const seam = `
 window.__providerMoreTest={show(){

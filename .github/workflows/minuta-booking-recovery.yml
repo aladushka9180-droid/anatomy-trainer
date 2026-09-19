@@ -50,11 +50,11 @@ permissions:
 
 jobs:
   recovery:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - run: node --check minuta-online-booking/group-bookings.js
@@ -62,15 +62,16 @@ jobs:
       - run: node minuta-online-booking/tests/group-bookings-recovery-test.mjs
       - run: node minuta-online-booking/tests/benefit-expiry-boundary-test.mjs
       - run: node minuta-online-booking/benefit-management-controller-test.mjs
+      - run: node minuta-online-booking/client-url-redirect-test.mjs
 
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       MINUTA_BASELINE_REF: 022f6e065b0bf113e7a2d655c8e177741e51b47a
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: Install isolated browser dependencies

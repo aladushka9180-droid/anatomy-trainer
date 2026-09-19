@@ -8,12 +8,13 @@ import { themes, layouts } from './theme-card-fixture.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const providerHtml = await readFile(path.join(root, 'provider.html'), 'utf8');
 const worker = await readFile(path.join(root, 'sw.js'), 'utf8');
-const version = worker.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)?.[1];
-assert.ok(version, 'PWA cache version must be readable');
-assert.match(providerHtml, new RegExp(`provider-service-actions\\.css\\?v=${version}`), 'Provider page must load the scoped service-action styles');
-assert.match(providerHtml, new RegExp(`provider-service-actions\\.js\\?v=${version}[\\s\\S]*provider\\.js\\?v=${version}`), 'Service-action controller must load before provider rendering');
-assert.match(worker, new RegExp(`\\./provider-service-actions\\.css\\?v=${version}`), 'Service-action styles must be available offline');
-assert.match(worker, new RegExp(`\\./provider-service-actions\\.js\\?v=${version}`), 'Service-action controller must be available offline');
+const styleVersion = providerHtml.match(/href=["']provider-service-actions\.css\?v=(\d+)/)?.[1];
+const scriptVersion = providerHtml.match(/src=["']provider-service-actions\.js\?v=(\d+)/)?.[1];
+const providerVersion = providerHtml.match(/src=["']provider\.js\?v=(\d+)/)?.[1];
+assert.ok(styleVersion && scriptVersion && providerVersion, 'Versioned provider service-action assets must be readable');
+assert.match(providerHtml, new RegExp(`provider-service-actions\\.js\\?v=${scriptVersion}[\\s\\S]*provider\\.js\\?v=${providerVersion}`), 'Service-action controller must load before provider rendering');
+assert.match(worker, new RegExp(`\\./provider-service-actions\\.css\\?v=${styleVersion}`), 'Service-action styles must be available offline');
+assert.match(worker, new RegExp(`\\./provider-service-actions\\.js\\?v=${scriptVersion}`), 'Service-action controller must be available offline');
 const styleLinks = [...providerHtml.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"[^>]*>/g)]
   .map(match => `<link rel="stylesheet" href="/assets/${match[1]}">`).join('\n');
 const cards = [

@@ -3,9 +3,12 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const { chromium } = createRequire(import.meta.url)('playwright');
+const playwright = process.env.MINUTA_PLAYWRIGHT_MODULE
+  ? await import(pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href)
+  : createRequire(import.meta.url)('playwright');
+const chromium = playwright.chromium || playwright.default?.chromium;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
 const shareHelperStart = providerSource.indexOf('async function shareProviderClientPage()');

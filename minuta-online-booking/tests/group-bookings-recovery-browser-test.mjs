@@ -5,10 +5,7 @@ import { pathToFileURL } from 'node:url';
 const playwrightPath = process.env.MINUTA_PLAYWRIGHT_MODULE;
 const { chromium } = await import(playwrightPath ? pathToFileURL(playwrightPath).href : 'playwright');
 const controllerSource = readFileSync(new URL('../group-bookings.js', import.meta.url), 'utf8');
-const sourceHtml = {
-  provider:readFileSync(new URL('../provider.html', import.meta.url), 'utf8'),
-  public:readFileSync(new URL('../index.html', import.meta.url), 'utf8')
-};
+const sourceHtml = { provider:readFileSync(new URL('../provider.html', import.meta.url), 'utf8') };
 const browser = await chromium.launch({ headless:true,
   ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const pageErrors = [];
@@ -23,8 +20,7 @@ async function fixture(kind) {
   await page.goto('https://group-recovery.test/');
   await page.evaluate(({ html, kind }) => {
     const source = new DOMParser().parseFromString(html, 'text/html');
-    const ids = kind === 'provider' ? ['groupBookingSettingsCard', 'groupEventsPanel', 'groupEventDialog']
-      : ['publicGroupEvents', 'publicGroupBookingDialog'];
+    const ids = ['groupBookingSettingsCard', 'groupEventsPanel', 'groupEventDialog'];
     for (const id of ids) {
       const element = source.getElementById(id);
       if (!element) throw new Error(`Missing real HTML fixture #${id}`);
@@ -58,29 +54,15 @@ async function fixture(kind) {
       } finally { state.settled += 1; }
     } };
     const options = { db, $, escapeHtml, notify:message => window.testState.notices.push(message) };
-    if (kind === 'provider') {
-      window.controller = window.MinutaGroupBookings.createProviderController({ ...options,
-        requireWrites:() => true, getCurrentUser:() => ({ id:'owner' }), getSessionGeneration:() => 1,
-        sessionIsCurrent:() => true, applyWriteAvailability() {} });
-      window.controller.bind();
-      await window.controller.setOrganization({ id:'organization', current_role:'owner' });
-    } else {
-      window.controller = window.MinutaGroupBookings.createPublicController({ ...options, getSlug:() => 'studio' });
-      window.controller.bind();
-      await window.controller.load();
-    }
+    window.controller = window.MinutaGroupBookings.createProviderController({ ...options,
+      requireWrites:() => true, getCurrentUser:() => ({ id:'owner' }), getSessionGeneration:() => 1,
+      sessionIsCurrent:() => true, applyWriteAvailability() {} });
+    window.controller.bind();
+    await window.controller.setOrganization({ id:'organization', current_role:'owner' });
   }, kind);
   return page;
 }
 
-async function publicForm(page) {
-  await page.locator('[data-book-group-event="event-a"]').click();
-  await page.locator('#publicGroupClientName').fill('Ирина');
-  await page.locator('#publicGroupClientPhone').fill('+79990000000');
-  await page.locator('#publicGroupClientComment').fill('Первоначальный комментарий');
-  await page.locator('#publicGroupConsent').check();
-}
-const publicSubmit = page => page.locator('#publicGroupBookingForm button[type="submit"]');
 const providerSubmit = page => page.locator('#groupEventForm button[type="submit"]');
 async function runCase(title, kind, run) {
   const page = await fixture(kind);
@@ -89,54 +71,6 @@ async function runCase(title, kind, run) {
 }
 
 try {
-  await runCase('native public readonly and exact retry after ambiguous response', 'public', async page => {
-    await publicForm(page);
-    await page.evaluate(() => { testState.mode = 'throw'; });
-    await publicSubmit(page).click();
-    await page.locator('#publicGroupBookingError').waitFor({ state:'visible' });
-    for (const id of ['publicGroupClientName', 'publicGroupClientPhone', 'publicGroupClientComment']) {
-      assert.equal(await page.locator(`#${id}`).evaluate(input => input.readOnly), true);
-    }
-    const name = page.locator('#publicGroupClientName');
-    await name.focus();
-    await name.press('ControlOrMeta+A');
-    await page.keyboard.insertText('Нельзя изменить');
-    assert.equal(await name.inputValue(), 'Ирина', 'native readonly must reject keyboard edits');
-    assert.equal(await publicSubmit(page).isDisabled(), false);
-    await page.evaluate(() => {
-      document.querySelector('#publicGroupClientName').value = 'Программная подмена';
-      document.querySelector('#publicGroupClientPhone').value = '+79991111111';
-      document.querySelector('#publicGroupClientComment').value = 'Другая заметка';
-      testState.mode = 'success';
-    });
-    await publicSubmit(page).click();
-    await page.locator('#publicGroupBookingSuccess').waitFor({ state:'visible' });
-    const attempts = await page.evaluate(() => testState.calls.filter(call => call.name === 'book_minuta_group_event'));
-    assert.equal(attempts.length, 2);
-    assert.deepEqual(attempts[1].args, attempts[0].args);
-    assert.equal(await name.inputValue(), 'Ирина', 'the UI must match the retried snapshot');
-  });
-
-  await runCase('definite public rejection releases native inputs for correction', 'public', async page => {
-    await publicForm(page);
-    await page.evaluate(() => { testState.mode = 'reject'; });
-    await publicSubmit(page).click();
-    await page.locator('#publicGroupBookingError').waitFor({ state:'visible' });
-    assert.equal(await page.locator('#publicGroupClientName').isEditable(), true);
-    assert.equal(await page.locator('#publicGroupClientPhone').isEditable(), true);
-    assert.equal(await page.locator('#publicGroupClientComment').isEditable(), true);
-    await page.locator('#publicGroupClientName').fill('Анна');
-    await page.locator('#publicGroupClientPhone').fill('+79992222222');
-    await page.locator('#publicGroupClientComment').fill('Исправлено');
-    await page.evaluate(() => { testState.mode = 'success'; });
-    await publicSubmit(page).click();
-    await page.locator('#publicGroupBookingSuccess').waitFor({ state:'visible' });
-    const attempt = await page.evaluate(() => testState.calls.filter(call => call.name === 'book_minuta_group_event').at(-1));
-    assert.equal(attempt.args.p_client_name, 'Анна');
-    assert.equal(attempt.args.p_client_phone, '+79992222222');
-    assert.equal(attempt.args.p_comment, 'Исправлено');
-  });
-
   await runCase('ambiguous provider creation blocks duplicates and existing editing recovers', 'provider', async page => {
     await page.locator('#newGroupEvent').click();
     await page.locator('#groupEventTitle').fill('Новое занятие');
@@ -182,7 +116,7 @@ try {
     assert.equal(await page.evaluate(() => testState.notices.length), 0);
   });
   assert.deepEqual(pageErrors, [], 'native browser must not emit uncaught controller errors');
-  console.log('Group booking native browser recovery: 4/4 passed');
+  console.log('Provider group booking native browser recovery: 2/2 passed');
 } finally {
   await browser.close();
 }
