@@ -7094,9 +7094,10 @@ function updateBookingStats() {
   $('#todayBookingsCount').textContent = String(todayCount);
   $('#tomorrowBookingsCount').textContent = String(tomorrowCount);
   $('#newBookingsCount').textContent = String(upcomingCount);
-  $('#todayBookingsLabel').textContent = `${bookingCountWord(todayCount)} сегодня`;
-  $('#tomorrowBookingsLabel').textContent = `${bookingCountWord(tomorrowCount)} завтра`;
-  $('#upcomingBookingsLabel').textContent = `${bookingCountWord(upcomingCount)} впереди`;
+  $('#todayBookingsLabel').textContent = 'сегодня';
+  $('#tomorrowBookingsLabel').textContent = 'завтра';
+  $('#upcomingBookingsLabel').textContent = 'впереди';
+  $('.dashboard-summary')?.setAttribute('aria-label', `${todayCount} сегодня, ${tomorrowCount} завтра, Всего впереди — ${upcomingCount}`);
   const sidebarBadge = $('#newBookingsBadge');
   if (sidebarBadge) {
     sidebarBadge.textContent = String(upcomingCount);

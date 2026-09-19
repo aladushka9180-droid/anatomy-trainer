@@ -69,8 +69,11 @@ try {
     document.querySelector('#selectedDateTitle').textContent = 'Вторник, 15 сентября';
     document.querySelector('#selectedDateSummary').textContent = '2 записи · 2 перерыва';
     document.querySelector('#todayBookingsCount').textContent = '0';
+    document.querySelector('#todayBookingsLabel').textContent = 'сегодня';
     document.querySelector('#tomorrowBookingsCount').textContent = '2';
+    document.querySelector('#tomorrowBookingsLabel').textContent = 'завтра';
     document.querySelector('#newBookingsCount').textContent = '5';
+    document.querySelector('#upcomingBookingsLabel').textContent = 'впереди';
     document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings timeline-view';
@@ -174,6 +177,11 @@ try {
       const timelineBooking = timelineStage.querySelector('.timeline-booking');
       timelineBooking.focus({ preventScroll:true });
       const timelineFocusWidth = parseFloat(getComputedStyle(timelineBooking).outlineWidth);
+      const accentProbe = document.createElement('i');
+      accentProbe.style.color = 'var(--theme-accent)';
+      document.body.append(accentProbe);
+      const expectedThemeAccent = getComputedStyle(accentProbe).color;
+      accentProbe.remove();
       const activeDateRhythm = () => {
         const rows = [...activeButton.querySelectorAll('span,strong,small')].map(item => item.getBoundingClientRect());
         const card = activeButton.getBoundingClientRect();
@@ -274,6 +282,7 @@ try {
         scheduleWorkspace:rect('.schedule-workspace'),
         newBookingBackground:getComputedStyle(newBookingButton).backgroundColor,
         journalActiveBackground:getComputedStyle(document.querySelector('.journal-mode-toggle button.active')).backgroundColor,
+        expectedThemeAccent,
         nav:rect('.provider-mobile-nav'),
         navTargets:[...mobileNav.querySelectorAll(':scope>button')].map(button => {
           const item = button.getBoundingClientRect();
@@ -326,15 +335,15 @@ try {
       assert.equal(result.activeDateVisible, true, `${width}px selected date must remain visible: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateValue, '2026-09-15', `${width}px fixture selected date changed`);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its accent`);
-      assert.equal(result.activeDateBackground, 'rgb(13, 128, 92)', `${width}px selected date does not use the schedule accent token`);
-      assert.equal(result.newBookingBackground, 'rgb(13, 128, 92)', `${width}px New booking does not use the schedule accent token`);
-      assert.equal(result.journalActiveBackground, 'rgb(13, 128, 92)', `${width}px active journal mode does not use the schedule accent token`);
+      assert.equal(result.activeDateBackground, result.expectedThemeAccent, `${width}px selected date does not use the Sage accent token`);
+      assert.equal(result.newBookingBackground, result.expectedThemeAccent, `${width}px New booking does not use the Sage accent token`);
+      assert.equal(result.journalActiveBackground, result.expectedThemeAccent, `${width}px active journal mode does not use the Sage accent token`);
       assert.ok(result.activeDate.width >= 46 && result.activeDate.width <= 56, `${width}px selected date is still oversized: ${JSON.stringify(result)}`);
       assert.ok(result.activeDate.height >= 57 && result.activeDate.height <= 59, `${width}px selected date height is still oversized: ${JSON.stringify(result)}`);
       assert.ok(result.twoDigitRhythm.numberCenterDelta <= 1 && result.twoDigitRhythm.gapDelta <= 2, `${width}px two-digit selected date lost its vertical rhythm: ${JSON.stringify(result)}`);
       assert.ok(result.singleDigitRhythm.numberCenterDelta <= 1 && result.singleDigitRhythm.gapDelta <= 2, `${width}px single-digit selected date lost its vertical rhythm: ${JSON.stringify(result)}`);
       assert.ok(result.activeDateMarkerContent === 'none' || result.activeDateMarkerDisplay === 'none', `${width}px selected date regained a second lower marker: ${JSON.stringify(result)}`);
-      assert.ok(result.scheduleTop >= 390 && result.scheduleTop <= 520, `${width}px schedule begins: ${JSON.stringify(result)}`);
+      assert.ok(result.scheduleTop >= 340 && result.scheduleTop <= 480, `${width}px schedule begins too low for the 14:00–15:00 mobile fold: ${JSON.stringify(result)}`);
       assert.ok(result.toolbarContentCenterDelta <= 2, `${width}px day heading and journal toggle are not aligned: ${JSON.stringify(result)}`);
       assert.ok(result.journalGridGap >= 8, `${width}px timeline grid touches the journal toggle: ${JSON.stringify(result)}`);
       assert.ok(result.strip.top - result.navigation.bottom >= -1 && result.strip.top - result.navigation.bottom <= 1, `${width}px date controls and strip no longer form one card: ${JSON.stringify(result)}`);
@@ -364,7 +373,7 @@ try {
         assert.ok(result.dateNumberSize <= 26 && result.dateNumberSize >= 22, `${width}px selected date is not a compact readable accent: ${JSON.stringify(result)}`);
         assert.ok(result.summaryScrollWidth <= result.summaryClientWidth + 1, `${width}px title summary is clipped: ${JSON.stringify(result)}`);
         assert.equal(result.summaryChildrenInside, true, `${width}px title summary children escape their row: ${JSON.stringify(result)}`);
-        assert.deepEqual(result.summaryText, ['0', 'записей сегодня', '2', 'записей завтра', '5', 'записей впереди'], `${width}px title summary fixture changed`);
+        assert.deepEqual(result.summaryText, ['0', 'сегодня', '2', 'завтра', '5', 'впереди'], `${width}px title summary fixture changed`);
       }
       timelineGridTops.set(width, result.timelineTop);
       timelineToolbarTops.set(width, result.toolbar.top);
@@ -376,6 +385,37 @@ try {
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its solid accent`);
       assert.equal(result.quietTodayBackground, 'rgba(0, 0, 0, 0)', `${width}px Today date competes with the selected date`);
       assert.notEqual(result.quietTodayShadow, 'none', `${width}px Today date lost its secondary outline`);
+    }
+    if (width === 390 || width === 760) {
+      for (const theme of ['sage', 'warm', 'graphite']) {
+        await page.evaluate(selectedTheme => { document.body.dataset.providerTheme = selectedTheme; }, theme);
+        await page.waitForTimeout(220);
+        const themed = await page.evaluate(() => {
+          const activeDate = document.querySelector('#dateStrip>button.active');
+          const rows = [...activeDate.querySelectorAll('span,strong,small')].map(item => item.getBoundingClientRect());
+          const card = activeDate.getBoundingClientRect();
+          const probe = document.createElement('i');
+          probe.style.color = 'var(--theme-accent)';
+          document.body.append(probe);
+          const expected = getComputedStyle(probe).color;
+          probe.remove();
+          return {
+            expected,
+            date:getComputedStyle(activeDate).backgroundColor,
+            create:getComputedStyle(document.querySelector('#newBookingButton')).backgroundColor,
+            mode:getComputedStyle(document.querySelector('.journal-mode-toggle button.active')).backgroundColor,
+            numberCenterDelta:Math.abs((rows[1].top + rows[1].bottom) / 2 - (card.top + card.bottom) / 2),
+            gapDelta:Math.abs((rows[1].top - rows[0].bottom) - (rows[2].top - rows[1].bottom))
+          };
+        });
+        assert.equal(themed.date, themed.expected, `${width}px/${theme}: selected date uses a foreign accent`);
+        assert.equal(themed.create, themed.expected, `${width}px/${theme}: New booking uses a foreign accent`);
+        assert.equal(themed.mode, themed.expected, `${width}px/${theme}: journal mode uses a foreign accent`);
+        assert.ok(themed.numberCenterDelta <= 1 && themed.gapDelta <= 2, `${width}px/${theme}: selected date is not vertically centered: ${JSON.stringify(themed)}`);
+        if (theme === 'warm') assert.notEqual(themed.expected, 'rgb(13, 128, 92)', `${width}px: Warm Beige inherited the old fixed green`);
+      }
+      await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; });
+      await page.waitForTimeout(220);
     }
     if (output) await page.screenshot({ path:path.join(output, `schedule-compact-${width}.png`), fullPage:false });
   }
