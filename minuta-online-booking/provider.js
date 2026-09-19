@@ -8249,7 +8249,12 @@ function scheduleCreateHintVisible({ userId = currentUser?.id, hasExistingBookin
   let state;
   try {
     state = localStorage.getItem(key);
-    if (state === 'dismissed' || state === 'pending') return state === 'pending';
+    if (state === 'dismissed') return false;
+    if (hasExistingBookings) {
+      localStorage.setItem(key, 'dismissed');
+      return false;
+    }
+    if (state === 'pending') return true;
     localStorage.setItem(key, hasExistingBookings ? 'dismissed' : 'pending');
   } catch { return !hasExistingBookings; }
   return !hasExistingBookings;
