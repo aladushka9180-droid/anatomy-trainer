@@ -6598,7 +6598,7 @@ function setProviderView(view, { historyMode = 'push', focusHeading = true } = {
   }
   update();
 }
-function setFilter(filter) {
+function setFilter(filter, { render = true } = {}) {
   currentFilter = filter;
   if (filter !== 'day') calendarView = 'day';
   try {
@@ -6614,7 +6614,7 @@ function setFilter(filter) {
   updateJournalModeButtons();
   updateBookingQueryTools();
   syncScheduleContextHistory();
-  renderBookings();
+  if (render) renderBookings();
 }
 
 function setJournalMode(mode) {
@@ -6812,8 +6812,12 @@ function selectScheduleDate(value) {
   const nextDate = localIsoDate(date);
   selectedDate = nextDate;
   rememberSelectedDate();
-  renderDateStrip();
-  setFilter('day');
+  renderDateStrip({ instantCenter:true });
+  setFilter('day', { render:false });
+  renderSelectedDateTitle(calendarView);
+  requestAnimationFrame(() => {
+    if (selectedDate === nextDate) renderBookings();
+  });
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   if (userId) void loadAutomaticBookingBreaks(nextDate, userId, generation).then(result => {
@@ -6877,14 +6881,21 @@ function centerDateStripSelection(dateStrip, options = {}) {
   const activeContentLeft = activeRect.left - stripRect.left + dateStrip.scrollLeft;
   const target = activeContentLeft - (dateStrip.clientWidth - activeRect.width) / 2;
   const nextLeft = Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, target));
-  const smooth = options.smooth === true && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  dateStrip.dataset.programmaticCenterUntil = String(Date.now() + (smooth ? 460 : 100));
+  const instant = options.instant === true;
+  const smooth = !instant && options.smooth === true && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  dateStrip.dataset.programmaticCenterUntil = String(Date.now() + (instant ? 520 : smooth ? 460 : 100));
   if (smooth && typeof dateStrip.scrollTo === 'function') dateStrip.scrollTo({ left:nextLeft, behavior:'smooth' });
   else {
     const inlineScrollBehavior = dateStrip.style.scrollBehavior;
+    const inlineScrollSnapType = dateStrip.style.scrollSnapType;
+    if (instant) {
+      dateStrip.getAnimations?.().forEach(animation => animation.cancel());
+      dateStrip.style.scrollSnapType = 'none';
+    }
     dateStrip.style.scrollBehavior = 'auto';
     dateStrip.scrollLeft = nextLeft;
     dateStrip.style.scrollBehavior = inlineScrollBehavior;
+    if (instant) requestAnimationFrame(() => { dateStrip.style.scrollSnapType = inlineScrollSnapType; });
   }
 }
 
@@ -6918,7 +6929,7 @@ function bindDateStripResizeCentering(dateStrip) {
   dateStrip.dataset.resizeObserverBound = 'true';
 }
 
-function renderDateStrip({ forceCenter = false } = {}) {
+function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
   const dateStrip = $('#dateStrip');
   if (!dateStrip) return;
   const todayIso = businessTodayIso();
@@ -6983,9 +6994,11 @@ function renderDateStrip({ forceCenter = false } = {}) {
     todayButton.setAttribute('aria-pressed', String(current));
   }
   if (rebuildStrip || selectionChanged || forceCenter) {
-    const smoothSelection = selectionChanged && !rebuildStrip && Boolean(previousSelectedDate);
-    requestAnimationFrame(() => centerDateStripSelection(dateStrip, { smooth:smoothSelection }));
-    window.setTimeout(() => centerDateStripSelection(dateStrip, { smooth:smoothSelection }), 220);
+    const smoothSelection = !instantCenter && selectionChanged && !rebuildStrip && Boolean(previousSelectedDate);
+    const center = () => centerDateStripSelection(dateStrip, { smooth:smoothSelection, instant:instantCenter });
+    if (instantCenter) center();
+    else requestAnimationFrame(center);
+    if (!instantCenter) window.setTimeout(center, 220);
   }
   bindDateStripResizeCentering(dateStrip);
   if (!dateStrip.dataset.scrollInteractionsBound) {
@@ -6999,7 +7012,8 @@ function renderDateStrip({ forceCenter = false } = {}) {
     let touchStartX = null;
     let touchStartY = null;
     let mobileSettleTimer = 0;
-    const settleMobileDate = () => {
+    const settleMobileDate = ({ instant = false } = {}) => {
+      if (mobileSettleTimer) clearTimeout(mobileSettleTimer);
       mobileSettleTimer = 0;
       if (!window.matchMedia('(max-width: 760px)').matches) return;
       if (Number(dateStrip.dataset.programmaticCenterUntil || 0) > Date.now()) return;
@@ -7013,7 +7027,7 @@ function renderDateStrip({ forceCenter = false } = {}) {
       const nextDate = nearest?.dataset.bookingDate;
       if (!nextDate) return;
       if (nextDate !== selectedDate) selectScheduleDate(nextDate);
-      else centerDateStripSelection(dateStrip, { smooth:true });
+      else centerDateStripSelection(dateStrip, { smooth:!instant, instant });
     };
     const scheduleMobileSettle = (delay = 150) => {
       if (mobileSettleTimer) clearTimeout(mobileSettleTimer);
@@ -7098,7 +7112,8 @@ function renderDateStrip({ forceCenter = false } = {}) {
       touchStartY = null;
       if (!step) return;
       suppressClick = true;
-      scheduleMobileSettle(170);
+      event.preventDefault();
+      settleMobileDate({ instant:true });
     }, { passive:false });
     dateStrip.addEventListener('touchcancel', () => {
       touchStartX = null;
@@ -7113,6 +7128,7 @@ function renderDateStrip({ forceCenter = false } = {}) {
     dateStrip.addEventListener('scroll', () => {
       if (!wheelFrame && dragPointerId === null) wheelTarget = dateStrip.scrollLeft;
       if (window.matchMedia('(max-width: 760px)').matches
+        && touchStartX === null
         && Number(dateStrip.dataset.programmaticCenterUntil || 0) <= Date.now()) scheduleMobileSettle();
     }, { passive:true });
     dateStrip.dataset.scrollInteractionsBound = 'true';

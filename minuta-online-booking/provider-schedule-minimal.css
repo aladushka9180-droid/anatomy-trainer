@@ -2328,3 +2328,40 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     white-space:nowrap!important;
   }
 }
+
+/* v835: the schedule heading shares the compact mobile top bar, while the
+   summary and primary action stay in a stable row below it. */
+@media (max-width:760px) {
+  .provider-body #dashboard[data-active-view="bookings"] .schedule-view-title {
+    position:relative!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-rows:minmax(44px,auto)!important;
+    min-height:44px!important;
+    margin-bottom:4px!important;
+    row-gap:0!important;
+  }
+
+  .provider-body #dashboard[data-active-view="bookings"] .schedule-view-title h2 {
+    position:absolute!important;
+    top:-34px!important;
+    left:0!important;
+    z-index:2;
+    width:auto!important;
+    max-width:calc(100% - 112px)!important;
+    margin:0!important;
+    white-space:nowrap;
+  }
+
+  .provider-body #dashboard[data-active-view="bookings"] .schedule-title-line .dashboard-summary {
+    grid-column:1!important;
+    grid-row:1!important;
+    align-self:center!important;
+    margin-top:0!important;
+  }
+
+  .provider-body #dashboard[data-active-view="bookings"] .view-title-actions {
+    grid-column:2!important;
+    grid-row:1!important;
+    align-self:center!important;
+  }
+}

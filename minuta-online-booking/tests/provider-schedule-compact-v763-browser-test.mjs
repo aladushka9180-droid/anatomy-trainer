@@ -248,6 +248,7 @@ try {
         timelineTop:rect('.day-timeline').top,
         topbar:rect('.provider-topbar'),
         title:rect('.schedule-view-title'),
+        titleHeading,
         navigation:rect('.date-navigation'),
         strip:stripFrame,
         stripViewport:strip,
@@ -357,6 +358,9 @@ try {
       assert.equal(result.newBookingLabelVisible, true, `${width}px full New booking label is hidden: ${JSON.stringify(result)}`);
       assert.ok(result.newBookingPseudo === 'none' || result.newBookingPseudo === 'normal', `${width}px ambiguous compact label is still rendered: ${JSON.stringify(result)}`);
       assert.ok(result.titleToNewBookingVerticalGap >= 4, `${width}px full New booking label collides with the schedule title: ${JSON.stringify(result)}`);
+      assert.ok(result.titleHeading.bottom <= result.topbar.bottom + 1, `${width}px schedule heading did not join the compact top bar: ${JSON.stringify(result)}`);
+      assert.ok(result.title.top >= result.topbar.bottom, `${width}px summary row overlaps the top bar: ${JSON.stringify(result)}`);
+      assert.ok(result.title.height <= 46, `${width}px schedule heading still reserves a redundant row: ${JSON.stringify(result)}`);
       assert.ok(result.newBooking.width >= 108 && result.newBooking.height >= 44, `${width}px New booking button changed height or is too narrow: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.previous.height >= 44 && result.next.height >= 44, `${width}px date strip arrows`);

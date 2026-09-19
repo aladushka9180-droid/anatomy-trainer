@@ -16,14 +16,17 @@ for (const contract of [
   /providerMobileMoreHistoryDismissed/,
   /data-close-mobile-more/
 ]) assert.match(providerSource, contract);
-assert.match(providerHtml, /provider-ux\.css\?v=834/);
-assert.match(providerHtml, /site-update\.js\?v=834/);
-assert.match(providerHtml, /provider\.js\?v=834/);
-assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v834`/);
-assert.match(workerSource, /provider-ux\.css\?v=834/);
-assert.match(workerSource, /site-update\.js\?v=834/);
-assert.match(workerSource, /provider\.js\?v=834/);
-assert.match(updateSource, /sw\.js\?v=834/);
+assert.match(providerHtml, /provider-ux\.css\?v=835/);
+assert.match(providerHtml, /site-update\.js\?v=835/);
+assert.match(providerHtml, /provider\.js\?v=835/);
+assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v835`/);
+assert.match(workerSource, /provider-ux\.css\?v=835/);
+assert.match(workerSource, /site-update\.js\?v=835/);
+assert.match(workerSource, /provider\.js\?v=835/);
+assert.match(updateSource, /sw\.js\?v=835/);
+assert.match(providerSource, /renderDateStrip\(\{ instantCenter:true \}\)/);
+assert.match(providerSource, /setFilter\('day', \{ render:false \}\)/);
+assert.match(providerSource, /settleMobileDate\(\{ instant:true \}\)/);
 
 const seam = `
 window.__providerMoreTest={show(){
@@ -32,6 +35,7 @@ window.__providerMoreTest={show(){
   document.querySelector('#authCard').hidden=true;
   document.querySelector('#dashboard').hidden=false;
   setProviderView('bookings',{historyMode:'replace',focusHeading:false});
+  renderDateStrip({forceCenter:true});
 }};`;
 const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
 const server = createServer((request, response) => {
@@ -85,6 +89,54 @@ try {
         window.scrollTo(0, 420);
       }, theme);
       await page.waitForTimeout(60);
+
+      if (theme === 'sage') {
+        const interaction = await page.evaluate(() => {
+          const strip = document.querySelector('#dateStrip');
+          const buttons = [...strip.querySelectorAll('[data-booking-date]')];
+          const activeIndex = buttons.findIndex(button => button.classList.contains('active'));
+          const centerDelta = () => {
+            const viewport = strip.getBoundingClientRect();
+            const active = strip.querySelector('[data-booking-date].active').getBoundingClientRect();
+            return Math.abs((active.left + active.right - viewport.left - viewport.right) / 2);
+          };
+          const snapshot = () => ({
+            active:strip.querySelector('[data-booking-date].active')?.dataset.bookingDate || '',
+            picker:document.querySelector('#scheduleDatePicker').value,
+            title:document.querySelector('#selectedDateTitle').textContent.trim(),
+            centerDelta:centerDelta()
+          });
+          const first = buttons[activeIndex + 1];
+          first.click();
+          const tap = snapshot();
+          buttons[activeIndex + 2].click();
+          buttons[activeIndex + 3].click();
+          const rapid = snapshot();
+          const start = new Event('touchstart', { bubbles:true, cancelable:true });
+          Object.defineProperty(start, 'touches', { value:[{ clientX:250, clientY:20 }] });
+          strip.dispatchEvent(start);
+          strip.scrollLeft += 120;
+          const viewport = strip.getBoundingClientRect();
+          const center = (viewport.left + viewport.right) / 2;
+          const expectedSwipe = [...strip.querySelectorAll('[data-booking-date]')].reduce((best, button) => {
+            const rect = button.getBoundingClientRect();
+            const distance = Math.abs((rect.left + rect.right) / 2 - center);
+            return !best || distance < best.distance ? { date:button.dataset.bookingDate, distance } : best;
+          }, null)?.date;
+          const end = new Event('touchend', { bubbles:true, cancelable:true });
+          Object.defineProperty(end, 'changedTouches', { value:[{ clientX:110, clientY:22 }] });
+          strip.dispatchEvent(end);
+          return { tap, rapid, swipe:snapshot(), expectedSwipe };
+        });
+        assert.equal(interaction.tap.active, interaction.tap.picker, `${width}px tap did not update the date field immediately: ${JSON.stringify(interaction)}`);
+        assert.ok(interaction.tap.title, `${width}px tap did not update the date title immediately: ${JSON.stringify(interaction)}`);
+        assert.ok(interaction.tap.centerDelta <= 1, `${width}px tap did not center the selected date immediately: ${JSON.stringify(interaction)}`);
+        assert.equal(interaction.rapid.active, interaction.rapid.picker, `${width}px rapid taps restored an older date: ${JSON.stringify(interaction)}`);
+        assert.ok(interaction.rapid.centerDelta <= 1, `${width}px rapid taps left the newest date off-center: ${JSON.stringify(interaction)}`);
+        assert.equal(interaction.swipe.active, interaction.expectedSwipe, `${width}px swipe release selected a stale date: ${JSON.stringify(interaction)}`);
+        assert.equal(interaction.swipe.active, interaction.swipe.picker, `${width}px swipe did not update the date field immediately: ${JSON.stringify(interaction)}`);
+        assert.ok(interaction.swipe.centerDelta <= 1, `${width}px swipe release did not center immediately: ${JSON.stringify(interaction)}`);
+      }
 
       await page.locator(moreButton).click();
       assert.deepEqual(await state(page), {
