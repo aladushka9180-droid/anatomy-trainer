@@ -16,14 +16,14 @@ for (const contract of [
   /providerMobileMoreHistoryDismissed/,
   /data-close-mobile-more/
 ]) assert.match(providerSource, contract);
-assert.match(providerHtml, /provider-ux\.css\?v=856/);
-assert.match(providerHtml, /site-update\.js\?v=856/);
-assert.match(providerHtml, /provider\.js\?v=856/);
-assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v856`/);
-assert.match(workerSource, /provider-ux\.css\?v=856/);
-assert.match(workerSource, /site-update\.js\?v=856/);
-assert.match(workerSource, /provider\.js\?v=856/);
-assert.match(updateSource, /sw\.js\?v=856/);
+assert.match(providerHtml, /provider-ux\.css\?v=857/);
+assert.match(providerHtml, /site-update\.js\?v=857/);
+assert.match(providerHtml, /provider\.js\?v=857/);
+assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v857`/);
+assert.match(workerSource, /provider-ux\.css\?v=857/);
+assert.match(workerSource, /site-update\.js\?v=857/);
+assert.match(workerSource, /provider\.js\?v=857/);
+assert.match(updateSource, /sw\.js\?v=857/);
 assert.match(providerSource, /renderDateStrip\(\{ instantCenter:true \}\)/);
 assert.match(providerSource, /setFilter\('day', \{ render:false \}\)/);
 assert.match(providerSource, /previewMobileDate\(\)/);

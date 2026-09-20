@@ -410,6 +410,10 @@ try {
         foldHour:{ top:foldHourRect.top, bottom:foldHourRect.bottom },
         foldBreak:{ top:foldBreakRect.top, bottom:foldBreakRect.bottom },
         breakPauseVerticalAlign:breakPauseStyle.verticalAlign,
+        breakPauseWidth:breakPauseStyle.width,
+        breakPauseHeight:breakPauseStyle.height,
+        breakPauseBackgroundImage:breakPauseStyle.backgroundImage,
+        breakPauseShadow:breakPauseStyle.boxShadow,
         timelineGutter:timelineStageRect.left - timelineViewRect.left,
         hourOuterInset:firstHourRect.left - timelineViewRect.left,
         hourStageGap:Math.min(timelineStageRect.left - firstHourRect.right, timelineStageRect.left - firstHalfHourRect.right),
@@ -526,7 +530,11 @@ try {
       assert.ok(result.toolbarContentCenterDelta <= 2, `${width}px day heading and journal toggle are not aligned: ${JSON.stringify(result)}`);
       assert.ok(result.journalGridGap >= 8, `${width}px timeline grid touches the journal toggle: ${JSON.stringify(result)}`);
       assert.ok(result.timelineTop - result.scheduleTop >= 6 && result.timelineTop - result.scheduleTop <= 8, `${width}px timeline needs 6–8px of air below its header: ${JSON.stringify(result)}`);
-      assert.equal(result.breakPauseVerticalAlign, '-5px', `${width}px automatic-break pause mark lost its optical alignment: ${JSON.stringify(result)}`);
+      assert.equal(result.breakPauseVerticalAlign, 'middle', `${width}px automatic-break pause mark lost its optical alignment: ${JSON.stringify(result)}`);
+      assert.equal(result.breakPauseWidth, '3px', `${width}px automatic-break pause mark lost its fixed bar thickness: ${JSON.stringify(result)}`);
+      assert.notEqual(result.breakPauseHeight, '10px', `${width}px automatic-break pause mark reverted to the old low glyph box: ${JSON.stringify(result)}`);
+      assert.equal(result.breakPauseBackgroundImage, 'none', `${width}px automatic-break pause mark regained a font-like gradient: ${JSON.stringify(result)}`);
+      assert.notEqual(result.breakPauseShadow, 'none', `${width}px automatic-break pause mark lost its second equal bar: ${JSON.stringify(result)}`);
       if (height >= 800) {
         assert.ok(result.foldBreak.bottom <= result.nav.top && result.foldHour.bottom <= result.nav.top, `${width}px 14:00–15:00 break or 15:00 mark falls behind mobile navigation: ${JSON.stringify(result)}`);
       }

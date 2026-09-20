@@ -2649,3 +2649,24 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     padding:2px 7px!important;
   }
 }
+
+/* Keep the break marker a real two-bar pause icon in every schedule surface.
+   This final rule wins over older mobile optical offsets and font glyph styles. */
+.provider-body[data-provider-theme] :is(
+  .timeline-view .timeline-booking.status-block .timeline-booking-copy>strong,
+  .timeline-view .timeline-booking.automatic-break .timeline-booking-copy>strong,
+  .schedule-list .provider-booking.status-block h3,
+  .schedule-list .provider-booking.automatic-break h3
+)::before {
+  display:inline-block!important;
+  width:3px!important;
+  height:.85em!important;
+  margin-right:9px!important;
+  border-radius:1px!important;
+  background:currentColor!important;
+  background-image:none!important;
+  box-shadow:6px 0 0 currentColor!important;
+  opacity:1!important;
+  vertical-align:middle!important;
+  transform:translateY(-.02em);
+}
