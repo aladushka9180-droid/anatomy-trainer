@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v855`;
+const CACHE = `${CACHE_PREFIX}v856`;
 
 // Only the provider shell and its first-screen dependencies block installation.
 // Secondary sections, help media and decorative theme images are cached on use.
@@ -31,7 +31,7 @@ const ASSETS = [
   './client-results.css?v=811',
   './client-directory.css?v=811',
   './provider-ui-refinements.css?v=811',
-  './provider-schedule-minimal.css?v=855',
+  './provider-schedule-minimal.css?v=856',
   './provider-themes-distinct.css?v=821',
   './provider-theme-families.css?v=821',
   './provider-theme-backgrounds-tema1.css?v=855',
@@ -62,9 +62,9 @@ const ASSETS = [
   './client-directory.js?v=811',
   './client-results.js?v=811',
   './provider-service-actions.js?v=811',
-  './provider.js?v=855',
+  './provider.js?v=856',
   './voice-wake.js?v=811',
-  './provider-feature-assets.js?v=855',
+  './provider-feature-assets.js?v=856',
 ];
 
 // Warm after the first screen. A cold installation must not wait for tools
