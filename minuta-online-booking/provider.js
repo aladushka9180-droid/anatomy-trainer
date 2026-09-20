@@ -16359,6 +16359,8 @@ document.addEventListener('click', async event => {
   if (clientLoyaltySettings) {
     event.preventDefault();
     await Promise.resolve(setProviderView('organization'));
+    const loyaltySection = $('#loyaltyPanel');
+    if (loyaltySection) await Promise.resolve(activateOrganizationSectionFeature(loyaltySection, { retry:true }));
     const loyaltyButton = $('[data-provider-panel="organization"] .provider-section-nav [data-section-target="loyaltyPanel"]');
     if (loyaltyButton) scrollToProviderSection(loyaltyButton);
   }

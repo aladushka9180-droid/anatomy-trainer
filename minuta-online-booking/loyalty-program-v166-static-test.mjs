@@ -43,13 +43,15 @@ for (const status of ['Новый','Вернулся','Постоянный','Л
 assert.doesNotMatch(relationship,/уровень/i);
 assert.match(provider,/script:'loyalty-program-v166\.js'/);
 assert.match(provider,/ensureOrganizationFeature\('loyaltyPanel'\)[\s\S]*setClient/);
+assert.match(provider,/clientLoyaltySettings[\s\S]{0,500}await Promise\.resolve\(activateOrganizationSectionFeature\(loyaltySection, \{ retry:true \}\)\)[\s\S]{0,300}scrollToProviderSection\(loyaltyButton\)/,
+  'Client profile settings wait for the lazy loyalty workspace before selecting it');
 assert.match(module,/get_minuta_loyalty_program_workspace_v166/);
 assert.match(module,/set_minuta_loyalty_program_v166/);
 assert.match(module,/redeem_minuta_loyalty_reward_v166/);
 assert.match(module,/const next = \{ fingerprint, requestId:uuid\(\) \}[\s\S]*localStorage\.setItem\(key, JSON\.stringify\(next\)\)/i,'Ambiguous writes keep an opaque retry intent across reloads');
 assert.match(module,/if \(known\) clearIntent\(intent\)/,'Known business failures release the retry intent');
 assert.doesNotMatch(module,/send_message|notification_outbox|referral|cashback/i,'V1 has no messaging, referrals or cashback');
-assert.match(html,/provider\.js\?v=846/);
-assert.match(html,/styles\.css\?v=846/);
+assert.match(html,/provider\.js\?v=847/);
+assert.match(html,/styles\.css\?v=847/);
 
 console.log('loyalty program v166 static contract: PASS');
