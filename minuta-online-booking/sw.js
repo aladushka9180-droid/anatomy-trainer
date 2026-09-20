@@ -73,7 +73,7 @@ const ASSETS = [
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
   './loyalty-program-v166.js?v=841',
-  './provider-schedule-desktop-reference.css?v=840',
+  './provider-schedule-desktop-reference.css?v=841',
   './settings-nav-scroll.js?v=840',
   './settings-smart-search.js?v=840',
   './provider-theme-noir-safari.css?v=811',
