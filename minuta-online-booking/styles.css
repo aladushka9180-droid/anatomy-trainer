@@ -8258,7 +8258,7 @@ html.provider-booting .provider-main {
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-drag-handle {
     top:auto!important;
     bottom:0!important;
-    height:36px!important;
+    height:32px!important;
     transform:none!important;
   }
 }
