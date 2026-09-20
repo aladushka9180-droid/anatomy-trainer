@@ -8186,27 +8186,35 @@ html.provider-booting .provider-main {
   }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-booking-copy>strong { display:contents!important; }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-service-title {
-    display:-webkit-box;
-    grid-column:1;
+    grid-column:1 / -1;
     grid-row:1;
     min-width:0;
     overflow:hidden;
-    overflow-wrap:anywhere;
+    overflow-wrap:normal;
     text-overflow:clip;
-    white-space:normal;
-    -webkit-box-orient:vertical;
-    -webkit-line-clamp:2;
-  }
-  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-service-duration {
-    grid-column:2;
-    grid-row:1;
-    align-self:start;
-    margin:0;
+    white-space:nowrap;
   }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-booking-client-row {
     grid-column:1 / -1;
     grid-row:2;
     min-width:0;
+  }
+}
+
+/* 320px: the handle moves into the lower row, leaving the readable service
+   title the full top line while client metadata keeps its own safe inset. */
+@media (max-width:340px) {
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only):has(.timeline-drag-handle) .timeline-booking-copy {
+    padding-right:0!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-booking-client-row {
+    padding-right:35px!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top][data-open-booking]:not(.status-block):not(.compact):not(.minute-only) .timeline-drag-handle {
+    top:auto!important;
+    bottom:0!important;
+    height:36px!important;
+    transform:none!important;
   }
 }
 

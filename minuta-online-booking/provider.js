@@ -8488,7 +8488,7 @@ function renderTimeline(sourceItems) {
     const automaticBreakSourceMarkup = item.automatic_break
       ? '<span class="timeline-automatic-break-source">Автоматический · из правил записи</span>'
       : '';
-    const serviceTitleMarkup = block ? `${serviceMarkup}${automaticBreakSourceMarkup}` : `<span class="timeline-service-title">${serviceMarkup}</span><span class="timeline-service-duration">· ${duration} мин</span>`;
+    const serviceTitleMarkup = block ? `${serviceMarkup}${automaticBreakSourceMarkup}` : `<span class="timeline-service-title">${serviceMarkup}</span>`;
     const renderedNote = mobileTimeline ? '' : bookingNotePresenceMarkup(note, 'timeline-booking-note-presence');
     const renderedStatus = mobileTimeline ? '' : timelineStatus;
     const mobileBadgeMarkup = mobileTimeline ? badgeMarkup : '';

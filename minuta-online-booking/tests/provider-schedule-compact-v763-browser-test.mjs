@@ -89,7 +89,7 @@ try {
     document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings timeline-view';
-    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:720px;--timeline-empty-hint-top:144px;height:720px"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour timeline-half-hour" style="top:36px">10:30</span><span class="timeline-hour" data-last-hour style="top:700px">20:00</span></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:719px"></i><button class="timeline-booking status-confirmed" data-mobile-timeline-top data-open-booking data-timeline-movable type="button" style="top:56px;height:72px"><span class="timeline-booking-copy"><strong><span class="timeline-service-title"><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> — углублённый</span></span><span class="timeline-service-duration">· 60 мин</span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:00 · </span>Екатерина</small></span></span><span class="timeline-drag-handle"></span></button><button class="timeline-booking status-block automatic-break" data-mobile-timeline-top type="button" style="top:144px;height:52px"><span class="timeline-booking-copy"><strong>Автоперерыв</strong></span></button></div></div>';
+    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:720px;--timeline-empty-hint-top:144px;height:720px"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour timeline-half-hour" style="top:36px">10:30</span><span class="timeline-hour" data-last-hour style="top:700px">20:00</span></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:719px"></i><button class="timeline-booking status-confirmed" data-mobile-timeline-top data-open-booking data-timeline-movable type="button" style="top:56px;height:72px"><span class="timeline-booking-copy"><strong><span class="timeline-service-title"><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> — углублённый</span></span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:00 · </span>Екатерина</small></span></span><span class="timeline-drag-handle"></span></button><button class="timeline-booking status-block automatic-break" data-mobile-timeline-top type="button" style="top:144px;height:52px"><span class="timeline-booking-copy"><strong>Автоперерыв</strong></span></button></div></div>';
     const activeDate = strip.querySelector('.active');
     const stripRect = strip.getBoundingClientRect();
     const activeRect = activeDate.getBoundingClientRect();
@@ -283,11 +283,8 @@ try {
       };
       const timelineBooking = timelineStage.querySelector('.timeline-booking');
       const timelineBookingRect = timelineBooking.getBoundingClientRect();
-      const timelineServiceName = timelineBooking.querySelector('.timeline-service-core').getBoundingClientRect();
       const timelineServiceTitleElement = timelineBooking.querySelector('.timeline-service-title');
       const timelineServiceTitle = timelineServiceTitleElement.getBoundingClientRect();
-      const timelineServiceDuration = timelineBooking.querySelector('.timeline-service-duration').getBoundingClientRect();
-      const timelineClientRow = timelineBooking.querySelector('.timeline-booking-client-row').getBoundingClientRect();
       const timelineDragHandle = timelineBooking.querySelector('.timeline-drag-handle').getBoundingClientRect();
       timelineBooking.focus({ preventScroll:true });
       const timelineFocusWidth = parseFloat(getComputedStyle(timelineBooking).outlineWidth);
@@ -388,12 +385,12 @@ try {
         hourStageGap:Math.min(timelineStageRect.left - firstHourRect.right, timelineStageRect.left - firstHalfHourRect.right),
         bookingRightInset:timelineStageRect.right - timelineBookingRect.right,
         dragHandleInside:timelineDragHandle.right <= timelineBookingRect.right + .5 && timelineDragHandle.left >= timelineBookingRect.left,
-        durationTopDelta:Math.abs(timelineServiceDuration.top - timelineServiceName.top),
-        durationMetaDelta:Math.abs(timelineServiceDuration.top - timelineClientRow.top),
-        durationHandleGap:timelineDragHandle.left - timelineServiceDuration.right,
+        duplicateDurationCount:timelineBooking.querySelectorAll('.timeline-service-duration').length,
         serviceTitleLineCount:timelineServiceTitle.height / parseFloat(getComputedStyle(timelineServiceTitleElement).lineHeight),
+        serviceTitleClientWidth:timelineServiceTitleElement.clientWidth,
+        serviceTitleScrollWidth:timelineServiceTitleElement.scrollWidth,
         serviceTitleFullyVisible:timelineServiceTitleElement.scrollWidth <= timelineServiceTitleElement.clientWidth + 1,
-        serviceTitleHandleGap:timelineDragHandle.left - timelineServiceTitle.right,
+        serviceTitleHandleOverlap:!(timelineServiceTitle.right <= timelineDragHandle.left || timelineServiceTitle.left >= timelineDragHandle.right || timelineServiceTitle.bottom <= timelineDragHandle.top || timelineServiceTitle.top >= timelineDragHandle.bottom),
         breakInside:breakRect.top >= timelineStageRect.top && breakRect.bottom <= timelineStageRect.bottom,
         lastHourInside:lastHourRect.top >= timelineViewRect.top && lastHourRect.bottom <= timelineViewRect.bottom + 1,
         focus:{ timeline:timelineFocusWidth, pickerWidth:pickerFocus.width, pickerOffset:pickerFocus.offset, pickerRadius:pickerFocus.radius, pickerBaseRadius:pickerFocus.baseRadius },
@@ -435,6 +432,7 @@ try {
       assert.equal(result.firstHourVisible, true, `${width}px first timeline label is clipped: ${JSON.stringify(result)}`);
       assert.equal(result.lastHourInside, true, `${width}px full working range is not rendered inside the schedule: ${JSON.stringify(result)}`);
       assert.equal(result.breakInside, true, `${width}px automatic break escapes the schedule card: ${JSON.stringify(result)}`);
+      assert.equal(result.duplicateDurationCount, 0, `${width}px booking repeats duration beside a full time range: ${JSON.stringify(result)}`);
       assert.ok(result.focus.timeline >= 2, `${width}px keyboard focus is not visible: ${JSON.stringify(result)}`);
       if (width <= 760) {
         const expectedCardGap = width <= 420 ? 12 : 16;
@@ -461,8 +459,7 @@ try {
       assert.ok(result.hourStageGap >= 5, `${width}px hour label touches the timeline stage: ${JSON.stringify(result)}`);
       assert.ok(result.bookingRightInset >= 2 && result.bookingRightInset <= 5, `${width}px booking does not use the released right width: ${JSON.stringify(result)}`);
       assert.equal(result.dragHandleInside, true, `${width}px drag handle escapes the booking: ${JSON.stringify(result)}`);
-      assert.ok(result.durationTopDelta <= 2 && result.durationHandleGap >= 0, `${width}px duration is not stable in the upper row before the handle: ${JSON.stringify(result)}`);
-      assert.ok(result.serviceTitleLineCount <= 2.1 && result.serviceTitleHandleGap >= 0, `${width}px service title exceeds its safe two-line area before the handle: ${JSON.stringify(result)}`);
+      assert.ok(result.serviceTitleLineCount <= 1.1 && result.serviceTitleFullyVisible && !result.serviceTitleHandleOverlap, `${width}px full service title does not fit its one-line safe area without crossing the handle: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.focus.pickerWidth >= 2 && result.focus.pickerOffset <= -2 && result.focus.pickerRadius === result.focus.pickerBaseRadius, `${width}px date picker focus ring escapes its rounded field: ${JSON.stringify(result)}`);
       assert.ok(result.pickerInput.textAlign === 'center' && result.pickerInput.paddingRight >= 24 && result.pickerInput.paddingLeft === 0, `${width}px date text is not centered inside its own arrow-safe zone: ${JSON.stringify(result)}`);
