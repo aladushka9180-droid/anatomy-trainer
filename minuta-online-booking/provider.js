@@ -16360,7 +16360,10 @@ document.addEventListener('click', async event => {
     event.preventDefault();
     await Promise.resolve(setProviderView('organization'));
     const loyaltySection = $('#loyaltyPanel');
-    if (loyaltySection) await Promise.resolve(activateOrganizationSectionFeature(loyaltySection, { retry:true }));
+    if (loyaltySection) {
+      await Promise.resolve(activateOrganizationSectionFeature(loyaltySection, { retry:true }));
+      loyaltySection.hidden = false;
+    }
     const loyaltyButton = $('[data-provider-panel="organization"] .provider-section-nav [data-section-target="loyaltyPanel"]');
     if (loyaltyButton) scrollToProviderSection(loyaltyButton);
   }
