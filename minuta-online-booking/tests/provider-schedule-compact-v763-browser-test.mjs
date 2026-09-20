@@ -12,6 +12,13 @@ const chromium = playwright.chromium || playwright.default?.chromium;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
 assert.match(providerSource, /--timeline-empty-hint-top:\$\{emptyHintTop\}px/, 'Timeline does not expose the adaptive empty-day hint position');
+const listRendererStart = providerSource.indexOf('function renderBookingList(');
+const listRendererEnd = providerSource.indexOf('\nfunction bookingEmptyMarkup', listRendererStart);
+assert.ok(listRendererStart >= 0 && listRendererEnd > listRendererStart, 'Shared booking-list renderer is missing');
+const listRendererSource = providerSource.slice(listRendererStart, listRendererEnd);
+assert.match(listRendererSource, /holder\.dataset\.recordsFilter = currentFilter;/, 'Booking-list cards do not expose the selected filter consistently');
+assert.doesNotMatch(listRendererSource, /currentFilter\s*===/, 'Day, Upcoming and All must not fork the booking-card component');
+assert.doesNotMatch(listRendererSource, /60 мин|timeline-service-duration/, 'List cards repeat duration beside a complete time range');
 const shareHelperStart = providerSource.indexOf('async function shareProviderClientPage()');
 const shareHelperEnd = providerSource.indexOf('\nfunction clientAppearanceDraftFromForm', shareHelperStart);
 assert.ok(shareHelperStart >= 0 && shareHelperEnd > shareHelperStart, 'Client-page share helper is missing');
@@ -89,7 +96,24 @@ try {
     document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings timeline-view';
-    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:720px;--timeline-empty-hint-top:144px;height:720px"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour timeline-half-hour" style="top:36px">10:30</span><span class="timeline-hour" data-last-hour style="top:700px">20:00</span></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:719px"></i><button class="timeline-booking status-confirmed" data-mobile-timeline-top data-open-booking data-timeline-movable type="button" style="top:56px;height:64px"><span class="timeline-booking-copy"><strong><span class="timeline-service-title"><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> — углублённый</span></span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:00 · </span>Екатерина</small></span></span><span class="timeline-drag-handle"></span></button><button class="timeline-booking status-block automatic-break" data-mobile-timeline-top type="button" style="top:144px;height:52px"><span class="timeline-booking-copy"><strong>Автоперерыв</strong></span></button></div></div>';
+    bookings.innerHTML = `<div class="day-timeline" style="--timeline-height:720px;--half-hour-offset:32.5px;--timeline-empty-hint-top:0;height:720px">
+      <div class="timeline-hours">
+        <span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour timeline-half-hour" style="top:32.5px">10:30</span>
+        <span class="timeline-hour" style="top:65px">11:00</span><span class="timeline-hour timeline-half-hour" style="top:97.5px">11:30</span>
+        <span class="timeline-hour" style="top:130px">12:00</span><span class="timeline-hour timeline-half-hour" style="top:162.5px">12:30</span>
+        <span class="timeline-hour" style="top:195px">13:00</span><span class="timeline-hour timeline-half-hour" style="top:227.5px">13:30</span>
+        <span class="timeline-hour" style="top:260px">14:00</span><span class="timeline-hour timeline-half-hour" style="top:292.5px">14:30</span>
+        <span class="timeline-hour" data-fold-hour style="top:325px">15:00</span><span class="timeline-hour" data-last-hour style="top:700px">20:00</span>
+      </div>
+      <div class="timeline-stage">
+        <i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:65px"></i><i class="timeline-grid-line" style="top:130px"></i><i class="timeline-grid-line" style="top:195px"></i><i class="timeline-grid-line" style="top:260px"></i><i class="timeline-grid-line" style="top:325px"></i><i class="timeline-grid-line" style="top:719px"></i>
+        <button class="timeline-booking status-block automatic-break timeline-tight" data-mobile-timeline-top type="button" style="top:2px;height:61px"><span class="timeline-booking-copy"><strong>Автоперерыв<span class="timeline-automatic-break-source">Автоматический · из правил записи</span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">10:00–11:00</span></small></span></span></button>
+        <button class="timeline-booking status-confirmed timeline-tight" data-mobile-timeline-top data-open-booking data-timeline-movable type="button" style="top:67px;height:61px"><span class="timeline-booking-copy"><strong><span class="timeline-service-title"><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> — углублённый</span></span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:00 · </span>Сертификат</small></span></span><span class="timeline-drag-handle"></span></button>
+        <button class="timeline-booking status-block automatic-break timeline-tight" data-mobile-timeline-top type="button" style="top:132px;height:61px"><span class="timeline-booking-copy"><strong>Автоперерыв<span class="timeline-automatic-break-source">Автоматический · из правил записи</span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">12:00–13:00</span></small></span></span></button>
+        <button class="timeline-booking status-confirmed timeline-tight" data-mobile-timeline-top data-open-booking="second" data-timeline-movable type="button" style="top:197px;height:61px"><span class="timeline-booking-copy"><strong><span class="timeline-service-title"><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> — углублённый</span></span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">13:00–14:00 · </span>Екатерина</small></span></span><span class="timeline-drag-handle"></span></button>
+        <button class="timeline-booking status-block automatic-break timeline-tight" data-mobile-timeline-top data-fold-break type="button" style="top:262px;height:61px"><span class="timeline-booking-copy"><strong>Автоперерыв<span class="timeline-automatic-break-source">Автоматический · из правил записи</span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">14:00–15:00</span></small></span></span></button>
+      </div>
+    </div>`;
     const activeDate = strip.querySelector('.active');
     const stripRect = strip.getBoundingClientRect();
     const activeRect = activeDate.getBoundingClientRect();
@@ -262,8 +286,11 @@ try {
       const timelineViewRect = document.querySelector('#providerBookings').getBoundingClientRect();
       const firstHourRect = document.querySelector('.timeline-hour').getBoundingClientRect();
       const firstHalfHourRect = document.querySelector('.timeline-hour.timeline-half-hour').getBoundingClientRect();
+      const foldHourRect = document.querySelector('[data-fold-hour]').getBoundingClientRect();
       const lastHourRect = document.querySelector('[data-last-hour]').getBoundingClientRect();
       const breakRect = document.querySelector('.timeline-booking.automatic-break').getBoundingClientRect();
+      const foldBreakRect = document.querySelector('[data-fold-break]').getBoundingClientRect();
+      const breakPauseStyle = getComputedStyle(document.querySelector('.timeline-booking.automatic-break .timeline-booking-copy>strong'), '::before');
       const timelineStageStyle = getComputedStyle(timelineStage);
       const timelineLines = [...timelineStage.querySelectorAll('.timeline-grid-line')].map(line => line.getBoundingClientRect());
       const mobileNav = document.querySelector('.provider-mobile-nav');
@@ -281,7 +308,7 @@ try {
         radius:pickerFocusStyle.borderRadius,
         baseRadius:pickerStyleBeforeFocus.borderRadius
       };
-      const timelineBooking = timelineStage.querySelector('.timeline-booking');
+      const timelineBooking = timelineStage.querySelector('.timeline-booking[data-open-booking]');
       const timelineBookingRect = timelineBooking.getBoundingClientRect();
       const timelineServiceTitleElement = timelineBooking.querySelector('.timeline-service-title');
       const timelineServiceTitle = timelineServiceTitleElement.getBoundingClientRect();
@@ -380,6 +407,9 @@ try {
         timelineStageOverflow:[timelineStageStyle.overflowX,timelineStageStyle.overflowY],
         timelineLinesInside:timelineLines.every(line => line.left >= timelineStageRect.left - .5 && line.right <= timelineStageRect.right + .5 && line.top >= timelineStageRect.top - .5 && line.bottom <= timelineStageRect.bottom + .5),
         firstHourVisible:firstHourRect.top >= timelineViewRect.top - .5 && firstHourRect.bottom <= timelineViewRect.bottom + .5,
+        foldHour:{ top:foldHourRect.top, bottom:foldHourRect.bottom },
+        foldBreak:{ top:foldBreakRect.top, bottom:foldBreakRect.bottom },
+        breakPauseVerticalAlign:breakPauseStyle.verticalAlign,
         timelineGutter:timelineStageRect.left - timelineViewRect.left,
         hourOuterInset:firstHourRect.left - timelineViewRect.left,
         hourStageGap:Math.min(timelineStageRect.left - firstHourRect.right, timelineStageRect.left - firstHalfHourRect.right),
@@ -389,6 +419,8 @@ try {
         serviceTitleLineCount:timelineServiceTitle.height / parseFloat(getComputedStyle(timelineServiceTitleElement).lineHeight),
         serviceTitleClientWidth:timelineServiceTitleElement.clientWidth,
         serviceTitleScrollWidth:timelineServiceTitleElement.scrollWidth,
+        serviceTitleRect:{ top:timelineServiceTitle.top, right:timelineServiceTitle.right, bottom:timelineServiceTitle.bottom, left:timelineServiceTitle.left },
+        dragHandleRect:{ top:timelineDragHandle.top, right:timelineDragHandle.right, bottom:timelineDragHandle.bottom, left:timelineDragHandle.left },
         serviceTitleFullyVisible:timelineServiceTitleElement.scrollWidth <= timelineServiceTitleElement.clientWidth + 1,
         serviceTitleHandleOverlap:!(timelineServiceTitle.right <= timelineDragHandle.left || timelineServiceTitle.left >= timelineDragHandle.right || timelineServiceTitle.bottom <= timelineDragHandle.top || timelineServiceTitle.top >= timelineDragHandle.bottom),
         breakInside:breakRect.top >= timelineStageRect.top && breakRect.bottom <= timelineStageRect.bottom,
@@ -452,8 +484,9 @@ try {
       assert.ok(result.title.height <= 46, `${width}px schedule heading still reserves a redundant row: ${JSON.stringify(result)}`);
       assert.ok(result.newBooking.width >= 108 && result.newBooking.height >= 44, `${width}px New booking button changed height or is too narrow: ${JSON.stringify(result)}`);
       assert.ok(result.periodTabs.top - result.newBooking.bottom >= 8 && result.periodTabs.top - result.newBooking.bottom <= 12, `${width}px New booking and period tabs lost their calm gap: ${JSON.stringify(result)}`);
-      assert.ok(result.toolbar.height <= 62, `${width}px day summary header is still too tall: ${JSON.stringify(result)}`);
+      assert.ok(result.toolbar.height <= 54, `${width}px day summary header is still too tall: ${JSON.stringify(result)}`);
       assert.ok(result.journalTargetSizes.every(target => target.width >= 44 && target.height >= 44), `${width}px journal toggle target is below 44px: ${JSON.stringify(result)}`);
+      assert.ok(result.journalToggle.height <= 44, `${width}px journal toggle chrome is still too tall: ${JSON.stringify(result)}`);
       assert.ok(result.timelineGutter >= 42 && result.timelineGutter <= 46, `${width}px timeline keeps an excessive time gutter: ${JSON.stringify(result)}`);
       assert.ok(result.hourOuterInset >= 6 && result.hourOuterInset <= 12, `${width}px hour label is not safely shifted left: ${JSON.stringify(result)}`);
       assert.ok(result.hourStageGap >= 5, `${width}px hour label touches the timeline stage: ${JSON.stringify(result)}`);
@@ -489,16 +522,21 @@ try {
       assert.ok(result.twoDigitRhythm.numberCenterDelta <= 1 && result.twoDigitRhythm.gapDelta <= 2, `${width}px two-digit selected date lost its vertical rhythm: ${JSON.stringify(result)}`);
       assert.ok(result.singleDigitRhythm.numberCenterDelta <= 1 && result.singleDigitRhythm.gapDelta <= 2, `${width}px single-digit selected date lost its vertical rhythm: ${JSON.stringify(result)}`);
       assert.ok(result.activeDateMarkerContent === 'none' || result.activeDateMarkerDisplay === 'none', `${width}px selected date regained a second lower marker: ${JSON.stringify(result)}`);
-      assert.ok(result.scheduleTop >= 340 && result.scheduleTop <= 480, `${width}px schedule begins too low for the 14:00–15:00 mobile fold: ${JSON.stringify(result)}`);
+      assert.ok(result.scheduleTop >= 330 && result.scheduleTop <= 480, `${width}px schedule begins too low for the 14:00–15:00 mobile fold: ${JSON.stringify(result)}`);
       assert.ok(result.toolbarContentCenterDelta <= 2, `${width}px day heading and journal toggle are not aligned: ${JSON.stringify(result)}`);
       assert.ok(result.journalGridGap >= 8, `${width}px timeline grid touches the journal toggle: ${JSON.stringify(result)}`);
+      assert.ok(result.timelineTop - result.scheduleTop >= 6 && result.timelineTop - result.scheduleTop <= 8, `${width}px timeline needs 6–8px of air below its header: ${JSON.stringify(result)}`);
+      assert.equal(result.breakPauseVerticalAlign, '-5px', `${width}px automatic-break pause mark lost its optical alignment: ${JSON.stringify(result)}`);
+      if (height >= 800) {
+        assert.ok(result.foldBreak.bottom <= result.nav.top && result.foldHour.bottom <= result.nav.top, `${width}px 14:00–15:00 break or 15:00 mark falls behind mobile navigation: ${JSON.stringify(result)}`);
+      }
       assert.ok(result.strip.top - result.navigation.bottom >= -1 && result.strip.top - result.navigation.bottom <= 1, `${width}px date controls and strip no longer form one card: ${JSON.stringify(result)}`);
       assert.ok(result.toolbar.top - result.strip.bottom >= 5 && result.toolbar.top - result.strip.bottom <= 8, `${width}px date card and journal card lost their compact separation: ${JSON.stringify(result)}`);
       assert.ok(Math.abs(result.viewportHeight - result.nav.bottom) <= 1, `${width}px compact navigation must use the viewport edge while preserving safe-area`);
       assert.equal(result.tabBackground, 'rgba(0, 0, 0, 0)', `${width}px period tabs are not flat`);
       assert.equal(result.tabAccentHeight, '3px', `${width}px selected period needs a clear thin accent`);
       assert.deepEqual(result.tabAccentStates.map(state => state.view), ['day','week','month'], `${width}px period tabs changed order`);
-      assert.ok(result.tabAccentStates.every(state => Math.abs(state.left - 10) <= .5 && Math.abs(state.right - 10) <= .5 && Math.abs(state.width - (state.tabWidth - 20)) <= 1), `${width}px active period underline must keep an equal 10px inset: ${JSON.stringify(result)}`);
+      assert.ok(result.tabAccentStates.every(state => Math.abs(state.left - 5) <= .5 && Math.abs(state.right - 5) <= .5 && Math.abs(state.width - (state.tabWidth - 10)) <= 1), `${width}px active period underline must nearly fill its third: ${JSON.stringify(result)}`);
       assert.ok(result.tabAccentStates.every(state => state.inactiveAccents.every(content => content === 'none')), `${width}px inactive period tab kept an accent: ${JSON.stringify(result)}`);
       assert.ok(result.tabHeights.every(tabHeight => tabHeight >= 44), `${width}px period touch targets must remain at least 44px`);
       assert.equal(result.quietTodayBackground, 'rgba(0, 0, 0, 0)', `${width}px unselected Today date competes with the selected date`);
@@ -649,6 +687,11 @@ try {
   await page.evaluate(() => {
     const filters = document.querySelector('.booking-filters');
     filters.hidden = false;
+    document.querySelectorAll('[data-journal-mode]').forEach(button => {
+      const active = button.dataset.journalMode === 'list';
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings schedule-list';
     bookings.innerHTML = '<div class="provider-empty schedule-empty"><strong>Записей нет</strong><small>На выбранный период всё свободно.</small></div>';
@@ -667,6 +710,17 @@ try {
       const nav = rect('.provider-mobile-nav');
       const workspace = document.querySelector('.provider-workspace');
       const navLabels = [...document.querySelectorAll('.provider-mobile-nav>button span')];
+      const modeGeometry = [...document.querySelectorAll('.journal-mode-toggle button')].map(button => {
+        const buttonRect = button.getBoundingClientRect();
+        const iconRect = button.querySelector('.ui-icon').getBoundingClientRect();
+        return {
+          mode:button.dataset.journalMode,
+          active:button.classList.contains('active'),
+          buttonCenter:[(buttonRect.left + buttonRect.right) / 2,(buttonRect.top + buttonRect.bottom) / 2],
+          iconCenter:[(iconRect.left + iconRect.right) / 2,(iconRect.top + iconRect.bottom) / 2],
+          iconSize:[iconRect.width,iconRect.height]
+        };
+      });
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         clientWidth:document.documentElement.clientWidth,
@@ -676,6 +730,7 @@ try {
         filterOuterBorder:getComputedStyle(document.querySelector('.booking-filters')).borderTopWidth,
         workspacePaddingBottom:parseFloat(getComputedStyle(workspace).paddingBottom),
         navLabelsFit:navLabels.every(label => label.scrollWidth <= label.clientWidth + 1),
+        modeGeometry,
         filterButtons:[...document.querySelectorAll('.booking-filters button')].map(button => ({
           height:button.getBoundingClientRect().height,
           scrollWidth:button.scrollWidth,
@@ -697,6 +752,8 @@ try {
     assert.ok(Math.abs(listResult.toggle.top - timelineToggleTops.get(width)) <= 1, `${width}px timeline/list mode toggle is not vertically stable: ${JSON.stringify({ timelineTop:timelineToggleTops.get(width), listResult })}`);
     assert.equal(listResult.clientWidth, timelineClientWidths.get(width), `${width}px scrollbar changes the schedule width`);
     assert.ok(listResult.filterButtons.every(button => button.height >= 44 && button.scrollWidth <= button.clientWidth + 1), `${width}px list tabs are clipped: ${JSON.stringify(listResult)}`);
+    assert.deepEqual(listResult.modeGeometry.map(item => [item.mode,item.active]), [['timeline',false],['list',true]], `${width}px list mode state changed: ${JSON.stringify(listResult)}`);
+    assert.ok(listResult.modeGeometry.every(item => Math.abs(item.buttonCenter[0] - item.iconCenter[0]) <= .5 && Math.abs(item.buttonCenter[1] - item.iconCenter[1]) <= .5 && Math.abs(item.iconSize[0] - item.iconSize[1]) <= .5), `${width}px timeline/list icons do not share one centred geometry: ${JSON.stringify(listResult)}`);
     if (width >= 390) assert.equal(listResult.navLabelsFit, true, `${width}px mobile navigation labels are clipped: ${JSON.stringify(listResult)}`);
     assert.ok(listResult.workspacePaddingBottom >= listResult.nav.height + (height - listResult.nav.bottom) + 16, `${width}px mobile navigation lacks safe clearance: ${JSON.stringify(listResult)}`);
     if (output) await page.screenshot({ path:path.join(output, `schedule-list-${width}.png`), fullPage:false });
@@ -964,12 +1021,51 @@ try {
     assert.deepEqual(cardResult.clientNames, ['Сертификат','Евгения Белышева-Александрова','Анна'], `${width}px client variants changed`);
     assert.deepEqual(cardResult.phones, ['+7 912 000-00-00','+7 950 831-03-38',''], `${width}px missing-phone variant changed`);
     assert.ok(cardResult.cardMetrics.every(card => card.actionHeight >= 44 && card.contained && card.titleLines <= 2.1 && card.titleSize >= 17 && card.clientSize >= 15 && card.clientWeight >= 600 && card.clientAfterTitle && card.phoneSecondary && card.signalsAfterClient && card.backgroundColor !== 'rgba(0, 0, 0, 0)'), `${width}px list-card hierarchy, booking fill, or containment changed: ${JSON.stringify(cardResult)}`);
+    const filtersShareCards = await page.evaluate(() => {
+      const holder = document.querySelector('#providerBookings');
+      const originalMarkup = holder.innerHTML;
+      const variants = ['day','upcoming','all'].map(filter => {
+        holder.dataset.recordsFilter = filter;
+        const cards = [...holder.querySelectorAll('.provider-booking-open')];
+        const first = cards[0];
+        const article = first.closest('.provider-booking');
+        return {
+          filter,
+          heights:cards.map(card => card.getBoundingClientRect().height),
+          radius:getComputedStyle(article).borderRadius,
+          fill:getComputedStyle(article).backgroundColor,
+          title:first.querySelector('h3').textContent,
+          durationVisible:/60\s*мин/.test(first.textContent)
+        };
+      });
+      const emptyVariants = ['day','upcoming','all'].map(filter => {
+        holder.dataset.recordsFilter = filter;
+        holder.innerHTML = '<div class="provider-empty schedule-empty"><strong>Записей нет</strong><small>На выбранный период всё свободно.</small></div>';
+        const empty = holder.firstElementChild;
+        return { filter, contained:empty.scrollWidth <= empty.clientWidth + 1, height:empty.getBoundingClientRect().height };
+      });
+      holder.innerHTML = originalMarkup;
+      holder.dataset.recordsFilter = 'day';
+      return { variants, emptyVariants };
+    });
+    const firstHeights = filtersShareCards.variants.map(variant => variant.heights[0]);
+    assert.ok(filtersShareCards.variants.every(variant => variant.radius === '18px' && variant.fill === filtersShareCards.variants[0].fill && !variant.durationVisible && variant.title === filtersShareCards.variants[0].title), `${width}px Day, Upcoming and All diverged in their common card: ${JSON.stringify(filtersShareCards)}`);
+    assert.ok(Math.max(...firstHeights) - Math.min(...firstHeights) <= 1, `${width}px filter switch changes card height: ${JSON.stringify(filtersShareCards)}`);
+    assert.ok(filtersShareCards.emptyVariants.every(variant => variant.contained && variant.height > 0), `${width}px filter empty state overflows or vanishes: ${JSON.stringify(filtersShareCards)}`);
     await page.evaluate(() => { document.body.dataset.providerTextScale = 'large'; });
     const largeScaleFits = await page.evaluate(() => [...document.querySelectorAll('.provider-booking-open')].every(button => button.scrollWidth <= button.clientWidth + 1 && button.getBoundingClientRect().height >= 44 && button.querySelector('h3').getBoundingClientRect().height / parseFloat(getComputedStyle(button.querySelector('h3')).lineHeight) <= 2.1));
     assert.equal(largeScaleFits, true, `${width}px large-text list cards overflow or exceed two title lines`);
     await page.evaluate(() => { document.body.dataset.providerTextScale = 'default'; });
     if (output) await page.screenshot({ path:path.join(output, `schedule-list-card-${width}.png`), fullPage:false });
   }
+
+  await page.evaluate(() => {
+    document.querySelectorAll('[data-journal-mode]').forEach(button => {
+      const active = button.dataset.journalMode === 'timeline';
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+  });
 
   await page.evaluate(() => { document.querySelector('.provider-topbar-tools').open = true; });
   const share = await page.locator('#openFreeSlots').boundingBox();

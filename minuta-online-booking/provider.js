@@ -8515,7 +8515,9 @@ function renderTimeline(sourceItems) {
   const fullBounds = timelineBounds(items);
   let { start, end } = fullBounds;
   const currentClock = selectedDate === businessTodayIso() ? businessClock() : null;
-  const hourHeight = mobileTimeline ? 72 : 76;
+  // The compact mobile scale keeps five complete hours readable above the
+  // fixed navigation without changing desktop density or booking duration.
+  const hourHeight = mobileTimeline ? 65 : 76;
   const naturalTimelineHeight = ((end - start) / 60) * hourHeight;
   const timelineItems = items.map((item, index) => {
     const itemStart = minutesFromTime(item.booking_time);
