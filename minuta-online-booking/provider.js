@@ -8567,7 +8567,7 @@ function clientRelationshipFacts(client, completedVisits = clientCompletedVisits
   const relationship = window.PrimeTimeClientRelationship;
   if (!relationship) return {
     visits,
-    level:0,title:'Новый клиент',progress:0,milestone:'До первого визита — 1 визит'
+    level:0,title:'Новый',progress:0,milestone:''
   };
   const facts = relationship.relationship({
     completedVisits:visits
@@ -12069,7 +12069,7 @@ function renderClients() {
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
     const hasPhoto = Boolean(clientAvatar(client.phone)?.signed_url);
     const displayPhone = newBookingClientPhoneLabel(client.phone, client.displayPhone);
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}${facts.level === 4 ? ' is-max-level' : ''}" data-client-level="${facts.level}" style="--client-level-progress:${facts.progress.toFixed(4)}turn" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-orbit-jewel">${uiIcon('crown')}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.level ? `${facts.title} · ${facts.level} уровень` : facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
   }).join('') + (filtered.length > visibleClients.length ? `<button class="secondary-button" type="button" data-load-more-clients>Показать ещё · осталось ${filtered.length - visibleClients.length}</button>` : '');
 }
 
@@ -12622,19 +12622,15 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   renderClientFavoriteServices(completedVisits);
   const upcoming = clientUpcoming(client);
   const profileOrbit = $('#clientProfileOrbit');
-  profileOrbit.style.setProperty('--client-level-progress', `${facts.progress.toFixed(4)}turn`);
-  profileOrbit.dataset.clientLevel = String(facts.level);
+  profileOrbit.style.setProperty('--client-level-progress', '0turn');
+  delete profileOrbit.dataset.clientLevel;
   profileOrbit.classList.toggle('has-photo', Boolean(clientAvatar(client.phone)?.signed_url));
-  profileOrbit.classList.toggle('is-max-level', facts.level === 4);
-  profileOrbit.setAttribute('aria-label', facts.level ? `${facts.title}, ${facts.level} уровень` : facts.title);
+  profileOrbit.classList.remove('is-max-level');
+  profileOrbit.setAttribute('aria-label', 'Прогресс программы лояльности загружается');
   $('#clientRelationshipTitle').textContent = facts.title;
-  $('#clientRelationshipLevel').textContent = facts.level ? `${facts.level} уровень` : '';
+  $('#clientRelationshipLevel').textContent = '';
   const milestoneCard = $('#clientMilestoneCard');
-  $('#clientMilestoneText').textContent = facts.milestone;
-  const milestoneProgress = Math.round(facts.progress * 100);
-  milestoneCard.classList.toggle('is-max-level', facts.level === 4);
-  milestoneCard.style.setProperty('--client-level-width', `${milestoneProgress}%`);
-  $('#clientMilestoneProgress').setAttribute('aria-valuenow', String(milestoneProgress));
+  milestoneCard.hidden = true;
   const reliabilityCard = $('#clientReliabilityCard');
   reliabilityCard.hidden = !facts.reliability?.needsAttention;
   reliabilityCard.dataset.severity = facts.reliability?.severity || '';
@@ -12650,6 +12646,11 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   void loadClientProfileDetails(client);
   void clientBenefitLifecycleController?.setClient(client, organizationController?.getActiveOrganization?.());
   void loadClientCommerceHistory(client);
+  void ensureOrganizationFeature('loyaltyPanel').then(controller => controller?.setClient?.(client)).catch(() => {
+    milestoneCard.hidden = false;
+    $('#clientMilestoneText').textContent = 'Программа временно недоступна';
+    $('#clientMilestoneHint').textContent = 'Данные клиента не изменены.';
+  });
   batchBookingsController?.setClient(client);
   clientFieldsController?.setClient(client.phone);
   $('#clientNote').value = noteValue;
@@ -15996,6 +15997,7 @@ document.addEventListener('click', async event => {
   const reviewVisibility = event.target.closest('[data-review-visibility]');
   const client = event.target.closest('[data-client-phone]');
   const clientProfileBack = event.target.closest('#clientProfileBack');
+  const clientLoyaltySettings = event.target.closest('#clientLoyaltyOpenSettings');
   const clientProfileJump = event.target.closest('[data-client-profile-jump]');
   const clientContactButton = event.target.closest('#clientContactButton');
   const clientMoreButton = event.target.closest('#clientMoreButton');
@@ -16338,6 +16340,12 @@ document.addEventListener('click', async event => {
     renderClientDetail(client.dataset.clientPhone);
   }
   if (clientProfileBack) returnFromClientProfile();
+  if (clientLoyaltySettings) {
+    event.preventDefault();
+    await Promise.resolve(setProviderView('organization'));
+    const loyaltyButton = $('[data-provider-panel="organization"] .provider-section-nav [data-section-target="loyaltyPanel"]');
+    if (loyaltyButton) scrollToProviderSection(loyaltyButton);
+  }
   if (slotIntervalButton) {
     const slotInterval = $('#slotInterval');
     slotInterval.value = slotIntervalButton.dataset.slotInterval;
@@ -16658,7 +16666,7 @@ const organizationFeatureDefinitions = new Map([
   ['payrollPanel', { script:'payroll-management.js', api:() => window.MinutaPayroll, get:() => payrollController, set:value => { payrollController = value; }, admin:false }],
   ['commercePanel', { script:'commerce-management.js', api:() => window.MinutaCommerce, get:() => commerceController, set:value => { commerceController = value; }, admin:true }],
   ['benefitsPanel', { script:'benefit-management.js', api:() => window.MinutaBenefits, get:() => benefitController, set:value => { benefitController = value; }, admin:true }],
-  ['loyaltyPanel', { script:'loyalty-management.js', api:() => window.MinutaLoyalty, get:() => loyaltyController, set:value => { loyaltyController = value; }, admin:true }],
+  ['loyaltyPanel', { script:'loyalty-program-v166.js', api:() => window.MinutaLoyalty, get:() => loyaltyController, set:value => { loyaltyController = value; }, admin:true }],
   ['inventoryPanel', { script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true }],
   ['retentionPanel', { script:'retention-management.js', api:() => window.MinutaRetention, get:() => retentionController, set:value => { retentionController = value; }, admin:true }]
 ]);

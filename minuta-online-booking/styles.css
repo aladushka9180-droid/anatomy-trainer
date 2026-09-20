@@ -2951,6 +2951,28 @@ html.provider-booting .provider-main {
 .provider-body .loyalty-rule-form>.primary { width:100%; margin:0; }
 .provider-body[data-provider-theme] :is(.loyalty-rule-form,.loyalty-promotions,.loyalty-management-grid>section) { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
 .provider-body[data-provider-theme] .loyalty-guide { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body .loyalty-program-setup { display:grid; gap:14px; padding:16px; border:1px solid var(--theme-line,#e0e8e2); border-radius:var(--material-radius,14px); background:var(--theme-surface-alt,#fbfcfb); }
+.provider-body .loyalty-program-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.provider-body .loyalty-program-steps>section { display:grid; align-content:start; gap:9px; min-width:0; padding:14px; border:1px solid color-mix(in srgb,var(--theme-line) 88%,transparent); border-radius:12px; background:var(--theme-surface); }
+.provider-body .loyalty-program-steps>section>span { display:grid; place-items:center; width:25px; height:25px; border-radius:50%; background:var(--theme-accent-soft); color:var(--theme-accent); font-size:11px; font-weight:850; }
+.provider-body .loyalty-program-steps label { display:grid; gap:6px; min-width:0; margin:0; color:var(--theme-ink); }
+.provider-body .loyalty-program-steps :is(input,select,textarea) { box-sizing:border-box; width:100%; min-width:0; margin-top:0; }
+.provider-body .loyalty-program-steps textarea { min-height:72px; padding:10px 12px; resize:vertical; }
+.provider-body .loyalty-program-preview { display:grid; gap:4px; padding:12px 14px; border-left:3px solid var(--theme-accent); border-radius:8px; background:color-mix(in srgb,var(--theme-accent-soft) 54%,var(--theme-surface)); }
+.provider-body .loyalty-program-preview small,.provider-body .loyalty-program-preview span { color:var(--theme-muted); }
+.provider-body .loyalty-program-preview strong { color:var(--theme-ink); font-size:14px; }
+.provider-body .loyalty-program-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.provider-body .loyalty-program-stats article { display:grid; gap:3px; padding:14px; border:1px solid var(--theme-line); border-radius:12px; background:var(--theme-surface); }
+.provider-body .loyalty-program-stats small { color:var(--theme-muted); font-size:10px; }
+.provider-body .loyalty-program-stats strong { color:var(--theme-ink); font-size:22px; }
+.provider-body .loyalty-program-clients,.provider-body .loyalty-program-rewards { display:grid; gap:10px; padding:15px; border:1px solid var(--theme-line); border-radius:var(--material-radius,13px); background:var(--theme-surface-alt); }
+.provider-body .loyalty-client-row,.provider-body .loyalty-reward-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; padding:11px 12px; border:1px solid color-mix(in srgb,var(--theme-line) 88%,transparent); border-radius:10px; background:var(--theme-surface); }
+.provider-body :is(.loyalty-client-row,.loyalty-reward-row)>div { min-width:0; }
+.provider-body :is(.loyalty-client-row,.loyalty-reward-row) strong,.provider-body :is(.loyalty-client-row,.loyalty-reward-row) small { display:block; overflow-wrap:anywhere; }
+.provider-body :is(.loyalty-client-row,.loyalty-reward-row) small { margin-top:3px; color:var(--theme-muted); }
+.provider-body .loyalty-progress-value { flex:none; padding:5px 9px; border-radius:999px; background:var(--theme-accent-soft); color:var(--theme-accent); font-size:11px; font-weight:850; }
+.provider-body #loyaltyPanel button { min-height:44px; }
+.provider-body .loyalty-reward-row .secondary-button { flex:none; width:auto; min-height:44px; margin:0; }
 .provider-body .inventory-workspace,#inventoryControls { display:grid; gap:14px; }
 .provider-body .inventory-workspace[hidden],.provider-body #inventoryControls[hidden] { display:none; }
 .provider-body .inventory-settings { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -3098,6 +3120,7 @@ html.provider-booting .provider-main {
   .provider-body .benefits-management-grid { grid-template-columns:1fr; }
   .provider-body .loyalty-management-grid,.provider-body .loyalty-form-grid { grid-template-columns:1fr; }
   .provider-body .loyalty-example { grid-template-columns:1fr; }
+  .provider-body .loyalty-program-steps { grid-template-columns:1fr; }
   .provider-body .payroll-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .provider-body .payroll-enable-field { grid-column:1/-1; }
   .provider-body .payroll-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -3105,6 +3128,12 @@ html.provider-booting .provider-main {
   .provider-body .shift-management-grid,.provider-body .shift-toolbar { grid-template-columns:1fr; }
   .provider-body .shift-substitution form { grid-template-columns:1fr; }
   .provider-body .organization-overview { grid-template-columns:1fr; align-items:stretch; }
+}
+
+@media (max-width:760px) {
+  .provider-body .loyalty-program-setup { padding:12px; }
+  .provider-body .loyalty-client-row,.provider-body .loyalty-reward-row { align-items:flex-start; flex-direction:column; }
+  .provider-body .loyalty-reward-row .secondary-button { width:100%; }
 }
 
 .provider-body .settings-layout { max-width:820px; margin-top:12px; }

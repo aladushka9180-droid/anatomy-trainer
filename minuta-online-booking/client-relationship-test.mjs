@@ -13,24 +13,22 @@ vm.runInContext(source, context);
 const { relationship, reliability, visitWord } = context.window.PrimeTimeClientRelationship;
 
 assert.deepEqual(
-  [0, 1, 3, 8, 12].map(visits => {
+  [0, 1, 3, 8].map(visits => {
     const item = relationship({ completedVisits:visits });
     return [item.level, item.title];
   }),
   [
-    [0, 'Новый клиент'],
-    [1, 'Первый визит'],
-    [2, 'Возвращается'],
-    [3, 'Постоянный клиент'],
-    [4, 'С нами давно']
+    [0, 'Новый'],
+    [1, 'Вернулся'],
+    [2, 'Постоянный'],
+    [3, 'Лояльный']
   ]
 );
 
 assert.equal(relationship({ completedVisits:2, importedVisits:6 }).visits, 6);
-assert.equal(relationship({ completedVisits:1 }).milestone, 'До уровня «Возвращается» — 2 визита');
-assert.equal(relationship({ completedVisits:12 }).progress, 1);
-assert.ok(relationship({ completedVisits:0 }).progress >= 0);
-assert.ok(relationship({ completedVisits:7 }).progress < relationship({ completedVisits:8 }).progress);
+assert.equal(relationship({ completedVisits:1 }).status, 'Вернулся');
+assert.equal(relationship({ completedVisits:12 }).status, 'Лояльный');
+assert.equal(relationship({ completedVisits:7 }).progress, 0, 'CRM status does not drive the loyalty ring');
 assert.equal(visitWord(1), 'визит');
 assert.equal(visitWord(3), 'визита');
 assert.equal(visitWord(12), 'визитов');

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v840`;
+const CACHE = `${CACHE_PREFIX}v841`;
 
 // Only the provider shell and its first-screen dependencies block installation.
 // Secondary sections, help media and decorative theme images are cached on use.
@@ -7,14 +7,14 @@ const ASSETS = [
   './provider.html',
   './offline.html',
   './offline.js',
-  './provider.webmanifest?v=840',
-  './provider-icon-192.png?v=840',
-  './provider-icon-512.png?v=840',
-  './provider-icon-maskable-512.png?v=840',
-  './provider-icon.svg?v=840',
+  './provider.webmanifest?v=841',
+  './provider-icon-192.png?v=841',
+  './provider-icon-512.png?v=841',
+  './provider-icon-maskable-512.png?v=841',
+  './provider-icon.svg?v=841',
   './icon.svg',
   './ui-icons.svg',
-  './styles.css?v=840',
+  './styles.css?v=841',
   './utm-funnel.css?v=811',
   './onboarding.css?v=811',
   './visitor-presence.css?v=811',
@@ -39,7 +39,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=840',
+  './site-update.js?v=841',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
   './social-auth.js?v=811',
@@ -64,7 +64,7 @@ const ASSETS = [
   './client-directory.js?v=811',
   './client-results.js?v=811',
   './provider-service-actions.js?v=811',
-  './provider.js?v=840',
+  './provider.js?v=841',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=840',
 ];
@@ -72,6 +72,7 @@ const ASSETS = [
 // Warm after the first screen. A cold installation must not wait for tools
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
+  './loyalty-program-v166.js?v=841',
   './provider-schedule-desktop-reference.css?v=840',
   './settings-nav-scroll.js?v=840',
   './settings-smart-search.js?v=840',

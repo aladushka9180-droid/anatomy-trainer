@@ -10,19 +10,19 @@
   <meta property="og:title" content="PrimeTime Pro — кабинет исполнителя">
   <meta property="og:description" content="Управляйте услугами, расписанием и записями клиентов.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=840">
+  <meta property="og:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=841">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=840">
+  <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=841">
   <title>PrimeTime Pro — кабинет исполнителя</title>
-  <link rel="icon" href="provider-icon.svg?v=840" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=840" type="application/manifest+json">
-  <link rel="apple-touch-icon" href="provider-icon-192.png?v=840">
+  <link rel="icon" href="provider-icon.svg?v=841" type="image/svg+xml">
+  <link rel="manifest" href="provider.webmanifest?v=841" type="application/manifest+json">
+  <link rel="apple-touch-icon" href="provider-icon-192.png?v=841">
   <script src="pwa-install.js?v=811"></script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="PrimeTime">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=840">
+  <link rel="stylesheet" href="styles.css?v=841">
   <link rel="stylesheet" href="messages-center.css?v=811">
   <link rel="stylesheet" href="finance-center.css?v=811">
   <link rel="stylesheet" href="utm-funnel.css?v=811">
@@ -337,11 +337,10 @@
               <div class="client-profile-empty" id="clientProfileEmpty"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-user"></use></svg></span><strong>Выберите клиента</strong><small>Откроются контакты, история и заметки.</small></div>
               <div id="clientProfileContent" hidden>
                 <div class="client-profile-head">
-                  <div class="client-profile-orbit" id="clientProfileOrbit" style="--client-level-progress:0turn" role="img" aria-label="Уровень клиента пока не определён">
+                  <div class="client-profile-orbit" id="clientProfileOrbit" style="--client-level-progress:0turn" role="img" aria-label="Прогресс программы лояльности пока недоступен">
                     <div class="client-avatar-control client-profile-avatar-control"><span class="client-avatar" id="clientAvatar">К</span><label class="client-avatar-picker client-profile-avatar-picker" aria-label="Добавить или сменить фото клиента"><input id="clientAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" data-client-avatar-input><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-image"></use></svg></span></label><button class="client-avatar-remove" id="clientAvatarRemove" type="button" data-remove-client-avatar="" aria-label="Удалить фото клиента" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
-                    <span class="client-orbit-jewel" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-crown"></use></svg></span>
                   </div>
-                  <div class="client-profile-identity"><small>Карточка клиента</small><h3 id="clientName">Клиент</h3><div class="client-relationship-status"><strong id="clientRelationshipTitle">Новый клиент</strong><span id="clientRelationshipLevel"></span></div><div id="clientProfileBadges"></div></div>
+                  <div class="client-profile-identity"><small>Карточка клиента</small><h3 id="clientName">Клиент</h3><div class="client-relationship-status"><strong id="clientRelationshipTitle">Новый</strong><span id="clientRelationshipLevel" hidden></span></div><div id="clientProfileBadges"></div></div>
                   <div class="client-profile-contact"><a id="clientPhone" href="tel:">Телефон</a><button id="clientCopyPhone" type="button" aria-label="Скопировать номер телефона" title="Скопировать номер">Копировать</button></div>
                   <span class="client-online-block-badge" id="clientOnlineBlockBadge" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg> Онлайн-запись заблокирована</span>
                   <div class="client-profile-primary-actions" aria-label="Действия с клиентом">
@@ -358,10 +357,10 @@
                   <article><span class="client-summary-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-calendar"></use></svg></span><div><strong id="clientLastVisit">—</strong><small>последний визит</small></div></article>
                   <article class="client-summary-next"><span class="client-summary-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></span><div><strong id="clientNext">Нет</strong><small id="clientNextLabel">следующая запись</small><span id="clientNextDetails">Будущих записей нет</span></div></article>
                 </div>
-                <section class="client-milestone-card" id="clientMilestoneCard" aria-labelledby="clientMilestoneTitle">
-                  <span class="client-milestone-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-star"></use></svg></span>
-                  <div><small id="clientMilestoneTitle">Уровень отношений</small><strong id="clientMilestoneText">До первого визита — 1 визит</strong><span>Учитываются только завершённые визиты</span></div>
-                  <i id="clientMilestoneProgress" role="progressbar" aria-label="Прогресс уровня отношений" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><b></b></i>
+                <section class="client-milestone-card client-loyalty-card" id="clientMilestoneCard" aria-labelledby="clientMilestoneTitle" hidden>
+                  <div><small id="clientMilestoneTitle">Программа лояльности</small><strong id="clientMilestoneText">0 из 10 визитов</strong><span id="clientMilestoneHint">Ещё 10 до награды</span></div>
+                  <button class="secondary-button" id="clientLoyaltyOpenSettings" type="button">Настроить</button>
+                  <i id="clientMilestoneProgress" role="progressbar" aria-label="Прогресс до награды" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><b></b></i>
                 </section>
                 <section class="client-reliability-card" id="clientReliabilityCard" role="status" hidden>
                   <span aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-alert"></use></svg></span>
@@ -891,7 +890,7 @@
                 <option value="paymentProviderPanel">Оплата и сервисы</option>
                 <option value="commercePanel">Продажи</option>
                 <option value="benefitsPanel">Абонементы</option>
-                <option value="loyaltyPanel">Бонусы</option>
+                <option value="loyaltyPanel">Лояльность</option>
                 <option value="retentionPanel">Возврат клиентов</option>
                 <option value="inventoryPanel">Склад</option>
               </select>
@@ -905,7 +904,7 @@
               <button type="button" data-section-target="paymentProviderPanel">Оплата и сервисы</button>
               <button type="button" data-section-target="commercePanel">Продажи</button>
               <button type="button" data-section-target="benefitsPanel">Абонементы</button>
-              <button type="button" data-section-target="loyaltyPanel">Бонусы</button>
+              <button type="button" data-section-target="loyaltyPanel">Лояльность</button>
               <button type="button" data-section-target="retentionPanel">Возврат клиентов</button>
               <button type="button" data-section-target="inventoryPanel">Склад</button>
             </nav>
@@ -1192,41 +1191,31 @@
               </div>
             </section>
 
-            <section class="panel organization-section organization-loyalty" id="loyaltyPanel" hidden>
-              <div class="panel-head"><div><h3>Бонусы и промокоды</h3></div></div>
-              <p class="organization-invite-help">Бонусы начисляются после завершённого оплаченного визита. Все изменения можно проверить в истории.</p>
+            <section class="panel organization-section organization-loyalty loyalty-program" id="loyaltyPanel" hidden>
+              <div class="panel-head"><div><small>Понятная награда за возвращение</small><h3>Программа лояльности</h3></div></div>
+              <p class="organization-invite-help">Вы задаёте цель, награду и срок. Прогресс растёт только после подтверждённо завершённых визитов; скидки и сообщения не применяются автоматически.</p>
               <p id="loyaltyWorkflowStatus" role="status" aria-live="polite">Проверяем состояние программы…</p>
               <div class="loading-state compact" id="loyaltyLoading" hidden><i></i><span>Загружаем программу лояльности…</span></div>
-              <div class="resource-inline-error" id="loyaltyUnavailable" role="status" hidden><div><strong>Бонусы временно недоступны</strong><small id="loyaltyUnavailableText"></small></div><button class="secondary-button" id="reloadLoyalty" type="button">Повторить</button></div>
+              <div class="resource-inline-error" id="loyaltyUnavailable" role="status" hidden><div><strong>Программа временно недоступна</strong><small id="loyaltyUnavailableText"></small></div><button class="secondary-button" id="reloadLoyalty" type="button">Повторить</button></div>
               <div class="loyalty-workspace" id="loyaltyWorkspace" hidden>
-                <label class="settings-check loyalty-enable-field"><input id="loyaltyEnabled" type="checkbox" data-loyalty-write><span><strong>Включить бонусную программу</strong><small>По умолчанию выключено. Старые визиты не начисляют бонусы задним числом.</small></span></label>
-                <form class="loyalty-rule-form" id="loyaltyRuleForm">
-                  <div class="resource-subhead"><div><small>Начисление и безопасное списание</small><strong>Правила программы</strong></div></div>
-                  <input id="loyaltyRuleName" type="hidden" value="Основная программа">
-                  <div class="loyalty-form-grid"><label>Начислять, %<input id="loyaltyEarnPercent" type="number" min="0.01" max="100" step="0.01" required></label><label>Минимальная оплата, ₽<input id="loyaltyMinPaid" type="number" min="0" max="10000000" step="1" required></label><label>Списывать не более, %<input id="loyaltyMaxRedeemPercent" type="number" min="0" max="100" step="0.01" required></label></div>
-                  <p class="form-error" id="loyaltyRuleError" hidden></p><button class="primary" type="submit" data-loyalty-write>Сохранить правила</button>
+                <form class="loyalty-program-setup" id="loyaltyProgramForm">
+                  <label class="settings-check loyalty-enable-field"><input id="loyaltyEnabled" type="checkbox" data-loyalty-write><span><strong>Включить программу</strong><small>По умолчанию выключена. Отсчёт начинается со следующего завершённого визита.</small></span></label>
+                  <div class="loyalty-program-steps" id="loyaltyProgramFields">
+                    <section><span>1</span><label>Цель<select id="loyaltyGoalPreset"><option value="5">5 визитов</option><option value="10" selected>10 визитов</option><option value="20">20 визитов</option><option value="custom">Своё число</option></select><small>Сколько завершённых визитов нужно до награды.</small></label><label id="loyaltyGoalCustomField" hidden>Своё число<input id="loyaltyGoalCustom" type="number" min="2" max="100" step="1" value="10"></label></section>
+                    <section><span>2</span><label>Награда<select id="loyaltyRewardKind"><option value="percent">Скидка на следующий визит, %</option><option value="fixed">Фиксированная скидка, ₽</option><option value="text">Бонус или дополнение</option></select></label><label id="loyaltyRewardValueField">Размер награды<input id="loyaltyRewardValue" type="number" min="1" max="100" step="1" value="10"></label><label>Название для клиента<input id="loyaltyRewardTitle" maxlength="120" value="Скидка 10% на следующий визит" required></label><label>Короткие условия<textarea id="loyaltyRewardTerms" maxlength="500" rows="2" placeholder="Например: действует на одну услугу"></textarea></label></section>
+                    <section><span>3</span><label>Срок награды<select id="loyaltyValidity"><option value="30">30 дней</option><option value="90" selected>90 дней</option><option value="180">180 дней</option><option value="none">Без срока</option></select><small>Срок начинается в день выдачи награды.</small></label></section>
+                  </div>
+                  <aside class="loyalty-program-preview" aria-live="polite"><small>До сохранения</small><strong id="loyaltyPreviewTitle">10 визитов → скидка 10%</strong><span id="loyaltyPreviewText">После 10-го завершённого визита появится одна награда на 90 дней.</span></aside>
+                  <p class="form-error" id="loyaltyRuleError" role="alert" hidden></p>
+                  <button class="primary" type="submit" data-loyalty-write>Сохранить программу</button>
                 </form>
-                <div class="loyalty-management-grid" id="loyaltyActions">
-                  <section><div class="resource-subhead"><div><small>Текущий остаток</small><strong>Балансы клиентов</strong></div></div><div class="organization-list" id="loyaltyBalancesList"></div></section>
-                  <details class="organization-create loyalty-operation"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Ручная корректировка</span></summary><form id="loyaltyAdjustmentForm"><p class="loyalty-form-help">Изменяйте баланс только с обязательной причиной.</p><label>Клиент<select id="loyaltyAdjustmentClient" required></select></label><div class="form-row"><label>Бонусы<input id="loyaltyAdjustmentPoints" type="number" min="-1000000" max="1000000" step="1" required></label><label>Причина<input id="loyaltyAdjustmentReason" maxlength="500" minlength="8" required></label></div><p class="form-error" id="loyaltyAdjustmentError" hidden></p><button class="secondary-button" type="submit" data-loyalty-write>Скорректировать</button></form></details>
-                  <details class="organization-create loyalty-operation"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"></use></svg><span>Списать бонусы на визит</span></summary><form id="loyaltyRedeemForm"><p class="loyalty-form-help">1 бонус = 1 ₽. Выберите завершённый визит клиента.</p><label>Клиент<select id="loyaltyRedeemClient" required></select></label><label>Завершённый визит<select id="loyaltyRedeemBooking" required></select></label><label>Списать бонусов<input id="loyaltyRedeemPoints" type="number" min="1" max="10000000" step="1" required></label><p class="form-error" id="loyaltyRedeemError" hidden></p><button class="secondary-button" type="submit" data-loyalty-write>Списать</button></form></details>
-                </div>
-                <section class="loyalty-promotions"><div class="resource-subhead"><div><small>Период, общий и клиентский лимиты</small><strong>Промокоды</strong></div></div><div class="organization-list" id="loyaltyPromotionsList"></div>
-                    <details class="organization-create"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать промокод</span></summary><form id="loyaltyPromoForm"><p class="loyalty-form-help"><strong>Заполните обязательные поля.</strong> Серый текст в полях является примером, а не введённым значением.</p><div class="form-row"><label>Код<input id="loyaltyPromoCode" maxlength="32" placeholder="Например, WELCOME10" aria-describedby="loyaltyPromoCodeHint" required><small id="loyaltyPromoCodeHint">От 3 до 32 символов: буквы, цифры, «_» или «-».</small></label><label>Тип<select id="loyaltyPromoKind"><option value="percent">Процент</option><option value="fixed">Сумма</option></select><small>Процент от стоимости или фиксированная сумма в рублях.</small></label></div><label><span id="loyaltyPromoValueLabel">Скидка, %</span><input id="loyaltyPromoValue" type="number" min="0.01" max="100" step="0.01" placeholder="Например, 10" required><small id="loyaltyPromoValueHint">Введите 10, чтобы дать скидку 10%.</small></label><div class="form-row"><label>Действует с<input id="loyaltyPromoFrom" type="date" required><small>Дата начала действия.</small></label><label>Действует по<input id="loyaltyPromoUntil" type="date" required><small>Последний день действия включительно.</small></label></div><div class="form-row"><label>Общий лимит<input id="loyaltyPromoTotalLimit" type="number" min="1" max="1000000" step="1" placeholder="Без лимита"><small>Сколько раз код можно применить всего.</small></label><label>На одного клиента<input id="loyaltyPromoClientLimit" type="number" min="1" max="10000" step="1" placeholder="Без лимита"><small>Сколько раз один клиент может применить код.</small></label></div><p class="form-error" id="loyaltyPromoError" role="alert" hidden></p><button class="primary" type="submit" data-loyalty-write>Создать промокод</button></form></details>
-                    <details class="organization-create"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"></use></svg><span>Проверить и применить</span></summary><form id="loyaltyPromoApplyForm"><p class="loyalty-form-help">Промокод не применяется автоматически при создании. Выберите клиента и его запись, затем укажите созданный код.</p><label>Клиент<select id="loyaltyPromoClient" required></select></label><label>Запись<select id="loyaltyPromoBooking" required></select><small>Показываются записи выбранного клиента за последние 180 дней.</small></label><label>Промокод<input id="loyaltyPromoApplyCode" maxlength="32" placeholder="Например, WELCOME10" required></label><p class="form-error" id="loyaltyPromoApplyError" role="alert" hidden></p><button class="secondary-button" type="submit" data-loyalty-write>Проверить и применить</button></form></details>
-                </section>
-                <details class="resource-audit"><summary><span><small>Защита от незаметных изменений</small><strong>Журнал бонусов</strong></span><span>Последние 100</span></summary><div class="organization-audit-list" id="loyaltyLedgerList"></div></details>
+                <div class="loyalty-program-stats" aria-label="Короткие показатели"><article><small>Выдано</small><strong id="loyaltyIssuedCount">0</strong></article><article><small>Использовано</small><strong id="loyaltyRedeemedCount">0</strong></article></div>
+                <section class="loyalty-program-clients"><div class="resource-subhead"><div><small>Только завершённые визиты</small><strong>Прогресс клиентов</strong></div></div><div class="organization-list" id="loyaltyBalancesList"></div></section>
+                <section class="loyalty-program-rewards"><div class="resource-subhead"><div><small>Погашение только после подтверждения</small><strong>Доступные награды</strong></div></div><div class="organization-list" id="loyaltyRewardsList"></div></section>
+                <details class="organization-create loyalty-operation"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Скорректировать прогресс</span></summary><form id="loyaltyAdjustmentForm"><p class="loyalty-form-help">Исправление записывается в историю. Причина обязательна.</p><label>Клиент<select id="loyaltyAdjustmentClient" required></select></label><div class="form-row"><label>Изменить на<input id="loyaltyAdjustmentPoints" type="number" min="-100" max="100" step="1" required></label><label>Причина<input id="loyaltyAdjustmentReason" maxlength="500" minlength="3" required></label></div><p class="form-error" id="loyaltyAdjustmentError" role="alert" hidden></p><button class="secondary-button" type="submit" data-loyalty-write>Сохранить корректировку</button></form></details>
+                <details class="resource-audit"><summary><span><small>Начисление, погашение, истечение и корректировки</small><strong>История программы</strong></span><span>Последние 100</span></summary><div class="organization-audit-list" id="loyaltyLedgerList"></div></details>
               </div>
-              <details class="ux-disclosure"><summary>Как работает бонусная программа</summary><div class="loyalty-guide">
-                <ol><li>Включите программу и сохраните процент начисления.</li><li>Завершите визит и отметьте фактически полученную оплату.</li><li>Бонусы начислятся автоматически. Старые визиты не пересчитываются.</li><li>Промокод сначала создаётся здесь, затем применяется к выбранной записи.</li></ol>
-              </div></details>
-              <details class="ux-disclosure"><summary>Пример расчёта бонусов и промокода</summary><div class="loyalty-example">
-                <div><small>Пример на визите стоимостью 3 000 ₽</small><strong>Сколько получает клиент</strong></div>
-                <p><b>Бонусы</b><span id="loyaltyBonusExampleText">При начислении 5% клиент получает 150 бонусов.</span></p>
-                <p><b>Оплата бонусами</b><span id="loyaltyRedeemExampleText">При лимите 30% клиент сможет списать до 900 бонусов со следующего визита за 3 000 ₽.</span></p>
-                <p><b>Промокод WELCOME10</b><span>Скидка 10% уменьшит цену с 3 000 ₽ до 2 700 ₽. Клиент сэкономит 300 ₽.</span></p>
-                <small>1 бонус = 1 ₽. Бонусы и промокод одновременно к одной записи не применяются.</small>
-              </div></details>
+              <details class="ux-disclosure"><summary>Как это работает</summary><div class="loyalty-guide"><ol><li>Выберите число визитов, награду и срок.</li><li>Прогресс растёт только после статуса «Завершён».</li><li>Отмена, неявка, будущая запись и повтор события не засчитываются.</li><li>Награду выдаёт сервер один раз, а использует её мастер отдельным подтверждением.</li></ol><p>Старые визиты не пересчитываются. Отключение не стирает историю и уже выданные награды.</p></div></details>
             </section>
 
             <section class="panel organization-section organization-inventory" id="inventoryPanel" hidden>
@@ -1367,7 +1356,7 @@
                   <article class="subscription-plan-card"><div class="subscription-plan-top"><span>04</span><div><small>Для сети</small><h4>Сеть</h4></div></div><p class="subscription-price monthly-price"><strong>2 490 ₽</strong><span>в месяц</span></p><p class="subscription-price annual-price"><strong>24 900 ₽</strong><span>в год</span></p><ul><li>До 50 специалистов</li><li>До 10 филиалов</li></ul></article>
                 </div>
               </div>
-              <details class="subscription-includes"><summary>Что входит в каждый тариф</summary><div class="subscription-feature-grid"><span>Онлайн-запись и расписание</span><span>Клиенты и история посещений</span><span>Уведомления и напоминания</span><span>Оплата и предоплата</span><span>Статистика, UTM и Excel-отчёты</span><span>Бонусы и промокоды</span><span>Сертификаты и абонементы</span><span>Лист ожидания и групповые сеансы</span><span>Отзывы и портфолио</span><span>Товары и склад</span><span>Импорт и экспорт данных</span><span>Приложение, резервные копии и защита</span></div></details>
+              <details class="subscription-includes"><summary>Что входит в каждый тариф</summary><div class="subscription-feature-grid"><span>Онлайн-запись и расписание</span><span>Клиенты и история посещений</span><span>Уведомления и напоминания</span><span>Оплата и предоплата</span><span>Статистика, UTM и Excel-отчёты</span><span>Программа лояльности</span><span>Сертификаты и абонементы</span><span>Лист ожидания и групповые сеансы</span><span>Отзывы и портфолио</span><span>Товары и склад</span><span>Импорт и экспорт данных</span><span>Приложение, резервные копии и защита</span></div></details>
               <div class="subscription-footnote"><strong>Считаются только специалисты, доступные для записи.</strong><span>Администраторы без приёма клиентов не расходуют лимит. SMS и комиссия платёжной системы оплачиваются отдельно.</span></div>
               </details>
             </section>
@@ -2033,7 +2022,7 @@
             <button type="button" data-voice-example="Какая выручка сегодня?">Выручка сегодня</button>
             <button type="button" data-voice-example="Напиши напоминание клиенту на завтра">Написать клиенту</button>
             <button type="button" data-voice-example="Дай короткую сводку и план на день">С чего начать?</button>
-            <button type="button" data-voice-example="Как включить бонусы?">Бонусы и промокоды</button>
+            <button type="button" data-voice-example="Как включить программу лояльности?">Программа лояльности</button>
             <button type="button" data-voice-example="Почему упала выручка на этой неделе?">Почему упала выручка?</button>
             <button type="button" data-voice-example="Какие материалы заканчиваются?">Что заканчивается?</button>
             <button type="button" data-voice-example="Чем списание отличается от инвентаризации?">Складские операции</button>
@@ -2122,7 +2111,7 @@
   </div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
-  <script src="site-update.js?v=840" defer></script>
+  <script src="site-update.js?v=841" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2150,7 +2139,7 @@
   <script src="report-demo-live.js?v=811" defer></script>
   <link rel="stylesheet" href="client-directory.css?v=811">
   <link rel="stylesheet" href="provider-ui-refinements.css?v=811">
-  <link rel="stylesheet" href="provider-clients-premium.css?v=811">
+  <link rel="stylesheet" href="provider-clients-premium.css?v=841">
   <link rel="stylesheet" href="provider-themes-distinct.css?v=821">
   <link rel="stylesheet" href="provider-theme-families.css?v=821">
   <link rel="stylesheet" href="provider-theme-backgrounds-tema1.css?v=840">
@@ -2160,7 +2149,7 @@
   <script src="provider-color-mode.js?v=811" defer></script>
   <script src="client-directory.js?v=811" defer></script>
   <script src="client-results.js?v=811" defer></script>
-  <script src="client-relationship.js?v=811" defer></script>
+  <script src="client-relationship.js?v=841" defer></script>
   <script src="client-records.js?v=811" defer></script>
   <script src="benefit-lifecycle.js?v=811" defer></script>
   <script src="booking-widgets.js?v=811" defer></script>
@@ -2171,7 +2160,7 @@
   <script src="finance-center.js?v=811" defer></script>
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
-  <script src="provider.js?v=840" defer></script>
+  <script src="provider.js?v=841" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>
   <script src="primetime-handoff.js?v=811" defer></script>

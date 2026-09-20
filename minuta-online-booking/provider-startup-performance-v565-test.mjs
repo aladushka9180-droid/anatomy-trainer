@@ -51,7 +51,7 @@ assert.match(provider, /organizationFeatureDefinitions/,
 const lazyScripts = [
   'voice-assistant.js', 'help/help-data.js', 'contextual-help.js', 'settings-nav-scroll.js', 'settings-smart-search.js',
   'resource-management.js', 'shift-management.js', 'payroll-management.js', 'benefit-management.js',
-  'loyalty-management.js', 'inventory-management.js', 'retention-management.js'
+  'loyalty-management.js', 'loyalty-program-v166.js', 'inventory-management.js', 'retention-management.js'
 ];
 for (const script of lazyScripts) {
   assert.ok(!new RegExp(`<script[^>]+src=["']${script.replaceAll('.', '\\.')}(?:\\?[^"']*)?["']`).test(html),

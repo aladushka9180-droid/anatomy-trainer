@@ -2,11 +2,10 @@
   'use strict';
 
   const LEVELS = Object.freeze([
-    Object.freeze({ level:0, min:0, title:'Новый клиент', next:1 }),
-    Object.freeze({ level:1, min:1, title:'Первый визит', next:3 }),
-    Object.freeze({ level:2, min:3, title:'Возвращается', next:8 }),
-    Object.freeze({ level:3, min:8, title:'Постоянный клиент', next:12 }),
-    Object.freeze({ level:4, min:12, title:'С нами давно', next:null })
+    Object.freeze({ level:0, min:0, title:'Новый', next:1 }),
+    Object.freeze({ level:1, min:1, title:'Вернулся', next:3 }),
+    Object.freeze({ level:2, min:3, title:'Постоянный', next:8 }),
+    Object.freeze({ level:3, min:8, title:'Лояльный', next:null })
   ]);
 
   function integer(value) {
@@ -34,20 +33,15 @@
     const current = levelFor(visits);
     const next = current.next == null ? null : LEVELS.find(item => item.min === current.next);
     const remaining = next ? Math.max(0, next.min - visits) : 0;
-    const levelProgress = current.level / 4;
-    const intervalProgress = next && next.min > current.min ? (visits - current.min) / (next.min - current.min) / 4 : 0;
-    const progress = Math.max(visits ? .08 : 0, Math.min(1, levelProgress + intervalProgress));
     return Object.freeze({
       visits,
       level:current.level,
       title:current.title,
-      progress,
+      progress:0,
       nextTitle:next?.title || '',
       remaining,
-      status:current.level ? `${current.title} · ${current.level} уровень` : current.title,
-      milestone:next
-        ? `До уровня «${next.title}» — ${remaining} ${visitWord(remaining)}`
-        : 'Максимальный уровень — спасибо, что вы с нами'
+      status:current.title,
+      milestone:''
     });
   }
 

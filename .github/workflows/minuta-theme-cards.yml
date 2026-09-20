@@ -34,6 +34,7 @@ jobs:
       - run: node minuta-online-booking/tests/client-theme-selection-browser-test.mjs
       - run: node minuta-online-booking/tests/client-theme-visual-parity-browser-test.mjs
       - run: node minuta-online-booking/tests/client-relationship-appearance-browser-test.mjs
+      - run: node minuta-online-booking/tests/loyalty-program-v166-browser-test.mjs
       - run: node minuta-online-booking/tests/notification-status-clarity-browser-test.mjs
       - run: node minuta-online-booking/tests/code-scanner-camera-browser-test.mjs
       - run: node minuta-online-booking/tests/client-contact-picker-browser-test.mjs

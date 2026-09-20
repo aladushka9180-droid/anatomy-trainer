@@ -45,33 +45,35 @@ try {
 
     document.querySelector('#clientsCount').textContent = '37';
     document.querySelector('#clientsList').innerHTML = [
-      ['Ирина Орлова', '+7 915 246-38-21', 'Постоянный клиент · 3 уровень', 10, '.76turn', true],
-      ['Алексей Соколов', '+7 916 882-11-03', 'Возвращается · 2 уровень', 6, '.42turn', false],
-      ['Мария Климова', '+7 925 771-20-44', 'Первый визит · 1 уровень', 1, '.25turn', true],
-      ['Сергей Никитин', '+7 903 333-17-88', 'С нами давно · 4 уровень', 18, '1turn', true]
-    ].map(([name, phone, status, count, progress, photo], index) => `
+      ['Ирина Орлова', '+7 915 246-38-21', 'Лояльный', 10, true],
+      ['Алексей Соколов', '+7 916 882-11-03', 'Постоянный', 6, false],
+      ['Мария Климова', '+7 925 771-20-44', 'Вернулся', 1, true],
+      ['Сергей Никитин', '+7 903 333-17-88', 'Лояльный', 18, true]
+    ].map(([name, phone, status, count, photo], index) => `
       <button class="client-list-item${index === 0 ? ' active' : ''}" type="button">
-        <span class="client-list-avatar-orbit${photo ? ' has-photo' : ''}" data-client-level="${Math.min(4, Math.max(1, index + 1))}" style="--client-level-progress:${progress}" aria-hidden="true"><span class="client-list-avatar">${name[0]}</span></span>
+        <span class="client-list-avatar-orbit${photo ? ' has-photo' : ''}" aria-hidden="true"><span class="client-list-avatar">${name[0]}</span></span>
         <span class="client-list-main"><strong>${name}</strong><small>${phone}</small><i>${index ? 'Нет будущих записей' : '12 сент., 10:00'}</i><em class="client-list-level">${status}</em></span>
         <b>${count}</b>
       </button>`).join('');
 
     const orbit = document.querySelector('#clientProfileOrbit');
-    orbit.classList.add('has-photo');
-    orbit.dataset.clientLevel = '3';
-    orbit.style.setProperty('--client-level-progress', '.76turn');
+    orbit.classList.add('has-photo', 'has-loyalty-progress');
+    orbit.style.setProperty('--client-level-progress', '.6turn');
     document.querySelector('#clientAvatar').textContent = 'И';
     document.querySelector('#clientName').textContent = 'Ирина Орлова';
     document.querySelector('#clientPhone').textContent = '+7 915 246-38-21';
-    document.querySelector('#clientRelationshipTitle').textContent = 'Постоянный клиент';
-    document.querySelector('#clientRelationshipLevel').textContent = '3 уровень';
+    document.querySelector('#clientRelationshipTitle').textContent = 'Лояльный';
+    document.querySelector('#clientRelationshipLevel').textContent = '';
     document.querySelector('#clientVisits').textContent = '10';
     document.querySelector('#clientSpent').textContent = '48 300 ₽';
     document.querySelector('#clientLastVisit').textContent = '4 сент.';
     document.querySelector('#clientNext').textContent = '12 сент. · 10:00';
     document.querySelector('#clientNextDetails').textContent = 'Уход для лица «Сияние»';
-    document.querySelector('#clientMilestoneText').textContent = 'До уровня «С нами давно» — 2 визита';
-    document.querySelector('#clientMilestoneCard').style.setProperty('--client-level-width', '76%');
+    const loyaltyCard = document.querySelector('#clientMilestoneCard');
+    loyaltyCard.hidden = false;
+    document.querySelector('#clientMilestoneText').textContent = '6 из 10 визитов';
+    document.querySelector('#clientMilestoneHint').textContent = 'Ещё 4 до награды «Скидка 10%»';
+    loyaltyCard.style.setProperty('--client-level-width', '60%');
     const reliability = document.querySelector('#clientReliabilityCard');
     reliability.hidden = false;
     document.querySelector('#clientReliabilityText').textContent = '1 отмена клиентом и 1 неявка из последних 8 записей';
@@ -126,15 +128,15 @@ try {
     assert.ok(state.scrollWidth <= width + 1, `${theme}/${layout}/${width}: no horizontal overflow`);
     assert.equal(state.profileDisplay, 'block', `${theme}/${layout}/${width}: selected client profile stays visible`);
     assert.ok(state.profile.left >= -0.5 && state.profile.right <= width + 1, `${theme}/${layout}/${width}: profile remains inside viewport`);
-    assert.match(state.ringBackground, /conic-gradient/, `${theme}/${layout}/${width}: relationship ring remains visible`);
+    assert.match(state.ringBackground, /conic-gradient/, `${theme}/${layout}/${width}: loyalty ring remains visible`);
     assert.ok(state.orbitSize <= 122.5, `${theme}/${layout}/${width}: profile avatar stays prominent but contained (${state.orbitSize})`);
     assert.ok(state.summaryArticles.every(height => height <= 96), `${theme}/${layout}/${width}: facts stay compact (${state.summaryArticles})`);
     assert.ok(state.milestoneHeight <= 84, `${theme}/${layout}/${width}: milestone stays compact (${state.milestoneHeight})`);
     assert.equal(state.tabs.filter(item => item.active).length, 1, `${theme}/${layout}/${width}: profile navigation has one active section`);
     assert.equal(state.tabs.filter(item => item.selected === 'true').length, 1, `${theme}/${layout}/${width}: profile navigation exposes one selected tab`);
     assert.equal(state.panels.filter(item => item.display !== 'none').length, 1, `${theme}/${layout}/${width}: only one profile panel is visible`);
-    if (width <= 980) assert.equal(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: detail uses a single pane`);
-    if (width >= 1100) assert.notEqual(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: desktop keeps client context`);
+    if (width <= 1120) assert.equal(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: detail uses a single pane without overflow`);
+    if (width >= 1121) assert.notEqual(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: wide desktop keeps client context`);
     if (width <= 1199) assert.equal(state.summaryColumns, 2, `${theme}/${layout}/${width}: narrow profile uses a compact 2x2 fact grid`);
     if (width <= 760) {
       assert.ok(state.actions.every(item => item.height >= 43.5), `${theme}/${layout}/${width}: actions remain touch friendly (${JSON.stringify(state.actions)})`);
@@ -172,27 +174,20 @@ try {
   assert.equal(tabStates[3].recordsParent, 'history', 'History tab regains the private records host');
   assert.deepEqual(tabStates[3].recordsView, ['history'], 'History tab exposes only visit history');
 
-  const ringTones = await page.evaluate(() => [0,1,2,3,4].map(level => {
-    const orbit=document.querySelector('#clientProfileOrbit');
-    orbit.dataset.clientLevel=String(level);
-    return getComputedStyle(orbit).backgroundImage;
-  }));
-  assert.equal(new Set(ringTones).size,5,'All five relationship levels have distinct ring tones');
-
-  await page.evaluate(() => document.querySelector('#clientMilestoneCard').classList.add('is-max-level'));
-  const maximumMilestone = await page.locator('#clientMilestoneCard').boundingBox();
-  assert.ok(maximumMilestone.height <= 84, `Maximum level remains a compact premium status (${maximumMilestone.height})`);
+  const ringTone = await page.locator('#clientProfileOrbit').evaluate(node => getComputedStyle(node).backgroundImage);
+  assert.match(ringTone,/conic-gradient/,'Loyalty progress uses the active theme ring');
   if (process.env.CLIENT_RELATIONSHIP_SCREENSHOT) {
     const screenshotWidth = Number(process.env.CLIENT_RELATIONSHIP_SCREENSHOT_WIDTH) || 1440;
     await page.setViewportSize({ width:screenshotWidth, height:1000 });
     await page.locator('body').evaluate(body => {
       body.dataset.providerTheme = 'warm';
       body.dataset.providerLayout = 'bento';
-      document.querySelector('#clientProfileOrbit').classList.add('is-max-level');
+      document.querySelector('#clientProfileOrbit').classList.add('has-loyalty-progress');
       document.querySelector('.client-profile').classList.add('client-profile-vip');
-      document.querySelector('#clientRelationshipTitle').textContent = 'С нами давно';
-      document.querySelector('#clientRelationshipLevel').textContent = '4 уровень';
-      document.querySelector('#clientMilestoneText').textContent = 'Максимальный уровень — спасибо, что вы с нами';
+      document.querySelector('#clientRelationshipTitle').textContent = 'Лояльный';
+      document.querySelector('#clientRelationshipLevel').textContent = '';
+      document.querySelector('#clientMilestoneText').textContent = '6 из 10 визитов';
+      document.querySelector('#clientMilestoneHint').textContent = 'Ещё 4 до награды «Скидка 10%»';
       document.querySelector('#clientRecords > [data-cr-view="history"]').innerHTML = '<div class="cr-timeline"><article class="cr-event"><span class="cr-event-dot"></span><div><time>12 сент. 2026 г., 10:00</time><strong>Уход для лица «Сияние»</strong><span class="cr-meta">Завершён</span></div></article></div>';
       const favorites = document.querySelector('#clientFavoriteServices');
       favorites.hidden = false;
