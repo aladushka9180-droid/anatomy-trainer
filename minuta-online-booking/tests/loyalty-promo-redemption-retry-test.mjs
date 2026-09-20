@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import vm from 'node:vm';
 import test from 'node:test';
+import { loyaltyV81PanelHtml as html } from './fixtures/loyalty-v81-panel.mjs';
 
 // TEST-ONLY baseline f896ad54: full actual controller/bind/submit/change/load.
 // Baseline result: 4 PASS / 10 RED; run with node --test, expected exit 1.
@@ -17,7 +18,6 @@ import test from 'node:test';
 // not establish that an explicit new eligible booking violates server rules.
 // Replay omits promotion_id; discount/final are the original recorded amounts.
 const source = readFileSync(process.env.MINUTA_LOYALTY_SOURCE || new URL('../loyalty-management.js', import.meta.url), 'utf8');
-const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const ORG=id(1), ACTOR=id(2), CLIENT=id(3), BOOKING=id(4), NEXT_BOOKING=id(5), OTHER_BOOKING=id(6), OTHER_CLIENT=id(7), PROMOTION=id(8);
 const CODE='WELCOME10';

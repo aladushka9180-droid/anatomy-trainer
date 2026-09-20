@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
+import {loyaltyV81PanelHtml as html} from './fixtures/loyalty-v81-panel.mjs';
 
-// Native provider DOM and FULL controller/bound handlers/render; no bootstrap.
+// Native-browser compatibility fixture and FULL controller/bound handlers/render; no bootstrap.
 // Synthetic sequential v81:273-294 ledger models (org,request_id) replay and
 // client/delta/trim(reason) conflict. It is NOT SQL/ACL/concurrency execution.
 // Equal amounts are not deduped. Actor/org lifecycle uses public controller API
 // and its actual identity callbacks; full provider handleSession is not executed.
 // Reset is the SAME controller instance, not durable browser-restart recovery.
 const source=readFileSync(process.env.MINUTA_LOYALTY_SOURCE||new URL('../loyalty-management.js',import.meta.url),'utf8');
-const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
 const icons=readFileSync(new URL('../ui-icons.svg',import.meta.url),'utf8');
 const modulePath=process.env.MINUTA_PLAYWRIGHT_MODULE;
 const {chromium}=await import(modulePath?pathToFileURL(modulePath).href:'playwright');

@@ -66,7 +66,7 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider.js?v=841',
   './voice-wake.js?v=811',
-  './provider-feature-assets.js?v=840',
+  './provider-feature-assets.js?v=841',
 ];
 
 // Warm after the first screen. A cold installation must not wait for tools

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
+import { loyaltyV81PanelHtml as html } from './fixtures/loyalty-v81-panel.mjs';
 
 // Full actual controller and its bound event handlers; synthetic DOM and ledger.
 // No PostgreSQL, Supabase, server concurrency or native-browser claim.
@@ -10,7 +11,6 @@ import test from 'node:test';
 // integer delta and trimmed reason, and returns the ORIGINAL balance_after.
 // Equal amounts with different keys are intentionally distinct operations.
 const source = readFileSync(process.env.MINUTA_LOYALTY_SOURCE || new URL('../loyalty-management.js', import.meta.url), 'utf8');
-const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
 const ORG = '11111111-1111-4111-8111-111111111111';
 const CLIENT = '22222222-2222-4222-8222-222222222222';
 const OTHER = '33333333-3333-4333-8333-333333333333';

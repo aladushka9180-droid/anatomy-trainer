@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { loyaltyV81PanelHtml as html } from './fixtures/loyalty-v81-panel.mjs';
 
-// TEST-ONLY native browser baseline 7ed0d7fc. Actual provider #loyaltyPanel DOM,
+// TEST-ONLY native browser baseline 7ed0d7fc. Compatibility #loyaltyPanel fixture,
 // whole controller/bind/render and native form validation/submit buttons.
 // Original 13 cases: 3 PASS / 10 RED on 7ed0, without changed assertions.
 // Expanded 40 cases: 12 PASS / 28 RED on the same baseline (exit 1).
@@ -15,7 +16,6 @@ import { pathToFileURL } from 'node:url';
 // All requests are intercepted or blocked; synthetic HTML origin has no server.
 // Expected RED stays exit 1; this future regression is NOT wired into CI.
 const source=readFileSync(process.env.MINUTA_LOYALTY_SOURCE||new URL('../loyalty-management.js',import.meta.url),'utf8');
-const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
 const icons=readFileSync(new URL('../ui-icons.svg',import.meta.url),'utf8');
 const modulePath=process.env.MINUTA_PLAYWRIGHT_MODULE;
 const { chromium }=await import(modulePath?pathToFileURL(modulePath).href:'playwright');

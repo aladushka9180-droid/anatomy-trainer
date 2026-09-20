@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
+import {loyaltyV81PanelHtml as html} from './fixtures/loyalty-v81-panel.mjs';
 
-// TEST-ONLY: actual provider DOM/full controller/native validation and clicks.
+// TEST-ONLY: compatibility fixture/full controller/native validation and clicks.
 // Baseline 87721c45; model follows accepted VM473a6e -> 7fe28d7 / v81:299-326.
 // Pinned baseline: 7 PASS / 15 RED (exit 1); no skip/expected-failure wrapper.
 // Sequential authorized/enabled/completed-paid/no-benefit fixture, not SQL/RLS,
@@ -14,7 +15,6 @@ import {pathToFileURL} from 'node:url';
 // assert that another eligible booking violates SQL's one-redemption-per-booking.
 // Every request is fulfilled synthetically or blocked. No CI/expected-fail mask.
 const source=readFileSync(process.env.MINUTA_LOYALTY_SOURCE||new URL('../loyalty-management.js',import.meta.url),'utf8');
-const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
 const icons=readFileSync(new URL('../ui-icons.svg',import.meta.url),'utf8');
 const modulePath=process.env.MINUTA_PLAYWRIGHT_MODULE;
 const {chromium}=await import(modulePath?pathToFileURL(modulePath).href:'playwright');
