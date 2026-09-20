@@ -1,0 +1,245 @@
+name: Minuta v167 public multi-service release
+run-name: Minuta v167 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v167
+        required: true
+        default: test-v167
+        type: choice
+        options: [test-v167, validate-production-v167, apply-production-v167, observe-production-v167]
+      commit_sha: { description: Exact 40-character commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      restore_run_id: { description: Linked offline restore run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful isolated v167 test run ID on main, required: false, default: "", type: string }
+      validation_run_id: { description: Successful read-only v167 validation run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v167 apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter BACKUP_VERIFIED for production apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency:
+  group: "${{ inputs.phase == 'test-v167' && 'minuta-test-database' || 'minuta-production-database' }}"
+  cancel-in-progress: false
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact commit and phase
+        env:
+          SHA: "${{ inputs.commit_sha }}"
+          PHASE: "${{ inputs.phase }}"
+          CONFIRMATION: "${{ inputs.confirmation }}"
+          GH_TOKEN: "${{ github.token }}"
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          case "$PHASE" in
+            test-v167) ;;
+            validate-production-v167|observe-production-v167)
+              test "$GITHUB_REF" = refs/heads/main
+              test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+              ;;
+            apply-production-v167)
+              test "$GITHUB_REF" = refs/heads/main
+              test "$CONFIRMATION" = BACKUP_VERIFIED
+              test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+              ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: node --test minuta-online-booking/tests/public-multi-service-v167-static-test.mjs
+
+  test-v167:
+    if: inputs.phase == 'test-v167'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+      PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Prove apply, integration, concurrency, disable and re-enable
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-state.sql | grep '^{' | tail -n 1)"
+          case "$(jq -r .classification <<<"$state")" in
+            exact) psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v167-rollback.sql ;;
+            absent|disabled) ;;
+            *) jq -c . <<<"$state"; exit 1 ;;
+          esac
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v167.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v167.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/public-multi-service-v167-integration.sql
+          bash minuta-online-booking/tests/public-multi-service-v167-concurrency.sh > "$RUNNER_TEMP/v167-concurrency.json"
+          applied="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-state.sql | grep '^{' | tail -n 1)"
+          jq -e '.classification=="exact" and .structuralExact and .anonExecute and .authenticatedExecute and (.serviceRoleExecute|not) and (.publicExecute|not)' <<<"$applied" >/dev/null
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v167-rollback.sql
+          disabled="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-state.sql | grep '^{' | tail -n 1)"
+          jq -e '.classification=="disabled" and .structuralExact and (.functionPresent|not)' <<<"$disabled" >/dev/null
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v167.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/public-multi-service-v167-integration.sql
+          reapplied="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-state.sql | grep '^{' | tail -n 1)"
+          jq -e '.classification=="exact" and .structuralExact' <<<"$reapplied" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$reapplied" --slurpfile concurrency "$RUNNER_TEMP/v167-concurrency.json" \
+            '{status:"success",phase:"test-v167",commitSha:$sha,state:$state,concurrency:$concurrency[0],cycle:["apply","double-apply","integration","concurrency","disable","re-enable","integration"],productionWritten:false,businessRowsChanged:false}' > "$RUNNER_TEMP/v167-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v167-test-${{ github.run_id }}", path: "${{ runner.temp }}/v167-test.json", if-no-files-found: error, retention-days: 90 }
+
+  validate-production-v167:
+    if: inputs.phase == 'validate-production-v167'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Read-only production validation
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-state.sql | grep '^{' | tail -n 1)"
+          jq -e '(.classification=="absent" or .classification=="disabled" or (.classification=="exact" and .anonExecute and .authenticatedExecute and (.serviceRoleExecute|not) and (.publicExecute|not))) and .structuralExact' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"validate-production-v167",commitSha:$sha,state:$state,readOnly:true,productionWritten:false}' > "$RUNNER_TEMP/v167-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v167-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v167-validation.json", if-no-files-found: error, retention-days: 90 }
+
+  apply-production-v167:
+    if: inputs.phase == 'apply-production-v167'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - name: Verify pinned evidence and current main
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          SHA: "${{ inputs.commit_sha }}"
+          BACKUP: "${{ inputs.backup_run_id }}"
+          RESTORE: "${{ inputs.restore_run_id }}"
+          TEST: "${{ inputs.test_run_id }}"
+          VALIDATION: "${{ inputs.validation_run_id }}"
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP" "$RESTORE" "$TEST" "$VALIDATION"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){ run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run_json")" = success; test "$(jq -r .head_sha <<<"$run_json")" = "$SHA"; test "$(jq -r .head_branch <<<"$run_json")" = main; test "$(jq -r .event <<<"$run_json")" = workflow_dispatch; test "$(jq -r .path <<<"$run_json")" = "$2"; }
+          check_run "$TEST" .github/workflows/minuta-v167-public-multi-service-release.yml
+          test "$(jq -r .display_title <<<"$run_json")" = "Minuta v167 - test-v167 - $SHA"
+          check_run "$VALIDATION" .github/workflows/minuta-v167-public-multi-service-release.yml
+          test "$(jq -r .display_title <<<"$run_json")" = "Minuta v167 - validate-production-v167 - $SHA"
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          backup_age=$(( $(date +%s)-$(date -d "$(jq -r .created_at <<<"$run_json")" +%s) ))
+          test "$backup_age" -ge 0 && test "$backup_age" -le 7200
+          check_run "$RESTORE" .github/workflows/minuta-supabase-restore-drill.yml
+          mkdir -p "$RUNNER_TEMP/v167-evidence"/{test,validation,backup,restore}
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v167-test-$TEST" -D "$RUNNER_TEMP/v167-evidence/test"
+          gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v167-validation-$VALIDATION" -D "$RUNNER_TEMP/v167-evidence/validation"
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="test-v167" and .commitSha==$sha and (.productionWritten|not) and (.businessRowsChanged|not) and .concurrency.status=="success"' "$RUNNER_TEMP/v167-evidence/test/v167-test.json" >/dev/null
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="validate-production-v167" and .commitSha==$sha and .readOnly and (.productionWritten|not)' "$RUNNER_TEMP/v167-evidence/validation/v167-validation.json" >/dev/null
+          backup_artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts")"
+          backup_name="$(jq -r '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name' <<<"$backup_artifacts")"
+          test -n "$backup_name"
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$backup_name" -D "$RUNNER_TEMP/v167-evidence/backup"
+          restore_artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESTORE/artifacts")"
+          restore_name="$(jq -r '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name' <<<"$restore_artifacts")"
+          test -n "$restore_name"
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "$restore_name" -D "$RUNNER_TEMP/v167-evidence/restore"
+          restore_json="$(find "$RUNNER_TEMP/v167-evidence/restore" -type f -name '*.json' -print -quit)"
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" '.status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed and (.productionWritten|not) and .sourceBackupRunId==$backup and .sourceBackupSha==$sha' "$restore_json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply exact v167 contract without business-row changes
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          before="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-business-counts.sql | grep '^{' | tail -n 1)"
+          state_before="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-state.sql | grep '^{' | tail -n 1)"
+          jq -e '(.classification=="absent" or .classification=="disabled" or .classification=="exact") and .structuralExact' <<<"$state_before" >/dev/null
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v167.sql
+          after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-business-counts.sql | grep '^{' | tail -n 1)"
+          test "$(jq -S . <<<"$after")" = "$(jq -S . <<<"$before")"
+          state_after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-state.sql | grep '^{' | tail -n 1)"
+          jq -e '.classification=="exact" and .structuralExact and .anonExecute and .authenticatedExecute and (.serviceRoleExecute|not) and (.publicExecute|not)' <<<"$state_after" >/dev/null
+          jq -n --arg sha "$SHA" --argjson before "$state_before" --argjson after "$state_after" '{status:"success",phase:"apply-production-v167",commitSha:$sha,before:$before,after:$after,productionWritten:true,businessRowsChanged:false,externalMessagesSent:false,paymentsCharged:false}' > "$RUNNER_TEMP/v167-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v167-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v167-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v167:
+    if: inputs.phase == 'observe-production-v167'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - name: Verify exact apply run
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}", APPLY: "${{ inputs.apply_run_id }}" }
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run_json")" = success
+          test "$(jq -r .head_sha <<<"$run_json")" = "$SHA"
+          test "$(jq -r .path <<<"$run_json")" = .github/workflows/minuta-v167-public-multi-service-release.yml
+          test "$(jq -r .display_title <<<"$run_json")" = "Minuta v167 - apply-production-v167 - $SHA"
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify production state and health read-only
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/public-multi-service-v167-state.sql | grep '^{' | tail -n 1)"
+          jq -e '.classification=="exact" and .structuralExact and .anonExecute and .authenticatedExecute and (.serviceRoleExecute|not) and (.publicExecute|not)' <<<"$state" >/dev/null
+          jq -n --argjson state "$state" '{status:"success",phase:"observe-production-v167",state:$state,readOnly:true,productionWritten:false}' > "$RUNNER_TEMP/v167-observation.json"
+      - run: node minuta-online-booking/production-health-check.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v167-observation-${{ github.run_id }}", path: "${{ runner.temp }}/v167-observation.json", if-no-files-found: error, retention-days: 90 }

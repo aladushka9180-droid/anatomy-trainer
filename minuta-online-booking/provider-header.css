@@ -74,6 +74,9 @@
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar {
   min-height:64px!important;
   padding-block:10px!important;
+  position:relative;
+  z-index:50;
+  overflow:visible;
 }
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-actions {
   position:relative;
@@ -124,7 +127,7 @@
   grid-template-columns:minmax(0,1fr);
   gap:2px;
   width:min(268px,calc(100vw - 24px));
-  max-height:calc(100vh - 96px);
+  max-height:min(312px,calc(100dvh - 84px - env(safe-area-inset-bottom,0px)));
   padding:6px;
   overflow-x:hidden;
   overflow-y:auto;
@@ -135,9 +138,6 @@
   box-shadow:0 18px 44px var(--theme-shadow);
 }
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools[open]>div { display:grid; }
-.provider-body[data-provider-theme][data-provider-layout] .provider-topbar:has(.provider-topbar-tools[open]) {
-  margin-bottom:286px!important;
-}
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar .provider-topbar-tools>div :is(.voice-assistant-open,.topbar-client-link,.free-slots-open-button,.sync-tool-button,.desktop-app-install) {
   display:flex!important;
   align-items:center!important;

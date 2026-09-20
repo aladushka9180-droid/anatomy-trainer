@@ -15,4 +15,13 @@ public final class NavigationPolicyTest {
         assertFalse(NavigationPolicy.isTrustedUrl("https://primetime-booking.primetime-booking-ru.workers.dev.evil.example/"));
         assertFalse(NavigationPolicy.isTrustedUrl("https://user@primetime-booking.primetime-booking-ru.workers.dev/"));
     }
+
+    @Test
+    public void trustsOnlyExactPrimeTimeOriginsForWebPermissions() {
+        assertTrue(NavigationPolicy.isTrustedOrigin("https://primetime-booking.primetime-booking-ru.workers.dev"));
+        assertTrue(NavigationPolicy.isTrustedOrigin("https://primetime-booking.aladushka9180.chatgpt.site/"));
+        assertFalse(NavigationPolicy.isTrustedOrigin("http://primetime-booking.primetime-booking-ru.workers.dev"));
+        assertFalse(NavigationPolicy.isTrustedOrigin("https://primetime-booking.primetime-booking-ru.workers.dev/path"));
+        assertFalse(NavigationPolicy.isTrustedOrigin("https://primetime-booking.primetime-booking-ru.workers.dev.evil.example"));
+    }
 }

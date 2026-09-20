@@ -89,7 +89,7 @@ try {
     document.querySelector('.booking-filters').hidden = true;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings timeline-view';
-    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:720px;--timeline-empty-hint-top:144px;height:720px"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour timeline-half-hour" style="top:36px">10:30</span><span class="timeline-hour" data-last-hour style="top:700px">20:00</span></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:719px"></i><button class="timeline-booking status-confirmed" data-mobile-timeline-top data-open-booking data-timeline-movable type="button" style="top:56px;height:72px"><span class="timeline-booking-copy"><strong><span class="timeline-service-title"><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> — углублённый</span></span><span class="timeline-service-duration">· 60 мин</span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:00 · </span>Екатерина</small></span></span><span class="timeline-drag-handle"></span></button><button class="timeline-booking status-block automatic-break" data-mobile-timeline-top type="button" style="top:144px;height:52px"><span class="timeline-booking-copy"><strong>Автоперерыв</strong></span></button></div></div>';
+    bookings.innerHTML = '<div class="day-timeline" style="--timeline-height:720px;--timeline-empty-hint-top:144px;height:720px"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour timeline-half-hour" style="top:36px">10:30</span><span class="timeline-hour" data-last-hour style="top:700px">20:00</span></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i><i class="timeline-grid-line" style="top:719px"></i><button class="timeline-booking status-confirmed" data-mobile-timeline-top data-open-booking data-timeline-movable type="button" style="top:56px;height:72px"><span class="timeline-booking-copy"><strong><span class="timeline-service-title"><span class="timeline-service-core">Массаж спины + ШВЗ</span><span class="timeline-service-variant"> — углублённый</span></span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:00 · </span>Екатерина</small></span></span><span class="timeline-drag-handle"></span></button><button class="timeline-booking status-block automatic-break" data-mobile-timeline-top type="button" style="top:144px;height:52px"><span class="timeline-booking-copy"><strong>Автоперерыв</strong></span></button></div></div>';
     const activeDate = strip.querySelector('.active');
     const stripRect = strip.getBoundingClientRect();
     const activeRect = activeDate.getBoundingClientRect();
@@ -123,6 +123,38 @@ try {
   assert.equal(hintResult.existingMarkup, '', 'existing provider with bookings received the onboarding hint');
   assert.equal(hintResult.existingStored, 'dismissed', 'existing provider pending state was not migrated to dismissed');
   assert.deepEqual(hintResult.opened, { time:'10:30', date:'2026-09-15' }, 'hint dismissal changed the actual free-time action');
+
+  const emptyDayHintResult = await page.evaluate(() => {
+    const stage = document.querySelector('.timeline-stage');
+    const originalMarkup = stage.innerHTML;
+    const timeline = stage.parentElement;
+    const originalHintTop = timeline.style.getPropertyValue('--timeline-empty-hint-top');
+    const samples = [360, 600, 780].map(start => {
+      const offsetMinutes = timelineEmptyHintOffsetMinutes(start, start + 600, true);
+      timeline.style.setProperty('--timeline-empty-hint-top', `${offsetMinutes / 60 * 72}px`);
+      stage.innerHTML = '<i class="timeline-grid-line" style="top:0" aria-hidden="true"></i><div class="timeline-empty-state" aria-label="День свободен. Нажмите нужное время, чтобы записать клиента или поставить перерыв"><span>+</span><small>Нажмите нужное время, чтобы записать клиента или поставить перерыв</small></div>';
+      const hint = stage.querySelector('.timeline-empty-state');
+      const hintRect = hint.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+      const hitTarget = document.elementFromPoint((hintRect.left + hintRect.right) / 2, (hintRect.top + hintRect.bottom) / 2);
+      return {
+        start,
+        offsetMinutes,
+        topInset:hintRect.top - stageRect.top,
+        height:hintRect.height,
+        pointerEvents:getComputedStyle(hint).pointerEvents,
+        clickPassesThrough:hitTarget === stage || Boolean(hitTarget && stage.contains(hitTarget) && hitTarget !== hint),
+        hasDuplicateHeading:Boolean(hint.querySelector('strong')),
+        text:hint.textContent.replace('+', '').trim()
+      };
+    });
+    stage.innerHTML = originalMarkup;
+    timeline.style.setProperty('--timeline-empty-hint-top', originalHintTop);
+    return samples;
+  });
+  assert.ok(emptyDayHintResult.every(sample => sample.offsetMinutes === 0 && sample.topInset <= 1), `empty-day hint is not anchored to the first visible slot: ${JSON.stringify(emptyDayHintResult)}`);
+  assert.ok(emptyDayHintResult.every(sample => sample.height <= 52 && sample.pointerEvents === 'none' && sample.clickPassesThrough), `empty-day hint blocks or escapes the first mobile slot: ${JSON.stringify(emptyDayHintResult)}`);
+  assert.ok(emptyDayHintResult.every(sample => !sample.hasDuplicateHeading && sample.text === 'Нажмите нужное время, чтобы записать клиента или поставить перерыв'), `empty-day hint duplicates the day heading or changed its action: ${JSON.stringify(emptyDayHintResult)}`);
 
   const timelineGridTops = new Map();
   const timelineToolbarTops = new Map();
@@ -163,8 +195,26 @@ try {
         return item.right > strip.left + 1 && item.left < strip.right - 1;
       }).length;
       const tab = document.querySelector('[data-calendar-view="day"]');
-      const tabs = [...document.querySelectorAll('[data-calendar-view]')].map(item => item.getBoundingClientRect().height);
+      const tabElements = [...document.querySelectorAll('[data-calendar-view]')];
+      const tabs = tabElements.map(item => item.getBoundingClientRect().height);
       const tabAccent = getComputedStyle(tab, '::after');
+      const tabAccentStates = tabElements.map(activeTab => {
+        tabElements.forEach(item => item.classList.toggle('active', item === activeTab));
+        const activeRect = activeTab.getBoundingClientRect();
+        const activeAccent = getComputedStyle(activeTab, '::after');
+        const inactiveAccents = tabElements
+          .filter(item => item !== activeTab)
+          .map(item => getComputedStyle(item, '::after').content);
+        return {
+          view:activeTab.dataset.calendarView,
+          width:parseFloat(activeAccent.width),
+          tabWidth:activeRect.width,
+          left:parseFloat(activeAccent.left),
+          right:parseFloat(activeAccent.right),
+          inactiveAccents
+        };
+      });
+      tabElements.forEach(item => item.classList.toggle('active', item === tab));
       const activeButton = document.querySelector('#dateStrip>button.active');
       const activeDate = activeButton.getBoundingClientRect();
       const activeDateMarker = getComputedStyle(activeButton, '::after');
@@ -233,11 +283,8 @@ try {
       };
       const timelineBooking = timelineStage.querySelector('.timeline-booking');
       const timelineBookingRect = timelineBooking.getBoundingClientRect();
-      const timelineServiceName = timelineBooking.querySelector('.timeline-service-core').getBoundingClientRect();
       const timelineServiceTitleElement = timelineBooking.querySelector('.timeline-service-title');
       const timelineServiceTitle = timelineServiceTitleElement.getBoundingClientRect();
-      const timelineServiceDuration = timelineBooking.querySelector('.timeline-service-duration').getBoundingClientRect();
-      const timelineClientRow = timelineBooking.querySelector('.timeline-booking-client-row').getBoundingClientRect();
       const timelineDragHandle = timelineBooking.querySelector('.timeline-drag-handle').getBoundingClientRect();
       timelineBooking.focus({ preventScroll:true });
       const timelineFocusWidth = parseFloat(getComputedStyle(timelineBooking).outlineWidth);
@@ -314,6 +361,7 @@ try {
         stripScrollWidth:document.querySelector('#dateStrip').scrollWidth,
         tabBackground:getComputedStyle(tab).backgroundColor,
         tabAccentHeight:tabAccent.height,
+        tabAccentStates,
         tabHeights:tabs,
         summary:summaryRect,
         summaryScrollWidth:summary.scrollWidth,
@@ -337,12 +385,12 @@ try {
         hourStageGap:Math.min(timelineStageRect.left - firstHourRect.right, timelineStageRect.left - firstHalfHourRect.right),
         bookingRightInset:timelineStageRect.right - timelineBookingRect.right,
         dragHandleInside:timelineDragHandle.right <= timelineBookingRect.right + .5 && timelineDragHandle.left >= timelineBookingRect.left,
-        durationTopDelta:Math.abs(timelineServiceDuration.top - timelineServiceName.top),
-        durationMetaDelta:Math.abs(timelineServiceDuration.top - timelineClientRow.top),
-        durationHandleGap:timelineDragHandle.left - timelineServiceDuration.right,
+        duplicateDurationCount:timelineBooking.querySelectorAll('.timeline-service-duration').length,
         serviceTitleLineCount:timelineServiceTitle.height / parseFloat(getComputedStyle(timelineServiceTitleElement).lineHeight),
+        serviceTitleClientWidth:timelineServiceTitleElement.clientWidth,
+        serviceTitleScrollWidth:timelineServiceTitleElement.scrollWidth,
         serviceTitleFullyVisible:timelineServiceTitleElement.scrollWidth <= timelineServiceTitleElement.clientWidth + 1,
-        serviceTitleHandleGap:timelineDragHandle.left - timelineServiceTitle.right,
+        serviceTitleHandleOverlap:!(timelineServiceTitle.right <= timelineDragHandle.left || timelineServiceTitle.left >= timelineDragHandle.right || timelineServiceTitle.bottom <= timelineDragHandle.top || timelineServiceTitle.top >= timelineDragHandle.bottom),
         breakInside:breakRect.top >= timelineStageRect.top && breakRect.bottom <= timelineStageRect.bottom,
         lastHourInside:lastHourRect.top >= timelineViewRect.top && lastHourRect.bottom <= timelineViewRect.bottom + 1,
         focus:{ timeline:timelineFocusWidth, pickerWidth:pickerFocus.width, pickerOffset:pickerFocus.offset, pickerRadius:pickerFocus.radius, pickerBaseRadius:pickerFocus.baseRadius },
@@ -384,6 +432,7 @@ try {
       assert.equal(result.firstHourVisible, true, `${width}px first timeline label is clipped: ${JSON.stringify(result)}`);
       assert.equal(result.lastHourInside, true, `${width}px full working range is not rendered inside the schedule: ${JSON.stringify(result)}`);
       assert.equal(result.breakInside, true, `${width}px automatic break escapes the schedule card: ${JSON.stringify(result)}`);
+      assert.equal(result.duplicateDurationCount, 0, `${width}px booking repeats duration beside a full time range: ${JSON.stringify(result)}`);
       assert.ok(result.focus.timeline >= 2, `${width}px keyboard focus is not visible: ${JSON.stringify(result)}`);
       if (width <= 760) {
         const expectedCardGap = width <= 420 ? 12 : 16;
@@ -410,8 +459,7 @@ try {
       assert.ok(result.hourStageGap >= 5, `${width}px hour label touches the timeline stage: ${JSON.stringify(result)}`);
       assert.ok(result.bookingRightInset >= 2 && result.bookingRightInset <= 5, `${width}px booking does not use the released right width: ${JSON.stringify(result)}`);
       assert.equal(result.dragHandleInside, true, `${width}px drag handle escapes the booking: ${JSON.stringify(result)}`);
-      assert.ok(result.durationMetaDelta <= 2 && result.durationHandleGap >= 0, `${width}px duration is not stable on the metadata row: ${JSON.stringify(result)}`);
-      assert.ok(result.serviceTitleLineCount <= 1.1 && (width < 360 || result.serviceTitleFullyVisible) && result.serviceTitleHandleGap >= 0, `${width}px service title wraps or clips before the real handle boundary: ${JSON.stringify(result)}`);
+      assert.ok(result.serviceTitleLineCount <= 1.1 && result.serviceTitleFullyVisible && !result.serviceTitleHandleOverlap, `${width}px full service title does not fit its one-line safe area without crossing the handle: ${JSON.stringify(result)}`);
       assert.ok(result.picker.height >= 44, `${width}px date picker target`);
       assert.ok(result.focus.pickerWidth >= 2 && result.focus.pickerOffset <= -2 && result.focus.pickerRadius === result.focus.pickerBaseRadius, `${width}px date picker focus ring escapes its rounded field: ${JSON.stringify(result)}`);
       assert.ok(result.pickerInput.textAlign === 'center' && result.pickerInput.paddingRight >= 24 && result.pickerInput.paddingLeft === 0, `${width}px date text is not centered inside its own arrow-safe zone: ${JSON.stringify(result)}`);
@@ -449,6 +497,9 @@ try {
       assert.ok(Math.abs(result.viewportHeight - result.nav.bottom) <= 1, `${width}px compact navigation must use the viewport edge while preserving safe-area`);
       assert.equal(result.tabBackground, 'rgba(0, 0, 0, 0)', `${width}px period tabs are not flat`);
       assert.equal(result.tabAccentHeight, '3px', `${width}px selected period needs a clear thin accent`);
+      assert.deepEqual(result.tabAccentStates.map(state => state.view), ['day','week','month'], `${width}px period tabs changed order`);
+      assert.ok(result.tabAccentStates.every(state => Math.abs(state.left - 10) <= .5 && Math.abs(state.right - 10) <= .5 && Math.abs(state.width - (state.tabWidth - 20)) <= 1), `${width}px active period underline must keep an equal 10px inset: ${JSON.stringify(result)}`);
+      assert.ok(result.tabAccentStates.every(state => state.inactiveAccents.every(content => content === 'none')), `${width}px inactive period tab kept an accent: ${JSON.stringify(result)}`);
       assert.ok(result.tabHeights.every(tabHeight => tabHeight >= 44), `${width}px period touch targets must remain at least 44px`);
       assert.equal(result.quietTodayBackground, 'rgba(0, 0, 0, 0)', `${width}px unselected Today date competes with the selected date`);
       assert.equal(result.quietTodayBackgroundImage, 'none', `${width}px unselected Today date gained a decorative fill`);
@@ -480,6 +531,7 @@ try {
       timelineClientWidths.set(width, result.clientWidth);
     }
     if (width > 760) {
+      timelineToggleTops.set(width, result.journalToggle.top);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its solid accent`);
       assert.equal(result.quietTodayBackground, 'rgba(0, 0, 0, 0)', `${width}px Today date competes with the selected date`);
       assert.equal(result.quietTodayShadow, 'none', `${width}px desktop Today date regained a decorative outline`);
@@ -642,7 +694,7 @@ try {
     assert.ok(timelineInsetFromFilters >= 0 && timelineInsetFromFilters <= 36, `${width}px timeline grid does not begin near list content: ${JSON.stringify({ timelineGridTop:timelineGridTops.get(width), filtersTop:listResult.filters.top, timelineInsetFromFilters })}`);
     assert.ok(Math.abs(listResult.toolbar.top - timelineToolbarTops.get(width)) <= 1, `${width}px timeline/list toolbar top jumps: ${JSON.stringify(listResult)}`);
     assert.ok(Math.abs(listResult.copy.top - timelineCopyTops.get(width)) <= 10, `${width}px timeline/list day heading jumps: ${JSON.stringify(listResult)}`);
-    assert.ok(Math.abs(listResult.toggle.top - timelineToggleTops.get(width)) <= 10, `${width}px timeline/list mode toggle jumps: ${JSON.stringify(listResult)}`);
+    assert.ok(Math.abs(listResult.toggle.top - timelineToggleTops.get(width)) <= 1, `${width}px timeline/list mode toggle is not vertically stable: ${JSON.stringify({ timelineTop:timelineToggleTops.get(width), listResult })}`);
     assert.equal(listResult.clientWidth, timelineClientWidths.get(width), `${width}px scrollbar changes the schedule width`);
     assert.ok(listResult.filterButtons.every(button => button.height >= 44 && button.scrollWidth <= button.clientWidth + 1), `${width}px list tabs are clipped: ${JSON.stringify(listResult)}`);
     if (width >= 390) assert.equal(listResult.navLabelsFit, true, `${width}px mobile navigation labels are clipped: ${JSON.stringify(listResult)}`);
@@ -658,6 +710,12 @@ try {
     });
     assert.ok(bottomGap >= 16, `${width}px final list card reaches the fixed navigation after scroll: ${bottomGap}px`);
   }
+
+  await page.setViewportSize({ width:1440, height:1000 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(80);
+  const desktopListToggleTop = await page.evaluate(() => document.querySelector('.journal-mode-toggle').getBoundingClientRect().top);
+  assert.ok(Math.abs(desktopListToggleTop - timelineToggleTops.get(1440)) <= 1, `1440px timeline/list mode toggle is not vertically stable: ${JSON.stringify({ timeline:timelineToggleTops.get(1440), list:desktopListToggleTop })}`);
 
   await page.setViewportSize({ width:390, height:3000 });
   const scrollbarGutter = await page.evaluate(() => {
@@ -830,32 +888,86 @@ try {
     document.querySelector('.journal-mode-toggle').hidden = false;
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings schedule-list';
-    bookings.innerHTML = '<article class="provider-booking status-confirmed color-auto client-vip"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>10:30<small>до 11:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Общий массаж задней поверхности</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Евгения Белышева</strong><span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span></span><span class="provider-booking-phone">79120000000</span></span></span><span class="provider-booking-chevron">›</span></button></article>';
+    bookings.innerHTML = `
+      <article class="provider-booking status-confirmed color-auto client-new"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>10:30<small>до 11:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Массаж спины + ШВЗ — углублённый</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Сертификат</strong></span><span class="provider-booking-phone">+7 912 000-00-00</span></span><span class="provider-booking-signals"><span class="booking-status">Подтверждена</span><span class="booking-client-visit">Новый · 1-й визит</span></span></span><span class="provider-booking-chevron">›</span></button></article>
+      <article class="provider-booking status-confirmed color-auto client-vip"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>12:00<small>до 13:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Очень длинное название услуги для проверки безопасного переноса без потери смысла</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Евгения Белышева-Александрова</strong><span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span></span><span class="provider-booking-phone">+7 950 831-03-38</span></span><span class="provider-booking-signals"><span class="booking-status">Подтверждена</span><span class="booking-client-visit">Постоянный · 12-й визит</span></span></span><span class="provider-booking-chevron">›</span></button></article>
+      <article class="provider-booking status-pending color-auto"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>15:00<small>до 15:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Консультация</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Анна</strong></span></span><span class="provider-booking-signals"><span class="booking-status">Ожидает</span></span></span><span class="provider-booking-chevron">›</span></button></article>`;
   });
-  for (const { width, height } of [{ width:320, height:700 }, { width:360, height:800 }, { width:390, height:844 }, { width:760, height:1000 }]) {
+  for (const { width, height } of [{ width:320, height:700 }, { width:360, height:800 }, { width:390, height:844 }, { width:760, height:1000 }, { width:1440, height:1000 }]) {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(80);
     const cardResult = await page.evaluate(() => {
-      const open = document.querySelector('.provider-booking-open');
+      const opens = [...document.querySelectorAll('.provider-booking-open')];
+      const open = opens[0];
       const openRect = open.getBoundingClientRect();
       const timeRect = open.querySelector('.booking-time-column strong').getBoundingClientRect();
-      const rowRect = open.querySelector('.booking-client-name-row').getBoundingClientRect();
-      const badgeRect = open.querySelector('.client-badges').getBoundingClientRect();
+      const rowRect = opens[1].querySelector('.booking-client-name-row').getBoundingClientRect();
+      const badgeRect = opens[1].querySelector('.client-badges').getBoundingClientRect();
       const phone = open.querySelector('.provider-booking-phone');
+      const cardMetrics = opens.map(button => {
+        const card = button.closest('.provider-booking');
+        const title = button.querySelector('h3');
+        const client = button.querySelector('.booking-client-name-row>strong');
+        const clientLine = button.querySelector('.provider-booking-client-line');
+        const phoneElement = button.querySelector('.provider-booking-phone');
+        const signals = button.querySelector('.provider-booking-signals');
+        const titleStyle = getComputedStyle(title);
+        const clientStyle = getComputedStyle(client);
+        const cardStyle = getComputedStyle(card);
+        const titleRange = document.createRange();
+        titleRange.selectNodeContents(title);
+        const rawTitleLines = new Set([...titleRange.getClientRects()].map(rect => Math.round(rect.top))).size;
+        const unclampedTitle = title.cloneNode(true);
+        unclampedTitle.style.setProperty('position','absolute','important');
+        unclampedTitle.style.setProperty('visibility','hidden','important');
+        unclampedTitle.style.setProperty('width',`${title.clientWidth}px`,'important');
+        unclampedTitle.style.setProperty('max-height','none','important');
+        unclampedTitle.style.setProperty('overflow','visible','important');
+        unclampedTitle.style.setProperty('display','block','important');
+        unclampedTitle.style.setProperty('-webkit-line-clamp','unset','important');
+        title.parentElement.append(unclampedTitle);
+        const unclampedTitleLines = unclampedTitle.getBoundingClientRect().height / parseFloat(getComputedStyle(unclampedTitle).lineHeight);
+        unclampedTitle.remove();
+        return {
+          actionHeight:button.getBoundingClientRect().height,
+          contained:button.scrollWidth <= button.clientWidth + 1,
+          titleLines:title.getBoundingClientRect().height / parseFloat(titleStyle.lineHeight),
+          rawTitleLines,
+          unclampedTitleLines,
+          titleSize:parseFloat(titleStyle.fontSize),
+          clientSize:parseFloat(clientStyle.fontSize),
+          clientWeight:Number(clientStyle.fontWeight),
+          clientAfterTitle:clientLine.getBoundingClientRect().top >= title.getBoundingClientRect().bottom - 1,
+          phoneSecondary:!phoneElement || parseFloat(getComputedStyle(phoneElement).fontSize) < parseFloat(clientStyle.fontSize),
+          signalsAfterClient:signals.getBoundingClientRect().top >= clientLine.getBoundingClientRect().bottom - 1,
+          backgroundColor:cardStyle.backgroundColor
+        };
+      });
       return {
         overflow:document.documentElement.scrollWidth > innerWidth + 2,
         timeInset:timeRect.left - openRect.left,
         vipRightGap:rowRect.right - badgeRect.right,
         phoneVisible:phone.getBoundingClientRect().width > 0,
-        phoneFits:phone.scrollWidth <= phone.clientWidth + 1
+        phoneFits:phone.scrollWidth <= phone.clientWidth + 1,
+        cardMetrics,
+        clientNames:opens.map(button => button.querySelector('.booking-client-name-row>strong').textContent.trim()),
+        phones:opens.map(button => button.querySelector('.provider-booking-phone')?.textContent.trim() || '')
       };
     });
     assert.equal(cardResult.overflow, false, `${width}px record card has horizontal overflow: ${JSON.stringify(cardResult)}`);
     assert.ok(cardResult.timeInset >= 8, `${width}px record time touches the card edge: ${JSON.stringify(cardResult)}`);
-    assert.ok(cardResult.vipRightGap <= 1, `${width}px VIP badge is not aligned to the right: ${JSON.stringify(cardResult)}`);
+    if (width <= 760) assert.ok(cardResult.vipRightGap <= 1, `${width}px VIP badge is not aligned to the right: ${JSON.stringify(cardResult)}`);
     assert.equal(cardResult.phoneVisible, true, `${width}px record phone is missing`);
     assert.equal(cardResult.phoneFits, true, `${width}px record phone is clipped`);
+    assert.ok(cardResult.cardMetrics[0].unclampedTitleLines <= 2.1, `${width}px primary service title loses meaningful text: ${JSON.stringify(cardResult)}`);
+    assert.deepEqual(cardResult.clientNames, ['Сертификат','Евгения Белышева-Александрова','Анна'], `${width}px client variants changed`);
+    assert.deepEqual(cardResult.phones, ['+7 912 000-00-00','+7 950 831-03-38',''], `${width}px missing-phone variant changed`);
+    assert.ok(cardResult.cardMetrics.every(card => card.actionHeight >= 44 && card.contained && card.titleLines <= 2.1 && card.titleSize >= 17 && card.clientSize >= 15 && card.clientWeight >= 600 && card.clientAfterTitle && card.phoneSecondary && card.signalsAfterClient && card.backgroundColor !== 'rgba(0, 0, 0, 0)'), `${width}px list-card hierarchy, booking fill, or containment changed: ${JSON.stringify(cardResult)}`);
+    await page.evaluate(() => { document.body.dataset.providerTextScale = 'large'; });
+    const largeScaleFits = await page.evaluate(() => [...document.querySelectorAll('.provider-booking-open')].every(button => button.scrollWidth <= button.clientWidth + 1 && button.getBoundingClientRect().height >= 44 && button.querySelector('h3').getBoundingClientRect().height / parseFloat(getComputedStyle(button.querySelector('h3')).lineHeight) <= 2.1));
+    assert.equal(largeScaleFits, true, `${width}px large-text list cards overflow or exceed two title lines`);
+    await page.evaluate(() => { document.body.dataset.providerTextScale = 'default'; });
     if (output) await page.screenshot({ path:path.join(output, `schedule-list-card-${width}.png`), fullPage:false });
   }
 

@@ -30,6 +30,27 @@ final class NavigationPolicy {
         }
     }
 
+    static boolean isTrustedOrigin(String value) {
+        if (value == null || value.isBlank()) return false;
+        try {
+            URI uri = URI.create(value).normalize();
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            String path = uri.getPath();
+            int port = uri.getPort();
+            return "https".equalsIgnoreCase(scheme)
+                    && host != null
+                    && isTrustedHost(host.toLowerCase(Locale.ROOT))
+                    && uri.getUserInfo() == null
+                    && (port == -1 || port == 443)
+                    && (path == null || path.isEmpty() || "/".equals(path))
+                    && uri.getQuery() == null
+                    && uri.getFragment() == null;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
     private static boolean isTrustedHost(String host) {
         return PRIMARY_HOST.equals(host) || LEGACY_HOST.equals(host);
     }

@@ -6903,6 +6903,16 @@ function bindDateStripResizeCentering(dateStrip) {
   dateStrip.dataset.resizeObserverBound = 'true';
 }
 
+function dateStripRangeHasRunway(dateStrip, value, runwayDays = 28) {
+  const start = parseLocalIsoDate(dateStrip?.dataset.rangeStart);
+  const end = parseLocalIsoDate(dateStrip?.dataset.rangeEnd);
+  const selected = parseLocalIsoDate(value);
+  if (!start || !end || !selected) return false;
+  start.setDate(start.getDate() + runwayDays);
+  end.setDate(end.getDate() - runwayDays);
+  return start <= selected && selected <= end;
+}
+
 function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
   const dateStrip = $('#dateStrip');
   if (!dateStrip) return;
@@ -6926,8 +6936,9 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
   const rangeMode = mobileCenteredRange ? 'inertial' : 'extended';
   const currentRangeContainsSelection = dateStrip.dataset.rangeStart <= selectedDate && selectedDate <= dateStrip.dataset.rangeEnd;
   const currentRangeContainsToday = dateStrip.dataset.rangeStart <= todayIso && todayIso <= dateStrip.dataset.rangeEnd;
+  const currentRangeHasMobileRunway = currentRangeContainsSelection && dateStripRangeHasRunway(dateStrip, selectedDate);
   const rebuildStrip = dateStrip.dataset.rangeMode !== rangeMode
-    || (mobileCenteredRange ? !currentRangeContainsSelection : !currentRangeContainsSelection || !currentRangeContainsToday)
+    || (mobileCenteredRange ? !currentRangeHasMobileRunway : !currentRangeContainsSelection || !currentRangeContainsToday)
     || dateStrip.dataset.today !== todayIso;
   const previousSelectedDate = dateStrip.dataset.selectedDate || '';
   const selectionChanged = previousSelectedDate !== selectedDate;
@@ -8382,6 +8393,11 @@ function dismissScheduleCreateHint(userId = currentUser?.id, root = document) {
   return true;
 }
 
+function timelineEmptyHintOffsetMinutes(start, end, mobileTimeline) {
+  const visibleDuration = Math.max(0, Number(end) - Number(start));
+  return Math.min(mobileTimeline ? 0 : 30, visibleDuration / 2);
+}
+
 function renderTimeline(sourceItems) {
   const operationalItems = sourceItems.filter(item => !item.is_imported_history);
   const items = [...sourceItems, ...automaticBookingBreaks(operationalItems)];
@@ -8472,7 +8488,7 @@ function renderTimeline(sourceItems) {
     const automaticBreakSourceMarkup = item.automatic_break
       ? '<span class="timeline-automatic-break-source">Автоматический · из правил записи</span>'
       : '';
-    const serviceTitleMarkup = block ? `${serviceMarkup}${automaticBreakSourceMarkup}` : `<span class="timeline-service-title">${serviceMarkup}</span><span class="timeline-service-duration">· ${duration} мин</span>`;
+    const serviceTitleMarkup = block ? `${serviceMarkup}${automaticBreakSourceMarkup}` : `<span class="timeline-service-title">${serviceMarkup}</span>`;
     const renderedNote = mobileTimeline ? '' : bookingNotePresenceMarkup(note, 'timeline-booking-note-presence');
     const renderedStatus = mobileTimeline ? '' : timelineStatus;
     const mobileBadgeMarkup = mobileTimeline ? badgeMarkup : '';
@@ -8492,9 +8508,9 @@ function renderTimeline(sourceItems) {
       : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} ${movable ? 'data-timeline-movable aria-describedby="timelineMoveInstruction" aria-keyshortcuts="Shift+ArrowUp Shift+ArrowDown"' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : moveRestriction || 'Перетащите или нажмите Shift и стрелку, чтобы изменить время'}">${cardContent}${dragHandle}</button>`;
   }).join('');
   const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
-  const emptyHintTop = Math.max(30, Math.min(120, Math.max(60, 720 - start), (end - start) / 2)) / 60 * hourHeight;
+  const emptyHintTop = timelineEmptyHintOffsetMinutes(start, end, mobileTimeline) / 60 * hourHeight;
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px;--timeline-empty-hint-top:${emptyHintTop}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group" tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись">${lines.join('')}${nowMarker}${scheduleCreateHintMarkup()}${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px;--timeline-empty-hint-top:${emptyHintTop}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group" tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись">${lines.join('')}${nowMarker}${scheduleCreateHintMarkup()}${cards || `<div class="timeline-empty-state" aria-label="День свободен. Нажмите нужное время, чтобы записать клиента или поставить перерыв"><span>${uiIcon('plus')}</span><small>Нажмите нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
   if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
 }
 
@@ -17654,6 +17670,9 @@ document.addEventListener('pointerdown', () => { if (bookingPolicy.visitor_notif
 document.addEventListener('keydown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); });
 const providerAppearanceMenu = $('#providerAppearanceMenu');
 const providerTopbarTools = $('.provider-topbar-tools');
+const providerTopbarToolsButton = providerTopbarTools?.querySelector(':scope>summary');
+const providerTopbarToolItems = () => [...providerTopbarTools?.querySelectorAll(':scope>div>[role="menuitem"]') || []]
+  .filter(item => !item.hidden && item.getClientRects().length);
 providerAppearanceMenu?.addEventListener('click', event => {
   const modeButton = event.target.closest('.provider-appearance-modes>[data-provider-color-mode]');
   if (modeButton) {
@@ -17666,16 +17685,46 @@ providerAppearanceMenu?.addEventListener('toggle', () => {
   if (providerAppearanceMenu.open) providerTopbarTools?.removeAttribute('open');
 });
 providerTopbarTools?.addEventListener('toggle', () => {
+  providerTopbarToolsButton?.setAttribute('aria-expanded', String(providerTopbarTools.open));
   if (providerTopbarTools.open) providerAppearanceMenu?.removeAttribute('open');
+});
+providerTopbarTools?.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && providerTopbarTools.open) {
+    event.preventDefault();
+    providerTopbarTools.removeAttribute('open');
+    providerTopbarToolsButton?.focus();
+    return;
+  }
+  const items = providerTopbarToolItems();
+  if (!items.length || !['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
+  const currentIndex = items.indexOf(document.activeElement);
+  if (currentIndex < 0 && document.activeElement !== providerTopbarToolsButton) return;
+  event.preventDefault();
+  if (!providerTopbarTools.open) providerTopbarTools.setAttribute('open', '');
+  const fromButton = document.activeElement === providerTopbarToolsButton;
+  const nextIndex = event.key === 'Home' || (fromButton && event.key === 'ArrowDown')
+    ? 0
+    : event.key === 'End' || (fromButton && event.key === 'ArrowUp')
+      ? items.length - 1
+      : (currentIndex + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+  items[nextIndex]?.focus();
 });
 document.addEventListener('pointerdown', event => {
   if (providerAppearanceMenu?.open && !event.target.closest('#providerAppearanceMenu')) providerAppearanceMenu.removeAttribute('open');
   if (providerTopbarTools?.open && !event.target.closest('.provider-topbar-tools')) providerTopbarTools.removeAttribute('open');
 }, { passive:true });
 document.addEventListener('keydown', event => {
-  if (event.key !== 'Escape' || !providerAppearanceMenu?.open) return;
-  providerAppearanceMenu.removeAttribute('open');
-  providerAppearanceMenu.querySelector(':scope>summary')?.focus();
+  if (event.key !== 'Escape') return;
+  if (providerTopbarTools?.open) {
+    event.preventDefault();
+    providerTopbarTools.removeAttribute('open');
+    providerTopbarToolsButton?.focus();
+    return;
+  }
+  if (providerAppearanceMenu?.open) {
+    providerAppearanceMenu.removeAttribute('open');
+    providerAppearanceMenu.querySelector(':scope>summary')?.focus();
+  }
 });
 const handleProviderSystemColorChange = () => {
   if (displayPreferences.color_mode === 'system') setProviderColorMode('system');

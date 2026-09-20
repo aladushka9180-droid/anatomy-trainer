@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {startHeaderFixture} from './header-fixture.mjs';
+import {startHeaderFixture,root} from './header-fixture.mjs';
 import {themes,layouts} from './theme-card-fixture.mjs';
-const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
+const playwright=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
+const chromium=playwright.chromium||playwright.default?.chromium;
 const {server,url}=await startHeaderFixture();
 const requestedSections=new Set((process.env.MINUTA_HEADER_SECTIONS||'geometry,tools,appearance').split(',').map(value=>value.trim()).filter(Boolean));
+const providerHtml=fs.readFileSync(path.join(root,'provider.html'),'utf8');
+const providerSource=fs.readFileSync(path.join(root,'provider.js'),'utf8');
+assert.match(providerHtml,/id="providerTopbarToolsButton"[^>]*aria-haspopup="menu"[^>]*aria-controls="providerTopbarToolsMenu"[^>]*aria-expanded="false"/,'Tools trigger lost menu semantics');
+assert.match(providerHtml,/id="providerTopbarToolsMenu" role="menu" aria-labelledby="providerTopbarToolsButton"/,'Tools popover lost menu semantics');
+assert.match(providerSource,/providerTopbarToolsButton\?\.setAttribute\('aria-expanded', String\(providerTopbarTools\.open\)\)/,'Tools expanded state is not synchronized');
+assert.match(providerSource,/event\.key === 'Escape' && providerTopbarTools\.open[\s\S]*?providerTopbarToolsButton\?\.focus\(\)/,'Escape does not return focus to the tools trigger');
+assert.match(providerSource,/\['ArrowDown','ArrowUp','Home','End'\][\s\S]*?items\[nextIndex\]\?\.focus\(\)/,'Tools keyboard navigation is missing');
 let browser;
 try{
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
@@ -57,11 +67,22 @@ try{
         document.body.dataset.providerLayout=layout;
         document.body.dataset.providerTextScale=scale;
         document.querySelector('#desktopAppInstallButton').hidden=false;
-        document.querySelector('.provider-topbar-tools').open=true;
+        document.querySelector('.provider-topbar-tools').open=false;
       },{layout,theme,scale});
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-      const errors=await page.evaluate(()=>{
+      const before=await page.evaluate(()=>{
+        const header=document.querySelector('.provider-topbar').getBoundingClientRect();
+        const content=document.querySelector('.provider-view').getBoundingClientRect();
+        return {header:{top:header.top,height:header.height},contentTop:content.top,scrollY,scrollHeight:document.documentElement.scrollHeight};
+      });
+      await page.evaluate(()=>{
+        document.querySelector('.provider-topbar-tools').open=true;
+      });
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      const errors=await page.evaluate(before=>{
         const errors=[];
+        const header=document.querySelector('.provider-topbar').getBoundingClientRect();
+        const content=document.querySelector('.provider-view').getBoundingClientRect();
         const menu=document.querySelector('.provider-topbar-tools>div');
         const summary=document.querySelector('.provider-topbar-tools>summary');
         const menuRect=menu.getBoundingClientRect();
@@ -73,6 +94,11 @@ try{
         if(menuRect.width>(mobile?245:269)||menuRect.height>295)errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
         if(menuRect.left<0||menuRect.right>innerWidth+1)errors.push('menu overflow');
         if(Math.abs(menuRect.right-summaryRect.right)>1)errors.push('menu is not right aligned');
+        if(Math.abs(header.top-before.header.top)>1||Math.abs(header.height-before.header.height)>1||Math.abs(content.top-before.contentTop)>1)errors.push('menu changed page geometry');
+        if(Math.abs(scrollY-before.scrollY)>1)errors.push('menu changed scroll position');
+        if(Math.abs(document.documentElement.scrollHeight-before.scrollHeight)>1)errors.push('menu changed document height');
+        if(summary.getAttribute('aria-haspopup')!=='menu'||summary.getAttribute('aria-controls')!=='providerTopbarToolsMenu')errors.push('menu trigger aria changed');
+        if(menu.getAttribute('role')!=='menu'||items.some(item=>item.getAttribute('role')!=='menuitem'))errors.push('menu roles changed');
         const rows=new Set(rects.map(rect=>Math.round(rect.top)));
         const columns=new Set(rects.map(rect=>Math.round(rect.left)));
         if(rows.size!==6||columns.size!==1)errors.push('tools must be one vertical list');
@@ -94,7 +120,7 @@ try{
           if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>1&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1)errors.push(`menu overlap ${items[i].id} ${items[j].id}`);
         }
         return errors;
-      });
+      },before);
       failures.push(...errors.map(error=>({theme,layout,width,scale,error})));menuCombinations++;
     }
     console.log(`Header tools: ${width}px checked`);
