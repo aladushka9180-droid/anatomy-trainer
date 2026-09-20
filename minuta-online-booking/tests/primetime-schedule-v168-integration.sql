@@ -11,6 +11,13 @@ begin
   into v_service,v_performer
   from public.services service
   join public.booking_policies policy on policy.performer_id=service.performer_id
+  where not exists(
+    select 1 from public.bookings booking
+    where booking.performer_id=service.performer_id
+      and booking.booking_date=current_date+14
+      and booking.status<>'cancelled'
+      and regexp_replace(coalesce(booking.client_phone,''),'\D','','g')<>'0000000000'
+  )
   order by service.id
   limit 1;
   if v_service is null then
@@ -50,7 +57,7 @@ begin
   select count(*) into v_count
   from public.get_public_minuta_available_slots_v101(
     'test-slug','11111111-1111-4111-8111-111111111111'::uuid,
-    current_setting('minuta.v168_service')::uuid,current_date,current_date
+    current_setting('minuta.v168_service')::uuid,current_date+14,current_date+14
   );
   if v_count<>3 then
     raise exception 'disabled_buffer_fast_path_failed:%',v_count;
@@ -69,10 +76,10 @@ begin
   select count(*) into v_count
   from public.get_public_minuta_available_slots_v101(
     'test-slug','11111111-1111-4111-8111-111111111111'::uuid,
-    current_setting('minuta.v168_service')::uuid,current_date,current_date
+    current_setting('minuta.v168_service')::uuid,current_date+14,current_date+14
   );
-  if v_count<>0 then
-    raise exception 'enabled_buffer_legacy_path_failed:%',v_count;
+  if v_count<>3 then
+    raise exception 'enabled_buffer_set_based_path_failed:%',v_count;
   end if;
 end
 $enabled$;
@@ -84,7 +91,8 @@ declare
   ));
 begin
   if position('if not coalesce(v_buffer_enabled,false)' in v_body)=0
-     or position('minuta_slot_respects_booking_buffer' in v_body)=0
+     or position('from public.bookings booking' in v_body)=0
+     or position('minuta_slot_respects_booking_buffer' in v_body)>0
      or not has_function_privilege('anon','public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)','EXECUTE')
      or not has_function_privilege('authenticated','public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)','EXECUTE')
      or has_function_privilege('service_role','public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)','EXECUTE') then

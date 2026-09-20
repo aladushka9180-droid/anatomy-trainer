@@ -11,15 +11,16 @@ begin
      or to_regprocedure('public.get_public_minuta_available_slots_group_safe(text,uuid,uuid,date,date)') is null
      or to_regprocedure('public.minuta_slot_respects_booking_buffer(uuid,date,time without time zone,integer,uuid)') is null
      or to_regclass('public.services') is null
-     or to_regclass('public.booking_policies') is null then
+     or to_regclass('public.booking_policies') is null
+     or to_regclass('public.bookings') is null then
     raise exception using errcode='55000',message='v168_requires_protected_schedule_foundation';
   end if;
 end
 $guard$;
 
--- Most provider policies leave the optional booking buffer disabled. Resolve
--- that policy once per service and avoid invoking the buffer RPC for every
--- generated slot. The enabled path is deliberately unchanged.
+-- Resolve the service and optional booking buffer once. When the buffer is
+-- enabled, apply the same overlap predicate set-wise so the schedule no longer
+-- executes a nested security-definer RPC for every generated slot.
 create or replace function public.get_public_minuta_available_slots_v101(
   p_slug text,p_location uuid,p_service uuid,p_start date,p_end date
 )
@@ -27,6 +28,9 @@ returns table(booking_date date,booking_time time without time zone)
 language plpgsql stable security definer set search_path to '' as $$
 declare
   v_buffer_enabled boolean:=false;
+  v_buffer_minutes integer:=60;
+  v_duration_minutes integer;
+  v_performer uuid;
 begin
   if p_slug is null
      or p_slug<>lower(trim(p_slug))
@@ -40,8 +44,10 @@ begin
     raise exception using errcode='22023',message='invalid_public_schedule_scope';
   end if;
 
-  select coalesce(policy.booking_buffer_enabled,false)
-  into v_buffer_enabled
+  select service.performer_id,service.duration_minutes,
+    coalesce(policy.booking_buffer_enabled,false),
+    coalesce(policy.booking_buffer_minutes,60)
+  into v_performer,v_duration_minutes,v_buffer_enabled,v_buffer_minutes
   from public.services service
   left join public.booking_policies policy
     on policy.performer_id=service.performer_id
@@ -63,8 +69,23 @@ begin
   from public.get_public_minuta_available_slots_group_safe(
     p_slug,p_location,p_service,p_start,p_end
   ) slot
-  where public.minuta_slot_respects_booking_buffer(
-    p_service,slot.booking_date,slot.booking_time,null,null
+  where not exists(
+    select 1
+    from public.bookings booking
+    where booking.performer_id=v_performer
+      and booking.booking_date=slot.booking_date
+      and booking.status<>'cancelled'
+      and regexp_replace(coalesce(booking.client_phone,''),'\D','','g')<>'0000000000'
+      and tsrange(
+        slot.booking_date+slot.booking_time,
+        slot.booking_date+slot.booking_time+make_interval(mins=>v_duration_minutes),
+        '[)'
+      ) && tsrange(
+        booking.booking_date+booking.booking_time-make_interval(mins=>v_buffer_minutes),
+        booking.booking_date+booking.booking_time
+          +make_interval(mins=>booking.duration_minutes+v_buffer_minutes),
+        '[)'
+      )
   )
   order by slot.booking_date,slot.booking_time
   limit 512;
@@ -84,7 +105,8 @@ declare
 begin
   if position('v_buffer_enabled boolean' in v_body)=0
      or position('if not coalesce(v_buffer_enabled,false)' in v_body)=0
-     or position('minuta_slot_respects_booking_buffer' in v_body)=0
+     or position('from public.bookings booking' in v_body)=0
+     or position('minuta_slot_respects_booking_buffer' in v_body)>0
      or position('limit 512' in v_body)=0
      or not has_function_privilege('anon','public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)','EXECUTE')
      or not has_function_privilege('authenticated','public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)','EXECUTE')

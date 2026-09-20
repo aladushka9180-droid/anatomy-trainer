@@ -151,7 +151,7 @@ jobs:
             --arg migration "$(sha256sum minuta-online-booking/supabase-migration-v168.sql|cut -d' ' -f1)" \
             --arg rollback "$(sha256sum minuta-online-booking/supabase-migration-v168-rollback.sql|cut -d' ' -f1)" \
             '{status:"success",phase:"test-v168",commitSha:$sha,runId:$run,isolatedDatabase:true,
-              cycle:["apply","apply","disabled-fast-path","enabled-legacy-path","rollback","reapply"],
+              cycle:["apply","apply","disabled-fast-path","enabled-set-based-path","rollback","reapply"],
               rollbackVerified:true,migrationSha256:$migration,rollbackSha256:$rollback,productionWritten:false}' \
             > "$RUNNER_TEMP/v168-test.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

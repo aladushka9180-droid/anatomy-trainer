@@ -16,13 +16,17 @@ for (const sql of [migration, rollback]) {
 
 assert.match(migration, /v_buffer_enabled boolean:=false/iu);
 assert.match(migration, /if not coalesce\(v_buffer_enabled,false\) then/iu);
-assert.match(migration, /minuta_slot_respects_booking_buffer/iu);
+assert.match(migration, /from public\.bookings booking/iu);
+assert.match(migration, /booking\.performer_id=v_performer/iu);
+assert.match(migration, /booking\.booking_date=slot\.booking_date/iu);
+assert.match(migration, /booking\.status<>'cancelled'/iu);
+assert.match(migration, /booking\.duration_minutes\+v_buffer_minutes/iu);
 assert.match(migration, /limit 512/iu);
 assert.doesNotMatch(migration, /\b(?:insert|update|delete)\s+(?:into|from|public\.)/iu);
 assert.match(rollback, /Exact v138 definition/iu);
 assert.doesNotMatch(rollback, /v_buffer_enabled boolean:=false/iu);
 assert.match(integration, /disabled_buffer_fast_path_failed/iu);
-assert.match(integration, /enabled_buffer_legacy_path_failed/iu);
+assert.match(integration, /enabled_buffer_set_based_path_failed/iu);
 assert.match(integration, /rollback;/iu);
 
 for (const phase of ['test-v168', 'validate-production-v168', 'apply-production-v168', 'observe-production-v168']) {
