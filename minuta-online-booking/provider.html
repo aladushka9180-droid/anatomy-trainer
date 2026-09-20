@@ -10,19 +10,19 @@
   <meta property="og:title" content="PrimeTime Pro — кабинет исполнителя">
   <meta property="og:description" content="Управляйте услугами, расписанием и записями клиентов.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=842">
+  <meta property="og:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=843">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=842">
+  <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=843">
   <title>PrimeTime Pro — кабинет исполнителя</title>
-  <link rel="icon" href="provider-icon.svg?v=842" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=842" type="application/manifest+json">
-  <link rel="apple-touch-icon" href="provider-icon-192.png?v=842">
+  <link rel="icon" href="provider-icon.svg?v=843" type="image/svg+xml">
+  <link rel="manifest" href="provider.webmanifest?v=843" type="application/manifest+json">
+  <link rel="apple-touch-icon" href="provider-icon-192.png?v=843">
   <script src="pwa-install.js?v=811"></script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="PrimeTime">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=842">
+  <link rel="stylesheet" href="styles.css?v=843">
   <link rel="stylesheet" href="messages-center.css?v=811">
   <link rel="stylesheet" href="finance-center.css?v=811">
   <link rel="stylesheet" href="utm-funnel.css?v=811">
@@ -34,12 +34,12 @@
   <link rel="stylesheet" href="provider-themes-signature.css?v=811">
   <link rel="stylesheet" href="provider-themes-calm.css?v=811">
   <link rel="stylesheet" href="provider-layout-responsive.css?v=811">
-  <link rel="stylesheet" href="provider-ux.css?v=842">
+  <link rel="stylesheet" href="provider-ux.css?v=843">
   <link rel="stylesheet" href="provider-service-actions.css?v=811">
-  <link rel="stylesheet" href="provider-header.css?v=842">
+  <link rel="stylesheet" href="provider-header.css?v=843">
   <link rel="stylesheet" href="client-themes.css?v=811">
   <link rel="stylesheet" href="provider-themes-wildlife.css?v=811">
-  <link rel="stylesheet" href="settings-nav-scroll.css?v=842">
+  <link rel="stylesheet" href="settings-nav-scroll.css?v=843">
   <link rel="stylesheet" href="settings-smart-search.css?v=811">
   <link rel="stylesheet" href="provider-help-workspace.css?v=811">
   <link rel="stylesheet" href="contextual-help.css?v=811">
@@ -1242,6 +1242,12 @@
                   <div class="settings-check inventory-transfer-toggle" id="inventoryTransfersSetting" hidden><label><input id="inventoryTransfersEnabled" type="checkbox" data-inventory-write><span><strong>Разрешить перемещения между складами</strong><small id="inventoryTransfersHint">Включение подготовит FIFO-остатки и не создаст движений.</small></span></label><button class="secondary-button compact-button" id="enableInventoryTransfers" type="button" data-inventory-write hidden>Подготовить и включить</button></div>
                 </div>
                 <div id="inventoryControls" hidden>
+                  <section class="inventory-summary" aria-label="Сводка складского учёта">
+                    <article><small>Всего позиций</small><strong id="inventorySummaryTotal">0</strong><span>в каталоге</span></article>
+                    <article class="is-positive"><small>С остатком</small><strong id="inventorySummaryAvailable">0</strong><span>позиций</span></article>
+                    <article class="is-warning"><small>Мало</small><strong id="inventorySummaryLow">0</strong><span>позиций</span></article>
+                    <article><small>Активных складов</small><strong id="inventorySummaryWarehouses">0</strong><span>по филиалам</span></article>
+                  </section>
                   <nav class="inventory-section-nav" aria-label="Разделы складского учёта">
                     <button class="active" type="button" data-inventory-section="balances" aria-pressed="true">Остатки</button>
                     <button type="button" data-inventory-section="catalog" aria-pressed="false">Каталог и склады</button>
@@ -1250,11 +1256,13 @@
                   </nav>
                   <section class="inventory-balances-section" data-inventory-pane="balances"><div class="resource-subhead"><div><small>Фактическое наличие</small><strong>Остатки по филиалам</strong></div></div><div class="inventory-balances" id="inventoryBalances"></div></section>
                   <div class="inventory-management-grid" data-inventory-pane="catalog" hidden>
-                    <section><div class="resource-subhead"><div><small>Единицы и минимальные остатки</small><strong>Каталог</strong></div></div><div class="organization-list" id="inventoryItemsList"></div>
-                      <details class="organization-create" id="inventoryItemCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить позицию</span></summary><form id="inventoryItemForm"><input id="inventoryItemId" type="hidden"><div class="form-row"><label>Название<input id="inventoryItemName" maxlength="120" placeholder="Например, Массажное масло" required></label><div class="scan-field"><label>Артикул или штрихкод<input id="inventoryItemSku" maxlength="80" placeholder="Необязательно"></label><button class="secondary-button" type="button" data-code-scan-target="inventoryItemSku" data-code-scan-mode="inventory" data-code-scan-title="Код складской позиции">Сканировать</button></div></div><div class="form-row"><label>Единица<select id="inventoryItemUnit"><option value="piece">шт.</option><option value="ml">мл</option><option value="g">г</option><option value="kg">кг</option><option value="l">л</option><option value="pack">упаковка</option></select></label><label>Минимальный остаток<input id="inventoryItemLow" type="number" min="0" max="99999999999" step="0.001" value="0" required></label></div><label class="settings-check"><input id="inventoryItemActive" type="checkbox" checked><span><strong>Активная позиция</strong><small>Неактивная останется в истории, но новые операции будут запрещены.</small></span></label><p class="form-error" id="inventoryItemError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-item>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
+                    <section class="inventory-catalog-section"><div class="resource-subhead"><div><small>Единицы и минимальные остатки</small><strong>Каталог</strong></div></div>
+                      <details class="organization-create inventory-primary-action" id="inventoryItemCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить позицию</span></summary><form id="inventoryItemForm"><input id="inventoryItemId" type="hidden"><div class="form-row"><label>Название<input id="inventoryItemName" maxlength="120" placeholder="Например, Массажное масло" required></label><div class="scan-field"><label>Артикул или штрихкод<input id="inventoryItemSku" maxlength="80" placeholder="Необязательно"></label><button class="secondary-button" type="button" data-code-scan-target="inventoryItemSku" data-code-scan-mode="inventory" data-code-scan-title="Код складской позиции">Сканировать</button></div></div><div class="form-row"><label>Единица<select id="inventoryItemUnit"><option value="piece">шт.</option><option value="ml">мл</option><option value="g">г</option><option value="kg">кг</option><option value="l">л</option><option value="pack">упаковка</option></select></label><label>Минимальный остаток<input id="inventoryItemLow" type="number" min="0" max="99999999999" step="0.001" value="0" required></label></div><label class="settings-check"><input id="inventoryItemActive" type="checkbox" checked><span><strong>Активная позиция</strong><small>Неактивная останется в истории, но новые операции будут запрещены.</small></span></label><p class="form-error" id="inventoryItemError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-item>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
+                      <div class="inventory-list-head inventory-catalog-head" aria-hidden="true"><span>Позиция</span><span>Остаток</span><span>Минимум</span><span>Статус</span><span></span></div><div class="inventory-table-list" id="inventoryItemsList"></div>
                     </section>
-                    <section><div class="resource-subhead"><div><small>Один склад на филиал</small><strong>Склады</strong></div><span class="panel-count" id="inventoryWarehousesCount">0</span></div><div class="organization-list" id="inventoryWarehousesList"></div>
-                      <details class="organization-create" id="inventoryWarehouseCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать склад</span></summary><form id="inventoryWarehouseForm"><input id="inventoryWarehouseId" type="hidden"><label>Филиал<select id="inventoryWarehouseLocation" required></select></label><label>Название<input id="inventoryWarehouseName" maxlength="120" placeholder="Например, Склад — Центр" required></label><label class="settings-check"><input id="inventoryWarehouseActive" type="checkbox" checked><span><strong>Активный склад</strong><small>Только активный склад участвует в операциях и автоматическом списании.</small></span></label><p class="form-error" id="inventoryWarehouseError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-warehouse>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
+                    <section class="inventory-warehouses-section"><div class="resource-subhead"><div><small>Один склад на филиал</small><strong>Склады</strong></div><span class="panel-count" id="inventoryWarehousesCount">0</span></div>
+                      <details class="organization-create inventory-primary-action" id="inventoryWarehouseCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать склад</span></summary><form id="inventoryWarehouseForm"><input id="inventoryWarehouseId" type="hidden"><label>Филиал<select id="inventoryWarehouseLocation" required></select></label><label>Название<input id="inventoryWarehouseName" maxlength="120" placeholder="Например, Склад — Центр" required></label><label class="settings-check"><input id="inventoryWarehouseActive" type="checkbox" checked><span><strong>Активный склад</strong><small>Только активный склад участвует в операциях и автоматическом списании.</small></span></label><p class="form-error" id="inventoryWarehouseError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-warehouse>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
+                      <div class="inventory-list-head inventory-warehouse-head" aria-hidden="true"><span>Склад</span><span>Филиал</span><span>С остатком</span><span>Статус</span><span></span></div><div class="inventory-table-list" id="inventoryWarehousesList"></div>
                     </section>
                   </div>
                   <div class="inventory-management-grid" data-inventory-pane="operations" hidden>
@@ -2122,7 +2130,7 @@
   </div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
-  <script src="site-update.js?v=842" defer></script>
+  <script src="site-update.js?v=843" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2153,9 +2161,9 @@
   <link rel="stylesheet" href="provider-clients-premium.css?v=811">
   <link rel="stylesheet" href="provider-themes-distinct.css?v=821">
   <link rel="stylesheet" href="provider-theme-families.css?v=821">
-  <link rel="stylesheet" href="provider-theme-backgrounds-tema1.css?v=842">
+  <link rel="stylesheet" href="provider-theme-backgrounds-tema1.css?v=843">
   <link rel="stylesheet" href="provider-portfolio-responsive.css?v=811">
-  <link rel="stylesheet" href="provider-schedule-minimal.css?v=842"><link rel="stylesheet" href="provider-schedule-desktop-reference.css?v=842" media="(min-width: 761px)">
+  <link rel="stylesheet" href="provider-schedule-minimal.css?v=843"><link rel="stylesheet" href="provider-schedule-desktop-reference.css?v=843" media="(min-width: 761px)">
   <script src="theme-catalog.js?v=821" defer></script>
   <script src="provider-color-mode.js?v=811" defer></script>
   <script src="client-directory.js?v=811" defer></script>
@@ -2164,14 +2172,14 @@
   <script src="client-records.js?v=811" defer></script>
   <script src="benefit-lifecycle.js?v=811" defer></script>
   <script src="booking-widgets.js?v=811" defer></script>
-  <script src="provider-feature-assets.js?v=842" defer></script>
+  <script src="provider-feature-assets.js?v=843" defer></script>
   <script src="portfolio-camera.js?v=811" defer></script>
   <script src="messages-core.js?v=811" defer></script>
   <script src="provider-messages-center.js?v=811" defer></script>
   <script src="finance-center.js?v=811" defer></script>
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
-  <script src="provider.js?v=842" defer></script>
+  <script src="provider.js?v=843" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>
   <script src="primetime-handoff.js?v=811" defer></script>

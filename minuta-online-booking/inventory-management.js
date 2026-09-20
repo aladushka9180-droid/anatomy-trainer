@@ -158,12 +158,15 @@
 
     function itemCard(row) {
       const total = totalFor(row.id), low = row.active && total <= Number(row.low_stock_threshold || 0);
-      return `<article class="organization-row ${low ? 'inventory-low' : ''}"><div class="organization-row-main"><strong>${escapeHtml(row.name)} · ${escapeHtml(quantity(total))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</strong><small>${row.sku ? `Артикул ${escapeHtml(row.sku)} · ` : ''}минимум ${escapeHtml(quantity(row.low_stock_threshold))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</small></div><span class="organization-tags"><span class="organization-status ${row.active ? 'is-active' : ''}">${low ? 'Мало' : row.active ? 'Активен' : 'Скрыт'}</span><button class="secondary-button" type="button" data-inventory-edit-item="${escapeHtml(row.id)}" data-inventory-write>Изменить</button></span></article>`;
+      const unit = unitLabels[row.unit] || row.unit;
+      const status = !row.active ? 'Скрыта' : low ? 'Мало' : 'В норме';
+      const statusClass = !row.active ? '' : low ? 'is-warning' : 'is-active';
+      return `<article class="inventory-table-row inventory-catalog-row ${low ? 'inventory-low' : ''}"><div class="inventory-primary-cell"><strong>${escapeHtml(row.name)}</strong><small>${row.sku ? `Артикул ${escapeHtml(row.sku)} · ` : ''}${escapeHtml(unit)}</small></div><span class="inventory-value" data-label="Остаток"><strong>${escapeHtml(quantity(total))}</strong> ${escapeHtml(unit)}</span><span class="inventory-value" data-label="Минимум"><strong>${escapeHtml(quantity(row.low_stock_threshold))}</strong> ${escapeHtml(unit)}</span><span class="inventory-status-cell" data-label="Статус"><span class="organization-status ${statusClass}">${status}</span></span><button class="secondary-button inventory-row-action" type="button" data-inventory-edit-item="${escapeHtml(row.id)}" data-inventory-write aria-label="Изменить позицию ${escapeHtml(row.name)}">Изменить</button></article>`;
     }
 
     function warehouseCard(row) {
       const stocks = payload.balances.filter(balance => balance.warehouse_id === row.id && Number(balance.quantity) > 0).length;
-      return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(location(row.location_id)?.name || 'Филиал')} · ${stocks} позиций с остатком</small></div><span class="organization-tags"><span class="organization-status ${row.active ? 'is-active' : ''}">${row.active ? 'Активен' : 'Закрыт'}</span><button class="secondary-button" type="button" data-inventory-edit-warehouse="${escapeHtml(row.id)}" data-inventory-write>Изменить</button></span></article>`;
+      return `<article class="inventory-table-row inventory-warehouse-row"><div class="inventory-primary-cell"><strong>${escapeHtml(row.name)}</strong><small>Склад филиала</small></div><span class="inventory-value" data-label="Филиал">${escapeHtml(location(row.location_id)?.name || 'Филиал')}</span><span class="inventory-value" data-label="С остатком"><strong>${escapeHtml(stocks)}</strong> поз.</span><span class="inventory-status-cell" data-label="Статус"><span class="organization-status ${row.active ? 'is-active' : ''}">${row.active ? 'Активен' : 'Закрыт'}</span></span><button class="secondary-button inventory-row-action" type="button" data-inventory-edit-warehouse="${escapeHtml(row.id)}" data-inventory-write aria-label="Изменить склад ${escapeHtml(row.name)}">Изменить</button></article>`;
     }
 
     function balanceCard(row) {
@@ -206,6 +209,11 @@
       $('#inventoryAutoDeduct').checked = Boolean(payload.auto_deduct_completed_visits); $('#inventoryAutoDeduct').disabled = !isOwner || !enabled;
       $('#inventoryEnabledHint').textContent = isOwner ? 'По умолчанию выключено. Включение не списывает старые визиты.' : 'Включить или выключить склад может только владелец.';
       $('#inventoryItemsCount').textContent = String(payload.items.length); $('#inventoryWarehousesCount').textContent = String(payload.warehouses.length);
+      const activeItems = payload.items.filter(row => row.active), activeWarehouses = payload.warehouses.filter(row => row.active);
+      $('#inventorySummaryTotal').textContent = String(payload.items.length);
+      $('#inventorySummaryAvailable').textContent = String(activeItems.filter(row => totalFor(row.id) > 0).length);
+      $('#inventorySummaryLow').textContent = String(activeItems.filter(row => totalFor(row.id) <= Number(row.low_stock_threshold || 0)).length);
+      $('#inventorySummaryWarehouses').textContent = String(activeWarehouses.length);
       $('#inventoryItemsList').innerHTML = payload.items.length ? payload.items.map(itemCard).join('') : empty('Товаров и материалов пока нет', 'Добавьте первую складскую позицию.');
       $('#inventoryWarehousesList').innerHTML = payload.warehouses.length ? payload.warehouses.map(warehouseCard).join('') : empty('Склады не созданы', 'Создайте по одному складу для нужных филиалов.');
       $('#inventoryBalances').innerHTML = payload.warehouses.filter(row => row.active).length ? payload.warehouses.filter(row => row.active).map(balanceCard).join('') : empty('Нет активных складов', 'Создайте склад филиала, затем оформите приход.');
@@ -215,7 +223,7 @@
       $('#inventoryMovementsList').innerHTML = ordinaryMovements.length ? ordinaryMovements.map(movementCard).join('') : empty('Движений пока нет', 'Приходы, списания, инвентаризации и перемещения появятся здесь.');
       $('#inventoryTransferDocumentsList').innerHTML = payload.transfer_documents.length ? payload.transfer_documents.map(transferCard).join('') : '';
       $('#inventoryControls').hidden = !enabled;
-      const activeItems = payload.items.filter(row => row.active), activeWarehouses = payload.warehouses.filter(row => row.active), activeServices = payload.services.filter(row => row.active !== false);
+      const activeServices = payload.services.filter(row => row.active !== false);
       $('#inventoryMovementWarehouse').innerHTML = optionRows(activeWarehouses, row => `${row.name} · ${location(row.location_id)?.name || 'Филиал'}`);
       $('#inventoryMovementItem').innerHTML = activeItems.map(row => `<option value="${escapeHtml(row.id)}" data-code="${escapeHtml(row.sku || '')}" data-sku="${escapeHtml(row.sku || '')}">${escapeHtml(`${row.name} · ${unitLabels[row.unit] || row.unit}${row.sku ? ` · ${row.sku}` : ''}`)}</option>`).join('');
       $('#inventoryUsageService').innerHTML = optionRows(activeServices, row => row.name);
