@@ -16,19 +16,21 @@ for (const contract of [
   /providerMobileMoreHistoryDismissed/,
   /data-close-mobile-more/
 ]) assert.match(providerSource, contract);
-assert.match(providerHtml, /provider-ux\.css\?v=840/);
-assert.match(providerHtml, /site-update\.js\?v=840/);
-assert.match(providerHtml, /provider\.js\?v=840/);
-assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v840`/);
-assert.match(workerSource, /provider-ux\.css\?v=840/);
-assert.match(workerSource, /site-update\.js\?v=840/);
-assert.match(workerSource, /provider\.js\?v=840/);
-assert.match(updateSource, /sw\.js\?v=840/);
+assert.match(providerHtml, /provider-ux\.css\?v=841/);
+assert.match(providerHtml, /site-update\.js\?v=841/);
+assert.match(providerHtml, /provider\.js\?v=841/);
+assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v841`/);
+assert.match(workerSource, /provider-ux\.css\?v=841/);
+assert.match(workerSource, /site-update\.js\?v=841/);
+assert.match(workerSource, /provider\.js\?v=841/);
+assert.match(updateSource, /sw\.js\?v=841/);
 assert.match(providerSource, /renderDateStrip\(\{ instantCenter:true \}\)/);
 assert.match(providerSource, /setFilter\('day', \{ render:false \}\)/);
 assert.match(providerSource, /previewMobileDate\(\)/);
 assert.match(providerSource, /queueMobileDateSettle\(\)/);
 assert.match(providerSource, /commitMobileDateGesture\(\)/);
+assert.match(providerSource, /function dateStripRangeHasRunway\(dateStrip, value, runwayDays = 28\)/);
+assert.match(providerSource, /mobileCenteredRange \? !currentRangeHasMobileRunway/);
 
 const seam = `
 window.__providerMoreTest={show(){
@@ -38,6 +40,12 @@ window.__providerMoreTest={show(){
   document.querySelector('#dashboard').hidden=false;
   setProviderView('bookings',{historyMode:'replace',focusHeading:false});
   renderDateStrip({forceCenter:true});
+},setDate(value){selectScheduleDate(value);},shiftDay(direction){shiftScheduleDate(direction);},dateStrip(){
+  const strip=document.querySelector('#dateStrip');
+  const active=strip.querySelector('[data-booking-date].active');
+  const stripRect=strip.getBoundingClientRect();
+  const activeRect=active?.getBoundingClientRect();
+  return {selectedDate,active:active?.dataset.bookingDate||'',picker:document.querySelector('#scheduleDatePicker').value,title:document.querySelector('#selectedDateTitle').textContent.trim(),rangeStart:strip.dataset.rangeStart,rangeEnd:strip.dataset.rangeEnd,centerDelta:activeRect?Math.abs((activeRect.left+activeRect.right-stripRect.left-stripRect.right)/2):Infinity};
 }};`;
 const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
 const server = createServer((request, response) => {
@@ -56,6 +64,19 @@ const playwrightModule = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pat
 const { chromium } = playwrightModule.default || playwrightModule;
 const browser = await chromium.launch({ headless:true, channel:process.env.BROWSER_CHANNEL || 'chrome' });
 
+async function dragDateStrip(page, direction = 1) {
+  const box = await page.locator('#dateStrip').boundingBox();
+  assert.ok(box, 'date strip is not visible for drag');
+  const fromX = box.x + box.width * (direction > 0 ? .78 : .22);
+  const toX = box.x + box.width * (direction > 0 ? .22 : .78);
+  const y = box.y + box.height / 2;
+  await page.mouse.move(fromX, y);
+  await page.mouse.down();
+  await page.mouse.move(toX, y, { steps:5 });
+  await page.mouse.up();
+  await page.waitForTimeout(35);
+}
+
 const moreButton = '.provider-mobile-nav [data-provider-view="more"]';
 const morePanel = '[data-provider-panel="more"]';
 const state = page => page.evaluate(() => {
@@ -72,7 +93,7 @@ const state = page => page.evaluate(() => {
 });
 
 try {
-  for (const width of [390, 760]) {
+  for (const width of [320, 390, 760]) {
     for (const theme of ['sage', 'graphite']) {
       const context = await browser.newContext({ viewport:{ width, height:900 }, hasTouch:true, isMobile:true, serviceWorkers:'block' });
       await context.route('**/*', route => new URL(route.request().url()).origin === origin && route.request().method() === 'GET' ? route.continue() : route.abort());
@@ -121,6 +142,31 @@ try {
         assert.ok(interaction.tap.centerDelta <= 1, `${width}px tap did not center the selected date immediately: ${JSON.stringify(interaction)}`);
         assert.equal(interaction.rapid.active, interaction.rapid.picker, `${width}px rapid taps restored an older date: ${JSON.stringify(interaction)}`);
         assert.ok(interaction.rapid.centerDelta <= 1, `${width}px rapid taps left the newest date off-center: ${JSON.stringify(interaction)}`);
+
+        if (width <= 760) {
+          await page.evaluate(() => window.__providerMoreTest.setDate('2025-10-01'));
+          const initialStrip = await page.evaluate(() => window.__providerMoreTest.dateStrip());
+          const forwardDrags = width <= 390 ? 36 : 4;
+          for (let index = 0; index < forwardDrags; index += 1) await dragDateStrip(page, 1);
+          const afterForward = await page.evaluate(() => window.__providerMoreTest.dateStrip());
+          assert.ok(afterForward.selectedDate > initialStrip.selectedDate, `${width}px repeated real drags did not advance the date strip: ${JSON.stringify({initialStrip,afterForward})}`);
+          assert.equal(afterForward.active, afterForward.picker, `${width}px drag date and picker diverged: ${JSON.stringify(afterForward)}`);
+          assert.ok(afterForward.centerDelta <= 1, `${width}px dragged date is not centered: ${JSON.stringify(afterForward)}`);
+          if (width <= 390) {
+            assert.notEqual(afterForward.rangeStart, initialStrip.rangeStart, `${width}px mobile date buffer did not extend after repeated drags: ${JSON.stringify({initialStrip,afterForward})}`);
+            for (let index = 0; index < 14; index += 1) await dragDateStrip(page, -1);
+            const afterReverse = await page.evaluate(() => window.__providerMoreTest.dateStrip());
+            assert.ok(afterReverse.selectedDate < afterForward.selectedDate, `${width}px direction change stayed stuck at the buffer edge: ${JSON.stringify({afterForward,afterReverse})}`);
+          }
+          await page.evaluate(() => { window.__providerMoreTest.setDate('2024-02-28'); window.__providerMoreTest.shiftDay(1); });
+          const leapDay = await page.evaluate(() => window.__providerMoreTest.dateStrip());
+          assert.equal(leapDay.selectedDate, '2024-02-29', `${width}px leap-day transition is wrong: ${JSON.stringify(leapDay)}`);
+          assert.equal(leapDay.active, leapDay.picker, `${width}px leap-day selection diverged: ${JSON.stringify(leapDay)}`);
+          await page.evaluate(() => { window.__providerMoreTest.setDate('2025-12-31'); window.__providerMoreTest.shiftDay(1); });
+          const yearEdge = await page.evaluate(() => window.__providerMoreTest.dateStrip());
+          assert.equal(yearEdge.selectedDate, '2026-01-01', `${width}px year transition is wrong: ${JSON.stringify(yearEdge)}`);
+          assert.ok(yearEdge.centerDelta <= 1, `${width}px year-edge date is not centered: ${JSON.stringify(yearEdge)}`);
+        }
       }
 
       await page.locator(moreButton).click();
