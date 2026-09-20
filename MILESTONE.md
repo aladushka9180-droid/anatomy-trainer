@@ -12,6 +12,7 @@
 - Актуальный `origin/main`: `1a89bd11`.
 - На `origin/main` нет public multi-service RPC; v85 остаётся provider-only и только для повторов одной услуги.
 - Локальная static-проверка v167: 4/4; YAML release-workflow разбирается без ошибок, `git diff --check` проходит.
+- Первый isolated test-gate без записей остановился на неподдерживаемом `jsonb_object_length`; проверка заменена на совместимый `jsonb_object_keys`.
 
 # Текущий этап
 

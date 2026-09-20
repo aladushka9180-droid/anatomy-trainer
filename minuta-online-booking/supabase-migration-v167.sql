@@ -103,7 +103,7 @@ begin
     for v_item in select value from jsonb_array_elements(p_items) loop
       v_position:=v_position+1;
       if jsonb_typeof(v_item)<>'object'
-         or jsonb_object_length(v_item)<>6
+         or (select count(*) from jsonb_object_keys(v_item))<>6
          or not v_item ?& array['request_id','service_id','booking_date','booking_time','expected_price_rub','expected_duration_minutes'] then
         raise exception using errcode='22023',message='invalid_multi_service_route_item';
       end if;

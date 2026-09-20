@@ -16,6 +16,7 @@ test('v167 is one public all-or-none route over ordinary authoritative bookings'
   const create = body(migration, 'create or replace function public.book_minuta_multi_service_route_v167', "revoke all on function public.book_minuta_multi_service_route_v167");
   assert.match(create, /security definer[\s\S]*set search_path to ''/u);
   assert.match(create, /jsonb_array_length\(p_items\)/u);
+  assert.match(create, /count\(\*\) from jsonb_object_keys\(v_item\)/u);
   assert.match(create, /v_count not between 2 and 6/u);
   assert.match(create, /count\(distinct item->>'service_id'\)/u);
   assert.match(create, /group by service\.performer_id[\s\S]*having count\(\*\)=v_count/u);
