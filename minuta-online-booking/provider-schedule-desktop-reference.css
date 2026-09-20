@@ -35,7 +35,7 @@
     border:0!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] .provider-product-signature {
-    font-size:14px!important;
+    font-size:23px!important;
     letter-spacing:-.5px!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] .provider-product-tier {
@@ -696,7 +696,7 @@
     max-height:calc(100vh - 24px);
     padding:18px 12px!important;
   }
-  html body.provider-body[data-provider-theme][data-provider-layout] .provider-product-signature { font-size:14px!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] .provider-product-signature { font-size:18px!important; }
   html body.provider-body[data-provider-theme][data-provider-layout] .provider-nav button {
     min-height:44px!important;
     padding:0 9px!important;

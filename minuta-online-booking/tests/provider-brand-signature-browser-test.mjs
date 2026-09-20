@@ -90,7 +90,7 @@ try {
         };
       }, theme);
       assert.equal(state.transform, 'none', `${theme} ${width}px: подпись снова набрана капсом`);
-      assert.equal(state.size, 14, `${theme} ${width}px: неверный размер подписи`);
+      assert.equal(state.size, width >= 761 ? 23 : 14, `${theme} ${width}px: неверный размер подписи`);
       assert.ok(state.spacing < 0, `${theme} ${width}px: вернулась разреженная подпись (${state.spacing}px)`);
       assert.notEqual(state.nameColor, state.tierColor, `${theme} ${width}px: Pro потерял акцент`);
       assert.ok(state.tierWeight > state.nameWeight, `${theme} ${width}px: Pro не отделён начертанием`);
