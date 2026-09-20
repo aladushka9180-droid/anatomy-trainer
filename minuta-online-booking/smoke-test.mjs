@@ -754,6 +754,9 @@ assert.match(providerHtml, /id="offlineBookingQueuePanel"[\s\S]*id="retryOffline
 assert.match(providerHtml, /Сохранено на устройстве[\s\S]*Как это работает/, 'Офлайн-очередь не объясняет автоматическую отправку компактно');
 assert.match(provider, /function showOfflineBookingCompletion[\s\S]*bookingCreationConfirmed[\s\S]*Уведомление клиенту не отправлено — Telegram не подключён/, 'Подтверждение синхронизированной записи не защищено от повторного показа или не отделяет Telegram-статус');
 assert.match(provider, /function renderOfflineBookingQueue[\s\S]*offline-booking-item is-created[\s\S]*Запись создана[\s\S]*data-dismiss-offline-booking-completion/, 'Успех синхронизации не заменяет ту же строку офлайн-очереди');
+assert.match(provider, /Когда интернет вернётся, PrimeTime Pro проверит выбранное время и создаст запись[\s\S]*Ожидает подключения/, 'Ожидающая офлайн-запись не объясняет один раз безопасную серверную проверку');
+assert.match(provider, /function openAnotherOfflineBooking[\s\S]*openNewBookingSheet\('', \{ clientName:completion\.client, clientPhone:completion\.clientPhone \}\)/, 'Повторное создание не открывает существующую форму с тем же клиентом');
+assert.doesNotMatch(provider.match(/function showOfflineBookingCompletion[\s\S]*?\r?\n}/)?.[0] || '', /setTimeout/, 'Карточка успеха исчезает раньше, чем пользователь успевает выбрать следующее действие');
 assert.match(provider, /function showOfflineBookingCompletion[\s\S]*renderBookingData\(\);\s*renderOfflineBookingQueue\(\);/, 'Подтверждение офлайн-записи может появиться раньше самой записи в расписании');
 assert.match(provider, /offline-bookings-v1/, 'Офлайн-записи не изолированы в отдельной версионированной очереди');
 assert.match(provider, /const OFFLINE_BOOKING_MAX_AGE = 7 \* 24 \* 60 \* 60 \* 1000/, 'Отложенные записи хранятся на устройстве без ограничения срока');

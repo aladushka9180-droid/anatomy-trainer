@@ -486,7 +486,6 @@ let offlineBookingQueue = [];
 let offlineBookingFlushPromise = null;
 let offlineBookingSavePromise = Promise.resolve();
 let offlineBookingCompletion = null;
-let offlineBookingCompletionTimer = null;
 let providerBookingWritePromise = null;
 let offlineBookingInputsReady = false;
 let offlineBookingAccessReady = false;
@@ -1188,7 +1187,9 @@ function showOfflineBookingCompletion(item, booking, notification) {
   const duration = Math.max(1, Number(booking?.duration_minutes || booking?.services?.duration_minutes || item.durationMinutes || 60));
   offlineBookingCompletion = {
     client:String(booking?.client_name || item.clientName || 'Клиент'),
+    clientPhone:String(booking?.client_phone || item.clientPhone || ''),
     service:serviceName(booking?.services?.name || offlineBookingServiceName(item)),
+    date:String(booking?.booking_date || item.date || ''),
     time:`${start}–${timeFromMinutes(minutesFromTime(start) + duration)}`,
     notification:notification?.reason === 'not_connected'
       ? 'Уведомление клиенту не отправлено — Telegram не подключён'
@@ -1197,17 +1198,20 @@ function showOfflineBookingCompletion(item, booking, notification) {
         : ''
   };
   item.bookingCreationConfirmed = true;
-  if (offlineBookingCompletionTimer) clearTimeout(offlineBookingCompletionTimer);
   renderBookingData();
   renderOfflineBookingQueue();
-  offlineBookingCompletionTimer = setTimeout(dismissOfflineBookingCompletion, 12000);
   return true;
 }
 function dismissOfflineBookingCompletion() {
   offlineBookingCompletion = null;
-  if (offlineBookingCompletionTimer) clearTimeout(offlineBookingCompletionTimer);
-  offlineBookingCompletionTimer = null;
   renderOfflineBookingQueue();
+}
+function openAnotherOfflineBooking() {
+  const completion = offlineBookingCompletion;
+  if (!completion) return false;
+  dismissOfflineBookingCompletion();
+  openNewBookingSheet('', { clientName:completion.client, clientPhone:completion.clientPhone });
+  return true;
 }
 window.addEventListener('minuta:provider-session-reset', () => {
   if (typeof dismissOfflineBookingCompletion === 'function') dismissOfflineBookingCompletion();
@@ -1235,7 +1239,7 @@ function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = fal
 function deliverOfflineBookingProviderNotice(notice) {
   if (!notice) return false;
   recordConnectionEvent(notice.kind, notice.body);
-  if (!document.hidden) notify(notice.toast);
+  if (!document.hidden) notifyForDuration(notice.toast, 6000);
   if ('Notification' in window && Notification.permission === 'granted') {
     void showProviderSystemNotification({ ...notice, view:'bookings' });
   }
@@ -1255,30 +1259,33 @@ function renderOfflineBookingQueue() {
   if (offlineBookingCompletion) {
     if (head) head.hidden = false;
     if (title) title.textContent = 'Офлайн-запись';
-    status.textContent = '\u00a0';
+    status.textContent = 'Когда интернет вернётся, PrimeTime Pro проверит выбранное время и создаст запись';
     const notification = offlineBookingCompletion.notification ? `<small>${escapeHtml(offlineBookingCompletion.notification)}</small>` : '';
-    list.innerHTML = `<article class="offline-booking-item is-created"><div><strong>Запись создана</strong><span>${escapeHtml(offlineBookingCompletion.client)} · ${escapeHtml(offlineBookingCompletion.service)} · ${escapeHtml(offlineBookingCompletion.time)}</span>${notification}</div><div class="offline-booking-actions"><button class="offline-booking-dismiss" type="button" data-dismiss-offline-booking-completion aria-label="Закрыть подтверждение">×</button></div></article>`;
+    list.innerHTML = `<article class="offline-booking-item is-created"><div><strong>Запись создана</strong><b>${escapeHtml(offlineBookingCompletion.client)}</b><span>${escapeHtml(offlineBookingCompletion.service)}</span><span>${escapeHtml(bookingDateLabel(offlineBookingCompletion.date))} · ${escapeHtml(offlineBookingCompletion.time)}</span>${notification}</div><div class="offline-booking-actions offline-booking-created-actions"><button class="offline-booking-create-more" type="button" data-create-more-offline-booking>Создать ещё запись</button><button class="offline-booking-dismiss" type="button" data-dismiss-offline-booking-completion aria-label="Закрыть подтверждение">×</button></div></article>`;
     if (details) details.hidden = true;
     if (retry) retry.hidden = true;
     return;
   }
   if (head) head.hidden = false;
   if (title) title.textContent = 'Сохранено на устройстве';
-  if (details) details.hidden = false;
+  if (details) details.hidden = true;
   if (!offlineBookingQueue.length) { list.replaceChildren(); return; }
   const conflicts = offlineBookingQueue.filter(item => item.status === 'conflict').length;
   const notifications = offlineBookingQueue.filter(item => item.status === 'notification_pending').length;
   const pending = offlineBookingQueue.length - conflicts - notifications;
-  status.textContent = [pending ? `${pending} отправятся автоматически после подключения` : '', notifications ? `${notifications} ожидают уведомления` : '', conflicts ? `${conflicts} требуют внимания` : ''].filter(Boolean).join(' · ');
+  status.textContent = pending
+    ? 'Когда интернет вернётся, PrimeTime Pro проверит выбранное время и создаст запись'
+    : [notifications ? `${notifications} ожидают уведомления` : '', conflicts ? `${conflicts} требуют внимания` : ''].filter(Boolean).join(' · ');
   list.innerHTML = offlineBookingQueue.map(item => {
     const date = parseLocalIsoDate(item.date);
     const dateLabel = date ? date.toLocaleDateString('ru-RU', { day:'numeric', month:'short' }) : item.date;
-    const state = item.status === 'conflict' ? `<small class="offline-booking-conflict" role="alert">${escapeHtml(offlineBookingConflictText(item.reason))}</small>` : item.status === 'syncing' ? '<small>Проверяем время на сервере…</small>' : item.status === 'server_check_pending' ? '<small>Запись принята сервером · подтверждаем результат</small>' : item.status === 'notification_pending' ? '<small>Запись создана · повторим уведомление клиенту</small>' : '<small>Будет проверено при подключении</small>';
+    const end = timeFromMinutes(minutesFromTime(item.time) + Math.max(1, Number(item.durationMinutes || 60)));
+    const state = item.status === 'conflict' ? `<small class="offline-booking-conflict" role="alert">${escapeHtml(offlineBookingConflictText(item.reason))}</small>` : item.status === 'syncing' ? '<small>Проверяем время на сервере…</small>' : item.status === 'server_check_pending' ? '<small>Запись принята сервером · подтверждаем результат</small>' : item.status === 'notification_pending' ? '<small>Запись создана · повторим уведомление клиенту</small>' : '<small>Ожидает подключения</small>';
     const notificationOnly = item.status === 'notification_pending';
     const label = notificationOnly ? `Не повторять уведомление о записи на ${dateLabel} в ${item.time}` : `Удалить отложенную запись ${item.clientName} на ${dateLabel} в ${item.time}`;
     const removalLocked = item.status === 'syncing' || item.status === 'server_check_pending';
     const editButton = item.status === 'conflict' ? `<button type="button" class="offline-booking-edit" data-edit-offline-booking="${escapeHtml(item.id)}" aria-label="Изменить отложенную запись ${escapeHtml(item.clientName)}">Изменить</button>` : '';
-    return `<article class="offline-booking-item is-${item.status === 'conflict' ? 'conflict' : 'pending'}"><div><strong>${escapeHtml(item.clientName)}</strong><span>${escapeHtml(dateLabel)} · ${escapeHtml(item.time)} · ${escapeHtml(offlineBookingServiceName(item))}</span>${state}</div><div class="offline-booking-actions">${editButton}<button type="button" data-remove-offline-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}" ${removalLocked ? 'disabled' : ''}>${notificationOnly ? 'Не повторять' : 'Удалить'}</button></div></article>`;
+    return `<article class="offline-booking-item is-${item.status === 'conflict' ? 'conflict' : 'pending'}"><div><strong>${escapeHtml(item.clientName)}</strong><span>${escapeHtml(dateLabel)} · ${escapeHtml(item.time)}–${escapeHtml(end)}</span><span>${escapeHtml(offlineBookingServiceName(item))}</span>${state}</div><div class="offline-booking-actions">${editButton}<button type="button" data-remove-offline-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}" ${removalLocked ? 'disabled' : ''}>${notificationOnly ? 'Не повторять' : 'Удалить'}</button></div></article>`;
   }).join('');
   if (retry) {
     retry.hidden = !navigator.onLine || (!notifications && !conflicts);
@@ -5640,7 +5647,13 @@ function notify(message) {
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(announce);
   else announce();
   clearTimeout(notify.timer);
-  notify.timer = setTimeout(() => { toast.hidden = true; }, 2800);
+  const duration = Number(notify.duration) > 0 ? Number(notify.duration) : 2800;
+  notify.duration = 0;
+  notify.timer = setTimeout(() => { toast.hidden = true; }, duration);
+}
+function notifyForDuration(message, duration) {
+  notify.duration = Math.max(2800, Number(duration) || 0);
+  notify(message);
 }
 function requestProviderConfirmation({ title = 'Подтвердите действие', message = '', confirmLabel = 'Подтвердить', initialFocus = 'confirm' } = {}) {
   const dialog = $('#providerConfirmDialog');
@@ -6613,6 +6626,7 @@ async function openProviderMessageForBooking(bookingId) {
   if (!selected) notify('Диалог пока недоступен. Записи и уведомления продолжают работать.');
 }
 function setProviderViewImmediate(view, focusHeading = false) {
+  if (view !== 'bookings' && offlineBookingCompletion) dismissOfflineBookingCompletion();
   $('#dashboard').dataset.activeView = view;
   if (view === 'bookings' && bookingUsesDemoData()) {
     prepareDemoBookingContext();
@@ -16721,6 +16735,10 @@ $('#retryOfflineBookings')?.addEventListener('click', async () => {
 $('#offlineBookingQueueList')?.addEventListener('click', async event => {
   if (event.target.closest('[data-dismiss-offline-booking-completion]')) {
     dismissOfflineBookingCompletion();
+    return;
+  }
+  if (event.target.closest('[data-create-more-offline-booking]')) {
+    openAnotherOfflineBooking();
     return;
   }
   const editButton = event.target.closest('[data-edit-offline-booking]');
