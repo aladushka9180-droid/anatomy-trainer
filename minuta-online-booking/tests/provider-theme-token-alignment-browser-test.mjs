@@ -91,7 +91,13 @@ try {
     await page.evaluate(() => {
       document.documentElement.classList.remove('provider-booting', 'requires-top-level');
       document.querySelector('#providerBoot')?.remove();
-      document.body.insertAdjacentHTML('beforeend', `
+      document.body.dataset.providerLayout = 'soft';
+      const dashboard = document.querySelector('#dashboard');
+      dashboard.hidden = false;
+      dashboard.dataset.activeView = 'bookings';
+      dashboard.setAttribute('style', 'display:block!important;padding:0!important;min-height:0!important');
+      dashboard.replaceChildren();
+      dashboard.insertAdjacentHTML('beforeend', `
         <section id="themeAlignmentFixture" style="position:relative;width:min(320px,calc(100vw - 24px));margin:12px;">
           <nav class="provider-nav" aria-label="Test navigation">
             <button id="fixtureNotification" type="button"><span class="nav-icon" aria-hidden="true">●</span><span>Уведомления</span><b id="fixtureBadge">4</b></button>
@@ -102,6 +108,12 @@ try {
           </div>
           <div class="organization-audit-list"><article><span id="fixtureAuditDot"></span><div><strong>Изменение</strong><small>Система</small></div></article></div>
           <div class="panel-head"><div><small id="fixtureEyebrow">Товары, материалы и расходники</small><h3>Складской учёт</h3></div></div>
+          <div class="date-navigation" style="display:block!important;min-height:0!important;padding:0!important;border:0!important">
+            <label class="schedule-date-picker" id="fixtureDatePicker" style="width:220px!important;margin:12px 0 0!important">
+              <span class="sr-only">Календарь</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"></use></svg>
+              <input id="fixtureDateInput" type="date" value="2026-09-20" aria-label="Выбрать дату в календаре">
+            </label>
+          </div>
         </section>`);
       const stable = document.createElement('style');
       stable.textContent = '*,*::before,*::after{animation:none!important;transition:none!important}';
@@ -125,6 +137,9 @@ try {
         const disabled = document.querySelector('#fixtureDisabled');
         const dot = document.querySelector('#fixtureAuditDot');
         const eyebrow = document.querySelector('#fixtureEyebrow');
+        const picker = document.querySelector('#fixtureDatePicker');
+        const dateInput = document.querySelector('#fixtureDateInput');
+        const dateIcon = picker.querySelector('.ui-icon');
         const nav = document.querySelector('#fixtureNotification');
         let clicks = 0;
         nav.onclick = () => { clicks += 1; };
@@ -138,12 +153,22 @@ try {
         const disabledStyle = getComputedStyle(disabled);
         const dotStyle = getComputedStyle(dot);
         const eyebrowStyle = getComputedStyle(eyebrow);
+        const pickerStyle = getComputedStyle(picker);
+        const pickerArrowStyle = getComputedStyle(picker, '::after');
+        const dateInputStyle = getComputedStyle(dateInput);
+        const dateIconStyle = getComputedStyle(dateIcon);
+        const pickerRect = picker.getBoundingClientRect();
+        const dateInputRect = dateInput.getBoundingClientRect();
+        const dateIconRect = dateIcon.getBoundingClientRect();
         const accent = normalizeColor(getComputedStyle(document.body).getPropertyValue('--theme-accent'));
         const contrast = normalizeColor(getComputedStyle(document.body).getPropertyValue('--theme-accent-contrast'));
         badge.hidden = true;
         const hiddenDisplay = getComputedStyle(badge).display;
         badge.hidden = false;
         badge.textContent = '4';
+        let dateClicks = 0;
+        dateInput.onclick = () => { dateClicks += 1; };
+        dateInput.click();
         return {
           clicks,
           accent,
@@ -166,6 +191,21 @@ try {
           disabledCursor:disabledStyle.cursor,
           dotBackground:dotStyle.backgroundColor,
           eyebrowColor:eyebrowStyle.color,
+          pickerBorderWidths:[pickerStyle.borderTopWidth,pickerStyle.borderRightWidth,pickerStyle.borderBottomWidth,pickerStyle.borderLeftWidth],
+          pickerRadius:parseFloat(pickerStyle.borderRadius),
+          pickerBackground:pickerStyle.backgroundColor,
+          pickerArrowContent:pickerArrowStyle.content,
+          pickerArrowWidth:parseFloat(pickerArrowStyle.width),
+          pickerArrowHeight:parseFloat(pickerArrowStyle.height),
+          dateAppearance:dateInputStyle.appearance,
+          dateBorderWidths:[dateInputStyle.borderTopWidth,dateInputStyle.borderRightWidth,dateInputStyle.borderBottomWidth,dateInputStyle.borderLeftWidth],
+          dateBackground:dateInputStyle.backgroundColor,
+          dateBoxShadow:dateInputStyle.boxShadow,
+          dateCursor:dateInputStyle.cursor,
+          dateIconColor:dateIconStyle.color,
+          dateClicks,
+          dateInputInside:dateInputRect.left >= pickerRect.left - 1 && dateInputRect.right <= pickerRect.right + 1 && dateInputRect.top >= pickerRect.top - 1 && dateInputRect.bottom <= pickerRect.bottom + 1,
+          dateIconCentered:Math.abs((dateIconRect.top + dateIconRect.bottom - pickerRect.top - pickerRect.bottom) / 2) <= 1,
           overflow:document.querySelector('#themeAlignmentFixture').scrollWidth > document.querySelector('#themeAlignmentFixture').clientWidth + 1
         };
       }, theme);
@@ -188,6 +228,19 @@ try {
       assert.ok(contrastRatio(state.checkedColor, state.checkedBackground) >= 3, `${theme} ${width}px: check mark contrast is too low`);
       assert.equal(state.dotBackground, state.accent, `${theme} ${width}px: neutral audit marker must use the theme accent`);
       assert.equal(state.eyebrowColor, state.accent, `${theme} ${width}px: decorative section label must use the theme accent`);
+      assert.ok(state.pickerBorderWidths.every(value => parseFloat(value) === 1), `${theme} ${width}px: date picker must have exactly one outer border`);
+      assert.notEqual(state.pickerBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px: date picker surface must use the theme`);
+      assert.notEqual(state.pickerArrowContent, 'none', `${theme} ${width}px: date picker must expose one themed disclosure indicator`);
+      assert.ok(state.pickerArrowWidth >= 6 && state.pickerArrowHeight >= 6, `${theme} ${width}px: date picker disclosure indicator is too small`);
+      assert.equal(state.dateAppearance, 'none', `${theme} ${width}px: native date chrome must not create a second inner capsule or duplicate icon`);
+      assert.ok(state.dateBorderWidths.every(value => parseFloat(value) === 0), `${theme} ${width}px: date input must not draw an inner border`);
+      assert.equal(state.dateBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px: date input must share the outer capsule surface`);
+      assert.equal(state.dateBoxShadow, 'none', `${theme} ${width}px: date input must not draw an inner shadow`);
+      assert.equal(state.dateCursor, 'pointer', `${theme} ${width}px: the native date control must remain operable`);
+      assert.equal(state.dateIconColor, state.accent, `${theme} ${width}px: calendar icon must use the active theme`);
+      assert.equal(state.dateClicks, 1, `${theme} ${width}px: date control must remain clickable`);
+      assert.equal(state.dateInputInside, true, `${theme} ${width}px: date input must remain inside the capsule`);
+      assert.equal(state.dateIconCentered, true, `${theme} ${width}px: calendar icon must remain vertically centered`);
       assert.equal(state.overflow, false, `${theme} ${width}px: alignment fixture must not overflow`);
       if (output && theme === 'carbon-crimson') {
         await page.locator('#themeAlignmentFixture').screenshot({ path:path.join(output, `carbon-crimson-alignment-${width}.png`) });

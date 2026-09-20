@@ -3,7 +3,7 @@
   --schedule-active-contrast:var(--theme-accent-contrast);
 }
 
-/* v844: list cards keep their established full booking tone; only the
+/* v842: list cards keep their established full booking tone; only the
    information hierarchy changes, so saved color choices remain authoritative. */
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-open {
   grid-template-columns:92px minmax(0,1fr) 24px!important;
