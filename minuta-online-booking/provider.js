@@ -1209,7 +1209,9 @@ function dismissOfflineBookingCompletion() {
   offlineBookingCompletionTimer = null;
   renderOfflineBookingQueue();
 }
-window.addEventListener('minuta:provider-session-reset', dismissOfflineBookingCompletion);
+window.addEventListener('minuta:provider-session-reset', () => {
+  if (typeof dismissOfflineBookingCompletion === 'function') dismissOfflineBookingCompletion();
+});
 function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = false } = {}) {
   const reason = item.reason || '';
   const noticeKey = `${outcome}:${reason}`;
