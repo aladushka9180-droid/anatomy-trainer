@@ -55,6 +55,7 @@ begin
   );
 end
 $fixture$;
+grant select on pg_temp.v167_fixture to anon;
 
 select set_config('v167.slug','v167-'||replace((select organization_id::text from pg_temp.v167_fixture),'-',''),true);
 select set_config('v167.route',(select route_request::text from pg_temp.v167_fixture),true);
