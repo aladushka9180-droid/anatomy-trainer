@@ -703,11 +703,9 @@ const server = http.createServer((request, response) => {
           assert.ok(card.contrast >= 4.5, `${theme} ${width}px: низкий контраст перерыва ${index + 1} (${card.contrast.toFixed(2)})`);
         });
         assert.notEqual(cards.normal[0].background, cards.rest[0].background, `${theme} ${width}px: запись и перерыв не различаются`);
-        assert.equal(cards.restIconContent, '""', `${theme} ${width}px: у перерыва нет значка паузы`);
-        if (width > 760) {
-          assert.equal(cards.restIconImage, 'none', `${theme} ${width}px: ПК-значок паузы должен быть сплошным`);
-          assert.notEqual(cards.restIconShadow, 'none', `${theme} ${width}px: вторая полоса ПК-значка паузы не отображается`);
-        } else assert.notEqual(cards.restIconImage, 'none', `${theme} ${width}px: значок паузы не отображается`);
+          assert.equal(cards.restIconContent, '""', `${theme} ${width}px: у перерыва нет значка паузы`);
+          assert.equal(cards.restIconImage, 'none', `${theme} ${width}px: значок паузы не должен быть градиентным`);
+          assert.notEqual(cards.restIconShadow, 'none', `${theme} ${width}px: вторая полоса значка паузы не отображается`);
         assert.equal(cards.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
       }
     }
