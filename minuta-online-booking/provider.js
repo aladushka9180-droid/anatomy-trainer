@@ -485,7 +485,6 @@ let connectionWasOffline = false;
 let offlineBookingQueue = [];
 let offlineBookingFlushPromise = null;
 let offlineBookingSavePromise = Promise.resolve();
-let pendingOfflineBookingCompletion = null;
 let offlineBookingCompletion = null;
 let offlineBookingCompletionTimer = null;
 let providerBookingWritePromise = null;
@@ -1183,14 +1182,13 @@ function offlineBookingServiceName(item) {
 function offlineBookingConflictText(reason) {
   return ({ slot_unavailable:'Выбранное время уже занято', booking_buffer_conflict:'Время попадает в перерыв рядом с другой записью', service_unavailable:'Услуга больше недоступна', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
 }
-function stageOfflineBookingCompletion(item, booking, notification) {
+function showOfflineBookingCompletion(item, booking, notification) {
   if (!item || item.bookingCreationConfirmed) return false;
   const start = String(booking?.booking_time || item.time || '').slice(0, 5);
-  const service = serviceName(booking?.services?.name || offlineBookingServiceName(item));
   const duration = Math.max(1, Number(booking?.duration_minutes || booking?.services?.duration_minutes || item.durationMinutes || 60));
-  pendingOfflineBookingCompletion = {
+  offlineBookingCompletion = {
     client:String(booking?.client_name || item.clientName || 'Клиент'),
-    service,
+    service:serviceName(booking?.services?.name || offlineBookingServiceName(item)),
     time:`${start}–${timeFromMinutes(minutesFromTime(start) + duration)}`,
     notification:notification?.reason === 'not_connected'
       ? 'Уведомление клиенту не отправлено — Telegram не подключён'
@@ -1199,23 +1197,17 @@ function stageOfflineBookingCompletion(item, booking, notification) {
         : ''
   };
   item.bookingCreationConfirmed = true;
+  if (offlineBookingCompletionTimer) clearTimeout(offlineBookingCompletionTimer);
+  renderBookingData();
+  renderOfflineBookingQueue();
+  offlineBookingCompletionTimer = setTimeout(dismissOfflineBookingCompletion, 12000);
   return true;
 }
 function dismissOfflineBookingCompletion() {
-  pendingOfflineBookingCompletion = null;
   offlineBookingCompletion = null;
   if (offlineBookingCompletionTimer) clearTimeout(offlineBookingCompletionTimer);
   offlineBookingCompletionTimer = null;
   renderOfflineBookingQueue();
-}
-function revealPendingOfflineBookingCompletion() {
-  if (!pendingOfflineBookingCompletion) return false;
-  offlineBookingCompletion = pendingOfflineBookingCompletion;
-  pendingOfflineBookingCompletion = null;
-  if (offlineBookingCompletionTimer) clearTimeout(offlineBookingCompletionTimer);
-  renderOfflineBookingQueue();
-  offlineBookingCompletionTimer = setTimeout(dismissOfflineBookingCompletion, 12000);
-  return true;
 }
 window.addEventListener('minuta:provider-session-reset', dismissOfflineBookingCompletion);
 function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = false } = {}) {
@@ -1344,7 +1336,7 @@ async function finalizeQueuedBooking(item, booking, userId, generation) {
     item.notificationAttempts = notificationAttempts;
     item.notificationNextAttemptAt = Date.now() + Math.min(60 * 60 * 1000, 5 * 60 * 1000 * (2 ** Math.min(notificationAttempts - 1, 4)));
     const providerNotice = stageOfflineBookingProviderNotice(item, 'client_notification_pending');
-    stageOfflineBookingCompletion(item, booking, notification);
+    showOfflineBookingCompletion(item, booking, notification);
     item.clientName = 'Клиент';
     item.clientPhone = '';
     item.note = '';
@@ -1354,7 +1346,7 @@ async function finalizeQueuedBooking(item, booking, userId, generation) {
     return false;
   }
   const providerNotice = stageOfflineBookingProviderNotice(item, 'created', { clientNotified:notification.delivered });
-  stageOfflineBookingCompletion(item, booking, notification);
+  showOfflineBookingCompletion(item, booking, notification);
   offlineBookingQueue = offlineBookingQueue.filter(entry => entry.id !== item.id);
   await saveOfflineBookingQueue(userId, { generation });
   if (!sessionIsCurrent(userId, generation)) return false;
@@ -1474,7 +1466,6 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
       await finalizeQueuedBooking(item, queuedBookingMatch(item) || booking, userId, generation);
     }
     renderBookingData();
-    revealPendingOfflineBookingCompletion();
     return !offlineBookingQueue.some(item => item.status === 'pending' || item.status === 'syncing' || item.status === 'server_check_pending' || item.status === 'notification_pending');
   })();
   offlineBookingFlushPromise = run;

@@ -5661,9 +5661,9 @@ html.provider-booting .provider-main {
 .offline-booking-queue-head span { min-height:14px; color:#6c5728; font-size:12px; font-weight:750; }
 .offline-booking-queue-head>button { width:auto; margin:0; }
 .offline-booking-queue.is-created { border-color:color-mix(in srgb, var(--accent) 48%, #cfd8cb); background:color-mix(in srgb, var(--accent) 8%, #fff); color:var(--text); }
-.offline-booking-item.is-created { border-color:color-mix(in srgb, var(--accent) 36%, #d9ded5); background:color-mix(in srgb, var(--accent) 5%, #fff); }
+.offline-booking-item.is-created { border-color:color-mix(in srgb,var(--accent) 36%,#d9ded5); background:linear-gradient(90deg,var(--accent) 0 3px,transparent 3px),color-mix(in srgb,var(--accent) 5%,#fff); }
 .offline-booking-item.is-created strong { font-size:18px; }
-.offline-booking-item.is-created span { color:var(--text); font-size:14px; font-weight:800; }
+.offline-booking-item.is-created span { color:var(--text); font-size:14px; font-weight:650; }
 .offline-booking-item.is-created small { color:var(--muted); font-size:12px; font-weight:700; }
 .offline-booking-item .offline-booking-dismiss { width:36px; min-width:36px; height:36px; min-height:36px; padding:0; border-radius:50%; font-size:20px; line-height:1; }
 .offline-booking-queue-list { display:grid; gap:7px; margin-top:11px; }

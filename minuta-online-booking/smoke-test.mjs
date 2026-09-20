@@ -752,9 +752,9 @@ assert.doesNotMatch(provider, /<details class="new-booking-advanced"[^>]*\sopen(
 assert.match(provider, /function focusCreatedBooking[\s\S]*scrollIntoView[\s\S]*booking-created-highlight/, 'После создания запись не выделяется и не показывается в журнале');
 assert.match(providerHtml, /id="offlineBookingQueuePanel"[\s\S]*id="retryOfflineBookings"[\s\S]*id="offlineBookingQueueList"/, 'В кабинете нет очереди отложенных офлайн-записей');
 assert.match(providerHtml, /Сохранено на устройстве[\s\S]*Как это работает/, 'Офлайн-очередь не объясняет автоматическую отправку компактно');
-assert.match(provider, /function stageOfflineBookingCompletion[\s\S]*bookingCreationConfirmed[\s\S]*Уведомление клиенту не отправлено — Telegram не подключён/, 'Подтверждение синхронизированной записи не защищено от повторного показа или не отделяет Telegram-статус');
+assert.match(provider, /function showOfflineBookingCompletion[\s\S]*bookingCreationConfirmed[\s\S]*Уведомление клиенту не отправлено — Telegram не подключён/, 'Подтверждение синхронизированной записи не защищено от повторного показа или не отделяет Telegram-статус');
 assert.match(provider, /function renderOfflineBookingQueue[\s\S]*offline-booking-item is-created[\s\S]*Запись создана[\s\S]*data-dismiss-offline-booking-completion/, 'Успех синхронизации не заменяет ту же строку офлайн-очереди');
-assert.match(provider, /renderBookingData\(\);\s*revealPendingOfflineBookingCompletion\(\);/, 'Подтверждение офлайн-записи может появиться раньше самой записи в расписании');
+assert.match(provider, /function showOfflineBookingCompletion[\s\S]*renderBookingData\(\);\s*renderOfflineBookingQueue\(\);/, 'Подтверждение офлайн-записи может появиться раньше самой записи в расписании');
 assert.match(provider, /offline-bookings-v1/, 'Офлайн-записи не изолированы в отдельной версионированной очереди');
 assert.match(provider, /const OFFLINE_BOOKING_MAX_AGE = 7 \* 24 \* 60 \* 60 \* 1000/, 'Отложенные записи хранятся на устройстве без ограничения срока');
 assert.match(provider, /function canQueueOfflineBooking\(\)[\s\S]*offlineBookingInputsReady[\s\S]*offlineBookingSnapshotFresh\(\)[\s\S]*ownServices\.some\(item => item\.active\)/, 'Офлайн-запись разрешена без полного свежего кэша и доступной услуги');
