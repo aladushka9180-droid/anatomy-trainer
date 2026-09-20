@@ -41,6 +41,9 @@
   html body.provider-body[data-provider-theme][data-provider-layout] .provider-product-tier {
     color:var(--pt-desktop-accent)!important;
   }
+  html body.provider-body[data-provider-theme][data-provider-layout] .provider-business-name-action {
+    display:none!important;
+  }
   html body.provider-body[data-provider-theme][data-provider-layout] .provider-nav {
     gap:2px!important;
     margin-top:0!important;

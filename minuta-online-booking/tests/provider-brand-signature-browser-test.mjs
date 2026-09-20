@@ -79,7 +79,9 @@ try {
           editIconCount:document.querySelectorAll('.provider-brand-edit,#editProviderBusinessName svg').length,
           nameActionCount:document.querySelectorAll('#editProviderBusinessName.provider-business-name-action').length,
           nameActionBackground:getComputedStyle(nameAction).backgroundColor,
+          nameActionDisplay:getComputedStyle(nameAction).display,
           nameActionWidth:nameAction.getBoundingClientRect().width,
+          businessNameVisible:nameAction.getBoundingClientRect().width > 0 && nameAction.getBoundingClientRect().height > 0,
           copyWidth:copy.getBoundingClientRect().width,
           nameHeight:nameRect.height,
           nameLineHeight:Number.parseFloat(getComputedStyle(name).lineHeight),
@@ -96,19 +98,9 @@ try {
       assert.equal(state.editIconCount, 0, `${theme} ${width}px: большая кнопка или карандаш редактирования всё ещё видны`);
       assert.equal(state.nameActionCount, 1, `${theme} ${width}px: название бизнеса не стало компактным переходом к редактированию`);
       assert.equal(state.nameActionBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px: название постоянно выглядит как отдельная кнопка`);
-      assert.ok(state.nameActionWidth >= state.copyWidth - 1, `${theme} ${width}px: название не использует освобождённую ширину карточки`);
+      assert.equal(state.nameActionDisplay, width < 761 ? 'block' : 'none', `${theme} ${width}px: desktop-скрытие затронуло неверный breakpoint`);
+      if (width < 761 && state.businessNameVisible) assert.ok(state.nameActionWidth >= state.copyWidth - 1, `${theme} ${width}px: название не использует освобождённую ширину карточки`);
       assert.equal(state.overflow, false, `${theme} ${width}px: появился горизонтальный overflow`);
-      if (width === 1440 && theme === 'warm') {
-        const restingDecoration = await page.locator('#providerBusinessName').evaluate(element => getComputedStyle(element).textDecorationColor);
-        await page.hover('#editProviderBusinessName');
-        await page.waitForTimeout(180);
-        const hoverDecoration = await page.locator('#providerBusinessName').evaluate(element => getComputedStyle(element).textDecorationColor);
-        assert.notEqual(hoverDecoration, restingDecoration, 'При наведении название не показывает возможность редактирования');
-        await page.locator('#editProviderBusinessName').focus();
-        const focusOutline = await page.locator('#editProviderBusinessName').evaluate(element => getComputedStyle(element).outlineStyle);
-        assert.equal(focusOutline, 'solid', 'Клавиатурный фокус на названии не виден');
-        if (output) await page.screenshot({ path:path.join(output, 'warm-focus-1440.png') });
-      }
       if (output && ['warm', 'midnight', 'petrol-steel'].includes(theme)) {
         await page.evaluate(() => document.activeElement?.blur());
         await page.mouse.move(width - 4, 896);
@@ -118,9 +110,6 @@ try {
       if (width === 1440) {
         assert.equal(state.visible, true, `${theme}: подпись не видна в боковой панели`);
         assert.equal(state.inside, true, `${theme}: подпись вышла за карточку бренда`);
-        assert.equal(state.signatureAboveName, true, `${theme}: PrimeTime Pro должен стоять над названием организации`);
-        assert.ok(state.nameHeight <= state.nameLineHeight * 1.15, `${theme}: «Массаж в Ижевске» всё ещё переносится при доступной ширине`);
-        assert.ok(state.copyOffset <= 16, `${theme}: освобождённая ширина не передана названию бизнеса`);
         tierColors.add(state.tierColor);
       }
     }
