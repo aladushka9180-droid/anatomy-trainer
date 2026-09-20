@@ -5658,8 +5658,14 @@ html.provider-booting .provider-main {
 .offline-booking-queue-head { display:flex; align-items:center; justify-content:space-between; gap:14px; }
 .offline-booking-queue-head>div { display:grid; gap:3px; }
 .offline-booking-queue-head strong { font-size:14px; }
-.offline-booking-queue-head span { color:#6c5728; font-size:12px; font-weight:750; }
+.offline-booking-queue-head span { min-height:14px; color:#6c5728; font-size:12px; font-weight:750; }
 .offline-booking-queue-head>button { width:auto; margin:0; }
+.offline-booking-queue.is-created { border-color:color-mix(in srgb, var(--accent) 48%, #cfd8cb); background:color-mix(in srgb, var(--accent) 8%, #fff); color:var(--text); }
+.offline-booking-item.is-created { border-color:color-mix(in srgb, var(--accent) 36%, #d9ded5); background:color-mix(in srgb, var(--accent) 5%, #fff); }
+.offline-booking-item.is-created strong { font-size:18px; }
+.offline-booking-item.is-created span { color:var(--text); font-size:14px; font-weight:800; }
+.offline-booking-item.is-created small { color:var(--muted); font-size:12px; font-weight:700; }
+.offline-booking-item .offline-booking-dismiss { width:36px; min-width:36px; height:36px; min-height:36px; padding:0; border-radius:50%; font-size:20px; line-height:1; }
 .offline-booking-queue-list { display:grid; gap:7px; margin-top:11px; }
 .offline-booking-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 11px; border:1px solid #ead9a4; border-radius:12px; background:#fff; }
 .offline-booking-item>div { display:grid; min-width:0; gap:2px; }
@@ -5678,6 +5684,7 @@ html.provider-booting .provider-main {
 .offline-booking-details summary { width:max-content; color:#715b27; cursor:pointer; font-size:11px; font-weight:850; }
 .offline-booking-details[open] summary { margin-bottom:2px; }
 .provider-body[data-provider-theme="luxury"] .offline-booking-queue { border-color:#715b2d; background:#241f14; color:#f2d993; }
+.provider-body[data-provider-theme="luxury"] .offline-booking-queue.is-created { border-color:#715b2d; background:#241f14; color:#f2d993; }
 .provider-body[data-provider-theme="luxury"] .offline-booking-item { border-color:#554724; background:#0b0c0d; }
 .provider-body[data-provider-theme="luxury"] .offline-booking-queue-head span,.provider-body[data-provider-theme="luxury"] .offline-booking-item span,.provider-body[data-provider-theme="luxury"] .offline-booking-item small,.provider-body[data-provider-theme="luxury"] .offline-booking-privacy,.provider-body[data-provider-theme="luxury"] .offline-booking-details summary { color:#e5cf9d; }
 .provider-body .new-booking-recurrence.is-offline-disabled { opacity:.58; }
@@ -5686,6 +5693,8 @@ html.provider-booting .provider-main {
   .booking-demo-notice:not([hidden]) { align-items:stretch; flex-direction:column; padding:12px; }.booking-demo-notice button { width:100%; }
   .offline-booking-queue-head,.offline-booking-item { align-items:stretch; flex-direction:column; }
   .offline-booking-queue-head>button,.offline-booking-actions,.offline-booking-actions>button { width:100%; }
+  .offline-booking-item.is-created { align-items:flex-start; flex-direction:row; }
+  .offline-booking-item.is-created>.offline-booking-actions,.offline-booking-item.is-created .offline-booking-dismiss { width:36px; }
   .offline-booking-actions { flex-direction:column; }
 }
 
