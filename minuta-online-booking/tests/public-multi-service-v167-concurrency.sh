@@ -8,12 +8,16 @@ cleanup(){
   if [[ -n "${service_a:-}" && -n "${service_b:-}" ]]; then
     psql "$db" -X -q -v ON_ERROR_STOP=1 \
       --set=route="${route}" --set=item_a="${item_a}" --set=item_b="${item_b}" \
-      --set=service_a="${service_a}" --set=service_b="${service_b}" <<'SQL'
+      --set=service_a="${service_a}" --set=service_b="${service_b}" \
+      --set=location="${location}" --set=organization="${organization}" --set=performer="${performer}" <<'SQL'
 begin;
 delete from public.public_multi_service_route_items_v167 where route_request_id=:'route'::uuid;
 delete from public.public_multi_service_routes_v167 where request_id=:'route'::uuid;
 delete from public.bookings where request_id in(:'item_a'::uuid,:'item_b'::uuid);
 delete from public.services where id in(:'service_a'::uuid,:'service_b'::uuid);
+delete from public.locations where id=:'location'::uuid;
+delete from public.organization_memberships where organization_id=:'organization'::uuid and user_id=:'performer'::uuid;
+delete from public.organizations where id=:'organization'::uuid;
 commit;
 SQL
   fi
@@ -21,33 +25,42 @@ SQL
 }
 trap cleanup EXIT
 
-IFS='|' read -r organization slug location performer service_a service_b route item_a item_b < <(
+IFS='|' read -r performer organization slug location service_a service_b route item_a item_b < <(
   psql "$db" -X -qAt -v ON_ERROR_STOP=1 -F '|' <<'SQL'
 with candidate as (
-  select organization.id organization_id,organization.public_slug,location.id location_id,membership.user_id performer_id
-  from public.organizations organization
-  join public.locations location on location.organization_id=organization.id and location.active and location.timezone='Europe/Samara'
-  join public.organization_memberships membership on membership.organization_id=organization.id and membership.active and membership.is_bookable
-  join public.services candidate_service on candidate_service.performer_id=membership.user_id and candidate_service.active
-  where organization.status='active' and organization.public_booking_enabled
-    and exists(select 1 from public.provider_schedule schedule where schedule.performer_id=membership.user_id and schedule.enabled)
+  select candidate_service.performer_id
+  from public.services candidate_service
+  join public.organization_memberships membership on membership.user_id=candidate_service.performer_id and membership.active and membership.is_bookable
+  join public.organizations organization on organization.id=membership.organization_id and organization.status='active'
+  where candidate_service.active
     and exists(select 1 from public.get_available_slots(candidate_service.id,current_date+1,current_date+7))
-  order by organization.id,location.is_primary desc,location.id,membership.user_id limit 1
+  order by candidate_service.id limit 1
+), ids as (
+  select performer_id,gen_random_uuid() organization_id,gen_random_uuid() location_id,
+    gen_random_uuid() service_a,gen_random_uuid() service_b,gen_random_uuid() route_request,
+    gen_random_uuid() item_a,gen_random_uuid() item_b from candidate
 )
-select candidate.organization_id,candidate.public_slug,candidate.location_id,candidate.performer_id,
-  gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid()
-from candidate;
+select performer_id,organization_id,'v167-'||replace(organization_id::text,'-',''),location_id,
+  service_a,service_b,route_request,item_a,item_b from ids;
 SQL
 )
 
 for value in "$organization" "$slug" "$location" "$performer" "$service_a" "$service_b" "$route" "$item_a" "$item_b"; do
-  test -n "$value"
+  if [[ -z "$value" ]]; then echo "v167_concurrency_performer_missing" >&2; exit 1; fi
 done
 
-psql "$db" -X -q -v ON_ERROR_STOP=1 --set=performer="$performer" --set=service_a="$service_a" --set=service_b="$service_b" <<'SQL'
+psql "$db" -X -q -v ON_ERROR_STOP=1 --set=performer="$performer" --set=organization="$organization" --set=slug="$slug" --set=location="$location" --set=service_a="$service_a" --set=service_b="$service_b" <<'SQL'
+begin;
+insert into public.organizations(id,name,public_slug,status,public_booking_enabled,created_by)
+values(:'organization'::uuid,'V167 concurrency organization',:'slug','active',true,:'performer'::uuid);
+insert into public.locations(id,organization_id,name,address,timezone,active,is_primary)
+values(:'location'::uuid,:'organization'::uuid,'V167 concurrency location','V167 address','Europe/Samara',true,true);
+insert into public.organization_memberships(organization_id,user_id,role,is_bookable,active,created_by)
+values(:'organization'::uuid,:'performer'::uuid,'specialist',true,true,:'performer'::uuid);
 insert into public.services(id,performer_id,name,duration_minutes,price_rub,active) values
   (:'service_a'::uuid,:'performer'::uuid,'V167 concurrency A',30,1671,true),
   (:'service_b'::uuid,:'performer'::uuid,'V167 concurrency B',30,1672,true);
+commit;
 SQL
 
 IFS='|' read -r date_value time_a time_b < <(
