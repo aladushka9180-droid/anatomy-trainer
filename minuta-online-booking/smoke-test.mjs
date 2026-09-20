@@ -721,7 +721,7 @@ assert.match(styles, /timeline-booking-status\.timeline-booking-status-icon \{ d
 assert.match(styles, /provider-body \.schedule-date-picker input \{ height:25px; margin:0;/, 'Поле календаря не выровнено с подписью и иконкой');
 assert.match(styles, /timeline-booking\.status-needs-result \{ border-color:#c8d8ed; background:#eef4fb;/, 'Записи, ожидающие результата, не выделены цветом');
 assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:14px;/, 'Название записи осталось слишком мелким');
-assert.match(provider, /const mobileTimeline = window\.matchMedia\('\(max-width: 760px\)'\)\.matches;[\s\S]*?hourHeight = mobileTimeline \? 72 : 76/, 'Высота часового интервала не соответствует мобильному журналу');
+assert.match(provider, /const mobileTimeline = window\.matchMedia\('\(max-width: 760px\)'\)\.matches;[\s\S]*?hourHeight = mobileTimeline \? 65 : 76/, 'Высота часового интервала не соответствует мобильному журналу');
 assert.match(provider, /mobileTimeline && duration < 30 \? 24/, 'Короткие записи снова получают высоту, вызывающую наложение текста');
 assert.match(provider, /minuteOnly \? \(mobileTimeline \? 44 : 40\)/, 'Одноминутная запись снова получает слишком низкую карточку');
 assert.match(styles, /timeline-booking-time \{ display:flex; align-self:center; align-items:baseline;/, 'Интервал записи не выровнен по центру карточки');

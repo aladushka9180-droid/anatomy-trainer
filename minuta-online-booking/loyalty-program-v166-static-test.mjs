@@ -52,6 +52,6 @@ assert.match(module,/const next = \{ fingerprint, requestId:uuid\(\) \}[\s\S]*lo
 assert.match(module,/if \(known\) clearIntent\(intent\)/,'Known business failures release the retry intent');
 assert.doesNotMatch(module,/send_message|notification_outbox|referral|cashback/i,'V1 has no messaging, referrals or cashback');
 assert.match(html,/provider\.js\?v=856/);
-assert.match(html,/styles\.css\?v=855/);
+assert.match(html,/styles\.css\?v=856/);
 
 console.log('loyalty program v166 static contract: PASS');
