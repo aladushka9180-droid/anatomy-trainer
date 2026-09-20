@@ -23,6 +23,9 @@ const freshSnapshot = ({ userId = 'provider-1', savedAt = now, verifiedAt = now,
     services:[{ id:'service-1', active:true }],
     schedule:[{ weekday:7, slot_interval_minutes:5 }],
     daysOff:[],
+    bookingPolicy:{ booking_buffer_enabled:true, booking_buffer_minutes:45 },
+    automaticBookingBreakSegments:new Map([['2026-09-13', [{ start_time:'11:00:00', end_time:'11:45:00' }]]]),
+    automaticBookingBreaksRemoteAvailable:true,
     ...overrides
   }
 });
@@ -74,6 +77,9 @@ test('verified online core data is persisted as one read-back snapshot', async (
     ownServices:[{ id:'service-1', active:true }, { name:'__schedule_block__' }],
     scheduleRows:[{ weekday:7 }],
     daysOff:[],
+    bookingPolicy:{ booking_buffer_enabled:true, booking_buffer_minutes:45 },
+    automaticBookingBreakSegments:new Map([['2026-09-13', [{ start_time:'11:00:00', end_time:'11:45:00' }]]]),
+    automaticBookingBreaksRemoteAvailable:true,
     cachePayload:(_name, value) => value,
     sessionIsCurrent:(userId, generation) => userId === 'provider-1' && generation === 7,
     providerOfflineSnapshotKey:userId => `provider:${userId}:offline-booking-snapshot-v1`,
@@ -84,7 +90,7 @@ test('verified online core data is persisted as one read-back snapshot', async (
     readProviderOfflineSnapshot:async userId => stored.get(`provider:${userId}:offline-booking-snapshot-v1`),
     Date:class extends Date { static now() { return now; } }
   });
-  vm.runInContext(actual('saveProviderOfflineSnapshot'), box);
+  vm.runInContext([actual('providerOfflineBookingPolicy'), actual('providerOfflineAutomaticBreakSegments'), actual('saveProviderOfflineSnapshot')].join('\n'), box);
   const snapshot = await box.saveProviderOfflineSnapshot('provider-1', 7);
   assert.equal(snapshot.data.userId, 'provider-1');
   assert.equal(snapshot.data.services.length, 1);
@@ -113,6 +119,9 @@ test('atomic snapshot restore replaces every booking input as one guarded unit',
     ownServices:[{ id:'mixed-service' }],
     scheduleRows:[{ weekday:1 }],
     daysOff:[{ date:'2026-09-01' }],
+    bookingPolicy:{ booking_buffer_enabled:false, booking_buffer_minutes:60 },
+    automaticBookingBreakSegments:new Map(),
+    automaticBookingBreaksRemoteAvailable:false,
     offlineBookingInputsReady:false,
     offlineBookingAccessReady:false,
     validProviderOfflineSnapshot:snapshot => snapshot,
@@ -120,7 +129,7 @@ test('atomic snapshot restore replaces every booking input as one guarded unit',
     $:() => ({ value:'' }),
     syncSlotIntervalOptions() {}, renderOwnServices() {}, renderSchedule() {}, renderDaysOff() {}, renderBookings() {}, applyWriteAvailability() {}
   });
-  vm.runInContext(actual('applyProviderOfflineSnapshot'), box);
+  vm.runInContext([actual('providerOfflineBookingPolicy'), actual('providerOfflineAutomaticBreakSegments'), actual('applyProviderOfflineSnapshot')].join('\n'), box);
   const snapshot = freshSnapshot();
   assert.equal(box.applyProviderOfflineSnapshot(snapshot, 'provider-1', 7), true);
   assert.equal(box.allBookings[0].id, 'booking-1');
@@ -129,6 +138,47 @@ test('atomic snapshot restore replaces every booking input as one guarded unit',
   assert.equal(box.daysOff.length, 0);
   assert.equal(box.offlineBookingInputsReady, true);
   assert.equal(box.offlineBookingAccessReady, true);
+});
+
+test('offline snapshot restores bookings and server-verified automatic breaks before rendering', () => {
+  const date = '2026-09-13';
+  let rendered = [];
+  const box = vm.createContext({
+    currentUser:{ id:'provider-1' },
+    sessionGeneration:7,
+    PROVIDER_OFFLINE_SNAPSHOT_VERSION:1,
+    PROVIDER_CACHE_MAX_AGE:7 * 24 * 60 * 60 * 1000,
+    SCHEDULE_BLOCK_SERVICE_NAME:'__schedule_block__',
+    SCHEDULE_BLOCK_PHONE:'0000000000',
+    bookingPolicy:{ booking_buffer_enabled:false, booking_buffer_minutes:60 },
+    automaticBookingBreakSegments:new Map(),
+    automaticBookingBreaksRemoteAvailable:false,
+    allBookings:[], ownServices:[], scheduleRows:[], daysOff:[],
+    offlineBookingInputsReady:false, offlineBookingAccessReady:false,
+    bookingsSnapshotSavedAt:'', bookingsSnapshotFromCache:false,
+    Date:class extends Date { static now() { return now; } },
+    Number, Array, Map, Boolean, String,
+    sessionIsCurrent:(userId, generation) => userId === 'provider-1' && generation === 7,
+    $:() => ({ value:'' }),
+    syncSlotIntervalOptions() {}, renderOwnServices() {}, renderSchedule() {}, renderDaysOff() {}, applyWriteAvailability() {},
+    parseLocalIsoDate:value => new Date(`${value}T12:00:00`),
+    minutesFromTime:value => { const [hours, minutes] = String(value).slice(0, 5).split(':').map(Number); return hours * 60 + minutes; },
+    timeFromMinutes:value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`,
+    isScheduleBlock:item => String(item?.client_phone || '').replace(/\D/g, '') === '0000000000'
+  });
+  vm.runInContext([actual('validProviderOfflineSnapshot'), actual('providerOfflineBookingPolicy'), actual('providerOfflineAutomaticBreakSegments'), actual('automaticBookingBreaks'), actual('applyProviderOfflineSnapshot')].join('\n'), box);
+  box.renderBookings = () => { rendered = [...box.allBookings, ...box.automaticBookingBreaks(box.allBookings, date)]; };
+  const snapshot = freshSnapshot({ overrides:{
+    bookingPolicy:{ booking_buffer_enabled:true, booking_buffer_minutes:60 },
+    automaticBookingBreaksRemoteAvailable:true,
+    automaticBookingBreakSegments:[[date, [{ start_time:'11:00:00', end_time:'12:00:00', source_count:1, segment_fingerprint:'verified' }]]]
+  } });
+  assert.equal(box.applyProviderOfflineSnapshot(snapshot, 'provider-1', 7), true);
+  assert.equal(box.bookingPolicy.booking_buffer_enabled, true);
+  assert.equal(rendered.length, 2);
+  assert.equal(rendered[0].id, 'booking-1');
+  assert.equal(rendered[1].automatic_break, true);
+  assert.equal(rendered[1].booking_time, '11:00:00');
 });
 
 test('cached trust fails closed before synchronization or queue flush can call the server', async () => {

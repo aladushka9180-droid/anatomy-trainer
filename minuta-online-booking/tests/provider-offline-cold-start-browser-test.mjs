@@ -20,6 +20,7 @@ const helperSource = `
   const PROVIDER_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
   const PROVIDER_OFFLINE_SNAPSHOT_VERSION = 1;
   const SCHEDULE_BLOCK_SERVICE_NAME = '__minuta_schedule_block__';
+  const SCHEDULE_BLOCK_PHONE = '0000000000';
   const reliability = window.MinutaReliability;
   const $ = selector => document.querySelector(selector);
   let currentUser = { id:'provider-1' };
@@ -29,6 +30,11 @@ const helperSource = `
   let ownServices = [{ id:'service-1', name:'Услуга', active:true, duration_minutes:60 }];
   let scheduleRows = [{ weekday:7, start_time:'10:00', end_time:'20:00', slot_interval_minutes:5 }];
   let daysOff = [];
+  let bookingPolicy = { booking_buffer_enabled:navigator.onLine, booking_buffer_minutes:60 };
+  let automaticBookingBreakSegments = navigator.onLine
+    ? new Map([['2026-09-13', [{ start_time:'11:00:00', end_time:'12:00:00', source_count:1, segment_fingerprint:'verified' }]]])
+    : new Map();
+  let automaticBookingBreaksRemoteAvailable = navigator.onLine;
   let offlineBookingInputsReady = true;
   let offlineBookingAccessReady = false;
   let bookingsSnapshotSavedAt = '';
@@ -38,11 +44,30 @@ const helperSource = `
   function renderProviderVerification() {}
   function recordConnectionEvent() {}
   function applyWriteAvailability() {}
+  function syncSlotIntervalOptions() {}
+  function renderOwnServices() {}
+  function renderSchedule() {}
+  function renderDaysOff() {}
+  function parseLocalIsoDate(value) { return new Date(value + 'T12:00:00'); }
+  function minutesFromTime(value) { const parts = String(value || '').slice(0,5).split(':').map(Number); return parts[0] * 60 + parts[1]; }
+  function timeFromMinutes(value) { return String(Math.floor(value / 60)).padStart(2,'0') + ':' + String(value % 60).padStart(2,'0'); }
+  function isScheduleBlock(item) { return String(item?.client_phone || '').replace(/\D/g, '') === SCHEDULE_BLOCK_PHONE; }
+  function renderBookings() {
+    const date = '2026-09-13';
+    const items = [...allBookings, ...automaticBookingBreaks(allBookings, date)];
+    document.querySelector('#providerBookings').innerHTML = items.map(item => item.automatic_break
+      ? '<button data-open-automatic-break>Автоперерыв ' + String(item.booking_time).slice(0,5) + '</button>'
+      : '<button data-open-booking>Запись ' + String(item.booking_time).slice(0,5) + '</button>').join('');
+  }
   ${actual('providerCacheKey')}
   ${actual('providerOfflineSnapshotKey')}
   ${actual('validProviderOfflineSnapshot')}
+  ${actual('providerOfflineBookingPolicy')}
+  ${actual('providerOfflineAutomaticBreakSegments')}
   ${actual('readProviderOfflineSnapshot')}
   ${actual('saveProviderOfflineSnapshot')}
+  ${actual('automaticBookingBreaks')}
+  ${actual('applyProviderOfflineSnapshot')}
   ${actual('offlineBookingSnapshotFresh')}
   ${actual('canQueueOfflineBooking')}
   ${actual('offlineBookingStatusText')}
@@ -81,6 +106,14 @@ try {
     await onlinePage.goto(`${origin}/minuta-online-booking/provider.html`);
     await onlinePage.addScriptTag({ content:reliabilitySource });
     await onlinePage.addScriptTag({ content:helperSource });
+    const onlineState = await onlinePage.evaluate(() => {
+      renderBookings();
+      return {
+        bookings:document.querySelectorAll('[data-open-booking]').length,
+        automaticBreaks:document.querySelectorAll('[data-open-automatic-break]').length
+      };
+    });
+    assert.deepEqual(onlineState, { bookings:1, automaticBreaks:1 }, `online schedule at ${width}px`);
     assert.equal(await onlinePage.evaluate(async () => Boolean(await saveProviderOfflineSnapshot('provider-1', 1))), true);
     await onlinePage.close();
 
@@ -96,11 +129,7 @@ try {
     const state = await offlinePage.evaluate(async () => {
       providerSessionTrust = 'cached';
       const snapshot = await readProviderOfflineSnapshot('provider-1');
-      offlineBookingAccessReady = Boolean(snapshot);
-      offlineBookingInputsReady = Boolean(snapshot);
-      bookingsSnapshotSavedAt = String(snapshot?.savedAt || '');
-      allBookings = snapshot?.data?.bookings || [];
-      ownServices = snapshot?.data?.services || [];
+      const restored = applyProviderOfflineSnapshot(snapshot, 'provider-1', 1);
       document.documentElement.classList.remove('provider-booting');
       document.documentElement.classList.add('provider-ready', 'top-level');
       document.querySelector('#providerBoot').hidden = true;
@@ -119,7 +148,11 @@ try {
         overflow:document.documentElement.scrollWidth > innerWidth + 1,
         loginVisible:!document.querySelector('#authCard').hidden,
         dashboardVisible:!document.querySelector('#dashboard').hidden,
-        createHeight:create?.getBoundingClientRect().height || 0
+        createHeight:create?.getBoundingClientRect().height || 0,
+        restored,
+        bookings:document.querySelectorAll('[data-open-booking]').length,
+        automaticBreaks:document.querySelectorAll('[data-open-automatic-break]').length,
+        automaticBreakText:document.querySelector('[data-open-automatic-break]')?.textContent || ''
       };
     });
     assert.equal(state.ready, true);
@@ -130,6 +163,10 @@ try {
     assert.equal(state.loginVisible, false);
     assert.equal(state.dashboardVisible, true);
     assert.ok(state.createHeight >= 40, `new booking target at ${width}px: ${state.createHeight}`);
+    assert.equal(state.restored, true);
+    assert.equal(state.bookings, 1, `offline booking at ${width}px`);
+    assert.equal(state.automaticBreaks, 1, `offline automatic break at ${width}px`);
+    assert.match(state.automaticBreakText, /11:00/);
     assert.deepEqual(errors, []);
     if (process.env.MINUTA_AUDIT_SCREENSHOTS) {
       mkdirSync(process.env.MINUTA_AUDIT_SCREENSHOTS, { recursive:true });

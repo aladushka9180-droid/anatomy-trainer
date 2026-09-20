@@ -742,6 +742,39 @@ function validProviderOfflineSnapshot(snapshot, userId = currentUser?.id) {
     || !Array.isArray(data.schedule) || !data.schedule.length || !Array.isArray(data.daysOff)) return null;
   return snapshot;
 }
+function providerOfflineBookingPolicy(value = bookingPolicy) {
+  return {
+    booking_buffer_enabled:Boolean(value?.booking_buffer_enabled),
+    booking_buffer_minutes:Math.min(1440, Math.max(1, Number(value?.booking_buffer_minutes) || 60))
+  };
+}
+function providerOfflineAutomaticBreakSegments(value = automaticBookingBreakSegments) {
+  const entries = value instanceof Map ? [...value.entries()] : Array.isArray(value) ? value : [];
+  const minuteValue = time => {
+    const [hours, minutes] = String(time || '').slice(0, 5).split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+  return entries.slice(-180).flatMap(entry => {
+    const [dateIso, rawSegments] = Array.isArray(entry) ? entry : [];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || '')) || !Array.isArray(rawSegments)) return [];
+    const segments = rawSegments.slice(0, 96).flatMap(segment => {
+      const start = String(segment?.start_time || '').slice(0, 8);
+      const end = String(segment?.end_time || '').slice(0, 8);
+      const startMinute = minuteValue(start);
+      const endMinute = minuteValue(end);
+      if (!/^\d{2}:\d{2}(?::\d{2})?$/.test(start) || !/^\d{2}:\d{2}(?::\d{2})?$/.test(end)
+        || !Number.isFinite(startMinute) || !Number.isFinite(endMinute)
+        || startMinute < 0 || startMinute >= 1440 || endMinute <= startMinute || endMinute > 1440) return [];
+      return [{
+        start_time:start,
+        end_time:end,
+        source_count:Math.max(1, Number(segment?.source_count) || 1),
+        segment_fingerprint:String(segment?.segment_fingerprint || '').slice(0, 256)
+      }];
+    });
+    return [[String(dateIso), segments]];
+  });
+}
 async function readProviderOfflineSnapshot(userId = currentUser?.id) {
   if (!userId) return null;
   try {
@@ -759,6 +792,11 @@ function applyProviderOfflineSnapshot(offlineSnapshot, userId = currentUser?.id,
   ownServices = offlineSnapshot.data.services.filter(item => item?.name !== SCHEDULE_BLOCK_SERVICE_NAME);
   scheduleRows = offlineSnapshot.data.schedule;
   daysOff = offlineSnapshot.data.daysOff;
+  if (offlineSnapshot.data.bookingPolicy) bookingPolicy = { ...bookingPolicy, ...providerOfflineBookingPolicy(offlineSnapshot.data.bookingPolicy) };
+  if (Array.isArray(offlineSnapshot.data.automaticBookingBreakSegments)) {
+    automaticBookingBreakSegments = new Map(providerOfflineAutomaticBreakSegments(offlineSnapshot.data.automaticBookingBreakSegments));
+    automaticBookingBreaksRemoteAvailable = Boolean(offlineSnapshot.data.automaticBookingBreaksRemoteAvailable);
+  }
   offlineBookingInputsReady = true;
   offlineBookingAccessReady = true;
   $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
@@ -779,7 +817,10 @@ async function saveProviderOfflineSnapshot(userId = currentUser?.id, generation 
     bookings:cachePayload('bookings', allBookings),
     services:ownServices.filter(item => item?.name !== SCHEDULE_BLOCK_SERVICE_NAME),
     schedule:scheduleRows,
-    daysOff
+    daysOff,
+    bookingPolicy:providerOfflineBookingPolicy(),
+    automaticBookingBreaksRemoteAvailable,
+    automaticBookingBreakSegments:providerOfflineAutomaticBreakSegments()
   };
   try {
     await reliability?.put(providerOfflineSnapshotKey(userId), payload);
@@ -6824,7 +6865,10 @@ function selectScheduleDate(value) {
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   if (userId) void loadAutomaticBookingBreaks(nextDate, userId, generation).then(result => {
-    if (result.ok && selectedDate === nextDate && sessionIsCurrent(userId, generation)) renderBookings();
+    if (result.ok && selectedDate === nextDate && sessionIsCurrent(userId, generation)) {
+      renderBookings();
+      void saveProviderOfflineSnapshot(userId, generation);
+    }
   });
 }
 
@@ -13147,6 +13191,7 @@ async function loadBookingSettings() {
   renderVisitorVisits();
   renderNotificationTemplates();
   renderNotifications();
+  if (!policyResult.error) await saveProviderOfflineSnapshot(userId, generation);
   if (!document.querySelector('[data-provider-panel="notifications"]')?.hidden) void loadImportantNotificationEvents();
   return { ok: notificationSettingsRemoteAvailable, optional: true };
 }
@@ -13196,6 +13241,7 @@ async function saveBookingPolicy(event) {
   localStorage.setItem(autoCompleteStorageKey(), String(record.auto_complete_visits));
   renderBookingPolicyForm();
   renderBookings();
+  await saveProviderOfflineSnapshot(currentUser.id, sessionGeneration);
   await applyAutomaticVisitOutcomes();
   notify('Правила онлайн-записи сохранены');
 }

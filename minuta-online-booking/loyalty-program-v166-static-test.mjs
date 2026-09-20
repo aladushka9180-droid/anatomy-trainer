@@ -51,7 +51,7 @@ assert.match(module,/redeem_minuta_loyalty_reward_v166/);
 assert.match(module,/const next = \{ fingerprint, requestId:uuid\(\) \}[\s\S]*localStorage\.setItem\(key, JSON\.stringify\(next\)\)/i,'Ambiguous writes keep an opaque retry intent across reloads');
 assert.match(module,/if \(known\) clearIntent\(intent\)/,'Known business failures release the retry intent');
 assert.doesNotMatch(module,/send_message|notification_outbox|referral|cashback/i,'V1 has no messaging, referrals or cashback');
-assert.match(html,/provider\.js\?v=850/);
-assert.match(html,/styles\.css\?v=850/);
+assert.match(html,/provider\.js\?v=851/);
+assert.match(html,/styles\.css\?v=851/);
 
 console.log('loyalty program v166 static contract: PASS');
