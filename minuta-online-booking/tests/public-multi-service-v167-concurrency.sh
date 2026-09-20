@@ -28,8 +28,10 @@ with candidate as (
   from public.organizations organization
   join public.locations location on location.organization_id=organization.id and location.active and location.timezone='Europe/Samara'
   join public.organization_memberships membership on membership.organization_id=organization.id and membership.active and membership.is_bookable
+  join public.services candidate_service on candidate_service.performer_id=membership.user_id and candidate_service.active
   where organization.status='active' and organization.public_booking_enabled
     and exists(select 1 from public.provider_schedule schedule where schedule.performer_id=membership.user_id and schedule.enabled)
+    and exists(select 1 from public.get_available_slots(candidate_service.id,current_date+1,current_date+7))
   order by organization.id,location.is_primary desc,location.id,membership.user_id limit 1
 )
 select candidate.organization_id,candidate.public_slug,candidate.location_id,candidate.performer_id,
@@ -53,13 +55,13 @@ IFS='|' read -r date_value time_a time_b < <(
 select first_slot.booking_date,first_slot.booking_time,second_slot.booking_time
 from public.get_available_slots(:'service_a'::uuid,current_date+1,current_date+7) first_slot
 join public.get_available_slots(:'service_b'::uuid,current_date+1,current_date+7) second_slot
-  on second_slot.booking_date=first_slot.booking_date and second_slot.booking_time=first_slot.booking_time+interval '30 minutes'
-order by first_slot.booking_date,first_slot.booking_time limit 1;
+  on second_slot.booking_date=first_slot.booking_date and second_slot.booking_time>=first_slot.booking_time+interval '30 minutes'
+order by first_slot.booking_date,first_slot.booking_time,second_slot.booking_time limit 1;
 SQL
 )
 
 for value in "$date_value" "$time_a" "$time_b"; do
-  test -n "$value"
+  if [[ -z "$value" ]]; then echo "v167_concurrency_slot_missing" >&2; exit 1; fi
 done
 
 call(){
@@ -84,9 +86,11 @@ call >"$work/second.json" & second_pid=$!
 wait "$first_pid"
 wait "$second_pid"
 
-test "$(jq -r .idempotent "$work/first.json")" != "$(jq -r .idempotent "$work/second.json")"
-test "$(jq -r '.bookings|length' "$work/first.json")" = 2
-test "$(jq -S '.bookings' "$work/first.json")" = "$(jq -S '.bookings' "$work/second.json")"
+first_idempotent="$(jq -r .idempotent "$work/first.json")"
+second_idempotent="$(jq -r .idempotent "$work/second.json")"
+if [[ "$first_idempotent" = "$second_idempotent" ]]; then echo "v167_concurrency_replay_flag_invalid" >&2; exit 1; fi
+if [[ "$(jq -r '.bookings|length' "$work/first.json")" != 2 ]]; then echo "v167_concurrency_booking_count_invalid" >&2; exit 1; fi
+if [[ "$(jq -S '.bookings' "$work/first.json")" != "$(jq -S '.bookings' "$work/second.json")" ]]; then echo "v167_concurrency_replay_payload_mismatch" >&2; exit 1; fi
 
 state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=route="$route" --set=item_a="$item_a" --set=item_b="$item_b" <<'SQL'
 select json_build_object(
