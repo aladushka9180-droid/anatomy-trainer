@@ -2659,6 +2659,13 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     font-size:8px!important;
     letter-spacing:-.02em;
   }
+  /* "Сегодня" is the only seven-character weekday label. At distance two it
+     shares the compact 34px tile, so make just that secondary label fit rather
+     than narrowing the selected date or letting text escape its card. */
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.is-today:not(.active)>span {
+    font-size:7px!important;
+    letter-spacing:-.03em;
+  }
 }
 
 /* Keep the break marker a real two-bar pause icon in every schedule surface.

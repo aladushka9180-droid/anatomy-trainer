@@ -730,7 +730,7 @@ try {
 
   for (const width of [390,760]) {
     await page.setViewportSize({ width, height:width === 390 ? 844 : 1000 });
-    for (const selectedDay of [21,24,18]) {
+    for (const selectedDay of [21,23,24,18]) {
       await page.evaluate(day => {
         const strip = document.querySelector('#dateStrip');
         [...strip.children].forEach(button => {
@@ -752,13 +752,20 @@ try {
         const frame = document.querySelector('.date-strip-frame').getBoundingClientRect();
         const stripRect = strip.getBoundingClientRect();
         const selectedRect = strip.querySelector('.active').getBoundingClientRect();
-        const todayRect = strip.querySelector('.is-today').getBoundingClientRect();
+        const todayButton = strip.querySelector('.is-today');
+        const todayRect = todayButton.getBoundingClientRect();
+        const todayLabel = todayButton.querySelector('span');
+        const todayLabelRect = todayLabel.getBoundingClientRect();
         const previous = document.querySelector('.date-strip-shift[data-date-shift="-1"]').getBoundingClientRect();
         const next = document.querySelector('.date-strip-shift[data-date-shift="1"]').getBoundingClientRect();
         return {
           selectedCenterDelta:Math.abs((selectedRect.left + selectedRect.right - stripRect.left - stripRect.right) / 2),
           todayFullyVisible:todayRect.left >= stripRect.left - 1 && todayRect.right <= stripRect.right + 1,
           todayHidden:getComputedStyle(strip.querySelector('.is-today')).visibility === 'hidden',
+          todayLabelFits:todayLabel.scrollWidth <= todayLabel.clientWidth + 1
+            && todayLabelRect.left >= todayRect.left - 1 && todayLabelRect.right <= todayRect.right + 1,
+          todayLabelFontSize:parseFloat(getComputedStyle(todayLabel).fontSize),
+          selectedWiderThanToday:selectedRect.width > todayRect.width,
           todayClearOfArrows:todayRect.left >= previous.right - 1 && todayRect.right <= next.left + 1,
           arrowsInsideFrame:previous.left >= frame.left - 1 && next.right <= frame.right + 1,
           hitTargets:[previous.width,previous.height,next.width,next.height]
@@ -766,7 +773,14 @@ try {
       });
       assert.ok(visibility.selectedCenterDelta <= 1, `${width}px selected ${selectedDay} is not centered: ${JSON.stringify(visibility)}`);
       assert.equal(visibility.todayFullyVisible, !visibility.todayHidden, `${width}px Today 21 is partially visible for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
-      if (!visibility.todayHidden) assert.equal(visibility.todayClearOfArrows, true, `${width}px Today 21 intersects an arrow for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
+      if (!visibility.todayHidden) {
+        assert.equal(visibility.todayClearOfArrows, true, `${width}px Today 21 intersects an arrow for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
+        if (selectedDay !== 21) {
+          assert.equal(visibility.todayLabelFits, true, `${width}px Today label escapes its tile for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
+          assert.ok(visibility.todayLabelFontSize < 8, `${width}px Today label was not compacted: ${JSON.stringify(visibility)}`);
+          assert.equal(visibility.selectedWiderThanToday, true, `${width}px selected date is not wider than Today: ${JSON.stringify(visibility)}`);
+        }
+      }
       assert.equal(visibility.arrowsInsideFrame, true, `${width}px arrows leave the date frame: ${JSON.stringify(visibility)}`);
       assert.ok(visibility.hitTargets.every(value => value >= 44), `${width}px date arrow lost its 44px hit target: ${JSON.stringify(visibility)}`);
       if (output && width === 390 && selectedDay === 24) await page.screenshot({ path:path.join(output, 'schedule-selected-24-today-21-390.png'), fullPage:false });
@@ -1320,7 +1334,7 @@ try {
   assert.equal(shareResult.native[0].url, 'https://example.test/public-master');
   assert.deepEqual(shareResult.copied, ['https://example.test/public-master']);
   assert.ok(shareResult.notices.includes('Ссылка на страницу клиента скопирована'));
-  console.log('PrimeTime Pro compact schedule v863 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v864 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
