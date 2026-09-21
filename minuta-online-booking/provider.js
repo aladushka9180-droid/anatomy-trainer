@@ -1894,6 +1894,20 @@ function persistLocalServiceScheduleNames(userId = currentUser?.id) {
 function serviceScheduleName(fullName, serviceId = '') {
   return serviceScheduleNames[String(serviceId)] || serviceName(fullName || 'Услуга');
 }
+function importedServiceScheduleName(fullName) {
+  const normalized = String(fullName || '').replace(/\s+/g, ' ').trim();
+  const canonical = normalized
+    .replace(/\s*[.!?]\s+.*/, '')
+    .replace(/\s*\([^)]{6,}\)\s*$/, '')
+    .trim();
+  return serviceName(canonical || normalized || 'Услуга');
+}
+function bookingScheduleName(item, fullName) {
+  if (item?.is_imported_history && !item?.service_id && !serviceScheduleNames[String(item?.service_id || '')]) {
+    return importedServiceScheduleName(fullName);
+  }
+  return serviceScheduleName(fullName, item?.service_id);
+}
 function serviceScheduleNameRecommended(value) {
   const name = serviceName(String(value || '').replace(/\s+/g, ' ').trim());
   return name.length > 32 || /[().]|\s[—–-]\s/.test(name);
@@ -7155,7 +7169,15 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     const queueMobileDateSettle = () => {
       if (!window.matchMedia('(max-width: 760px)').matches) return;
       if (mobileSettleTimer) window.clearTimeout(mobileSettleTimer);
-      mobileSettleTimer = window.setTimeout(commitMobileDateGesture, 140);
+      const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 140;
+      mobileSettleTimer = window.setTimeout(commitMobileDateGesture, delay);
+    };
+    const cancelMobileDateSettle = () => {
+      if (mobileSettleTimer) window.clearTimeout(mobileSettleTimer);
+      mobileSettleTimer = 0;
+      if (mobileScrollFrame) cancelAnimationFrame(mobileScrollFrame);
+      mobileScrollFrame = 0;
+      clearMobileDatePreview();
     };
     const clampScroll = value => Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, value));
     const stopWheelAnimation = () => {
@@ -7273,6 +7295,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       clearMobileDatePreview();
     }, { passive:true });
     dateStrip.addEventListener('click', event => {
+      if (event.target.closest('[data-booking-date]') && !suppressClick) cancelMobileDateSettle();
       if (!suppressClick) return;
       suppressClick = false;
       event.preventDefault();
@@ -8654,7 +8677,7 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
     const notePresence = bookingNotePresenceMarkup(note, 'provider-booking-note-presence');
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item);
     const fullTitle = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
-    const title = block ? fullTitle : serviceScheduleName(fullTitle, item.service_id);
+    const title = block ? fullTitle : bookingScheduleName(item, fullTitle);
     const breakOrigin = item.automatic_break ? 'Автоматический · по правилам' : 'Ручной';
     const details = block ? `${breakOrigin} перерыв` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
     const openAttributes = item.automatic_break

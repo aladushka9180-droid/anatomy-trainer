@@ -38,8 +38,18 @@
   gap:3px!important;
   min-width:0!important;
 }
+.provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-top {
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+}
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-top h3 {
   display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
   margin:0!important;
   overflow:hidden!important;
   color:var(--theme-ink)!important;
@@ -47,6 +57,7 @@
   font-weight:620!important;
   line-height:1.22!important;
   letter-spacing:-.01em!important;
+  text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-client-line {

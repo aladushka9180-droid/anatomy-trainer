@@ -7,7 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(resolve(root, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
 const source = readFileSync(resolve(root, 'provider.js'), 'utf8');
 assert.match(source, /provider_service_schedule_names/);
-assert.match(source, /serviceScheduleName\(fullTitle, item\.service_id\)/);
+assert.match(source, /bookingScheduleName\(item, fullTitle\)/);
 assert.match(source, /timelineServiceNameMarkup\(item\.services\?\.name \|\| 'Услуга', item\.service_id\)/);
 const featureFunctions = source.slice(source.indexOf('function normalizeServiceScheduleNames'), source.indexOf('function normalizeMobileNavigation'));
 

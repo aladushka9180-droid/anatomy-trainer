@@ -16,14 +16,14 @@ for (const contract of [
   /providerMobileMoreHistoryDismissed/,
   /data-close-mobile-more/
 ]) assert.match(providerSource, contract);
-assert.match(providerHtml, /provider-ux\.css\?v=858/);
-assert.match(providerHtml, /site-update\.js\?v=858/);
-assert.match(providerHtml, /provider\.js\?v=858/);
-assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v858`/);
-assert.match(workerSource, /provider-ux\.css\?v=858/);
-assert.match(workerSource, /site-update\.js\?v=858/);
-assert.match(workerSource, /provider\.js\?v=858/);
-assert.match(updateSource, /sw\.js\?v=858/);
+assert.match(providerHtml, /provider-ux\.css\?v=859/);
+assert.match(providerHtml, /site-update\.js\?v=859/);
+assert.match(providerHtml, /provider\.js\?v=859/);
+assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v859`/);
+assert.match(workerSource, /provider-ux\.css\?v=859/);
+assert.match(workerSource, /site-update\.js\?v=859/);
+assert.match(workerSource, /provider\.js\?v=859/);
+assert.match(updateSource, /sw\.js\?v=859/);
 assert.match(providerSource, /renderDateStrip\(\{ instantCenter:true \}\)/);
 assert.match(providerSource, /setFilter\('day', \{ render:false \}\)/);
 assert.match(providerSource, /previewMobileDate\(\)/);
@@ -142,6 +142,26 @@ try {
         assert.ok(interaction.tap.centerDelta <= 1, `${width}px tap did not center the selected date immediately: ${JSON.stringify(interaction)}`);
         assert.equal(interaction.rapid.active, interaction.rapid.picker, `${width}px rapid taps restored an older date: ${JSON.stringify(interaction)}`);
         assert.ok(interaction.rapid.centerDelta <= 1, `${width}px rapid taps left the newest date off-center: ${JSON.stringify(interaction)}`);
+
+        if (width === 390) {
+          await page.emulateMedia({ reducedMotion:'reduce' });
+          const reducedExpected = await page.evaluate(() => {
+            const strip = document.querySelector('#dateStrip');
+            const buttons = [...strip.querySelectorAll('[data-booking-date]')];
+            const activeIndex = buttons.findIndex(button => button.classList.contains('active'));
+            strip.scrollLeft += 120;
+            strip.dispatchEvent(new Event('scroll'));
+            const target = buttons[Math.min(buttons.length - 1, activeIndex + 3)];
+            target.click();
+            return target.dataset.bookingDate;
+          });
+          await page.waitForTimeout(40);
+          const reducedResult = await page.evaluate(() => window.__providerMoreTest.dateStrip());
+          assert.equal(reducedResult.selectedDate, reducedExpected, `390px reduced-motion settle restored a stale swipe date: ${JSON.stringify(reducedResult)}`);
+          assert.equal(reducedResult.active, reducedExpected, `390px reduced-motion active date lagged behind the latest tap: ${JSON.stringify(reducedResult)}`);
+          assert.ok(reducedResult.centerDelta <= 1, `390px reduced-motion latest date is not centered: ${JSON.stringify(reducedResult)}`);
+          await page.emulateMedia({ reducedMotion:'no-preference' });
+        }
 
         if (width <= 760) {
           await page.evaluate(() => window.__providerMoreTest.setDate('2025-10-01'));
