@@ -756,6 +756,18 @@ try {
         const todayRect = todayButton.getBoundingClientRect();
         const todayLabel = todayButton.querySelector('span');
         const todayLabelRect = todayLabel.getBoundingClientRect();
+        const visibleDates = [...strip.querySelectorAll('[data-booking-date]')]
+          .filter(button => {
+            const rect = button.getBoundingClientRect();
+            return rect.left >= stripRect.left - .5 && rect.right <= stripRect.right + .5;
+          })
+          .map(button => Number(button.querySelector('strong')?.textContent || 0));
+        const intersectingDates = [...strip.querySelectorAll('[data-booking-date]')]
+          .filter(button => {
+            const rect = button.getBoundingClientRect();
+            return rect.right > stripRect.left + .5 && rect.left < stripRect.right - .5;
+          })
+          .map(button => Number(button.querySelector('strong')?.textContent || 0));
         const previous = document.querySelector('.date-strip-shift[data-date-shift="-1"]').getBoundingClientRect();
         const next = document.querySelector('.date-strip-shift[data-date-shift="1"]').getBoundingClientRect();
         return {
@@ -766,6 +778,8 @@ try {
             && todayLabelRect.left >= todayRect.left - 1 && todayLabelRect.right <= todayRect.right + 1,
           todayLabelFontSize:parseFloat(getComputedStyle(todayLabel).fontSize),
           selectedWiderThanToday:selectedRect.width > todayRect.width,
+          visibleDates,
+          intersectingDates,
           todayClearOfArrows:todayRect.left >= previous.right - 1 && todayRect.right <= next.left + 1,
           arrowsInsideFrame:previous.left >= frame.left - 1 && next.right <= frame.right + 1,
           hitTargets:[previous.width,previous.height,next.width,next.height]
@@ -780,6 +794,10 @@ try {
           assert.ok(visibility.todayLabelFontSize < 8, `${width}px Today label was not compacted: ${JSON.stringify(visibility)}`);
           assert.equal(visibility.selectedWiderThanToday, true, `${width}px selected date is not wider than Today: ${JSON.stringify(visibility)}`);
         }
+      }
+      if (width === 390 && selectedDay === 23) {
+        assert.deepEqual(visibility.visibleDates, [21,22,23,24,25], `390px must show the five-day window around 23: ${JSON.stringify(visibility)}`);
+        assert.deepEqual(visibility.intersectingDates, [21,22,23,24,25], `390px shows a sixth partial tile around 23: ${JSON.stringify(visibility)}`);
       }
       assert.equal(visibility.arrowsInsideFrame, true, `${width}px arrows leave the date frame: ${JSON.stringify(visibility)}`);
       assert.ok(visibility.hitTargets.every(value => value >= 44), `${width}px date arrow lost its 44px hit target: ${JSON.stringify(visibility)}`);
@@ -1334,7 +1352,7 @@ try {
   assert.equal(shareResult.native[0].url, 'https://example.test/public-master');
   assert.deepEqual(shareResult.copied, ['https://example.test/public-master']);
   assert.ok(shareResult.notices.includes('Ссылка на страницу клиента скопирована'));
-  console.log('PrimeTime Pro compact schedule v864 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v865 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

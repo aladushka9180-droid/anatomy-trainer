@@ -2668,6 +2668,21 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
+/* A narrow phone presents one deliberate five-day window. The active tile
+   remains wider, while the four neighbours share the remaining space exactly;
+   no sixth tile peeks beneath an arrow. Wider mobile layouts retain seven. */
+@media (max-width:430px) {
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip {
+    --mobile-selected-date-card-width:clamp(50px,13.3vw,52px);
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button {
+    --date-card-width:calc((100% - 16px - var(--mobile-selected-date-card-width)) / 4)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.active {
+    --date-card-width:var(--mobile-selected-date-card-width)!important;
+  }
+}
+
 /* Keep the break marker a real two-bar pause icon in every schedule surface.
    This final rule wins over older mobile optical offsets and font glyph styles. */
 .provider-body[data-provider-theme] :is(
