@@ -581,6 +581,9 @@
     font-weight:inherit!important;
     opacity:1!important;
   }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] .timeline-booking-time :is(b,small) {
+    font-weight:600!important;
+  }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] .timeline-booking-copy>strong {
     display:flex!important;
     align-items:center!important;

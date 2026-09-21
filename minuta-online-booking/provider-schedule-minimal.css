@@ -2681,3 +2681,9 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   vertical-align:middle!important;
   transform:translateY(-.02em);
 }
+
+@media (max-width:760px) {
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .timeline-mobile-time {
+    font-weight:600!important;
+  }
+}
