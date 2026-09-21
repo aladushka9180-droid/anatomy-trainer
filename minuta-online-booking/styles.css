@@ -3646,11 +3646,16 @@ html.provider-booting .provider-main {
 ) { color:var(--theme-ink); }
 .provider-body[data-provider-theme] :is(
   .notification-card-head>b,.client-labels-heading>span,.client-history-item.status-confirmed>span,.client-history-item.status-visited>span,
-  .status-confirmed .booking-status,.status-visited .booking-status,.booking-outcome-heading>span,.booking-sheet-disclosure>summary>span,
+  .status-confirmed .booking-status,.status-visited .booking-status,.booking-outcome-heading>span,
   .booking-session-heading button,.session-add-button,.booking-repeat-action,.new-booking-advanced>summary,.minute-picker>summary,
   .more-dates-button,.booking-editor-back,.provider-review-card>button,.service-details-button,.organization-policy-editor>summary,
   .client-access-share a,.client-access-share button,.client-booking-action,.free-slots-link a
 ) { color:var(--theme-accent); }
+.provider-body[data-provider-theme] .booking-sheet-disclosure>summary>span {
+  border:1px solid color-mix(in srgb,var(--theme-accent) 40%,var(--theme-line));
+  background:var(--theme-accent-soft);
+  color:color-mix(in srgb,var(--theme-accent) 80%,var(--theme-ink));
+}
 .provider-body[data-provider-theme] .notification-card-head>b::before { color:color-mix(in srgb,var(--theme-muted) 55%,var(--theme-line)); }
 
 .provider-body[data-provider-theme="graphite"] :is(.notification-card-icon,.client-profile-empty>span,.mobile-more-grid button>span,.mobile-more-grid a>span) { background:#292741; color:#b0a5ff; }
@@ -5657,30 +5662,30 @@ html.provider-booting .provider-main {
 .offline-booking-queue[hidden] { display:none; }
 .offline-booking-queue-head { display:flex; align-items:center; justify-content:space-between; gap:14px; }
 .offline-booking-queue-head>div { display:grid; gap:3px; }
-.offline-booking-queue-head strong { font-size:14px; }
-.offline-booking-queue-head span { min-height:14px; color:color-mix(in srgb,var(--theme-ink,#55431e) 78%,#9a6518); font-size:12px; font-weight:750; }
+.offline-booking-queue-head strong { font-size:14px; font-weight:700; }
+.offline-booking-queue-head span { min-height:14px; color:color-mix(in srgb,var(--theme-ink,#55431e) 78%,#9a6518); font-size:12px; font-weight:550; }
 .offline-booking-queue.is-created .offline-booking-queue-head span { visibility:hidden; }
 .offline-booking-queue-head>button { width:auto; margin:0; }
 .offline-booking-queue.is-created { border-color:color-mix(in srgb,var(--theme-accent,#235b40) 46%,var(--theme-line,#cfd8cb)); background:color-mix(in srgb,var(--theme-accent,#235b40) 8%,var(--theme-surface,#fff)); color:var(--theme-ink,#173b2a); }
 .offline-booking-item.is-created { border-color:color-mix(in srgb,var(--theme-accent,#235b40) 38%,var(--theme-line,#d9ded5)); background:linear-gradient(90deg,var(--theme-accent,#235b40) 0 3px,transparent 3px),color-mix(in srgb,var(--theme-accent,#235b40) 6%,var(--theme-surface,#fff)); }
-.offline-booking-item.is-created strong { font-size:18px; }
-.offline-booking-item.is-created b { color:var(--theme-ink,#173b2a); font-size:14px; }
-.offline-booking-item.is-created span { color:var(--theme-ink,#173b2a); font-size:13px; font-weight:650; }
-.offline-booking-item.is-created small { color:var(--theme-ink,#173b2a); font-size:12px; font-weight:700; }
+.offline-booking-item.is-created strong { font-size:16px; font-weight:700; }
+.offline-booking-item.is-created b { color:var(--theme-ink,#173b2a); font-size:13px; font-weight:650; }
+.offline-booking-item.is-created span { color:var(--theme-ink,#173b2a); font-size:12px; font-weight:500; }
+.offline-booking-item.is-created small { color:var(--theme-ink,#173b2a); font-size:11px; font-weight:500; }
 .offline-booking-item .offline-booking-dismiss { width:36px; min-width:36px; height:36px; min-height:36px; padding:0; border-radius:50%; font-size:20px; line-height:1; }
 .offline-booking-queue-list { display:grid; gap:7px; margin-top:11px; }
 .offline-booking-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 11px; border:1px solid color-mix(in srgb,#c58a24 44%,var(--theme-line,#ead9a4)); border-radius:12px; background:color-mix(in srgb,#f4bd55 7%,var(--theme-surface,#fff)); }
 .offline-booking-item>div { display:grid; min-width:0; gap:2px; }
 .offline-booking-item strong,.offline-booking-item span,.offline-booking-item small { overflow-wrap:anywhere; }
-.offline-booking-item strong { font-size:13px; }
-.offline-booking-item span { color:var(--theme-ink,#536344); font-size:12px; font-weight:750; }
-.offline-booking-item small { color:color-mix(in srgb,var(--theme-ink,#55431e) 78%,#9a6518); font-size:12px; }
+.offline-booking-item strong { font-size:13px; font-weight:650; }
+.offline-booking-item span { color:var(--theme-ink,#536344); font-size:12px; font-weight:550; }
+.offline-booking-item small { color:color-mix(in srgb,var(--theme-ink,#55431e) 78%,#9a6518); font-size:11px; font-weight:500; }
 .offline-booking-item.is-conflict { border-color:#e3b8ad; background:#fff7f4; }
 .offline-booking-item .offline-booking-conflict { color:#9a473a; font-weight:850; }
 .offline-booking-item>.offline-booking-actions { display:flex; flex:none; min-width:auto; gap:7px; }
-.offline-booking-actions>button { flex:none; min-height:44px; padding:0 12px; border:1px solid var(--theme-line,#dfc9bf); border-radius:9px; background:var(--theme-surface,#fff); color:var(--theme-ink,#55431e); cursor:pointer; font:800 12px/1 inherit; }
+.offline-booking-actions>button { flex:none; min-height:44px; padding:0 12px; border:1px solid var(--theme-line,#dfc9bf); border-radius:9px; background:var(--theme-surface,#fff); color:var(--theme-ink,#55431e); cursor:pointer; font:650 12px/1.2 inherit; }
 .offline-booking-actions>button.offline-booking-edit { border-color:#a7bea8; color:#315f3f; }
-.offline-booking-actions>button.offline-booking-create-more { border-color:color-mix(in srgb,var(--theme-accent,#235b40) 44%,var(--theme-line,#d9ded5)); background:var(--theme-accent-soft,#edf6f0); color:var(--theme-ink,#173b2a); }
+.offline-booking-actions>button.offline-booking-create-more { border-color:var(--theme-accent,#235b40); background:color-mix(in srgb,var(--theme-accent,#235b40) 80%,var(--theme-ink,#173b2a)); color:var(--theme-accent-contrast,#fff); }
 .offline-booking-actions>button:disabled { cursor:wait; opacity:.55; }
 .offline-booking-privacy { display:block; margin-top:10px; color:#715b27; font-size:11px; line-height:1.5; }
 .offline-booking-details { margin-top:10px; }
