@@ -11,12 +11,20 @@ const playwright = process.env.MINUTA_PLAYWRIGHT_MODULE
 const chromium = playwright.chromium || playwright.default?.chromium;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
+const scheduleCssSource = fs.readFileSync(path.join(root, 'provider-schedule-minimal.css'), 'utf8');
+const themeCatalogSource = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
+const themeKeys = [...themeCatalogSource.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
+assert.equal(themeKeys.length, 40, `Expected the complete 40-theme provider catalog, received ${themeKeys.length}`);
 assert.match(providerSource, /--timeline-empty-hint-top:\$\{emptyHintTop\}px/, 'Timeline does not expose the adaptive empty-day hint position');
+assert.match(providerSource, /const horizontalIntent = Math\.abs\(event\.deltaX\) > Math\.abs\(event\.deltaY\) \|\| event\.shiftKey;/, 'Desktop date navigation still captures ordinary vertical scrolling');
+assert.doesNotMatch(providerSource, /touchend[\s\S]{0,500}queueMobileDateSettle\(\)/, 'Mobile touchend starts a second date-settle animation before native momentum ends');
+assert.match(scheduleCssSource, /scroll-snap-type:none!important;/, 'Mobile date strip still competes with the explicit settle step');
 const listRendererStart = providerSource.indexOf('function renderBookingList(');
 const listRendererEnd = providerSource.indexOf('\nfunction bookingEmptyMarkup', listRendererStart);
 assert.ok(listRendererStart >= 0 && listRendererEnd > listRendererStart, 'Shared booking-list renderer is missing');
 const listRendererSource = providerSource.slice(listRendererStart, listRendererEnd);
 assert.match(listRendererSource, /holder\.dataset\.recordsFilter = currentFilter;/, 'Booking-list cards do not expose the selected filter consistently');
+assert.match(listRendererSource, /data-open-booking=/, 'Shared list cards no longer expose their existing open action');
 assert.doesNotMatch(listRendererSource, /currentFilter\s*===/, 'Day, Upcoming and All must not fork the booking-card component');
 assert.doesNotMatch(listRendererSource, /60 мин|timeline-service-duration/, 'List cards repeat duration beside a complete time range');
 const shareHelperStart = providerSource.indexOf('async function shareProviderClientPage()');
@@ -521,7 +529,7 @@ try {
       assert.equal(result.activeDateBackground, result.expectedScheduleAccent, `${width}px selected date lost the solid brand green`);
       assert.equal(result.newBookingBackground, result.expectedScheduleAccent, `${width}px New booking lost the solid brand green`);
       assert.equal(result.journalActiveBackground, result.expectedScheduleAccent, `${width}px active journal mode lost the solid brand green`);
-      assert.ok(result.activeDate.width >= 46 && result.activeDate.width <= 56, `${width}px selected date is still oversized: ${JSON.stringify(result)}`);
+      assert.ok(result.activeDate.width >= 44 && result.activeDate.width <= 52, `${width}px selected date is still oversized: ${JSON.stringify(result)}`);
       assert.ok(result.activeDate.height >= 53 && result.activeDate.height <= 55, `${width}px selected date height is still oversized: ${JSON.stringify(result)}`);
       assert.ok(result.twoDigitRhythm.numberCenterDelta <= 1 && result.twoDigitRhythm.gapDelta <= 2, `${width}px two-digit selected date lost its vertical rhythm: ${JSON.stringify(result)}`);
       assert.ok(result.singleDigitRhythm.numberCenterDelta <= 1 && result.singleDigitRhythm.gapDelta <= 2, `${width}px single-digit selected date lost its vertical rhythm: ${JSON.stringify(result)}`);
@@ -673,6 +681,65 @@ try {
   assert.equal(rightEdgeDate.selectedBackground, rightEdgeDate.expectedScheduleAccent, `390px selected date 19 lost the solid brand green: ${JSON.stringify(rightEdgeDate)}`);
   assert.equal(rightEdgeDate.selectedBackgroundImage, 'none', `390px selected date 19 gained a gradient: ${JSON.stringify(rightEdgeDate)}`);
   if (output) await page.screenshot({ path:path.join(output, 'schedule-date-19-390.png'), fullPage:false });
+
+  for (const width of [390,760]) {
+    await page.setViewportSize({ width, height:width === 390 ? 844 : 1000 });
+    for (const selectedDay of [21,24,18]) {
+      await page.evaluate(day => {
+        const strip = document.querySelector('#dateStrip');
+        [...strip.children].forEach(button => {
+          const buttonDay = Number(button.querySelector('strong')?.textContent || 0);
+          button.classList.toggle('active', buttonDay === day);
+          button.classList.toggle('is-today', buttonDay === 21);
+          button.dataset.dateDistance = String(Math.min(3, Math.abs(buttonDay - day)));
+          button.querySelector('span').textContent = buttonDay === 21 ? 'Сегодня' : new Intl.DateTimeFormat('ru-RU', { weekday:'short' }).format(new Date(2026, 8, buttonDay)).replace('.', '');
+        });
+        const selected = strip.querySelector(`[data-booking-date="2026-09-${String(day).padStart(2, '0')}"]`);
+        const stripRect = strip.getBoundingClientRect();
+        const selectedRect = selected.getBoundingClientRect();
+        strip.scrollLeft = Math.max(0, Math.min(strip.scrollWidth - strip.clientWidth, selectedRect.left - stripRect.left + strip.scrollLeft - (strip.clientWidth - selectedRect.width) / 2));
+      }, selectedDay);
+      await page.waitForTimeout(30);
+      const visibility = await page.evaluate(() => {
+        const strip = document.querySelector('#dateStrip');
+        const frame = document.querySelector('.date-strip-frame').getBoundingClientRect();
+        const stripRect = strip.getBoundingClientRect();
+        const selectedRect = strip.querySelector('.active').getBoundingClientRect();
+        const todayRect = strip.querySelector('.is-today').getBoundingClientRect();
+        const previous = document.querySelector('.date-strip-shift[data-date-shift="-1"]').getBoundingClientRect();
+        const next = document.querySelector('.date-strip-shift[data-date-shift="1"]').getBoundingClientRect();
+        return {
+          selectedCenterDelta:Math.abs((selectedRect.left + selectedRect.right - stripRect.left - stripRect.right) / 2),
+          todayFullyVisible:todayRect.left >= stripRect.left - 1 && todayRect.right <= stripRect.right + 1,
+          todayClearOfArrows:todayRect.left >= previous.right - 1 && todayRect.right <= next.left + 1,
+          arrowsInsideFrame:previous.left >= frame.left - 1 && next.right <= frame.right + 1,
+          hitTargets:[previous.width,previous.height,next.width,next.height]
+        };
+      });
+      assert.ok(visibility.selectedCenterDelta <= 1, `${width}px selected ${selectedDay} is not centered: ${JSON.stringify(visibility)}`);
+      assert.equal(visibility.todayFullyVisible, true, `${width}px Today 21 is clipped for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
+      assert.equal(visibility.todayClearOfArrows, true, `${width}px Today 21 intersects an arrow for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
+      assert.equal(visibility.arrowsInsideFrame, true, `${width}px arrows leave the date frame: ${JSON.stringify(visibility)}`);
+      assert.ok(visibility.hitTargets.every(value => value >= 44), `${width}px date arrow lost its 44px hit target: ${JSON.stringify(visibility)}`);
+      if (output && width === 390 && selectedDay === 24) await page.screenshot({ path:path.join(output, 'schedule-selected-24-today-21-390.png'), fullPage:false });
+    }
+    await page.evaluate(() => {
+      const strip = document.querySelector('#dateStrip');
+      for (const day of [24,18,24,21,24]) {
+        [...strip.children].forEach(button => button.classList.toggle('active', Number(button.querySelector('strong')?.textContent || 0) === day));
+        const selected = strip.querySelector('.active');
+        const stripRect = strip.getBoundingClientRect();
+        const selectedRect = selected.getBoundingClientRect();
+        strip.scrollLeft = Math.max(0, Math.min(strip.scrollWidth - strip.clientWidth, selectedRect.left - stripRect.left + strip.scrollLeft - (strip.clientWidth - selectedRect.width) / 2));
+      }
+    });
+    const rapidSequence = await page.evaluate(() => {
+      const strip = document.querySelector('#dateStrip').getBoundingClientRect();
+      const selected = document.querySelector('#dateStrip .active').getBoundingClientRect();
+      return Math.abs((selected.left + selected.right - strip.left - strip.right) / 2);
+    });
+    assert.ok(rapidSequence <= 1, `${width}px rapid date sequence leaves a delayed center: ${rapidSequence}`);
+  }
 
   await page.setViewportSize({ width:360, height:720 });
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -954,7 +1021,7 @@ try {
     const bookings = document.querySelector('#providerBookings');
     bookings.className = 'provider-bookings schedule-list';
     bookings.innerHTML = `
-      <article class="provider-booking status-confirmed color-auto client-new"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>10:30<small>до 11:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Массаж спины + ШВЗ — углублённый</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Сертификат</strong></span><span class="provider-booking-phone">+7 912 000-00-00</span></span><span class="provider-booking-signals"><span class="booking-status">Подтверждена</span><span class="booking-client-visit">Новый · 1-й визит</span></span></span><span class="provider-booking-chevron">›</span></button></article>
+      <article class="provider-booking status-confirmed color-auto client-new"><button class="provider-booking-open" type="button" data-open-booking="booking-1"><span class="booking-time-column"><strong>10:30<small>до 11:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Массаж спины + ШВЗ — углублённый</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Сертификат</strong></span><span class="provider-booking-phone">+7 912 000-00-00</span></span><span class="provider-booking-signals"><span class="booking-status">Подтверждена</span><span class="booking-client-visit">Новый · 1-й визит</span><span class="booking-outcome-summary">Наличные · получено 3 000 ₽</span></span></span><span class="provider-booking-chevron">›</span></button></article>
       <article class="provider-booking status-confirmed color-auto client-vip"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>12:00<small>до 13:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Очень длинное название услуги для проверки безопасного переноса без потери смысла</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Евгения Белышева-Александрова</strong><span class="client-badges with-labels"><span class="client-badge badge-vip"><span>VIP</span></span></span></span><span class="provider-booking-phone">+7 950 831-03-38</span></span><span class="provider-booking-signals"><span class="booking-status">Подтверждена</span><span class="booking-client-visit">Постоянный · 12-й визит</span></span></span><span class="provider-booking-chevron">›</span></button></article>
       <article class="provider-booking status-pending color-auto"><button class="provider-booking-open" type="button"><span class="booking-time-column"><strong>15:00<small>до 15:30</small></strong><span>Вт, 4 авг.</span></span><span class="booking-main"><span class="provider-booking-top"><h3>Консультация</h3></span><span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>Анна</strong></span></span><span class="provider-booking-signals"><span class="booking-status">Ожидает</span></span></span><span class="provider-booking-chevron">›</span></button></article>`;
   });
@@ -1028,7 +1095,9 @@ try {
     assert.ok(cardResult.cardMetrics[0].unclampedTitleLines <= 2.1, `${width}px primary service title loses meaningful text: ${JSON.stringify(cardResult)}`);
     assert.deepEqual(cardResult.clientNames, ['Сертификат','Евгения Белышева-Александрова','Анна'], `${width}px client variants changed`);
     assert.deepEqual(cardResult.phones, ['+7 912 000-00-00','+7 950 831-03-38',''], `${width}px missing-phone variant changed`);
-    assert.ok(cardResult.cardMetrics.every(card => card.actionHeight >= 44 && card.contained && card.titleLines <= 2.1 && card.titleSize >= 17 && card.clientSize >= 15 && card.clientWeight >= 600 && card.clientAfterTitle && card.phoneSecondary && card.signalsAfterClient && card.backgroundColor !== 'rgba(0, 0, 0, 0)'), `${width}px list-card hierarchy, booking fill, or containment changed: ${JSON.stringify(cardResult)}`);
+    assert.ok(cardResult.cardMetrics.every(card => card.actionHeight >= 44 && card.contained && card.titleLines <= 1.1 && card.titleSize >= 10.5 && card.clientSize >= 11 && card.clientWeight >= 600 && card.clientAfterTitle && card.phoneSecondary && card.signalsAfterClient && card.backgroundColor !== 'rgba(0, 0, 0, 0)'), `${width}px list-card hierarchy, booking fill, or containment changed: ${JSON.stringify(cardResult)}`);
+    assert.equal(cardResult.cardMetrics[0].rawTitleLines, 1, `${width}px exact service title wrapped: ${JSON.stringify(cardResult)}`);
+    assert.ok(cardResult.cardMetrics[0].actionHeight <= 112, `${width}px exact service card is no longer compact: ${JSON.stringify(cardResult)}`);
     const filtersShareCards = await page.evaluate(() => {
       const holder = document.querySelector('#providerBookings');
       const originalMarkup = holder.innerHTML;
@@ -1060,9 +1129,49 @@ try {
     assert.ok(filtersShareCards.variants.every(variant => variant.radius === '18px' && variant.fill === filtersShareCards.variants[0].fill && !variant.durationVisible && variant.title === filtersShareCards.variants[0].title), `${width}px Day, Upcoming and All diverged in their common card: ${JSON.stringify(filtersShareCards)}`);
     assert.ok(Math.max(...firstHeights) - Math.min(...firstHeights) <= 1, `${width}px filter switch changes card height: ${JSON.stringify(filtersShareCards)}`);
     assert.ok(filtersShareCards.emptyVariants.every(variant => variant.contained && variant.height > 0), `${width}px filter empty state overflows or vanishes: ${JSON.stringify(filtersShareCards)}`);
+    if ([390,760,1440].includes(width)) {
+      const themeFilterMatrix = await page.evaluate(({ themes, filters }) => {
+        const body = document.body;
+        const holder = document.querySelector('#providerBookings');
+        return themes.flatMap(theme => {
+          body.dataset.providerTheme = theme;
+          return filters.map(filter => {
+            holder.dataset.recordsFilter = filter;
+            const card = holder.querySelector('.provider-booking');
+            const action = card.querySelector('.provider-booking-open');
+            const title = card.querySelector('h3');
+            const titleStyle = getComputedStyle(title);
+            const titleRange = document.createRange();
+            titleRange.selectNodeContents(title);
+            const lines = new Set([...titleRange.getClientRects()].map(rect => Math.round(rect.top))).size;
+            const payment = card.querySelector('.booking-outcome-summary');
+            const cardStyle = getComputedStyle(card);
+            return {
+              theme,
+              filter,
+              height:action.getBoundingClientRect().height,
+              title:title.textContent.trim(),
+              titleLines:lines,
+              titleFits:title.scrollWidth <= title.clientWidth + 1,
+              paymentVisible:Boolean(payment && payment.getBoundingClientRect().width && payment.getBoundingClientRect().height),
+              contained:action.scrollWidth <= action.clientWidth + 1,
+              fill:cardStyle.backgroundColor,
+              border:cardStyle.borderColor
+            };
+          });
+        });
+      }, { themes:themeKeys, filters:['day','upcoming','all'] });
+      assert.equal(themeFilterMatrix.length, 120, `${width}px theme/filter matrix is incomplete`);
+      assert.ok(themeFilterMatrix.every(row => row.title === 'Массаж спины + ШВЗ — углублённый' && row.titleLines === 1 && row.titleFits && row.paymentVisible && row.contained && row.fill !== 'rgba(0, 0, 0, 0)' && row.border !== 'rgba(0, 0, 0, 0)'), `${width}px one-line title, metadata, containment or themed surface failed: ${JSON.stringify(themeFilterMatrix.filter(row => !(row.titleLines === 1 && row.titleFits && row.paymentVisible && row.contained)).slice(0,5))}`);
+      for (const theme of themeKeys) {
+        const rows = themeFilterMatrix.filter(row => row.theme === theme);
+        assert.equal(new Set(rows.map(row => Math.round(row.height * 10) / 10)).size, 1, `${width}px/${theme}: Day, Upcoming and All use different card geometry`);
+      }
+      await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; });
+    }
     await page.evaluate(() => { document.body.dataset.providerTextScale = 'large'; });
-    const largeScaleFits = await page.evaluate(() => [...document.querySelectorAll('.provider-booking-open')].every(button => button.scrollWidth <= button.clientWidth + 1 && button.getBoundingClientRect().height >= 44 && button.querySelector('h3').getBoundingClientRect().height / parseFloat(getComputedStyle(button.querySelector('h3')).lineHeight) <= 2.1));
-    assert.equal(largeScaleFits, true, `${width}px large-text list cards overflow or exceed two title lines`);
+    const largeScaleFits = await page.evaluate(() => [...document.querySelectorAll('.provider-booking-open')].every(button => button.scrollWidth <= button.clientWidth + 1 && button.getBoundingClientRect().height >= 44));
+    assert.equal(largeScaleFits, true, `${width}px large-text list cards overflow`);
     await page.evaluate(() => { document.body.dataset.providerTextScale = 'default'; });
     if (output) await page.screenshot({ path:path.join(output, `schedule-list-card-${width}.png`), fullPage:false });
   }
@@ -1128,7 +1237,7 @@ try {
   assert.equal(shareResult.native[0].url, 'https://example.test/public-master');
   assert.deepEqual(shareResult.copied, ['https://example.test/public-master']);
   assert.ok(shareResult.notices.includes('Ссылка на страницу клиента скопирована'));
-  console.log('PrimeTime Pro compact schedule v786 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v858 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

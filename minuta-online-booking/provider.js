@@ -7175,7 +7175,9 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     };
     dateStrip.addEventListener('wheel', event => {
       if (window.matchMedia('(max-width: 760px)').matches) return;
-      const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      const horizontalIntent = Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.shiftKey;
+      if (!horizontalIntent) return;
+      const rawDelta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.deltaY;
       const unit = event.deltaMode === 1 ? 22 : event.deltaMode === 2 ? dateStrip.clientWidth : 1;
       const delta = Math.max(-320, Math.min(320, rawDelta * unit * 1.1));
       const nextTarget = clampScroll(wheelTarget + delta);
@@ -7259,14 +7261,16 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       touchMoved = false;
       if (!handled) return;
       suppressClick = true;
-      queueMobileDateSettle();
+      /* Native momentum owns the gesture until scrollend (or the scroll
+         inactivity fallback). Starting a second animation here caused the
+         selected date to chase the finger after fast swipes. */
     }, { passive:true });
     dateStrip.addEventListener('touchcancel', () => {
       touchStartX = null;
       touchStartY = null;
       touchIntent = '';
       touchMoved = false;
-      queueMobileDateSettle();
+      clearMobileDatePreview();
     }, { passive:true });
     dateStrip.addEventListener('click', event => {
       if (!suppressClick) return;

@@ -3,58 +3,56 @@
   --schedule-active-contrast:var(--theme-accent-contrast);
 }
 
-/* v843: list cards keep their established full booking tone; only the
-   information hierarchy changes, so saved color choices remain authoritative. */
+/* The journal keeps one compact geometry in Day, Upcoming and All. Theme
+   tokens own the colour; this layer only controls density and hierarchy. */
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-open {
-  grid-template-columns:92px minmax(0,1fr) 24px!important;
-  align-items:start!important;
-  gap:12px!important;
-  min-height:100px!important;
-  padding:14px!important;
+  grid-template-columns:72px minmax(0,1fr) 18px!important;
+  align-items:center!important;
+  gap:9px!important;
+  min-height:82px!important;
+  padding:10px 11px!important;
   overflow:hidden!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-time-column {
   align-self:stretch!important;
   justify-content:flex-start!important;
-  padding:2px 12px 2px 0!important;
+  padding:1px 9px 1px 0!important;
   border-right:1px solid var(--theme-line)!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-time-column strong {
   color:var(--theme-ink)!important;
-  font-size:calc(20px + var(--provider-text-step,0px))!important;
-  font-weight:780!important;
+  font-size:calc(16px + var(--provider-text-step,0px))!important;
+  font-weight:720!important;
   line-height:1!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-time-column strong small,
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-time-column>span {
-  margin-top:5px!important;
+  margin-top:3px!important;
   color:var(--theme-muted)!important;
-  font-size:calc(10px + var(--provider-text-step,0px))!important;
+  font-size:calc(9px + var(--provider-text-step,0px))!important;
   line-height:1.25!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-main {
   display:grid!important;
   align-content:start!important;
-  gap:6px!important;
+  gap:3px!important;
   min-width:0!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-top h3 {
-  display:-webkit-box!important;
+  display:block!important;
   margin:0!important;
   overflow:hidden!important;
   color:var(--theme-ink)!important;
-  font-size:calc(17px + var(--provider-text-step,0px))!important;
-  font-weight:700!important;
-  line-height:1.2!important;
-  overflow-wrap:anywhere!important;
-  white-space:normal!important;
-  -webkit-box-orient:vertical!important;
-  -webkit-line-clamp:2!important;
+  font-size:calc(13px + var(--provider-text-step,0px))!important;
+  font-weight:620!important;
+  line-height:1.22!important;
+  letter-spacing:-.01em!important;
+  white-space:nowrap!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-client-line {
   display:grid!important;
   grid-template-columns:minmax(0,1fr)!important;
-  gap:3px!important;
+  gap:1px!important;
   margin:0!important;
   color:var(--theme-ink)!important;
 }
@@ -70,10 +68,9 @@
   min-width:0!important;
   overflow:hidden!important;
   color:var(--theme-ink)!important;
-  font-size:calc(15px + var(--provider-text-step,0px))!important;
+  font-size:calc(12px + var(--provider-text-step,0px))!important;
   font-weight:650!important;
-  line-height:1.3!important;
-  overflow-wrap:anywhere!important;
+  line-height:1.2!important;
   text-overflow:ellipsis!important;
   white-space:normal!important;
 }
@@ -83,9 +80,9 @@
   max-width:100%!important;
   overflow:hidden!important;
   color:var(--theme-muted)!important;
-  font-size:calc(11px + var(--provider-text-step,0px))!important;
-  font-weight:600!important;
-  line-height:1.3!important;
+  font-size:calc(10px + var(--provider-text-step,0px))!important;
+  font-weight:550!important;
+  line-height:1.2!important;
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
@@ -93,24 +90,24 @@
   display:flex!important;
   align-items:center!important;
   flex-wrap:wrap!important;
-  gap:4px!important;
+  gap:3px!important;
   margin:0!important;
   overflow:visible!important;
 }
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-signals :is(.booking-status,.booking-client-visit,.booking-series-badge,.provider-booking-note-presence,.booking-prepayment-badge,.booking-outcome-summary) {
   display:inline-flex!important;
   align-items:center!important;
-  min-height:22px!important;
+  min-height:18px!important;
   max-width:100%!important;
-  padding:3px 8px!important;
+  padding:2px 6px!important;
   overflow:hidden!important;
   border:1px solid color-mix(in srgb,var(--theme-line) 84%,transparent)!important;
   border-radius:999px!important;
   background:var(--theme-surface-alt)!important;
   background-image:none!important;
   color:var(--theme-ink)!important;
-  font-size:calc(9px + var(--provider-text-step,0px))!important;
-  font-weight:700!important;
+  font-size:calc(8px + var(--provider-text-step,0px))!important;
+  font-weight:680!important;
   line-height:1.1!important;
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
@@ -141,35 +138,33 @@
   }
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-open {
     position:relative!important;
-    grid-template-columns:48px minmax(0,1fr)!important;
-    gap:8px!important;
-    min-height:100px!important;
-    padding:12px 10px!important;
+    grid-template-columns:44px minmax(0,1fr) 12px!important;
+    gap:7px!important;
+    min-height:78px!important;
+    padding:9px!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-time-column {
-    padding-right:9px!important;
+    padding-right:7px!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-time-column strong {
-    font-size:calc(17px + var(--provider-text-step,0px))!important;
+    font-size:calc(14px + var(--provider-text-step,0px))!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-time-column strong small,
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-time-column>span {
     font-size:calc(8px + var(--provider-text-step,0px))!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-top h3 {
-    font-size:calc(17px + var(--provider-text-step,0px))!important;
+    font-size:clamp(10.5px,2.85vw,12px)!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-client-name-row>strong {
-    font-size:calc(15px + var(--provider-text-step,0px))!important;
+    font-size:calc(11px + var(--provider-text-step,0px))!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) :is(.provider-booking-client-line,.provider-booking-signals) {
-    padding-right:16px!important;
+    padding-right:0!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-chevron {
-    position:absolute!important;
-    top:50%!important;
-    right:8px!important;
-    transform:translateY(-50%)!important;
+    position:static!important;
+    transform:none!important;
   }
 }
 
@@ -1004,7 +999,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
 
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame {
     display:grid!important;
-    grid-template-columns:32px minmax(0,1fr) 32px!important;
+    grid-template-columns:44px minmax(0,1fr) 44px!important;
     grid-template-rows:62px!important;
     align-items:stretch!important;
     min-height:62px;
@@ -1023,11 +1018,11 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     pointer-events:none;
   }
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame::before {
-    left:32px;
+    left:44px;
     background:linear-gradient(90deg,color-mix(in srgb,var(--theme-surface) 48%,transparent),transparent);
   }
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame::after {
-    right:32px;
+    right:44px;
     background:linear-gradient(270deg,color-mix(in srgb,var(--theme-surface) 48%,transparent),transparent);
   }
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip {
@@ -1046,7 +1041,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     grid-template-rows:10px 22px 10px!important;
     align-content:center!important;
     gap:1px!important;
-    flex:0 0 calc((100% - 16px) / 5)!important;
+    flex:0 0 calc((100% - 24px) / 7)!important;
     height:56px!important;
     align-self:center!important;
     padding:3px 1px!important;
@@ -2504,7 +2499,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     justify-content:flex-start!important;
     overflow-x:auto!important;
     overflow-y:hidden!important;
-    scroll-snap-type:x mandatory!important;
+    scroll-snap-type:none!important;
     scroll-behavior:auto!important;
     touch-action:pan-x pan-y!important;
     overscroll-behavior-x:none!important;
@@ -2626,7 +2621,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
 }
 
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .booking-client-name-row>strong {
-  font-weight:750!important;
+  font-weight:680!important;
 }
 
 @media (max-width:760px) {
@@ -2636,7 +2631,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-open {
-    min-height:92px!important;
+    min-height:78px!important;
     padding:9px!important;
   }
 
@@ -2645,8 +2640,22 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 
   .provider-body[data-provider-theme][data-provider-layout] .schedule-list:not(.team-calendar-list) .provider-booking-signals :is(.booking-status,.booking-client-visit,.booking-series-badge,.provider-booking-note-presence,.booking-prepayment-badge,.booking-outcome-summary) {
-    min-height:20px!important;
+    min-height:18px!important;
     padding:2px 7px!important;
+  }
+
+  /* Seven dates must fit between the 44px arrows so Today stays completely
+     visible when the selected day is three days away. Distance changes
+     emphasis, not width, which keeps centring mathematically stable. */
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button {
+    --date-card-width:clamp(30px,8vw,48px)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.active {
+    --date-card-width:clamp(44px,11.3vw,52px)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button>span {
+    font-size:8px!important;
+    letter-spacing:-.02em;
   }
 }
 
