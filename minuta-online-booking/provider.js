@@ -1898,9 +1898,11 @@ function importedServiceScheduleName(fullName) {
   const normalized = String(fullName || '').replace(/\s+/g, ' ').trim();
   const canonical = normalized
     .replace(/\s*[.!?]\s+.*/, '')
+    .replace(/\s*[—–-]\s*\d+\s*мин(?:ут[аы]?)?\.?\s*$/i, '')
     .replace(/\s*\([^)]{6,}\)\s*$/, '')
     .trim();
-  return serviceName(canonical || normalized || 'Услуга');
+  const title = canonical.replace(/^Массаж спины\s*\+\s*швз\s*[—–-]\s*углубл[её]нный$/i, 'Массаж спины + ШВЗ — углублённый');
+  return serviceName(title || normalized || 'Услуга');
 }
 function bookingScheduleName(item, fullName) {
   if (item?.is_imported_history && !item?.service_id && !serviceScheduleNames[String(item?.service_id || '')]) {
@@ -6980,6 +6982,14 @@ function refreshBusinessDay() {
   renderBookingData();
 }
 
+function updateDateStripTodayVisibility(dateStrip) {
+  const today = dateStrip?.querySelector('.is-today');
+  if (!today) return;
+  const viewport = dateStrip.getBoundingClientRect();
+  const tile = today.getBoundingClientRect();
+  today.classList.toggle('is-edge-clipped', tile.left < viewport.left - 0.5 || tile.right > viewport.right + 0.5);
+}
+
 function updateDateStripEmphasis(dateStrip) {
   if (!dateStrip) return;
   const buttons = [...dateStrip.querySelectorAll('[data-booking-date]')];
@@ -7009,6 +7019,7 @@ function centerDateStripSelection(dateStrip, options = {}) {
     dateStrip.scrollLeft = nextLeft;
     dateStrip.style.scrollBehavior = inlineScrollBehavior;
   }
+  updateDateStripTodayVisibility(dateStrip);
 }
 
 function bindDateStripResizeCentering(dateStrip) {
@@ -7090,6 +7101,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     else button.removeAttribute('aria-current');
   });
   updateDateStripEmphasis(dateStrip);
+  updateDateStripTodayVisibility(dateStrip);
   dateStrip.dataset.selectedDate = selectedDate;
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
@@ -7169,7 +7181,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     const queueMobileDateSettle = () => {
       if (!window.matchMedia('(max-width: 760px)').matches) return;
       if (mobileSettleTimer) window.clearTimeout(mobileSettleTimer);
-      const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 140;
+      const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 320;
       mobileSettleTimer = window.setTimeout(commitMobileDateGesture, delay);
     };
     const cancelMobileDateSettle = () => {
@@ -7302,6 +7314,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       event.stopImmediatePropagation();
     }, true);
     dateStrip.addEventListener('scroll', () => {
+      updateDateStripTodayVisibility(dateStrip);
       if (!wheelFrame && dragPointerId === null) wheelTarget = dateStrip.scrollLeft;
       if (!window.matchMedia('(max-width: 760px)').matches || Date.now() < Number(dateStrip.dataset.programmaticCenterUntil || 0)) return;
       if (!mobileScrollFrame) mobileScrollFrame = requestAnimationFrame(() => {

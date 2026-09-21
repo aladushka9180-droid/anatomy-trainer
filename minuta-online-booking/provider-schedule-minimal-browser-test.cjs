@@ -73,6 +73,7 @@ const server = http.createServer((request, response) => {
         const box = selector => document.querySelector(selector).getBoundingClientRect();
         const panel = box('.booking-sheet-panel');
         const frame = box('.date-strip-frame');
+        const stripBox = box('#dateStrip');
         const previous = box('.date-strip-shift[data-date-shift="-1"]');
         const next = box('.date-strip-shift[data-date-shift="1"]');
         const dates = [...document.querySelectorAll('#dateStrip>button')].map(button => button.getBoundingClientRect());
@@ -87,6 +88,7 @@ const server = http.createServer((request, response) => {
           panelBottomDelta:Math.abs(innerHeight - panel.bottom),
           previousInside:previous.left >= frame.left && previous.right <= frame.right,
           nextInside:next.left >= frame.left && next.right <= frame.right,
+          arrowsOutsideDates:previous.right <= stripBox.left + 1 && next.left >= stripBox.right - 1,
           previousGap:dates[0].left - previous.right,
           nextGap:next.left - dates.at(-1).right,
           oldControlsHidden:[...document.querySelectorAll('.date-navigation>.date-nav-button')].every(button => getComputedStyle(button).display === 'none'),
@@ -110,6 +112,7 @@ const server = http.createServer((request, response) => {
         assert.ok(result.previousGap >= 0, `${width}px: левая стрелка перекрывает первую дату (${result.previousGap}px)`);
         assert.ok(result.nextGap >= 0, `${width}px: правая стрелка перекрывает последнюю дату (${result.nextGap}px)`);
       } else {
+        assert.equal(result.arrowsOutsideDates, true, `${width}px: стрелка перекрывает видимую область дат`);
         assert.equal(result.stripOverflowX, 'auto', `${width}px: нативная инерция ленты дат отключена`);
         assert.match(result.stripTouchAction, /pan-x/, `${width}px: лента дат не принимает горизонтальный жест`);
         assert.match(result.stripTouchAction, /pan-y/, `${width}px: карусель дат блокирует вертикальный скролл`);

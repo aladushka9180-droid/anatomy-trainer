@@ -2105,7 +2105,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   .provider-body[data-provider-theme][data-provider-layout] .schedule-card:has(#dateStrip:not([hidden])) .date-strip-frame,
   #dashboard[data-active-view="bookings"] .schedule-card:has(.calendar-view-toggle [data-calendar-view="day"].active) .date-strip-frame,
   .provider-body[data-provider-theme][data-provider-layout] .date-strip-frame {
-    grid-template-columns:32px minmax(0,1fr) 32px!important;
+    grid-template-columns:44px minmax(0,1fr) 44px!important;
     grid-template-rows:58px!important;
     min-height:58px!important;
     height:58px!important;
@@ -2526,16 +2526,8 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     transition:opacity .12s ease,background-color .12s ease,color .12s ease!important;
   }
 
-  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip.is-swipe-scrolling>button.active:not(.is-swipe-candidate) {
-    border-color:transparent!important;
-    background:transparent!important;
-    color:var(--theme-muted)!important;
-  }
-
-  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.is-swipe-candidate {
-    border-color:var(--schedule-active-color)!important;
-    background:var(--schedule-active-color)!important;
-    color:var(--schedule-active-contrast)!important;
+  html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.is-today.is-edge-clipped {
+    visibility:hidden!important;
   }
 
   .provider-body #dashboard[data-active-view="bookings"] .dashboard-summary::before,
@@ -2655,14 +2647,13 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     padding:2px 7px!important;
   }
 
-  /* Seven dates must fit between the 44px arrows so Today stays completely
-     visible when the selected day is three days away. Distance changes
-     emphasis, not width, which keeps centring mathematically stable. */
+  /* The 44px arrows own separate columns. Dates clip at the strip edge and
+     never pass underneath an arrow while the user scrolls. */
   html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button {
-    --date-card-width:clamp(30px,8vw,48px)!important;
+    --date-card-width:clamp(34px,9vw,46px)!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.active {
-    --date-card-width:clamp(44px,11.3vw,52px)!important;
+    --date-card-width:clamp(46px,11.8vw,52px)!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button>span {
     font-size:8px!important;

@@ -61,6 +61,10 @@ try {
       serviceScheduleNames.demo = 'Спина + ШВЗ · углублённый';
       return [serviceScheduleName('Полное название услуги', 'demo'), serviceScheduleName('Полное название услуги', '')];
     }), ['Спина + ШВЗ · углублённый', 'Полное название услуги']);
+    assert.equal(await page.evaluate(() => bookingScheduleName(
+      { is_imported_history:true, service_id:null },
+      'Массаж спины + швз — углубленный (с акцентом на проблемные зоны) — 60 мин'
+    )), 'Массаж спины + ШВЗ — углублённый');
     const geometry = await page.evaluate(() => {
       const dialog = document.querySelector('#serviceCreatorDialog').getBoundingClientRect();
       const toggle = document.querySelector('.service-schedule-name-toggle').getBoundingClientRect();

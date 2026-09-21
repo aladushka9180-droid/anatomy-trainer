@@ -11,6 +11,11 @@ const playwright = process.env.MINUTA_PLAYWRIGHT_MODULE
 const chromium = playwright.chromium || playwright.default?.chromium;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
+const todayVisibilityHelper = providerSource.slice(
+  providerSource.indexOf('function updateDateStripTodayVisibility('),
+  providerSource.indexOf('function updateDateStripEmphasis(')
+);
+assert.match(todayVisibilityHelper, /is-edge-clipped/);
 const scheduleCssSource = fs.readFileSync(path.join(root, 'provider-schedule-minimal.css'), 'utf8');
 const themeCatalogSource = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const themeKeys = [...themeCatalogSource.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
@@ -529,8 +534,8 @@ try {
       assert.ok(result.intersectingDates >= result.fullyVisibleDates && result.intersectingDates <= result.fullyVisibleDates + 2, `${width}px exposes too many cropped edge dates: ${JSON.stringify(result)}`);
       assert.equal(result.stripFadeBefore.pointerEvents, 'none', `${width}px previous edge fade intercepts date gestures`);
       assert.equal(result.stripFadeAfter.pointerEvents, 'none', `${width}px next edge fade intercepts date gestures`);
-      assert.ok(result.previous.right - result.stripViewport.left >= 11 && result.previous.right - result.stripViewport.left <= 13, `${width}px previous 44px target must overlap only the date edge gutter: ${JSON.stringify(result)}`);
-      assert.ok(result.stripViewport.right - result.next.left >= 11 && result.stripViewport.right - result.next.left <= 13, `${width}px next 44px target must overlap only the date edge gutter: ${JSON.stringify(result)}`);
+      assert.ok(result.previous.right <= result.stripViewport.left + 1, `${width}px previous arrow overlaps the date strip: ${JSON.stringify(result)}`);
+      assert.ok(result.stripViewport.right <= result.next.left + 1, `${width}px next arrow overlaps the date strip: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateVisible, true, `${width}px selected date must remain visible: ${JSON.stringify(result)}`);
       assert.equal(result.activeDateValue, '2026-09-15', `${width}px fixture selected date changed`);
       assert.notEqual(result.activeDateBackground, 'rgba(0, 0, 0, 0)', `${width}px selected date lost its accent`);
@@ -647,6 +652,7 @@ try {
   }
 
   await page.setViewportSize({ width:390, height:844 });
+  await page.addScriptTag({ content:todayVisibilityHelper });
   await page.evaluate(() => {
     const strip = document.querySelector('#dateStrip');
     [...strip.children].forEach(button => {
@@ -658,6 +664,7 @@ try {
     const stripRect = strip.getBoundingClientRect();
     const selectedRect = selected.getBoundingClientRect();
     strip.scrollLeft = Math.max(0, selectedRect.left - stripRect.left + strip.scrollLeft - (strip.clientWidth - selectedRect.width) / 2);
+    updateDateStripTodayVisibility(strip);
   });
   await page.waitForTimeout(220);
   const rightEdgeDate = await page.evaluate(() => {
@@ -700,6 +707,7 @@ try {
     const stripRect = strip.getBoundingClientRect();
     const selectedRect = selected.getBoundingClientRect();
     strip.scrollLeft = Math.max(0, selectedRect.left - stripRect.left + strip.scrollLeft - (strip.clientWidth - selectedRect.width) / 2);
+    updateDateStripTodayVisibility(strip);
   });
   await page.waitForTimeout(80);
   const today21Visible = await page.evaluate(() => {
@@ -707,15 +715,16 @@ try {
     const frame = document.querySelector('.date-strip-frame').getBoundingClientRect();
     const today = document.querySelector('[data-booking-date="2026-09-21"]').getBoundingClientRect();
     const previous = document.querySelector('.date-strip-shift[data-date-shift="-1"]').getBoundingClientRect();
+    const todayHidden = getComputedStyle(document.querySelector('[data-booking-date="2026-09-21"]')).visibility === 'hidden';
     return {
       today:{ left:today.left, right:today.right, width:today.width },
       strip:{ left:strip.left, right:strip.right },
       frame:{ left:frame.left, right:frame.right },
-      previous:{ left:previous.left, right:previous.right }
+      previous:{ left:previous.left, right:previous.right },
+      todayHidden
     };
   });
-  assert.ok(today21Visible.today.left >= today21Visible.strip.left - 1 && today21Visible.today.right <= today21Visible.strip.right + 1, `390px “Сегодня 21 сент” is clipped when 24 is selected: ${JSON.stringify(today21Visible)}`);
-  assert.ok(today21Visible.today.left >= today21Visible.previous.right - 1, `390px left date arrow covers “Сегодня 21 сент”: ${JSON.stringify(today21Visible)}`);
+  assert.equal(today21Visible.todayHidden, true, `390px partly clipped “Сегодня 21 сент” remains visible when 24 is selected: ${JSON.stringify(today21Visible)}`);
   if (output) await page.screenshot({ path:path.join(output, 'schedule-today-21-selected-24-390.png'), fullPage:false });
   if (output) await page.screenshot({ path:path.join(output, 'schedule-date-19-390.png'), fullPage:false });
 
@@ -735,6 +744,7 @@ try {
         const stripRect = strip.getBoundingClientRect();
         const selectedRect = selected.getBoundingClientRect();
         strip.scrollLeft = Math.max(0, Math.min(strip.scrollWidth - strip.clientWidth, selectedRect.left - stripRect.left + strip.scrollLeft - (strip.clientWidth - selectedRect.width) / 2));
+        updateDateStripTodayVisibility(strip);
       }, selectedDay);
       await page.waitForTimeout(30);
       const visibility = await page.evaluate(() => {
@@ -748,14 +758,15 @@ try {
         return {
           selectedCenterDelta:Math.abs((selectedRect.left + selectedRect.right - stripRect.left - stripRect.right) / 2),
           todayFullyVisible:todayRect.left >= stripRect.left - 1 && todayRect.right <= stripRect.right + 1,
+          todayHidden:getComputedStyle(strip.querySelector('.is-today')).visibility === 'hidden',
           todayClearOfArrows:todayRect.left >= previous.right - 1 && todayRect.right <= next.left + 1,
           arrowsInsideFrame:previous.left >= frame.left - 1 && next.right <= frame.right + 1,
           hitTargets:[previous.width,previous.height,next.width,next.height]
         };
       });
       assert.ok(visibility.selectedCenterDelta <= 1, `${width}px selected ${selectedDay} is not centered: ${JSON.stringify(visibility)}`);
-      assert.equal(visibility.todayFullyVisible, true, `${width}px Today 21 is clipped for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
-      assert.equal(visibility.todayClearOfArrows, true, `${width}px Today 21 intersects an arrow for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
+      assert.equal(visibility.todayFullyVisible, !visibility.todayHidden, `${width}px Today 21 is partially visible for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
+      if (!visibility.todayHidden) assert.equal(visibility.todayClearOfArrows, true, `${width}px Today 21 intersects an arrow for selected ${selectedDay}: ${JSON.stringify(visibility)}`);
       assert.equal(visibility.arrowsInsideFrame, true, `${width}px arrows leave the date frame: ${JSON.stringify(visibility)}`);
       assert.ok(visibility.hitTargets.every(value => value >= 44), `${width}px date arrow lost its 44px hit target: ${JSON.stringify(visibility)}`);
       if (output && width === 390 && selectedDay === 24) await page.screenshot({ path:path.join(output, 'schedule-selected-24-today-21-390.png'), fullPage:false });
@@ -1309,7 +1320,7 @@ try {
   assert.equal(shareResult.native[0].url, 'https://example.test/public-master');
   assert.deepEqual(shareResult.copied, ['https://example.test/public-master']);
   assert.ok(shareResult.notices.includes('Ссылка на страницу клиента скопирована'));
-  console.log('PrimeTime Pro compact schedule v859 browser checks: PASS');
+  console.log('PrimeTime Pro compact schedule v860 browser checks: PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
