@@ -163,11 +163,15 @@ const server = http.createServer((request, response) => {
     });
     const beforeActive = movingEmphasis.before.find(item => item.active);
     const afterActive = movingEmphasis.after.find(item => item.active);
+    const nearDate = movingEmphasis.after.find(item => item.distance === '1');
+    const middleDate = movingEmphasis.after.find(item => item.distance === '2');
+    const farDate = movingEmphasis.after.find(item => item.distance === '3');
     assert.equal(beforeActive.distance, '0', 'Выбранная дата не получила нулевую дистанцию');
     assert.equal(afterActive.distance, '0', 'Акцент не переехал на новую выбранную дату');
-    assert.ok(afterActive.width > movingEmphasis.after.find(item => item.distance === '1').width, 'Выбранная дата не крупнее соседней');
-    assert.ok(movingEmphasis.after.find(item => item.distance === '1').width > movingEmphasis.after.find(item => item.distance === '2').width, 'Ближайшая дата не крупнее дальней');
-    assert.ok(movingEmphasis.after.find(item => item.distance === '2').width > movingEmphasis.after.find(item => item.distance === '3').width, 'Крайняя дата не слабее средней');
+    assert.ok(afterActive.width > nearDate.width, 'Выбранная дата не крупнее соседней');
+    assert.ok(nearDate.height > middleDate.height, 'Ближайшая дата не выше дальней');
+    assert.ok(middleDate.height > farDate.height, 'Крайняя дата не слабее средней');
+    assert.ok(Math.abs(nearDate.width - middleDate.width) < 0.5 && Math.abs(middleDate.width - farDate.width) < 0.5, 'Ширина невыбранных дат меняется и расшатывает центрирование');
 
     for (const width of [390, 760]) {
       await page.setViewportSize({ width, height:900 });
@@ -197,7 +201,8 @@ const server = http.createServer((request, response) => {
         return { states };
       });
       assert.ok(transitions.states.every(state => state.centerDelta <= 1.5), `${width}px: выбранная дата дёргается или не остаётся по центру (${JSON.stringify(transitions)})`);
-      assert.ok(transitions.states.every(state => state.width >= 46 && state.width <= 56 && state.height >= 53 && state.height <= 55), `${width}px: размер выбранной даты меняется при последовательных переходах (${JSON.stringify(transitions)})`);
+      assert.ok(transitions.states.every(state => state.width >= 43.5 && state.width <= 52.5 && state.height >= 53 && state.height <= 55), `${width}px: размер выбранной даты меняется при последовательных переходах (${JSON.stringify(transitions)})`);
+      assert.ok(Math.max(...transitions.states.map(state => state.width)) - Math.min(...transitions.states.map(state => state.width)) < 0.5, `${width}px: ширина выбранной даты нестабильна при последовательных переходах (${JSON.stringify(transitions)})`);
     }
 
     await page.evaluate(() => {
@@ -457,7 +462,7 @@ const server = http.createServer((request, response) => {
       assert.notEqual(fixedCenterSelection.right.end.active, fixedCenterSelection.left.end.active, `${width}px: обратный жест не изменил дату: ${JSON.stringify(fixedCenterSelection)}`);
       assert.notEqual(fixedCenterSelection.rapidLeft.end.active, fixedCenterSelection.right.end.active, `${width}px: быстрый повторный жест потерян: ${JSON.stringify(fixedCenterSelection)}`);
       assert.equal(fixedCenterSelection.diagnostics.overflow, 'auto', `${width}px: нет native horizontal scroll`);
-      assert.match(fixedCenterSelection.diagnostics.snap, /x mandatory/, `${width}px: нет одиночного native snap к дате`);
+      assert.equal(fixedCenterSelection.diagnostics.snap, 'none', `${width}px: браузерный snap конкурирует с одиночным settle к дате`);
       assert.match(fixedCenterSelection.diagnostics.touchAction, /pan-x/);
     }
 
