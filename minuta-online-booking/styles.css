@@ -4642,7 +4642,6 @@ html.provider-booting .provider-main {
 .timeline-drag-label small { color:var(--theme-muted,#687970); font-size:8px; font-weight:800; line-height:1.25; }
 .timeline-drag-label.is-magnetized { border-color:color-mix(in srgb,var(--theme-accent,#236947) 52%,transparent); }
 .timeline-drag-label.is-invalid { border-color:color-mix(in srgb,#b45e48 42%,transparent); color:#873e2f; }
-.timeline-booking.is-past-booking:not(.is-dragging) { opacity:.72; filter:saturate(.78); }
 .timeline-booking.is-current-booking:not(.is-dragging) { box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent,#236947) 52%,transparent),0 10px 28px color-mix(in srgb,var(--theme-accent,#236947) 15%,transparent)!important; }
 .timeline-booking.is-current-booking::after { position:absolute; z-index:2; top:8px; right:8px; width:7px; height:7px; border-radius:50%; background:var(--theme-accent,#236947); box-shadow:0 0 0 0 color-mix(in srgb,var(--theme-accent,#236947) 34%,transparent); content:""; animation:timeline-current-pulse 2.4s ease-out infinite; }
 .timeline-booking.is-next-booking:not(.is-dragging) { box-shadow:0 0 0 1px color-mix(in srgb,var(--theme-accent,#236947) 32%,transparent)!important; }

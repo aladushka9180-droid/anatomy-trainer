@@ -19,7 +19,7 @@ for (const contract of [
 assert.match(providerHtml, /provider-ux\.css\?v=865/);
 assert.match(providerHtml, /site-update\.js\?v=871/);
 assert.match(providerHtml, /provider\.js\?v=871/);
-assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v873`/);
+assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v874`/);
 assert.match(workerSource, /provider-ux\.css\?v=865/);
 assert.match(workerSource, /site-update\.js\?v=871/);
 assert.match(workerSource, /provider\.js\?v=871/);
