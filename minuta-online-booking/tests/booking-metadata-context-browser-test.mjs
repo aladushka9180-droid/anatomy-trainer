@@ -37,7 +37,7 @@ const orgHook=source.slice(orgStart,orgEnd).replace('  onActiveOrganizationChang
 const functions=['openBookingSheet','bookingReviewLink','closeBookingSheet','saveBookingBlockNote','saveBookingColor','saveBookingNote',
   'persistBookingColors','persistBookingNotes','bookingColorStorageKey','bookingColorPendingStorageKey',
   'bookingNoteStorageKey','bookingNotePendingStorageKey','validBookingColor','bookingColor','bookingColorPicker',
-  'bookingDisplayNote','bookingClientNote','normalizePhone','isScheduleBlock','escapeHtml','uiIcon',
+  'bookingDisplayNote','bookingClientNote','bookingVisitComment','normalizePhone','isScheduleBlock','escapeHtml','uiIcon',
   'requireWrites','sessionIsCurrent'];
 if(/^function captureBookingMetadataContext\(/m.test(source))functions.push('captureBookingMetadataContext');
 const operations=source.match(/^const bookingColorOperations = .*;$/m)?.[0]||'';
