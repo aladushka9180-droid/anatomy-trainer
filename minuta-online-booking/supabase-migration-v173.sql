@@ -34,6 +34,41 @@ begin
 end
 $overwrite_guard$;
 
+do $object_guard$
+declare
+  v_signature text;
+begin
+  foreach v_signature in array array[
+    'public.minuta_consume_abuse_limit_v173(text,text,integer,integer)',
+    'public.guard_minuta_public_booking_v173()',
+    'public.guard_minuta_waitlist_v173()',
+    'public.guard_minuta_message_v173()'
+  ] loop
+    if to_regprocedure(v_signature) is not null
+       and obj_description(to_regprocedure(v_signature)::oid,'pg_proc')
+         is distinct from 'minuta_abuse_guard_v173' then
+      raise exception using errcode='55000',message='v173_abuse_guard_function_name_collision';
+    end if;
+  end loop;
+  if exists(
+    select 1 from pg_catalog.pg_trigger trigger_row
+    where (trigger_row.tgrelid,trigger_row.tgname) in(
+      ('public.bookings'::regclass,'bookings_abuse_guard_v173'),
+      ('public.organization_waitlist_requests'::regclass,'waitlist_abuse_guard_v173'),
+      ('public.conversation_messages_v162'::regclass,'messages_abuse_guard_v173')
+    )
+      and trigger_row.tgfoid is distinct from
+        case trigger_row.tgname
+          when 'bookings_abuse_guard_v173' then to_regprocedure('public.guard_minuta_public_booking_v173()')
+          when 'waitlist_abuse_guard_v173' then to_regprocedure('public.guard_minuta_waitlist_v173()')
+          else to_regprocedure('public.guard_minuta_message_v173()')
+        end
+  ) then
+    raise exception using errcode='55000',message='v173_abuse_guard_trigger_name_collision';
+  end if;
+end
+$object_guard$;
+
 create table if not exists public.minuta_abuse_rate_buckets_v173(
   scope_kind text not null check(scope_kind in(
     'booking_organization_hour','booking_phone_hour',

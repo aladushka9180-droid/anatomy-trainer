@@ -73,8 +73,30 @@ try {
 
   await db.exec(read('supabase-migration-v173-rollback.sql'));
   assert.equal((await db.query("select to_regclass('public.minuta_abuse_rate_buckets_v173') is null missing")).rows[0].missing, true);
+
+  await db.exec(`create function public.guard_minuta_waitlist_v173()
+    returns trigger language plpgsql as $$ begin return new; end $$`);
+  await assert.rejects(() => db.exec(migration), /v173_abuse_guard_function_name_collision/);
+  await db.exec('rollback');
+  assert.equal((await db.query("select to_regclass('public.minuta_abuse_rate_buckets_v173') is null missing")).rows[0].missing, true);
+  await db.exec('drop function public.guard_minuta_waitlist_v173()');
+
+  await db.exec(`create function public.foreign_booking_guard_v173()
+    returns trigger language plpgsql as $$ begin return new; end $$;
+    create trigger bookings_abuse_guard_v173 before insert on public.bookings
+    for each row execute function public.foreign_booking_guard_v173()`);
+  await assert.rejects(() => db.exec(migration), /v173_abuse_guard_trigger_name_collision/);
+  await db.exec('rollback');
+  await db.exec('drop trigger bookings_abuse_guard_v173 on public.bookings; drop function public.foreign_booking_guard_v173()');
+
   await db.exec(migration);
   assert.equal((await db.query("select to_regclass('public.minuta_abuse_rate_buckets_v173') is not null restored")).rows[0].restored, true);
+  await db.exec("comment on function public.guard_minuta_waitlist_v173() is 'foreign function'");
+  await assert.rejects(() => db.exec(read('supabase-migration-v173-rollback.sql')),
+    /v173_abuse_guard_rollback_state_mismatch/);
+  await db.exec('rollback');
+  assert.equal((await db.query("select to_regclass('public.minuta_abuse_rate_buckets_v173') is not null preserved")).rows[0].preserved, true);
+  await db.exec("comment on function public.guard_minuta_waitlist_v173() is 'minuta_abuse_guard_v173'");
   console.log('PASS: v173 PGlite apply/reapply, trigger limits, rollback/reapply');
 } catch (error) {
   console.error(`v173 PGlite rehearsal failed: ${error.message}`);
