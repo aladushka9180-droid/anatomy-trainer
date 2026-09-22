@@ -15729,8 +15729,10 @@ async function openPriceList() {
     organization = organizationController.getActiveOrganization();
     const published = await publishedPriceListServices(organization);
     if (!sessionIsCurrent(userId, generation)) return;
-    items = window.PrimeTimePriceList.eligible(published).map(item => Number(item.duration_minutes) === 1
-      ? { ...item, default_duration_minutes:serviceDefaultDuration(item.id) } : item);
+    items = window.PrimeTimePriceList.eligible(published).map(item => ({
+      ...item, name:serviceName(item.name),
+      ...(Number(item.duration_minutes) === 1 ? { default_duration_minutes:serviceDefaultDuration(item.id) } : {})
+    }));
   } catch {
     if (sessionIsCurrent(userId, generation)) notify('Не удалось проверить опубликованные услуги. Прайс не отправлен.');
     return;

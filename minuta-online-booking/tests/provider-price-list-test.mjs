@@ -41,6 +41,9 @@ const publicContext = vm.createContext({
 const publishedServices = vm.runInContext(`${helper}\npublishedPriceListServices`, publicContext);
 const published = await publishedServices({ public_booking_enabled:true, public_slug:'org' });
 assert.deepEqual(Array.from(model.eligible(published), item => item.name), ['Массаж']);
+const displayName = vm.runInNewContext(`${providerSource.match(/function serviceName\(value\) \{[^}]+\}/)?.[0]}\nserviceName('Общий массаж задней поверхности')`);
+assert.equal(displayName, 'Массаж задней поверхности тела');
+assert.match(providerSource, /name:serviceName\(item\.name\)/);
 const many = Array.from({ length:41 }, (_, i) => ({ name:`Услуга ${i + 1}`, active:true, price_rub:100, duration_minutes:30 }));
 const pages = await model.imageFiles(many, 'https://example.test/book');
 assert.equal(pages.length, 3);
