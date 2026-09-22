@@ -94,6 +94,48 @@
         : 'Включите программу, чтобы начать отсчёт со следующего завершённого визита.';
     }
 
+    function adjustmentPreviewState() {
+      const client = $('#loyaltyAdjustmentClient')?.value || '';
+      const input = $('#loyaltyAdjustmentPoints');
+      const raw = String(input?.value || '').trim();
+      const account = accountByClient(client);
+      const before = Math.max(0, integer(account?.progress));
+      const target = Math.max(0, integer(account?.goal_visits || payload?.rule?.goal_visits));
+      const numeric = Number(raw);
+      const delta = Number.isInteger(numeric) ? numeric : 0;
+      const after = before + delta;
+      const validDelta = raw !== '' && Number.isInteger(numeric) && delta !== 0 && Math.abs(delta) <= 100;
+      return { client, raw, before, target, delta, after, validDelta, valid: Boolean(client && validDelta && after >= 0 && (!target || after <= target)) };
+    }
+
+    function updateAdjustmentPreview() {
+      const holder = $('#loyaltyAdjustmentPreview');
+      const input = $('#loyaltyAdjustmentPoints');
+      if (!holder || !input) return;
+      const state = adjustmentPreviewState();
+      input.setCustomValidity('');
+      if (!state.client) {
+        holder.textContent = 'Выберите клиента, чтобы увидеть текущий прогресс.';
+        return;
+      }
+      if (!state.raw) {
+        holder.textContent = `Было ${state.before}. Укажите, сколько визитов добавить или убрать.`;
+        return;
+      }
+      if (!state.validDelta) {
+        input.setCustomValidity('Укажите целое число от −100 до 100, кроме нуля.');
+        holder.textContent = 'Укажите целое число от −100 до 100, кроме нуля.';
+        return;
+      }
+      const result = `Было ${state.before} → станет ${state.after} ${visitWord(state.after)}.`;
+      if (state.after < 0 || (state.target && state.after > state.target)) {
+        input.setCustomValidity(`Итоговый прогресс должен быть от 0 до ${state.target}.`);
+        holder.textContent = `${result} Допустимый итог: от 0 до ${state.target}.`;
+        return;
+      }
+      holder.textContent = result;
+    }
+
     function renderCard() {
       const card = $('#clientMilestoneCard');
       const orbit = $('#clientProfileOrbit');
@@ -178,7 +220,7 @@
       $('#loyaltyRedeemedCount').textContent = String(payload?.stats?.redeemed || 0);
       const clients = payload?.clients || [];
       $('#loyaltyAdjustmentClient').innerHTML = `<option value="">Выберите клиента</option>${clients.map(client => `<option value="${escapeHtml(client.id)}">${escapeHtml(client.client_name || 'Клиент')}</option>`).join('')}`;
-      renderClients(); renderRewards(); renderHistory(); updateForm(); renderCard();
+      renderClients(); renderRewards(); renderHistory(); updateForm(); updateAdjustmentPreview(); renderCard();
       $('#loyaltyWorkflowStatus').textContent = enabled ? 'Программа включена. Текущие циклы сохраняют правила, с которыми начались.' : 'Программа выключена. История и выданные награды сохранены.';
       applyWriteAvailability?.();
     }
@@ -231,11 +273,12 @@
       if (event.target.id === 'loyaltyAdjustmentForm') {
         event.preventDefault(); clearError('#loyaltyAdjustmentError');
         const client = $('#loyaltyAdjustmentClient').value, delta = integer($('#loyaltyAdjustmentPoints').value), reason = $('#loyaltyAdjustmentReason').value.trim();
-        if (!client || !delta || reason.length < 3) { showError('#loyaltyAdjustmentError','Выберите клиента, изменение и укажите причину.'); return; }
+        const preview = adjustmentPreviewState();
+        if (!client || !preview.valid || reason.length < 3) { showError('#loyaltyAdjustmentError','Выберите клиента, допустимое изменение и укажите причину.'); updateAdjustmentPreview(); return; }
         const parameters = {p_organization:organization.id,p_client_account:client,p_delta:delta,p_reason:reason};
         const intent = prepareIntent('adjustment',parameters); parameters.p_request_id = intent.requestId;
         const ok = await mutate('adjust_minuta_loyalty_progress_v166',parameters,event.submitter,'Прогресс скорректирован',intent);
-        if (ok) event.target.reset(); else showError('#loyaltyAdjustmentError','Корректировка не сохранена. Проверьте допустимый итог прогресса.');
+        if (ok) { event.target.reset(); updateAdjustmentPreview(); } else showError('#loyaltyAdjustmentError','Корректировка не сохранена. Проверьте допустимый итог прогресса.');
       }
     }
 
@@ -253,9 +296,12 @@
 
     function input(event) {
       if (event.target.closest('#loyaltyProgramForm')) { clearError('#loyaltyRuleError'); updateForm(); }
-      if (event.target.closest('#loyaltyAdjustmentForm')) clearError('#loyaltyAdjustmentError');
+      if (event.target.closest('#loyaltyAdjustmentForm')) { clearError('#loyaltyAdjustmentError'); updateAdjustmentPreview(); }
     }
-    function change(event) { if (event.target.closest('#loyaltyProgramForm')) updateForm(); }
+    function change(event) {
+      if (event.target.closest('#loyaltyProgramForm')) updateForm();
+      if (event.target.closest('#loyaltyAdjustmentForm')) updateAdjustmentPreview();
+    }
     function bind() { document.addEventListener('submit',submit); document.addEventListener('click',click); document.addEventListener('input',input); document.addEventListener('change',change); }
     function reset() { organization=null;payload=null;availability='idle';revision+=1;selectedClient=null;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
     async function setOrganization(next) {

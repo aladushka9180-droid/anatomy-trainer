@@ -102,7 +102,8 @@ try {
     assert.equal(await page.locator('[data-provider-integration="dikidi"] [data-provider-integration-account]').inputValue(), 'studio-1');
     assert.equal(await page.locator('[data-provider-integration="yclients"] [data-provider-integration-account]').inputValue(), 'salon-42');
     const text = await page.locator('#providerIntegrationsWorkspace').textContent();
-    assert.match(text, /Контур готов/);
+    assert.match(text, /Черновик готов/);
+    assert.match(text, /Обмен данными не начинается/);
     assert.match(text, /Запись обновлена/);
     assert.doesNotMatch(text, /\+7|7999|Ирина|Сергей/i);
     const layout = await page.evaluate(() => {
@@ -128,7 +129,7 @@ try {
       assert.equal(saved.args.p_environment, 'testing');
       assert.equal(saved.args.p_enabled, false);
       assert.equal(saved.args.p_external_account_id, 'studio-1');
-      assert.match((await page.evaluate(() => window.integrationNotices.join(' '))), /подготовлен/i);
+      assert.match((await page.evaluate(() => window.integrationNotices.join(' '))), /тестовый черновик DIKIDI создан; обмен данными не начат/i);
     }
     await page.screenshot({ path:resolve(output, `${width}.png`), fullPage:true });
     await page.close();

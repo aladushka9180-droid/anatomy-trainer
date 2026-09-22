@@ -278,9 +278,9 @@
       if ($('#inventoryTransfersState')) $('#inventoryTransfersState').hidden = !transfer;
       if ($('#inventoryMovementWarehouseLabel')) $('#inventoryMovementWarehouseLabel').textContent = transfer ? 'Со склада' : 'Склад';
       if ($('#inventoryMovementScan')) {
-        $('#inventoryMovementScan').textContent = transfer ? 'Сканировать позицию' : 'Сканировать продажу';
+        $('#inventoryMovementScan').textContent = 'Сканировать товар';
         $('#inventoryMovementScan').dataset.codeScanMode = transfer ? 'inventory' : 'sale';
-        $('#inventoryMovementScan').dataset.codeScanTitle = transfer ? 'Позиция для перемещения' : 'Товар для продажи';
+        $('#inventoryMovementScan').dataset.codeScanTitle = transfer ? 'Позиция для перемещения' : 'Товар для операции';
       }
       if (transfer) updateTransferBalance();
     }

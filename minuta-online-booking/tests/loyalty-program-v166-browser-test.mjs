@@ -39,6 +39,10 @@ try {
     document.querySelector('#loyaltyBalancesList').innerHTML = '<article class="loyalty-client-row"><div><strong>Ирина Орлова</strong><small>6 из 10 · ещё 4 до награды</small></div><span class="loyalty-progress-value">6/10</span></article>';
     document.querySelector('#loyaltyRewardsList').innerHTML = '<article class="loyalty-reward-row"><div><strong>Мария Климова · 10% скидка</strong><small>До 20 дек. 2026 г.</small></div><button class="secondary-button" type="button">Отметить использованной</button></article>';
     document.querySelector('#loyaltyLedgerList').innerHTML = '<article><div><strong>Визит засчитан</strong><small>Ирина Орлова</small></div><time>20 сент. 2026 г.</time></article>';
+    document.querySelector('.loyalty-operation').open = true;
+    document.querySelector('#loyaltyAdjustmentClient').innerHTML = '<option value="client">Ирина Орлова</option>';
+    document.querySelector('#loyaltyAdjustmentPoints').value = '2';
+    document.querySelector('#loyaltyAdjustmentPreview').textContent = 'Было 6 → станет 8 визитов.';
   });
 
   const widths = [360, 390, 760, 1100, 1440];
@@ -59,7 +63,7 @@ try {
       const rgb = [...state.previewBorder.matchAll(/\d+(?:\.\d+)?/g)].map(match => Number(match[0])).slice(0, 3);
       assert.ok(rgb.length < 3 || !(rgb[1] > rgb[0] * 1.35 && rgb[1] > rgb[2] * 1.15), `midnight/${width}: loyalty accent is not green`);
     }
-    if (process.env.MINUTA_LOYALTY_SCREENSHOT && theme === 'midnight' && [390,1440].includes(width)) {
+    if (process.env.MINUTA_LOYALTY_SCREENSHOT && theme === 'midnight' && [390,760,1440].includes(width)) {
       await page.screenshot({ path:`${process.env.MINUTA_LOYALTY_SCREENSHOT}-${width}.png`, fullPage:true });
     }
   }
@@ -77,10 +81,11 @@ try {
     document.querySelector('#loyaltyPanel').hidden = false;
     let failOnce = true;
     window.__loyaltyCalls = [];
-    const workspace = { enabled:false, rule:null, clients:[], accounts:[], rewards:[], history:[], stats:{ issued:0, redeemed:0 } };
+    const workspace = { enabled:true, rule:{ id:'rule', goal_visits:10, reward_kind:'percent', reward_value:1000, reward_title:'Скидка 10%', reward_terms:'', validity_days:90 }, clients:[{ id:'client', client_name:'Ирина Орлова' }], accounts:[{ client_account_id:'client', progress:6, goal_visits:10 }], rewards:[], history:[], stats:{ issued:0, redeemed:0 } };
     const db = { async rpc(name, parameters) {
       window.__loyaltyCalls.push({ name, parameters:{ ...parameters } });
       if (name === 'get_minuta_loyalty_program_workspace_v166') return { data:workspace, error:null };
+      if (name === 'adjust_minuta_loyalty_progress_v166') return { data:{ ok:true }, error:null };
       if (name === 'set_minuta_loyalty_program_v166' && failOnce) { failOnce = false; return { data:null, error:{ code:'FETCH_FAILED' } }; }
       workspace.enabled = Boolean(parameters.p_enabled);
       workspace.rule = { id:'rule', goal_visits:parameters.p_goal_visits, reward_kind:parameters.p_reward_kind, reward_value:parameters.p_reward_value, reward_title:parameters.p_reward_title, reward_terms:parameters.p_reward_terms, validity_days:parameters.p_validity_days };
@@ -94,6 +99,29 @@ try {
     controller.bind();
     await controller.setOrganization({ id:'organization-v166' });
   });
+  const editAdjustment = async value => page.evaluate(next => {
+    const details = document.querySelector('.loyalty-operation'); details.open = true;
+    const client = document.querySelector('#loyaltyAdjustmentClient'); client.value = 'client';
+    client.dispatchEvent(new Event('change', { bubbles:true }));
+    const input = document.querySelector('#loyaltyAdjustmentPoints'); input.value = next;
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+  }, value);
+  await editAdjustment('2');
+  assert.equal(await page.locator('#loyaltyAdjustmentPreview').textContent(),'Было 6 → станет 8 визитов.');
+  assert.equal(await page.locator('#loyaltyAdjustmentPoints').evaluate(input => input.validationMessage),'');
+  await editAdjustment('5');
+  assert.match(await page.locator('#loyaltyAdjustmentPreview').textContent(),/Было 6 → станет 11 визитов.*от 0 до 10/);
+  assert.notEqual(await page.locator('#loyaltyAdjustmentPoints').evaluate(input => input.validationMessage),'');
+  await page.locator('#loyaltyAdjustmentForm').evaluate(form => form.dispatchEvent(new SubmitEvent('submit', { bubbles:true, cancelable:true, submitter:form.querySelector('button[type="submit"]') })));
+  assert.equal(await page.evaluate(() => window.__loyaltyCalls.filter(call => call.name === 'adjust_minuta_loyalty_progress_v166').length),0,'Invalid result must not call the adjustment RPC');
+  await editAdjustment('-2');
+  assert.equal(await page.locator('#loyaltyAdjustmentPreview').textContent(),'Было 6 → станет 4 визита.');
+  assert.equal(await page.locator('#loyaltyAdjustmentPoints').evaluate(input => input.validationMessage),'');
+  await page.locator('#loyaltyAdjustmentReason').evaluate(input => { input.value = 'Исправление тестовой истории'; });
+  await page.locator('#loyaltyAdjustmentForm').evaluate(form => form.dispatchEvent(new SubmitEvent('submit', { bubbles:true, cancelable:true, submitter:form.querySelector('button[type="submit"]') })));
+  await page.waitForFunction(() => window.__loyaltyCalls.some(call => call.name === 'adjust_minuta_loyalty_progress_v166'));
+  const adjustment = await page.evaluate(() => window.__loyaltyCalls.find(call => call.name === 'adjust_minuta_loyalty_progress_v166'));
+  assert.equal(adjustment.parameters.p_delta,-2,'Previewed delta is sent unchanged');
   await page.evaluate(async () => {
     const form = document.querySelector('#loyaltyProgramForm');
     const button = form.querySelector('button[type="submit"]');

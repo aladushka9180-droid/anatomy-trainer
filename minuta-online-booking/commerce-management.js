@@ -303,6 +303,8 @@
     function renderPaymentAccounts(selected = $('#commercePaymentAccount')?.value || '') {
       const select = $('#commercePaymentAccount');
       if (!select) return;
+      const methodHint = $('#commercePaymentMethodHint');
+      if (methodHint) methodHint.hidden = $('#commercePaymentMethod')?.value !== 'manual';
       const accounts = eligibleAccounts();
       const target = accounts.some(item => item.id === selected) ? selected : accounts[0]?.id || '';
       select.innerHTML = accounts.length ? accountOptions(target) : '<option value="">Нет доступной кассы</option>';
@@ -426,7 +428,7 @@
       const warehouse = (state?.warehouses || []).find(item => item.id === $('#commerceWarehouse')?.value)?.name;
       const seller = (state?.sellers || []).find(item => item.id === $('#commerceSeller')?.value)?.name;
       const account = (state?.accounts || []).find(item => item.id === $('#commercePaymentAccount')?.value)?.name;
-      const payment = $('#commercePaymentMethod')?.value === 'manual' ? 'вручную' : 'наличные';
+      const payment = $('#commercePaymentMethod')?.value === 'manual' ? 'оплата подтверждена вручную' : 'наличные';
       summary.textContent = [$('#commerceItemKind')?.value === 'inventory_item' ? warehouse : null, seller, `${payment}${account ? ` · ${account}` : ''}`]
         .filter(Boolean).join(' · ') || 'Заполните детали операции';
     }

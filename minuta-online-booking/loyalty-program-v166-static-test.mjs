@@ -9,6 +9,12 @@ const html = read('./provider.html');
 const provider = read('./provider.js');
 const module = read('./loyalty-program-v166.js');
 const relationship = read('./client-relationship.js');
+const worker = read('./sw.js');
+
+assert.match(html,/Добавить \/ убрать визитов/);
+assert.match(html,/id="loyaltyAdjustmentPreview"[\s\S]*Выберите клиента, чтобы увидеть текущий прогресс/);
+assert.match(module,/Было \$\{state\.before\} → станет \$\{state\.after\}/);
+assert.match(module,/Допустимый итог: от 0 до \$\{state\.target\}/);
 
 for (const table of ['settings','rules','accounts','visits','rewards','history']) {
   assert.match(migration,new RegExp(`create table public\\.loyalty_program_${table}_v166`,'i'));
@@ -51,7 +57,12 @@ assert.match(module,/redeem_minuta_loyalty_reward_v166/);
 assert.match(module,/const next = \{ fingerprint, requestId:uuid\(\) \}[\s\S]*localStorage\.setItem\(key, JSON\.stringify\(next\)\)/i,'Ambiguous writes keep an opaque retry intent across reloads');
 assert.match(module,/if \(known\) clearIntent\(intent\)/,'Known business failures release the retry intent');
 assert.doesNotMatch(module,/send_message|notification_outbox|referral|cashback/i,'V1 has no messaging, referrals or cashback');
-assert.match(html,/provider\.js\?v=871/);
-assert.match(html,/styles\.css\?v=871/);
+for (const asset of ['provider.js','styles.css']) {
+  const version = html.match(new RegExp(`${asset.replace('.', '\\.')}\\?v=(\\d+)`))?.[1];
+  assert.ok(version, `${asset} has a versioned provider reference`);
+  assert.match(worker,new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`),`${asset} is aligned with the service worker`);
+}
+const loyaltyVersion = worker.match(/loyalty-program-v166\.js\?v=(\d+)/)?.[1];
+assert.ok(loyaltyVersion,'loyalty-program-v166.js has a versioned service-worker reference');
 
 console.log('loyalty program v166 static contract: PASS');
