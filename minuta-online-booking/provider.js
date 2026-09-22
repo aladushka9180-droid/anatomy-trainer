@@ -3134,6 +3134,33 @@ function bookingIsCompleted(item) {
   const start = new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`);
   return new Date(start.getTime() + Number(item.duration_minutes || item.services?.duration_minutes || 60) * 60000) < new Date();
 }
+function bookingReviewLink(item) {
+  const code = String(item?.booking_code || '');
+  const outcome = bookingOutcome(item);
+  if (item?.booking_source !== 'client_online' || !item?.request_id ||
+      !/^MIN-[A-Z0-9]{4,20}$/.test(code) || item.status === 'cancelled' ||
+      outcome.visit_status !== 'completed' || outcome._sync_pending ||
+      bookingSessionEnd(item) > new Date()) return '';
+  const url = new URL('https://primetime-booking.aladushka9180.chatgpt.site/bookings');
+  url.searchParams.set('review', code);
+  return url.href;
+}
+
+async function shareBookingReviewLink(id) {
+  const item = bookingSourceItems().find(booking => booking.id === id);
+  const url = bookingReviewLink(item);
+  if (!url) { notify('Ссылка доступна после подтверждения завершённого визита PrimeTime'); return; }
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title:'Отзыв о визите', text:'Если визит состоялся, оставьте отзыв в PrimeTime.', url });
+      return;
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+    }
+  }
+  try { await navigator.clipboard.writeText(url); notify('Ссылка на отзыв скопирована'); }
+  catch { notify('Не удалось скопировать ссылку'); }
+}
 function bookingStatus(item, long = false) {
   if (item?.is_imported_history) return long ? 'Импортировано из прежнего журнала' : 'Импортировано';
   if (item.status === 'cancelled') return long ? 'Запись отменена' : 'Отменена';
@@ -8869,6 +8896,7 @@ function openBookingSheet(id) {
   const messageButton = clientMessageButtonMarkup(item);
   const conversationButton = providerConversationButtonMarkup(item);
   const note = bookingDisplayNote(item);
+  const reviewLink = bookingReviewLink(item);
   const outcome = bookingOutcome(item);
   const minuteRate = bookingMinuteRate(item);
   const actualMinutes = Number(outcome.actual_duration_minutes || 0);
@@ -8930,6 +8958,7 @@ function openBookingSheet(id) {
     ${quickVisitOutcomeMarkup(item)}
     ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
     </div>
+    ${reviewLink ? `<div class="booking-sheet-actions"><button class="secondary-button" type="button" data-share-review="${escapeHtml(item.id)}">Попросить отзыв</button></div>` : ''}
     ${conversationButton || messageButton ? `<div class="booking-sheet-actions booking-message-actions">${conversationButton}${messageButton}</div>` : ''}
     ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button>${item.series_id ? `<button class="secondary-button danger" type="button" data-cancel-booking-series="${item.id}">Отменить</button>` : ''}</div>` : ''}
     <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись</button></div>`;
@@ -16510,6 +16539,8 @@ document.addEventListener('click', async event => {
   if (openAutomaticBreakSettingsButton) { await openAutomaticBreakSettings(); return; }
   if (disableAutomaticBreaksButton) { await disableAutomaticBookingBreaks(disableAutomaticBreaksButton); return; }
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
+  const shareReview = event.target.closest('[data-share-review]');
+  if (shareReview) await shareBookingReviewLink(shareReview.dataset.shareReview);
   if (commerceBookingSale) await openCommerceSaleFromBooking(commerceBookingSale.dataset.commerceBookingSale);
   if (commerceClientSale) await openCommerceSale({ clientId:commerceClientSale.dataset.commerceClientSale || '' });
   if (openClientProfile) openClientProfileFromBooking(openClientProfile.dataset.clientBookingId, openClientProfile.dataset.openClientProfile);
