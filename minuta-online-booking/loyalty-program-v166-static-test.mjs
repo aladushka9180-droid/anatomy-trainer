@@ -7,6 +7,7 @@ const operational = read('./supabase-migration-v166-operational-rollback.sql');
 const schemaRollback = read('./supabase-migration-v166-schema-rollback.sql');
 const html = read('./provider.html');
 const provider = read('./provider.js');
+const worker = read('./sw.js');
 const module = read('./loyalty-program-v166.js');
 const relationship = read('./client-relationship.js');
 
@@ -51,7 +52,10 @@ assert.match(module,/redeem_minuta_loyalty_reward_v166/);
 assert.match(module,/const next = \{ fingerprint, requestId:uuid\(\) \}[\s\S]*localStorage\.setItem\(key, JSON\.stringify\(next\)\)/i,'Ambiguous writes keep an opaque retry intent across reloads');
 assert.match(module,/if \(known\) clearIntent\(intent\)/,'Known business failures release the retry intent');
 assert.doesNotMatch(module,/send_message|notification_outbox|referral|cashback/i,'V1 has no messaging, referrals or cashback');
-assert.match(html,/provider\.js\?v=871/);
-assert.match(html,/styles\.css\?v=871/);
+for (const asset of ['provider.js', 'styles.css']) {
+  const reference = html.match(new RegExp(`(?:src|href)="(${asset.replaceAll('.', '\\.')}\\?v=\\d+)"`))?.[1];
+  assert.ok(reference, `${asset} must be versioned in the provider shell`);
+  assert.ok(worker.includes(`'./${reference}'`), `${asset} must match the service-worker precache`);
+}
 
 console.log('loyalty program v166 static contract: PASS');

@@ -15,11 +15,21 @@ const version = worker.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)[1];
 const optional = ['free-slots-compact.css', 'vendor/qrcodegen.js', 'code-scanner.css', 'code-scanner.js'];
 const activeHtml = html.replace(/<template\b[^>]*>[\s\S]*?<\/template>/g, '');
 const coreManifest = worker.match(/const ASSETS = \[([\s\S]*?)\];/)[1];
+const optionalManifest = worker.match(/const OPTIONAL_ASSETS = \[([\s\S]*?)\];/)[1];
+const manifestPaths = manifest => [...manifest.matchAll(/['"](\.\/[^'"]+)['"]/g)].map(match => match[1]);
+const coreAssets = manifestPaths(coreManifest);
+const warmAssets = manifestPaths(optionalManifest);
+const assetPath = (assets, file) => {
+  const matches = assets.filter(path => path.split('?')[0] === `./${file}`);
+  assert.equal(matches.length, 1, `${file} must have one versioned manifest entry`);
+  return matches[0];
+};
 for (const file of optional) {
   assert.ok(!activeHtml.includes(`"${file}?`), `${file} must not be an initial resource`);
   assert.ok(!coreManifest.includes(`./${file}?`), `${file} must not delay core installation`);
+  assert.ok(html.includes(assetPath(warmAssets, file).slice(2)), `${file} must use its warm-cache URL in the page`);
 }
-assert.ok(activeHtml.includes(`provider-feature-assets.js?v=${version}`), 'The loader must start with the page');
+assert.ok(activeHtml.includes(assetPath(coreAssets, 'provider-feature-assets.js').slice(2)), 'The loader must start with the page');
 const savedBytes = optional.reduce((sum, file) => sum + statSync(resolve(root, file)).size, 0)
   - statSync(resolve(root, 'provider-feature-assets.js')).size;
 assert.ok(savedBytes > 50000, 'At least 50 KB of source assets must leave the cold startup path');
@@ -149,10 +159,10 @@ try {
   }, version);
   assert.deepEqual(idle.requested.filter(file => optional.includes(file)), [], 'Installing the real worker must not warm dialogs');
   await runIdle(idle.page);
-  await idle.page.waitForFunction(async ({ optional, version }) => {
+  await idle.page.waitForFunction(async ({ optionalPaths, version }) => {
     const cache = await caches.open(`massage-izhevsk-v${version}`);
-    return (await Promise.all(optional.map(file => cache.match(`./${file}?v=${version}`)))).every(Boolean);
-  }, { optional, version });
+    return (await Promise.all(optionalPaths.map(path => cache.match(path)))).every(Boolean);
+  }, { optionalPaths:optional.map(file => assetPath(warmAssets, file)), version });
   await idle.context.setOffline(true);
   await idle.page.reload({ waitUntil:'load' });
   await exposeControls(idle.page);
