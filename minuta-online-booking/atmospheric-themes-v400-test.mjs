@@ -28,7 +28,8 @@ assert.ok(
   'Матовый Hitech-цвет должен применяться после общего правила активного дня'
 );
 assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v\d+`;/, 'Версия кэша приложения не определена');
-const version = worker.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)[1];
-assert.match(provider, new RegExp(`styles\\.css\\?v=${version}`), 'Кабинет не подключает актуальные стили');
+const stylesVersion = provider.match(/href="styles\.css\?v=(\d+)"/)?.[1];
+assert.ok(stylesVersion, 'Кабинет не подключает версионированные стили');
+assert.ok(worker.includes(`'./styles.css?v=${stylesVersion}'`), 'Стили кабинета не согласованы с service worker');
 
 console.log('Atmospheric provider themes v400: OK');
