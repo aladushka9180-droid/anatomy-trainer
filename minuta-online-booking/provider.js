@@ -15696,6 +15696,116 @@ function renderOwnServices() {
   }).join('');
 }
 
+let priceListImageUrls = [];
+let priceListItems = [];
+async function publishedPriceListServices(organization) {
+  const ownIds = new Set(ownServices.filter(item => item.active === true).map(item => item.id));
+  if (organization && (!organization.public_booking_enabled || !organization.public_slug)) return [];
+  if (!organization) {
+    // The unscoped client page reads the same active services table.
+    return ownServices.filter(item => ownIds.has(item.id));
+  }
+  const { data, error } = await db.rpc('get_public_minuta_catalog_v5', { p_slug:organization.public_slug });
+  if (error || !data?.organization || !Array.isArray(data.services)) throw new Error('public catalog unavailable');
+  const locations = new Set((data.locations || []).map(item => item.id));
+  return data.services.filter(item => ownIds.has(item.id) && item.performer_id === currentUser?.id
+    && Array.isArray(item.location_ids) && item.location_ids.some(id => locations.has(id)));
+}
+function clearPriceListImages() {
+  priceListImageUrls.forEach(url => URL.revokeObjectURL(url));
+  priceListImageUrls = [];
+}
+async function openPriceList() {
+  const button = $('#openPriceList');
+  button.disabled = true;
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  let items;
+  let organization;
+  try {
+    const result = await loadOwnServices({ silent:true });
+    if (!result.ok) throw new Error('services unavailable');
+    organization = organizationController.getActiveOrganization();
+    const published = await publishedPriceListServices(organization);
+    if (!sessionIsCurrent(userId, generation)) return;
+    items = window.PrimeTimePriceList.eligible(published).map(item => Number(item.duration_minutes) === 1
+      ? { ...item, default_duration_minutes:serviceDefaultDuration(item.id) } : item);
+  } catch {
+    if (sessionIsCurrent(userId, generation)) notify('Не удалось проверить опубликованные услуги. Прайс не отправлен.');
+    return;
+  } finally { button.disabled = false; }
+  if (!items.length) { notify('Нет опубликованных услуг с заполненной ценой и длительностью.'); return; }
+  priceListItems = items;
+  const url = buildProviderClientUrl(organization).href;
+  const dialog = $('#priceListDialog');
+  clearPriceListImages();
+  $('#priceListItems').replaceChildren(...items.map(item => {
+    const row = document.createElement('div');
+    const name = document.createElement('strong'); name.textContent = item.name.trim();
+    const detail = document.createElement('span');
+    detail.textContent = `${window.PrimeTimePriceList.price(item)} · ${window.PrimeTimePriceList.duration(item)}`;
+    row.append(name, detail);
+    return row;
+  }));
+  $('#priceListBookingLink').href = url;
+  $('#priceListStatus').textContent = `${items.length} услуг в прайсе`;
+  $('#priceListFallback').hidden = true;
+  dialog.dataset.priceListUrl = url;
+  dialog.showModal();
+}
+async function sharePriceListText() {
+  const dialog = $('#priceListDialog');
+  const items = priceListItems;
+  const message = window.PrimeTimePriceList.textFor(items, dialog.dataset.priceListUrl);
+  if (navigator.share) {
+    try { await navigator.share({ title:'Прайс услуг', text:message }); $('#priceListStatus').textContent = 'Меню отправки закрыто.'; return; }
+    catch (error) { if (error?.name === 'AbortError') { $('#priceListStatus').textContent = 'Отправка отменена.'; return; } }
+  }
+  try {
+    await navigator.clipboard.writeText(message);
+    $('#priceListStatus').textContent = 'Прайс и ссылка скопированы. Вставьте их в сообщение клиенту.';
+  } catch {
+    $('#priceListStatus').textContent = 'Скопируйте текст ниже и отправьте клиенту.';
+    const fallback = $('#priceListFallback');
+    fallback.value = message;
+    fallback.hidden = false;
+    fallback.select();
+  }
+}
+async function sharePriceListImage() {
+  const dialog = $('#priceListDialog');
+  const items = priceListItems;
+  const url = dialog.dataset.priceListUrl;
+  const button = $('#sharePriceListImage');
+  button.disabled = true;
+  $('#priceListStatus').textContent = 'Готовим изображение…';
+  try {
+    const styles = getComputedStyle(document.body);
+    const theme = Object.fromEntries([
+      ['surface', '--theme-surface'], ['ink', '--theme-ink'], ['muted', '--theme-muted'],
+      ['line', '--theme-line'], ['accent', '--theme-accent']
+    ].map(([name, variable]) => [name, styles.getPropertyValue(variable).trim()]));
+    const files = await window.PrimeTimePriceList.imageFiles(items, url, theme);
+    const payload = { title:'Прайс услуг', text:`Онлайн-запись: ${url}`, files };
+    if (navigator.share && navigator.canShare?.(payload)) {
+      try { await navigator.share(payload); $('#priceListStatus').textContent = 'Меню отправки закрыто.'; return; }
+      catch (error) { if (error?.name === 'AbortError') { $('#priceListStatus').textContent = 'Отправка отменена.'; return; } }
+    }
+    clearPriceListImages();
+    const status = $('#priceListStatus');
+    status.replaceChildren(document.createTextNode('Сохраните изображение и отправьте его вместе со ссылкой на запись. '));
+    files.forEach((file, index) => {
+      const fileUrl = URL.createObjectURL(file);
+      priceListImageUrls.push(fileUrl);
+      const link = document.createElement('a');
+      link.href = fileUrl; link.download = file.name; link.textContent = `Страница ${index + 1}${index + 1 < files.length ? ', ' : ''}`;
+      status.append(link);
+    });
+    status.append(document.createTextNode(' · Ссылку можно скопировать выше.'));
+  } catch { $('#priceListStatus').textContent = 'Не удалось создать изображение. Можно поделиться текстом.'; }
+  finally { button.disabled = false; }
+}
+
 async function toggleServiceVisibility(button) {
   const id = button?.dataset.toggleService;
   const userId = currentUser?.id;
@@ -17781,6 +17891,17 @@ $('#signupForm').addEventListener('submit', signup);
 $('#recoveryForm').addEventListener('submit', requestPasswordReset);
 $('#resetPasswordForm').addEventListener('submit', completePasswordRecovery);
 $('#serviceForm').addEventListener('submit', addService);
+$('#openPriceList').addEventListener('click', openPriceList);
+$('#closePriceList').addEventListener('click', () => $('#priceListDialog').close());
+$('#priceListDialog').addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+$('#priceListDialog').addEventListener('close', () => { clearPriceListImages(); priceListItems = []; });
+$('#sharePriceListText').addEventListener('click', sharePriceListText);
+$('#sharePriceListImage').addEventListener('click', sharePriceListImage);
+$('#copyPriceListLink').addEventListener('click', async () => {
+  const url = $('#priceListDialog').dataset.priceListUrl;
+  try { await navigator.clipboard.writeText(url); $('#priceListStatus').textContent = 'Ссылка на онлайн-запись скопирована.'; }
+  catch { $('#priceListStatus').textContent = `Скопируйте ссылку: ${url}`; }
+});
 $('#serviceDuration').addEventListener('change', () => updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration'));
 bindServiceDefaultDurationPresets('[data-service-default-duration]', '#serviceDefaultDuration');
 $('#portfolioForm').addEventListener('submit', savePortfolioItem);

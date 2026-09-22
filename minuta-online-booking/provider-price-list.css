@@ -1,0 +1,29 @@
+.provider-body [data-provider-panel="services"] #openPriceList { white-space:nowrap; }
+.price-list-dialog { width:min(580px, calc(100vw - 24px)); max-height:min(760px, calc(100dvh - 24px)); padding:24px; border:1px solid var(--theme-line, #d8ded8); border-radius:18px; background:var(--theme-surface, #fff); color:var(--theme-ink, #24332d); box-shadow:0 18px 56px #0002; }
+.price-list-dialog[open] { display:flex; flex-direction:column; }
+.price-list-dialog::backdrop { background:#101b1bb3; }
+.price-list-head { display:flex; align-items:start; justify-content:space-between; gap:16px; }
+.price-list-head small { color:var(--theme-muted, #63716a); }
+.price-list-head h2 { margin:3px 0 0; font-size:24px; }
+.price-list-head button { min-width:40px; min-height:40px; border:0; background:transparent; color:inherit; font-size:30px; cursor:pointer; }
+.price-list-dialog>p { color:var(--theme-muted, #63716a); line-height:1.45; }
+.price-list-items { flex:1 1 auto; min-height:80px; overflow:auto; border-block:1px solid var(--theme-line, #d8ded8); }
+.price-list-items>div { display:flex; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid var(--theme-line, #d8ded8); }
+.price-list-items>div:last-child { border-bottom:0; }
+.price-list-items strong { min-width:0; overflow-wrap:anywhere; font-size:14px; }
+.price-list-items span { flex:none; color:var(--theme-muted, #63716a); font-size:13px; text-align:right; }
+.price-list-link { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.price-list-link a { color:var(--theme-accent, #315c51); overflow-wrap:anywhere; }
+.price-list-link button { border:0; background:transparent; color:var(--theme-accent, #315c51); text-decoration:underline; cursor:pointer; }
+.price-list-actions { display:flex; gap:8px; margin-top:20px; }
+.price-list-actions button { flex:1; }
+#priceListStatus { min-height:1.4em; font-size:12px; overflow-wrap:anywhere; }
+#priceListStatus a { color:var(--theme-accent, #315c51); }
+#priceListFallback { width:100%; min-height:100px; box-sizing:border-box; resize:vertical; }
+@media (max-width:760px) {
+  .provider-body [data-provider-panel="services"] #openPriceList.compact-button { width:auto; min-width:0; padding:0 10px; font-size:12px; }
+  .price-list-dialog { padding:18px; }
+  .price-list-items>div { display:block; }
+  .price-list-items span { display:block; margin-top:4px; text-align:left; }
+  .price-list-actions { flex-direction:column; }
+}
