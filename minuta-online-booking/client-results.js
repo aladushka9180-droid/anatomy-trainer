@@ -48,7 +48,11 @@
       object_path: objectPath,
       mime_type: String(value.mime_type || value.mimeType || 'image/webp'),
       byte_size: Math.max(0, Number(value.byte_size || value.byteSize || 0)),
-      can_delete: value.can_delete === true
+      can_delete: value.can_delete === true,
+      retention_managed: value.retention_managed === true || value.retentionManaged === true,
+      retention_active: value.retention_active === true || value.retentionActive === true,
+      keep_from_cleanup: value.keep_from_cleanup === true || value.keepFromCleanup === true,
+      retention_due_on: String(value.retention_due_on || value.retentionDueOn || '')
     };
   }
 
@@ -97,7 +101,7 @@
     const label = purpose === 'after' ? 'после' : 'до';
     const item = result?.media?.find(media => media.purpose === purpose);
     if (item) return `<article class="booking-result-media-item" data-result-media-slot="${purpose}">
-      <div><strong>Фото ${label}</strong><small>${item ? 'Хранится приватно' : 'Не добавлено'}</small></div>
+      <div><strong>Фото ${label}</strong><small>${item.retention_active ? 'Приватно · автоочистка через 12 месяцев' : 'Хранится приватно'}</small>${item.retention_managed ? `<label class="client-result-keep"><input type="checkbox" data-client-result-keep="${escapeHtml(item.id)}"${item.keep_from_cleanup ? ' checked' : ''}><span>Сохранить без срока</span></label>` : ''}</div>
       <button class="client-result-private-preview" type="button" data-client-result-preview="${escapeHtml(item.id)}">Открыть</button>
     </article>`;
     return `<label class="booking-result-media-item booking-result-file-picker" data-result-media-slot="${purpose}">
@@ -219,6 +223,15 @@
       return response?.data;
     }
 
+    async function retentionRpc(name, fallback, payload) {
+      try {
+        return await rpc(name, payload);
+      } catch (error) {
+        if (!rpcMissing(error)) throw error;
+        return rpc(fallback, payload);
+      }
+    }
+
     function contextToken() {
       const context = getContext() || {};
       return { generation, userId: context.userId, sessionGeneration: context.sessionGeneration, organizationId: organization?.id, phone: client?.phone };
@@ -282,7 +295,7 @@
 
     function resultCardMarkup(result) {
       const fields = FIELD_DEFINITIONS.filter(([key]) => result[key]).map(([key, label]) => `<div class="client-result-field"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(result[key])}</dd></div>`).join('');
-      const media = result.media.map(item => `<button class="client-result-media-button" type="button" data-client-result-preview="${escapeHtml(item.id)}"><span>Фото ${item.purpose === 'after' ? 'после' : 'до'}</span><small>Открыть приватно</small></button>`).join('');
+      const media = result.media.map(item => `<button class="client-result-media-button" type="button" data-client-result-preview="${escapeHtml(item.id)}"><span>Фото ${item.purpose === 'after' ? 'после' : 'до'}</span><small>${item.keep_from_cleanup ? 'Сохранено без срока' : item.retention_active ? 'Автоочистка через 12 месяцев' : 'Открыть приватно'}</small></button>`).join('');
       const date = formatDate(result.visit_at || result.updated_at) || 'Дата не указана';
       const service = result.service_label || result.visit_label || 'Результат визита';
       return `<article class="client-result-card">
@@ -447,7 +460,7 @@
       loading = true;
       renderProfile(profileHost?.open === true);
       try {
-        const data = await rpc('get_minuta_client_results_v120', {
+        const data = await retentionRpc('get_minuta_client_results_v171', 'get_minuta_client_results_v120', {
           p_organization: organization.id,
           p_phone: client.phone,
           p_offset: append ? offset : 0
@@ -497,7 +510,7 @@
       }
       const revision = editor.revision;
       try {
-        const data = await rpc('get_minuta_client_result_v120', { p_organization: organization.id, p_booking: editor.bookingId });
+        const data = await retentionRpc('get_minuta_client_result_v171', 'get_minuta_client_result_v120', { p_organization: organization.id, p_booking: editor.bookingId });
         if (!editor || editor.revision !== revision) return;
         remote = { enabled: data?.enabled === true, can_enable: data?.can_enable === true };
         editor.result = mergeResultMedia([data?.result || data?.entry].filter(Boolean), data?.media)[0]
@@ -549,6 +562,33 @@
         stage.replaceChildren(image);
       } catch (error) {
         stage.innerHTML = `<p class="is-error" role="alert">${escapeHtml(message(error))}</p>`;
+      }
+    }
+
+    async function setMediaKeep(input) {
+      const id = String(input?.dataset?.clientResultKeep || '');
+      const media = mediaIndex.get(id);
+      if (!media?.retention_managed || !requireWrites()) {
+        if (input) input.checked = media?.keep_from_cleanup === true;
+        return;
+      }
+      const next = input.checked === true;
+      input.disabled = true;
+      try {
+        await rpc('set_minuta_client_result_media_keep_v171', { p_id: id, p_keep: next });
+        const update = result => result?.media?.forEach(item => { if (item.id === id) item.keep_from_cleanup = next; });
+        rows.forEach(update);
+        update(editor?.result);
+        indexMedia();
+        renderProfile(profileHost?.open === true);
+        if (editor && !editor.dirty) renderEditor(editor.result);
+        setEditorStatus(next ? 'Фото сохранено без срока.' : 'Для фото снова действует автоочистка через 12 месяцев.');
+      } catch (error) {
+        input.checked = media.keep_from_cleanup === true;
+        setEditorStatus(message(error), true);
+        notify(message(error));
+      } finally {
+        if (input.isConnected) input.disabled = false;
       }
     }
 
@@ -745,11 +785,13 @@
       }, true);
       document.addEventListener('input', event => {
         if (!event.target.closest?.('#bookingVisitResultFields')) return;
+        if (event.target.matches?.('[data-client-result-keep]')) return;
         editor.dirty = true;
         refreshEditorSummary();
       });
       document.addEventListener('change', event => {
         if (event.target.matches?.('[data-visit-result-media-input]')) void selectMedia(event.target);
+        if (event.target.matches?.('[data-client-result-keep]')) void setMediaKeep(event.target);
       });
       document.addEventListener('click', event => {
         const preview = event.target.closest?.('[data-client-result-preview]');

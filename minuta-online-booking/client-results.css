@@ -72,6 +72,9 @@ body.provider-body[data-provider-theme] .booking-visit-result-form[data-client-r
 .booking-result-media-item div,.booking-result-media-item span,.booking-result-media-item strong,.booking-result-media-item small { display:block; min-width:0; overflow-wrap:anywhere; }
 .booking-result-media-item strong { font-size:11px; }
 .booking-result-media-item small { margin-top:2px; color:var(--theme-muted,var(--muted)); font-size:8px; }
+.client-result-keep { display:grid; grid-template-columns:18px minmax(0,1fr); align-items:center; gap:6px; margin-top:7px; color:var(--theme-ink,var(--ink)); cursor:pointer; font-size:9px; font-weight:700; }
+.client-result-keep input { width:18px; min-width:18px; height:18px; min-height:18px; margin:0; }
+.client-result-keep span { line-height:1.25; }
 .client-result-private-preview { min-height:36px; padding:6px 4px; border:0; background:transparent; color:var(--theme-accent,var(--green)); cursor:pointer; font:inherit; font-size:9px; font-weight:750; text-align:center; overflow-wrap:anywhere; }
 .booking-result-file-picker { position:relative; color:var(--theme-ink,var(--ink)); cursor:pointer; transition:background-color .18s ease,border-color .18s ease; }
 .booking-result-file-picker:hover,.booking-result-file-picker:focus-within { border-color:var(--theme-accent,var(--green)); background:color-mix(in srgb,var(--theme-accent,var(--green)) 7%,var(--theme-surface,var(--white))); }

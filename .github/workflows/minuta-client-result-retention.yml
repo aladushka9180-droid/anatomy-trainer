@@ -1,0 +1,64 @@
+name: Minuta client result photo retention
+
+on:
+  schedule:
+    - cron: '31 2 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        required: true
+        type: choice
+        options: [dry-run, execute]
+      confirmation:
+        description: Enter DELETE_ELIGIBLE_CLIENT_RESULT_PHOTOS for execute
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-client-result-retention
+  cancel-in-progress: false
+
+jobs:
+  retention:
+    if: github.event_name == 'workflow_dispatch' || vars.MINUTA_CLIENT_RESULT_RETENTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: minuta-production
+    env:
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.MINUTA_SUPABASE_SERVICE_ROLE_KEY }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      DISPATCH_MODE: ${{ inputs.mode }}
+      DISPATCH_CONFIRMATION: ${{ inputs.confirmation }}
+      SCHEDULE_EXECUTE: ${{ vars.MINUTA_CLIENT_RESULT_RETENTION_EXECUTE }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - name: Select guarded retention mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          mode=dry-run
+          confirmation=''
+          if test "$GITHUB_EVENT_NAME" = workflow_dispatch; then
+            mode="$DISPATCH_MODE"
+            confirmation="$DISPATCH_CONFIRMATION"
+            if test "$mode" = execute; then
+              test "$confirmation" = DELETE_ELIGIBLE_CLIENT_RESULT_PHOTOS
+            fi
+          elif test "$SCHEDULE_EXECUTE" = true; then
+            mode=execute
+            confirmation=DELETE_ELIGIBLE_CLIENT_RESULT_PHOTOS
+          fi
+          echo "SUPABASE_URL=https://$MINUTA_PRODUCTION_PROJECT_REF.supabase.co" >> "$GITHUB_ENV"
+          echo "MINUTA_CLIENT_RESULT_RETENTION_MODE=$mode" >> "$GITHUB_ENV"
+          echo "MINUTA_CLIENT_RESULT_RETENTION_CONFIRMATION=$confirmation" >> "$GITHUB_ENV"
+      - name: Claim, delete through Storage API, verify absence, then finalize
+        run: node minuta-online-booking/scripts/client-result-retention-v171.mjs

@@ -12,6 +12,9 @@ assert.ok(chromium, 'Playwright Chromium is unavailable');
 
 assert.match(source, /get_minuta_client_results_v120/);
 assert.match(source, /get_minuta_client_result_v120/);
+assert.match(source, /get_minuta_client_results_v171/);
+assert.match(source, /get_minuta_client_result_v171/);
+assert.match(source, /set_minuta_client_result_media_keep_v171/);
 assert.match(source, /save_minuta_client_result_v120/);
 assert.match(source, /p_request:\s*pendingSubmit\.request/);
 assert.match(source, /create_minuta_client_result_media_v120/);
@@ -72,7 +75,7 @@ try {
       external_share_consent: false,
       media: []
     };
-    const privateMedia = { result_id: resultId, id: mediaId, purpose: 'before', mime_type: 'image/webp', byte_size: 12, object_path: `${organizationId}/${mediaId}.webp` };
+    const privateMedia = { result_id: resultId, id: mediaId, purpose: 'before', mime_type: 'image/webp', byte_size: 12, object_path: `${organizationId}/${mediaId}.webp`, retention_managed: true, retention_active: true, keep_from_cleanup: false, retention_due_on: '2027-09-04' };
     window.__privateResult = privateResult;
     window.__rpcCalls = [];
     window.__storageDownloads = 0;
@@ -89,8 +92,12 @@ try {
     const db = {
       rpc: async (name, payload) => {
         window.__rpcCalls.push({ name, payload });
-        if (name === 'get_minuta_client_results_v120') return { data: { enabled: true, can_enable: true, entries: [privateResult], media: [privateMedia] }, error: null };
-        if (name === 'get_minuta_client_result_v120') return { data: { enabled: true, can_enable: true, entry: privateResult, media: [privateMedia] }, error: null };
+        if (name === 'get_minuta_client_results_v171' || name === 'get_minuta_client_results_v120') return { data: { enabled: true, can_enable: true, entries: [privateResult], media: [privateMedia] }, error: null };
+        if (name === 'get_minuta_client_result_v171' || name === 'get_minuta_client_result_v120') return { data: { enabled: true, can_enable: true, entry: privateResult, media: [privateMedia] }, error: null };
+        if (name === 'set_minuta_client_result_media_keep_v171') {
+          privateMedia.keep_from_cleanup = payload.p_keep;
+          return { data: { id: payload.p_id, keep_from_cleanup: payload.p_keep, retention_managed: true }, error: null };
+        }
         if (name === 'save_minuta_client_result_v120') {
           if (window.__failNextSave) {
             window.__failNextSave = false;
@@ -141,6 +148,12 @@ try {
   assert.equal(await page.locator('.booking-result-description').evaluate(element => element.open), false, 'Optional description stays collapsed by default');
   assert.equal(await page.locator('[name="client_result_before_session"]').isVisible(), false, 'Large text fields do not dominate the typical photo flow');
   assert.equal(await page.locator('.booking-result-media-grid').isVisible(), true, 'Photo actions are visible first');
+  assert.equal(await page.locator('[data-client-result-keep]').isChecked(), false, 'Retention keep mark is explicit and opt-in');
+  await page.locator('[data-client-result-keep]').check();
+  await page.waitForFunction(() => document.querySelector('[data-client-result-save-status]')?.textContent.includes('без срока'));
+  const keepCall = await page.evaluate(() => window.__rpcCalls.findLast(call => call.name === 'set_minuta_client_result_media_keep_v171'));
+  assert.deepEqual(keepCall.payload, { p_id: '00000000-0120-4000-8000-000000000003', p_keep: true });
+  assert.equal(await page.locator('[data-client-result-keep]').isChecked(), true, 'Saved keep mark remains checked after rerender');
   assert.equal(await page.locator('.booking-result-more').evaluate(element => element.open), false, 'Rare external-use consent stays in Additional');
   assert.equal(await page.locator('[name="client_result_external_consent"]').isVisible(), false, 'External-use consent is hidden until requested');
   assert.equal(await page.locator('[data-booking-result-summary]').innerText(), 'Готово', 'Outer status reflects saved content');
@@ -160,6 +173,12 @@ try {
   const disabledMarkup = await page.evaluate(() => window.MinutaClientResults.bookingFieldsMarkup({ enabled: false, can_enable: true }));
   assert.match(disabledMarkup, /Подключить/);
   assert.doesNotMatch(disabledMarkup, /client_result_before_session/);
+  const installedButInactiveMarkup = await page.evaluate(mediaId => window.MinutaClientResults.bookingFieldsMarkup({ enabled: true, result: {
+    media: [{ id: mediaId, purpose: 'before', object_path: `org/${mediaId}.webp`, retention_managed: true, retention_active: false }]
+  } }), MEDIA_ID);
+  assert.match(installedButInactiveMarkup, /Сохранить без срока/);
+  assert.match(installedButInactiveMarkup, /Хранится приватно/);
+  assert.doesNotMatch(installedButInactiveMarkup, /автоочистка через 12 месяцев/);
   const offlineMarkup = await page.evaluate(() => window.MinutaClientResults.bookingFieldsMarkup({ offline: true }));
   assert.match(offlineMarkup, /Недоступно без интернета/);
   assert.match(offlineMarkup, /Подключитесь к сети, чтобы просмотреть или изменить приватные результаты/);
@@ -228,6 +247,9 @@ try {
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
+  if (process.env.MINUTA_CLIENT_RESULTS_KEEP_SCREENSHOT) {
+    await page.screenshot({ path: process.env.MINUTA_CLIENT_RESULTS_KEEP_SCREENSHOT, fullPage: true });
+  }
   await page.locator('[data-client-result-preview]').first().click();
   await page.waitForFunction(() => document.querySelector('#clientResultPreviewDialog img')?.src.startsWith('blob:'));
   assert.equal(await page.evaluate(() => window.__storageDownloads), 1, 'Private preview downloads only after explicit click');
