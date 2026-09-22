@@ -5425,11 +5425,35 @@ function notificationEventVisitLabel(event) {
   const label = Number.isNaN(date.getTime()) ? String(dateValue) : date.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
   return `${label}${time ? ` в ${time}` : ''}`;
 }
+function openClientContactDialogForPhone(phone, displayPhone = '') {
+  const digits = normalizePhone(phone);
+  const dialog = $('#clientContactDialog');
+  if (!digits || !dialog) return false;
+  const label = newBookingClientPhoneLabel(phone, displayPhone);
+  dialog.dataset.clientPhone = String(phone || '');
+  dialog.dataset.clientDisplayPhone = label;
+  $('#clientContactPhone').textContent = label;
+  $('#clientCallLink').href = `tel:${digits}`;
+  $('#clientWhatsappLink').href = `https://wa.me/${digits}`;
+  $('#clientTelegramLink').href = `tg://resolve?phone=${digits}`;
+  if (!dialog.open) dialog.showModal();
+  return true;
+}
+function openImportantNotificationContact(id) {
+  const event = importantNotificationState.rows.find(item => String(item.id) === String(id));
+  const booking = event && allBookings.find(item => String(item.id || '') === String(event.booking_id || ''));
+  if (!booking || !openClientContactDialogForPhone(booking.client_phone, booking.client_display_phone)) {
+    notify('Контакты клиента недоступны');
+    return;
+  }
+  markImportantNotificationRead(event.id);
+  renderNotifications();
+}
 function importantNotificationGroupMarkup(label, rows, readIds) {
   if (!rows.length) return '';
   return `<section class="important-notification-group"><h4>${escapeHtml(label)}</h4>${rows.map(event => {
-    const unread=!readIds.has(String(event.id)),effect=reportEventEffect(event),moment=reportEventDateTime(event),visit=notificationEventVisitLabel(event);
-    return `<button class="important-notification-card${unread?' is-unread':''}" type="button" data-open-important-event="${escapeHtml(event.id)}"><i aria-hidden="true"></i><span class="important-notification-copy"><span class="important-notification-head"><strong>${escapeHtml(reportEventAction(event))}</strong><time datetime="${escapeHtml(moment.iso)}">${escapeHtml(moment.time || moment.date)}</time></span><span class="important-notification-context">${escapeHtml(reportEventContext(event))}${visit?` · ${escapeHtml(visit)}`:''}</span><span class="important-notification-meta">Автор: ${escapeHtml(reportEventActor(event))}</span>${effect?`<span class="important-notification-effect">${escapeHtml(effect)}</span>`:''}</span><span class="important-notification-arrow" aria-hidden="true">›</span></button>`;
+    const unread=!readIds.has(String(event.id)),effect=reportEventEffect(event),moment=reportEventDateTime(event),visit=notificationEventVisitLabel(event),booking=allBookings.find(item=>String(item.id||'')===String(event.booking_id||'')),canContact=Boolean(normalizePhone(booking?.client_phone));
+    return `<article class="important-notification-entry"><button class="important-notification-card${unread?' is-unread':''}" type="button" data-open-important-event="${escapeHtml(event.id)}"><i aria-hidden="true"></i><span class="important-notification-copy"><span class="important-notification-head"><strong>${escapeHtml(reportEventAction(event))}</strong><time datetime="${escapeHtml(moment.iso)}">${escapeHtml(moment.time || moment.date)}</time></span><span class="important-notification-context">${escapeHtml(reportEventContext(event))}${visit?` · ${escapeHtml(visit)}`:''}</span><span class="important-notification-meta">Автор: ${escapeHtml(reportEventActor(event))}</span>${effect?`<span class="important-notification-effect">${escapeHtml(effect)}</span>`:''}</span><span class="important-notification-arrow" aria-hidden="true">›</span></button>${canContact?`<button class="important-notification-contact" type="button" data-contact-important-event="${escapeHtml(event.id)}">Связаться</button>`:''}</article>`;
   }).join('')}</section>`;
 }
 function renderImportantNotifications() {
@@ -12424,10 +12448,15 @@ function renderClientProfileDetails(client, state = clientProfileDetailsState) {
   if (contactButton) contactButton.disabled = !digits;
   const moreButton = $('#clientMoreButton');
   if (moreButton) moreButton.hidden = !state.available || (!state.canEdit && !state.canManageBlock);
-  $('#clientContactPhone').textContent = displayPhone;
-  $('#clientCallLink').href = digits ? `tel:${digits}` : '#';
-  $('#clientWhatsappLink').href = digits ? `https://wa.me/${digits}` : '#';
-  $('#clientTelegramLink').href = digits ? `tg://resolve?phone=${digits}` : '#';
+  const contactDialog = $('#clientContactDialog');
+  if (contactDialog && !contactDialog.open) {
+    contactDialog.dataset.clientPhone = client.phone || '';
+    contactDialog.dataset.clientDisplayPhone = displayPhone;
+    $('#clientContactPhone').textContent = displayPhone;
+    $('#clientCallLink').href = digits ? `tel:${digits}` : '#';
+    $('#clientWhatsappLink').href = digits ? `https://wa.me/${digits}` : '#';
+    $('#clientTelegramLink').href = digits ? `tg://resolve?phone=${digits}` : '#';
+  }
   const birthdayText = clientBirthdayLabel(state.birthday);
   $('#clientBirthdayInfo').hidden = !state.available || (!birthdayText && !state.canEdit);
   $('#clientBirthdayDisplay').textContent = birthdayText || 'Не указано';
@@ -12474,8 +12503,9 @@ async function loadClientProfileDetails(client) {
 }
 
 async function copySelectedClientPhone() {
+  const dialog = $('#clientContactDialog');
   const client = buildClients().find(item => item.phone === selectedClientPhone);
-  const value = String(client?.displayPhone || client?.phone || '').trim();
+  const value = String(dialog?.open ? (dialog.dataset.clientDisplayPhone || dialog.dataset.clientPhone) : (client?.displayPhone || client?.phone) || '').trim();
   if (!value) return;
   try {
     await navigator.clipboard.writeText(value);
@@ -12488,8 +12518,7 @@ async function copySelectedClientPhone() {
 function openClientContactDialog() {
   const client = buildClients().find(item => item.phone === selectedClientPhone);
   if (!client || !normalizePhone(client.phone)) return;
-  renderClientProfileDetails(client);
-  $('#clientContactDialog').showModal();
+  openClientContactDialogForPhone(client.phone, client.displayPhone);
 }
 
 function openClientMoreDialog() {
@@ -16235,6 +16264,7 @@ document.addEventListener('click', async event => {
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
   const markAllNotificationsButton = event.target.closest('#markAllNotificationsSent');
   const importantNotificationButton = event.target.closest('[data-open-important-event]');
+  const importantNotificationContactButton = event.target.closest('[data-contact-important-event]');
   const markImportantEventsButton = event.target.closest('#markImportantEventsRead');
   const inventorySectionButton = event.target.closest('[data-inventory-section]');
   const reportFilterToggle = event.target.closest('#reportFilterToggle');
@@ -16371,6 +16401,7 @@ document.addEventListener('click', async event => {
   }
   if (markAllNotificationsButton) await markAllDueNotificationsSent(markAllNotificationsButton);
   if (importantNotificationButton) await openImportantNotificationEvent(importantNotificationButton.dataset.openImportantEvent);
+  if (importantNotificationContactButton) openImportantNotificationContact(importantNotificationContactButton.dataset.contactImportantEvent);
   if (markImportantEventsButton) markAllImportantNotificationsRead();
   if (inventorySectionButton) setInventorySection(inventorySectionButton.dataset.inventorySection, true);
   if (reportFilterToggle) setReportFiltersExpanded(reportFilterToggle.getAttribute('aria-expanded') !== 'true');

@@ -73,9 +73,28 @@ test('notification, history and template layout contracts are present', () => {
   const notificationView = html.slice(html.indexOf('data-provider-panel="notifications"'), html.indexOf('data-provider-panel="subscription"'));
   assert.doesNotMatch(notificationView, /<h3>Сообщения клиентам<\/h3>/);
   assert.match(css, /\.important-notification-card\.is-unread/);
+  assert.match(source, /data-contact-important-event/);
+  assert.match(css, /\.important-notification-contact[^}]*min-height:40px/);
   assert.match(css, /\.notification-template-fields[^}]*overflow:auto/s);
   assert.match(css, /notification-template-actions[^}]*env\(safe-area-inset-bottom\)/s);
   assert.match(css, /\.report-event-list[^}]*max-height:[^;]+[^}]*overflow:auto/s);
+});
+
+test('important event contact opens the existing contact options and only marks the event read', () => {
+  const opened = [];
+  const state = {
+    importantNotificationState:{ rows:[{ id:'event-7', booking_id:'booking-42' }] },
+    allBookings:[{ id:'booking-42', client_phone:'+7 (999) 123-45-67', client_display_phone:'+7 999 123-45-67' }],
+    openClientContactDialogForPhone:(phone, displayPhone) => { opened.push(['contact', phone, displayPhone]); return true; },
+    markImportantNotificationRead:id => opened.push(['read', id]),
+    renderNotifications:() => opened.push(['render']),
+    notify:message => opened.push(['notice', message]),
+    String
+  };
+  const linkedContext = vm.createContext(state);
+  vm.runInContext(declaration('openImportantNotificationContact'), linkedContext);
+  linkedContext.openImportantNotificationContact('event-7');
+  assert.deepEqual(opened, [['contact','+7 (999) 123-45-67','+7 999 123-45-67'],['read','event-7'],['render']]);
 });
 
 test('important event opens the exact linked booking and marks it read', async () => {
