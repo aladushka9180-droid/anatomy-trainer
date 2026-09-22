@@ -42,9 +42,9 @@ begin
     original_price_rub,total_price_rub,status
   ) values
     (first_due,'V169-FIRST',gen_random_uuid(),organization_id,location_id,performer_id,service_id,'V169 client','79990000001',(local_now+interval '30 minutes')::date,(local_now+interval '30 minutes')::time,60,1000,1000,'confirmed'),
-    (second_due,'V169-SECOND',gen_random_uuid(),organization_id,location_id,performer_id,service_id,'V169 client','79990000002',(local_now+interval '45 minutes')::date,(local_now+interval '45 minutes')::time,60,1000,1000,'confirmed'),
+    (second_due,'V169-SECOND',gen_random_uuid(),organization_id,location_id,performer_id,service_id,'V169 client','79990000002',(local_now+interval '90 minutes')::date,(local_now+interval '90 minutes')::time,60,1000,1000,'confirmed'),
     (too_early,'V169-EARLY',gen_random_uuid(),organization_id,location_id,performer_id,service_id,'V169 client','79990000003',(local_now+interval '1471 minutes')::date,(local_now+interval '1471 minutes')::time,60,1000,1000,'confirmed'),
-    (past_visit,'V169-PAST',gen_random_uuid(),organization_id,location_id,performer_id,service_id,'V169 client','79990000004',(local_now-interval '1 minute')::date,(local_now-interval '1 minute')::time,60,1000,1000,'confirmed'),
+    (past_visit,'V169-PAST',gen_random_uuid(),organization_id,location_id,performer_id,service_id,'V169 client','79990000004',(local_now-interval '61 minutes')::date,(local_now-interval '61 minutes')::time,60,1000,1000,'confirmed'),
     (cancelled_visit,'V169-CANCEL',gen_random_uuid(),organization_id,location_id,performer_id,service_id,'V169 client','79990000005',(local_now+interval '20 minutes')::date,(local_now+interval '20 minutes')::time,60,1000,1000,'cancelled');
   set local session_replication_role=origin;
 end
@@ -62,8 +62,8 @@ select pg_temp.v169_assert(not exists(select 1 from public.notification_outbox q
   where queue.kind='booking_reminder'),'future_window_past_and_cancelled_excluded');
 
 update public.bookings booking set
-  booking_date=((now() at time zone 'Europe/Samara')+interval '90 minutes')::date,
-  booking_time=((now() at time zone 'Europe/Samara')+interval '90 minutes')::time
+  booking_date=((now() at time zone 'Europe/Samara')+interval '150 minutes')::date,
+  booking_time=((now() at time zone 'Europe/Samara')+interval '150 minutes')::time
 from pg_temp.v169_fixture fixture where booking.id=fixture.first_due;
 select pg_temp.v169_assert(public.enqueue_due_minuta_booking_reminders(1)=2,'reschedule_gets_new_deduplicated_keys');
 select pg_temp.v169_assert(public.enqueue_due_minuta_booking_reminders(1)=0,'reschedule_retry_is_idempotent');
