@@ -3136,10 +3136,10 @@ function bookingIsCompleted(item) {
 }
 function bookingReviewLink(item) {
   const code = String(item?.booking_code || '');
-  const outcome = bookingOutcome(item);
   if (item?.booking_source !== 'client_online' || !item?.request_id ||
-      !/^MIN-[A-Z0-9]{4,20}$/.test(code) || item.status === 'cancelled' ||
-      outcome.visit_status !== 'completed' || outcome._sync_pending ||
+      !/^MIN-[A-Z0-9]{4,20}$/.test(code) || item.status === 'cancelled') return '';
+  const outcome = bookingOutcome(item);
+  if (outcome.visit_status !== 'completed' || outcome._sync_pending ||
       bookingSessionEnd(item) > new Date()) return '';
   const url = new URL('https://primetime-booking.aladushka9180.chatgpt.site/bookings');
   url.searchParams.set('review', code);

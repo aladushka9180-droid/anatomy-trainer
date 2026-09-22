@@ -34,7 +34,7 @@ const orgStart=source.indexOf('  onActiveOrganizationChange: organization => {')
 const orgEnd=source.indexOf('    if (clientOrganizationChanged) {',orgStart);
 assert.ok(orgStart>=0&&orgEnd>orgStart,'Actual org identity/epoch prefix');
 const orgHook=source.slice(orgStart,orgEnd).replace('  onActiveOrganizationChange: organization => {','function changeOrganization(organization) {')+'\n}';
-const functions=['openBookingSheet','closeBookingSheet','saveBookingBlockNote','saveBookingColor','saveBookingNote',
+const functions=['openBookingSheet','bookingReviewLink','closeBookingSheet','saveBookingBlockNote','saveBookingColor','saveBookingNote',
   'persistBookingColors','persistBookingNotes','bookingColorStorageKey','bookingColorPendingStorageKey',
   'bookingNoteStorageKey','bookingNotePendingStorageKey','validBookingColor','bookingColor','bookingColorPicker',
   'bookingDisplayNote','bookingClientNote','normalizePhone','isScheduleBlock','escapeHtml','uiIcon',
