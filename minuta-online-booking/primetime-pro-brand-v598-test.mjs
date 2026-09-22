@@ -86,6 +86,8 @@ assert.ok(manifestVersion, 'У кабинета нет версионирова�
 assert.ok(worker.includes(`'./provider.webmanifest?v=${manifestVersion}'`), 'Манифест не согласован с service worker');
 assert.match(worker, /provider-icon\.svg/);
 assert.doesNotMatch(worker, /provider-og\.png/, 'social preview artwork must not block the offline shell installation');
-assert.match(provider, new RegExp(`provider\\.js\\?v=${release}`));
+const providerJsVersion = provider.match(/<script src="provider\.js\?v=(\d+)" defer><\/script>/)?.[1];
+assert.ok(providerJsVersion, 'У кабинета нет версионированного provider.js');
+assert.ok(worker.includes(`'./provider.js?v=${providerJsVersion}'`), 'provider.js не согласован с service worker');
 
 console.log(`PrimeTime Pro brand v${release}: PASS (${publicBrandFiles.length} public text surfaces)`);
