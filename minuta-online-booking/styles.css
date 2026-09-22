@@ -1751,6 +1751,11 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .booking-sheet-client-name .client-badges.with-labels .client-badge>span { font-size:8px; }
 .booking-sheet-price { min-width:92px; text-align:right; }.booking-sheet-price small,.booking-sheet-price strong { display:block; }.booking-sheet-price small { color:#7a8981; font-size:8px; font-weight:850; text-transform:uppercase; }.booking-sheet-price strong { margin-top:5px; font-size:15px; }
 .booking-sheet-disclosure { margin-top:12px; border:1px solid #e0e8e2; border-radius:14px; background:#fbfcfb; }
+.booking-visit-comment { padding:12px 14px; overflow-wrap:anywhere; }
+.booking-visit-comment small,.booking-visit-comment strong { display:block; }
+.booking-visit-comment small { font-size:11px; opacity:.7; }
+.booking-visit-comment strong { margin-top:3px; font-size:13px; }
+.booking-visit-comment p { margin:8px 0 0; font-size:13px; line-height:1.5; white-space:pre-wrap; }
 .booking-sheet-disclosure>summary { display:grid; grid-template-columns:minmax(0,1fr) auto 18px; align-items:center; gap:10px; min-height:64px; padding:11px 14px; cursor:pointer; list-style:none; }.booking-sheet-disclosure>summary::-webkit-details-marker { display:none; }.booking-sheet-disclosure>summary::after { content:'›'; color:#6f8277; font-size:20px; transform:rotate(90deg); transition:transform .18s ease; }.booking-sheet-disclosure[open]>summary::after { transform:rotate(-90deg); }
 .booking-sheet-disclosure>summary small,.booking-sheet-disclosure>summary strong { display:block; }.booking-sheet-disclosure>summary small { color:#7a8981; font-size:8px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }.booking-sheet-disclosure>summary strong { margin-top:4px; font-size:13px; }.booking-sheet-disclosure>summary>span { display:inline-flex; align-items:center; gap:5px; padding:6px 8px; border-radius:999px; background:#e8f3ec; color:#347254; font-size:8px; font-weight:850; }.booking-sheet-disclosure>summary>span .ui-icon { width:13px; height:13px; }
 .booking-session-summary { margin-top:14px; padding:15px; border:1px solid #dfe8e2; border-radius:16px; background:#fbfdfb; }

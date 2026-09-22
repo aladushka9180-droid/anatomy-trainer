@@ -848,7 +848,7 @@ function bookingDataSignature(items = allBookings) {
   };
   items.forEach(item => {
     [item.id, item.booking_date, item.booking_time, item.status, item.duration_minutes, item.total_price_rub,
-      item.client_name, item.client_phone, item.services?.name, item.services?.price_rub, bookingColors.get(item.id)]
+      item.client_name, item.client_phone, item.services?.name, item.services?.price_rub, item.provider_note, bookingColors.get(item.id)]
       .forEach(add);
   });
   return `${items.length}:${hash >>> 0}`;
@@ -8370,6 +8370,14 @@ function bookingDisplayNote(item) {
     : bookingClientNote(item);
 }
 
+function bookingVisitComment(item) {
+  if (isScheduleBlock(item)) return '';
+  const note = Object.hasOwn(item || {}, 'provider_note')
+    ? item.provider_note
+    : bookingNotes.get(item?.id);
+  return String(note || '').trim();
+}
+
 function bookingSeriesMarkup(item) {
   const occurrence = Number(item?.series_occurrence || 0);
   const storedTotal = Number(item?.booking_series?.occurrence_count || 0);
@@ -8896,6 +8904,7 @@ function openBookingSheet(id) {
   const messageButton = clientMessageButtonMarkup(item);
   const conversationButton = providerConversationButtonMarkup(item);
   const note = bookingDisplayNote(item);
+  const visitComment = bookingVisitComment(item);
   const reviewLink = bookingReviewLink(item);
   const outcome = bookingOutcome(item);
   const minuteRate = bookingMinuteRate(item);
@@ -8941,6 +8950,7 @@ function openBookingSheet(id) {
   $('#bookingSheetContent').innerHTML = `${bookingDetailHeaderMarkup(item, date, duration, statusText, statusClass, bookingDetailPrice, `${autoCompleteSettingsActionMarkup(item)}${bookingDetailSeriesMarkup(item)}`)}
     <div class="booking-sheet-summary">${bookingDetailClientMarkup(item)}</div>
     ${bookingClientOverviewMarkup(item)}
+    ${visitComment ? `<section class="booking-sheet-disclosure booking-visit-comment"><small>При записи</small><strong>Комментарий клиента</strong><p>${escapeHtml(visitComment)}</p></section>` : ''}
     <div class="booking-sheet-actions booking-repeat-actions">${bookingClientProfileActionMarkup(item, { primary:true })}<button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button><button class="secondary-button booking-repeat-action" type="button" data-commerce-booking-sale="${item.id}">${uiIcon('plus')} Продать</button></div>
     <div class="booking-sheet-secondary">
     ${bookingSessionMarkup(item)}
@@ -15962,7 +15972,7 @@ async function loadBookings(options = {}) {
     const offlineCache = await showCached();
     return offlineCache ? { ok: false, cached: true, savedAt: offlineCache.savedAt } : { ok: false };
   }
-  let { data, error } = await queryAllProviderBookings(userId, 'id,organization_id,location_id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,cancellation_reason,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
+  let { data, error } = await queryAllProviderBookings(userId, 'id,organization_id,location_id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,cancellation_reason,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,provider_note,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
   if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,organization_id,location_id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,cancellation_reason,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes)'));
   if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
