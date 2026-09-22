@@ -17,13 +17,13 @@ for (const contract of [
   /data-close-mobile-more/
 ]) assert.match(providerSource, contract);
 assert.match(providerHtml, /provider-ux\.css\?v=865/);
-assert.match(providerHtml, /site-update\.js\?v=867/);
-assert.match(providerHtml, /provider\.js\?v=867/);
-assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v867`/);
+assert.match(providerHtml, /site-update\.js\?v=868/);
+assert.match(providerHtml, /provider\.js\?v=868/);
+assert.match(workerSource, /CACHE = `\$\{CACHE_PREFIX\}v868`/);
 assert.match(workerSource, /provider-ux\.css\?v=865/);
-assert.match(workerSource, /site-update\.js\?v=867/);
-assert.match(workerSource, /provider\.js\?v=867/);
-assert.match(updateSource, /sw\.js\?v=867/);
+assert.match(workerSource, /site-update\.js\?v=868/);
+assert.match(workerSource, /provider\.js\?v=868/);
+assert.match(updateSource, /sw\.js\?v=868/);
 assert.match(providerSource, /renderDateStrip\(\{ instantCenter:true \}\)/);
 assert.match(providerSource, /setFilter\('day', \{ render:false \}\)/);
 assert.match(providerSource, /previewMobileDate\(\)/);
