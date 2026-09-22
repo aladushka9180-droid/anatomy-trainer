@@ -59,6 +59,8 @@ assert.match(rollback, /drop trigger if exists bookings_abuse_guard_v173/);
 assert.match(rollback, /drop trigger if exists waitlist_abuse_guard_v173/);
 assert.match(rollback, /drop trigger if exists messages_abuse_guard_v173/);
 assert.match(rollback, /drop table public\.minuta_abuse_rate_buckets_v173/);
+assert.doesNotMatch(`${migration}\n${rollback}`, /'public\.minuta_abuse_rate_buckets_v173'::regclass/,
+  'fresh apply and missing-state rollback must not resolve an absent table by cast');
 assert.doesNotMatch(`${migration}\n${rollback}`, /service[_-]?role[_-]?key|SUPABASE_DB_URL|__SECRET__/i);
 
 console.log('PASS: v173 server-side booking, waitlist and message abuse-guard contract');

@@ -27,7 +27,7 @@ $dependency_guard$;
 do $overwrite_guard$
 begin
   if to_regclass('public.minuta_abuse_rate_buckets_v173') is not null
-     and obj_description('public.minuta_abuse_rate_buckets_v173'::regclass,'pg_class')
+     and obj_description(to_regclass('public.minuta_abuse_rate_buckets_v173'),'pg_class')
        is distinct from 'minuta_abuse_guard_v173' then
     raise exception using errcode='55000',message='v173_abuse_guard_newer_state';
   end if;

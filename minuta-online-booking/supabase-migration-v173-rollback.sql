@@ -6,7 +6,7 @@ set local statement_timeout='2min';
 do $rollback_guard$
 begin
   if to_regclass('public.minuta_abuse_rate_buckets_v173') is null
-     or obj_description('public.minuta_abuse_rate_buckets_v173'::regclass,'pg_class')
+     or obj_description(to_regclass('public.minuta_abuse_rate_buckets_v173'),'pg_class')
        is distinct from 'minuta_abuse_guard_v173' then
     raise exception using errcode='55000',message='v173_abuse_guard_rollback_state_mismatch';
   end if;
