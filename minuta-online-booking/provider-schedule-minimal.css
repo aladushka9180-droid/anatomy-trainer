@@ -554,6 +554,27 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   --schedule-break-surface-weight:68%;
 }
 
+/* Noir Rose keeps its charcoal base, while real appointments gain a quiet
+   dusty-rose separation from neutral automatic breaks. */
+.provider-body[data-provider-theme="noir-rose"] {
+  --schedule-entry-fill-weight:47%;
+  --schedule-entry-hover-fill-weight:53%;
+  --schedule-entry-border-weight:84%;
+  --schedule-entry-hover-border-weight:90%;
+  --schedule-entry-marker-weight:100%;
+  --schedule-entry-shadow-weight:30%;
+  --schedule-break-surface-weight:54%;
+}
+
+.provider-body[data-provider-theme="noir-rose"] :is(
+  .timeline-view .timeline-booking,
+  .schedule-list .provider-booking,
+  .calendar-overview-booking,
+  .calendar-week-booking
+) {
+  background-image:none!important;
+}
+
 .provider-body[data-provider-theme] :is(
   .timeline-view .timeline-booking:not(.status-block):not(.automatic-break),
   .schedule-list .provider-booking:not(.status-block):not(.automatic-break),
