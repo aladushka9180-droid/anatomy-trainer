@@ -114,20 +114,26 @@ $$;
 create or replace function public.guard_minuta_public_booking_v173()
 returns trigger language plpgsql volatile security definer set search_path to '' as $$
 declare
-  v_phone text:=regexp_replace(coalesce(new.client_phone,''),'[^0-9]','','g');
-  v_name text:=btrim(coalesce(new.client_name,''));
-  v_actor uuid:=auth.uid();
+  v_phone text;
+  v_name text;
+  v_actor uuid;
   v_request_role text:=coalesce(auth.role(),'');
   v_provider_member boolean:=false;
 begin
   if v_request_role not in('anon','authenticated') then return new; end if;
   -- Preserve the legacy provider contract (some imported records use a local
   -- ten-digit number) while bounding work before regex/digest/storage paths.
+  if octet_length(coalesce(new.client_phone,''))>40
+     or octet_length(coalesce(new.client_name,''))>480 then
+    raise exception using errcode='P0001',message='invalid_booking_data';
+  end if;
+  v_phone:=regexp_replace(coalesce(new.client_phone,''),'[^0-9]','','g');
+  v_name:=btrim(coalesce(new.client_name,''));
   if char_length(v_name) not between 2 and 120
-     or octet_length(coalesce(new.client_phone,''))>40
      or char_length(v_phone) not between 10 and 15 then
     raise exception using errcode='P0001',message='invalid_booking_data';
   end if;
+  v_actor:=auth.uid();
   if v_actor is not null then
     select exists(
       select 1 from public.organization_memberships membership
@@ -150,9 +156,14 @@ $$;
 create or replace function public.guard_minuta_waitlist_v173()
 returns trigger language plpgsql volatile security definer set search_path to '' as $$
 declare
-  v_phone text:=regexp_replace(coalesce(new.client_phone,''),'[^0-9]','','g');
+  v_phone text;
 begin
   if coalesce(auth.role(),'') not in('anon','authenticated') then return new; end if;
+  if octet_length(coalesce(new.client_phone,''))>40
+     or octet_length(coalesce(new.client_name,''))>320 then
+    raise exception using errcode='P0001',message='invalid_client_data';
+  end if;
+  v_phone:=regexp_replace(coalesce(new.client_phone,''),'[^0-9]','','g');
   if char_length(btrim(coalesce(new.client_name,''))) not between 2 and 80
      or v_phone!~'^[0-9]{11}$' then
     raise exception using errcode='P0001',message='invalid_client_data';

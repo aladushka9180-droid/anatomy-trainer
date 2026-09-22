@@ -17,6 +17,18 @@ assert.match(migration, /message_participant_minute'[\s\S]*,60,12/);
 assert.match(migration, /booking_phone_hour'[\s\S]*,3600,5/);
 assert.match(migration, /waitlist_phone_hour'[\s\S]*,3600,5/);
 assert.match(migration, /char_length\(v_phone\) not between 10 and 15/);
+for (const [guardName, maxNameBytes] of [
+  ['guard_minuta_public_booking_v173', 480],
+  ['guard_minuta_waitlist_v173', 320],
+]) {
+  const guard = migration.match(new RegExp(`create or replace function public\\.${guardName}\\(\\)[\\s\\S]*?\\$\\$;`, 'u'))?.[0];
+  assert.ok(guard, `${guardName} definition exists`);
+  const phoneBound = guard.indexOf("octet_length(coalesce(new.client_phone,''))>40");
+  const nameBound = guard.indexOf(`octet_length(coalesce(new.client_name,''))>${maxNameBytes}`);
+  const phoneNormalization = guard.indexOf('v_phone:=regexp_replace');
+  assert.ok(phoneBound >= 0 && nameBound >= 0 && phoneBound < phoneNormalization && nameBound < phoneNormalization,
+    `${guardName} bounds raw input before phone normalization`);
+}
 assert.match(migration, /v_request_role not in\('anon','authenticated'\) then return new/);
 assert.equal((migration.match(/coalesce\(auth\.role\(\),''\) not in\('anon','authenticated'\) then return new/g) || []).length,2);
 assert.match(migration, /before insert on public\.bookings/);
