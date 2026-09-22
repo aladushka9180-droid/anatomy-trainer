@@ -49,6 +49,14 @@ const oldRelease = snapshot(oldFile, ['group-bookings.js', 'provider.js']);
 const newCoreModules = ['group-bookings.js', 'provider.js', 'report-reconciliation.js'];
 const offlineModules = [...new Set([...newCoreModules, ...executableModules])];
 const newRelease = snapshot(newFile, newCoreModules);
+const failedAsset = newRelease.assets.find(asset => {
+  const file = asset.split('?')[0].replace(/^\.\//, '');
+  return /\?v=\d+$/.test(asset) && oldRelease.files.has(file)
+    && !oldRelease.files.get(file).equals(newRelease.files.get(file));
+});
+assert.ok(failedAsset, 'The update fixture needs a changed versioned core asset');
+const failedAssetFile = failedAsset.split('?')[0].replace(/^\.\//, '');
+const failedAssetVersion = failedAsset.match(/\?v=(\d+)$/)[1];
 assert.ok(newRelease.assets.some(asset => asset.split('?')[0] === './report-reconciliation.js'), 'New report module must be cached');
 assert.ok(!newRelease.assets.includes(`./benefit-management.js?v=${newRelease.version}`), 'Benefits must be cached on first use, not during install');
 assert.ok(!newRelease.assets.includes(`./retention-management.js?v=${newRelease.version}`), 'Retention must be cached on first use, not during install');
@@ -82,7 +90,7 @@ const server = createServer((request, response) => {
       response.writeHead(404).end('Not found'); return;
     }
     const url = new URL(request.url, 'http://localhost');
-    if (failNewAsset && relative === 'provider.js' && url.searchParams.get('v') === newRelease.version) {
+    if (failNewAsset && relative === failedAssetFile && url.searchParams.get('v') === failedAssetVersion) {
       failedAssetRequests += 1;
       response.writeHead(503, { 'Cache-Control':'no-store' }).end('Simulated incomplete release'); return;
     }
