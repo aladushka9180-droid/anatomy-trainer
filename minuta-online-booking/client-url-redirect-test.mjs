@@ -11,10 +11,10 @@ const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 const provider = readFileSync(join(root, 'provider.html'), 'utf8');
 
 assert.match(html, /redirect\.js\?v=826/);
-assert.match(worker, /CACHE = `\$\{CACHE_PREFIX\}v865`/);
+assert.match(worker, /CACHE = `\$\{CACHE_PREFIX\}v866`/);
 assert.match(worker, /'\.\/index\.html'/);
 assert.match(worker, /'\.\/redirect\.js\?v=826'/);
-assert.match(provider, /provider\.js\?v=865/);
+assert.match(provider, /provider\.js\?v=866/);
 assert.doesNotMatch(provider, /primetime-booking\.github\.io/);
 
 function runRedirect({ hostname, pathname, search = '', hash = '' }) {
