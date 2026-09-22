@@ -13,6 +13,7 @@ async function harness({ captured = 1000, refunded = 0, pendingRefunds = [], rec
   const elements = new Map();
   const listeners = new Map();
   const notifications = [];
+  const confirmations = [];
   const invocations = [];
   const rpcCalls = [];
   let uuidCount = 0;
@@ -46,7 +47,7 @@ async function harness({ captured = 1000, refunded = 0, pendingRefunds = [], rec
   };
   const context = {
     TextEncoder,
-    window: { crypto: { randomUUID: () => `request-${++uuidCount}`, subtle:webcrypto.subtle }, confirm:() => confirmed,
+    window: { crypto: { randomUUID: () => `request-${++uuidCount}`, subtle:webcrypto.subtle }, confirm:(message) => { confirmations.push(message); return confirmed; },
       localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)} },
     document: { addEventListener: (name, callback) => listeners.set(name, callback) },
   };
@@ -68,7 +69,7 @@ async function harness({ captured = 1000, refunded = 0, pendingRefunds = [], rec
   await controller.setOrganization({ id: 'org-1', current_role: 'owner' });
   const initialRpcCount = rpcCalls.length;
   return {
-    select, controller, payload, notifications, invocations, rpcCalls, storage,
+    select, controller, payload, notifications, confirmations, invocations, rpcCalls, storage,
     newRefund:()=>listeners.get('click')({target:{closest:selector=>selector==='#paymentRefundNew'?{id:'paymentRefundNew',dataset:{}}:null}}),
     get uuidCount() { return uuidCount; }, get resets() { return resets; },
     get extraRpcCount() { return rpcCalls.length - initialRpcCount; },
@@ -227,6 +228,11 @@ test('refund requires a separate explicit confirmation', async () => {
   assert.equal(ui.invocations.length, 0);
   assert.equal(ui.uuidCount, 0);
   assert.equal(ui.notifications.at(-1), 'Возврат не отправлен');
+  assert.match(ui.confirmations[0], /Платёж: attempt-/);
+  assert.match(ui.confirmations[0], /Сумма: 1,00 ₽/);
+  assert.match(ui.confirmations[0], /Источник: исходный платёж ЮKassa/);
+  assert.match(ui.confirmations[0], /Причина: Возврат части оплаты/);
+  assert.match(ui.confirmations[0], /Отмена сейчас не отправит операцию/);
 });
 
 test('only succeeded attempts are offered for a refund', async () => {

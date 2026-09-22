@@ -47,7 +47,7 @@
 ) { border-color:var(--calm-line)!important; box-shadow:none!important; }
 .provider-body[data-provider-theme][data-provider-layout] :is(
   .subscription-plan-featured,.subscription-plan-card:hover
-) { border-color:var(--theme-accent)!important; }
+) { border-color:var(--theme-accent,#235b40)!important; }
 .provider-body[data-provider-theme][data-provider-layout] :is(
   .subscription-trial-note,.subscription-footnote,.subscription-cycle-switch,
   .provider-display-hint,.settings-note
@@ -65,9 +65,9 @@
   .report-data-source button.active,.report-view-tabs button.active,.report-mini-toggle button.active,
   .team-calendar-mode button.active
 ) {
-  background:var(--theme-accent)!important;
+  background:var(--theme-accent,#235b40)!important;
   background-image:none!important;
-  border-color:var(--theme-accent)!important;
+  border-color:var(--theme-accent,#235b40)!important;
   color:var(--theme-accent-contrast,#fff)!important;
   box-shadow:none!important;
   text-shadow:none!important;
@@ -77,8 +77,13 @@
   .report-data-source button.active,.report-view-tabs button.active
 ) > span { color:inherit!important; }
 .provider-body[data-provider-theme][data-provider-layout] :is(button,a,input,select,textarea,summary):focus-visible {
-  outline:2px solid var(--theme-accent)!important;
+  outline-width:2px!important;
+  outline-style:solid!important;
+  outline-color:var(--theme-accent,#235b40)!important;
   outline-offset:3px;
+}
+.provider-body[data-provider-theme][data-provider-layout] :is(.provider-nav button,.provider-section-nav button,#paymentSandboxForm button):focus-visible {
+  transition-property:background-color,border-color,color,transform,box-shadow!important;
 }
 /* Accent text on soft surfaces needs its own contrast, especially in Midnight. */
 .provider-body[data-provider-theme="midnight"] { --calm-accent-text:#9fc8e6; }
@@ -86,7 +91,7 @@
   .subscription-trial-badge,.subscription-start-bonus strong,
   .subscription-cycle-switch label[for="subscriptionAnnual"] span,
   .provider-mobile-nav button.active,.provider-nav button.active,.voice-assistant-open
-) { color:var(--calm-accent-text,var(--theme-accent))!important; }
+) { color:var(--calm-accent-text,var(--theme-accent,#235b40))!important; }
 .provider-body[data-provider-theme="midnight"][data-provider-layout] :is(.settings-icon,.settings-heading>small) { color:var(--calm-accent-text)!important; }
 
 /* Readability without changing the timed calendar geometry. */

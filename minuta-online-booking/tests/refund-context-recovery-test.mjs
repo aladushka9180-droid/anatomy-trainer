@@ -52,10 +52,10 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const expectedOptions = ['$', 'db', 'escapeHtml', 'notify', 'refreshNavigation', 'requireWrites'];
 
-async function harness({ digestTicks = 0 } = {}) {
+async function harness({ digestTicks = 0, confirmResult = true } = {}) {
   const refundStorage = new Map();
   const elements = new Map(), handlers = new Map(), windowHandlers = new Map();
-  const rpcCalls = [], invokeCalls = [], notifications = [], resetEvents = [], deviceClears = [];
+  const rpcCalls = [], invokeCalls = [], notifications = [], confirmations = [], resetEvents = [], deviceClears = [];
   let formResets = 0, navigationRenders = 0, optionsKeys, nextUuid = 100;
   const invocations = [], invocationStarts = [], submissions = [], loadQueue = [], settingsQueue = [];
   function deferred() {
@@ -113,7 +113,7 @@ async function harness({ digestTicks = 0 } = {}) {
         return webcrypto.subtle.digest(...args);
       } } },
       localStorage:{getItem:key=>refundStorage.get(key)??null,setItem:(key,value)=>refundStorage.set(key,value),removeItem:key=>refundStorage.delete(key)},
-      confirm: () => true,
+      confirm: message => { confirmations.push(message); return confirmResult; },
       addEventListener: (type, callback) => {
         if (!windowHandlers.has(type)) windowHandlers.set(type, []);
         windowHandlers.get(type).push(callback);
@@ -239,8 +239,9 @@ async function harness({ digestTicks = 0 } = {}) {
   }
   function deferLoad() { const operation = deferred(); loadQueue.push(operation); return operation; }
   function deferSettings() { const operation = deferred(); settingsQueue.push(operation); return operation; }
-  return { ctx, optionsKeys, invokeCalls, rpcCalls, notifications, resetEvents, deviceClears,
+  return { ctx, optionsKeys, invokeCalls, rpcCalls, notifications, confirmations, resetEvents, deviceClears,
     ui, maps, submit, settle, switchOrg, session, payload, deferLoad, deferSettings, load: () => controller.load(),
+    setProductionSettings: () => { $('#paymentProviderEnvironment').value = 'production'; $('#paymentProviderEnabled').checked = true; },
     submitSettings: () => handlers.get('submit')({ target: $('#paymentProviderSettingsForm'), preventDefault() {} }) };
 }
 
@@ -441,4 +442,16 @@ test('current settings success still reloads its own workspace and confirms save
   assert.deepEqual(h.rpcCalls.slice(beforeRpc).map(call => call.name), ['set_minuta_yookassa_settings', 'get_minuta_payment_workspace']);
   assert.deepEqual(h.notifications, ['Настройки ЮKassa сохранены и проверены']);
   assert.ok(h.ui().controls.every(([, disabled]) => !disabled));
+});
+
+test('production settings require an explicit review before the settings RPC', async () => {
+  const h = await harness({ confirmResult:false });
+  h.setProductionSettings();
+  const beforeRpc = h.rpcCalls.length;
+  await h.submitSettings();
+  assert.equal(h.rpcCalls.length, beforeRpc, 'canceling production review must stop before settings RPC');
+  assert.match(h.confirmations[0], /Режим: production/);
+  assert.match(h.confirmations[0], /Приём оплат: включён/);
+  assert.match(h.confirmations[0], /новые платежи могут пойти через боевой магазин/);
+  assert.equal(h.notifications.at(-1), 'Production-настройки ЮKassa не сохранены');
 });

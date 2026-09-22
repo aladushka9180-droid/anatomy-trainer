@@ -21,11 +21,26 @@
     return date.toISOString().slice(0, 10);
   }
 
+  function shiftCoverage(workspace) {
+    const performers = Array.isArray(workspace?.performers) ? workspace.performers : [];
+    const locations = Array.isArray(workspace?.locations) ? workspace.locations.filter(item => item.active !== false) : [];
+    const activeShifts = Array.isArray(workspace?.shifts) ? workspace.shifts.filter(item => item.active !== false) : [];
+    const coveredPerformers = new Set(activeShifts.map(item => String(item.performer_id || '')).filter(Boolean));
+    const coveredLocations = new Set(activeShifts.map(item => String(item.location_id || '')).filter(Boolean));
+    const performerCount = performers.filter(item => coveredPerformers.has(String(item.id))).length;
+    const locationCount = locations.filter(item => coveredLocations.has(String(item.id))).length;
+    const total = performers.length + locations.length;
+    const covered = performerCount + locationCount;
+    const state = covered === 0 || total === 0 ? 'zero' : covered === total ? 'full' : 'partial';
+    return { state, performerCount, performerTotal:performers.length, locationCount, locationTotal:locations.length };
+  }
+
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, applyWriteAvailability } = options;
     const getCurrentUser = typeof options.getCurrentUser === 'function' ? options.getCurrentUser : () => null;
     const getSessionGeneration = typeof options.getSessionGeneration === 'function' ? options.getSessionGeneration : () => 0;
     const sessionIsCurrent = typeof options.sessionIsCurrent === 'function' ? options.sessionIsCurrent : () => false;
+    const confirmAction = typeof options.confirmAction === 'function' ? options.confirmAction : message => typeof window.confirm === 'function' && window.confirm(message);
     const select = typeof options.$ === 'function' ? options.$ : selector => document.querySelector(selector);
     function $(selector) { return select(selector); }
     let organization = null;
@@ -158,14 +173,21 @@
       if (!payload) return;
       const canManage = Boolean(payload.can_manage_team);
       const isOwner = payload.current_role === 'owner';
+      const coverage = shiftCoverage(payload);
       $('#shiftsPanel').hidden = false;
       $('#shiftsUnavailable').hidden = true;
       $('#shiftWorkspace').hidden = false;
       $('#shiftsCount').textContent = String(payload.shifts.filter(item => item.active).length);
       $('#shiftSchedulingEnabled').checked = Boolean(payload.enabled);
-      $('#shiftSchedulingEnabled').disabled = !isOwner;
-      $('#shiftEnableField').title = isOwner ? '' : 'Включить строгий режим может только владелец';
-      $('#shiftEnableHint').textContent = payload.enabled ? 'Свободное время уже ограничено сменами и филиалами.' : 'Сначала заполните смены для всех будущих записей.';
+      $('#shiftSchedulingEnabled').disabled = !isOwner || (!payload.enabled && coverage.state === 'zero');
+      $('#shiftEnableField').title = !isOwner ? 'Включить строгий режим может только владелец' : coverage.state === 'zero' && !payload.enabled ? 'Добавьте смены хотя бы одному специалисту в активном филиале' : '';
+      $('#shiftEnableHint').textContent = payload.enabled
+        ? 'Свободное время уже ограничено сменами и филиалами.'
+        : coverage.state === 'zero'
+          ? `Покрытие: 0 из ${coverage.performerTotal} специалистов и 0 из ${coverage.locationTotal} филиалов. Добавьте смены — включение заблокировано.`
+          : coverage.state === 'partial'
+            ? `Покрытие: ${coverage.performerCount} из ${coverage.performerTotal} специалистов и ${coverage.locationCount} из ${coverage.locationTotal} филиалов. При включении потребуется подтверждение.`
+            : `Покрытие полное: ${coverage.performerCount} из ${coverage.performerTotal} специалистов и ${coverage.locationCount} из ${coverage.locationTotal} филиалов. Строгий режим можно включить.`;
       const activeLocations = payload.locations.filter(item => item.active);
       $('#shiftLocation').innerHTML = options(activeLocations, '', item => item.name);
       $('#shiftPerformer').innerHTML = options(payload.performers, '', item => item.display_name);
@@ -288,6 +310,16 @@
       if (event.target.id === 'substitutionBooking') renderSubstitution(Boolean(payload?.can_manage_team));
       if (event.target.id === 'shiftSchedulingEnabled') {
         const desired = event.target.checked;
+        const coverage = shiftCoverage(payload);
+        if (desired && coverage.state === 'zero') {
+          event.target.checked = false;
+          notify('Строгий режим не включён: сначала добавьте смены хотя бы одному специалисту в активном филиале.');
+          return;
+        }
+        if (desired && coverage.state === 'partial') {
+          const confirmed = confirmAction(`Включить строгий учёт смен при неполном покрытии?\n\nСпециалисты: ${coverage.performerCount} из ${coverage.performerTotal}\nФилиалы: ${coverage.locationCount} из ${coverage.locationTotal}\n\nНовое свободное время будет доступно только внутри добавленных смен. Существующие записи сохранятся. Отмена оставит текущий режим без изменений.`);
+          if (!confirmed) { event.target.checked = false; notify('Строгий режим не включён'); return; }
+        }
         const ok = await mutate('set_minuta_branch_shifts_enabled', { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Смены включены в онлайн-запись' : 'Строгая проверка смен выключена');
         if (!ok && payload) event.target.checked = Boolean(payload.enabled);
       }
@@ -302,5 +334,5 @@
     return { bind, load, reset, setOrganization };
   }
 
-  window.MinutaShifts = { createController };
+  window.MinutaShifts = { createController, shiftCoverage };
 })();

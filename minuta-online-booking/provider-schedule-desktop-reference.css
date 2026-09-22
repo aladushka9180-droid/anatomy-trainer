@@ -81,7 +81,7 @@
   html body.provider-body[data-provider-theme][data-provider-layout] .provider-nav button.active {
     background:var(--pt-desktop-accent)!important;
     background-image:none!important;
-    color:#fff!important;
+    color:var(--theme-accent-contrast,#fff)!important;
     box-shadow:none!important;
     font-weight:700!important;
   }
@@ -93,7 +93,7 @@
     border-radius:12px!important;
     background:var(--pt-desktop-accent)!important;
     background-image:none!important;
-    color:#fff!important;
+    color:var(--theme-accent-contrast,#fff)!important;
     box-shadow:none!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] .sidebar-bottom {

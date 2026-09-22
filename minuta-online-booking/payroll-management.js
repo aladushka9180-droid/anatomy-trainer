@@ -22,6 +22,7 @@
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
     const select = options.$;
+    const confirmAction = typeof options.confirmAction === 'function' ? options.confirmAction : message => typeof window.confirm === 'function' && window.confirm(message);
     function $(selector) { return select(selector); }
     let organization = null, payload = null, availability = null, requestRevision = 0, writePending = false, pendingOrganization;
     const adjustmentIntents = new Map();
@@ -165,6 +166,7 @@
     function memberName(id) { return payload.members.find(item => String(item.id) === String(id))?.display_name || 'Специалист'; }
     function locationName(id) { return payload.locations.find(item => String(item.id) === String(id))?.name || 'Все филиалы'; }
     function periodName(id) { return payload.periods.find(item => String(item.id) === String(id))?.name || 'Расчётный период'; }
+    function accountName(id) { return payload.payment_accounts.find(item => String(item.id) === String(id))?.name || 'Источник не выбран'; }
     function minor(item, ...keys) { for (const key of keys) { const value = Number(item?.[key]); if (Number.isFinite(value)) return Math.round(value); } return 0; }
     function moneyMinor(value) { const amount = Number(value || 0) / 100; return `${new Intl.NumberFormat('ru-RU', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 }).format(amount)} ₽`; }
     function rubles(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`; }
@@ -376,6 +378,9 @@
       if (event.target.id === 'payrollPaymentForm') {
         event.preventDefault(); const amount = rublesToMinor($('#payrollPaymentAmount'), '#payrollPaymentError'); if (amount === null) return;
         const [accrualSource, performer] = String($('#payrollPaymentDebt').value || '').split('|');
+        const debt = payload.debts.find(item => String(item.accrual_source_id) === String(accrualSource) && String(item.performer_id) === String(performer));
+        const paymentReview = `Записать учётную выплату?\n\nСотрудник: ${memberName(performer)}\nПериод: ${periodName(debt?.period_id)}\nСумма: ${moneyMinor(amount)}\nИсточник: ${accountName($('#payrollPaymentAccount').value)}\n\nПосле подтверждения выплата появится в неизменяемом журнале и уменьшит долг. Для отмены потребуется отдельная обратная операция. Отмена сейчас не отправит операцию.`;
+        if (!confirmAction(paymentReview)) { notify('Учётная выплата не записана'); return; }
         await mutate(RPC.payment, { p_organization: organization.id, p_accrual_source: accrualSource, p_performer: performer, p_cash_or_bank_account: $('#payrollPaymentAccount').value, p_amount_minor: amount }, event.submitter, 'Выплата записана, долг обновлён', '#payrollPaymentError', true); return;
       }
       if (event.target.id === 'payrollOffsetForm') {
@@ -398,9 +403,19 @@
         $('#payrollPlanId').value = plan.id; $('#payrollPlanPerformer').value = plan.performer_id; $('#payrollPlanName').value = plan.name || ''; $('#payrollPlanFrom').value = plan.effective_from || ''; $('#payrollPlanTo').value = plan.effective_to || ''; $('#payrollPlanRate').value = Number(plan.base_rate_bps || 0) / 100; $('#payrollPlanTiers').value = (plan.tiers || []).map(tier => `${tier.threshold_rub} — ${Number(tier.rate_bps || 0) / 100}`).join('\n'); $('#payrollPlanCreator').open = true; return;
       }
       const accrue = event.target.closest('[data-payroll-accrue]');
-      if (accrue) await mutate(RPC.accrue, { p_organization: organization.id, p_period: accrue.dataset.payrollAccrue, p_occurred_at: new Date().toISOString() }, accrue, 'Начисление записано. Теперь доступны частичные выплаты.', null, true);
+      if (accrue) {
+        const period = payload?.periods.find(item => String(item.id) === String(accrue.dataset.payrollAccrue));
+        const review = `Восстановить начисление?\n\nОбъект: ${period?.name || 'Расчётный период'}\nПериод: ${dateLabel(period?.starts_on)} — ${dateLabel(period?.ends_on)}\nСумма: ${moneyMinor(periodAmounts(period || {}).accrued)}\n\nПосле подтверждения начисление появится в неизменяемом журнале и сформирует долг к выплате. Для отмены потребуется отдельная обратная операция. Отмена сейчас не отправит операцию.`;
+        if (!confirmAction(review)) { notify('Начисление не записано'); return; }
+        await mutate(RPC.accrue, { p_organization: organization.id, p_period: accrue.dataset.payrollAccrue, p_occurred_at: new Date().toISOString() }, accrue, 'Начисление записано. Теперь доступны частичные выплаты.', null, true);
+      }
       const approve = event.target.closest('[data-payroll-approve-accrue]');
-      if (approve) await mutate('set_minuta_payroll_period_status', { p_organization: organization.id, p_period: approve.dataset.payrollApproveAccrue, p_status: 'approved' }, approve, 'Расчёт утверждён, начисление записано.');
+      if (approve) {
+        const period = payload?.periods.find(item => String(item.id) === String(approve.dataset.payrollApproveAccrue));
+        const review = `Утвердить расчёт и начислить зарплату?\n\nОбъект: ${period?.name || 'Расчётный период'}\nПериод: ${dateLabel(period?.starts_on)} — ${dateLabel(period?.ends_on)}\nСумма: ${moneyMinor(periodAmounts(period || {}).accrued)}\n\nПосле подтверждения расчёт будет утверждён, начисление попадёт в неизменяемый журнал и сформирует долг к выплате. Для отмены потребуется отдельная обратная операция. Отмена сейчас не отправит операцию.`;
+        if (!confirmAction(review)) { notify('Начисление не записано'); return; }
+        await mutate('set_minuta_payroll_period_status', { p_organization: organization.id, p_period: approve.dataset.payrollApproveAccrue, p_status: 'approved' }, approve, 'Расчёт утверждён, начисление записано.');
+      }
     }
     async function handleChange(event) {
       if (event.target.id === 'payrollStartDate' || event.target.id === 'payrollEndDate') await load();

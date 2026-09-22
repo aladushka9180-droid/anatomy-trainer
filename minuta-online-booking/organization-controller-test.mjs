@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 globalThis.window = {};
 await import('./organization.js');
+
+assert.equal(window.MinutaOrganization.normalizeTimezone(' Europe/Samara '), 'Europe/Samara');
+assert.equal(window.MinutaOrganization.normalizeTimezone('Asia/Yekaterinburg'), 'Asia/Yekaterinburg');
+assert.equal(window.MinutaOrganization.normalizeTimezone('Not/A-Timezone'), null);
+const providerHtml = readFileSync(new URL('./provider.html', import.meta.url), 'utf8');
+assert.match(providerHtml, /id="locationTimezone"[^>]*list="ianaTimezoneOptions"[^>]*required/);
+assert.doesNotMatch(providerHtml, /id="locationTimezone"[^>]*type="hidden"/);
 
 const elements = new Map();
 function element(id) {

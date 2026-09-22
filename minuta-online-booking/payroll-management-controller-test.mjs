@@ -53,10 +53,33 @@ function controller(dom, rpc, overrides = {}) {
   const controllerOptions = {
     db: { rpc }, $: dom.$, escapeHtml, notify() {}, requireWrites: () => true,
     getCurrentUser: () => ({ id:'owner' }), getSessionGeneration: () => 1,
-    sessionIsCurrent: () => true, applyWriteAvailability() {}, ...overrides
+    sessionIsCurrent: () => true, applyWriteAvailability() {}, confirmAction: () => true, ...overrides
   };
   assert.equal(typeof controllerOptions.$, 'function');
   return window.MinutaPayroll.createController(controllerOptions);
+}
+
+{
+  const dom = makeDom();
+  const calls = [], reviews = [], notifications = [];
+  const period = { id:'period-review', name:'Сентябрь', status:'draft', starts_on:'2026-09-01', ends_on:'2026-09-30', total_payroll_rub:32500 };
+  const value = workspace('org-review', { periods:[period] });
+  const instance = controller(dom, async (name, parameters) => {
+    calls.push({ name, parameters });
+    return name === 'get_minuta_payroll_ledger_workspace_v136' ? { data:value, error:null } : { data:{ organization_id:'org-review' }, error:null };
+  }, { confirmAction: message => { reviews.push(message); return false; }, notify: message => notifications.push(message) });
+  await instance.setOrganization({ id:'org-review' });
+  instance.bind();
+  const approveButton = new MockElement();
+  approveButton.dataset.payrollApproveAccrue = period.id;
+  approveButton.closest = selector => selector === '[data-payroll-approve-accrue]' ? approveButton : null;
+  await documentHandlers.click({ target:approveButton });
+  assert.equal(calls.some(call => call.name === 'set_minuta_payroll_period_status'), false, 'canceling review must stop before accrual RPC');
+  assert.match(reviews[0], /Объект: Сентябрь/);
+  assert.match(reviews[0], /Период:.*сент.*сент/i);
+  assert.match(reviews[0], /Сумма: 32.500 ₽/);
+  assert.match(reviews[0], /неизменяем.*журнал/);
+  assert.equal(notifications.at(-1), 'Начисление не записано');
 }
 
 {

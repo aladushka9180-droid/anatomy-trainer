@@ -923,8 +923,9 @@
                 <div class="organization-list" id="locationsList"></div>
                 <details class="organization-create" id="locationCreator">
                   <summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить филиал</span></summary>
-                  <form id="locationForm"><label>Название<input id="locationName" maxlength="120" placeholder="Например, Центр" required></label><label>Адрес<input id="locationAddress" maxlength="500" placeholder="Город, улица, дом"></label><input id="locationTimezone" type="hidden" value="Europe/Samara"><p class="form-error" id="locationError" hidden></p><button class="primary" type="submit">Создать филиал</button></form>
+                  <form id="locationForm"><label>Название<input id="locationName" maxlength="120" placeholder="Например, Центр" required></label><label>Адрес<input id="locationAddress" maxlength="500" placeholder="Город, улица, дом"></label><label>Часовой пояс IANA<input id="locationTimezone" list="ianaTimezoneOptions" maxlength="80" value="Europe/Samara" placeholder="Europe/Samara" autocomplete="off" aria-describedby="locationTimezoneHint" required><small id="locationTimezoneHint">Онлайн-запись сейчас рассчитывается только по Europe/Samara. Другая зона сохранится у филиала, но не изменит расчёт доступности.</small></label><p class="form-error" id="locationError" hidden></p><button class="primary" type="submit">Создать филиал</button></form>
                 </details>
+                <datalist id="ianaTimezoneOptions"><option value="Europe/Kaliningrad"></option><option value="Europe/Moscow"></option><option value="Europe/Samara"></option><option value="Asia/Yekaterinburg"></option><option value="Asia/Omsk"></option><option value="Asia/Novosibirsk"></option><option value="Asia/Krasnoyarsk"></option><option value="Asia/Irkutsk"></option><option value="Asia/Yakutsk"></option><option value="Asia/Vladivostok"></option><option value="Asia/Magadan"></option><option value="Asia/Kamchatka"></option></datalist>
               </section>
 
               <section class="panel organization-section">

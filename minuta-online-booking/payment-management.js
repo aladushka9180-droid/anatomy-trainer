@@ -817,7 +817,6 @@
       if (event.target.id === 'paymentProviderSettingsForm') {
         event.preventDefault();
         if (!organization || !owner() || busy || !requireWrites()) return;
-        const isCurrent = beginOperation();
         const fiscal = $('#paymentFiscalizationEnabled').checked;
         const expected = {
           enabled:$('#paymentProviderEnabled').checked,
@@ -827,6 +826,12 @@
           vat_code:fiscal ? Number($('#paymentVatCode').value) : null,
           payment_mode:fiscal ? $('#paymentMode').value : null
         };
+        if (expected.environment === 'production') {
+          const productionReview = `Сохранить production-настройки ЮKassa?\n\nОбъект: ${organization.name || 'текущая организация'}\nРежим: production\nПриём оплат: ${expected.enabled ? 'включён' : 'выключен'}\nФискализация: ${expected.fiscalization_enabled ? 'включена' : 'выключена'}\n\nПосле подтверждения новые платежи могут пойти через боевой магазин ЮKassa. Сохранение настроек можно изменить позже; уже созданные операции не отменяются. Отмена сейчас ничего не сохранит.`;
+          const confirmed = typeof global.confirm === 'function' && global.confirm(productionReview);
+          if (!confirmed) { notify('Production-настройки ЮKassa не сохранены'); return; }
+        }
+        const isCurrent = beginOperation();
         try {
           const result = await db.rpc('set_minuta_yookassa_settings', {
             p_organization:organization.id,
@@ -920,8 +925,10 @@
         notify('Укажите причину возврата не короче 8 символов');
         return;
       }
+      const attemptId = $('#paymentRefundAttempt').value;
+      const attempt = payload?.recent_attempts?.find(item => String(item.id) === String(attemptId));
       const confirmedByUser = typeof global.confirm === 'function'
-        && global.confirm(`Вернуть ${minorInputValue(amountMinor).replace('.', ',')} ₽ через ЮKassa? Отменить операцию после отправки нельзя.`);
+        && global.confirm(`Отправить возврат через ЮKassa?\n\nПлатёж: ${String(attempt?.id || attemptId).slice(0, 8)}\nСумма: ${minorInputValue(amountMinor).replace('.', ',')} ₽\nИсточник: исходный платёж ЮKassa, доступно ${minorInputValue(remaining).replace('.', ',')} ₽\nПричина: ${reason}\n\nПосле отправки отменить возврат нельзя. Отмена сейчас не отправит операцию.`);
       if (!confirmedByUser) {
         notify('Возврат не отправлен');
         return;

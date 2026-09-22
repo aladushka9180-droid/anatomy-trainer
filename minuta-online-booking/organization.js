@@ -13,6 +13,13 @@
     invitation_cancelled: 'Приглашение отменено'
   };
 
+  function normalizeTimezone(value) {
+    const timezone = String(value || '').trim();
+    if (!timezone) return null;
+    try { new Intl.DateTimeFormat('ru-RU', { timeZone:timezone }).format(new Date()); return timezone; }
+    catch { return null; }
+  }
+
   function createController(options) {
     const { db, $, $$, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability, onActiveOrganizationChange } = options;
     let organizations = [];
@@ -228,7 +235,7 @@
     function locationCard(location, canManage) {
       const state = location.active ? 'Активен' : 'Отключён';
       if (!canManage) return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(location.name)}</strong><small>${escapeHtml(location.address || 'Адрес не указан')}</small></div><span class="organization-status ${location.active ? 'is-active' : ''}">${location.is_primary ? 'Основной' : escapeHtml(state)}</span></article>`;
-      return `<details class="organization-row organization-editor" data-location-card="${escapeHtml(location.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(location.name)}</strong><small>${escapeHtml(location.address || 'Адрес не указан')}</small></div><span class="organization-status ${location.active ? 'is-active' : ''}">${location.is_primary ? 'Основной' : escapeHtml(state)}</span></summary><form data-location-form="${escapeHtml(location.id)}"><label>Название<input name="name" maxlength="120" value="${escapeHtml(location.name)}" required></label><label>Адрес<input name="address" maxlength="500" value="${escapeHtml(location.address || '')}"></label><input name="timezone" type="hidden" value="${escapeHtml(location.timezone || 'Europe/Samara')}"><div class="organization-checks"><label><input name="active" type="checkbox" ${location.active ? 'checked' : ''} ${location.is_primary ? 'disabled' : ''}><span>Филиал активен</span></label><label><input name="primary" type="checkbox" ${location.is_primary ? 'checked disabled' : ''}><span>Сделать основным</span></label></div><p class="form-error" data-location-error hidden></p><button class="secondary-button" type="submit" data-organization-write>Сохранить филиал</button></form></details>`;
+      return `<details class="organization-row organization-editor" data-location-card="${escapeHtml(location.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(location.name)}</strong><small>${escapeHtml(location.address || 'Адрес не указан')}</small></div><span class="organization-status ${location.active ? 'is-active' : ''}">${location.is_primary ? 'Основной' : escapeHtml(state)}</span></summary><form data-location-form="${escapeHtml(location.id)}"><label>Название<input name="name" maxlength="120" value="${escapeHtml(location.name)}" required></label><label>Адрес<input name="address" maxlength="500" value="${escapeHtml(location.address || '')}"></label><label>Часовой пояс IANA<input name="timezone" list="ianaTimezoneOptions" maxlength="80" value="${escapeHtml(location.timezone || 'Europe/Samara')}" placeholder="Europe/Samara" autocomplete="off" required><small>Онлайн-запись сейчас рассчитывается только по Europe/Samara. Другая зона сохранится у филиала, но не изменит расчёт доступности.</small></label><div class="organization-checks"><label><input name="active" type="checkbox" ${location.active ? 'checked' : ''} ${location.is_primary ? 'disabled' : ''}><span>Филиал активен</span></label><label><input name="primary" type="checkbox" ${location.is_primary ? 'checked disabled' : ''}><span>Сделать основным</span></label></div><p class="form-error" data-location-error hidden></p><button class="secondary-button" type="submit" data-organization-write>Сохранить филиал</button></form></details>`;
     }
 
     function memberCard(member, organization, canManage) {
@@ -315,7 +322,9 @@
       }
       if (event.target.id === 'locationForm') {
         event.preventDefault();
-        const saved = await mutate('create_minuta_location', { p_organization: organization.id, p_name: $('#locationName').value.trim(), p_address: $('#locationAddress').value.trim(), p_timezone: $('#locationTimezone').value }, event.submitter, 'Филиал добавлен', '#locationError');
+        const timezone = normalizeTimezone($('#locationTimezone').value);
+        if (!timezone) { showError('#locationError', 'Укажите часовой пояс IANA, например Europe/Samara.'); return; }
+        const saved = await mutate('create_minuta_location', { p_organization: organization.id, p_name: $('#locationName').value.trim(), p_address: $('#locationAddress').value.trim(), p_timezone: timezone }, event.submitter, 'Филиал добавлен', '#locationError');
         if (saved) { event.target.reset(); $('#locationTimezone').value = 'Europe/Samara'; $('#locationCreator').open = false; }
       }
       if (event.target.id === 'memberInviteForm') {
@@ -333,7 +342,9 @@
       if (locationForm) {
         event.preventDefault();
         const id = locationForm.dataset.locationForm;
-        await mutate('update_minuta_location', { p_location: id, p_name: locationForm.elements.name.value.trim(), p_address: locationForm.elements.address.value.trim(), p_timezone: locationForm.elements.timezone.value, p_active: locationForm.elements.active.checked || locationForm.elements.active.disabled, p_is_primary: locationForm.elements.primary.checked }, event.submitter, 'Филиал сохранён', `[data-location-card="${id}"] [data-location-error]`);
+        const timezone = normalizeTimezone(locationForm.elements.timezone.value);
+        if (!timezone) { showError(`[data-location-card="${id}"] [data-location-error]`, 'Укажите часовой пояс IANA, например Europe/Samara.'); return; }
+        await mutate('update_minuta_location', { p_location: id, p_name: locationForm.elements.name.value.trim(), p_address: locationForm.elements.address.value.trim(), p_timezone: timezone, p_active: locationForm.elements.active.checked || locationForm.elements.active.disabled, p_is_primary: locationForm.elements.primary.checked }, event.submitter, 'Филиал сохранён', `[data-location-card="${id}"] [data-location-error]`);
       }
       const memberForm = event.target.closest('[data-member-form]');
       if (memberForm) {
@@ -380,5 +391,5 @@
     return { bind, load, render, reset, getActiveOrganization, getOrganizations, get availability() { return availability; } };
   }
 
-  window.MinutaOrganization = { createController };
+  window.MinutaOrganization = { createController, normalizeTimezone };
 })();
