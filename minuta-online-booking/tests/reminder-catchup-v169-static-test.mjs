@@ -10,6 +10,7 @@ const rollback = read('supabase-migration-v169-rollback.sql');
 const original = read('supabase-migration-v88.sql');
 const currentOutbox = read('supabase-migration-v126.sql');
 const claimGuard = read('supabase-migration-v128.sql');
+const workflow = fs.readFileSync(path.join(root, '..', '.github', 'workflows', 'minuta-v169-reminder-catchup.yml'), 'utf8');
 const definition = sql => sql.match(/create or replace function public\.enqueue_due_minuta_booking_reminders\([\s\S]*?\n\$\$;/)?.[0];
 
 assert.ok(definition(forward), 'forward scheduler definition');
@@ -36,5 +37,17 @@ assert.equal(eligible({ start: now, now, leadMinutes: 1440 }), false, 'never enq
 assert.equal(eligible({ start: minutesFromNow(-1), now, leadMinutes: 1440 }), false, 'never enqueue after visit start');
 assert.equal(eligible({ start: minutesFromNow(30), now, leadMinutes: 1440, status: 'cancelled' }), false);
 assert.equal(eligible({ start: minutesFromNow(30), now, leadMinutes: 1440, alreadyQueued: true }), false);
+
+for (const token of [
+  'test-v169', 'validate-production-v169', 'apply-production-v169', 'observe-production-v169',
+  'BACKUP_VERIFIED', 'backup_run_id', 'restore_run_id', 'test_run_id', 'validation_run_id',
+  'minuta-supabase-backup.yml', 'minuta-supabase-restore-drill.yml',
+  'reminder-catchup-v169-integration.sql', 'supabase-migration-v169-rollback.sql'
+]) assert.ok(workflow.includes(token), `v169 release workflow missing ${token}`);
+assert.match(workflow, /environment: minuta-test[\s\S]*MINUTA_TEST_DATABASE_URL/);
+assert.match(workflow, /default_transaction_read_only=on[\s\S]*validate-production-v169/);
+assert.match(workflow, /networkMode=="none"[\s\S]*ephemeralContainerDestroyed/);
+assert.match(workflow, /messagesDispatched:false/);
+assert.match(workflow, /rollback_on_error[\s\S]*supabase-migration-v169-rollback\.sql/);
 
 console.log('PrimeTime Pro reminder catch-up v169 static checks: PASS');
