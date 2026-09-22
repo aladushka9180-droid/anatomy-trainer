@@ -24,6 +24,13 @@ begin
     organization_id,location_id,performer_id,service_id,first_due,second_due,too_early,past_visit,cancelled_visit
   );
   set local session_replication_role=replica;
+  insert into auth.users(
+    id,instance_id,aud,role,email,email_confirmed_at,
+    raw_app_meta_data,raw_user_meta_data,created_at,updated_at
+  ) values(
+    performer_id,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+    performer_id::text||'@example.invalid',now(),'{}','{}',now(),now()
+  );
   insert into public.performer_profiles(id,display_name) values(performer_id,'V169 synthetic provider');
   insert into public.organizations(id,name,public_slug,status,public_booking_enabled,created_by)
   values(organization_id,'V169 synthetic organization','v169-'||replace(organization_id::text,'-',''),'active',false,performer_id);
