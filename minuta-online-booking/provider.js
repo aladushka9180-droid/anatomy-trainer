@@ -5505,7 +5505,7 @@ function renderAutomaticNotifications() {
   const statusLabels = {
     pending: 'Ожидает отправки',
     sending: 'Отправляется',
-    sent: 'Доставлено',
+    sent: 'Передано каналу',
     failed: 'Ошибка'
   };
   const activeCount = notificationOutbox.filter(item => item.status === 'pending' || item.status === 'sending').length;
@@ -5627,7 +5627,7 @@ function renderNotifications() {
     const start = bookingStart(item);
     const message = composeNotificationMessage(task.type, item);
     const link = escapeHtml(whatsappLink(item, task.type));
-    const status = task.mark === 'sent' ? 'Отправлено' : task.isDue ? 'К отправке' : 'Позже';
+    const status = task.mark === 'sent' ? 'Отмечено отправленным' : task.isDue ? 'К отправке' : 'Позже';
     return `<article class="notification-card notification-${task.type} status-${task.mark || (task.isDue ? 'due' : 'scheduled')}">
       <span class="notification-card-icon">${uiIcon(task.type === 'cancellation' ? 'close' : task.type === 'reminder' ? 'clock' : 'check')}</span>
       <div class="notification-card-main"><div class="notification-card-head"><span>${typeLabels[task.type]}</span><b>${status}</b></div><h3>${escapeHtml(item.client_name)}</h3><p>${escapeHtml(serviceName(item.services?.name || 'Услуга'))} · ${start.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${String(item.booking_time).slice(0, 5)} · ${notificationDueLabel(task)}</p><details class="notification-preview"><summary>Посмотреть текст</summary><blockquote>${escapeHtml(message).replace(/\n/g, '<br>')}</blockquote></details></div>
