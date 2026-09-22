@@ -90,7 +90,7 @@ done
 stage=verify
 result="$(docker exec "$container" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 \
   -c "select count(*)::text||'|'||(to_regclass('public.minuta_abuse_rate_buckets_v173') is not null)::text from pg_tables where schemaname='public'" 2>>"$log")"
-[[ "$result" =~ ^[0-9]+\|t$ ]]
+[[ "$result" =~ ^[0-9]+\|true$ ]]
 tables="${result%%|*}"
 test "$tables" -gt 50
 
