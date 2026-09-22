@@ -15709,7 +15709,8 @@ async function publishedPriceListServices(organization) {
   if (error || !data?.organization || !Array.isArray(data.services)) throw new Error('public catalog unavailable');
   const locations = new Set((data.locations || []).map(item => item.id));
   return data.services.filter(item => ownIds.has(item.id) && item.performer_id === currentUser?.id
-    && Array.isArray(item.location_ids) && item.location_ids.some(id => locations.has(id)));
+    && Array.isArray(item.location_ids) && item.location_ids.some(id => locations.has(id)))
+    .map(item => ({ ...item, active:true })); // The public RPC includes only active services, but omits the flag.
 }
 function clearPriceListImages() {
   priceListImageUrls.forEach(url => URL.revokeObjectURL(url));
