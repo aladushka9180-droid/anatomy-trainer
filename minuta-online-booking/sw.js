@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v872`;
+const CACHE = `${CACHE_PREFIX}v873`;
 
 // Only the provider shell and its first-screen dependencies block installation.
 // Secondary sections, help media and decorative theme images are cached on use.
@@ -32,7 +32,7 @@ const ASSETS = [
   './client-results.css?v=811',
   './client-directory.css?v=811',
   './provider-ui-refinements.css?v=811',
-  './provider-schedule-minimal.css?v=866',
+  './provider-schedule-minimal.css?v=867',
   './provider-themes-distinct.css?v=821',
   './provider-theme-families.css?v=821',
   './provider-theme-backgrounds-tema1.css?v=865',

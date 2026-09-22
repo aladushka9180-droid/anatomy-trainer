@@ -691,6 +691,12 @@ const server = http.createServer((request, response) => {
         cards.normal.forEach((card, index) => {
           assert.equal(card.image, 'none', `${theme} ${width}px: лишний рисунок у записи ${index + 1}`);
           assert.ok(card.contrast >= 4.5, `${theme} ${width}px: низкий контраст записи ${index + 1} (${card.contrast.toFixed(2)})`);
+          if (theme === 'noir-rose') {
+            assert.equal(card.background, 'rgb(97, 73, 83)', `${theme} ${width}px: запись ${index + 1} потеряла утверждённую rose-заливку`);
+            assert.equal(card.borderColor, 'rgb(225, 165, 182)', `${theme} ${width}px: запись ${index + 1} потеряла розовую границу`);
+            assert.match(card.shadow, /inset/, `${theme} ${width}px: нет розового маркера у записи ${index + 1}`);
+            return;
+          }
           if (index === 2) {
             assert.equal(card.background, cards.monthAutoBackground, `${theme} ${width}px: компактная месячная запись потеряла нейтральный фон`);
             assert.equal(card.shadow, 'none', `${theme} ${width}px: месячная запись получила лишнюю постоянную тень`);

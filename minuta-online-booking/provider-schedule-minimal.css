@@ -2730,3 +2730,37 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     font-weight:600!important;
   }
 }
+
+/* Noir Rose keeps normal appointments visibly rose against neutral breaks. */
+.provider-body[data-provider-theme="noir-rose"] :is(
+  .timeline-view .timeline-booking:not(.status-block):not(.automatic-break),
+  .schedule-list .provider-booking:not(.status-block):not(.automatic-break),
+  .calendar-overview-booking:not(.status-block),
+  .calendar-week-booking:not(.is-block)
+) {
+  border-color:#e1a5b6!important;
+  background:#614953!important;
+  background-image:none!important;
+  box-shadow:inset 3px 0 0 #e1a5b6,0 4px 12px color-mix(in srgb,var(--theme-shadow) 30%,transparent)!important;
+}
+
+.provider-body[data-provider-theme="noir-rose"] :is(
+  .timeline-view .timeline-booking:not(.status-block):not(.automatic-break),
+  .schedule-list .provider-booking:not(.status-block):not(.automatic-break),
+  .calendar-overview-booking:not(.status-block),
+  .calendar-week-booking:not(.is-block)
+):hover {
+  background:#6a515d!important;
+}
+
+.provider-body[data-provider-theme="noir-rose"] :is(
+  .timeline-view .timeline-booking.status-block,
+  .timeline-view .timeline-booking.automatic-break,
+  .schedule-list .provider-booking.status-block,
+  .schedule-list .provider-booking.automatic-break,
+  .calendar-overview-booking.status-block,
+  .calendar-week-booking.is-block
+) {
+  background:#3f3b46!important;
+  background-image:none!important;
+}
