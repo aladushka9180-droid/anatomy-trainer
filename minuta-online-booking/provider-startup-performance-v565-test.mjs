@@ -77,9 +77,9 @@ const precacheBytes = assets.reduce((total, asset) => {
 }, 0);
 // Keep core interaction controllers available during a cold offline start.
 // The daily free-window status report adds under 3 KB; the bounded shell budget
-// v811 adds the signed complete-visit repeat flow and remains below 3.55 MiB
-// without removing any offline-critical controller.
-assert.ok(precacheBytes <= 3.55 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
+// v866 includes the service price-list share controls; the bounded shell remains
+// below 3.56 MiB without removing any offline-critical controller.
+assert.ok(precacheBytes <= 3.56 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /await caches\.delete\(CACHE\);\s*throw error;/,
