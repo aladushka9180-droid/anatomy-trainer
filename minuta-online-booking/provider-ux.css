@@ -363,6 +363,7 @@
 .provider-body #analyticsView .report-summary { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .provider-body .report-payment-evidence { margin:12px 0; padding:12px 14px; border-left:3px solid var(--theme-accent); background:var(--theme-surface-alt); color:var(--theme-ink); font-size:calc(14px + var(--provider-text-step,0px)); line-height:1.5; }
 .provider-body[data-provider-theme][data-provider-layout] :is(.report-section-heading>span,.report-methodology small,.report-client-metrics small) { font-size:calc(12px + var(--provider-text-step,0px)); white-space:normal; text-overflow:clip; overflow:visible; }
+.provider-body[data-provider-theme][data-provider-layout] .report-clients .report-metric-row :is(small,span) { font-size:calc(11px + var(--provider-text-step,0px)); line-height:1.35; white-space:normal; overflow:visible; overflow-wrap:anywhere; text-overflow:clip; }
 .provider-body[data-provider-theme][data-provider-layout] .report-service-row strong { font-size:calc(14px + var(--provider-text-step,0px)); line-height:1.4; white-space:normal; overflow:visible; text-overflow:clip; }
 .provider-body[data-provider-theme][data-provider-layout] .voice-understanding-note,
 .provider-body[data-provider-theme][data-provider-layout] .voice-understanding-note.is-low {

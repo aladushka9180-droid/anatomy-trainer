@@ -27,6 +27,9 @@
 .message-center-eyebrow { display:block; margin:0 0 5px; color:var(--mc-muted); font-size:10px; font-weight:850; letter-spacing:.12em; text-transform:uppercase; }
 .message-center-heading h1,.message-center-heading h2 { margin:0; color:var(--mc-ink); font-size:clamp(26px,3vw,38px); line-height:1.05; letter-spacing:-.04em; }
 .message-center-heading p { max-width:680px; margin:8px 0 0; color:var(--mc-muted); }
+.message-center-context-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.message-center-context-links button { min-height:40px; padding:8px 12px; border:1px solid var(--mc-line); border-radius:11px; background:var(--mc-surface); color:var(--mc-ink); cursor:pointer; }
+.message-center-context-links button:hover { background:var(--mc-accent-soft); }
 .message-center-state { display:flex; align-items:center; gap:7px; min-width:max-content; color:var(--mc-muted); font-size:12px; }
 .message-center-state::before { width:7px; height:7px; border-radius:50%; background:var(--mc-accent); content:""; }
 .message-center-state[data-state="offline"]::before,.message-center-state[data-state="error"]::before { background:var(--mc-warning); }
