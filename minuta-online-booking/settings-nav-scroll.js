@@ -61,6 +61,15 @@
   const scheduleStickyRefresh = () => {
     if (!stickyFrame) stickyFrame = requestAnimationFrame(refreshStickyState);
   };
+  let viewportFrame = 0;
+  const scheduleViewportRefresh = () => {
+    if (viewportFrame) return;
+    viewportFrame = requestAnimationFrame(() => {
+      viewportFrame = 0;
+      refresh();
+      refreshStickyState();
+    });
+  };
 
   picker.addEventListener('toggle', () => {
     summary.setAttribute('aria-expanded', String(picker.open));
@@ -95,7 +104,7 @@
     if (panel?.hidden || !panel?.classList.contains('active')) closePicker();
   }).observe(picker.closest('[data-provider-panel="settings"]'), { attributes:true, attributeFilter:['hidden','class'] });
   document.addEventListener('scroll', scheduleStickyRefresh, { passive:true, capture:true });
-  window.addEventListener('resize', scheduleStickyRefresh, { passive:true });
+  window.addEventListener('resize', scheduleViewportRefresh, { passive:true });
   refresh();
   summary.setAttribute('aria-expanded', 'false');
   refreshStickyState();

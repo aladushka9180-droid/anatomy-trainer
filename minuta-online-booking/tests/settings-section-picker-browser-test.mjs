@@ -100,6 +100,28 @@ try {
     }
   }
 
+  await page.setViewportSize({ width:1440, height:844 });
+  await page.evaluate(() => {
+    const nav = document.querySelector('.provider-section-nav');
+    const selected = nav.querySelector('[data-section-target="appearanceSettingsCard"]');
+    nav.querySelectorAll('[data-section-target]').forEach(button => {
+      button.classList.toggle('active', button === selected);
+      if (button === selected) button.setAttribute('aria-current', 'location');
+      else button.removeAttribute('aria-current');
+    });
+  });
+  await page.setViewportSize({ width:390, height:844 });
+  await page.waitForTimeout(100);
+  if (artifactDir) {
+    await mkdir(artifactDir, { recursive:true });
+    await page.screenshot({ path:path.join(artifactDir, 'settings-picker-desktop-to-mobile.png'), fullPage:false });
+  }
+  assert.equal(
+    await page.locator('.settings-section-picker-current').textContent(),
+    'Оформление',
+    'После сужения мобильный заголовок должен совпадать с открытым на ПК подразделом'
+  );
+
   await page.setViewportSize({ width:390, height:844 });
   const summary = page.locator('.settings-section-picker>summary');
   await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus(); });
