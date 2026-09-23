@@ -1,0 +1,124 @@
+name: Minuta v177 offline production-copy proof
+
+on:
+  push:
+    branches: [codex/pink-porcelain-release-v177-20260924]
+    paths:
+      - .github/workflows/minuta-v177-production-copy-proof.yml
+      - minuta-online-booking/scripts/ephemeral-restore-drill.sh
+      - minuta-online-booking/supabase-migration-v177.sql
+      - minuta-online-booking/supabase-migration-v177-rollback.sql
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: minuta-v177-offline-production-copy
+  cancel-in-progress: false
+
+jobs:
+  prove-copy:
+    if: github.repository == 'aladushka9180-droid/anatomy-trainer'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-production
+    env:
+      BACKUP_RUN_ID: '35922251598'
+      BACKUP_MAIN_SHA: 'ac601bd09bbf77ceab1fad55b2087b12081c47f9'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Pin exact successful backup and current main
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/codex/pink-porcelain-release-v177-20260924'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$BACKUP_MAIN_SHA"
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN_ID")"
+          jq -e --arg sha "$BACKUP_MAIN_SHA" --arg repo "$GITHUB_REPOSITORY" '
+            .conclusion == "success" and .event == "workflow_dispatch" and
+            .path == ".github/workflows/minuta-supabase-backup.yml" and
+            .head_branch == "main" and .head_sha == $sha and
+            .head_repository.full_name == $repo
+          ' <<<"$run" >/dev/null
+          age="$(( $(date -u +%s) - $(date -u -d "$(jq -r .created_at <<<"$run")" +%s) ))"
+          test "$age" -ge 0 && test "$age" -le 86400
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN_ID/artifacts")"
+          test "$(jq '[.artifacts[] | select(.expired == false and .size_in_bytes > 0)] | length' <<<"$artifacts")" = 1
+          name="$(jq -r '.artifacts[] | select(.expired == false and .size_in_bytes > 0) | .name' <<<"$artifacts")"
+          [[ "$name" =~ ^minuta-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}Z$ ]]
+          echo "artifact_name=$name" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ steps.source.outputs.artifact_name }}
+          path: ${{ runner.temp }}/encrypted-source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.BACKUP_RUN_ID }}
+
+      - name: Verify digest and decrypt only on runner
+        env:
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mapfile -t dumps < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg')
+          mapfile -t checksums < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg.sha256')
+          mapfile -t journals < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.json')
+          test "${#dumps[@]}" = 1 && test "${#checksums[@]}" = 1 && test "${#journals[@]}" = 1
+          expected="$(tr -d '[:space:]' < "${checksums[0]}")"
+          [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
+          test "$(sha256sum "${dumps[0]}" | awk '{print $1}')" = "$expected"
+          jq -e --arg digest "$expected" --arg run "$BACKUP_RUN_ID" --arg repo "$GITHUB_REPOSITORY" '
+            .schemaVersion == 1 and .operation == "backup" and .status == "success" and
+            .repository == $repo and .workflowRunId == $run and .encryptedSha256 == $digest and
+            .archiveFormat == "PostgreSQL custom" and .encryption == "OpenPGP symmetric AES-256"
+          ' "${journals[0]}" >/dev/null
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --output "$RUNNER_TEMP/minuta-restore-source.dump" --decrypt "${dumps[0]}"
+
+      - name: Restore, apply v177, rollback and reapply without network
+        env:
+          MINUTA_RESTORE_SOURCE_DUMP: ${{ runner.temp }}/minuta-restore-source.dump
+          MINUTA_RESTORE_MIGRATION_SQL: minuta-online-booking/supabase-migration-v177.sql
+          MINUTA_RESTORE_ROLLBACK_SQL: minuta-online-booking/supabase-migration-v177-rollback.sql
+        shell: bash
+        run: bash minuta-online-booking/scripts/ephemeral-restore-drill.sh
+
+      - name: Record non-sensitive evidence
+        env:
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '.status == "success" and .networkMode == "none" and
+            .candidateMigrationApplied and .candidateRollbackVerified and .candidateReapplied and
+            .ephemeralContainerDestroyed and (.productionWritten | not) and (.testDatabaseWritten | not)' \
+            "$RUNNER_TEMP/minuta-ephemeral-restore.json" >/dev/null
+          jq --arg sha "$SHA" --arg backup "$BACKUP_RUN_ID" --arg main "$BACKUP_MAIN_SHA" \
+            '. + {candidateSha:$sha,sourceBackupRunId:$backup,sourceBackupSha:$main}' \
+            "$RUNNER_TEMP/minuta-ephemeral-restore.json" > "$RUNNER_TEMP/v177-proof.json"
+          echo 'v177 apply / rollback / reapply on isolated production copy: PASS' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: minuta-v177-offline-proof-${{ github.run_id }}
+          path: ${{ runner.temp }}/v177-proof.json
+          if-no-files-found: error
+          retention-days: 35
+
+      - name: Remove decrypted copy and private temporary files
+        if: always()
+        shell: bash
+        run: |
+          rm -f -- "$RUNNER_TEMP/minuta-restore-source.dump" "$RUNNER_TEMP/minuta-restore-private.log" \
+            "$RUNNER_TEMP/source.toc" "$RUNNER_TEMP/public.toc" "$RUNNER_TEMP/public-post-data.sql" \
+            "$RUNNER_TEMP/filtered-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
