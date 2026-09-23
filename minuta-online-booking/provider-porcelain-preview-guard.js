@@ -63,6 +63,12 @@
       status:403, headers:{ 'content-type':'application/json' }
     }));
   };
+  const openRequest = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url, ...options) {
+    if (!['GET', 'HEAD'].includes(String(method).toUpperCase())) throw new Error('MINUTA_PREVIEW_READ_ONLY');
+    return openRequest.call(this, method, url, ...options);
+  };
+  navigator.sendBeacon = () => false;
 
   const safeControl = element => Boolean(element?.closest(
     '.provider-mobile-nav [data-provider-view], [data-provider-panel="more"] [data-provider-view], ' +

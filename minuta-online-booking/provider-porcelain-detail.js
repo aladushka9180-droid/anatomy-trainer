@@ -4,6 +4,16 @@
   const catalog = window.MinutaThemeCatalog;
   if (!matrix || !catalog) return;
   const defaultPair = Object.freeze({ character:'petal', shade:'gentle-pink' });
+  const heroCopy = Object.freeze({
+    pearl:'Сияние и гармония',
+    petal:'Нежность и забота',
+    silk:'Мягкость и покой'
+  });
+  const heroDetail = Object.freeze({
+    pearl:'Изящество в простоте',
+    petal:'Красота начинается с заботы',
+    silk:'Комфорт в каждом прикосновении'
+  });
 
   if (window.MINUTA_PORCELAIN_READ_ONLY_PREVIEW) {
     let lastDraft = null;
@@ -45,7 +55,8 @@
   page.setAttribute('aria-labelledby', 'providerPorcelainTitle');
   page.innerHTML = `
     <button class="provider-porcelain-back" id="providerPorcelainBack" type="button">← Все темы</button>
-    <header class="provider-porcelain-page-head"><h2 id="providerPorcelainTitle" tabindex="-1">Розовый фарфор</h2><p id="providerPorcelainTagline"></p></header>
+    <header class="provider-porcelain-page-head"><div><h2 id="providerPorcelainTitle" tabindex="-1">Розовый фарфор</h2><p id="providerPorcelainTagline"></p></div><span id="providerPorcelainHeroDetail"></span></header>
+    <p class="provider-porcelain-intro">Атмосфера спокойствия и вдохновения в каждой детали.</p>
     <div class="provider-porcelain-page-grid">
       <div class="provider-porcelain-controls">
         <fieldset class="provider-porcelain-fieldset"><legend>Характер темы</legend><div class="provider-porcelain-characters" id="providerPorcelainDetailCharacters"></div></fieldset>
@@ -55,7 +66,7 @@
       </div>
       <aside class="provider-porcelain-live" aria-label="Живой предпросмотр кабинета">
         <h3>Ваш мобильный кабинет</h3><p>Текущая дата и данные вашего кабинета. Можно переключать разделы и прокручивать; изменения в предпросмотре недоступны.</p>
-        <div class="provider-porcelain-live-frame"><iframe id="providerPorcelainPreview" title="Только чтение: ваш мобильный кабинет в выбранной теме" loading="lazy"></iframe></div>
+        <div class="provider-porcelain-live-frame"><iframe id="providerPorcelainPreview" title="Только чтение: ваш мобильный кабинет в выбранной теме" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe></div>
         <p class="provider-porcelain-live-status" id="providerPorcelainPreviewStatus" role="status">Подключаем предпросмотр…</p>
       </aside>
     </div>`;
@@ -81,12 +92,13 @@
   function render() {
     page.dataset.porcelainCharacter = draft.character;
     const characterOptions = catalog.porcelainCharacters;
-    page.querySelector('#providerPorcelainTagline').textContent = characterOptions.find(item => item.key === draft.character)?.tagline || '';
+    page.querySelector('#providerPorcelainTagline').textContent = heroCopy[draft.character];
+    page.querySelector('#providerPorcelainHeroDetail').textContent = heroDetail[draft.character];
     characterList.innerHTML = characterOptions.map(item => `
       <label class="provider-porcelain-character">
         <input type="radio" name="providerPorcelainDetailCharacter" value="${item.key}" ${draft.character === item.key ? 'checked' : ''}>
         <img src="${imageFor[item.key]}" alt="" width="960" height="600" loading="lazy">
-        <strong>${item.label}</strong><small>${item.tagline}</small>
+        <strong>${item.label}</strong><small>${heroCopy[item.key]}</small>
       </label>`).join('');
     shadeList.innerHTML = matrix.shadesFor(draft.character).map(item => {
       const palette = matrix.paletteFor(draft.character, item.key);
@@ -146,6 +158,13 @@
     event.stopImmediatePropagation();
     openEditor();
   }, true);
+  displayForm.addEventListener('change', event => {
+    if (!event.target.matches('.theme-pink-porcelain input')) return;
+    event.stopImmediatePropagation();
+    const selected = displayForm.querySelector(`input[name="providerTheme"][value="${displayPreferences.theme}"]`);
+    if (selected) selected.checked = true;
+    if (page.hidden) openEditor();
+  }, true);
 
   page.addEventListener('change', event => {
     if (event.target.name === 'providerPorcelainDetailCharacter') draft.character = matrix.normalizeCharacter(event.target.value);
@@ -162,7 +181,7 @@
     render();
   });
   page.querySelector('#providerPorcelainApply').addEventListener('click', () => {
-    saveDisplayPreferences({ ...displayPreferences, theme:'pink-porcelain', color_mode:'light', porcelain:draft });
+    saveDisplayPreferences({ ...displayPreferences, theme:'pink-porcelain', color_mode:'light', porcelain:{ ...draft } });
     saved = normalizeDisplayPreferences(displayPreferences);
     status.textContent = 'Тема применена к вашему кабинету.';
     sendDraft();

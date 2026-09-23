@@ -8,12 +8,13 @@
     pearl: {
       labels:['Лунный жемчуг', 'Молочный жемчуг', 'Розовый перламутр', 'Пудровый жемчуг', 'Яркий перламутр'],
       colors:[
-        ['#faf8f9','#f2e9ee','#a2386d','#dfced8'],
-        ['#fdfafa','#f8edf1','#ab3b71','#e3d2da'],
-        ['#fff6f9','#fce8f0','#b63775','#e8ccd9'],
-        ['#fcecf3','#f5dbe6','#a9316e','#dfbdcf'],
-        ['#f9e2ec','#edc9da','#92295e','#d6acc0']
+        ['#f7f8fc','#eaeef7','#733c7b','#cdd3e4'],
+        ['#f7f5fa','#ece5f4','#884079','#d8c9df'],
+        ['#f5eef8','#e9d9f1','#96427d','#d9c2e1'],
+        ['#f0e3f2','#dcc7e8','#82346e','#caaed7'],
+        ['#e4cee6','#d3aed6','#713064','#bd94c4']
       ],
+      actions:['#e8dbe8','#e6d2e4','#e3c6df','#d8b1d2','#c993bf'],
       shadow:'rgba(103, 67, 87, .09)'
     },
     petal: {
@@ -25,17 +26,19 @@
         ['#ffeaf1','#ffd7e5','#b82f67','#eebed0'],
         ['#ffdfeb','#ffc7db','#a7285b','#e6a9c1']
       ],
+      actions:['#f6dce4','#f5ccd9','#f3b8ce','#f2a0bd','#ef70a0'],
       shadow:'rgba(147, 53, 88, .11)'
     },
     silk: {
       labels:['Шёлковый жемчуг', 'Сливочный шёлк', 'Пудровый шёлк', 'Розовый атлас', 'Малиновый шёлк'],
       colors:[
-        ['#fdf9fa','#f5e9ee','#9a3568','#dfcbd5'],
-        ['#fff8f8','#f5e5ec','#a4376a','#e2c9d4'],
-        ['#fff2f6','#f4dce8','#aa326d','#e5c2d2'],
-        ['#fce7ef','#efcddd','#9d2b62','#dcb3c8'],
-        ['#f7dce8','#e8bbd0','#862657','#d1a2ba']
+        ['#fcf9f3','#f3e8e3','#8b4464','#dfcfcf'],
+        ['#faf3ef','#efdce0','#994363','#dfc4cf'],
+        ['#f8edec','#eacfd8','#a73a65','#dcb7c8'],
+        ['#f3dfe5','#dfbdcc','#97315d','#d4a6bb'],
+        ['#eccbd8','#d4aac0','#852b54','#c790a8']
       ],
+      actions:['#ead7db','#e5c8d1','#deb6c6','#d5a0b7','#c989a8'],
       shadow:'rgba(113, 49, 85, .14)'
     }
   };
@@ -56,7 +59,7 @@
     const [bg, surfaceAlt, accent, line] = character.colors[index];
     return {
       bg, surface:'#ffffff', surfaceAlt, ink:'#302b31', muted:'#625c64', line,
-      accent, accentSoft:surfaceAlt, contrast:'#ffffff', shadow:character.shadow,
+      accent, accentSoft:surfaceAlt, contrast:'#ffffff', actionBg:character.actions[index], actionInk:'#382532', shadow:character.shadow,
       pattern:`radial-gradient(ellipse at 88% 4%, ${surfaceAlt} 0%, transparent 38%), linear-gradient(145deg, ${bg}, #ffffff 58%, ${surfaceAlt})`,
       themeColor:bg, dark:false
     };

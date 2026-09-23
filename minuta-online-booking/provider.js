@@ -2333,13 +2333,15 @@ function applyProviderColorMode() {
     '--material-card-bg':palette.surface, '--material-card-border':palette.line,
     '--signature-sidebar':palette.surfaceAlt, '--signature-stage':palette.bg,
     '--signature-nav-active':palette.accentSoft, '--atmosphere-background':palette.pattern,
-    '--atmosphere-panel':palette.bg, '--atmosphere-panel-strong':palette.surface
+    '--atmosphere-panel':palette.bg, '--atmosphere-panel-strong':palette.surface,
+    '--porcelain-action-bg':palette.actionBg, '--porcelain-action-ink':palette.actionInk
   };
   if (theme.key === 'pink-porcelain') {
     Object.entries(tokens).forEach(([property, value]) => document.body.style.setProperty(property, value));
     document.body.dataset.providerPorcelainCharacter = displayPreferences.porcelain.character;
     return { ...colorState, palette, themeColor:palette.themeColor };
   }
+  Object.keys(tokens).forEach(property => document.body.style.removeProperty(property));
   delete document.body.dataset.providerPorcelainCharacter;
   return colorState;
 }
@@ -2434,7 +2436,8 @@ function renderDisplayPreferencesForm() {
   const catalog = window.MinutaThemeCatalog;
   const porcelainPicker = $('#providerPorcelainCustomization');
   if (porcelainPicker) {
-    porcelainPicker.hidden = displayPreferences.theme !== 'pink-porcelain';
+    // Pink Porcelain is edited only on its dedicated draft page.
+    porcelainPicker.hidden = true;
     $('#providerPorcelainShadeOptions').innerHTML = catalog.porcelainShades.map(item => `<label class="porcelain-shade-choice porcelain-shade-${item.key}"><input type="radio" name="providerPorcelainShade" value="${item.key}" aria-label="${escapeHtml(item.label)}" ${item.key === porcelain.shade ? 'checked' : ''}><span class="porcelain-shade-disc" aria-hidden="true"></span><strong>${escapeHtml(item.label)}</strong>${item.recommended ? '<em>Рекомендуем</em>' : ''}</label>`).join('');
     $('#providerPorcelainCharacterOptions').innerHTML = catalog.porcelainCharacters.map(item => `<label class="porcelain-option porcelain-art-${item.key}"><input type="radio" name="providerPorcelainCharacter" value="${item.key}" ${item.key === porcelain.character ? 'checked' : ''}><span class="porcelain-art" aria-hidden="true"><i></i><b></b></span><span class="porcelain-option-copy"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.tagline)}</small><span class="porcelain-mini-palette" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></span></label>`).join('');
   }

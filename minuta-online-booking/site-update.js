@@ -2,9 +2,10 @@
   'use strict';
 
   if (!('serviceWorker' in navigator)) return;
+  if (new URLSearchParams(location.search).get('porcelain-preview') === '1') return;
 
   const scriptUrl = document.currentScript?.src || location.href;
-  const workerUrl = new URL('./sw.js?v=886', scriptUrl).href;
+  const workerUrl = new URL('./sw.js?v=887', scriptUrl).href;
   const CHECK_INTERVAL_MS = 15 * 60 * 1000;
   let registration = null;
   let currentController = navigator.serviceWorker.controller;

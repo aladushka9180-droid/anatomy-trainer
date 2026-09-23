@@ -25,6 +25,7 @@ for (const character of ['pearl', 'petal', 'silk']) {
     assert.ok(contrast(palette.accent, palette.contrast) >= 4.5, `${character}/${shade.key}: accent contrast`);
     assert.ok(contrast(palette.ink, palette.surface) >= 7, `${character}/${shade.key}: text contrast`);
     assert.ok(contrast(palette.ink, palette.bg) >= 7, `${character}/${shade.key}: background contrast`);
+    assert.ok(contrast(palette.actionInk, palette.actionBg) >= 4.5, `${character}/${shade.key}: selected control contrast`);
     assert.ok(!pairs.has(`${palette.bg}/${palette.accent}`), `${character}/${shade.key}: distinct pair`);
     pairs.add(`${palette.bg}/${palette.accent}`);
   }
