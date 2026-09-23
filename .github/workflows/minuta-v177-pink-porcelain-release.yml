@@ -1,0 +1,287 @@
+name: Minuta v177 pink porcelain safe release
+run-name: Minuta v177 — ${{ inputs.phase }} — ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        required: true
+        type: choice
+        options: [validate-production, prove-offline-copy, apply-production]
+      commit_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      backup_run_id:
+        description: Exact successful encrypted backup run ID
+        required: false
+        default: ''
+        type: string
+      proof_run_id:
+        description: Exact successful offline-copy proof run ID
+        required: false
+        default: ''
+        type: string
+      validation_run_id:
+        description: Exact successful read-only validation run ID
+        required: false
+        default: ''
+        type: string
+      confirmation:
+        description: For production SQL enter BACKUP_RESTORE_ROLLBACK_VERIFIED
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ inputs.phase == 'prove-offline-copy' && 'minuta-v177-offline-copy' || 'minuta-production-database' }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - name: Pin exact main and migration scope
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test -s minuta-online-booking/supabase-migration-v177.sql
+          test -s minuta-online-booking/supabase-migration-v177-rollback.sql
+          case "$PHASE" in
+            validate-production|prove-offline-copy) ;;
+            apply-production) test "$CONFIRMATION" = BACKUP_RESTORE_ROLLBACK_VERIFIED ;;
+            *) exit 1 ;;
+          esac
+
+  validate-production:
+    if: inputs.phase == 'validate-production'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Validate production prerequisites without writes
+        env:
+          SHA: ${{ inputs.commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select jsonb_build_object('table',to_regclass('public.organization_client_page_settings') is not null,'reader',to_regprocedure('public.get_minuta_client_page_settings_v118(uuid)') is not null,'writer',to_regprocedure('public.set_minuta_client_page_settings_v118(uuid,text,text)') is not null,'catalog',to_regprocedure('public.get_public_minuta_catalog_v5(text)') is not null,'newWriter',to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is not null,'bookings',(select count(*) from public.bookings));")"
+          jq -e '.table and .reader and .writer and .catalog and (.newWriter | not) and .bookings >= 0' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" \
+            '{status:"success",phase:"validate-production",commitSha:$sha,readOnly:true,productionWritten:false,state:$state}' \
+            > "$RUNNER_TEMP/v177-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: minuta-v177-validation-${{ github.run_id }}
+          path: ${{ runner.temp }}/v177-validation.json
+          if-no-files-found: error
+          retention-days: 35
+
+  prove-offline-copy:
+    if: inputs.phase == 'prove-offline-copy'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - name: Pin fresh successful backup of exact main
+        id: source
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN_ID")"
+          jq -e --arg sha "$SHA" --arg repo "$GITHUB_REPOSITORY" '
+            .conclusion == "success" and .event == "workflow_dispatch" and
+            .path == ".github/workflows/minuta-supabase-backup.yml" and
+            .head_branch == "main" and .head_sha == $sha and
+            .head_repository.full_name == $repo
+          ' <<<"$run" >/dev/null
+          age="$(( $(date -u +%s) - $(date -u -d "$(jq -r .created_at <<<"$run")" +%s) ))"
+          test "$age" -ge 0 && test "$age" -le 7200
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN_ID/artifacts")"
+          test "$(jq '[.artifacts[] | select(.expired == false and .size_in_bytes > 0)] | length' <<<"$artifacts")" = 1
+          name="$(jq -r '.artifacts[] | select(.expired == false and .size_in_bytes > 0) | .name' <<<"$artifacts")"
+          [[ "$name" =~ ^minuta-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}Z$ ]]
+          echo "artifact_name=$name" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ steps.source.outputs.artifact_name }}
+          path: ${{ runner.temp }}/encrypted-source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.backup_run_id }}
+      - name: Verify digest and decrypt only on runner
+        env:
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mapfile -t dumps < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg')
+          mapfile -t checksums < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg.sha256')
+          mapfile -t journals < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.json')
+          test "${#dumps[@]}" = 1 && test "${#checksums[@]}" = 1 && test "${#journals[@]}" = 1
+          expected="$(tr -d '[:space:]' < "${checksums[0]}")"
+          [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
+          test "$(sha256sum "${dumps[0]}" | awk '{print $1}')" = "$expected"
+          jq -e --arg digest "$expected" --arg run "$BACKUP_RUN_ID" --arg repo "$GITHUB_REPOSITORY" '
+            .schemaVersion == 1 and .operation == "backup" and .status == "success" and
+            .repository == $repo and .workflowRunId == $run and .encryptedSha256 == $digest and
+            .archiveFormat == "PostgreSQL custom" and .encryption == "OpenPGP symmetric AES-256"
+          ' "${journals[0]}" >/dev/null
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --output "$RUNNER_TEMP/minuta-restore-source.dump" --decrypt "${dumps[0]}"
+      - name: Restore, apply v177, rollback and reapply without network
+        env:
+          MINUTA_RESTORE_SOURCE_DUMP: ${{ runner.temp }}/minuta-restore-source.dump
+          MINUTA_RESTORE_MIGRATION_SQL: minuta-online-booking/supabase-migration-v177.sql
+          MINUTA_RESTORE_ROLLBACK_SQL: minuta-online-booking/supabase-migration-v177-rollback.sql
+        shell: bash
+        run: bash minuta-online-booking/scripts/ephemeral-restore-drill.sh
+      - name: Record non-sensitive evidence
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '.status == "success" and .networkMode == "none" and
+            .candidateMigrationApplied and .candidateRollbackVerified and .candidateReapplied and
+            .ephemeralContainerDestroyed and (.productionWritten | not) and (.testDatabaseWritten | not)' \
+            "$RUNNER_TEMP/minuta-ephemeral-restore.json" >/dev/null
+          jq --arg sha "$SHA" --arg backup "$BACKUP_RUN_ID" \
+            '. + {commitSha:$sha,sourceBackupRunId:$backup,sourceBackupSha:$sha}' \
+            "$RUNNER_TEMP/minuta-ephemeral-restore.json" > "$RUNNER_TEMP/v177-proof.json"
+          echo 'v177 apply / rollback / reapply on isolated production copy: PASS' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: minuta-v177-offline-proof-${{ github.run_id }}
+          path: ${{ runner.temp }}/v177-proof.json
+          if-no-files-found: error
+          retention-days: 35
+      - name: Remove decrypted copy and private temporary files
+        if: always()
+        shell: bash
+        run: |
+          rm -f -- "$RUNNER_TEMP/minuta-restore-source.dump" "$RUNNER_TEMP/minuta-restore-private.log" \
+            "$RUNNER_TEMP/source.toc" "$RUNNER_TEMP/public.toc" "$RUNNER_TEMP/public-post-data.sql" \
+            "$RUNNER_TEMP/filtered-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
+
+  apply-production:
+    if: inputs.phase == 'apply-production'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - name: Verify exact validation, fresh backup and offline rollback proof
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          BACKUP: ${{ inputs.backup_run_id }}
+          PROOF: ${{ inputs.proof_run_id }}
+          VALIDATION: ${{ inputs.validation_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP" "$PROOF" "$VALIDATION"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          check_run() {
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"
+            jq -e --arg sha "$SHA" --arg path "$2" '
+              .conclusion == "success" and .event == "workflow_dispatch" and
+              .head_branch == "main" and .head_sha == $sha and .path == $path
+            ' <<<"$run" >/dev/null
+          }
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age="$(( $(date -u +%s) - $(date -u -d "$(jq -r .created_at <<<"$run")" +%s) ))"
+          test "$age" -ge 0 && test "$age" -le 7200
+          check_run "$PROOF" .github/workflows/minuta-v177-pink-porcelain-release.yml
+          gh run download "$PROOF" -R "$GITHUB_REPOSITORY" -n "minuta-v177-offline-proof-$PROOF" -D "$RUNNER_TEMP/v177-proof"
+          jq -e --arg sha "$SHA" --arg backup "$BACKUP" '
+            .status == "success" and .commitSha == $sha and .sourceBackupRunId == $backup and
+            .sourceBackupSha == $sha and .networkMode == "none" and
+            .candidateMigrationApplied and .candidateRollbackVerified and .candidateReapplied and
+            .ephemeralContainerDestroyed and (.productionWritten | not) and (.testDatabaseWritten | not)
+          ' "$RUNNER_TEMP/v177-proof/v177-proof.json" >/dev/null
+          check_run "$VALIDATION" .github/workflows/minuta-v177-pink-porcelain-release.yml
+          gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "minuta-v177-validation-$VALIDATION" -D "$RUNNER_TEMP/v177-validation"
+          jq -e --arg sha "$SHA" '
+            .status == "success" and .commitSha == $sha and .readOnly and
+            .state.table and .state.reader and .state.writer and .state.catalog and
+            (.state.newWriter | not) and (.productionWritten | not)
+          ' "$RUNNER_TEMP/v177-validation/v177-validation.json" >/dev/null
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply atomically with compatible rollback on postflight failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          before="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c 'select count(*) from public.bookings')"
+          applied=0
+          rollback_on_error() {
+            if test "$applied" = 1; then
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v177-rollback.sql || true
+            fi
+          }
+          trap rollback_on_error ERR
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v177.sql
+          applied=1
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select jsonb_build_object('reader',to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is not null,'writer',to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is not null,'anonWriter',has_function_privilege('anon','public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)','EXECUTE'),'authenticatedWriter',has_function_privilege('authenticated','public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)','EXECUTE'),'shadeColumn',exists(select 1 from information_schema.columns where table_schema='public' and table_name='organization_client_page_settings' and column_name='porcelain_shade'));")"
+          jq -e '.reader and .writer and (.anonWriter | not) and .authenticatedWriter and .shadeColumn' <<<"$state" >/dev/null
+          after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c 'select count(*) from public.bookings')"
+          test "$before" = "$after"
+          trap - ERR
+          jq -n --arg sha '${{ inputs.commit_sha }}' --argjson state "$state" --arg count "$after" \
+            '{status:"success",phase:"apply-production",commitSha:$sha,state:$state,bookingCount:$count,productionWritten:true,businessRowsChanged:false,automaticRollbackArmed:true}' \
+            > "$RUNNER_TEMP/v177-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: minuta-v177-apply-${{ github.run_id }}
+          path: ${{ runner.temp }}/v177-apply.json
+          if-no-files-found: error
+          retention-days: 90
