@@ -27,7 +27,6 @@ const ASSETS = [
   './provider-price-list.css?v=871',
   './provider-service-actions.css?v=811',
   './provider-header.css?v=865',
-  './client-themes.css?v=885',
   './provider-themes-wildlife.css?v=811',
   './client-results.css?v=876',
   './client-directory.css?v=811',
@@ -72,6 +71,7 @@ const ASSETS = [
 // Warm after the first screen. A cold installation must not wait for tools
 // that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
+  './client-themes.css?v=885',
   './report-demo-live.js?v=811',
   './loyalty-program-v166.js?v=865',
   './provider-schedule-desktop-reference.css?v=865',

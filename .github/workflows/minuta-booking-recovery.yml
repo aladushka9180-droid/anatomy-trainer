@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'minuta-online-booking/group-bookings.js'
+      - 'minuta-online-booking/client-url-redirect-test.mjs'
       - 'minuta-online-booking/benefit-management.js'
       - 'minuta-online-booking/tests/group-bookings-recovery-test.mjs'
       - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
@@ -25,6 +26,7 @@ on:
   pull_request:
     paths:
       - 'minuta-online-booking/group-bookings.js'
+      - 'minuta-online-booking/client-url-redirect-test.mjs'
       - 'minuta-online-booking/benefit-management.js'
       - 'minuta-online-booking/tests/group-bookings-recovery-test.mjs'
       - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
