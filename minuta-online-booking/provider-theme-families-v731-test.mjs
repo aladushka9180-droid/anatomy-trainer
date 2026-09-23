@@ -12,7 +12,7 @@ const families = {
   digital:['graphite', 'hitech', 'carbon-crimson', 'ash-flame', 'oled-mono', 'volt-graphite'],
   natural:['eco', 'japandi', 'desert', 'celadon'],
   materials:['luxury', 'loft', 'carbon-ember', 'petrol-steel', 'cobalt-forge', 'concrete-signal', 'obsidian-champagne', 'cocoa-pearl', 'coastal', 'midnight', 'noir-safari'],
-  mist:['warm', 'lavender', 'rose', 'burgundy', 'butter', 'mocha-pastel', 'noir-rose'],
+  mist:['warm', 'pink-porcelain', 'lavender', 'rose', 'burgundy', 'butter', 'mocha-pastel', 'noir-rose'],
   textile:['pearl', 'peach-silk', 'plum-cashmere'],
   water:['azure-lagoon', 'moonlit-lilac'],
   botanical:['botanical', 'blue-hydrangea'],
@@ -20,7 +20,7 @@ const families = {
 };
 const mappedThemes = Object.values(families).flat();
 
-assert.equal(themes.length, 40, 'Каталог должен содержать 40 тем');
+assert.equal(themes.length, 41, 'Каталог должен содержать 41 тему');
 assert.deepEqual([...mappedThemes].sort(), [...themes].sort(), 'Каждая тема должна входить ровно в одно визуальное семейство');
 assert.equal(new Set(mappedThemes).size, mappedThemes.length, 'В семействах не должно быть дублей');
 
@@ -74,7 +74,7 @@ const signatures = themes.map(theme => {
 });
 const neutralThemes = themes.filter((theme, index) => signatures[index] === 'none||');
 assert.deepEqual(neutralThemes.sort(), ['noir-safari', 'sage'], 'Только темы со своим отдельным фоном могут обходиться без семейного мотива');
-assert.equal(new Set(signatures.filter(signature => signature !== 'none||')).size, 38, 'У каждой темы с семейным мотивом должно оставаться собственное цветовое прочтение');
+assert.equal(new Set(signatures.filter(signature => signature !== 'none||')).size, 39, 'У каждой темы с семейным мотивом должно оставаться собственное цветовое прочтение');
 assert.equal((css.match(/url\("data:image\/svg\+xml/g) || []).length, 3, 'Нужно ровно три лёгкие векторные топологии');
 assert.doesNotMatch(css, /url\([^)]*\.(?:png|jpe?g|webp)/i, 'Фактурный слой не должен загружать растровые обои');
 
@@ -100,4 +100,4 @@ assert.match(provider, new RegExp(`provider-theme-families\\.css\\?v=${familyRel
 assert.match(worker, new RegExp(`\\.\\/provider-theme-families\\.css\\?v=${familyRelease}`));
 assert.match(worker, new RegExp(`\\.\\/provider-theme-backgrounds-tema1\\.css\\?v=${backgroundRelease}`));
 
-console.log('Provider theme families v819: PASS (40 themes, 9 families).');
+console.log('Provider theme families v819: PASS (41 themes, 9 families).');

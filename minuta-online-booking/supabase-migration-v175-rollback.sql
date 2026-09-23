@@ -1,12 +1,12 @@
--- Compatibility rollback: stop v174 writes and restore the v118 public shape.
+-- Compatibility rollback: stop v175 writes and restore the v118 public shape.
 -- Keep additive columns, expanded theme constraint and saved selections intact.
--- An older UI will display its safe fallback until the v174 UI is restored.
+-- An older UI will display its safe fallback until the v175 UI is restored.
 begin;
 
 set local search_path = pg_catalog, public, extensions;
 
-drop function if exists public.set_minuta_client_page_settings_v174(uuid,text,text,text,text);
-drop function if exists public.get_minuta_client_page_settings_v174(uuid);
+drop function if exists public.set_minuta_client_page_settings_v175(uuid,text,text,text,text);
+drop function if exists public.get_minuta_client_page_settings_v175(uuid);
 
 create or replace function public.get_public_minuta_catalog_v5(p_slug text)
 returns jsonb language sql stable security definer set search_path to '' as $$

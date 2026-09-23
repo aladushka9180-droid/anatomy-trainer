@@ -8,7 +8,7 @@ const html = readFileSync(join(root, 'provider.html'), 'utf8');
 const dialog = html.match(/<dialog class="price-list-dialog"[\s\S]*?<\/dialog>/)?.[0];
 assert.ok(dialog, 'price list dialog exists');
 const themes = [...html.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
-assert.equal(themes.length, 40, 'complete provider theme catalog');
+assert.equal(themes.length, 41, 'complete provider theme catalog');
 const styles = ['styles.css', 'provider-theme-loft-modern.css', 'provider-themes-signature.css',
   'provider-themes-calm.css', 'provider-layout-responsive.css', 'provider-ux.css',
   'provider-theme-families.css', 'provider-themes-wildlife.css', 'provider-theme-noir-safari.css',
@@ -70,5 +70,5 @@ const fixture = `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name
       await page.close();
     }
   } finally { await browser.close(); }
-  console.log('Price list browser geometry passed in 40 themes at 390, 760, 1440 px');
+  console.log(`Price list browser geometry passed in ${themes.length} themes at 390, 760, 1440 px`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

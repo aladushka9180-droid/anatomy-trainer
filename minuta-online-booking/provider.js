@@ -6302,8 +6302,8 @@ async function loadClientAppearanceSettings(organization = organizationControlle
   if (!navigator.onLine) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  let { data, error } = await db.rpc('get_minuta_client_page_settings_v174', { p_organization:organization.id });
-  const supportsPorcelain = !isMissingRpc(error,'get_minuta_client_page_settings_v174');
+  let { data, error } = await db.rpc('get_minuta_client_page_settings_v175', { p_organization:organization.id });
+  const supportsPorcelain = !isMissingRpc(error,'get_minuta_client_page_settings_v175');
   if (!supportsPorcelain) ({ data, error } = await db.rpc('get_minuta_client_page_settings_v118', { p_organization:organization.id }));
   if (loadRevision !== clientPageSettingsLoadRevision || !sessionIsCurrent(userId,generation) || organizationController.getActiveOrganization()?.id !== organization.id) return;
   clientPageSettingsServerSupportsPorcelain = supportsPorcelain && !error;
@@ -6347,7 +6347,7 @@ function enqueueClientAppearanceServerSave(organization, stored, { silent=false 
       if (stored.porcelain && !clientPageSettingsServerSupportsPorcelain) {
         error = { code:'PGRST202',message:'pink_porcelain_server_unavailable' };
       } else {
-        const rpcName = clientPageSettingsServerSupportsPorcelain ? 'set_minuta_client_page_settings_v174' : 'set_minuta_client_page_settings_v118';
+        const rpcName = clientPageSettingsServerSupportsPorcelain ? 'set_minuta_client_page_settings_v175' : 'set_minuta_client_page_settings_v118';
         const args = { p_organization:organization.id,p_theme_key:stored.theme_key,p_headline_key:stored.headline_key };
         if (clientPageSettingsServerSupportsPorcelain) {
           args.p_porcelain_shade = stored.porcelain?.shade || null;

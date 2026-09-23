@@ -19,7 +19,7 @@ assert.match(todayVisibilityHelper, /is-edge-clipped/);
 const scheduleCssSource = fs.readFileSync(path.join(root, 'provider-schedule-minimal.css'), 'utf8');
 const themeCatalogSource = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const themeKeys = [...themeCatalogSource.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
-assert.equal(themeKeys.length, 40, `Expected the complete 40-theme provider catalog, received ${themeKeys.length}`);
+assert.equal(themeKeys.length, 41, `Expected the complete 41-theme provider catalog, received ${themeKeys.length}`);
 assert.match(providerSource, /--timeline-empty-hint-top:\$\{emptyHintTop\}px/, 'Timeline does not expose the adaptive empty-day hint position');
 assert.match(providerSource, /const horizontalIntent = Math\.abs\(event\.deltaX\) > Math\.abs\(event\.deltaY\) \|\| event\.shiftKey;/, 'Desktop date navigation still captures ordinary vertical scrolling');
 assert.doesNotMatch(providerSource, /touchend[\s\S]{0,500}queueMobileDateSettle\(\)/, 'Mobile touchend starts a second date-settle animation before native momentum ends');
@@ -1264,7 +1264,7 @@ try {
         }
         return results;
       }, { themes:themeKeys, filters:['day','upcoming','all'] });
-      assert.equal(themeFilterMatrix.length, 120, `${width}px theme/filter matrix is incomplete`);
+      assert.equal(themeFilterMatrix.length, themeKeys.length * 3, `${width}px theme/filter matrix is incomplete`);
       assert.ok(themeFilterMatrix.every(row => row.title === 'Массаж спины + ШВЗ — углублённый' && row.titleLines === 1 && row.titleFits && row.paymentVisible && row.contained && row.fill === row.expectedFill && row.fill !== 'rgba(0, 0, 0, 0)' && row.border !== 'rgba(0, 0, 0, 0)'), `${width}px one-line title, metadata, containment or themed surface failed: ${JSON.stringify(themeFilterMatrix.filter(row => !(row.titleLines === 1 && row.titleFits && row.paymentVisible && row.contained && row.fill === row.expectedFill)).slice(0,5))}`);
       for (const theme of themeKeys) {
         const rows = themeFilterMatrix.filter(row => row.theme === theme);

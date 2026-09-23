@@ -3,8 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 const root = new URL('../', import.meta.url);
-const [v118, v174, rollback] = await Promise.all([
-  'supabase-migration-v118.sql', 'supabase-migration-v174.sql', 'supabase-migration-v174-rollback.sql'
+const [v118, v175, rollback] = await Promise.all([
+  'supabase-migration-v118.sql', 'supabase-migration-v175.sql', 'supabase-migration-v175-rollback.sql'
 ].map(name => readFile(new URL(name, root), 'utf8')));
 const moduleName = process.env.MINUTA_PGLITE_MODULE || '@electric-sql/pglite';
 const { PGlite } = await import(/^[A-Za-z]:[\\/]/.test(moduleName) ? pathToFileURL(moduleName).href : moduleName);
@@ -58,40 +58,40 @@ try {
   const backup = await db.dumpDataDir();
   assert.ok(backup.size > 0, 'isolated pre-migration backup must be nonempty');
 
-  await db.exec(v174);
+  await db.exec(v175);
   await db.exec('set role authenticated;');
-  const saved = await scalar(db, `select public.set_minuta_client_page_settings_v174('${organization}','pink-porcelain','beauty','petal-pink','silk')`);
+  const saved = await scalar(db, `select public.set_minuta_client_page_settings_v175('${organization}','pink-porcelain','beauty','petal-pink','silk')`);
   assert.deepEqual(saved.porcelain, { shade:'petal-pink', character:'silk' });
-  const read = await scalar(db, `select public.get_minuta_client_page_settings_v174('${organization}')`);
+  const read = await scalar(db, `select public.get_minuta_client_page_settings_v175('${organization}')`);
   assert.deepEqual(read.porcelain, saved.porcelain);
-  await expectError(db, `select public.set_minuta_client_page_settings_v174('${organization}','pink-porcelain','beauty','invalid','silk')`, 'client_page_porcelain_options_invalid');
+  await expectError(db, `select public.set_minuta_client_page_settings_v175('${organization}','pink-porcelain','beauty','invalid','silk')`, 'client_page_porcelain_options_invalid');
   await expectError(db, `select public.set_minuta_client_page_settings_v118('${organization}','sage','care')`, 'organization_client_page_porcelain_options_check');
   await db.exec('reset role; set role anon;');
   const published = await scalar(db, "select public.get_public_minuta_catalog_v5('tenant-a')");
   assert.deepEqual(published.client_page, { theme_key:'pink-porcelain', headline_key:'beauty', porcelain:{ shade:'petal-pink', character:'silk' } });
-  await expectError(db, `select public.set_minuta_client_page_settings_v174('${organization}','sage','care')`, 'permission denied');
+  await expectError(db, `select public.set_minuta_client_page_settings_v175('${organization}','sage','care')`, 'permission denied');
   await db.exec('reset role;');
   await db.exec(`select set_config('request.jwt.claim.sub','${outsider}',false); set role authenticated;`);
-  await expectError(db, `select public.get_minuta_client_page_settings_v174('${organization}')`, 'organization_read_denied');
-  await expectError(db, `select public.set_minuta_client_page_settings_v174('${organization}','sage','care')`, 'organization_owner_required');
+  await expectError(db, `select public.get_minuta_client_page_settings_v175('${organization}')`, 'organization_read_denied');
+  await expectError(db, `select public.set_minuta_client_page_settings_v175('${organization}','sage','care')`, 'organization_owner_required');
   await db.exec('reset role;');
 
   await db.exec(rollback);
-  assert.equal(await scalar(db, "select to_regprocedure('public.set_minuta_client_page_settings_v174(uuid,text,text,text,text)') is null"), true);
+  assert.equal(await scalar(db, "select to_regprocedure('public.set_minuta_client_page_settings_v175(uuid,text,text,text,text)') is null"), true);
   const retained = (await db.query(`select theme_key,porcelain_shade,porcelain_character from public.organization_client_page_settings where organization_id='${organization}'`)).rows[0];
   assert.deepEqual(retained, { theme_key:'pink-porcelain', porcelain_shade:'petal-pink', porcelain_character:'silk' });
   const rolledBackCatalog = await scalar(db, "select public.get_public_minuta_catalog_v5('tenant-a')");
   assert.deepEqual(rolledBackCatalog.client_page, { theme_key:'pink-porcelain', headline_key:'beauty' });
-  await db.exec(v174);
+  await db.exec(v175);
   assert.deepEqual((await scalar(db, "select public.get_public_minuta_catalog_v5('tenant-a')")).client_page.porcelain, retained && { shade:'petal-pink', character:'silk' });
 
   const restored = new PGlite({ loadDataDir:backup });
   try {
     const original = (await restored.query(`select theme_key,headline_key from public.organization_client_page_settings where organization_id='${organization}'`)).rows[0];
     assert.deepEqual(original, { theme_key:'warm', headline_key:'care' });
-    assert.equal(await scalar(restored, "select to_regprocedure('public.set_minuta_client_page_settings_v174(uuid,text,text,text,text)') is null"), true);
-    await restored.exec(v174);
-    assert.equal(await scalar(restored, "select to_regprocedure('public.set_minuta_client_page_settings_v174(uuid,text,text,text,text)') is not null"), true);
+    assert.equal(await scalar(restored, "select to_regprocedure('public.set_minuta_client_page_settings_v175(uuid,text,text,text,text)') is null"), true);
+    await restored.exec(v175);
+    assert.equal(await scalar(restored, "select to_regprocedure('public.set_minuta_client_page_settings_v175(uuid,text,text,text,text)') is not null"), true);
   } finally { await restored.close(); }
-  console.log('Pink Porcelain v174 PGlite: tenant and role scope, validation, stale client safety, public shape, backup restore, rollback and reapply PASS');
+  console.log('Pink Porcelain v175 PGlite: tenant and role scope, validation, stale client safety, public shape, backup restore, rollback and reapply PASS');
 } finally { await db.close(); }

@@ -88,8 +88,9 @@ for (const [key, color, group] of [
   assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=811/, 'Кабинет не подключает Signature Collection v811');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=811/, 'Service Worker не кэширует Signature Collection v811');
+const signatureVersion = provider.match(/provider-themes-signature\.css\?v=(\d+)/)?.[1];
+assert.ok(signatureVersion, 'Кабинет не подключает Signature Collection');
+assert.ok(worker.includes(`./provider-themes-signature.css?v=${signatureVersion}`), 'Service Worker не кэширует Signature Collection');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));

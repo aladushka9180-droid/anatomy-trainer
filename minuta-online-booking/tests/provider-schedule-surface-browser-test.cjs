@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'provider.html'), 'utf8');
 const themes = [...html.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
-assert.equal(themes.length, 40, 'theme inventory changed');
+assert.equal(themes.length, 41, 'theme inventory changed');
 const output = process.env.MINUTA_SCHEDULE_SURFACE_OUTPUT;
 if (output) fs.mkdirSync(output, { recursive:true });
 
@@ -90,7 +90,7 @@ const server = http.createServer((request, response) => {
       assert.equal(result.radius, '18px', `${theme}: date strip removed panel corners`);
     }
     assert.notEqual(surfaces.get('warm'), surfaces.get('carbon-crimson'), 'theme surfaces collapsed to one color');
-    console.log('Provider schedule surface: 40 themes x 390/760/1440 OK');
+    console.log(`Provider schedule surface: ${themes.length} themes x 390/760/1440 OK`);
   } finally {
     await browser?.close();
     server.close();

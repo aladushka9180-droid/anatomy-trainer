@@ -9,7 +9,7 @@ do $$ begin
      or to_regprocedure('public.get_public_minuta_catalog_v5(text)') is null
      or to_regprocedure('public.get_minuta_client_page_settings_v118(uuid)') is null
      or to_regprocedure('public.set_minuta_client_page_settings_v118(uuid,text,text)') is null then
-    raise exception using errcode='P0001',message='v174_requires_v118_client_page_settings';
+    raise exception using errcode='P0001',message='v175_requires_v118_client_page_settings';
   end if;
 end $$;
 
@@ -39,7 +39,7 @@ alter table public.organization_client_page_settings
   );
 
 -- Keep v118 reader/writer callable for cached clients during the PWA transition.
-create or replace function public.get_minuta_client_page_settings_v174(p_organization uuid)
+create or replace function public.get_minuta_client_page_settings_v175(p_organization uuid)
 returns jsonb
 language plpgsql stable security definer set search_path to '' as $$
 declare v_settings jsonb;
@@ -56,7 +56,7 @@ begin
   return v_settings;
 end $$;
 
-create or replace function public.set_minuta_client_page_settings_v174(
+create or replace function public.set_minuta_client_page_settings_v175(
   p_organization uuid,p_theme_key text,p_headline_key text,
   p_porcelain_shade text default null,p_porcelain_character text default null
 ) returns jsonb
@@ -144,10 +144,10 @@ returns jsonb language sql stable security definer set search_path to '' as $$
     on settings.organization_id=organization.id;
 $$;
 
-revoke all on function public.get_minuta_client_page_settings_v174(uuid) from public,anon,authenticated,service_role;
-revoke all on function public.set_minuta_client_page_settings_v174(uuid,text,text,text,text) from public,anon,authenticated,service_role;
-grant execute on function public.get_minuta_client_page_settings_v174(uuid) to authenticated;
-grant execute on function public.set_minuta_client_page_settings_v174(uuid,text,text,text,text) to authenticated;
+revoke all on function public.get_minuta_client_page_settings_v175(uuid) from public,anon,authenticated,service_role;
+revoke all on function public.set_minuta_client_page_settings_v175(uuid,text,text,text,text) from public,anon,authenticated,service_role;
+grant execute on function public.get_minuta_client_page_settings_v175(uuid) to authenticated;
+grant execute on function public.set_minuta_client_page_settings_v175(uuid,text,text,text,text) to authenticated;
 
 notify pgrst,'reload schema';
 commit;

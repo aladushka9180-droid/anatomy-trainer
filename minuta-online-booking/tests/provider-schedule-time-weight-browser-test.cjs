@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'provider.html'), 'utf8');
 const themes = [...html.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
-assert.equal(themes.length, 40);
+assert.equal(themes.length, 41);
 const output = process.env.MINUTA_SCHEDULE_TIME_OUTPUT;
 if (output) fs.mkdirSync(output, { recursive:true });
 
@@ -84,7 +84,7 @@ const server = http.createServer((request, response) => {
         }
       }
     }
-    console.log('Provider schedule time weight: 40 themes x 390/760/1440, record and automatic break OK');
+    console.log(`Provider schedule time weight: ${themes.length} themes x 390/760/1440, record and automatic break OK`);
   } finally {
     await browser?.close();
     server.close();

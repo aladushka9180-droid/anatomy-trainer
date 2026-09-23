@@ -239,6 +239,13 @@
 }
 
 /* Light and mist */
+.provider-body[data-provider-theme="pink-porcelain"],.provider-theme-option.theme-pink-porcelain {
+  --theme-canvas-texture:radial-gradient(circle at 87% 8%,#ffffff 0 5%,#f6b9cf 10%,transparent 21%),radial-gradient(ellipse at 12% 86%,#f0a6c3,transparent 37%);
+  --theme-canvas-size:100% 100%;
+  --theme-canvas-repeat:no-repeat;
+  --theme-canvas-opacity:.045;
+}
+
 .provider-body[data-provider-theme="warm"],.provider-theme-option.theme-warm {
   --theme-canvas-texture:radial-gradient(circle at 16% 4%,#e6ad72,transparent 36%),radial-gradient(circle at 88% 72%,#f1c38d,transparent 42%),radial-gradient(circle at 48% 108%,#bd7853,transparent 34%);
   --theme-canvas-size:100% 100%;

@@ -11,7 +11,7 @@ const catalog = readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const providerHtml = readFileSync(path.join(root, 'provider.html'), 'utf8');
 const styles = readFileSync(path.join(root, 'styles.css'), 'utf8');
 const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
-assert.equal(themes.length, 40, 'the complete provider theme catalog must be covered');
+assert.equal(themes.length, 41, 'the complete provider theme catalog must be covered');
 for (const label of [
   'Адреса и часовые пояса',
   'Роли и онлайн-запись',

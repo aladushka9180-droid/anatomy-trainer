@@ -22,6 +22,7 @@ try {
     const dates=[{iso:'2026-09-06',label:'6 сентября',weekday:'вс',day:'6'}];
     const state=window.state={date:'2026-09-06',serviceId:'service-a',locationId:'location-a',teamMode:true,
       organization:{public_slug:'org-a'},locations:[{id:'location-a',name:'Центр'}],
+      clientPage:{theme_key:'pink-porcelain',porcelain:{shade:'gentle-pink',character:'petal'}},
       availability:new Map([['2026-09-06',['14:00']]]),loadingAvailability:false,availabilityError:false};
     const service={id:'service-a',name:'Массаж',duration_minutes:90,performer_profiles:{display_name:'Мастер А'}};
     const selectedService=()=>service,selectedDate=()=>dates[0],serviceName=name=>name,escapeHtml=value=>value;
@@ -60,7 +61,12 @@ try {
   const first=(await page.evaluate(()=>rpcCalls))[0];
   assert.equal(first.name,'join_minuta_waitlist_v111');
   assert.deepEqual(first.args,{p_service:'service-a',p_date:'2026-09-06',p_time_period:'evening',p_client_name:'Тест Клиент',p_client_phone:'79999999999',p_slug:'org-a',p_location:'location-a'});
-  assert.ok((await page.locator('#waitlistManageLink').getAttribute('href')).includes('?scope=organization#token='));
+  const manageUrl = new URL(await page.locator('#waitlistManageLink').getAttribute('href'));
+  assert.equal(manageUrl.searchParams.get('theme'),'pink-porcelain');
+  assert.equal(manageUrl.searchParams.get('porcelain_shade'),'gentle-pink');
+  assert.equal(manageUrl.searchParams.get('porcelain_character'),'petal');
+  assert.equal(manageUrl.searchParams.get('scope'),'organization');
+  assert.match(manageUrl.hash,/^#token=/);
   await page.locator('[data-close-waitlist]').click();
   await page.evaluate(()=>{window.openForm();window.fail='PGRST202';});await fill();
   await page.evaluate(()=>window.submit());

@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 const root = __dirname;
 const catalog = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const themes = [...catalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
-assert.equal(themes.length, 40, 'Каталог тем прочитан не полностью');
+assert.equal(themes.length, 41, 'Каталог тем прочитан не полностью');
 const approvedBackgrounds = new Map([
   ['snow-leopard', {
     desktop:'provider-snow-leopard-desktop-v2.webp',
