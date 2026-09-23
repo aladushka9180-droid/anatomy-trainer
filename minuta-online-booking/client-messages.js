@@ -107,12 +107,8 @@
   function applyTheme() {
     const catalog = global.MinutaThemeCatalog;
     if (!catalog) return;
-    let key = catalog.settingsFromSearch(global.location.search).theme_key;
-    try {
-      const saved = JSON.parse(global.localStorage.getItem('minuta-client-active-presentation-v1') || 'null');
-      if (saved?.theme && Date.now() - Number(saved.savedAt || 0) < 2592000000) key = saved.theme;
-    } catch {}
-    catalog.applyClientTheme(document.body, key);
+    const settings = catalog.readPersonalSettings();
+    catalog.applyClientTheme(document.body, settings.theme_key, settings);
   }
 
   function showAccess(root, message) {

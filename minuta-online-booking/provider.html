@@ -31,13 +31,13 @@
   <link rel="stylesheet" href="visitor-presence.css?v=811">
   <link rel="stylesheet" href="subscription-pricing.css?v=811">
   <link rel="stylesheet" href="provider-theme-loft-modern.css?v=811">
-  <link rel="stylesheet" href="provider-themes-signature.css?v=811">
+  <link rel="stylesheet" href="provider-themes-signature.css?v=885">
   <link rel="stylesheet" href="provider-themes-calm.css?v=811">
   <link rel="stylesheet" href="provider-layout-responsive.css?v=811">
 <link rel="stylesheet" href="provider-ux.css?v=865">
   <link rel="stylesheet" href="provider-service-actions.css?v=811">
 <link rel="stylesheet" href="provider-header.css?v=865">
-  <link rel="stylesheet" href="client-themes.css?v=811">
+  <link rel="stylesheet" href="client-themes.css?v=885">
   <link rel="stylesheet" href="provider-themes-wildlife.css?v=811">
 <link rel="stylesheet" href="settings-nav-scroll.css?v=865">
   <link rel="stylesheet" href="settings-smart-search.css?v=811">
@@ -1380,10 +1380,15 @@
                   <div class="client-appearance-preview-shell">
                     <div class="client-appearance-preview" id="clientAppearancePreview" aria-label="Предпросмотр клиентской страницы">
                       <span class="client-appearance-preview-browser" aria-hidden="true"><i></i><i></i><i></i></span>
-                      <small>Онлайн-запись</small>
+                      <span class="client-appearance-preview-brand">PrimeTime</span>
+                      <small>Клиентская онлайн-запись · пример</small>
                       <strong id="clientAppearancePreviewHeadline">Массаж в удобное время.</strong>
-                      <span class="client-appearance-preview-service" aria-hidden="true"><b></b><i></i></span>
-                      <span class="client-appearance-preview-times" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span class="porcelain-preview-tagline" id="clientAppearancePreviewTagline" hidden></span>
+                      <span class="client-appearance-preview-service"><strong>Услуга салона</strong><small>60 минут</small></span>
+                      <span class="client-appearance-preview-times-label">Выберите дату</span>
+                      <span class="client-appearance-preview-dates" aria-hidden="true"><i>Пн<br>12</i><i>Вт<br>13</i><i>Ср<br>14</i><i>Чт<br>15</i></span>
+                      <span class="client-appearance-preview-times-label">Свободное время</span>
+                      <span class="client-appearance-preview-times" aria-hidden="true"><i>10:00</i><i>11:00</i><i>12:00</i></span>
                       <span class="client-appearance-preview-action">Записаться</span>
                     </div>
                   </div>
@@ -1399,17 +1404,21 @@
                           <button type="button" data-client-theme-filter="light" aria-pressed="false">Светлые</button>
                           <button type="button" data-client-theme-filter="dark" aria-pressed="false">Тёмные</button>
                           <button type="button" data-client-theme-filter="natural" aria-pressed="false">Натуральные</button>
-                          <button type="button" data-client-theme-filter="all" aria-pressed="false">Все 26</button>
+                          <button type="button" data-client-theme-filter="all" aria-pressed="false">Все темы</button>
                         </div>
                         <small class="provider-client-theme-filter-status" id="clientThemeFilterStatus" role="status">Рекомендуемые темы</small>
                         <fieldset><legend>Доступные темы</legend><div class="provider-client-theme-options" id="providerClientThemeOptions"></div></fieldset>
                       </div>
                     </details>
-                    <p class="client-appearance-scope-note">Выбранная тема используется по умолчанию. Личный выбор клиента меняет оформление только на его устройстве.</p>
+                    <div class="porcelain-customization" id="porcelainCustomization" hidden>
+                      <fieldset class="porcelain-picker"><legend>Характер темы</legend><div class="porcelain-option-list porcelain-character-list" id="porcelainCharacterOptions"></div></fieldset>
+                      <fieldset class="porcelain-picker"><legend>Оттенок темы</legend><div class="porcelain-shade-list" id="porcelainShadeOptions"></div></fieldset>
+                    </div>
+                    <p class="client-appearance-scope-note">Эту тему клиенты видят на странице записи. Личное оформление их раздела «Мои записи» не меняет страницу организации.</p>
                   </div>
                 </div>
                 <fieldset class="client-headline-picker"><legend>Текст вверху страницы</legend><div class="client-headline-options" id="clientHeadlineOptions"></div></fieldset>
-                <div class="client-appearance-actions"><p id="clientAppearanceStatus" role="status" aria-live="polite">Выберите организацию.</p><div><button class="secondary-button compact-button" id="openBookingWidgets" type="button">Ссылки и виджет</button><a class="secondary-button compact-button provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer">Открыть страницу</a><button class="primary compact-button" type="submit">Сохранить для клиентов</button></div></div>
+                <div class="client-appearance-actions"><p id="clientAppearanceStatus" role="status" aria-live="polite">Выберите организацию.</p><div><button class="secondary-button compact-button" id="openBookingWidgets" type="button">Ссылки и виджет</button><a class="secondary-button compact-button provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer">Открыть страницу</a><button class="secondary-button compact-button" id="resetPorcelainTheme" type="button" hidden>Сбросить</button><button class="primary compact-button" id="applyClientAppearance" type="submit">Сохранить для клиентов</button></div></div>
               </form>
             </section>
             <section class="panel settings-card appearance-settings-card provider-section-anchor" id="appearanceSettingsCard">
@@ -1443,6 +1452,7 @@
                     <label class="provider-theme-option theme-sage settings-recommended" data-theme-groups="featured light natural"><input type="radio" name="providerTheme" value="sage"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Sage Studio <em>Рекомендуем</em></strong><small data-theme-description></small></label>
                     <label class="provider-theme-option theme-nordic" data-theme-groups="light"><input type="radio" name="providerTheme" value="nordic"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Nordic Light</strong><small data-theme-description></small></label>
                     <label class="provider-theme-option theme-warm settings-recommended" data-theme-groups="featured light natural"><input type="radio" name="providerTheme" value="warm"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Warm Beige <em>Рекомендуем</em></strong><small data-theme-description></small></label>
+                    <label class="provider-theme-option theme-pink-porcelain" data-theme-groups="featured light"><input type="radio" name="providerTheme" value="pink-porcelain"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Розовый фарфор</strong><small data-theme-description></small></label>
                     <label class="provider-theme-option theme-graphite" data-theme-groups="dark"><input type="radio" name="providerTheme" value="graphite"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Graphite Night</strong><small data-theme-description></small></label>
                     <label class="provider-theme-option theme-lavender" data-theme-groups="light"><input type="radio" name="providerTheme" value="lavender"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Soft Lavender</strong><small data-theme-description></small></label>
                     <label class="provider-theme-option theme-luxury" data-theme-groups="dark"><input type="radio" name="providerTheme" value="luxury"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Люкс / Премиум</strong><small data-theme-description></small></label>
@@ -1480,6 +1490,10 @@
                     <label class="provider-theme-option theme-concrete-signal" data-theme-groups="light"><input type="radio" name="providerTheme" value="concrete-signal"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Concrete Signal</strong><small data-theme-description></small></label>
                     <label class="provider-theme-option theme-azure-lagoon" data-theme-groups="light"><input type="radio" name="providerTheme" value="azure-lagoon"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Azure Lagoon</strong><small data-theme-description></small></label>
                     <label class="provider-theme-option theme-noir-safari" data-theme-groups="featured dark natural"><input type="radio" name="providerTheme" value="noir-safari"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Noir Suede</strong><small data-theme-description></small></label>
+                  </div>
+                  <div class="porcelain-customization" id="providerPorcelainCustomization" hidden>
+                    <fieldset class="porcelain-picker"><legend>Характер темы кабинета</legend><div class="porcelain-option-list porcelain-character-list" id="providerPorcelainCharacterOptions"></div></fieldset>
+                    <fieldset class="porcelain-picker"><legend>Оттенок темы кабинета</legend><div class="porcelain-shade-list" id="providerPorcelainShadeOptions"></div></fieldset>
                   </div>
                 </fieldset>
                 <fieldset class="provider-text-scale-picker">
@@ -2113,7 +2127,7 @@
   </div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
-  <script src="site-update.js?v=884" defer></script>
+  <script src="site-update.js?v=885" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2148,7 +2162,7 @@
   <link rel="stylesheet" href="provider-theme-backgrounds-tema1.css?v=865">
   <link rel="stylesheet" href="provider-portfolio-responsive.css?v=811">
   <link rel="stylesheet" href="provider-schedule-minimal.css?v=880"><link rel="stylesheet" href="provider-schedule-desktop-reference.css?v=865" media="(min-width: 761px)">
-  <script src="theme-catalog.js?v=822" defer></script>
+  <script src="theme-catalog.js?v=885" defer></script>
   <script src="provider-color-mode.js?v=811" defer></script>
   <script src="client-directory.js?v=811" defer></script>
   <script src="client-results.js?v=876" defer></script>
@@ -2163,7 +2177,7 @@
   <script src="finance-center.js?v=811" defer></script>
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
-  <script src="provider.js?v=884" defer></script>
+  <script src="provider.js?v=885" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>
   <script src="primetime-handoff.js?v=811" defer></script>

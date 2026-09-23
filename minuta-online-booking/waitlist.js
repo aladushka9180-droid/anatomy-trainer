@@ -8,12 +8,12 @@ applyStoredClientTheme();
 function applyStoredClientTheme() {
   const catalog = window.MinutaThemeCatalog;
   if (!catalog) return;
-  let theme = catalog.settingsFromSearch(location.search).theme_key;
+  let settings = catalog.settingsFromSearch(location.search);
   try {
     const saved = JSON.parse(localStorage.getItem('minuta-client-active-presentation-v1') || 'null');
-    if (saved?.theme && Date.now() - Number(saved.savedAt || 0) < 30 * 24 * 60 * 60 * 1000) theme = saved.theme;
+    if (!new URLSearchParams(location.search).has('theme') && saved?.theme && Date.now() - Number(saved.savedAt || 0) < 30 * 24 * 60 * 60 * 1000) settings = catalog.normalizeSettings({ theme_key:saved.theme, porcelain:saved.porcelain });
   } catch {}
-  catalog.applyClientTheme(document.body, theme);
+  catalog.applyClientTheme(document.body, settings.theme_key, settings);
 }
 
 function notify(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.hidden = true; }, 2800); }

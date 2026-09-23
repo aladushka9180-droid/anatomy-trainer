@@ -8,6 +8,7 @@
     defineTheme('sage', 'Sage Studio', 'Светлый зелёный воздух и чистые поверхности', ['featured','light','natural'], { bg:'#f6f8f6', surface:'#ffffff', surfaceAlt:'#f0f7f3', ink:'#183b2e', muted:'#708378', line:'#d8e6dd', accent:'#287a58', accentSoft:'#e9f6ee', contrast:'#ffffff', shadow:'rgba(31,89,64,.07)', pattern:'none', themeColor:'#f6f8f6', dark:false }, true),
     defineTheme('nordic', 'Nordic Light', 'Ледяной белый, хвойный сланец и светлые кристаллические грани', ['light'], { bg:'#e8ece9', surface:'#fbfcfa', surfaceAlt:'#d9dfda', ink:'#222d31', muted:'#586368', line:'#839096', accent:'#3d5148', accentSoft:'#dce3df', contrast:'#ffffff', shadow:'rgba(48,65,72,.08)', pattern:'linear-gradient(90deg,rgba(61,81,72,.045) 1px,transparent 1px) 0 0/32px 32px,linear-gradient(145deg,#e8ece9,#fbfcfa 60%,#dfe5e1)', themeColor:'#e8ece9', dark:false }),
     defineTheme('warm', 'Warm Beige', 'Тёплый беж и мягкие солнечные пятна', ['featured','light','natural'], { bg:'#faf5ef', surface:'#fffdfb', surfaceAlt:'#f6ece4', ink:'#392c25', muted:'#74645a', line:'#dfcfc2', accent:'#985b43', accentSoft:'#f1dfd3', contrast:'#ffffff', shadow:'rgba(99,61,43,.10)', pattern:'radial-gradient(circle at 8% 2%,rgba(206,143,105,.14),transparent 31%),linear-gradient(145deg,#faf3ec,#fffdfb 60%,#f6ede5)', themeColor:'#a9664c', dark:false }, true),
+    defineTheme('pink-porcelain', 'Розовый фарфор', 'Чистый фарфор, свежий розовый и лёгкий перламутр', ['featured','light'], { bg:'#fff5f8', surface:'#ffffff', surfaceAlt:'#ffe8f0', ink:'#302c30', muted:'#626068', line:'#e9cbd6', accent:'#c43372', accentSoft:'#ffe1eb', contrast:'#ffffff', shadow:'rgba(134,55,89,.09)', pattern:'radial-gradient(ellipse at 88% 4%,rgba(255,194,216,.27),transparent 37%),linear-gradient(145deg,#fff7fa,#ffffff 58%,#fff0f5)', themeColor:'#fff5f8', dark:false }, true),
     defineTheme('graphite', 'Graphite Night', 'Нейтральный графит и приглушённые фиолетовые грани', ['dark'], { bg:'#15161a', surface:'#1d1e24', surfaceAlt:'#272831', ink:'#f2f1f5', muted:'#aaa8b2', line:'#6f6c7a', accent:'#a489ff', accentSoft:'#302942', contrast:'#17121f', shadow:'rgba(0,0,0,.36)', pattern:'linear-gradient(90deg,rgba(164,137,255,.05) 1px,transparent 1px) 0 0/24px 24px,linear-gradient(0deg,rgba(164,137,255,.035) 1px,transparent 1px) 0 0/24px 24px,radial-gradient(circle at 84% 2%,rgba(164,137,255,.18),transparent 34%),linear-gradient(145deg,#121318,#22242b 58%,#17181d)', themeColor:'#15161a', dark:true }),
     defineTheme('lavender', 'Soft Lavender', 'Светлая лавандовая дымка', ['light'], { bg:'#f3f0f8', surface:'#ffffff', surfaceAlt:'#f8f5fb', ink:'#332e40', muted:'#736c82', line:'#ddd5e8', accent:'#7660a8', accentSoft:'#ebe5f4', contrast:'#ffffff', shadow:'rgba(78,62,112,.10)', pattern:'radial-gradient(circle at 12% 0,rgba(177,151,214,.18),transparent 34%),linear-gradient(145deg,#f4f0f8,#fff 60%,#f0ebf6)', themeColor:'#7660cc', dark:false }),
     defineTheme('luxury', 'Люкс / Премиум', 'Матовый обсидиан и мягкое сияние шампанского', ['dark'], { bg:'#040506', surface:'#0b0c0e', surfaceAlt:'#12100c', ink:'#f7f0df', muted:'#c9bda9', line:'#7b5f2b', accent:'#e0b45a', accentSoft:'#2b2112', contrast:'#211505', shadow:'rgba(0,0,0,.46)', pattern:'radial-gradient(ellipse at 2% 0,rgba(224,180,90,.10),transparent 34%),radial-gradient(ellipse at 98% 100%,rgba(160,116,66,.08),transparent 38%),linear-gradient(145deg,#030405,#0f1012 62%,#060606)', themeColor:'#040506', dark:true }),
@@ -56,6 +57,18 @@
   const clientThemes = Object.freeze(themes.filter(item => item.clientSelectable));
   const clientThemeKeys = Object.freeze(clientThemes.map(item => item.key));
   const headlineKeys = Object.freeze(headlines.map(item => item.key));
+  const porcelainShades = Object.freeze([
+    Object.freeze({ key:'pearl-white', label:'Жемчужный белый', palette:Object.freeze({ bg:'#fdfbfb', surface:'#ffffff', surfaceAlt:'#f7f1f3', ink:'#302d30', muted:'#615e63', line:'#dfd2d7', accent:'#a9406e', accentSoft:'#f7e4ec', contrast:'#ffffff', shadow:'rgba(105,67,82,.07)', pattern:'radial-gradient(ellipse at 85% 4%,rgba(251,230,238,.48),transparent 41%),linear-gradient(145deg,#fffefe,#f9f5f7 66%,#fffdfd)', themeColor:'#fdfbfb', dark:false }) }),
+    Object.freeze({ key:'porcelain-white', label:'Фарфоровый белый', palette:Object.freeze({ bg:'#fffcfb', surface:'#ffffff', surfaceAlt:'#fbf0f1', ink:'#302b2e', muted:'#645e61', line:'#e5d4d5', accent:'#b3396e', accentSoft:'#f9e5e9', contrast:'#ffffff', shadow:'rgba(116,62,76,.07)', pattern:'radial-gradient(ellipse at 84% 2%,rgba(255,225,230,.42),transparent 38%),linear-gradient(145deg,#fffefd,#fff8f8 65%,#fffdfb)', themeColor:'#fffcfb', dark:false }) }),
+    Object.freeze({ key:'gentle-pink', label:'Нежный розовый', recommended:true, palette:themes.find(item => item.key === 'pink-porcelain').palette }),
+    Object.freeze({ key:'petal-pink', label:'Лепестковый розовый', palette:Object.freeze({ bg:'#fff0f5', surface:'#fffafd', surfaceAlt:'#ffdce9', ink:'#302a30', muted:'#625b62', line:'#e8bfce', accent:'#bf2c6d', accentSoft:'#ffdce9', contrast:'#ffffff', shadow:'rgba(142,47,85,.10)', pattern:'radial-gradient(ellipse at 84% 4%,rgba(255,173,205,.27),transparent 39%),linear-gradient(145deg,#fff3f7,#fffafd 60%,#ffe9f1)', themeColor:'#fff0f5', dark:false }) }),
+    Object.freeze({ key:'pink-accent', label:'Розовый акцент', palette:Object.freeze({ bg:'#fffafa', surface:'#ffffff', surfaceAlt:'#fff0f5', ink:'#2e2a2d', muted:'#615b61', line:'#e6c3d0', accent:'#af235f', accentSoft:'#ffe0ea', contrast:'#ffffff', shadow:'rgba(150,40,85,.10)', pattern:'radial-gradient(ellipse at 91% 6%,rgba(255,152,192,.20),transparent 37%),linear-gradient(145deg,#fffdfd,#ffffff 62%,#fff0f5)', themeColor:'#fffafa', dark:false }) })
+  ]);
+  const porcelainCharacters = Object.freeze([
+    Object.freeze({ key:'pearl', label:'Жемчужный', tagline:'Чистота • гармония • ваше время' }),
+    Object.freeze({ key:'petal', label:'Лепестковый', tagline:'Нежность • забота • ваше время' }),
+    Object.freeze({ key:'silk', label:'Шёлковый', tagline:'Лёгкость • покой • ваше время' })
+  ]);
   const normalizeTheme = value => themeKeys.includes(String(value || '')) ? String(value) : 'sage';
   const normalizeHeadline = value => headlineKeys.includes(String(value || '')) ? String(value) : 'massage-time';
   const theme = key => themes.find(item => item.key === normalizeTheme(key));
@@ -72,7 +85,36 @@
     });
     return hydrated;
   };
-  const normalizeSettings = value => Object.freeze({ theme_key:normalizeTheme(value?.theme_key), headline_key:normalizeHeadline(value?.headline_key) });
+  const normalizeSettings = value => {
+    const normalized = { theme_key:normalizeTheme(value?.theme_key), headline_key:normalizeHeadline(value?.headline_key) };
+    if (normalized.theme_key === 'pink-porcelain') {
+      const shade = String(value?.porcelain?.shade || value?.porcelain_shade || 'gentle-pink');
+      const character = String(value?.porcelain?.character || value?.porcelain_character || 'petal');
+      normalized.porcelain = Object.freeze({
+        shade:porcelainShades.some(item => item.key === shade) ? shade : 'gentle-pink',
+        character:porcelainCharacters.some(item => item.key === character) ? character : 'petal'
+      });
+    }
+    return Object.freeze(normalized);
+  };
+  const paletteForSettings = value => {
+    const settings = normalizeSettings(value);
+    return settings.porcelain
+      ? porcelainShades.find(item => item.key === settings.porcelain.shade).palette
+      : theme(settings.theme_key).palette;
+  };
+  const personalStorageKey = 'minuta-client-personal-presentation-v1';
+  const readPersonalSettings = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(personalStorageKey) || 'null');
+      return normalizeSettings({ theme_key:saved?.theme_key || 'sage', porcelain:saved?.porcelain });
+    } catch { return normalizeSettings({ theme_key:'sage' }); }
+  };
+  const writePersonalSettings = value => {
+    const settings = normalizeSettings(value);
+    try { localStorage.setItem(personalStorageKey, JSON.stringify(settings)); } catch {}
+    return settings;
+  };
   const legacyClientStorageKey = slug => `minuta-client-theme-v1:${String(slug || 'default').toLowerCase()}`;
   const clientStorageKey = organizationId => `minuta-client-theme-v2:organization:${String(organizationId || 'unknown').toLowerCase()}`;
   const validOverride = value => value === 'follow' || themeKeys.includes(value) ? value : '';
@@ -99,20 +141,23 @@
   };
   const settingsFromSearch = search => {
     const params = new URLSearchParams(String(search || ''));
-    return normalizeSettings({ theme_key:params.get('theme'), headline_key:params.get('headline') });
+    return normalizeSettings({ theme_key:params.get('theme'), headline_key:params.get('headline'), porcelain_shade:params.get('porcelain_shade'), porcelain_character:params.get('porcelain_character') });
   };
-  const applyClientTheme = (element, key) => {
+  const applyClientTheme = (element, key, settings = null) => {
     const selected = theme(key);
     if (!element || !selected) return selected;
     element.dataset.clientTheme = selected.key;
-    const palette = selected.palette;
+    const effectiveSettings = normalizeSettings({ ...settings, theme_key:selected.key });
+    if (effectiveSettings.porcelain) element.dataset.clientPorcelainCharacter = effectiveSettings.porcelain.character;
+    else delete element.dataset.clientPorcelainCharacter;
+    const palette = paletteForSettings(effectiveSettings);
     Object.entries({ bg:palette.bg, surface:palette.surface, 'surface-alt':palette.surfaceAlt, ink:palette.ink, muted:palette.muted, line:palette.line, accent:palette.accent, 'accent-soft':palette.accentSoft, contrast:palette.contrast, shadow:palette.shadow, pattern:palette.pattern }).forEach(([name, value]) => element.style.setProperty(`--client-${name}`, value));
     element.style.colorScheme = palette.dark ? 'dark' : 'light';
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.themeColor);
     return selected;
   };
 
-  window.MinutaThemeCatalog = Object.freeze({ themes, clientThemes, headlines, themeKeys, clientThemeKeys, headlineKeys, normalizeTheme, normalizeHeadline, normalizeSettings, theme, headline, hydrateProviderThemeDescriptions, clientStorageKey, legacyClientStorageKey, migrateClientOverride, readClientOverride, writeClientOverride, settingsFromSearch, applyClientTheme });
+  window.MinutaThemeCatalog = Object.freeze({ themes, clientThemes, headlines, themeKeys, clientThemeKeys, headlineKeys, porcelainShades, porcelainCharacters, normalizeTheme, normalizeHeadline, normalizeSettings, paletteForSettings, readPersonalSettings, writePersonalSettings, theme, headline, hydrateProviderThemeDescriptions, clientStorageKey, legacyClientStorageKey, migrateClientOverride, readClientOverride, writeClientOverride, settingsFromSearch, applyClientTheme });
   if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
     if (document.readyState === 'loading' && typeof document.addEventListener === 'function') document.addEventListener('DOMContentLoaded', () => hydrateProviderThemeDescriptions(), { once:true });
     else hydrateProviderThemeDescriptions();

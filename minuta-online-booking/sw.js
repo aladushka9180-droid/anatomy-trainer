@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v884`;
+const CACHE = `${CACHE_PREFIX}v885`;
 
 // Only the provider shell and its first-screen dependencies block installation.
 // Secondary sections, help media and decorative theme images are cached on use.
@@ -20,14 +20,14 @@ const ASSETS = [
   './visitor-presence.css?v=811',
   './subscription-pricing.css?v=811',
   './provider-theme-loft-modern.css?v=811',
-  './provider-themes-signature.css?v=811',
+  './provider-themes-signature.css?v=885',
   './provider-themes-calm.css?v=811',
   './provider-layout-responsive.css?v=811',
   './provider-ux.css?v=865',
   './provider-price-list.css?v=871',
   './provider-service-actions.css?v=811',
   './provider-header.css?v=865',
-  './client-themes.css?v=811',
+  './client-themes.css?v=885',
   './provider-themes-wildlife.css?v=811',
   './client-results.css?v=876',
   './client-directory.css?v=811',
@@ -39,7 +39,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=884',
+  './site-update.js?v=885',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
   './social-auth.js?v=811',
@@ -58,13 +58,13 @@ const ASSETS = [
   './provider-read-fetch.js?v=811',
   './data-governance.js?v=884',
   './report-reconciliation.js?v=811',
-  './theme-catalog.js?v=822',
+  './theme-catalog.js?v=885',
   './provider-color-mode.js?v=811',
   './client-directory.js?v=811',
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=884',
+  './provider.js?v=885',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=871',
 ];
@@ -97,10 +97,10 @@ const OPTIONAL_ASSETS = [
   './messages-center.css?v=811',
   './messages-core.js?v=811',
   './provider-messages-center.js?v=811',
-  './client-messages.js?v=811',
+  './client-messages.js?v=885',
   './provider-portfolio-responsive.css?v=811',
   './service-presets-catalog.js?v=811',
-  './app.js?v=811',
+  './app.js?v=885',
   './service-presets.css?v=811',
   './service-presets.js?v=811',
   './report-worker.js?v=811',

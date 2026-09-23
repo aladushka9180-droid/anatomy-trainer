@@ -643,6 +643,34 @@
   --atmosphere-panel-strong:#fffaf4;
 }
 
+.provider-body[data-provider-theme="pink-porcelain"] {
+  --theme-bg:#fff5f8;
+  --theme-surface:#ffffff;
+  --theme-surface-alt:#ffe8f0;
+  --theme-ink:#302c30;
+  --theme-muted:#626068;
+  --theme-line:#e9cbd6;
+  --theme-accent:#c43372;
+  --theme-accent-soft:#ffe1eb;
+  --theme-accent-contrast:#ffffff;
+  --theme-shadow:rgba(134,55,89,.09);
+  --material-card-bg:#ffffff;
+  --material-card-border:#e9cbd6;
+  --material-radius:18px;
+  --material-control-radius:12px;
+  --signature-sidebar:#ffe8f0;
+  --signature-stage:#fff5f8;
+  --signature-nav-active:#ffe1eb;
+  --signature-card-shadow:0 8px 28px rgba(134,55,89,.07);
+  --atmosphere-background:radial-gradient(ellipse at 88% 4%,rgba(255,194,216,.27),transparent 37%),linear-gradient(145deg,#fff7fa,#ffffff 58%,#fff0f5);
+  --atmosphere-panel:#fff5f8;
+  --atmosphere-panel-strong:#ffffff;
+  color-scheme:light;
+}
+
+.provider-body[data-provider-theme="pink-porcelain"][data-provider-porcelain-character="pearl"] { --signature-card-shadow:0 7px 22px rgba(105,67,82,.05); }
+.provider-body[data-provider-theme="pink-porcelain"][data-provider-porcelain-character="silk"] { --signature-card-shadow:0 12px 35px rgba(134,55,89,.08); }
+
 .provider-body[data-provider-theme="rose"] {
   --theme-bg:#f2eaed;
   --theme-surface:#fcf8f9;
@@ -671,6 +699,7 @@
 .theme-midnight { --theme-preview-bg:#06182f; --theme-preview-surface:#0d2440; --theme-preview-line:#55779b; --theme-preview-accent:#5d93c7; color:#f0f5fb; --theme-preview-radius:12px; }
 .theme-mono { --theme-preview-bg:#f3f3f0; --theme-preview-surface:#fff; --theme-preview-line:#92928d; --theme-preview-accent:#1c1c1c; --theme-preview-radius:0; --theme-preview-item-radius:0; }
 .theme-desert { --theme-preview-bg:#f5e9db; --theme-preview-surface:#fff9f2; --theme-preview-line:#aa8b78; --theme-preview-accent:#713b2a; --theme-preview-radius:16px; --theme-preview-item-radius:8px; }
+.theme-pink-porcelain { --theme-preview-bg:#fff5f8; --theme-preview-surface:#fff; --theme-preview-line:#e9cbd6; --theme-preview-accent:#c43372; --theme-preview-radius:18px; }
 .theme-rose { --theme-preview-bg:#f2eaed; --theme-preview-surface:#fcf8f9; --theme-preview-line:#97838c; --theme-preview-accent:#75475a; --theme-preview-radius:11px; }
 .theme-botanical { --theme-preview-bg:#202623; --theme-preview-surface:#282f2b; --theme-preview-line:#49564e; --theme-preview-accent:#a5b6a4; --theme-preview-radius:12px; }
 .theme-burgundy { --theme-preview-bg:#282326; --theme-preview-surface:#312c2f; --theme-preview-line:#60515a; --theme-preview-accent:#c6aab1; --theme-preview-radius:5px; }
@@ -679,6 +708,7 @@
 .theme-midnight .theme-swatch { background-image:linear-gradient(#06182f,#06182f); }
 .theme-mono .theme-swatch { background-image:linear-gradient(90deg,rgba(23,23,22,.08) 1px,transparent 1px),linear-gradient(#f8f8f5,#ededE8); background-size:18px 100%,100% 100%; }
 .theme-desert .theme-swatch { background-image:radial-gradient(ellipse at 87% 9%,rgba(152,81,56,.18),transparent 44%),linear-gradient(145deg,#efdfd1,#fbf4ec); }
+.theme-pink-porcelain .theme-swatch { background-image:radial-gradient(circle at 83% 10%,rgba(255,194,216,.26),transparent 44%),linear-gradient(145deg,#fff7fa,#ffffff); }
 .theme-rose .theme-swatch { background-image:radial-gradient(circle at 85% 8%,rgba(133,82,103,.16),transparent 43%),linear-gradient(145deg,#eee2e6,#faf5f6); }
 
 .provider-body:is(

@@ -472,28 +472,22 @@ function updateSubmitAvailability() {
   hint.classList.toggle('valid', valid);
 }
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
-function renderClientThemeOptions() {
-  const holder = $('#clientThemeOptions');
-  const catalog = window.MinutaThemeCatalog;
-  if (!holder || !catalog) return;
-  const selected = catalog.readClientOverride(state.organization?.id, requestedOrganizationSlug);
-  const organizationTheme = catalog.theme(state.clientPage.theme_key);
-  const preview = item => `linear-gradient(135deg,${item.palette.surface},${item.palette.accentSoft} 62%,${item.palette.accent})`;
-  holder.innerHTML = `<label class="client-theme-option theme-follow"><input type="radio" name="clientTheme" value="follow" ${selected === 'follow' ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>Как у организации</strong><small>${escapeHtml(organizationTheme.label)}</small></span></label>${catalog.clientThemes.map(item => `<label class="client-theme-option theme-${item.key}" style="--theme-preview:${preview(item)}"><input type="radio" name="clientTheme" value="${item.key}" ${selected === item.key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('')}`;
-}
 function applyClientPagePresentation(settings = null) {
   const catalog = window.MinutaThemeCatalog;
   if (!catalog) return;
   if (settings) state.clientPage = catalog.normalizeSettings(settings);
   else if (!state.organization) state.clientPage = catalog.settingsFromSearch(window.location.search);
-  const selected = catalog.readClientOverride(state.organization?.id, requestedOrganizationSlug);
-  const effectiveTheme = selected === 'follow' ? state.clientPage.theme_key : selected;
-  const theme = catalog.applyClientTheme(document.body, effectiveTheme);
-  try { localStorage.setItem('minuta-client-active-presentation-v1', JSON.stringify({ theme:theme.key, savedAt:Date.now() })); } catch {}
+  const effectiveSettings = catalog.normalizeSettings(state.clientPage);
+  catalog.applyClientTheme(document.body, effectiveSettings.theme_key, effectiveSettings);
+  try { localStorage.setItem('minuta-client-active-presentation-v1', JSON.stringify({ theme:effectiveSettings.theme_key, porcelain:effectiveSettings.porcelain, savedAt:Date.now() })); } catch {}
   const headline = catalog.headline(state.clientPage.headline_key);
   if ($('#clientHeroTitle')) $('#clientHeroTitle').textContent = headline.label;
-  if ($('#clientThemeButtonLabel')) $('#clientThemeButtonLabel').textContent = theme.label;
-  renderClientThemeOptions();
+  const porcelainTagline = $('#clientPorcelainTagline');
+  if (porcelainTagline) {
+    const character = effectiveSettings.porcelain && catalog.porcelainCharacters.find(item => item.key === effectiveSettings.porcelain.character);
+    porcelainTagline.hidden = !character;
+    porcelainTagline.textContent = character?.tagline || '';
+  }
 }
 function isMissingRpc(error, name) {
   const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
@@ -1077,6 +1071,11 @@ async function submitWaitlist(event) {
       throw error || new Error('waitlist_response_missing');
     }
     const manageUrl = new URL('waitlist.html', location.href);
+    manageUrl.searchParams.set('theme', state.clientPage.theme_key);
+    if (state.clientPage.porcelain) {
+      manageUrl.searchParams.set('porcelain_shade', state.clientPage.porcelain.shade);
+      manageUrl.searchParams.set('porcelain_character', state.clientPage.porcelain.character);
+    }
     if (context.teamMode) manageUrl.searchParams.set('scope','organization');
     manageUrl.hash = `token=${encodeURIComponent(data[0].manage_token)}`;
     $('#waitlistManageLink').href = manageUrl.href;
@@ -1481,6 +1480,11 @@ async function submitBooking(event) {
   $('#successDetails').innerHTML = successDetailsMarkup(current.service_name, current.performer_name || 'Мастер', currentDateLabel, timeRange(current.booking_time.slice(0, 5), current.duration_minutes));
   if (manageToken) {
     const manageUrl = new URL('booking.html', location.href);
+    manageUrl.searchParams.set('theme', state.clientPage.theme_key);
+    if (state.clientPage.porcelain) {
+      manageUrl.searchParams.set('porcelain_shade', state.clientPage.porcelain.shade);
+      manageUrl.searchParams.set('porcelain_character', state.clientPage.porcelain.character);
+    }
     manageUrl.hash = `token=${encodeURIComponent(manageToken)}`;
     $('#manageBooking').href = manageUrl.href;
     $('#manageBooking').hidden = false;
@@ -1548,8 +1552,6 @@ document.addEventListener('click', event => {
   const openWaitlist = event.target.closest('#openWaitlist');
   const closeWaitlist = event.target.closest('[data-close-waitlist]');
   const paymentLink = event.target.closest('#successPaymentLink[data-payment-token]');
-  const openClientTheme = event.target.closest('#openClientTheme');
-  if (openClientTheme) { renderClientThemeOptions(); $('#clientThemeDialog')?.showModal(); return; }
   if (paymentLink) { event.preventDefault(); void startOnlinePayment(paymentLink); return; }
   if (performer) {
     const nextPerformer = performer.dataset.performer || '';
@@ -1607,12 +1609,6 @@ document.addEventListener('click', event => {
   if (openWaitlist) openWaitlistDialog();
   if (closeWaitlist) $('#waitlistDialog').close();
 });
-$('#clientThemeOptions')?.addEventListener('change', event => {
-  if (!event.target.matches('input[name="clientTheme"]')) return;
-  window.MinutaThemeCatalog?.writeClientOverride(state.organization?.id, event.target.value, requestedOrganizationSlug);
-  applyClientPagePresentation();
-});
-$('#clientThemeDialog')?.addEventListener('click', event => { if (event.target === $('#clientThemeDialog')) $('#clientThemeDialog').close(); });
 $('#serviceDetailsDialog')?.addEventListener('click', event => { if (event.target === $('#serviceDetailsDialog')) closeServiceDetails(); });
 $('#serviceReviewsDialog')?.addEventListener('click', event => { if (event.target === $('#serviceReviewsDialog')) closeServiceReviews(); });
 $('#serviceDetailsDialog')?.addEventListener('cancel', event => { event.preventDefault(); closeServiceDetails(); });

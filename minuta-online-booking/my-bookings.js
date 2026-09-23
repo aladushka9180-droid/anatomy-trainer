@@ -14,12 +14,31 @@ let accountRestoreAttempt = null;
 function applyStoredClientTheme() {
   const catalog = window.MinutaThemeCatalog;
   if (!catalog) return;
-  let theme = catalog.settingsFromSearch(location.search).theme_key;
-  try {
-    const saved = JSON.parse(localStorage.getItem('minuta-client-active-presentation-v1') || 'null');
-    if (saved?.theme && Date.now() - Number(saved.savedAt || 0) < 30 * 24 * 60 * 60 * 1000) theme = saved.theme;
-  } catch {}
-  catalog.applyClientTheme(document.body, theme);
+  const settings = catalog.readPersonalSettings();
+  catalog.applyClientTheme(document.body, settings.theme_key, settings);
+  renderPersonalThemePicker(settings);
+}
+
+function renderPersonalThemePicker(settings) {
+  const catalog = window.MinutaThemeCatalog;
+  const holder = $('#personalThemeOptions');
+  if (!catalog || !holder) return;
+  holder.innerHTML = catalog.clientThemes.map(item => `<label class="client-theme-option theme-${item.key}" style="--theme-preview:linear-gradient(135deg,${item.palette.surface},${item.palette.accentSoft} 62%,${item.palette.accent})"><input type="radio" name="personalTheme" value="${item.key}" ${item.key === settings.theme_key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('');
+  const porcelain = settings.porcelain || { shade:'gentle-pink', character:'petal' };
+  $('#personalPorcelainCustomization').hidden = settings.theme_key !== 'pink-porcelain';
+  $('#personalPorcelainShadeOptions').innerHTML = catalog.porcelainShades.map(item => `<label class="porcelain-shade-choice porcelain-shade-${item.key}"><input type="radio" name="personalPorcelainShade" value="${item.key}" aria-label="${escapeHtml(item.label)}" ${item.key === porcelain.shade ? 'checked' : ''}><span class="porcelain-shade-disc" aria-hidden="true"></span><strong>${escapeHtml(item.label)}</strong>${item.recommended ? '<em>Рекомендуем</em>' : ''}</label>`).join('');
+  $('#personalPorcelainCharacterOptions').innerHTML = catalog.porcelainCharacters.map(item => `<label class="porcelain-option porcelain-art-${item.key}"><input type="radio" name="personalPorcelainCharacter" value="${item.key}" ${item.key === porcelain.character ? 'checked' : ''}><span class="porcelain-art" aria-hidden="true"><i></i><b></b></span><span class="porcelain-option-copy"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.tagline)}</small><span class="porcelain-mini-palette" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></span></label>`).join('');
+}
+
+function savePersonalThemeFromPicker() {
+  const catalog = window.MinutaThemeCatalog;
+  const settings = catalog.writePersonalSettings({
+    theme_key:$('#personalThemeOptions input[name="personalTheme"]:checked')?.value,
+    porcelain:{ shade:$('#personalPorcelainShadeOptions input:checked')?.value, character:$('#personalPorcelainCharacterOptions input:checked')?.value }
+  });
+  catalog.applyClientTheme(document.body, settings.theme_key, settings);
+  $('#personalPorcelainCustomization').hidden = settings.theme_key !== 'pink-porcelain';
+  $('#personalThemePersistence').textContent = 'Выбор сохранён на этом устройстве.';
 }
 
 function loadSessionToken() {
@@ -411,6 +430,9 @@ $('#clientRefresh').addEventListener('click', loadBookings);
 $('#clientRestoreRetry').addEventListener('click', openAccount);
 $('#clientRotateCode').addEventListener('click', rotateCode);
 $('#clientLogout').addEventListener('click', logout);
+$('#openPersonalTheme').addEventListener('click', () => { renderPersonalThemePicker(window.MinutaThemeCatalog.readPersonalSettings()); $('#personalThemeDialog').showModal(); });
+$('#personalThemeDialog').addEventListener('change', event => { if (event.target.matches('input[name^="personal"]')) savePersonalThemeFromPicker(); });
+$('#personalThemeDialog').addEventListener('click', event => { if (event.target === $('#personalThemeDialog')) $('#personalThemeDialog').close(); });
 $('#clientBookingsList').addEventListener('click', event => { const button = event.target.closest('[data-open-review]'); if (button) openReview(button.dataset.openReview); });
 document.querySelectorAll('[data-review-rating]').forEach(button => button.addEventListener('click', () => setReviewRating(button.dataset.reviewRating)));
 $('#reviewForm').addEventListener('submit', submitReview);

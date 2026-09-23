@@ -15,10 +15,10 @@ const context = {
 vm.createContext(context);
 vm.runInContext(read('./theme-catalog.js'), context);
 const catalog = context.window.MinutaThemeCatalog;
-const expected = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','ash-flame','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard','pearl-zebra','blue-hydrangea','peach-silk','moonlit-lilac','noir-rose','cocoa-pearl','plum-cashmere','obsidian-champagne','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal','azure-lagoon','noir-safari'];
+const expected = ['sage','nordic','warm','pink-porcelain','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','ash-flame','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard','pearl-zebra','blue-hydrangea','peach-silk','moonlit-lilac','noir-rose','cocoa-pearl','plum-cashmere','obsidian-champagne','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal','azure-lagoon','noir-safari'];
 assert.deepEqual([...catalog.themeKeys], expected);
-assert.equal(new Set(catalog.themeKeys).size, 40);
-assert.equal(catalog.clientThemes.length, 24);
+assert.equal(new Set(catalog.themeKeys).size, 41);
+assert.equal(catalog.clientThemes.length, 25);
 assert.deepEqual([...catalog.clientThemeKeys], expected.filter(key => !['blue-hydrangea','peach-silk','moonlit-lilac','ash-flame','noir-rose','cocoa-pearl','plum-cashmere','obsidian-champagne','carbon-ember','petrol-steel','carbon-crimson','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','concrete-signal'].includes(key)));
 for (const theme of catalog.themes) {
   assert.ok(theme.label && theme.description && theme.groups.length);
@@ -43,6 +43,8 @@ const providerHtml = read('./provider.html');
 const indexHtml = read('./index.html');
 const providerJs = read('./provider.js');
 const appJs = read('./app.js');
+const myBookingsHtml = read('./my-bookings.html');
+const myBookingsJs = read('./my-bookings.js');
 const sw = read('./sw.js');
 const clientThemesCss = read('./client-themes.css');
 const providerRelease = sw.match(/CACHE_PREFIX\}v(\d+)/)?.[1];
@@ -50,7 +52,7 @@ const providerThemeRelease = providerHtml.match(/theme-catalog\.js\?v=(\d+)/)?.[
 const clientRelease = indexHtml.match(/theme-catalog\.js\?v=(\d+)/)?.[1];
 assert.ok(providerRelease && providerThemeRelease && clientRelease, 'Не удалось определить версии ресурсов тем');
 const providerThemeKeys = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
-assert.deepEqual(providerThemeKeys, expected, 'Каталог должен совпадать с 40 темами кабинета');
+assert.deepEqual(providerThemeKeys, expected, 'Каталог должен совпадать с темами кабинета');
 assert.equal([...providerHtml.matchAll(/<small data-theme-description><\/small>/g)].length, expected.length, 'В карточках кабинета остались отдельные копии описаний');
 const hydratedDescriptions = new Map();
 const descriptionInputs = expected.map(key => ({
@@ -72,9 +74,11 @@ assert.match(providerHtml, /id="clientAppearanceTitle">Оформление кл
 assert.match(providerHtml, /id="clientAppearancePreview"/);
 assert.match(providerHtml, /id="providerClientThemeChooser"/);
 assert.match(providerHtml, /data-client-theme-filter="featured"/);
-assert.match(providerHtml, /Личный выбор клиента меняет оформление только на его устройстве/);
+assert.match(providerHtml, /Личное оформление их раздела «Мои записи» не меняет страницу организации/);
 assert.match(providerHtml, new RegExp(`theme-catalog\\.js\\?v=${providerThemeRelease}`));
-assert.match(indexHtml, /id="clientThemeDialog"/);
+assert.doesNotMatch(indexHtml, /id="clientThemeDialog"/);
+assert.match(myBookingsHtml, /id="personalThemeDialog"/);
+assert.match(myBookingsJs, /readPersonalSettings/);
 assert.match(indexHtml, /id="clientHeroTitle"/);
 assert.match(indexHtml, new RegExp(`client-themes\\.css\\?v=${clientRelease}`));
 assert.match(indexHtml, new RegExp(`theme-catalog\\.js\\?v=${clientRelease}`));
@@ -90,7 +94,7 @@ const appearanceRuntime = providerJs.slice(providerJs.indexOf('function normaliz
 assert.doesNotMatch(appearanceRuntime, /db\.auth\.updateUser/);
 assert.match(providerJs, /url\.searchParams\.set\('theme'/);
 assert.match(providerJs, /url\.searchParams\.set\('headline'/);
-assert.match(appJs, /readClientOverride\(state\.organization\?\.id,\s*requestedOrganizationSlug\)/);
+assert.doesNotMatch(appJs, /readClientOverride\(state\.organization\?\.id,\s*requestedOrganizationSlug\)/);
 assert.match(appJs, /get_public_minuta_catalog_v5/);
 assert.ok(appJs.indexOf('get_public_minuta_catalog_v5') < appJs.indexOf('get_public_minuta_catalog_v4'));
 assert.match(clientThemesCss, /\.availability-suggestion[\s\S]*var\(--client-surface\)/);

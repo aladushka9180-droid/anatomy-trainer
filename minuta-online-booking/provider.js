@@ -386,6 +386,7 @@ let displayPreferencesSaveRevision = 0;
 let providerThemeFilter = '';
 let clientThemeFilter = '';
 let clientPageSettings = { theme_key:'sage', headline_key:'massage-time' };
+let clientPageSettingsServerSupportsPorcelain = false;
 let clientPageSettingsOrganizationId = '';
 let clientPageSettingsSaveRevision = 0;
 let clientPageSettingsLoadRevision = 0;
@@ -2085,6 +2086,7 @@ function normalizeDisplayPreferences(value = {}) {
   return {
     layout: PROVIDER_LAYOUT_KEYS.includes(storedLayout) ? storedLayout : legacyLayout || DEFAULT_DISPLAY_PREFERENCES.layout,
     theme,
+    ...(theme === 'pink-porcelain' ? { porcelain:window.MinutaThemeCatalog.normalizeSettings({ theme_key:theme, porcelain:source.porcelain }).porcelain } : {}),
     color_mode: PROVIDER_COLOR_MODE_KEYS.includes(source.color_mode) ? source.color_mode : nativeColorMode,
     text_scale: PROVIDER_TEXT_SCALE_KEYS.includes(storedTextScale) ? storedTextScale : DEFAULT_DISPLAY_PREFERENCES.text_scale,
     booking_card_density:density,
@@ -2103,6 +2105,7 @@ function displayPreferencesEqual(left, right) {
   const b = normalizeDisplayPreferences(right);
   return a.layout === b.layout
     && a.theme === b.theme
+    && JSON.stringify(a.porcelain) === JSON.stringify(b.porcelain)
     && a.color_mode === b.color_mode
     && a.text_scale === b.text_scale
     && a.booking_card_density === b.booking_card_density
@@ -2318,7 +2321,25 @@ function renderProviderAppearanceMenu(colorState = null) {
 }
 function applyProviderColorMode() {
   const theme = window.MinutaThemeCatalog.theme(displayPreferences.theme);
-  return window.MinutaProviderColorMode.apply(document.body, theme, displayPreferences.color_mode, providerColorSchemeQuery.matches);
+  const colorState = window.MinutaProviderColorMode.apply(document.body, theme, displayPreferences.color_mode, providerColorSchemeQuery.matches);
+  const palette = window.MinutaThemeCatalog.paletteForSettings({ theme_key:theme.key, porcelain:displayPreferences.porcelain });
+  const tokens = {
+    '--theme-bg':palette.bg, '--theme-surface':palette.surface, '--theme-surface-alt':palette.surfaceAlt,
+    '--theme-ink':palette.ink, '--theme-muted':palette.muted, '--theme-line':palette.line,
+    '--theme-accent':palette.accent, '--theme-accent-soft':palette.accentSoft,
+    '--theme-accent-contrast':palette.contrast, '--theme-shadow':palette.shadow,
+    '--material-card-bg':palette.surface, '--material-card-border':palette.line,
+    '--signature-sidebar':palette.surfaceAlt, '--signature-stage':palette.bg,
+    '--signature-nav-active':palette.accentSoft, '--atmosphere-background':palette.pattern,
+    '--atmosphere-panel':palette.bg, '--atmosphere-panel-strong':palette.surface
+  };
+  if (theme.key === 'pink-porcelain') {
+    Object.entries(tokens).forEach(([property, value]) => document.body.style.setProperty(property, value));
+    document.body.dataset.providerPorcelainCharacter = displayPreferences.porcelain.character;
+    return { ...colorState, palette, themeColor:palette.themeColor };
+  }
+  delete document.body.dataset.providerPorcelainCharacter;
+  return colorState;
 }
 function applyDisplayPreferences() {
   if (displayPreferences.color_mode === 'system') {
@@ -2407,6 +2428,14 @@ function renderDisplayPreferencesForm() {
   if (layout) layout.checked = true;
   const theme = form.querySelector(`input[name="providerTheme"][value="${displayPreferences.theme}"]`);
   if (theme) theme.checked = true;
+  const porcelain = displayPreferences.porcelain || { shade:'gentle-pink', character:'petal' };
+  const catalog = window.MinutaThemeCatalog;
+  const porcelainPicker = $('#providerPorcelainCustomization');
+  if (porcelainPicker) {
+    porcelainPicker.hidden = displayPreferences.theme !== 'pink-porcelain';
+    $('#providerPorcelainShadeOptions').innerHTML = catalog.porcelainShades.map(item => `<label class="porcelain-shade-choice porcelain-shade-${item.key}"><input type="radio" name="providerPorcelainShade" value="${item.key}" aria-label="${escapeHtml(item.label)}" ${item.key === porcelain.shade ? 'checked' : ''}><span class="porcelain-shade-disc" aria-hidden="true"></span><strong>${escapeHtml(item.label)}</strong>${item.recommended ? '<em>Рекомендуем</em>' : ''}</label>`).join('');
+    $('#providerPorcelainCharacterOptions').innerHTML = catalog.porcelainCharacters.map(item => `<label class="porcelain-option porcelain-art-${item.key}"><input type="radio" name="providerPorcelainCharacter" value="${item.key}" ${item.key === porcelain.character ? 'checked' : ''}><span class="porcelain-art" aria-hidden="true"><i></i><b></b></span><span class="porcelain-option-copy"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.tagline)}</small><span class="porcelain-mini-palette" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></span></label>`).join('');
+  }
   if (!providerThemeFilter) {
     providerThemeFilter = 'featured';
   }
@@ -2597,6 +2626,7 @@ function displayPreferencesFromForm() {
   return normalizeDisplayPreferences({
     layout: $('#providerDisplayForm input[name="providerLayout"]:checked')?.value,
     theme: $('#providerDisplayForm input[name="providerTheme"]:checked')?.value,
+    porcelain:{ shade:$('#providerDisplayForm input[name="providerPorcelainShade"]:checked')?.value, character:$('#providerDisplayForm input[name="providerPorcelainCharacter"]:checked')?.value },
     color_mode: displayPreferences.color_mode,
     text_scale: $('#providerDisplayForm input[name="providerTextScale"]:checked')?.value,
     booking_card_density:$('#providerDisplayForm input[name="bookingCardDensity"]:checked')?.value,
@@ -6113,6 +6143,10 @@ function buildProviderClientUrl(organization = null) {
     url.searchParams.set('org', organization.public_slug);
     url.searchParams.set('theme', settings.theme_key);
     url.searchParams.set('headline', settings.headline_key);
+    if (settings.porcelain) {
+      url.searchParams.set('porcelain_shade', settings.porcelain.shade);
+      url.searchParams.set('porcelain_character', settings.porcelain.character);
+    }
   }
   return url;
 }
@@ -6161,7 +6195,11 @@ function clientAppearanceDraftFromForm() {
   if (!form) return clientPageSettings;
   return normalizeClientPageSettings({
     theme_key:form.querySelector('[name="providerClientTheme"]:checked')?.value || clientPageSettings.theme_key,
-    headline_key:form.querySelector('[name="providerClientHeadline"]:checked')?.value || clientPageSettings.headline_key
+    headline_key:form.querySelector('[name="providerClientHeadline"]:checked')?.value || clientPageSettings.headline_key,
+    porcelain:{
+      shade:form.querySelector('[name="porcelainShade"]:checked')?.value || 'gentle-pink',
+      character:form.querySelector('[name="porcelainCharacter"]:checked')?.value || 'petal'
+    }
   });
 }
 function renderClientAppearancePreview(settings = clientAppearanceDraftFromForm()) {
@@ -6173,21 +6211,31 @@ function renderClientAppearancePreview(settings = clientAppearanceDraftFromForm(
   const headline = catalog.headline(normalized.headline_key);
   if (!theme || !headline) return;
   preview.dataset.previewTheme = theme.key;
+  if (normalized.porcelain) preview.dataset.previewCharacter = normalized.porcelain.character;
+  else delete preview.dataset.previewCharacter;
+  const palette = catalog.paletteForSettings(normalized);
   Object.entries({
-    bg:theme.palette.bg,
-    surface:theme.palette.surface,
-    surfaceAlt:theme.palette.surfaceAlt,
-    ink:theme.palette.ink,
-    muted:theme.palette.muted,
-    line:theme.palette.line,
-    accent:theme.palette.accent,
-    accentSoft:theme.palette.accentSoft,
-    contrast:theme.palette.contrast,
-    pattern:theme.palette.pattern
+    bg:palette.bg,
+    surface:palette.surface,
+    surfaceAlt:palette.surfaceAlt,
+    ink:palette.ink,
+    muted:palette.muted,
+    line:palette.line,
+    accent:palette.accent,
+    accentSoft:palette.accentSoft,
+    contrast:palette.contrast,
+    pattern:palette.pattern
   }).forEach(([name,value]) => preview.style.setProperty(`--client-preview-${name}`, value));
   $('#clientAppearanceThemeName').textContent = theme.label;
-  $('#clientAppearanceThemeDescription').textContent = theme.description;
+  const shade = normalized.porcelain && catalog.porcelainShades.find(item => item.key === normalized.porcelain.shade);
+  const character = normalized.porcelain && catalog.porcelainCharacters.find(item => item.key === normalized.porcelain.character);
+  $('#clientAppearanceThemeDescription').textContent = shade && character ? `${shade.label} · ${character.label}` : theme.description;
   $('#clientAppearancePreviewHeadline').textContent = headline.label;
+  const tagline = $('#clientAppearancePreviewTagline');
+  if (tagline) { tagline.hidden = !character; tagline.textContent = character?.tagline || ''; }
+  $('#porcelainCustomization').hidden = !normalized.porcelain;
+  $('#resetPorcelainTheme').hidden = !normalized.porcelain;
+  $('#applyClientAppearance').textContent = normalized.porcelain ? 'Применить тему' : 'Сохранить для клиентов';
 }
 function applyClientAppearanceThemeFilter(nextFilter, { focus=false } = {}) {
   const holder = $('#providerClientThemeOptions');
@@ -6220,6 +6268,9 @@ function renderClientAppearanceForm() {
   const headlineHolder = $('#clientHeadlineOptions');
   const preview = item => `linear-gradient(135deg,${item.palette.surface},${item.palette.accentSoft} 62%,${item.palette.accent})`;
   themeHolder.innerHTML = catalog.clientThemes.map(item => `<label class="client-theme-option theme-${item.key}" data-theme-groups="${item.groups.join(' ')}" style="--theme-preview:${preview(item)}"><input type="radio" name="providerClientTheme" value="${item.key}" ${item.key === clientPageSettings.theme_key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('');
+  const porcelain = clientPageSettings.porcelain || { shade:'gentle-pink', character:'petal' };
+  $('#porcelainShadeOptions').innerHTML = catalog.porcelainShades.map(item => `<label class="porcelain-shade-choice porcelain-shade-${item.key}"><input type="radio" name="porcelainShade" value="${item.key}" aria-label="${escapeHtml(item.label)}" ${item.key === porcelain.shade ? 'checked' : ''}><span class="porcelain-shade-disc" aria-hidden="true"></span><strong>${escapeHtml(item.label)}</strong>${item.recommended ? '<em>Рекомендуем</em>' : ''}</label>`).join('');
+  $('#porcelainCharacterOptions').innerHTML = catalog.porcelainCharacters.map(item => `<label class="porcelain-option porcelain-art-${item.key}"><input type="radio" name="porcelainCharacter" value="${item.key}" ${item.key === porcelain.character ? 'checked' : ''}><span class="porcelain-art" aria-hidden="true"><i></i><b></b></span><span class="porcelain-option-copy"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.tagline)}</small><span class="porcelain-mini-palette" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></span></label>`).join('');
   headlineHolder.innerHTML = catalog.headlines.map(item => `<label class="client-headline-option"><input type="radio" name="providerClientHeadline" value="${item.key}" ${item.key === clientPageSettings.headline_key ? 'checked' : ''}><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></label>`).join('');
   const selectedTheme = catalog.theme(clientPageSettings.theme_key);
   if (!clientThemeFilter) clientThemeFilter = selectedTheme?.groups.includes('featured') ? 'featured' : 'all';
@@ -6228,7 +6279,7 @@ function renderClientAppearanceForm() {
   renderClientAppearancePreview(clientPageSettings);
   const organization = organizationController?.getActiveOrganization?.() || null;
   const canEdit = organization?.current_role === 'owner';
-  form.querySelectorAll('input,button[type="submit"]').forEach(control => { control.disabled = !canEdit; });
+  form.querySelectorAll('input,button[type="submit"],#resetPorcelainTheme').forEach(control => { control.disabled = !canEdit; });
   const status = $('#clientAppearanceStatus');
   if (!status) return;
   if (!organization) status.textContent = 'Сначала выберите организацию.';
@@ -6241,21 +6292,25 @@ function renderClientAppearanceForm() {
 }
 async function loadClientAppearanceSettings(organization = organizationController?.getActiveOrganization?.() || null) {
   const loadRevision = ++clientPageSettingsLoadRevision;
+  clientPageSettingsServerSupportsPorcelain = false;
   clientPageSettingsOrganizationId = organization?.id || '';
   const local = readLocalClientPageSettings(clientPageSettingsOrganizationId);
   clientPageSettings = normalizeClientPageSettings(local || {});
   renderClientAppearanceForm();
   updateProviderClientLinks(organization);
   if (!organization?.id || !currentUser) return;
-  if (local && local.sync_status !== 'confirmed') {
-    if (navigator.onLine && organization.current_role === 'owner') void enqueueClientAppearanceServerSave(organization, local, { silent:true });
-    return;
-  }
   if (!navigator.onLine) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  const { data, error } = await db.rpc('get_minuta_client_page_settings_v118', { p_organization:organization.id });
+  let { data, error } = await db.rpc('get_minuta_client_page_settings_v174', { p_organization:organization.id });
+  const supportsPorcelain = !isMissingRpc(error,'get_minuta_client_page_settings_v174');
+  if (!supportsPorcelain) ({ data, error } = await db.rpc('get_minuta_client_page_settings_v118', { p_organization:organization.id }));
   if (loadRevision !== clientPageSettingsLoadRevision || !sessionIsCurrent(userId,generation) || organizationController.getActiveOrganization()?.id !== organization.id) return;
+  clientPageSettingsServerSupportsPorcelain = supportsPorcelain && !error;
+  if (local && local.sync_status !== 'confirmed') {
+    if (organization.current_role === 'owner') void enqueueClientAppearanceServerSave(organization, local, { silent:true });
+    return;
+  }
   const status = $('#clientAppearanceStatus');
   if (error) {
     if (status) status.textContent = isMissingRpc(error,'get_minuta_client_page_settings_v118') ? 'Серверное хранение оформления ещё не подключено.' : 'Не удалось загрузить оформление организации. Локальный вариант сохранён.';
@@ -6289,14 +6344,24 @@ function enqueueClientAppearanceServerSave(organization, stored, { silent=false 
     let data;
     let error;
     try {
-      ({ data,error } = await db.rpc('set_minuta_client_page_settings_v118', {
-        p_organization:organization.id,p_theme_key:stored.theme_key,p_headline_key:stored.headline_key
-      }));
+      if (stored.porcelain && !clientPageSettingsServerSupportsPorcelain) {
+        error = { code:'PGRST202',message:'pink_porcelain_server_unavailable' };
+      } else {
+        const rpcName = clientPageSettingsServerSupportsPorcelain ? 'set_minuta_client_page_settings_v174' : 'set_minuta_client_page_settings_v118';
+        const args = { p_organization:organization.id,p_theme_key:stored.theme_key,p_headline_key:stored.headline_key };
+        if (clientPageSettingsServerSupportsPorcelain) {
+          args.p_porcelain_shade = stored.porcelain?.shade || null;
+          args.p_porcelain_character = stored.porcelain?.character || null;
+        }
+        ({ data,error } = await db.rpc(rpcName,args));
+      }
     } catch (cause) { error = cause; }
     const stillVisible = sessionIsCurrent(userId,generation) && organizationController.getActiveOrganization()?.id === organization.id;
     const status = stillVisible ? $('#clientAppearanceStatus') : null;
     if (error) {
-      if (status) status.textContent = isMissingRpc(error,'set_minuta_client_page_settings_v118') ? 'Сохранено только на устройстве: серверное хранение ещё не подключено.' : 'Сохранено только на устройстве. Синхронизация не удалась.';
+      if (status) status.textContent = stored.porcelain && !clientPageSettingsServerSupportsPorcelain
+        ? 'Розовый фарфор ожидает серверного обновления; для организации тема не сохранена.'
+        : 'Сохранено только на устройстве. Синхронизация не удалась.';
       if (!silent && stillVisible) notify('Не удалось синхронизировать оформление');
       return { ok:false,error };
     }
@@ -6325,7 +6390,11 @@ async function saveClientAppearanceSettings(event) {
   const organization = organizationController?.getActiveOrganization?.() || null;
   if (!organization?.id || organization.current_role !== 'owner') { notify('Изменить оформление может только владелец организации'); return; }
   const form = event.currentTarget;
-  const next = normalizeClientPageSettings({ theme_key:form.querySelector('[name="providerClientTheme"]:checked')?.value, headline_key:form.querySelector('[name="providerClientHeadline"]:checked')?.value });
+  const next = clientAppearanceDraftFromForm();
+  if (next.porcelain && !clientPageSettingsServerSupportsPorcelain) {
+    $('#clientAppearanceStatus').textContent = 'Розовый фарфор пока нельзя сохранить для организации: сервер ещё не поддерживает новую тему.';
+    return;
+  }
   const stored = { ...next, updated_at:Date.now(), local_revision:++clientPageSettingsSaveRevision, sync_status:'pending' };
   clientPageSettings = next;
   clientPageSettingsOrganizationId = organization.id;
@@ -18019,12 +18088,17 @@ $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
 const clientAppearanceForm = $('#clientAppearanceForm');
 clientAppearanceForm?.addEventListener('submit', saveClientAppearanceSettings);
 clientAppearanceForm?.addEventListener('click', event => {
+  if (event.target.closest('#resetPorcelainTheme')) {
+    renderClientAppearanceForm();
+    return;
+  }
   const filter = event.target.closest('[data-client-theme-filter]');
   if (!filter) return;
   applyClientAppearanceThemeFilter(filter.dataset.clientThemeFilter, { focus:true });
 });
 clientAppearanceForm?.addEventListener('change', event => {
-  if (!event.target.matches('[name="providerClientTheme"],[name="providerClientHeadline"]')) return;
+  if (!event.target.matches('[name="providerClientTheme"],[name="providerClientHeadline"],[name="porcelainShade"],[name="porcelainCharacter"]')) return;
+  if (event.target.matches('[name="providerClientTheme"]') && event.target.value === 'pink-porcelain') $('#providerClientThemeChooser').open = false;
   renderClientAppearancePreview(clientAppearanceDraftFromForm());
 });
 $('#bookingBufferEnabled').addEventListener('change', event => { $('#bookingBufferDuration').hidden = !event.target.checked; });
