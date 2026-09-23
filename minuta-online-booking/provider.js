@@ -1,5 +1,5 @@
 if (window.top === window.self) document.documentElement.classList.add('top-level');
-else throw new Error('embedded_provider_blocked');
+else if (!window.MINUTA_PORCELAIN_READ_ONLY_PREVIEW || window.parent.location.origin !== window.location.origin) throw new Error('embedded_provider_blocked');
 const providerNavigation = window.performance?.getEntriesByType?.('navigation')?.[0];
 if (providerNavigation?.type === 'reload') document.documentElement.classList.add('provider-refresh-transition');
 
@@ -2322,7 +2322,9 @@ function renderProviderAppearanceMenu(colorState = null) {
 function applyProviderColorMode() {
   const theme = window.MinutaThemeCatalog.theme(displayPreferences.theme);
   const colorState = window.MinutaProviderColorMode.apply(document.body, theme, displayPreferences.color_mode, providerColorSchemeQuery.matches);
-  const palette = window.MinutaThemeCatalog.paletteForSettings({ theme_key:theme.key, porcelain:displayPreferences.porcelain });
+  const palette = theme.key === 'pink-porcelain' && window.MinutaProviderPorcelainMatrix
+    ? window.MinutaProviderPorcelainMatrix.paletteFor(displayPreferences.porcelain?.character, displayPreferences.porcelain?.shade)
+    : window.MinutaThemeCatalog.paletteForSettings({ theme_key:theme.key, porcelain:displayPreferences.porcelain });
   const tokens = {
     '--theme-bg':palette.bg, '--theme-surface':palette.surface, '--theme-surface-alt':palette.surfaceAlt,
     '--theme-ink':palette.ink, '--theme-muted':palette.muted, '--theme-line':palette.line,
@@ -2643,8 +2645,8 @@ function displayPreferencesFromForm() {
     analytics_goals_by_scope:displayPreferences.analytics_goals_by_scope
   });
 }
-function saveDisplayPreferences() {
-  displayPreferences = displayPreferencesFromForm();
+function saveDisplayPreferences(next = displayPreferencesFromForm()) {
+  displayPreferences = normalizeDisplayPreferences(next);
   displayPreferencesUpdatedAt = Math.max(Date.now(), displayPreferencesUpdatedAt + 1);
   displayPreferencesPending = true;
   persistLocalDisplayPreferences();
@@ -13771,6 +13773,7 @@ function armBookingsReload() {
 
 function startLiveUpdates({ catchUpOnSubscribe = true } = {}) {
   stopLiveUpdates();
+  if (window.MINUTA_PORCELAIN_READ_ONLY_PREVIEW) return;
   if (!currentUser || !navigator.onLine || document.hidden) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
