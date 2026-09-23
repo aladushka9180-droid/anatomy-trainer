@@ -918,12 +918,12 @@
 
             <div class="organization-grid provider-section-anchor" id="organizationPeopleSection">
               <section class="panel organization-section">
-                <div class="panel-head"><div><small>Адреса и часовые пояса</small><h3>Филиалы</h3></div><span class="panel-count" id="locationsCount">0</span></div>
+                <div class="panel-head"><div><small>Филиалы и адреса</small><h3>Филиалы</h3></div><span class="panel-count" id="locationsCount">0</span></div>
                 <div data-contextual-help data-help-label="Как всё связано?" data-help-slug="branches-and-employees" data-help-question="Объясни, как связаны филиалы, сотрудники, услуги и смены и что проверить перед изменением."></div>
                 <div class="organization-list" id="locationsList"></div>
                 <details class="organization-create" id="locationCreator">
                   <summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить филиал</span></summary>
-                  <form id="locationForm"><label>Название<input id="locationName" maxlength="120" placeholder="Например, Центр" required></label><label>Адрес<input id="locationAddress" maxlength="500" placeholder="Город, улица, дом"></label><input id="locationTimezone" type="hidden" value="Europe/Samara"><p class="form-error" id="locationError" hidden></p><button class="primary" type="submit">Создать филиал</button></form>
+                  <form id="locationForm"><label>Название<input id="locationName" maxlength="120" placeholder="Например, Центр" required></label><label>Адрес<input id="locationAddress" maxlength="500" placeholder="Город, улица, дом"></label><input id="locationTimezone" type="hidden" value="Europe/Samara"><p class="settings-hint">Новый филиал создаётся с часовым поясом Europe/Samara. Изменить его в кабинете пока нельзя.</p><p class="form-error" id="locationError" hidden></p><button class="primary" type="submit">Создать филиал</button></form>
                 </details>
               </section>
 
@@ -1676,7 +1676,7 @@
             </section>
             <section class="panel settings-card data-governance-card" id="dataGovernanceCard" data-owner="false">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div>
-              <div class="settings-heading"><small>Данные и конфиденциальность</small><h3>Резервная копия и перенос</h3><p>Скачайте записи за нужный период в Excel или сохраните полный архив организации.</p></div>
+              <div class="settings-heading"><small>Данные и конфиденциальность</small><h3>Выгрузка данных</h3><p>Скачайте записи за нужный период в Excel или выборочные данные организации в ZIP.</p></div>
               <div data-contextual-help data-help-label="Как защищены данные?" data-help-slug="data-governance" data-help-danger="true" data-help-question="Объясни сроки хранения, предварительную проверку очистки, выгрузку и последствия удаления данных. Ничего не удаляй."></div>
               <p id="dataGovernanceStatus" class="settings-hint" aria-live="polite">Настройки загружаются после выбора организации.</p>
               <details class="data-governance-details data-export-details">
@@ -1689,8 +1689,8 @@
                     <button type="button" class="secondary-button" id="exportBookingsExcelBtn">Скачать Excel</button>
                   </article>
                   <article class="data-export-option">
-                    <div><strong>Полная резервная копия</strong><p>Все данные организации в ZIP-архиве. Подходит для хранения и восстановления.</p></div>
-                    <button type="button" class="secondary-button" id="openFullDataExportBtn">Скачать полный архив</button>
+                    <div><strong>Архив данных организации</strong><p>ZIP содержит основные данные, но не является полной копией базы. Автоматического восстановления из ZIP в кабинете нет.</p></div>
+                    <button type="button" class="secondary-button" id="openFullDataExportBtn">Скачать архив данных</button>
                     <p class="data-export-hint">Только для владельца. Каждое скачивание фиксируется в журнале доступа.</p>
                   </article>
                 </div>
@@ -1705,16 +1705,16 @@
                 <summary>Опасная зона: очистка и удаление</summary>
                 <p>Сначала проверьте состав данных. Очистка и удаление не запускаются без отдельного подтверждения.</p>
                 <div class="data-governance-actions owner-only-data-action"><button type="button" class="secondary-button" id="previewPrivacyCleanupBtn">Показать, что будет удалено</button><button type="button" class="danger-button" id="runPrivacyCleanupBtn">Очистить данные по срокам</button></div>
-                <div class="data-delete-requests"><strong>Запросы на удаление</strong><p>Запрос можно отменить до даты исполнения.</p><div class="data-governance-actions owner-only-data-action"><button type="button" class="secondary-button" data-data-request="account_deletion">Удалить мой аккаунт</button><button type="button" class="danger-button" data-data-request="organization_deletion">Удалить организацию</button></div><div id="dataGovernanceRequests"></div></div>
+                <div class="data-delete-requests"><strong>Запросы на удаление</strong><p>Создание запроса не удаляет данные сразу. Запрос можно отменить до даты исполнения.</p><div class="data-governance-actions owner-only-data-action"><button type="button" class="secondary-button" data-data-request="account_deletion">Запросить удаление аккаунта</button><button type="button" class="danger-button" data-data-request="organization_deletion">Запросить удаление организации</button></div><div id="dataGovernanceRequests"></div></div>
               </details>
               <p class="settings-hint">Документы: <a href="privacy.html" target="_blank" rel="noopener">политика конфиденциальности</a> и <a href="terms.html" target="_blank" rel="noopener">условия использования</a>.</p>
             </section>
             <dialog class="data-export-dialog" id="fullDataExportDialog" aria-labelledby="fullDataExportTitle">
               <form method="dialog" class="data-export-dialog-card">
                 <button type="submit" class="data-export-dialog-close" aria-label="Закрыть">×</button>
-                <small>Полная копия организации</small>
+                <small>Выборочная выгрузка организации</small>
                 <h3 id="fullDataExportTitle">Скачать защищённый архив?</h3>
-                <p>В ZIP-файле будут записи, клиенты, услуги, сотрудники и настройки. Архив может содержать персональные данные.</p>
+                <p>В ZIP-файле будут записи, клиенты, услуги, сотрудники и настройки. Архив может содержать персональные данные, не заменяет резервную копию базы и не восстанавливается автоматически через кабинет.</p>
                 <label class="data-export-confirm"><input id="fullDataExportConfirm" type="checkbox"><span>Я сохраню архив в безопасном месте и не передам посторонним.</span></label>
                 <div class="data-export-dialog-actions"><button type="submit" class="secondary-button">Отмена</button><button type="button" class="primary" id="exportOrganizationDataBtn" disabled>Скачать ZIP</button></div>
               </form>
@@ -2113,11 +2113,11 @@
   </div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
-  <script src="site-update.js?v=882" defer></script>
+  <script src="site-update.js?v=884" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
-  <script src="organization.js?v=811" defer></script>
+  <script src="organization.js?v=884" defer></script>
   <script src="payment-management.js?v=811" defer></script>
   <script src="commerce-management.js?v=811" defer></script>
   <script src="integration-management.js?v=811" defer></script>
@@ -2137,7 +2137,7 @@
   <script src="onboarding.js?v=811" defer></script>
   <script src="client-messaging.js?v=811" defer></script>
   <script src="provider-read-fetch.js?v=811" defer></script>
-  <script src="data-governance.js?v=811" defer></script>
+  <script src="data-governance.js?v=884" defer></script>
   <script src="report-reconciliation.js?v=811" defer></script>
   <script src="report-demo-live.js?v=811" defer></script>
   <link rel="stylesheet" href="client-directory.css?v=811">
@@ -2163,7 +2163,7 @@
   <script src="finance-center.js?v=811" defer></script>
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
-  <script src="provider.js?v=882" defer></script>
+  <script src="provider.js?v=884" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>
   <script src="primetime-handoff.js?v=811" defer></script>

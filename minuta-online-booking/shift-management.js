@@ -23,6 +23,7 @@
 
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, applyWriteAvailability } = options;
+    const loadTimeoutMs = Number.isFinite(options.loadTimeoutMs) ? Math.max(1, options.loadTimeoutMs) : 15000;
     const getCurrentUser = typeof options.getCurrentUser === 'function' ? options.getCurrentUser : () => null;
     const getSessionGeneration = typeof options.getSessionGeneration === 'function' ? options.getSessionGeneration : () => 0;
     const sessionIsCurrent = typeof options.sessionIsCurrent === 'function' ? options.sessionIsCurrent : () => false;
@@ -89,14 +90,28 @@
       $('#shiftsLoading').hidden = false;
       $('#shiftsUnavailable').hidden = true;
       $('#shiftWorkspace').hidden = true;
-      const { data, error } = await db.rpc('get_minuta_shift_workspace', { p_organization: organizationId, p_start: start, p_end: addDays(start, days - 1) });
+      let timeoutId;
+      let response;
+      try {
+        response = await Promise.race([
+          db.rpc('get_minuta_shift_workspace', { p_organization: organizationId, p_start: start, p_end: addDays(start, days - 1) }),
+          new Promise(resolve => { timeoutId = setTimeout(() => resolve({ error: { code: 'SHIFT_LOAD_TIMEOUT' } }), loadTimeoutMs); })
+        ]);
+      } catch (error) {
+        response = { error };
+      } finally {
+        clearTimeout(timeoutId);
+      }
       if (!sessionIsCurrent(userId, generation) || currentRevision !== revision || organization?.id !== organizationId) return { ok: false, optional: true, stale: true };
+      const { data, error } = response || {};
       $('#shiftsLoading').hidden = true;
       if (error) {
         payload = null;
         if (unsupported(error)) { $('#shiftsPanel').hidden = true; return { ok: false, optional: true, unsupported: true }; }
         $('#shiftsUnavailable').hidden = false;
-        $('#shiftsUnavailableText').textContent = 'Филиалы и записи продолжают работать. Не удалось загрузить только расписание команды.';
+        $('#shiftsUnavailableText').textContent = error.code === 'SHIFT_LOAD_TIMEOUT'
+          ? 'Смены не ответили вовремя. Филиалы и записи продолжают работать. Повторите загрузку.'
+          : 'Филиалы и записи продолжают работать. Не удалось загрузить только расписание команды.';
         return { ok: false, optional: true };
       }
       if (String(data?.organization_id || '') !== String(organizationId)) {
@@ -114,7 +129,7 @@
     function nameOf(items, id, fallback) { return items.find(item => item.id === id)?.display_name || items.find(item => item.id === id)?.name || fallback; }
     function dateLabel(value) { const date = new Date(`${value}T12:00:00`); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' }); }
     function shortTime(value) { return String(value || '').slice(0, 5); }
-    function options(items, selected, label) { return items.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === selected ? 'selected' : ''}>${escapeHtml(label(item))}</option>`).join(''); }
+    function renderOptions(items, selected, label) { return items.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === selected ? 'selected' : ''}>${escapeHtml(label(item))}</option>`).join(''); }
     function empty(title, text) { return `<div class="provider-empty compact-empty"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(text)}</small></div>`; }
 
     function shiftCard(item) {
@@ -147,10 +162,10 @@
       panel.hidden = !canManage;
       if (!canManage) return;
       const active = payload.bookings.filter(item => item.status !== 'cancelled' && !item.has_addons);
-      $('#substitutionBooking').innerHTML = active.length ? options(active, '', item => `${dateLabel(item.booking_date)} ${shortTime(item.booking_time)} · ${item.service_name || item.booking_code}`) : '<option value="">Нет записей в периоде</option>';
+      $('#substitutionBooking').innerHTML = active.length ? renderOptions(active, '', item => `${dateLabel(item.booking_date)} ${shortTime(item.booking_time)} · ${item.service_name || item.booking_code}`) : '<option value="">Нет записей в периоде</option>';
       const booking = active.find(item => item.id === $('#substitutionBooking').value) || active[0];
       const alternatives = booking ? payload.services.filter(service => service.performer_id !== booking.performer_id && Number(service.duration_minutes) === Number(booking.primary_duration_minutes || booking.duration_minutes)) : [];
-      $('#substitutionService').innerHTML = alternatives.length ? options(alternatives, '', item => `${item.name} · ${nameOf(payload.performers, item.performer_id, 'Специалист')}`) : '<option value="">Нет другого специалиста</option>';
+      $('#substitutionService').innerHTML = alternatives.length ? renderOptions(alternatives, '', item => `${item.name} · ${nameOf(payload.performers, item.performer_id, 'Специалист')}`) : '<option value="">Нет другого специалиста</option>';
       panel.querySelector('button').disabled = !booking || !alternatives.length;
     }
 
@@ -167,9 +182,9 @@
       $('#shiftEnableField').title = isOwner ? '' : 'Включить строгий режим может только владелец';
       $('#shiftEnableHint').textContent = payload.enabled ? 'Свободное время уже ограничено сменами и филиалами.' : 'Сначала заполните смены для всех будущих записей.';
       const activeLocations = payload.locations.filter(item => item.active);
-      $('#shiftLocation').innerHTML = options(activeLocations, '', item => item.name);
-      $('#shiftPerformer').innerHTML = options(payload.performers, '', item => item.display_name);
-      $('#absencePerformer').innerHTML = options(payload.performers, '', item => item.display_name);
+      $('#shiftLocation').innerHTML = renderOptions(activeLocations, '', item => item.name);
+      $('#shiftPerformer').innerHTML = renderOptions(payload.performers, '', item => item.display_name);
+      $('#absencePerformer').innerHTML = renderOptions(payload.performers, '', item => item.display_name);
       $('#shiftDate').min = isoToday();
       if (!$('#shiftDate').value) $('#shiftDate').value = $('#shiftStartDate').value || isoToday();
       $('#absenceStart').min = isoToday();

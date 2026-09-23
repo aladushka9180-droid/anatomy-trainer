@@ -64,7 +64,7 @@ for (const file of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-
 assert.match(read('provider-icon.svg'), /<path[^>]+fill="#f6fbf7"/);
 assert.match(read('provider-icon-maskable.svg'), /<path[^>]+fill="#f6fbf7"/);
 assert.match(read('data-governance.js'), /primetime-pro-bookings-/);
-assert.match(read('data-governance.js'), /primetime-pro-backup-/);
+assert.match(read('data-governance.js'), /primetime-pro-export-/);
 assert.match(read('free-slots-share.js'), /primetime-pro-booking-qr\.png/);
 assert.match(read('voice-assistant.js'), /праймтайм\(\?:\\s\+про\)\?/);
 assert.match(read('voice-assistant.js'), /primetime\(\?:\\s\+pro\)\?/);

@@ -211,12 +211,12 @@
         try {
           const payload = await call('export_minuta_organization_data_v110', { p_organization: organization.id });
           const date = localIsoDate(new Date());
-          const readme = `Резервная копия PrimeTime Pro\nОрганизация: ${organization.name || organization.id}\nСоздана: ${new Date().toLocaleString('ru-RU')}\n\nАрхив содержит персональные данные. Храните его в защищённом месте.\n`;
+          const readme = `Выгрузка данных PrimeTime Pro\nОрганизация: ${organization.name || organization.id}\nСоздана: ${new Date().toLocaleString('ru-RU')}\n\nАрхив содержит персональные данные. Храните его в защищённом месте. Это выборочная выгрузка, а не резервная копия базы данных. Автоматического восстановления из ZIP в кабинете нет.\n`;
           const archive = zipStore([{ name: `primetime-pro-data-${date}.json`, data: JSON.stringify(payload, null, 2) }, { name: 'README.txt', data: readme }]);
-          downloadBlob(archive, `primetime-pro-backup-${date}.zip`);
+          downloadBlob(archive, `primetime-pro-export-${date}.zip`);
           exportDialog.close();
           exportConfirm.checked = false;
-          setStatus('Полная резервная копия скачана. Выгрузка добавлена в журнал.', 'success');
+          setStatus('Архив данных скачан. Выгрузка добавлена в журнал.', 'success');
           await load();
         } finally { setBusy(fullExportButton, false, '', 'Скачать ZIP'); }
       };
