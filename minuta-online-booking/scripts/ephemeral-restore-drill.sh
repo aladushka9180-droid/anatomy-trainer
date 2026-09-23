@@ -149,6 +149,34 @@ if ! jq -e '
   exit 1
 fi
 
+if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQL:-}" ]]; then
+  test -f "${MINUTA_RESTORE_MIGRATION_SQL:?}"
+  test -f "${MINUTA_RESTORE_ROLLBACK_SQL:?}"
+  docker cp "$MINUTA_RESTORE_MIGRATION_SQL" "$container:/tmp/candidate-migration.sql" >/dev/null
+  docker cp "$MINUTA_RESTORE_ROLLBACK_SQL" "$container:/tmp/candidate-rollback.sql" >/dev/null
+  stage=candidate-apply
+  docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
+    -v VERBOSITY=sqlstate -f /tmp/candidate-migration.sql >>"$private_log" 2>&1
+  applied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+    -c "select (to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is not null)::int||'|'||(to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is not null)::int||'|'||(exists(select 1 from information_schema.columns where table_schema='public' and table_name='organization_client_page_settings' and column_name='porcelain_shade'))::int;" 2>>"$private_log")"
+  test "$applied" = '1|1|1'
+  stage=candidate-rollback
+  docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
+    -v VERBOSITY=sqlstate -f /tmp/candidate-rollback.sql >>"$private_log" 2>&1
+  rolled_back="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+    -c "select (to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is null)::int||'|'||(to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is null)::int;" 2>>"$private_log")"
+  test "$rolled_back" = '1|1'
+  stage=candidate-reapply
+  docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
+    -v VERBOSITY=sqlstate -f /tmp/candidate-migration.sql >>"$private_log" 2>&1
+  reapplied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+    -c "select (to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is not null)::int||'|'||(to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is not null)::int;" 2>>"$private_log")"
+  test "$reapplied" = '1|1'
+  jq '. + {candidateMigrationApplied:true,candidateRollbackVerified:true,candidateReapplied:true}' \
+    "$result" > "$result.candidate"
+  mv "$result.candidate" "$result"
+fi
+
 stage=destroy-container
 docker rm -f "$container" >/dev/null
 if docker inspect "$container" >/dev/null 2>&1; then
