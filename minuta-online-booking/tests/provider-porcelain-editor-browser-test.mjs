@@ -46,6 +46,7 @@ const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://127.0.0.1');
     if (url.pathname === '/write') { response.writeHead(204).end(); return; }
+    if (url.pathname === '/rest/v1/rpc/get_minuta_staff_report_bookings_v97') { response.setHeader('Content-Type', 'application/json'); response.end('{"bookings":[],"has_more":false}'); return; }
     if (url.pathname === '/fixture.js') { response.setHeader('Content-Type', 'text/javascript'); response.end(fixture); return; }
     if (url.pathname !== '/provider.html') {
       const target = path.resolve(root, decodeURIComponent(url.pathname.slice(1)));
@@ -119,6 +120,7 @@ try {
   await frame.locator('#fixtureMutate').click({ force:true });
   assert.equal(await frame.locator('body').getAttribute('data-write-status'), null);
   assert.equal(await frame.locator('body').evaluate(async () => (await fetch('/write', { method:'POST' })).status), 403);
+  assert.equal(await frame.locator('body').evaluate(async () => (await fetch('/rest/v1/rpc/get_minuta_staff_report_bookings_v97', { method:'POST' })).status), 200);
   assert.equal(await frame.locator('body').evaluate(() => { try { new XMLHttpRequest().open('POST', '/write'); return false; } catch { return true; } }), true);
   await frame.locator('body').evaluate(() => localStorage.setItem('porcelain-preview-test', 'isolated'));
   assert.equal(await page.evaluate(() => localStorage.getItem('porcelain-preview-test')), null);

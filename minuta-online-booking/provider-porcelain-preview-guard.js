@@ -38,7 +38,8 @@
   const readRpcs = new Set([
     'has_minuta_provider_access', 'get_minuta_workspace', 'get_provider_booking_reviews',
     'get_minuta_team_calendar', 'get_minuta_team_calendar_v2', 'get_minuta_team_calendar_v3',
-    'get_minuta_staff_report_availability', 'get_minuta_team_analytics',
+    'get_minuta_staff_report_availability', 'get_minuta_staff_report_bookings_v97',
+    'get_minuta_staff_report_bookings', 'get_minuta_team_analytics',
     'get_minuta_utm_funnel_v107', 'get_minuta_booking_events_v97', 'get_minuta_booking_events',
     'get_minuta_client_page_settings_v177', 'get_minuta_client_page_settings_v118',
     'get_minuta_provider_schedule_move_v157', 'get_minuta_provider_automatic_breaks_v158',
