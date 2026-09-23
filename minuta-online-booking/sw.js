@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v880`;
+const CACHE = `${CACHE_PREFIX}v882`;
 
 // Only the provider shell and its first-screen dependencies block installation.
 // Secondary sections, help media and decorative theme images are cached on use.
@@ -39,7 +39,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=880',
+  './site-update.js?v=882',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
   './social-auth.js?v=811',
@@ -64,7 +64,7 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=878',
+  './provider.js?v=882',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=871',
 ];
@@ -75,7 +75,7 @@ const OPTIONAL_ASSETS = [
   './report-demo-live.js?v=811',
   './loyalty-program-v166.js?v=865',
   './provider-schedule-desktop-reference.css?v=865',
-  './settings-nav-scroll.js?v=865',
+  './settings-nav-scroll.js?v=882',
   './settings-smart-search.js?v=865',
   './provider-theme-noir-safari.css?v=811',
   './index.html',
