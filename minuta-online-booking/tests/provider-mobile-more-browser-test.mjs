@@ -16,12 +16,12 @@ for (const contract of [
   /providerMobileMoreHistoryDismissed/,
   /data-close-mobile-more/
 ]) assert.match(providerSource, contract);
-assert.match(providerHtml, /provider-ux\.css\?v=865/);
 const cacheVersion = workerSource.match(/CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/)?.[1];
 assert.ok(cacheVersion);
+assert.ok(providerHtml.includes(`provider-ux.css?v=${cacheVersion}`));
 assert.ok(providerHtml.includes(`site-update.js?v=${cacheVersion}`));
 assert.ok(providerHtml.includes(`provider.js?v=${cacheVersion}`));
-assert.match(workerSource, /provider-ux\.css\?v=865/);
+assert.ok(workerSource.includes(`provider-ux.css?v=${cacheVersion}`));
 assert.ok(workerSource.includes(`site-update.js?v=${cacheVersion}`));
 assert.ok(workerSource.includes(`provider.js?v=${cacheVersion}`));
 assert.ok(updateSource.includes(`sw.js?v=${cacheVersion}`));
