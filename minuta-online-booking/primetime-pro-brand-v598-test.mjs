@@ -17,16 +17,19 @@ assert.match(provider, /<title>PrimeTime Pro — кабинет исполнит
 assert.match(provider, /apple-mobile-web-app-title" content="PrimeTime"/);
 assert.match(provider, /<span class="provider-boot-mark"[^>]*>PT<\/span>/);
 assert.match(provider, /<span class="brand-mark">PT<\/span><span><strong>PrimeTime Pro<\/strong>/);
-assert.match(provider, new RegExp(`rel="icon" href="provider-icon\\.svg\\?v=${release}"`));
-assert.match(provider, new RegExp(`property="og:image" content="[^"]+/provider-og\\.png\\?v=${release}"`));
-assert.match(provider, new RegExp(`name="twitter:image" content="[^"]+/provider-og\\.png\\?v=${release}"`));
+const iconVersion = provider.match(/rel="icon" href="provider-icon\.svg\?v=(\d+)"/)?.[1];
+assert.ok(iconVersion, 'У кабинета нет версионированной иконки');
+assert.ok(worker.includes(`'./provider-icon.svg?v=${iconVersion}'`), 'Иконка кабинета не согласована с service worker');
+const ogVersion = provider.match(/property="og:image" content="[^"]+\/provider-og\.png\?v=(\d+)"/)?.[1];
+assert.ok(ogVersion, 'У кабинета нет версионированного изображения для публикации');
+assert.match(provider, new RegExp(`name="twitter:image" content="[^"]+/provider-og\\.png\\?v=${ogVersion}"`));
 assert.equal(manifest.name, 'PrimeTime Pro — кабинет');
 assert.equal(manifest.short_name, 'PrimeTime');
-assert.deepEqual(manifest.icons.map(icon => icon.src), [
-  `provider-icon-192.png?v=${release}`,
-  `provider-icon-512.png?v=${release}`,
-  `provider-icon-maskable-512.png?v=${release}`,
-]);
+for (const name of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-icon-maskable-512.png']) {
+  const icon = manifest.icons.find(item => new RegExp(`^${name.replaceAll('.', '\\.')}\\?v=\\d+$`).test(item.src));
+  assert.ok(icon, `${name}: отсутствует в манифесте`);
+  assert.ok(worker.includes(`'./${icon.src}'`), `${name}: версия манифеста не согласована с service worker`);
+}
 
 const publicBrandFiles = [
   '404.html', 'offline.html', 'privacy.html', 'terms.html', 'speech-test.html',
@@ -78,9 +81,13 @@ assert.match(read('theme-catalog.js'), /window\.MinutaThemeCatalog/, 'совме
 assert.match(read('app.js'), /book_minuta_appointment/, 'совместимый RPC должен сохраниться');
 
 assert.match(worker, new RegExp(`CACHE_PREFIX\\}v${release}`));
-assert.match(worker, new RegExp(`provider\\.webmanifest\\?v=${release}`));
+const manifestVersion = provider.match(/rel="manifest" href="provider\.webmanifest\?v=(\d+)"/)?.[1];
+assert.ok(manifestVersion, 'У кабинета нет версионированного манифеста');
+assert.ok(worker.includes(`'./provider.webmanifest?v=${manifestVersion}'`), 'Манифест не согласован с service worker');
 assert.match(worker, /provider-icon\.svg/);
 assert.doesNotMatch(worker, /provider-og\.png/, 'social preview artwork must not block the offline shell installation');
-assert.match(provider, new RegExp(`provider\\.js\\?v=${release}`));
+const providerJsVersion = provider.match(/<script src="provider\.js\?v=(\d+)" defer><\/script>/)?.[1];
+assert.ok(providerJsVersion, 'У кабинета нет версионированного provider.js');
+assert.ok(worker.includes(`'./provider.js?v=${providerJsVersion}'`), 'provider.js не согласован с service worker');
 
 console.log(`PrimeTime Pro brand v${release}: PASS (${publicBrandFiles.length} public text surfaces)`);

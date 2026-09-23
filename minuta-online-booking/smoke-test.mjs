@@ -284,7 +284,10 @@ assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая �
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /timeline-booking-client-row[\s\S]*есть заметка/, 'Заметка клиента не обозначается в мобильной ленте расписания');
 assert.match(provider, /\$\{visual\}<small aria-hidden="true">\$\{uiIcon\('image'\)\}<\/small>/, 'Кнопка фотографии в карточке записи снова смещает содержимое аватара');
-assert.match(providerHtml, new RegExp(`rel="manifest" href="provider\\.webmanifest\\?v=${version}"`), 'Кабинет не подключает собственный устанавливаемый манифест');
+const providerManifestVersion = referencedVersion(providerHtml, 'provider.webmanifest');
+assert.ok(providerManifestVersion, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.ok(serviceWorker.includes(`'./provider.webmanifest?v=${providerManifestVersion}'`),
+  'Версия манифеста кабинета не согласована с service worker');
 assert.match(provider, /data-create-empty-booking/, 'В пустом расписании нет кнопки создания записи');
 assert.match(provider, /if \(createEmptyBooking && requireBookingWrites\(\)\) openNewBookingSheet\('', \{ date:selectedDate, historical:selectedDate < businessTodayIso\(\) \}\)/, 'Кнопка пустого расписания не открывает форму для выбранной даты');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
@@ -294,7 +297,13 @@ assert.match(providerHtml, /id="browserInstallGuide"[\s\S]*HTTPS/, 'Нет об�
 assert.equal(providerManifest.start_url, './provider.html', 'Установленное приложение открывает не кабинет');
 assert.equal(providerManifest.display, 'standalone', 'Кабинет не запускается как отдельное приложение');
 for (const icon of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-icon-maskable-512.png']) {
-  assert.ok(providerManifest.icons.some(item => item.src === `${icon}?v=${version}`), `В манифесте нет версионированной иконки ${icon}`);
+  const manifestIcon = providerManifest.icons.find(item => new RegExp(`^${icon.replaceAll('.', '\\.')}\\?v=\\d+$`).test(item.src));
+  assert.ok(manifestIcon, `В манифесте нет версионированной иконки ${icon}`);
+  assert.ok(serviceWorker.includes(`'./${manifestIcon.src}'`), `${icon}: версия манифеста не согласована с service worker`);
+  if (icon === 'provider-icon-192.png') {
+    assert.equal(referencedVersion(providerHtml, icon), manifestIcon.src.split('?v=')[1],
+      'Версия иконки кабинета в HTML не согласована с манифестом');
+  }
   assert.ok(existsSync(join(root, icon)), `Отсутствует иконка приложения ${icon}`);
 }
 assert.match(provider, /beforeinstallprompt/, 'Браузерное предложение установки не сохраняется');

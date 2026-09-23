@@ -2732,7 +2732,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
 }
 
 /* Noir Rose keeps normal appointments visibly rose against neutral breaks. */
-.provider-body[data-provider-theme="noir-rose"] :is(
+.provider-body[data-provider-theme="noir-rose"] #dashboard[data-active-view="bookings"] #providerBookings :is(
   .timeline-view .timeline-booking:not(.status-block):not(.automatic-break),
   .schedule-list .provider-booking:not(.status-block):not(.automatic-break),
   .calendar-overview-booking:not(.status-block),
@@ -2744,7 +2744,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   box-shadow:inset 3px 0 0 #e1a5b6,0 4px 12px color-mix(in srgb,var(--theme-shadow) 30%,transparent)!important;
 }
 
-.provider-body[data-provider-theme="noir-rose"] :is(
+.provider-body[data-provider-theme="noir-rose"] #dashboard[data-active-view="bookings"] #providerBookings :is(
   .timeline-view .timeline-booking:not(.status-block):not(.automatic-break),
   .schedule-list .provider-booking:not(.status-block):not(.automatic-break),
   .calendar-overview-booking:not(.status-block),

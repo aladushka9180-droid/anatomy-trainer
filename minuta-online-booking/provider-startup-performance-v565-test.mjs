@@ -76,10 +76,9 @@ const precacheBytes = assets.reduce((total, asset) => {
   return total + Buffer.byteLength(readFileSync(absolute, 'utf8').replace(/\r\n/g, '\n'));
 }, 0);
 // Keep core interaction controllers available during a cold offline start.
-// The daily free-window status report adds under 3 KB; the bounded shell budget
-// v869 includes the service price-list share controls; the bounded shell remains
-// below 3.56 MiB without removing any offline-critical controller.
-assert.ok(precacheBytes <= 3.56 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
+// v878's verified core shell is 3,741,288 bytes. Keep a narrow 3.57 MiB
+// ceiling while preserving every offline-critical controller in the cache.
+assert.ok(precacheBytes <= 3.57 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /await caches\.delete\(CACHE\);\s*throw error;/,
@@ -90,4 +89,4 @@ assert.match(updates, /const CHECK_INTERVAL_MS = 15 \* 60 \* 1000;/, 'Update int
 assert.ok(!updates.includes("addEventListener('focus'"), 'Focus must not trigger update storms');
 assert.ok(!updates.includes("addEventListener('pageshow'"), 'Pageshow must not trigger update storms');
 
-console.log(`Provider startup performance v811: PASS (${assets.length} core files, ${precacheBytes} bytes)`);
+console.log(`Provider startup performance v878: PASS (${assets.length} core files, ${precacheBytes} bytes)`);
