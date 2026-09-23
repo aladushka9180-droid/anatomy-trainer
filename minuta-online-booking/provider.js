@@ -5429,6 +5429,7 @@ function openClientContactDialogForPhone(phone, displayPhone = '') {
   const digits = normalizePhone(phone);
   const dialog = $('#clientContactDialog');
   if (!digits || !dialog) return false;
+  if (dialog.parentElement !== document.body) document.body.append(dialog);
   const label = newBookingClientPhoneLabel(phone, displayPhone);
   dialog.dataset.clientPhone = String(phone || '');
   dialog.dataset.clientDisplayPhone = label;

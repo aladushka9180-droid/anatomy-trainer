@@ -10,6 +10,11 @@ const { chromium } = playwrightModule.default || playwrightModule;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = process.env.MINUTA_IMPORTANT_NOTIFICATIONS_OUTPUT || '';
 if (output) fs.mkdirSync(output, { recursive:true });
+const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
+const contactStart = providerSource.indexOf('function openClientContactDialogForPhone(');
+const contactEnd = providerSource.indexOf('function openImportantNotificationContact(', contactStart);
+assert.ok(contactStart >= 0 && contactEnd > contactStart, 'contact helper must exist');
+const contactHelper = providerSource.slice(contactStart, contactEnd);
 
 const server = http.createServer((request, response) => {
   const requested = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
@@ -108,6 +113,30 @@ try {
     });
     assert.equal(feed.visible && feed.left >= -1 && feed.right <= feed.viewport + 1, true, `${theme} ${width}px important feed is clipped`);
     if (output) await page.screenshot({ path:path.join(output, `feed-${theme}-${width}.png`), fullPage:false });
+  }
+  await page.addScriptTag({ content:`
+    const $ = selector => document.querySelector(selector);
+    const normalizePhone = value => String(value || '').replace(/\\D/g, '');
+    const newBookingClientPhoneLabel = (_phone, displayPhone) => displayPhone;
+    ${contactHelper}
+  ` });
+  await page.evaluate(() => { document.body.dataset.providerTheme = 'noir-rose'; });
+  for (const width of [390, 760, 1440]) {
+    await page.setViewportSize({ width, height:900 });
+    assert.equal(await page.evaluate(() => openClientContactDialogForPhone('+7 900 111-22-33', '+7 900 111-22-33')), true);
+    const contactGeometry = await page.locator('#clientContactDialog').evaluate(dialog => {
+      const rect = dialog.getBoundingClientRect();
+      return {
+        parentIsBody:dialog.parentElement === document.body,
+        visible:rect.width > 0 && rect.height > 0,
+        inside:rect.left >= -1 && rect.right <= innerWidth + 1 && rect.top >= -1 && rect.bottom <= innerHeight + 1,
+        phone:dialog.querySelector('#clientContactPhone')?.textContent,
+        overflow:document.documentElement.scrollWidth > innerWidth + 1
+      };
+    });
+    assert.equal(contactGeometry.parentIsBody && contactGeometry.visible && contactGeometry.inside && !contactGeometry.overflow, true, `${width}px notification contact is hidden: ${JSON.stringify(contactGeometry)}`);
+    assert.equal(contactGeometry.phone, '+7 900 111-22-33');
+    await page.locator('#clientContactDialog').evaluate(dialog => dialog.close());
   }
   await page.evaluate(() => {
     document.querySelectorAll('.provider-view').forEach(view => {
