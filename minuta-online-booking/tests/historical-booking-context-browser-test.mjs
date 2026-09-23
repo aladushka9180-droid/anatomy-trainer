@@ -670,12 +670,13 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     await page.locator('.booking-more-times').scrollIntoViewIfNeeded();
     if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-booking-time-${theme}-${width}.png`});
     await page.evaluate(()=>closeBookingSheet());
-    await page.addScriptTag({content:['bookingClientNote','bookingDisplayNote','compactBookingCardsEnabled','bookingNotePresenceMarkup','renderSelectedDateTitle','renderCalendarOverview','calendarOverviewBookingMarkup','calendarMonthMobileAgendaMarkup'].map(declaration).join('\n')});
+    await page.addScriptTag({content:['bookingClientNote','bookingDisplayNote','compactBookingCardsEnabled','bookingNotePresenceMarkup','renderSelectedDateTitle','renderCalendarOverview','calendarOverviewBookingMarkup','calendarMonthMobileAgendaMarkup','scheduleEmptyDayLabel'].map(declaration).join('\n')});
     await page.evaluate(()=>{
       document.body.insertAdjacentHTML('beforeend','<div id="selectedDateTitle"></div><div id="selectedDateSummary"></div><div id="providerBookings"></div>');
       window.calendarRange=()=>({start:'2026-09-01',end:'2026-09-30'});
       window.calendarRangeTitle=()=> 'Сентябрь 2026';window.calendarView='month';selectedDate='2026-09-08';
       window.displayPreferences={};window.recentlyCreatedBookingId='';window.isScheduleBlock=()=>false;
+      window.scheduleStateForDate=()=>({weekly:null});
       window.bookingDisplayNote=()=>'';window.bookingNotePresenceMarkup=()=>'';
       window.bookingStatusClass=()=> 'confirmed';window.bookingVisitSummaryText=()=>'';window.seriesBookingCountLabel=n=>`${n} записи`;
       window.bookingSourceItems=()=>[1,2,3].map((n)=>({id:`fixture-${n}`,booking_date:'2026-09-08',booking_time:`${9+n}:00`,services:{name:'Общий массаж с обеих сторон'},client_name:'Тестовый клиент'}));
