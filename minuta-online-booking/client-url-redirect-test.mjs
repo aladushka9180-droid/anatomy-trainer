@@ -11,10 +11,11 @@ const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 const provider = readFileSync(join(root, 'provider.html'), 'utf8');
 
 assert.match(html, /redirect\.js\?v=826/);
-assert.match(worker, /CACHE = `\$\{CACHE_PREFIX\}v884`/);
+const cacheVersion = worker.match(/CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/)?.[1];
+assert.ok(cacheVersion, 'Service worker cache version must be declared');
 assert.match(worker, /'\.\/index\.html'/);
 assert.match(worker, /'\.\/redirect\.js\?v=826'/);
-assert.match(provider, /provider\.js\?v=884/);
+assert.ok(provider.includes(`provider.js?v=${cacheVersion}`), 'Provider script must match the service worker cache version');
 assert.doesNotMatch(provider, /primetime-booking\.github\.io/);
 
 function runRedirect({ hostname, pathname, search = '', hash = '' }) {
