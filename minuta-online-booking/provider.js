@@ -12147,7 +12147,7 @@ function renderCalendarOverview(view) {
       const limit = view === 'month' ? 2 : items.length;
       const hiddenCount = Math.max(0, items.length - limit);
       const fullDate = date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-      const monthCount = items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : 'Свободно';
+      const monthCount = items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : scheduleEmptyDayLabel(iso, 'Свободно');
       return `<article class="calendar-overview-day${iso === today ? ' is-today' : ''}${iso === selectedDate ? ' is-selected' : ''}" data-calendar-date="${iso}">
         <button class="calendar-overview-date" type="button" data-calendar-open-date="${iso}" ${iso === today ? 'aria-current="date"' : ''} aria-label="${escapeHtml(fullDate)}. ${view === 'month' ? `${escapeHtml(monthCount)}. ` : ''}Открыть день"><span>${view === 'week' ? escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', '')) : ''}</span><strong>${date.getDate()}</strong>${view === 'week' ? `<small>${escapeHtml(date.toLocaleDateString('ru-RU', { month:'short' }).replace('.', ''))}</small>` : `<small class="calendar-overview-count">${escapeHtml(monthCount)}</small>`}</button>
         <div class="calendar-overview-items">${items.slice(0, limit).map(item => calendarOverviewBookingMarkup(item, view === 'month')).join('')}${hiddenCount ? `<button class="calendar-overview-more" type="button" data-calendar-open-date="${iso}">+ ещё ${seriesBookingCountLabel(hiddenCount)}</button>` : ''}</div>
@@ -12197,11 +12197,16 @@ function renderBookings() {
   const blockCount = items.filter(isScheduleBlock).length + (currentFilter === 'day' ? automaticBookingBreaks(operationalItems).length : 0);
   const daySummary = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : '', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
   $('#selectedDateSummary').textContent = currentFilter === 'day'
-    ? (daySummary || 'Свободный день')
+    ? (daySummary || scheduleEmptyDayLabel(selectedDate, 'Свободный день'))
     : `${currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей'}${bookingQueryIsActive() ? ` · найдено ${items.length}` : ''}`;
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
   else {
-    renderBookingList(visibleItems, bookingQueryIsActive() ? 'По заданным условиям ничего не найдено.' : 'На выбранный период всё свободно.');
+    const emptyMessage = bookingQueryIsActive()
+      ? 'По заданным условиям ничего не найдено.'
+      : currentFilter === 'day' && scheduleEmptyDayLabel(selectedDate, '') === 'Выходной'
+        ? 'Выходной. В обычном графике этот день закрыт.'
+        : 'На выбранный период всё свободно.';
+    renderBookingList(visibleItems, emptyMessage);
     if (paginated) $('#providerBookings').insertAdjacentHTML('beforeend', `<button class="secondary-button" type="button" data-load-more-bookings>Показать ещё · осталось ${items.length - visibleItems.length}</button>`);
   }
 }
@@ -14805,6 +14810,10 @@ function scheduleStateForDate(dateIso) {
   const fullDayOff = daysOff.find(item => item.off_date === dateIso && item.all_day);
   const partialDayOff = daysOff.some(item => item.off_date === dateIso && !item.all_day);
   return { weekly, fullDayOff, partialDayOff, working:Boolean(weekly?.enabled) && !fullDayOff };
+}
+function scheduleEmptyDayLabel(dateIso, fallback) {
+  const state = scheduleStateForDate(dateIso);
+  return state.weekly && state.weekly.enabled === false ? 'Выходной' : fallback;
 }
 function schedulePresetDays(preset) {
   if (preset === 'weekdays') return [1, 2, 3, 4, 5];
