@@ -153,3 +153,24 @@ body.provider-body[data-porcelain-editor-open] #appearanceSettingsCard .provider
   .provider-porcelain-character { padding:3px; }
   .provider-porcelain-character strong { font-size:10px; letter-spacing:-.035em; }
 }
+
+/* Pink Porcelain: user-requested white lettering on the existing soft fills.
+   Normal bookings reuse Today's current shade; automatic breaks keep theirs. */
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(.date-navigation>.date-today-button,#dateStrip button.active) {
+  color:#fff!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(.date-navigation>.date-today-button,#dateStrip button.active) :is(span,strong,small,.ui-icon) {
+  color:#fff!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking:not(.status-block):not(.automatic-break):not(.status-cancelled) {
+  background:var(--porcelain-action-bg)!important;
+  background-image:none!important;
+  color:#fff!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break {
+  color:#fff!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking:is(:not(.status-block):not(.automatic-break):not(.status-cancelled),.automatic-break) :is(.timeline-booking-time,.timeline-booking-time *, .timeline-booking-copy>strong,.timeline-booking-copy>strong *, .timeline-booking-client,.timeline-booking-client *, .timeline-booking-note,.timeline-booking-note *, .timeline-automatic-break-source,.timeline-mobile-time,.timeline-booking-minute-time) {
+  color:#fff!important;
+  opacity:1!important;
+}
