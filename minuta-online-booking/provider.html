@@ -664,7 +664,6 @@
                 <label>Допустимые отмены и неявки, %<input id="reportGoalCancellation" type="number" min="0" max="100" step="1"></label>
               </div>
               <div class="report-goals-actions"><button class="secondary-button" id="reportGoalsReset" type="button">Сбросить</button><button class="primary" type="submit">Сохранить цели</button></div>
-              <div class="report-goals-discard" id="reportGoalsDiscard" role="alert" hidden><span>Изменения целей не сохранены.</span><button class="secondary-button" type="button" data-report-goals-keep>Продолжить редактирование</button><button class="secondary-button" type="button" data-report-goals-discard>Закрыть без сохранения</button></div>
               <p class="provider-display-status" id="reportGoalsStatus" role="status" aria-live="polite"></p>
             </form>
           </dialog>
@@ -704,7 +703,7 @@
                   <button class="report-goals-open" id="reportGoalsOpen" type="button">Цели</button>
                 </div>
               </div>
-              <p class="report-goals-sync-status" id="reportGoalsSyncStatus" role="status" aria-live="polite" hidden></p>
+              <p id="reportGoalsSyncStatus" role="status" aria-live="polite" hidden></p>
               <p id="reportCommandNarrative">Собираем показатели и ищем точки роста.</p>
               <div class="report-command-metrics">
                 <article class="report-primary-metric"><small>Отмечено полученным</small><strong id="reportHeroRevenue">0 ₽</strong><span id="reportHeroRevenueTrend">Нет данных об оплате</span></article>
@@ -2131,7 +2130,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=897" defer></script>
+  <script src="site-update.js?v=898" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2182,7 +2181,7 @@
   <script src="finance-center.js?v=811" defer></script>
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
-  <script src="provider.js?v=897" defer></script>
+  <script src="provider.js?v=898" defer></script>
   <script src="provider-porcelain-detail.js?v=893" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>
