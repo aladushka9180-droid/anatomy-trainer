@@ -170,3 +170,27 @@ html body.provider-body[data-schedule-font-style="refined"] #dashboard[data-acti
     white-space:nowrap!important;
   }
 }
+
+/* The existing creation/editing picker stores a color_key for manual blocks.
+   Reuse its established swatches; auto breaks have no stored color_key. */
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-mint { --schedule-block-fill:#ccebd9; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-sky { --schedule-block-fill:#d5e9f7; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-lavender { --schedule-block-fill:#e2d9f4; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-peach { --schedule-block-fill:#f6dfca; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-rose { --schedule-block-fill:#f3d8df; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-vanilla { --schedule-block-fill:#f8e9ae; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-sage { --schedule-block-fill:#d6e0ca; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-teal { --schedule-block-fill:#bfe3df; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-amber { --schedule-block-fill:#efd08b; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-cocoa { --schedule-block-fill:#d9c0ae; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-graphite { --schedule-block-fill:#cfd4da; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block):not(.color-auto) {
+  border-color:color-mix(in srgb,var(--schedule-block-fill) 65%,#65717a)!important;
+  background:var(--schedule-block-fill)!important;
+  background-image:none!important;
+  color:#24313a!important;
+}
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block):not(.color-auto) * {
+  color:inherit!important;
+  opacity:1!important;
+}

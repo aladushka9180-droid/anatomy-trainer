@@ -11983,6 +11983,15 @@ async function createNewBooking(event) {
     showFormError('#newBookingError', message);
     return;
   }
+  if (block) {
+    // The protected block RPC returns its exact booking ID. Persist the chosen
+    // color against that ID even if the following journal refresh is delayed.
+    await saveBookingColor(bookingIdFromRpcResult(bookingRpcResult), color, {
+      rerender:false,
+      isCurrent:() => sessionIsCurrent(userId, generation)
+    });
+    if (!sessionIsCurrent(userId, generation)) return;
+  }
   const createdCriteria = {
     id:bookingIdFromRpcResult(bookingRpcResult),
     bookingCode:bookingCodeFromRpcResult(bookingRpcResult),
@@ -12039,7 +12048,6 @@ async function createNewBooking(event) {
   createdBooking ||= await ensureCreatedBookingVisible(createdCriteria);
   let clientTelegramResult = null;
   if (createdBooking) {
-    if (block) await saveBookingColor(createdBooking.id, color, { rerender:false });
     if (!block) {
       clientTelegramResult = await deliverTelegramClientNotification(createdBooking.id, 'confirmation');
     }

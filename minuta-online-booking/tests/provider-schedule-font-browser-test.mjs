@@ -61,8 +61,36 @@ try {
   for(const width of [390,760,820,1440]){
     const page=await browser.newPage({viewport:{width,height:900}});
     await page.goto(`http://127.0.0.1:${server.address().port}/fixture`,{waitUntil:'networkidle'});
+    await page.evaluate(()=>{
+      const manual=document.querySelector('[data-open-automatic-break]').cloneNode(true);
+      manual.className='timeline-booking status-block color-auto';
+      manual.removeAttribute('data-open-automatic-break');
+      manual.dataset.openBooking='manual-break';
+      manual.style.top='210px';
+      manual.style.height='70px';
+      manual.querySelector('.timeline-booking-copy>strong').textContent='Обед';
+      manual.setAttribute('aria-label','Обед');
+      document.querySelector('.timeline-stage').append(manual);
+    });
     for(const theme of themes){
       await page.evaluate(theme=>document.body.dataset.providerTheme=theme,theme);
+      const customBreak=await page.evaluate(()=>{
+        const manual=document.querySelector('[data-open-booking="manual-break"]');
+        const normal=document.querySelector('[data-open-automatic-break]');
+        const unchanged=getComputedStyle(normal).backgroundColor;
+        const states={};
+        for(const color of ['auto','sky','peach','vanilla']){
+          manual.className=`timeline-booking status-block color-${color}`;
+          states[color]={background:getComputedStyle(manual).backgroundColor,ink:getComputedStyle(manual.querySelector('strong')).color};
+        }
+        states.automaticUnchanged=getComputedStyle(normal).backgroundColor===unchanged;
+        return states;
+      });
+      assert.equal(customBreak.sky.background,'rgb(213, 233, 247)',`${width}/${theme} sky manual break fill`);
+      assert.equal(customBreak.peach.background,'rgb(246, 223, 202)',`${width}/${theme} peach manual break fill`);
+      assert.equal(customBreak.vanilla.background,'rgb(248, 233, 174)',`${width}/${theme} vanilla manual break fill`);
+      for(const color of ['sky','peach','vanilla'])assert.equal(customBreak[color].ink,'rgb(36, 49, 58)',`${width}/${theme}/${color} manual break ink`);
+      assert.equal(customBreak.automaticUnchanged,true,`${width}/${theme} manual picker recolored automatic break`);
       const before=await page.evaluate(()=>{
         const record=getComputedStyle(document.querySelector('[data-open-booking]'));
         const br=getComputedStyle(document.querySelector('[data-open-automatic-break]'));
