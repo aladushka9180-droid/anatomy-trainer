@@ -22,7 +22,7 @@ const ids = [
   'payrollPlansCount','payrollPeriodsCount','payrollPlansList','payrollPeriodsList','payrollItemsList',
   'payrollPlanCreator','payrollPeriodCreator','payrollAdjustmentPanel','payrollPlanPerformer','payrollPeriodLocation',
   'payrollAdjustmentPeriod','payrollAdjustmentPerformer','payrollAdvancePerformer','payrollAdvanceAccount','payrollAdvancePaidAt',
-  'payrollAdvancePanel','payrollPaymentPanel','payrollPaymentDebt','payrollPaymentAccount','payrollOffsetPanel','payrollOffsetAdvance','payrollOffsetDebt',
+  'payrollAdvancePanel','payrollPaymentPanel','payrollPaymentDebt','payrollPaymentAccount','payrollPaymentAmount','payrollPaymentError','payrollOffsetPanel','payrollOffsetAdvance','payrollOffsetDebt',
   'payrollAuditPanel','payrollAuditCount','payrollAuditList'
 ];
 function makeDom() {
@@ -136,11 +136,11 @@ function controller(dom, rpc, overrides = {}) {
   const calls = [];
   const draft = { id:'period-draft', name:'Черновик', status:'draft', starts_on:'2026-09-01', ends_on:'2026-09-15', total_payroll_rub:1000 };
   const approved = { id:'period-approved', name:'Восстановление', status:'approved', starts_on:'2026-09-16', ends_on:'2026-09-30', total_payroll_rub:1000 };
-  const value = workspace('org-approval', { periods:[draft, approved] });
+  const value = workspace('org-approval', { periods:[draft, approved], items:[{ period_id:'period-draft', performer_id:'org-approval-user' }] });
   const instance = controller(dom, async (name, parameters) => {
     calls.push({ name, parameters });
     return name === 'get_minuta_payroll_ledger_workspace_v136' ? { data:value, error:null } : { data:{ organization_id:'org-approval' }, error:null };
-  });
+  }, { confirmAction: () => true });
   await instance.setOrganization({ id:'org-approval' });
   assert.match(dom.elements.payrollPeriodsList.innerHTML, /data-payroll-approve-accrue="period-draft"[^>]*>Утвердить и начислить/);
   assert.match(dom.elements.payrollPeriodsList.innerHTML, /data-payroll-accrue="period-approved"[^>]*>Восстановить начисление/);
@@ -152,6 +152,69 @@ function controller(dom, rpc, overrides = {}) {
   const approval = calls.find(call => call.name === 'set_minuta_payroll_period_status');
   assert.deepEqual(approval?.parameters, { p_organization:'org-approval', p_period:'period-draft', p_status:'approved' });
   assert.equal(calls.some(call => call.name === 'accrue_minuta_payroll_period_v136'), false, 'draft approval must rely on the atomic approval trigger');
+}
+
+{
+  const dom = makeDom(), calls = [], reviews = [];
+  const period = { id:'period-1', name:'Сентябрь', status:'draft', starts_on:'2026-09-01', ends_on:'2026-09-30', total_payroll_rub:32500 };
+  const value = workspace('org-review', {
+    periods:[period, { ...period, id:'period-2', status:'approved' }],
+    items:[{ period_id:'period-1', performer_id:'org-review-user' }, { period_id:'period-2', performer_id:'org-review-user' }],
+    payment_accounts:[{ id:'cash-1', name:'Касса', account_type:'cash', active:true }],
+    debts:[{ accrual_source_id:'accrual-1', period_id:'period-1', performer_id:'org-review-user', debt_minor:3250000 }]
+  });
+  const instance = controller(dom, async name => {
+    calls.push(name);
+    return { data:value, error:null };
+  }, { confirmAction: message => { reviews.push(message); return false; } });
+  await instance.setOrganization({ id:'org-review' });
+  instance.bind();
+  for (const [selector, key, id] of [
+    ['[data-payroll-approve-accrue]', 'payrollApproveAccrue', 'period-1'],
+    ['[data-payroll-accrue]', 'payrollAccrue', 'period-2']
+  ]) {
+    const button = new MockElement(); button.dataset[key] = id;
+    button.closest = value => value === selector ? button : null;
+    await documentHandlers.click({ target:button });
+  }
+  dom.elements.payrollPaymentDebt.value = 'accrual-1|org-review-user';
+  dom.elements.payrollPaymentAccount.value = 'cash-1';
+  dom.elements.payrollPaymentAmount.value = '1000';
+  const paymentForm = new MockElement('payrollPaymentForm');
+  await documentHandlers.submit({ target:paymentForm, submitter:new MockElement(), preventDefault() {} });
+  assert.deepEqual(calls, ['get_minuta_payroll_ledger_workspace_v136'], 'cancelled reviews must not call a write RPC');
+  assert.equal(reviews.length, 3);
+  for (const review of reviews) {
+    assert.match(review, /Анна org-review/, 'recipient must be visible');
+    assert.match(review, /Сентябрь/, 'period must be visible');
+    assert.match(review, /₽/, 'amount must be visible');
+    assert.match(review, /журнал/, 'ledger consequence must be visible');
+  }
+  assert.match(reviews[2], /Касса/, 'payment source must be visible');
+}
+
+{
+  const dom = makeDom(), calls = [];
+  const value = workspace('org-payment', {
+    periods:[{ id:'period-1', name:'Сентябрь', starts_on:'2026-09-01', ends_on:'2026-09-30' }],
+    payment_accounts:[{ id:'cash-1', name:'Касса', account_type:'cash', active:true }],
+    debts:[{ accrual_source_id:'accrual-1', period_id:'period-1', performer_id:'org-payment-user', debt_minor:100000 }]
+  });
+  window.crypto = { randomUUID: () => 'c7a68018-a219-42a6-8898-88fcb81feb62' };
+  const instance = controller(dom, async (name, parameters) => {
+    calls.push({ name, parameters });
+    return { data:name === 'get_minuta_payroll_ledger_workspace_v136' ? value : { organization_id:'org-payment' }, error:null };
+  }, { confirmAction: () => true });
+  await instance.setOrganization({ id:'org-payment' });
+  instance.bind();
+  dom.elements.payrollPaymentDebt.value = 'accrual-1|org-payment-user';
+  dom.elements.payrollPaymentAccount.value = 'cash-1';
+  dom.elements.payrollPaymentAmount.value = '1000';
+  await documentHandlers.submit({ target:new MockElement('payrollPaymentForm'), submitter:new MockElement(), preventDefault() {} });
+  const payment = calls.find(call => call.name === 'pay_minuta_payroll_debt_v136');
+  assert.equal(payment?.parameters.p_amount_minor, 100000, 'confirmed review keeps the entered amount');
+  assert.equal(payment?.parameters.p_performer, 'org-payment-user');
+  assert.equal(calls.filter(call => call.name === 'pay_minuta_payroll_debt_v136').length, 1);
 }
 
 {
