@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v916`;
+const CACHE = `${CACHE_PREFIX}v917`;
 
 const ASSETS = [
   './provider.html',
@@ -26,7 +26,6 @@ const ASSETS = [
   './provider-service-actions.css?v=811',
   './provider-header.css?v=865',
   './provider-themes-wildlife.css?v=811',
-  './client-results.css?v=876',
   './client-directory.css?v=811',
   './provider-ui-refinements.css?v=811',
   './provider-schedule-minimal.css?v=911',
@@ -36,7 +35,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=916',
+  './site-update.js?v=917',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -71,6 +70,7 @@ const OPTIONAL_ASSETS = [
   './statistics-audit-ui.css?v=908',
   './statistics-audit-ui.js?v=908',
   './statistics-audit-provider.js?v=908',
+  './client-results.css?v=876',
   './provider-porcelain-detail.css?v=912',
   './provider-schedule-type.css?v=916',
   './manrope-cyrillic-v20.woff2',
