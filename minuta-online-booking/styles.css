@@ -3035,6 +3035,7 @@ html.provider-booting .provider-main {
 .provider-body .payroll-management-grid>section { display:grid; align-content:start; min-width:0; padding:15px; border:1px solid var(--theme-line,#e0e8e2); border-radius:var(--material-radius,13px); background:var(--theme-surface-alt,#fbfcfb); }
 .provider-body .payroll-management-grid>section .resource-subhead { margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--theme-line,#e0e8e2); }
 .provider-body .payroll-management-grid>section .organization-create { margin-top:12px; }
+.provider-body #payrollPeriodScope { font-size:12px; line-height:1.45; }
 .provider-body .payroll-plan-row .payroll-edit-plan,.provider-body .payroll-period-row .payroll-accrue-button { flex:none; width:auto; min-height:36px; margin:0; padding:0 12px; }
 .provider-body .payroll-period-row { align-items:flex-start; }
 .provider-body .payroll-period-totals { display:flex; flex-wrap:wrap; gap:5px 12px; margin-top:8px; color:var(--theme-muted,#718078); font-size:8px; }

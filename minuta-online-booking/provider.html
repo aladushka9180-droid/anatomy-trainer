@@ -22,7 +22,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="PrimeTime">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="styles.css?v=897">
+<link rel="stylesheet" href="styles.css?v=907">
   <link rel="stylesheet" href="messages-center.css?v=886">
   <link rel="stylesheet" href="finance-center.css?v=895">
   <link rel="stylesheet" href="utm-funnel.css?v=811">
@@ -1018,7 +1018,7 @@
                     <details class="organization-create" id="payrollPlanCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить план</span></summary><form id="payrollPlanForm"><input id="payrollPlanId" type="hidden"><div class="form-row"><label>Специалист<select id="payrollPlanPerformer" required></select></label><label>Название<input id="payrollPlanName" maxlength="120" value="Основной план" required></label></div><div class="form-row"><label>Действует с<input id="payrollPlanFrom" type="date" required></label><label>Действует по<input id="payrollPlanTo" type="date"></label></div><label>Базовый процент<input id="payrollPlanRate" type="number" min="0" max="100" step="0.01" value="40" required></label><label>Ступени мотивации<textarea id="payrollPlanTiers" rows="3" maxlength="1000" placeholder="100000 — 45&#10;200000 — 50"></textarea><small>По одной строке: выручка — процент.</small></label><p class="form-error" id="payrollPlanError" hidden></p><button class="primary" type="submit" data-payroll-write>Сохранить план</button></form></details>
                   </section>
                   <section><div class="resource-subhead"><div><small>Начислено, выплачено и долг</small><strong>Расчётные периоды</strong></div></div><div class="organization-list" id="payrollPeriodsList"></div>
-                    <details class="organization-create" id="payrollPeriodCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Подготовить расчёт</span></summary><form id="payrollPeriodForm"><label>Название<input id="payrollPeriodName" maxlength="120" placeholder="Например, Сентябрь 2026" required></label><label>Филиал<select id="payrollPeriodLocation"></select></label><p class="organization-invite-help">Даты берутся из фильтра выше. Сначала проверьте расчёт, затем зафиксируйте начисление в его карточке.</p><p class="form-error" id="payrollPeriodError" hidden></p><button class="primary" type="submit" data-payroll-write>Рассчитать</button></form></details>
+                    <details class="organization-create" id="payrollPeriodCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Подготовить расчёт</span></summary><form id="payrollPeriodForm"><label>Название<input id="payrollPeriodName" maxlength="120" placeholder="Например, Сентябрь 2026" required></label><label>Филиал<select id="payrollPeriodLocation"></select></label><p class="organization-invite-help" id="payrollPeriodScope"></p><p class="form-error" id="payrollPeriodError" hidden></p><button class="primary" type="submit" data-payroll-write>Подготовить расчёт</button></form></details>
                   </section>
                 </div>
                 <section class="payroll-ledger-actions" id="payrollLedgerActions">
@@ -2130,7 +2130,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=906" defer></script>
+  <script src="site-update.js?v=907" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2181,7 +2181,7 @@
   <script src="finance-center.js?v=811" defer></script>
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
-  <script src="provider.js?v=906" defer></script>
+  <script src="provider.js?v=907" defer></script>
   <script src="provider-porcelain-detail.js?v=893" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>

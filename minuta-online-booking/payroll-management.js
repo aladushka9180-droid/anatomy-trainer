@@ -232,10 +232,17 @@
       $('#payrollAccruedTotal').textContent = moneyMinor(totals.accrued); $('#payrollPaidTotal').textContent = moneyMinor(totals.paid); $('#payrollDebtTotal').textContent = moneyMinor(totals.debt); $('#payrollAdvanceTotal').textContent = moneyMinor(totals.advance);
       $('#payrollPlansCount').textContent = String(payload.plans.filter(item => item.active !== false).length); $('#payrollPeriodsCount').textContent = String(payload.periods.length);
       $('#payrollPlansList').innerHTML = payload.plans.length ? payload.plans.map(item => planCard(item, canManage)).join('') : empty('Планов пока нет', canManage ? 'Создайте процент для сотрудника.' : 'Владелец ещё не настроил мотивацию.');
-      $('#payrollPeriodsList').innerHTML = payload.periods.length ? payload.periods.map(item => periodCard(item, canManage, enabled)).join('') : empty('Расчётов пока нет', 'Выберите период и подготовьте расчёт.');
+      const emptyPeriodHint = !enabled
+        ? payload.plans.length
+          ? 'Сначала включите зарплатный журнал выше. Само включение не создаёт начислений и выплат.'
+          : 'Сначала добавьте план мотивации и включите зарплатный журнал выше. Само включение не создаёт начислений и выплат.'
+        : 'Выберите даты выше и подготовьте расчёт. Начисление и выплата — отдельные действия.';
+      $('#payrollPeriodsList').innerHTML = payload.periods.length ? payload.periods.map(item => periodCard(item, canManage, enabled)).join('') : empty('Расчётов пока нет', emptyPeriodHint);
       $('#payrollItemsList').innerHTML = payload.items.length ? payload.items.map(itemCard).join('') : empty('Начислений по визитам нет', 'Детализация появится после подготовки расчёта.');
       $('#payrollPlanCreator').hidden = !canManage; $('#payrollPeriodCreator').hidden = !canManage || !enabled; $('#payrollLedgerActions').hidden = !canManage || !enabled;
       $('#payrollPlanPerformer').innerHTML = optionList(payload.members.filter(item => item.is_bookable !== false), '', item => item.display_name); $('#payrollPeriodLocation').innerHTML = `<option value="">Все филиалы</option>${optionList(payload.locations, '', item => item.name)}`;
+      const periodRange = validRange();
+      $('#payrollPeriodScope').textContent = `Период: ${dateLabel(periodRange.start)} — ${dateLabel(periodRange.end)}. Кнопка создаст или пересчитает черновик в журнале; начисление и выплата выполняются отдельно.`;
       $('#payrollAdjustmentPeriod').innerHTML = optionList(payload.periods, '', item => item.name || `${item.starts_on} — ${item.ends_on}`); $('#payrollAdjustmentPerformer').innerHTML = optionList(payload.members, '', item => item.display_name);
       $('#payrollAdvancePerformer').innerHTML = optionList(payload.members, '', item => item.display_name); $('#payrollAdvanceAccount').innerHTML = optionList(payload.payment_accounts, '', item => item.name || item.system_key || 'Счёт');
       const debtOptions = debtRows.map(item => ({ id: `${item.accrual_source_id}|${item.performer_id}`, ...item }));
