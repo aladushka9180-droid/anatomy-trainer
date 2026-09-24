@@ -1508,6 +1508,14 @@
                   </div>
                   <p class="provider-text-scale-help">Масштаб применяется к подписям и формам кабинета. Размеры сетки календаря и времени остаются стабильными.</p>
                 </fieldset>
+                <fieldset class="schedule-font-style-picker">
+                  <legend>Шрифт карточек расписания</legend>
+                  <p>Только записи и автоперерывы. Размер текста выбирается отдельно выше.</p>
+                  <div class="schedule-font-style-options" role="radiogroup" aria-label="Шрифт карточек расписания">
+                    <label class="schedule-font-style-option"><input type="radio" name="scheduleFontStyle" value="current"><span><strong>Текущий</strong><small>10:00–11:00 · Имя<br>Название услуги</small></span></label>
+                    <label class="schedule-font-style-option"><input type="radio" name="scheduleFontStyle" value="refined"><span><strong>Утончённый</strong><small>10:00–11:00 · Имя<br>Название услуги</small></span></label>
+                  </div>
+                </fieldset>
                 <fieldset class="booking-card-settings">
                   <legend>Карточки записей</legend>
                   <div class="booking-card-density-options" role="radiogroup" aria-label="Подробность карточек записей">
@@ -1518,7 +1526,7 @@
                   <p class="booking-card-density-hint" id="bookingCardDensityHint">Время, услуга, клиент и одна важная метка. Остальное — после открытия.</p>
                   <div class="booking-card-custom" id="bookingCardCustomOptions" hidden>
                     <div class="booking-card-options">
-                      <label class="settings-check"><input id="showBookingPhone" type="checkbox"><span><strong>Номер телефона</strong><small>Только в дневном списке</small></span></label>
+                      <label class="settings-check"><input id="showBookingPhone" type="checkbox"><span><strong>Номер телефона</strong><small>В дневном списке и карточках ленты на ПК</small></span></label>
                       <label class="settings-check"><input id="showBookingVisitNumber" type="checkbox"><span><strong>Номер визита</strong><small>Например, «4-й визит»</small></span></label>
                       <label class="settings-check"><input id="showBookingClientType" type="checkbox"><span><strong>Тип клиента</strong><small>Новый, повторный или постоянный</small></span></label>
                       <label class="settings-check"><input id="showBookingClientLabels" type="checkbox"><span><strong>Личные метки</strong><small>Одна важная метка и число остальных</small></span></label>
@@ -2166,6 +2174,7 @@
   <link rel="stylesheet" href="provider-theme-backgrounds-tema1.css?v=865">
   <link rel="stylesheet" href="provider-portfolio-responsive.css?v=811">
   <link rel="stylesheet" href="provider-schedule-minimal.css?v=911"><link rel="stylesheet" href="provider-schedule-desktop-reference.css?v=913" media="(min-width: 761px)">
+  <link rel="stylesheet" href="provider-schedule-type.css?v=1">
   <script src="theme-catalog.js?v=885" defer></script>
   <script src="provider-porcelain-matrix.js?v=887" defer></script>
   <script src="provider-color-mode.js?v=811" defer></script>

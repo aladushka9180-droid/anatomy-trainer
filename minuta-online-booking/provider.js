@@ -294,6 +294,7 @@ const VISIT_WINDOW_DAYS = 30;
 const VISIT_WINDOW_MS = VISIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const REGULAR_CLIENT_COMPLETED_VISITS = 10;
 const BOOKING_CARD_DENSITY_KEYS = Object.freeze(['compact', 'detailed', 'custom']);
+const SCHEDULE_FONT_STYLE_KEYS = Object.freeze(['current', 'refined']);
 const BOOKING_CARD_DENSITY_PRESETS = Object.freeze({
   compact:Object.freeze({ show_phone:false, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:false }),
   detailed:Object.freeze({ show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true })
@@ -303,6 +304,7 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   theme: 'sage',
   color_mode: 'light',
   text_scale: 'default',
+  schedule_font_style: 'current',
   booking_card_density: 'compact',
   show_phone: false,
   show_visit_number: true,
@@ -2088,6 +2090,7 @@ function normalizeDisplayPreferences(value = {}) {
     ...(theme === 'pink-porcelain' ? { porcelain:window.MinutaThemeCatalog.normalizeSettings({ theme_key:theme, porcelain:source.porcelain }).porcelain } : {}),
     color_mode: PROVIDER_COLOR_MODE_KEYS.includes(source.color_mode) ? source.color_mode : nativeColorMode,
     text_scale: PROVIDER_TEXT_SCALE_KEYS.includes(storedTextScale) ? storedTextScale : DEFAULT_DISPLAY_PREFERENCES.text_scale,
+    schedule_font_style:SCHEDULE_FONT_STYLE_KEYS.includes(source.schedule_font_style) ? source.schedule_font_style : DEFAULT_DISPLAY_PREFERENCES.schedule_font_style,
     booking_card_density:density,
     ...cardOptions,
     ios_transitions: source.ios_transitions ?? DEFAULT_DISPLAY_PREFERENCES.ios_transitions,
@@ -2107,6 +2110,7 @@ function displayPreferencesEqual(left, right) {
     && JSON.stringify(a.porcelain) === JSON.stringify(b.porcelain)
     && a.color_mode === b.color_mode
     && a.text_scale === b.text_scale
+    && a.schedule_font_style === b.schedule_font_style
     && a.booking_card_density === b.booking_card_density
     && a.show_phone === b.show_phone
     && a.show_visit_number === b.show_visit_number
@@ -2359,6 +2363,7 @@ function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
   document.body.dataset.providerLayout = displayPreferences.layout;
   document.body.dataset.providerTextScale = displayPreferences.text_scale;
+  document.body.dataset.scheduleFontStyle = displayPreferences.schedule_font_style;
   document.body.dataset.bookingCardDensity = displayPreferences.booking_card_density;
   document.body.dataset.iosTransitions = displayPreferences.ios_transitions ? 'on' : 'off';
   const colorState = applyProviderColorMode();
@@ -2453,6 +2458,8 @@ function renderDisplayPreferencesForm() {
   applyProviderThemeFilter(providerThemeFilter);
   const textScale = form.querySelector(`input[name="providerTextScale"][value="${displayPreferences.text_scale}"]`);
   if (textScale) textScale.checked = true;
+  const scheduleFontStyle = form.querySelector(`input[name="scheduleFontStyle"][value="${displayPreferences.schedule_font_style}"]`);
+  if (scheduleFontStyle) scheduleFontStyle.checked = true;
   const bookingCardDensity = form.querySelector(`input[name="bookingCardDensity"][value="${displayPreferences.booking_card_density}"]`);
   if (bookingCardDensity) bookingCardDensity.checked = true;
   const customCardOptions = $('#bookingCardCustomOptions');
@@ -2640,6 +2647,7 @@ function displayPreferencesFromForm() {
     porcelain:{ shade:$('#providerDisplayForm input[name="providerPorcelainShade"]:checked')?.value, character:$('#providerDisplayForm input[name="providerPorcelainCharacter"]:checked')?.value },
     color_mode: displayPreferences.color_mode,
     text_scale: $('#providerDisplayForm input[name="providerTextScale"]:checked')?.value,
+    schedule_font_style:$('#providerDisplayForm input[name="scheduleFontStyle"]:checked')?.value,
     booking_card_density:$('#providerDisplayForm input[name="bookingCardDensity"]:checked')?.value,
     show_phone: $('#showBookingPhone').checked,
     show_visit_number: $('#showBookingVisitNumber').checked,
@@ -8765,13 +8773,16 @@ function renderTimeline(sourceItems) {
     const visitText = block ? '' : bookingVisitSummaryText(item);
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item, 'timeline-client-visit');
     const clientDetails = block ? (item.automatic_break ? 'Автоматический перерыв' : 'Занятое время') : [item.client_name, visitText, `${duration} мин`].filter(Boolean).join(' · ');
+    const timelinePhoneMarkup = block || !displayPreferences.show_phone || !item.client_phone
+      ? ''
+      : `<span class="timeline-client-phone"> · ${escapeHtml(String(item.client_phone))}</span>`;
     const clientDetailsMarkup = block
       ? ''
-      : `<span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${visitMarkup ? `<span class="timeline-client-visit-wrap"> · ${visitMarkup}</span>` : ''}`;
-    const timelineClientRow = compactMobile
+      : `<span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${timelinePhoneMarkup}${visitMarkup ? `<span class="timeline-client-visit-wrap"> · ${visitMarkup}</span>` : ''}`;
+    const timelineClientRow = compactMobile && block
       ? ''
       : tightMobile && !block
-      ? `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span><span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${notePresence ? '<span> · есть заметка</span>' : ''}</small></span>`
+      ? `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span><span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${timelinePhoneMarkup}${notePresence ? '<span> · есть заметка</span>' : ''}</small></span>`
       : `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>`;
     const ariaDetails = displayPreferences.show_notes && note ? `${clientDetails}, заметка: ${note}` : clientDetails;
     const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
@@ -8803,7 +8814,7 @@ function renderTimeline(sourceItems) {
     const automaticBreakSourceMarkup = item.automatic_break
       ? '<span class="timeline-automatic-break-source">Автоматический · из правил записи</span>'
       : '';
-    const serviceTitleMarkup = block ? `${serviceMarkup}${automaticBreakSourceMarkup}` : `<span class="timeline-service-title">${serviceMarkup}</span>`;
+    const serviceTitleMarkup = block ? `${serviceMarkup}${automaticBreakSourceMarkup}` : `<span class="timeline-service-title">${serviceMarkup}</span><span class="timeline-service-duration">${duration} минут</span>`;
     const renderedNote = mobileTimeline ? '' : bookingNotePresenceMarkup(note, 'timeline-booking-note-presence');
     const renderedStatus = mobileTimeline ? '' : timelineStatus;
     const mobileBadgeMarkup = mobileTimeline ? badgeMarkup : '';
@@ -8811,7 +8822,7 @@ function renderTimeline(sourceItems) {
     const cardContent = minuteOnly && !mobileTimeline
       ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">${timeRange}</span><span aria-hidden="true"> · </span>${serviceTitleMarkup}</strong></span>`
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
-      <span class="timeline-booking-copy">${mobileBadgeMarkup}<strong>${serviceTitleMarkup}</strong>${timelineClientRow}${desktopBadgeMarkup}${renderedNote}</span>
+      <span class="timeline-booking-copy">${mobileBadgeMarkup}${block ? `<strong>${serviceTitleMarkup}</strong>${timelineClientRow}` : `${timelineClientRow}<strong>${serviceTitleMarkup}</strong>`}${desktopBadgeMarkup}${renderedNote}</span>
       ${renderedStatus}`;
     const dragHandle = movable ? '<span class="timeline-drag-handle" aria-hidden="true"></span>' : '';
     const tight = tightMobile ? ' timeline-tight' : '';
