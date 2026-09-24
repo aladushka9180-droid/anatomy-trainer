@@ -1728,17 +1728,15 @@ function scheduleNowMarkerMarkup(date, start, end, hourHeight, className) {
 function updateScheduleNowMarkers(now = new Date()) {
   const clock = businessClock(now);
   $$('[data-schedule-now-marker]').forEach(marker => {
-    const start = Number(marker.dataset.start);
-    const end = Number(marker.dataset.end);
-    const hourHeight = Number(marker.dataset.hourHeight);
-    const visible = Number.isFinite(start) && Number.isFinite(end) && Number.isFinite(hourHeight)
-      && clock.minutes >= start && clock.minutes <= end;
-    marker.hidden = !visible;
-    if (!visible) return;
+    const start = +marker.dataset.start;
+    const end = +marker.dataset.end;
+    const hourHeight = +marker.dataset.hourHeight;
+    marker.hidden = !(clock.minutes >= start && clock.minutes <= end);
+    if (marker.hidden) return;
     marker.style.top = `${((clock.minutes - start) / 60) * hourHeight}px`;
+    marker.toggleAttribute('data-now-top', clock.minutes - start < 15);
     marker.setAttribute('aria-label', `Сейчас ${clock.label}`);
-    const time = marker.querySelector('time');
-    if (time) time.textContent = clock.label;
+    marker.querySelector('time').textContent = clock.label;
   });
 }
 function renderTopbarDateTime() {

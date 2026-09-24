@@ -2768,3 +2768,5 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   background:#3f3b46!important;
   background-image:none!important;
 }
+
+@media(max-width:760px){.timeline-now-marker[data-now-top] time{top:4px;bottom:auto}}
