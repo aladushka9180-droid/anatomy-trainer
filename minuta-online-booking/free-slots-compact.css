@@ -113,10 +113,10 @@ body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog .free-
 #freeSlotsDialog .free-slots-empty p { max-width:230px; margin:10px 0 16px; color:var(--theme-muted,#716b73); font-size:14px; line-height:1.5; }
 #freeSlotsDialog .free-slots-empty button { min-height:44px; padding:8px 14px; border:0; background:transparent; color:var(--theme-accent,#b9286c); font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; }
 #freeSlotsDialog .free-slots-actions { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:20px; margin-top:24px; padding-top:18px; border-top:1px solid var(--theme-line,#eadbe2); }
-#freeSlotsDialog .free-slots-actions>div { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+#freeSlotsDialog .free-slots-actions>div { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr); gap:10px; }
 #freeSlotsDialog .free-slots-actions button { min-height:48px; font-size:14px; }
 #freeSlotsDialog #copyFreeSlots { display:grid; place-items:center; text-align:center; }
-#freeSlotsDialog #copyFreeSlotsLink { padding:8px 4px; border:0; background:transparent; color:var(--theme-accent,#b9286c); font-weight:700; text-align:left; }
+#freeSlotsDialog #copyFreeSlotsLink { padding:8px 4px; border:0; background:transparent; color:var(--theme-accent,#b9286c); font-size:13px; font-weight:700; text-align:left; white-space:nowrap; }
 #freeSlotsDialog #shareFreeSlots { border:1px solid var(--theme-line,#eadbe2); border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-accent,#b9286c); font-weight:700; }
 #freeSlotsDialog .free-slots-actions button:disabled { opacity:.55; }
 #freeSlotsDialog .free-slots-status { margin:9px 0 0; }

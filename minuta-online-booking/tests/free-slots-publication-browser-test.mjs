@@ -240,12 +240,13 @@ try {
   await page.addStyleTag({content:readFileSync(new URL('../styles.css',import.meta.url),'utf8')});
   await page.addStyleTag({content:readFileSync(new URL('../free-slots-compact.css',import.meta.url),'utf8')});
   await page.evaluate(()=>{document.body.className='provider-body';document.body.dataset.providerTheme='pink-porcelain';for(const [key,value] of Object.entries({'--theme-surface':'#fff','--theme-surface-alt':'#fff5f9','--theme-line':'#eed3e0','--theme-ink':'#34343b','--theme-muted':'#77717a','--theme-accent':'#b9286c'})) document.body.style.setProperty(key,value);});
-  for(const width of [390,760,1440]) {
+  for(const width of [320,390,760,1440]) {
     await page.setViewportSize({width,height:844});
     const layout=await page.locator('#freeSlotsDialog').evaluate(el=>({width:el.getBoundingClientRect().width,scroll:el.scrollWidth,client:el.clientWidth,columns:getComputedStyle(el.querySelector('.free-slots-main')).gridTemplateColumns.split(' ').length}));
     assert.ok(layout.width<=width && layout.scroll<=layout.client+1,`${width}px publication dialog must not overflow horizontally`);
-    assert.equal(layout.columns,width===390?1:2,`${width}px uses the intended responsive layout`);
+    assert.equal(layout.columns,width<=700?1:2,`${width}px uses the intended responsive layout`);
     assert.equal(await page.locator('#copyFreeSlots').evaluate(el=>getComputedStyle(el).textAlign),'center');
+    assert.equal(await page.locator('#copyFreeSlotsLink').evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);return range.getClientRects().length;}),1,`${width}px copy-link label stays on one line`);
     if(process.env.MINUTA_VISUAL_PREFIX) await page.screenshot({path:`${process.env.MINUTA_VISUAL_PREFIX}-${width}.png`});
     if(width===390) {await page.locator('#freeSlotsDialog').evaluate(el=>{el.scrollTop=el.scrollHeight;});assert.equal(await page.locator('#shareFreeSlots').isVisible(),true);if(process.env.MINUTA_VISUAL_PREFIX) await page.screenshot({path:`${process.env.MINUTA_VISUAL_PREFIX}-${width}-actions.png`});}
   }
