@@ -46,6 +46,15 @@
     return parseDate(value)?.toLocaleDateString('ru-RU', { weekday:'short', day:'numeric', month:'long' }).replace('.', '') || value;
   }
 
+  function formatEmptyPeriod(from, to) {
+    const start = parseDate(from), finish = parseDate(to);
+    if (!start || !finish) return '';
+    const full = date => date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+    if (from === to) return full(start);
+    if (start.getMonth() === finish.getMonth() && start.getFullYear() === finish.getFullYear()) return `${start.getDate()}–${full(finish)}`;
+    return `${full(start)} — ${full(finish)}`;
+  }
+
   function slotTime(value) {
     const match = /^(\d{2}):(\d{2})/.exec(String(value || ''));
     return match ? `${match[1]}:${match[2]}` : '';
@@ -464,6 +473,9 @@
     const toField = dialog.querySelector('#freeSlotsToField');
     const toInput = dialog.querySelector('#freeSlotsTo');
     const textArea = dialog.querySelector('#freeSlotsText');
+    const emptyPreview = dialog.querySelector('#freeSlotsEmpty');
+    const previewHint = dialog.querySelector('#freeSlotsPreviewHint');
+    const extraSummary = dialog.querySelector('#freeSlotsExtraSummary');
     const qrCanvas = dialog.querySelector('#freeSlotsQr');
     const bookingLink = dialog.querySelector('#freeSlotsBookingLink');
     const status = dialog.querySelector('#freeSlotsShareStatus');
@@ -758,6 +770,18 @@
           ? buildGeneralPublication(model.from, model.to, model.publicationData, chosenSlots, serverDays)
           : buildPublication(model.from, model.to, model.publicationData, chosenSlots);
       applyGeneratedText(nextText);
+      const empty = !hasSelection;
+      emptyPreview.hidden = !empty;
+      if (empty) {
+        emptyPreview.querySelector('strong').textContent = serverSlots.length ? 'Время не выбрано' : 'Свободных окон нет';
+        emptyPreview.querySelector('#freeSlotsEmptyPeriod').textContent = serverSlots.length ? 'Отметьте подтверждённое свободное время в дополнительных настройках.' : formatEmptyPeriod(model.from, model.to);
+        dialog.querySelector('#freeSlotsChangeDates').textContent = serverSlots.length ? 'Выбрать время' : 'Изменить даты';
+        emptyPreview.dataset.action = serverSlots.length ? 'select' : 'dates';
+      }
+      textArea.closest('.free-slots-text-label').hidden = empty;
+      previewHint.hidden = empty;
+      manualNotice.hidden = empty || manualNotice.hidden;
+      extraSummary.textContent = [generalMode() ? 'Все услуги' : 'Конкретная услуга', textLayout() === 'compact' ? 'компактный текст' : 'подробный текст', ({master:'обычная ссылка',telegram:'Telegram',whatsapp:'WhatsApp',vk:'ВКонтакте',qr:'QR-код'})[sourceControls.find(control => control.checked)?.value] || 'обычная ссылка'].join(' · ');
       selectionSummary.textContent = `${manualSelection ? 'Выбрано вручную' : 'Свободные начала сеанса'} · ${selectedTimes.size}`;
       const trackingUrl = model.trackingUrl;
       bookingLink.href = trackingUrl;
@@ -787,6 +811,13 @@
       serverSlots = [];
       serverDays = [];
       applyGeneratedText('Свободное время не опубликовано: сервер не подтвердил доступные слоты.');
+      emptyPreview.hidden = false;
+      emptyPreview.querySelector('strong').textContent = 'Не удалось проверить время';
+      emptyPreview.querySelector('#freeSlotsEmptyPeriod').textContent = message;
+      dialog.querySelector('#freeSlotsChangeDates').textContent = 'Повторить проверку';
+      emptyPreview.dataset.action = 'retry';
+      textArea.closest('.free-slots-text-label').hidden = true;
+      previewHint.hidden = true;
       bookingLink.removeAttribute('href');
       bookingLink.textContent = '';
       qrCanvas.hidden = true;
@@ -811,6 +842,9 @@
       const isCurrent = () => revision === requestRevision && dialog.open && scope === scopeKey();
       configureMode();
       publicationReady = false;
+      emptyPreview.hidden = true;
+      textArea.closest('.free-slots-text-label').hidden = false;
+      previewHint.hidden = false;
       copyButton.disabled = true;
       shareButton.disabled = true;
       copyLinkButton.disabled = true;
@@ -1000,6 +1034,13 @@
       void refreshFromServer({ reloadContext:true });
     });
     fromInput.addEventListener('change', () => { void refreshFromServer(); });
+    dialog.querySelector('#freeSlotsChangeDates').addEventListener('click', () => {
+      if (emptyPreview.dataset.action === 'retry') { void refreshFromServer({ reloadContext:true }); return; }
+      const target = emptyPreview.dataset.action === 'select' ? selectionSummary : fromInput;
+      if (emptyPreview.dataset.action === 'select') { dialog.querySelector('.free-slots-extra').open = true; timeChoices.closest('details').open = true; }
+      target.focus();
+      target.scrollIntoView({ block:'center', behavior:'smooth' });
+    });
     toInput.addEventListener('change', () => { void refreshFromServer(); });
     serviceSelect.addEventListener('change', () => { void refreshFromServer(); });
     locationSelect.addEventListener('change', () => {

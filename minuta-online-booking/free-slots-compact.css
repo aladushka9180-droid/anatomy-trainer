@@ -72,3 +72,52 @@ body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog .free-
 #freeSlotsDialog .free-slots-title-toggle { display:flex; align-items:center; gap:10px; min-height:44px; margin:12px 0 0; font-size:13px; cursor:pointer; }
 #freeSlotsDialog .free-slots-title-toggle input { flex:0 0 20px; width:20px; height:20px; margin:0; accent-color:var(--theme-accent,#245d41); }
 @media(max-width:480px) { #freeSlotsDialog .free-slots-text-options { display:grid; gap:2px; }#freeSlotsDialog .free-slots-manual-notice>div { display:grid; } }
+
+/* Compact publication flow shared by phone and desktop. */
+#freeSlotsDialog { width:min(1050px,calc(100vw - 28px)); padding:28px 32px; }
+#freeSlotsDialog .notification-template-dialog-head { padding-bottom:18px; margin-bottom:22px; border-bottom:1px solid var(--theme-line,#eadbe2); }
+#freeSlotsDialog .notification-template-dialog-head h2 { font-size:clamp(25px,3vw,32px); }
+#freeSlotsDialog .notification-template-dialog-head p { margin:7px 0 0; color:var(--theme-muted,#786b73); font-size:14px; font-weight:400; }
+#freeSlotsDialog .free-slots-main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; align-items:start; }
+#freeSlotsDialog .free-slots-settings,#freeSlotsDialog .free-slots-result { min-width:0; }
+#freeSlotsDialog .free-slots-settings>h3 { margin:0 0 16px; color:var(--theme-ink,#34343b); font-size:18px; }
+#freeSlotsDialog .free-slots-settings>.free-slots-mode,#freeSlotsDialog #freeSlotsFormatSettings>.free-slots-mode { margin:0; }
+#freeSlotsDialog .free-slots-mode { padding:0; gap:9px; border:0; background:transparent; }
+#freeSlotsDialog .free-slots-mode legend { display:block; width:100%; padding:0 0 9px; color:var(--theme-ink,#34343b); font-size:14px; font-weight:700; }
+#freeSlotsDialog .free-slots-mode legend.sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+#freeSlotsDialog .free-slots-mode span,#freeSlotsDialog .free-slots-source span { min-height:46px; border:1px solid var(--theme-line,#eadbe2); border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-muted,#716b73); font-size:14px; font-weight:500; }
+#freeSlotsDialog .free-slots-mode input:checked+span { border-color:var(--theme-accent,#b9286c); background:var(--theme-surface-alt,#fff5f9); color:var(--theme-accent,#b9286c); font-weight:700; }
+#freeSlotsDialog .free-slots-dates { margin:10px 0 20px; }
+#freeSlotsDialog .free-slots-dates label { display:block; padding:7px 11px 5px; border:1px solid var(--theme-line,#eadbe2); border-radius:12px; color:var(--theme-muted,#716b73); font-size:12px; font-weight:400; }
+#freeSlotsDialog .free-slots-dates input { min-height:26px; margin:0; padding:0; border:0; background:transparent; color:var(--theme-ink,#34343b); font-size:15px; box-shadow:none; }
+#freeSlotsDialog #freeSlotsFormatSettings { margin:0; }
+#freeSlotsDialog .free-slots-extra { margin-top:24px; padding-top:14px; border-top:1px solid var(--theme-line,#eadbe2); }
+#freeSlotsDialog .free-slots-extra>summary { display:block; position:relative; min-height:54px; padding:2px 28px 4px 0; color:var(--theme-accent,#b9286c); font-size:15px; font-weight:700; cursor:pointer; list-style:none; }
+#freeSlotsDialog .free-slots-extra>summary::-webkit-details-marker { display:none; }
+#freeSlotsDialog .free-slots-extra>summary::after { content:'⌄'; position:absolute; right:3px; top:0; font-size:23px; font-weight:400; transform:rotate(0); }
+#freeSlotsDialog .free-slots-extra[open]>summary::after { transform:rotate(180deg); }
+#freeSlotsDialog .free-slots-extra>summary small { display:block; margin-top:5px; color:var(--theme-muted,#716b73); font-size:12px; font-weight:400; }
+#freeSlotsDialog .free-slots-extra>.free-slots-mode { margin:18px 0 0; }
+#freeSlotsDialog .free-slots-extra .settings-help-link { display:inline-flex; margin-top:16px; }
+#freeSlotsDialog .free-slots-preview { display:block; padding:0; border:0; background:transparent; }
+#freeSlotsDialog .free-slots-link { display:block; }
+#freeSlotsDialog .free-slots-result { padding:20px 22px; border:1px solid var(--theme-line,#eadbe2); border-radius:16px; background:var(--theme-surface,#fff); }
+#freeSlotsDialog .free-slots-result h3 { margin:0; color:var(--theme-ink,#34343b); font-size:18px; }
+#freeSlotsDialog .free-slots-result>p { margin:5px 0 14px; color:var(--theme-muted,#716b73); font-size:13px; }
+#freeSlotsDialog .free-slots-text-label { margin:0; }
+#freeSlotsDialog .free-slots-text-head { margin-bottom:8px; }
+#freeSlotsDialog .free-slots-text-head label { font-size:12px; }
+#freeSlotsDialog .free-slots-text-label textarea { width:100%; min-height:310px; max-height:48vh; margin:0; padding:16px; border-radius:14px; background:var(--theme-surface,#fff); color:var(--theme-ink,#34343b); font-size:14px; line-height:1.65; }
+#freeSlotsDialog .free-slots-empty { display:grid; align-content:center; justify-items:center; min-height:260px; padding:24px; border:1px solid var(--theme-line,#eadbe2); border-radius:14px; text-align:center; }
+#freeSlotsDialog .free-slots-empty strong { color:var(--theme-ink,#34343b); font-size:17px; }
+#freeSlotsDialog .free-slots-empty p { max-width:230px; margin:10px 0 16px; color:var(--theme-muted,#716b73); font-size:14px; line-height:1.5; }
+#freeSlotsDialog .free-slots-empty button { min-height:44px; padding:8px 14px; border:0; background:transparent; color:var(--theme-accent,#b9286c); font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; }
+#freeSlotsDialog .free-slots-actions { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:20px; margin-top:24px; padding-top:18px; border-top:1px solid var(--theme-line,#eadbe2); }
+#freeSlotsDialog .free-slots-actions>div { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+#freeSlotsDialog .free-slots-actions button { min-height:48px; font-size:14px; }
+#freeSlotsDialog #copyFreeSlots { display:grid; place-items:center; text-align:center; }
+#freeSlotsDialog #copyFreeSlotsLink { padding:8px 4px; border:0; background:transparent; color:var(--theme-accent,#b9286c); font-weight:700; text-align:left; }
+#freeSlotsDialog #shareFreeSlots { border:1px solid var(--theme-line,#eadbe2); border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-accent,#b9286c); font-weight:700; }
+#freeSlotsDialog .free-slots-actions button:disabled { opacity:.55; }
+#freeSlotsDialog .free-slots-status { margin:9px 0 0; }
+@media(max-width:700px) { #freeSlotsDialog { width:min(460px,calc(100vw - 16px)); max-width:calc(100vw - 16px); padding:24px 20px max(20px,env(safe-area-inset-bottom)); border-radius:22px; }#freeSlotsDialog .free-slots-main { grid-template-columns:1fr; gap:22px; }#freeSlotsDialog .free-slots-settings>h3 { display:none; }#freeSlotsDialog .free-slots-result { padding:0; border:0; }#freeSlotsDialog .free-slots-actions { grid-template-columns:1fr; gap:8px; }#freeSlotsDialog .free-slots-text-label textarea { min-height:260px; max-height:none; } }

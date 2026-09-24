@@ -16,7 +16,7 @@ const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANN
 try {
   const page=await browser.newPage({viewport:{width:390,height:844}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.route('https://example.test/**',route=>route.fulfill({contentType:'text/html',body:'<button id="open">Открыть</button>'+dialog}));
+  await page.route('https://example.test/**',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:'<button id="open">Открыть</button>'+dialog}));
   await page.goto('https://example.test/');
   await page.addScriptTag({content:script});
   const setup=()=>{
@@ -79,13 +79,15 @@ try {
   const catalogUrl=new URL(await page.locator('#freeSlotsBookingLink').getAttribute('href'));
   for(const key of ['service','time','repeat']) assert.equal(catalogUrl.searchParams.has(key),false);
   assert.equal(await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').isVisible(),true,'Format is available without expanding settings');
-  assert.equal(await page.locator('#freeSlotsFormatSettings').evaluate(el=>el.nextElementSibling.classList.contains('free-slots-text-settings')),true,'Time format directly precedes text settings');
-  assert.equal(await page.locator('.free-slots-text-settings').evaluate(el=>el.nextElementSibling.classList.contains('free-slots-text-label')),true,'Text settings directly precede ready text');
+  assert.equal(await page.locator('#freeSlotsFormatSettings').evaluate(el=>el.nextElementSibling.matches('details.free-slots-extra')),true,'Additional settings follow primary format');
+  assert.equal(await page.locator('#freeSlotsText').evaluate(el=>Boolean(el.closest('.free-slots-result'))),true,'Ready text stays in the preview');
+  assert.equal(await page.locator('.free-slots-extra').getAttribute('open'),null,'Additional settings start collapsed');
   assert.equal(await page.locator('#freeSlotsFormatHint').isVisible(),false);
   await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').check();
   assert.ok((await text()).includes('\n10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00\n'));
   assert.ok(!(await text()).includes('20:00'));
   assert.ok(!(await text()).includes('Рамиль'));
+  await page.locator('.free-slots-extra > summary').click();
   await page.locator('[name="freeSlotsTextLayout"][value="compact"]').check();
   assert.ok((await text()).includes('вс, 6 сентября, 10:00, 11:00, 12:00'));
   await page.locator('#freeSlotsText').fill('Мой текст для клиента');
@@ -203,6 +205,14 @@ try {
   await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('На выбранный период свободных окон нет.'));
   assert.equal(await page.locator('#copyFreeSlots').isDisabled(),true,'Empty general period must not be copied');
   assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true);
+  assert.equal(await page.locator('#freeSlotsEmpty').isVisible(),true,'Empty period has a clear preview state');
+  assert.equal(await page.locator('#freeSlotsEmptyPeriod').innerText(),'6 сентября 2026 г.');
+  await page.locator('[name="freeSlotsPeriod"][value="range"]').check();
+  await page.waitForFunction(()=>document.querySelector('#freeSlotsEmptyPeriod').textContent.includes('6–12 сентября 2026'));
+  await page.locator('[name="freeSlotsPeriod"][value="day"]').check();
+  assert.equal(await page.locator('#freeSlotsText').isVisible(),false,'Unpublishable text is not shown as a ready preview');
+  await page.locator('#freeSlotsChangeDates').click();
+  assert.equal(await page.locator('#freeSlotsFrom').evaluate(el=>document.activeElement===el),true);
   assert.ok((await page.locator('#freeSlotsShareStatus').innerText()).includes('свободных окон нет'));
   assert.ok((await text()).includes('день полностью занят'),'Empty state must preserve day status');
   await page.evaluate(()=>{window.serverTimes=[];});
@@ -227,6 +237,23 @@ try {
   await page.locator('#open').click();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   assert.ok((await text()).includes('10:00–20:00 · 10 часов'),'In-memory fallback survives reopening with storage denied');
+  await page.addStyleTag({content:readFileSync(new URL('../styles.css',import.meta.url),'utf8')});
+  await page.addStyleTag({content:readFileSync(new URL('../free-slots-compact.css',import.meta.url),'utf8')});
+  await page.evaluate(()=>{document.body.className='provider-body';document.body.dataset.providerTheme='pink-porcelain';for(const [key,value] of Object.entries({'--theme-surface':'#fff','--theme-surface-alt':'#fff5f9','--theme-line':'#eed3e0','--theme-ink':'#34343b','--theme-muted':'#77717a','--theme-accent':'#b9286c'})) document.body.style.setProperty(key,value);});
+  for(const width of [390,760,1440]) {
+    await page.setViewportSize({width,height:844});
+    const layout=await page.locator('#freeSlotsDialog').evaluate(el=>({width:el.getBoundingClientRect().width,scroll:el.scrollWidth,client:el.clientWidth,columns:getComputedStyle(el.querySelector('.free-slots-main')).gridTemplateColumns.split(' ').length}));
+    assert.ok(layout.width<=width && layout.scroll<=layout.client+1,`${width}px publication dialog must not overflow horizontally`);
+    assert.equal(layout.columns,width===390?1:2,`${width}px uses the intended responsive layout`);
+    assert.equal(await page.locator('#copyFreeSlots').evaluate(el=>getComputedStyle(el).textAlign),'center');
+    if(process.env.MINUTA_VISUAL_PREFIX) await page.screenshot({path:`${process.env.MINUTA_VISUAL_PREFIX}-${width}.png`});
+    if(width===390) {await page.locator('#freeSlotsDialog').evaluate(el=>{el.scrollTop=el.scrollHeight;});assert.equal(await page.locator('#shareFreeSlots').isVisible(),true);if(process.env.MINUTA_VISUAL_PREFIX) await page.screenshot({path:`${process.env.MINUTA_VISUAL_PREFIX}-${width}-actions.png`});}
+  }
+  await page.evaluate(()=>{window.generalWindows=[];window.controller.refresh();});
+  await page.waitForFunction(()=>!document.querySelector('#freeSlotsEmpty').hidden);
+  assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true);
+  assert.equal(await page.locator('#copyFreeSlotsLink').isDisabled(),false);
+  for(const width of [390,1440]) {await page.setViewportSize({width,height:844});if(process.env.MINUTA_VISUAL_PREFIX) await page.screenshot({path:`${process.env.MINUTA_VISUAL_PREFIX}-empty-${width}.png`});}
   assert.deepEqual(errors,[]);
   console.log('PASS: both modes, catalog link, full hourly preview, server gaps, manual/auto, today 15:32→16:00, live clock rollover, fresh pre-send, copy/share, fail-closed');
 } finally {await browser.close();}

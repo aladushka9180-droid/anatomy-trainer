@@ -142,6 +142,7 @@ try {
     const f = await fixture(), { page } = f;
     await page.evaluate(() => { holdNext = true; document.querySelector('#copyFreeSlots').click(); });
     await page.waitForFunction(() => pending.length === 1);
+    await page.locator('.free-slots-extra > summary').click();
     await page.selectOption('#freeSlotsService', 'service-A-2');
     await page.waitForFunction(() => document.querySelector('#freeSlotsText').value.includes('15:00'));
     await page.evaluate(() => pending.shift()());

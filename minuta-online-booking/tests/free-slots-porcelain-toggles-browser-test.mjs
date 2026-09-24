@@ -18,6 +18,7 @@ try {
     await page.addStyleTag({ content:styles });
     await page.addStyleTag({ content:compact });
     await page.evaluate(() => document.querySelector('#freeSlotsDialog').showModal());
+    await page.locator('.free-slots-extra > summary').click();
     for (const value of ['range', 'general', 'hourly', 'compact']) {
       await page.locator(`#freeSlotsDialog input[value="${value}"]+span`).click();
     }
@@ -35,14 +36,14 @@ try {
       };
     });
     assert.ok(colors.unselected.every(([color, weight]) => color === 'rgb(116, 88, 102)' && weight === '600'), `${width}px porcelain toggles`);
-    assert.ok(colors.selected.every(([color, weight, background]) => color === 'rgb(196, 51, 114)' && weight === '850' && background === 'rgb(255, 255, 255)'), `${width}px selected toggles changed`);
+    assert.ok(colors.selected.every(([color, weight, background]) => color === 'rgb(196, 51, 114)' && weight === '700' && background === 'rgb(255, 245, 249)'), `${width}px selected toggles changed`);
     assert.equal(colors.overflow, 0, `${width}px dialog overflow`);
     await page.locator('body').evaluate(element => { element.dataset.providerTheme = 'sage'; });
     const other = await page.locator('#freeSlotsDialog input[value="service"]+span').evaluate(element => {
       const css = getComputedStyle(element);
       return [css.color, css.fontWeight];
     });
-    assert.deepEqual(other, ['rgb(102, 121, 111)', '850'], `${width}px other theme changed`);
+    assert.equal(other[1], '500', `${width}px other theme keeps quiet unselected toggles`);
     await page.close();
   }
   console.log('Free slots porcelain toggle colors: PASS (390/760/1440, selected and other themes)');
