@@ -7539,6 +7539,7 @@ html.provider-booting .provider-main {
 .report-command-copy>p { margin-top:8px; font-size:13px; line-height:1.5; }
 .report-command-kicker { font-size:11px; }
 .report-goals-open { flex:0 0 auto; min-height:40px; padding:0 12px; border:1px solid var(--theme-line); border-radius:11px; background:transparent; color:var(--theme-accent); cursor:pointer; font:850 11px/1 inherit; }
+.report-goals-sync-status { margin:10px 0 0!important; color:var(--theme-muted); font-size:11px!important; font-weight:750; }
 .report-command-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:16px; }
 .report-command-metrics article { padding:12px; border-radius:12px; background:var(--theme-surface-alt); backdrop-filter:none; }
 .report-command-metrics small { font-size:10px; }
@@ -7643,12 +7644,17 @@ html.provider-booting .provider-main {
 .report-goals-dialog { width:min(620px,calc(100vw - 24px)); padding:0; border:1px solid var(--theme-line); border-radius:20px; background:var(--theme-surface); color:var(--theme-ink); box-shadow:0 28px 80px rgba(0,0,0,.22); }
 .report-goals-dialog::backdrop { background:rgba(10,18,14,.46); backdrop-filter:blur(5px); }
 .report-goals-dialog form { padding:18px; }
+.report-goals-dialog.is-confirming-discard :is(.report-goals-grid,.report-goals-actions,#reportGoalsStatus) { display:none; }
 .report-goals-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
 .report-goals-grid label { display:grid; gap:6px; color:var(--theme-muted); font-size:11px; font-weight:800; }
 .report-goals-grid input { width:100%; min-height:46px; padding:0 12px; border:1px solid var(--theme-line); border-radius:11px; background:var(--theme-surface-alt); color:var(--theme-ink); font:800 13px/1 inherit; }
 .report-goals-grid small { font-size:10px; font-weight:600; }
 .report-goals-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
 .report-goals-actions button { min-height:44px; margin:0; }
+.report-goals-discard { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px; padding:10px; border:1px solid var(--theme-line); border-radius:12px; background:var(--theme-surface-alt); color:var(--theme-ink); font-size:11px; font-weight:750; }
+.report-goals-discard[hidden] { display:none; }
+.report-goals-discard span { flex:1 1 100%; }
+.report-goals-discard button { min-height:44px; margin:0; }
 @media (max-width:1024px) {
   .report-command-metrics,.report-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .report-health-factors { grid-template-columns:repeat(2,minmax(0,1fr)); }

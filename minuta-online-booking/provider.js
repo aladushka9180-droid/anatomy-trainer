@@ -383,6 +383,8 @@ let displayPreferencesUpdatedAt = 0;
 let displayPreferencesPending = false;
 let displayPreferencesSaveTimer = null;
 let displayPreferencesSaveRevision = 0;
+let reportGoalsOriginalValues = null;
+let reportGoalsSyncFeedbackActive = false;
 let providerThemeFilter = '';
 let clientThemeFilter = '';
 let clientPageSettings = { theme_key:'sage', headline_key:'massage-time' };
@@ -2181,6 +2183,9 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
   } catch {}
 }
 function restoreDisplayPreferences(user = currentUser) {
+  reportGoalsSyncFeedbackActive = false;
+  const goalsStatus = $('#reportGoalsSyncStatus');
+  if (goalsStatus) { goalsStatus.hidden = true; goalsStatus.textContent = ''; }
   const local = loadLocalDisplayPreferences(user?.id);
   const remoteValue = user?.user_metadata?.provider_display_preferences;
   const remoteExists = Boolean(remoteValue && typeof remoteValue === 'object' && !Array.isArray(remoteValue) && Object.keys(remoteValue).length);
@@ -2204,20 +2209,25 @@ function queueDisplayPreferencesSync(delay = 350) {
   displayPreferencesSaveTimer = null;
   const revision = ++displayPreferencesSaveRevision;
   const status = $('#providerDisplayStatus');
+  const goalsStatus = reportGoalsSyncFeedbackActive ? $('#reportGoalsSyncStatus') : null;
+  const setStatus = (message, goalsMessage = message) => {
+    if (status) status.textContent = message;
+    if (goalsStatus) { goalsStatus.textContent = goalsMessage; goalsStatus.hidden = false; }
+  };
   if (!displayPreferencesPending) return;
   if (!currentUser || !navigator.onLine) {
-    if (status) status.textContent = 'Сохранено на этом устройстве · синхронизируется при подключении';
+    setStatus('Сохранено на этом устройстве · синхронизируется при подключении');
     return;
   }
   const userId = currentUser.id;
   const preferencesSnapshot = displayPreferencesServerSnapshot();
-  if (status) status.textContent = 'Сохраняем…';
+  setStatus('Сохраняем…');
   displayPreferencesSaveTimer = setTimeout(async () => {
     displayPreferencesSaveTimer = null;
     const { data, error } = await db.auth.updateUser({ data: { provider_display_preferences: preferencesSnapshot } });
     if (revision !== displayPreferencesSaveRevision || currentUser?.id !== userId) return;
     if (error) {
-      if (status) status.textContent = 'Сохранено на этом устройстве · синхронизируется при подключении';
+      setStatus('Сохранено на этом устройстве · синхронизируется при подключении', 'Сохранено на этом устройстве · синхронизация не удалась');
       return;
     }
     if (data?.user) currentUser = data.user;
@@ -2225,7 +2235,7 @@ function queueDisplayPreferencesSync(delay = 350) {
       && displayPreferencesEqual(displayPreferences, preferencesSnapshot)) {
       displayPreferencesPending = false;
       persistLocalDisplayPreferences(userId);
-      if (status) status.textContent = 'Сохранено в аккаунте';
+      setStatus('Сохранено в аккаунте');
     }
   }, Math.max(0, Number(delay) || 0));
 }
@@ -4408,10 +4418,32 @@ function renderReportGoalsForm() {
   Object.entries(fields).forEach(([id, value]) => { const input = $(`#${id}`); if (input) input.value = String(value); });
 }
 
-function openReportGoals() {
-  renderReportGoalsForm();
+function reportGoalsFormValues() {
+  return ['reportGoalRevenue', 'reportGoalUtilization', 'reportGoalRepeat', 'reportGoalCancellation'].map(id => $(`#${id}`)?.value ?? '');
+}
+
+function reportGoalsDirty() {
+  return reportGoalsOriginalValues !== null && reportGoalsFormValues().some((value, index) => value !== reportGoalsOriginalValues[index]);
+}
+
+function requestCloseReportGoals() {
   const dialog = $('#reportGoalsDialog');
   if (!dialog) return;
+  if (!reportGoalsDirty()) { dialog.close(); return; }
+  const warning = $('#reportGoalsDiscard');
+  if (warning) { dialog.classList.add('is-confirming-discard'); warning.hidden = false; warning.querySelector('[data-report-goals-keep]')?.focus(); }
+}
+
+function openReportGoals() {
+  renderReportGoalsForm();
+  reportGoalsOriginalValues = reportGoalsFormValues();
+  const warning = $('#reportGoalsDiscard');
+  if (warning) warning.hidden = true;
+  const status = $('#reportGoalsStatus');
+  if (status) status.textContent = '';
+  const dialog = $('#reportGoalsDialog');
+  if (!dialog) return;
+  dialog.classList.remove('is-confirming-discard');
   if (typeof dialog.showModal === 'function') dialog.showModal();
   else dialog.setAttribute('open', '');
 }
@@ -4430,7 +4462,9 @@ function saveReportGoals() {
   displayPreferencesUpdatedAt = Math.max(Date.now(), displayPreferencesUpdatedAt + 1);
   displayPreferencesPending = true;
   persistLocalDisplayPreferences();
+  reportGoalsSyncFeedbackActive = true;
   queueDisplayPreferencesSync();
+  reportGoalsOriginalValues = reportGoalsFormValues();
   renderAnalytics();
   const status = $('#reportGoalsStatus');
   if (status) status.textContent = reportDataSource === 'demo'
@@ -14203,6 +14237,9 @@ async function handleSession(session) {
     displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
     displayPreferencesUpdatedAt = 0;
     displayPreferencesPending = false;
+    reportGoalsSyncFeedbackActive = false;
+    const goalsStatus = $('#reportGoalsSyncStatus');
+    if (goalsStatus) { goalsStatus.hidden = true; goalsStatus.textContent = ''; }
     automaticBookingBreakSegments = new Map();
     automaticBookingBreaksRemoteAvailable = false;
     telegramClientSettings = { ...DEFAULT_TELEGRAM_CLIENT_SETTINGS };
@@ -16563,7 +16600,9 @@ document.addEventListener('click', async event => {
     reportActionsToggle.textContent = expanded ? 'Скрыть рекомендации' : `Ещё ${Math.max(0, actionCount - 1)}`;
   }
   if (openReportGoalsButton) openReportGoals();
-  if (closeReportGoalsButton) $('#reportGoalsDialog')?.close();
+  if (closeReportGoalsButton) requestCloseReportGoals();
+  if (event.target.closest('[data-report-goals-keep]')) { $('#reportGoalsDiscard').hidden = true; $('#reportGoalsDialog').classList.remove('is-confirming-discard'); $('#reportGoalRevenue')?.focus(); }
+  if (event.target.closest('[data-report-goals-discard]')) $('#reportGoalsDialog')?.close();
   if (openPendingBookings) {
     bookingStatusFilter = 'needs-result';
     const statusFilter = $('#bookingStatusFilter');
@@ -18230,6 +18269,13 @@ $('#reportGoalsForm')?.addEventListener('submit', event => {
   saveReportGoals();
   window.setTimeout(() => $('#reportGoalsDialog')?.close(), 180);
 });
+$('#reportGoalsForm')?.addEventListener('input', () => {
+  const status = $('#reportGoalsStatus');
+  if (status) status.textContent = reportGoalsDirty() ? 'Есть несохранённые изменения' : '';
+  const warning = $('#reportGoalsDiscard');
+  if (warning) warning.hidden = true;
+  $('#reportGoalsDialog')?.classList.remove('is-confirming-discard');
+});
 $('#reportGoalsReset')?.addEventListener('click', () => {
   const defaults = DEFAULT_DISPLAY_PREFERENCES.analytics_goals;
   const fields = { reportGoalRevenue:defaults.revenue_rub, reportGoalUtilization:defaults.utilization_percent, reportGoalRepeat:defaults.repeat_percent, reportGoalCancellation:defaults.cancellation_percent };
@@ -18237,7 +18283,18 @@ $('#reportGoalsReset')?.addEventListener('click', () => {
   const status = $('#reportGoalsStatus');
   if (status) status.textContent = 'Установлены рекомендуемые значения. Нажмите «Сохранить цели».';
 });
-$('#reportGoalsDialog')?.addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+$('#reportGoalsDialog')?.addEventListener('click', event => { if (event.target === event.currentTarget) requestCloseReportGoals(); });
+$('#reportGoalsDialog')?.addEventListener('cancel', event => {
+  if (!reportGoalsDirty()) return;
+  event.preventDefault();
+  requestCloseReportGoals();
+});
+$('#reportGoalsDialog')?.addEventListener('close', () => {
+  reportGoalsOriginalValues = null;
+  const warning = $('#reportGoalsDiscard');
+  if (warning) warning.hidden = true;
+  $('#reportGoalsDialog')?.classList.remove('is-confirming-discard');
+});
 $('#installAppButton').addEventListener('click', installProviderApp);
 $('#desktopAppInstallButton').addEventListener('click', installProviderApp);
 $('#providerFullscreenButton').addEventListener('click', toggleProviderFullscreen);
