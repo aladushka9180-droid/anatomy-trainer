@@ -1189,7 +1189,7 @@ function offlineBookingServiceName(item) {
   return serviceName(ownServices.find(service => service.id === item.serviceId)?.name || item.serviceName || 'Услуга');
 }
 function offlineBookingConflictText(reason) {
-  return ({ slot_unavailable:'Выбранное время уже занято', no_slot_in_range:'В указанном диапазоне нет свободного времени', booking_buffer_conflict:'Время попадает в перерыв рядом с другой записью', service_unavailable:'Услуга больше недоступна', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
+  return ({ slot_unavailable:'Выбранное время уже занято', no_slot_in_range:'В указанном диапазоне нет свободного времени', booking_buffer_conflict:'Время попадает в перерыв рядом с другой записью', service_unavailable:'Услуга больше недоступна', booking_deleted:'Прежняя запись удалена. Исправьте запрос для новой попытки', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
 }
 function showOfflineBookingCompletion(item, booking, notification) {
   if (!item || item.bookingCreationConfirmed) return false;
@@ -1290,7 +1290,7 @@ function renderOfflineBookingQueue() {
     const date = parseLocalIsoDate(item.date);
     const dateLabel = date ? date.toLocaleDateString('ru-RU', { day:'numeric', month:'short' }) : item.date;
     const end = item.latestTime || timeFromMinutes(minutesFromTime(item.time) + Math.max(1, Number(item.durationMinutes || 60)));
-    const state = item.status === 'conflict' ? `<small class="offline-booking-conflict" role="alert">${escapeHtml(offlineBookingConflictText(item.reason))}</small>` : item.status === 'syncing' ? '<small>Проверяем время на сервере…</small>' : item.status === 'server_check_pending' ? '<small>Запись принята сервером · подтверждаем результат</small>' : item.status === 'notification_pending' ? '<small>Запись создана · повторим уведомление клиенту</small>' : '<small>Ожидает подключения</small>';
+    const state = item.status === 'conflict' ? `<small class="offline-booking-conflict" role="alert">${escapeHtml(offlineBookingConflictText(item.reason))}</small>` : item.status === 'syncing' ? '<small>Проверяем время на сервере…</small>' : item.status === 'server_check_pending' ? `<small>${item.reason === 'terms_pending' ? 'Запись создана · уточняем длительность перед уведомлением' : 'Запись принята сервером · подтверждаем результат'}</small>` : item.status === 'notification_pending' ? '<small>Запись создана · повторим уведомление клиенту</small>' : '<small>Ожидает подключения</small>';
     const notificationOnly = item.status === 'notification_pending';
     const label = notificationOnly ? `Не повторять уведомление о записи на ${dateLabel} в ${item.time}` : `Удалить отложенную запись ${item.clientName} на ${dateLabel} в ${item.time}`;
     const removalLocked = item.status === 'syncing' || item.status === 'server_check_pending';
@@ -1310,7 +1310,7 @@ async function queueOfflineBooking(payload) {
   if (duplicate) return { ok:editingIndex < 0, duplicate:true };
   const previousQueue = offlineBookingQueue.map(item => ({ ...item }));
   const nextItem = {
-    id:editingIndex >= 0 ? offlineBookingQueue[editingIndex].id : createOfflineBookingId(), userId, createdAt:Date.now(), status:'pending', attempts:0,
+    id:editingIndex >= 0 && offlineBookingQueue[editingIndex].reason !== 'booking_deleted' ? offlineBookingQueue[editingIndex].id : createOfflineBookingId(), userId, createdAt:Date.now(), status:'pending', attempts:0,
     clientName:String(payload.clientName || '').slice(0, 80), clientPhone:String(payload.clientPhone || '').slice(0, 40),
     serviceId:String(payload.serviceId || ''), serviceName:String(payload.serviceName || '').slice(0, 120), durationMinutes:normalizePerMinuteDuration(payload.durationMinutes), date:String(payload.date || ''), time:String(payload.time || '').slice(0, 5), latestTime:String(payload.latestTime || '').slice(0, 5),
     note:String(payload.note || '').slice(0, 1000), color:BOOKING_COLOR_KEYS.includes(payload.color) ? payload.color : BOOKING_COLOR_DEFAULT
@@ -1390,6 +1390,14 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
         renderOfflineBookingQueue();
         await saveOfflineBookingQueue(userId, { generation });
         if (!sessionIsCurrent(userId, generation) || !offlineBookingQueue.some(entry => entry.id === item.id)) break;
+        const queuedService = ownServices.find(service => service.id === item.serviceId);
+        const applied = await applyPerMinuteBookingTerms([existing.id], queuedService, item.durationMinutes);
+        if (!sessionIsCurrent(userId, generation)) return false;
+        if (!applied.ok) {
+          item.status = 'server_check_pending'; item.reason = 'terms_pending';
+          await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+          continue;
+        }
         await finalizeQueuedBooking(item, existing, userId, generation);
         continue;
       }
@@ -1459,7 +1467,7 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
       }
       if (item.latestTime && flexibleResult?.result_code !== 'ok') {
         item.status = 'conflict';
-        item.reason = flexibleResult?.result_code === 'no_slot_in_range' ? 'no_slot_in_range' : 'unexpected_error';
+        item.reason = ['no_slot_in_range','booking_deleted'].includes(flexibleResult?.result_code) ? flexibleResult.result_code : 'unexpected_error';
         const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
         await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
         deliverOfflineBookingProviderNotice(providerNotice);
@@ -1487,8 +1495,11 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
       const applied = await applyPerMinuteBookingTerms([booking.id], queuedService, item.durationMinutes);
       if (!applied.ok) {
         const rollback = await rollbackCreatedBookings([booking.id]);
+        if (rollback.ok) item.id = createOfflineBookingId();
         item.status = rollback.ok ? 'conflict' : 'server_check_pending';
-        item.reason = /overlap|slot|occupied|resource/i.test(String(applied.error?.message || '')) ? 'slot_unavailable' : 'unexpected_error';
+        item.reason = rollback.ok
+          ? /overlap|slot|occupied|resource/i.test(String(applied.error?.message || '')) ? 'slot_unavailable' : 'unexpected_error'
+          : 'terms_pending';
         const providerNotice = stageOfflineBookingProviderNotice(item, item.status);
         await saveOfflineBookingQueue(userId, { generation });
         renderOfflineBookingQueue();

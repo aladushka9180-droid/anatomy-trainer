@@ -127,8 +127,27 @@ const OPTIONAL_ASSETS = [
   './portfolio-camera.js?v=811',
 ];
 let optionalWarmup = null;
+let clientFlexibleWarmup = null;
+const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=937', './client-offline-flexible.js?v=937'];
 
 self.addEventListener('message', event => {
+  if (event.data?.type === 'warm-client-flexible') {
+    if (!clientFlexibleWarmup) {
+      clientFlexibleWarmup = (async () => {
+        const cache = await caches.open(CACHE);
+        for (const asset of CLIENT_FLEXIBLE_ASSETS) {
+          if (await cache.match(asset)) continue;
+          await cache.add(asset);
+        }
+      })().finally(() => { clientFlexibleWarmup = null; });
+    }
+    event.waitUntil(clientFlexibleWarmup.then(() => {
+      event.ports?.[0]?.postMessage({ ready:true, cache:CACHE });
+    }).catch(() => {
+      event.ports?.[0]?.postMessage({ ready:false, cache:CACHE });
+    }));
+    return;
+  }
   if (event.data?.type !== 'warm-provider-features') return;
   if (!optionalWarmup) {
     optionalWarmup = (async () => {

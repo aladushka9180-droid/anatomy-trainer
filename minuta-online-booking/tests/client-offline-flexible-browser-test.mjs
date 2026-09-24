@@ -16,9 +16,15 @@ const server = createServer((request, response) => {
   response.setHeader('content-type','text/html; charset=utf-8');
   response.end(`<html lang="ru"><head><link rel="stylesheet" href="/styles.css"></head><body><main class="layout"><section class="booking-card">${panel}</section></main><script>
     Object.defineProperty(navigator,'onLine',{configurable:true,value:false});
+    window.warmMessages=[];
+    Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{ready:Promise.resolve({active:{postMessage:(message,ports)=>{
+      window.warmMessages.push(message);
+      ports?.[0]?.postMessage({ready:true,cache:'massage-izhevsk-v937'});
+    }}})}});
     window.MINUTA_CONFIG={supabaseUrl:'https://example.invalid',supabaseKey:'test',defaultOrganizationSlug:''};
     window.calls=[]; window.reply={data:{result_code:'no_slot_in_range'},error:null};
-    window.supabase={createClient:()=>({rpc:async(name,args)=>{window.calls.push({name,args});return window.reply;}})};
+    window.supabase={createClient:()=>({rpc:async(name,args)=>{window.calls.push({name,args});return window.responses?.[name] || window.reply;}})};
+    if (!location.search.includes('unready')) localStorage.setItem('primetime-offline-flexible-assets-v937','ready');
     localStorage.setItem('primetime-offline-catalog-v1:default',JSON.stringify({savedAt:Date.now(),slug:'',teamMode:false,locations:[],services:[{id:'11111111-1111-4111-8111-111111111111',name:'Массаж',durationMinutes:60,priceRub:1000}]}));
   </script><script src="/client-offline-flexible.js" defer></script></body></html>`);
 });
@@ -46,12 +52,48 @@ try {
     const first = await page.evaluate(() => JSON.parse(localStorage.getItem('primetime-offline-flexible-v1:primetime-offline-catalog-v1:default')));
     assert.equal(first.earliest,'10:00'); assert.equal(first.latest,'18:00');
     await page.evaluate(() => { Object.defineProperty(navigator,'onLine',{configurable:true,value:true}); window.dispatchEvent(new Event('online')); });
+    await page.waitForFunction(() => window.warmMessages.length === 1);
+    assert.equal((await page.evaluate(() => window.warmMessages[0].type)),'warm-client-flexible');
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('primetime-offline-flexible-v1:primetime-offline-catalog-v1:default'))?.status === 'conflict');
     const calls = await page.evaluate(() => window.calls);
     assert.equal(calls.length,1); assert.equal(calls[0].name,'book_flexible_appointment_v178');
     assert.equal(calls[0].args.p_request_id,first.id);
     assert.equal(calls[0].args.p_kind,'public');
+    if (width === 390) {
+      await page.locator('#clientOfflineFlexibleRemove').click();
+      await page.evaluate(() => { Object.defineProperty(navigator,'onLine',{configurable:true,value:false}); window.dispatchEvent(new Event('offline')); });
+      await page.locator('[name=service]').selectOption('11111111-1111-4111-8111-111111111111');
+      await page.locator('[name=date]').fill(date);
+      await page.locator('[name=earliest]').fill('10:00');
+      await page.locator('[name=latest]').fill('18:00');
+      await page.locator('[name=name]').fill('Тестовый клиент');
+      await page.locator('[name=phone]').fill('+79990000000');
+      await page.locator('[name=consent]').check();
+      await page.locator('#clientOfflineFlexible button[type=submit]').click();
+      await page.evaluate(dateValue => {
+        window.responses={
+          book_flexible_appointment_v178:{data:{result_code:'ok',manage_token:'22222222-2222-4222-8222-222222222222',booking_code:'TEST',booking_time:'13:00:00'},error:null},
+          get_booking_management:{data:[{status:'new',booking_code:'TEST',booking_date:dateValue,booking_time:'13:00:00'}],error:null},
+          record_minuta_booking_legal_acceptance_v110:{data:true,error:null}
+        };
+        Object.defineProperty(navigator,'onLine',{configurable:true,value:true}); window.dispatchEvent(new Event('online'));
+      }, date);
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('primetime-offline-flexible-v1:primetime-offline-catalog-v1:default'))?.status === 'confirmed');
+      await page.waitForFunction(() => window.calls.some(call => call.name === 'record_minuta_booking_legal_acceptance_v110'));
+      const legal = (await page.evaluate(() => window.calls)).find(call => call.name === 'record_minuta_booking_legal_acceptance_v110');
+      assert.equal(legal.args.p_privacy_version,'2026-09-05');
+      assert.equal(legal.args.p_terms_version,'2026-09-05');
+    }
     await page.close();
   }
-  console.log('Client offline flexible browser: 390/760/1440 pending, bounded request, conflict and no overflow passed');
+  const unready = await browser.newPage({viewport:{width:390,height:900}});
+  await unready.goto(`http://127.0.0.1:${server.address().port}/?unready`);
+  assert.equal(await unready.locator('#clientOfflineFlexible form').isVisible(),false);
+  assert.match(await unready.locator('#clientOfflineFlexibleStatus').innerText(),/ещё не подготовлена/i);
+  await unready.evaluate(() => { Object.defineProperty(navigator,'onLine',{configurable:true,value:true}); window.dispatchEvent(new Event('online')); });
+  await unready.waitForFunction(() => localStorage.getItem('primetime-offline-flexible-assets-v937') === 'ready');
+  await unready.evaluate(() => { Object.defineProperty(navigator,'onLine',{configurable:true,value:false}); window.dispatchEvent(new Event('offline')); });
+  assert.equal(await unready.locator('#clientOfflineFlexible form').isVisible(),true);
+  await unready.close();
+  console.log('Client offline flexible browser: 390/760/1440 conflict, warmup readiness and legal acceptance passed');
 } finally { await browser?.close(); await new Promise(resolve => server.close(resolve)); }

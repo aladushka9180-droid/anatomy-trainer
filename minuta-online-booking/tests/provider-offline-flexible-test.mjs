@@ -8,7 +8,7 @@ const end = source.indexOf('\nconst bookingFormLauncherSelector',start);
 assert.ok(start >= 0 && end > start);
 const actual = source.slice(start,end);
 
-async function scenario(reply) {
+async function scenario(reply, options = {}) {
   const item = { id:'00000000-0000-4000-8000-000000000178',userId:'provider',status:'pending',
     serviceId:'service',date:'2026-09-26',time:'10:00',latestTime:'18:00',clientName:'Тест',clientPhone:'+79990000000',durationMinutes:60 };
   const calls = [];
@@ -22,13 +22,17 @@ async function scenario(reply) {
     renderOfflineBookingQueue:()=>{},saveOfflineBookingQueue:async()=>true,
     renderBookingData:()=>{},stageOfflineBookingProviderNotice:()=>null,deliverOfflineBookingProviderNotice:()=>{},
     loadBookings:async()=>{ if (reply.result_code==='ok') booking={id:'booking',request_id:item.id,booking_time:'13:00:00'}; return {ok:true}; },
-    ownServices:[{id:'service',duration_minutes:60}],applyPerMinuteBookingTerms:async()=>({ok:true}),
-    finalizeQueuedBooking:async()=>{finalized=true;return true;},rollbackCreatedBookings:async()=>({ok:true}),
+    ownServices:[{id:'service',duration_minutes:60}],
+    applyPerMinuteBookingTerms:async()=>options.applyReplies?.shift() || {ok:true},
+    finalizeQueuedBooking:async()=>{finalized=true;return true;},
+    rollbackCreatedBookings:async()=>options.rollbackReply || {ok:true},
+    createOfflineBookingId:()=> '00000000-0000-4000-8000-000000000179',
     db:{rpc:async(name,args)=>{calls.push({name,args});return {data:reply,error:null};}},
     Number,Date,String,Math,Promise
   });
   vm.runInContext(actual,context);
   await context.flushOfflineBookings();
+  if (options.retry) await context.flushOfflineBookings();
   return { item,calls,finalized };
 }
 
@@ -47,4 +51,19 @@ assert.equal(conflict.calls.length,1);
 assert.equal(conflict.item.status,'conflict');
 assert.equal(conflict.item.reason,'no_slot_in_range');
 assert.equal(conflict.finalized,false);
-console.log('Provider offline flexible queue: nearest confirmed time and bounded conflict passed');
+
+const deletedAfterTermsFailure = await scenario({result_code:'ok'}, {
+  applyReplies:[{ok:false,error:{message:'slot overlap'}}], rollbackReply:{ok:true}
+});
+assert.equal(deletedAfterTermsFailure.item.status,'conflict');
+assert.equal(deletedAfterTermsFailure.item.id,'00000000-0000-4000-8000-000000000179');
+assert.equal(deletedAfterTermsFailure.finalized,false);
+
+const recoveredTerms = await scenario({result_code:'ok'}, {
+  applyReplies:[{ok:false,error:{message:'duration_update_unconfirmed'}},{ok:true}],
+  rollbackReply:{ok:false}, retry:true
+});
+assert.equal(recoveredTerms.item.id,'00000000-0000-4000-8000-000000000178');
+assert.equal(recoveredTerms.finalized,true);
+assert.equal(recoveredTerms.calls.length,1);
+console.log('Provider offline flexible queue: nearest time, bounded conflict, deletion and terms retry passed');

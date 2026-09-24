@@ -5,13 +5,32 @@
   const status = panel.querySelector('#clientOfflineFlexibleStatus');
   const catalogKey = `primetime-offline-catalog-v1:${new URLSearchParams(location.search).get('org') || window.MINUTA_CONFIG.defaultOrganizationSlug || 'default'}`;
   const queueKey = `primetime-offline-flexible-v1:${catalogKey}`;
+  const assetsReadyKey = 'primetime-offline-flexible-assets-v937';
   const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey,
     { auth:{ persistSession:false, autoRefreshToken:false, detectSessionInUrl:false } });
   let syncing = false;
+  let offlineAssetsReady = false;
+  try { offlineAssetsReady = localStorage.getItem(assetsReadyKey) === 'ready'; } catch {}
   const read = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
   const esc = value => String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
   const setStatus = message => { status.textContent = message; status.hidden = !message; };
   const validTime = value => /^([01]\d|2[0-3]):[0-5]\d$/.test(value || '');
+  function warmOfflinePage() {
+    if (!navigator.onLine || !('serviceWorker' in navigator)) return;
+    void navigator.serviceWorker.ready.then(registration => {
+      if (!registration.active) return;
+      const channel = new MessageChannel();
+      channel.port1.onmessage = event => {
+        if (event.data?.ready && event.data.cache === 'massage-izhevsk-v937') {
+          offlineAssetsReady = true;
+          try { localStorage.setItem(assetsReadyKey, 'ready'); } catch {}
+          render();
+        }
+        channel.port1.close();
+      };
+      registration.active.postMessage({ type:'warm-client-flexible' }, [channel.port2]);
+    }).catch(() => {});
+  }
   const catalog = () => {
     const value = read(catalogKey);
     return value && Date.now() - Number(value.savedAt || 0) <= 7 * 86400000 && Array.isArray(value.services) ? value : null;
@@ -27,7 +46,7 @@
     const snapshot = catalog();
     const item = queue();
     panel.hidden = navigator.onLine && !item;
-    form.hidden = Boolean(item) || !snapshot || navigator.onLine;
+    form.hidden = Boolean(item) || !snapshot || !offlineAssetsReady || navigator.onLine;
     if (item) {
       setStatus(item.status === 'conflict'
         ? item.reason === 'cancelled'
@@ -39,7 +58,8 @@
           ? `Запись подтверждена сервером: ${item.date}, ${item.confirmedTime}.`
           : 'Запрос сохранён на устройстве. Ждём проверки сервера; запись пока не подтверждена.');
     } else if (!navigator.onLine) {
-      setStatus(snapshot ? 'Без интернета можно оставить один запрос с гибким временем. Подтверждение появится после проверки сервером.'
+      setStatus(snapshot && offlineAssetsReady ? 'Без интернета можно оставить один запрос с гибким временем. Подтверждение появится после проверки сервером.'
+        : snapshot ? 'Офлайн-форма ещё не подготовлена. Подключитесь к интернету и дождитесь загрузки страницы услуг.'
         : 'Для офлайн-запроса сначала один раз откройте страницу услуг при подключённом интернете.');
     } else setStatus('');
     panel.querySelector('#clientOfflineFlexibleRemove').hidden = !item;
@@ -75,8 +95,8 @@
         } else setStatus('Связь с сервером прервалась. Проверим тот же запрос после подключения.');
         return;
       }
-      if (data?.result_code === 'no_slot_in_range' || data?.result_code === 'service_terms_changed') {
-        item.status = 'conflict'; item.reason = data.result_code; save(item); render(); return;
+      if (['no_slot_in_range','service_terms_changed','booking_deleted'].includes(data?.result_code)) {
+        item.status = 'conflict'; item.reason = data.result_code === 'booking_deleted' ? 'cancelled' : data.result_code; save(item); render(); return;
       }
       if (data?.result_code !== 'ok' || !data.manage_token || !data.booking_time) {
         setStatus('Результат не подтверждён. Проверим тот же запрос повторно.'); return;
@@ -92,6 +112,9 @@
           || confirmedTime > item.latest || !['new','confirmed'].includes(booking?.status)) {
         setStatus('Запись принята сервером, проверяем итоговый статус.'); return;
       }
+      void db.rpc('record_minuta_booking_legal_acceptance_v110', {
+        p_token:data.manage_token, p_privacy_version:'2026-09-05', p_terms_version:'2026-09-05'
+      }).catch(() => {});
       item.status = 'confirmed';
       item.confirmedTime = confirmedTime;
       item.name = ''; item.phone = '';
@@ -103,7 +126,7 @@
   form.addEventListener('submit', event => {
     event.preventDefault();
     const snapshot = catalog();
-    if (navigator.onLine || !snapshot || queue()) return;
+    if (navigator.onLine || !snapshot || !offlineAssetsReady || queue()) return;
     const service = snapshot.services.find(value => value.id === form.elements.service.value);
     const locationId = form.elements.location.value;
     const earliest = form.elements.earliest.value;
@@ -135,10 +158,11 @@
     try { localStorage.removeItem(queueKey); } catch { return; }
     render();
   });
-  window.addEventListener('online', () => { render(); void flush(); });
+  window.addEventListener('online', () => { warmOfflinePage(); render(); void flush(); });
   window.addEventListener('offline', render);
   window.addEventListener('primetime:offline-catalog-updated', render);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void flush(); });
   render();
+  warmOfflinePage();
   void flush();
 })();

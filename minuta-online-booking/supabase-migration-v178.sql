@@ -20,13 +20,25 @@ begin
       from pg_catalog.pg_proc where oid=v_proc) then
     raise exception using errcode='55000',message='v178_apply_blocked_function_drift';
   end if;
+  if to_regclass('public.flexible_booking_requests_v178') is not null then
+    if not exists(select 1 from pg_catalog.pg_constraint c
+        where c.conrelid='public.flexible_booking_requests_v178'::regclass
+          and c.contype='f' and c.confrelid='public.bookings'::regclass
+          and c.confdeltype='n')
+       or exists(select 1 from pg_catalog.pg_attribute a
+        where a.attrelid='public.flexible_booking_requests_v178'::regclass
+          and a.attname='booking_id' and a.attnotnull) then
+      raise exception using errcode='55000',message='v178_apply_blocked_ledger_drift';
+    end if;
+  end if;
 end
 $guard$;
 
 create table if not exists public.flexible_booking_requests_v178 (
   request_id uuid primary key,
   request_fingerprint text not null check (request_fingerprint ~ '^[0-9a-f]{64}$'),
-  booking_id uuid not null unique references public.bookings(id),
+  -- Keep the request as a tombstone when a provider deletes the booking.
+  booking_id uuid unique references public.bookings(id) on delete set null,
   created_at timestamptz not null default now()
 );
 revoke all on public.flexible_booking_requests_v178 from public, anon, authenticated, service_role;
@@ -92,6 +104,9 @@ begin
   if found then
     if v_existing.request_fingerprint <> v_fingerprint then
       raise exception using errcode='23505',message='request_conflict';
+    end if;
+    if v_existing.booking_id is null then
+      return jsonb_build_object('result_code','booking_deleted','request_id',p_request_id);
     end if;
     select * into v_booking from public.bookings where id=v_existing.booking_id;
     if not found then

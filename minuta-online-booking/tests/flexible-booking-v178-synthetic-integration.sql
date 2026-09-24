@@ -180,4 +180,26 @@ select pg_temp.v178_check(
   current_setting('v178.exclusion_result')::jsonb->>'booking_time'='11:00:00'
   and (select count(*) from public.bookings where booking_date=current_date+3)=1,
   'exclusion_retries_next_start');
+
+-- Deletion must remain possible, while replay of the old request stays closed.
+insert into public.test_slots_v178(service_id,booking_date,booking_time)
+values('00000000-0000-4000-8000-000000000180',current_date+4,'10:00');
+select set_config('v178.deleted_request',gen_random_uuid()::text,true);
+select set_config('v178.deleted_result',public.book_flexible_appointment_v178(
+  current_setting('v178.deleted_request')::uuid,
+  '00000000-0000-4000-8000-000000000180',current_date+4,
+  '10:00','10:00','Synthetic deleted booking','+79990000121')::text,true);
+delete from public.bookings
+where id=(current_setting('v178.deleted_result')::jsonb->>'booking_id')::uuid;
+select set_config('v178.deleted_replay',public.book_flexible_appointment_v178(
+  current_setting('v178.deleted_request')::uuid,
+  '00000000-0000-4000-8000-000000000180',current_date+4,
+  '10:00','10:00','Synthetic deleted booking','+79990000121')::text,true);
+select pg_temp.v178_check(
+  current_setting('v178.deleted_replay')::jsonb->>'result_code'='booking_deleted'
+  and (select booking_id is null from public.flexible_booking_requests_v178
+       where request_id=current_setting('v178.deleted_request')::uuid)
+  and (select count(*) from public.bookings
+       where request_id=current_setting('v178.deleted_request')::uuid)=0,
+  'deletion_keeps_request_tombstone');
 rollback;
