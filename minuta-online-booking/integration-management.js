@@ -93,13 +93,13 @@
       const history = card.querySelector('.provider-integration-history');
       const eventList = card.querySelector('[data-provider-integration-events]');
       if (input && document.activeElement !== input) input.value = connection?.externalAccountId || '';
-      if (state) state.textContent = connection ? (connection.enabled ? 'Тест включён' : 'Контур готов') : 'Не настроен';
-      if (button) button.textContent = connection ? 'Обновить тестовый контур' : 'Подготовить тестовый контур';
+      if (state) state.textContent = connection ? (connection.enabled ? 'Тест включён' : 'Черновик сохранён') : 'Не настроен';
+      if (button) button.textContent = connection ? 'Обновить тестовый черновик' : 'Создать тестовый черновик';
       if (note) {
         const last = events[0]?.receivedAt ? formatMoment(events[0].receivedAt) : '';
         note.textContent = connection
-          ? `Рабочая синхронизация выключена${last ? ` · последнее событие ${last}` : ' · событий пока нет'}.`
-          : `Сначала укажите идентификатор филиала из ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'}.`;
+          ? `Обмен данными выключен${last ? ` · последнее событие ${last}` : ' · событий пока нет'}.`
+          : `Укажите ID филиала из ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'}. Обмена данными не будет.`;
       }
       if (history) history.hidden = events.length === 0;
       if (eventList) eventList.innerHTML = events.map(item => {
@@ -222,10 +222,10 @@
       setBusy(false);
       if (result.error || result.data?.ok !== true || result.data?.provider !== provider
         || result.data?.environment !== 'testing' || result.data?.enabled !== false) {
-        notify('Не удалось подготовить тестовый контур');
+        notify('Не удалось сохранить тестовый черновик');
         return;
       }
-      notify(`Тестовый контур ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'} подготовлен`);
+      notify(`Тестовый черновик ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'} сохранён`);
       await load();
     }
 

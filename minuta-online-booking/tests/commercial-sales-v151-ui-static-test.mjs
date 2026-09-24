@@ -57,7 +57,7 @@ assert.match(html, /id="commerceSeller" required/);
 assert.match(html, /id="commerceQuantity"[\s\S]*min="0\.001"[\s\S]*max="1000000"/);
 assert.match(html, /id="commerceUnitPrice"[\s\S]*id="commerceDiscount"/);
 assert.match(html, /id="commerceWarehouse"/);
-assert.match(html, /value="cash">Наличными[\s\S]*value="manual">Отмечено вручную/);
+assert.match(html, /value="cash">Наличными[\s\S]*value="manual">Ручная отметка \(без банка\)/);
 assert.match(html, /id="commercePaymentAccount" required/);
 assert.match(html, /id="commerceAccountCreateOpen"[\s\S]*Добавить кассу или счёт/);
 assert.match(html, /id="commerceAccountName"[\s\S]*maxlength="120"/);

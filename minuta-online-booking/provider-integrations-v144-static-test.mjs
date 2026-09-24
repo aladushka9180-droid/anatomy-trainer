@@ -10,12 +10,14 @@ const transfer = readFileSync(new URL('client-import.js', root), 'utf8');
 const styles = readFileSync(new URL('provider-integrations.css', root), 'utf8');
 const worker = readFileSync(new URL('sw.js', root), 'utf8');
 
-assert.match(html, /value="paymentProviderPanel">Оплата и сервисы</);
-assert.match(html, /data-section-target="paymentProviderPanel">Оплата и сервисы</);
+assert.match(html, /value="paymentProviderPanel">Оплата и интеграции</);
+assert.match(html, /data-section-target="paymentProviderPanel">Оплата и интеграции</);
 assert.match(html, /id="providerIntegrationsDisclosure"[\s\S]*DIKIDI и YCLIENTS/);
 assert.match(html, /data-provider-integration-form="dikidi"/);
 assert.match(html, /data-provider-integration-form="yclients"/);
-assert.match(html, /Подключение не запускает рабочую синхронизацию/);
+assert.match(html, /Обмен данными не начинается/);
+assert.match(html, /Создать тестовый черновик/);
+assert.match(module, /Обновить тестовый черновик/);
 const integrationMarkup = html.match(/id="providerIntegrationsDisclosure"[\s\S]*?<\/details>\s*<\/section>/)?.[0] || '';
 assert.doesNotMatch(integrationMarkup, /Secret Key|API[- ]?ключ|токен/i);
 assert.match(html, /provider-integrations\.css\?v=\d+/);
