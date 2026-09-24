@@ -142,8 +142,8 @@ body.provider-body[data-porcelain-editor-open] #appearanceSettingsCard .provider
   .provider-porcelain-live.is-docked { position:fixed; z-index:2147482000; right:12px; bottom:12px; left:12px; width:auto; max-width:400px; margin-inline:auto; padding:9px; border:1px solid #e4bdcd; border-radius:17px; background:#fff; box-shadow:0 8px 28px rgba(70,35,50,.23); }
   .provider-porcelain-live.is-docked h3 { margin:0 0 6px; font:600 13px/1.2 system-ui,sans-serif; }
   .provider-porcelain-live.is-docked>p { display:none; }
-  .provider-porcelain-live.is-docked .provider-porcelain-live-frame { height:200px; min-height:0; border-radius:10px; box-shadow:none; }
-  .provider-porcelain-live.is-docked .provider-porcelain-live-frame iframe { height:350px; transform:translateY(-145px); }
+  .provider-porcelain-live.is-docked .provider-porcelain-live-frame { height:180px; min-height:0; border-radius:10px; box-shadow:none; }
+  .provider-porcelain-live.is-docked .provider-porcelain-live-frame iframe { height:330px; transform:translateY(-145px); }
   .provider-porcelain-actions { flex-wrap:wrap; }
   .provider-porcelain-actions .primary,.provider-porcelain-actions .secondary-button { flex:1 1 100%; width:100%; }
   .provider-porcelain-live-frame { height:690px; }

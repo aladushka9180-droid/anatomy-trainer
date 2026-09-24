@@ -94,6 +94,9 @@ try {
       await page.screenshot({ path:path.join(process.env.MINUTA_PORCELAIN_OUTPUT, `porcelain-editor-${width}-petal.png`), fullPage:true });
     }
   }
+  await page.setViewportSize({ width:390, height:844 });
+  const choiceAndPreview = await page.evaluate(() => ({ shadesBottom:document.querySelector('.provider-porcelain-shades').getBoundingClientRect().bottom, dockTop:document.querySelector('.provider-porcelain-live').getBoundingClientRect().top }));
+  assert.ok(choiceAndPreview.shadesBottom <= choiceAndPreview.dockTop + 1, `390px shade labels must not hide behind the live preview: ${JSON.stringify(choiceAndPreview)}`);
   await page.setViewportSize({ width:320, height:720 });
   await page.locator('.provider-porcelain-character').filter({ has:page.locator('input[value="silk"]') }).click();
   await page.locator('.provider-porcelain-shade').filter({ has:page.locator('input[value="pink-accent"]') }).click();
