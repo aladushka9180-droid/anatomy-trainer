@@ -309,6 +309,7 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   automatic_break_color: 'neutral',
   automatic_break_color_initial: 'neutral',
   automatic_break_color_history: [],
+  automatic_break_color_overrides: {},
   break_color_history: [],
   booking_card_density: 'compact',
   show_phone: false,
@@ -2107,6 +2108,11 @@ function normalizeDisplayPreferences(value = {}) {
       .map(entry => ({ effective_at:new Date(entry.effective_at).toISOString(), color:entry.color }))
       .sort((left, right) => left.effective_at.localeCompare(right.effective_at))
     : [];
+  const automaticBreakColorOverrides = source.automatic_break_color_overrides && typeof source.automatic_break_color_overrides === 'object'
+    ? Object.fromEntries(Object.entries(source.automatic_break_color_overrides)
+      .filter(([key, color]) => /^\d{4}-\d{2}-\d{2}\|\d{2}:\d{2}\|\d{2}:\d{2}\|[0-9a-f]{0,64}$/.test(key)
+        && AUTOMATIC_BREAK_COLOR_KEYS.includes(color)))
+    : {};
   return {
     layout: PROVIDER_LAYOUT_KEYS.includes(storedLayout) ? storedLayout : legacyLayout || DEFAULT_DISPLAY_PREFERENCES.layout,
     theme,
@@ -2119,6 +2125,7 @@ function normalizeDisplayPreferences(value = {}) {
     automatic_break_color_initial:AUTOMATIC_BREAK_COLOR_KEYS.includes(source.automatic_break_color_initial)
       ? source.automatic_break_color_initial : automaticBreakColor,
     automatic_break_color_history:automaticBreakColorHistory,
+    automatic_break_color_overrides:automaticBreakColorOverrides,
     break_color_history:breakColorHistory,
     booking_card_density:density,
     ...cardOptions,
@@ -2144,6 +2151,7 @@ function displayPreferencesEqual(left, right) {
     && a.automatic_break_color === b.automatic_break_color
     && a.automatic_break_color_initial === b.automatic_break_color_initial
     && JSON.stringify(a.automatic_break_color_history) === JSON.stringify(b.automatic_break_color_history)
+    && JSON.stringify(a.automatic_break_color_overrides) === JSON.stringify(b.automatic_break_color_overrides)
     && JSON.stringify(a.break_color_history) === JSON.stringify(b.break_color_history)
     && a.booking_card_density === b.booking_card_density
     && a.show_phone === b.show_phone
@@ -2693,6 +2701,7 @@ function displayPreferencesFromForm() {
     automatic_break_color:$('#providerDisplayForm input[name="automaticBreakColor"]:checked')?.value || displayPreferences.automatic_break_color,
     automatic_break_color_initial:displayPreferences.automatic_break_color_initial,
     automatic_break_color_history:displayPreferences.automatic_break_color_history,
+    automatic_break_color_overrides:displayPreferences.automatic_break_color_overrides,
     break_color_history:displayPreferences.break_color_history,
     booking_card_density:$('#providerDisplayForm input[name="bookingCardDensity"]:checked')?.value,
     show_phone: $('#showBookingPhone').checked,
@@ -2849,7 +2858,10 @@ function automaticBreakColorAt(date, time) {
   return BOOKING_COLOR_KEYS.includes(displayPreferences.automatic_break_color)
     ? displayPreferences.automatic_break_color : BOOKING_COLOR_DEFAULT;
 }
-function automaticBreakAppearanceAt(dateIso, startTime, endTime, items = allBookings) {
+function automaticBreakColorOverrideKey(dateIso, startTime, endTime, fingerprint = '') {
+  return `${dateIso}|${String(startTime).slice(0, 5)}|${String(endTime).slice(0, 5)}|${fingerprint}`;
+}
+function automaticBreakAppearanceAt(dateIso, startTime, endTime, items = allBookings, fingerprint = '') {
   const start = minutesFromTime(startTime);
   const end = minutesFromTime(endTime);
   const buffer = Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60));
@@ -2862,11 +2874,15 @@ function automaticBreakAppearanceAt(dateIso, startTime, endTime, items = allBook
     });
   const firstSourceTime = sources.map(item => Date.parse(item.created_at)).filter(Number.isFinite).sort((a, b) => a - b)[0];
   const history = displayPreferences.automatic_break_color_history || [];
-  const color = Number.isFinite(firstSourceTime)
+  const inheritedColor = Number.isFinite(firstSourceTime)
     ? history.filter(entry => Date.parse(entry.effective_at) <= firstSourceTime).at(-1)?.color
       || displayPreferences.automatic_break_color_initial
     : displayPreferences.automatic_break_color_initial;
+  const color = displayPreferences.automatic_break_color_overrides?.[
+    automaticBreakColorOverrideKey(dateIso, startTime, endTime, fingerprint)
+  ] || inheritedColor;
   return {
+    automatic_break_color:color,
     color_key:BOOKING_COLOR_KEYS.includes(color) ? color : BOOKING_COLOR_DEFAULT,
     automatic_break_theme_color:color === 'theme'
   };
@@ -8703,7 +8719,7 @@ function automaticBookingBreaks(items, dateIso = selectedDate) {
         client_phone:SCHEDULE_BLOCK_PHONE,
         status:'confirmed',
         automatic_break:true,
-        ...automaticBreakAppearanceAt(dateIso, start, end, items),
+        ...automaticBreakAppearanceAt(dateIso, start, end, items, String(segment.segment_fingerprint || '')),
         automatic_break_source_count:Math.max(1, Number(segment.source_count) || 1),
         automatic_break_fingerprint:String(segment.segment_fingerprint || ''),
         services:{ name:'Перерыв', duration_minutes:duration }
@@ -8870,7 +8886,7 @@ function renderTimeline(sourceItems) {
   const cards = timelineItems.map(({ item, duration, top, visualTop, height, minuteOnly }) => {
     const startTime = String(item.booking_time).slice(0, 5);
     const endTime = timeFromMinutes(minutesFromTime(item.booking_time) + duration);
-    const timeRange = `${startTime}–${endTime}`;
+    const timeRangeMarkup = `${startTime}<span class="timeline-range-separator">–</span>${endTime}`;
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
     const compactMobile = mobileTimeline && height < 54;
@@ -8891,8 +8907,8 @@ function renderTimeline(sourceItems) {
     const timelineClientRow = compactMobile && block
       ? ''
       : tightMobile && !block
-      ? `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span><span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${timelinePhoneMarkup}${notePresence ? '<span> · есть заметка</span>' : ''}</small></span>`
-      : `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>`;
+      ? `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRangeMarkup} · </span><span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${timelinePhoneMarkup}${notePresence ? '<span> · есть заметка</span>' : ''}</small></span>`
+      : `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRangeMarkup}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>`;
     const ariaDetails = displayPreferences.show_notes && note ? `${clientDetails}, заметка: ${note}` : clientDetails;
     const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
     const badgeDetails = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
@@ -8931,10 +8947,10 @@ function renderTimeline(sourceItems) {
     const mobileBadgeMarkup = mobileTimeline ? badgeMarkup : '';
     const desktopBadgeMarkup = mobileTimeline ? '' : badgeMarkup;
     const cardContent = block && duration === 30
-      ? `<span class="timeline-break-short-time">${timeRange}</span><span class="timeline-break-short-label">${serviceMarkup}</span>`
+      ? `<span class="timeline-break-short-time">${timeRangeMarkup}</span><span class="timeline-break-short-label">${serviceMarkup}</span>`
       : minuteOnly && !mobileTimeline
-      ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">${timeRange}</span><span aria-hidden="true"> · </span>${serviceTitleMarkup}</strong></span>`
-      : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
+      ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">${timeRangeMarkup}</span><span aria-hidden="true"> · </span>${serviceTitleMarkup}</strong></span>`
+      : `<span class="timeline-booking-time"><b>${startTime}</b><small><span class="timeline-range-separator">–</span>${endTime}</small></span>
       <span class="timeline-booking-copy">${mobileBadgeMarkup}${block ? `<strong>${serviceTitleMarkup}</strong>${timelineClientRow}` : `${timelineClientRow}<strong>${serviceTitleMarkup}</strong>`}${desktopBadgeMarkup}${renderedNote}</span>
       ${renderedStatus}`;
     const dragHandle = movable ? '<span class="timeline-drag-handle" aria-hidden="true"></span>' : '';
@@ -8943,7 +8959,7 @@ function renderTimeline(sourceItems) {
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
     const timelineStyle = `top:${visualTop + 2}px;height:${height}px${block && duration === 30 ? ';overflow:hidden!important' : tightMobile ? ';padding:5px 9px!important;overflow:hidden!important' : ''}`;
     return item.automatic_break
-      ? `<button class="${className}" type="button" data-open-automatic-break data-automatic-break-date="${escapeHtml(item.booking_date)}" data-automatic-break-start="${startTime}" data-automatic-break-end="${endTime}" data-automatic-break-source-count="${Number(item.automatic_break_source_count) || 1}" data-automatic-break-fingerprint="${escapeHtml(item.automatic_break_fingerprint || '')}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-haspopup="dialog" aria-controls="bookingSheet" aria-label="${ariaLabel}. Открыть управление перерывом" title="Открыть управление автоматическим перерывом">${cardContent}</button>`
+      ? `<button class="${className}" type="button" data-open-automatic-break data-automatic-break-date="${escapeHtml(item.booking_date)}" data-automatic-break-start="${startTime}" data-automatic-break-end="${endTime}" data-automatic-break-color="${escapeHtml(item.automatic_break_color || 'neutral')}" data-automatic-break-source-count="${Number(item.automatic_break_source_count) || 1}" data-automatic-break-fingerprint="${escapeHtml(item.automatic_break_fingerprint || '')}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-haspopup="dialog" aria-controls="bookingSheet" aria-label="${ariaLabel}. Открыть управление перерывом" title="Открыть управление автоматическим перерывом">${cardContent}</button>`
       : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} ${movable ? 'data-timeline-movable aria-describedby="timelineMoveInstruction" aria-keyshortcuts="Shift+ArrowUp Shift+ArrowDown"' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : moveRestriction || 'Перетащите или нажмите Shift и стрелку, чтобы изменить время'}">${cardContent}${dragHandle}</button>`;
   }).join('');
   const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
@@ -8982,7 +8998,7 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
     const breakOrigin = item.automatic_break ? 'Автоматический · по правилам' : 'Ручной';
     const details = block ? `${breakOrigin} перерыв` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
     const openAttributes = item.automatic_break
-      ? `data-open-automatic-break data-automatic-break-date="${escapeHtml(item.booking_date)}" data-automatic-break-start="${time}" data-automatic-break-end="${endTime}" data-automatic-break-source-count="${Number(item.automatic_break_source_count) || 1}" data-automatic-break-fingerprint="${escapeHtml(item.automatic_break_fingerprint || '')}" data-booking-duration="${duration}" aria-haspopup="dialog" aria-controls="bookingSheet"`
+      ? `data-open-automatic-break data-automatic-break-date="${escapeHtml(item.booking_date)}" data-automatic-break-start="${time}" data-automatic-break-end="${endTime}" data-automatic-break-color="${escapeHtml(item.automatic_break_color || 'neutral')}" data-automatic-break-source-count="${Number(item.automatic_break_source_count) || 1}" data-automatic-break-fingerprint="${escapeHtml(item.automatic_break_fingerprint || '')}" data-booking-duration="${duration}" aria-haspopup="dialog" aria-controls="bookingSheet"`
       : `data-open-booking="${escapeHtml(item.id)}"`;
     const actionLabel = item.automatic_break ? 'Открыть управление перерывом' : 'Открыть подробности';
     return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${item.is_imported_history ? ' is-imported-history' : ''}${block ? ' is-schedule-block' : clientHighlightClasses(item.client_phone)}${item.automatic_break ? ` automatic-break${item.automatic_break_theme_color ? ' automatic-break-theme-color' : ''}` : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}">
@@ -9296,7 +9312,8 @@ function openAutomaticBreakSheet(source) {
   automaticBreakSheetInvoker = source;
   sheet.dataset.assistantContext = 'automatic-break';
   sheet.classList.remove('booking-sheet-wide');
-  const selectedColor = displayPreferences.automatic_break_color;
+  const selectedColor = AUTOMATIC_BREAK_COLOR_KEYS.includes(source.dataset.automaticBreakColor)
+    ? source.dataset.automaticBreakColor : displayPreferences.automatic_break_color;
   const colorLabel = color => color === 'neutral' ? 'Нежный серый' : color === 'theme' ? 'Цвет темы' : BOOKING_COLOR_LABELS[color];
   const colorOptions = AUTOMATIC_BREAK_COLOR_KEYS.map(color =>
     `<label class="booking-color-option automatic-break-color-option color-${color}"><input type="radio" name="automaticBreakSheetColor" value="${color}" aria-label="${colorLabel(color)}" ${color === selectedColor ? 'checked' : ''}><span aria-hidden="true"></span><small>${colorLabel(color)}</small></label>`
@@ -9305,9 +9322,9 @@ function openAutomaticBreakSheet(source) {
     <h2 id="bookingSheetTitle">Автоматический перерыв</h2>
     <div class="booking-sheet-meta"><strong>${start}–${end}</strong><span>Из правил записи</span></div>
     <p class="automatic-break-explanation">Буфер между записями. ${sourceCount > 1 ? `Интервал образован ${sourceCount} буферами; для освобождения нужно исключить каждый источник.` : 'Освобождение этого времени не затронет другие перерывы.'}</p>
-    <details class="automatic-break-sheet-color"><summary><span>Цвет автоперерывов</span><strong class="automatic-break-sheet-color-current">${colorLabel(selectedColor)}</strong></summary>
-      <div class="automatic-break-color-options" role="radiogroup" aria-label="Цвет будущих автоматических перерывов">${colorOptions}</div>
-      <small>Выбор сохраняется для новых автоперерывов. Уже созданные сохраняют свой цвет.</small>
+    <details class="automatic-break-sheet-color"><summary><span>Цвет этого перерыва</span><strong class="automatic-break-sheet-color-current">${colorLabel(selectedColor)}</strong></summary>
+      <div class="automatic-break-color-options" role="radiogroup" aria-label="Цвет выбранного автоматического перерыва">${colorOptions}</div>
+      <small>Выбор применится к этому и будущим автоперерывам. Остальные прежние не изменятся.</small>
     </details>
     <div class="booking-sheet-actions automatic-break-actions">
       <button class="primary" type="button" data-release-automatic-break data-automatic-break-date="${escapeHtml(dateIso)}" data-automatic-break-start="${start}" data-automatic-break-end="${end}" data-automatic-break-source-count="${sourceCount}" data-automatic-break-fingerprint="${escapeHtml(fingerprint)}" ${automaticBookingBreaksRemoteAvailable && fingerprint ? '' : 'disabled'}>Освободить только это время</button>
@@ -9321,12 +9338,28 @@ function openAutomaticBreakSheet(source) {
   requestAnimationFrame(() => $('#bookingSheetContent [data-release-automatic-break]:not(:disabled), #bookingSheetContent [data-open-automatic-break-settings]')?.focus());
 }
 
-$('#bookingSheetContent')?.addEventListener('change', event => {
-  const input = event.target.closest('input[name="automaticBreakSheetColor"]');
+function selectAutomaticBreakSheetColor(input) {
   if (!input || !AUTOMATIC_BREAK_COLOR_KEYS.includes(input.value)) return;
-  saveDisplayPreferences({ ...displayPreferences, automatic_break_color:input.value });
+  const source = automaticBreakSheetInvoker;
+  if (!source) return;
+  const key = automaticBreakColorOverrideKey(source.dataset.automaticBreakDate,
+    source.dataset.automaticBreakStart, source.dataset.automaticBreakEnd,
+    source.dataset.automaticBreakFingerprint || '');
+  saveDisplayPreferences({ ...displayPreferences, automatic_break_color:input.value,
+    automatic_break_color_overrides:{ ...displayPreferences.automatic_break_color_overrides, [key]:input.value } });
+  input.checked = true;
   const caption = $('#bookingSheetContent .automatic-break-sheet-color-current');
   if (caption) caption.textContent = input.value === 'neutral' ? 'Нежный серый' : input.value === 'theme' ? 'Цвет темы' : BOOKING_COLOR_LABELS[input.value];
+}
+$('#bookingSheetContent')?.addEventListener('click', event => {
+  const label = event.target.closest('.automatic-break-sheet-color .automatic-break-color-option');
+  if (!label || event.target.matches('input')) return;
+  event.preventDefault();
+  selectAutomaticBreakSheetColor(label.querySelector('input[name="automaticBreakSheetColor"]'));
+});
+$('#bookingSheetContent')?.addEventListener('change', event => {
+  const input = event.target.closest('input[name="automaticBreakSheetColor"]');
+  selectAutomaticBreakSheetColor(input);
 });
 
 async function openAutomaticBreakSettings() {

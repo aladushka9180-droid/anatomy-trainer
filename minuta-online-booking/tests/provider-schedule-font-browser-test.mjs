@@ -61,7 +61,7 @@ window.__scheduleFontPreferenceTest={
     renderDisplayPreferencesForm();
     return {count:document.querySelectorAll('[name="automaticBreakColor"]').length,selected:document.querySelector('[name="automaticBreakColor"]:checked')?.value};
   },
-  breakColors(){return {defaultColor:displayPreferences.break_color_default,automaticColor:displayPreferences.automatic_break_color,history:displayPreferences.break_color_history};},
+  breakColors(){return {defaultColor:displayPreferences.break_color_default,automaticColor:displayPreferences.automatic_break_color,history:displayPreferences.break_color_history,overrides:displayPreferences.automatic_break_color_overrides};},
   autoColorHistory(){
     displayPreferences=normalizeDisplayPreferences({...displayPreferences,automatic_break_color:'graphite',automatic_break_color_initial:'neutral',automatic_break_color_history:[{effective_at:'2026-09-24T10:00:00.000Z',color:'graphite'}]});
     const source=created_at=>[{id:'source',booking_date:'2026-09-25',booking_time:'12:00:00',duration_minutes:60,status:'confirmed',client_name:'Тест',client_phone:'+79990000000',created_at}];
@@ -72,8 +72,18 @@ window.__scheduleFontPreferenceTest={
   previewAutomaticSheet(){
     queueDisplayPreferencesSync=()=>{};
     automaticBookingBreaksRemoteAvailable=true;
-    openAutomaticBreakSheet({dataset:{automaticBreakDate:'2026-09-24',automaticBreakStart:'16:00',automaticBreakEnd:'17:00',automaticBreakSourceCount:'1',automaticBreakFingerprint:'a'.repeat(64)}});
+    const source=[{id:'old-source',booking_date:'2026-09-24',booking_time:'17:00:00',duration_minutes:60,status:'confirmed',client_name:'Тест',client_phone:'+79990000000',created_at:'2026-09-23T10:00:00.000Z'}];
+    const appearance=automaticBreakAppearanceAt('2026-09-24','16:00','17:00',source,'a'.repeat(64));
+    openAutomaticBreakSheet({dataset:{automaticBreakDate:'2026-09-24',automaticBreakStart:'16:00',automaticBreakEnd:'17:00',automaticBreakColor:appearance.automatic_break_color,automaticBreakSourceCount:'1',automaticBreakFingerprint:'a'.repeat(64)}});
     return {color:document.querySelector('[name="automaticBreakSheetColor"]:checked')?.value,optionCount:document.querySelectorAll('[name="automaticBreakSheetColor"]').length};
+  },
+  selectedAndOtherAutomaticColors(){
+    const source=(time,createdAt)=>[{id:'source',booking_date:'2026-09-24',booking_time:time,duration_minutes:60,status:'confirmed',client_name:'Тест',client_phone:'+79990000000',created_at:createdAt}];
+    return {
+      selected:automaticBreakAppearanceAt('2026-09-24','16:00','17:00',source('17:00:00','2026-09-23T10:00:00.000Z'),'a'.repeat(64)).automatic_break_color,
+      other:automaticBreakAppearanceAt('2026-09-24','11:00','12:00',source('12:00:00','2026-09-23T10:00:00.000Z'),'b'.repeat(64)).automatic_break_color,
+      future:automaticBreakAppearanceAt('2026-09-25','11:00','12:00',[{id:'new',booking_date:'2026-09-25',booking_time:'12:00:00',duration_minutes:60,status:'confirmed',client_name:'Тест',client_phone:'+79990000000',created_at:'2026-09-25T10:00:00.000Z'}]).automatic_break_color
+    };
   },
   previewBlockForm(){
     ownServices=[];
@@ -106,6 +116,9 @@ try {
     const page=await browser.newPage({viewport:{width,height:900}});
     await page.goto(`http://127.0.0.1:${server.address().port}/fixture`,{waitUntil:'networkidle'});
     await page.evaluate(()=>{
+      document.querySelectorAll('.timeline-booking-time small').forEach(element=>{
+        element.innerHTML=`<span class="timeline-range-separator">–</span>${element.textContent.slice(1)}`;
+      });
       const manual=document.querySelector('[data-open-automatic-break]').cloneNode(true);
       manual.className='timeline-booking status-block color-auto';
       manual.removeAttribute('data-open-automatic-break');
@@ -130,6 +143,8 @@ try {
         states.automaticUnchanged=getComputedStyle(normal).backgroundColor===unchanged;
         normal.className='timeline-booking status-block color-sky automatic-break';
         states.futureAutomatic={background:getComputedStyle(normal).backgroundColor,ink:getComputedStyle(normal.querySelector('strong')).color};
+        normal.className='timeline-booking status-block color-lavender automatic-break';
+        states.selectedLavender={background:getComputedStyle(normal).backgroundColor,ink:getComputedStyle(normal.querySelector('strong')).color};
         normal.className='timeline-booking status-block color-auto automatic-break';
         return states;
       });
@@ -140,6 +155,8 @@ try {
       assert.equal(customBreak.automaticUnchanged,true,`${width}/${theme} manual picker recolored automatic break`);
       assert.equal(customBreak.futureAutomatic.background,'rgb(213, 233, 247)',`${width}/${theme} future automatic break fill`);
       assert.equal(customBreak.futureAutomatic.ink,'rgb(36, 49, 58)',`${width}/${theme} future automatic break ink`);
+      assert.equal(customBreak.selectedLavender.background,'rgb(226, 217, 244)',`${width}/${theme} selected lavender break fill`);
+      assert.equal(customBreak.selectedLavender.ink,'rgb(36, 49, 58)',`${width}/${theme} selected lavender break ink`);
       const before=await page.evaluate(()=>{
         const record=getComputedStyle(document.querySelector('[data-open-booking]'));
         const br=getComputedStyle(document.querySelector('[data-open-automatic-break]'));
@@ -214,13 +231,13 @@ try {
         element.className=`timeline-booking status-block color-auto${element===automatic?' automatic-break':''}`;
         element.dataset.bookingDuration='30';
         element.style.height='36px';
-        element.innerHTML=`<span class="timeline-break-short-time">19:30–20:00</span><span class="timeline-break-short-label">${element===automatic?`<span class="timeline-automatic-break-label">${label}</span>`:label}</span>`;
+        element.innerHTML=`<span class="timeline-break-short-time">19:30<span class="timeline-range-separator">–</span>20:00</span><span class="timeline-break-short-label">${element===automatic?`<span class="timeline-automatic-break-label">${label}</span>`:label}</span>`;
       }
       const state=element=>{
         const card=element.getBoundingClientRect();
         const time=element.querySelector('.timeline-break-short-time').getBoundingClientRect();
         const label=element.querySelector('.timeline-break-short-label').getBoundingClientRect();
-        return {bg:getComputedStyle(element).backgroundColor,ink:getComputedStyle(element).color,labelInk:getComputedStyle(element.querySelector('.timeline-automatic-break-label')||element.querySelector('.timeline-break-short-label')).color,border:getComputedStyle(element).borderStyle,top:time.top-card.top,bottom:card.bottom-label.bottom,left:time.left-card.left,gap:label.left-time.right,middleDelta:Math.abs((time.top+time.bottom-label.top-label.bottom)/2),fontSize:parseFloat(getComputedStyle(element.querySelector('.timeline-break-short-time')).fontSize),styleTop:element.style.top};
+        return {bg:getComputedStyle(element).backgroundColor,ink:getComputedStyle(element).color,labelInk:getComputedStyle(element.querySelector('.timeline-automatic-break-label')||element.querySelector('.timeline-break-short-label')).color,border:getComputedStyle(element).borderStyle,top:time.top-card.top,bottom:card.bottom-label.bottom,left:time.left-card.left,gap:label.left-time.right,middleDelta:Math.abs((time.top+time.bottom-label.top-label.bottom)/2),fontSize:parseFloat(getComputedStyle(element.querySelector('.timeline-break-short-time')).fontSize),dashGap:parseFloat(getComputedStyle(element.querySelector('.timeline-range-separator')).marginLeft),styleTop:element.style.top};
       };
       return {manual:state(manual),automatic:state(automatic),sourceInk,timeInk,longTimeLeft,longCopyLeft,visitColumns,cardLeft:manual.getBoundingClientRect().left};
     });
@@ -233,15 +250,16 @@ try {
       assert.ok(shortBreaks[kind].gap>= (width>760?0:8),`${width}/${kind} time and pause overlap`);
       assert.ok(shortBreaks[kind].middleDelta<=1,`${width}/${kind} one-row vertical alignment`);
       assert.ok(shortBreaks[kind].fontSize>=12,`${width}/${kind} text too small`);
+      assert.ok(shortBreaks[kind].dashGap>=3,`${width}/${kind} time dash has no breathing room`);
     }
     assert.equal(shortBreaks.manual.styleTop,'210px',`${width} manual timeline position changed`);
     assert.equal(shortBreaks.automatic.styleTop,'94px',`${width} automatic timeline position changed`);
     if(width>760){
-      assert.ok(Math.abs(shortBreaks.cardLeft+shortBreaks.manual.left-shortBreaks.longTimeLeft)<=3,`${width} short time column differs from long automatic break`);
-      assert.ok(Math.abs(shortBreaks.cardLeft+shortBreaks.manual.left+(width<=980?112:150)-shortBreaks.longCopyLeft)<=3,`${width} short label column differs from long automatic break`);
+      assert.ok(Math.abs(shortBreaks.cardLeft+shortBreaks.manual.left-shortBreaks.longTimeLeft)<=1,`${width} short time column differs from long automatic break`);
+      assert.ok(Math.abs(shortBreaks.cardLeft+shortBreaks.manual.left+(width<=980?112:150)-shortBreaks.longCopyLeft)<=1,`${width} short label column differs from long automatic break`);
       assert.notEqual(shortBreaks.visitColumns.timeDisplay,'none',`${width} visit time column hidden`);
-      assert.ok(Math.abs(shortBreaks.visitColumns.timeLeft-shortBreaks.longTimeLeft)<=8,`${width} visit time column differs from automatic break`);
-      assert.ok(Math.abs(shortBreaks.visitColumns.copyLeft-shortBreaks.longCopyLeft)<=8,`${width} visit details column differs from automatic break`);
+      assert.ok(Math.abs(shortBreaks.visitColumns.timeLeft-shortBreaks.longTimeLeft)<=1,`${width} visit time column differs from automatic break`);
+      assert.ok(Math.abs(shortBreaks.visitColumns.copyLeft-shortBreaks.longCopyLeft)<=1,`${width} visit details column differs from automatic break`);
       assert.ok(Math.abs(shortBreaks.visitColumns.timeMiddle-shortBreaks.visitColumns.cardMiddle)<=1,`${width} visit time is not vertically centered`);
     }
     assert.equal(shortBreaks.automatic.border.split(' ')[0],'dashed',`${width} automatic dashed border`);
@@ -284,13 +302,13 @@ try {
   assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.autoOptions()),{count:13,selected:'sky'},'automatic break setting not rendered from saved preference');
   assert.equal(breakColors.history.length,2,'automatic break history lost on reload');
   assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.autoColorHistory()),{
-    old:{color_key:'auto',automatic_break_theme_color:false},future:{color_key:'graphite',automatic_break_theme_color:false}
+    old:{automatic_break_color:'neutral',color_key:'auto',automatic_break_theme_color:false},future:{automatic_break_color:'graphite',color_key:'graphite',automatic_break_theme_color:false}
   },'changing the automatic color recolored existing source bookings');
   const blockForm=await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.previewBlockForm());
   assert.equal(blockForm.selected,'peach','new manual break did not use saved default');
   assert.equal(blockForm.visible,true,'save-future-color choice is hidden in block form');
   assert.match(blockForm.caption,/новых ручных перерывов/);
-  assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.previewAutomaticSheet()),{color:'graphite',optionCount:13},'automatic break sheet color picker missing');
+  assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.previewAutomaticSheet()),{color:'neutral',optionCount:13},'automatic break sheet color picker missing');
   for(const width of [390,760,1440]){
     await settingsPage.setViewportSize({width,height:900});
     const sheet=await settingsPage.locator('#bookingSheet').evaluate(element=>{
@@ -301,14 +319,19 @@ try {
     assert.equal(sheet.visible,true,`${width} automatic break sheet hidden`);
     assert.ok(sheet.scrollWidth<=sheet.windowWidth+1,`${width} automatic break sheet horizontal overflow`);
     assert.ok(sheet.actionScrollHeight<=sheet.actionHeight+1,`${width} automatic break primary action clipped`);
-    assert.match(sheet.summary,/Цвет автоперерывов/);
+    assert.match(sheet.summary,/Цвет этого перерыва/);
     if(process.env.MINUTA_SCHEDULE_FONT_OUTPUT)await settingsPage.screenshot({path:path.join(process.env.MINUTA_SCHEDULE_FONT_OUTPUT,`automatic-sheet-${width}.png`)});
   }
   settingsPage.setDefaultTimeout(5000);
   await settingsPage.locator('.automatic-break-sheet-color summary').click();
-  await settingsPage.locator('.automatic-break-sheet-color .color-neutral').click();
-  assert.equal(await settingsPage.locator('.automatic-break-sheet-color-current').innerText(),'Нежный серый','automatic break sheet did not update selected color');
-  assert.equal(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.breakColors().automaticColor),'neutral','automatic break sheet did not persist preference');
+  await settingsPage.locator('.automatic-break-sheet-color .color-lavender').click();
+  assert.equal(await settingsPage.locator('.automatic-break-sheet-color-current').innerText(),'Лаванда','automatic break sheet did not update selected color');
+  assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.selectedAndOtherAutomaticColors()),{selected:'lavender',other:'neutral',future:'lavender'},'selected break did not recolor without changing other old breaks');
+  await settingsPage.reload({waitUntil:'domcontentloaded'});
+  await settingsPage.waitForFunction(()=>Boolean(window.__scheduleFontPreferenceTest));
+  await settingsPage.evaluate(userId=>window.__scheduleFontPreferenceTest.restore(userId),userId);
+  assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.previewAutomaticSheet()),{color:'lavender',optionCount:13},'selected interval color was lost after reload');
+  assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.selectedAndOtherAutomaticColors()),{selected:'lavender',other:'neutral',future:'lavender'},'interval override was lost after reload');
   await context.close();
   console.log('Preference persistence: theme switch, reload and independent text size PASS');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

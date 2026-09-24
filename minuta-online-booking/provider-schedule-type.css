@@ -31,6 +31,10 @@
 .schedule-font-style-option:has(input[value="refined"]) small { font-family:"Manrope Schedule",system-ui,sans-serif; font-weight:400; }
 @media(max-width:350px) { .schedule-font-style-options { gap:5px; } .schedule-font-style-option>span { padding:8px; } }
 
+/* A small visual breath around the range dash, without changing time values or line breaks. */
+.provider-body #providerBookings.timeline-view .timeline-range-separator { display:inline-block; margin-inline:3px!important; }
+.provider-body #providerBookings.timeline-view :is(.timeline-booking-time,.timeline-break-short-time,.timeline-booking-minute-time,.timeline-mobile-time) { white-space:nowrap; }
+
 /* Both font choices share the requested hierarchy. Color and surfaces remain
    owned by each existing theme, including Pink Porcelain's separate trial. */
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only) {
@@ -324,7 +328,7 @@ html body.provider-body[data-provider-theme] #dashboard[data-active-view="bookin
     display:grid!important;
     grid-template-columns:150px minmax(0,1fr)!important;
     gap:0!important;
-    padding-left:22px!important;
+    padding-left:24px!important;
   }
   html body.provider-body[data-provider-theme] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.status-block[data-booking-duration="30"] :is(.timeline-break-short-time,.timeline-break-short-label) {
     font-size:14px!important;
@@ -353,6 +357,9 @@ html body.provider-body[data-provider-theme] #dashboard[data-active-view="bookin
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.status-block[data-booking-duration="30"]:is([data-open-booking],[data-open-automatic-break]),
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.status-block):not(.minute-only) {
     grid-template-columns:112px minmax(0,1fr)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.status-block):not(.minute-only) {
+    padding-left:20px!important;
   }
 }
 
