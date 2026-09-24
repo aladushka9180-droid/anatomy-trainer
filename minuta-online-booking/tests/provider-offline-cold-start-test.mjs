@@ -152,7 +152,7 @@ test('offline snapshot restores bookings and server-verified automatic breaks be
     SCHEDULE_BLOCK_PHONE:'0000000000',
     BOOKING_COLOR_DEFAULT:'auto',
     BOOKING_COLOR_KEYS:['auto','mint','sky','lavender','peach','rose','vanilla','sage','teal','amber','cocoa','graphite'],
-    displayPreferences:{ automatic_break_color:'neutral', break_color_history:[] },
+    displayPreferences:{ automatic_break_color:'neutral', automatic_break_color_initial:'neutral', automatic_break_color_history:[], break_color_history:[] },
     bookingPolicy:{ booking_buffer_enabled:false, booking_buffer_minutes:60 },
     automaticBookingBreakSegments:new Map(),
     automaticBookingBreaksRemoteAvailable:false,
@@ -169,7 +169,7 @@ test('offline snapshot restores bookings and server-verified automatic breaks be
     timeFromMinutes:value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`,
     isScheduleBlock:item => String(item?.client_phone || '').replace(/\D/g, '') === '0000000000'
   });
-  vm.runInContext([actual('validProviderOfflineSnapshot'), actual('providerOfflineBookingPolicy'), actual('providerOfflineAutomaticBreakSegments'), actual('automaticBreakColorAt'), actual('automaticBookingBreaks'), actual('applyProviderOfflineSnapshot')].join('\n'), box);
+  vm.runInContext([actual('validProviderOfflineSnapshot'), actual('providerOfflineBookingPolicy'), actual('providerOfflineAutomaticBreakSegments'), actual('automaticBreakColorAt'), actual('automaticBreakAppearanceAt'), actual('automaticBookingBreaks'), actual('applyProviderOfflineSnapshot')].join('\n'), box);
   box.renderBookings = () => { rendered = [...box.allBookings, ...box.automaticBookingBreaks(box.allBookings, date)]; };
   const snapshot = freshSnapshot({ overrides:{
     bookingPolicy:{ booking_buffer_enabled:true, booking_buffer_minutes:60 },
