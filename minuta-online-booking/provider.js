@@ -305,6 +305,8 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   color_mode: 'light',
   text_scale: 'default',
   schedule_font_style: 'current',
+  break_color_default: 'auto',
+  break_color_history: [],
   booking_card_density: 'compact',
   show_phone: false,
   show_visit_number: true,
@@ -452,8 +454,8 @@ let newBookingPreferredTime = '';
 let newBookingSlotsRequestId = 0;
 let newBookingMode = 'client';
 let newBookingModeState = {
-  client:{ serviceId:'', durationMinutes:60 },
-  block:{ durationMinutes:60 }
+  client:{ serviceId:'', durationMinutes:60, color:BOOKING_COLOR_DEFAULT },
+  block:{ durationMinutes:60, color:BOOKING_COLOR_DEFAULT }
 };
 let newBookingRepeatVisit = null;
 let recentlyCreatedBookingId = '';
@@ -2084,6 +2086,12 @@ function normalizeDisplayPreferences(value = {}) {
     show_notes:source.show_notes ?? DEFAULT_DISPLAY_PREFERENCES.show_notes
   };
   const cardOptions = BOOKING_CARD_DENSITY_PRESETS[density] || customCardOptions;
+  const breakColorHistory = Array.isArray(source.break_color_history)
+    ? source.break_color_history.filter(entry => entry && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(String(entry.effective_at || ''))
+      && BOOKING_COLOR_KEYS.includes(String(entry.color || '')))
+      .map(entry => ({ effective_at:String(entry.effective_at), color:String(entry.color) }))
+      .sort((left, right) => left.effective_at.localeCompare(right.effective_at))
+    : [];
   return {
     layout: PROVIDER_LAYOUT_KEYS.includes(storedLayout) ? storedLayout : legacyLayout || DEFAULT_DISPLAY_PREFERENCES.layout,
     theme,
@@ -2091,6 +2099,8 @@ function normalizeDisplayPreferences(value = {}) {
     color_mode: PROVIDER_COLOR_MODE_KEYS.includes(source.color_mode) ? source.color_mode : nativeColorMode,
     text_scale: PROVIDER_TEXT_SCALE_KEYS.includes(storedTextScale) ? storedTextScale : DEFAULT_DISPLAY_PREFERENCES.text_scale,
     schedule_font_style:SCHEDULE_FONT_STYLE_KEYS.includes(source.schedule_font_style) ? source.schedule_font_style : DEFAULT_DISPLAY_PREFERENCES.schedule_font_style,
+    break_color_default:BOOKING_COLOR_KEYS.includes(source.break_color_default) ? source.break_color_default : DEFAULT_DISPLAY_PREFERENCES.break_color_default,
+    break_color_history:breakColorHistory,
     booking_card_density:density,
     ...cardOptions,
     ios_transitions: source.ios_transitions ?? DEFAULT_DISPLAY_PREFERENCES.ios_transitions,
@@ -2111,6 +2121,8 @@ function displayPreferencesEqual(left, right) {
     && a.color_mode === b.color_mode
     && a.text_scale === b.text_scale
     && a.schedule_font_style === b.schedule_font_style
+    && a.break_color_default === b.break_color_default
+    && JSON.stringify(a.break_color_history) === JSON.stringify(b.break_color_history)
     && a.booking_card_density === b.booking_card_density
     && a.show_phone === b.show_phone
     && a.show_visit_number === b.show_visit_number
@@ -2648,6 +2660,8 @@ function displayPreferencesFromForm() {
     color_mode: displayPreferences.color_mode,
     text_scale: $('#providerDisplayForm input[name="providerTextScale"]:checked')?.value,
     schedule_font_style:$('#providerDisplayForm input[name="scheduleFontStyle"]:checked')?.value,
+    break_color_default:displayPreferences.break_color_default,
+    break_color_history:displayPreferences.break_color_history,
     booking_card_density:$('#providerDisplayForm input[name="bookingCardDensity"]:checked')?.value,
     show_phone: $('#showBookingPhone').checked,
     show_visit_number: $('#showBookingVisitNumber').checked,
@@ -2786,6 +2800,31 @@ function bookingNotePresenceMarkup(note, className = 'booking-note-presence') {
 function bookingColorStorageKey(userId = currentUser?.id) { return `massage-booking-colors-v1:${userId || 'anonymous'}`; }
 function bookingColorPendingStorageKey(userId = currentUser?.id) { return `massage-booking-colors-pending-v1:${userId || 'anonymous'}`; }
 function validBookingColor(value) { return BOOKING_COLOR_KEYS.includes(String(value)) ? String(value) : BOOKING_COLOR_DEFAULT; }
+function businessMomentIso(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${businessTodayIso(date)}T${values.hour}:${values.minute}:${values.second}`;
+}
+function automaticBreakColorAt(date, time) {
+  const moment = `${date}T${String(time).slice(0, 8)}`;
+  const history = displayPreferences.break_color_history || [];
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    if (history[index].effective_at <= moment) return history[index].color;
+  }
+  return BOOKING_COLOR_DEFAULT;
+}
+function saveFutureBreakColor(color) {
+  const selected = validBookingColor(color);
+  if (selected === displayPreferences.break_color_default) return;
+  const entry = { effective_at:businessMomentIso(), color:selected };
+  saveDisplayPreferences(normalizeDisplayPreferences({
+    ...displayPreferences,
+    break_color_default:selected,
+    break_color_history:[...(displayPreferences.break_color_history || []), entry]
+  }));
+}
 function loadBookingColors(userId = currentUser?.id) {
   try {
     const saved = JSON.parse(localStorage.getItem(bookingColorStorageKey(userId)) || '{}');
@@ -8596,6 +8635,7 @@ function automaticBookingBreaks(items, dateIso = selectedDate) {
         client_phone:SCHEDULE_BLOCK_PHONE,
         status:'confirmed',
         automatic_break:true,
+        color_key:automaticBreakColorAt(dateIso, `${start}:00`),
         automatic_break_source_count:Math.max(1, Number(segment.source_count) || 1),
         automatic_break_fingerprint:String(segment.segment_fingerprint || ''),
         services:{ name:'Перерыв', duration_minutes:duration }
@@ -8658,6 +8698,7 @@ function automaticBookingBreaks(items, dateIso = selectedDate) {
     client_phone:SCHEDULE_BLOCK_PHONE,
     status:'confirmed',
     automatic_break:true,
+    color_key:automaticBreakColorAt(dateIso, `${timeFromMinutes(start)}:00`),
     automatic_break_source_count:sources.size,
     services:{ name:'Перерыв', duration_minutes:end - start }
   }));
@@ -10295,6 +10336,7 @@ function openBookingEditor(id, preset = {}) {
         <label>Название<input id="editBookingBlockTitle" maxlength="80" value="${escapeHtml(item.client_name || 'Перерыв')}" required></label>
         <label>Заметка к перерыву<textarea id="editBookingNote" maxlength="1000" rows="2">${escapeHtml(bookingDisplayNote(item))}</textarea></label>
         ${bookingColorPicker('editBookingColor', bookingColor(item))}
+        <label class="settings-check future-break-color-option"><input id="editBookingFutureBreakColor" type="checkbox"><span><strong>Сохранить цвет для будущих перерывов</strong><small>Старые ручные перерывы не изменятся.</small></span></label>
       </details>` : ''}
       <div class="booking-sheet-submit-bar"><button class="primary" type="submit" disabled>${block ? 'Перенести перерыв' : 'Перенести запись'}</button></div>
     </form>`;
@@ -10330,6 +10372,7 @@ async function saveBookingChanges(event) {
   const date = $('#editBookingDate').value;
   const seriesScope = form.elements.editBookingSeriesScope?.value || 'one';
   const color = block ? ($('[name="editBookingColor"]:checked')?.value || bookingColor(item)) : bookingColor(item);
+  const rememberBreakColor = block && $('#editBookingFutureBreakColor')?.checked;
   const note = block ? ($('#editBookingNote')?.value.trim() || '') : bookingDisplayNote(item);
   const blockTitle = block ? ($('#editBookingBlockTitle')?.value.trim() || '') : '';
   if (!item || (!block && !service) || !date || !bookingEditTime || (block && blockTitle.length < 2)) {
@@ -10438,6 +10481,7 @@ async function saveBookingChanges(event) {
     if (!block) affected.forEach(entry => notifyTelegramClient(entry.booking_id, 'rescheduled'));
     const colorRemoteSaved = block ? await saveBookingColor(id, color, { rerender:false, isCurrent }) : true;
     if (!isCurrent()) return;
+    if (block && rememberBreakColor && colorRemoteSaved) saveFutureBreakColor(color);
     let noteRemoteSaved = true;
     if (block) {
       // The v141 move RPC writes the title and note atomically with the slot.
@@ -11115,6 +11159,7 @@ function updateNewBookingHeading() {
 function setNewBookingMode(mode) {
   const nextMode = !newBookingRepeatVisit && mode === 'block' ? 'block' : 'client';
   const previousMode = newBookingMode;
+  if (previousMode !== nextMode) newBookingModeState[previousMode].color = $('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT;
   if (previousMode === 'client') {
     newBookingModeState.client.serviceId = $('#newBookingService')?.value || newBookingModeState.client.serviceId;
     newBookingModeState.client.durationMinutes = newBookingDurationMinutes() || newBookingModeState.client.durationMinutes;
@@ -11122,6 +11167,10 @@ function setNewBookingMode(mode) {
     newBookingModeState.block.durationMinutes = Number($('#newBookingBlockDuration')?.value || newBookingModeState.block.durationMinutes || 60);
   }
   newBookingMode = nextMode;
+  if (previousMode !== nextMode) {
+    const targetColor = $(`[name="newBookingColor"][value="${newBookingModeState[nextMode].color}"]`);
+    if (targetColor) targetColor.checked = true;
+  }
   $$('[data-new-booking-mode]').forEach(button => {
     const active = button.dataset.newBookingMode === newBookingMode;
     button.classList.toggle('active', active);
@@ -11143,6 +11192,7 @@ function setNewBookingMode(mode) {
   $('#newBookingBlockTitle').required = false;
   $('#newBookingClientNoteField').hidden = block;
   $('#newBookingBlockNoteField').hidden = !block;
+  $('#newBookingFutureBreakColorOption').hidden = !block;
   const locationField = $('#newBookingLocationField');
   if (locationField) locationField.hidden = !block || activeProviderBlockContext($('#newBookingLocation')?.value || '').locations.length <= 1;
   $('#newBookingAdvancedSummary').textContent = block ? 'Заметка и цвет' : newBookingRepeatVisit ? 'Заметка клиента и цвет' : 'Заметка, цвет и серия';
@@ -11242,8 +11292,8 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
     ? Number(selectedService?.price_rub || 0) * initialDuration
     : Number(selectedService?.price_rub || 0))))));
   newBookingModeState = {
-    client:{ serviceId:selectedService?.id || draft?.serviceId || '', durationMinutes:initialDuration },
-    block:{ durationMinutes:Number(draft?.blockDurationMinutes || (draft?.mode === 'block' ? draft?.durationMinutes : 60) || 60) }
+    client:{ serviceId:selectedService?.id || draft?.serviceId || '', durationMinutes:initialDuration, color:validBookingColor(draft?.mode === 'client' ? draft.color : preset.color) },
+    block:{ durationMinutes:Number(draft?.blockDurationMinutes || (draft?.mode === 'block' ? draft?.durationMinutes : 60) || 60), color:validBookingColor(preset.color || (draft?.mode === 'block' ? draft.color : displayPreferences.break_color_default)) }
   };
   newBookingTime = '';
   newBookingSlots = [];
@@ -11280,6 +11330,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
             <label id="newBookingClientNoteField"><span class="sr-only">Заметка</span><textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label>
             <label id="newBookingBlockNoteField" hidden><span class="sr-only">Заметка</span><textarea id="newBookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело"></textarea></label>
             ${compactBookingColorPicker('newBookingColor', BOOKING_COLOR_DEFAULT, '')}
+            <label class="settings-check future-break-color-option" id="newBookingFutureBreakColorOption" hidden><input id="newBookingFutureBreakColor" type="checkbox"><span><strong>Сохранить цвет для будущих перерывов</strong><small>Применится к новым ручным и будущим автоматическим перерывам. Старые не изменятся.</small></span></label>
             <section class="new-booking-recurrence" id="newBookingRecurrence">
               <div><strong>Повторение</strong><small id="newBookingRecurrenceHint" hidden>Все окна должны быть свободны, а последний визит — не дальше двух лет.</small></div>
               <label>Количество<select id="newBookingOccurrences"><option value="1">Одна запись</option><option value="2">2 визита</option><option value="3">3 визита</option><option value="4">4 визита</option><option value="6">6 визитов</option><option value="8">8 визитов</option><option value="10">10 визитов</option><option value="12">12 визитов</option><option value="16">16 визитов</option><option value="20">20 визитов</option><option value="24">24 визита</option></select></label>
@@ -11328,7 +11379,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingForm').dataset.blockRequestId = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(draft?.blockRequestId || '')) ? draft.blockRequestId : createOfflineBookingId();
   $('#newBookingOccurrences').value = String(draft?.occurrences || '1');
   $('#newBookingInterval').value = String(draft?.interval || '1');
-  const draftColor = $(`[name="newBookingColor"][value="${CSS.escape(String(preset.color || draft?.color || BOOKING_COLOR_DEFAULT))}"]`);
+  const draftColor = $(`[name="newBookingColor"][value="${newBookingModeState[newBookingMode].color}"]`);
   if (draftColor) draftColor.checked = true;
   if (newBookingRepeatVisit) {
     $('#newBookingModeToggle').hidden = true;
@@ -11548,6 +11599,7 @@ async function createNewBooking(event) {
   const durationMinutes = newBookingDurationMinutes();
   const date = $('#newBookingDate').value;
   const color = $('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT;
+  const rememberBreakColor = block && $('#newBookingFutureBreakColor')?.checked;
   const occurrenceCount = block ? 1 : Math.max(1, Number($('#newBookingOccurrences')?.value || 1));
   const intervalWeeks = Math.max(1, Number($('#newBookingInterval')?.value || 1));
   const selectedButtonTime = $('[data-new-booking-time].active')?.dataset.newBookingTime || '';
@@ -11991,6 +12043,7 @@ async function createNewBooking(event) {
       isCurrent:() => sessionIsCurrent(userId, generation)
     });
     if (!sessionIsCurrent(userId, generation)) return;
+    if (rememberBreakColor) saveFutureBreakColor(color);
   }
   const createdCriteria = {
     id:bookingIdFromRpcResult(bookingRpcResult),

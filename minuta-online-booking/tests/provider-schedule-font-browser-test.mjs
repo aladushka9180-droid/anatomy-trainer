@@ -38,7 +38,19 @@ window.__scheduleFontPreferenceTest={
     applyDisplayPreferences();
     return this.snapshot();
   },
-  snapshot(){return {font:displayPreferences.schedule_font_style,bodyFont:document.body.dataset.scheduleFontStyle,textScale:displayPreferences.text_scale,theme:displayPreferences.theme};}
+  snapshot(){return {font:displayPreferences.schedule_font_style,bodyFont:document.body.dataset.scheduleFontStyle,textScale:displayPreferences.text_scale,theme:displayPreferences.theme};},
+  seedBreakColors(userId){
+    currentUser={id:userId,user_metadata:{}};
+    displayPreferences=normalizeDisplayPreferences({...displayPreferences,break_color_default:'peach',break_color_history:[
+      {effective_at:'2026-09-24T12:00:00',color:'sky'},
+      {effective_at:'2026-09-25T12:00:00',color:'peach'}
+    ]});
+    displayPreferencesUpdatedAt=Math.max(Date.now(),displayPreferencesUpdatedAt+1);
+    displayPreferencesPending=true;
+    persistLocalDisplayPreferences(userId);
+    return [automaticBreakColorAt('2026-09-24','11:00:00'),automaticBreakColorAt('2026-09-24','13:00:00'),automaticBreakColorAt('2026-09-26','10:00:00')];
+  },
+  breakColors(){return {defaultColor:displayPreferences.break_color_default,history:displayPreferences.break_color_history};}
 };`;
 const fixture=`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${links}<style>*,*::before,*::after{transition:none!important;animation:none!important}.fixture{max-width:1060px;margin:auto;padding:16px}.day-timeline{min-height:350px}.timeline-stage{min-height:350px}</style><body class="provider-body" data-provider-theme="sage" data-provider-layout="soft" data-provider-text-scale="default" data-schedule-font-style="current"><main class="fixture" id="dashboard" data-active-view="bookings"><form id="providerDisplayForm"><fieldset class="provider-text-scale-picker"><legend>Размер текста</legend><label><input type="radio" name="providerTextScale" value="default" checked>Обычный</label><label><input type="radio" name="providerTextScale" value="comfortable">Комфортный</label></fieldset><fieldset class="schedule-font-style-picker"><legend>Шрифт карточек расписания</legend><div class="schedule-font-style-options"><label class="schedule-font-style-option"><input type="radio" name="scheduleFontStyle" value="current" checked><span><strong>Текущий</strong><small>10:00–11:00 · Имя<br>Название услуги</small></span></label><label class="schedule-font-style-option"><input type="radio" name="scheduleFontStyle" value="refined"><span><strong>Утончённый</strong><small>10:00–11:00 · Имя<br>Название услуги</small></span></label></div></fieldset></form><section class="schedule-card"><div id="providerBookings" class="provider-bookings timeline-view"><div class="day-timeline"><div class="timeline-hours"><span class="timeline-hour" style="top:0">10:00</span><span class="timeline-hour" style="top:90px">11:00</span></div><div class="timeline-stage"><button type="button" class="timeline-booking status-confirmed color-auto timeline-tight" data-open-booking="fixture" data-mobile-timeline-top="2" style="top:2px;height:82px" aria-label="${longService}"><span class="timeline-booking-time"><b>10:00</b><small>–11:00</small></span><span class="timeline-booking-copy"><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">10:00–11:00 · </span><span class="timeline-client-name">Анна Тестовая</span><span class="timeline-client-phone"> · +7 999 123-45-67</span></small></span><strong><span class="timeline-service-title">${longService}</span><span class="timeline-service-duration">60 минут</span></strong></span></button><button type="button" class="timeline-booking status-block automatic-break" data-open-automatic-break style="top:94px;height:110px"><span class="timeline-booking-time"><b>11:00</b><small>–12:00</small></span><span class="timeline-booking-copy"><strong>Автоперерыв<span class="timeline-automatic-break-source">Автоматический · из правил записи</span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:00</span></small></span></span></button></div></div></div></section></main><script>document.querySelectorAll('input[name="scheduleFontStyle"]').forEach(input=>input.addEventListener('change',()=>document.body.dataset.scheduleFontStyle=input.value));document.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>document.body.dataset.clicked='true'));</script></body></html>`;
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css','.woff2':'font/woff2','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp'};
@@ -84,6 +96,9 @@ try {
           states[color]={background:getComputedStyle(manual).backgroundColor,ink:getComputedStyle(manual.querySelector('strong')).color};
         }
         states.automaticUnchanged=getComputedStyle(normal).backgroundColor===unchanged;
+        normal.className='timeline-booking status-block color-sky automatic-break';
+        states.futureAutomatic={background:getComputedStyle(normal).backgroundColor,ink:getComputedStyle(normal.querySelector('strong')).color};
+        normal.className='timeline-booking status-block color-auto automatic-break';
         return states;
       });
       assert.equal(customBreak.sky.background,'rgb(213, 233, 247)',`${width}/${theme} sky manual break fill`);
@@ -91,6 +106,8 @@ try {
       assert.equal(customBreak.vanilla.background,'rgb(248, 233, 174)',`${width}/${theme} vanilla manual break fill`);
       for(const color of ['sky','peach','vanilla'])assert.equal(customBreak[color].ink,'rgb(36, 49, 58)',`${width}/${theme}/${color} manual break ink`);
       assert.equal(customBreak.automaticUnchanged,true,`${width}/${theme} manual picker recolored automatic break`);
+      assert.equal(customBreak.futureAutomatic.background,'rgb(213, 233, 247)',`${width}/${theme} future automatic break fill`);
+      assert.equal(customBreak.futureAutomatic.ink,'rgb(36, 49, 58)',`${width}/${theme} future automatic break ink`);
       const before=await page.evaluate(()=>{
         const record=getComputedStyle(document.querySelector('[data-open-booking]'));
         const br=getComputedStyle(document.querySelector('[data-open-automatic-break]'));
@@ -163,6 +180,13 @@ try {
   saved=await settingsPage.evaluate(userId=>window.__scheduleFontPreferenceTest.set(userId,'current','comfortable'),userId);
   assert.equal(saved.bodyFont,'current','current option cannot be restored');
   assert.equal(saved.textScale,'comfortable','switching font changed text size');
+  assert.deepEqual(await settingsPage.evaluate(userId=>window.__scheduleFontPreferenceTest.seedBreakColors(userId),userId),['auto','sky','peach'],'automatic break default recolored older intervals');
+  await settingsPage.reload({waitUntil:'domcontentloaded'});
+  await settingsPage.waitForFunction(()=>Boolean(window.__scheduleFontPreferenceTest));
+  await settingsPage.evaluate(userId=>window.__scheduleFontPreferenceTest.restore(userId),userId);
+  const breakColors=await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.breakColors());
+  assert.equal(breakColors.defaultColor,'peach','future manual break default lost on reload');
+  assert.equal(breakColors.history.length,2,'automatic break history lost on reload');
   await context.close();
   console.log('Preference persistence: theme switch, reload and independent text size PASS');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
