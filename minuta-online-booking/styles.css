@@ -9980,3 +9980,11 @@ html.provider-booting .provider-main {
   .provider-body .smart-delivery-savebar { justify-content:space-between; }
   .provider-body .smart-delivery-savebar button { min-width:112px; }
 }
+.client-offline-flexible:not([hidden]) { display:grid; gap:12px; padding:18px; margin:0 0 20px; border:1px solid color-mix(in srgb, currentColor 18%, transparent); border-radius:16px; }
+.client-offline-flexible h2, .client-offline-flexible p { margin:0; }
+.client-offline-flexible form:not([hidden]) { display:grid; gap:12px; }
+.client-offline-flexible form label { display:grid; gap:6px; }
+.client-offline-flexible form input:not([type="checkbox"]), .client-offline-flexible form select { width:100%; min-width:0; }
+.client-offline-flexible .consent-check { display:flex; align-items:flex-start; }
+.client-offline-flexible-times { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+@media (max-width:390px) { .client-offline-flexible-times { grid-template-columns:1fr; } }

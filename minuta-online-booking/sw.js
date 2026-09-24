@@ -68,6 +68,7 @@ const ASSETS = [
 ];
 
 const OPTIONAL_ASSETS = [
+  './utm-funnel.css?v=811',
   './statistics-audit-ui.css?v=908',
   './statistics-audit-ui.js?v=908',
   './statistics-audit-provider.js?v=908',
@@ -110,7 +111,8 @@ const OPTIONAL_ASSETS = [
   './client-messages.js?v=885',
   './provider-portfolio-responsive.css?v=811',
   './service-presets-catalog.js?v=811',
-  './app.js?v=885',
+  './app.js?v=936',
+  './client-offline-flexible.js?v=936',
   './service-presets.css?v=811',
   './service-presets.js?v=811',
   './report-worker.js?v=811',

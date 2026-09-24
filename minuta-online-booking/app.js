@@ -631,6 +631,17 @@ async function loadServices() {
     rejectRequestedBookingLink('Выбранная услуга, специалист или филиал недоступны для этой организации.');
     return false;
   }
+  try {
+    localStorage.setItem(`primetime-offline-catalog-v1:${requestedOrganizationSlug || 'default'}`, JSON.stringify({
+      savedAt:Date.now(), slug:requestedOrganizationSlug || '', teamMode:state.teamMode,
+      locations:state.locations.map(item => ({ id:item.id, name:item.name || '' })),
+      services:state.services.filter(item => item?.id && item?.active !== false).map(item => ({
+        id:item.id, name:item.name, durationMinutes:item.duration_minutes,
+        priceRub:item.price_rub, locationIds:item.location_ids || null
+      }))
+    }));
+    window.dispatchEvent(new Event('primetime:offline-catalog-updated'));
+  } catch {}
   if (requestedPerformerId) state.performerId = requestedPerformerId;
   renderLocations();
   if (restorePersistedBookingSelection()) {

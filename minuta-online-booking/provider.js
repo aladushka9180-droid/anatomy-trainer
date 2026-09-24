@@ -1113,6 +1113,7 @@ function saveNewBookingDraft() {
     savedAt:Date.now(), name:$('#newBookingName')?.value || '', phone:$('#newBookingPhone')?.value || '', note:$('#newBookingNote')?.value || '',
     blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', blockRequestId:form.dataset.blockRequestId || '', locationId:$('#newBookingLocation')?.value || '', serviceId:newBookingModeState.client.serviceId || $('#newBookingService')?.value || '', durationMinutes:newBookingModeState.client.durationMinutes || newBookingDurationMinutes(), blockDurationMinutes:newBookingModeState.block.durationMinutes,
     occurrences:$('#newBookingOccurrences')?.value || '1', interval:$('#newBookingInterval')?.value || '1', color:$('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT,
+    latestTime:$('#newBookingFlexibleEnd')?.value || '',
     historicalPaymentMethod:$('#newBookingHistoricalPaymentMethod')?.value || '', historicalAmount:$('#newBookingHistoricalAmount')?.value || ''
   };
   try { sessionStorage.setItem(bookingDraftKey(), JSON.stringify(draft)); } catch {}
@@ -1157,9 +1158,7 @@ async function saveOfflineBookingQueue(userId = currentUser?.id, { generation = 
       if (verify) {
         const stored = await reliability.get(key);
         if (!sessionIsCurrent(userId, generation)) return false;
-        const storedIds = Array.isArray(stored?.data) ? stored.data.map(item => item?.id).filter(Boolean).sort() : [];
-        const expectedIds = payload.map(item => item.id).sort();
-        if (JSON.stringify(storedIds) !== JSON.stringify(expectedIds)) return false;
+        if (JSON.stringify(stored?.data) !== JSON.stringify(payload)) return false;
       }
       return true;
     } catch { return false; }
@@ -1190,7 +1189,7 @@ function offlineBookingServiceName(item) {
   return serviceName(ownServices.find(service => service.id === item.serviceId)?.name || item.serviceName || 'Услуга');
 }
 function offlineBookingConflictText(reason) {
-  return ({ slot_unavailable:'Выбранное время уже занято', booking_buffer_conflict:'Время попадает в перерыв рядом с другой записью', service_unavailable:'Услуга больше недоступна', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
+  return ({ slot_unavailable:'Выбранное время уже занято', no_slot_in_range:'В указанном диапазоне нет свободного времени', booking_buffer_conflict:'Время попадает в перерыв рядом с другой записью', service_unavailable:'Услуга больше недоступна', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
 }
 function showOfflineBookingCompletion(item, booking, notification) {
   if (!item || item.bookingCreationConfirmed) return false;
@@ -1290,13 +1289,13 @@ function renderOfflineBookingQueue() {
   list.innerHTML = offlineBookingQueue.map(item => {
     const date = parseLocalIsoDate(item.date);
     const dateLabel = date ? date.toLocaleDateString('ru-RU', { day:'numeric', month:'short' }) : item.date;
-    const end = timeFromMinutes(minutesFromTime(item.time) + Math.max(1, Number(item.durationMinutes || 60)));
+    const end = item.latestTime || timeFromMinutes(minutesFromTime(item.time) + Math.max(1, Number(item.durationMinutes || 60)));
     const state = item.status === 'conflict' ? `<small class="offline-booking-conflict" role="alert">${escapeHtml(offlineBookingConflictText(item.reason))}</small>` : item.status === 'syncing' ? '<small>Проверяем время на сервере…</small>' : item.status === 'server_check_pending' ? '<small>Запись принята сервером · подтверждаем результат</small>' : item.status === 'notification_pending' ? '<small>Запись создана · повторим уведомление клиенту</small>' : '<small>Ожидает подключения</small>';
     const notificationOnly = item.status === 'notification_pending';
     const label = notificationOnly ? `Не повторять уведомление о записи на ${dateLabel} в ${item.time}` : `Удалить отложенную запись ${item.clientName} на ${dateLabel} в ${item.time}`;
     const removalLocked = item.status === 'syncing' || item.status === 'server_check_pending';
     const editButton = item.status === 'conflict' ? `<button type="button" class="offline-booking-edit" data-edit-offline-booking="${escapeHtml(item.id)}" aria-label="Изменить отложенную запись ${escapeHtml(item.clientName)}">Изменить</button>` : '';
-    return `<article class="offline-booking-item is-${item.status === 'conflict' ? 'conflict' : 'pending'}"><div><strong>${escapeHtml(item.clientName)}</strong><span>${escapeHtml(dateLabel)} · ${escapeHtml(item.time)}–${escapeHtml(end)}</span><span>${escapeHtml(offlineBookingServiceName(item))}</span>${state}</div><div class="offline-booking-actions">${editButton}<button type="button" data-remove-offline-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}" ${removalLocked ? 'disabled' : ''}>${notificationOnly ? 'Не повторять' : 'Удалить'}</button></div></article>`;
+    return `<article class="offline-booking-item is-${item.status === 'conflict' ? 'conflict' : 'pending'}"><div><strong>${escapeHtml(item.clientName)}</strong><span>${escapeHtml(dateLabel)} · ${escapeHtml(item.time)}–${escapeHtml(end)}${item.latestTime ? ' · гибкое начало' : ''}</span><span>${escapeHtml(offlineBookingServiceName(item))}</span>${state}</div><div class="offline-booking-actions">${editButton}<button type="button" data-remove-offline-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}" ${removalLocked ? 'disabled' : ''}>${notificationOnly ? 'Не повторять' : 'Удалить'}</button></div></article>`;
   }).join('');
   if (retry) {
     retry.hidden = !navigator.onLine || (!notifications && !conflicts);
@@ -1313,7 +1312,7 @@ async function queueOfflineBooking(payload) {
   const nextItem = {
     id:editingIndex >= 0 ? offlineBookingQueue[editingIndex].id : createOfflineBookingId(), userId, createdAt:Date.now(), status:'pending', attempts:0,
     clientName:String(payload.clientName || '').slice(0, 80), clientPhone:String(payload.clientPhone || '').slice(0, 40),
-    serviceId:String(payload.serviceId || ''), serviceName:String(payload.serviceName || '').slice(0, 120), durationMinutes:normalizePerMinuteDuration(payload.durationMinutes), date:String(payload.date || ''), time:String(payload.time || '').slice(0, 5),
+    serviceId:String(payload.serviceId || ''), serviceName:String(payload.serviceName || '').slice(0, 120), durationMinutes:normalizePerMinuteDuration(payload.durationMinutes), date:String(payload.date || ''), time:String(payload.time || '').slice(0, 5), latestTime:String(payload.latestTime || '').slice(0, 5),
     note:String(payload.note || '').slice(0, 1000), color:BOOKING_COLOR_KEYS.includes(payload.color) ? payload.color : BOOKING_COLOR_DEFAULT
   };
   if (editingIndex >= 0) offlineBookingQueue[editingIndex] = nextItem;
@@ -1410,7 +1409,7 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
       }
       const previousStatus = item.status;
       const previousReason = item.reason || '';
-      if (queuedBookingSlotMatch(item)) {
+      if (!item.latestTime && queuedBookingSlotMatch(item)) {
         item.status = 'conflict'; item.reason = 'slot_unavailable';
         const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
         await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
@@ -1428,7 +1427,13 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
         break;
       }
       const params = { p_service:item.serviceId, p_date:item.date, p_time:`${item.time}:00`, p_client_name:item.clientName, p_client_phone:item.clientPhone };
-      const { error } = await db.rpc('book_appointment', { p_request_id:item.id, ...params });
+      const { data: flexibleResult, error } = item.latestTime
+        ? await db.rpc('book_flexible_appointment_v178', {
+          p_request_id:item.id, p_service:item.serviceId, p_date:item.date,
+          p_earliest:`${item.time}:00`, p_latest:`${item.latestTime}:00`,
+          p_client_name:item.clientName, p_client_phone:item.clientPhone, p_kind:'provider'
+        })
+        : await db.rpc('book_appointment', { p_request_id:item.id, ...params });
       if (!sessionIsCurrent(userId, generation)) return false;
       if (error) {
         if (bookingConnectionError(error)) {
@@ -1452,6 +1457,14 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
         deliverOfflineBookingProviderNotice(providerNotice);
         continue;
       }
+      if (item.latestTime && flexibleResult?.result_code !== 'ok') {
+        item.status = 'conflict';
+        item.reason = flexibleResult?.result_code === 'no_slot_in_range' ? 'no_slot_in_range' : 'unexpected_error';
+        const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
+        await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        deliverOfflineBookingProviderNotice(providerNotice);
+        continue;
+      }
       const refreshed = await loadBookings({ silent:true });
       if (!sessionIsCurrent(userId, generation)) return false;
       if (!refreshed?.ok) {
@@ -1469,6 +1482,7 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
         deliverOfflineBookingProviderNotice(providerNotice);
         break;
       }
+      if (item.latestTime) item.time = String(booking.booking_time || item.time).slice(0, 5);
       const queuedService = ownServices.find(service => service.id === item.serviceId);
       const applied = await applyPerMinuteBookingTerms([booking.id], queuedService, item.durationMinutes);
       if (!applied.ok) {
@@ -10991,6 +11005,8 @@ function updateNewBookingConnectivity() {
     recurrence.hidden = newBookingMode === 'block' || historical;
     recurrence.classList.toggle('is-offline-disabled', offline && !historical);
   }
+  const flexibleEndField = $('#newBookingFlexibleEndField');
+  if (flexibleEndField) flexibleEndField.hidden = !offline || historical || newBookingMode !== 'client';
   const subtitle = $('#newBookingDateTimeSubtitle');
   const timeCaption = $('#newBookingTimeCaption');
   if (subtitle) subtitle.textContent = historical ? 'Укажите фактические дату и время визита' : 'Выберите удобное свободное окно';
@@ -11450,6 +11466,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
             <label id="newBookingLocationField" ${blockContext.locations.length > 1 ? '' : 'hidden'}>Филиал<select id="newBookingLocation">${providerBlockLocationOptions(blockContext.locations, blockContext.locationId)}</select></label>
             <label class="new-booking-date-field"><span class="sr-only">Дата</span><input id="newBookingDate" type="date" value="${date}" required></label>
             <div role="group" aria-labelledby="newBookingTimeCaption"><span class="sr-only" id="newBookingTimeCaption">Свободное время</span><div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></div>
+            <label id="newBookingFlexibleEndField" hidden>Если начало занято, найти ближайшее свободное время до<input id="newBookingFlexibleEnd" type="time" step="1800" value="${escapeHtml(preset.latestTime || draft?.latestTime || '')}"><small>Одна запись. Предел относится ко времени начала и действует только для офлайн-очереди.</small></label>
             <section class="new-booking-historical-payment" id="newBookingHistoricalPayment" ${newBookingHistoricalMode ? '' : 'hidden'}>
               <div class="new-booking-historical-payment-title"><strong>Оплата за визит</strong></div>
               <div class="new-booking-historical-payment-fields"><label>Способ оплаты<select id="newBookingHistoricalPaymentMethod"><option value="cash" ${initialHistoricalPaymentMethod === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${initialHistoricalPaymentMethod === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${initialHistoricalPaymentMethod === 'card' ? 'selected' : ''}>Карта</option><option value="unpaid" ${initialHistoricalPaymentMethod === 'unpaid' ? 'selected' : ''}>Не оплачено</option></select></label><label>Получено, ₽<input id="newBookingHistoricalAmount" type="number" inputmode="numeric" min="0" max="1000000" step="1" value="${initialHistoricalPaymentMethod === 'unpaid' ? 0 : initialHistoricalAmount}" ${initialHistoricalPaymentMethod === 'unpaid' ? 'disabled' : ''} required></label></div>
@@ -11516,6 +11533,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
     loadNewBookingSlots();
   }));
   $('#newBookingDate').addEventListener('change', () => { newBookingTime = ''; newBookingPreferredTime = ''; newBookingHistoricalMode = $('#newBookingDate').value < businessTodayIso(); updateNewBookingHeading(); saveNewBookingDraft(); updateNewBookingConnectivity(); loadNewBookingSlots(); });
+  $('#newBookingFlexibleEnd').addEventListener('change', () => { updateNewBookingSubmitCaption(); saveNewBookingDraft(); });
   $('#newBookingHistoricalPaymentMethod').addEventListener('change', () => { updateNewBookingHistoricalPayment(); saveNewBookingDraft(); });
   $('#newBookingHistoricalAmount').addEventListener('input', event => {
     event.currentTarget.dataset.userEdited = 'true';
@@ -11711,6 +11729,7 @@ async function createNewBooking(event) {
   const intervalWeeks = Math.max(1, Number($('#newBookingInterval')?.value || 1));
   const selectedButtonTime = $('[data-new-booking-time].active')?.dataset.newBookingTime || '';
   newBookingTime = newBookingTime || selectedButtonTime;
+  const latestTime = !navigator.onLine ? ($('#newBookingFlexibleEnd')?.value || '') : '';
   const historical = newBookingHistoricalMode || date < businessTodayIso() || (date === businessTodayIso() && newBookingTime && new Date(`${date}T${newBookingTime}:00`) < new Date());
   const historicalPaymentMethod = ['cash','transfer','card','unpaid'].includes($('#newBookingHistoricalPaymentMethod')?.value)
     ? $('#newBookingHistoricalPaymentMethod').value
@@ -11744,6 +11763,14 @@ async function createNewBooking(event) {
     showFormError('#newBookingError', validationError);
     return;
   }
+  if (latestTime && (latestTime < newBookingTime || !/^([01]\d|2[0-3]):[0-5]\d$/.test(latestTime))) {
+    showFormError('#newBookingError', 'Укажите предел не раньше желаемого времени в тот же день.');
+    return;
+  }
+  if (latestTime && (block || occurrenceCount > 1 || durationMinutes !== Number(serviceModel?.duration_minutes))) {
+    showFormError('#newBookingError', 'Гибкое время доступно для одной записи со стандартной длительностью услуги.');
+    return;
+  }
   if (historical && block) {
     showFormError('#newBookingError', 'В прошлом можно добавить только фактический визит клиента, но не блокировку времени.');
     return;
@@ -11757,7 +11784,7 @@ async function createNewBooking(event) {
     return;
   }
   const serverConfirmedCurrentSlot = !historical && !block && newBookingSlots.includes(newBookingTime);
-  const placementIssue = serverConfirmedCurrentSlot ? '' : bookingPlacementIssue(
+  const placementIssue = (serverConfirmedCurrentSlot || latestTime) ? '' : bookingPlacementIssue(
     { id:'new-booking-validation', duration_minutes:durationMinutes, client_phone:phone },
     date,
     minutesFromTime(newBookingTime),
@@ -11793,7 +11820,7 @@ async function createNewBooking(event) {
     return;
   }
   if (editingOfflineBookingId) {
-    const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:serviceModel?.name, durationMinutes, date, time:newBookingTime, note, color });
+    const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:serviceModel?.name, durationMinutes, date, time:newBookingTime, latestTime, note, color });
     button.disabled = false;
     updateNewBookingSubmitCaption();
     if (!queued.ok) {
@@ -11817,7 +11844,7 @@ async function createNewBooking(event) {
       showFormError('#newBookingError', block ? 'Без интернета можно отложить только запись клиента, но не блокировку времени.' : 'Без интернета можно отложить одну запись. Серии создаются после подключения.');
       return;
     }
-    const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:serviceModel?.name, durationMinutes, date, time:newBookingTime, note, color });
+    const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:serviceModel?.name, durationMinutes, date, time:newBookingTime, latestTime, note, color });
     button.disabled = false;
     updateNewBookingSubmitCaption();
     if (!queued.ok) {
@@ -17275,6 +17302,7 @@ $('#offlineBookingQueueList')?.addEventListener('click', async event => {
       serviceId:item.serviceId,
       durationMinutes:item.durationMinutes,
       date:item.date,
+      latestTime:item.latestTime,
       note:item.note,
       color:item.color
     });
