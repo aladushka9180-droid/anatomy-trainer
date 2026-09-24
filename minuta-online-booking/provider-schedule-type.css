@@ -264,7 +264,7 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
   box-shadow:none!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-auto *,
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto:not(.automatic-break-theme-color) * {
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.status-block.automatic-break.color-auto:not(.automatic-break-theme-color) :is(.timeline-automatic-break-label,.timeline-automatic-break-source,.timeline-booking-time,.timeline-booking-time *, .timeline-booking-copy,.timeline-booking-copy *, .timeline-mobile-time,.timeline-break-short-label,.timeline-break-short-label *) {
   color:#313239!important;
   opacity:1!important;
 }

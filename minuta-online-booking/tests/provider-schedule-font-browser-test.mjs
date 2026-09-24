@@ -190,27 +190,32 @@ try {
       document.body.dataset.providerTheme='pink-porcelain';
       const manual=document.querySelector('[data-open-booking="manual-break"]');
       const automatic=document.querySelector('[data-open-automatic-break]');
+      const sourceInk=getComputedStyle(automatic.querySelector('.timeline-automatic-break-source')).color;
+      const timeInk=getComputedStyle(automatic.querySelector('.timeline-booking-time')).color;
       for(const [element,label] of [[manual,'Перерыв'],[automatic,'Автоперерыв']]){
         element.className=`timeline-booking status-block color-auto${element===automatic?' automatic-break':''}`;
         element.dataset.bookingDuration='30';
         element.style.height='36px';
-        element.innerHTML=`<span class="timeline-break-short-time">19:30–20:00</span><span class="timeline-break-short-label">${label}</span>`;
+        element.innerHTML=`<span class="timeline-break-short-time">19:30–20:00</span><span class="timeline-break-short-label">${element===automatic?`<span class="timeline-automatic-break-label">${label}</span>`:label}</span>`;
       }
       const state=element=>{
         const card=element.getBoundingClientRect();
         const time=element.querySelector('.timeline-break-short-time').getBoundingClientRect();
         const label=element.querySelector('.timeline-break-short-label').getBoundingClientRect();
-        return {bg:getComputedStyle(element).backgroundColor,ink:getComputedStyle(element).color,border:getComputedStyle(element).borderStyle,top:time.top-card.top,bottom:card.bottom-label.bottom,timeBottom:time.bottom,labelTop:label.top};
+        return {bg:getComputedStyle(element).backgroundColor,ink:getComputedStyle(element).color,labelInk:getComputedStyle(element.querySelector('.timeline-automatic-break-label')||element.querySelector('.timeline-break-short-label')).color,border:getComputedStyle(element).borderStyle,top:time.top-card.top,bottom:card.bottom-label.bottom,timeBottom:time.bottom,labelTop:label.top};
       };
-      return {manual:state(manual),automatic:state(automatic)};
+      return {manual:state(manual),automatic:state(automatic),sourceInk,timeInk};
     });
     for(const kind of ['manual','automatic']){
       assert.equal(shortBreaks[kind].bg,'rgb(230, 226, 223)',`${width}/${kind} warm gray`);
       assert.equal(shortBreaks[kind].ink,'rgb(49, 50, 57)',`${width}/${kind} readable ink`);
+      assert.equal(shortBreaks[kind].labelInk,'rgb(49, 50, 57)',`${width}/${kind} readable label`);
       assert.ok(shortBreaks[kind].top>=3&&shortBreaks[kind].bottom>=3,`${width}/${kind} vertically clipped`);
       assert.ok(shortBreaks[kind].labelTop>=shortBreaks[kind].timeBottom,`${width}/${kind} lines overlap`);
     }
     assert.equal(shortBreaks.automatic.border.split(' ')[0],'dashed',`${width} automatic dashed border`);
+    assert.equal(shortBreaks.sourceInk,'rgb(49, 50, 57)',`${width} long automatic source ink`);
+    assert.equal(shortBreaks.timeInk,'rgb(49, 50, 57)',`${width} long automatic time ink`);
     await page.getByRole('radio',{name:'Утончённый'}).check();
     assert.equal(await page.locator('body').getAttribute('data-schedule-font-style'),'refined');
     await page.getByRole('button',{name:longService}).click();
