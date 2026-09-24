@@ -241,8 +241,26 @@ async function harness({ digestTicks = 0 } = {}) {
   function deferSettings() { const operation = deferred(); settingsQueue.push(operation); return operation; }
   return { ctx, optionsKeys, invokeCalls, rpcCalls, notifications, resetEvents, deviceClears,
     ui, maps, submit, settle, switchOrg, session, payload, deferLoad, deferSettings, load: () => controller.load(),
+    submitRefundForm: () => handlers.get('submit')({ target: $('#paymentRefundForm'), preventDefault() {} }),
     submitSettings: () => handlers.get('submit')({ target: $('#paymentProviderSettingsForm'), preventDefault() {} }) };
 }
+
+test('cancelled refund review shows source, amount, remainder and reason without invoking refund', async () => {
+  const h = await harness();
+  let review = '';
+  h.ctx.window.confirm = message => { review = message; return false; };
+  h.ctx.$('#paymentRefundAmount').value = '10.00';
+  h.ctx.$('#paymentRefundReason').value = 'Изолированная причина';
+  assert.equal(h.ui().attempt, attemptA);
+  await h.submitRefundForm();
+  assert.match(review, new RegExp(attemptA));
+  assert.match(review, /10[,.]00 ₽/);
+  assert.match(review, /доступно.*100[,.]00 ₽/i);
+  assert.match(review, /Изолированная причина/);
+  assert.match(review, /отменить.*нельзя/i);
+  assert.equal(h.invokeCalls.length, 0);
+  assert.equal(h.ui().amount, '10.00', 'cancellation must preserve form data');
+});
 
 test('fixture evidence: options originate from actual provider construction, not invented session APIs', async t => {
   const h = await harness();

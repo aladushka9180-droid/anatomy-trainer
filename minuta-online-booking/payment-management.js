@@ -920,8 +920,10 @@
         notify('Укажите причину возврата не короче 8 символов');
         return;
       }
+      const attempt = payload?.recent_attempts?.find(item => String(item.id) === String($('#paymentRefundAttempt').value));
+      if (!attempt) { notify('Исходный платёж не найден. Обновите журнал операций.'); return; }
       const confirmedByUser = typeof global.confirm === 'function'
-        && global.confirm(`Вернуть ${minorInputValue(amountMinor).replace('.', ',')} ₽ через ЮKassa? Отменить операцию после отправки нельзя.`);
+        && global.confirm(`Отправить возврат через ЮKassa?\n\nИсходный платёж: ${attempt.id}\nПолучено по платежу: ${moneyMinor(attempt.captured_amount_minor)}\nСумма возврата: ${moneyMinor(amountMinor)}\nДоступно к возврату: ${moneyMinor(remaining)}\nПричина: ${reason}\n\nПосле отправки отменить возврат нельзя. Отмена сейчас не отправит операцию.`);
       if (!confirmedByUser) {
         notify('Возврат не отправлен');
         return;
