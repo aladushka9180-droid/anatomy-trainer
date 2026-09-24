@@ -220,10 +220,8 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
   opacity:1!important;
 }
 
-/* Keep the same pink surface as bookings; only the automatic pause's visible
-   text receives a dark-rose backing so its white ink remains legible. */
+/* Keep the same pink surface and white ink as bookings, without text backings. */
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto {
-  --automatic-break-ink-bg:color-mix(in srgb,var(--theme-accent) 18%,#402333);
   border:1px dashed var(--theme-accent)!important;
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
@@ -231,11 +229,9 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
   box-shadow:none!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto :is(.timeline-automatic-break-label,.timeline-automatic-break-source,.timeline-booking-time,.timeline-mobile-time) {
-  width:max-content!important;
-  max-width:100%!important;
-  padding:2px 5px!important;
-  border-radius:5px!important;
-  background:var(--automatic-break-ink-bg)!important;
+  padding:0!important;
+  border-radius:0!important;
+  background:none!important;
   color:#fff!important;
   opacity:1!important;
 }
@@ -246,7 +242,7 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
   display:block!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto .timeline-booking-copy>strong::before {
-  color:var(--automatic-break-ink-bg)!important;
+  color:#fff!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto:hover {
   border-color:var(--theme-accent)!important;

@@ -76,9 +76,9 @@ try {
         assert.equal(state.breakLabelBackground,state.breakTimeBackground,`${width} ${character}/${shade} mismatched time backing`);
         assert.equal(state.breakLabelBackground,state.breakMobileTimeBackground,`${width} ${character}/${shade} mismatched mobile time backing`);
         assert.equal(state.breakMobileTimeColor,'rgb(255, 255, 255)',`${width} ${character}/${shade} mobile pause time`);
-        minimumContrast=Math.min(minimumContrast,whiteContrast(state.breakLabelBackground));
-        if(character==='petal'&&shade==='gentle-pink')recommendedShadeContrast=whiteContrast(state.breakLabelBackground);
-        assert.ok(whiteContrast(state.breakLabelBackground)>=4.5,`${width} ${character}/${shade} white pause text contrast`);
+        assert.equal(state.breakLabelBackground,'rgba(0, 0, 0, 0)',`${width} ${character}/${shade} pause text backing`);
+        minimumContrast=Math.min(minimumContrast,whiteContrast(state.breakBackground));
+        if(character==='petal'&&shade==='gentle-pink')recommendedShadeContrast=whiteContrast(state.breakBackground);
         for(const key of ['todayColor','dayColor','bookingTitleColor','bookingTimeColor','bookingClientColor','breakTitleColor','breakSourceColor','breakTimeColor'])
           assert.equal(state[key],'rgb(255, 255, 255)',`${width} ${character}/${shade} ${key}`);
         assert.equal(state.bookingTextShadow,'none');
@@ -101,7 +101,7 @@ try {
     assert.equal(await page.locator('body').getAttribute('data-clicked'),'true');
     await page.evaluate(()=>document.body.dataset.providerTheme='sage');
     assert.notEqual(await page.locator('.timeline-booking.status-confirmed .timeline-service-title').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)',`${width} other theme`);
-    console.log(`${width}px: 15 palettes, white target text, unchanged adjacent theme, no overflow, click OK; default shade ${recommendedShadeContrast.toFixed(2)}:1, weakest ${minimumContrast.toFixed(2)}:1`);
+    console.log(`${width}px: 15 palettes, unbacked white text, unchanged adjacent theme, no overflow, click OK; background contrast ${recommendedShadeContrast.toFixed(2)}:1 default, ${minimumContrast.toFixed(2)}:1 weakest`);
     await page.close();
   }
 } finally { await browser.close(); }

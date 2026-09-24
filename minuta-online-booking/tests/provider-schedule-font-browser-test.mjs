@@ -153,7 +153,9 @@ try {
             const title=document.querySelector('.timeline-service-title');
             const previous=title.textContent;
             title.textContent='Массаж';
-            const gap=document.querySelector('.timeline-service-duration').getBoundingClientRect().left-title.getBoundingClientRect().right;
+            const text=document.createRange();
+            text.selectNodeContents(title);
+            const gap=document.querySelector('.timeline-service-duration').getBoundingClientRect().left-text.getBoundingClientRect().right;
             title.textContent=previous;
             return gap;
           });
