@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
 const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
+assert.match(html, /connect-src[^"]*https:\/\/primetime-booking\.primetime-booking-ru\.workers\.dev/, 'Pro CSP must allow the short-link Worker');
 const start = html.indexOf('<dialog class="free-slots-dialog"');
 const dialog = html.slice(start, html.indexOf('</dialog>', start) + 9);
 const source = readFileSync(new URL('../free-slots-share.js', import.meta.url), 'utf8')
