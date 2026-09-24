@@ -163,4 +163,21 @@ select pg_temp.v178_check(
   current_setting('v178.terms_result')::jsonb->>'result_code'='service_terms_changed'
   and (select count(*) from public.bookings where booking_date=current_date+1)=5,
   'stale_service_terms_create_nothing');
+
+-- Model a concurrent constraint rejection after the slot list was read.
+insert into public.test_slots_v178(service_id,booking_date,booking_time)
+values
+  ('00000000-0000-4000-8000-000000000180',current_date+3,'10:00'),
+  ('00000000-0000-4000-8000-000000000180',current_date+3,'11:00');
+select set_config('v178.simulate_exclusion','on',true);
+set local role anon;
+select set_config('v178.exclusion_result',public.book_flexible_appointment_v178(
+  gen_random_uuid(),'00000000-0000-4000-8000-000000000180',current_date+3,
+  '10:00','11:00','Synthetic exclusion retry','+79990000120')::text,true);
+reset role;
+select set_config('v178.simulate_exclusion','off',true);
+select pg_temp.v178_check(
+  current_setting('v178.exclusion_result')::jsonb->>'booking_time'='11:00:00'
+  and (select count(*) from public.bookings where booking_date=current_date+3)=1,
+  'exclusion_retries_next_start');
 rollback;

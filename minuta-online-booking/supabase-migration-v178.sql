@@ -155,6 +155,9 @@ begin
         continue;
       end if;
       raise;
+    when exclusion_violation then
+      -- Another writer or a booking constraint may have claimed this start.
+      continue;
     end;
     select * into v_booking from public.bookings where request_id=p_request_id;
     if not found or v_booking.service_id is distinct from p_service

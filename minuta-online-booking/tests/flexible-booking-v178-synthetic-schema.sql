@@ -235,6 +235,9 @@ begin
     where slot.booking_time=p_time) then
     raise exception using errcode='P0001',message='slot_unavailable';
   end if;
+  if p_time='10:00' and current_setting('v178.simulate_exclusion',true)='on' then
+    raise exception using errcode='23P01',message='synthetic_booking_exclusion';
+  end if;
   insert into public.bookings(request_id,request_fingerprint,performer_id,service_id,
     booking_date,booking_time,duration_minutes,booking_code,manage_token,client_name,client_phone)
   values(p_request_id,v_fingerprint,v_performer,p_service,p_date,p_time,v_duration,
