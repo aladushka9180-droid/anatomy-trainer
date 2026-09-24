@@ -307,6 +307,8 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   schedule_font_style: 'current',
   break_color_default: 'auto',
   automatic_break_color: 'neutral',
+  automatic_break_color_initial: 'neutral',
+  automatic_break_color_history: [],
   break_color_history: [],
   booking_card_density: 'compact',
   show_phone: false,
@@ -2099,6 +2101,12 @@ function normalizeDisplayPreferences(value = {}) {
     ? source.automatic_break_color
     : BOOKING_COLOR_KEYS.includes(legacyAutomaticBreakColor) && legacyAutomaticBreakColor !== 'auto'
       ? legacyAutomaticBreakColor : DEFAULT_DISPLAY_PREFERENCES.automatic_break_color;
+  const automaticBreakColorHistory = Array.isArray(source.automatic_break_color_history)
+    ? source.automatic_break_color_history.filter(entry => entry && Number.isFinite(Date.parse(entry.effective_at))
+      && AUTOMATIC_BREAK_COLOR_KEYS.includes(entry.color))
+      .map(entry => ({ effective_at:new Date(entry.effective_at).toISOString(), color:entry.color }))
+      .sort((left, right) => left.effective_at.localeCompare(right.effective_at))
+    : [];
   return {
     layout: PROVIDER_LAYOUT_KEYS.includes(storedLayout) ? storedLayout : legacyLayout || DEFAULT_DISPLAY_PREFERENCES.layout,
     theme,
@@ -2108,6 +2116,9 @@ function normalizeDisplayPreferences(value = {}) {
     schedule_font_style:SCHEDULE_FONT_STYLE_KEYS.includes(source.schedule_font_style) ? source.schedule_font_style : DEFAULT_DISPLAY_PREFERENCES.schedule_font_style,
     break_color_default:BOOKING_COLOR_KEYS.includes(source.break_color_default) ? source.break_color_default : DEFAULT_DISPLAY_PREFERENCES.break_color_default,
     automatic_break_color:automaticBreakColor,
+    automatic_break_color_initial:AUTOMATIC_BREAK_COLOR_KEYS.includes(source.automatic_break_color_initial)
+      ? source.automatic_break_color_initial : automaticBreakColor,
+    automatic_break_color_history:automaticBreakColorHistory,
     break_color_history:breakColorHistory,
     booking_card_density:density,
     ...cardOptions,
@@ -2131,6 +2142,8 @@ function displayPreferencesEqual(left, right) {
     && a.schedule_font_style === b.schedule_font_style
     && a.break_color_default === b.break_color_default
     && a.automatic_break_color === b.automatic_break_color
+    && a.automatic_break_color_initial === b.automatic_break_color_initial
+    && JSON.stringify(a.automatic_break_color_history) === JSON.stringify(b.automatic_break_color_history)
     && JSON.stringify(a.break_color_history) === JSON.stringify(b.break_color_history)
     && a.booking_card_density === b.booking_card_density
     && a.show_phone === b.show_phone
@@ -2678,6 +2691,8 @@ function displayPreferencesFromForm() {
     schedule_font_style:$('#providerDisplayForm input[name="scheduleFontStyle"]:checked')?.value,
     break_color_default:displayPreferences.break_color_default,
     automatic_break_color:$('#providerDisplayForm input[name="automaticBreakColor"]:checked')?.value || displayPreferences.automatic_break_color,
+    automatic_break_color_initial:displayPreferences.automatic_break_color_initial,
+    automatic_break_color_history:displayPreferences.automatic_break_color_history,
     break_color_history:displayPreferences.break_color_history,
     booking_card_density:$('#providerDisplayForm input[name="bookingCardDensity"]:checked')?.value,
     show_phone: $('#showBookingPhone').checked,
@@ -2694,7 +2709,13 @@ function displayPreferencesFromForm() {
   });
 }
 function saveDisplayPreferences(next = displayPreferencesFromForm()) {
-  displayPreferences = normalizeDisplayPreferences(next);
+  const candidate = normalizeDisplayPreferences(next);
+  if (candidate.automatic_break_color !== displayPreferences.automatic_break_color) {
+    candidate.automatic_break_color_initial = displayPreferences.automatic_break_color_initial || displayPreferences.automatic_break_color;
+    candidate.automatic_break_color_history = [...(displayPreferences.automatic_break_color_history || []),
+      { effective_at:new Date().toISOString(), color:candidate.automatic_break_color }];
+  }
+  displayPreferences = normalizeDisplayPreferences(candidate);
   displayPreferencesUpdatedAt = Math.max(Date.now(), displayPreferencesUpdatedAt + 1);
   displayPreferencesPending = true;
   persistLocalDisplayPreferences();
@@ -2827,6 +2848,28 @@ function businessMomentIso(date = new Date()) {
 function automaticBreakColorAt(date, time) {
   return BOOKING_COLOR_KEYS.includes(displayPreferences.automatic_break_color)
     ? displayPreferences.automatic_break_color : BOOKING_COLOR_DEFAULT;
+}
+function automaticBreakAppearanceAt(dateIso, startTime, endTime, items = allBookings) {
+  const start = minutesFromTime(startTime);
+  const end = minutesFromTime(endTime);
+  const buffer = Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60));
+  const sources = items.filter(item => item.booking_date === dateIso && item.status !== 'cancelled' && !isScheduleBlock(item))
+    .filter(item => {
+      const bookingStart = minutesFromTime(item.booking_time);
+      const bookingEnd = bookingStart + Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60));
+      return (start < bookingStart && end > bookingStart - buffer)
+        || (start < bookingEnd + buffer && end > bookingEnd);
+    });
+  const firstSourceTime = sources.map(item => Date.parse(item.created_at)).filter(Number.isFinite).sort((a, b) => a - b)[0];
+  const history = displayPreferences.automatic_break_color_history || [];
+  const color = Number.isFinite(firstSourceTime)
+    ? history.filter(entry => Date.parse(entry.effective_at) <= firstSourceTime).at(-1)?.color
+      || displayPreferences.automatic_break_color_initial
+    : displayPreferences.automatic_break_color_initial;
+  return {
+    color_key:BOOKING_COLOR_KEYS.includes(color) ? color : BOOKING_COLOR_DEFAULT,
+    automatic_break_theme_color:color === 'theme'
+  };
 }
 function saveFutureBreakColor(color) {
   const selected = validBookingColor(color);
@@ -8660,7 +8703,7 @@ function automaticBookingBreaks(items, dateIso = selectedDate) {
         client_phone:SCHEDULE_BLOCK_PHONE,
         status:'confirmed',
         automatic_break:true,
-        color_key:automaticBreakColorAt(dateIso, `${start}:00`),
+        ...automaticBreakAppearanceAt(dateIso, start, end, items),
         automatic_break_source_count:Math.max(1, Number(segment.source_count) || 1),
         automatic_break_fingerprint:String(segment.segment_fingerprint || ''),
         services:{ name:'Перерыв', duration_minutes:duration }
@@ -8723,7 +8766,7 @@ function automaticBookingBreaks(items, dateIso = selectedDate) {
     client_phone:SCHEDULE_BLOCK_PHONE,
     status:'confirmed',
     automatic_break:true,
-    color_key:automaticBreakColorAt(dateIso, `${timeFromMinutes(start)}:00`),
+    ...automaticBreakAppearanceAt(dateIso, timeFromMinutes(start), timeFromMinutes(end), items),
     automatic_break_source_count:sources.size,
     services:{ name:'Перерыв', duration_minutes:end - start }
   }));
@@ -8896,9 +8939,9 @@ function renderTimeline(sourceItems) {
       ${renderedStatus}`;
     const dragHandle = movable ? '<span class="timeline-drag-handle" aria-hidden="true"></span>' : '';
     const tight = tightMobile ? ' timeline-tight' : '';
-    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ` automatic-break${displayPreferences.automatic_break_color === 'theme' ? ' automatic-break-theme-color' : ''}` : ''}${imported ? ' is-imported-history' : ''}${notePresence ? ' has-note' : ''}${highlightClasses}${temporalClass}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
+    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ` automatic-break${item.automatic_break_theme_color ? ' automatic-break-theme-color' : ''}` : ''}${imported ? ' is-imported-history' : ''}${notePresence ? ' has-note' : ''}${highlightClasses}${temporalClass}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
-    const timelineStyle = `top:${visualTop + 2}px;height:${height}px${block && duration === 30 ? ';padding:1px 7px!important;overflow:hidden!important' : tightMobile ? ';padding:5px 9px!important;overflow:hidden!important' : ''}`;
+    const timelineStyle = `top:${visualTop + 2}px;height:${height}px${block && duration === 30 ? ';overflow:hidden!important' : tightMobile ? ';padding:5px 9px!important;overflow:hidden!important' : ''}`;
     return item.automatic_break
       ? `<button class="${className}" type="button" data-open-automatic-break data-automatic-break-date="${escapeHtml(item.booking_date)}" data-automatic-break-start="${startTime}" data-automatic-break-end="${endTime}" data-automatic-break-source-count="${Number(item.automatic_break_source_count) || 1}" data-automatic-break-fingerprint="${escapeHtml(item.automatic_break_fingerprint || '')}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-haspopup="dialog" aria-controls="bookingSheet" aria-label="${ariaLabel}. Открыть управление перерывом" title="Открыть управление автоматическим перерывом">${cardContent}</button>`
       : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} ${movable ? 'data-timeline-movable aria-describedby="timelineMoveInstruction" aria-keyshortcuts="Shift+ArrowUp Shift+ArrowDown"' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : moveRestriction || 'Перетащите или нажмите Shift и стрелку, чтобы изменить время'}">${cardContent}${dragHandle}</button>`;
@@ -8942,7 +8985,7 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
       ? `data-open-automatic-break data-automatic-break-date="${escapeHtml(item.booking_date)}" data-automatic-break-start="${time}" data-automatic-break-end="${endTime}" data-automatic-break-source-count="${Number(item.automatic_break_source_count) || 1}" data-automatic-break-fingerprint="${escapeHtml(item.automatic_break_fingerprint || '')}" data-booking-duration="${duration}" aria-haspopup="dialog" aria-controls="bookingSheet"`
       : `data-open-booking="${escapeHtml(item.id)}"`;
     const actionLabel = item.automatic_break ? 'Открыть управление перерывом' : 'Открыть подробности';
-    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${item.is_imported_history ? ' is-imported-history' : ''}${block ? ' is-schedule-block' : clientHighlightClasses(item.client_phone)}${item.automatic_break ? ' automatic-break' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}">
+    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${item.is_imported_history ? ' is-imported-history' : ''}${block ? ' is-schedule-block' : clientHighlightClasses(item.client_phone)}${item.automatic_break ? ` automatic-break${item.automatic_break_theme_color ? ' automatic-break-theme-color' : ''}` : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}">
       <button class="provider-booking-open" type="button" ${openAttributes} aria-label="${escapeHtml(fullTitle)}, с ${time} до ${endTime}, ${escapeHtml(details)}. ${actionLabel}">
         <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
         <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3></span>
@@ -9253,10 +9296,19 @@ function openAutomaticBreakSheet(source) {
   automaticBreakSheetInvoker = source;
   sheet.dataset.assistantContext = 'automatic-break';
   sheet.classList.remove('booking-sheet-wide');
+  const selectedColor = displayPreferences.automatic_break_color;
+  const colorLabel = color => color === 'neutral' ? 'Нежный серый' : color === 'theme' ? 'Цвет темы' : BOOKING_COLOR_LABELS[color];
+  const colorOptions = AUTOMATIC_BREAK_COLOR_KEYS.map(color =>
+    `<label class="booking-color-option automatic-break-color-option color-${color}"><input type="radio" name="automaticBreakSheetColor" value="${color}" aria-label="${colorLabel(color)}" ${color === selectedColor ? 'checked' : ''}><span aria-hidden="true"></span><small>${colorLabel(color)}</small></label>`
+  ).join('');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">Автоматический перерыв</h2>
     <div class="booking-sheet-meta"><strong>${start}–${end}</strong><span>Из правил записи</span></div>
-    <div class="booking-sheet-block automatic-break-explanation"><span aria-hidden="true">◼</span><div><small>Буфер до или после записи</small><strong>Это время закрыто автоматически, чтобы между визитами оставался перерыв.</strong><p>${sourceCount > 1 ? `Интервал образован ${sourceCount} пересекающимися буферами. Освобождение завершится только после безопасного исключения каждого источника.` : 'Можно освободить только этот интервал. Остальные автоматические и ручные перерывы останутся.'}</p></div></div>
+    <p class="automatic-break-explanation">Буфер между записями. ${sourceCount > 1 ? `Интервал образован ${sourceCount} буферами; для освобождения нужно исключить каждый источник.` : 'Освобождение этого времени не затронет другие перерывы.'}</p>
+    <details class="automatic-break-sheet-color"><summary><span>Цвет автоперерывов</span><strong class="automatic-break-sheet-color-current">${colorLabel(selectedColor)}</strong></summary>
+      <div class="automatic-break-color-options" role="radiogroup" aria-label="Цвет будущих автоматических перерывов">${colorOptions}</div>
+      <small>Выбор сохраняется для новых автоперерывов. Уже созданные сохраняют свой цвет.</small>
+    </details>
     <div class="booking-sheet-actions automatic-break-actions">
       <button class="primary" type="button" data-release-automatic-break data-automatic-break-date="${escapeHtml(dateIso)}" data-automatic-break-start="${start}" data-automatic-break-end="${end}" data-automatic-break-source-count="${sourceCount}" data-automatic-break-fingerprint="${escapeHtml(fingerprint)}" ${automaticBookingBreaksRemoteAvailable && fingerprint ? '' : 'disabled'}>Освободить только это время</button>
       <button class="secondary-button" type="button" data-open-automatic-break-settings>Настроить правило</button>
@@ -9268,6 +9320,14 @@ function openAutomaticBreakSheet(source) {
   applyWriteAvailability();
   requestAnimationFrame(() => $('#bookingSheetContent [data-release-automatic-break]:not(:disabled), #bookingSheetContent [data-open-automatic-break-settings]')?.focus());
 }
+
+$('#bookingSheetContent')?.addEventListener('change', event => {
+  const input = event.target.closest('input[name="automaticBreakSheetColor"]');
+  if (!input || !AUTOMATIC_BREAK_COLOR_KEYS.includes(input.value)) return;
+  saveDisplayPreferences({ ...displayPreferences, automatic_break_color:input.value });
+  const caption = $('#bookingSheetContent .automatic-break-sheet-color-current');
+  if (caption) caption.textContent = input.value === 'neutral' ? 'Нежный серый' : input.value === 'theme' ? 'Цвет темы' : BOOKING_COLOR_LABELS[input.value];
+});
 
 async function openAutomaticBreakSettings() {
   automaticBreakSheetInvoker = null;

@@ -62,6 +62,19 @@ window.__scheduleFontPreferenceTest={
     return {count:document.querySelectorAll('[name="automaticBreakColor"]').length,selected:document.querySelector('[name="automaticBreakColor"]:checked')?.value};
   },
   breakColors(){return {defaultColor:displayPreferences.break_color_default,automaticColor:displayPreferences.automatic_break_color,history:displayPreferences.break_color_history};},
+  autoColorHistory(){
+    displayPreferences=normalizeDisplayPreferences({...displayPreferences,automatic_break_color:'graphite',automatic_break_color_initial:'neutral',automatic_break_color_history:[{effective_at:'2026-09-24T10:00:00.000Z',color:'graphite'}]});
+    const source=created_at=>[{id:'source',booking_date:'2026-09-25',booking_time:'12:00:00',duration_minutes:60,status:'confirmed',client_name:'Тест',client_phone:'+79990000000',created_at}];
+    const old=automaticBreakAppearanceAt('2026-09-25','11:00','12:00',source('2026-09-23T10:00:00.000Z'));
+    const future=automaticBreakAppearanceAt('2026-09-25','11:00','12:00',source('2026-09-24T11:00:00.000Z'));
+    return {old,future};
+  },
+  previewAutomaticSheet(){
+    queueDisplayPreferencesSync=()=>{};
+    automaticBookingBreaksRemoteAvailable=true;
+    openAutomaticBreakSheet({dataset:{automaticBreakDate:'2026-09-24',automaticBreakStart:'16:00',automaticBreakEnd:'17:00',automaticBreakSourceCount:'1',automaticBreakFingerprint:'a'.repeat(64)}});
+    return {color:document.querySelector('[name="automaticBreakSheetColor"]:checked')?.value,optionCount:document.querySelectorAll('[name="automaticBreakSheetColor"]').length};
+  },
   previewBlockForm(){
     ownServices=[];
     reportDataSource='live';
@@ -190,6 +203,11 @@ try {
       document.body.dataset.providerTheme='pink-porcelain';
       const manual=document.querySelector('[data-open-booking="manual-break"]');
       const automatic=document.querySelector('[data-open-automatic-break]');
+      const longTimeLeft=automatic.querySelector('.timeline-booking-time').getBoundingClientRect().left;
+      const longCopyLeft=automatic.querySelector('.timeline-booking-copy').getBoundingClientRect().left;
+      const visit=document.querySelector('[data-open-booking="fixture"]');
+      const visitTime=visit.querySelector('.timeline-booking-time');
+      const visitColumns={timeDisplay:getComputedStyle(visitTime).display,timeLeft:visitTime.getBoundingClientRect().left,copyLeft:visit.querySelector('.timeline-booking-copy').getBoundingClientRect().left,cardTop:visit.getBoundingClientRect().top,timeMiddle:(visitTime.getBoundingClientRect().top+visitTime.getBoundingClientRect().bottom)/2,cardMiddle:(visit.getBoundingClientRect().top+visit.getBoundingClientRect().bottom)/2};
       const sourceInk=getComputedStyle(automatic.querySelector('.timeline-automatic-break-source')).color;
       const timeInk=getComputedStyle(automatic.querySelector('.timeline-booking-time')).color;
       for(const [element,label] of [[manual,'Перерыв'],[automatic,'Автоперерыв']]){
@@ -202,16 +220,29 @@ try {
         const card=element.getBoundingClientRect();
         const time=element.querySelector('.timeline-break-short-time').getBoundingClientRect();
         const label=element.querySelector('.timeline-break-short-label').getBoundingClientRect();
-        return {bg:getComputedStyle(element).backgroundColor,ink:getComputedStyle(element).color,labelInk:getComputedStyle(element.querySelector('.timeline-automatic-break-label')||element.querySelector('.timeline-break-short-label')).color,border:getComputedStyle(element).borderStyle,top:time.top-card.top,bottom:card.bottom-label.bottom,timeBottom:time.bottom,labelTop:label.top};
+        return {bg:getComputedStyle(element).backgroundColor,ink:getComputedStyle(element).color,labelInk:getComputedStyle(element.querySelector('.timeline-automatic-break-label')||element.querySelector('.timeline-break-short-label')).color,border:getComputedStyle(element).borderStyle,top:time.top-card.top,bottom:card.bottom-label.bottom,left:time.left-card.left,gap:label.left-time.right,middleDelta:Math.abs((time.top+time.bottom-label.top-label.bottom)/2),fontSize:parseFloat(getComputedStyle(element.querySelector('.timeline-break-short-time')).fontSize),styleTop:element.style.top};
       };
-      return {manual:state(manual),automatic:state(automatic),sourceInk,timeInk};
+      return {manual:state(manual),automatic:state(automatic),sourceInk,timeInk,longTimeLeft,longCopyLeft,visitColumns,cardLeft:manual.getBoundingClientRect().left};
     });
     for(const kind of ['manual','automatic']){
       assert.equal(shortBreaks[kind].bg,'rgb(230, 226, 223)',`${width}/${kind} warm gray`);
       assert.equal(shortBreaks[kind].ink,'rgb(49, 50, 57)',`${width}/${kind} readable ink`);
       assert.equal(shortBreaks[kind].labelInk,'rgb(49, 50, 57)',`${width}/${kind} readable label`);
       assert.ok(shortBreaks[kind].top>=3&&shortBreaks[kind].bottom>=3,`${width}/${kind} vertically clipped`);
-      assert.ok(shortBreaks[kind].labelTop>=shortBreaks[kind].timeBottom,`${width}/${kind} lines overlap`);
+      assert.ok(shortBreaks[kind].left>=7&&shortBreaks[kind].left<35,`${width}/${kind} moved toward the screen center`);
+      assert.ok(shortBreaks[kind].gap>= (width>760?0:8),`${width}/${kind} time and pause overlap`);
+      assert.ok(shortBreaks[kind].middleDelta<=1,`${width}/${kind} one-row vertical alignment`);
+      assert.ok(shortBreaks[kind].fontSize>=12,`${width}/${kind} text too small`);
+    }
+    assert.equal(shortBreaks.manual.styleTop,'210px',`${width} manual timeline position changed`);
+    assert.equal(shortBreaks.automatic.styleTop,'94px',`${width} automatic timeline position changed`);
+    if(width>760){
+      assert.ok(Math.abs(shortBreaks.cardLeft+shortBreaks.manual.left-shortBreaks.longTimeLeft)<=3,`${width} short time column differs from long automatic break`);
+      assert.ok(Math.abs(shortBreaks.cardLeft+shortBreaks.manual.left+(width<=980?112:150)-shortBreaks.longCopyLeft)<=3,`${width} short label column differs from long automatic break`);
+      assert.notEqual(shortBreaks.visitColumns.timeDisplay,'none',`${width} visit time column hidden`);
+      assert.ok(Math.abs(shortBreaks.visitColumns.timeLeft-shortBreaks.longTimeLeft)<=8,`${width} visit time column differs from automatic break`);
+      assert.ok(Math.abs(shortBreaks.visitColumns.copyLeft-shortBreaks.longCopyLeft)<=8,`${width} visit details column differs from automatic break`);
+      assert.ok(Math.abs(shortBreaks.visitColumns.timeMiddle-shortBreaks.visitColumns.cardMiddle)<=1,`${width} visit time is not vertically centered`);
     }
     assert.equal(shortBreaks.automatic.border.split(' ')[0],'dashed',`${width} automatic dashed border`);
     assert.equal(shortBreaks.sourceInk,'rgb(49, 50, 57)',`${width} long automatic source ink`);
@@ -252,10 +283,32 @@ try {
   assert.equal(breakColors.automaticColor,'sky','automatic break color lost on reload');
   assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.autoOptions()),{count:13,selected:'sky'},'automatic break setting not rendered from saved preference');
   assert.equal(breakColors.history.length,2,'automatic break history lost on reload');
+  assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.autoColorHistory()),{
+    old:{color_key:'auto',automatic_break_theme_color:false},future:{color_key:'graphite',automatic_break_theme_color:false}
+  },'changing the automatic color recolored existing source bookings');
   const blockForm=await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.previewBlockForm());
   assert.equal(blockForm.selected,'peach','new manual break did not use saved default');
   assert.equal(blockForm.visible,true,'save-future-color choice is hidden in block form');
   assert.match(blockForm.caption,/новых ручных перерывов/);
+  assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.previewAutomaticSheet()),{color:'graphite',optionCount:13},'automatic break sheet color picker missing');
+  for(const width of [390,760,1440]){
+    await settingsPage.setViewportSize({width,height:900});
+    const sheet=await settingsPage.locator('#bookingSheet').evaluate(element=>{
+      const bounds=element.querySelector('.booking-sheet-panel').getBoundingClientRect();
+      const action=element.querySelector('[data-release-automatic-break]');
+      return {visible:!element.hidden,scrollWidth:document.documentElement.scrollWidth,windowWidth:innerWidth,panelWidth:bounds.width,actionHeight:action.getBoundingClientRect().height,actionScrollHeight:action.scrollHeight,summary:element.querySelector('.automatic-break-sheet-color summary').textContent};
+    });
+    assert.equal(sheet.visible,true,`${width} automatic break sheet hidden`);
+    assert.ok(sheet.scrollWidth<=sheet.windowWidth+1,`${width} automatic break sheet horizontal overflow`);
+    assert.ok(sheet.actionScrollHeight<=sheet.actionHeight+1,`${width} automatic break primary action clipped`);
+    assert.match(sheet.summary,/Цвет автоперерывов/);
+    if(process.env.MINUTA_SCHEDULE_FONT_OUTPUT)await settingsPage.screenshot({path:path.join(process.env.MINUTA_SCHEDULE_FONT_OUTPUT,`automatic-sheet-${width}.png`)});
+  }
+  settingsPage.setDefaultTimeout(5000);
+  await settingsPage.locator('.automatic-break-sheet-color summary').click();
+  await settingsPage.locator('.automatic-break-sheet-color .color-neutral').click();
+  assert.equal(await settingsPage.locator('.automatic-break-sheet-color-current').innerText(),'Нежный серый','automatic break sheet did not update selected color');
+  assert.equal(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.breakColors().automaticColor),'neutral','automatic break sheet did not persist preference');
   await context.close();
   console.log('Preference persistence: theme switch, reload and independent text size PASS');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
