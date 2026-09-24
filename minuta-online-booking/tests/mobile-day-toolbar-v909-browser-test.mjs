@@ -5,16 +5,19 @@ import { pathToFileURL } from 'node:url';
 const modulePath = process.env.MINUTA_PLAYWRIGHT_MODULE;
 const { chromium } = await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
 const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
+const icons = readFileSync(new URL('../ui-icons.svg', import.meta.url), 'utf8');
+assert.match(icons, /id="icon-list"[^>]*><path d="M9 6h11M9 12h11M9 18h11M4 6h\.1M4 12h\.1M4 18h\.1"/, 'list icon lost its three dots and three lines');
 const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const scheduleStyles = readFileSync(new URL('../provider-schedule-minimal.css', import.meta.url), 'utf8');
 const desktopStyles = readFileSync(new URL('../provider-schedule-desktop-reference.css', import.meta.url), 'utf8');
+const porcelainStyles = readFileSync(new URL('../provider-porcelain-detail.css', import.meta.url), 'utf8');
 const browser = await chromium.launch({ headless:true });
 
 try {
   for (const width of [390, 760, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:900 } });
     await page.goto('about:blank');
-    await page.evaluate(source => {
+    await page.evaluate(({ source, icons }) => {
       const parsed = new DOMParser().parseFromString(source, 'text/html');
       document.body.className = 'provider-body';
       document.body.dataset.providerTheme = 'pink-porcelain';
@@ -27,6 +30,11 @@ try {
       document.body.style.setProperty('--theme-muted', '#706971');
       document.body.style.setProperty('--theme-accent', '#ca3b77');
       document.body.style.setProperty('--theme-accent-contrast', '#ffffff');
+      document.body.style.setProperty('--porcelain-action-bg', '#f3b8ce');
+      document.body.style.setProperty('--porcelain-action-ink', '#382532');
+      const sprite = new DOMParser().parseFromString(icons, 'image/svg+xml').documentElement;
+      sprite.style.display = 'none';
+      document.body.append(document.importNode(sprite, true));
       const dashboard = document.createElement('main');
       dashboard.id = 'dashboard';
       dashboard.className = 'provider-app';
@@ -36,6 +44,8 @@ try {
       dashboard.style.padding = '0 12px';
       dashboard.append(document.importNode(parsed.querySelector('.schedule-card'), true));
       document.body.append(dashboard);
+      dashboard.querySelectorAll('.journal-mode-toggle use').forEach(use =>
+        use.setAttribute('href', `#${use.getAttribute('href').split('#')[1]}`));
       dashboard.querySelector('.booking-filters').hidden = true;
       dashboard.querySelector('#selectedDateTitle .selected-date-title-mobile').textContent = 'Четверг';
       dashboard.querySelector('#selectedDateSummary').textContent = '3 записи · 4 перерыва';
@@ -45,10 +55,11 @@ try {
       window.toolbarClicks = [];
       dashboard.querySelectorAll('[data-journal-mode]').forEach(button =>
         button.addEventListener('click', () => window.toolbarClicks.push(button.dataset.journalMode)));
-    }, html);
+    }, { source:html, icons });
     await page.addStyleTag({ content:styles });
     await page.addStyleTag({ content:scheduleStyles });
     await page.addStyleTag({ content:desktopStyles });
+    await page.addStyleTag({ content:porcelainStyles });
 
     const geometry = await page.evaluate(() => {
       const rect = selector => document.querySelector(selector).getBoundingClientRect();
@@ -64,6 +75,8 @@ try {
         outerFill:getComputedStyle(document.querySelector('.journal-mode-toggle'), '::before').height,
         activeFill:getComputedStyle(buttons[0], '::before').height,
         activeBackground:getComputedStyle(buttons[0]).backgroundColor,
+        activeFillColor:getComputedStyle(buttons[0], '::before').backgroundColor,
+        activeIconColor:getComputedStyle(buttons[0].querySelector('svg')).color,
         overflow:document.documentElement.scrollWidth > innerWidth + 1,
         firstHourTop:Math.round(rect('.timeline-hours').top)
       };
@@ -77,6 +90,8 @@ try {
       assert.equal(geometry.outerFill, '36px', `${width}px toggle background`);
       assert.equal(geometry.activeFill, '32px', `${width}px active fill`);
       assert.equal(geometry.activeBackground, 'rgba(0, 0, 0, 0)', `${width}px active button still fills the full touch area`);
+      assert.equal(geometry.activeFillColor, 'rgb(243, 184, 206)', `${width}px porcelain fill changed tone`);
+      assert.equal(geometry.activeIconColor, 'rgb(56, 37, 50)', `${width}px porcelain clock icon changed tone`);
       for (const mode of ['timeline', 'list']) await page.locator(`[data-journal-mode="${mode}"]`).click();
       assert.deepEqual(await page.evaluate(() => window.toolbarClicks), ['timeline', 'list'], `${width}px toggle clicks`);
     } else {

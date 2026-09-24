@@ -2599,20 +2599,20 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 
   #dashboard[data-active-view="bookings"] .journal-mode-toggle button {
-    place-items:center!important;
+    position:relative;z-index:1;place-items:center!important;
     height:44px!important;
   }
   #dashboard .schedule-card:has([data-calendar-view="day"].active) .journal-mode-toggle {
     position:relative;overflow:visible!important;border:0!important;background:transparent!important;
   }
   #dashboard .schedule-card:has([data-calendar-view="day"].active) .journal-mode-toggle::before {
-    content:"";position:absolute;inset:4px 0;border-radius:11px;background:var(--theme-surface-alt);pointer-events:none;
+    content:"";position:absolute;inset:4px 0;border-radius:11px;background:var(--theme-surface-alt);
   }
   #dashboard .schedule-card:has(#dateStrip):has([data-calendar-view="day"].active) .journal-mode-toggle button.active {
     position:relative;isolation:isolate;border:0!important;background:transparent!important;box-shadow:none!important;
   }
   #dashboard .schedule-card:has([data-calendar-view="day"].active) .journal-mode-toggle button.active::before {
-    content:"";position:absolute;z-index:-1;inset:6px 1px;border-radius:9px;background:var(--schedule-active-color);
+    content:"";position:absolute;z-index:-1;inset:6px 1px;border-radius:9px;background:var(--porcelain-action-bg,var(--schedule-active-color));
   }
 
   .provider-body[data-provider-theme][data-provider-layout] .timeline-view {

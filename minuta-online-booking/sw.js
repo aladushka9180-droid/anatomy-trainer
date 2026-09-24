@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v909`;
+const CACHE = `${CACHE_PREFIX}v910`;
 
 const ASSETS = [
   './provider.html',
@@ -29,14 +29,14 @@ const ASSETS = [
   './client-results.css?v=876',
   './client-directory.css?v=811',
   './provider-ui-refinements.css?v=811',
-  './provider-schedule-minimal.css?v=909',
+  './provider-schedule-minimal.css?v=910',
   './provider-themes-distinct.css?v=821',
   './provider-theme-families.css?v=885',
   './provider-theme-backgrounds-tema1.css?v=865',
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=909',
+  './site-update.js?v=910',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -62,7 +62,7 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=909',
+  './provider.js?v=910',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
