@@ -87,8 +87,7 @@ try {
   assert.ok(!(await text()).includes('20:00'));
   assert.ok(!(await text()).includes('Рамиль'));
   await page.locator('[name="freeSlotsTextLayout"][value="compact"]').check();
-  assert.ok((await text()).includes('6 вс, 10:00, 11:00, 12:00'));
-  assert.ok(!(await text()).includes('сентября'));
+  assert.ok((await text()).includes('вс, 6 сентября, 10:00, 11:00, 12:00'));
   await page.locator('#freeSlotsText').fill('Мой текст для клиента');
   assert.equal(await page.locator('#resetFreeSlotsText').isVisible(),true);
   await page.locator('#freeSlotsShowHeading').uncheck();
@@ -97,7 +96,7 @@ try {
   await page.locator('#keepFreeSlotsText').click();
   assert.equal(await page.locator('#freeSlotsManualNotice').isVisible(),false);
   await page.locator('#resetFreeSlotsText').click();
-  assert.ok((await text()).startsWith('6 вс, 10:00'));
+  assert.ok((await text()).startsWith('вс, 6 сентября, 10:00'));
   await page.locator('#freeSlotsShowHeading').check();
   await page.locator('[name="freeSlotsTextLayout"][value="detailed"]').check();
   assert.equal(await page.evaluate(()=>localStorage.getItem('minuta:free-slots-format:master-a')),'hourly');
@@ -199,6 +198,17 @@ try {
   await page.evaluate(()=>{window.serverFail=true;window.controller.refresh();});
   await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('не опубликовано'));
   assert.equal(await page.locator('#copyFreeSlots').isDisabled(),true);
+  assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true);
+  await page.evaluate(()=>{window.serverFail=false;window.generalWindows=[];window.controller.refresh();});
+  await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('На выбранный период свободных окон нет.'));
+  assert.equal(await page.locator('#copyFreeSlots').isDisabled(),true,'Empty general period must not be copied');
+  assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true);
+  assert.ok((await page.locator('#freeSlotsShareStatus').innerText()).includes('свободных окон нет'));
+  assert.ok((await text()).includes('день полностью занят'),'Empty state must preserve day status');
+  await page.evaluate(()=>{window.serverTimes=[];});
+  await page.locator('[name="freeSlotsBookingMode"][value="service"]').check();
+  await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('На выбранный период свободных окон пока нет.'));
+  assert.equal(await page.locator('#copyFreeSlots').isDisabled(),true,'Empty service period must not be copied');
   assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true);
   // A new page/controller restores the saved format, not just a live radio state.
   await page.evaluate(()=>localStorage.setItem('minuta:free-slots-format:master-a','hourly'));

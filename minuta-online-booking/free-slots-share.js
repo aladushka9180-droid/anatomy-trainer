@@ -46,13 +46,6 @@
     return parseDate(value)?.toLocaleDateString('ru-RU', { weekday:'short', day:'numeric', month:'long' }).replace('.', '') || value;
   }
 
-  function formatCompactDate(value) {
-    const date = parseDate(value);
-    if (!date) return value;
-    const weekday = date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', '');
-    return `${date.getDate()} ${weekday}`;
-  }
-
   function slotTime(value) {
     const match = /^(\d{2}):(\d{2})/.exec(String(value || ''));
     return match ? `${match[1]}:${match[2]}` : '';
@@ -207,13 +200,13 @@
         : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join(compact ? '; ' : '\n');
       const maximum = row.maximum ? `${compact ? 'макс.' : 'Максимальный непрерывный интервал:'} ${durationLabel(row.maximum)}` : '';
       if (compact) return row.windows.length
-        ? `${formatCompactDate(row.date)}, ${availability}${maximum ? ` · ${maximum}` : ''}`
-        : `${formatCompactDate(row.date)} — ${availability.replace(/\.$/, '')}`;
+        ? `${formatDate(row.date)}, ${availability}${maximum ? ` · ${maximum}` : ''}`
+        : `${formatDate(row.date)} — ${availability.replace(/\.$/, '')}`;
       return `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${[availability, maximum].filter(Boolean).join('\n')}`;
     }).join(rowBreak);
     const hasWindows = rows.some(row => row.windows.length);
     const intro = [data.showHeading === false ? '' : heading, target].filter(Boolean).join('\n');
-    return `${intro ? `${intro}\n` : ''}${body}\n\n${hasWindows ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
+    return `${intro ? `${intro}\n` : ''}${hasWindows ? '' : 'На выбранный период свободных окон нет.\n'}${body}\n\n${hasWindows ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
   }
 
   // Select real server-confirmed starts, never manufacture hours from working hours.
@@ -245,7 +238,7 @@
     const body = rows.length
       ? rows.map(row => {
           const times = row.times;
-          if (compact) return `${formatCompactDate(row.date)}, ${times.join(', ')}`;
+          if (compact) return `${formatDate(row.date)}, ${times.join(', ')}`;
           return `${dates.length === 1 ? 'Начало сеанса: ' : `${formatDate(row.date)} — `}${times.join(', ')}`;
         }).join(rowBreak)
       : 'На выбранный период свободных окон пока нет.';
@@ -783,8 +776,8 @@
           dialog.querySelector('#freeSlotsQrError').hidden = false;
         }
       }
-      status.textContent = '';
-      copyButton.disabled = !hasSelection && serverSlots.length > 0;
+      status.textContent = serverSlots.length ? '' : 'На выбранный период свободных окон нет.';
+      copyButton.disabled = !hasSelection;
       shareButton.disabled = copyButton.disabled;
       copyLinkButton.disabled = false;
     }
