@@ -128,19 +128,22 @@ body.provider-body[data-porcelain-editor-open] #appearanceSettingsCard .provider
   .provider-porcelain-page-head { align-items:start; flex-direction:column; padding:22px 18px; }
   .provider-porcelain-page-head span { align-self:flex-end; }
   .provider-porcelain-controls { padding:16px 12px; }
+  .provider-porcelain-fieldset { margin-bottom:16px; }
+  .provider-porcelain-fieldset legend { margin-bottom:10px; font-size:20px; }
   .provider-porcelain-characters { gap:7px; }
   .provider-porcelain-character { align-content:start; gap:6px; padding:5px; }
   .provider-porcelain-character strong { overflow-wrap:anywhere; font:600 11px/1.15 system-ui,sans-serif; }
   .provider-porcelain-character small { display:none; }
-  .provider-porcelain-shades { grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px 8px; }
-  .provider-porcelain-shade { gap:8px; }
-  .provider-porcelain-shade-disc { width:min(100%,52px); }
-  .provider-porcelain-shade strong { max-width:100%; overflow-wrap:anywhere; font-size:11px; }
+  .provider-porcelain-shades { grid-template-columns:repeat(5,minmax(0,1fr)); gap:4px; }
+  .provider-porcelain-shade { gap:6px; min-height:94px; }
+  .provider-porcelain-shade-disc { width:min(100%,44px); }
+  .provider-porcelain-shade strong { max-width:100%; overflow-wrap:anywhere; font-size:10px; line-height:1.15; }
   .provider-porcelain-live-slot { min-height:770px; }
   .provider-porcelain-live.is-docked { position:fixed; z-index:2147482000; right:12px; bottom:12px; left:12px; width:auto; max-width:400px; margin-inline:auto; padding:9px; border:1px solid #e4bdcd; border-radius:17px; background:#fff; box-shadow:0 8px 28px rgba(70,35,50,.23); }
   .provider-porcelain-live.is-docked h3 { margin:0 0 6px; font:600 13px/1.2 system-ui,sans-serif; }
   .provider-porcelain-live.is-docked>p { display:none; }
   .provider-porcelain-live.is-docked .provider-porcelain-live-frame { height:200px; min-height:0; border-radius:10px; box-shadow:none; }
+  .provider-porcelain-live.is-docked .provider-porcelain-live-frame iframe { height:350px; transform:translateY(-145px); }
   .provider-porcelain-actions { flex-wrap:wrap; }
   .provider-porcelain-actions .primary,.provider-porcelain-actions .secondary-button { flex:1 1 100%; width:100%; }
   .provider-porcelain-live-frame { height:690px; }

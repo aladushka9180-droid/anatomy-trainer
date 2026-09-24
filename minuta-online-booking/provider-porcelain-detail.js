@@ -93,7 +93,7 @@
 
   function updateMobilePreviewDock() {
     const mobile = window.matchMedia('(max-width:620px)').matches;
-    const dock = mobile && !page.hidden && previewSlot.getBoundingClientRect().top > window.innerHeight - 255;
+    const dock = mobile && !page.hidden && previewSlot.getBoundingClientRect().top > Math.min(160, window.innerHeight * .25);
     previewPanel.classList.toggle('is-docked', dock);
   }
   window.addEventListener('scroll', updateMobilePreviewDock, { passive:true, capture:true });
