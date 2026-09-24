@@ -78,6 +78,7 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
   font-weight:650!important;
 }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only) .timeline-client-name {
+  font-size:calc(clamp(11px,1.05vw,15px) + 1px)!important;
   font-weight:720!important;
 }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking] .timeline-client-phone {
