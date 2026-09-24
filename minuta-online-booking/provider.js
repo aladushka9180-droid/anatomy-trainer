@@ -2102,17 +2102,14 @@ function normalizeDisplayPreferences(value = {}) {
     ? source.automatic_break_color
     : BOOKING_COLOR_KEYS.includes(legacyAutomaticBreakColor) && legacyAutomaticBreakColor !== 'auto'
       ? legacyAutomaticBreakColor : DEFAULT_DISPLAY_PREFERENCES.automatic_break_color;
-  const automaticBreakColorHistory = Array.isArray(source.automatic_break_color_history)
-    ? source.automatic_break_color_history.filter(entry => entry && Number.isFinite(Date.parse(entry.effective_at))
+  const automaticBreakColorHistory = (Array.isArray(source.automatic_break_color_history) ? source.automatic_break_color_history : [])
+      .filter(entry => entry && Number.isFinite(Date.parse(entry.effective_at))
       && AUTOMATIC_BREAK_COLOR_KEYS.includes(entry.color))
       .map(entry => ({ effective_at:new Date(entry.effective_at).toISOString(), color:entry.color }))
-      .sort((left, right) => left.effective_at.localeCompare(right.effective_at))
-    : [];
-  const automaticBreakColorOverrides = source.automatic_break_color_overrides && typeof source.automatic_break_color_overrides === 'object'
-    ? Object.fromEntries(Object.entries(source.automatic_break_color_overrides)
+      .sort((left, right) => left.effective_at.localeCompare(right.effective_at));
+  const automaticBreakColorOverrides = Object.fromEntries(Object.entries(source.automatic_break_color_overrides || {})
       .filter(([key, color]) => /^\d{4}-\d{2}-\d{2}\|\d{2}:\d{2}\|\d{2}:\d{2}\|[0-9a-f]{0,64}$/.test(key)
-        && AUTOMATIC_BREAK_COLOR_KEYS.includes(color)))
-    : {};
+        && AUTOMATIC_BREAK_COLOR_KEYS.includes(color)));
   return {
     layout: PROVIDER_LAYOUT_KEYS.includes(storedLayout) ? storedLayout : legacyLayout || DEFAULT_DISPLAY_PREFERENCES.layout,
     theme,
@@ -2854,10 +2851,6 @@ function businessMomentIso(date = new Date()) {
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${businessTodayIso(date)}T${values.hour}:${values.minute}:${values.second}`;
 }
-function automaticBreakColorAt(date, time) {
-  return BOOKING_COLOR_KEYS.includes(displayPreferences.automatic_break_color)
-    ? displayPreferences.automatic_break_color : BOOKING_COLOR_DEFAULT;
-}
 function automaticBreakColorOverrideKey(dateIso, startTime, endTime, fingerprint = '') {
   return `${dateIso}|${String(startTime).slice(0, 5)}|${String(endTime).slice(0, 5)}|${fingerprint}`;
 }
@@ -2865,17 +2858,17 @@ function automaticBreakAppearanceAt(dateIso, startTime, endTime, items = allBook
   const start = minutesFromTime(startTime);
   const end = minutesFromTime(endTime);
   const buffer = Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60));
-  const sources = items.filter(item => item.booking_date === dateIso && item.status !== 'cancelled' && !isScheduleBlock(item))
-    .filter(item => {
-      const bookingStart = minutesFromTime(item.booking_time);
-      const bookingEnd = bookingStart + Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60));
-      return (start < bookingStart && end > bookingStart - buffer)
-        || (start < bookingEnd + buffer && end > bookingEnd);
-    });
-  const firstSourceTime = sources.map(item => Date.parse(item.created_at)).filter(Number.isFinite).sort((a, b) => a - b)[0];
-  const history = displayPreferences.automatic_break_color_history || [];
+  let firstSourceTime = Infinity;
+  for (const item of items) {
+    if (item.booking_date !== dateIso || item.status === 'cancelled' || isScheduleBlock(item)) continue;
+    const bookingStart = minutesFromTime(item.booking_time);
+    const bookingEnd = bookingStart + Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60));
+    if ((start < bookingStart && end > bookingStart - buffer) || (start < bookingEnd + buffer && end > bookingEnd)) {
+      firstSourceTime = Math.min(firstSourceTime, Date.parse(item.created_at) || Infinity);
+    }
+  }
   const inheritedColor = Number.isFinite(firstSourceTime)
-    ? history.filter(entry => Date.parse(entry.effective_at) <= firstSourceTime).at(-1)?.color
+    ? displayPreferences.automatic_break_color_history?.findLast(entry => Date.parse(entry.effective_at) <= firstSourceTime)?.color
       || displayPreferences.automatic_break_color_initial
     : displayPreferences.automatic_break_color_initial;
   const color = displayPreferences.automatic_break_color_overrides?.[
@@ -9316,21 +9309,21 @@ function openAutomaticBreakSheet(source) {
     ? source.dataset.automaticBreakColor : displayPreferences.automatic_break_color;
   const colorLabel = color => color === 'neutral' ? 'Нежный серый' : color === 'theme' ? 'Цвет темы' : BOOKING_COLOR_LABELS[color];
   const colorOptions = AUTOMATIC_BREAK_COLOR_KEYS.map(color =>
-    `<label class="booking-color-option automatic-break-color-option color-${color}"><input type="radio" name="automaticBreakSheetColor" value="${color}" aria-label="${colorLabel(color)}" ${color === selectedColor ? 'checked' : ''}><span aria-hidden="true"></span><small>${colorLabel(color)}</small></label>`
+    `<label class="booking-color-option automatic-break-color-option color-${color}"><input type="radio" name="automaticBreakSheetColor" value="${color}" ${color === selectedColor ? 'checked' : ''}><span aria-hidden="true"></span><small>${colorLabel(color)}</small></label>`
   ).join('');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">Автоматический перерыв</h2>
-    <div class="booking-sheet-meta"><strong>${start}–${end}</strong><span>Из правил записи</span></div>
-    <p class="automatic-break-explanation">Буфер между записями. ${sourceCount > 1 ? `Интервал образован ${sourceCount} буферами; для освобождения нужно исключить каждый источник.` : 'Освобождение этого времени не затронет другие перерывы.'}</p>
+    <div class="booking-sheet-meta"><strong>${start}–${end}</strong><span>По правилам</span></div>
+    <p class="automatic-break-explanation">Буфер между записями.</p>
     <details class="automatic-break-sheet-color"><summary><span>Цвет этого перерыва</span><strong class="automatic-break-sheet-color-current">${colorLabel(selectedColor)}</strong></summary>
       <div class="automatic-break-color-options" role="radiogroup" aria-label="Цвет выбранного автоматического перерыва">${colorOptions}</div>
-      <small>Выбор применится к этому и будущим автоперерывам. Остальные прежние не изменятся.</small>
+      <small>Для этого и будущих. Прежние не изменятся.</small>
     </details>
     <div class="booking-sheet-actions automatic-break-actions">
       <button class="primary" type="button" data-release-automatic-break data-automatic-break-date="${escapeHtml(dateIso)}" data-automatic-break-start="${start}" data-automatic-break-end="${end}" data-automatic-break-source-count="${sourceCount}" data-automatic-break-fingerprint="${escapeHtml(fingerprint)}" ${automaticBookingBreaksRemoteAvailable && fingerprint ? '' : 'disabled'}>Освободить только это время</button>
       <button class="secondary-button" type="button" data-open-automatic-break-settings>Настроить правило</button>
     </div>
-    ${automaticBookingBreaksRemoteAvailable && fingerprint ? '' : '<p class="booking-sheet-warning">Точечное освобождение станет доступно после проверки интервала сервером.</p>'}
+    ${automaticBookingBreaksRemoteAvailable && fingerprint ? '' : '<p class="booking-sheet-warning">Освобождение недоступно без проверки сервером.</p>'}
     <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-disable-automatic-breaks>Отключить все автоматические перерывы</button></div>`;
   sheet.hidden = false;
   document.body.classList.add('booking-sheet-open');
@@ -9347,19 +9340,11 @@ function selectAutomaticBreakSheetColor(input) {
     source.dataset.automaticBreakFingerprint || '');
   saveDisplayPreferences({ ...displayPreferences, automatic_break_color:input.value,
     automatic_break_color_overrides:{ ...displayPreferences.automatic_break_color_overrides, [key]:input.value } });
-  input.checked = true;
   const caption = $('#bookingSheetContent .automatic-break-sheet-color-current');
-  if (caption) caption.textContent = input.value === 'neutral' ? 'Нежный серый' : input.value === 'theme' ? 'Цвет темы' : BOOKING_COLOR_LABELS[input.value];
+  if (caption) caption.textContent = input.closest('label').querySelector('small').textContent;
 }
-$('#bookingSheetContent')?.addEventListener('click', event => {
-  const label = event.target.closest('.automatic-break-sheet-color .automatic-break-color-option');
-  if (!label || event.target.matches('input')) return;
-  event.preventDefault();
-  selectAutomaticBreakSheetColor(label.querySelector('input[name="automaticBreakSheetColor"]'));
-});
 $('#bookingSheetContent')?.addEventListener('change', event => {
-  const input = event.target.closest('input[name="automaticBreakSheetColor"]');
-  selectAutomaticBreakSheetColor(input);
+  selectAutomaticBreakSheetColor(event.target.closest('input[name="automaticBreakSheetColor"]'));
 });
 
 async function openAutomaticBreakSettings() {

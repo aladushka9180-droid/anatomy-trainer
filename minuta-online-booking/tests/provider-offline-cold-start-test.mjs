@@ -169,7 +169,7 @@ test('offline snapshot restores bookings and server-verified automatic breaks be
     timeFromMinutes:value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`,
     isScheduleBlock:item => String(item?.client_phone || '').replace(/\D/g, '') === '0000000000'
   });
-  vm.runInContext([actual('validProviderOfflineSnapshot'), actual('providerOfflineBookingPolicy'), actual('providerOfflineAutomaticBreakSegments'), actual('automaticBreakColorAt'), actual('automaticBreakAppearanceAt'), actual('automaticBookingBreaks'), actual('applyProviderOfflineSnapshot')].join('\n'), box);
+  vm.runInContext([actual('validProviderOfflineSnapshot'), actual('providerOfflineBookingPolicy'), actual('providerOfflineAutomaticBreakSegments'), actual('automaticBreakColorOverrideKey'), actual('automaticBreakAppearanceAt'), actual('automaticBookingBreaks'), actual('applyProviderOfflineSnapshot')].join('\n'), box);
   box.renderBookings = () => { rendered = [...box.allBookings, ...box.automaticBookingBreaks(box.allBookings, date)]; };
   const snapshot = freshSnapshot({ overrides:{
     bookingPolicy:{ booking_buffer_enabled:true, booking_buffer_minutes:60 },

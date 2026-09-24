@@ -69,7 +69,7 @@ const helperSource = `
   ${actual('providerOfflineAutomaticBreakSegments')}
   ${actual('readProviderOfflineSnapshot')}
   ${actual('saveProviderOfflineSnapshot')}
-  ${actual('automaticBreakColorAt')}
+  ${actual('automaticBreakColorOverrideKey')}
   ${actual('automaticBreakAppearanceAt')}
   ${actual('automaticBookingBreaks')}
   ${actual('applyProviderOfflineSnapshot')}

@@ -48,14 +48,16 @@ window.__scheduleFontPreferenceTest={
     displayPreferencesUpdatedAt=Math.max(Date.now(),displayPreferencesUpdatedAt+1);
     displayPreferencesPending=true;
     persistLocalDisplayPreferences(userId);
-    return [automaticBreakColorAt('2026-09-24','11:00:00'),automaticBreakColorAt('2026-09-24','13:00:00'),automaticBreakColorAt('2026-09-26','10:00:00')];
+    const color=BOOKING_COLOR_KEYS.includes(displayPreferences.automatic_break_color)?displayPreferences.automatic_break_color:'auto';
+    return [color,color,color];
   },
   setAutomaticBreakColor(userId,color){
     displayPreferences=normalizeDisplayPreferences({...displayPreferences,automatic_break_color:color});
     displayPreferencesUpdatedAt=Math.max(Date.now(),displayPreferencesUpdatedAt+1);
     displayPreferencesPending=true;
     persistLocalDisplayPreferences(userId);
-    return [automaticBreakColorAt('2026-09-24','11:00:00'),automaticBreakColorAt('2026-09-24','13:00:00'),automaticBreakColorAt('2026-09-26','10:00:00')];
+    const selected=BOOKING_COLOR_KEYS.includes(displayPreferences.automatic_break_color)?displayPreferences.automatic_break_color:'auto';
+    return [selected,selected,selected];
   },
   autoOptions(){
     renderDisplayPreferencesForm();
