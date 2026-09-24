@@ -582,6 +582,8 @@ const appearanceSources = [
   `const PROVIDER_COLOR_MODE_KEYS = Object.freeze(['light','dark','system']);`,
   `const PROVIDER_DARK_THEME_KEYS = Object.freeze(['graphite','luxury','loft','midnight','ash-flame','botanical','burgundy','mocha-pastel','oled-mono','cobalt-forge','volt-graphite','noir-safari']);`,
   provider.match(/const PROVIDER_TEXT_SCALE_KEYS = [^;]+;/)?.[0],
+  provider.match(/const SCHEDULE_FONT_STYLE_KEYS = [^;]+;/)?.[0],
+  provider.match(/const BOOKING_COLOR_KEYS = [^;]+;/)?.[0],
   provider.match(/const PROVIDER_MOBILE_NAV_ITEMS = Object\.freeze\([\s\S]*?\);/)?.[0],
   provider.match(/const DEFAULT_MOBILE_NAV = [^;]+;/)?.[0],
   provider.match(/const PROVIDER_ROLE_KEYS = [^;]+;/)?.[0],
@@ -594,7 +596,7 @@ const appearanceSources = [
   provider.match(/function normalizeDisplayPreferences\([\s\S]*?(?=\nfunction loadLocalDisplayPreferences)/)?.[0]
 ];
 assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
-assert.match(appearanceSources[12], /theme:\s*'sage'/, 'Новый кабинет исполнителя не открывается в теме Sage Studio');
+assert.ok(appearanceSources.some(source => /theme:\s*'sage'/.test(source || '')), 'Новый кабинет исполнителя не открывается в теме Sage Studio');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
 const defaultMobileNav = ['bookings', 'clients', 'messages', 'notifications'];
 const defaultMobileNavByRole = { owner:['bookings','clients','messages','notifications'], admin:['bookings','clients','messages','notifications'], specialist:['bookings','clients','messages','notifications'] };
@@ -610,15 +612,15 @@ for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'
 assert.equal(normalizeAppearance({ theme:'hitech', color_mode:'dark' }).color_mode, 'dark', 'Тёмная версия светлой темы не сохраняется');
 assert.equal(normalizeAppearance({ theme:'noir-safari', color_mode:'light' }).color_mode, 'light', 'Светлая версия тёмной темы не сохраняется');
 assert.equal(normalizeAppearance({ theme:'warm', color_mode:'system' }).color_mode, 'system', 'Системный режим не сохраняется');
-assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', color_mode:'dark', text_scale:'default', booking_card_density:'compact', show_phone:false, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:false, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope }, 'Старый выбор Bento переносится неверно');
+assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', color_mode:'dark', text_scale:'default', schedule_font_style:'current', break_color_default:'auto', break_color_history:[], booking_card_density:'compact', show_phone:false, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:false, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope }, 'Старый выбор Bento переносится неверно');
 assert.equal(normalizeAppearance({ booking_card_density:'detailed' }).show_notes, true, 'Подробный режим не включает заметки');
 assert.equal(normalizeAppearance({ booking_card_density:'compact', show_phone:true }).show_phone, false, 'Компактный режим снова показывает телефон');
 const migratedLegacyNavigation = normalizeAppearance({ version:5, mobile_nav:['bookings','organization','analytics','schedule'], mobile_nav_by_role:{ owner:['bookings','organization','analytics','schedule'], admin:['bookings','organization','analytics','schedule'], specialist:['bookings','organization','analytics','schedule'] } });
 assert.deepEqual(migratedLegacyNavigation.mobile_nav, defaultMobileNav, 'Прежняя нижняя панель не заменяется ежедневными разделами');
 assert.deepEqual(migratedLegacyNavigation.mobile_nav_by_role, defaultMobileNavByRole, 'Прежняя нижняя панель ролей не переносится на новый порядок');
 const displayPreferenceResolver = Function(`${appearanceSources.join('\n')}; return { normalizeDisplayPreferencesRecord, resolveDisplayPreferenceRecords };`)();
-const luxuryLinear = { layout:'linear', theme:'luxury', color_mode:'dark', text_scale:'default', booking_card_density:'custom', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
-const ecoCapsule = { layout:'capsule', theme:'eco', color_mode:'light', text_scale:'default', booking_card_density:'custom', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
+const luxuryLinear = { layout:'linear', theme:'luxury', color_mode:'dark', text_scale:'default', schedule_font_style:'current', break_color_default:'auto', break_color_history:[], booking_card_density:'custom', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
+const ecoCapsule = { layout:'capsule', theme:'eco', color_mode:'light', text_scale:'default', schedule_font_style:'current', break_color_default:'auto', break_color_history:[], booking_card_density:'custom', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
 const pendingLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ version:2, preferences:luxuryLinear, updated_at:200, pending:true }, true);
 const staleRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ ...ecoCapsule, version:2, updated_at:100 }, true);
 assert.deepEqual(displayPreferenceResolver.resolveDisplayPreferenceRecords(pendingLocalAppearance, staleRemoteAppearance, 300).preferences, luxuryLinear, 'Обновление страницы заменяет новый локальный Luxury устаревшей темой аккаунта');
@@ -713,7 +715,8 @@ assert.doesNotMatch(providerHtml, /id="(?:newBookingsBadge|clientsBadge|services
 assert.match(styles, /calendar-overview-week \.calendar-overview-booking strong[\s\S]*-webkit-line-clamp:2/, 'Название записи в недельном календаре не получает две строки');
 assert.match(styles, /Навигация и рабочие поверхности:[\s\S]*background-image:linear-gradient\(180deg,[^}]*!important;/, 'Внутренние поверхности Luxury не отделены от мраморного фона');
 assert.match(provider, /const completedValue = completed\.reduce[\s\S]*bookingSessionTotal\(item\)/, 'Стоимость состоявшихся визитов считается без итогового состава сеанса');
-assert.doesNotMatch(provider, /timeline-client-phone/, 'Телефон клиента снова занимает место во временной шкале');
+assert.match(provider, /block \|\| !displayPreferences\.show_phone \|\| !item\.client_phone[\s\S]*timeline-client-phone/, 'Телефон во временной шкале не зависит от настройки видимости');
+assert.match(readFileSync(join(root, 'provider-schedule-type.css'), 'utf8'), /\.timeline-client-phone\s*\{\s*display:none!important;/, 'Телефон не скрыт на мобильной временной шкале');
 assert.match(provider, /function timelineServiceNameMarkup/, 'Название услуги нельзя адаптировать для мобильной карточки');
 assert.match(provider, /timeline-service-variant/, 'Уточнение услуги не отделено от основной части названия');
 assert.match(styles, /timeline-booking-copy\s*\{\s*display:contents/, 'Мобильная карточка не отдаёт названию всю доступную ширину');
@@ -805,7 +808,7 @@ for (const [key, label] of [['sage','Шалфей'], ['teal','Бирюза'], ['
 assert.match(styles, /booking-color-options \{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/, 'Палитра не заполняет два аккуратных ряда по шесть цветов');
 assert.match(provider, /pendingBookingColors\.add\(id\)[\s\S]*db\.rpc\('set_booking_color'[^]*pendingBookingColors\.delete\(id\)/, 'Новый цвет теряется при временной ошибке сервера');
 assert.match(provider, /if \(!pendingBookingColors\.has\(item\.id\)\) bookingColors\.set/, 'Сервер может затереть ещё не синхронизированный цвет');
-assert.match(provider, /\$\{mobileBadgeMarkup\}<strong>\$\{serviceTitleMarkup\}<\/strong>\$\{timelineClientRow\}\$\{desktopBadgeMarkup\}\$\{renderedNote\}/, 'Мобильная метка не стоит перед названием или попала в строку клиента');
+assert.match(provider, /\$\{mobileBadgeMarkup\}\$\{block \? `<strong>\$\{serviceTitleMarkup\}<\/strong>\$\{timelineClientRow\}` : `\$\{timelineClientRow\}<strong>\$\{serviceTitleMarkup\}<\/strong>`\}\$\{desktopBadgeMarkup\}\$\{renderedNote\}/, 'Метка клиента и порядок строк записи нарушены');
 assert.match(styles, /timeline-booking \.client-badges \{ position:absolute;[^}]*transform:translateY\(-50%\)/, 'Метки клиента не вынесены из потока карточки');
 assert.match(styles, /@media \(min-width:761px\)[\s\S]*?timeline-booking-copy \{ position:static; \}[\s\S]*?timeline-booking \.client-badges:not\(\.with-labels\)[\s\S]*?right:14px;[\s\S]*?transform:translateY\(-50%\)/, 'Метки клиентов на большом экране снова выравниваются относительно текста, а не карточки');
 assert.match(styles, /timeline-booking\.compact \.client-badges:not\(\.with-labels\) \.client-badge \{[\s\S]*?width:30px;[\s\S]*?height:30px;/, 'Метки снова не помещаются в короткую запись');
