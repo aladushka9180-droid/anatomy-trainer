@@ -202,19 +202,18 @@
     const emptyLabel = status => status === 'closed'
       ? 'Выходной или день закрыт.'
       : status === 'not_scheduled' ? 'Рабочий график не задан.' : 'Свободного времени нет — день полностью занят.';
-    const body = rows.map(row => {
+    const body = (compact ? rows.filter(row => row.windows.length) : rows).map(row => {
       let availability = emptyLabel(row.status);
       if (row.windows.length) availability = hourly
         ? (row.times.length ? row.times.join(', ') : 'На этот день целых свободных часов нет; доступны только более короткие окна.')
         : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join(compact ? '; ' : '\n');
       const maximum = row.maximum ? `${compact ? 'макс.' : 'Максимальный непрерывный интервал:'} ${durationLabel(row.maximum)}` : '';
-      if (compact) return row.windows.length
-        ? `${formatDate(row.date)}, ${availability}${maximum ? ` · ${maximum}` : ''}`
-        : `${formatDate(row.date)} — ${availability.replace(/\.$/, '')}`;
+      if (compact) return `${formatDate(row.date)}, ${availability}`;
       return `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${[availability, maximum].filter(Boolean).join('\n')}`;
     }).join(rowBreak);
     const hasWindows = rows.some(row => row.windows.length);
     const intro = [data.showHeading === false ? '' : heading, target].filter(Boolean).join('\n');
+    if (compact && !hasWindows) return `${intro ? `${intro}\n` : ''}На выбранный период свободных окон нет.\n\nПосмотрите другие даты онлайн:\n${data.bookingUrl}`;
     return `${intro ? `${intro}\n` : ''}${hasWindows ? '' : 'На выбранный период свободных окон нет.\n'}${body}\n\n${hasWindows ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
   }
 

@@ -34,6 +34,11 @@ assert.ok(range.includes('11:00, 12:00'));
 const compact = build('2026-09-06','2026-09-08',{...data,textLayout:'compact'},[...full,{...row('11:00','13:00',120),booking_date:'2026-09-08'}]);
 assert.ok(compact.includes('вс, 6 сентября, 10:00, 11:00'));
 assert.ok(compact.includes('\nвт, 8 сентября, 11:00, 12:00'));
+assert.ok(!compact.includes('7 сентября') && !compact.includes('макс.'),'Compact publication lists only available days without repeated maximums');
+const compactIntervals = build('2026-09-06','2026-09-08',{...data,textLayout:'compact',timeFormat:'intervals'},[...full,{...row('11:00','13:00',120),booking_date:'2026-09-08'}]);
+assert.ok(compactIntervals.includes('6 сентября, 10:00–20:00 · 10 часов'));
+assert.ok(compactIntervals.includes('8 сентября, 11:00–13:00 · 2 часа'));
+assert.ok(!compactIntervals.includes('7 сентября') && !compactIntervals.includes('макс.'));
 const spaced = build('2026-09-06','2026-09-08',{...data,textLayout:'compact',blankLine:true},[...full,{...row('11:00','13:00',120),booking_date:'2026-09-08'}]);
 assert.ok(spaced.includes('\n\nвт, 8 сентября, 11:00, 12:00'));
 const statuses = [
@@ -41,6 +46,8 @@ const statuses = [
   { booking_date:'2026-09-07', status:'closed', max_duration_minutes:0 },
   { booking_date:'2026-09-08', status:'not_scheduled', max_duration_minutes:0 }
 ];
+const compactEmpty = build('2026-09-06','2026-09-08',{...data,textLayout:'compact'},[],statuses);
+assert.equal(compactEmpty,'Свободные окна для записи:\nНа выбранный период свободных окон нет.\n\nПосмотрите другие даты онлайн:\nhttps://example.test');
 const statusText = build('2026-09-06','2026-09-08',{...data,timeFormat:'intervals'},full,statuses);
 assert.ok(statusText.includes('Максимальный непрерывный интервал: 10 часов'));
 assert.ok(statusText.includes('7 сентября:\nВыходной или день закрыт.'));

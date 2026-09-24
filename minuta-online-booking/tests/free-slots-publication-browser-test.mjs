@@ -90,6 +90,20 @@ try {
   await page.locator('.free-slots-extra > summary').click();
   await page.locator('[name="freeSlotsTextLayout"][value="compact"]').check();
   assert.ok((await text()).includes('вс, 6 сентября, 10:00, 11:00, 12:00'));
+  await page.evaluate(()=>{window.generalWindows=[{booking_date:'2026-09-06',start_time:'10:00',end_time:'20:00',duration_minutes:600},{booking_date:'2026-09-08',start_time:'11:00',end_time:'13:00',duration_minutes:120}];});
+  await page.locator('[name="freeSlotsPeriod"][value="range"]').check();
+  await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('8 сентября, 11:00, 12:00'));
+  const mixedPreview=await text();
+  assert.ok(!mixedPreview.includes('7 сентября') && !mixedPreview.includes('макс.') && mixedPreview.includes('https://example.test/booking.html'));
+  const copiedCompactBefore=await page.evaluate(()=>window.copied.length);
+  for(let attempt=0;attempt<3 && await page.evaluate(length=>window.copied.length===length,copiedCompactBefore);attempt++) {
+    await page.locator('#copyFreeSlots').click();
+    await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  }
+  assert.equal(await page.evaluate(()=>window.copied.at(-1)),await text(),'Copied compact text must match the preview');
+  await page.evaluate(()=>{window.generalWindows=null;window.copied=[];});
+  await page.locator('[name="freeSlotsPeriod"][value="day"]').check();
+  await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('10:00, 11:00'));
   await page.locator('#freeSlotsText').fill('Мой текст для клиента');
   assert.equal(await page.locator('#resetFreeSlotsText').isVisible(),true);
   await page.locator('#freeSlotsShowHeading').uncheck();
@@ -215,6 +229,13 @@ try {
   assert.equal(await page.locator('#freeSlotsFrom').evaluate(el=>document.activeElement===el),true);
   assert.ok((await page.locator('#freeSlotsShareStatus').innerText()).includes('свободных окон нет'));
   assert.ok((await text()).includes('день полностью занят'),'Empty state must preserve day status');
+  await page.locator('[name="freeSlotsTextLayout"][value="compact"]').check();
+  assert.ok((await text()).includes('На выбранный период свободных окон нет.'));
+  assert.ok(!(await text()).includes('день полностью занят'));
+  assert.equal(await page.locator('#copyFreeSlots').isDisabled(),true);
+  assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true);
+  assert.equal(await page.locator('#copyFreeSlotsLink').isDisabled(),false);
+  await page.locator('[name="freeSlotsTextLayout"][value="detailed"]').check();
   await page.evaluate(()=>{window.serverTimes=[];});
   await page.locator('[name="freeSlotsBookingMode"][value="service"]').check();
   await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('На выбранный период свободных окон пока нет.'));
