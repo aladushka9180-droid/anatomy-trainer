@@ -7528,7 +7528,8 @@ html.provider-booting .provider-main {
 .report-performer-filter>span,.report-data-source>span { font-size:11px; }
 .report-performer-filter select { min-height:44px; font-size:12px; }
 .report-load-state { margin:0 0 12px; padding:12px 14px; border:1px solid color-mix(in srgb,#d69b37 48%,var(--theme-line)); border-radius:12px; background:color-mix(in srgb,#d69b37 10%,var(--theme-surface)); color:var(--theme-ink); font-size:12px; font-weight:800; }
-.report-load-state.is-failed { border-color:color-mix(in srgb,#b74343 48%,var(--theme-line)); background:color-mix(in srgb,#b74343 9%,var(--theme-surface)); }
+.report-load-state.is-failed { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; border-color:color-mix(in srgb,#b74343 48%,var(--theme-line)); background:color-mix(in srgb,#b74343 9%,var(--theme-surface)); }
+.report-load-state.is-failed [data-report-retry] { flex:0 0 auto; width:auto; min-width:112px; min-height:44px; margin-left:auto; }
 #analyticsView[aria-busy="true"] :is(.report-command-center,.report-view-tabs,[data-report-section],.report-business-grid,.report-methodology),#analyticsView:has(.report-load-state.is-failed:not([hidden])) :is(.report-command-center,.report-view-tabs,[data-report-section],.report-business-grid,.report-methodology) { opacity:.42; pointer-events:none; }
 .report-command-center { grid-template-columns:minmax(0,1fr) 118px; gap:16px; margin:0; padding:20px; border:1px solid var(--theme-line); border-radius:var(--report-radius); background:var(--theme-surface); box-shadow:none; }
 .report-command-center::after { display:none; }

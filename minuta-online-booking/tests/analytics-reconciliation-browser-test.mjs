@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {mkdir} from 'node:fs/promises';
+import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
 const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
@@ -8,7 +10,7 @@ function declaration(name){const start=source.search(new RegExp(`^(?:async )?fun
 const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange',
   'reportServiceValue','reportReceivedAmount','reportImportedValue','reportDebtAmount','reportEffectivePerformerId','reportReconciledTeamRows','reportExportValue','reportExportDuration',
   'reportExportSheets','reportExportCell','reportExportPhone','reportExportMaster','reportExportPerformers','reportExportCreator','reportCurrentTeamRows','reportCurrentEventRows','renderAnalytics',
-  'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','exportBookingsXlsx','exportBookingsCsv',
+  'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','exportBookingsXlsx','exportBookingsCsv','retryReportScopedBookings',
   'exportBookingsPdf','reportPdfText','reportPdfPage','reportPdfImageBytes','reportPdfBlob','reportTrendMarkup','selectReportTrendBucket'];
 const script=`
   var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
@@ -29,6 +31,7 @@ const script=`
   var reportSourceMetrics=()=>({online:0,manual:0,unknown:0}),reportDateText=v=>v,reportVisitWord=()=> 'визитов',reportShare=(v,total)=>total?Math.round(v/total*100)+'%':'0%';
   var reportPerformerName=()=> 'Тестовый мастер',reportHours=v=>v/60+' ч',reportEventTitle=()=>'';
   var setReportText=(s,v)=>{const n=$(s);if(n)n.textContent=v;},setReportSubview=()=>{},updateReportFilterSummary=()=>{},previousReportRange=()=>null,setReportTrend=()=>{};
+  var reportForecastEnd=r=>r.end,retryCalls=[],loadReportScopedBookings=(query,performer)=>{retryCalls.push({query,performer});reportScopedBookingsState.status='loading';};
   var bookingIsCompleted=()=>true,renderReportUtilization=()=>40,renderReportRetention=()=>{},loadReportTeamAnalytics=()=>{},renderReportUtmFunnel=()=>{},loadReportUtmFunnel=()=>{},loadReportEvents=()=>{};
   var renderReportFunnel=()=>{},renderReportHeatmap=()=>{},renderReportCommandCenter=()=>{},providerPerformance={measure:()=>1,record(){}};
   var notify=()=>{},reportExportFilename=(r,ext)=>'synthetic-report.'+ext;
@@ -37,13 +40,14 @@ const script=`
   CanvasRenderingContext2D.prototype.fillText=function(text,...args){pdfText.push(String(text));return originalFillText.call(this,text,...args);};
   ${moduleSource}
   ${names.map(declaration).join('\n')}
+  ${source.slice(source.indexOf("$('#reportLoadState')?.addEventListener("),source.indexOf('\n});',source.indexOf("$('#reportLoadState')?.addEventListener("))+4)}
   // The production UX initializer inserts this report node dynamically.
   ${source.slice(source.indexOf("  const evidence = document.createElement('details');"),source.indexOf('  // Secondary starter commands'))}
 `;
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
 try{
-  for(const width of [390,1280]){
+  for(const width of [390,760,1440]){
     const context=await browser.newContext({viewport:{width,height:950},serviceWorkers:'block'}),page=await context.newPage(),errors=[];
     page.on('pageerror',error=>errors.push(error.message));
     await context.route('**/*',route=>route.request().url()==='https://analytics.test/'?route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="ru"><body></body></html>'}):route.abort());
@@ -83,6 +87,18 @@ try{
     assert.ok(artifacts.pdfText.some(text=>text==='Нет данных'));assert.ok(artifacts.pdfText.some(text=>text.includes('Оплата не указана:')));
     assert.ok(artifacts.xml[0].includes('Оплата не указана'));assert.ok(artifacts.xml[0].includes('Подтверждённый долг'));assert.ok(artifacts.xml[0].includes('2 из 3'));
     assert.equal(await page.evaluate(xml=>xml.some(text=>new DOMParser().parseFromString(text,'application/xml').querySelector('parsererror')),artifacts.xml),false);
+    await page.evaluate(()=>{range={start:'2026-09-04',end:'2026-09-18',period:'custom'};reportPeriod='custom';reportPerformerFilter='master-A';reportUsesScopedBookings=()=>true;reportScopedBookingsState={key:'synthetic-failure',status:'failed',rows:[]};renderAnalytics();});
+    assert.equal(await page.locator('#reportLoadState [data-report-retry]').count(),1,'Ошибка статистики не предлагает повторить загрузку');
+    const retryBox=await page.locator('#reportLoadState [data-report-retry]').evaluate(element=>{const rect=element.getBoundingClientRect();return {height:rect.height,right:rect.right,viewport:innerWidth};});
+    assert.ok(retryBox.height>=44&&retryBox.right<=retryBox.viewport,`Кнопка повтора недостаточно доступна при ${width}px: ${JSON.stringify(retryBox)}`);
+    if(process.env.REPORT_RETRY_ARTIFACT_DIR){await mkdir(process.env.REPORT_RETRY_ARTIFACT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.REPORT_RETRY_ARTIFACT_DIR,`report-retry-${width}.png`),fullPage:false});}
+    await page.locator('#reportLoadState [data-report-retry]').click();
+    const retry=await page.evaluate(()=>({calls:retryCalls,status:reportScopedBookingsState.status,period:reportPeriod,performer:reportPerformerFilter,message:$('#reportLoadState').textContent}));
+    assert.deepEqual(retry.calls,[{query:{start:'2026-09-04',end:'2026-09-18'},performer:'master-A'}]);
+    assert.equal(retry.status,'loading');
+    assert.equal(retry.period,'custom');
+    assert.equal(retry.performer,'master-A');
+    assert.match(retry.message,/Обновляем статистику/);
     assert.deepEqual(errors,[]);
     console.log('PASS '+width+'px: actual analytics DOM totals, CSV/XLSX/PDF generation, unknown payment labels; synthetic data, secondary charts/network stubbed');
     await context.close();

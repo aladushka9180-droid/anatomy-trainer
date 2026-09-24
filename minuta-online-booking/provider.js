@@ -3993,6 +3993,14 @@ async function loadReportScopedBookings(range, performerId) {
     renderBookings();
   }
 }
+function retryReportScopedBookings() {
+  if (reportScopedBookingsState.status !== 'failed') return;
+  if (!navigator.onLine) { notify('Нет подключения. Проверьте сеть и повторите загрузку.'); return; }
+  const range = reportRange();
+  const previous = previousReportRange(range);
+  void loadReportScopedBookings({ start:previous?.start || range.start, end:reportForecastEnd(range) }, reportPerformerFilter);
+  renderAnalytics();
+}
 
 function renderReportTeamRows(rows) {
   rows = reportReconciledTeamRows(reportCompletedItems(reportBookings(reportRange())), reportRange());
@@ -4797,7 +4805,8 @@ function renderAnalytics() {
   if (loadState) {
     loadState.hidden = !['loading', 'failed'].includes(scopedStatus);
     loadState.className = `report-load-state is-${scopedStatus}`;
-    loadState.textContent = scopedStatus === 'loading' ? 'Обновляем статистику…' : scopedStatus === 'failed' ? 'Не удалось обновить статистику. Нули ниже не являются подтверждённым результатом — повторите загрузку.' : '';
+    if (scopedStatus === 'failed') loadState.innerHTML = '<span>Не удалось обновить статистику. Нули ниже не являются подтверждённым результатом.</span><button type="button" class="secondary-button" data-report-retry>Повторить</button>';
+    else loadState.textContent = scopedStatus === 'loading' ? 'Обновляем статистику…' : '';
   }
   const items = reportBookings(range);
   const completed = reportCompletedItems(items);
@@ -18348,6 +18357,9 @@ $('#refreshNotifications').addEventListener('click', () => {
   void loadImportantNotificationEvents({force:true});
 });
 $('#reportPendingMetric')?.addEventListener('click', () => handleReportAction('pending'));
+$('#reportLoadState')?.addEventListener('click', event => {
+  if (event.target.closest('[data-report-retry]')) retryReportScopedBookings();
+});
 $('#reportPendingMetric')?.addEventListener('keydown', event => {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
