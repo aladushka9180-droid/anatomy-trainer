@@ -6,6 +6,9 @@ import vm from 'node:vm';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(root, 'provider.js'), 'utf8');
+const statisticsSource = readFileSync(join(root, 'statistics-audit-provider.js'), 'utf8');
+const statisticsUiSource = readFileSync(join(root, 'statistics-audit-ui.js'), 'utf8');
+const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 const workerSource = readFileSync(join(root, 'report-worker.js'), 'utf8');
 const serviceWorkerSource = readFileSync(join(root, 'sw.js'), 'utf8');
 const version = serviceWorkerSource.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)?.[1];
@@ -38,7 +41,9 @@ for (const name of ['[Content_Types].xml', 'xl/workbook.xml', 'xl/styles.xml', '
 assert.ok(binaryText.includes('Аладушка &amp; партнёры'), 'Текст отчёта не экранирован для Excel');
 assert.match(source, /async function exportBookingsXlsxInBackground\(privacy='masked'\)/, 'Фоновый экспорт не принимает настройку приватности');
 assert.match(serviceWorkerSource, new RegExp(`report-worker\\.js\\?v=${workerVersion}`), 'Worker отчёта не включён в PWA-кэш с версией страницы');
-assert.match(source, /button\.dataset\.reportExport === 'xlsx'\) void exportBookingsXlsxInBackground\(privacy\)/, 'Кнопка отчёта не подключена к фоновому экспорту XLSX');
+assert.match(providerHtml, /<template data-provider-feature="statistics"><script src="statistics-audit-ui\.js\?v=\d+"><\/script><script src="statistics-audit-provider\.js\?v=\d+"><\/script><\/template>/, 'Модуль статистики не подключён к странице');
+assert.match(statisticsUiSource, /\$\('#exportBookings'\)\?\.addEventListener\('click'/, 'Кнопка отчёта не подключена к модулю статистики');
+assert.match(statisticsSource, /if \(format === 'xlsx'\) void exportBookingsXlsxInBackground\(privacy\)/, 'Кнопка отчёта не подключена к фоновому экспорту XLSX');
 assert.match(source, /exportBookingsXlsx\(privacy\)/, 'При недоступном worker нет безопасного синхронного экспорта');
 
 const workerMessages = [];
