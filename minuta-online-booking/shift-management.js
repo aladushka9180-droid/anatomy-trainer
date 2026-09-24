@@ -193,7 +193,15 @@
       if (!$('#absenceEnd').value) $('#absenceEnd').value = isoToday();
       $('#shiftCreator').hidden = !payload.performers.length || !activeLocations.length;
       $('#absenceCreator').hidden = !payload.performers.length;
-      $('#shiftsList').innerHTML = payload.shifts.length ? payload.shifts.map(shiftCard).join('') : empty('Смен пока нет', 'Добавьте рабочие часы специалиста в конкретном филиале.');
+      const missingPrerequisite = !payload.performers.length
+        ? 'Сначала добавьте специалиста в разделе «Люди и филиалы».'
+        : !activeLocations.length
+          ? 'Сначала добавьте активный филиал в разделе «Люди и филиалы».'
+          : null;
+      $('#shiftsList').innerHTML = payload.shifts.length ? payload.shifts.map(shiftCard).join('')
+        : missingPrerequisite
+          ? `<div class="provider-empty compact-empty"><strong>Смен пока нет</strong><small>${escapeHtml(missingPrerequisite)}</small><button type="button" class="secondary-button" data-section-target="organizationPeopleSection">Люди и филиалы</button></div>`
+          : empty('Смен пока нет', 'Добавьте рабочие часы специалиста в конкретном филиале.');
       $('#absencesList').innerHTML = payload.absences.length ? payload.absences.map(absenceCard).join('') : empty('Отсутствий нет', 'Отпуск и больничный можно добавить заранее.');
       $('#shiftUtilization').innerHTML = payload.utilization.length ? payload.utilization.map(utilizationCard).join('') : empty('Загрузка появится после смен', 'Система сравнит рабочие минуты и записи.');
       renderSubstitution(canManage);
