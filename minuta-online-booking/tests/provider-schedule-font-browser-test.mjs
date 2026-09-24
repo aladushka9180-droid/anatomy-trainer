@@ -148,6 +148,17 @@ try {
         assert.equal(state.durationDisplay==='none',width<=760,`${width}/${theme}/${style} duration visibility`);
         assert.equal(state.phoneDisplay==='none',width<=760,`${width}/${theme}/${style} phone visibility`);
         if(width>760)assert.ok(state.durationLeft>=state.serviceRight-1,`${width}/${theme}/${style} duration beside service`);
+        if(width>760){
+          const shortTitleGap=await page.evaluate(()=>{
+            const title=document.querySelector('.timeline-service-title');
+            const previous=title.textContent;
+            title.textContent='Массаж';
+            const gap=document.querySelector('.timeline-service-duration').getBoundingClientRect().left-title.getBoundingClientRect().right;
+            title.textContent=previous;
+            return gap;
+          });
+          assert.ok(shortTitleGap>=0&&shortTitleGap<=12,`${width}/${theme}/${style} short service duration gap ${shortTitleGap}px`);
+        }
         assert.equal(state.recordBg,before.recordBg,`${width}/${theme}/${style} booking fill changed`);
         assert.equal(state.breakBg,before.breakBg,`${width}/${theme}/${style} break fill changed`);
         assert.equal(state.recordColor,before.recordColor,`${width}/${theme}/${style} booking ink changed`);

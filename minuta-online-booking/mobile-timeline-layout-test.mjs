@@ -27,8 +27,8 @@ assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-booki
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-client-phone \{\s*display:none!important;/, 'Телефон снова перегружает мобильную ленту');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-client-visit-wrap \{\s*display:none!important;/, 'Тип клиента снова торчит обрезанной плашкой снизу');
 assert.match(css, /timeline-booking \.timeline-booking-status-icon \{ display:none!important; \}/, 'Галочка завершённого визита снова занимает пустое место в карточке');
-assert.match(provider, /const serviceTitleMarkup = block \? `\$\{serviceMarkup\}\$\{automaticBreakSourceMarkup\}` : `<span class="timeline-service-title">\$\{serviceMarkup\}<\/span>`;/, 'Название услуги потеряло устойчивую адаптивную зону');
-assert.doesNotMatch(provider, /serviceTitleMarkup[^;]*timeline-service-duration/, 'Длительность не должна дублировать уже видимый полный диапазон времени');
+assert.match(provider, /const serviceTitleMarkup = block \? `\$\{serviceMarkup\}\$\{automaticBreakSourceMarkup\}` : `<span class="timeline-service-title">\$\{serviceMarkup\}<\/span><span class="timeline-service-duration">\$\{duration\} минут<\/span>`;/, 'Название услуги и реальная длительность потеряли отдельные адаптивные зоны');
+assert.match(readFileSync(join(root, 'provider-schedule-type.css'), 'utf8'), /\.timeline-service-duration\s*\{\s*display:none!important;/, 'Длительность не скрыта в мобильной ленте');
 assert.doesNotMatch(provider, /serviceMarkup\}<wbr><span class="timeline-service-duration"/, 'Принудительная точка переноса преждевременно отправляет длительность на новую строку');
 assert.match(provider, /timeline-service-variant"> —&nbsp;\$\{escapeHtml\(parts\[1\]\)\}/, 'Тире варианта услуги снова остаётся в конце первой строки');
 assert.match(css, /@media \(max-width:760px\)[\s\S]*?timeline-booking\[data-mobile-timeline-top\]\[data-open-booking\]:not\(\.status-block\):not\(\.compact\):not\(\.minute-only\):has\(\.timeline-drag-handle\) \.timeline-booking-copy \{[^}]*width:100%!important;[^}]*padding-right:clamp\(35px,9vw,44px\)!important;/, 'Обычная мобильная запись не использует фактическую безопасную ширину до 44px ручки');
@@ -51,14 +51,14 @@ assert.match(css, /В мобильной ленте высота записи в
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]\.timeline-tight\.compact:not\(\.minute-only\) \.timeline-booking-client-row \{\s*display:none!important;/, 'В записи до часа вторичный текст снова вытесняет временную шкалу');
 assert.match(provider, /const renderedNote = mobileTimeline \? '' : bookingNotePresenceMarkup\(note, 'timeline-booking-note-presence'\)/, 'Мобильная лента снова выводит отдельный блок заметки поверх карточки');
 assert.match(provider, /bookingNotePresenceMarkup\(note, 'timeline-booking-note-presence'\)/, 'Карточка на ПК не показывает спокойный признак заметки');
-assert.match(provider, /const timelineClientRow = compactMobile\s*\? ''/, 'В короткой мобильной записи остаётся лишняя строка под названием');
+assert.match(provider, /const timelineClientRow = compactMobile && block\s*\? ''/, 'В коротком автоперерыве остаётся лишняя строка под названием');
 assert.match(provider, /const renderedStatus = mobileTimeline \? '' : timelineStatus;/, 'Статус мобильной записи всё ещё может вытеснить название');
 assert.match(provider, /function timelineEmptyHintOffsetMinutes\(start, end, mobileTimeline\)[\s\S]*?return Math\.min\(mobileTimeline \? 0 : 30, visibleDuration \/ 2\);/, 'Подсказка пустого дня не привязана к первому видимому участку шкалы');
 assert.match(provider, /timeline-empty-state" aria-label="День свободен\. Нажмите нужное время, чтобы записать клиента или поставить перерыв"[\s\S]*?<small>Нажмите нужное время, чтобы записать клиента или поставить перерыв<\/small>/, 'Подсказка пустого дня потеряла понятное действие');
 assert.doesNotMatch(provider, /timeline-empty-state[^`]*<strong>День свободен<\/strong>/, 'Подсказка пустого дня дублирует заголовок дня');
 assert.match(css, /@media \(max-width:760px\) \{[\s\S]*?timeline-empty-state \{[^}]*grid-template-columns:28px minmax\(0,360px\);[^}]*padding:8px 10px;[^}]*text-align:left;/, 'Мобильная подсказка пустого дня не помещается в первый видимый участок');
 assert.match(provider, /mobileTimeline \? \{ limit:1, showLabels:true \}/, 'Длинная мобильная запись снова выводит несколько конкурирующих меток');
-assert.match(provider, /timeline-booking-copy">\$\{mobileBadgeMarkup\}<strong>/, 'Метка должна стоять перед названием, чтобы текст занял ширину под ней');
+assert.match(provider, /timeline-booking-copy">\$\{mobileBadgeMarkup\}\$\{block \? `<strong>/, 'Метка должна стоять перед содержимым карточки');
 assert.match(provider, /padding:5px 9px!important;overflow:hidden!important/, 'Критические размеры короткой карточки зависят от старого CSS в кэше');
 
 console.log('mobile timeline layout test: ok');
