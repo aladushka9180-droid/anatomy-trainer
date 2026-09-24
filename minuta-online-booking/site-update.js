@@ -5,7 +5,7 @@
   if (new URLSearchParams(location.search).get('porcelain-preview') === '1') return;
 
   const scriptUrl = document.currentScript?.src || location.href;
-  const workerUrl = new URL('./sw.js?v=903', scriptUrl).href;
+  const workerUrl = new URL('./sw.js?v=904', scriptUrl).href;
   const CHECK_INTERVAL_MS = 15 * 60 * 1000;
   let registration = null;
   let currentController = navigator.serviceWorker.controller;
@@ -50,7 +50,6 @@
           await registration.update();
         }
       } catch {
-        // An unavailable update check must not interrupt booking work.
       } finally {
         checkPromise = null;
       }

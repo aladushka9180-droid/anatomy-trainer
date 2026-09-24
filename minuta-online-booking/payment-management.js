@@ -263,7 +263,6 @@
       }
       const active = Boolean(refundIntent || refundStorageFailed);
       if ($('#paymentRefundRecovery')) $('#paymentRefundRecovery').hidden = !active;
-      // An unresolved operation is the current task; ordinary refunds remain below history.
       if(active)$('#paymentRefundRecovery')?.after?.(form);
       else $('#paymentProviderWorkspace')?.append?.(form);
       if ($('#paymentRefundRecoveryStatus')) $('#paymentRefundRecoveryStatus').textContent = refundStorageFailed
@@ -295,8 +294,7 @@
       if (result.error) throw new Error('refund_check_unavailable');
       const row = result.data;
       if (!row) {
-        // The legacy server may reuse another in-flight refund's canonical ID.
-        // If that reply was lost, absence of our ID alone cannot authorize replay.
+        // A lost reply cannot authorize replay.
         const possibleAlias = await db.from('payment_provider_refunds').select('id')
           .eq('organization_id', intent.organization_id).eq('attempt_id', intent.attempt_id)
           .eq('amount_minor', intent.amount_minor).in('status', ['creating','pending','succeeded']).limit(1).maybeSingle();
@@ -326,7 +324,6 @@
       render();
     }
 
-    // UI lifetime only: these tokens do not cancel or deduplicate server refunds.
     function currentContext() {
       const revision = contextRevision;
       const organizationId = organization?.id;
@@ -358,7 +355,6 @@
     function parseRefundAmount(value) {
       const match = /^(\d+)(?:[.,](\d{1,2}))?$/.exec(String(value ?? '').trim());
       if (!match) return null;
-      // Convert decimal integer digits, never a floating-point RUB amount.
       const amount = Number(`${match[1]}${(match[2] || '').padEnd(2, '0')}`);
       return Number.isSafeInteger(amount) ? amount : null;
     }
@@ -921,9 +917,9 @@
         return;
       }
       const attempt = payload?.recent_attempts?.find(item => String(item.id) === String($('#paymentRefundAttempt').value));
-      if (!attempt) { notify('Исходный платёж не найден. Обновите журнал операций.'); return; }
+      if (!attempt) { notify('Обновите журнал и выберите платёж.'); return; }
       const confirmedByUser = typeof global.confirm === 'function'
-        && global.confirm(`Отправить возврат через ЮKassa?\n\nИсходный платёж: ${attempt.id}\nПолучено по платежу: ${moneyMinor(attempt.captured_amount_minor)}\nСумма возврата: ${moneyMinor(amountMinor)}\nДоступно к возврату: ${moneyMinor(remaining)}\nПричина: ${reason}\n\nПосле отправки отменить возврат нельзя. Отмена сейчас не отправит операцию.`);
+        && global.confirm(`Возврат через ЮKassa?\n\nПлатёж: ${attempt.id}\nПолучено: ${moneyMinor(attempt.captured_amount_minor)}\nВернуть: ${moneyMinor(amountMinor)}\nДоступно: ${moneyMinor(remaining)}\nПричина: ${reason}\n\nПосле отправки отменить возврат нельзя. Отмена ничего не отправит.`);
       if (!confirmedByUser) {
         notify('Возврат не отправлен');
         return;
@@ -958,8 +954,8 @@
         await load();
         return;
       }
-      try { persistRefundIntent({ ...intent, refund_id:result.data.refund_id }); } catch { /* Original request remains durable. */ }
-      // Even an acknowledged request stays attached until an explicit new action.
+      try { persistRefundIntent({ ...intent, refund_id:result.data.refund_id }); } catch { /* Keep intent. */ }
+      // Keep acknowledged requests until a new action.
       if (['succeeded','canceled','failed','pending'].includes(result.data.status)) refundVerifiedStatus = result.data.status;
       await load();
       if (isCurrent()) notify(result.data.status === 'succeeded' ? 'Возврат выполнен' : result.data.status === 'pending' ? 'Возврат принят в обработку' : 'Возврат отменён');

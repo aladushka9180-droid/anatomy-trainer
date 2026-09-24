@@ -1,8 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v903`;
+const CACHE = `${CACHE_PREFIX}v904`;
 
-// Only the provider shell and its first-screen dependencies block installation.
-// Secondary sections, help media and decorative theme images are cached on use.
 const ASSETS = [
   './provider.html',
   './offline.html',
@@ -38,13 +36,13 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=903',
+  './site-update.js?v=904',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
   './social-auth.js?v=811',
   './organization.js?v=884',
-  './payment-management.js?v=903',
+  './payment-management.js?v=904',
   './commerce-management.js?v=811',
   './client-fields.js?v=811',
   './client-import.js?v=811',
@@ -64,13 +62,11 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=903',
+  './provider.js?v=904',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=871',
 ];
 
-// Warm after the first screen. A cold installation must not wait for tools
-// that are only used from a dialog; retain their offline use after warming.
 const OPTIONAL_ASSETS = [
   './provider-porcelain-detail.css?v=893',
   './provider-porcelain-matrix.js?v=887',
