@@ -7,9 +7,9 @@ const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
 assert.match(html, /connect-src[^"]*https:\/\/primetime-booking\.primetime-booking-ru\.workers\.dev/, 'Pro CSP must allow the short-link Worker');
 const start = html.indexOf('<dialog class="free-slots-dialog"');
 const dialog = html.slice(start, html.indexOf('</dialog>', start) + 9);
-const source = readFileSync(new URL('../free-slots-share.js', import.meta.url), 'utf8')
-  .replace('const SHORT_BOOKING_LINKS_ENABLED = false;', 'const SHORT_BOOKING_LINKS_ENABLED = true;');
-assert.match(source, /SHORT_BOOKING_LINKS_ENABLED = true/);
+const source = readFileSync(new URL('../free-slots-share.js', import.meta.url), 'utf8');
+const helper = readFileSync(new URL('../free-slots-short-link.js', import.meta.url), 'utf8');
+assert.match(source, /import\('\.\/free-slots-short-link\.js\?v=936'\)/);
 const workerOrigin = 'https://primetime-booking.primetime-booking-ru.workers.dev';
 const codes = { general:'ABCDEFGHJK', service:'BCDEFGHJKL', qr:'CDEFGHJKLM' };
 const service = 'c1d4ac71-a211-4991-924e-6b378789be12';
@@ -20,7 +20,9 @@ try {
   const errors = [];
   const issued = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.route('https://short-link.test/**', route => route.fulfill({ contentType:'text/html', body:`<button id="open">Открыть</button>${dialog}` }));
+  await page.route('https://short-link.test/**', route => route.request().url().includes('/free-slots-short-link.js')
+    ? route.fulfill({ contentType:'text/javascript', body:helper })
+    : route.fulfill({ contentType:'text/html', body:`<button id="open">Открыть</button>${dialog}` }));
   await page.route(`${workerOrigin}/api/booking-short-links`, async route => {
     const target = new URL(route.request().postDataJSON().url);
     assert.equal(target.origin, 'https://primetime-booking.github.io');
@@ -29,6 +31,10 @@ try {
     const serviceId = target.searchParams.get('service');
     assert.ok(serviceId === null || serviceId === service);
     const sourceKey = target.searchParams.get('utm_source');
+    if (sourceKey === 'whatsapp') {
+      await route.fulfill({ status:503, contentType:'application/json', body:'{}' });
+      return;
+    }
     const code = sourceKey === 'qr' ? codes.qr : serviceId ? codes.service : codes.general;
     issued.push(`${sourceKey}:${serviceId || 'general'}`);
     await route.fulfill({ contentType:'application/json', body:JSON.stringify({ code, url:`${workerOrigin}/${code}` }) });
@@ -61,6 +67,7 @@ try {
   await page.locator('#copyFreeSlotsLink').click();
   assert.equal(await page.evaluate(() => window.copied.at(-1)), masterUrl);
   await page.locator('#shareFreeSlots').click();
+  await page.waitForFunction(() => window.shared.length > 0);
   assert.ok((await page.evaluate(() => window.shared.at(-1))).includes(masterUrl));
   await page.locator('[name="freeSlotsBookingMode"][value="service"]').evaluate(input => {
     input.checked = true; input.dispatchEvent(new Event('change', { bubbles:true }));
@@ -76,6 +83,15 @@ try {
   assert.equal(await page.locator('#freeSlotsBookingLink').getAttribute('href'), qrUrl);
   assert.equal(await page.locator('#freeSlotsQr').evaluate(canvas => canvas.hidden), false);
   assert.equal(await page.locator('#downloadFreeSlotsQr').evaluate(button => button.hidden), false);
+  await page.locator('[name="freeSlotsSource"][value="whatsapp"]').evaluate(input => {
+    input.checked = true; input.dispatchEvent(new Event('change', { bubbles:true }));
+  });
+  await page.waitForFunction(() => document.querySelector('#freeSlotsShareStatus').textContent.includes('Короткая ссылка временно недоступна'));
+  const fallback = await page.locator('#freeSlotsBookingLink').getAttribute('href');
+  assert.ok(fallback.startsWith('https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/index.html?'));
+  assert.equal(new URL(fallback).searchParams.get('utm_source'), 'whatsapp');
+  await page.locator('#copyFreeSlotsLink').click();
+  assert.equal(await page.evaluate(() => window.copied.at(-1)), fallback);
   assert.deepEqual(issued, ['master:general', `master:${service}`, `qr:${service}`]);
   assert.deepEqual(errors, []);
   console.log('short booking link publication actions passed');

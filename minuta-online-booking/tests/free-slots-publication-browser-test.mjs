@@ -224,6 +224,7 @@ try {
   await page.locator('[name="freeSlotsPeriod"][value="range"]').check();
   await page.waitForFunction(()=>document.querySelector('#freeSlotsEmptyPeriod').textContent.includes('6–12 сентября 2026'));
   await page.locator('[name="freeSlotsPeriod"][value="day"]').check();
+  await page.waitForFunction(()=>document.querySelector('#freeSlotsText').closest('.free-slots-text-label').hidden);
   assert.equal(await page.locator('#freeSlotsText').isVisible(),false,'Unpublishable text is not shown as a ready preview');
   await page.locator('#freeSlotsChangeDates').click();
   assert.equal(await page.locator('#freeSlotsFrom').evaluate(el=>document.activeElement===el),true);
