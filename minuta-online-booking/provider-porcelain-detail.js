@@ -61,14 +61,18 @@
       <div class="provider-porcelain-controls">
         <fieldset class="provider-porcelain-fieldset"><legend>Характер темы</legend><div class="provider-porcelain-characters" id="providerPorcelainDetailCharacters"></div></fieldset>
         <fieldset class="provider-porcelain-fieldset"><legend>Оттенок темы</legend><div class="provider-porcelain-shades" id="providerPorcelainDetailShades"></div></fieldset>
+      </div>
+      <div class="provider-porcelain-live-slot">
+        <aside class="provider-porcelain-live" aria-label="Живой предпросмотр кабинета">
+          <h3>Ваш мобильный кабинет</h3><p>Текущая дата и данные вашего кабинета. Можно переключать разделы и прокручивать; изменения в предпросмотре недоступны.</p>
+          <div class="provider-porcelain-live-frame"><iframe id="providerPorcelainPreview" title="Только чтение: ваш мобильный кабинет в выбранной теме" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe></div>
+          <p class="provider-porcelain-live-status" id="providerPorcelainPreviewStatus" role="status">Подключаем предпросмотр…</p>
+        </aside>
+      </div>
+      <div class="provider-porcelain-footer">
         <div class="provider-porcelain-actions"><button class="primary" id="providerPorcelainApply" type="button">Применить тему</button><button class="secondary-button" id="providerPorcelainReset" type="button">Сбросить</button></div>
         <p id="providerPorcelainStatus" role="status" aria-live="polite"></p>
       </div>
-      <aside class="provider-porcelain-live" aria-label="Живой предпросмотр кабинета">
-        <h3>Ваш мобильный кабинет</h3><p>Текущая дата и данные вашего кабинета. Можно переключать разделы и прокручивать; изменения в предпросмотре недоступны.</p>
-        <div class="provider-porcelain-live-frame"><iframe id="providerPorcelainPreview" title="Только чтение: ваш мобильный кабинет в выбранной теме" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe></div>
-        <p class="provider-porcelain-live-status" id="providerPorcelainPreviewStatus" role="status">Подключаем предпросмотр…</p>
-      </aside>
     </div>`;
   appearanceCard.append(page);
 
@@ -82,8 +86,18 @@
   const shadeList = page.querySelector('#providerPorcelainDetailShades');
   const status = page.querySelector('#providerPorcelainStatus');
   const previewStatus = page.querySelector('#providerPorcelainPreviewStatus');
+  const previewSlot = page.querySelector('.provider-porcelain-live-slot');
+  const previewPanel = page.querySelector('.provider-porcelain-live');
   let saved = null;
   let draft = { ...defaultPair };
+
+  function updateMobilePreviewDock() {
+    const mobile = window.matchMedia('(max-width:620px)').matches;
+    const dock = mobile && !page.hidden && previewSlot.getBoundingClientRect().top > window.innerHeight - 255;
+    previewPanel.classList.toggle('is-docked', dock);
+  }
+  window.addEventListener('scroll', updateMobilePreviewDock, { passive:true, capture:true });
+  window.addEventListener('resize', updateMobilePreviewDock);
 
   function sendDraft() {
     if (!frame.contentWindow || !frame.src || frame.src === 'about:blank') return;
@@ -135,8 +149,10 @@
     frame.src = previewUrl();
     requestAnimationFrame(() => page.querySelector('#providerPorcelainTitle').focus({ preventScroll:true }));
     page.scrollIntoView({ block:'start' });
+    requestAnimationFrame(updateMobilePreviewDock);
   }
   function closeEditor() {
+    previewPanel.classList.remove('is-docked');
     page.hidden = true;
     delete document.body.dataset.porcelainEditorOpen;
     frame.src = 'about:blank';

@@ -76,15 +76,28 @@ try {
   assert.equal(await page.evaluate(() => window.__fixture.saves), 0);
   assert.equal(await page.evaluate(() => window.__fixture.preferences.theme), 'sage');
   assert.equal(await page.locator('#providerPorcelainApply').evaluate(button => getComputedStyle(button).backgroundColor), 'rgb(141, 44, 92)');
-  for (const width of [390, 760, 1440]) {
+  for (const width of [320, 360, 390, 760, 1440]) {
     await page.setViewportSize({ width, height:1000 });
-    const layout = await page.evaluate(() => ({ width:innerWidth, scroll:document.documentElement.scrollWidth, offenders:[...document.querySelectorAll('*')].filter(element => element.getBoundingClientRect().right > innerWidth + 2).slice(0,8).map(element => `${element.tagName}.${element.className}`) }));
+    const layout = await page.evaluate(() => ({ width:innerWidth, scroll:document.documentElement.scrollWidth, offenders:[...document.querySelectorAll('*')].filter(element => element.getBoundingClientRect().right > innerWidth + 2).slice(0,8).map(element => `${element.tagName}.${element.className}`), textFits:[...document.querySelectorAll('.provider-porcelain-character strong,.provider-porcelain-shade strong')].every(element => element.getBoundingClientRect().width <= element.parentElement.getBoundingClientRect().width + 1), characterLines:[...document.querySelectorAll('.provider-porcelain-character strong')].map(element => { const range=document.createRange(); range.selectNodeContents(element); return range.getClientRects().length; }), shadesPerRow:new Set([...document.querySelectorAll('.provider-porcelain-shade')].map(element => Math.round(element.getBoundingClientRect().top))).size, docked:document.querySelector('.provider-porcelain-live').classList.contains('is-docked'), frames:document.querySelectorAll('#providerPorcelainPreview').length }));
     assert.equal(layout.scroll <= width + 2, true, `${width}px overflow: ${JSON.stringify(layout)}`);
+    assert.equal(layout.textFits, true, `${width}px character/shade label overflow`);
+    assert.equal(layout.frames, 1, 'Compact and full preview must use the same live iframe');
+    if (width <= 390) {
+      assert.deepEqual(layout.characterLines, [1, 1, 1], `${width}px character names must not collide or break awkwardly`);
+      assert.equal(layout.shadesPerRow, 2, `${width}px shades need a legible 3+2 layout`);
+      assert.equal(layout.docked, true, `${width}px live cabin should stay visible while choosing`);
+    }
     if (process.env.MINUTA_PORCELAIN_OUTPUT) {
       await mkdir(process.env.MINUTA_PORCELAIN_OUTPUT, { recursive:true });
       await page.screenshot({ path:path.join(process.env.MINUTA_PORCELAIN_OUTPUT, `porcelain-editor-${width}-petal.png`), fullPage:true });
     }
   }
+  await page.setViewportSize({ width:320, height:720 });
+  await page.locator('.provider-porcelain-character').filter({ has:page.locator('input[value="silk"]') }).click();
+  await page.locator('.provider-porcelain-shade').filter({ has:page.locator('input[value="pink-accent"]') }).click();
+  await page.waitForFunction(() => document.querySelector('#providerPorcelainPreview').contentDocument?.body?.dataset.providerPorcelainCharacter === 'silk');
+  assert.equal(await page.locator('.provider-porcelain-live').evaluate(element => element.classList.contains('is-docked')), true, 'Real cabinet must remain visible while selecting on a short phone viewport');
+  assert.equal(await page.evaluate(() => window.__fixture.saves), 0, 'Docked preview changes must remain a draft');
   const frame = page.frameLocator('#providerPorcelainPreview');
   const observedPalettes = new Set();
   for (const character of ['pearl', 'petal', 'silk']) {
@@ -125,6 +138,11 @@ try {
   await frame.locator('body').evaluate(() => localStorage.setItem('porcelain-preview-test', 'isolated'));
   assert.equal(await page.evaluate(() => localStorage.getItem('porcelain-preview-test')), null);
   await page.locator('#providerPorcelainPreview').scrollIntoViewIfNeeded();
+  await page.setViewportSize({ width:390, height:844 });
+  await page.locator('.provider-porcelain-live-slot').scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => !document.querySelector('.provider-porcelain-live').classList.contains('is-docked'));
+  const footerOrder = await page.evaluate(() => document.querySelector('.provider-porcelain-footer').getBoundingClientRect().top >= document.querySelector('.provider-porcelain-live-slot').getBoundingClientRect().bottom - 1);
+  assert.equal(footerOrder, true, 'Apply/Reset and draft status must follow the full preview');
   await frame.locator('.provider-mobile-nav [data-provider-view="clients"]').click();
   assert.equal(await frame.locator('#dashboard').getAttribute('data-active-view'), 'clients');
   await page.locator('#providerPorcelainApply').click();
