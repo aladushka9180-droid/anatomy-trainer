@@ -54,6 +54,7 @@ try{
     await page.goto('https://analytics.test/');
     await page.evaluate(html=>{const doc=new DOMParser().parseFromString(html,'text/html');const panel=doc.querySelector('[data-provider-panel="analytics"]');if(!panel)throw Error('Actual analytics panel missing');document.body.append(panel.cloneNode(true));document.querySelectorAll('[hidden]').forEach(node=>{if(node.matches('[data-provider-panel]'))node.hidden=false;});},html);
     await page.addStyleTag({content:readFileSync(new URL('../styles.css',import.meta.url),'utf8')});
+    await page.addStyleTag({content:readFileSync(new URL('../finance-center.css',import.meta.url),'utf8')});
     await page.addScriptTag({content:script});
     await page.evaluate(()=>renderAnalytics());
     const number=async id=>Number((await page.locator(id).textContent()).replace(/[^0-9-]/g,''));
@@ -99,6 +100,8 @@ try{
     assert.equal(retry.period,'custom');
     assert.equal(retry.performer,'master-A');
     assert.match(retry.message,/Обновляем статистику/);
+    await page.evaluate(()=>{const panel=$('#analyticsView');panel.classList.add('finance-center-mounted');panel.dataset.reportTab='money';reportScopedBookingsState.status='failed';renderAnalytics();});
+    assert.equal(await page.locator('#reportLoadState [data-report-retry]').isVisible(),true,'Финансовая вкладка скрыла ошибку и повтор загрузки');
     assert.deepEqual(errors,[]);
     console.log('PASS '+width+'px: actual analytics DOM totals, CSV/XLSX/PDF generation, unknown payment labels; synthetic data, secondary charts/network stubbed');
     await context.close();
