@@ -46,6 +46,7 @@ jobs:
       - run: node minuta-online-booking/tests/analytics-reconciliation-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-theme-browser-test.mjs
       - run: node minuta-online-booking/tests/free-slots-publication-browser-test.mjs
+      - run: node minuta-online-booking/tests/free-slots-porcelain-toggles-browser-test.mjs
       - run: node minuta-online-booking/tests/client-waitlist-browser-test.mjs
       - run: node minuta-online-booking/tests/waitlist-management-browser-test.mjs
       - run: node minuta-online-booking/provider-header-test.mjs

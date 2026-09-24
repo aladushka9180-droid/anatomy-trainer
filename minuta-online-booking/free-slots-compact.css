@@ -12,6 +12,7 @@
 #freeSlotsDialog[data-booking-mode="general"][data-single-location="true"] .free-slots-targets { display:none; }
 #freeSlotsDialog .free-slots-mode { margin:0 0 16px; }
 #freeSlotsDialog .free-slots-mode span { min-height:44px; font-size:13px; }
+body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog .free-slots-mode input:not(:checked)+span { color:#745866; font-weight:600; }
 #freeSlotsDialog .free-slots-mode input:checked+span { box-shadow:none; }
 #freeSlotsDialog label { font-size:13px; }
 #freeSlotsDialog select,#freeSlotsDialog input[type="date"] { width:100%; max-width:100%; min-height:46px; font-family:inherit; font-size:16px; font-weight:500; }
