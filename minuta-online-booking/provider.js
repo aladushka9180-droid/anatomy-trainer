@@ -8851,7 +8851,9 @@ function renderTimeline(sourceItems) {
       : statusClass === 'visited'
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
-    const serviceMarkup = block ? escapeHtml(item.automatic_break ? 'Автоперерыв' : item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга', item.service_id);
+    const serviceMarkup = block
+      ? item.automatic_break ? '<span class="timeline-automatic-break-label">Автоперерыв</span>' : escapeHtml(item.client_name || 'Перерыв')
+      : timelineServiceNameMarkup(item.services?.name || 'Услуга', item.service_id);
     const automaticBreakSourceMarkup = item.automatic_break
       ? '<span class="timeline-automatic-break-source">Автоматический · из правил записи</span>'
       : '';

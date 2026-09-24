@@ -21,6 +21,8 @@ const helperSource = `
   const PROVIDER_OFFLINE_SNAPSHOT_VERSION = 1;
   const SCHEDULE_BLOCK_SERVICE_NAME = '__minuta_schedule_block__';
   const SCHEDULE_BLOCK_PHONE = '0000000000';
+  const BOOKING_COLOR_DEFAULT = 'auto';
+  const displayPreferences = { break_color_history:[] };
   const reliability = window.MinutaReliability;
   const $ = selector => document.querySelector(selector);
   let currentUser = { id:'provider-1' };
@@ -66,6 +68,7 @@ const helperSource = `
   ${actual('providerOfflineAutomaticBreakSegments')}
   ${actual('readProviderOfflineSnapshot')}
   ${actual('saveProviderOfflineSnapshot')}
+  ${actual('automaticBreakColorAt')}
   ${actual('automaticBookingBreaks')}
   ${actual('applyProviderOfflineSnapshot')}
   ${actual('offlineBookingSnapshotFresh')}

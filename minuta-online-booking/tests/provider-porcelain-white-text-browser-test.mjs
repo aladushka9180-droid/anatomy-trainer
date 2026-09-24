@@ -4,9 +4,17 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(fileURLToPath(new URL('../',import.meta.url)));
 const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
+const whiteContrast=background=>{
+  const values=(background.match(/[\d.]+/g)||[]).slice(0,3).map(Number);
+  const channels=background.startsWith('color(srgb ') ? values.map(value=>value*255) : values;
+  const luminance=channels.map(value=>{const channel=value/255;return channel<=0.04045?channel/12.92:((channel+0.055)/1.055)**2.4;});
+  return 1.05/(0.05+0.2126*luminance[0]+0.7152*luminance[1]+0.0722*luminance[2]);
+};
 const browser = await chromium.launch({ headless:true });
 try {
-  for (const width of [390,760,1440]) {
+  for (const width of [320,390,760,1440]) {
+    let minimumContrast=Infinity;
+    let recommendedShadeContrast=0;
     const page = await browser.newPage({ viewport:{ width,height:900 } });
     await page.setContent(`<body class="provider-body" data-provider-theme="pink-porcelain" data-provider-layout="soft">
       <main id="dashboard" data-active-view="bookings"><section class="schedule-card" style="width:min(100%,640px);margin:auto">
@@ -14,10 +22,10 @@ try {
         <div id="dateStrip" class="date-strip"><button type="button">23</button><button class="active" type="button"><span>Сегодня</span><strong>24</strong><small>сент</small></button></div>
         <div id="providerBookings" class="provider-bookings timeline-view"><div class="day-timeline" style="--timeline-height:300px"><div class="timeline-hours">10:00</div><div class="timeline-stage">
           <button type="button" class="timeline-booking status-confirmed color-auto" style="top:0;height:75px"><span class="timeline-booking-time"><b>10:00</b><small>–11:00</small></span><span class="timeline-booking-copy"><strong><span class="timeline-service-title">Услуга</span></strong><span class="timeline-booking-client">Клиент</span></span></button>
-          <button type="button" class="timeline-booking status-block automatic-break" style="top:85px;height:95px"><span class="timeline-booking-time"><b>11:00</b><small>–12:00</small></span><span class="timeline-booking-copy"><strong>Автоперерыв<span class="timeline-automatic-break-source">Автоматический · из правил записи</span></strong></span></button>
+          <button type="button" class="timeline-booking status-block color-auto automatic-break" data-mobile-timeline-top="85" style="top:85px;height:95px"><span class="timeline-booking-time"><b>11:00</b><small>–12:00</small></span><span class="timeline-booking-copy"><strong><span class="timeline-automatic-break-label">Автоперерыв</span><span class="timeline-automatic-break-source">Автоматический · из правил записи</span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">11:00–12:00</span></small></span></span></button>
         </div></div></div>
       </section></main><script>document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>document.body.dataset.clicked='true'));</script></body>`);
-    for (const file of ['styles.css','provider-themes-signature.css','provider-theme-families.css','provider-porcelain-detail.css','provider-schedule-minimal.css','provider-schedule-desktop-reference.css']) {
+    for (const file of ['styles.css','provider-themes-signature.css','provider-theme-families.css','provider-porcelain-detail.css','provider-schedule-minimal.css','provider-schedule-desktop-reference.css','provider-schedule-type.css']) {
       await page.addStyleTag({ path:path.join(root,file) });
     }
     await page.addStyleTag({ content:'*{transition:none!important;animation:none!important}' });
@@ -38,6 +46,8 @@ try {
             todayBackground:css('.date-today-button').backgroundColor,
             bookingBackground:css('.timeline-booking.status-confirmed').backgroundColor,
             breakBackground:css('.timeline-booking.automatic-break').backgroundColor,
+            breakBorderStyle:css('.timeline-booking.automatic-break').borderLeftStyle,
+            breakBorderWidth:css('.timeline-booking.automatic-break').borderLeftWidth,
             todayColor:css('.date-today-button span').color,
             dayColor:css('#dateStrip button.active strong').color,
             bookingTitleColor:css('.timeline-booking.status-confirmed .timeline-service-title').color,
@@ -46,6 +56,11 @@ try {
             breakTitleColor:css('.timeline-booking.automatic-break strong').color,
             breakSourceColor:css('.timeline-automatic-break-source').color,
             breakTimeColor:css('.timeline-booking.automatic-break .timeline-booking-time').color,
+            breakLabelBackground:css('.timeline-automatic-break-label').backgroundColor,
+            breakSourceBackground:css('.timeline-automatic-break-source').backgroundColor,
+            breakTimeBackground:css('.timeline-booking.automatic-break .timeline-booking-time').backgroundColor,
+            breakMobileTimeBackground:css('.timeline-booking.automatic-break .timeline-mobile-time').backgroundColor,
+            breakMobileTimeColor:css('.timeline-booking.automatic-break .timeline-mobile-time').color,
             bookingTextShadow:css('.timeline-booking.status-confirmed .timeline-service-title').textShadow,
             breakTextShadow:css('.timeline-booking.automatic-break strong').textShadow,
             unselectedDateColor:css('#dateStrip button:not(.active)').color,
@@ -54,6 +69,16 @@ try {
           };
         });
         assert.equal(state.bookingBackground,state.todayBackground,`${width} ${character}/${shade} booking fill`);
+        assert.equal(state.breakBackground,state.bookingBackground,`${width} ${character}/${shade} break fill differs from booking`);
+        assert.equal(state.breakBorderStyle,'dashed',`${width} ${character}/${shade} pause edge lost its dashed style`);
+        assert.equal(state.breakBorderWidth,'1px',`${width} ${character}/${shade} pause gained a thick side band`);
+        assert.equal(state.breakLabelBackground,state.breakSourceBackground,`${width} ${character}/${shade} mismatched text backings`);
+        assert.equal(state.breakLabelBackground,state.breakTimeBackground,`${width} ${character}/${shade} mismatched time backing`);
+        assert.equal(state.breakLabelBackground,state.breakMobileTimeBackground,`${width} ${character}/${shade} mismatched mobile time backing`);
+        assert.equal(state.breakMobileTimeColor,'rgb(255, 255, 255)',`${width} ${character}/${shade} mobile pause time`);
+        minimumContrast=Math.min(minimumContrast,whiteContrast(state.breakLabelBackground));
+        if(character==='petal'&&shade==='gentle-pink')recommendedShadeContrast=whiteContrast(state.breakLabelBackground);
+        assert.ok(whiteContrast(state.breakLabelBackground)>=4.5,`${width} ${character}/${shade} white pause text contrast`);
         for(const key of ['todayColor','dayColor','bookingTitleColor','bookingTimeColor','bookingClientColor','breakTitleColor','breakSourceColor','breakTimeColor'])
           assert.equal(state[key],'rgb(255, 255, 255)',`${width} ${character}/${shade} ${key}`);
         assert.equal(state.bookingTextShadow,'none');
@@ -76,7 +101,7 @@ try {
     assert.equal(await page.locator('body').getAttribute('data-clicked'),'true');
     await page.evaluate(()=>document.body.dataset.providerTheme='sage');
     assert.notEqual(await page.locator('.timeline-booking.status-confirmed .timeline-service-title').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)',`${width} other theme`);
-    console.log(`${width}px: 15 palettes, white target text, unchanged adjacent theme, no overflow, click OK`);
+    console.log(`${width}px: 15 palettes, white target text, unchanged adjacent theme, no overflow, click OK; default shade ${recommendedShadeContrast.toFixed(2)}:1, weakest ${minimumContrast.toFixed(2)}:1`);
     await page.close();
   }
 } finally { await browser.close(); }
