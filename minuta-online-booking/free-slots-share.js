@@ -207,9 +207,8 @@
       if (row.windows.length) availability = hourly
         ? (row.times.length ? row.times.join(', ') : 'На этот день целых свободных часов нет; доступны только более короткие окна.')
         : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join(compact ? '; ' : '\n');
-      const maximum = row.maximum ? `${compact ? 'макс.' : 'Максимальный непрерывный интервал:'} ${durationLabel(row.maximum)}` : '';
       if (compact) return `${formatDate(row.date)}, ${availability}`;
-      return `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${[availability, maximum].filter(Boolean).join('\n')}`;
+      return `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${availability}`;
     }).join(rowBreak);
     const hasWindows = rows.some(row => row.windows.length);
     const intro = [data.showHeading === false ? '' : heading, target].filter(Boolean).join('\n');

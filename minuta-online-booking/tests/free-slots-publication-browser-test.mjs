@@ -72,7 +72,7 @@ try {
   await page.locator('#open').click();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   assert.ok((await text()).includes('10:00–20:00 · 10 часов'));
-  assert.ok((await text()).includes('Максимальный непрерывный интервал: 10 часов'));
+  assert.ok(!(await text()).includes('Максимальный непрерывный интервал'));
   assert.ok(!(await text()).includes('Массаж'));
   assert.ok(!(await text()).includes('Рамиль'));
   assert.equal(await page.locator('#freeSlotsService').isVisible(),false);
@@ -204,7 +204,7 @@ try {
     await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   }
   assert.equal(await page.evaluate(()=>window.copied.length),copiedBefore+1);
-  assert.ok((await page.evaluate(()=>window.copied.at(-1))).includes('Максимальный непрерывный интервал: 3 часа'));
+  assert.ok(!(await page.evaluate(()=>window.copied.at(-1))).includes('Максимальный непрерывный интервал'));
   assert.ok(!(await page.evaluate(()=>window.copied.at(-1))).includes('16:00'));
   await page.locator('[name="freeSlotsTimeFormat"][value="intervals"]').check();
   assert.ok((await text()).includes('17:00–20:00 · 3 часа'));
@@ -272,11 +272,49 @@ try {
     if(process.env.MINUTA_VISUAL_PREFIX) await page.screenshot({path:`${process.env.MINUTA_VISUAL_PREFIX}-${width}.png`});
     if(width===390) {await page.locator('#freeSlotsDialog').evaluate(el=>{el.scrollTop=el.scrollHeight;});assert.equal(await page.locator('#shareFreeSlots').isVisible(),true);if(process.env.MINUTA_VISUAL_PREFIX) await page.screenshot({path:`${process.env.MINUTA_VISUAL_PREFIX}-${width}-actions.png`});}
   }
+  // Match the reported 25 Sep–1 Oct range and verify the actual copy/share payloads.
+  await page.evaluate(()=>{
+    window.generalWindows=[
+      {booking_date:'2026-09-25',start_time:'10:00',end_time:'20:00',duration_minutes:600},
+      {booking_date:'2026-09-26',start_time:'12:00',end_time:'20:00',duration_minutes:480}
+    ];
+  });
+  if(!await page.locator('details.free-slots-extra').first().evaluate(el=>el.open)) await page.locator('details.free-slots-extra summary').first().click();
+  await page.locator('[name="freeSlotsTextLayout"][value="detailed"]').check();
+  await page.locator('[name="freeSlotsPeriod"][value="range"]').evaluate(input=>{
+    input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  await page.locator('#freeSlotsFrom').fill('2026-09-25');
+  await page.locator('#freeSlotsTo').fill('2026-10-01');
+  for(const format of ['intervals','hourly']) {
+    await page.locator(`[name="freeSlotsTimeFormat"][value="${format}"]`).evaluate(input=>{
+      input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+    await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled && document.querySelector('#freeSlotsText').value.includes('26 сентября'));
+    const preview=await text();
+    assert.ok(preview.includes(format==='intervals'?'10:00–20:00 · 10 часов':'10:00, 11:00'));
+    assert.doesNotMatch(preview,/Максимальный непрерывный интервал|макс\./i);
+    const copied=await page.evaluate(()=>window.copied.length);
+    for(let attempt=0;attempt<3 && await page.evaluate(length=>window.copied.length===length,copied);attempt++) {
+      await page.locator('#copyFreeSlots').click();
+      await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+    }
+    assert.equal(await page.evaluate(()=>window.copied.length),copied+1);
+    assert.equal(await page.evaluate(()=>window.copied.at(-1)),await text());
+    assert.doesNotMatch(await page.evaluate(()=>window.copied.at(-1)),/Максимальный непрерывный интервал|макс\./i);
+    const shared=await page.evaluate(()=>window.shared.length);
+    for(let attempt=0;attempt<3 && await page.evaluate(length=>window.shared.length===length,shared);attempt++) {
+      await page.locator('#shareFreeSlots').click();
+      await page.waitForFunction(()=>!document.querySelector('#shareFreeSlots').disabled);
+    }
+    assert.equal(await page.evaluate(()=>window.shared.length),shared+1);
+    assert.doesNotMatch(await page.evaluate(()=>window.shared.at(-1)),/Максимальный непрерывный интервал|макс\./i);
+  }
   await page.evaluate(()=>{window.generalWindows=[];window.controller.refresh();});
   await page.waitForFunction(()=>!document.querySelector('#freeSlotsEmpty').hidden);
   assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true);
   assert.equal(await page.locator('#copyFreeSlotsLink').isDisabled(),false);
   for(const width of [390,1440]) {await page.setViewportSize({width,height:844});if(process.env.MINUTA_VISUAL_PREFIX) await page.screenshot({path:`${process.env.MINUTA_VISUAL_PREFIX}-empty-${width}.png`});}
   assert.deepEqual(errors,[]);
-  console.log('PASS: both modes, catalog link, full hourly preview, server gaps, manual/auto, today 15:32→16:00, live clock rollover, fresh pre-send, copy/share, fail-closed');
+  console.log('PASS: both modes, 25 Sep–1 Oct copy/share without repeated maximum, catalog link, server gaps, manual/auto, clock rollover, fresh pre-send, fail-closed');
 } finally {await browser.close();}

@@ -15,7 +15,7 @@ assert.ok(!hourly.includes('Начало свободного часа:'));
 assert.ok(!hourly.includes(data.performerLabel));
 assert.ok(!build('2026-09-06','2026-09-06',{...data,timeFormat:'intervals'},full).includes(data.performerLabel));
 assert.ok(build('2026-09-06', '2026-09-06', {...data,timeFormat:'intervals'}, full).includes('10:00–20:00 · 10 часов'));
-assert.ok(build('2026-09-06', '2026-09-06', {...data,timeFormat:'intervals'}, full).includes('Максимальный непрерывный интервал: 10 часов'));
+assert.ok(!build('2026-09-06', '2026-09-06', {...data,timeFormat:'intervals'}, full).includes('Максимальный непрерывный интервал'));
 const busy = build('2026-09-06', '2026-09-06', data, [row('10:00','12:30',150),row('14:20','17:00',160),row('19:30','20:00',30)]);
 assert.ok(busy.includes('10:00, 11:00, 15:00, 16:00'));
 for (const time of ['12:00','13:00','14:00','17:00','19:00']) assert.ok(!busy.includes(time));
@@ -49,7 +49,7 @@ const statuses = [
 const compactEmpty = build('2026-09-06','2026-09-08',{...data,textLayout:'compact'},[],statuses);
 assert.equal(compactEmpty,'Свободные окна для записи:\nНа выбранный период свободных окон нет.\n\nПосмотрите другие даты онлайн:\nhttps://example.test');
 const statusText = build('2026-09-06','2026-09-08',{...data,timeFormat:'intervals'},full,statuses);
-assert.ok(statusText.includes('Максимальный непрерывный интервал: 10 часов'));
+assert.ok(!statusText.includes('Максимальный непрерывный интервал'));
 assert.ok(statusText.includes('7 сентября:\nВыходной или день закрыт.'));
 assert.ok(statusText.includes('8 сентября:\nРабочий график не задан.'));
 const busyText = build('2026-09-06','2026-09-08',{...data,timeFormat:'intervals'},full,[statuses[0],{ booking_date:'2026-09-07', status:'busy' },statuses[2]]);
@@ -57,4 +57,15 @@ assert.ok(busyText.includes('7 сентября:\nСвободного врем�
 assert.ok(!build('2026-09-06','2026-09-06',{...data,showHeading:false},full).startsWith('Свободные окна'));
 const serviceCompact = buildService('2026-09-06','2026-09-08',{...data,textLayout:'compact'},[{booking_date:'2026-09-06',booking_time:'10:00'},{booking_date:'2026-09-08',booking_time:'12:00'}]);
 assert.ok(serviceCompact.includes('вс, 6 сентября, 10:00\nвт, 8 сентября, 12:00'));
-console.log('PASS: interval/hourly and detailed/compact formats, max interval, empty-day statuses, optional spacing/header, gaps, range and same-day cutoff');
+const septemberRange = [
+  { booking_date:'2026-09-25', start_time:'10:00', end_time:'20:00', duration_minutes:600 },
+  { booking_date:'2026-09-26', start_time:'12:00', end_time:'20:00', duration_minutes:480 }
+];
+for (const textLayout of ['detailed', 'compact']) for (const timeFormat of ['intervals', 'hourly']) {
+  const message = build('2026-09-25', '2026-10-01', { ...data, textLayout, timeFormat }, septemberRange);
+  assert.ok(message.includes('25 сентября') && message.includes('26 сентября'));
+  assert.equal(message.includes('1 октября'), textLayout === 'detailed');
+  assert.ok(message.includes(timeFormat === 'intervals' ? '10:00–20:00 · 10 часов' : '10:00, 11:00'));
+  assert.doesNotMatch(message, /Максимальный непрерывный интервал|макс\./i);
+}
+console.log('PASS: interval/hourly and detailed/compact formats, no repeated maximum in 25 Sep–1 Oct text, empty-day statuses, optional spacing/header, gaps, range and same-day cutoff');
