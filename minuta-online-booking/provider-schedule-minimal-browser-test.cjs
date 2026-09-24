@@ -430,6 +430,8 @@ const server = http.createServer((request, response) => {
             strip.dispatchEvent(move);
             strip.scrollLeft += (targetLeft - strip.scrollLeft) * ratio;
             strip.dispatchEvent(new Event('scroll'));
+            // A delayed render/resize recenter must not steal an active swipe.
+            if (dayDelta === 5 && ratio === .58) centerDateStripSelection(strip, { instant:true });
             await new Promise(resolve => requestAnimationFrame(resolve));
             frames.push({ ...snapshot(), commitCount });
           }

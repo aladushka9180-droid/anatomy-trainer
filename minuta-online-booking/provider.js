@@ -7205,6 +7205,7 @@ function updateDateStripEmphasis(dateStrip) {
 
 function centerDateStripSelection(dateStrip, options = {}) {
   if (!dateStrip || dateStrip.scrollWidth <= dateStrip.clientWidth) return;
+  if (dateStrip.dataset.mobileTouchGestureActive === 'true') return;
   const active = dateStrip.querySelector('[data-booking-date].active');
   if (!active) return;
   const stripRect = dateStrip.getBoundingClientRect();
@@ -7364,7 +7365,10 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       dateStrip.querySelectorAll('.is-swipe-candidate').forEach(button => button.classList.remove('is-swipe-candidate'));
     };
     const commitMobileDateGesture = () => {
-      if (!window.matchMedia('(max-width: 760px)').matches) return;
+      if (!window.matchMedia('(max-width: 760px)').matches) {
+        dateStrip.dataset.mobileTouchGestureActive = 'false';
+        return;
+      }
       if (touchStartX !== null || dragPointerId !== null) {
         queueMobileDateSettle();
         return;
@@ -7374,6 +7378,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       const candidate = previewMobileDate();
       const nextDate = candidate?.dataset.bookingDate || '';
       clearMobileDatePreview();
+      dateStrip.dataset.mobileTouchGestureActive = 'false';
       if (!nextDate) return;
       if (nextDate === selectedDate) {
         centerDateStripSelection(dateStrip, { instant:true });
@@ -7392,6 +7397,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       mobileSettleTimer = 0;
       if (mobileScrollFrame) cancelAnimationFrame(mobileScrollFrame);
       mobileScrollFrame = 0;
+      dateStrip.dataset.mobileTouchGestureActive = 'false';
       clearMobileDatePreview();
     };
     const clampScroll = value => Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, value));
@@ -7473,6 +7479,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
     dateStrip.addEventListener('touchstart', event => {
       if (event.touches.length !== 1) return;
       dateStrip.dataset.programmaticCenterUntil = '0';
+      dateStrip.dataset.mobileTouchGestureActive = 'true';
       touchStartX = event.touches[0].clientX;
       touchStartY = event.touches[0].clientY;
       touchIntent = '';
@@ -7496,17 +7503,22 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       touchStartY = null;
       touchIntent = '';
       touchMoved = false;
-      if (!handled) return;
+      if (!handled) {
+        dateStrip.dataset.mobileTouchGestureActive = 'false';
+        return;
+      }
       suppressClick = true;
       /* Native momentum owns the gesture until scrollend (or the scroll
          inactivity fallback). Starting a second animation here caused the
          selected date to chase the finger after fast swipes. */
+      queueMobileDateSettle();
     }, { passive:true });
     dateStrip.addEventListener('touchcancel', () => {
       touchStartX = null;
       touchStartY = null;
       touchIntent = '';
       touchMoved = false;
+      dateStrip.dataset.mobileTouchGestureActive = 'false';
       clearMobileDatePreview();
     }, { passive:true });
     dateStrip.addEventListener('click', event => {
