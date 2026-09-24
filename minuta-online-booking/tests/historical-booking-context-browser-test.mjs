@@ -112,6 +112,7 @@ async function fixture(){
     var writesAllowed=true,bookingCreationReady=true,selectedDate='2020-01-05',editingOfflineBookingId='';
     var readProviderBookingAttempt=()=>null;
     var newBookingTime='',newBookingSlots=[],newBookingHour='',newBookingPreferredTime='',newBookingSlotsRequestId=0,newBookingHistoricalMode=false,newBookingOutsideSchedule=false,newBookingMode='client';
+    var displayPreferences={break_color_default:'auto'},newBookingModeState={client:{serviceId:'',durationMinutes:60,color:'auto'},block:{durationMinutes:60,color:'auto'}};
     var PER_MINUTE_BOOKING_MIN=1,PER_MINUTE_BOOKING_MAX=480,serviceDurationDefaults={},serviceScheduleNames={},SCHEDULE_BLOCK_PHONE='0000000000',gestureClickSuppressedUntil=0;
     var trapPortfolioActionFocus=()=>false;
     var ownServices=[{id:ids.service,active:true,name:'Тестовая услуга',duration_minutes:60,price_rub:1000}],scheduleRows=[];
