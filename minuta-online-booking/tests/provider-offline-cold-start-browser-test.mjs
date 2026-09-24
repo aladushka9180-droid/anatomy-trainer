@@ -22,7 +22,8 @@ const helperSource = `
   const SCHEDULE_BLOCK_SERVICE_NAME = '__minuta_schedule_block__';
   const SCHEDULE_BLOCK_PHONE = '0000000000';
   const BOOKING_COLOR_DEFAULT = 'auto';
-  const displayPreferences = { break_color_history:[] };
+  const BOOKING_COLOR_KEYS = ['auto','mint','sky','lavender','peach','rose','vanilla','sage','teal','amber','cocoa','graphite'];
+  const displayPreferences = { automatic_break_color:'neutral', break_color_history:[] };
   const reliability = window.MinutaReliability;
   const $ = selector => document.querySelector(selector);
   let currentUser = { id:'provider-1' };

@@ -50,7 +50,18 @@ window.__scheduleFontPreferenceTest={
     persistLocalDisplayPreferences(userId);
     return [automaticBreakColorAt('2026-09-24','11:00:00'),automaticBreakColorAt('2026-09-24','13:00:00'),automaticBreakColorAt('2026-09-26','10:00:00')];
   },
-  breakColors(){return {defaultColor:displayPreferences.break_color_default,history:displayPreferences.break_color_history};},
+  setAutomaticBreakColor(userId,color){
+    displayPreferences=normalizeDisplayPreferences({...displayPreferences,automatic_break_color:color});
+    displayPreferencesUpdatedAt=Math.max(Date.now(),displayPreferencesUpdatedAt+1);
+    displayPreferencesPending=true;
+    persistLocalDisplayPreferences(userId);
+    return [automaticBreakColorAt('2026-09-24','11:00:00'),automaticBreakColorAt('2026-09-24','13:00:00'),automaticBreakColorAt('2026-09-26','10:00:00')];
+  },
+  autoOptions(){
+    renderDisplayPreferencesForm();
+    return {count:document.querySelectorAll('[name="automaticBreakColor"]').length,selected:document.querySelector('[name="automaticBreakColor"]:checked')?.value};
+  },
+  breakColors(){return {defaultColor:displayPreferences.break_color_default,automaticColor:displayPreferences.automatic_break_color,history:displayPreferences.break_color_history};},
   previewBlockForm(){
     ownServices=[];
     reportDataSource='live';
@@ -175,6 +186,31 @@ try {
         }
       }
     }
+    const shortBreaks=await page.evaluate(()=>{
+      document.body.dataset.providerTheme='pink-porcelain';
+      const manual=document.querySelector('[data-open-booking="manual-break"]');
+      const automatic=document.querySelector('[data-open-automatic-break]');
+      for(const [element,label] of [[manual,'Перерыв'],[automatic,'Автоперерыв']]){
+        element.className=`timeline-booking status-block color-auto${element===automatic?' automatic-break':''}`;
+        element.dataset.bookingDuration='30';
+        element.style.height='36px';
+        element.innerHTML=`<span class="timeline-break-short-time">19:30–20:00</span><span class="timeline-break-short-label">${label}</span>`;
+      }
+      const state=element=>{
+        const card=element.getBoundingClientRect();
+        const time=element.querySelector('.timeline-break-short-time').getBoundingClientRect();
+        const label=element.querySelector('.timeline-break-short-label').getBoundingClientRect();
+        return {bg:getComputedStyle(element).backgroundColor,ink:getComputedStyle(element).color,border:getComputedStyle(element).borderStyle,top:time.top-card.top,bottom:card.bottom-label.bottom,timeBottom:time.bottom,labelTop:label.top};
+      };
+      return {manual:state(manual),automatic:state(automatic)};
+    });
+    for(const kind of ['manual','automatic']){
+      assert.equal(shortBreaks[kind].bg,'rgb(230, 226, 223)',`${width}/${kind} warm gray`);
+      assert.equal(shortBreaks[kind].ink,'rgb(49, 50, 57)',`${width}/${kind} readable ink`);
+      assert.ok(shortBreaks[kind].top>=3&&shortBreaks[kind].bottom>=3,`${width}/${kind} vertically clipped`);
+      assert.ok(shortBreaks[kind].labelTop>=shortBreaks[kind].timeBottom,`${width}/${kind} lines overlap`);
+    }
+    assert.equal(shortBreaks.automatic.border.split(' ')[0],'dashed',`${width} automatic dashed border`);
     await page.getByRole('radio',{name:'Утончённый'}).check();
     assert.equal(await page.locator('body').getAttribute('data-schedule-font-style'),'refined');
     await page.getByRole('button',{name:longService}).click();
@@ -201,17 +237,20 @@ try {
   saved=await settingsPage.evaluate(userId=>window.__scheduleFontPreferenceTest.set(userId,'current','comfortable'),userId);
   assert.equal(saved.bodyFont,'current','current option cannot be restored');
   assert.equal(saved.textScale,'comfortable','switching font changed text size');
-  assert.deepEqual(await settingsPage.evaluate(userId=>window.__scheduleFontPreferenceTest.seedBreakColors(userId),userId),['auto','sky','peach'],'automatic break default recolored older intervals');
+  assert.deepEqual(await settingsPage.evaluate(userId=>window.__scheduleFontPreferenceTest.seedBreakColors(userId),userId),['auto','auto','auto'],'manual break history recolored automatic intervals');
+  assert.deepEqual(await settingsPage.evaluate(userId=>window.__scheduleFontPreferenceTest.setAutomaticBreakColor(userId,'sky'),userId),['sky','sky','sky'],'automatic color did not apply to all intervals');
   await settingsPage.reload({waitUntil:'domcontentloaded'});
   await settingsPage.waitForFunction(()=>Boolean(window.__scheduleFontPreferenceTest));
   await settingsPage.evaluate(userId=>window.__scheduleFontPreferenceTest.restore(userId),userId);
   const breakColors=await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.breakColors());
   assert.equal(breakColors.defaultColor,'peach','future manual break default lost on reload');
+  assert.equal(breakColors.automaticColor,'sky','automatic break color lost on reload');
+  assert.deepEqual(await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.autoOptions()),{count:13,selected:'sky'},'automatic break setting not rendered from saved preference');
   assert.equal(breakColors.history.length,2,'automatic break history lost on reload');
   const blockForm=await settingsPage.evaluate(()=>window.__scheduleFontPreferenceTest.previewBlockForm());
   assert.equal(blockForm.selected,'peach','new manual break did not use saved default');
   assert.equal(blockForm.visible,true,'save-future-color choice is hidden in block form');
-  assert.match(blockForm.caption,/будущих перерывов/);
+  assert.match(blockForm.caption,/новых ручных перерывов/);
   await context.close();
   console.log('Preference persistence: theme switch, reload and independent text size PASS');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

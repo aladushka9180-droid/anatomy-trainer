@@ -195,8 +195,8 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
   opacity:1!important;
 }
 
-/* Automatically computed intervals use the future default, never the color of
-   an unrelated manual block. The selected swatches keep dark readable ink. */
+/* Automatically computed intervals use their own preference, never a manual
+   block's stored color. The selected swatches keep dark readable ink. */
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-mint { --schedule-block-fill:#ccebd9; }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-sky { --schedule-block-fill:#d5e9f7; }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-lavender { --schedule-block-fill:#e2d9f4; }
@@ -220,7 +220,7 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
   opacity:1!important;
 }
 
-/* Keep the same pink surface and white ink as bookings, without text backings. */
+/* The explicit theme-color option keeps the former pink surface and white ink. */
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto {
   border:1px dashed var(--theme-accent)!important;
   background:var(--porcelain-action-bg)!important;
@@ -251,4 +251,92 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.status-block:not(.color-auto)[class*=" color-"] :is(.timeline-booking-time,.timeline-booking-time *, .timeline-booking-copy>strong,.timeline-booking-copy>strong *, .timeline-booking-client,.timeline-booking-client *, .timeline-automatic-break-source,.timeline-mobile-time) {
   color:#24313a!important;
+}
+
+/* A soft warm neutral distinguishes breaks from Pink Porcelain appointments.
+   Explicit manual swatches and old manual cards keep their stored colors. */
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-auto,
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto:not(.automatic-break-theme-color) {
+  border-color:#b8b1af!important;
+  background:#e6e2df!important;
+  background-image:none!important;
+  color:#313239!important;
+  box-shadow:none!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings :is(.timeline-booking.status-block:not(.automatic-break),.provider-booking.status-block:not(.automatic-break),.calendar-overview-booking.status-block,.calendar-week-booking.is-block).color-auto *,
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto:not(.automatic-break-theme-color) * {
+  color:#313239!important;
+  opacity:1!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto:not(.automatic-break-theme-color) :is(.timeline-automatic-break-label,.timeline-automatic-break-source,.timeline-booking-time,.timeline-mobile-time) {
+  background:none!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break.color-auto:not(.automatic-break-theme-color) .timeline-booking-copy>strong::before {
+  color:#313239!important;
+}
+html body.provider-body[data-provider-theme]:not([data-provider-theme="pink-porcelain"]) #dashboard[data-active-view="bookings"] #providerBookings .automatic-break-theme-color {
+  border-color:var(--theme-accent)!important;
+  background:var(--theme-accent)!important;
+  color:var(--theme-surface)!important;
+}
+
+/* A real two-line card for a 30-minute break: time above pause + label. */
+html body.provider-body[data-provider-theme] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.status-block[data-booking-duration="30"] {
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:1px!important;
+  padding:1px 7px!important;
+  overflow:hidden!important;
+  text-align:center!important;
+}
+html body.provider-body[data-provider-theme] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.status-block[data-booking-duration="30"] .timeline-break-short-time {
+  display:block!important;
+  max-width:100%;
+  font-size:10px!important;
+  font-weight:700!important;
+  line-height:11px!important;
+  white-space:nowrap;
+}
+html body.provider-body[data-provider-theme] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.status-block[data-booking-duration="30"] .timeline-break-short-label {
+  display:block!important;
+  max-width:100%;
+  overflow:hidden;
+  font-size:10px!important;
+  font-weight:700!important;
+  line-height:12px!important;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+html body.provider-body[data-provider-theme] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.status-block[data-booking-duration="30"] .timeline-break-short-label::before {
+  content:"";
+  display:inline-block;
+  width:3px;
+  height:9px;
+  margin-right:10px;
+  border-radius:1px;
+  background:currentColor;
+  box-shadow:6px 0 0 currentColor;
+  vertical-align:-1px;
+}
+
+.provider-body .automatic-break-color-picker { min-width:0; margin:0; padding:14px; border:1px solid var(--theme-line); border-radius:14px; }
+.provider-body .automatic-break-color-picker legend { padding:0 5px; font-weight:800; }
+.provider-body .automatic-break-color-picker>p { margin:0 0 12px; color:var(--theme-muted); font-size:12px; line-height:1.4; }
+.provider-body .automatic-break-color-options { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
+.provider-body .automatic-break-color-option { min-height:58px; padding:7px 5px; }
+.provider-body .automatic-break-color-option small { max-width:100%; font-size:10px; line-height:1.2; text-align:center; white-space:normal; overflow-wrap:anywhere; }
+.provider-body .automatic-break-color-option.color-neutral { --booking-swatch:#e6e2df; }
+.provider-body .automatic-break-color-option.color-theme { --booking-swatch:var(--theme-accent); }
+.provider-body #bookingSheet .booking-color-options { grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+.provider-body #bookingSheet .booking-color-option { min-height:55px; padding:6px 4px; }
+.provider-body #bookingSheet .booking-color-option small { max-width:100%; font-size:10px; line-height:1.15; text-align:center; white-space:normal; overflow-wrap:anywhere; }
+.provider-body #bookingSheet .future-break-color-option { display:grid; grid-template-columns:18px minmax(0,1fr); align-items:start; gap:10px; }
+.provider-body #bookingSheet .future-break-color-option input { width:18px!important; min-width:18px!important; height:18px!important; min-height:18px!important; margin:2px 0 0!important; }
+.provider-body #bookingSheet .future-break-color-option span { display:grid; gap:3px; min-width:0; }
+.provider-body #bookingSheet .future-break-color-option :is(strong,small) { display:block; line-height:1.35; }
+@media(max-width:760px) {
+  .provider-body .automatic-break-color-options,
+  .provider-body #bookingSheet .booking-color-options { grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
