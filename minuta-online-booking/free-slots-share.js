@@ -6,8 +6,8 @@
     master:{ source:'master', medium:'link' }, telegram:{ source:'telegram', medium:'messenger' },
     whatsapp:{ source:'whatsapp', medium:'messenger' }, vk:{ source:'vk', medium:'social' }, qr:{ source:'qr', medium:'offline' }
   });
-  // Enable only after the Worker route and D1 mapping are published and live-tested.
-  const SHORT_BOOKING_LINKS_ENABLED = false;
+  // Enabled after the Worker route and D1 mapping were published and live-tested.
+  const SHORT_BOOKING_LINKS_ENABLED = true;
   const SHORT_BOOKING_LINK_API = 'https://primetime-booking.primetime-booking-ru.workers.dev/api/booking-short-links';
   const QR_BLOCKS_L = Object.freeze({
     1:[[1, 26, 19]], 2:[[1, 44, 34]], 3:[[1, 70, 55]], 4:[[1, 100, 80]], 5:[[1, 134, 108]],
@@ -842,9 +842,9 @@
           dialog.querySelector('#freeSlotsQrError').hidden = false;
         }
       }
-      status.textContent = publicationLinkFallback
-        ? 'Короткая ссылка временно недоступна. Используется прежний адрес записи.'
-        : serverSlots.length ? '' : 'На выбранный период свободных окон нет.';
+      status.textContent = !serverSlots.length
+        ? 'На выбранный период свободных окон нет.'
+        : publicationLinkFallback ? 'Короткая ссылка временно недоступна. Используется прежний адрес записи.' : '';
       copyButton.disabled = !hasSelection;
       shareButton.disabled = copyButton.disabled;
       copyLinkButton.disabled = false;
