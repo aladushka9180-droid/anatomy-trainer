@@ -17,6 +17,19 @@ const unexpected = [];
 const mime = { '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
+const contrast = (foreground, background) => {
+  const luminance = color => {
+    const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number) || [];
+    assert.equal(channels.length, 3, `Cannot measure color ${color}`);
+    const linear = channels.map(value => {
+      const channel = color.startsWith('color(srgb ') ? value : value / 255;
+      return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+    });
+    return linear[0] * .2126 + linear[1] * .7152 + linear[2] * .0722;
+  };
+  const a = luminance(foreground), b = luminance(background);
+  return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+};
 
 try {
   for (const width of [390, 760, 1440]) {
@@ -118,7 +131,42 @@ try {
     await page.locator('#paymentSandboxWorkspace').waitFor({ state:'visible' });
     assert.equal(await page.locator('#paymentSandboxBooking').inputValue(), bookingId);
     assert.equal(await page.locator('#paymentSandboxAmount').inputValue(), '1250');
-    await page.locator('#paymentSandboxForm button[type="submit"]').click();
+    await page.evaluate(() => {
+      document.body.dataset.providerTheme = 'pink-porcelain';
+      document.body.dataset.providerLayout = 'soft';
+    });
+    const submit = page.locator('#paymentSandboxForm button[type="submit"]');
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#paymentSandboxForm button')).backgroundColor === 'rgb(196, 51, 114)');
+    const normal = await submit.evaluate(button => {
+      const style = getComputedStyle(button);
+      return { fontSize:parseFloat(style.fontSize), height:button.getBoundingClientRect().height,
+        background:style.backgroundColor, color:style.color };
+    });
+    assert.ok(normal.fontSize >= 13, `${width}: test-payment label must be readable`);
+    assert.ok(normal.height >= 44, `${width}: test-payment target must be at least 44px`);
+    assert.ok(contrast(normal.color, normal.background) >= 4.5, `${width}: normal test-payment label needs 4.5:1 contrast`);
+    await submit.focus();
+    const focus = await submit.evaluate(button => {
+      const style = getComputedStyle(button);
+      return { width:parseFloat(style.outlineWidth), style:style.outlineStyle };
+    });
+    assert.ok(focus.width >= 2 && focus.style !== 'none', `${width}: test-payment focus must be visible`);
+    await submit.evaluate(button => { button.disabled = true; });
+    const disabled = await submit.evaluate(button => {
+      const style = getComputedStyle(button);
+      return { opacity:parseFloat(style.opacity), cursor:style.cursor,
+        background:style.backgroundColor, color:style.color };
+    });
+    assert.ok(disabled.opacity >= .95, `${width}: disabled test-payment label must remain legible`);
+    assert.equal(disabled.cursor, 'not-allowed');
+    assert.notEqual(disabled.background, normal.background, `${width}: disabled test-payment state must be visually distinct`);
+    assert.ok(contrast(disabled.color, disabled.background) >= 4.5, `${width}: disabled test-payment label needs 4.5:1 contrast`);
+    await submit.evaluate(button => { button.disabled = false; });
+    await page.evaluate(() => {
+      document.body.dataset.providerTheme = 'midnight';
+      document.body.dataset.providerLayout = 'bento';
+    });
+    await submit.click();
     await page.waitForFunction(() => window.sandboxLedger?.status === 'created');
     assert.equal(await page.locator('#paymentSandboxState').innerText(), 'Создан');
     if (width === 390) {

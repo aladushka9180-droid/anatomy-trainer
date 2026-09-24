@@ -65,6 +65,26 @@
   line-height: 1.45;
 }
 
+body.provider-body[data-provider-theme][data-provider-layout] #paymentSandboxForm button.primary {
+  min-height: 48px;
+  font-size: 13px !important;
+  line-height: 1.3;
+}
+
+body.provider-body[data-provider-theme][data-provider-layout] #paymentSandboxForm button.primary:focus-visible {
+  outline: 3px solid var(--theme-ink, #173b2c) !important;
+  outline-offset: 3px;
+}
+
+body.provider-body[data-provider-theme][data-provider-layout] #paymentSandboxForm button.primary:disabled {
+  opacity: 1 !important;
+  border: 1px solid var(--theme-line, #dce7df) !important;
+  background: color-mix(in srgb, var(--theme-ink, #173b2c) 7%, var(--theme-surface, #fff)) !important;
+  color: var(--theme-ink, #173b2c) !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
 .payment-sandbox-result {
   padding: 16px;
   border: 1px solid var(--line);
