@@ -61,7 +61,7 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=927',
+  './provider.js?v=928',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
@@ -72,7 +72,7 @@ const OPTIONAL_ASSETS = [
   './statistics-audit-provider.js?v=908',
   './client-results.css?v=876',
   './provider-porcelain-detail.css?v=912',
-  './provider-schedule-type.css?v=927',
+  './provider-schedule-type.css?v=928',
   './manrope-cyrillic-v20.woff2',
   './manrope-latin-v20.woff2',
   './provider-porcelain-matrix.js?v=887',
