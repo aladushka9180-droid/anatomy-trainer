@@ -48,11 +48,12 @@
   function featureFor(button) {
     if (button.matches('[data-code-scan-target]')) return 'scanner';
     if (button.id === 'openFreeSlots') return 'share';
+    if (button.id === 'exportBookings') return 'statistics';
     return '';
   }
 
   document.addEventListener('click', event => {
-    const button = event.target.closest?.('[data-code-scan-target], #openFreeSlots');
+    const button = event.target.closest?.('[data-code-scan-target], #openFreeSlots, #exportBookings');
     if (!button || button.disabled || replayingButtons.has(button)) return;
     const name = featureFor(button);
     if (features.get(name)?.ready) return;

@@ -1695,7 +1695,7 @@ function renderProviderBookingView(view) {
     if (selectedClientPhone) renderClientDetail(selectedClientPhone);
   }
   if (view === 'notifications') renderNotifications();
-  if (view === 'analytics') renderAnalytics();
+  if (view === 'analytics') { renderAnalytics(); void globalThis.MinutaProviderFeatureAssets.ensure('statistics').catch(() => {}); }
   if (['bookings', 'clients', 'notifications', 'analytics'].includes(view)) providerBookingViewRevisions.set(view, providerBookingRenderRevision);
 }
 
@@ -3652,6 +3652,7 @@ function reportClientMetrics(completed, range) {
   return { uniqueClients:currentClients.size, newClients, returningClients };
 }
 
+
 function reportBookingSource(item) {
   const source = String(item?.booking_source || '').trim().toLowerCase();
   if (source === 'client_online') return 'online';
@@ -4817,6 +4818,7 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
 
 function renderAnalytics() {
   const renderStartedAt = performance.now();
+  globalThis.MinutaStatisticsAuditProvider?.refresh();
   const holder = $('#reportServicesList');
   if (!holder) return;
   const range = reportRange();
@@ -16611,7 +16613,6 @@ document.addEventListener('click', async event => {
     loadSelectedReportData();
     renderAnalytics();
     if (reportSubview === 'money') void financeController.load(reportRange(), { force:true });
-    if (reportPeriod !== 'custom') setReportFiltersExpanded(false);
   }
   if (openNotificationTemplates) {
     renderNotificationTemplates();
@@ -18405,18 +18406,7 @@ $('#reportPerformerFilter')?.addEventListener('change', event => {
   loadReportScopedBookings({ start:previous?.start || range.start, end:reportForecastEnd(range) }, reportPerformerFilter);
   loadReportAvailability(range, reportPerformerFilter);
   updateReportFilterSummary();
-  setReportFiltersExpanded(false);
 });
-$('#exportBookings').addEventListener('click', () => $('#reportExportDialog').showModal());
-$$('[data-close-report-export]').forEach(button => button.addEventListener('click', () => $('#reportExportDialog').close()));
-$('#reportExportDialog').addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.close(); });
-$$('[data-report-export]').forEach(button => button.addEventListener('click', () => {
-  const privacy = $('#reportExportPrivacy').value;
-  $('#reportExportDialog').close();
-  if (button.dataset.reportExport === 'xlsx') void exportBookingsXlsxInBackground(privacy);
-  else if (button.dataset.reportExport === 'csv') exportBookingsCsv(privacy);
-  else exportBookingsPdf(privacy);
-}));
 $('#reportCustomPeriod').addEventListener('submit', event => {
   event.preventDefault();
   const start = $('#reportDateFrom').value;
@@ -18427,7 +18417,6 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   loadSelectedReportData();
   renderAnalytics();
   if (reportSubview === 'money') void financeController.load(reportRange(), { force:true });
-  setReportFiltersExpanded(false);
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
 $('#shareProviderClientPage')?.addEventListener('click', shareProviderClientPage);
