@@ -688,6 +688,11 @@
   }
 }
 
+/* Near opening time, keep the live label inside the desktop timeline and clear of the booking dot. */
+@media (min-width:761px) {
+  .timeline-now-marker[data-now-top] time { top:4px; bottom:auto; right:40px; }
+}
+
 @media (min-width:761px) and (max-width:980px) {
   html body.provider-body[data-provider-theme][data-provider-layout] .provider-app {
     grid-template-columns:190px minmax(0,1fr)!important;

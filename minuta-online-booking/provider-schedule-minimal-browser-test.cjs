@@ -561,6 +561,7 @@ const server = http.createServer((request, response) => {
         <button class="calendar-week-booking status-confirmed color-sage" style="--booking-tone:#00ff00"><strong>Запись</strong></button>
         <button class="calendar-week-booking is-block status-block"><strong>Перерыв</strong></button>`;
       const bookings = document.querySelector('#providerBookings');
+      bookings.classList.remove('timeline-view');
       bookings.classList.add('calendar-overview', 'calendar-overview-month');
       bookings.replaceChildren(fixture);
       const readability = document.createElement('div');
