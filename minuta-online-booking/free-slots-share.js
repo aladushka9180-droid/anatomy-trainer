@@ -6,6 +6,9 @@
     master:{ source:'master', medium:'link' }, telegram:{ source:'telegram', medium:'messenger' },
     whatsapp:{ source:'whatsapp', medium:'messenger' }, vk:{ source:'vk', medium:'social' }, qr:{ source:'qr', medium:'offline' }
   });
+  // Enable only after the Worker route and D1 mapping are published and live-tested.
+  const SHORT_BOOKING_LINKS_ENABLED = false;
+  const SHORT_BOOKING_LINK_API = 'https://primetime-booking.primetime-booking-ru.workers.dev/api/booking-short-links';
   const QR_BLOCKS_L = Object.freeze({
     1:[[1, 26, 19]], 2:[[1, 44, 34]], 3:[[1, 70, 55]], 4:[[1, 100, 80]], 5:[[1, 134, 108]],
     6:[[2, 86, 68]], 7:[[2, 98, 78]], 8:[[2, 121, 97]], 9:[[2, 146, 116]], 10:[[2, 86, 68], [2, 87, 69]]
@@ -264,6 +267,16 @@
     return url.href;
   }
 
+  function canonicalBookingUrl(value) {
+    const source = new URL(value);
+    if (source.origin === 'https://primetime-booking.github.io' && ['/','/index.html'].includes(source.pathname)) return source.href;
+    if (source.origin !== 'https://aladushka9180-droid.github.io'
+      || source.pathname !== '/anatomy-trainer/minuta-online-booking/index.html') throw new Error('invalid_booking_origin');
+    const target = new URL('https://primetime-booking.github.io/');
+    target.search = source.search;
+    return target.href;
+  }
+
   function appendBits(target, value, length) {
     for (let index = length - 1; index >= 0; index -= 1) target.push((value >>> index) & 1);
   }
@@ -510,6 +523,10 @@
     let clockKey = '';
     let publicationScope = '';
     let activePublicationCheck = null;
+    let publicationLinkSource = '';
+    let publicationLinkUrl = '';
+    let publicationLinkFallback = false;
+    const shortLinkCache = new Map();
     const formatPreferences = new Map();
     const textPreferences = new Map();
 
@@ -523,6 +540,9 @@
       activePublicationCheck = null;
       checkingPublication = false;
       publicationScope = '';
+      publicationLinkSource = '';
+      publicationLinkUrl = '';
+      publicationLinkFallback = false;
       serverContext = null;
       serverDays = [];
       selectionContext = '';
@@ -730,6 +750,28 @@
       return { data, from, to:rangeMode() ? toInput.value : from };
     }
 
+    async function resolvePublicationLink(sourceUrl) {
+      if (!SHORT_BOOKING_LINKS_ENABLED) return { url:sourceUrl, fallback:false };
+      const cached = shortLinkCache.get(sourceUrl);
+      if (cached) return { url:cached, fallback:false };
+      try {
+        const response = await fetch(SHORT_BOOKING_LINK_API, {
+          method:'POST', headers:{ 'Content-Type':'application/json' },
+          body:JSON.stringify({ url:canonicalBookingUrl(sourceUrl) })
+        });
+        if (!response.ok) throw new Error('short_link_unavailable');
+        const payload = await response.json();
+        const shortUrl = new URL(payload.url);
+        if (shortUrl.origin !== new URL(SHORT_BOOKING_LINK_API).origin
+          || !/^\/[A-HJ-NP-Z2-9]{10}$/.test(shortUrl.pathname)
+          || shortUrl.search || shortUrl.hash) throw new Error('invalid_short_link');
+        shortLinkCache.set(sourceUrl, shortUrl.href);
+        return { url:shortUrl.href, fallback:false };
+      } catch {
+        return { url:sourceUrl, fallback:true };
+      }
+    }
+
     function publicationModel() {
       const { data, from, to } = currentRange();
       const service = eligibleServices().find(item => String(item.id) === serviceSelect.value) || null;
@@ -740,9 +782,10 @@
       for (const key of ['service', 'date', 'time', 'repeat']) targetUrl.searchParams.delete(key);
       if (!generalMode() && service?.id) targetUrl.searchParams.set('service', service.id);
       if (serverContext?.mode === 'organization' && location?.id) targetUrl.searchParams.set('location', location.id);
-      const trackingUrl = trackedBookingUrl(targetUrl.href, sourceKey);
+      const sourceUrl = trackedBookingUrl(targetUrl.href, sourceKey);
+      const trackingUrl = publicationLinkSource === sourceUrl ? publicationLinkUrl : sourceUrl;
       return {
-        from, to, service, location, trackingUrl,
+        from, to, service, location, sourceUrl, trackingUrl,
         publicationData:{
           ...data,
           timeFormat:timeFormat(),
@@ -799,7 +842,9 @@
           dialog.querySelector('#freeSlotsQrError').hidden = false;
         }
       }
-      status.textContent = serverSlots.length ? '' : 'На выбранный период свободных окон нет.';
+      status.textContent = publicationLinkFallback
+        ? 'Короткая ссылка временно недоступна. Используется прежний адрес записи.'
+        : serverSlots.length ? '' : 'На выбранный период свободных окон нет.';
       copyButton.disabled = !hasSelection;
       shareButton.disabled = copyButton.disabled;
       copyLinkButton.disabled = false;
@@ -841,6 +886,9 @@
       const isCurrent = () => revision === requestRevision && dialog.open && scope === scopeKey();
       configureMode();
       publicationReady = false;
+      publicationLinkSource = '';
+      publicationLinkUrl = '';
+      publicationLinkFallback = false;
       emptyPreview.hidden = true;
       textArea.closest('.free-slots-text-label').hidden = false;
       previewHint.hidden = false;
@@ -894,6 +942,12 @@
           serverDays = [];
           renderTimeChoices(`${serviceSelect.value}|${locationSelect.value}|${from}|${to}`);
         }
+        const sourceUrl = publicationModel().sourceUrl;
+        const resolvedLink = await resolvePublicationLink(sourceUrl);
+        if (!isCurrent()) return;
+        publicationLinkSource = sourceUrl;
+        publicationLinkUrl = resolvedLink.url;
+        publicationLinkFallback = resolvedLink.fallback;
         publicationReady = true;
         publicationScope = scope;
         dialog.removeAttribute('aria-busy');
@@ -980,7 +1034,10 @@
       selectedTimes.clear();
       void refreshFromServer({ reloadContext:true });
     }));
-    sourceControls.forEach(control => control.addEventListener('change', renderPublication));
+    sourceControls.forEach(control => control.addEventListener('change', () => {
+      if (SHORT_BOOKING_LINKS_ENABLED) void refreshFromServer();
+      else renderPublication();
+    }));
     formatControls.forEach(control => control.addEventListener('change', () => {
       confirmedPublication = null;
       const key = preferenceKey();
