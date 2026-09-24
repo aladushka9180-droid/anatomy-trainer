@@ -2173,15 +2173,6 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     background:var(--theme-surface)!important;
     box-shadow:0 10px 25px color-mix(in srgb,var(--theme-shadow) 11%,transparent)!important;
   }
-  #dashboard[data-active-view="bookings"] .schedule-card:has(.calendar-view-toggle [data-calendar-view="day"].active)
-    .schedule-toolbar:not(:has(.booking-filters:not([hidden]))) { height:62px!important; }
-  #dashboard[data-active-view="bookings"] .schedule-toolbar:not(:has(.booking-filters:not([hidden])))>div:first-child {
-    transform:translateY(-8px);
-  }
-  #dashboard[data-active-view="bookings"] .schedule-toolbar:not(:has(.booking-filters:not([hidden]))) .schedule-controls {
-    align-self:start!important;
-    transform:translateY(-8px);
-  }
   #dashboard[data-active-view="bookings"] .schedule-toolbar>div:first-child>strong {
     font-size:18px!important;
     line-height:1.1!important;
@@ -2575,8 +2566,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   }
 }
 
-/* v843: final approved compact mobile journal. Touch targets stay at 44px;
-   only the visible chrome and vertical scale become quieter and denser. */
+/* Mobile journal: keep 44px touch targets. */
 @media (max-width:760px) {
   #dashboard[data-active-view="bookings"] .calendar-view-toggle button.active::after {
     right:5px!important;
@@ -2586,10 +2576,10 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   #dashboard[data-active-view="bookings"] .schedule-card:has(.calendar-view-toggle [data-calendar-view="day"].active)
     .schedule-toolbar:not(:has(.booking-filters:not([hidden]))) {
     grid-template-rows:44px!important;
-    height:54px!important;
-    min-height:54px!important;
+    height:48px!important;
+    min-height:48px!important;
     margin-bottom:0!important;
-    padding:5px 10px!important;
+    padding:2px 10px!important;
   }
 
   #dashboard[data-active-view="bookings"] .schedule-toolbar:not(:has(.booking-filters:not([hidden])))>div:first-child,
@@ -2597,6 +2587,8 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     align-self:center!important;
     transform:none!important;
   }
+  #dashboard[data-active-view="bookings"] .schedule-toolbar:not(:has(.booking-filters:not([hidden]))) .schedule-controls { padding:0!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] .schedule-card:has([data-calendar-view="day"].active) .date-strip-frame { margin-bottom:2px!important; }
 
   #dashboard[data-active-view="bookings"] .journal-mode-toggle {
     box-sizing:border-box!important;
@@ -2609,6 +2601,18 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   #dashboard[data-active-view="bookings"] .journal-mode-toggle button {
     place-items:center!important;
     height:44px!important;
+  }
+  #dashboard .schedule-card:has([data-calendar-view="day"].active) .journal-mode-toggle {
+    position:relative;overflow:visible!important;border:0!important;background:transparent!important;
+  }
+  #dashboard .schedule-card:has([data-calendar-view="day"].active) .journal-mode-toggle::before {
+    content:"";position:absolute;inset:4px 0;border-radius:11px;background:var(--theme-surface-alt);pointer-events:none;
+  }
+  #dashboard .schedule-card:has(#dateStrip):has([data-calendar-view="day"].active) .journal-mode-toggle button.active {
+    position:relative;isolation:isolate;border:0!important;background:transparent!important;box-shadow:none!important;
+  }
+  #dashboard .schedule-card:has([data-calendar-view="day"].active) .journal-mode-toggle button.active::before {
+    content:"";position:absolute;z-index:-1;inset:6px 1px;border-radius:9px;background:var(--schedule-active-color);
   }
 
   .provider-body[data-provider-theme][data-provider-layout] .timeline-view {
