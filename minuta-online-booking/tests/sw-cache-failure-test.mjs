@@ -7,7 +7,7 @@ import vm from 'node:vm';
 
 const source = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../sw.js'), 'utf8');
 const request = new Request('https://example.test/minuta-online-booking/provider.html?date=2026-09-24');
-const asset = new Request('https://example.test/minuta-online-booking/provider.js?v=937');
+const asset = new Request('https://example.test/minuta-online-booking/provider.js?v=938');
 
 function worker({ match, put, fetch }) {
   const scope = {

@@ -81,8 +81,10 @@ const precacheBytes = assets.reduce((total, asset) => {
 assert.ok(precacheBytes <= 3.575 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
-assert.match(worker, /await caches\.delete\(CACHE\);\s*throw error;/,
-  'A failed install must remove only its incomplete cache');
+assert.match(worker, /try \{ await caches\.delete\(CACHE\); \} catch \{\}/,
+  'A failed install must remove only its incomplete cache when storage permits');
+assert.match(worker, /if \(await safeCacheMatch\(CACHE_READY, \{ cacheName:CACHE \}\)\)/,
+  'Old offline caches must be retained until the replacement precache is complete');
 
 assert.match(updates, /let checkPromise = null;/, 'Update checks must be coalesced');
 assert.match(updates, /const CHECK_INTERVAL_MS = 15 \* 60 \* 1000;/, 'Update interval must be 15 minutes');
