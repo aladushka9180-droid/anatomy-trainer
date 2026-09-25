@@ -113,7 +113,7 @@ test('failed precache replaces the old worker without deleting its offline cache
   await activate;
   assert.equal(skipped, true);
   assert.equal(claimed, true);
-  assert.deepEqual(deleted, ['massage-izhevsk-v941']);
+  assert.deepEqual(deleted, ['massage-izhevsk-v947']);
   for (const path of ['provider.html', 'index.html', 'booking.html']) {
     const response = await scope.navigationResponse({
       request:new Request(`https://example.test/minuta-online-booking/${path}`), waitUntil() {},

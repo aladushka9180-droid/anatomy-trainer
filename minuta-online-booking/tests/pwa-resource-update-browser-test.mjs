@@ -50,6 +50,12 @@ const newCoreModules = ['group-bookings.js', 'provider.js', 'report-reconciliati
 const offlineModules = [...new Set([...newCoreModules, ...executableModules])];
 const newRelease = snapshot(newFile, newCoreModules);
 newRelease.files.set('client-offline-flexible.js', newFile('client-offline-flexible.js'));
+const clientFlexibleAssetBlock = newRelease.files.get('sw.js').toString('utf8')
+  .match(/const CLIENT_FLEXIBLE_ASSETS = \[([^\]]+)\];/)?.[1];
+assert.ok(clientFlexibleAssetBlock, 'Client flexible asset list must be present');
+const clientFlexibleAssets = [...clientFlexibleAssetBlock.matchAll(/'([^']+)'/g)].map(match => match[1]);
+const clientFlexibleRequest = clientFlexibleAssets.find(asset => asset.startsWith('./client-offline-flexible.js?v='));
+assert.ok(clientFlexibleRequest, 'Client flexible script must be listed for offline warming');
 const failedAsset = newRelease.assets.find(asset => {
   const file = asset.split('?')[0].replace(/^\.\//, '');
   return /\?v=\d+$/.test(asset) && oldRelease.files.has(file)
@@ -255,17 +261,15 @@ try {
   await page.reload();
   assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version);
   assert.equal(await page.evaluate(() => Boolean(window.MinutaGroupBookings && window.MinutaBenefits && window.MinutaRetention)), true);
-  await page.evaluate(async ({ cacheName, version }) => {
+  await page.evaluate(async ({ cacheName, assets }) => {
     navigator.serviceWorker.controller.postMessage({ type:'warm-client-flexible' });
     const cache = await caches.open(cacheName);
     for (let attempt = 0; attempt < 50; attempt += 1) {
-      if (await cache.match('./index.html')
-          && await cache.match(`./app.js?v=${version}`)
-          && await cache.match(`./client-offline-flexible.js?v=${version}`)) return;
+      if ((await Promise.all(assets.map(asset => cache.match(asset)))).every(Boolean)) return;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    throw new Error('Client offline assets were not warmed by the service worker');
-  }, { cacheName:newRelease.cache, version:newRelease.version });
+    throw new Error(`Client offline assets were not warmed by the service worker: ${JSON.stringify({ assets, cached:(await cache.keys()).map(item => item.url).filter(url => /index\.html|app\.js|client-offline-flexible\.js/.test(url)) })}`);
+  }, { cacheName:newRelease.cache, assets:clientFlexibleAssets });
   console.log(`PASS: v${newRelease.version} activates, removes old caches, and reloads the new module scripts`);
 
   await context.setOffline(true);
@@ -288,12 +292,12 @@ try {
     return result;
   }, { prefix, requests:offlineRequests });
   assert.deepEqual(offlineHashes, expectedHashes(newRelease, offlineModules));
-  const clientFlexibleHash = await page.evaluate(async ({ prefix, version }) => {
-    const response = await fetch(`${prefix}client-offline-flexible.js?v=${version}`);
+  const clientFlexibleHash = await page.evaluate(async ({ prefix, request }) => {
+    const response = await fetch(`${prefix}${request.replace(/^\.\//, '')}`);
     if (!response.ok) throw new Error('Offline client flexible script is unavailable');
     const bytes = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
     return [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
-  }, { prefix, version:newRelease.version });
+  }, { prefix, request:clientFlexibleRequest });
   assert.equal(clientFlexibleHash, sha(newFile('client-offline-flexible.js')));
   assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version);
   assert.equal(await page.evaluate(() => Boolean(window.MinutaGroupBookings && window.MinutaBenefits)), true);
