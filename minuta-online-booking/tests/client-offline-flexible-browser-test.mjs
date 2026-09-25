@@ -19,12 +19,12 @@ const server = createServer((request, response) => {
     window.warmMessages=[];
     Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{ready:Promise.resolve({active:{postMessage:(message,ports)=>{
       window.warmMessages.push(message);
-      ports?.[0]?.postMessage(window.warmReply || {ready:true,cache:'massage-izhevsk-v941'});
+      ports?.[0]?.postMessage(window.warmReply || {ready:true,cache:'massage-izhevsk-v942'});
     }}})}});
     window.MINUTA_CONFIG={supabaseUrl:'https://example.invalid',supabaseKey:'test',defaultOrganizationSlug:''};
     window.calls=[]; window.reply={data:{result_code:'no_slot_in_range'},error:null};
     window.supabase={createClient:()=>({rpc:async(name,args)=>{window.calls.push({name,args});return window.responses?.[name] || window.reply;}})};
-    if (!location.search.includes('unready')) localStorage.setItem('primetime-offline-flexible-assets-v941','ready');
+    if (!location.search.includes('unready')) localStorage.setItem('primetime-offline-flexible-assets-v942','ready');
     localStorage.setItem('primetime-offline-catalog-v1:default',JSON.stringify({savedAt:Date.now(),slug:'',teamMode:false,locations:[],services:[{id:'11111111-1111-4111-8111-111111111111',name:'Массаж',durationMinutes:60,priceRub:1000}]}));
   </script><script src="/client-offline-flexible.js" defer></script></body></html>`);
 });
@@ -91,15 +91,15 @@ try {
   assert.equal(await unready.locator('#clientOfflineFlexible form').isVisible(),false);
   assert.match(await unready.locator('#clientOfflineFlexibleStatus').innerText(),/ещё не подготовлена/i);
   await unready.evaluate(() => { Object.defineProperty(navigator,'onLine',{configurable:true,value:true}); window.dispatchEvent(new Event('online')); });
-  await unready.waitForFunction(() => localStorage.getItem('primetime-offline-flexible-assets-v941') === 'ready');
+  await unready.waitForFunction(() => localStorage.getItem('primetime-offline-flexible-assets-v942') === 'ready');
   await unready.evaluate(() => { Object.defineProperty(navigator,'onLine',{configurable:true,value:false}); window.dispatchEvent(new Event('offline')); });
   assert.equal(await unready.locator('#clientOfflineFlexible form').isVisible(),true);
   await unready.evaluate(() => {
-    window.warmReply={ready:false,cache:'massage-izhevsk-v941'};
+    window.warmReply={ready:false,cache:'massage-izhevsk-v942'};
     Object.defineProperty(navigator,'onLine',{configurable:true,value:true});
     window.dispatchEvent(new Event('online'));
   });
-  await unready.waitForFunction(() => localStorage.getItem('primetime-offline-flexible-assets-v941') === null);
+  await unready.waitForFunction(() => localStorage.getItem('primetime-offline-flexible-assets-v942') === null);
   await unready.evaluate(() => { Object.defineProperty(navigator,'onLine',{configurable:true,value:false}); window.dispatchEvent(new Event('offline')); });
   assert.equal(await unready.locator('#clientOfflineFlexible form').isVisible(),false);
   await unready.close();

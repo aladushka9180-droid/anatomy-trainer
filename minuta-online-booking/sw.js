@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v941`;
-const CACHE_READY = './.precache-ready-v941';
+const CACHE = `${CACHE_PREFIX}v942`;
+const CACHE_READY = './.precache-ready-v942';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=941',
+  './site-update.js?v=942',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -62,7 +62,7 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=941',
+  './provider.js?v=942',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
@@ -73,12 +73,12 @@ const OPTIONAL_ASSETS = [
   './statistics-audit-ui.js?v=908',
   './statistics-audit-provider.js?v=908',
   './client-results.css?v=876',
-  './provider-porcelain-detail.css?v=912',
+  './provider-porcelain-detail.css?v=942',
   './provider-schedule-type.css?v=933',
   './manrope-cyrillic-v20.woff2',
   './manrope-latin-v20.woff2',
-  './provider-porcelain-matrix.js?v=887',
-  './provider-porcelain-detail.js?v=893',
+  './provider-porcelain-matrix.js?v=942',
+  './provider-porcelain-detail.js?v=942',
   './porcelain-character-pearl-v2.webp',
   './porcelain-character-petal-v2.webp',
   './porcelain-character-silk-v2.webp',
@@ -111,8 +111,8 @@ const OPTIONAL_ASSETS = [
   './client-messages.js?v=885',
   './provider-portfolio-responsive.css?v=811',
   './service-presets-catalog.js?v=811',
-  './app.js?v=941',
-  './client-offline-flexible.js?v=941',
+  './app.js?v=942',
+  './client-offline-flexible.js?v=942',
   './service-presets.css?v=811',
   './service-presets.js?v=811',
   './report-worker.js?v=811',
@@ -128,7 +128,7 @@ const OPTIONAL_ASSETS = [
 ];
 let optionalWarmup = null;
 let clientFlexibleWarmup = null;
-const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=941', './client-offline-flexible.js?v=941'];
+const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=942', './client-offline-flexible.js?v=942'];
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'warm-client-flexible') {
