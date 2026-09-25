@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v944`;
-const CACHE_READY = './.precache-ready-v944';
+const CACHE = `${CACHE_PREFIX}v945`;
+const CACHE_READY = './.precache-ready-v945';
 
 const ASSETS = [
   './provider.html',
@@ -29,14 +29,14 @@ const ASSETS = [
   './provider-themes-wildlife.css?v=811',
   './client-directory.css?v=811',
   './provider-ui-refinements.css?v=811',
-  './provider-schedule-minimal.css?v=944',
+  './provider-schedule-minimal.css?v=945',
   './provider-themes-distinct.css?v=821',
   './provider-theme-families.css?v=885',
   './provider-theme-backgrounds-tema1.css?v=865',
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=944',
+  './site-update.js?v=945',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -62,7 +62,7 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=944',
+  './provider.js?v=945',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
@@ -73,19 +73,19 @@ const OPTIONAL_ASSETS = [
   './statistics-audit-ui.js?v=908',
   './statistics-audit-provider.js?v=908',
   './client-results.css?v=876',
-  './provider-porcelain-detail.css?v=944',
+  './provider-porcelain-detail.css?v=945',
   './provider-schedule-type.css?v=933',
   './manrope-cyrillic-v20.woff2',
   './manrope-latin-v20.woff2',
   './provider-porcelain-matrix.js?v=942',
-  './provider-porcelain-detail.js?v=944',
+  './provider-porcelain-detail.js?v=945',
   './porcelain-character-pearl-v2.webp',
   './porcelain-character-petal-v2.webp',
   './porcelain-character-silk-v2.webp',
   './client-themes.css?v=885',
   './report-demo-live.js?v=811',
   './loyalty-program-v166.js?v=865',
-  './provider-schedule-desktop-reference.css?v=944',
+  './provider-schedule-desktop-reference.css?v=945',
   './settings-nav-scroll.js?v=882',
   './settings-smart-search.js?v=865',
   './provider-theme-noir-safari.css?v=811',
@@ -111,8 +111,8 @@ const OPTIONAL_ASSETS = [
   './client-messages.js?v=885',
   './provider-portfolio-responsive.css?v=811',
   './service-presets-catalog.js?v=811',
-  './app.js?v=944',
-  './client-offline-flexible.js?v=944',
+  './app.js?v=945',
+  './client-offline-flexible.js?v=945',
   './service-presets.css?v=811',
   './service-presets.js?v=811',
   './report-worker.js?v=811',
@@ -128,7 +128,7 @@ const OPTIONAL_ASSETS = [
 ];
 let optionalWarmup = null;
 let clientFlexibleWarmup = null;
-const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=944', './client-offline-flexible.js?v=944'];
+const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=945', './client-offline-flexible.js?v=945'];
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'warm-client-flexible') {

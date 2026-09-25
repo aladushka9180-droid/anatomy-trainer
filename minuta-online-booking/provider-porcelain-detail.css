@@ -144,9 +144,10 @@ body.provider-body[data-porcelain-editor-open] #appearanceSettingsCard .provider
   .provider-porcelain-live-frame { height:690px; }
 }
 @media (max-width:350px) {
-  .provider-porcelain-characters { gap:4px; }
-  .provider-porcelain-character { padding:3px; }
-  .provider-porcelain-character strong { font-size:10px; letter-spacing:-.035em; }
+  .provider-porcelain-controls { padding-inline:8px; }
+  .provider-porcelain-characters { gap:2px; }
+  .provider-porcelain-character { padding:2px 1px; }
+  .provider-porcelain-character strong { font:600 10px/1.15 Arial,sans-serif; letter-spacing:-.045em; }
 }
 
 /* Pink Porcelain: user-requested white lettering on the existing soft fills.
