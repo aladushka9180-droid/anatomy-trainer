@@ -152,26 +152,49 @@ fi
 if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQL:-}" ]]; then
   test -f "${MINUTA_RESTORE_MIGRATION_SQL:?}"
   test -f "${MINUTA_RESTORE_ROLLBACK_SQL:?}"
+  candidate_version="${MINUTA_RESTORE_CANDIDATE_VERSION:-v177}"
+  case "$candidate_version" in v177|v178) ;; *) exit 1 ;; esac
+  bookings_before="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+    -c 'select count(*) from public.bookings' 2>>"$private_log")"
   docker cp "$MINUTA_RESTORE_MIGRATION_SQL" "$container:/tmp/candidate-migration.sql" >/dev/null
   docker cp "$MINUTA_RESTORE_ROLLBACK_SQL" "$container:/tmp/candidate-rollback.sql" >/dev/null
   stage=candidate-apply
   docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
     -v VERBOSITY=sqlstate -f /tmp/candidate-migration.sql >>"$private_log" 2>&1
-  applied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
-    -c "select (to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is not null)::int||'|'||(to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is not null)::int||'|'||(exists(select 1 from information_schema.columns where table_schema='public' and table_name='organization_client_page_settings' and column_name='porcelain_shade'))::int;" 2>>"$private_log")"
-  test "$applied" = '1|1|1'
+  if [[ "$candidate_version" == v178 ]]; then
+    candidate_function="public.book_flexible_appointment_v178(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)"
+    applied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select (to_regprocedure('$candidate_function') is not null)::int||'|'||(to_regclass('public.flexible_booking_requests_v178') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
+    test "$applied" = "1|1|$bookings_before"
+  else
+    applied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select (to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is not null)::int||'|'||(to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is not null)::int||'|'||(exists(select 1 from information_schema.columns where table_schema='public' and table_name='organization_client_page_settings' and column_name='porcelain_shade'))::int;" 2>>"$private_log")"
+    test "$applied" = '1|1|1'
+  fi
   stage=candidate-rollback
   docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
     -v VERBOSITY=sqlstate -f /tmp/candidate-rollback.sql >>"$private_log" 2>&1
-  rolled_back="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
-    -c "select (to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is null)::int||'|'||(to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is null)::int;" 2>>"$private_log")"
-  test "$rolled_back" = '1|1'
+  if [[ "$candidate_version" == v178 ]]; then
+    rolled_back="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select (to_regprocedure('$candidate_function') is null)::int||'|'||(to_regclass('public.flexible_booking_requests_v178') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
+    test "$rolled_back" = "1|1|$bookings_before"
+  else
+    rolled_back="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select (to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is null)::int||'|'||(to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is null)::int;" 2>>"$private_log")"
+    test "$rolled_back" = '1|1'
+  fi
   stage=candidate-reapply
   docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
     -v VERBOSITY=sqlstate -f /tmp/candidate-migration.sql >>"$private_log" 2>&1
-  reapplied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
-    -c "select (to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is not null)::int||'|'||(to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is not null)::int;" 2>>"$private_log")"
-  test "$reapplied" = '1|1'
+  if [[ "$candidate_version" == v178 ]]; then
+    reapplied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select (to_regprocedure('$candidate_function') is not null)::int||'|'||(to_regclass('public.flexible_booking_requests_v178') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
+    test "$reapplied" = "1|1|$bookings_before"
+  else
+    reapplied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select (to_regprocedure('public.set_minuta_client_page_settings_v177(uuid,text,text,text,text)') is not null)::int||'|'||(to_regprocedure('public.get_minuta_client_page_settings_v177(uuid)') is not null)::int;" 2>>"$private_log")"
+    test "$reapplied" = '1|1'
+  fi
   jq '. + {candidateMigrationApplied:true,candidateRollbackVerified:true,candidateReapplied:true}' \
     "$result" > "$result.candidate"
   mv "$result.candidate" "$result"

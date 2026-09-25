@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: "17 0 * * *"
   workflow_dispatch:
+    inputs:
+      destination:
+        description: Where to retain this manual encrypted backup
+        required: true
+        type: choice
+        default: github-artifact-only
+        options:
+          - github-artifact-only
+          - github-artifact-and-s3
 
 permissions:
   contents: read
@@ -22,7 +31,7 @@ jobs:
       AWS_EC2_METADATA_DISABLED: "true"
       MINUTA_BACKUP_S3_PREFIX: ${{ vars.MINUTA_BACKUP_S3_PREFIX || 'minuta' }}
       MINUTA_BACKUP_RETENTION_DAYS: ${{ vars.MINUTA_BACKUP_RETENTION_DAYS || '35' }}
-      MINUTA_BACKUP_ARTIFACT_ONLY: ${{ vars.MINUTA_BACKUP_ARTIFACT_ONLY || 'false' }}
+      MINUTA_BACKUP_ARTIFACT_ONLY: ${{ github.event_name == 'workflow_dispatch' && (inputs.destination == 'github-artifact-only' && 'true' || 'false') || vars.MINUTA_BACKUP_ARTIFACT_ONLY || 'false' }}
       PGSSLMODE: require
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -194,7 +203,7 @@ jobs:
           retention-days: 35
 
       - name: Сообщить об ошибке в Telegram
-        if: failure()
+        if: failure() && github.event_name != 'workflow_dispatch'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
