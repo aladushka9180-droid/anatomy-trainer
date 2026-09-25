@@ -197,7 +197,7 @@ try {
     timeline.style.setProperty('--timeline-empty-hint-top', originalHintTop);
     return samples;
   });
-  assert.ok(emptyDayHintResult.every(sample => sample.offsetMinutes === 0 && sample.topInset <= 1), `empty-day hint is not anchored to the first visible slot: ${JSON.stringify(emptyDayHintResult)}`);
+  assert.deepEqual(emptyDayHintResult.map(sample => sample.offsetMinutes), [360,120,0], `phone hint should align with noon where available: ${JSON.stringify(emptyDayHintResult)}`);
   assert.ok(emptyDayHintResult.every(sample => sample.height <= 52 && sample.pointerEvents === 'none' && sample.clickPassesThrough), `empty-day hint blocks or escapes the first mobile slot: ${JSON.stringify(emptyDayHintResult)}`);
   assert.ok(emptyDayHintResult.every(sample => !sample.hasDuplicateHeading && sample.text === 'Нажмите нужное время, чтобы записать клиента или поставить перерыв'), `empty-day hint duplicates the day heading or changed its action: ${JSON.stringify(emptyDayHintResult)}`);
 

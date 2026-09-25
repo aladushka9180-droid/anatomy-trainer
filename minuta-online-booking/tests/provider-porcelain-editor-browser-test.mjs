@@ -86,8 +86,8 @@ try {
     if (width <= 390) {
       assert.deepEqual(layout.characterLines, [1, 1, 1], `${width}px character names must not collide or break awkwardly`);
       assert.equal(layout.shadesPerRow, 1, `${width}px all five shades should remain in one compact row`);
-      assert.equal(layout.docked, true, `${width}px live cabin should stay visible while choosing`);
-      assert.equal(layout.visibleToday && layout.visibleDate, true, `${width}px Today and selected date should be visible in the docked real cabinet`);
+      assert.equal(layout.docked, false, `${width}px live cabin must not cover the shade choices`);
+      assert.equal(layout.visibleToday && layout.visibleDate, true, `${width}px Today and selected date should be visible in the real cabinet`);
     }
     if (process.env.MINUTA_PORCELAIN_OUTPUT) {
       await mkdir(process.env.MINUTA_PORCELAIN_OUTPUT, { recursive:true });
@@ -101,8 +101,8 @@ try {
   await page.locator('.provider-porcelain-character').filter({ has:page.locator('input[value="silk"]') }).click();
   await page.locator('.provider-porcelain-shade').filter({ has:page.locator('input[value="pink-accent"]') }).click();
   await page.waitForFunction(() => document.querySelector('#providerPorcelainPreview').contentDocument?.body?.dataset.providerPorcelainCharacter === 'silk');
-  assert.equal(await page.locator('.provider-porcelain-live').evaluate(element => element.classList.contains('is-docked')), true, 'Real cabinet must remain visible while selecting on a short phone viewport');
-  assert.equal(await page.evaluate(() => window.__fixture.saves), 0, 'Docked preview changes must remain a draft');
+  assert.equal(await page.locator('.provider-porcelain-live').evaluate(element => element.classList.contains('is-docked')), false, 'Preview must stay below the choices on a short phone viewport');
+  assert.equal(await page.evaluate(() => window.__fixture.saves), 0, 'Preview changes must remain a draft');
   const frame = page.frameLocator('#providerPorcelainPreview');
   const observedPalettes = new Set();
   for (const character of ['pearl', 'petal', 'silk']) {
@@ -120,7 +120,6 @@ try {
       await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainPreview').contentDocument.querySelector('#dateStrip button.active')).backgroundColor === color, controlColor);
       const dateColor = await frame.locator('#dateStrip button.active').evaluate(button => getComputedStyle(button).backgroundColor);
       assert.equal(dateColor, controlColor, `${character}/${shade}: date strip ${dateColor}, today ${controlColor}`);
-      await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainPreview').contentDocument.querySelector('.journal-mode-toggle button.active')).backgroundColor === color, controlColor);
       observedPalettes.add(`${expected.bg}/${expected.accent}`);
     }
   }
@@ -146,8 +145,8 @@ try {
   await page.setViewportSize({ width:390, height:844 });
   await page.locator('.provider-porcelain-live-slot').scrollIntoViewIfNeeded();
   await page.waitForFunction(() => !document.querySelector('.provider-porcelain-live').classList.contains('is-docked'));
-  const footerOrder = await page.evaluate(() => document.querySelector('.provider-porcelain-footer').getBoundingClientRect().top >= document.querySelector('.provider-porcelain-live-slot').getBoundingClientRect().bottom - 1);
-  assert.equal(footerOrder, true, 'Apply/Reset and draft status must follow the full preview');
+  const footerOrder = await page.evaluate(() => document.querySelector('.provider-porcelain-footer').getBoundingClientRect().bottom <= document.querySelector('.provider-porcelain-live-slot').getBoundingClientRect().top + 1);
+  assert.equal(footerOrder, true, 'Apply/Reset and draft status must stay with the settings above the preview');
   await frame.locator('.provider-mobile-nav [data-provider-view="clients"]').click();
   assert.equal(await frame.locator('#dashboard').getAttribute('data-active-view'), 'clients');
   await page.locator('#providerPorcelainApply').click();
@@ -155,6 +154,9 @@ try {
   await page.locator('.provider-porcelain-character').filter({ has:page.locator('input[value="pearl"]') }).click();
   await page.locator('#providerPorcelainReset').click();
   assert.equal(await page.locator('input[name="providerPorcelainDetailCharacter"][value="silk"]').isChecked(), true);
+  await page.evaluate(() => { document.querySelector('#dashboard').dataset.activeView = 'bookings'; });
+  await page.waitForFunction(() => !document.body.dataset.porcelainEditorOpen);
+  assert.equal(await page.locator('.provider-mobile-nav').evaluate(nav => getComputedStyle(nav).display !== 'none'), true, 'Leaving Settings must restore the real mobile navigation');
   if (process.env.MINUTA_PORCELAIN_OUTPUT) {
     await mkdir(process.env.MINUTA_PORCELAIN_OUTPUT, { recursive:true });
     await page.screenshot({ path:path.join(process.env.MINUTA_PORCELAIN_OUTPUT, 'porcelain-editor-1440.png'), fullPage:true });

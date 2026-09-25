@@ -8859,6 +8859,9 @@ function dismissScheduleCreateHint(userId = currentUser?.id, root = document) {
 
 function timelineEmptyHintOffsetMinutes(start, end, mobileTimeline) {
   const visibleDuration = Math.max(0, Number(end) - Number(start));
+  if (mobileTimeline && window.matchMedia('(max-width: 620px)').matches) {
+    return Math.max(0, Math.min(12 * 60 - Number(start), visibleDuration - 60));
+  }
   return Math.min(mobileTimeline ? 0 : 30, visibleDuration / 2);
 }
 

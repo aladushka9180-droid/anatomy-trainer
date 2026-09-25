@@ -8,13 +8,13 @@
     pearl: {
       labels:['Лунный жемчуг', 'Молочный жемчуг', 'Розовый перламутр', 'Пудровый жемчуг', 'Яркий перламутр'],
       colors:[
-        ['#f7f8fc','#eaeef7','#733c7b','#cdd3e4'],
-        ['#f7f5fa','#ece5f4','#884079','#d8c9df'],
-        ['#f5eef8','#e9d9f1','#96427d','#d9c2e1'],
-        ['#f0e3f2','#dcc7e8','#82346e','#caaed7'],
-        ['#e4cee6','#d3aed6','#713064','#bd94c4']
+        ['#fffdfd','#fff5fa','#9a5477','#eedbe7'],
+        ['#fffafd','#ffeaf6','#a9517b','#efd3e3'],
+        ['#fff6fb','#ffdef0','#ae517d','#eec9dd'],
+        ['#fff0f9','#ffcde9','#a74975','#ebbad5'],
+        ['#ffe9f6','#ffb9df','#9b416e','#e9a9cb']
       ],
-      actions:['#e8dbe8','#e6d2e4','#e3c6df','#d8b1d2','#c993bf'],
+      actions:['#f5e4ee','#f2d9e8','#edc9df','#e9b9d6','#e4a6cb'],
       shadow:'rgba(103, 67, 87, .09)'
     },
     petal: {
@@ -32,13 +32,13 @@
     silk: {
       labels:['Шёлковый жемчуг', 'Сливочный шёлк', 'Пудровый шёлк', 'Розовый атлас', 'Малиновый шёлк'],
       colors:[
-        ['#fcf9f3','#f3e8e3','#8b4464','#dfcfcf'],
-        ['#faf3ef','#efdce0','#994363','#dfc4cf'],
-        ['#f8edec','#eacfd8','#a73a65','#dcb7c8'],
-        ['#f3dfe5','#dfbdcc','#97315d','#d4a6bb'],
-        ['#eccbd8','#d4aac0','#852b54','#c790a8']
+        ['#fffdfb','#fff3f3','#9c526d','#eedbdc'],
+        ['#fffbf9','#ffe8eb','#a54f70','#efd2d8'],
+        ['#fff7f7','#ffdae4','#ac4e75','#edc5d2'],
+        ['#fff0f2','#ffc8d9','#a64971','#eab5c8'],
+        ['#ffe8ee','#ffb8d0','#9f426b','#e7a8bf']
       ],
-      actions:['#ead7db','#e5c8d1','#deb6c6','#d5a0b7','#c989a8'],
+      actions:['#f4e2e6','#f1d5df','#edc5d3','#eab3c7','#e5a3be'],
       shadow:'rgba(113, 49, 85, .14)'
     }
   };
