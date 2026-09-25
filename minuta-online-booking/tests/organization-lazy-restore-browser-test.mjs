@@ -72,6 +72,33 @@ try {
       } finally { await f.page.close(); }
     });
   }
+  for (const width of [390, 760, 1440]) await test(`${width}px empty resources explain the sequence and link to branches`, async () => {
+    const f = await fixture(width, 'resourcesPanel'); try {
+      await f.page.waitForFunction(() => window.sets === 1);
+      await f.page.evaluate(() => { document.body.dataset.providerTheme = 'pink-porcelain'; });
+      await f.page.addScriptTag({ path:resolve(root, 'resource-management.js') });
+      await f.page.evaluate(async () => {
+        const controller = window.MinutaResources.createController({
+          db:{ rpc:async () => ({ data:{ organization_id:'org-a', can_manage:true, locations:[], services:[], groups:[], resources:[], requirements:[], audit:[] }, error:null }) },
+          $:selector => document.querySelector(selector), escapeHtml:value => String(value), notify() {}, requireWrites:() => true,
+          getCurrentUser:() => ({ id:'user-a' }), getSessionGeneration:() => 1, sessionIsCurrent:() => true, applyWriteAvailability() {}
+        });
+        await controller.setOrganization({ id:'org-a', can_manage:true });
+        document.addEventListener('click', event => {
+          const target = event.target.closest('[data-section-target]');
+          if (target) { event.preventDefault(); scrollToProviderSection(target); }
+        });
+      });
+      assert.equal(await f.page.locator('#resourceSetupGuide').isVisible(), true);
+      assert.match(await f.page.locator('#resourceSetupGuide').innerText(), /Сначала добавьте активный филиал/);
+      assert.equal(await f.page.locator('#resourceLocationLink').isVisible(), true);
+      assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);
+      if (process.env.MINUTA_SCREENSHOT_DIR) await f.page.locator('#resourcesPanel').screenshot({ path:resolve(process.env.MINUTA_SCREENSHOT_DIR, `o05-resources-${width}.png`) });
+      await f.page.locator('#resourceLocationLink').click();
+      assert.equal(await f.page.locator('[data-section-target="organizationPeopleSection"]').first().getAttribute('aria-current'), 'location');
+      f.check();
+    } finally { await f.page.close(); }
+  });
   await test('hidden organization defers loading until entry even when selected target did not change', async () => {
     const f = await fixture(390, 'loyaltyPanel', { visible:false }); try {
       assert.equal(await f.page.evaluate(() => loads), 0);

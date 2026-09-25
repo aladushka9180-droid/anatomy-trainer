@@ -22,7 +22,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="PrimeTime">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="styles.css?v=915">
+<link rel="stylesheet" href="styles.css?v=940">
   <template data-provider-feature="statistics"><link rel="stylesheet" href="statistics-audit-ui.css?v=908"></template>
   <link rel="stylesheet" href="messages-center.css?v=886">
   <link rel="stylesheet" href="finance-center.css?v=895">
@@ -948,8 +948,10 @@
               <div data-contextual-help data-help-label="Почему время недоступно?" data-help-slug="service-resources" data-help-question="Объясни группы ресурсов, конкретные кабинеты и требования услуг и почему время может быть недоступно."></div>
               <div class="loading-state compact" id="resourcesLoading" hidden><i></i><span>Загружаем ресурсы…</span></div>
               <div class="resource-inline-error" id="resourcesUnavailable" role="status" hidden><div><strong>Ресурсы временно недоступны</strong><small id="resourcesUnavailableText"></small></div><button class="secondary-button" id="reloadResources" type="button">Повторить</button></div>
-              <div class="resource-workspace" id="resourceWorkspace" hidden>
-              <div class="resource-management-grid" id="resourceManagementGrid">
+               <div class="resource-workspace" id="resourceWorkspace" hidden>
+              <p class="organization-invite-help" id="resourceSetupGuide" hidden></p>
+              <button class="secondary-button" id="resourceLocationLink" type="button" data-section-target="organizationPeopleSection" hidden>К филиалам</button>
+               <div class="resource-management-grid" id="resourceManagementGrid">
                 <section id="resourceGroupsSection">
                   <div class="resource-subhead"><div><small>Взаимозаменяемые типы</small><strong>Группы</strong></div><span class="panel-count" id="resourceGroupsCount">0</span></div>
                   <div class="organization-list" id="resourceGroupsList"></div>
@@ -2148,7 +2150,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=939" defer></script>
+  <script src="site-update.js?v=940" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2201,7 +2203,7 @@
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
   <template data-provider-feature="statistics"><script src="statistics-audit-ui.js?v=908"></script><script src="statistics-audit-provider.js?v=908"></script></template>
-  <script src="provider.js?v=939" defer></script>
+  <script src="provider.js?v=940" defer></script>
   <script src="provider-porcelain-detail.js?v=893" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>

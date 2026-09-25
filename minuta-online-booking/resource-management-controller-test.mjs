@@ -27,7 +27,7 @@ class MockElement {
 const ids = [
   'resourcesPanel','resourcesLoading','resourcesUnavailable','resourcesUnavailableText','resourcesCount',
   'resourceManagementGrid','resourceGroupsSection','resourceObjectsSection','resourceGroupsCount','resourceGroupsList','resourcesList','resourceGroupCreator','resourceGroupCreatorLabel','resourceGroupCreatorHint','resourceCreator','resourceCreatorLabel','resourceCreatorHint',
-  'resourceRequirementsPanel','resourceLocation','resourceGroup','resourceForm','resourceCreateHelp',
+  'resourceSetupGuide','resourceLocationLink','resourceRequirementsPanel','resourceLocation','resourceGroup','resourceForm','resourceCreateHelp',
   'resourceRequirementService','resourceRequirementsList','resourceRequirementSubmit','resourceRequirementError','resourceAuditPanel','resourceAuditCount','resourceAuditList',
   'resourceGroupForm','resourceGroupName','resourceGroupKind','resourceGroupDescription','resourceGroupError'
 ];
@@ -99,6 +99,7 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '
   assert.doesNotMatch(dom.elements.resourcesList.innerHTML, /<Кабинет 1>/);
   assert.equal(dom.elements.resourceObjectsSection.hidden, false);
   assert.equal(dom.elements.resourceRequirementsPanel.hidden, false);
+  assert.equal(dom.elements.resourceSetupGuide.hidden, true, 'После настройки пояснение первого шага скрыто');
 }
 
 {
@@ -118,7 +119,36 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '
   assert.match(dom.elements.resourceGroupCreatorLabel.textContent, /Создать группу ресурсов/);
   assert.equal(dom.elements.resourceObjectsSection.hidden, true, 'Следующий шаг скрыт до создания группы');
   assert.equal(dom.elements.resourceRequirementsPanel.hidden, true, 'Требования скрыты до создания ресурсов');
+  assert.equal(dom.elements.resourceSetupGuide.hidden, false);
+  assert.match(dom.elements.resourceSetupGuide.textContent, /Сначала создайте группу/);
+  assert.equal(dom.elements.resourceLocationLink.hidden, true, 'При активном филиале ссылка не нужна');
   assert.equal(dom.elements.resourceAuditPanel.hidden, true, 'Пустой журнал скрыт');
+}
+
+{
+  const dom = makeDom();
+  const controller = window.MinutaResources.createController({
+    db: { rpc: async () => ({ data:workspace('org-no-location', { locations:[], groups:[], resources:[], audit:[] }), error:null }) },
+    ...dom, escapeHtml, notify() {}, requireWrites: () => true,
+    getCurrentUser: () => ({ id:'owner' }), getSessionGeneration: () => 22,
+    sessionIsCurrent: () => true, applyWriteAvailability() {}
+  });
+  await controller.setOrganization({ id:'org-no-location', can_manage:true });
+  assert.match(dom.elements.resourceSetupGuide.textContent, /Сначала добавьте активный филиал/);
+  assert.equal(dom.elements.resourceLocationLink.hidden, false, 'Без филиала доступен переход к нужному разделу');
+}
+
+{
+  const dom = makeDom();
+  const controller = window.MinutaResources.createController({
+    db: { rpc: async () => ({ data:workspace('org-no-resource', { resources:[], audit:[] }), error:null }) },
+    ...dom, escapeHtml, notify() {}, requireWrites: () => true,
+    getCurrentUser: () => ({ id:'owner' }), getSessionGeneration: () => 23,
+    sessionIsCurrent: () => true, applyWriteAvailability() {}
+  });
+  await controller.setOrganization({ id:'org-no-resource', can_manage:true });
+  assert.match(dom.elements.resourceSetupGuide.textContent, /Добавьте конкретный кабинет/);
+  assert.equal(dom.elements.resourceLocationLink.hidden, true);
 }
 
 {
@@ -155,6 +185,8 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '
   assert.equal(dom.elements.resourceGroupCreator.hidden, true, 'Специалисту нельзя показывать создание группы');
   assert.equal(dom.elements.resourceCreator.hidden, true, 'Специалисту нельзя показывать создание ресурса');
   assert.equal(dom.elements.resourceRequirementsPanel.hidden, true, 'Специалисту нельзя показывать изменение требований');
+  assert.equal(dom.elements.resourceSetupGuide.hidden, true, 'Специалисту не показывают шаги редактирования');
+  assert.equal(dom.elements.resourceLocationLink.hidden, true);
   assert.doesNotMatch(dom.elements.resourcesList.innerHTML, /<form/i, 'Read-only карточка специалиста не должна содержать форму');
 }
 

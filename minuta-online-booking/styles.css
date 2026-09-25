@@ -3096,6 +3096,8 @@ html.provider-booting .provider-main {
 .provider-body .shift-substitution .organization-invite-help,.provider-body .shift-substitution .form-error { grid-column:1/-1; }
 .provider-body .shift-substitution button { width:auto; margin:0; min-height:42px; }
 .provider-body .resource-workspace { display:grid; gap:16px; }
+#resourceSetupGuide{font-size:12px}
+#resourceLocationLink{width:auto;margin:0;justify-self:start}
 .provider-body .resource-management-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .provider-body .resource-management-grid>section { min-width:0; }
 .provider-body .resource-management-grid>section[hidden] { display:none; }

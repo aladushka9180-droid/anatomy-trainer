@@ -191,9 +191,17 @@
       $('#resourceCreator').dataset.emptyAction = String(!hasResources);
       $('#resourceCreatorLabel').textContent = hasResources ? 'Добавить ресурс' : 'Добавить первый кабинет или оборудование';
       $('#resourceCreatorHint').textContent = hasResources ? '' : 'Выберите филиал и созданную группу';
-      const activeLocations = payload.locations.filter(item => item.active);
-      const activeGroups = payload.groups.filter(item => item.active);
-      $('#resourceRequirementsPanel').hidden = !canManage || !activeGroups.length || !activeResourceCount;
+       const activeLocations = payload.locations.filter(item => item.active);
+       const activeGroups = payload.groups.filter(item => item.active);
+       const setupGuide = $('#resourceSetupGuide');
+       setupGuide.hidden = !canManage || (activeLocations.length > 0 && activeGroups.length > 0 && activeResourceCount > 0);
+       setupGuide.textContent = !activeLocations.length
+         ? 'Сначала добавьте активный филиал. Затем создайте группу, добавьте конкретный кабинет или оборудование и укажите требования услуг при необходимости.'
+         : !activeGroups.length
+           ? 'Сначала создайте группу взаимозаменяемых ресурсов. Затем добавьте конкретный кабинет или оборудование в филиал и укажите требования услуг при необходимости.'
+           : 'Добавьте конкретный кабинет или оборудование в филиал. После этого можно указать требования услуг.';
+       $('#resourceLocationLink').hidden = !canManage || activeLocations.length > 0;
+       $('#resourceRequirementsPanel').hidden = !canManage || !activeGroups.length || !activeResourceCount;
       $('#resourceLocation').innerHTML = optionList(activeLocations, '', item => item.name);
       $('#resourceGroup').innerHTML = optionList(activeGroups, '', item => `${item.name} · ${kindLabels[item.kind] || 'Другое'}`);
       $('#resourceForm button[type="submit"]').disabled = !activeLocations.length || !activeGroups.length;
