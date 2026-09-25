@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v940`;
-const CACHE_READY = './.precache-ready-v940';
+const CACHE = `${CACHE_PREFIX}v941`;
+const CACHE_READY = './.precache-ready-v941';
 
 const ASSETS = [
   './provider.html',
@@ -13,7 +13,7 @@ const ASSETS = [
   './provider-icon.svg?v=876',
   './icon.svg',
   './ui-icons.svg',
-  './styles.css?v=940',
+  './styles.css?v=941',
   './utm-funnel.css?v=811',
   './onboarding.css?v=811',
   './visitor-presence.css?v=811',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=940',
+  './site-update.js?v=941',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -62,12 +62,13 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=940',
+  './provider.js?v=941',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
 
 const OPTIONAL_ASSETS = [
+  './utm-funnel.css?v=811',
   './statistics-audit-ui.css?v=908',
   './statistics-audit-ui.js?v=908',
   './statistics-audit-provider.js?v=908',
@@ -110,7 +111,8 @@ const OPTIONAL_ASSETS = [
   './client-messages.js?v=885',
   './provider-portfolio-responsive.css?v=811',
   './service-presets-catalog.js?v=811',
-  './app.js?v=885',
+  './app.js?v=941',
+  './client-offline-flexible.js?v=941',
   './service-presets.css?v=811',
   './service-presets.js?v=811',
   './report-worker.js?v=811',
@@ -125,8 +127,28 @@ const OPTIONAL_ASSETS = [
   './portfolio-camera.js?v=811',
 ];
 let optionalWarmup = null;
+let clientFlexibleWarmup = null;
+const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=941', './client-offline-flexible.js?v=941'];
 
 self.addEventListener('message', event => {
+  if (event.data?.type === 'warm-client-flexible') {
+    if (!clientFlexibleWarmup) {
+      clientFlexibleWarmup = (async () => {
+        if (!await safeCacheMatch(CACHE_READY, { cacheName:CACHE })) throw new Error('precache_incomplete');
+        const cache = await caches.open(CACHE);
+        for (const asset of CLIENT_FLEXIBLE_ASSETS) {
+          if (await cache.match(asset)) continue;
+          await cache.add(asset);
+        }
+      })().finally(() => { clientFlexibleWarmup = null; });
+    }
+    event.waitUntil(clientFlexibleWarmup.then(() => {
+      event.ports?.[0]?.postMessage({ ready:true, cache:CACHE });
+    }).catch(() => {
+      event.ports?.[0]?.postMessage({ ready:false, cache:CACHE });
+    }));
+    return;
+  }
   if (event.data?.type !== 'warm-provider-features') return;
   if (!optionalWarmup) {
     optionalWarmup = (async () => {

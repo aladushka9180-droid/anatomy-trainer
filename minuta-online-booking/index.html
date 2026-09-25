@@ -19,7 +19,7 @@
   <title>Массаж в Ижевске — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=811">
+  <link rel="stylesheet" href="styles.css?v=941">
   <link rel="stylesheet" href="client-themes.css?v=885">
   <link rel="stylesheet" href="code-scanner.css?v=811">
   <script src="booking-widgets.js?v=811"></script>
@@ -39,6 +39,22 @@
       <span class="porcelain-character-tagline" id="clientPorcelainTagline" hidden></span>
     </section>
     <section class="booking-card" aria-labelledby="bookingTitle">
+      <section id="clientOfflineFlexible" class="client-offline-flexible" hidden aria-labelledby="clientOfflineFlexibleTitle">
+        <h2 id="clientOfflineFlexibleTitle">Запрос на время без интернета</h2>
+        <p id="clientOfflineFlexibleStatus" role="status" aria-live="polite"></p>
+        <form hidden>
+          <label>Услуга<select name="service" required></select></label>
+          <label>Филиал<select name="location"></select></label>
+          <label>Дата<input name="date" type="date" required></label>
+          <div class="client-offline-flexible-times"><label>Желаемое начало<input name="earliest" type="time" required></label><label>Самое позднее начало<input name="latest" type="time" required></label></div>
+          <p>После подключения сервер создаст одну запись на ближайшее допустимое время в этом интервале. До подтверждения время не закреплено.</p>
+          <label>Ваше имя<input name="name" maxlength="80" autocomplete="name" required></label>
+          <label>Телефон<input name="phone" type="tel" autocomplete="tel" required></label>
+          <label class="consent-check"><input name="consent" type="checkbox" required><span>Я принимаю <a href="terms.html" target="_blank" rel="noopener">условия использования</a> и соглашаюсь на обработку данных по <a href="privacy.html" target="_blank" rel="noopener">политике конфиденциальности</a>.</span></label>
+          <button class="primary" type="submit">Сохранить запрос до подключения</button>
+        </form>
+        <button id="clientOfflineFlexibleRemove" class="secondary-button" type="button" hidden>Удалить запрос с устройства</button>
+      </section>
       <div id="bookingFlow">
         <div class="repeat-booking-notice" id="repeatBookingNotice" role="status" hidden></div>
         <div class="booking-context-row"><span class="status status-checking" id="bookingStatus" role="status" aria-live="polite"><i></i><span>Проверяем расписание…</span></span><span class="booking-address">Карла Маркса, 304б · 10:00–20:00</span></div>
@@ -201,6 +217,6 @@
   </dialog>
   <dialog class="code-scanner-dialog" id="codeScannerDialog" aria-labelledby="codeScannerTitle"><div class="code-scanner-shell"><div class="code-scanner-head"><div><small>Камера устройства</small><h2 id="codeScannerTitle">Сканировать код</h2></div><button type="button" data-close-code-scanner aria-label="Закрыть">×</button></div><div class="code-scanner-camera"><video id="codeScannerVideo" playsinline muted></video></div><p class="code-scanner-status" id="codeScannerStatus" role="status" aria-live="polite"></p><form class="code-scanner-manual" id="codeScannerManualForm"><label>Или введите код<input id="codeScannerManual" inputmode="text" autocomplete="off" maxlength="160"></label><button class="primary" type="submit">Применить</button></form></div></dialog>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=811"></script><script src="theme-catalog.js?v=885"></script><script src="site-update.js?v=886" defer></script><script src="reliability.js?v=811"></script><script src="group-bookings.js?v=811" defer></script><script src="telegram-auth.js?v=811" defer></script><script src="code-scanner.js?v=811" defer></script><script src="app.js?v=885" defer></script>
+  <script src="config.js?v=811"></script><script src="theme-catalog.js?v=885"></script><script src="site-update.js?v=941" defer></script><script src="reliability.js?v=811"></script><script src="group-bookings.js?v=811" defer></script><script src="telegram-auth.js?v=811" defer></script><script src="code-scanner.js?v=811" defer></script><script src="app.js?v=941" defer></script><script src="client-offline-flexible.js?v=941" defer></script>
 </body>
 </html>

@@ -76,9 +76,9 @@ const precacheBytes = assets.reduce((total, asset) => {
   return total + Buffer.byteLength(readFileSync(absolute, 'utf8').replace(/\r\n/g, '\n'));
 }, 0);
 // Keep core interaction controllers available during a cold offline start.
-// The v930 publication dialog adds ~2.8 KiB to the offline-critical shell.
-// Keep a narrow 3.575 MiB ceiling without evicting offline controllers.
-assert.ok(precacheBytes <= 3.575 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
+// The v930 publication dialog and flexible offline booking add to the offline-critical shell.
+// Keep a narrow 3.58 MiB ceiling without evicting offline controllers.
+assert.ok(precacheBytes <= 3.58 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /try \{ await caches\.delete\(CACHE\); \} catch \{\}/,
