@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v936`;
+const CACHE = `${CACHE_PREFIX}v937`;
 
 const ASSETS = [
   './provider.html',
@@ -35,7 +35,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=936',
+  './site-update.js?v=937',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -203,9 +203,9 @@ function navigationShell(request) {
 async function navigationResponse(event) {
   const request = event.request;
   const shell = navigationShell(request);
-  const cached = await caches.match(shell);
+  const cached = await safeCacheMatch(shell);
   const update = fetch(request).then(async response => {
-    if (response.ok) await (await caches.open(CACHE)).put(shell, response.clone());
+    if (response.ok) await safeCachePut(shell, response.clone());
     return response;
   });
   if (cached) {
@@ -213,13 +213,27 @@ async function navigationResponse(event) {
     return cached;
   }
   try { return await update; }
-  catch { return (await caches.match('./offline.html')) || (await caches.match('./provider.html')); }
+  catch {
+    return (await safeCacheMatch('./offline.html'))
+      || (await safeCacheMatch('./provider.html'))
+      || new Response('<!doctype html><html lang="ru"><meta charset="utf-8"><title>Нет соединения</title><h1>Нет соединения</h1><p>Проверьте интернет и попробуйте открыть страницу ещё раз.</p><a href="">Повторить</a>', { status:503, headers:{ 'Content-Type':'text/html; charset=utf-8' } });
+  }
 }
 
 async function assetResponse(request) {
-  const cached = await caches.match(request);
+  const cached = await safeCacheMatch(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok || response.type === 'opaque') await (await caches.open(CACHE)).put(request, response.clone());
+  if (response.ok || response.type === 'opaque') await safeCachePut(request, response.clone());
   return response;
+}
+
+async function safeCacheMatch(request) {
+  try { return await caches.match(request); }
+  catch { return undefined; }
+}
+
+async function safeCachePut(request, response) {
+  try { await (await caches.open(CACHE)).put(request, response); }
+  catch { /* A working network response must not depend on cache writes. */ }
 }

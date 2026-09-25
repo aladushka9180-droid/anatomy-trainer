@@ -825,7 +825,7 @@ for (const asset of ['styles.css', 'config.js', 'reliability.js', 'organization.
 assert.match(worker, /'\.\/ui-icons\.svg',/, 'Service Worker не кэширует URL иконок без query для офлайн-страниц');
 assert.match(worker, /event\.request\.mode === 'navigate'/, 'Навигация не отделена от статических ресурсов');
 assert.match(worker, /key\.startsWith\(CACHE_PREFIX\)/, 'Service Worker может удалить чужие кэши');
-assert.match(worker, /put\(shell, response\.clone\(\)\)/, 'Навигация может сохранить секретные параметры вместо безопасного адреса оболочки');
+assert.match(worker, /safeCachePut\(shell, response\.clone\(\)\)/, 'Навигация может сохранить секретные параметры вместо безопасного адреса оболочки');
 
 assert.doesNotMatch(app, /minuta-last-booking-url/, 'Секретная ссылка сохраняется в localStorage');
 assert.match(app, /validateCurrentSelection/, 'Выбранное время не перепроверяется после восстановления связи');
