@@ -1,4 +1,4 @@
-"""Run only against a disposable PostgreSQL 17 database with the v178 synthetic fixture."""
+"""Run only against a disposable PostgreSQL 17 database with the v180 synthetic fixture."""
 import json
 import os
 import subprocess
@@ -7,10 +7,10 @@ import time
 import uuid
 
 psql = os.environ.get('PRIMETIME_TEST_PSQL', 'psql')
-database = os.environ.get('PRIMETIME_TEST_DATABASE', 'primetime_v178_concurrency')
+database = os.environ.get('PRIMETIME_TEST_DATABASE', 'primetime_v180_concurrency')
 host = os.environ.get('PRIMETIME_TEST_HOST', '127.0.0.1')
 port = os.environ.get('PRIMETIME_TEST_PORT', '65439')
-if host not in ('127.0.0.1', 'localhost') or not database.startswith('primetime_v178_'):
+if host not in ('127.0.0.1', 'localhost') or not database.startswith('primetime_v180_'):
     raise SystemExit('Refusing to run outside a named local disposable database')
 
 def command(sql):
@@ -19,7 +19,7 @@ def command(sql):
 
 def request_sql(request_id, wait):
     return f"""begin;
-select public.book_flexible_appointment_v178(
+select public.book_flexible_appointment_v180(
  '{request_id}'::uuid,'00000000-0000-4000-8000-000000000180'::uuid,current_date+1,
  '10:00'::time,'18:00'::time,'Synthetic concurrent client','+79990000188');
 select pg_sleep({wait});

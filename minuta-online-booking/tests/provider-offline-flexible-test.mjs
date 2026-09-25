@@ -38,7 +38,7 @@ async function scenario(reply, options = {}) {
 
 const success = await scenario({result_code:'ok',booking_time:'13:00:00'});
 assert.equal(success.calls.length,1);
-assert.equal(success.calls[0].name,'book_flexible_appointment_v178');
+assert.equal(success.calls[0].name,'book_flexible_appointment_v180');
 assert.equal(success.calls[0].args.p_earliest,'10:00:00');
 assert.equal(success.calls[0].args.p_latest,'18:00:00');
 assert.equal(success.calls[0].args.p_request_id,success.item.id);

@@ -83,7 +83,7 @@
     syncing = true;
     setStatus('Проверяем запрос на сервере. Запись пока не подтверждена.');
     try {
-      const { data, error } = await db.rpc('book_flexible_appointment_v178', {
+      const { data, error } = await db.rpc('book_flexible_appointment_v180', {
         p_request_id:item.id, p_service:item.serviceId, p_date:item.date,
         p_earliest:`${item.earliest}:00`, p_latest:`${item.latest}:00`,
         p_client_name:item.name, p_client_phone:item.phone,

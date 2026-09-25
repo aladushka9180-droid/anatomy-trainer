@@ -1,4 +1,4 @@
--- v178: one flexible offline request resolves to at most one booking.
+-- v180: one flexible offline request resolves to at most one booking.
 -- Apply only after the production backup, restore rehearsal and SQL approval.
 begin;
 set local lock_timeout = '10s';
@@ -6,44 +6,44 @@ set local statement_timeout = '2min';
 
 do $guard$
 declare v_proc regprocedure := to_regprocedure(
-  'public.book_flexible_appointment_v178(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)');
+  'public.book_flexible_appointment_v180(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)');
 begin
   if to_regclass('public.bookings') is null
      or to_regprocedure('public.book_appointment(uuid,uuid,date,time without time zone,text,text)') is null
      or to_regprocedure('public.book_minuta_appointment_v2(uuid,text,uuid,uuid,date,time without time zone,text,text,integer,integer)') is null
      or to_regprocedure('public.get_available_slots_v101(uuid,date,date,uuid)') is null
      or to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is null then
-    raise exception using errcode='55000',message='v178_prerequisite_missing';
+    raise exception using errcode='55000',message='v180_prerequisite_missing';
   end if;
   if v_proc is not null and obj_description(v_proc,'pg_proc') is distinct from
-     (select 'primetime_flexible_v178:md5='||md5(replace(prosrc,E'\r',''))
+     (select 'primetime_flexible_v180:md5='||md5(replace(prosrc,E'\r',''))
       from pg_catalog.pg_proc where oid=v_proc) then
-    raise exception using errcode='55000',message='v178_apply_blocked_function_drift';
+    raise exception using errcode='55000',message='v180_apply_blocked_function_drift';
   end if;
-  if to_regclass('public.flexible_booking_requests_v178') is not null then
+  if to_regclass('public.flexible_booking_requests_v180') is not null then
     if not exists(select 1 from pg_catalog.pg_constraint c
-        where c.conrelid='public.flexible_booking_requests_v178'::regclass
+        where c.conrelid='public.flexible_booking_requests_v180'::regclass
           and c.contype='f' and c.confrelid='public.bookings'::regclass
           and c.confdeltype='n')
        or exists(select 1 from pg_catalog.pg_attribute a
-        where a.attrelid='public.flexible_booking_requests_v178'::regclass
+        where a.attrelid='public.flexible_booking_requests_v180'::regclass
           and a.attname='booking_id' and a.attnotnull) then
-      raise exception using errcode='55000',message='v178_apply_blocked_ledger_drift';
+      raise exception using errcode='55000',message='v180_apply_blocked_ledger_drift';
     end if;
   end if;
 end
 $guard$;
 
-create table if not exists public.flexible_booking_requests_v178 (
+create table if not exists public.flexible_booking_requests_v180 (
   request_id uuid primary key,
   request_fingerprint text not null check (request_fingerprint ~ '^[0-9a-f]{64}$'),
   -- Keep the request as a tombstone when a provider deletes the booking.
   booking_id uuid unique references public.bookings(id) on delete set null,
   created_at timestamptz not null default now()
 );
-revoke all on public.flexible_booking_requests_v178 from public, anon, authenticated, service_role;
+revoke all on public.flexible_booking_requests_v180 from public, anon, authenticated, service_role;
 
-create or replace function public.book_flexible_appointment_v178(
+create or replace function public.book_flexible_appointment_v180(
   p_request_id uuid, p_service uuid, p_date date,
   p_earliest time without time zone, p_latest time without time zone,
   p_client_name text, p_client_phone text,
@@ -59,7 +59,7 @@ declare
   v_performer uuid;
   v_service public.services%rowtype;
   v_fingerprint text;
-  v_existing public.flexible_booking_requests_v178%rowtype;
+  v_existing public.flexible_booking_requests_v180%rowtype;
   v_booking public.bookings%rowtype;
   v_slot record;
   v_created record;
@@ -99,7 +99,7 @@ begin
 
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('booking-request:' || p_request_id::text,0));
-  select * into v_existing from public.flexible_booking_requests_v178
+  select * into v_existing from public.flexible_booking_requests_v180
     where request_id=p_request_id;
   if found then
     if v_existing.request_fingerprint <> v_fingerprint then
@@ -180,7 +180,7 @@ begin
        or v_booking.booking_time is distinct from v_slot.booking_time then
       raise exception using errcode='55000',message='flexible_booking_acknowledgement_invalid';
     end if;
-    insert into public.flexible_booking_requests_v178(request_id,request_fingerprint,booking_id)
+    insert into public.flexible_booking_requests_v180(request_id,request_fingerprint,booking_id)
       values(p_request_id,v_fingerprint,v_booking.id);
     return jsonb_build_object('result_code','ok','request_id',p_request_id,
       'booking_id',v_booking.id,'booking_code',v_booking.booking_code,
@@ -191,17 +191,17 @@ begin
 end;
 $$;
 
-revoke all on function public.book_flexible_appointment_v178(
+revoke all on function public.book_flexible_appointment_v180(
   uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)
   from public,anon,authenticated,service_role;
-grant execute on function public.book_flexible_appointment_v178(
+grant execute on function public.book_flexible_appointment_v180(
   uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)
   to anon,authenticated;
 do $stamp$
-declare v_proc regprocedure := 'public.book_flexible_appointment_v178(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)'::regprocedure;
+declare v_proc regprocedure := 'public.book_flexible_appointment_v180(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)'::regprocedure;
 begin
   execute format('comment on function %s is %L',v_proc,
-    (select 'primetime_flexible_v178:md5='||md5(replace(prosrc,E'\r',''))
+    (select 'primetime_flexible_v180:md5='||md5(replace(prosrc,E'\r',''))
      from pg_catalog.pg_proc where oid=v_proc));
 end
 $stamp$;

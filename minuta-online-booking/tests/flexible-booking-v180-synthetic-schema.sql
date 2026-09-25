@@ -168,7 +168,7 @@ $$;
 create trigger bookings_zz_protect_creation_attribution_v92
 before update of booking_source,created_by_user_id,created_by_role on public.bookings
 for each row execute function public.protect_minuta_booking_creation_attribution_v92();
-create table public.test_slots_v178 (
+create table public.test_slots_v180 (
   service_id uuid not null references public.services(id),
   booking_date date not null,booking_time time without time zone not null,
   primary key(service_id,booking_date,booking_time)
@@ -179,7 +179,7 @@ create function public.get_available_slots_v101(
 returns table(booking_date date,booking_time time without time zone)
 language sql stable security definer set search_path to '' as $$
   select slot.booking_date,slot.booking_time
-  from public.test_slots_v178 slot
+  from public.test_slots_v180 slot
   join public.services service on service.id=slot.service_id and service.active
   where slot.service_id=p_service and slot.booking_date between p_start and p_end
     and not exists(
@@ -203,7 +203,7 @@ returns table(booking_date date,booking_time time without time zone)
 language sql stable security definer set search_path to '' as $$
   select slot.booking_date,slot.booking_time
   from public.get_available_slots_v101(p_service,p_start,p_end,null) slot
-  where p_slug='v178-isolated' and p_location='00000000-0000-4000-8000-000000000178'::uuid
+  where p_slug='v180-isolated' and p_location='00000000-0000-4000-8000-000000000178'::uuid
 $$;
 grant execute on function public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date) to anon,authenticated;
 
@@ -235,7 +235,7 @@ begin
     where slot.booking_time=p_time) then
     raise exception using errcode='P0001',message='slot_unavailable';
   end if;
-  if p_time='10:00' and current_setting('v178.simulate_exclusion',true)='on' then
+  if p_time='10:00' and current_setting('v180.simulate_exclusion',true)='on' then
     raise exception using errcode='23P01',message='synthetic_booking_exclusion';
   end if;
   insert into public.bookings(request_id,request_fingerprint,performer_id,service_id,
@@ -262,7 +262,7 @@ declare
   v_previous_organization text:=current_setting('minuta.booking_organization',true);
   v_previous_location text:=current_setting('minuta.booking_location',true);
 begin
-  if p_slug<>'v178-isolated' or p_location is distinct from
+  if p_slug<>'v180-isolated' or p_location is distinct from
      '00000000-0000-4000-8000-000000000178'::uuid then
     raise exception using errcode='P0001',message='location_unavailable';
   end if;
@@ -294,7 +294,7 @@ grant execute on function public.book_minuta_appointment_v2(
 insert into auth.users(id) values('00000000-0000-4000-8000-000000000181');
 insert into public.organizations(id,legacy_performer_id,status,public_slug)
 values('00000000-0000-4000-8000-000000000179',
-  '00000000-0000-4000-8000-000000000181','active','v178-isolated');
+  '00000000-0000-4000-8000-000000000181','active','v180-isolated');
 insert into public.locations(id,organization_id,active,is_primary,timezone)
 values('00000000-0000-4000-8000-000000000178',
   '00000000-0000-4000-8000-000000000179',true,true,'Europe/Samara');
@@ -305,7 +305,7 @@ values('00000000-0000-4000-8000-000000000179',
 insert into public.services(id,performer_id,name,duration_minutes,price_rub,active)
 values('00000000-0000-4000-8000-000000000180',
   '00000000-0000-4000-8000-000000000181','Synthetic massage',60,1000,true);
-insert into public.test_slots_v178(service_id,booking_date,booking_time)
+insert into public.test_slots_v180(service_id,booking_date,booking_time)
 select '00000000-0000-4000-8000-000000000180'::uuid,current_date+1,hour_mark::time
 from generate_series((current_date+1)+'10:00'::time,
   (current_date+1)+'18:00'::time,interval '1 hour') hour_mark;

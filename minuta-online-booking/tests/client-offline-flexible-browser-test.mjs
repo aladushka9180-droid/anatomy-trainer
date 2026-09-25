@@ -56,7 +56,7 @@ try {
     assert.equal((await page.evaluate(() => window.warmMessages[0].type)),'warm-client-flexible');
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('primetime-offline-flexible-v1:primetime-offline-catalog-v1:default'))?.status === 'conflict');
     const calls = await page.evaluate(() => window.calls);
-    assert.equal(calls.length,1); assert.equal(calls[0].name,'book_flexible_appointment_v178');
+    assert.equal(calls.length,1); assert.equal(calls[0].name,'book_flexible_appointment_v180');
     assert.equal(calls[0].args.p_request_id,first.id);
     assert.equal(calls[0].args.p_kind,'public');
     if (width === 390) {
@@ -72,7 +72,7 @@ try {
       await page.locator('#clientOfflineFlexible button[type=submit]').click();
       await page.evaluate(dateValue => {
         window.responses={
-          book_flexible_appointment_v178:{data:{result_code:'ok',manage_token:'22222222-2222-4222-8222-222222222222',booking_code:'TEST',booking_time:'13:00:00'},error:null},
+          book_flexible_appointment_v180:{data:{result_code:'ok',manage_token:'22222222-2222-4222-8222-222222222222',booking_code:'TEST',booking_time:'13:00:00'},error:null},
           get_booking_management:{data:[{status:'new',booking_code:'TEST',booking_date:dateValue,booking_time:'13:00:00'}],error:null},
           record_minuta_booking_legal_acceptance_v110:{data:true,error:null}
         };

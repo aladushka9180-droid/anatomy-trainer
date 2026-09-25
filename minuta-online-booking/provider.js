@@ -1436,7 +1436,7 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
       }
       const params = { p_service:item.serviceId, p_date:item.date, p_time:`${item.time}:00`, p_client_name:item.clientName, p_client_phone:item.clientPhone };
       const { data: flexibleResult, error } = item.latestTime
-        ? await db.rpc('book_flexible_appointment_v178', {
+        ? await db.rpc('book_flexible_appointment_v180', {
           p_request_id:item.id, p_service:item.serviceId, p_date:item.date,
           p_earliest:`${item.time}:00`, p_latest:`${item.latestTime}:00`,
           p_client_name:item.clientName, p_client_phone:item.clientPhone, p_kind:'provider'
