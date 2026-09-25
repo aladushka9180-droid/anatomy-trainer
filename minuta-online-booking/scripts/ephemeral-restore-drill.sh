@@ -153,7 +153,7 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   test -f "${MINUTA_RESTORE_MIGRATION_SQL:?}"
   test -f "${MINUTA_RESTORE_ROLLBACK_SQL:?}"
   candidate_version="${MINUTA_RESTORE_CANDIDATE_VERSION:-v177}"
-  case "$candidate_version" in v177|v178) ;; *) exit 1 ;; esac
+  case "$candidate_version" in v177|v180) ;; *) exit 1 ;; esac
   bookings_before="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
     -c 'select count(*) from public.bookings' 2>>"$private_log")"
   docker cp "$MINUTA_RESTORE_MIGRATION_SQL" "$container:/tmp/candidate-migration.sql" >/dev/null
@@ -161,10 +161,10 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   stage=candidate-apply
   docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
     -v VERBOSITY=sqlstate -f /tmp/candidate-migration.sql >>"$private_log" 2>&1
-  if [[ "$candidate_version" == v178 ]]; then
-    candidate_function="public.book_flexible_appointment_v178(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)"
+  if [[ "$candidate_version" == v180 ]]; then
+    candidate_function="public.book_flexible_appointment_v180(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)"
     applied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
-      -c "select (to_regprocedure('$candidate_function') is not null)::int||'|'||(to_regclass('public.flexible_booking_requests_v178') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
+      -c "select (to_regprocedure('$candidate_function') is not null)::int||'|'||(to_regclass('public.flexible_booking_requests_v180') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
     test "$applied" = "1|1|$bookings_before"
   else
     applied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
@@ -174,9 +174,9 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   stage=candidate-rollback
   docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
     -v VERBOSITY=sqlstate -f /tmp/candidate-rollback.sql >>"$private_log" 2>&1
-  if [[ "$candidate_version" == v178 ]]; then
+  if [[ "$candidate_version" == v180 ]]; then
     rolled_back="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
-      -c "select (to_regprocedure('$candidate_function') is null)::int||'|'||(to_regclass('public.flexible_booking_requests_v178') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
+      -c "select (to_regprocedure('$candidate_function') is null)::int||'|'||(to_regclass('public.flexible_booking_requests_v180') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
     test "$rolled_back" = "1|1|$bookings_before"
   else
     rolled_back="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
@@ -186,9 +186,9 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   stage=candidate-reapply
   docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
     -v VERBOSITY=sqlstate -f /tmp/candidate-migration.sql >>"$private_log" 2>&1
-  if [[ "$candidate_version" == v178 ]]; then
+  if [[ "$candidate_version" == v180 ]]; then
     reapplied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
-      -c "select (to_regprocedure('$candidate_function') is not null)::int||'|'||(to_regclass('public.flexible_booking_requests_v178') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
+      -c "select (to_regprocedure('$candidate_function') is not null)::int||'|'||(to_regclass('public.flexible_booking_requests_v180') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
     test "$reapplied" = "1|1|$bookings_before"
   else
     reapplied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
