@@ -1,5 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v937`;
+const CACHE = `${CACHE_PREFIX}v938`;
+const CACHE_READY = './.precache-ready-v938';
 
 const ASSETS = [
   './provider.html',
@@ -35,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=937',
+  './site-update.js?v=938',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -144,20 +145,25 @@ self.addEventListener('install', event => {
     try {
       const cache = await caches.open(CACHE);
       await cache.addAll(ASSETS.map(asset => new Request(asset, { cache:'reload' })));
-      await self.skipWaiting();
-    } catch (error) {
-      await caches.delete(CACHE);
-      throw error;
+      await cache.put(CACHE_READY, new Response('ready'));
+    } catch {
+      // Let the network-safe worker replace a broken one, but retain older offline caches.
+      try { await caches.delete(CACHE); } catch {}
     }
+    await self.skipWaiting();
   })());
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE).map(key => caches.delete(key))))
-      .then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    if (await safeCacheMatch(CACHE_READY, { cacheName:CACHE })) {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE).map(key => caches.delete(key)));
+      } catch { /* CacheStorage failure must not keep the old worker in control. */ }
+    }
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', event => {
@@ -203,7 +209,8 @@ function navigationShell(request) {
 async function navigationResponse(event) {
   const request = event.request;
   const shell = navigationShell(request);
-  const cached = await safeCacheMatch(shell);
+  const cacheReady = Boolean(await safeCacheMatch(CACHE_READY, { cacheName:CACHE }));
+  const cached = cacheReady ? await safeCacheMatch(shell, { cacheName:CACHE }) : undefined;
   const update = fetch(request).then(async response => {
     if (response.ok) await safeCachePut(shell, response.clone());
     return response;
@@ -214,7 +221,8 @@ async function navigationResponse(event) {
   }
   try { return await update; }
   catch {
-    return (await safeCacheMatch('./offline.html'))
+    return (await safeCacheMatch(shell))
+      || (await safeCacheMatch('./offline.html'))
       || (await safeCacheMatch('./provider.html'))
       || new Response('<!doctype html><html lang="ru"><meta charset="utf-8"><title>Нет соединения</title><h1>Нет соединения</h1><p>Проверьте интернет и попробуйте открыть страницу ещё раз.</p><a href="">Повторить</a>', { status:503, headers:{ 'Content-Type':'text/html; charset=utf-8' } });
   }
@@ -228,8 +236,8 @@ async function assetResponse(request) {
   return response;
 }
 
-async function safeCacheMatch(request) {
-  try { return await caches.match(request); }
+async function safeCacheMatch(request, options) {
+  try { return await caches.match(request, options); }
   catch { return undefined; }
 }
 

@@ -167,6 +167,21 @@ try {
     Object.fromEntries(requestedModules.map(module => [module, sha(release.files.get(module))]));
   assert.deepEqual(await cacheHashes(oldRelease), expectedHashes(oldRelease));
   const originalController = await page.evaluate(() => navigator.serviceWorker.controller.scriptURL);
+  await page.evaluate(async () => {
+    const request = indexedDB.open('pwa-upgrade-preservation-check', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('records');
+    const database = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction('records', 'readwrite');
+    transaction.objectStore('records').put('preserved', 'offline-draft');
+    await new Promise((resolve, reject) => {
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+  });
   console.log(`PASS: pinned baseline ${baseline} cache v${oldRelease.version} controls the isolated page`);
 
   phase = newRelease;
@@ -180,18 +195,29 @@ try {
       if (candidate.state === 'redundant' || candidate.state === 'activated') resolve(candidate.state);
     }));
   }, { prefix, version:newRelease.version });
-  assert.equal(failedState, 'redundant', 'Incomplete precache must reject installation');
+  assert.equal(failedState, 'activated', 'An incomplete precache must not keep a broken old worker active');
   assert.ok(failedAssetRequests > 0, 'The negative path must actually fail a required asset');
-  assert.equal(await page.evaluate(() => navigator.serviceWorker.controller.scriptURL), originalController);
+  await page.waitForFunction(version => navigator.serviceWorker.controller?.scriptURL.endsWith(`sw.js?v=${version}`), newRelease.version);
+  assert.notEqual(await page.evaluate(() => navigator.serviceWorker.controller.scriptURL), originalController);
   assert.deepEqual(await cacheHashes(oldRelease), expectedHashes(oldRelease));
-  // The old app remains usable offline while the replacement installation has failed.
+  const degradedCacheKeys = await page.evaluate(() => caches.keys());
+  assert.ok(degradedCacheKeys.includes(oldRelease.cache), 'Failed precache must retain the older offline cache');
+  await page.reload();
+  assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version,
+    'Normal F5 must reach the network under the replacement worker');
+  // The older shell remains available offline while the replacement precache is incomplete.
   await context.setOffline(true);
   await page.reload();
   assert.equal(await page.locator('body').getAttribute('data-release'), oldRelease.version);
   await context.setOffline(false);
-  console.log('PASS: failed new precache preserves the old worker, cache, and offline navigation');
+  console.log('PASS: failed new precache replaces the broken worker and preserves old offline navigation');
 
   failNewAsset = false;
+  await page.evaluate(async prefix => {
+    const registration = await navigator.serviceWorker.getRegistration(prefix);
+    await registration.unregister();
+  }, prefix);
+  await page.reload();
   await page.evaluate(async ({ prefix, version }) => {
     window.controllerChanges = 0;
     navigator.serviceWorker.addEventListener('controllerchange', () => { window.controllerChanges += 1; });
@@ -204,6 +230,21 @@ try {
     return keys.length === 1 && keys[0] === wanted;
   }, { wanted:newRelease.cache, cachePrefix });
   assert.deepEqual(await cacheHashes(newRelease), expectedHashes(newRelease));
+  assert.equal(await page.evaluate(async () => {
+    const request = indexedDB.open('pwa-upgrade-preservation-check');
+    const database = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction('records', 'readonly');
+    const value = await new Promise((resolve, reject) => {
+      const lookup = transaction.objectStore('records').get('offline-draft');
+      lookup.onsuccess = () => resolve(lookup.result);
+      lookup.onerror = () => reject(lookup.error);
+    });
+    database.close();
+    return value;
+  }), 'preserved', 'SW recovery must not remove IndexedDB data');
   await page.reload();
   assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version);
   assert.equal(await page.evaluate(() => Boolean(window.MinutaGroupBookings && window.MinutaBenefits && window.MinutaRetention)), true);
