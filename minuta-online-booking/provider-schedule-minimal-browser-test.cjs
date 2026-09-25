@@ -667,11 +667,17 @@ const server = http.createServer((request, response) => {
           fixture.append(themeAccentProbe);
           const themeAccent = getComputedStyle(themeAccentProbe).backgroundColor;
           themeAccentProbe.remove();
+          const porcelainInkProbe = document.createElement('span');
+          porcelainInkProbe.style.color = 'var(--porcelain-action-ink)';
+          fixture.append(porcelainInkProbe);
+          const porcelainActionInk = getComputedStyle(porcelainInkProbe).color;
+          porcelainInkProbe.remove();
           return {
             normal,
             rest,
             activeDateBackground:activeDate.backgroundColor,
             activeTabColor:activeTabStyle.color,
+            porcelainActionInk,
             activeTabMarker:activeTabMarker.backgroundColor,
             summaryStrongColor:summaryStrong.color,
             themeAccent,
@@ -687,7 +693,7 @@ const server = http.createServer((request, response) => {
         assert.equal(cards.normal.length, 4, `${theme} ${width}px: проверены не все режимы записей`);
         assert.equal(cards.rest.length, 4, `${theme} ${width}px: проверены не все режимы перерывов`);
         if (width <= 760) {
-          assert.equal(cards.activeTabColor, cards.themeAccent, `${theme} ${width}px: активная вкладка не использует акцент темы`);
+          assert.equal(cards.activeTabColor, theme === 'pink-porcelain' ? cards.porcelainActionInk : cards.themeAccent, `${theme} ${width}px: активная вкладка не использует читаемый цвет темы`);
           assert.equal(cards.activeTabMarker, cards.themeAccent, `${theme} ${width}px: линия активной вкладки не использует акцент темы`);
           assert.equal(cards.summaryStrongColor, cards.themeAccent, `${theme} ${width}px: цифры сводки не используют акцент темы`);
         }
