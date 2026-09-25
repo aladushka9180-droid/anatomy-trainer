@@ -106,6 +106,16 @@ test('v130 workspace renders one atomic transfer and groups its document', async
   assert.ok(h.notices.includes('Перемещение сохранено'));
 });
 
+test('inventory operation scanner names the item without changing its mode', async () => {
+  const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
+  assert.match(html, /id="inventoryMovementScan"[^>]*>Сканировать товар<\/button>/);
+  assert.match(html, /id="inventoryMovementScan"[^>]*data-code-scan-mode="sale"[^>]*data-code-scan-title="Товар для операции"/);
+  const h = createHarness(); await h.ready();
+  assert.equal(h.node('inventoryMovementScan').textContent, 'Сканировать товар');
+  assert.equal(h.node('inventoryMovementScan').dataset.codeScanMode, 'inventory');
+  assert.equal(h.node('inventoryMovementScan').dataset.codeScanTitle, 'Позиция для перемещения');
+});
+
 test('ambiguous transfer blocks drift and exact retry reuses request id', async () => {
   const h = createHarness({ firstUnknown:true }); await h.ready(); await h.submit();
   const first = h.calls.find(call => call.name === 'transfer_minuta_inventory_stock_v130');
