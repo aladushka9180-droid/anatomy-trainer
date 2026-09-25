@@ -2770,3 +2770,11 @@ html body.provider-body[data-provider-theme][data-provider-layout]
 }
 
 @media(max-width:760px){.timeline-now-marker[data-now-top] time{top:4px;bottom:auto}}
+
+@media (max-width:620px) {
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout]
+  #dashboard[data-active-view="bookings"] .date-navigation>.date-today-button {
+    border:0!important;
+    box-shadow:none!important;
+  }
+}

@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v942`;
-const CACHE_READY = './.precache-ready-v942';
+const CACHE = `${CACHE_PREFIX}v943`;
+const CACHE_READY = './.precache-ready-v943';
 
 const ASSETS = [
   './provider.html',
@@ -29,14 +29,14 @@ const ASSETS = [
   './provider-themes-wildlife.css?v=811',
   './client-directory.css?v=811',
   './provider-ui-refinements.css?v=811',
-  './provider-schedule-minimal.css?v=911',
+  './provider-schedule-minimal.css?v=943',
   './provider-themes-distinct.css?v=821',
   './provider-theme-families.css?v=885',
   './provider-theme-backgrounds-tema1.css?v=865',
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=942',
+  './site-update.js?v=943',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -85,7 +85,7 @@ const OPTIONAL_ASSETS = [
   './client-themes.css?v=885',
   './report-demo-live.js?v=811',
   './loyalty-program-v166.js?v=865',
-  './provider-schedule-desktop-reference.css?v=913',
+  './provider-schedule-desktop-reference.css?v=943',
   './settings-nav-scroll.js?v=882',
   './settings-smart-search.js?v=865',
   './provider-theme-noir-safari.css?v=811',
@@ -111,8 +111,8 @@ const OPTIONAL_ASSETS = [
   './client-messages.js?v=885',
   './provider-portfolio-responsive.css?v=811',
   './service-presets-catalog.js?v=811',
-  './app.js?v=942',
-  './client-offline-flexible.js?v=942',
+  './app.js?v=943',
+  './client-offline-flexible.js?v=943',
   './service-presets.css?v=811',
   './service-presets.js?v=811',
   './report-worker.js?v=811',
@@ -128,7 +128,7 @@ const OPTIONAL_ASSETS = [
 ];
 let optionalWarmup = null;
 let clientFlexibleWarmup = null;
-const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=942', './client-offline-flexible.js?v=942'];
+const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=943', './client-offline-flexible.js?v=943'];
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'warm-client-flexible') {

@@ -688,6 +688,21 @@
   }
 }
 
+/* The Porcelain action color follows the selected character and shade. */
+@media (min-width:761px) {
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] .provider-nav button.active,
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .calendar-view-toggle button.active,
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #newBookingButton {
+    border-color:var(--theme-accent)!important;
+    background:var(--porcelain-action-bg)!important;
+    background-image:none!important;
+    color:var(--porcelain-action-ink)!important;
+  }
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] :is(.provider-nav button.active,#newBookingButton) :is(span,.ui-icon) {
+    color:var(--porcelain-action-ink)!important;
+  }
+}
+
 /* Near opening time, keep the live label inside the desktop timeline and clear of the booking dot. */
 @media (min-width:761px) {
   .timeline-now-marker[data-now-top] time { top:4px; bottom:auto; right:40px; }
