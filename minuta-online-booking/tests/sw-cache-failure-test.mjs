@@ -7,7 +7,7 @@ import vm from 'node:vm';
 
 const source = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../sw.js'), 'utf8');
 const request = new Request('https://example.test/minuta-online-booking/provider.html?date=2026-09-24');
-const asset = new Request('https://example.test/minuta-online-booking/provider.js?v=940');
+const asset = new Request('https://example.test/minuta-online-booking/provider.js?v=941');
 
 function worker({ match, put, fetch }) {
   const scope = {
@@ -113,7 +113,7 @@ test('failed precache replaces the old worker without deleting its offline cache
   await activate;
   assert.equal(skipped, true);
   assert.equal(claimed, true);
-  assert.deepEqual(deleted, ['massage-izhevsk-v940']);
+  assert.deepEqual(deleted, ['massage-izhevsk-v941']);
   for (const path of ['provider.html', 'index.html', 'booking.html']) {
     const response = await scope.navigationResponse({
       request:new Request(`https://example.test/minuta-online-booking/${path}`), waitUntil() {},
