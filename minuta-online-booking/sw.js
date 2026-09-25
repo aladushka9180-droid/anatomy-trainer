@@ -128,12 +128,13 @@ const OPTIONAL_ASSETS = [
 ];
 let optionalWarmup = null;
 let clientFlexibleWarmup = null;
-const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=937', './client-offline-flexible.js?v=937'];
+const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=939', './client-offline-flexible.js?v=939'];
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'warm-client-flexible') {
     if (!clientFlexibleWarmup) {
       clientFlexibleWarmup = (async () => {
+        if (!await safeCacheMatch(CACHE_READY, { cacheName:CACHE })) throw new Error('precache_incomplete');
         const cache = await caches.open(CACHE);
         for (const asset of CLIENT_FLEXIBLE_ASSETS) {
           if (await cache.match(asset)) continue;

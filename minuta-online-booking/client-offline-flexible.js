@@ -5,7 +5,7 @@
   const status = panel.querySelector('#clientOfflineFlexibleStatus');
   const catalogKey = `primetime-offline-catalog-v1:${new URLSearchParams(location.search).get('org') || window.MINUTA_CONFIG.defaultOrganizationSlug || 'default'}`;
   const queueKey = `primetime-offline-flexible-v1:${catalogKey}`;
-  const assetsReadyKey = 'primetime-offline-flexible-assets-v937';
+  const assetsReadyKey = 'primetime-offline-flexible-assets-v939';
   const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey,
     { auth:{ persistSession:false, autoRefreshToken:false, detectSessionInUrl:false } });
   let syncing = false;
@@ -21,9 +21,12 @@
       if (!registration.active) return;
       const channel = new MessageChannel();
       channel.port1.onmessage = event => {
-        if (event.data?.ready && event.data.cache === 'massage-izhevsk-v937') {
-          offlineAssetsReady = true;
-          try { localStorage.setItem(assetsReadyKey, 'ready'); } catch {}
+        if (event.data?.cache === 'massage-izhevsk-v939') {
+          offlineAssetsReady = Boolean(event.data.ready);
+          try {
+            if (offlineAssetsReady) localStorage.setItem(assetsReadyKey, 'ready');
+            else localStorage.removeItem(assetsReadyKey);
+          } catch {}
           render();
         }
         channel.port1.close();

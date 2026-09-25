@@ -206,6 +206,12 @@ try {
   await page.reload();
   assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version,
     'Normal F5 must reach the network under the replacement worker');
+  const degradedWarmup = await page.evaluate(() => new Promise(resolve => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = event => resolve(event.data);
+    navigator.serviceWorker.controller.postMessage({ type:'warm-client-flexible' }, [channel.port2]);
+  }));
+  assert.equal(degradedWarmup.ready, false, 'Incomplete precache must not unlock the client offline form');
   // The older shell remains available offline while the replacement precache is incomplete.
   await context.setOffline(true);
   await page.reload();
