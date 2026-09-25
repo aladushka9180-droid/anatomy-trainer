@@ -109,7 +109,7 @@ assert.match(snowCanvas, /background-attachment:fixed!important/, 'Snow Leopard 
 assert.match(mobileSnow, /background-repeat:no-repeat!important/);
 assert.doesNotMatch(css, /provider-snow-leopard-(?:continuous|mobile|natural)[^"')]*\.(?:webp|png)/, 'Snow Leopard must be frosted quartz without leopard spots');
 assert.doesNotMatch(snowCanvas, /background-repeat:repeat|snow-print-size|natural-v2|unified-landscape-v5|crisp-seamless/);
-assert.match(worker, /assetResponse[\s\S]*caches\.open\(CACHE\)\)\.put\(request, response\.clone\(\)\)/, 'Theme media is not cached after first use');
+assert.match(worker, /assetResponse[\s\S]*safeCachePut\(request, response\.clone\(\)\)/, 'Theme media is not cached after first use');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');
 
