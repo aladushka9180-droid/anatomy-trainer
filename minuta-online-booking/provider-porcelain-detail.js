@@ -95,6 +95,10 @@
   }
   function render() {
     page.dataset.porcelainCharacter = draft.character;
+    const selectedPalette = matrix.paletteFor(draft.character, draft.shade);
+    page.style.setProperty('--porcelain-editor-fill', selectedPalette.actionBg);
+    page.style.setProperty('--porcelain-editor-ink', selectedPalette.actionInk);
+    page.style.setProperty('--porcelain-editor-line', selectedPalette.line);
     const characterOptions = catalog.porcelainCharacters;
     page.querySelector('#providerPorcelainTagline').textContent = heroCopy[draft.character];
     page.querySelector('#providerPorcelainHeroDetail').textContent = heroDetail[draft.character];

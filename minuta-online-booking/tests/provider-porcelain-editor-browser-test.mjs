@@ -75,7 +75,8 @@ try {
   assert.equal(await page.locator('#providerPorcelainPage').isVisible(), true, `editor missing: ${JSON.stringify({ errors, pages:await page.locator('#providerPorcelainPage').count(), body:await page.locator('body').getAttribute('data-porcelain-editor-open') })}`);
   assert.equal(await page.evaluate(() => window.__fixture.saves), 0);
   assert.equal(await page.evaluate(() => window.__fixture.preferences.theme), 'sage');
-  assert.equal(await page.locator('#providerPorcelainApply').evaluate(button => getComputedStyle(button).backgroundColor), 'rgb(141, 44, 92)');
+  assert.equal(await page.locator('#providerPorcelainApply').evaluate(button => getComputedStyle(button).backgroundColor), 'rgb(243, 184, 206)');
+  assert.equal(await page.locator('#providerPorcelainTitle').evaluate(title => getComputedStyle(title).color), 'rgb(104, 84, 94)');
   await page.frameLocator('#providerPorcelainPreview').locator('.date-today-button').waitFor();
   for (const width of [320, 360, 390, 760, 1440]) {
     await page.setViewportSize({ width, height:1000 });
@@ -117,6 +118,8 @@ try {
       const controlColor = await frame.locator('.date-today-button').evaluate(button => getComputedStyle(button).backgroundColor);
       const action = expected.actionBg.match(/[a-f\d]{2}/gi).map(part => parseInt(part, 16));
       assert.equal(controlColor, `rgb(${action.join(', ')})`, `${character}/${shade}: actual selected control is not the soft action shade`);
+      await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainApply')).backgroundColor === color, `rgb(${action.join(', ')})`);
+      assert.equal(await page.locator('#providerPorcelainApply').evaluate(button => getComputedStyle(button).backgroundColor), `rgb(${action.join(', ')})`, `${character}/${shade}: editor action must follow the draft shade`);
       await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainPreview').contentDocument.querySelector('#dateStrip button.active')).backgroundColor === color, controlColor);
       const dateColor = await frame.locator('#dateStrip button.active').evaluate(button => getComputedStyle(button).backgroundColor);
       assert.equal(dateColor, controlColor, `${character}/${shade}: date strip ${dateColor}, today ${controlColor}`);
