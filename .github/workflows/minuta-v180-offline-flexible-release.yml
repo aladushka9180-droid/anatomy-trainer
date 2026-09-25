@@ -1,0 +1,181 @@
+name: Minuta v180 flexible offline SQL release
+run-name: Minuta v180 SQL - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        required: true
+        type: choice
+        options: [validate-production, apply-production]
+      commit_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter APPLY_V180_AFTER_BACKUP_RESTORE for production SQL
+        required: false
+        default: ''
+        type: string
+
+permissions: { contents: read, actions: read }
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+
+env:
+  BASE_SHA: bf69d2d7ea7706e839e7c2abf58259235c8fd26b
+  SQL_SHA: cb9c271318541ed87c57ac0473433c840013b79d
+  SQL_BLOB: 66b1077c30fcbf567fc2b14f05e1061f5ad4b194
+  ROLLBACK_BLOB: 56a54f8a20d9fa5faf758e76044fc97bb2a3193c
+  BACKUP_RUN: '36132971307'
+  RESTORE_RUN: '36133480081'
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', fetch-depth: 0, persist-credentials: false }
+      - name: Pin main, backup, restore and exact SQL
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$(git diff --name-only "$BASE_SHA" "$SHA")" = '.github/workflows/minuta-v180-offline-flexible-release.yml'
+          case "$PHASE" in
+            validate-production) ;;
+            apply-production) test "$CONFIRMATION" = APPLY_V180_AFTER_BACKUP_RESTORE ;;
+            *) exit 1 ;;
+          esac
+          backup="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN")"
+          jq -e --arg sha "$BASE_SHA" '.conclusion=="success" and .event=="workflow_dispatch" and .head_branch=="main" and .head_sha==$sha and .path==".github/workflows/minuta-supabase-backup.yml"' <<<"$backup" >/dev/null
+          age="$(( $(date -u +%s) - $(date -u -d "$(jq -r .created_at <<<"$backup")" +%s) ))"
+          test "$age" -ge 0 && test "$age" -le 7200
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN/artifacts")"
+          jq -e '[.artifacts[] | select(.expired==false and .size_in_bytes>0 and (.name|startswith("minuta-")))] | length==1' <<<"$artifacts" >/dev/null
+          restore="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESTORE_RUN")"
+          jq -e --arg sha "$BASE_SHA" '.conclusion=="success" and .event=="workflow_dispatch" and .head_branch=="main" and .head_sha==$sha and .path==".github/workflows/minuta-supabase-restore-drill.yml"' <<<"$restore" >/dev/null
+          gh run download "$RESTORE_RUN" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE_RUN" -D "$RUNNER_TEMP/v180-proof"
+          jq -e --arg backup "$BACKUP_RUN" --arg base "$BASE_SHA" --arg sql "$SQL_SHA" '
+            .status=="success" and .sourceBackupRunId==$backup and .sourceBackupSha==$base and
+            .candidateVersion=="v180" and .candidateSha==$sql and .networkMode=="none" and
+            .candidateMigrationApplied and .candidateRollbackVerified and .candidateReapplied and
+            .ephemeralContainerDestroyed and (.productionWritten|not) and (.testDatabaseWritten|not)
+          ' "$RUNNER_TEMP/v180-proof/minuta-ephemeral-restore.json" >/dev/null
+          comparison="$(gh api "repos/$GITHUB_REPOSITORY/compare/$BASE_SHA...$SQL_SHA")"
+          jq -e '.status=="ahead" and .ahead_by==1 and ([.files[].filename]|sort)==["minuta-online-booking/supabase-migration-v180-rollback.sql","minuta-online-booking/supabase-migration-v180.sql"]' <<<"$comparison" >/dev/null
+
+  validate-production:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Read-only production schema preflight
+        env: { SHA: '${{ inputs.commit_sha }}' }
+        shell: bash
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db" >/dev/null
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select jsonb_build_object(
+            'bookings',(select count(*) from public.bookings),
+            'oldBooking',to_regprocedure('public.book_appointment(uuid,uuid,date,time without time zone,text,text)') is not null,
+            'minutaBooking',to_regprocedure('public.book_minuta_appointment_v2(uuid,text,uuid,uuid,date,time without time zone,text,text,integer,integer)') is not null,
+            'slots',to_regprocedure('public.get_available_slots_v101(uuid,date,date,uuid)') is not null,
+            'publicSlots',to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is not null,
+            'flexibleAbsent',to_regprocedure('public.book_flexible_appointment_v180(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)') is null and to_regclass('public.flexible_booking_requests_v180') is null,
+            'constraints',(select count(*)=3 from pg_constraint where conname in ('bookings_location_organization_fkey','bookings_performer_active_no_overlap','bookings_no_time_overlap') and convalidated));")"
+          jq -e '.bookings>=0 and .oldBooking and .minutaBooking and .slots and .publicSlots and .flexibleAbsent and .constraints' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"validate-production",commitSha:$sha,readOnly:true,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v180-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: 'minuta-v180-validation-${{ github.run_id }}', path: '${{ runner.temp }}/v180-validation.json', if-no-files-found: error, retention-days: 35 }
+
+  apply-production:
+    if: inputs.phase == 'apply-production'
+    needs: [preflight, validate-production]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+      PGOPTIONS: -c statement_timeout=120000 -c lock_timeout=10000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: cb9c271318541ed87c57ac0473433c840013b79d
+          path: candidate-v180
+          persist-credentials: false
+          sparse-checkout: |
+            minuta-online-booking/supabase-migration-v180.sql
+            minuta-online-booking/supabase-migration-v180-rollback.sql
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources && sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify exact SQL blobs and target again
+        env: { GH_TOKEN: '${{ github.token }}' }
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = '${{ inputs.commit_sha }}'
+          test "$(git -C candidate-v180 rev-parse HEAD)" = "$SQL_SHA"
+          test "$(git -C candidate-v180 rev-parse HEAD:minuta-online-booking/supabase-migration-v180.sql)" = "$SQL_BLOB"
+          test "$(git -C candidate-v180 rev-parse HEAD:minuta-online-booking/supabase-migration-v180-rollback.sql)" = "$ROLLBACK_BLOB"
+          node minuta-online-booking/scripts/production-db-target-guard.mjs >/dev/null
+      - name: Apply only v180 and verify no booking row changes
+        env: { SHA: '${{ inputs.commit_sha }}' }
+        shell: bash
+        run: |
+          set -euo pipefail
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db" >/dev/null
+          before="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c 'select count(*) from public.bookings')"
+          test "$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.book_flexible_appointment_v180(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)') is null and to_regclass('public.flexible_booking_requests_v180') is null")" = t
+          applied=0
+          rollback_on_error() {
+            if test "$applied" = 1; then
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f candidate-v180/minuta-online-booking/supabase-migration-v180-rollback.sql || true
+            fi
+          }
+          trap rollback_on_error ERR
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f candidate-v180/minuta-online-booking/supabase-migration-v180.sql
+          applied=1
+          state="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select jsonb_build_object(
+            'function',to_regprocedure('public.book_flexible_appointment_v180(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)') is not null,
+            'ledger',to_regclass('public.flexible_booking_requests_v180') is not null,
+            'anonExecute',has_function_privilege('anon','public.book_flexible_appointment_v180(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)','EXECUTE'),
+            'authExecute',has_function_privilege('authenticated','public.book_flexible_appointment_v180(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)','EXECUTE'),
+            'ledgerRows',(select count(*) from public.flexible_booking_requests_v180));")"
+          jq -e '.function and .ledger and .anonExecute and .authExecute and .ledgerRows==0' <<<"$state" >/dev/null
+          after="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c 'select count(*) from public.bookings')"
+          test "$before" = "$after"
+          trap - ERR
+          jq -n --arg sha "$SHA" --arg sql "$SQL_SHA" --arg count "$after" --argjson state "$state" '{status:"success",phase:"apply-production",commitSha:$sha,sqlSha:$sql,bookingCount:$count,state:$state,productionWritten:true,businessRowsChanged:false}' > "$RUNNER_TEMP/v180-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: 'minuta-v180-apply-${{ github.run_id }}', path: '${{ runner.temp }}/v180-apply.json', if-no-files-found: error, retention-days: 90 }
