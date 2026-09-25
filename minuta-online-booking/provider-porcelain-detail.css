@@ -143,10 +143,12 @@ body.provider-body[data-porcelain-editor-open] #appearanceSettingsCard .provider
   .provider-porcelain-actions .primary,.provider-porcelain-actions .secondary-button { flex:1 1 100%; width:100%; }
   .provider-porcelain-live-frame { height:690px; }
 }
-@media (max-width:350px) {
+@media (max-width:390px) {
   .provider-porcelain-controls { padding-inline:8px; }
   .provider-porcelain-characters { gap:2px; }
   .provider-porcelain-character { padding:2px 1px; }
+}
+@media (max-width:375px) {
   .provider-porcelain-character strong { font:600 10px/1.15 Arial,sans-serif; letter-spacing:-.045em; }
 }
 
