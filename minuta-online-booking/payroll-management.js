@@ -25,6 +25,8 @@
     const confirmAction = typeof options.confirmAction === 'function' ? options.confirmAction : message => typeof window.confirm === 'function' && window.confirm(message);
     function $(selector) { return select(selector); }
     let organization = null, payload = null, availability = null, requestRevision = 0, writePending = false, pendingOrganization;
+    const disclosureSelector = '#payrollPlanCreator, #payrollPeriodCreator, .payroll-action-card, .payroll-items, #payrollAuditPanel';
+    let disclosureBaselines = new WeakMap();
     const adjustmentIntents = new Map();
     let activeAdjustmentWrite = null, adjustmentErrorKey = null;
     const adjustmentUnknownMessage = 'Результат корректировки не подтверждён. Не повторяйте её: сначала обновите журнал для сверки.';
@@ -76,8 +78,28 @@
     }
     function clearError(selector) { const holder = selector ? $(selector) : null; if (holder) { if (selector === '#payrollAdjustmentError') adjustmentErrorKey = null; holder.textContent = ''; holder.hidden = true; } }
     function showError(selector, message) { const holder = selector ? $(selector) : null; if (holder) { if (selector === '#payrollAdjustmentError') adjustmentErrorKey = adjustmentKey(); holder.textContent = message; holder.hidden = false; } }
+    function disclosureState(details) {
+      return JSON.stringify([...details.querySelectorAll('input, select, textarea')].map(control => [control.value, control.checked]));
+    }
+    function handleDisclosureToggle(event) {
+      const opened = event.target;
+      if (!opened?.matches?.(disclosureSelector) || !opened.open || !$('#payrollPanel')?.contains(opened)) return;
+      for (const other of $('#payrollPanel').querySelectorAll(disclosureSelector)) {
+        if (other === opened || !other.open) continue;
+        const baseline = disclosureBaselines.get(other) ?? disclosureState(other);
+        if (disclosureState(other) !== baseline) {
+          opened.open = false;
+          notify('В другой зарплатной форме есть несохранённые данные. Завершите её или закройте перед переходом.');
+          other.querySelector('summary')?.focus();
+          return;
+        }
+        other.open = false;
+      }
+      if (!disclosureBaselines.has(opened)) disclosureBaselines.set(opened, disclosureState(opened));
+    }
     function reset() {
       requestRevision += 1; organization = null; payload = null; availability = null; writePending = false; pendingOrganization = undefined; activeAdjustmentWrite = null;
+      disclosureBaselines = new WeakMap();
       $('#payrollPanel').hidden = true; $('#payrollLoading').hidden = true; $('#payrollUnavailable').hidden = true; $('#payrollWorkspace').hidden = true;
     }
     async function setOrganization(next) {
@@ -88,6 +110,7 @@
         return { ok: false, optional: true, pending: true };
       }
       if (!normalized) { reset(); return { ok: false, optional: true }; }
+      if (organization?.id !== normalized.id) disclosureBaselines = new WeakMap();
       organization = normalized; pendingOrganization = undefined;
       const bounds = monthBounds();
       if (!$('#payrollStartDate').value) $('#payrollStartDate').value = bounds.start;
@@ -373,7 +396,7 @@
       if (event.target.id === 'payrollPlanForm') {
         event.preventDefault(); let tiers; try { tiers = parseTiers($('#payrollPlanTiers').value); } catch { showError('#payrollPlanError', 'Ступени указываются построчно: сумма — процент.'); return; }
         const saved = await mutate('upsert_minuta_payroll_plan', { p_organization: organization.id, p_plan: $('#payrollPlanId').value || null, p_performer: $('#payrollPlanPerformer').value, p_name: $('#payrollPlanName').value.trim(), p_effective_from: $('#payrollPlanFrom').value, p_effective_to: $('#payrollPlanTo').value || null, p_base_rate_bps: Math.round(Number($('#payrollPlanRate').value) * 100), p_tiers: tiers }, event.submitter, 'План мотивации сохранён', '#payrollPlanError');
-        if (saved) { event.target.reset(); $('#payrollPlanId').value = ''; $('#payrollPlanCreator').open = false; } return;
+        if (saved) { event.target.reset(); $('#payrollPlanId').value = ''; disclosureBaselines.delete($('#payrollPlanCreator')); $('#payrollPlanCreator').open = false; } return;
       }
       if (event.target.id === 'payrollPeriodForm') {
         event.preventDefault(); const range = validRange(); if (!range) { showError('#payrollPeriodError', 'Проверьте даты периода.'); return; }
@@ -414,7 +437,7 @@
       const edit = event.target.closest('[data-edit-payroll-plan]');
       if (edit) {
         const plan = payload?.plans.find(item => String(item.id) === edit.dataset.editPayrollPlan); if (!plan) return;
-        $('#payrollPlanId').value = plan.id; $('#payrollPlanPerformer').value = plan.performer_id; $('#payrollPlanName').value = plan.name || ''; $('#payrollPlanFrom').value = plan.effective_from || ''; $('#payrollPlanTo').value = plan.effective_to || ''; $('#payrollPlanRate').value = Number(plan.base_rate_bps || 0) / 100; $('#payrollPlanTiers').value = (plan.tiers || []).map(tier => `${tier.threshold_rub} — ${Number(tier.rate_bps || 0) / 100}`).join('\n'); $('#payrollPlanCreator').open = true; return;
+        $('#payrollPlanId').value = plan.id; $('#payrollPlanPerformer').value = plan.performer_id; $('#payrollPlanName').value = plan.name || ''; $('#payrollPlanFrom').value = plan.effective_from || ''; $('#payrollPlanTo').value = plan.effective_to || ''; $('#payrollPlanRate').value = Number(plan.base_rate_bps || 0) / 100; $('#payrollPlanTiers').value = (plan.tiers || []).map(tier => `${tier.threshold_rub} — ${Number(tier.rate_bps || 0) / 100}`).join('\n'); disclosureBaselines.set($('#payrollPlanCreator'), disclosureState($('#payrollPlanCreator'))); $('#payrollPlanCreator').open = true; return;
       }
       const accrue = event.target.closest('[data-payroll-accrue]');
       if (accrue) {
@@ -437,7 +460,7 @@
       if (event.target.id === 'payrollStartDate' || event.target.id === 'payrollEndDate') await load();
       if (event.target.id === 'payrollEnabled') { const desired = event.target.checked, ok = await mutate(RPC.enabled, { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Зарплатный журнал включён' : 'Зарплатный журнал выключен'); if (!ok && payload) event.target.checked = Boolean(payload.enabled); }
     }
-    function bind() { document.addEventListener('submit', handleSubmit); document.addEventListener('click', handleClick); document.addEventListener('change', handleChange); }
+    function bind() { document.addEventListener('submit', handleSubmit); document.addEventListener('click', handleClick); document.addEventListener('change', handleChange); document.addEventListener('toggle', handleDisclosureToggle, true); }
     return { bind, load, reset, setOrganization, get availability() { return availability; }, get payload() { return payload; } };
   }
   window.MinutaPayroll = { createController };

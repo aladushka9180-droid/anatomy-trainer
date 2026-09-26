@@ -51,6 +51,7 @@ try {
     await page.addScriptTag({ content:source });
     await page.evaluate(() => {
       window.payrollCalls = [];
+      window.payrollNotices = [];
       window.payrollFixture = { enabled:false, plans:[] };
       window.payrollController = MinutaPayroll.createController({
         db:{ rpc:async name => {
@@ -61,7 +62,7 @@ try {
         } },
         $:selector => document.querySelector(selector),
         escapeHtml:value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[character]),
-        notify:() => {}, requireWrites:() => false, applyWriteAvailability:() => {},
+        notify:message => payrollNotices.push(message), requireWrites:() => false, applyWriteAvailability:() => {},
         getCurrentUser:() => ({id:'test-user'}), getSessionGeneration:() => 1, sessionIsCurrent:() => true
       });
       payrollController.bind();
@@ -87,6 +88,32 @@ try {
     await page.locator('#payrollStartDate').fill('2026-09-15');
     await page.locator('#payrollPeriodScope').waitFor({ state:'visible' });
     assert.match(await page.locator('#payrollPeriodScope').innerText(), /Период: 15 сент\. 2026 г\. — 30 сент\. 2026 г\./);
+    await page.locator('#payrollPlanCreator summary').click();
+    await page.waitForFunction(() => !document.querySelector('#payrollPeriodCreator').open);
+    assert.equal(await page.locator('#payrollPeriodCreator').evaluate(element => element.open), false, `${width}: clean period closes`);
+    await page.locator('#payrollPlanName').fill('Несохранённый план');
+    await page.locator('#payrollPeriodCreator summary').click();
+    await page.waitForFunction(() => !document.querySelector('#payrollPeriodCreator').open);
+    assert.equal(await page.locator('#payrollPeriodCreator').evaluate(element => element.open), false, `${width}: dirty plan blocks competing form`);
+    assert.equal(await page.locator('#payrollPlanCreator').evaluate(element => element.open), true);
+    assert.equal(await page.locator('#payrollPlanName').inputValue(), 'Несохранённый план');
+    assert.match((await page.evaluate(() => payrollNotices)).at(-1), /несохранённые данные/);
+    if (screenshotDir) await page.locator('#payrollPanel').screenshot({ path:resolve(screenshotDir, `${width}-dirty-protected.png`) });
+    await page.locator('#payrollPlanCreator summary').click();
+    await page.locator('#payrollPeriodCreator summary').click();
+    assert.equal(await page.locator('#payrollPeriodCreator').evaluate(element => element.open), true);
+    assert.equal(await page.locator('#payrollPlanName').inputValue(), 'Несохранённый план', `${width}: closing keeps unsaved input`);
+    await page.locator('#payrollAuditPanel summary').click();
+    await page.waitForFunction(() => !document.querySelector('#payrollPeriodCreator').open);
+    assert.equal(await page.locator('#payrollPeriodCreator').evaluate(element => element.open), false, `${width}: history replaces clean form`);
+    await page.locator('#payrollAdjustmentPanel summary').click();
+    await page.waitForFunction(() => !document.querySelector('#payrollAuditPanel').open);
+    await page.locator('#payrollAdjustmentAmount').fill('250');
+    await page.locator('#payrollPeriodCreator summary').click();
+    await page.waitForFunction(() => !document.querySelector('#payrollPeriodCreator').open);
+    assert.equal(await page.locator('#payrollAdjustmentPanel').evaluate(element => element.open), true, `${width}: dirty adjustment stays open`);
+    assert.equal(await page.locator('#payrollAdjustmentAmount').inputValue(), '250');
+    if (screenshotDir) await page.locator('#payrollPanel').screenshot({ path:resolve(screenshotDir, `${width}-disclosures.png`) });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.ok(overflow <= 1, `${width}: horizontal overflow ${overflow}`);
     assert.ok((await page.evaluate(() => payrollCalls)).every(name => name === 'get_minuta_payroll_ledger_workspace_v136'));
