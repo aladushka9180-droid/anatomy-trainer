@@ -11279,9 +11279,7 @@ function updateNewBookingHeading() {
   const title = $('#newBookingSheetTitle');
   if (!title) return;
   if (newBookingMode === 'block') {
-    title.textContent = newBookingPreferredTime
-      ? `Занять время · ${bookingDateLabel($('#newBookingDate')?.value || '')}, ${newBookingPreferredTime}`
-      : 'Занять время';
+    title.textContent = 'Занять время';
     return;
   }
   if ($('#newBookingClientFields')?.dataset.clientLookupState === 'found') {
@@ -11320,6 +11318,25 @@ function selectNewBookingService(id) {
   select.dispatchEvent(new Event('change', { bubbles:true }));
   updateNewBookingServiceOpen();
   $('#newBookingServiceDialog')?.close();
+}
+
+function layoutNewBookingBlockFields() {
+  const duration = $('#newBookingBlockDurationField');
+  const dateEditor = $('#newBookingDateTimeEditor');
+  const blockSection = $('#newBookingBlockFields')?.parentElement;
+  const advanced = $('#newBookingAdvanced');
+  const dateSection = dateEditor?.parentElement;
+  if (!duration || !dateEditor || !blockSection || !advanced || !dateSection) return;
+  const mobileBlock = newBookingMode === 'block' && matchMedia('(max-width:760px)').matches;
+  if (mobileBlock) {
+    dateEditor.insertBefore(duration, dateEditor.querySelector('.new-booking-date-field'));
+    dateSection.append(advanced);
+  } else {
+    blockSection.insertBefore(duration, $('#newBookingDurationField'));
+    blockSection.append(advanced);
+  }
+  const dateCaption = dateEditor.querySelector('.new-booking-date-field .sr-only');
+  if (dateCaption) dateCaption.textContent = mobileBlock ? 'Когда' : 'Дата';
 }
 
 function setNewBookingMode(mode) {
@@ -11368,7 +11385,8 @@ function setNewBookingMode(mode) {
   const recurrence = $('#newBookingRecurrence');
   if (recurrence) recurrence.hidden = block || Boolean(newBookingRepeatVisit);
   updateNewBookingHeading();
-  $('#newBookingSectionTitle').textContent = block ? 'Перерыв' : 'Клиент и услуга';
+  $('#newBookingSectionTitle').textContent = block ? 'Название' : 'Клиент';
+  layoutNewBookingBlockFields();
   $('#newBookingSectionSubtitle').textContent = block ? 'Название, длительность и время' : newBookingClientBaseSubtitle;
   $('#newBookingSectionSubtitle').classList.toggle('sr-only', block);
   $('#newBookingServiceCaption').textContent = 'Услуга';
@@ -11483,7 +11501,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
       <p class="new-booking-readiness" id="newBookingReadiness" role="status" aria-live="polite" hidden></p>
       <div class="new-booking-mode-toggle" id="newBookingModeToggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
-        <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Имя, номер целиком или последние 4 цифры</small></div></div>
+        <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент</strong><small id="newBookingSectionSubtitle">Имя, номер целиком или последние 4 цифры</small></div></div>
           <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label class="new-booking-name-field"><span class="sr-only">Имя клиента</span><input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><span class="new-booking-phone-actions"><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button><button id="newBookingRecentCalls" type="button" aria-label="Выбрать из недавних входящих звонков" title="Недавние входящие" hidden>${uiIcon('clock')}<span>Звонки</span></button></span></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
           <details class="new-booking-block-fields new-booking-block-title" id="newBookingBlockFields" hidden><summary><span id="newBookingBlockTitleSummary">Добавить название</span></summary><label><span class="sr-only">Название перерыва</span><input id="newBookingBlockTitle" maxlength="80" placeholder="Например, обед или личное дело"></label></details>
           <label class="new-booking-service-field"><span class="sr-only" id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
@@ -18395,6 +18413,7 @@ document.addEventListener('pointerdown', event => {
   const dialog = $('#portfolioActionDialog');
   if (dialog?.open && !dialog.contains(event.target) && !event.target.closest?.('[data-portfolio-actions]')) closePortfolioActions();
 }, true);
+window.addEventListener('resize', layoutNewBookingBlockFields, { passive:true });
 window.addEventListener('resize', positionPortfolioActionDialog);
 ['before', 'after'].forEach(type => ['files', 'camera'].forEach(source => {
   portfolioPhotoInput(type, source).addEventListener('change', event => {

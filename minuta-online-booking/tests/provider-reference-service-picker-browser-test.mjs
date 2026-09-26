@@ -73,7 +73,7 @@ try {
     assert.equal(await page.locator('#newBookingServiceList button[aria-checked="true"]').count(), 1);
     if (process.env.MINUTA_REFERENCE_SCREENSHOTS) {
       mkdirSync(process.env.MINUTA_REFERENCE_SCREENSHOTS, { recursive:true });
-      await page.screenshot({ path:path.join(process.env.MINUTA_REFERENCE_SCREENSHOTS, `service-picker-${width}.png`), fullPage:true });
+      await page.screenshot({ path:path.join(process.env.MINUTA_REFERENCE_SCREENSHOTS, `service-picker-${theme}-${width}.png`), fullPage:true });
     }
     await page.locator('#newBookingServiceSearch').fill('СПОРТИВНЫЙ');
     assert.equal(await page.locator('#newBookingServiceList button:visible').count(), 1);
