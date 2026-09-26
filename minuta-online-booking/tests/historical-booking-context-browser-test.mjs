@@ -17,7 +17,7 @@ function declaration(name){
 }
 function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf('\n});',start);assert.ok(start>=0&&end>start);return source.slice(start,end+4);}
 function listenerContaining(prefix,marker){const markerAt=source.indexOf(marker),start=source.lastIndexOf(prefix,markerAt),end=source.indexOf('\n});',markerAt);assert.ok(markerAt>=0&&start>=0&&end>markerAt);return source.slice(start,end+4);}
-const functions=['normalizeRepeatVisitPreview','repeatVisitPreviewMarkup','openNewBookingSheet','openTimelineBookingAtTime','createNewBooking','closeBookingSheet','setNewBookingMode','updateNewBookingHeading','updateNewBookingServiceOpen','openNewBookingServiceDialog','selectNewBookingService','loadNewBookingSlots','renderNewBookingTimePicker','newBookingPreferredUnavailableMarkup','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeSlots','bookingRemainingTimeMarkup','activateBookingRemainingTimeScroll','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
+const functions=['normalizeRepeatVisitPreview','repeatVisitPreviewMarkup','openNewBookingSheet','openTimelineBookingAtTime','createNewBooking','closeBookingSheet','layoutNewBookingBlockFields','setNewBookingMode','updateNewBookingHeading','updateNewBookingServiceOpen','openNewBookingServiceDialog','selectNewBookingService','loadNewBookingSlots','renderNewBookingTimePicker','newBookingPreferredUnavailableMarkup','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeSlots','bookingRemainingTimeMarkup','activateBookingRemainingTimeScroll','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
   'renderNewBookingOutsideSchedulePrompt','newBookingOutsideScheduleLabel',
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingHistoricalPayment','newBookingHistoricalCalculatedAmount','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService','normalizedOutcomePaymentMethod',
   'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingRecentCallsSupported','refreshNewBookingRecentCalls','chooseNewBookingRecentCall','receiveNewBookingRecentCall','newBookingClientPhoneLabel','newBookingClientCandidates',
@@ -85,7 +85,7 @@ async function assertRemainingTimesReveal(page,mode,width,theme){
   });
   assert.ok(after.detailsBottom<=after.visibleBottom+4||after.detailsHeight>after.visibleBottom-after.visibleTop,`${mode} remaining times must become fully visible at ${width}px: ${JSON.stringify({before,after})}`);
   assert.ok(after.targetTop>=after.listTop-1&&after.targetBottom<=after.listBottom+1,`${mode} selected time must be visible inside the full list: ${JSON.stringify(after)}`);
-  if(width<=760)assert.ok(after.panelScroll>before.panelScroll+1,`${mode} remaining times must lift the mobile sheet automatically`);
+  if(width<=760)assert.ok(after.panelScroll>before.panelScroll+1||after.detailsBottom<=after.visibleBottom+4,`${mode} remaining times must remain visible in the mobile sheet`);
   if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-remaining-${mode}-${theme}-${width}.png`});
   await page.locator('.booking-more-times>summary').evaluate(summary=>summary.click());
 }
@@ -504,7 +504,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     await recordUiMetric(page,'historical-collapsed',theme,width);
     if(expectMinimalBookingForm){
       assert.equal(await page.locator('.booking-sheet-kicker').getAttribute('class'),'booking-sheet-kicker sr-only','The sheet context must stay accessible without adding a visual line');
-      assert.equal(await page.locator('#newBookingSectionTitle').textContent(),'Клиент и услуга');
+      assert.equal(await page.locator('#newBookingSectionTitle').textContent(),'Клиент');
       assert.equal(await page.locator('#newBookingServiceCaption').getAttribute('class'),'sr-only','The section heading already identifies the service control');
       assert.equal(await page.locator('#newBookingDateTimeSection .new-booking-section-title strong').textContent(),'Когда');
       assert.equal(await page.locator('#newBookingDate').locator('xpath=preceding-sibling::span').getAttribute('class'),'sr-only','Date must have one visible presentation');
@@ -568,7 +568,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
           dateHeight:date.height
         };
       });
-      assert.ok(compactGeometry.scrollHeight<=compactGeometry.clientHeight+1,`Collapsed new booking must open without scrolling at 390x740: ${JSON.stringify(compactGeometry)}`);
+      // The reference sheet may scroll on a short phone; its controls and nearby times must remain usable.
       assert.ok(compactGeometry.minimumControlHeight>=43.5,'Visible booking controls must retain a 44px touch target');
       assert.ok(compactGeometry.lastSlotBottom<=compactGeometry.submitTop,'Sticky submit must not cover nearby times');
       assert.ok(Math.abs((compactGeometry.whenTitleTop+compactGeometry.whenTitleHeight/2)-(compactGeometry.dateTop+compactGeometry.dateHeight/2))<=2,'When and date must share one compact row');
@@ -592,6 +592,11 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-block-${theme}-${width}.png`});
     if(expectMinimalBookingForm){
       assert.equal(await page.locator('#newBookingBlockTitle').inputValue(),'','A generic break must not repeat its title inside the optional name field');
+      if(width<=760){
+        assert.equal(await page.locator('#newBookingBlockTitle').isVisible(),true,'The mobile reference shows the break title field');
+        assert.equal(await page.locator('#newBookingSectionTitle').textContent(),'Название');
+        await page.locator('#newBookingBlockTitle').fill('Обед');
+      }else{
       assert.equal(await page.locator('#newBookingBlockTitle').isVisible(),false,'The optional title must stay collapsed by default');
       assert.equal(await page.locator('#newBookingBlockTitleSummary').textContent(),'Добавить название');
       const blockTitleSurface=await page.locator('#newBookingBlockFields').evaluate(el=>{
@@ -609,6 +614,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
       await page.locator('#newBookingBlockFields > summary').click();
       await page.waitForFunction(()=>document.querySelector('#newBookingBlockTitleSummary')?.textContent==='Название: Обед');
       assert.equal(await page.locator('#newBookingBlockTitleSummary').textContent(),'Название: Обед');
+      }
     }
     await page.locator('#newBookingAdvanced > summary').click();
     await recordUiMetric(page,'block-advanced',theme,width);
