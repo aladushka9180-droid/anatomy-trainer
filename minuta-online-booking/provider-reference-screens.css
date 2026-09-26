@@ -164,6 +164,10 @@ body.provider-body[data-provider-theme] .booking-sheet.new-booking-sheet .bookin
 .new-booking-service-label{ display:none}
 .provider-body .booking-sheet.new-booking-sheet .new-booking-name-field>.ui-icon{ display:none}
 @media (max-width:440px){
+  .provider-body .booking-sheet.new-booking-sheet .new-booking-heading-context{ display:none}
+  .provider-body .booking-sheet.new-booking-sheet .new-booking-advanced>summary span{ color:var(--ref-m); font-weight:600}
+  .provider-body .booking-sheet.new-booking-sheet .new-booking-advanced>summary::after{ color:var(--ref-a)}
+  .provider-body .booking-sheet.new-booking-sheet .new-booking-block-title input::placeholder{ color:var(--ref-m); font-size:13px; letter-spacing:-.02em}
   .provider-body .booking-sheet.new-booking-sheet .new-booking-form[data-mode="client"] .new-booking-date-time-section{ display:grid; grid-template-columns:minmax(0,1fr); align-items:stretch; gap:9px; border-top:0}
   .provider-body .booking-sheet.new-booking-sheet .new-booking-form[data-mode="client"] .new-booking-date-time-section>.new-booking-section-title{ grid-column:1; grid-row:auto}
   .provider-body .booking-sheet.new-booking-sheet .new-booking-form[data-mode="client"] .new-booking-date-time-editor:not([hidden]){ display:grid; grid-template-columns:minmax(0,1fr); gap:10px}
@@ -182,7 +186,7 @@ body.provider-body[data-provider-theme] .booking-sheet.new-booking-sheet .bookin
   .provider-body .booking-sheet.new-booking-sheet .booking-more-times>summary span{ font-size:14px; font-weight:600}
   .provider-body .booking-sheet.new-booking-sheet .booking-more-times>summary::after{ content:'⌄'; font-size:20px; line-height:1}
   .provider-body .booking-sheet.new-booking-sheet .booking-more-times[open]>summary::after{ content:'⌃'}
-  .provider-body .booking-sheet.new-booking-sheet .new-booking-form[data-mode="block"] .booking-more-times>summary{ border:1px solid var(--ref-l); border-radius:11px; background:var(--ref-s)}
+  .provider-body .booking-sheet.new-booking-sheet .new-booking-form[data-mode="block"] .booking-more-times>summary{ border:1px solid var(--ref-l); border-radius:11px; background:color-mix(in srgb,var(--ref-w) 88%,var(--ref-s))}
   .new-booking-service-dialog{ width:calc(100% - 12px); max-width:none; height:calc(100dvh - max(16px,env(safe-area-inset-top))); max-height:none; padding:23px 17px max(16px,env(safe-area-inset-bottom)); border:0; border-radius:25px 25px 0 0; box-shadow:0 8px 32px color-mix(in srgb,var(--ref-i) 14%,transparent)}
   .new-booking-service-dialog[open]{ display:flex; flex-direction:column}
   .new-booking-service-dialog:focus{ outline:none}

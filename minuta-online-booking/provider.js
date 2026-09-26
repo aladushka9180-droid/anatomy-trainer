@@ -11300,9 +11300,13 @@ function updateNewBookingHeading() {
     title.textContent = 'Повторная запись';
     return;
   }
-  title.textContent = newBookingPreferredTime
-    ? `Новая запись · ${bookingDateLabel($('#newBookingDate')?.value || '')}, ${newBookingPreferredTime}`
-    : 'Новая запись';
+  title.textContent = 'Новая запись';
+  if (newBookingPreferredTime) {
+    const context = document.createElement('span');
+    context.className = 'new-booking-heading-context';
+    context.textContent = ` · ${bookingDateLabel($('#newBookingDate')?.value || '')}, ${newBookingPreferredTime}`;
+    title.append(context);
+  }
 }
 
 function updateNewBookingServiceOpen() {
@@ -11511,7 +11515,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   newBookingClientBaseSubtitle = preset.offlineEdit ? 'Измените данные и снова отправьте на проверку' : preset.clientName ? 'Клиент и услуга уже выбраны' : 'Имя, номер целиком или последние 4 цифры';
   $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
-  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker sr-only">${preset.offlineEdit ? 'Отложенная запись' : preset.clientName ? 'Повторный визит' : 'Расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : `Новая запись${newBookingPreferredTime ? ` · ${escapeHtml(bookingDateLabel(date))}, ${escapeHtml(newBookingPreferredTime)}` : ''}`}</span></h2>
+  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker sr-only">${preset.offlineEdit ? 'Отложенная запись' : preset.clientName ? 'Повторный визит' : 'Расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : `Новая запись${newBookingPreferredTime ? `<span class="new-booking-heading-context"> · ${escapeHtml(bookingDateLabel(date))}, ${escapeHtml(newBookingPreferredTime)}</span>` : ''}`}</span></h2>
     <form class="booking-editor-form new-booking-form" id="newBookingForm">
       <p class="new-booking-readiness" id="newBookingReadiness" role="status" aria-live="polite" hidden></p>
       <div class="new-booking-mode-toggle" id="newBookingModeToggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
