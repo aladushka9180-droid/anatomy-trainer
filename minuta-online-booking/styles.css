@@ -2997,6 +2997,11 @@ html.provider-booting .provider-main {
 .provider-body .loyalty-reward-row .secondary-button { flex:none; width:auto; min-height:44px; margin:0; }
 .provider-body .inventory-workspace,#inventoryControls { display:grid; gap:14px; }
 .provider-body .inventory-workspace[hidden],.provider-body #inventoryControls[hidden] { display:none; }
+.provider-body .inventory-first-run { padding:14px; border:1px solid var(--theme-line,#dfe7e1); border-radius:13px; background:var(--theme-surface-alt,#f8faf8); color:var(--theme-ink,#294d3a); }
+.provider-body .inventory-first-run[hidden],.provider-body .inventory-first-run [hidden] { display:none; }
+.provider-body .inventory-first-run>strong { display:block; font-size:14px; }
+.provider-body .inventory-first-run ol { display:grid; gap:6px; margin:10px 0; padding-left:22px; font-size:12px; line-height:1.5; }
+.provider-body .inventory-first-run p { margin:0 0 10px; font-size:12px; line-height:1.5; }
 .provider-body .inventory-settings { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .provider-body .inventory-settings .settings-check { margin:0; padding:13px; border:1px solid var(--theme-line,#dfe7e1); border-radius:13px; background:var(--theme-surface-alt,#f8faf8); }
 .provider-body .organization-section .inventory-transfer-toggle { grid-column:1/-1; display:flex; grid-template-columns:none; align-items:center; justify-content:space-between; gap:12px; cursor:default; }

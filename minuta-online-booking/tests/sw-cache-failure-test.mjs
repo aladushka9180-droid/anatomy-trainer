@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const source = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../sw.js'), 'utf8');
+const cacheVersion = source.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)?.[1];
+assert.ok(cacheVersion, 'Worker cache version is required');
 const request = new Request('https://example.test/minuta-online-booking/provider.html?date=2026-09-24');
 const asset = new Request('https://example.test/minuta-online-booking/provider.js?v=941');
 
@@ -113,7 +115,7 @@ test('failed precache replaces the old worker without deleting its offline cache
   await activate;
   assert.equal(skipped, true);
   assert.equal(claimed, true);
-  assert.deepEqual(deleted, ['massage-izhevsk-v947']);
+  assert.deepEqual(deleted, [`massage-izhevsk-v${cacheVersion}`]);
   for (const path of ['provider.html', 'index.html', 'booking.html']) {
     const response = await scope.navigationResponse({
       request:new Request(`https://example.test/minuta-online-booking/${path}`), waitUntil() {},

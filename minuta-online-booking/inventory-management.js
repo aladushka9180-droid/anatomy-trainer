@@ -202,6 +202,23 @@
       if (availability !== 'ready' || !payload) return;
       const enabled = Boolean(payload.enabled), isOwner = payload.current_role === 'owner';
       $('#inventoryWorkspace').hidden = false; $('#inventoryUnavailable').hidden = true;
+      const hasItems = payload.items.some(row => row.active);
+      const hasWarehouses = payload.warehouses.some(row => row.active);
+      const hasStockOrHistory = payload.balances.some(row => Number(row.quantity) > 0) || payload.movements.length > 0;
+      const firstRun = !hasItems || !hasWarehouses || !hasStockOrHistory;
+      $('#inventoryFirstRun').hidden = !firstRun;
+      if (firstRun) {
+        const next = !hasItems || !hasWarehouses ? 'catalog' : 'operations';
+        const action = $('#inventoryFirstRunAction');
+        action.hidden = !enabled;
+        action.dataset.inventorySection = next;
+        action.textContent = next === 'catalog' ? 'К каталогу и складам' : 'К приходу и нормам';
+        $('#inventoryFirstRunHint').textContent = !enabled
+          ? isOwner ? 'Сначала включите складской учёт переключателем ниже.' : 'Сначала владелец должен включить складской учёт.'
+          : !hasItems ? 'Следующий шаг: добавьте материал в каталог.'
+            : !hasWarehouses ? 'Следующий шаг: создайте склад для филиала.'
+              : 'Следующий шаг: оформите приход материала.';
+      }
       $('#inventoryEnabled').checked = enabled; $('#inventoryEnabled').disabled = !isOwner;
       $('#inventoryAutoDeduct').checked = Boolean(payload.auto_deduct_completed_visits); $('#inventoryAutoDeduct').disabled = !isOwner || !enabled;
       $('#inventoryEnabledHint').textContent = isOwner ? 'По умолчанию выключено. Включение не списывает старые визиты.' : 'Включить или выключить склад может только владелец.';
