@@ -57,7 +57,7 @@
       if(active)$('#benefitWorkflowStatus')?.after?.(creator);
       else if(issueCreatorHome)issueCreatorHome.parent.insertBefore(creator,issueCreatorHome.next);
       const creatorLabel=creator?.querySelector?.('summary span');
-      if(creatorLabel)creatorLabel.textContent=active?'Проверка выдачи':'Выдать клиенту';
+      if(creatorLabel)creatorLabel.textContent=active?'Проверка выдачи':'Выдать без продажи';
       if(active&&$('#benefitWorkflowStatus'))$('#benefitWorkflowStatus').textContent=issueConfirmed
         ? 'Выдача подтверждена. Повторная выдача — только отдельным действием.'
         : issueRejected?'Прежняя выдача отклонена. Можно исправить параметры новой операцией.'
@@ -70,7 +70,7 @@
           : 'Выдача ожидает проверки. Проверим прежнюю операцию перед безопасным повтором.';
       if($('#benefitIssueNew')){$('#benefitIssueNew').hidden=!(issueConfirmed||issueRejected);$('#benefitIssueNew').disabled=writing;}
       const button=form.querySelector?.('button[type="submit"]');
-      if(button){button.textContent=issueIntent?'Проверить выдачу':'Выдать клиенту';button.disabled=writing||issueStorageFailed;}
+      if(button){button.textContent=issueIntent?'Проверить выдачу':'Выдать без продажи';button.disabled=writing||issueStorageFailed;}
       if(active){$('#benefitIssueCreator').hidden=false;$('#benefitIssueCreator').open=true;}
       for(const [id,key,label] of [['benefitIssueProduct','product_id','Сохранённый продукт'],['benefitIssueClient','client_account_id','Сохранённый клиент']]) {
         const field=$(`#${id}`);if(!field)continue;
@@ -236,12 +236,12 @@
       const panel=$('#benefitsPanel'),workflowStatus=$('#benefitWorkflowStatus');
       const head=panel?.querySelector?.('.panel-head'),guide=panel?.querySelector?.('.benefit-guide')?.closest('details');
       if(head&&workflowStatus)head.after(workflowStatus);
-      if(guide){const intro=panel.querySelector(':scope > .organization-invite-help');if(intro)guide.querySelector('summary').after(intro);panel.append(guide);}
+      if(guide){const intro=panel.querySelector(':scope > .organization-invite-help');if(intro)guide.querySelector('summary').after(intro);const firstRun=!payload.instruments.length;if(firstRun)workflowStatus?.after(guide);else panel.append(guide);guide.open=firstRun;}
       const today=todayIso();
       $('#benefitsWorkspace').hidden=false; $('#benefitsUnavailable').hidden=true; $('#benefitsEnabled').checked=Boolean(payload.enabled); $('#benefitsEnabled').disabled=payload.current_role!=='owner';
       $('#benefitProductsCount').textContent=String(payload.products.length); $('#benefitInstrumentsCount').textContent=String(payload.instruments.length);
       $('#benefitProductsList').innerHTML=payload.products.length?payload.products.map(productCard).join(''):empty('Продуктов пока нет','Создайте абонемент, сертификат или пакет услуг.');
-      $('#benefitInstrumentsList').innerHTML=payload.instruments.length?payload.instruments.map(item=>instrumentCard(item,today)).join(''):empty('Ничего не выдано','Выданные продукты появятся здесь.');
+      $('#benefitInstrumentsList').innerHTML=payload.instruments.length?payload.instruments.map(item=>instrumentCard(item,today)).join(''):empty('Ничего не выдано','Продажу оформляют в разделе «Продажи». Ручная выдача без продажи — ниже.');
       filterInstruments();
       $('#benefitRedemptionsList').innerHTML=payload.redemptions.length?payload.redemptions.map(redemptionCard).join(''):empty('Списаний пока нет','Примените продукт к записи клиента.');
       $('#benefitProductCreator').hidden=!payload.enabled; $('#benefitIssueCreator').hidden=!payload.enabled; $('#benefitApplyCreator').hidden=!payload.enabled;

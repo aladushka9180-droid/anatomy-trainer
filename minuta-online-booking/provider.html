@@ -1175,7 +1175,7 @@
             <section class="panel organization-section organization-benefits" id="benefitsPanel" hidden>
               <div class="panel-head"><div><small>Возврат клиентов и предоплаченные услуги</small><h3>Абонементы и сертификаты</h3></div><span class="panel-count" id="benefitProductsCount">0</span></div>
               <p class="organization-invite-help">Посещение или сумма резервируется при записи и списывается после завершённого визита.</p>
-              <details class="ux-disclosure"><summary>Как работают абонементы и сертификаты</summary><div class="benefit-guide"><ol><li>Включите систему и создайте шаблон абонемента, пакета или сертификата.</li><li>Выдайте созданный продукт конкретному клиенту.</li><li>Примените продукт к записи: посещение или сумма временно резервируются.</li><li>После завершения визита нажмите «Погасить». При отмене нажмите «Вернуть».</li></ol></div></details><p id="benefitWorkflowStatus" role="status" aria-live="polite">Проверяем состояние системы…</p>
+              <details class="ux-disclosure"><summary>Как работают абонементы и сертификаты</summary><div class="benefit-guide"><ol><li>Включите систему и создайте абонемент, пакет или сертификат.</li><li>Оформите продажу в разделе «Продажи» или выдайте продукт без продажи здесь.</li><li>Примените продукт к записи: посещение или сумма временно резервируются.</li><li>После завершения визита нажмите «Погасить». При отмене нажмите «Вернуть».</li></ol></div></details><p id="benefitWorkflowStatus" role="status" aria-live="polite">Проверяем состояние системы…</p>
               <div class="loading-state compact" id="benefitsLoading" hidden><i></i><span>Загружаем абонементы…</span></div>
               <div class="resource-inline-error" id="benefitsUnavailable" role="status" hidden><div><strong>Абонементы временно недоступны</strong><small id="benefitsUnavailableText"></small></div><button class="secondary-button" id="reloadBenefits" type="button">Повторить</button></div>
               <div class="benefits-workspace" id="benefitsWorkspace" hidden>
@@ -1195,7 +1195,7 @@
                   <section>
                     <div class="resource-subhead"><div><small>Активные балансы клиентов</small><strong>Выданные продукты</strong></div><span class="panel-count" id="benefitInstrumentsCount">0</span></div>
                     <div class="scan-field"><label>Найти по коду<input id="benefitInstrumentSearch" type="search" maxlength="40" placeholder="MIN-… или штрихкод"></label><button class="secondary-button" type="button" data-code-scan-target="benefitInstrumentSearch" data-code-scan-mode="benefit" data-code-scan-title="Абонемент или сертификат">Сканировать</button></div><div class="organization-list" id="benefitInstrumentsList"></div>
-                      <details class="organization-create" id="benefitIssueCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Выдать клиенту</span></summary><form id="benefitIssueForm"><p class="benefit-form-help">Сначала создайте продукт, затем выберите клиента. Если срок не указать, он рассчитается по настройке продукта.</p><label>Продукт<select id="benefitIssueProduct" required></select></label><label>Клиент<select id="benefitIssueClient" required></select></label><label>Срок действия до<input id="benefitIssueExpiry" type="date"><small>Можно оставить пустым для автоматического расчёта.</small></label><p class="form-error" id="benefitIssueError" role="alert" hidden></p><button class="primary" type="submit" data-benefit-write>Выдать клиенту</button></form></details>
+                      <details class="organization-create" id="benefitIssueCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Выдать без продажи</span></summary><form id="benefitIssueForm"><p class="benefit-form-help">Это ручная выдача без оформления продажи. Сначала создайте продукт, затем выберите клиента. Если срок не указать, он рассчитается по настройке продукта.</p><label>Продукт<select id="benefitIssueProduct" required></select></label><label>Клиент<select id="benefitIssueClient" required></select></label><label>Срок действия до<input id="benefitIssueExpiry" type="date"><small>Можно оставить пустым для автоматического расчёта.</small></label><p class="form-error" id="benefitIssueError" role="alert" hidden></p><button class="primary" type="submit" data-benefit-write>Выдать без продажи</button></form></details>
                   </section>
                 </div>
                 <section class="benefit-redemptions"><div class="resource-subhead"><div><small>Резерв и погашение без двойного списания</small><strong>Использование по записям</strong></div></div><div class="organization-list" id="benefitRedemptionsList"></div>
@@ -2169,7 +2169,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=963" defer></script>
+  <script src="site-update.js?v=964" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2222,7 +2222,7 @@
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
   <template data-provider-feature="statistics"><script src="statistics-audit-ui.js?v=908"></script><script src="statistics-audit-provider.js?v=908"></script></template>
-  <script src="provider.js?v=963" defer></script>
+  <script src="provider.js?v=964" defer></script>
   <script src="provider-porcelain-detail.js?v=946" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>

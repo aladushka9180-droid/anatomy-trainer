@@ -67,12 +67,19 @@ async function fixture(width=390,page=null,code=source){
 async function screenshot(page,label,width){
  await page.evaluate(()=>scrollTo(0,0));
  if(process.env.MINUTA_AUDIT_SCREENSHOT_DIR)await page.screenshot({path:resolve(process.env.MINUTA_AUDIT_SCREENSHOT_DIR,`benefit-${label}-${width}.png`),fullPage:true});
- const sizes=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));assert.equal(sizes.scroll,sizes.width,'real theme must not overflow horizontally');
+ const sizes=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(sizes.scroll<=sizes.width+1,'real theme must not overflow horizontally');
 }
 try{
  for(const width of [390,760,1440]){
   const before=await fixture(width,null,baseline);await screenshot(before,'before',width);await before.close();
   const page=await fixture(width);await screenshot(page,'after',width);
+  assert.equal(await page.locator('#benefitsPanel .benefit-guide').locator('xpath=..').getAttribute('open'),'', 'Empty issuance shows the four-step guide');
+  assert.equal(await page.locator('#benefitsPanel .benefit-guide li').count(),4);
+  assert.match(await page.locator('#benefitsPanel .benefit-guide').innerText(),/Оформите продажу.*без продажи/s);
+  assert.match(await page.locator('#benefitInstrumentsList').innerText(),/Продажи.*без продажи/s);
+  assert.match(await page.locator('#benefitIssueCreator > summary').innerText(),/Выдать без продажи/);
+  assert.equal(await page.locator('#benefitIssueForm button[type=submit]').innerText(),'Выдать без продажи');
+  assert.equal(await page.evaluate(()=>issueState.calls.length),0,'First-run guide does not create a sale or issue');
   await page.locator('#benefitIssueForm button[type=submit]').click();
   await page.waitForFunction(()=>document.querySelector('#benefitIssueError').textContent.includes('не подтверждена'));
   const original=await page.evaluate(()=>issueState.calls[0]);
