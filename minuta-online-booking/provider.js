@@ -10118,11 +10118,14 @@ function bookingRemainingTimeSlots(slots, nearbySlots, selectedTime = '') {
 function bookingRemainingTimeMarkup(slots, nearbySlots, selectedTime = '') {
   const remaining = bookingRemainingTimeSlots(slots, nearbySlots, selectedTime);
   if (!remaining.length) return '';
+  const mobileReference = matchMedia('(max-width:760px)').matches;
+  const mobileCount = remaining.length % 10 === 1 && remaining.length % 100 !== 11 ? 'вариант'
+    : [2,3,4].includes(remaining.length % 10) && ![12,13,14].includes(remaining.length % 100) ? 'варианта' : 'вариантов';
   const scrollTime = remaining.includes(selectedTime)
     ? selectedTime
     : remaining.find(time => time >= selectedTime) || remaining.at(-1);
   return `<details class="booking-more-times" data-scroll-time="${scrollTime}">
-    <summary><span>Показать остальные</span><small>Шаг 30 мин · ещё ${remaining.length}</small></summary>
+    <summary><span>${mobileReference ? `Ещё ${remaining.length} ${mobileCount}` : 'Показать остальные'}</span><small class="${mobileReference ? 'sr-only' : ''}">Шаг 30 мин${mobileReference ? '' : ` · ещё ${remaining.length}`}</small></summary>
     <div class="booking-time-slots booking-time-slots-all">${remaining.map(time => `<button type="button" class="${time === selectedTime ? 'active' : ''}" aria-pressed="${time === selectedTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
   </details>`;
 }
@@ -10892,7 +10895,7 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
       : '';
     const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime, newBookingPreferredTime);
     holder.innerHTML = `${offline ? `<div class="booking-time-warning">${newBookingPreferredTime || newBookingTime || 'Выбранное время'} сохранится как отложенный запрос. Сервер проверит его после подключения.</div>` : ''}${preferredUnavailable}
-      <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : 'Свободное время рядом'}</span></div>
+      <div class="booking-time-guide"><strong>${matchMedia('(max-width:760px)').matches ? 'Время' : 'Ближайшие окна'}</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : 'Свободное время рядом'}</span></div>
       <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
       ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)}${selectionSummary}`;
     activateBookingRemainingTimeScroll(holder);
@@ -10901,7 +10904,7 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
   const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime, newBookingPreferredTime);
   const preferredUnavailable = newBookingPreferredUnavailableMarkup();
   holder.innerHTML = `${offline ? '<div class="booking-time-warning">Нет интернета. Показано сохранённое расписание. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable}
-    <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : 'Шаг записи — 30 минут'}</span></div>
+    <div class="booking-time-guide"><strong>${matchMedia('(max-width:760px)').matches ? 'Время' : 'Ближайшие окна'}</strong><span>${matchMedia('(max-width:760px)').matches ? 'Шаг 30 мин' : newBookingTime ? `Выбрано ${newBookingTime}` : 'Шаг записи — 30 минут'}</span></div>
     <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
     ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)}`;
   activateBookingRemainingTimeScroll(holder);
@@ -11093,19 +11096,29 @@ globalThis.addEventListener?.('primetime-native-ready', refreshNewBookingRecentC
 
 async function refreshNewBookingContactPicker() {
   const button = $('#newBookingContactPicker');
-  if (!button || !newBookingContactPickerSupported()) return;
+  if (!button) return;
+  button.hidden = false;
+  if (!newBookingContactPickerSupported()) {
+    button.title = 'Телефонная книга недоступна в этом браузере';
+    return;
+  }
   try {
     const properties = await navigator.contacts.getProperties();
-    if (button === $('#newBookingContactPicker')) button.hidden = !properties?.includes('name') || !properties?.includes('tel');
+    if (button === $('#newBookingContactPicker')) button.title = properties?.includes('name') && properties?.includes('tel')
+      ? 'Выбрать из телефонной книги' : 'Телефонная книга недоступна в этом браузере';
   } catch {
-    if (button === $('#newBookingContactPicker')) button.hidden = true;
+    if (button === $('#newBookingContactPicker')) button.title = 'Телефонная книга недоступна в этом браузере';
   }
 }
 
 async function chooseNewBookingContact() {
   const form = $('#newBookingForm');
   const button = $('#newBookingContactPicker');
-  if (!form || !button || !newBookingContactPickerSupported()) return;
+  if (!form || !button) return;
+  if (!newBookingContactPickerSupported() || button.title.includes('недоступна')) {
+    notify('Телефонная книга недоступна в этом браузере');
+    return;
+  }
   button.disabled = true;
   try {
     const contacts = await navigator.contacts.select(['name','tel'], { multiple:false });
@@ -11308,7 +11321,8 @@ function openNewBookingServiceDialog() {
   $('#newBookingServiceList').innerHTML = active.map(item => `<button type="button" role="radio" aria-checked="${item.id === selected}" data-pick-new-booking-service="${escapeHtml(item.id)}"><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(String(item.duration_minutes))} мин · ${money(item.price_rub)}</small></span><i aria-hidden="true"></i></button>`).join('') || '<p>Активных услуг нет</p>';
   $('#newBookingServiceSearch').value = '';
   dialog.showModal();
-  $('#newBookingServiceSearch').focus();
+  if (matchMedia('(max-width:760px)').matches) dialog.focus({ preventScroll:true });
+  else $('#newBookingServiceSearch').focus();
 }
 
 function selectNewBookingService(id) {
@@ -11502,10 +11516,10 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
       <div class="new-booking-mode-toggle" id="newBookingModeToggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
         <section class="new-booking-section"><div class="new-booking-section-title"><div><strong id="newBookingSectionTitle">Клиент</strong><small id="newBookingSectionSubtitle">Имя, номер целиком или последние 4 цифры</small></div></div>
-          <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label class="new-booking-name-field"><span class="sr-only">Имя клиента</span><input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><span class="new-booking-phone-actions"><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button><button id="newBookingRecentCalls" type="button" aria-label="Выбрать из недавних входящих звонков" title="Недавние входящие" hidden>${uiIcon('clock')}<span>Звонки</span></button></span></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
-          <details class="new-booking-block-fields new-booking-block-title" id="newBookingBlockFields" hidden><summary><span id="newBookingBlockTitleSummary">Добавить название</span></summary><label><span class="sr-only">Название перерыва</span><input id="newBookingBlockTitle" maxlength="80" placeholder="Например, обед или личное дело"></label></details>
+          <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label class="new-booking-name-field"><span class="sr-only">Имя клиента</span>${uiIcon('search')}<input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><span class="new-booking-phone-actions"><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги">${uiIcon('users')}</button><button id="newBookingRecentCalls" type="button" aria-label="Выбрать из недавних входящих звонков" title="Недавние входящие" hidden>${uiIcon('clock')}<span>Звонки</span></button></span></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
+          <details class="new-booking-block-fields new-booking-block-title" id="newBookingBlockFields" hidden><summary><span id="newBookingBlockTitleSummary">Добавить название</span></summary><label><span class="sr-only">Название перерыва</span><input id="newBookingBlockTitle" maxlength="80" placeholder="${matchMedia('(max-width:760px)').matches ? 'Например, Обед / Личное / Перерыв' : 'Например, обед или личное дело'}"></label></details>
           <label class="new-booking-service-field"><span class="sr-only" id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
-          <button class="new-booking-service-open" id="newBookingServiceOpen" type="button" aria-haspopup="dialog" aria-controls="newBookingServiceDialog" hidden><span><small>Услуга</small><strong id="newBookingServiceOpenName">${escapeHtml(selectedService?.name || 'Выберите услугу')}</strong></span><span aria-hidden="true">⌄</span></button>
+          <span class="new-booking-service-label" id="newBookingServiceLabel">Услуга</span><button class="new-booking-service-open" id="newBookingServiceOpen" type="button" aria-haspopup="dialog" aria-controls="newBookingServiceDialog" aria-labelledby="newBookingServiceLabel newBookingServiceOpenName" hidden><span><strong id="newBookingServiceOpenName">${escapeHtml(selectedService?.name || 'Выберите услугу')}</strong></span><span aria-hidden="true">⌄</span></button>
           <p class="booking-time-warning" id="newBookingClientServiceUnavailable" ${services.length ? 'hidden' : ''}>Для записи клиента сначала добавьте активную услугу. Занять время можно уже сейчас.</p>
           ${repeatVisitPreviewMarkup(newBookingRepeatVisit)}
           <label id="newBookingBlockDurationField" hidden>Длительность<select id="newBookingBlockDuration">${blockDurationChoices(60)}</select></label>

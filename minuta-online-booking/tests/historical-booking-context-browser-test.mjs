@@ -475,7 +475,7 @@ cases.push([
     assert.equal(await page.locator('#newBookingSubmit').isDisabled(),false,'Selecting a disclosed time must enable booking creation');
   }
 ]);
-for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [390,760,1440]) cases.push([
+for(const theme of ['sage','pink-porcelain','snow-leopard','pearl-zebra','luxury']) for(const width of [390,760,1440]) cases.push([
   `UI booking and month grid ${theme} ${width}`,async page=>{
     await page.setViewportSize({width,height:850});
     await page.evaluate(theme=>{document.body.className='provider-body';document.body.dataset.providerTheme=theme;document.body.dataset.providerLayout='linear';},theme);
@@ -571,7 +571,9 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
       // The reference sheet may scroll on a short phone; its controls and nearby times must remain usable.
       assert.ok(compactGeometry.minimumControlHeight>=43.5,'Visible booking controls must retain a 44px touch target');
       assert.ok(compactGeometry.lastSlotBottom<=compactGeometry.submitTop,'Sticky submit must not cover nearby times');
-      assert.ok(Math.abs((compactGeometry.whenTitleTop+compactGeometry.whenTitleHeight/2)-(compactGeometry.dateTop+compactGeometry.dateHeight/2))<=2,'When and date must share one compact row');
+      assert.ok(compactGeometry.dateTop >= compactGeometry.whenTitleTop + compactGeometry.whenTitleHeight + 4,'Phone date must sit below its When heading');
+      assert.equal(await page.locator('.new-booking-name-field>.ui-icon').isVisible(),true,'Client lookup keeps its search icon');
+      assert.equal(await page.locator('.new-booking-service-label').isVisible(),true,'Service label stays outside the selection control');
       if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-compact-${theme}-390.png`});
       await page.setViewportSize({width,height:850});
     }

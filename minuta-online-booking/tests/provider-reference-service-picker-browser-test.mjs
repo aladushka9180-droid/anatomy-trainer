@@ -16,7 +16,7 @@ const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToF
 const browser = await chromium.launch({ headless:true, channel:process.env.BROWSER_CHANNEL || 'chrome' });
 try {
   for (const theme of ['pink-porcelain', 'sage']) {
-  for (const width of [390, 760, 1440]) {
+  for (const width of [360, 390, 760, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:844 }, bypassCSP:true });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -34,9 +34,15 @@ try {
       window.$ = selector => document.querySelector(selector);
       window.$$ = selector => [...document.querySelectorAll(selector)];
       let ownServices = [
-        { id:'service-1', name:'Массаж спины', duration_minutes:40, price_rub:2500, active:true },
+        { id:'service-1', name:'Массаж спины + ШВЗ — базовый', duration_minutes:40, price_rub:2500, active:true },
         { id:'service-2', name:'Спортивный массаж', duration_minutes:60, price_rub:3000, active:true },
-        { id:'service-3', name:'Скрытая услуга', duration_minutes:30, price_rub:1000, active:false }
+        { id:'service-3', name:'Массаж ног или рук', duration_minutes:60, price_rub:3000, active:true },
+        { id:'service-4', name:'Комплексный массаж всего тела', duration_minutes:120, price_rub:5800, active:true },
+        { id:'service-5', name:'Общий массаж с обеих сторон', duration_minutes:90, price_rub:4300, active:true },
+        { id:'service-6', name:'Массаж задней поверхности тела', duration_minutes:60, price_rub:3000, active:true },
+        { id:'service-7', name:'Массаж спины, рук и головы', duration_minutes:60, price_rub:3000, active:true },
+        { id:'service-8', name:'Массаж спины + ШВЗ — углублённый', duration_minutes:60, price_rub:3000, active:true },
+        { id:'service-9', name:'Скрытая услуга', duration_minutes:30, price_rub:1000, active:false }
       ];
       let newBookingMode = 'client', newBookingRepeatVisit = null;
       const escapeHtml = value => String(value).replace(/[&<>"']/g, symbol => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[symbol]));
@@ -48,7 +54,7 @@ try {
       document.querySelector('#providerBoot').hidden = true;
       document.querySelector('#bookingSheet').hidden = false;
       document.querySelector('#bookingSheet').classList.add('new-booking-sheet');
-      document.querySelector('#bookingSheetContent').innerHTML = '<form class="new-booking-form"><label class="new-booking-service-field">Услуга<select id="newBookingService" required><option value="service-1">Массаж спины</option><option value="service-2">Спортивный массаж</option></select></label><button id="newBookingServiceOpen" class="new-booking-service-open" type="button" aria-haspopup="dialog" aria-controls="newBookingServiceDialog"><span><small>Услуга</small><strong id="newBookingServiceOpenName">Массаж спины</strong></span><span aria-hidden="true">⌄</span></button></form>';
+      document.querySelector('#bookingSheetContent').innerHTML = '<form class="new-booking-form"><label class="new-booking-service-field">Услуга<select id="newBookingService" required><option value="service-1">Массаж спины + ШВЗ — базовый</option><option value="service-2">Спортивный массаж</option></select></label><span class="new-booking-service-label">Услуга</span><button id="newBookingServiceOpen" class="new-booking-service-open" type="button" aria-haspopup="dialog" aria-controls="newBookingServiceDialog"><span><strong id="newBookingServiceOpenName">Массаж спины + ШВЗ — базовый</strong></span><span aria-hidden="true">⌄</span></button></form>';
       updateNewBookingServiceOpen();
       window.__selectedChanges = 0;
       $('#newBookingService').addEventListener('change', () => window.__selectedChanges++);
@@ -69,11 +75,30 @@ try {
     }
     await page.locator('#newBookingServiceOpen').evaluate(button => button.click());
     assert.equal(await page.locator('#newBookingServiceDialog').isVisible(), true);
-    assert.equal(await page.locator('#newBookingServiceList button').count(), 2);
+    assert.equal(await page.locator('#newBookingServiceList button').count(), 8);
     assert.equal(await page.locator('#newBookingServiceList button[aria-checked="true"]').count(), 1);
+    if (width <= 390) {
+      const layout = await page.locator('#newBookingServiceDialog').evaluate(dialog => {
+        const list = dialog.querySelector('#newBookingServiceList');
+        const last = list.lastElementChild.getBoundingClientRect();
+        const bounds = dialog.getBoundingClientRect();
+        return { listFits:list.scrollHeight <= list.clientHeight + 1, lastVisible:last.bottom <= bounds.bottom - 8, width:bounds.width };
+      });
+      assert.equal(layout.listFits, true, JSON.stringify({theme,width,layout}));
+      assert.equal(layout.lastVisible, true, JSON.stringify({theme,width,layout}));
+      assert.ok(layout.width >= width - 35, JSON.stringify({theme,width,layout}));
+    }
     if (process.env.MINUTA_REFERENCE_SCREENSHOTS) {
       mkdirSync(process.env.MINUTA_REFERENCE_SCREENSHOTS, { recursive:true });
       await page.screenshot({ path:path.join(process.env.MINUTA_REFERENCE_SCREENSHOTS, `service-picker-${theme}-${width}.png`), fullPage:true });
+    }
+    if (width <= 390) {
+      await page.setViewportSize({ width, height:480 });
+      const scrollable = await page.locator('#newBookingServiceList').evaluate(list => list.scrollHeight > list.clientHeight + 1);
+      assert.equal(scrollable, true, 'A short phone or open keyboard must leave the service list scrollable');
+      await page.locator('#newBookingServiceList button').last().scrollIntoViewIfNeeded();
+      assert.equal(await page.locator('#newBookingServiceList button').last().isVisible(), true);
+      await page.setViewportSize({ width, height:844 });
     }
     await page.locator('#newBookingServiceSearch').fill('СПОРТИВНЫЙ');
     assert.equal(await page.locator('#newBookingServiceList button:visible').count(), 1);
@@ -87,5 +112,5 @@ try {
     await page.close();
   }
   }
-  console.log('Service picker: pink-porcelain and sage at 390, 760, 1440 passed');
+  console.log('Service picker: pink-porcelain and sage at 360, 390, 760, 1440 passed');
 } finally { await browser.close(); }
