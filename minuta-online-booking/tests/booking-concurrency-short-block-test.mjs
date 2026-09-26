@@ -7,7 +7,7 @@ import test from 'node:test';
 // This diagnoses the short-block UI contract, not concurrent PostgreSQL behavior.
 const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
 const declaration=name=>{const from=source.search(new RegExp(`^function ${name}\\(`,'m')),to=source.indexOf('\n}',from);assert.ok(from>=0&&to>from,`Actual ${name}`);return source.slice(from,to+2);};
-const gridHelpers=`${source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0]||''}\n${declaration('isNewBookingGridTime')}\n${declaration('newBookingGridSlots')}`;
+const gridHelpers=`${source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0]||''}\n${declaration('isNewBookingGridTime')}\n${declaration('isNewBookingFiveMinuteTime')}\n${declaration('newBookingGridSlots')}`;
 const start=source.indexOf('async function loadNewBookingSlots()');
 const end=source.indexOf('function renderNewBookingTimePicker(',start);
 assert.ok(start>=0&&end>start);

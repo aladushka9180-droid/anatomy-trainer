@@ -10,7 +10,7 @@ const declaration = name => {
   assert.ok(start >= 0 && end > start, `actual ${name}`);
   return source.slice(start, end + 2);
 };
-const gridHelpers = `${source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0] || ''}\n${declaration('isNewBookingGridTime')}\n${declaration('newBookingGridSlots')}`;
+const gridHelpers = `${source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0] || ''}\n${declaration('isNewBookingGridTime')}\n${declaration('isNewBookingFiveMinuteTime')}\n${declaration('newBookingGridSlots')}`;
 const placementStart = source.indexOf('function bookingPlacementIssue(');
 const placementEnd = source.indexOf('function clearTimelineBookingUndo(', placementStart);
 const slotsStart = source.indexOf('async function loadNewBookingSlots()');

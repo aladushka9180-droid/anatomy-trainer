@@ -16,6 +16,7 @@ function declaration(name) {
 const controller = [
   source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0] || '',
   declaration('isNewBookingGridTime'),
+  declaration('isNewBookingFiveMinuteTime'),
   declaration('newBookingGridSlots'),
   declaration('bookingPlacementIssue'),
   declaration('loadNewBookingSlots'),
