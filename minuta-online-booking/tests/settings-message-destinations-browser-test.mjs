@@ -20,6 +20,7 @@ assert.match(html, /provider\.js\?v=955/);
 assert.match(sw, /CACHE_PREFIX}v955/);
 assert.match(sw, /provider-ux\.css\?v=955/);
 assert.match(sw, /provider\.js\?v=955/);
+assert.match(sw, /const OPTIONAL_ASSETS = \[[\s\S]*?'\.\/utm-funnel\.css\?v=811'/);
 
 const section = html.match(/<nav class="telegram-client-related"[\s\S]*?<\/nav>/)?.[0];
 assert.ok(section);

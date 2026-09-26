@@ -15,7 +15,6 @@ const ASSETS = [
   './ui-icons.svg',
   './styles.css?v=950',
   './provider-reference-screens.css?v=954',
-  './utm-funnel.css?v=811',
   './onboarding.css?v=811',
   './visitor-presence.css?v=811',
   './provider-theme-loft-modern.css?v=811',
