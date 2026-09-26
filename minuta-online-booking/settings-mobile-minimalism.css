@@ -101,6 +101,7 @@
 .provider-body [data-provider-panel="settings"] .security-more-methods { margin-top:14px; }
 .provider-body [data-provider-panel="settings"] .security-more-methods>section { margin-inline:14px; }
 .provider-body [data-provider-panel="settings"] .security-more-methods>section:last-child { margin-bottom:14px; }
+.provider-body [data-provider-panel="settings"] #applyClientAppearance { order:4; }
 @media(max-width:760px) {
   .provider-body [data-provider-panel="settings"] .settings-smart-search:not(:focus-within) .settings-search-status {
     position:absolute;
@@ -178,8 +179,12 @@
   .provider-body [data-provider-panel="settings"] .settings-layout>.settings-card,
   .provider-body [data-provider-panel="settings"] .provider-section-marker { scroll-margin-top:112px; }
 
-  .provider-body [data-provider-panel="settings"] .client-appearance-selection { order:1; }
-  .provider-body [data-provider-panel="settings"] .client-appearance-preview-shell { order:2; }
+  .provider-body [data-provider-panel="settings"] .client-appearance-summary { display:contents; }
+  .provider-body [data-provider-panel="settings"] .client-appearance-selection { grid-column:1; grid-row:auto; order:1; }
+  .provider-body [data-provider-panel="settings"] .client-headline-picker { grid-column:1; grid-row:auto; order:2; }
+  .provider-body [data-provider-panel="settings"] .client-appearance-preview-shell { grid-column:1; grid-row:auto; order:3; }
+  .provider-body [data-provider-panel="settings"] .client-appearance-actions { order:4; }
+  .provider-body [data-provider-panel="settings"] #applyClientAppearance { min-height:44px; order:-1; }
 
   .provider-body [data-provider-panel="settings"] .settings-layout>.settings-card,
   .provider-body [data-provider-panel="settings"] .appearance-settings-card {
