@@ -16922,10 +16922,18 @@ document.addEventListener('click', async event => {
   }
   if (openNotificationDelivery) {
     await Promise.resolve(setProviderView('notifications'));
-    requestAnimationFrame(() => {
+    const showDelivery = () => requestAnimationFrame(() => {
+      if ($('[data-provider-panel="notifications"]')?.hidden) return;
       $('#notificationDeliveryTitle')?.focus({ preventScroll:true });
       $('.notification-primary-queue')?.scrollIntoView({ block:'start' });
     });
+    const importantList = $('#importantNotificationList');
+    if (importantList && importantNotificationState.status === 'loading') {
+      const observer = new MutationObserver(() => { observer.disconnect(); showDelivery(); });
+      observer.observe(importantList, { childList:true, subtree:true });
+      setTimeout(() => observer.disconnect(), 10000);
+    }
+    showDelivery();
   }
   if (closeNotificationTemplates) $('#notificationTemplatesDialog').close();
   if (openServiceCreator) {
