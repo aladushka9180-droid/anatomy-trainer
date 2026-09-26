@@ -59,6 +59,12 @@ try {
     await page.setViewportSize({ width, height: 900 });
     await page.waitForFunction(expected => getComputedStyle(document.querySelector('#applyClientAppearance')).order === expected,
       width <= 760 ? '-1' : '4');
+    if (width <= 760) {
+      await page.waitForFunction(() => {
+        const save = document.querySelector('#applyClientAppearance');
+        return parseFloat(getComputedStyle(save).minHeight) >= 44 && save.getBoundingClientRect().height >= 44;
+      });
+    }
     const layout = await page.evaluate(() => {
       const rect = selector => document.querySelector(selector).getBoundingClientRect();
       const selection = rect('#clientAppearanceSettingsCard .client-appearance-selection');
@@ -85,7 +91,7 @@ try {
       assert.ok(layout.previewTop >= layout.headlineBottom - 1, `${width}px preview precedes headline choices`);
       assert.ok(layout.saveTop >= layout.previewBottom - 1 && layout.saveTop - layout.previewBottom < 100,
         `${width}px save is not near preview: ${JSON.stringify(layout)}`);
-      assert.ok(parseFloat(layout.saveMinHeight) >= 44 && layout.saveHeight >= 43.5,
+      assert.ok(parseFloat(layout.saveMinHeight) >= 44 && layout.saveHeight >= 44,
         `${width}px save target is smaller than 44 CSS px: ${JSON.stringify(layout)}`);
     } else {
       assert.ok(layout.previewTop < layout.headlineTop, 'Desktop preview should retain its original placement');
