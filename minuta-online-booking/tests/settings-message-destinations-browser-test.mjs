@@ -16,10 +16,10 @@ assert.match(html, /<nav class="telegram-client-related"[^>]*aria-label="Дру�
 assert.match(script, /if \(openNotificationDelivery\) \{\s*await Promise\.resolve\(setProviderView\('notifications'\)\);[\s\S]*?importantNotificationState\.status === 'loading'[\s\S]*?new MutationObserver\([\s\S]*?showDelivery\(\)/);
 assert.match(html, /<h3 id="notificationDeliveryTitle" tabindex="-1">Доставка<\/h3>/);
 assert.match(html, /provider-ux\.css\?v=956/);
-assert.match(html, /provider\.js\?v=961/);
-assert.match(sw, /CACHE_PREFIX}v961/);
+assert.match(html, /provider\.js\?v=962/);
+assert.match(sw, /CACHE_PREFIX}v962/);
 assert.match(sw, /provider-ux\.css\?v=956/);
-assert.match(sw, /provider\.js\?v=961/);
+assert.match(sw, /provider\.js\?v=962/);
 assert.match(sw, /const OPTIONAL_ASSETS = \[[\s\S]*?'\.\/utm-funnel\.css\?v=811'/);
 
 const section = html.match(/<nav class="telegram-client-related"[\s\S]*?<\/nav>/)?.[0];

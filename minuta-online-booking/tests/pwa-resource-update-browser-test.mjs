@@ -81,11 +81,14 @@ function shell(release, route) {
 const mime = { '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.webmanifest':'application/manifest+json',
   '.html':'text/html', '.png':'image/png', '.webp':'image/webp', '.jpg':'image/jpeg' };
 let phase = oldRelease;
+let forceServerOffline = false;
 let failNewAsset = false;
 let failedAssetRequests = 0;
 const serverErrors = [];
 const server = createServer((request, response) => {
   try {
+    // Browser offline emulation can still let service-worker fetches reach loopback.
+    if (forceServerOffline) { request.socket.destroy(); return; }
     const rawPath = decodeURIComponent(String(request.url || '').split('?')[0]);
     if (!['GET', 'HEAD'].includes(request.method) || !rawPath.startsWith(prefix)
       || rawPath.includes('\\') || rawPath.includes('\0') || rawPath.split('/').includes('..')) {
@@ -328,10 +331,11 @@ try {
     const cdp=await coldContext.newCDPSession(coldPage);const installability=await cdp.send('Page.getInstallabilityErrors');
     assert.deepEqual(installability.installabilityErrors.filter(error=>error.errorId!=='in-incognito'),[],'No candidate installability blockers other than isolated context');
     await coldContext.setOffline(true);
+    forceServerOffline=true;
     for(const route of retryOnly ? ['booking.html'] : ['my-bookings.html','booking.html','index.html','waitlist.html']) {
       const requested=`${origin}${prefix}${route}?audit=cold#token=11111111-1111-4111-8111-111111111111`;
       const response=await coldPage.goto(requested);assert.equal(response.fromServiceWorker(),true);
-      assert.equal(await coldPage.locator('h1').innerText(),'Нет соединения');
+      assert.equal(await coldPage.locator('h1').innerText(),'Нет соединения',`${name}: ${route} must use the neutral offline page`);
       assert.equal(await coldPage.locator('#authCard').count(),0,'Must not substitute provider login');
       assert.equal(await coldPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       const retry=coldPage.getByRole('button',{name:'Повторить'});assert.ok((await retry.boundingBox()).height>=44);
@@ -344,6 +348,7 @@ try {
     }
     console.log(`PASS ${retryOnly ? 'offline Retry preserves original query and token' : 'cold offline neutral page and installability contract'}: ${name}`);
     await coldContext.close();
+    forceServerOffline=false;
   }
   assert.deepEqual(retryFailures,[],'Retry must preserve private management fragments');
 } finally {

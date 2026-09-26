@@ -57,6 +57,7 @@ try {
         const picker=document.querySelector('.date-navigation .schedule-date-picker');
         const buttons=[...group.querySelectorAll('button')];
         return { gap:getComputedStyle(group).gap, radius:getComputedStyle(buttons[0]).borderRadius,
+          groupWidth:group.getBoundingClientRect().width,
           active:getComputedStyle(buttons[0]).backgroundColor, todayWidth:today.getBoundingClientRect().width,
           groupHeight:group.getBoundingClientRect().height, todayHeight:today.getBoundingClientRect().height,
           groupRight:group.getBoundingClientRect().right,todayX:today.getBoundingClientRect().x,
@@ -65,11 +66,14 @@ try {
           groupBottom:group.getBoundingClientRect().bottom };
       });
       assert.equal(controls.gap, '0px', JSON.stringify({theme,width,controls}));
-      assert.equal(controls.radius, '0px');
-      assert.ok(controls.todayWidth >= (width>1100?150:130));
+      assert.equal(controls.radius, '11px 0px 0px 11px');
+      assert.ok(controls.groupWidth <= 330, JSON.stringify({theme,width,controls}));
+      assert.ok(controls.todayWidth >= (width>1100?120:116));
+      assert.ok(controls.todayWidth <= 120);
+      assert.equal(controls.groupHeight, 44);
       assert.ok(Math.abs(controls.groupHeight-controls.todayHeight)<2);
       assert.ok(controls.todayX >= controls.groupRight + 6, JSON.stringify({theme,width,controls}));
-      if (width > 950) assert.ok(controls.pickerX >= controls.todayRight + 4, JSON.stringify({theme,width,controls}));
+      if (controls.pickerY < controls.groupBottom) assert.ok(controls.pickerX >= controls.todayRight + 4, JSON.stringify({theme,width,controls}));
       else assert.ok(controls.pickerY >= controls.groupBottom, JSON.stringify({theme,width,controls}));
       assert.ok(controls.pickerRight <= width, JSON.stringify({theme,width,controls}));
     }
