@@ -30,7 +30,7 @@ try {
   await page.evaluate(fieldHtml => {
     document.documentElement.classList.remove('provider-booting','requires-top-level');
     document.querySelector('#providerBoot')?.remove();
-    document.body.dataset.providerTheme='pink-porcelain';
+    document.body.dataset.providerTheme='sage';
     document.body.dataset.providerPorcelainCharacter='petal';
     document.querySelector('#dashboard').hidden=false;
     const sheet=document.querySelector('#bookingSheet');
