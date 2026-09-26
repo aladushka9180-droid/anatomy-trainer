@@ -4,12 +4,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(fileURLToPath(new URL('../',import.meta.url)));
 const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
-const whiteContrast=background=>{
-  const values=(background.match(/[\d.]+/g)||[]).slice(0,3).map(Number);
-  const channels=background.startsWith('color(srgb ') ? values.map(value=>value*255) : values;
+const luminance=color=>{
+  const values=(color.match(/[\d.]+/g)||[]).slice(0,3).map(Number);
+  const channels=color.startsWith('color(srgb ') ? values.map(value=>value*255) : values;
   const luminance=channels.map(value=>{const channel=value/255;return channel<=0.04045?channel/12.92:((channel+0.055)/1.055)**2.4;});
-  return 1.05/(0.05+0.2126*luminance[0]+0.7152*luminance[1]+0.0722*luminance[2]);
+  return 0.2126*luminance[0]+0.7152*luminance[1]+0.0722*luminance[2];
 };
+const contrast=(a,b)=>{const values=[luminance(a),luminance(b)].sort((x,y)=>y-x);return(values[0]+.05)/(values[1]+.05);};
 const browser = await chromium.launch({ headless:true });
 try {
   for (const width of [320,390,760,1440]) {
@@ -45,6 +46,8 @@ try {
           return {
             todayBackground:css('.date-today-button').backgroundColor,
             bookingBackground:css('.timeline-booking.status-confirmed').backgroundColor,
+            bookingBorder:css('.timeline-booking.status-confirmed').borderTopColor,
+            bookingShadow:css('.timeline-booking.status-confirmed').boxShadow,
             breakBackground:css('.timeline-booking.automatic-break').backgroundColor,
             breakBorderStyle:css('.timeline-booking.automatic-break').borderLeftStyle,
             breakBorderWidth:css('.timeline-booking.automatic-break').borderLeftWidth,
@@ -77,10 +80,14 @@ try {
         assert.equal(state.breakLabelBackground,state.breakMobileTimeBackground,`${width} ${character}/${shade} mismatched mobile time backing`);
         assert.equal(state.breakMobileTimeColor,'rgb(255, 255, 255)',`${width} ${character}/${shade} mobile pause time`);
         assert.equal(state.breakLabelBackground,'rgba(0, 0, 0, 0)',`${width} ${character}/${shade} pause text backing`);
-        minimumContrast=Math.min(minimumContrast,whiteContrast(state.breakBackground));
-        if(character==='petal'&&shade==='gentle-pink')recommendedShadeContrast=whiteContrast(state.breakBackground);
+        minimumContrast=Math.min(minimumContrast,contrast(state.bookingTitleColor,state.bookingBackground));
+        if(character==='petal'&&shade==='gentle-pink')recommendedShadeContrast=contrast(state.bookingTitleColor,state.bookingBackground);
         for(const key of ['todayColor','dayColor','bookingTitleColor','bookingTimeColor','bookingClientColor','breakTitleColor','breakSourceColor','breakTimeColor'])
-          assert.equal(state[key],'rgb(255, 255, 255)',`${width} ${character}/${shade} ${key}`);
+          assert.equal(state[key],['breakTitleColor','breakSourceColor','breakTimeColor'].includes(key)?'rgb(255, 255, 255)':'rgb(56, 37, 50)',`${width} ${character}/${shade} ${key}`);
+        for(const key of ['todayColor','dayColor','bookingTitleColor','bookingTimeColor','bookingClientColor'])
+          assert.ok(contrast(state[key],key==='todayColor'?state.todayBackground:key==='dayColor'?state.todayBackground:state.bookingBackground)>=4.5,`${width} ${character}/${shade} ${key} contrast`);
+        assert.notEqual(state.bookingBorder,'rgb(184, 47, 103)',`${width} ${character}/${shade} dark booking edge`);
+        assert.match(state.bookingShadow,/2px 0px 0px 0px inset/,`${width} ${character}/${shade} soft booking marker`);
         assert.equal(state.bookingTextShadow,'none');
         assert.equal(state.breakTextShadow,'none');
         assert.notEqual(state.unselectedDateColor,'rgb(255, 255, 255)');
@@ -101,7 +108,7 @@ try {
     assert.equal(await page.locator('body').getAttribute('data-clicked'),'true');
     await page.evaluate(()=>document.body.dataset.providerTheme='sage');
     assert.notEqual(await page.locator('.timeline-booking.status-confirmed .timeline-service-title').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)',`${width} other theme`);
-    console.log(`${width}px: 15 palettes, unbacked white text, unchanged adjacent theme, no overflow, click OK; background contrast ${recommendedShadeContrast.toFixed(2)}:1 default, ${minimumContrast.toFixed(2)}:1 weakest`);
+    console.log(`${width}px: 15 palettes, readable booking text, softer border, unchanged automatic break and adjacent theme, no overflow, click OK; contrast ${recommendedShadeContrast.toFixed(2)}:1 default, ${minimumContrast.toFixed(2)}:1 weakest`);
     await page.close();
   }
 } finally { await browser.close(); }

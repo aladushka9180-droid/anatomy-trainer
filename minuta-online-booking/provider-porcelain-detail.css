@@ -152,23 +152,31 @@ body.provider-body[data-porcelain-editor-open] #appearanceSettingsCard .provider
   .provider-porcelain-character strong { font:600 10px/1.15 Arial,sans-serif; letter-spacing:-.045em; }
 }
 
-/* Pink Porcelain: user-requested white lettering on the existing soft fills.
-   Normal bookings reuse Today's current shade; automatic breaks keep theirs. */
+/* Pink Porcelain keeps the soft fill; text and the booking edge stay legible. */
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(.date-navigation>.date-today-button,#dateStrip button.active) {
-  color:#fff!important;
+  color:var(--porcelain-action-ink)!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(.date-navigation>.date-today-button,#dateStrip button.active) :is(span,strong,small,.ui-icon) {
-  color:#fff!important;
+  color:var(--porcelain-action-ink)!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking:not(.status-block):not(.automatic-break):not(.status-cancelled) {
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
-  color:#fff!important;
+  border-color:color-mix(in srgb,var(--porcelain-action-bg) 75%,var(--theme-accent))!important;
+  box-shadow:inset 2px 0 0 color-mix(in srgb,var(--porcelain-action-bg) 55%,var(--theme-accent)),0 4px 12px color-mix(in srgb,var(--theme-shadow) var(--schedule-entry-shadow-weight),transparent)!important;
+  color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking:not(.status-block):not(.automatic-break):not(.status-cancelled):hover {
+  border-color:color-mix(in srgb,var(--porcelain-action-bg) 65%,var(--theme-accent))!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break {
   color:#fff!important;
 }
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking:is(:not(.status-block):not(.automatic-break):not(.status-cancelled),.automatic-break) :is(.timeline-booking-time,.timeline-booking-time *, .timeline-booking-copy>strong,.timeline-booking-copy>strong *, .timeline-booking-client,.timeline-booking-client *, .timeline-booking-note,.timeline-booking-note *, .timeline-automatic-break-source,.timeline-mobile-time,.timeline-booking-minute-time) {
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking:not(.status-block):not(.automatic-break):not(.status-cancelled) :is(.timeline-booking-time,.timeline-booking-time *, .timeline-booking-copy>strong,.timeline-booking-copy>strong *, .timeline-booking-client,.timeline-booking-client *, .timeline-booking-note,.timeline-booking-note *, .timeline-mobile-time,.timeline-booking-minute-time) {
+  color:var(--porcelain-action-ink)!important;
+  opacity:1!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking.automatic-break :is(.timeline-booking-time,.timeline-booking-time *, .timeline-booking-copy>strong,.timeline-booking-copy>strong *, .timeline-booking-client,.timeline-booking-client *, .timeline-booking-note,.timeline-booking-note *, .timeline-automatic-break-source,.timeline-mobile-time,.timeline-booking-minute-time) {
   color:#fff!important;
   opacity:1!important;
 }

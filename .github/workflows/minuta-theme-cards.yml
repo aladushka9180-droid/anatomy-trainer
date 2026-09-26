@@ -36,6 +36,7 @@ jobs:
       - run: node minuta-online-booking/tests/pink-personal-theme-browser-test.mjs
       - run: node minuta-online-booking/tests/pink-porcelain-visual-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-cabinet-accent-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-porcelain-white-text-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-editor-browser-test.mjs
       - run: node minuta-online-booking/tests/client-theme-visual-parity-browser-test.mjs
       - run: node minuta-online-booking/tests/client-relationship-appearance-browser-test.mjs
