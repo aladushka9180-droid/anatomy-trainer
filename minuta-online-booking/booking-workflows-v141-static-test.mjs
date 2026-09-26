@@ -11,7 +11,7 @@ const workflow = readFileSync(new URL('../.github/workflows/minuta-v141-safe-rel
 for (const required of [
   'Время визита',
   'На сегодня будущих окон не осталось.',
-  'Новая запись · ${bookingDateLabel',
+  'context.textContent = ` · ${bookingDateLabel',
   'id="newBookingContactPicker"',
   "navigator.contacts.select(['name','tel'], { multiple:false })",
   'bookingNearbyTimeSlots(newBookingSlots, newBookingTime, newBookingPreferredTime)',
