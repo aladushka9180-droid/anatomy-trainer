@@ -7778,6 +7778,10 @@ function isNewBookingGridTime(value) {
   return /^([01]\d|2[0-3]):(?:00|30)$/.test(String(value || ''));
 }
 
+function isNewBookingFiveMinuteTime(value) {
+  return /^([01]\d|2[0-3]):(?:[0-5][05])$/.test(String(value || ''));
+}
+
 function newBookingGridSlots(slots) {
   return [...new Set((slots || []).map(time => String(time || '').slice(0, 5)).filter(isNewBookingGridTime))].sort();
 }
@@ -10072,6 +10076,10 @@ function bookingQuickTimeSlots(slots) {
 
 function bookingNearbyTimeSlots(slots, selectedTime = '', referenceTime = selectedTime) {
   const available = newBookingGridSlots(slots);
+  if ((slots || []).includes(selectedTime) && !available.includes(selectedTime)) {
+    available.push(selectedTime);
+    available.sort();
+  }
   if (!available.length) return [];
   const value = available.includes(selectedTime) ? selectedTime : '';
   const minuteValue = time => minutesFromTime(time);
@@ -10110,14 +10118,17 @@ function bookingNearbyTimeSlots(slots, selectedTime = '', referenceTime = select
   return chosen.slice(0, 3).sort((left, right) => left.localeCompare(right));
 }
 
-function bookingRemainingTimeSlots(slots, nearbySlots, selectedTime = '') {
+function bookingRemainingTimeSlots(slots, nearbySlots, selectedTime = '', step = 30) {
   const nearby = new Set(nearbySlots || []);
-  return newBookingGridSlots(slots)
+  const available = step === 5
+    ? [...new Set((slots || []).filter(isNewBookingFiveMinuteTime))].sort()
+    : newBookingGridSlots(slots);
+  return available
     .filter(time => time === selectedTime || !nearby.has(time));
 }
 
-function bookingRemainingTimeMarkup(slots, nearbySlots, selectedTime = '') {
-  const remaining = bookingRemainingTimeSlots(slots, nearbySlots, selectedTime);
+function bookingRemainingTimeMarkup(slots, nearbySlots, selectedTime = '', step = 30) {
+  const remaining = bookingRemainingTimeSlots(slots, nearbySlots, selectedTime, step);
   if (!remaining.length) return '';
   const mobileReference = matchMedia('(max-width:760px)').matches;
   const mobileCount = remaining.length % 10 === 1 && remaining.length % 100 !== 11 ? 'вариант'
@@ -10126,7 +10137,7 @@ function bookingRemainingTimeMarkup(slots, nearbySlots, selectedTime = '') {
     ? selectedTime
     : remaining.find(time => time >= selectedTime) || remaining.at(-1);
   return `<details class="booking-more-times" data-scroll-time="${scrollTime}">
-    <summary><span>${mobileReference ? `Ещё ${remaining.length} ${mobileCount}` : 'Показать остальные'}</span><small class="${mobileReference ? 'sr-only' : ''}">Шаг 30 мин${mobileReference ? '' : ` · ещё ${remaining.length}`}</small></summary>
+    <summary><span>${step === 5 ? 'Ещё варианты' : mobileReference ? `Ещё ${remaining.length} ${mobileCount}` : 'Показать остальные'}</span><small class="${mobileReference ? 'sr-only' : ''}">Шаг ${step} мин${mobileReference ? '' : ` · ещё ${remaining.length}`}</small></summary>
     <div class="booking-time-slots booking-time-slots-all">${remaining.map(time => `<button type="button" class="${time === selectedTime ? 'active' : ''}" aria-pressed="${time === selectedTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
   </details>`;
 }
@@ -10836,7 +10847,10 @@ async function loadNewBookingSlots() {
     renderNewBookingOutsideSchedulePrompt({ preferredTime });
     return;
   }
-  newBookingSlots = newBookingGridSlots(data.map(slot => String(slot.booking_time).slice(0, 5))).filter(time => !bookingMoveTimeIsPast(date, time) && !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration },
+  const serverTimes = data.map(slot => String(slot.booking_time).slice(0, 5));
+  newBookingSlots = (newBookingMode === 'block'
+    ? [...new Set(serverTimes.filter(isNewBookingFiveMinuteTime))].sort()
+    : newBookingGridSlots(serverTimes)).filter(time => !bookingMoveTimeIsPast(date, time) && !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration },
     date,
     minutesFromTime(time),
     { respectAutomaticBreakReleases:true }
@@ -10904,10 +10918,11 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
   }
   const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime, newBookingPreferredTime);
   const preferredUnavailable = newBookingPreferredUnavailableMarkup();
+  const block = newBookingMode === 'block';
   holder.innerHTML = `${offline ? '<div class="booking-time-warning">Нет интернета. Показано сохранённое расписание. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable}
     <div class="booking-time-guide"><strong>${matchMedia('(max-width:760px)').matches ? 'Время' : 'Ближайшие окна'}</strong><span>${matchMedia('(max-width:760px)').matches ? 'Шаг 30 мин' : newBookingTime ? `Выбрано ${newBookingTime}` : 'Шаг записи — 30 минут'}</span></div>
     <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
-    ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)}`;
+    ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime, block ? 5 : 30)}`;
   activateBookingRemainingTimeScroll(holder);
 }
 
@@ -11837,8 +11852,8 @@ async function createNewBooking(event) {
           ? 'Выберите дату.'
           : !newBookingTime
             ? 'Выберите время записи.'
-            : !historical && !isNewBookingGridTime(newBookingTime)
-              ? 'Выберите начало получасового интервала.'
+            : !historical && !(block ? isNewBookingFiveMinuteTime(newBookingTime) : isNewBookingGridTime(newBookingTime))
+              ? (block ? 'Выберите начало с шагом 5 минут.' : 'Выберите начало получасового интервала.')
             : historical && (!Number.isInteger(historicalAmount) || historicalAmount < 0 || historicalAmount > 1000000)
               ? 'Укажите полученную сумму от 0 до 1 000 000 ₽.'
             : repeatVisit && (!Number.isInteger(repeatTotalPrice) || repeatTotalPrice < repeatAddonTotal || repeatTotalPrice > Math.min(10000000, repeatAddonTotal + 1000000))

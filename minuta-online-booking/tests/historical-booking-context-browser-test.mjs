@@ -22,7 +22,7 @@ const functions=['normalizeRepeatVisitPreview','repeatVisitPreviewMarkup','openN
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingHistoricalPayment','newBookingHistoricalCalculatedAmount','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService','normalizedOutcomePaymentMethod',
   'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingRecentCallsSupported','refreshNewBookingRecentCalls','chooseNewBookingRecentCall','receiveNewBookingRecentCall','newBookingClientPhoneLabel','newBookingClientCandidates',
   'hideNewBookingClientSuggestions','renderNewBookingClientSuggestions','scheduleNewBookingClientSuggestions','restoreNewBookingClientLookupStatus','applyNewBookingClient','selectNewBookingClient','handleNewBookingPhoneInput',
-  'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','bookingDateLabel','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','isNewBookingGridTime','newBookingGridSlots','parseLocalIsoDate','localIsoDate',
+  'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','bookingDateLabel','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','isNewBookingGridTime','isNewBookingFiveMinuteTime','newBookingGridSlots','parseLocalIsoDate','localIsoDate',
   'bookingDraftKey','readNewBookingDraft','saveNewBookingDraft','clearNewBookingDraft','bookingColorPicker','compactBookingColorPicker','bookingColor','validBookingColor',
   'saveBookingColor','persistBookingColors','bookingColorStorageKey','bookingColorPendingStorageKey','requireBookingWrites','sessionIsCurrent','captureBookingMetadataContext',
   'showFormError','clearFormError','resetServicePublicCardPhotoPreview'];
@@ -588,6 +588,18 @@ for(const theme of ['sage','pink-porcelain','snow-leopard','pearl-zebra','luxury
     await page.locator('[data-new-booking-mode="block"]').click();
     await page.waitForTimeout(50);
     await assertRemainingTimesReveal(page,'block',width,theme);
+    await page.evaluate(()=>{
+      newBookingSlots=['14:00','14:05','14:10','14:15','14:20','14:25','14:30','14:35','15:00'];
+      newBookingTime='';newBookingPreferredTime='';
+      renderNewBookingTimePicker();
+    });
+    const quickTimes=await page.locator('.booking-time-slots-nearby [data-new-booking-time]').evaluateAll(buttons=>buttons.map(button=>button.dataset.newBookingTime));
+    assert.ok(quickTimes.every(time=>time.endsWith(':00')||time.endsWith(':30')),'Block quick choices retain the 30-minute grid');
+    assert.equal(await page.locator('.booking-more-times').evaluate(el=>el.open),false,'Five-minute choices stay collapsed initially');
+    await page.locator('.booking-more-times > summary').click();
+    assert.equal(await page.locator('.booking-more-times [data-new-booking-time="14:25"]').isVisible(),true,'Five-minute time is in the expanded choices');
+    await page.locator('.booking-more-times [data-new-booking-time="14:25"]').click();
+    assert.equal(await page.locator('.booking-time-slots-nearby [data-new-booking-time="14:25"]').isVisible(),true,'Selected five-minute time stays visible after collapse');
     if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingRecurrence').isVisible(),false,'Schedule blocks must not show visit repetition');
     if(expectMinimalBookingForm)assert.equal(await page.locator('#newBookingSectionSubtitle').getAttribute('class'),'sr-only','The block fields make the repeated helper unnecessary');
     await recordUiMetric(page,'block-collapsed',theme,width);
