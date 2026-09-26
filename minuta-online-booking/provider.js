@@ -16707,6 +16707,7 @@ document.addEventListener('click', async event => {
   const openReportGoalsButton = event.target.closest('#reportGoalsOpen');
   const closeReportGoalsButton = event.target.closest('[data-close-report-goals]');
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
+  const openNotificationDelivery = event.target.closest('[data-open-notification-delivery]');
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
   const openServiceCreator = event.target.closest('[data-open-service-creator]');
   const closeServiceCreator = event.target.closest('[data-close-service-creator]');
@@ -16918,6 +16919,11 @@ document.addEventListener('click', async event => {
   if (openNotificationTemplates) {
     renderNotificationTemplates();
     $('#notificationTemplatesDialog').showModal();
+  }
+  if (openNotificationDelivery) {
+    await Promise.resolve(setProviderView('notifications'));
+    $('#notificationDeliveryTitle')?.focus({ preventScroll:true });
+    $('.notification-primary-queue')?.scrollIntoView({ block:'start' });
   }
   if (closeNotificationTemplates) $('#notificationTemplatesDialog').close();
   if (openServiceCreator) {

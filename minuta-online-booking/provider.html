@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="provider-themes-signature.css?v=885">
   <link rel="stylesheet" href="provider-themes-calm.css?v=811">
   <link rel="stylesheet" href="provider-layout-responsive.css?v=811">
-<link rel="stylesheet" href="provider-ux.css?v=886">
+<link rel="stylesheet" href="provider-ux.css?v=955">
   <link rel="stylesheet" href="provider-service-actions.css?v=811">
 <link rel="stylesheet" href="provider-header.css?v=865">
   <link rel="stylesheet" href="client-themes.css?v=885">
@@ -507,7 +507,7 @@
             <div class="important-notification-list" id="importantNotificationList" aria-live="polite"><div class="loading-state compact"><i></i><span>Загружаем события…</span></div></div>
           </section>
           <section class="panel notification-queue-panel notification-primary-queue">
-            <div class="notification-toolbar"><div><small>Исходящие</small><h3>Доставка</h3><p>Ручная отметка означает, что вы отметили сообщение отправленным; PrimeTime не подтверждает доставку получателю.</p></div><div class="notification-toolbar-actions"><button class="secondary-button notification-mark-all" id="markAllNotificationsSent" type="button" hidden>Отметить все</button><div class="notification-filters"><button class="active" type="button" data-notification-filter="pending">К отправке</button><button type="button" data-notification-filter="sent">Отмечено</button><button type="button" data-notification-filter="all">Все</button></div></div></div>
+            <div class="notification-toolbar"><div><small>Исходящие</small><h3 id="notificationDeliveryTitle" tabindex="-1">Доставка</h3><p>Ручная отметка означает, что вы отметили сообщение отправленным; PrimeTime не подтверждает доставку получателю.</p></div><div class="notification-toolbar-actions"><button class="secondary-button notification-mark-all" id="markAllNotificationsSent" type="button" hidden>Отметить все</button><div class="notification-filters"><button class="active" type="button" data-notification-filter="pending">К отправке</button><button type="button" data-notification-filter="sent">Отмечено</button><button type="button" data-notification-filter="all">Все</button></div></div></div>
             <div class="notification-summary" aria-label="Сводка уведомлений">
               <div><strong id="notificationPendingCount">0</strong><span>непрочитано</span></div>
               <i></i><div><strong id="notificationSoonCount">0</strong><span>сегодня</span></div>
@@ -1347,7 +1347,7 @@
           <nav class="provider-section-nav" aria-label="Навигация по настройкам">
             <button class="active" type="button" data-section-target="bookingRulesCard">Онлайн-запись</button>
             <button type="button" data-section-target="clientAppearanceSettingsCard">Страница для клиентов</button>
-            <button type="button" data-section-target="telegramClientSettingsCard">Сообщения клиентам</button>
+            <button type="button" data-section-target="telegramClientSettingsCard">Telegram и связь</button>
             <button type="button" data-section-target="appearanceSettingsCard">Оформление</button>
             <button type="button" data-section-target="installAppCard">Приложение и навигация</button>
             <button type="button" data-section-target="subscriptionSettingsCard">Тариф</button>
@@ -1559,7 +1559,8 @@
             </section>
             <section class="panel settings-card telegram-client-settings-card provider-section-anchor" id="telegramClientSettingsCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-telegram"></use></svg></div>
-              <div class="settings-heading"><small>Сообщения клиентам</small><h3>Telegram и связь с мастером</h3><p>Выберите нужные события и при желании добавьте кнопку для связи с вами.</p><a class="settings-help-link" href="help/article.html?slug=telegram" target="_blank" rel="noopener noreferrer">Инструкция по Telegram <span aria-hidden="true">↗</span></a></div>
+              <div class="settings-heading"><small>Telegram и связь</small><h3>Telegram и связь с мастером</h3><p>Выберите нужные события и при желании добавьте кнопку для связи с вами.</p><a class="settings-help-link" href="help/article.html?slug=telegram" target="_blank" rel="noopener noreferrer">Инструкция по Telegram <span aria-hidden="true">↗</span></a></div>
+              <nav class="telegram-client-related" aria-label="Другие разделы сообщений"><button class="secondary-button" type="button" data-provider-view="messages">Переписка</button><button class="secondary-button" type="button" data-open-notification-templates>Шаблоны</button><button class="secondary-button" type="button" data-open-notification-delivery>Доставка</button></nav>
               <div data-contextual-help data-help-label="Как это работает?" data-help-slug="telegram" data-help-question="Объясни подключение Telegram, виды сообщений клиентам, username мастера и причины недоставки."></div>
               <form id="telegramClientSettingsForm" class="telegram-client-settings-form" novalidate>
                 <p class="telegram-client-explainer"><strong>Как это работает</strong><span>Бот пишет только клиентам, которые сами подключили Telegram после записи. Ваш номер телефона клиентам не показывается.</span></p>
@@ -2168,7 +2169,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=954" defer></script>
+  <script src="site-update.js?v=955" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2221,7 +2222,7 @@
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
   <template data-provider-feature="statistics"><script src="statistics-audit-ui.js?v=908"></script><script src="statistics-audit-provider.js?v=908"></script></template>
-  <script src="provider.js?v=954" defer></script>
+  <script src="provider.js?v=955" defer></script>
   <script src="provider-porcelain-detail.js?v=946" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>

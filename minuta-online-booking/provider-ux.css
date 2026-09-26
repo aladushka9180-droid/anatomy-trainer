@@ -207,6 +207,8 @@
 .provider-body .ux-disclosure>summary:focus-visible { outline:2px solid var(--theme-accent); outline-offset:3px; }
 .provider-body[data-provider-theme][data-provider-layout] .settings-quick-start { padding:8px 18px; }
 .provider-body .settings-quick-start[open] { padding-bottom:18px; }
+.provider-body .telegram-client-related { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 16px; }
+.provider-body .telegram-client-related .secondary-button { width:auto; min-height:44px; margin:0; padding:0 14px; }
 .provider-body .settings-quick-start-head { margin-top:12px; }
 .provider-body[data-provider-theme][data-provider-layout] details.unified-notification-panel:not([open]) { padding-block:8px; }
 .provider-body[data-provider-theme][data-provider-layout] :is(.view-description,.organization-invite-help,.settings-card>p) {
