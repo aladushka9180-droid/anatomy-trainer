@@ -211,7 +211,7 @@
         const next = !hasItems || !hasWarehouses ? 'catalog' : 'operations';
         const action = $('#inventoryFirstRunAction');
         action.hidden = !enabled;
-        action.dataset.inventorySection = next;
+        action.dataset.inventoryTarget = next;
         action.textContent = next === 'catalog' ? 'К каталогу и складам' : 'К приходу и нормам';
         $('#inventoryFirstRunHint').textContent = !enabled
           ? isOwner ? 'Сначала включите складской учёт переключателем ниже.' : 'Сначала владелец должен включить складской учёт.'
@@ -558,6 +558,11 @@
     }
 
     async function click(event) {
+      if (event.target.closest('#inventoryFirstRunAction')) {
+        const target = $('#inventoryFirstRunAction').dataset.inventoryTarget;
+        $('#inventoryControls')?.querySelector(`[data-inventory-section="${target}"]`)?.click();
+        return;
+      }
       if (event.target.closest('[data-inventory-restore-transfer]')) {
         const intent = transferIntents.get(transferScope());
         if (!intent || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return;

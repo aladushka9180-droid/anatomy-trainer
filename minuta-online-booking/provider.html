@@ -22,7 +22,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="PrimeTime">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="styles.css?v=949">
+<link rel="stylesheet" href="styles.css?v=950">
   <template data-provider-feature="statistics"><link rel="stylesheet" href="statistics-audit-ui.css?v=908"></template>
   <link rel="stylesheet" href="messages-center.css?v=886">
   <link rel="stylesheet" href="finance-center.css?v=895">
@@ -1242,7 +1242,7 @@
                   <strong>Первые шаги со складом</strong>
                   <ol><li>Добавьте материал в каталог.</li><li>Создайте склад для филиала.</li><li>Оформите приход — остаток появится по филиалу.</li><li>Если нужно автосписание, задайте норму расхода перед его включением.</li></ol>
                   <p id="inventoryFirstRunHint"></p>
-                  <button class="secondary-button" id="inventoryFirstRunAction" type="button" data-inventory-section="catalog">К каталогу и складам</button>
+                  <button class="secondary-button" id="inventoryFirstRunAction" type="button" data-inventory-target="catalog">К каталогу и складам</button>
                 </div>
                 <div class="inventory-settings">
                   <label class="settings-check"><input id="inventoryEnabled" type="checkbox" data-inventory-write><span><strong>Включить складской учёт</strong><small id="inventoryEnabledHint">По умолчанию выключено. Существующие остатки и записи не меняются.</small></span></label>
@@ -2168,7 +2168,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=949" defer></script>
+  <script src="site-update.js?v=950" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2221,7 +2221,7 @@
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
   <template data-provider-feature="statistics"><script src="statistics-audit-ui.js?v=908"></script><script src="statistics-audit-provider.js?v=908"></script></template>
-  <script src="provider.js?v=949" defer></script>
+  <script src="provider.js?v=950" defer></script>
   <script src="provider-porcelain-detail.js?v=946" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>

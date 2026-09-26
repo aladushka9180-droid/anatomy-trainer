@@ -61,6 +61,10 @@ try {
         notify:() => {}, requireWrites:() => false, getCurrentUser:() => ({ id:org }),
         getSessionGeneration:() => 1, sessionIsCurrent:() => true, applyWriteAvailability:() => {},
       });
+      window.inventoryController.bind();
+      window.inventoryForwarded = [];
+      document.querySelectorAll('.inventory-section-nav [data-inventory-section]').forEach(button =>
+        button.addEventListener('click', () => window.inventoryForwarded.push(button.dataset.inventorySection)));
     }, id);
     for (const sample of cases) {
       await page.evaluate(async ({ org, sample }) => {
@@ -74,12 +78,13 @@ try {
         const guideStyle = getComputedStyle(guide);
         const actionStyle = getComputedStyle(action);
         return { visible:!guide.hidden, steps:guide.querySelectorAll('li').length,
-          section:action.dataset.inventorySection, actionVisible:!action.hidden,
+          section:action.dataset.inventoryTarget, actionVisible:!action.hidden,
           hint:document.querySelector('#inventoryFirstRunHint').textContent,
           guideColors:[guideStyle.color, guideStyle.backgroundColor],
           actionColors:[actionStyle.color, actionStyle.backgroundColor],
           overflow:document.documentElement.scrollWidth > innerWidth + 1,
-          targetExists:!!document.querySelector(`[data-inventory-pane="${action.dataset.inventorySection}"]`) };
+          targetExists:!!document.querySelector(`[data-inventory-pane="${action.dataset.inventoryTarget}"]`),
+          tabRole:action.hasAttribute('aria-pressed') };
       });
       assert.equal(state.visible, !!sample.section, `${width}px ${sample.name}: guide`);
       assert.equal(state.overflow, false, `${width}px ${sample.name}: overflow`);
@@ -88,9 +93,15 @@ try {
         assert.equal(state.section, sample.section);
         assert.equal(state.actionVisible, sample.actionVisible !== false);
         assert.equal(state.targetExists, true);
+        assert.equal(state.tabRole, false);
         assert.match(state.hint, new RegExp(sample.hint));
         assert.ok(contrast(...state.guideColors) >= 4.5, `${width}px ${sample.name}: guide contrast`);
         if (state.actionVisible) assert.ok(contrast(...state.actionColors) >= 4.5, `${width}px ${sample.name}: action contrast`);
+        if (state.actionVisible) {
+          await page.locator('#inventoryFirstRunAction').click();
+          assert.equal(await page.evaluate(() => window.inventoryForwarded.pop()), sample.section,
+            `${width}px ${sample.name}: forwards to existing section control`);
+        }
       }
       if (sample.name === 'empty' && process.env.MINUTA_INVENTORY_SCREENSHOT_DIR) {
         mkdirSync(process.env.MINUTA_INVENTORY_SCREENSHOT_DIR, { recursive:true });
