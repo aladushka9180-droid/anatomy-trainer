@@ -15,6 +15,7 @@ function actual(name) {
 const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const browser = await chromium.launch({ headless:true, channel:process.env.BROWSER_CHANNEL || 'chrome' });
 try {
+  for (const theme of ['pink-porcelain', 'sage']) {
   for (const width of [390, 760, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:844 }, bypassCSP:true });
     const errors = [];
@@ -42,7 +43,7 @@ try {
       const money = value => new Intl.NumberFormat('ru-RU').format(value) + ' ₽';
       ${['updateNewBookingServiceOpen','openNewBookingServiceDialog','selectNewBookingService'].map(actual).join('\n')}
       document.documentElement.classList.remove('provider-booting', 'requires-top-level');
-      document.body.dataset.providerTheme = 'pink-porcelain';
+      document.body.dataset.providerTheme = '${theme}';
       document.body.classList.add('booking-sheet-open');
       document.querySelector('#providerBoot').hidden = true;
       document.querySelector('#bookingSheet').hidden = false;
@@ -62,7 +63,10 @@ try {
         if (picked) selectNewBookingService(picked.dataset.pickNewBookingService);
       });
     ` });
-    if (width <= 760) assert.equal(await page.locator('#newBookingServiceOpen').isVisible(), true, JSON.stringify(await page.locator('#newBookingServiceOpen').evaluate(button => ({ hidden:button.hidden, display:getComputedStyle(button).display, parent:button.parentElement?.outerHTML.slice(0, 400), sheet:document.querySelector('#bookingSheet').hidden, theme:document.body.dataset.providerTheme }))));
+    if (width <= 760) {
+      assert.equal((await page.locator('.new-booking-service-field').boundingBox()).width <= 1, true);
+      assert.equal(await page.locator('#newBookingServiceOpen').isVisible(), true, JSON.stringify(await page.locator('#newBookingServiceOpen').evaluate(button => ({ hidden:button.hidden, display:getComputedStyle(button).display, parent:button.parentElement?.outerHTML.slice(0, 400), sheet:document.querySelector('#bookingSheet').hidden, theme:document.body.dataset.providerTheme }))));
+    }
     await page.locator('#newBookingServiceOpen').evaluate(button => button.click());
     assert.equal(await page.locator('#newBookingServiceDialog').isVisible(), true);
     assert.equal(await page.locator('#newBookingServiceList button').count(), 2);
@@ -82,5 +86,6 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log('Service picker: 390, 760, 1440 passed');
+  }
+  console.log('Service picker: pink-porcelain and sage at 390, 760, 1440 passed');
 } finally { await browser.close(); }

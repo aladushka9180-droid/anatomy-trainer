@@ -11353,7 +11353,7 @@ function setNewBookingMode(mode) {
   }
   $('#newBookingClientFields').hidden = block;
   $('#newBookingBlockFields').hidden = !block;
-  if (block && document.body.dataset.providerTheme === 'pink-porcelain' && matchMedia('(max-width:760px)').matches) {
+  if (block && matchMedia('(max-width:760px)').matches) {
     $('#newBookingBlockFields').open = true;
   }
   $('#newBookingName').required = !block;
