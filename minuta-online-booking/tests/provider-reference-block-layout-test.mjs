@@ -6,6 +6,13 @@ import path from 'node:path';
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const source = readFileSync(path.join(root, 'provider.js'), 'utf8');
 assert.match(source, /title\.textContent = 'Занять время';/);
+assert.match(source, /const current = selectedDate === todayIso && currentFilter === 'day';/);
+assert.match(source, /businessTodayIso\(now\) !== renderedBusinessToday\) refreshBusinessDay\(\);/);
+const todayStart = source.indexOf('function businessTodayIso(');
+const todayEnd = source.indexOf('\nfunction ', todayStart + 1);
+const businessTodayIso = new Function(`${source.slice(todayStart,todayEnd)}; return businessTodayIso;`)();
+assert.equal(businessTodayIso(new Date('2026-09-26T19:59:59Z')),'2026-09-26');
+assert.equal(businessTodayIso(new Date('2026-09-26T20:00:00Z')),'2026-09-27');
 const start = source.indexOf('function layoutNewBookingBlockFields()');
 const end = source.indexOf('\nfunction ', start + 1);
 assert.ok(start >= 0);
@@ -45,6 +52,22 @@ try {
         token:getComputedStyle(document.body).getPropertyValue('--theme-accent').trim(),
         overflow:document.documentElement.scrollWidth>innerWidth };
     });
+    const todayStates = await page.evaluate(() => {
+      const button=document.querySelector('.date-today-button');
+      button.classList.remove('is-current');
+      const neutral=getComputedStyle(button).backgroundColor;
+      const neutralInk=getComputedStyle(button).color;
+      button.classList.add('is-current');
+      const current=getComputedStyle(button).backgroundColor;
+      button.classList.remove('is-current');
+      const probe=document.createElement('span');
+      probe.style.color='var(--theme-ink)';document.body.append(probe);
+      const expectedInk=getComputedStyle(probe).color;probe.remove();
+      return { neutral,current,neutralInk,expectedInk };
+    });
+    assert.notEqual(todayStates.current,todayStates.neutral,JSON.stringify({theme,width,todayStates}));
+    assert.equal(todayStates.neutral,'rgb(255, 255, 255)',JSON.stringify({theme,width,todayStates}));
+    assert.equal(todayStates.neutralInk,todayStates.expectedInk,JSON.stringify({theme,width,todayStates}));
     assert.equal(result.sameRow, width<=760, JSON.stringify({theme,width,result}));
     assert.equal(result.caption, width<=760?'Когда':'Дата');
     assert.equal(result.moved, width<=760);

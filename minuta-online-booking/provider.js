@@ -1775,6 +1775,7 @@ function updateScheduleNowMarkers(now = new Date()) {
 }
 function renderTopbarDateTime() {
   const now = new Date();
+  if (businessTodayIso(now) !== renderedBusinessToday) refreshBusinessDay();
   const dateLabel = $('#todayLabel');
   const timeLabel = $('#currentTimeLabel');
   if (dateLabel) dateLabel.textContent = new Intl.DateTimeFormat('ru-RU', { timeZone:'Europe/Samara', weekday:'long', day:'numeric', month:'long' }).format(now);
@@ -7401,7 +7402,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
   if (picker) picker.value = selectedDate;
   const todayButton = $('[data-date-today]');
   if (todayButton) {
-    const current = selectedDate === todayIso && calendarView === 'day' && currentFilter === 'day';
+    const current = selectedDate === todayIso && currentFilter === 'day';
     todayButton.hidden = false;
     todayButton.classList.toggle('is-current', current);
     todayButton.setAttribute('aria-pressed', String(current));
