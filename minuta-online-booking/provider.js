@@ -2344,7 +2344,7 @@ function groupMobileMoreNavigation() {
   const groups = [
     { title:'Ежедневная работа', keys:['bookings','clients','messages','notifications','waitlist'] },
     { title:'Настройка бизнеса', keys:['schedule','services','organization'] },
-    { title:'Развитие', keys:['analytics','portfolio'] },
+    { title:'Развитие', keys:['analytics','portfolio'], extras:['.mobile-master-profile-link'] },
     { title:'Система', keys:['feedback-inbox','settings'], extras:['.mobile-help-shortcut','[data-open-product-feedback]'] }
   ];
   groups.forEach(({ title, keys, extras = [] }) => {

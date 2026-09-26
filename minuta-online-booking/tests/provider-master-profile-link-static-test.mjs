@@ -5,11 +5,14 @@ const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('provider.html', root), 'utf8');
 const worker = readFileSync(new URL('sw.js', root), 'utf8');
 const update = readFileSync(new URL('site-update.js', root), 'utf8');
+const provider = readFileSync(new URL('provider.js', root), 'utf8');
 const version = worker.match(/CACHE_PREFIX}v(\d+)/)?.[1];
 
 assert.ok(version, 'PWA cache version is present');
 assert.match(html, /<a class="provider-master-profile-link" href="https:\/\/primetime-booking\.primetime-booking-ru\.workers\.dev\/for-masters" target="_blank" rel="noopener noreferrer">[\s\S]*?<span>Профили мастеров<\/span><\/a>/);
 assert.match(html, /<a class="provider-client-link" href="index\.html" target="_blank" rel="noopener noreferrer">[\s\S]*?<span>Страница клиента<\/span><\/a>/);
+assert.match(html, /<a class="mobile-master-profile-link" href="https:\/\/primetime-booking\.primetime-booking-ru\.workers\.dev\/for-masters" target="_blank" rel="noopener noreferrer">[\s\S]*?<strong>Профили мастеров<\/strong>/);
+assert.match(provider, /title:'Развитие', keys:\['analytics','portfolio'\], extras:\['\.mobile-master-profile-link'\]/);
 assert.ok(html.includes(`site-update.js?v=${version}`));
 assert.ok(html.includes(`provider.js?v=${version}`));
 assert.ok(html.includes(`provider-reference-screens.css?v=${version}`));
