@@ -16,7 +16,7 @@ const manifest = JSON.parse(read('provider.webmanifest'));
 assert.match(provider, /<title>PrimeTime Pro — кабинет исполнителя<\/title>/);
 assert.match(provider, /apple-mobile-web-app-title" content="PrimeTime"/);
 assert.match(provider, /<span class="provider-boot-mark"[^>]*>PT<\/span>/);
-assert.match(provider, /<span class="brand-mark">PT<\/span><span><strong>PrimeTime Pro<\/strong>/);
+assert.match(provider, /<span class="brand-mark">PT<\/span><span><strong>PrimeTime (?:Pro|<em>Pro<\/em>)<\/strong>/);
 const iconVersion = provider.match(/rel="icon" href="provider-icon\.svg\?v=(\d+)"/)?.[1];
 assert.ok(iconVersion, 'У кабинета нет версионированной иконки');
 assert.ok(worker.includes(`'./provider-icon.svg?v=${iconVersion}'`), 'Иконка кабинета не согласована с service worker');
