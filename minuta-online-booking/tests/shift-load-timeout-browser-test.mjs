@@ -30,14 +30,15 @@ try {
       sessionIsCurrent:() => true,
       loadTimeoutMs:20
     });
+    window.shiftController.bind();
   });
   const first = await page.evaluate(() => shiftController.setOrganization({id:'test-organization'}));
   assert.equal(first.ok,false);
   assert.equal(await page.locator('#shiftsLoading').isVisible(),false);
   assert.equal(await page.locator('#shiftsUnavailable').isVisible(),true);
   assert.match(await page.locator('#shiftsUnavailableText').textContent(),/Повторите загрузку/);
-  const second = await page.evaluate(() => shiftController.load());
-  assert.equal(second.ok,false);
+  await page.locator('#reloadShifts').click();
+  await page.waitForFunction(() => shiftCalls === 2 && document.querySelector('#shiftsUnavailableText').textContent.includes('Не удалось загрузить'));
   assert.equal(await page.evaluate(() => shiftCalls),2);
   assert.equal(await page.locator('#shiftsLoading').isVisible(),false);
   assert.match(await page.locator('#shiftsUnavailableText').textContent(),/Не удалось загрузить/);

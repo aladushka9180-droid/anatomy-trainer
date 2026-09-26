@@ -28,6 +28,7 @@ jobs:
       - name: Keep layout picker geometry independent
         run: node minuta-online-booking/tests/provider-layout-picker-geometry-browser-test.mjs
       - run: node minuta-online-booking/provider-schedule-minimal-browser-test.cjs
+      - run: node minuta-online-booking/tests/shift-load-timeout-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-magnetic-schedule-browser-test.mjs
       - run: node minuta-online-booking/provider-services-organization-browser-test.cjs
       - run: node minuta-online-booking/tests/provider-service-actions-browser-test.mjs
