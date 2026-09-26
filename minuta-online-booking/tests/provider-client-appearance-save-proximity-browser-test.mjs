@@ -43,6 +43,8 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(url);
   await page.evaluate(() => {
+    document.body.dataset.providerTheme = 'sage';
+    document.body.dataset.providerLayout = 'soft';
     document.documentElement.classList.remove('provider-booting', 'requires-top-level');
     document.querySelector('#dashboard').hidden = false;
     document.querySelector('#providerBoot').hidden = true;
@@ -103,6 +105,28 @@ try {
       });
     }
   }
+  const providerSource = await readFile(path.join(root, 'provider.js'), 'utf8');
+  const quickStartFunction = providerSource.match(/function refreshSettingsQuickStart\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(quickStartFunction, 'First-run visibility must still be controlled by provider.js');
+  await page.addScriptTag({ content: `window.ownServices=[];window.scheduleRows=[];window.$=selector=>document.querySelector(selector);${quickStartFunction}` });
+  for (const width of [390, 760, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => refreshSettingsQuickStart());
+    const guide = page.locator('#settingsQuickStart');
+    assert.equal(await guide.isVisible(), true, `${width}px new cabinet needs its first-run guide`);
+    await guide.locator('summary').click();
+    assert.equal(await guide.locator('ol > li').count(), 5);
+    assert.deepEqual(await guide.locator('button[data-provider-view]').evaluateAll(buttons => buttons.map(button => button.dataset.providerView)), ['services', 'schedule']);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, `${width}px first-run guide overflows`);
+    if (process.env.MINUTA_UI_OUTPUT) {
+      await guide.screenshot({ path: path.join(process.env.MINUTA_UI_OUTPUT, `client-page-first-run-${width}.png`) });
+    }
+    await guide.locator('summary').click();
+  }
+  await page.evaluate(() => { ownServices = [{ active:true }]; scheduleRows = [{ enabled:true }]; refreshSettingsQuickStart(); });
+  assert.equal(await page.locator('#settingsQuickStart').isVisible(), false, 'Completed cabinet does not repeat first-run steps');
+  await page.evaluate(() => { scheduleRows = []; refreshSettingsQuickStart(); });
+  assert.equal(await page.locator('#settingsQuickStart').isVisible(), true, 'Incomplete schedule keeps first-run help available');
   assert.deepEqual(errors, []);
   console.log('Provider client appearance save proximity: 390/760/1440 PASS');
 } finally {
