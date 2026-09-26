@@ -254,7 +254,7 @@
       renderBookingOptions();
       renderProductServices();
       const workflow=$('#benefitWorkflowStatus');
-      if(workflow)workflow.textContent=!payload.enabled?'Система выключена. Включить её может владелец организации.':!payload.products.length?'Система включена. Следующий шаг: создайте первый продукт.':!payload.instruments.length?'Продукты созданы. Следующий шаг: выдайте продукт клиенту.':`Система работает. Выдано клиентам: ${payload.instruments.length}.`;
+      if(workflow)workflow.textContent=!payload.enabled?'Система выключена. Включить её может владелец организации.':!payload.products.length?'Система включена. Следующий шаг: создайте первый продукт.':!payload.instruments.length?'Продукты созданы. Оформите продажу или выдайте продукт без продажи.':`Система работает. Выдано клиентам: ${payload.instruments.length}.`;
       setBusy(false); applyWriteAvailability();renderIssueRecovery();
     }
 

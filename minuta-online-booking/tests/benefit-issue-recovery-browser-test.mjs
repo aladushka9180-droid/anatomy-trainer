@@ -77,6 +77,7 @@ try{
   assert.equal(await page.locator('#benefitsPanel .benefit-guide li').count(),4);
   assert.match(await page.locator('#benefitsPanel .benefit-guide').innerText(),/Оформите продажу.*без продажи/s);
   assert.match(await page.locator('#benefitInstrumentsList').innerText(),/Продажи.*без продажи/s);
+  assert.match(await page.locator('#benefitWorkflowStatus').innerText(),/Оформите продажу.*без продажи/s);
   assert.match(await page.locator('#benefitIssueCreator > summary').innerText(),/Выдать без продажи/);
   assert.equal(await page.locator('#benefitIssueForm button[type=submit]').innerText(),'Выдать без продажи');
   assert.equal(await page.evaluate(()=>issueState.calls.length),0,'First-run guide does not create a sale or issue');
