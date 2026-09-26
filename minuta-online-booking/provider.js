@@ -16922,8 +16922,10 @@ document.addEventListener('click', async event => {
   }
   if (openNotificationDelivery) {
     await Promise.resolve(setProviderView('notifications'));
-    $('#notificationDeliveryTitle')?.focus({ preventScroll:true });
-    $('.notification-primary-queue')?.scrollIntoView({ block:'start' });
+    requestAnimationFrame(() => {
+      $('#notificationDeliveryTitle')?.focus({ preventScroll:true });
+      $('.notification-primary-queue')?.scrollIntoView({ block:'start' });
+    });
   }
   if (closeNotificationTemplates) $('#notificationTemplatesDialog').close();
   if (openServiceCreator) {

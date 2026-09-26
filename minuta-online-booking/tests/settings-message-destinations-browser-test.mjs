@@ -13,13 +13,13 @@ const [html, script, css, sw] = await Promise.all([
 
 assert.match(html, /data-section-target="telegramClientSettingsCard">Telegram и связь<\/button>/);
 assert.match(html, /<nav class="telegram-client-related"[^>]*aria-label="Другие разделы сообщений"[^>]*>[\s\S]*?data-provider-view="messages"[\s\S]*?data-open-notification-templates[\s\S]*?data-open-notification-delivery[\s\S]*?<\/nav>/);
-assert.match(script, /if \(openNotificationDelivery\) \{\s*await Promise\.resolve\(setProviderView\('notifications'\)\);\s*\$\('#notificationDeliveryTitle'\)\?\.focus\(\{ preventScroll:true \}\);\s*\$\('\.notification-primary-queue'\)\?\.scrollIntoView/);
+assert.match(script, /if \(openNotificationDelivery\) \{\s*await Promise\.resolve\(setProviderView\('notifications'\)\);\s*requestAnimationFrame\(\(\) => \{\s*\$\('#notificationDeliveryTitle'\)\?\.focus\(\{ preventScroll:true \}\);\s*\$\('\.notification-primary-queue'\)\?\.scrollIntoView/);
 assert.match(html, /<h3 id="notificationDeliveryTitle" tabindex="-1">Доставка<\/h3>/);
 assert.match(html, /provider-ux\.css\?v=956/);
-assert.match(html, /provider\.js\?v=957/);
-assert.match(sw, /CACHE_PREFIX}v957/);
+assert.match(html, /provider\.js\?v=958/);
+assert.match(sw, /CACHE_PREFIX}v958/);
 assert.match(sw, /provider-ux\.css\?v=956/);
-assert.match(sw, /provider\.js\?v=957/);
+assert.match(sw, /provider\.js\?v=958/);
 assert.match(sw, /const OPTIONAL_ASSETS = \[[\s\S]*?'\.\/utm-funnel\.css\?v=811'/);
 
 const section = html.match(/<nav class="telegram-client-related"[\s\S]*?<\/nav>/)?.[0];
