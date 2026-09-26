@@ -14,7 +14,7 @@ const html = readFileSync(path.join(root, 'provider.html'), 'utf8').replace(/<sc
 const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const browser = await chromium.launch({ headless:true, channel:'chrome' });
 try {
-  for (const theme of ['sage', 'pink-porcelain']) for (const width of [390, 760, 1024, 1440]) {
+  for (const theme of ['sage', 'pink-porcelain']) for (const width of [390, 760, 900, 1024, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:844 }, bypassCSP:true });
     await page.route('**/*', route => {
       const url = new URL(route.request().url());
@@ -33,7 +33,8 @@ try {
       $('#providerBoot').hidden=true; $('#bookingSheet').hidden=false;
       $('#bookingSheet').classList.add('new-booking-sheet'); document.body.classList.add('booking-sheet-open');
       $('#bookingSheetContent').innerHTML='<h2>Занять время</h2><form class="new-booking-form" data-mode="block"><div class="new-booking-layout"><section class="new-booking-section"><div class="new-booking-section-title"><strong>Название</strong></div><details id="newBookingBlockFields" open><summary>Название</summary><label><input></label></details><label id="newBookingBlockDurationField">Длительность<select><option>60 мин</option></select></label><div id="newBookingDurationField"></div><details id="newBookingAdvanced"><summary>Дополнительно</summary></details></section><section class="new-booking-section new-booking-date-time-section"><div class="new-booking-section-title"><strong>Когда</strong></div><div id="newBookingDateTimeEditor" class="new-booking-date-time-editor"><label class="new-booking-date-field"><span class="sr-only">Дата</span><input type="date"></label><div role="group"><button>12:30</button></div></div></section></div><div class="booking-sheet-submit-bar"><button class="primary">Занять время</button></div></form>';
-      layoutNewBookingBlockFields();` });
+      layoutNewBookingBlockFields();
+      if (${width>=761}) { $('#bookingSheet').hidden=true; document.body.classList.remove('booking-sheet-open'); }` });
     const result = await page.evaluate(() => {
       const a = document.querySelector('#newBookingBlockDurationField').getBoundingClientRect();
       const b = document.querySelector('.new-booking-date-field').getBoundingClientRect();
@@ -59,14 +60,18 @@ try {
           active:getComputedStyle(buttons[0]).backgroundColor, todayWidth:today.getBoundingClientRect().width,
           groupHeight:group.getBoundingClientRect().height, todayHeight:today.getBoundingClientRect().height,
           groupRight:group.getBoundingClientRect().right,todayX:today.getBoundingClientRect().x,
-          todayRight:today.getBoundingClientRect().right,pickerX:picker.getBoundingClientRect().x };
+          todayRight:today.getBoundingClientRect().right,pickerX:picker.getBoundingClientRect().x,
+          pickerRight:picker.getBoundingClientRect().right,pickerY:picker.getBoundingClientRect().y,
+          groupBottom:group.getBoundingClientRect().bottom };
       });
       assert.equal(controls.gap, '0px', JSON.stringify({theme,width,controls}));
       assert.equal(controls.radius, '0px');
-      assert.ok(controls.todayWidth >= 150);
+      assert.ok(controls.todayWidth >= (width>1100?150:130));
       assert.ok(Math.abs(controls.groupHeight-controls.todayHeight)<2);
       assert.ok(controls.todayX >= controls.groupRight + 6, JSON.stringify({theme,width,controls}));
-      assert.ok(controls.pickerX >= controls.todayRight + 4, JSON.stringify({theme,width,controls}));
+      if (width > 950) assert.ok(controls.pickerX >= controls.todayRight + 4, JSON.stringify({theme,width,controls}));
+      else assert.ok(controls.pickerY >= controls.groupBottom, JSON.stringify({theme,width,controls}));
+      assert.ok(controls.pickerRight <= width, JSON.stringify({theme,width,controls}));
     }
     if (process.env.MINUTA_REFERENCE_SCREENSHOTS) {
       mkdirSync(process.env.MINUTA_REFERENCE_SCREENSHOTS, { recursive:true });
@@ -74,5 +79,5 @@ try {
     }
     await page.close();
   }
-  console.log('Block editor and calendar controls: Sage/Pink 390/760/1024/1440 passed');
+  console.log('Block editor and calendar controls: Sage/Pink 390/760/900/1024/1440 passed');
 } finally { await browser.close(); }
