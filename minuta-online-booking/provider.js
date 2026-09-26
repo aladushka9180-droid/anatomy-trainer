@@ -6830,10 +6830,10 @@ function setAuthTabImmediate(tab) {
   $('#loginForm').hidden = tab !== 'login';
   $('#signupForm').hidden = tab !== 'signup';
   $('#authBadge').innerHTML = '<i></i> Личный кабинет';
-  $('#authTitle').textContent = tab === 'login' ? 'Все записи под рукой.' : 'Создайте свой кабинет.';
+  $('#authTitle').textContent = tab === 'login' ? 'С возвращением!' : 'Создание аккаунта';
   $('#authDescription').textContent = tab === 'login'
-    ? 'Войдите или зарегистрируйтесь, чтобы управлять расписанием и услугами.'
-    : 'Укажите данные исполнителя — после подтверждения почты можно принимать записи.';
+    ? 'Управляйте расписанием, записями и услугами.'
+    : 'Управляйте расписанием, записями и услугами.';
 }
 function setAuthTab(tab) {
   const previousTab = $('[data-auth-tab].active')?.dataset.authTab;
@@ -10900,7 +10900,7 @@ function renderNewBookingTimePicker({ offline = false, historical = false } = {}
   }
   const nearbySlots = bookingNearbyTimeSlots(newBookingSlots, newBookingTime, newBookingPreferredTime);
   const preferredUnavailable = newBookingPreferredUnavailableMarkup();
-  holder.innerHTML = `${offline ? '<div class="booking-time-warning">Предварительные варианты из последней сохранённой копии. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable}
+  holder.innerHTML = `${offline ? '<div class="booking-time-warning">Нет интернета. Показано сохранённое расписание. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable}
     <div class="booking-time-guide"><strong>Ближайшие окна</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : 'Шаг записи — 30 минут'}</span></div>
     <div class="booking-time-slots booking-time-slots-nearby">${nearbySlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
     ${bookingRemainingTimeMarkup(newBookingSlots, nearbySlots, newBookingTime)}`;
@@ -11293,6 +11293,35 @@ function updateNewBookingHeading() {
     : 'Новая запись';
 }
 
+function updateNewBookingServiceOpen() {
+  const button = $('#newBookingServiceOpen');
+  const select = $('#newBookingService');
+  if (!button || !select) return;
+  button.hidden = newBookingMode === 'block' || Boolean(newBookingRepeatVisit);
+  const chosen = ownServices.find(item => item.active && item.id === select.value);
+  $('#newBookingServiceOpenName').textContent = chosen?.name || 'Выберите услугу';
+}
+
+function openNewBookingServiceDialog() {
+  const dialog = $('#newBookingServiceDialog');
+  if (!dialog || dialog.open || !$('#newBookingService') || newBookingMode !== 'client') return;
+  const selected = $('#newBookingService').value;
+  const active = ownServices.filter(item => item.active);
+  $('#newBookingServiceList').innerHTML = active.map(item => `<button type="button" role="radio" aria-checked="${item.id === selected}" data-pick-new-booking-service="${escapeHtml(item.id)}"><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(String(item.duration_minutes))} мин · ${money(item.price_rub)}</small></span><i aria-hidden="true"></i></button>`).join('') || '<p>Активных услуг нет</p>';
+  $('#newBookingServiceSearch').value = '';
+  dialog.showModal();
+  $('#newBookingServiceSearch').focus();
+}
+
+function selectNewBookingService(id) {
+  const select = $('#newBookingService');
+  if (!select || !ownServices.some(item => item.active && item.id === id)) return;
+  select.value = id;
+  select.dispatchEvent(new Event('change', { bubbles:true }));
+  updateNewBookingServiceOpen();
+  $('#newBookingServiceDialog')?.close();
+}
+
 function setNewBookingMode(mode) {
   const nextMode = !newBookingRepeatVisit && mode === 'block' ? 'block' : 'client';
   const previousMode = newBookingMode;
@@ -11324,6 +11353,9 @@ function setNewBookingMode(mode) {
   }
   $('#newBookingClientFields').hidden = block;
   $('#newBookingBlockFields').hidden = !block;
+  if (block && document.body.dataset.providerTheme === 'pink-porcelain' && matchMedia('(max-width:760px)').matches) {
+    $('#newBookingBlockFields').open = true;
+  }
   $('#newBookingName').required = !block;
   $('#newBookingPhone').required = !block;
   $('#newBookingBlockTitle').required = false;
@@ -11347,6 +11379,7 @@ function setNewBookingMode(mode) {
   serviceSelect.required = !block;
   serviceSelect.disabled = Boolean(newBookingRepeatVisit);
   if (!block && selectedService) serviceSelect.value = selectedService;
+  updateNewBookingServiceOpen();
   if ($('#newBookingBlockDurationField')) $('#newBookingBlockDurationField').hidden = !block;
   if ($('#newBookingBlockDuration')) $('#newBookingBlockDuration').value = String(newBookingModeState.block.durationMinutes || 60);
   const clientUnavailable = $('#newBookingClientServiceUnavailable');
@@ -11454,6 +11487,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
           <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields" id="newBookingClientEntry"><label class="new-booking-name-field"><span class="sr-only">Имя клиента</span><input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<span class="new-booking-phone-control"><input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required><span class="new-booking-phone-actions"><button id="newBookingContactPicker" type="button" aria-label="Выбрать из телефонной книги" title="Выбрать из телефонной книги" hidden>${uiIcon('users')}</button><button id="newBookingRecentCalls" type="button" aria-label="Выбрать из недавних входящих звонков" title="Недавние входящие" hidden>${uiIcon('clock')}<span>Звонки</span></button></span></span></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div></div>
           <details class="new-booking-block-fields new-booking-block-title" id="newBookingBlockFields" hidden><summary><span id="newBookingBlockTitleSummary">Добавить название</span></summary><label><span class="sr-only">Название перерыва</span><input id="newBookingBlockTitle" maxlength="80" placeholder="Например, обед или личное дело"></label></details>
           <label class="new-booking-service-field"><span class="sr-only" id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
+          <button class="new-booking-service-open" id="newBookingServiceOpen" type="button" aria-haspopup="dialog" aria-controls="newBookingServiceDialog" hidden><span><small>Услуга</small><strong id="newBookingServiceOpenName">${escapeHtml(selectedService?.name || 'Выберите услугу')}</strong></span><span aria-hidden="true">⌄</span></button>
           <p class="booking-time-warning" id="newBookingClientServiceUnavailable" ${services.length ? 'hidden' : ''}>Для записи клиента сначала добавьте активную услугу. Занять время можно уже сейчас.</p>
           ${repeatVisitPreviewMarkup(newBookingRepeatVisit)}
           <label id="newBookingBlockDurationField" hidden>Длительность<select id="newBookingBlockDuration">${blockDurationChoices(60)}</select></label>
@@ -16582,7 +16616,39 @@ document.addEventListener('focusout', event => {
   resumeTimelineBookingUndoCountdown();
 });
 
+$('#newBookingServiceSearch')?.addEventListener('input', event => {
+  const query = event.target.value.trim().toLocaleLowerCase('ru-RU');
+  $$('#newBookingServiceList [data-pick-new-booking-service]').forEach(button => {
+    button.hidden = !button.textContent.toLocaleLowerCase('ru-RU').includes(query);
+  });
+});
+$('#newBookingServiceDialog')?.addEventListener('close', () => $('#newBookingServiceOpen')?.focus());
+
 document.addEventListener('click', async event => {
+  if (event.target.closest('#newBookingServiceOpen')) {
+    openNewBookingServiceDialog();
+    return;
+  }
+  if (event.target.closest('#closeNewBookingServiceDialog')) {
+    $('#newBookingServiceDialog').close();
+    return;
+  }
+  const pickedService = event.target.closest('[data-pick-new-booking-service]');
+  if (pickedService) {
+    selectNewBookingService(pickedService.dataset.pickNewBookingService);
+    return;
+  }
+  const passwordToggle = event.target.closest('[data-auth-password-toggle]');
+  if (passwordToggle) {
+    const field = document.getElementById(passwordToggle.dataset.authPasswordToggle);
+    if (field) {
+      const visible = field.type === 'password';
+      field.type = visible ? 'text' : 'password';
+      passwordToggle.setAttribute('aria-pressed', String(visible));
+      passwordToggle.setAttribute('aria-label', visible ? 'Скрыть пароль' : 'Показать пароль');
+    }
+    return;
+  }
   if (event.target.closest('[data-retry-provider-reviews]')) {
     const retry = event.target.closest('[data-retry-provider-reviews]');
     retry.disabled = true;

@@ -54,6 +54,7 @@
   <template data-provider-feature="scanner"><link rel="stylesheet" href="code-scanner.css?v=811"></template>
   <link rel="stylesheet" href="provider-theme-noir-safari.css?v=811">
   <link rel="stylesheet" href="provider-price-list.css?v=871">
+  <link rel="stylesheet" href="provider-reference-screens.css?v=948">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -66,14 +67,14 @@
 
   <main class="provider-main">
     <section class="auth-card" id="authCard" hidden>
-      <a class="brand" href="index.html" aria-label="PrimeTime Pro — к онлайн-записи"><span class="brand-mark">PT</span><span><strong>PrimeTime Pro</strong><small>кабинет исполнителя</small></span></a>
+      <a class="brand" href="index.html" aria-label="PrimeTime Pro — к онлайн-записи"><span class="brand-mark">PT</span><span><strong>PrimeTime <em>Pro</em></strong><small>Кабинет исполнителя</small></span></a>
       <span class="status" id="authBadge"><i></i> Личный кабинет</span>
-      <h1 id="authTitle">Все записи под рукой.</h1>
-      <p id="authDescription">Войдите или зарегистрируйтесь, чтобы управлять расписанием и услугами.</p>
+      <h1 id="authTitle">С возвращением!</h1>
+      <p id="authDescription">Управляйте расписанием, записями и услугами.</p>
       <div class="auth-tabs" id="authTabs"><button class="active" type="button" data-auth-tab="login">Вход</button><button type="button" data-auth-tab="signup">Регистрация</button></div>
       <form id="loginForm" class="auth-form" aria-labelledby="authTitle" aria-describedby="authDescription loginError">
-        <label>Email<input id="loginEmail" type="email" autocomplete="email" placeholder="name@example.com" aria-describedby="loginError" required></label>
-        <label>Пароль<input id="loginPassword" type="password" autocomplete="current-password" minlength="6" aria-describedby="loginError" required></label>
+        <label>Email<span class="auth-input-wrap"><span class="auth-input-symbol" aria-hidden="true">✉</span><input id="loginEmail" type="email" autocomplete="email" placeholder="Введите email" aria-describedby="loginError" required></span></label>
+        <label>Пароль<span class="auth-input-wrap"><svg class="ui-icon auth-input-symbol" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg><input id="loginPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Введите пароль" aria-describedby="loginError" required><button class="auth-password-visibility" type="button" data-auth-password-toggle="loginPassword" aria-label="Показать пароль" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span></label>
         <button class="forgot-password-button" id="forgotPasswordButton" type="button">Забыли пароль?</button>
         <p class="form-error" id="loginError" role="alert" aria-atomic="true" hidden></p><button class="primary" type="submit">Войти</button>
         <div id="providerSocialOptions" hidden>
@@ -102,10 +103,11 @@
         <button class="auth-back-button" id="providerPhoneLoginBack" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Войти по email</span></button>
       </form>
       <form id="signupForm" class="auth-form" aria-labelledby="authTitle" aria-describedby="authDescription signupError" hidden>
-        <label>Ваше имя<input id="signupName" autocomplete="name" placeholder="Например, Анна" maxlength="80" aria-describedby="signupError" required></label>
-        <label>Email<input id="signupEmail" type="email" autocomplete="email" placeholder="name@example.com" aria-describedby="signupError" required></label>
-        <label>Пароль<input id="signupPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" aria-describedby="signupError" required></label>
-        <p class="form-error" id="signupError" role="alert" aria-atomic="true" hidden></p><button class="primary" type="submit">Создать кабинет</button>
+        <label>Имя<span class="auth-input-wrap"><svg class="ui-icon auth-input-symbol" aria-hidden="true"><use href="ui-icons.svg#icon-user"></use></svg><input id="signupName" autocomplete="name" placeholder="Введите ваше имя" maxlength="80" aria-describedby="signupError" required></span></label>
+        <label>Email<span class="auth-input-wrap"><span class="auth-input-symbol" aria-hidden="true">✉</span><input id="signupEmail" type="email" autocomplete="email" placeholder="Введите email" aria-describedby="signupError" required></span></label>
+        <label>Пароль<span class="auth-input-wrap"><svg class="ui-icon auth-input-symbol" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg><input id="signupPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Придумайте пароль" aria-describedby="signupError" required><button class="auth-password-visibility" type="button" data-auth-password-toggle="signupPassword" aria-label="Показать пароль" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span></label>
+        <small class="auth-password-hint">Минимум 8 символов</small>
+        <p class="form-error" id="signupError" role="alert" aria-atomic="true" hidden></p><button class="primary" type="submit">Создать аккаунт</button>
       </form>
       <form id="recoveryForm" class="auth-form" aria-labelledby="authTitle" aria-describedby="authDescription recoveryError" hidden>
         <label>Email исполнителя<input id="recoveryEmail" type="email" autocomplete="email" placeholder="name@example.com" aria-describedby="recoveryError" required></label>
@@ -126,6 +128,11 @@
         <a class="provider-apk-download" href="https://github.com/aladushka9180-droid/anatomy-trainer/releases/latest/download/PrimeTime-Pro.apk" aria-label="Скачать PrimeTime Pro для Android"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Скачать APK для Android</span></a>
       </div>
     </section>
+    <aside class="auth-benefits" aria-label="Преимущества PrimeTime Pro">
+      <div><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg><span><strong>Ваши данные в безопасности</strong><small>Современные методы защиты</small></span></div>
+      <div><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-monitor"></use></svg><span><strong>Работает на любых устройствах</strong><small>Компьютер, планшет и телефон</small></span></div>
+      <div><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span><strong>Экономит ваше время</strong><small>Всё необходимое в одном месте</small></span></div>
+    </aside>
 
     <section class="provider-app" id="dashboard" hidden>
       <aside class="provider-sidebar">
@@ -2035,6 +2042,11 @@
       <div id="bookingSheetContent"></div>
     </section>
   </div>
+  <dialog class="new-booking-service-dialog" id="newBookingServiceDialog" aria-labelledby="newBookingServiceDialogTitle">
+    <div class="new-booking-service-head"><span class="booking-sheet-handle" aria-hidden="true"></span><h2 id="newBookingServiceDialogTitle">Выберите услугу</h2><button type="button" id="closeNewBookingServiceDialog" aria-label="Закрыть выбор услуги">×</button></div>
+    <label class="new-booking-service-search"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg><input id="newBookingServiceSearch" type="search" placeholder="Поиск услуг" aria-label="Поиск услуг"></label>
+    <div class="new-booking-service-list" id="newBookingServiceList" role="radiogroup" aria-label="Услуги"></div>
+  </dialog>
   <dialog class="voice-assistant-dialog" id="voiceAssistantDialog" aria-labelledby="voiceAssistantTitle" aria-describedby="voiceAssistantLead">
     <div class="voice-assistant-shell">
       <div class="voice-assistant-head">
@@ -2150,7 +2162,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=947" defer></script>
+  <script src="site-update.js?v=948" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2203,7 +2215,7 @@
   <script src="finance-center-provider.js?v=811" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
   <template data-provider-feature="statistics"><script src="statistics-audit-ui.js?v=908"></script><script src="statistics-audit-provider.js?v=908"></script></template>
-  <script src="provider.js?v=947" defer></script>
+  <script src="provider.js?v=948" defer></script>
   <script src="provider-porcelain-detail.js?v=946" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>
