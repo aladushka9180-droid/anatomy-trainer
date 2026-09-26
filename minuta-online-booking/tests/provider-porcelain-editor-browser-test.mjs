@@ -115,14 +115,18 @@ try {
         const body = document.querySelector('#providerPorcelainPreview').contentDocument?.body;
         return body?.dataset.providerPorcelainCharacter === character && body.style.getPropertyValue('--theme-bg') === bg && body.style.getPropertyValue('--theme-accent') === accent;
       }, { character, bg:expected.bg, accent:expected.accent });
-      const controlColor = await frame.locator('.date-today-button').evaluate(button => getComputedStyle(button).backgroundColor);
+      const todayState = await frame.locator('.date-today-button').evaluate(button => ({
+        background:getComputedStyle(button).backgroundColor,
+        current:button.classList.contains('is-current')
+      }));
       const action = expected.actionBg.match(/[a-f\d]{2}/gi).map(part => parseInt(part, 16));
-      assert.equal(controlColor, `rgb(${action.join(', ')})`, `${character}/${shade}: actual selected control is not the soft action shade`);
+      assert.equal(todayState.current,false,`${character}/${shade}: preview is dated away from today`);
+      assert.equal(todayState.background,'rgb(255, 255, 255)',`${character}/${shade}: Today must be neutral on another date`);
       await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainApply')).backgroundColor === color, `rgb(${action.join(', ')})`);
       assert.equal(await page.locator('#providerPorcelainApply').evaluate(button => getComputedStyle(button).backgroundColor), `rgb(${action.join(', ')})`, `${character}/${shade}: editor action must follow the draft shade`);
-      await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainPreview').contentDocument.querySelector('#dateStrip button.active')).backgroundColor === color, controlColor);
+      await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainPreview').contentDocument.querySelector('#dateStrip button.active')).backgroundColor === color, `rgb(${action.join(', ')})`);
       const dateColor = await frame.locator('#dateStrip button.active').evaluate(button => getComputedStyle(button).backgroundColor);
-      assert.equal(dateColor, controlColor, `${character}/${shade}: date strip ${dateColor}, today ${controlColor}`);
+      assert.equal(dateColor,`rgb(${action.join(', ')})`,`${character}/${shade}: selected date must keep the action shade`);
       observedPalettes.add(`${expected.bg}/${expected.accent}`);
     }
   }
