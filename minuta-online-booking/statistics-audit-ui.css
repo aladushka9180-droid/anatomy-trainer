@@ -39,6 +39,12 @@
 #analyticsView .report-date-error[hidden] { display:none; }
 #analyticsView .report-custom-period [aria-invalid="true"] { border-color:var(--theme-danger,#9b2f35); }
 #analyticsView .report-heatmap-scroll-hint { display:none; margin:10px 0 0; color:var(--theme-muted); font-size:12px; line-height:1.4; }
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-kicker,
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-summary[data-report-section="money"] :is(small,span,i),
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-reconciliation :is(small,span) {
+  font-size:calc(12px + var(--provider-text-step,0px));
+  line-height:1.4;
+}
 
 @media (max-width:760px) {
   #analyticsView :is(.report-view-tabs button,.report-periods button,.report-data-source button,.report-mini-toggle button,.report-team-controls button,.report-export-formats button,.report-custom-period button,.report-goals-open,.report-source-list button,#reloadMoneyDashboard) { min-height:44px; font-size:max(12px,1em); }
