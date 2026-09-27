@@ -39,7 +39,10 @@ begin
     (v_short_service,v_owner,'V181 shortfall service',60,1000,true),
     (v_healthy_service,v_owner,'V181 healthy service',60,1000,true);
   insert into public.booking_policies(performer_id,auto_complete_visits,auto_complete_payment_method)
-  values(v_owner,true,'unpaid');
+  values(v_owner,true,'unpaid')
+  on conflict(performer_id) do update set
+    auto_complete_visits=excluded.auto_complete_visits,
+    auto_complete_payment_method=excluded.auto_complete_payment_method;
   insert into public.provider_schedule(performer_id,weekday,enabled,start_time,end_time,slot_interval_minutes)
   select v_owner,day,true,'09:00','20:00',15 from generate_series(1,7) day;
 
