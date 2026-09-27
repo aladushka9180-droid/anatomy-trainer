@@ -152,6 +152,7 @@ try {
       const db=window.salesDb;
       const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
       const notify=value=>salesNotices.push(value),requireWrites=()=>true,sessionIsCurrent=()=>true,applyWriteAvailability=()=>{};
+      const requestProviderConfirmation=async()=>false;
       async function loadProviderFeatureScript(){window.featureLoads=(window.featureLoads||0)+1;}
       function closeBookingSheet(){window.visitEntryClosed=true;}
       function bookingSourceItems(){return window.workspace.bookings;}
@@ -256,6 +257,15 @@ try {
       assert.equal(await page.locator('#commerceAuditCount').innerText(), '1');
       assert.equal(await page.locator('#commerceGross').innerText(), '900 ₽');
       await page.waitForFunction(() => !document.querySelector('#commerceSaleCreator').open);
+      const saleRow = page.locator('#commerceSalesList .commerce-sale-row').first();
+      assert.match(await saleRow.innerText(), /Оплачено/);
+      await saleRow.locator('[data-commerce-refund]').click();
+      assert.equal(await page.locator('#commerceRefundCreator').getAttribute('open'), '');
+      assert.equal(await page.locator('#commerceRefundSale').inputValue(), await page.evaluate(() => workspace.sales[0].id));
+      assert.equal(await page.locator('#commerceRefundReason').evaluate(element => document.activeElement === element), true);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), 'refund form has no horizontal overflow');
+      assert.equal(await page.evaluate(() => salesCalls.some(call => call.name === 'refund_minuta_commercial_sale_v147')), false, 'opening refund does not submit a refund');
+      await page.evaluate(() => { document.querySelector('#commerceRefundCreator').open = false; });
 
       await page.evaluate(() => salesController.startSale());
       await page.locator('#commerceClient').selectOption('');
