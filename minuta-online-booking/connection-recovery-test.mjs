@@ -20,6 +20,7 @@ function harness() {
     pendingSynchronizationTables:new Set(), pendingFullSynchronization:false,
     portfolioSyncLoaded:false, portfolioSyncDirty:true, lastProviderVerificationAt:0,
     synchronizationRetryTimer:null, writesAllowed:true, offlineBookingInputsReady:false, offlineBookingAccessReady:false,
+    bookingReadConnectionUnavailable:false, providerCoreReadOutage:()=>false, applyWriteAvailability(){},
     visitorVisitsRemoteAvailable:false, SERVICE_SYNC_INTERVAL_MS:300000,
     navigator:{onLine:true}, document:{hidden:false,addEventListener:(name,callback)=>events.set(name,callback)}, Math,
     window:{addEventListener:(name,callback)=>events.set(name,callback)},
