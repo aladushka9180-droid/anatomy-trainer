@@ -6,6 +6,7 @@
 
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
+    const requestConfirmation = options.requestConfirmation || (() => Promise.resolve(false));
     const select = typeof options.$ === 'function' ? options.$ : selector => document.querySelector(selector);
     function $(selector) { return select(selector); }
     let organization = null;
@@ -13,6 +14,7 @@
     let availability = null;
     let revision = 0;
     let writing = false;
+    let confirming = false;
     let pendingOrganization;
     // Private, controller-lifetime recovery only; not durable across page reload.
     // Keep unresolved scopes separate, including across reset/org round trips.
@@ -144,7 +146,7 @@
       else if (!sameFormScope) {
         // Fresh context must not inherit another actor/organization's form.
         restoreMovementDraft([['inventoryMovementKind', 'receipt'], ['inventoryMovementQuantity', ''],
-          ['inventoryCountedQuantity', '0'], ['inventoryMovementReason', '']]);
+          ['inventoryCountedQuantity', ''], ['inventoryMovementReason', '']]);
       }
       movementFormScope = scope;
       if (intent && (!sameFormScope || $('#inventoryMovementError').hidden))
@@ -196,6 +198,42 @@
       $('#inventoryTransferBalance').textContent = source && itemId
         ? `Доступно на исходном складе: ${quantity(balanceFor(source, itemId))} ${unitLabels[item(itemId)?.unit] || ''}`
         : 'Выберите исходный склад и позицию.';
+    }
+
+    function movementImpact(kind, parameters) {
+      const itemId = parameters.p_item, sourceId = parameters.p_warehouse || parameters.p_source_warehouse;
+      const selectedItem = item(itemId), source = warehouse(sourceId);
+      if (!selectedItem || !source) return null;
+      const unit = unitLabels[selectedItem.unit] || selectedItem.unit;
+      const before = balanceFor(sourceId, itemId);
+      if (kind === 'inventory') {
+        const counted = String($('#inventoryCountedQuantity').value).trim();
+        if (!/^\d+(?:\.\d{1,3})?$/.test(counted)) return null;
+        return `По загруженным данным: ${source.name}, ${selectedItem.name}: ${quantity(before)} → ${quantity(parameters.p_counted_quantity)} ${unit}.`;
+      }
+      const raw = String($('#inventoryMovementQuantity').value).trim();
+      if (!/^\d+(?:\.\d{1,3})?$/.test(raw) || parameters.p_quantity <= 0) return null;
+      if (kind === 'write_off') return parameters.p_quantity > before
+        ? `По загруженным данным на складе ${source.name} недостаточно ${selectedItem.name}: ${quantity(before)} ${unit}.`
+        : `По загруженным данным: ${source.name}, ${selectedItem.name}: ${quantity(before)} → ${quantity(before - parameters.p_quantity)} ${unit}.`;
+      if (kind === 'transfer') {
+        const destination = warehouse(parameters.p_destination_warehouse);
+        if (!destination || destination.id === source.id) return null;
+        const destinationBefore = balanceFor(destination.id, itemId);
+        return `По загруженным данным: ${selectedItem.name}, ${source.name} ${quantity(before)} → ${quantity(before - parameters.p_quantity)} ${unit}; ${destination.name} ${quantity(destinationBefore)} → ${quantity(destinationBefore + parameters.p_quantity)} ${unit}.`;
+      }
+      return null;
+    }
+
+    function updateMovementImpact() {
+      const holder = $('#inventoryMovementImpact');
+      if (!holder) return;
+      const kind = $('#inventoryMovementKind')?.value;
+      holder.hidden = !['write_off', 'inventory', 'transfer'].includes(kind);
+      if (holder.hidden) return;
+      const parameters = kind === 'transfer' ? transferParameters() : movementParameters();
+      holder.textContent = (payload && movementImpact(kind, parameters) || 'Укажите склад, позицию и количество для предварительного расчёта.')
+        + ' Итоговый остаток проверит сервер перед проведением.';
     }
 
     function render() {
@@ -288,6 +326,8 @@
       const inventory = kind === 'inventory', transfer = kind === 'transfer';
       if ($('#inventoryMovementQuantityField')) $('#inventoryMovementQuantityField').hidden = inventory;
       if ($('#inventoryCountedQuantityField')) $('#inventoryCountedQuantityField').hidden = !inventory;
+      if ($('#inventoryMovementQuantity')) $('#inventoryMovementQuantity').required = !inventory;
+      if ($('#inventoryCountedQuantity')) $('#inventoryCountedQuantity').required = inventory;
       if ($('#inventoryTransferDestinationField')) $('#inventoryTransferDestinationField').hidden = !transfer;
       if ($('#inventoryTransferDestination')) $('#inventoryTransferDestination').required = transfer;
       if ($('#inventoryTransferBalance')) $('#inventoryTransferBalance').hidden = !transfer;
@@ -300,6 +340,7 @@
         $('#inventoryMovementScan').dataset.codeScanTitle = transfer ? 'Позиция для перемещения' : 'Товар для операции';
       }
       if (transfer) updateTransferBalance();
+      updateMovementImpact();
     }
 
     function clearItemForm() { $('#inventoryItemId').value = ''; $('#inventoryItemForm').reset(); $('#inventoryItemActive').checked = true; $('#inventoryItemCreator').open = false; }
@@ -344,7 +385,7 @@
       return Boolean(error && codes[error.code]?.includes(error.message));
     }
     async function submitMovement(event) {
-      if (!requireWrites() || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return;
+      if (!requireWrites() || writing || confirming || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return;
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
       if (!userId) return;
       const scope = movementScope(), parameters = movementParameters();
@@ -352,6 +393,23 @@
       if (intent && !sameMovement(intent.parameters, parameters)) {
         movementError('Результат исходной операции ещё не подтверждён. Изменённые данные не отправлены. Восстановите поля для проверки тем же запросом.', intent);
         return;
+      }
+      if (!intent && ['write_off', 'inventory'].includes(parameters.p_kind)) {
+        const snapshot = payload, before = revision, impact = movementImpact(parameters.p_kind, parameters);
+        if (!impact || parameters.p_kind === 'write_off' && parameters.p_quantity > balanceFor(parameters.p_warehouse, parameters.p_item)) {
+          movementError('Проверьте количество и предварительный остаток. Операция не отправлена.', null); return;
+        }
+        confirming = true;
+        let confirmed = false;
+        try { confirmed = await requestConfirmation({ title:`Подтвердите ${parameters.p_kind === 'write_off' ? 'списание' : 'инвентаризацию'}`,
+          message:`${impact} Причина: ${parameters.p_reason || 'не указана'}. Остаток мог измениться; сервер проверит его перед проведением.`,
+          confirmLabel:'Провести операцию', initialFocus:'cancel' }); }
+        finally { confirming = false; }
+        if (!confirmed) return;
+        if (snapshot !== payload || before !== revision || !sessionIsCurrent(userId, generation)
+          || organization?.id !== organizationId || !sameMovement(parameters, movementParameters())) {
+          movementError('Данные изменились во время подтверждения. Проверьте операцию заново.', null); return;
+        }
       }
       if (!intent) {
         intent = { parameters:Object.freeze({ ...parameters, p_request_id:requestId() }), ambiguous:false,
@@ -489,6 +547,20 @@
         transferError('Результат исходного перемещения ещё не подтверждён. Изменённые данные не отправлены.', intent); return;
       }
       if (!intent) {
+        const snapshot = payload, before = revision, impact = movementImpact('transfer', parameters);
+        confirming = true;
+        let confirmed = false;
+        try { confirmed = await requestConfirmation({ title:'Подтвердите перемещение',
+          message:`${impact} Причина: ${parameters.p_reason}. Остатки могли измениться; сервер проверит их перед проведением.`,
+          confirmLabel:'Переместить', initialFocus:'cancel' }); }
+        finally { confirming = false; }
+        if (!confirmed) return;
+        if (snapshot !== payload || before !== revision || !sessionIsCurrent(userId, generation)
+          || organization?.id !== organizationId || !sameTransfer(parameters, transferParameters())) {
+          transferError('Данные изменились во время подтверждения. Проверьте перемещение заново.', null); return;
+        }
+      }
+      if (!intent) {
         intent = { parameters:Object.freeze({ ...parameters, p_request_id:requestId() }), ambiguous:false,
           itemName:item(parameters.p_item)?.name || parameters.p_item,
           sourceName:warehouse(parameters.p_source_warehouse)?.name || parameters.p_source_warehouse,
@@ -613,9 +685,13 @@
       }
       if (event.target.id === 'inventoryMovementKind') updateMovementKind();
       if (event.target.id === 'inventoryMovementWarehouse' || event.target.id === 'inventoryMovementItem') updateTransferBalance();
+      if (['inventoryMovementWarehouse','inventoryMovementItem','inventoryTransferDestination','inventoryMovementQuantity','inventoryCountedQuantity'].includes(event.target.id)) updateMovementImpact();
     }
 
-    function bind() { document.addEventListener('submit', submit); document.addEventListener('click', click); document.addEventListener('change', change); }
+    function input(event) {
+      if (['inventoryMovementQuantity','inventoryCountedQuantity'].includes(event.target.id)) updateMovementImpact();
+    }
+    function bind() { document.addEventListener('submit', submit); document.addEventListener('click', click); document.addEventListener('change', change); document.addEventListener('input', input); }
     return { bind, load, reset, setOrganization, get availability() { return availability; }, get payload() { return payload; } };
   }
 

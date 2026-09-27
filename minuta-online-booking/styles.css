@@ -3023,6 +3023,7 @@ html.provider-booting .provider-main {
 .provider-body .inventory-balance-card li.is-low,.provider-body .inventory-balance-card li.is-low b,.provider-body .inventory-low strong { color:#a45731; }
 .provider-body .inventory-operation form,.provider-body .inventory-usage form { display:grid; gap:10px; margin-top:11px; }
 .provider-body #inventoryTransferBalance { color:var(--theme-muted,#718078); font-size:9px; }
+.provider-body #inventoryMovementImpact { color:var(--theme-text,#263129); font-size:12px; line-height:1.45; }
 .provider-body .inventory-transfer-document { border-color:var(--theme-accent-soft,#dcece2); }
 .provider-body .inventory-transfer-document small { line-height:1.45; overflow-wrap:anywhere; }
 .provider-body .inventory-form-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }

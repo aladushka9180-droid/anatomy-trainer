@@ -11,8 +11,8 @@ const ids = {
 };
 const clone = value => JSON.parse(JSON.stringify(value));
 
-function createHarness({ legacy = false, firstUnknown = false } = {}) {
-  const nodes = new Map(), listeners = new Map(), calls = [], notices = [];
+function createHarness({ legacy = false, firstUnknown = false, confirmResult = true } = {}) {
+  const nodes = new Map(), listeners = new Map(), calls = [], notices = [], prompts = [];
   let balanceSource = 10, balanceDestination = 2, transfer = null, unknown = firstUnknown;
   const selectIds = new Set(['inventoryMovementWarehouse','inventoryMovementItem','inventoryUsageService','inventoryUsageItem','inventoryWarehouseLocation','inventoryTransferDestination']);
   function node(id) {
@@ -63,7 +63,7 @@ function createHarness({ legacy = false, firstUnknown = false } = {}) {
   const controller = context.window.MinutaInventory.createController({
     $:selector => node(selector.slice(1)), escapeHtml:value => String(value ?? ''), notify:message => notices.push(message),
     requireWrites:() => true, getCurrentUser:() => ({ id:ids.actor }), getSessionGeneration:() => 1,
-    sessionIsCurrent:(actor, generation) => actor === ids.actor && generation === 1, applyWriteAvailability() {},
+    sessionIsCurrent:(actor, generation) => actor === ids.actor && generation === 1, applyWriteAvailability() {}, requestConfirmation:async options => { prompts.push(options); return confirmResult; },
     db:{ rpc:async (name, params) => {
       calls.push({ name, params:clone(params) });
       if (name === 'get_minuta_inventory_workspace_v130') return legacy
@@ -93,8 +93,18 @@ function createHarness({ legacy = false, firstUnknown = false } = {}) {
     await listeners.get('change')({ target:node('inventoryMovementKind') });
   }
   const submit = () => listeners.get('submit')({ target:node('inventoryMovementForm'),submitter:node('movementSubmit'),preventDefault() {} });
-  return { controller,node,calls,notices,ready,submit,get transfer() { return transfer; } };
+  return { controller,node,calls,notices,prompts,ready,submit,get transfer() { return transfer; } };
 }
+
+test('O22 transfer preview names both warehouses and cancellation makes no movement', async () => {
+  const h = createHarness({ confirmResult:false }); await h.ready();
+  assert.match(h.node('inventoryMovementImpact').textContent, /Центр 10 → 7 мл; Север 2 → 5 мл/);
+  await h.submit();
+  assert.equal(h.calls.filter(call => call.name === 'transfer_minuta_inventory_stock_v130').length, 0);
+  assert.equal(h.transfer, null);
+  assert.match(h.prompts[0].message, /Центр 10 → 7 мл; Север 2 → 5 мл/);
+  assert.equal(h.prompts[0].initialFocus, 'cancel');
+});
 
 test('v130 workspace renders one atomic transfer and groups its document', async () => {
   const h = createHarness(); await h.ready(); await h.submit();
