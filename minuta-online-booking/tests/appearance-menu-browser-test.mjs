@@ -5,6 +5,11 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
+const providerSource=await readFile(path.join(root,'provider.js'),'utf8');
+const renderStart=providerSource.indexOf('function renderProviderAppearanceMenu(');
+const renderEnd=providerSource.indexOf('function applyProviderColorMode()',renderStart);
+assert.ok(renderStart>=0&&renderEnd>renderStart,'Cannot locate the real appearance-menu renderer');
+const renderFunctionSource=providerSource.slice(renderStart,renderEnd);
 const contentTypes={
   '.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml',
   '.png':'image/png','.webp':'image/webp','.woff':'font/woff','.woff2':'font/woff2'
@@ -38,15 +43,18 @@ document.querySelector('#providerBookings').insertAdjacentHTML('afterend','<div 
 let requestedMode='light';
 const colorQuery=matchMedia('(prefers-color-scheme: dark)');
 const theme=()=>window.MinutaThemeCatalog.theme(document.body.dataset.providerTheme);
+const $=selector=>document.querySelector(selector);
+const PROVIDER_COLOR_MODE_KEYS=window.MinutaProviderColorMode.modes;
+const PROVIDER_COLOR_MODE_LABELS={light:'светлый',dark:'тёмный',system:'как на устройстве'};
+const PROVIDER_LAYOUT_LABELS={soft:'Мягкий минимализм'};
+const providerColorSchemeQuery=colorQuery;
+let displayPreferences={theme:'sage',color_mode:'light',layout:'soft'};
+${renderFunctionSource}
 function renderMode(){
-  document.body.dataset.providerTheme=window.MinutaProviderColorMode.themeKeyForMode(requestedMode,colorQuery.matches);
+  displayPreferences={...displayPreferences,theme:window.MinutaProviderColorMode.themeKeyForMode(requestedMode,colorQuery.matches),color_mode:requestedMode};
+  document.body.dataset.providerTheme=displayPreferences.theme;
   const state=window.MinutaProviderColorMode.apply(document.body,theme(),requestedMode,colorQuery.matches);
-  document.querySelector('#providerAppearanceMenu').querySelectorAll('[data-provider-color-mode]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.providerColorMode===requestedMode)));
-  document.querySelector('#providerAppearanceIcon').setAttribute('href','ui-icons.svg#icon-'+(state.resolved==='dark'?'moon':'sun'));
-  document.querySelector('#providerAppearanceThemeName').textContent=theme().label;
-  document.querySelector('#providerAppearanceLayoutName').textContent='Мягкий минимализм';
-  const label=requestedMode==='system'?'как на устройстве, сейчас '+(state.resolved==='dark'?'тёмный':'светлый'):requestedMode==='dark'?'тёмный':'светлый';
-  document.querySelector('#providerAppearanceMenu>summary').setAttribute('aria-label','Оформление: '+label+' режим');
+  renderProviderAppearanceMenu(state);
   return state;
 }
 const appearanceMenu=document.querySelector('#providerAppearanceMenu');
@@ -67,7 +75,18 @@ appearanceMenu.addEventListener('toggle',()=>{if(appearanceMenu.open)toolsMenu.o
 toolsMenu.addEventListener('toggle',()=>{if(toolsMenu.open)appearanceMenu.open=false;});
 document.addEventListener('pointerdown',event=>{if(appearanceMenu.open&&!event.target.closest('#providerAppearanceMenu'))appearanceMenu.open=false;});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&appearanceMenu.open){appearanceMenu.open=false;appearanceMenu.querySelector('summary').focus();}});
-window.__appearanceFixture={setMode(mode){requestedMode=mode;return renderMode();},get mode(){return requestedMode;}};
+window.__appearanceFixture={
+  setMode(mode){requestedMode=mode;return renderMode();},
+  setTheme(themeKey,mode){
+    requestedMode=mode;
+    displayPreferences={...displayPreferences,theme:themeKey,color_mode:mode};
+    document.body.dataset.providerTheme=themeKey;
+    const state=window.MinutaProviderColorMode.apply(document.body,theme(),mode,colorQuery.matches);
+    renderProviderAppearanceMenu(state);
+    return state;
+  },
+  get mode(){return requestedMode;}
+};
 renderMode();
 `;
 
@@ -142,13 +161,31 @@ async function run(){
         assert.equal(await page.locator('#providerAppearanceMenu').getAttribute('open'),null);
       }
     }
+    for(const width of [390,760,1440]){
+      await page.setViewportSize({width,height:1000});
+      await page.evaluate(()=>window.__appearanceFixture.setTheme('pink-porcelain','light'));
+      await page.locator('#providerAppearanceMenu>summary').click();
+      const result=await page.evaluate(()=>({
+        theme:document.querySelector('#providerAppearanceThemeName').textContent,
+        summary:document.querySelector('#providerAppearanceMenu>summary').getAttribute('aria-label'),
+        pressed:[...document.querySelectorAll('.provider-appearance-modes [data-provider-color-mode]')]
+          .filter(button=>button.getAttribute('aria-pressed')==='true').map(button=>button.dataset.providerColorMode),
+        menu:document.querySelector('.provider-appearance-popover').getBoundingClientRect().toJSON(),
+        scrollWidth:document.documentElement.scrollWidth
+      }));
+      assert.equal(result.theme,'Розовый фарфор');
+      assert.match(result.summary,/Розовый фарфор/);
+      assert.deepEqual(result.pressed,[],'Sage must not appear selected while Pink Porcelain is saved');
+      assert.ok(result.menu.left>=0&&result.menu.right<=width+1&&result.scrollWidth<=width+1);
+      await page.keyboard.press('Escape');
+    }
     await page.setViewportSize({width:390,height:1000});
     await page.locator('#providerAppearanceMenu>summary').click();
     await page.locator('#openProviderAppearanceSettings').click();
     await page.locator('[data-provider-panel="settings"]').waitFor({state:'visible'});
     assert.ok(await page.locator('#appearanceSettingsCard').isVisible(),'Ссылка не открыла настройки оформления');
     assert.deepEqual(pageErrors,[]);
-    console.log('Appearance menu browser: native Sage Studio / Midnight Navy pairing, system mode and Settings link verified at 390, 760 and 1440 px.');
+    console.log('Appearance menu browser: Sage/Midnight/system shortcuts, saved Pink Porcelain selection and Settings link verified at 390, 760 and 1440 px.');
   }finally{await browser?.close();server.close();}
 }
 

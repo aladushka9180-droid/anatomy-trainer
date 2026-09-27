@@ -57,17 +57,23 @@ try {
       button.classList.remove('is-current');
       const neutral=getComputedStyle(button).backgroundColor;
       const neutralInk=getComputedStyle(button).color;
+      const neutralBorder={ width:getComputedStyle(button).borderTopWidth, style:getComputedStyle(button).borderTopStyle, color:getComputedStyle(button).borderTopColor };
       button.classList.add('is-current');
       const current=getComputedStyle(button).backgroundColor;
       button.classList.remove('is-current');
       const probe=document.createElement('span');
       probe.style.color='var(--theme-ink)';document.body.append(probe);
       const expectedInk=getComputedStyle(probe).color;probe.remove();
-      return { neutral,current,neutralInk,expectedInk };
+      return { neutral,current,neutralInk,neutralBorder,expectedInk };
     });
     assert.notEqual(todayStates.current,todayStates.neutral,JSON.stringify({theme,width,todayStates}));
     assert.equal(todayStates.neutral,'rgb(255, 255, 255)',JSON.stringify({theme,width,todayStates}));
     assert.equal(todayStates.neutralInk,todayStates.expectedInk,JSON.stringify({theme,width,todayStates}));
+    if (theme==='pink-porcelain' && width<=760) {
+      assert.ok(parseFloat(todayStates.neutralBorder.width)>0,JSON.stringify({theme,width,todayStates}));
+      assert.equal(todayStates.neutralBorder.style,'solid',JSON.stringify({theme,width,todayStates}));
+      assert.notEqual(todayStates.neutralBorder.color,'rgba(0, 0, 0, 0)',JSON.stringify({theme,width,todayStates}));
+    }
     assert.equal(result.sameRow, width<=760, JSON.stringify({theme,width,result}));
     assert.equal(result.caption, width<=760?'Когда':'Дата');
     assert.equal(result.moved, width<=760);

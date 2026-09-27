@@ -2378,7 +2378,9 @@ function renderProviderAppearanceMenu(colorState = null) {
   const requested = PROVIDER_COLOR_MODE_KEYS.includes(displayPreferences.color_mode) ? displayPreferences.color_mode : (theme.palette.dark ? 'dark' : 'light');
   const resolved = colorState?.resolved || window.MinutaProviderColorMode.resolveMode(requested, providerColorSchemeQuery.matches, theme.palette.dark ? 'dark' : 'light');
   menu.querySelectorAll('[data-provider-color-mode]').forEach(button => {
-    button.setAttribute('aria-pressed', String(button.dataset.providerColorMode === requested));
+    const mode = button.dataset.providerColorMode;
+    const targetTheme = window.MinutaProviderColorMode.themeKeyForMode(mode, providerColorSchemeQuery.matches);
+    button.setAttribute('aria-pressed', String(mode === requested && targetTheme === theme.key));
   });
   const icon = $('#providerAppearanceIcon');
   if (icon) icon.setAttribute('href', `ui-icons.svg?v=811#icon-${resolved === 'dark' ? 'moon' : 'sun'}`);
@@ -2386,8 +2388,8 @@ function renderProviderAppearanceMenu(colorState = null) {
   const requestedLabel = PROVIDER_COLOR_MODE_LABELS[requested] || PROVIDER_COLOR_MODE_LABELS.light;
   const currentLabel = requested === 'system' ? `${requestedLabel}, сейчас ${PROVIDER_COLOR_MODE_LABELS[resolved]}` : requestedLabel;
   if (summary) {
-    summary.setAttribute('aria-label', `Оформление: ${currentLabel} режим`);
-    summary.title = `Оформление · ${currentLabel}`;
+    summary.setAttribute('aria-label', `Оформление: ${theme.label}, ${currentLabel} режим`);
+    summary.title = `Оформление · ${theme.label} · ${currentLabel}`;
   }
   const themeName = $('#providerAppearanceThemeName');
   if (themeName) themeName.textContent = theme.label;
