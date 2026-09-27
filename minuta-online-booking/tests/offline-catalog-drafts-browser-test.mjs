@@ -57,6 +57,27 @@ try {
   assert.equal(persisted.own.invalidCount,0);
   assert.equal(persisted.other.drafts.length,0);
   assert.equal(persisted.foreign.drafts.length,0);
+  const versions=await page.evaluate(async ({user,org,other,foreign,item})=>{
+    const api=window.MinutaOfflineCatalogDrafts;
+    const service='ffffffff-ffff-4fff-8fff-ffffffffffff';
+    await api.rememberVersion({userId:user,organizationId:org,kind:'inventory',entityId:item,
+      version:'2026-09-27T00:00:00.000Z'});
+    await api.rememberVersion({userId:user,organizationId:org,kind:'service',entityId:service,
+      version:'0123456789abcdef0123456789abcdef'});
+    let invalid=false;
+    try { await api.rememberVersion({userId:user,organizationId:org,kind:'service',entityId:service,
+      version:'unverified'}); } catch(error) { invalid=error.message==='catalog_version_invalid'; }
+    return {invalid,own:await api.readVersion(user,org,'inventory',item),
+      other:await api.readVersion(other,org,'inventory',item),
+      foreign:await api.readVersion(user,foreign,'inventory',item),
+      service:await api.readVersion(user,org,'service',service)};
+  },{user,org,other,foreign,item});
+  assert.deepEqual(versions,{invalid:true,own:'2026-09-27T00:00:00.000Z',other:null,foreign:null,
+    service:'0123456789abcdef0123456789abcdef'});
+  await page.reload();
+  assert.equal(await page.evaluate(async ({user,org,item})=>
+    window.MinutaOfflineCatalogDrafts.readVersion(user,org,'inventory',item),{user,org,item}),
+    versions.own);
   const scopeGuard=await page.evaluate(async ({user,org,item,requestId})=>{
     const api=window.MinutaOfflineCatalogDrafts;
     let calls=0,duplicate=false;
@@ -117,7 +138,9 @@ try {
   await page.evaluate(async ({user})=>window.MinutaOfflineCatalogDrafts.clearUser(user),{user});
   assert.equal((await page.evaluate(async ({user,org})=>
     (await window.MinutaOfflineCatalogDrafts.list(user,org)).drafts.length,{user,org})),0);
-  console.log('Offline catalog drafts browser passed: durable reload, scope, same request replay, conflict, storage failure, sign-out cleanup');
+  assert.equal(await page.evaluate(async ({user,org,item})=>
+    window.MinutaOfflineCatalogDrafts.readVersion(user,org,'inventory',item),{user,org,item}),null);
+  console.log('Offline catalog drafts browser passed: durable reload, scoped versions, same request replay, conflict, storage failure, sign-out cleanup');
 } finally {
   await browser.close();
   await new Promise(resolve=>server.close(resolve));

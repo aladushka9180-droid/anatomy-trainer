@@ -7,6 +7,7 @@
   const UNITS = new Set(['piece','ml','g','kg','l','pack']);
   const LIMIT = 50;
   const ROOT = 'minuta-offline-catalog-v1:';
+  const VERSION_ROOT = 'minuta-offline-catalog-version-v1:';
   const states = new Set(['local','checking','conflict','applied']);
 
   function requireId(value) {
@@ -18,6 +19,10 @@
   }
   function key(userId, organizationId, requestId) {
     return prefix(userId, organizationId) + requireId(requestId);
+  }
+  function versionKey(userId, organizationId, kind, entityId) {
+    if (!['service','inventory'].includes(kind)) throw new Error('catalog_kind_invalid');
+    return `${VERSION_ROOT}${requireId(userId)}:${requireId(organizationId)}:${kind}:${requireId(entityId)}`;
   }
   function fields(kind, source) {
     if (!source || typeof source !== 'object') throw new Error('catalog_fields_invalid');
@@ -81,6 +86,26 @@
     const confirmed=await read(draft.userId,draft.organizationId,draft.requestId);
     if (!confirmed || confirmed.revision !== draft.revision) throw new Error('catalog_storage_unconfirmed');
     return confirmed;
+  }
+  async function rememberVersion({ userId,organizationId,kind,entityId,version }) {
+    requireStore();
+    const scopedUser=requireId(userId), scopedOrg=requireId(organizationId), target=requireId(entityId);
+    if (!validVersion(kind,target,version)) throw new Error('catalog_version_invalid');
+    const record={ schema:1,userId:scopedUser,organizationId:scopedOrg,kind,entityId:target,
+      version,savedAt:new Date().toISOString() };
+    await store.put(versionKey(scopedUser,scopedOrg,kind,target),record);
+    const confirmed=await readVersion(scopedUser,scopedOrg,kind,target);
+    if (confirmed!==version) throw new Error('catalog_storage_unconfirmed');
+    return record;
+  }
+  async function readVersion(userId,organizationId,kind,entityId) {
+    requireStore();
+    const scopedUser=requireId(userId), scopedOrg=requireId(organizationId), target=requireId(entityId);
+    const saved=await store.get(versionKey(scopedUser,scopedOrg,kind,target));
+    const record=saved?.data;
+    return record?.schema===1 && record.userId===scopedUser && record.organizationId===scopedOrg
+      && record.kind===kind && record.entityId===target && validVersion(kind,target,record.version)
+      ? record.version : null;
   }
   async function queue({ userId,organizationId,kind,entityId=null,expectedVersion=null,values }) {
     requireStore();
@@ -150,8 +175,10 @@
   }
   async function clearUser(userId) {
     requireStore();
-    await store.removePrefix(`${ROOT}${requireId(userId)}:`);
+    const scopedUser=requireId(userId);
+    await store.removePrefix(`${ROOT}${scopedUser}:`);
+    await store.removePrefix(`${VERSION_ROOT}${scopedUser}:`);
   }
 
-  window.MinutaOfflineCatalogDrafts={ queue,read,list,flushOne,remove,clearUser };
+  window.MinutaOfflineCatalogDrafts={ queue,read,list,rememberVersion,readVersion,flushOne,remove,clearUser };
 })();
