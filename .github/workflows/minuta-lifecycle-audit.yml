@@ -12,6 +12,14 @@ on:
         description: 'Type ROLLBACK_ONLY_TEST_DATABASE to run the isolated test'
         required: true
         type: string
+      audit:
+        description: 'Choose the isolated rollback test'
+        required: true
+        type: choice
+        default: lifecycle
+        options:
+          - lifecycle
+          - organization_acl
 
 permissions:
   contents: read
@@ -45,6 +53,7 @@ jobs:
           console.log('Isolated test target confirmed; production credentials are not supplied.');
           JS
       - name: Exercise lifecycle inside a rollback transaction
+        if: ${{ inputs.audit != 'organization_acl' }}
         env:
           TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
         run: |
@@ -52,3 +61,12 @@ jobs:
           command -v psql
           export PGCONNECT_TIMEOUT=15
           psql "${TEST_DATABASE_URL/:6543/:5432}" -X --set=ON_ERROR_STOP=1 --file=minuta-online-booking/booking-lifecycle-audit.sql
+      - name: Verify organization isolation inside a rollback transaction
+        if: ${{ inputs.audit == 'organization_acl' }}
+        env:
+          TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          command -v psql
+          export PGCONNECT_TIMEOUT=15
+          psql "${TEST_DATABASE_URL/:6543/:5432}" -X --set=ON_ERROR_STOP=1 --file=minuta-online-booking/organization-acl-audit.sql
