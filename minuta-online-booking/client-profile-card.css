@@ -1,0 +1,85 @@
+/* Same theme tokens and flat hierarchy as the appointment card. */
+.provider-body[data-provider-theme][data-provider-layout] .client-profile.client-profile-card {
+  padding:24px; background:var(--theme-surface); color:var(--theme-ink); border:0; box-shadow:none;
+}
+.client-profile-card .profile-card-toolbar {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.provider-body .client-profile-card #clientProfileBack {width:auto;min-height:44px;padding:0;border:0;background:none;box-shadow:none;color:var(--theme-ink);font-size:16px;font-weight:400;}
+.profile-card-menu {position:relative;z-index:6;margin-left:auto;}
+.profile-card-menu summary {display:grid;place-items:center;width:44px;height:44px;cursor:pointer;list-style:none;color:var(--theme-ink);}
+.profile-card-menu summary::-webkit-details-marker {display:none;}
+.profile-card-menu>div {position:absolute;right:0;top:48px;width:240px;display:grid;gap:6px;padding:10px;border:1px solid var(--theme-line);border-radius:16px;background:var(--theme-surface);box-shadow:0 8px 24px #0002;}
+.profile-card-menu:not([open])>div {display:none;}
+.client-profile-card:has(#clientProfileContent[hidden]) .profile-card-menu {display:none;}
+.profile-card-menu>div button {width:100%;min-height:44px;text-align:left;}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-profile-head {display:grid;grid-template-columns:184px minmax(0,1fr);gap:12px 16px;align-items:center;justify-items:stretch;text-align:left;margin:0 0 20px;padding:0;border:0;background:none;box-shadow:none;}
+.profile-card-avatar-slot {width:184px;height:184px;grid-column:1;grid-row:1;}
+.provider-body .client-profile-card .client-profile-orbit {margin:0;}
+.provider-body .client-profile-card .client-profile-identity {grid-column:2;grid-row:1;min-width:0;text-align:left;}
+.client-profile-card .client-profile-identity>small {display:none;}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card #clientName {font-size:26px;line-height:1.2;letter-spacing:-.5px;text-align:left;margin:0 0 8px;overflow-wrap:anywhere;}
+.provider-body .client-profile-card .client-relationship-status {justify-content:flex-start;margin:0 0 6px;}
+.provider-body .client-profile-card #clientRelationshipTitle {font-size:12px;padding:5px 9px;border:0;border-radius:8px;background:var(--theme-accent-soft);color:var(--theme-accent);}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-profile-contact {display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:0 3px;margin:4px 0 0;text-align:left;}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card #clientPhone {padding:0;min-height:0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--theme-ink);font-size:16px;font-weight:400;white-space:normal;overflow-wrap:anywhere;}
+.provider-body .client-profile-card #clientCopyPhone {display:grid;place-items:center;width:44px;min-width:44px;min-height:44px;padding:8px;border:0;background:none;color:var(--theme-ink);}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card #clientQuickRepeat {grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;margin:0;padding:10px;border:0;border-radius:12px;background:var(--theme-accent);color:var(--theme-accent-contrast,#fff);box-shadow:none;font-size:17px;font-weight:600;}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-profile-primary-actions {grid-column:1/-1;grid-row:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0;margin:0;border:0;border-radius:0;background:none;box-shadow:none;}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card :is(#clientContactButton,#clientProfileCall) {display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;min-height:48px;margin:0;padding:8px;border:0!important;border-radius:12px;background:var(--theme-accent-soft)!important;color:var(--theme-accent)!important;font-size:16px;font-weight:500;text-decoration:none;box-shadow:none!important;}
+.provider-body .client-profile-card #clientContactButton span {display:inline;}
+.client-profile-card [aria-disabled=true] {opacity:.5;cursor:default;}
+.client-profile-card .ui-icon {width:24px;height:24px;flex:none;}
+.profile-card-totals {display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;border-top:1px solid var(--theme-line);padding:18px 0 10px;font-size:15px;font-weight:600;}
+.profile-card-totals article {display:flex;gap:5px;}
+.profile-card-totals article+article:before {content:'·';margin-right:5px;}
+.profile-card-totals article div {display:flex;gap:5px;align-items:baseline;}
+.provider-body .client-profile-card .profile-card-totals .client-summary-icon {display:none;}
+.profile-card-totals :is(strong,small) {font:inherit;color:var(--theme-ink);}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-summary {display:grid!important;grid-template-columns:1fr;gap:0;margin:0;padding:0 0 12px;border-bottom:1px solid var(--theme-line);}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-summary article {display:flex;align-items:flex-start;gap:18px;min-height:72px;padding:14px 0;border:0;border-radius:0;background:none!important;box-shadow:none;}
+.provider-body .client-profile-card .client-summary article>div {display:flex;flex-direction:column;gap:3px;min-width:0;}
+.provider-body .client-profile-card .client-summary-icon {display:grid;place-items:center;width:28px;height:30px;margin:0;background:none;color:var(--theme-ink);}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-summary :is(strong,small) {font-size:16px;font-weight:400;line-height:1.4;white-space:normal;overflow:visible;text-overflow:clip;color:var(--theme-ink);text-align:left;}
+.provider-body .client-profile-card :is(#clientLastVisit,#clientNextDetails) {color:var(--theme-muted)!important;font-size:14px!important;white-space:normal;overflow:visible;display:block;}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card :is(#clientMilestoneCard,#clientBirthdayInfo) {display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:18px;align-items:center;padding:16px 0;margin:0;border:0;border-radius:0;background:none;box-shadow:none;}
+.provider-body .client-profile-card :is(#clientMilestoneCard,#clientBirthdayInfo)[hidden] {display:none!important;}
+.client-profile-card .profile-card-row-icon {grid-column:1;grid-row:1;color:var(--theme-ink);}
+.provider-body .client-profile-card .client-birthday-icon {width:28px;height:30px;padding:0;background:none;color:var(--theme-ink);}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card :is(#clientMilestoneTitle,#clientBirthdayInfo small) {font-size:16px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--theme-ink);}
+.provider-body .client-profile-card :is(#clientMilestoneText,#clientMilestoneHint,#clientBirthdayDisplay) {display:block;font-size:14px;font-weight:400;line-height:1.4;color:var(--theme-muted);}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card :is(#clientLoyaltyOpenSettings,#clientBirthdayEdit) {min-height:44px;min-width:0;padding:0 4px;border:0!important;background:none!important;box-shadow:none!important;font-size:14px;font-weight:400;color:var(--theme-accent)!important;}
+.client-profile-card #clientMilestoneProgress {grid-column:2/-1;margin:0;height:3px;}
+.provider-body .client-profile-card #clientLoyaltyLevel {min-height:44px;margin:0;padding:4px 0 10px 46px;border-bottom:1px solid var(--theme-line);}
+.client-profile-card #clientLoyaltyLevel strong {font-size:13px;font-weight:500;}
+.client-profile-card #clientLoyaltyLevel small {font-size:12px;}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-profile-tabs {display:flex;justify-content:space-between;gap:0;margin:12px 0 0;padding:0;border:0;border-top:1px solid var(--theme-line);border-bottom:1px solid var(--theme-line);border-radius:0;background:none;}
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-profile-tabs button {flex:1;min-width:0;min-height:52px;padding:10px 4px;border:0;border-radius:0;border-bottom:3px solid transparent;background:none;color:var(--theme-muted);font-size:15px;font-weight:400;}
+.provider-body .client-profile-card .client-profile-tabs button[aria-selected=true] {border-bottom-color:var(--theme-accent);color:var(--theme-ink);font-weight:650;}
+.client-profile-card #clientRecords [data-cr-view=history] {display:none;}
+.profile-card-history h4 {margin:22px 0 6px;font-size:16px;color:var(--theme-muted);font-weight:600;}
+.profile-card-visit {display:grid;grid-template-columns:26px minmax(0,1fr);gap:16px;padding:18px 0;border-bottom:1px solid var(--theme-line);}
+.profile-card-visit>.ui-icon {margin-top:3px;color:var(--theme-ink);}
+.profile-card-visit time,.profile-card-visit-details,.profile-card-visit small {display:block;font-size:14px;line-height:1.5;color:var(--theme-muted);}
+.provider-body .client-profile-card .profile-card-visit-open {display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-height:44px;text-align:left;margin:3px 0;padding:0;border:0;background:none;box-shadow:none;color:var(--theme-ink);font-size:17px;line-height:1.4;}
+.profile-card-visit-open strong {font-weight:600;overflow-wrap:anywhere;}
+.profile-card-visit-open>span {font-size:26px;flex:none;}
+.profile-card-status {display:table;margin:8px 0;padding:4px 8px;border-radius:8px;font-size:12px;line-height:1.4;background:var(--theme-accent-soft);color:var(--theme-accent);}
+.profile-card-status.is-success {background:color-mix(in srgb,#39854c 15%,var(--theme-surface));color:var(--theme-ink);}
+.profile-card-status:is(.is-imported,.is-muted) {background:var(--theme-surface-alt);color:var(--theme-muted);}
+.profile-card-visit p {margin:8px 0 2px;font-size:15px;line-height:1.5;color:var(--theme-ink);}
+.profile-card-history-more {width:100%;min-height:44px;margin:12px 0;}
+.profile-card-empty {color:var(--theme-muted);font-size:14px;padding:20px 0;}
+@media(max-width:760px) {
+ .provider-body[data-provider-theme][data-provider-layout] .client-profile.client-profile-card {padding:16px;}
+ .provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-profile-head {grid-template-columns:142px minmax(0,1fr);gap:10px;}
+ .profile-card-avatar-slot {width:142px;height:148px;}
+ .provider-body .client-profile-card .client-profile-orbit.has-session-frame {transform:scale(.78);transform-origin:left top;}
+ .provider-body[data-provider-theme][data-provider-layout] .client-profile-card #clientName {font-size:21px;letter-spacing:-.3px;}
+ .provider-body[data-provider-theme][data-provider-layout] .client-profile-card #clientPhone {font-size:14px;}
+ .provider-body[data-provider-theme][data-provider-layout] .client-profile-card :is(#clientMilestoneCard,#clientBirthdayInfo) {gap:12px;}
+}
+@media(max-width:370px) {
+ .provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-profile-head {grid-template-columns:125px minmax(0,1fr);}
+ .profile-card-avatar-slot {width:125px;height:136px;}
+ .provider-body .client-profile-card .client-profile-orbit.has-session-frame {transform:scale(.69);}
+ .provider-body[data-provider-theme][data-provider-layout] .client-profile-card #clientName {font-size:19px;}
+}
