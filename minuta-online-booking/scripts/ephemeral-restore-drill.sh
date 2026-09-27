@@ -153,15 +153,25 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   test -f "${MINUTA_RESTORE_MIGRATION_SQL:?}"
   test -f "${MINUTA_RESTORE_ROLLBACK_SQL:?}"
   candidate_version="${MINUTA_RESTORE_CANDIDATE_VERSION:-v177}"
-  case "$candidate_version" in v177|v180) ;; *) exit 1 ;; esac
+  case "$candidate_version" in v177|v180|v181) ;; *) exit 1 ;; esac
   bookings_before="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
     -c 'select count(*) from public.bookings' 2>>"$private_log")"
+  if [[ "$candidate_version" == v181 ]]; then
+    candidate_function='public.process_minuta_auto_completed_visits_v106(integer)'
+    baseline_definition="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select md5(pg_get_functiondef('$candidate_function'::regprocedure))" 2>>"$private_log")"
+    test -n "$baseline_definition"
+  fi
   docker cp "$MINUTA_RESTORE_MIGRATION_SQL" "$container:/tmp/candidate-migration.sql" >/dev/null
   docker cp "$MINUTA_RESTORE_ROLLBACK_SQL" "$container:/tmp/candidate-rollback.sql" >/dev/null
   stage=candidate-apply
   docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
     -v VERBOSITY=sqlstate -f /tmp/candidate-migration.sql >>"$private_log" 2>&1
-  if [[ "$candidate_version" == v180 ]]; then
+  if [[ "$candidate_version" == v181 ]]; then
+    applied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select (obj_description('$candidate_function'::regprocedure,'pg_proc')='minuta:v181:auto-complete-inventory-shortfall')::int||'|'||(md5(pg_get_functiondef('$candidate_function'::regprocedure))<>'$baseline_definition')::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
+    test "$applied" = "1|1|$bookings_before"
+  elif [[ "$candidate_version" == v180 ]]; then
     candidate_function="public.book_flexible_appointment_v180(uuid,uuid,date,time without time zone,time without time zone,text,text,text,uuid,integer,integer,text)"
     applied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
       -c "select (to_regprocedure('$candidate_function') is not null)::int||'|'||(to_regclass('public.flexible_booking_requests_v180') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
@@ -174,7 +184,11 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   stage=candidate-rollback
   docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
     -v VERBOSITY=sqlstate -f /tmp/candidate-rollback.sql >>"$private_log" 2>&1
-  if [[ "$candidate_version" == v180 ]]; then
+  if [[ "$candidate_version" == v181 ]]; then
+    rolled_back="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select (coalesce(obj_description('$candidate_function'::regprocedure,'pg_proc'),'')='')::int||'|'||(md5(pg_get_functiondef('$candidate_function'::regprocedure))='$baseline_definition')::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
+    test "$rolled_back" = "1|1|$bookings_before"
+  elif [[ "$candidate_version" == v180 ]]; then
     rolled_back="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
       -c "select (to_regprocedure('$candidate_function') is null)::int||'|'||(to_regclass('public.flexible_booking_requests_v180') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
     test "$rolled_back" = "1|1|$bookings_before"
@@ -186,7 +200,11 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   stage=candidate-reapply
   docker exec "$container" psql -U postgres -X -q -v ON_ERROR_STOP=1 \
     -v VERBOSITY=sqlstate -f /tmp/candidate-migration.sql >>"$private_log" 2>&1
-  if [[ "$candidate_version" == v180 ]]; then
+  if [[ "$candidate_version" == v181 ]]; then
+    reapplied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
+      -c "select (obj_description('$candidate_function'::regprocedure,'pg_proc')='minuta:v181:auto-complete-inventory-shortfall')::int||'|'||(md5(pg_get_functiondef('$candidate_function'::regprocedure))<>'$baseline_definition')::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
+    test "$reapplied" = "1|1|$bookings_before"
+  elif [[ "$candidate_version" == v180 ]]; then
     reapplied="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
       -c "select (to_regprocedure('$candidate_function') is not null)::int||'|'||(to_regclass('public.flexible_booking_requests_v180') is not null)::int||'|'||(select count(*) from public.bookings)::text;" 2>>"$private_log")"
     test "$reapplied" = "1|1|$bookings_before"
