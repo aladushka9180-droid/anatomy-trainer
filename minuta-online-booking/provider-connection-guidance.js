@@ -8,6 +8,14 @@
     return `${value} ${mod10 === 1 && mod100 !== 11 ? one : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many}`;
   }
 
+  function savedText(count) {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    const verb = mod10 === 1 && mod100 !== 11 ? 'Сохранена'
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'Сохранены' : 'Сохранено';
+    return `${verb} ${plural(count, 'запись', 'записи', 'записей')}`;
+  }
+
   function view({ online, hasUser, sessionTrust, canQueueBooking, hasSavedSchedule, serverUnavailable, recovery } = {}) {
     if (!hasUser) return null;
     if (!online) return {
@@ -69,7 +77,7 @@
       const saved = active.confirmed.size;
       active = null;
       const parts = [];
-      if (saved) parts.push(`Сохранено ${plural(saved, 'запись', 'записи', 'записей')}`);
+      if (saved) parts.push(savedText(saved));
       if (conflicts) parts.push(`${plural(conflicts, 'запись требует', 'записи требуют', 'записей требуют')} проверки`);
       if (pending) parts.push(`${plural(pending, 'запись ожидает', 'записи ожидают', 'записей ожидают')} проверки сервера`);
       const text = parts.length

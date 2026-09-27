@@ -44,8 +44,22 @@ test('recovery reports only confirmed queue IDs and actual remaining conflicts',
   assert.equal(result.saved, 1);
   assert.equal(result.conflicts, 1);
   assert.equal(result.pending, 1);
-  assert.match(result.text, /Сохранено 1 запись, 1 запись требует проверки, 1 запись ожидает проверки сервера/);
+  assert.match(result.text, /Сохранена 1 запись, 1 запись требует проверки, 1 запись ожидает проверки сервера/);
   assert.equal(tracker.finish('actor-a', { bookingReady:true }), null, 'one summary only');
+});
+
+test('confirmed booking counts use natural Russian agreement', () => {
+  for (const [count, expected] of [
+    [1, 'Сохранена 1 запись'], [2, 'Сохранены 2 записи'], [3, 'Сохранены 3 записи'],
+    [5, 'Сохранено 5 записей'], [11, 'Сохранено 11 записей'], [21, 'Сохранена 21 запись']
+  ]) {
+    const tracker = createRecoveryTracker();
+    tracker.start('actor');
+    const queue = Array.from({ length:count }, (_, index) => ({ id:`booking-${index}` }));
+    tracker.snapshot('actor', queue);
+    for (const item of queue) tracker.confirm('actor', item.id);
+    assert.equal(tracker.finish('actor', { bookingReady:true, complete:true }).text, expected);
+  }
 });
 
 test('account change and ordinary online state do not leak stale summary', () => {
