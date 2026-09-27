@@ -7,6 +7,13 @@ import { fileURLToPath } from 'node:url';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
+function actual(name) {
+  const start = providerSource.search(new RegExp(`^function ${name}\\(`, 'm'));
+  assert.ok(start >= 0, name);
+  const next = providerSource.slice(start + 1).search(/^function /m);
+  return providerSource.slice(start, next < 0 ? undefined : start + 1 + next);
+}
 const output = process.env.MINUTA_CONNECTION_GUIDANCE_OUTPUT || '';
 if (output) fs.mkdirSync(output, { recursive:true });
 const html = fs.readFileSync(path.join(root, 'provider.html'), 'utf8')
@@ -34,8 +41,9 @@ try {
     document.querySelector('#providerBoot')?.remove();
     document.querySelector('#dashboard').hidden = false;
     document.querySelector('#dashboard').dataset.activeView = 'bookings';
+    document.body.dataset.providerTheme = 'pink-porcelain';
     document.querySelectorAll('.provider-view').forEach(view => { view.hidden = view.dataset.providerPanel !== 'bookings'; });
-    document.querySelector('.schedule-view-title').insertAdjacentHTML('afterend', `
+    if (!document.querySelector('#providerConnectionGuidance')) document.querySelector('.schedule-view-title').insertAdjacentHTML('afterend', `
       <section class="provider-connection-guidance" id="providerConnectionGuidance" aria-live="polite" hidden>
         <div class="provider-connection-guidance-copy"><strong id="providerConnectionGuidanceTitle"></strong><span id="providerConnectionGuidanceDescription"></span>
           <details class="provider-connection-guidance-help" id="providerConnectionGuidanceHelp"><summary>Что делать?</summary><p>Проверьте Wi‑Fi или мобильный интернет. Если связь не восстановилась, попробуйте выключить и снова включить подключение.</p></details>
@@ -78,6 +86,60 @@ try {
   assert.equal(await page.locator('#providerConnectionGuidanceInspect').isVisible(), true);
   await page.evaluate(() => window.setGuidance({ online:true, hasUser:true, sessionTrust:'verified' }));
   assert.equal(await page.locator('#providerConnectionGuidance').isVisible(), false);
+  await page.addScriptTag({ content:`
+    const $ = selector => document.querySelector(selector);
+    let currentUser = { id:'actor-a' }, providerSessionTrust = 'verified';
+    let offlineBookingAccessReady = true, offlineBookingInputsReady = true;
+    let bookingReadConnectionUnavailable = false, offlineBookingQueue = [];
+    const connectionGuidanceTracker = window.MinutaProviderConnectionGuidance.createRecoveryTracker();
+    let connectionGuidanceRecovery = null, connectionGuidanceActor = '', connectionGuidanceTimer = null;
+    function offlineBookingSnapshotFresh() { return window.testSavedSchedule; }
+    function canQueueOfflineBooking() { return window.testCanQueue; }
+    function recordConnectionEvent() {}
+    function showProviderSystemNotification() { throw new Error('no system notification in synthetic test'); }
+    window.testOnline = true; window.testSavedSchedule = true; window.testCanQueue = false;
+    Object.defineProperty(Navigator.prototype, 'onLine', { configurable:true, get:() => window.testOnline });
+    ${actual('resetConnectionGuidance')}
+    ${actual('beginConnectionGuidanceRecovery')}
+    ${actual('finishConnectionGuidanceRecovery')}
+    ${actual('renderProviderConnectionGuidance')}
+  ` });
+  const integrated = await page.evaluate(() => {
+    window.testOnline = false;
+    window.testCanQueue = true;
+    renderProviderConnectionGuidance();
+    const offline = $('#providerConnectionGuidance').innerText;
+    window.testSavedSchedule = false;
+    renderProviderConnectionGuidance();
+    const noSnapshot = $('#providerConnectionGuidance').innerText;
+    window.testOnline = true;
+    providerSessionTrust = 'verified';
+    bookingReadConnectionUnavailable = true;
+    renderProviderConnectionGuidance();
+    const server = $('#providerConnectionGuidance').innerText;
+    providerSessionTrust = 'cached';
+    renderProviderConnectionGuidance();
+    const session = $('#providerConnectionGuidance').innerText;
+    providerSessionTrust = 'verified';
+    bookingReadConnectionUnavailable = false;
+    window.testSavedSchedule = true;
+    offlineBookingQueue = [{ id:'confirmed', status:'pending' }, { id:'conflict', status:'pending' }];
+    beginConnectionGuidanceRecovery();
+    connectionGuidanceTracker.confirm('actor-a', 'confirmed');
+    offlineBookingQueue = [{ id:'conflict', status:'conflict' }];
+    finishConnectionGuidanceRecovery(true, true);
+    const summary = $('#providerConnectionGuidance').innerText;
+    currentUser = { id:'actor-b' };
+    renderProviderConnectionGuidance();
+    return { offline, noSnapshot, server, session, summary, afterAccountChange:$('#providerConnectionGuidance').hidden };
+  });
+  assert.match(integrated.offline, /добавлять новые/);
+  assert.doesNotMatch(integrated.noSnapshot, /добавлять новые/);
+  assert.match(integrated.server, /Нет связи с сервером/);
+  assert.doesNotMatch(integrated.server, /Нет интернета/);
+  assert.match(integrated.session, /Сеанс нужно подтвердить/);
+  assert.match(integrated.summary, /Сохранена 1 запись, 1 запись требует проверки/);
+  assert.equal(integrated.afterAccountChange, true);
   console.log('provider connection guidance browser: 390/760/1440, offline/help/server/recovery/normal online PASS');
 } finally {
   await browser?.close();

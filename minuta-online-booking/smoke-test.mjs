@@ -57,6 +57,7 @@ const app = readFileSync(join(root, 'app.js'), 'utf8');
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const config = readFileSync(join(root, 'config.js'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
+const providerConnectionGuidance = readFileSync(join(root, 'provider-connection-guidance.js'), 'utf8');
 const providerColorMode = readFileSync(join(root, 'provider-color-mode.js'), 'utf8');
 const settingsSmartSearch = readFileSync(join(root, 'settings-smart-search.js'), 'utf8');
 const settingsNavScroll = readFileSync(join(root, 'settings-nav-scroll.js'), 'utf8');
@@ -234,7 +235,8 @@ assert.match(provider, /sessionStorage\.setItem\(bookingDraftKey\(\), JSON\.stri
 assert.doesNotMatch(provider, /localStorage\.setItem\(bookingDraftKey/, 'Персональные данные черновика сохраняются надолго');
 assert.match(provider, /clearNewBookingDraft\(userId\)[\s\S]*closeBookingSheet\(\)/, 'Созданная запись оставляет персональный черновик на устройстве');
 assert.match(provider, /recordConnectionEvent\(kind, text\)[\s\S]*slice\(0, 30\)/, 'Журнал связи не ограничивает количество технических событий');
-assert.match(provider, /Интернет восстановлен · данные обновлены/, 'После восстановления интернета нет понятного подтверждения');
+assert.match(provider, /finishConnectionGuidanceRecovery\(bookingCreationReady, complete\)/, 'После восстановления интернета нет проверки серверного результата');
+assert.match(providerConnectionGuidance, /Связь восстановлена/, 'После восстановления интернета нет понятного подтверждения');
 assert.match(providerHtml, /id="recoverySentAddress"[\s\S]*id="retryPasswordRecovery"/, 'Восстановление пароля не объясняет доставку письма и повторную отправку');
 assert.match(providerHtml, /Отдельная оплата не требуется[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет бесплатный доступ и передачу ссылки');
 assert.match(organization, /providerInviteLink[\s\S]*navigator\.clipboard\.writeText/, 'Ссылку для сотрудника нельзя скопировать');

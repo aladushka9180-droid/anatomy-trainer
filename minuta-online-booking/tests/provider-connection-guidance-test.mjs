@@ -5,7 +5,8 @@ import vm from 'node:vm';
 
 const box = { window:{} };
 vm.runInNewContext(readFileSync(new URL('../provider-connection-guidance.js', import.meta.url), 'utf8'), box);
-const { view, createRecoveryTracker } = box.window.MinutaProviderConnectionGuidance;
+const { view, shouldRecoverCachedSession, createRecoveryTracker } = box.window.MinutaProviderConnectionGuidance;
+const providerSource = readFileSync(new URL('../provider.js', import.meta.url), 'utf8');
 
 test('offline promise requires a usable saved schedule and booking gate', () => {
   const basic = { online:false, hasUser:true, sessionTrust:'cached' };
@@ -62,6 +63,26 @@ test('confirmed booking counts use natural Russian agreement', () => {
   }
 });
 
+test('created booking with pending notification is counted in separate outcomes', () => {
+  const tracker = createRecoveryTracker();
+  tracker.start('actor');
+  tracker.snapshot('actor', [{ id:'created' }]);
+  tracker.confirm('actor', 'created');
+  const result = tracker.finish('actor', { bookingReady:true, complete:true, queue:[{ id:'created', status:'notification_pending' }] });
+  assert.equal(result.saved, 1);
+  assert.equal(result.pending, 0);
+  assert.equal(result.notifications, 1);
+  assert.equal(result.text, 'Сохранена 1 запись, 1 уведомление клиенту ожидает отправки');
+
+  const afterReload = createRecoveryTracker();
+  afterReload.start('actor');
+  afterReload.snapshot('actor', [{ id:'created', status:'notification_pending', bookingCreationConfirmed:true }]);
+  const later = afterReload.finish('actor', { bookingReady:true, complete:true, queue:[{ id:'created', status:'notification_pending', bookingCreationConfirmed:true }] });
+  assert.equal(later.saved, 0, 'previously confirmed booking is not counted again');
+  assert.equal(later.notifications, 1);
+  assert.equal(later.text, '1 уведомление клиенту ожидает отправки');
+});
+
 test('account change and ordinary online state do not leak stale summary', () => {
   const tracker = createRecoveryTracker();
   assert.equal(tracker.finish('actor-a', { bookingReady:true }), null);
@@ -75,4 +96,54 @@ test('account change and ordinary online state do not leak stale summary', () =>
   const result = tracker.finish('actor-b', { bookingReady:true, complete:true });
   assert.equal(result.text, 'Записи и расписание обновлены');
   assert.equal(view({ online:true, hasUser:true, sessionTrust:'verified', recovery:result }).inspect, true);
+});
+
+test('cached offline session enters one recovery after server access is verified', () => {
+  const session = providerSource.slice(providerSource.indexOf('async function handleSession('), providerSource.indexOf('async function loadProviderDisplayName('));
+  assert.match(session, /recoveringCachedSession = window\.MinutaProviderConnectionGuidance\?\.shouldRecoverCachedSession/);
+  assert.match(session, /if \(recoveringCachedSession\) beginConnectionGuidanceRecovery\(\);\s*if \(navigator\.onLine[^\n]+\n\s*await synchronizeProvider\(\)/);
+  const online = providerSource.slice(providerSource.indexOf("window.addEventListener('online', async () => {", providerSource.indexOf("window.addEventListener('offline', async () => {")));
+  assert.match(online, /await verifyCachedProviderSession\(currentUser\.id\);\s*if \(connectionWasOffline && providerSessionTrust === 'verified'\) finishConnectionGuidanceRecovery/);
+  const verified = { sameUser:true, previousTrust:'cached', accessVerified:true, online:true };
+  assert.equal(shouldRecoverCachedSession({ ...verified, outageObserved:false }), false, 'normal online cached bootstrap stays quiet');
+  assert.equal(shouldRecoverCachedSession({ ...verified, outageObserved:true }), true, 'cold offline recovery starts after access check');
+  assert.equal(shouldRecoverCachedSession({ ...verified, accessVerified:false, outageObserved:true }), false, 'failed verification does not start recovery');
+  assert.equal(shouldRecoverCachedSession({ ...verified, outageObserved:true }), true, 'successful retry still sees observed outage');
+  const tracker = createRecoveryTracker();
+  tracker.start('actor');
+  tracker.snapshot('actor', [{ id:'accepted' }]);
+  tracker.confirm('actor', 'accepted');
+  assert.equal(tracker.finish('actor', { bookingReady:true, complete:true }).text, 'Сохранена 1 запись');
+  assert.equal(tracker.finish('actor', { bookingReady:true, complete:true }), null, 'one final outcome');
+});
+
+test('manual check is single-flight and never claims a missing offline copy', async () => {
+  const start = providerSource.indexOf('async function manualSynchronizeProvider()');
+  const end = providerSource.indexOf('function cachedStateText(', start);
+  assert.ok(start >= 0 && end > start);
+  const messages = [];
+  let completeSync;
+  const waiting = new Promise(resolve => { completeSync = resolve; });
+  let calls = 0;
+  const button = { disabled:false, classList:{ add() {}, remove() {} } };
+  const context = vm.createContext({
+    currentUser:{ id:'actor' }, navigator:{ onLine:false }, offlineBookingAccessReady:false,
+    offlineBookingInputsReady:false, offlineBookingSnapshotFresh:() => false,
+    notify:text => messages.push(text), recordConnectionEvent() {},
+    $:() => button, manualSynchronizationPromise:null, synchronizationPromise:null,
+    synchronizeProvider:() => { calls++; return waiting; }, bookingCreationReady:false,
+    pendingBookingColors:new Set(), pendingBookingNotes:new Set(), pendingClientLabels:new Set(), pendingClientNotes:new Map()
+  });
+  vm.runInContext(providerSource.slice(start, end), context);
+  assert.equal(await context.manualSynchronizeProvider(), false);
+  assert.deepEqual(messages, ['Нет интернета · проверьте подключение']);
+  context.navigator.onLine = true;
+  const first = context.manualSynchronizeProvider();
+  const second = context.manualSynchronizeProvider();
+  assert.equal(calls, 1);
+  completeSync(true);
+  assert.equal(await first, true);
+  assert.equal(await second, true);
+  assert.equal(calls, 1);
+  assert.equal(button.disabled, false);
 });

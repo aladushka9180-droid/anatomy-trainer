@@ -51,6 +51,10 @@
     return null;
   }
 
+  function shouldRecoverCachedSession({ sameUser, previousTrust, accessVerified, online, outageObserved } = {}) {
+    return Boolean(sameUser && previousTrust === 'cached' && accessVerified && online && outageObserved);
+  }
+
   function createRecoveryTracker() {
     let active = null;
     function start(actor) {
@@ -73,21 +77,23 @@
       if (!active || actor !== active.actor || !bookingReady) return null;
       const rows = (queue || []).filter(item => active.queued.has(item?.id));
       const conflicts = rows.filter(item => item.status === 'conflict').length;
-      const pending = rows.filter(item => ['pending', 'syncing', 'server_check_pending', 'notification_pending'].includes(item.status)).length;
+      const pending = rows.filter(item => ['pending', 'syncing', 'server_check_pending'].includes(item.status)).length;
+      const notifications = rows.filter(item => item.status === 'notification_pending').length;
       const saved = active.confirmed.size;
       active = null;
       const parts = [];
       if (saved) parts.push(savedText(saved));
       if (conflicts) parts.push(`${plural(conflicts, 'запись требует', 'записи требуют', 'записей требуют')} проверки`);
       if (pending) parts.push(`${plural(pending, 'запись ожидает', 'записи ожидают', 'записей ожидают')} проверки сервера`);
+      if (notifications) parts.push(`${plural(notifications, 'уведомление клиенту ожидает', 'уведомления клиенту ожидают', 'уведомлений клиенту ожидают')} отправки`);
       const text = parts.length
         ? parts.join(', ')
         : complete ? 'Записи и расписание обновлены' : 'Расписание обновлено; остальные данные проверяем';
-      return { kind:'complete', text, saved, conflicts, pending };
+      return { kind:'complete', text, saved, conflicts, pending, notifications };
     }
     function reset() { active = null; }
     return { start, snapshot, confirm, finish, reset, get active() { return Boolean(active); } };
   }
 
-  window.MinutaProviderConnectionGuidance = { view, createRecoveryTracker };
+  window.MinutaProviderConnectionGuidance = { view, shouldRecoverCachedSession, createRecoveryTracker };
 })();

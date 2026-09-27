@@ -23,6 +23,7 @@
   <meta name="apple-mobile-web-app-title" content="PrimeTime">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="styles.css?v=1004">
+  <link rel="stylesheet" href="provider-connection-guidance.css?v=1006">
   <template data-provider-feature="statistics"><link rel="stylesheet" href="statistics-audit-ui.css?v=1004"></template>
   <link rel="stylesheet" href="messages-center.css?v=886">
   <link rel="stylesheet" href="finance-center.css?v=1004">
@@ -202,6 +203,12 @@
 
         <section class="provider-view active" data-provider-panel="bookings">
           <div class="view-title schedule-view-title"><div><span>Журнал записей</span><div class="schedule-title-line"><h2 tabindex="-1">Расписание</h2><div class="dashboard-summary" aria-label="Сводка записей"><div><strong id="todayBookingsCount">0</strong><span id="todayBookingsLabel">сегодня</span></div><i></i><div><strong id="tomorrowBookingsCount">0</strong><span id="tomorrowBookingsLabel">завтра</span></div><i></i><div><strong id="newBookingsCount">0</strong><span id="upcomingBookingsLabel">впереди</span></div></div></div></div><div class="view-title-actions"><button class="primary compact-button" id="newBookingButton" type="button" aria-label="Новая запись" data-compact-label="Новая запись"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Новая запись</span></button></div></div>
+          <section class="provider-connection-guidance" id="providerConnectionGuidance" aria-live="polite" hidden>
+            <div class="provider-connection-guidance-copy"><strong id="providerConnectionGuidanceTitle"></strong><span id="providerConnectionGuidanceDescription"></span>
+              <details class="provider-connection-guidance-help" id="providerConnectionGuidanceHelp"><summary>Что делать?</summary><p>Проверьте Wi‑Fi или мобильный интернет. Если связь не восстановилась, попробуйте выключить и снова включить подключение.</p></details>
+            </div>
+            <div class="provider-connection-guidance-actions"><button class="secondary-button compact-button" id="providerConnectionGuidanceCheck" type="button">Проверить связь</button><button class="secondary-button compact-button" id="providerConnectionGuidanceInspect" type="button" hidden>Посмотреть</button></div>
+          </section>
           <section class="booking-demo-notice" id="bookingDemoNotice" aria-live="polite" hidden><div><strong>Демо-записи по дням</strong><span>Учебные клиенты и визиты из демо-статистики. Просмотр не изменяет ваши настоящие записи.</span></div><button class="secondary-button compact-button" id="showOwnBookings" type="button">Вернуться к моим записям</button></section>
           <section class="provider-day-focus" id="providerDayFocus" aria-live="polite" hidden>
             <div><small id="providerDayFocusLabel">Ближайшая запись</small><strong id="providerDayFocusTitle"></strong><span id="providerDayFocusDetails"></span></div>
@@ -2175,7 +2182,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=1005" defer></script>
+  <script src="site-update.js?v=1006" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2229,7 +2236,8 @@
   <script src="finance-center-provider.js?v=1004" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
   <template data-provider-feature="statistics"><script src="statistics-audit-ui.js?v=1004"></script><script src="statistics-audit-provider.js?v=1004"></script></template>
-  <script src="provider.js?v=1005" defer></script>
+  <script src="provider-connection-guidance.js?v=1006" defer></script>
+  <script src="provider.js?v=1006" defer></script>
   <script src="provider-porcelain-detail.js?v=946" defer></script>
   <script src="provider-help-workspace.js?v=811" defer></script>
   <script src="service-presets.js?v=811" defer></script>
