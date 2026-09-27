@@ -9,7 +9,7 @@ const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const auditStyles = readFileSync(new URL('../statistics-audit-ui.css', import.meta.url), 'utf8');
 const providerUxStyles = readFileSync(new URL('../provider-ux.css', import.meta.url), 'utf8');
 const auditScript = readFileSync(new URL('../statistics-audit-ui.js', import.meta.url), 'utf8');
-const browser = await chromium.launch({ headless:true });
+const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 
 try {
   for (const width of [360, 390, 760, 1440]) {
@@ -32,6 +32,7 @@ try {
       root.querySelector('.report-analytics-details').open = true;
       root.querySelector('.report-health-details').open = true;
       root.querySelector('#reportPaymentRateNote').textContent = '46 из 46 визитов; финансовая оценка доступна от 80%';
+      root.querySelector('#reportSmartActions').innerHTML = '<article class="report-smart-action is-money"><span>!</span><div><strong>Проверить оплаты</strong><small>Подтверждённый долг 5 995 ₽</small><i>Оплачено 96% стоимости услуг</i></div><button type="button">Проверить →</button></article><button class="report-actions-toggle" type="button">Ещё 2</button>';
       root.querySelector('#reportFunnel').innerHTML = '<article><div><span>1</span><strong>Все записи</strong><b>53</b><small>Все записи периода</small></div><i></i></article>';
       root.querySelector('#reportHeatmapLegend').hidden = false;
       root.querySelector('#reportHeatmap').innerHTML = '<span class="report-heatmap-corner"></span>'
@@ -151,6 +152,9 @@ try {
     assert.ok(await page.locator('.report-health-details summary').evaluate(label => label.getBoundingClientRect().height >= 44), `${width}px health explanation target`);
     if (width <= 760) {
       assert.ok(layout.period >= 44, `${width}px period target`);
+      const smartActions = await page.evaluate(() => [...document.querySelectorAll('#reportSmartActions small,#reportSmartActions i,#reportSmartActions button')]
+        .map(label => ({ text:label.textContent.trim(), button:label.tagName === 'BUTTON', size:parseFloat(getComputedStyle(label).fontSize), height:label.getBoundingClientRect().height, clipped:label.scrollWidth > label.clientWidth + 1 })));
+      assert.ok(smartActions.every(label => label.size >= 12 && !label.clipped && (!label.button || label.height >= 44)), `${width}px smart-action labels and targets: ${JSON.stringify(smartActions)}`);
     }
     if (width <= 390) {
       const clippedChartValues = await page.evaluate(() => [...document.querySelectorAll('.report-chart-column>b')].filter(label => label.scrollWidth > label.clientWidth + 1).map(label => label.textContent.trim()));
@@ -204,6 +208,7 @@ try {
       await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
       await page.screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/statistics-${width}.png`, fullPage:true });
       await page.locator('.report-command-center').screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/health-${width}.png` });
+      await page.locator('#reportSmartActions').screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/smart-actions-${width}.png` });
     }
     await page.close();
   }
