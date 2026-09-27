@@ -75,6 +75,7 @@ async function slotFixture(serverSlots, remainingBreaks = [], preferredTime = '1
     newBookingDurationMinutes:() => 15,
     bookingCreationReady:true,
     writesAllowed:true,
+    bookingDeferredMode:() => false,
     currentUser:{ id:'provider' },
     sessionGeneration:1,
     loadAutomaticBookingBreaks:async date => {
