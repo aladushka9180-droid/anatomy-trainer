@@ -12,7 +12,7 @@ const browser = await chromium.launch({ headless:true,
 const pageErrors = [], unexpectedRequests = [];
 const fixtureUrl = 'https://retention-recovery.test/';
 
-async function fixture() {
+async function fixture({ enabled = true } = {}) {
   const page = await browser.newPage({ viewport:{ width:1280, height:900 }, serviceWorkers:'block' });
   page.setDefaultTimeout(5000);
   page.on('pageerror', error => pageErrors.push(error.message));
@@ -33,9 +33,9 @@ async function fixture() {
   }, html);
   await page.addStyleTag({ content:'svg{width:20px;height:20px}label{display:block;margin:8px}input,textarea,button,select{font:16px sans-serif}textarea{width:500px;height:90px}' });
   await page.addScriptTag({ content:source });
-  await page.evaluate(async () => {
-    const state = window.testState = { user:'owner', generation:1, mode:'success', calls:[], notices:[], settled:0 };
-    const workspace = id => ({ organization_id:id, current_role:'owner', enabled:true, inactivity_days:45, cooldown_days:90,
+  await page.evaluate(async enabled => {
+    const state = window.testState = { user:'owner', generation:1, mode:'success', calls:[], notices:[], confirmations:[], settled:0 };
+    const workspace = id => ({ organization_id:id, current_role:'owner', enabled, inactivity_days:45, cooldown_days:90,
       message_template:`Здравствуйте, клиент ${id}! Приглашаем снова: {ссылка}`,
       clients:[{ client_account_id:`client-${id}`, client_name:`Клиент ${id}`, client_phone:'+79990000000',
         last_visit_on:'2025-01-01', eligible:true, consent_status:'granted', completed_visits:1,
@@ -63,10 +63,14 @@ async function fixture() {
       getCurrentUser:() => state.user ? { id:state.user } : null,
       getSessionGeneration:() => state.generation,
       sessionIsCurrent:(user, generation) => state.user === user && state.generation === generation,
-      applyWriteAvailability() {} });
+      applyWriteAvailability() {},
+      requestConfirmation:settings => {
+        state.confirmations.push(settings);
+        return new Promise(resolve => { state.resolveReview = resolve; });
+      } });
     controller.bind();
     await controller.setOrganization({ id:'org-a', current_role:'owner' });
-  });
+  }, enabled);
   return page;
 }
 
@@ -77,8 +81,8 @@ async function beginAutosave(page, mode) {
   // Real input event and the actual 500ms debounce, not direct controller invocation.
   await page.waitForFunction(() => testState.calls.some(row => row.name === 'save_minuta_retention_settings'));
 }
-async function runCase(title, run) {
-  const page = await fixture();
+async function runCase(title, run, options) {
+  const page = await fixture(options);
   try { await run(page); console.log(`PASS: ${title}`); }
   finally { await page.close(); }
 }
@@ -148,7 +152,57 @@ try {
     assert.equal(await page.evaluate(() => testState.notices.length), 1, 'only the first current-context failure is notified');
   });
 
+  for (const width of [390, 760, 1440]) {
+    await runCase(`enabling retention requires review at ${width}px while other fields still autosave`, async page => {
+      await page.setViewportSize({ width, height:900 });
+      await page.locator('#retentionEnabled').check();
+      await page.waitForFunction(() => testState.confirmations.length === 1);
+      const review = await page.evaluate(() => testState.confirmations[0]);
+      assert.match(review.message, /45 дней/);
+      assert.match(review.message, /90 дней/);
+      assert.equal(review.initialFocus, 'cancel');
+      assert.equal(await page.evaluate(() => testState.calls.filter(row => row.name === 'save_minuta_retention_settings').length), 0);
+      await page.evaluate(() => testState.resolveReview(false));
+      await page.waitForFunction(() => !document.querySelector('#retentionEnabled').checked);
+      assert.equal(await page.evaluate(() => testState.calls.filter(row => row.name === 'save_minuta_retention_settings').length), 0);
+      await page.locator('#retentionInactivityDays').fill('60');
+      await page.waitForFunction(() => testState.calls.filter(row => row.name === 'save_minuta_retention_settings').length === 1);
+      assert.equal(await page.evaluate(() => testState.calls.find(row => row.name === 'save_minuta_retention_settings').args.p_enabled), false);
+      await page.locator('#retentionEnabled').check();
+      await page.waitForFunction(() => testState.confirmations.length === 2);
+      assert.match((await page.evaluate(() => testState.confirmations[1].message)), /60 дней/);
+      assert.equal(await page.evaluate(() => testState.calls.filter(row => row.name === 'save_minuta_retention_settings').length), 1);
+      await page.evaluate(() => testState.resolveReview(true));
+      await page.waitForFunction(() => testState.calls.filter(row => row.name === 'save_minuta_retention_settings').length === 2);
+      const finalSave = await page.evaluate(() => testState.calls.filter(row => row.name === 'save_minuta_retention_settings')[1].args);
+      assert.equal(finalSave.p_enabled, true);
+      assert.equal(finalSave.p_inactivity_days, 60);
+    }, { enabled:false });
+  }
+
+  await runCase('cancelled enable keeps an earlier unsaved threshold edit without enabling', async page => {
+    await page.locator('#retentionInactivityDays').fill('60');
+    await page.locator('#retentionEnabled').check();
+    await page.waitForFunction(() => testState.confirmations.length === 1);
+    await page.evaluate(() => testState.resolveReview(false));
+    await page.waitForFunction(() => testState.calls.some(row => row.name === 'save_minuta_retention_settings'));
+    const saves = await page.evaluate(() => testState.calls.filter(row => row.name === 'save_minuta_retention_settings'));
+    assert.equal(saves.length, 1);
+    assert.equal(saves[0].args.p_enabled, false);
+    assert.equal(saves[0].args.p_inactivity_days, 60);
+  }, { enabled:false });
+
+  await runCase('confirmation from an old organization cannot enable another organization', async page => {
+    await page.locator('#retentionEnabled').check();
+    await page.waitForFunction(() => testState.confirmations.length === 1);
+    await page.evaluate(async () => controller.setOrganization({ id:'org-b', current_role:'owner' }));
+    await page.waitForFunction(() => controller.payload?.organization_id === 'org-b');
+    await page.evaluate(() => testState.resolveReview(true));
+    assert.equal(await page.evaluate(() => testState.calls.filter(row => row.name === 'save_minuta_retention_settings').length), 0);
+    assert.equal(await page.locator('#retentionEnabled').isChecked(), false);
+  }, { enabled:false });
+
   assert.deepEqual(pageErrors, [], 'no unhandled controller errors');
   assert.deepEqual(unexpectedRequests, [], 'fixture must never request external resources');
-  console.log('Retention native DOM recovery: 5/5 PASS (isolated RPC mocks, no production access)');
+  console.log('Retention native DOM recovery and enable review: 10/10 PASS (isolated RPC mocks, no production access)');
 } finally { await browser.close(); }

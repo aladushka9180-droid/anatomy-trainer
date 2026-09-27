@@ -5,6 +5,7 @@
 
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
+    const requestConfirmation = options.requestConfirmation || (settings => Promise.resolve(window.confirm(settings.message)));
     const select = options.$;
     function $(selector) { return select(selector); }
     let organization = null;
@@ -14,6 +15,7 @@
     let writing = false;
     let pendingOrganization;
     let settingsSaveTimer = null;
+    let reviewingEnable = false;
     let scopeRevision = 0;
     let activeWrite = null;
     let pendingSession = null;
@@ -132,12 +134,14 @@
     }
     function reset() {
       clearTimeout(settingsSaveTimer); settingsSaveTimer = null;
+      reviewingEnable = false;
       revision += 1; scopeRevision += 1; organization = null; writing = false; activeWrite = null; pendingOrganization = undefined; pendingSession = null;
       setBusy(false); hideWorkspace();
     }
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
       clearTimeout(settingsSaveTimer); settingsSaveTimer = null;
+      reviewingEnable = false;
       scopeRevision += 1;
       if (writing) {
         pendingOrganization = normalized; pendingSession = { userId: getCurrentUser()?.id, generation: getSessionGeneration() };
@@ -284,7 +288,7 @@
     }
     function scheduleSettingsSave() {
       clearTimeout(settingsSaveTimer);
-      if (!organization?.id || writing || availability !== 'ready') return;
+      if (!organization?.id || writing || reviewingEnable || availability !== 'ready') return;
       const saveStatus = $('#retentionSaveStatus');
       if (saveStatus) saveStatus.textContent = 'Ожидает сохранения…';
       settingsSaveTimer = setTimeout(() => saveSettings(), 500);
@@ -292,6 +296,11 @@
     function handleInput(event) {
       if (!event.target.closest('#retentionSettingsForm')) return;
       if (!organization?.id || writing || availability !== 'ready') return;
+      if (event.target.id === 'retentionEnabled' && event.target.checked && !payload?.enabled) {
+        clearTimeout(settingsSaveTimer);
+        return;
+      }
+      if (reviewingEnable) return;
       const form = $('#retentionSettingsForm');
       if (!form?.checkValidity()) { clearTimeout(settingsSaveTimer); if ($('#retentionSaveStatus')) $('#retentionSaveStatus').textContent = 'Проверьте заполнение полей'; return; }
       if (!$('#retentionMessageTemplate').value.includes('{ссылка}')) { clearTimeout(settingsSaveTimer); if ($('#retentionSaveStatus')) $('#retentionSaveStatus').textContent = 'Добавьте в сообщение переменную {ссылка}'; return; }
@@ -300,12 +309,55 @@
     async function handleSubmit(event) {
       if (event.target.id !== 'retentionSettingsForm') return;
       event.preventDefault();
+      if (reviewingEnable || ($('#retentionEnabled').checked && !payload?.enabled)) return;
       clearTimeout(settingsSaveTimer);
       await saveSettings();
     }
+    function otherSettingsChanged() {
+      return Number($('#retentionInactivityDays').value) !== payload?.inactivity_days
+        || Number($('#retentionCooldownDays').value) !== payload?.cooldown_days
+        || $('#retentionMessageTemplate').value.trim() !== payload?.message_template;
+    }
     async function handleChange(event) {
       if (!organization?.id || writing || availability !== 'ready') return;
-      if (event.target.closest('#retentionSettingsForm')) { scheduleSettingsSave(); return; }
+      if (event.target.closest('#retentionSettingsForm')) {
+        if (reviewingEnable) return;
+        if (event.target.id === 'retentionEnabled' && event.target.checked && !payload?.enabled) {
+          clearTimeout(settingsSaveTimer);
+          const form = $('#retentionSettingsForm');
+          if (!form?.reportValidity() || !$('#retentionMessageTemplate').value.includes('{ссылка}')) {
+            event.target.checked = false;
+            $('#retentionSaveStatus').textContent = 'Проверьте сроки и переменную {ссылка} в шаблоне';
+            return;
+          }
+          const scope = scopeSnapshot();
+          const inactivity = Number($('#retentionInactivityDays').value);
+          const cooldown = Number($('#retentionCooldownDays').value);
+          const template = $('#retentionMessageTemplate').value;
+          reviewingEnable = true;
+          let confirmed = false;
+          try {
+            confirmed = await requestConfirmation({
+              title:'Включить возврат клиентов?',
+              message:`Клиент попадёт в список после ${inactivity} дней без визита. Повторное предложение — не раньше чем через ${cooldown} дней. Сообщения не отправляются автоматически; подготовка и отправка остаются отдельными действиями.`,
+              confirmLabel:'Включить', initialFocus:'cancel'
+            });
+          } catch (_) { confirmed = false; }
+          if (!scopeIsCurrent(scope)) return;
+          reviewingEnable = false;
+          if (!confirmed || !event.target.checked || Number($('#retentionInactivityDays').value) !== inactivity
+            || Number($('#retentionCooldownDays').value) !== cooldown || $('#retentionMessageTemplate').value !== template) {
+            event.target.checked = false;
+            $('#retentionSaveStatus').textContent = confirmed ? 'Параметры изменились — проверьте их ещё раз' : 'Включение отменено';
+            if (otherSettingsChanged()) scheduleSettingsSave();
+            return;
+          }
+          await saveSettings();
+          return;
+        }
+        scheduleSettingsSave();
+        return;
+      }
       const account = event.target.dataset.retentionConsent;
       if (!account || event.target.value === 'unknown') { if (account) await load(); return; }
       const label = event.target.value === 'granted' ? 'Подтвердите, что клиент явно согласился получать предложения.' : 'Запретить сообщения этому клиенту?';
