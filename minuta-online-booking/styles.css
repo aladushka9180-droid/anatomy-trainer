@@ -7739,6 +7739,11 @@ html.provider-booting .provider-main {
   .schedule-settings-layout :is(input,select,textarea,.field-with-unit) { min-width:0; max-width:100%; box-sizing:border-box; }
 }
 
+@media (max-width:380px) {
+  #analyticsView .report-view-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; overflow:visible; }
+  #analyticsView .report-view-tabs button { min-width:0; min-height:44px; }
+}
+
 @media (min-width:761px) and (max-width:980px) {
   .provider-body[data-provider-theme][data-provider-layout] .clients-layout:not(.is-detail) .client-profile,
   .provider-body[data-provider-theme][data-provider-layout] .clients-layout.is-detail .clients-directory { display:none; }

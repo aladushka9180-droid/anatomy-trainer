@@ -11,7 +11,7 @@ const auditScript = readFileSync(new URL('../statistics-audit-ui.js', import.met
 const browser = await chromium.launch({ headless:true });
 
 try {
-  for (const width of [390, 760, 1440]) {
+  for (const width of [360, 390, 760, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:900 } });
     await page.goto('about:blank');
     await page.evaluate(source => {
@@ -32,6 +32,7 @@ try {
       root.querySelector('#reportHeatmap').innerHTML = '<span class="report-heatmap-corner"></span>'
         + Array.from({ length:7 }, (_, i) => `<b>${i + 1}</b>`).join('')
         + '<strong>10:00</strong>' + Array.from({ length:7 }, () => '<button class="report-heatmap-cell"><i>5</i></button>').join('');
+      root.querySelector('#reportRevenueChart').innerHTML = Array.from({ length:5 }, (_, i) => `<button class="report-chart-column"><b>${(i + 1) * 1000} ₽</b><span></span><small>${i + 1}–${i + 7} сент</small></button>`).join('');
       document.querySelector('#reportUniqueClients').textContent = '2';
       document.querySelector('#reportNewClients').textContent = '1';
       document.querySelector('#reportReturningClients').textContent = '1';
@@ -110,8 +111,31 @@ try {
     if (width <= 600) {
       assert.equal(layout.heatmapOverflow, true, `${width}px heatmap scrolls`);
       assert.notEqual(layout.hint, 'none');
+      for (const scale of ['default', 'large']) {
+        const tabs = await page.evaluate(textScale => {
+          document.body.dataset.providerTextScale = textScale;
+          const nav = document.querySelector('.report-view-tabs').getBoundingClientRect();
+          const buttons = [...document.querySelectorAll('.report-view-tabs button')];
+          return buttons.map(button => {
+            const rect = button.getBoundingClientRect();
+            return { label:button.textContent.trim(), height:rect.height, visible:rect.left >= nav.left - 1 && rect.right <= nav.right + 1 };
+          });
+        }, scale);
+        assert.ok(tabs.every(tab => tab.height >= 44 && tab.visible), `${width}px ${scale} statistics tabs: ${JSON.stringify(tabs)}`);
+      }
     }
     if (width === 390) {
+      const labels = await page.evaluate(() => {
+        const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
+        return { note:size('.report-team-note'), axis:size('.report-chart-column small') };
+      });
+      assert.ok(labels.note >= 12 && labels.axis >= 11, `390px statistics labels: ${JSON.stringify(labels)}`);
+      const largeLabels = await page.evaluate(() => {
+        document.body.dataset.providerTextScale = 'large';
+        const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
+        return { note:size('.report-team-note'), axis:size('.report-chart-column small') };
+      });
+      assert.ok(largeLabels.note >= 14 && largeLabels.axis >= 13, `390px large statistics labels: ${JSON.stringify(largeLabels)}`);
       const smallTargets = await page.evaluate(() => {
         const report = document.querySelector('#analyticsView');
         const found = [];
@@ -127,6 +151,7 @@ try {
       });
       assert.deepEqual(smallTargets, [], `390px small targets: ${JSON.stringify(smallTargets)}`);
     }
+    if (process.env.MINUTA_SCREENSHOT_DIR) await page.screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/statistics-${width}.png` });
     await page.close();
   }
 } finally {

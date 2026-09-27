@@ -33,6 +33,8 @@ try {
       <div class="feedback-inbox-filters"><button class="active">Все</button></div>
       <button class="report-export-button secondary-button">Экспорт</button>
       <button class="message-center-send">Отправить</button>
+      <div class="message-center-notice"><button class="message-center-enable">Включить сообщения</button></div>
+      <div class="message-center-dialog-actions"><button type="submit">Включить</button></div>
       <label class="day-toggle"><input checked type="checkbox"><span></span></label>
       <div class="important-notification-card is-unread"><i></i></div>
       <div class="service-visibility-toggle"><i></i></div>
@@ -43,7 +45,7 @@ try {
   }
   await page.addStyleTag({ content:'*{transition:none!important;animation:none!important}' });
   await page.addScriptTag({ path:path.join(root, 'provider-porcelain-matrix.js') });
-  const controls = ['#clientAction', '.provider-section-nav button.active', '.provider-theme-filter button.active', '.notification-filters button.active', '.report-periods button.active', '.report-data-source button.active', '.report-view-tabs button.active', '.feedback-inbox-filters button.active', '.report-export-button', '.message-center-send'];
+  const controls = ['#clientAction', '.provider-section-nav button.active', '.provider-theme-filter button.active', '.notification-filters button.active', '.report-periods button.active', '.report-data-source button.active', '.report-view-tabs button.active', '.feedback-inbox-filters button.active', '.report-export-button', '.message-center-send', '.message-center-enable', '.message-center-dialog-actions button[type="submit"]'];
   for (const width of [390, 760, 1440]) {
     await page.setViewportSize({ width, height:900 });
     for (const character of ['pearl', 'petal', 'silk']) {
@@ -68,10 +70,14 @@ try {
         assert.equal(await page.locator('.day-toggle input:checked+span').evaluate(element => getComputedStyle(element).backgroundColor), toRgb(palette.actionBg));
         assert.notEqual(await page.locator('#dangerAction').evaluate(element => getComputedStyle(element).backgroundColor), toRgb(palette.actionBg));
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width} ${character}/${shade} overflow`);
+        if (process.env.MINUTA_PORCELAIN_ACCENT_OUTPUT && character === 'petal' && shade === 'gentle-pink') {
+          await page.screenshot({ path:path.join(process.env.MINUTA_PORCELAIN_ACCENT_OUTPUT, `porcelain-messages-${width}.png`), fullPage:true });
+        }
       }
     }
-    console.log(`${width}px: 15 Pink Porcelain palettes, 10 section controls, contrast and exclusion PASS`);
+    console.log(`${width}px: 15 Pink Porcelain palettes, ${controls.length} section controls, contrast and exclusion PASS`);
   }
   await page.evaluate(() => document.body.dataset.providerTheme = 'sage');
   assert.notEqual(await page.locator('#clientAction').evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#e5a3be'), 'other theme should retain its own controls');
+  assert.notEqual(await page.locator('.message-center-enable').evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#e5a3be'), 'other theme should retain its own message action');
 } finally { await browser.close(); }

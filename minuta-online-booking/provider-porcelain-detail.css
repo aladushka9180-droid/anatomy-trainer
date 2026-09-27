@@ -265,3 +265,11 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 ) { background:var(--porcelain-quiet-mark)!important; }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard .important-notification-card.is-unread>i { border-color:var(--porcelain-quiet-mark)!important; }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard .day-toggle input:checked+span { background:var(--porcelain-action-bg)!important; }
+
+/* Message activation is a regular action, not a danger state. */
+html body.provider-body[data-provider-theme="pink-porcelain"] .message-center-notice .message-center-enable,
+html body.provider-body[data-provider-theme="pink-porcelain"] .message-center-dialog-actions button[type="submit"] {
+  border-color:var(--theme-line)!important;
+  background:var(--porcelain-action-bg)!important;
+  color:var(--porcelain-action-ink)!important;
+}
