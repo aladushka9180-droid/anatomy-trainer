@@ -12,6 +12,20 @@
   const video = () => $('#codeScannerVideo');
   const status = () => $('#codeScannerStatus');
 
+  function setCameraAvailable(available) {
+    const camera = video()?.closest('.code-scanner-camera');
+    if (camera) camera.hidden = !available;
+    const heading = dialog()?.querySelector('.code-scanner-head small');
+    if (heading) heading.textContent = available ? 'Камера устройства' : 'Ручной ввод';
+    const label = $('#codeScannerManual')?.closest('label');
+    if (label?.firstChild?.nodeType === 3) label.firstChild.textContent = available ? 'Или введите код' : 'Код';
+    if (!available) $('#codeScannerManual')?.focus();
+  }
+  function manualAction(button) {
+    if (button.dataset.codeScanMode === 'benefit') return 'Найти';
+    return button.dataset.codeScanMatch === 'option' ? 'Найти материал' : 'Использовать код';
+  }
+
   function cleanCode(value) {
     return String(value || '').trim().replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 160);
   }
@@ -74,12 +88,21 @@
     stopCamera();
     const generation = cameraGeneration;
     const state = status();
-    if (!global.isSecureContext || !navigator.mediaDevices?.getUserMedia) { state.textContent = 'Камера недоступна в этом браузере. Введите код вручную.'; return; }
-    if (!('BarcodeDetector' in global)) { state.textContent = 'Браузер не поддерживает распознавание кодов камерой. Введите код вручную.'; return; }
+    if (!global.isSecureContext || !navigator.mediaDevices?.getUserMedia || !('BarcodeDetector' in global)) {
+      setCameraAvailable(false);
+      state.textContent = 'Сканирование недоступно в этом браузере. Введите код';
+      return;
+    }
     try {
       const supported = typeof BarcodeDetector.getSupportedFormats === 'function' ? await BarcodeDetector.getSupportedFormats() : formats;
       if (generation !== cameraGeneration || dialog()?.open !== true) return;
-      detector = new BarcodeDetector({ formats:formats.filter(format => supported.includes(format)) });
+      const availableFormats = formats.filter(format => supported.includes(format));
+      if (!availableFormats.length) {
+        setCameraAvailable(false);
+        state.textContent = 'Сканирование недоступно в этом браузере. Введите код';
+        return;
+      }
+      detector = new BarcodeDetector({ formats:availableFormats });
       const acquired = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
       if (generation !== cameraGeneration || dialog()?.open !== true) { acquired.getTracks().forEach(track => track.stop()); return; }
       stream = acquired;
@@ -91,6 +114,7 @@
     } catch (error) {
       if (generation !== cameraGeneration) return;
       stopCamera();
+      setCameraAvailable(false);
       state.textContent = error?.name === 'NotAllowedError' ? 'Доступ к камере не разрешён. Разрешите его в настройках сайта или введите код вручную.' : 'Не удалось включить камеру. Введите код вручную.';
     }
   }
@@ -100,6 +124,9 @@
     activeButton = button;
     $('#codeScannerTitle').textContent = button.dataset.codeScanTitle || 'Сканировать код';
     $('#codeScannerManual').value = '';
+    const manualSubmit = $('#codeScannerManualForm button[type="submit"]');
+    if (manualSubmit) manualSubmit.textContent = manualAction(button);
+    setCameraAvailable(true);
     status().textContent = 'Камера включится только для этого сканирования.';
     root.showModal();
     void startCamera();

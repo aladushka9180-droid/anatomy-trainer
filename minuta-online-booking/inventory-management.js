@@ -160,7 +160,7 @@
 
     function itemCard(row) {
       const total = totalFor(row.id), low = row.active && total <= Number(row.low_stock_threshold || 0);
-      return `<article class="organization-row ${low ? 'inventory-low' : ''}"><div class="organization-row-main"><strong>${escapeHtml(row.name)} · ${escapeHtml(quantity(total))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</strong><small>${row.sku ? `Артикул ${escapeHtml(row.sku)} · ` : ''}минимум ${escapeHtml(quantity(row.low_stock_threshold))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</small></div><span class="organization-tags"><span class="organization-status ${row.active ? 'is-active' : ''}">${low ? 'Мало' : row.active ? 'Активен' : 'Скрыт'}</span><button class="secondary-button" type="button" data-inventory-edit-item="${escapeHtml(row.id)}" data-inventory-write>Изменить</button></span></article>`;
+      return `<article class="organization-row ${low ? 'inventory-low' : ''}"><div class="organization-row-main"><strong>${escapeHtml(row.name)} · ${escapeHtml(quantity(total))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</strong><small>${row.sku ? `Артикул ${escapeHtml(row.sku)} · ` : ''}минимум ${escapeHtml(quantity(row.low_stock_threshold))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</small></div><span class="organization-tags"><span class="organization-status ${row.active ? 'is-active' : ''}">${low ? 'Ниже минимума' : row.active ? 'Активен' : 'Скрыт'}</span><button class="secondary-button" type="button" data-inventory-edit-item="${escapeHtml(row.id)}" data-inventory-write>Изменить</button></span></article>`;
     }
 
     function warehouseCard(row) {
@@ -200,6 +200,12 @@
         : 'Выберите исходный склад и позицию.';
     }
 
+    function updateUsageQuantityLabel() {
+      const label = $('#inventoryUsageQuantity')?.closest?.('label');
+      const unit = unitLabels[item($('#inventoryUsageItem')?.value)?.unit];
+      if (label?.firstChild?.nodeType === 3) label.firstChild.textContent = `Расход на один визит${unit ? `, ${unit}` : ''}`;
+    }
+
     function movementImpact(kind, parameters) {
       const itemId = parameters.p_item, sourceId = parameters.p_warehouse || parameters.p_source_warehouse;
       const selectedItem = item(itemId), source = warehouse(sourceId);
@@ -233,7 +239,7 @@
       if (holder.hidden) return;
       const parameters = kind === 'transfer' ? transferParameters() : movementParameters();
       holder.textContent = (payload && movementImpact(kind, parameters) || 'Укажите склад, позицию и количество для предварительного расчёта.')
-        + ' Итоговый остаток проверит сервер перед проведением.';
+        + ' Перед проведением проверим доступный остаток.';
     }
 
     function render() {
@@ -250,7 +256,7 @@
         const action = $('#inventoryFirstRunAction');
         action.hidden = !enabled;
         action.dataset.inventoryTarget = next;
-        action.textContent = next === 'catalog' ? 'К каталогу и складам' : 'К приходу и нормам';
+        action.textContent = next === 'catalog' ? 'К каталогу и складам' : 'Оформить приход';
         $('#inventoryFirstRunHint').textContent = !enabled
           ? isOwner ? 'Сначала включите складской учёт переключателем ниже.' : 'Сначала владелец должен включить складской учёт.'
           : !hasItems ? 'Следующий шаг: добавьте материал в каталог.'
@@ -259,7 +265,9 @@
       }
       $('#inventoryEnabled').checked = enabled; $('#inventoryEnabled').disabled = !isOwner;
       $('#inventoryAutoDeduct').checked = Boolean(payload.auto_deduct_completed_visits); $('#inventoryAutoDeduct').disabled = !isOwner || !enabled;
-      $('#inventoryEnabledHint').textContent = isOwner ? 'По умолчанию выключено. Включение не списывает старые визиты.' : 'Включить или выключить склад может только владелец.';
+      $('#inventoryEnabledHint').textContent = isOwner
+        ? enabled ? 'Учёт включён. Старые визиты не списываются.' : 'Учёт выключен. Включение не спишет материалы за старые визиты.'
+        : enabled ? 'Учёт включён. Изменить настройку может только владелец.' : 'Учёт выключен. Включить его может только владелец.';
       $('#inventoryItemsCount').textContent = String(payload.items.length); $('#inventoryWarehousesCount').textContent = String(payload.warehouses.length);
       $('#inventoryItemsList').innerHTML = payload.items.length ? payload.items.map(itemCard).join('') : empty('Товаров и материалов пока нет', 'Добавьте первую складскую позицию.');
       $('#inventoryWarehousesList').innerHTML = payload.warehouses.length ? payload.warehouses.map(warehouseCard).join('') : empty('Склады не созданы', 'Создайте по одному складу для нужных филиалов.');
@@ -267,7 +275,7 @@
       $('#inventoryUsageList').innerHTML = payload.usage.length ? payload.usage.map(usageCard).join('') : empty('Нормы не настроены', 'Добавьте расход материала на одну завершённую услугу.');
       const ordinaryMovements = payload.movements.filter(row => !['transfer_out', 'transfer_in'].includes(row.movement_type));
       $('#inventoryMovementsCount').textContent = String(ordinaryMovements.length + payload.transfer_documents.length);
-      $('#inventoryMovementsList').innerHTML = ordinaryMovements.length ? ordinaryMovements.map(movementCard).join('') : empty('Движений пока нет', 'Приходы, списания, инвентаризации и перемещения появятся здесь.');
+      $('#inventoryMovementsList').innerHTML = ordinaryMovements.length ? ordinaryMovements.map(movementCard).join('') : empty('Операций пока нет', 'Приходы, списания, инвентаризации и перемещения появятся здесь.');
       $('#inventoryTransferDocumentsList').innerHTML = payload.transfer_documents.length ? payload.transfer_documents.map(transferCard).join('') : '';
       $('#inventoryControls').hidden = !enabled;
       const activeItems = payload.items.filter(row => row.active), activeWarehouses = payload.warehouses.filter(row => row.active), activeServices = payload.services.filter(row => row.active !== false);
@@ -275,6 +283,7 @@
       $('#inventoryMovementItem').innerHTML = activeItems.map(row => `<option value="${escapeHtml(row.id)}" data-code="${escapeHtml(row.sku || '')}" data-sku="${escapeHtml(row.sku || '')}">${escapeHtml(`${row.name} · ${unitLabels[row.unit] || row.unit}${row.sku ? ` · ${row.sku}` : ''}`)}</option>`).join('');
       $('#inventoryUsageService').innerHTML = optionRows(activeServices, row => row.name);
       $('#inventoryUsageItem').innerHTML = optionRows(activeItems, row => `${row.name} · ${unitLabels[row.unit] || row.unit}`);
+      updateUsageQuantityLabel();
       $('#inventoryWarehouseLocation').innerHTML = optionRows(payload.locations.filter(row => row.active), row => row.name);
       const transferAvailable = Number(payload.transfer_version) === 130;
       $('#inventoryTransfersSetting').hidden = !transferAvailable;
@@ -289,12 +298,13 @@
         $('#inventoryTransfersEnabled').disabled = !isOwner || suspended;
         $('#enableInventoryTransfers').hidden = initialized || !isOwner || suspended;
         $('#enableInventoryTransfers').disabled = !enabled;
-        $('#inventoryTransfersHint').textContent = suspended ? 'Перемещения остановлены автоматической сверкой. Проверьте журнал и себестоимость.'
-          : isOwner ? initialized ? 'Можно временно выключать без изменения истории и остатков.' : enabled ? 'Первое включение подготовит FIFO-слои текущих остатков.' : 'Сначала включите складской учёт.'
+        $('#inventoryTransfersHint').textContent = suspended ? 'Перемещения остановлены автоматической сверкой. Проверьте историю и себестоимость.'
+          : isOwner ? initialized ? 'Можно временно выключать без изменения истории и остатков.' : enabled ? 'Подготовим учёт текущих остатков для перемещений.' : 'Сначала включите складской учёт.'
             : 'Режим перемещений может менять только владелец.';
         $('#inventoryTransfersState').textContent = suspended ? 'Перемещения заблокированы до сверки.'
           : payload.transfers_enabled ? activeWarehouses.length < 2 ? 'Нужно не менее двух активных складов.' : 'Доступно администраторам и владельцу.'
-            : 'Функция выключена владельцем.';
+            : 'Перемещения выключены.';
+        $('#enableInventoryTransfers').textContent = 'Включить перемещения';
         $('#inventoryTransferDestination').innerHTML = optionRows(activeWarehouses, row => `${row.name} · ${location(row.location_id)?.name || 'Филиал'}`);
         updateTransferBalance();
       }
@@ -334,6 +344,10 @@
       if ($('#inventoryMovementReason')) $('#inventoryMovementReason').required = inventory || kind === 'write_off' || transfer;
       if ($('#inventoryTransfersState')) $('#inventoryTransfersState').hidden = !transfer;
       if ($('#inventoryMovementWarehouseLabel')) $('#inventoryMovementWarehouseLabel').textContent = transfer ? 'Со склада' : 'Склад';
+      const movementSubmit = $('#inventoryMovementForm')?.querySelector?.('button[type="submit"]');
+      if (movementSubmit) movementSubmit.textContent = {
+        receipt:'Оформить приход', write_off:'Списать материал', inventory:'Сохранить остаток', transfer:'Переместить материал'
+      }[kind] || 'Провести операцию';
       if ($('#inventoryMovementScan')) {
         $('#inventoryMovementScan').textContent = 'Сканировать товар';
         $('#inventoryMovementScan').dataset.codeScanMode = transfer ? 'inventory' : 'sale';
@@ -403,7 +417,7 @@
         let confirmed = false;
         try { confirmed = await requestConfirmation({ title:`Подтвердите ${parameters.p_kind === 'write_off' ? 'списание' : 'инвентаризацию'}`,
           message:`${impact} Причина: ${parameters.p_reason || 'не указана'}. Остаток мог измениться; сервер проверит его перед проведением.`,
-          confirmLabel:'Провести операцию', initialFocus:'cancel' }); }
+          confirmLabel:parameters.p_kind === 'write_off' ? 'Списать материал' : 'Сохранить остаток', initialFocus:'cancel' }); }
         finally { confirming = false; }
         if (!confirmed) return;
         if (snapshot !== payload || before !== revision || !sessionIsCurrent(userId, generation)
@@ -684,6 +698,7 @@
         if (!ok && payload) event.target.checked = Boolean(payload.transfers_enabled);
       }
       if (event.target.id === 'inventoryMovementKind') updateMovementKind();
+      if (event.target.id === 'inventoryUsageItem') updateUsageQuantityLabel();
       if (event.target.id === 'inventoryMovementWarehouse' || event.target.id === 'inventoryMovementItem') updateTransferBalance();
       if (['inventoryMovementWarehouse','inventoryMovementItem','inventoryTransferDestination','inventoryMovementQuantity','inventoryCountedQuantity'].includes(event.target.id)) updateMovementImpact();
     }
