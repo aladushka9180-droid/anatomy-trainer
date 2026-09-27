@@ -126,10 +126,11 @@ try {
     }
     if (width === 390) {
       const labels = await page.evaluate(() => {
+        document.body.dataset.providerTextScale = 'default';
         const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
-        return { note:size('.report-team-note'), axis:size('.report-chart-column small') };
+        return { note:size('.report-team-note'), axis:size('.report-chart-column small'), source:size('.report-data-source>small'), chartContext:size('.report-chart-context small'), chartHint:size('.report-chart-hint') };
       });
-      assert.ok(labels.note >= 12 && labels.axis >= 11, `390px statistics labels: ${JSON.stringify(labels)}`);
+      assert.ok(labels.note >= 12 && labels.axis >= 11 && labels.source >= 12 && labels.chartContext >= 12 && labels.chartHint >= 12, `390px statistics labels: ${JSON.stringify(labels)}`);
       const largeLabels = await page.evaluate(() => {
         document.body.dataset.providerTextScale = 'large';
         const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
