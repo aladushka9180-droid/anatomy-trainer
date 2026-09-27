@@ -7,6 +7,7 @@ const { chromium } = await import(modulePath ? pathToFileURL(modulePath).href : 
 const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const auditStyles = readFileSync(new URL('../statistics-audit-ui.css', import.meta.url), 'utf8');
+const providerUxStyles = readFileSync(new URL('../provider-ux.css', import.meta.url), 'utf8');
 const auditScript = readFileSync(new URL('../statistics-audit-ui.js', import.meta.url), 'utf8');
 const browser = await chromium.launch({ headless:true });
 
@@ -39,6 +40,7 @@ try {
     }, html);
     await page.addStyleTag({ content:styles });
     await page.addStyleTag({ content:auditStyles });
+    await page.addStyleTag({ content:providerUxStyles });
     await page.addScriptTag({ content:auditScript });
     await page.evaluate(() => {
       const first = { client_name:'<img src=x onerror=alert(1)>', client_phone:'79991111111', booking_date:'2026-09-02', booking_time:'10:00' };
