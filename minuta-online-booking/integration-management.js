@@ -93,13 +93,15 @@
       const history = card.querySelector('.provider-integration-history');
       const eventList = card.querySelector('[data-provider-integration-events]');
       if (input && document.activeElement !== input) input.value = connection?.externalAccountId || '';
-      if (state) state.textContent = connection ? (connection.enabled ? 'Тест включён' : 'Черновик сохранён') : 'Не настроен';
-      if (button) button.textContent = connection ? 'Обновить тестовый черновик' : 'Создать тестовый черновик';
+      if (state) state.textContent = connection ? (connection.enabled ? 'Тестовая настройка включена' : 'Черновик сохранён') : 'Черновика нет';
+      if (button) button.textContent = 'Сохранить черновик';
       if (note) {
         const last = events[0]?.receivedAt ? formatMoment(events[0].receivedAt) : '';
         note.textContent = connection
-          ? `Обмен данными выключен${last ? ` · последнее событие ${last}` : ' · событий пока нет'}.`
-          : `Укажите ID филиала из ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'}. Обмена данными не будет.`;
+          ? connection.enabled
+            ? `Тестовая настройка включена. Подключение к провайдеру здесь не проверяется${last ? ` · последнее событие ${last}` : ''}.`
+            : `Черновик сохранён. Для этой тестовой настройки обмен выключен${last ? ` · последнее событие ${last}` : ''}.`
+          : `Укажите ID филиала в ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'}. Сохранение черновика не включает обмен данными.`;
       }
       if (history) history.hidden = events.length === 0;
       if (eventList) eventList.innerHTML = events.map(item => {
@@ -123,14 +125,14 @@
       if (available !== true) {
         if ($('#providerIntegrationsUnavailableText')) {
           $('#providerIntegrationsUnavailableText').textContent = missing(error)
-            ? 'Контур появится после безопасного обновления базы. Оплата и записи продолжают работать.'
+            ? 'Настройки появятся после обновления системы. Оплата и записи продолжают работать.'
             : 'Не удалось получить статусы. Оплата и записи продолжают работать.';
         }
         setBusy(busy);
         return;
       }
       const ready = PROVIDERS.filter(provider => connectionFor(provider)).length;
-      if ($('#providerIntegrationsState')) $('#providerIntegrationsState').textContent = ready ? `Готово: ${ready} из 2` : 'Не настроены';
+      if ($('#providerIntegrationsState')) $('#providerIntegrationsState').textContent = `Тестовых настроек: ${ready} из 2`;
       PROVIDERS.forEach(renderProvider);
       setBusy(busy);
     }
@@ -193,7 +195,7 @@
       const accountId = String(input?.value || '').trim();
       if (!ACCOUNT_ID.test(accountId)) {
         input?.focus();
-        notify('Проверьте идентификатор филиала');
+        notify('Проверьте ID филиала');
         return;
       }
       const connection = connectionFor(provider);
@@ -222,10 +224,10 @@
       setBusy(false);
       if (result.error || result.data?.ok !== true || result.data?.provider !== provider
         || result.data?.environment !== 'testing' || result.data?.enabled !== false) {
-        notify('Не удалось сохранить тестовый черновик');
+        notify('Не удалось сохранить черновик');
         return;
       }
-      notify(`Тестовый черновик ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'} сохранён`);
+      notify(`Черновик ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'} сохранён`);
       await load();
     }
 

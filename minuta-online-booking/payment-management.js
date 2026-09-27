@@ -503,8 +503,8 @@
         if (amount && !amount.value) amount.value = String(Math.max(1, booking?.totalPriceRub || 1));
         if (setup?.querySelector('button[type="submit"]')) setup.querySelector('button[type="submit"]').disabled = !bookings.length || busy;
         if ($('#paymentSandboxHelp')) $('#paymentSandboxHelp').textContent = bookings.length
-          ? 'Клиент не получит уведомление, ссылка на оплату не создаётся.'
-          : 'Сначала создайте хотя бы одну запись в расписании.';
+          ? 'Проверка проходит внутри PrimeTime Pro. ЮKassa и банк не участвуют; клиент не получит уведомление.'
+          : 'Нет доступных записей для проверки. Подходят записи текущего специалиста в этой организации, кроме отменённых и блокировок расписания.';
         return;
       }
       const remaining = Number(sandboxState.capturedMinor) - Number(sandboxState.refundedMinor);
@@ -512,12 +512,12 @@
       $('#paymentSandboxSummary').textContent = `${sandboxStatusLabel(sandboxState.status)} · ${moneyMinor(sandboxState.amountMinor)}`;
       $('#paymentSandboxVersion').textContent = `Шаг ${sandboxState.version}`;
       $('#paymentSandboxNote').textContent = sandboxReference?.pending
-        ? 'Результат предыдущего нажатия ещё не подтверждён. Повтор использует тот же безопасный идентификатор.'
+        ? 'Результат предыдущего шага ещё не подтверждён. Повтор не создаст новый шаг.'
         : sandboxState.status === 'captured' || sandboxState.status === 'partially_refunded'
           ? `Можно проверить возврат до ${moneyMinor(remaining)}.`
           : ['refunded','cancelled'].includes(sandboxState.status)
             ? 'Сценарий завершён. Ни банк, ни ЮKassa не вызывались.'
-            : 'Продолжите тест следующим шагом или отмените его.';
+            : 'Продолжите проверку следующим шагом или отмените её.';
       const actions = disclosure.querySelectorAll('[data-payment-sandbox-action]');
       actions.forEach(button => { button.hidden = true; button.disabled = busy; });
       const show = action => { const button = disclosure.querySelector(`[data-payment-sandbox-action="${action}"]`); if (button) button.hidden = false; };
@@ -584,12 +584,12 @@
       let reference = sandboxReference;
       let pending = reference?.pending || null;
       if (pending && pending.action !== action) {
-        notify('Сначала подтвердите предыдущий шаг тестового платежа');
+        notify('Сначала подтвердите предыдущий шаг проверочной операции');
         return;
       }
       if (!pending) {
         const bookingId = action === 'create' ? $('#paymentSandboxBooking')?.value : sandboxState?.bookingId;
-        if (!SANDBOX_UUID.test(String(bookingId || ''))) { notify('Выберите запись для теста'); return; }
+        if (!SANDBOX_UUID.test(String(bookingId || ''))) { notify('Выберите запись для проверки'); return; }
         const expectedVersion = action === 'create' ? 0 : Number(sandboxState?.version);
         const amountMinor = action === 'create' ? parseRefundAmount($('#paymentSandboxAmount')?.value)
           : action === 'refund' ? parseRefundAmount($('#paymentSandboxRefundAmount')?.value) : null;
@@ -623,20 +623,20 @@
           sandboxAvailable = response.error && sandboxMissing(response.error) ? false : null;
           await loadSandbox();
           if (contextIsCurrent()) notify(sandboxState && Number(sandboxState.version) > pending.expectedVersion
-            ? 'Шаг тестового платежа подтверждён' : 'Результат не подтверждён. Повторите тот же шаг после проверки связи.');
+            ? 'Шаг проверочной операции подтверждён' : 'Результат не подтверждён. Повторите тот же шаг после проверки связи.');
           return;
         }
         sandboxState = response.data;
         sandboxAvailable = true;
         persistSandboxReference({ ledgerId:reference.ledgerId, bookingId:reference.bookingId, pending:null });
         renderSandbox();
-        notify(`${sandboxStatusLabel(sandboxState.status)} · тестовый контур`);
+        notify(`${sandboxStatusLabel(sandboxState.status)} · проверка внутри PrimeTime Pro`);
       } catch {
         if (!contextIsCurrent()) return;
         setBusy(false);
         await loadSandbox();
         if (contextIsCurrent()) notify(sandboxState && Number(sandboxState.version) > pending.expectedVersion
-          ? 'Шаг тестового платежа подтверждён' : 'Результат не подтверждён. Повторите тот же шаг после проверки связи.');
+          ? 'Шаг проверочной операции подтверждён' : 'Результат не подтверждён. Повторите тот же шаг после проверки связи.');
       }
     }
     function setBusy(value) {
@@ -740,10 +740,9 @@
       const attempts = Array.isArray(payload.recent_attempts) ? payload.recent_attempts : [];
       const refunds = Array.isArray(payload.recent_refunds) ? payload.recent_refunds : [];
       const reconciliations = Array.isArray(payload.recent_reconciliations) ? payload.recent_reconciliations : [];
-      const testPaymentSucceeded = attempts.some(item => item.environment === 'test' && item.status === 'succeeded');
       $('#paymentProviderState').textContent = settings.enabled
-        ? `ЮKassa включена в режиме «${settings.environment === 'production' ? 'рабочий' : 'тестовый'}»`
-        : testPaymentSucceeded ? 'ЮKassa: тест подтверждён, приём выключен' : 'ЮKassa: тест не подтверждён';
+        ? `Приём включён в настройках · ${settings.environment === 'production' ? 'рабочий' : 'тестовый'} магазин`
+        : 'Приём предоплаты выключен';
       $('#paymentProviderSettingsForm').hidden = !owner();
       $('#paymentProviderControls').hidden = !owner();
       const operationRows = [
@@ -754,7 +753,7 @@
         ...refunds.map(item => `<article class="organization-row payment-attempt-row"><div><strong>Возврат · ${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(refundStatusLabel(item.status))} · ${escapeHtml(item.reason || 'Без пояснения')} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${['creating','pending'].includes(item.status) ? 'сумма зарезервирована' : ''}</span></article>`),
         ...reconciliations.map(item => `<article class="organization-row payment-attempt-row"><div><strong>Сверка · ${escapeHtml(statusLabel(item.outcome))}</strong><small>${escapeHtml(item.object_kind || 'операция')} · ${escapeHtml(new Date(item.checked_at).toLocaleString('ru-RU'))}</small></div><span>${item.amount_minor == null ? '' : escapeHtml(moneyMinor(item.amount_minor))}</span></article>`)
       ];
-      $('#paymentAttemptsList').innerHTML = operationRows.length ? operationRows.join('') : '<div class="provider-empty compact-empty"><strong>Платежей пока нет</strong><small>Операции появятся после включения ЮKassa и первой предоплаты.</small></div>';
+      $('#paymentAttemptsList').innerHTML = operationRows.length ? operationRows.join('') : '<div class="provider-empty compact-empty"><strong>Недавних операций нет</strong><small>Здесь появятся платежи, возвраты и сверки ЮKassa.</small></div>';
       const refundable = attempts.filter(item => item.status === 'succeeded' && Number.isSafeInteger(attemptRemaining(item)) && attemptRemaining(item) >= 100);
       const previousAttempt = $('#paymentRefundAttempt').value;
       const maySelectInitial = !refundSelectionInitialized
