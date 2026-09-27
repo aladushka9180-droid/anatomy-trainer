@@ -34,10 +34,10 @@ try {
       id uuid primary key default gen_random_uuid(),organization_id uuid not null,
       name text not null,sku text not null,unit text not null,
       low_stock_threshold numeric not null,active boolean not null,
-      updated_at timestamptz not null default clock_timestamp()
+      updated_at timestamptz not null default now()
     );
     create function public.touch_inventory() returns trigger language plpgsql as $$
-      begin new.updated_at:=clock_timestamp();return new;end $$;
+      begin new.updated_at:=now();return new;end $$;
     create trigger inventory_touch before update on public.inventory_items
       for each row execute function public.touch_inventory();
     grant select on public.inventory_items to authenticated;
@@ -67,12 +67,22 @@ try {
       values('${item}','${org}','База','S1','piece',1,true);
   `);
   await admin.query(readFileSync(new URL('../supabase-migration-v181.sql',import.meta.url),'utf8'));
+  await admin.query('begin');
+  await query(admin,'update public.inventory_items set name=$1 where id=$2',['Временная правка 1',item]);
+  const sameTransactionFirst=(await query(admin,
+    'select updated_at,public.minuta_inventory_catalog_etag_v181(id) etag from public.inventory_items where id=$1',[item]))[0];
+  await query(admin,'update public.inventory_items set name=$1 where id=$2',['Временная правка 2',item]);
+  const sameTransactionSecond=(await query(admin,
+    'select updated_at,public.minuta_inventory_catalog_etag_v181(id) etag from public.inventory_items where id=$1',[item]))[0];
+  assert.equal(sameTransactionFirst.updated_at.getTime(),sameTransactionSecond.updated_at.getTime());
+  assert.notEqual(sameTransactionFirst.etag,sameTransactionSecond.etag);
+  await admin.query('rollback');
   for(const client of [first,second]){
     await query(client,"select set_config('request.jwt.claim.sub',$1,false)",[owner]);
     await client.query('set role authenticated');
   }
   const workspace=(await query(first,'select public.get_minuta_inventory_workspace_v181($1) data',[org]))[0].data;
-  const version=workspace.items[0].updated_at;
+  const version=workspace.items[0].etag;
   const argsOne=[org,requestOne,item,version,'Первая правка','S1','piece',2,true];
   const argsTwo=[org,requestTwo,item,version,'Вторая правка','S1','piece',3,true];
   await first.query('begin');

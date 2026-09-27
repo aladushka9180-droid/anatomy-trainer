@@ -39,7 +39,7 @@ try {
   const queued=await page.evaluate(async ({user,org,item})=>{
     const api=window.MinutaOfflineCatalogDrafts;
     return api.queue({userId:user,organizationId:org,kind:'inventory',entityId:item,
-      expectedVersion:'2026-09-27T00:00:00.000Z',
+      expectedVersion:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       values:{name:'Масло для массажа',sku:'M1',unit:'ml',lowStock:2,active:true}});
   },{user,org,item});
   assert.equal(queued.status,'local');
@@ -61,7 +61,7 @@ try {
     const api=window.MinutaOfflineCatalogDrafts;
     const service='ffffffff-ffff-4fff-8fff-ffffffffffff';
     await api.rememberVersion({userId:user,organizationId:org,kind:'inventory',entityId:item,
-      version:'2026-09-27T00:00:00.000Z'});
+      version:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'});
     await api.rememberVersion({userId:user,organizationId:org,kind:'service',entityId:service,
       version:'0123456789abcdef0123456789abcdef'});
     let invalid=false;
@@ -72,7 +72,7 @@ try {
       foreign:await api.readVersion(user,foreign,'inventory',item),
       service:await api.readVersion(user,org,'service',service)};
   },{user,org,other,foreign,item});
-  assert.deepEqual(versions,{invalid:true,own:'2026-09-27T00:00:00.000Z',other:null,foreign:null,
+  assert.deepEqual(versions,{invalid:true,own:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',other:null,foreign:null,
     service:'0123456789abcdef0123456789abcdef'});
   await page.reload();
   assert.equal(await page.evaluate(async ({user,org,item})=>
@@ -82,7 +82,7 @@ try {
     const api=window.MinutaOfflineCatalogDrafts;
     const current=(u,o)=>u===user&&o===org;
     const inventory=await api.captureInventoryVersions({userId:user,organizationId:org,isCurrent:current,
-      workspace:{organization_id:org,items:[{id:item,updated_at:'2026-09-27T02:00:00.000Z'}]}});
+      workspace:{organization_id:org,items:[{id:item,etag:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}]}});
     const wrongScope=await api.refreshServiceVersion({userId:user,organizationId:org,
       entityId:item,isCurrent:current,rpc:async()=>({data:{organization_id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
         id:item,etag:'0123456789abcdef0123456789abcdef'}})});
@@ -93,7 +93,7 @@ try {
       storedService:await api.readVersion(user,org,'service',item)};
   },{user,org,item});
   assert.deepEqual(captured,{inventory:1,wrongScope:null,service:'fedcba9876543210fedcba9876543210',
-    storedInventory:'2026-09-27T02:00:00.000Z',storedService:'fedcba9876543210fedcba9876543210'});
+    storedInventory:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',storedService:'fedcba9876543210fedcba9876543210'});
   const scopeGuard=await page.evaluate(async ({user,org,item,requestId})=>{
     const api=window.MinutaOfflineCatalogDrafts;
     let calls=0,duplicate=false;
@@ -101,7 +101,7 @@ try {
       rpc:async()=>{calls++;return {data:{saved:true}};}});
     try {
       await api.queue({userId:user,organizationId:org,kind:'inventory',entityId:item,
-        expectedVersion:'2026-09-27T00:00:00.000Z',
+        expectedVersion:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         values:{name:'Повтор',sku:'M2',unit:'ml',lowStock:2,active:true}});
     } catch(error) { duplicate=error.message==='catalog_draft_exists'; }
     return {calls,duplicate};
@@ -115,7 +115,7 @@ try {
       rpc:async(name,params)=>{calls++;seen.push([name,params.p_request_id]);throw new Error('lost_response');}});
     const second=await api.flushOne({userId:user,organizationId:org,requestId,isCurrent:current,
       rpc:async(name,params)=>{calls++;seen.push([name,params.p_request_id]);return {data:{saved:true,organization_id:org,
-        id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',updated_at:'2026-09-27T01:00:00.000Z'}};}});
+        id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',etag:'cccccccccccccccccccccccccccccccc'}};}});
     return {calls,seen,first:first.status,second:second.status};
   },{user,org,requestId:queued.requestId});
   assert.equal(replay.calls,2);

@@ -30,10 +30,10 @@ try {
       id uuid primary key default gen_random_uuid(),organization_id uuid not null,
       name text not null,sku text not null,unit text not null,
       low_stock_threshold numeric not null,active boolean not null,
-      updated_at timestamptz not null default clock_timestamp()
+      updated_at timestamptz not null default now()
     );
     create function public.touch_inventory() returns trigger language plpgsql as $$
-      begin new.updated_at:=clock_timestamp();return new;end $$;
+      begin new.updated_at:=now();return new;end $$;
     create trigger inventory_touch before update on public.inventory_items
       for each row execute function public.touch_inventory();
     grant select on public.inventory_items to authenticated;
@@ -67,7 +67,7 @@ try {
   await query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
   await db.exec('set role authenticated;');
   const workspace = (await query('select public.get_minuta_inventory_workspace_v181($1) data',[org]))[0].data;
-  const version = workspace.items.find(row => row.id===item)?.updated_at;
+  const version = workspace.items.find(row => row.id===item)?.etag;
   assert.ok(version);
   const saveSql = `select public.save_minuta_inventory_item_draft_v181(
     $1,$2,$3,$4,$5,$6,$7,$8,$9) data`;

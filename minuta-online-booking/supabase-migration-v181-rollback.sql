@@ -9,9 +9,10 @@ do $$ begin
 end $$;
 
 drop function if exists public.save_minuta_inventory_item_draft_v181(
-  uuid,uuid,uuid,timestamptz,text,text,text,numeric,boolean
+  uuid,uuid,uuid,text,text,text,text,numeric,boolean
 );
 drop function if exists public.get_minuta_inventory_workspace_v181(uuid);
+drop function if exists public.minuta_inventory_catalog_etag_v181(uuid);
 drop table if exists public.inventory_catalog_requests_v181;
 
 commit;

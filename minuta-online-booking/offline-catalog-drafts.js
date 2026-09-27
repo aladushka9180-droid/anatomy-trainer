@@ -47,8 +47,7 @@
   }
   function validVersion(kind, entityId, version) {
     if (!entityId) return version == null;
-    if (kind === 'service') return ETAG.test(String(version || ''));
-    return typeof version === 'string' && Number.isFinite(Date.parse(version));
+    return ['service','inventory'].includes(kind) && ETAG.test(String(version || ''));
   }
   function validDraft(value, userId, organizationId) {
     try {
@@ -114,9 +113,9 @@
     let count=0;
     for (const item of workspace.items) {
       if (!isCurrent(scopedUser,scopedOrg)) break;
-      if (!UUID.test(String(item?.id || '')) || !validVersion('inventory',item.id,item.updated_at)) continue;
+      if (!UUID.test(String(item?.id || '')) || !validVersion('inventory',item.id,item.etag)) continue;
       await rememberVersion({userId:scopedUser,organizationId:scopedOrg,kind:'inventory',
-        entityId:item.id,version:item.updated_at});
+        entityId:item.id,version:item.etag});
       count++;
     }
     return count;
@@ -164,7 +163,7 @@
       p_price_rub:draft.fields.priceRub,p_active:draft.fields.active
     }];
     return ['save_minuta_inventory_item_draft_v181',{
-      ...common,p_item:draft.entityId,p_expected_updated_at:draft.expectedVersion,
+      ...common,p_item:draft.entityId,p_expected_etag:draft.expectedVersion,
       p_name:draft.fields.name,p_sku:draft.fields.sku,p_unit:draft.fields.unit,
       p_low_stock:draft.fields.lowStock,p_active:draft.fields.active
     }];
@@ -187,10 +186,9 @@
     const validSuccess=!response?.error && data?.saved===true && UUID.test(String(data.id || ''))
       && data.organization_id===draft.organizationId
       && (!draft.entityId || String(data.id).toLowerCase()===draft.entityId)
-      && (draft.kind==='service' ? ETAG.test(String(data.etag || ''))
-        : typeof data.updated_at==='string' && Number.isFinite(Date.parse(data.updated_at)));
+      && ETAG.test(String(data.etag || ''));
     if (validSuccess) return withStatus(current,'applied',{
-      id:String(data.id).toLowerCase(),version:draft.kind==='service' ? data.etag : data.updated_at
+      id:String(data.id).toLowerCase(),version:data.etag
     });
     const reason=String(data?.reason || response?.error?.message || '');
     if (/^(service_catalog_version_conflict|inventory_catalog_version_conflict|service_deleted|inventory_item_deleted|service_changed_after_save|inventory_item_changed_after_save)$/.test(reason))
