@@ -32,6 +32,7 @@ try {
       root.querySelector('#reportHeatmap').innerHTML = '<span class="report-heatmap-corner"></span>'
         + Array.from({ length:7 }, (_, i) => `<b>${i + 1}</b>`).join('')
         + '<strong>10:00</strong>' + Array.from({ length:7 }, () => '<button class="report-heatmap-cell"><i>5</i></button>').join('');
+      root.querySelector('#reportRevenueChart').innerHTML = Array.from({ length:5 }, (_, i) => `<button class="report-chart-column"><b>${(i + 1) * 1000} ₽</b><span></span><small>${i + 1}–${i + 7} сент</small></button>`).join('');
       document.querySelector('#reportUniqueClients').textContent = '2';
       document.querySelector('#reportNewClients').textContent = '1';
       document.querySelector('#reportReturningClients').textContent = '1';
@@ -124,6 +125,17 @@ try {
       }
     }
     if (width === 390) {
+      const labels = await page.evaluate(() => {
+        const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
+        return { note:size('.report-team-note'), axis:size('.report-chart-column small') };
+      });
+      assert.ok(labels.note >= 12 && labels.axis >= 11, `390px statistics labels: ${JSON.stringify(labels)}`);
+      const largeLabels = await page.evaluate(() => {
+        document.body.dataset.providerTextScale = 'large';
+        const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
+        return { note:size('.report-team-note'), axis:size('.report-chart-column small') };
+      });
+      assert.ok(largeLabels.note >= 14 && largeLabels.axis >= 13, `390px large statistics labels: ${JSON.stringify(largeLabels)}`);
       const smallTargets = await page.evaluate(() => {
         const report = document.querySelector('#analyticsView');
         const found = [];
