@@ -40,6 +40,7 @@ const url=`http://127.0.0.1:${server.address().port}/`;
 const user='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const org='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const service='ffffffff-ffff-4fff-8fff-ffffffffffff';
+const item='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 try {
   await page.goto(url);
   await page.evaluate(({user,org,service})=>{
@@ -112,6 +113,55 @@ try {
   await conflictCard.getByText('Конфликт — проверьте актуальные данные').waitFor();
   saved=await page.evaluate(({user,org})=>window.MinutaOfflineCatalogDrafts.list(user,org),{user,org});
   assert.equal(saved.drafts.find(item=>item.fields.name==='Новая услуга без сети').status,'conflict');
+  await page.evaluate(({user,org,item})=>{
+    window.testPanel.dispose();
+    window.testPanel=window.MinutaOfflineCatalogPanel.mount({
+      root:document.querySelector('#root'),userId:user,organizationId:org,catalog:[],
+      drafts:window.MinutaOfflineCatalogDrafts,isCurrent:()=>window.testCurrent,
+      rpc:async()=>({data:{saved:false,reason:'inventory_catalog_version_conflict'}}),
+      loadInventory:async()=>{
+        await window.MinutaOfflineCatalogDrafts.captureInventoryVersions({userId:user,organizationId:org,
+          isCurrent:()=>true,workspace:{organization_id:org,items:[{id:item,name:'Масло',sku:'M1',
+            unit:'ml',low_stock_threshold:2,active:true,etag:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}]}});
+        return true;
+      }
+    });
+  },{user,org,item});
+  await page.getByRole('button',{name:'Обновить материалы для черновика'}).click();
+  await page.getByLabel('Что добавить или изменить').selectOption('inventory');
+  await page.locator(`select[name="target"] option[value="${item}"]`).waitFor({state:'attached'});
+  await context.setOffline(true);
+  await page.getByLabel('Действие').selectOption(item);
+  await page.getByRole('status').getByText('Сохранённые поля загружены. При отправке сервер проверит изменения.').waitFor();
+  assert.equal(await page.getByLabel('Артикул').inputValue(),'M1');
+  await page.getByLabel('Название').fill('Масло обновлено');
+  await page.getByRole('button',{name:'Сохранить на этом устройстве'}).click();
+  const itemCard=page.locator('.offline-catalog-panel-item').filter({hasText:'Масло обновлено'});
+  await itemCard.getByText('На этом устройстве',{exact:true}).waitFor();
+  assert.equal(await itemCard.getByRole('button',{name:'Проверить и отправить'}).isDisabled(),true);
+  await context.setOffline(false);
+  await page.reload();
+  await context.setOffline(true);
+  await page.evaluate(({user,org})=>{
+    window.testCurrent=true;
+    window.testPanel=window.MinutaOfflineCatalogPanel.mount({
+      root:document.querySelector('#root'),userId:user,organizationId:org,catalog:[],
+      drafts:window.MinutaOfflineCatalogDrafts,isCurrent:()=>window.testCurrent,
+      rpc:async()=>({data:{saved:false,reason:'inventory_catalog_version_conflict'}})
+    });
+  },{user,org});
+  await page.getByLabel('Что добавить или изменить').selectOption('inventory');
+  await page.locator(`select[name="target"] option[value="${item}"]`).waitFor({state:'attached'});
+  await page.getByLabel('Действие').selectOption(item);
+  await page.getByRole('status').getByText('Сохранённые поля загружены. При отправке сервер проверит изменения.').waitFor();
+  assert.equal(await page.getByLabel('Название').inputValue(),'Масло');
+  await context.setOffline(false);
+  await page.evaluate(()=>window.testPanel.refresh());
+  const restoredCard=page.locator('.offline-catalog-panel-item').filter({hasText:'Масло обновлено'});
+  await restoredCard.getByRole('button',{name:'Проверить и отправить'}).click();
+  await restoredCard.getByText('Конфликт — проверьте актуальные данные').waitFor();
+  saved=await page.evaluate(({user,org})=>window.MinutaOfflineCatalogDrafts.list(user,org),{user,org});
+  assert.equal(saved.drafts.find(entry=>entry.fields.name==='Масло обновлено').status,'conflict');
   for(const width of [390,760,1440]){
     await page.setViewportSize({width,height:850});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
@@ -122,7 +172,7 @@ try {
     await window.testPanel.refresh();
   });
   assert.equal(await page.locator('.offline-catalog-panel').count(),0);
-  console.log('offline catalog panel: version gate, offline persistence, confirmation/conflict, 390/760/1440 PASS');
+  console.log('offline catalog panel: service and inventory snapshots, offline persistence, confirmation/conflict, 390/760/1440 PASS');
 } finally {
   await browser.close();await new Promise(resolve=>server.close(resolve));
 }

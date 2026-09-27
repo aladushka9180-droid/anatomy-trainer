@@ -116,6 +116,20 @@
     try { return { version:record.version,fields:fields(kind,record.fields) }; }
     catch { return null; }
   }
+  async function listVersionSnapshots(userId,organizationId,kind) {
+    requireStore();
+    const scopedUser=requireId(userId), scopedOrg=requireId(organizationId);
+    if (!['service','inventory'].includes(kind)) throw new Error('catalog_kind_invalid');
+    const rows=await store.list(`${VERSION_ROOT}${scopedUser}:${scopedOrg}:${kind}:`);
+    const snapshots=[];
+    for (const row of rows) {
+      const entityId=row?.data?.entityId;
+      if (!UUID.test(String(entityId || ''))) continue;
+      const snapshot=await readVersionSnapshot(scopedUser,scopedOrg,kind,entityId);
+      if (snapshot) snapshots.push({entityId,...snapshot});
+    }
+    return snapshots;
+  }
   async function captureInventoryVersions({ userId,organizationId,workspace,isCurrent }) {
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId);
     if (typeof isCurrent!=='function' || workspace?.organization_id!==scopedOrg
@@ -124,8 +138,11 @@
     for (const item of workspace.items) {
       if (!isCurrent(scopedUser,scopedOrg)) break;
       if (!UUID.test(String(item?.id || '')) || !validVersion('inventory',item.id,item.etag)) continue;
+      let values;
+      try { values=fields('inventory',{name:item.name,sku:item.sku,unit:item.unit,
+        lowStock:item.low_stock_threshold,active:item.active}); } catch { continue; }
       await rememberVersion({userId:scopedUser,organizationId:scopedOrg,kind:'inventory',
-        entityId:item.id,version:item.etag});
+        entityId:item.id,version:item.etag,values});
       count++;
     }
     return count;
@@ -221,5 +238,6 @@
   }
 
   window.MinutaOfflineCatalogDrafts={ queue,read,list,rememberVersion,readVersion,readVersionSnapshot,
+    listVersionSnapshots,
     captureInventoryVersions,refreshServiceVersion,flushOne,remove,clearUser };
 })();

@@ -82,7 +82,8 @@ try {
     const api=window.MinutaOfflineCatalogDrafts;
     const current=(u,o)=>u===user&&o===org;
     const inventory=await api.captureInventoryVersions({userId:user,organizationId:org,isCurrent:current,
-      workspace:{organization_id:org,items:[{id:item,etag:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}]}});
+      workspace:{organization_id:org,items:[{id:item,etag:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        name:'Масло',sku:'M1',unit:'ml',low_stock_threshold:2,active:true}]}});
     const wrongScope=await api.refreshServiceVersion({userId:user,organizationId:org,
       entityId:item,isCurrent:current,rpc:async()=>({data:{organization_id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
         id:item,etag:'0123456789abcdef0123456789abcdef'}})});
@@ -93,12 +94,17 @@ try {
     return {inventory,wrongScope,service,storedInventory:await api.readVersion(user,org,'inventory',item),
       storedService:await api.readVersion(user,org,'service',item),
       serviceSnapshot:await api.readVersionSnapshot(user,org,'service',item),
-      inventorySnapshot:await api.readVersionSnapshot(user,org,'inventory',item)};
+      inventorySnapshot:await api.readVersionSnapshot(user,org,'inventory',item),
+      savedInventory:await api.listVersionSnapshots(user,org,'inventory')};
   },{user,org,item});
   assert.deepEqual(captured,{inventory:1,wrongScope:null,service:'fedcba9876543210fedcba9876543210',
     storedInventory:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',storedService:'fedcba9876543210fedcba9876543210',
     serviceSnapshot:{version:'fedcba9876543210fedcba9876543210',
-      fields:{name:'Массаж',durationMinutes:60,priceRub:2500,active:true}},inventorySnapshot:null});
+      fields:{name:'Массаж',durationMinutes:60,priceRub:2500,active:true}},
+    inventorySnapshot:{version:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      fields:{name:'Масло',sku:'M1',unit:'ml',lowStock:2,active:true}},
+    savedInventory:[{entityId:item,version:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      fields:{name:'Масло',sku:'M1',unit:'ml',lowStock:2,active:true}}]});
   const scopeGuard=await page.evaluate(async ({user,org,item,requestId})=>{
     const api=window.MinutaOfflineCatalogDrafts;
     let calls=0,duplicate=false;

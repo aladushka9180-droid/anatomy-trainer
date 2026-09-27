@@ -28,15 +28,19 @@
     return input;
   }
   function mount({ root,userId,organizationId,catalog=[],drafts,rpc,isCurrent,
-    canSend=()=>true,onSelectExisting=null }) {
+    canSend=()=>true,onSelectExisting=null,loadInventory=null }) {
     if (!root || !drafts || typeof isCurrent!=='function') throw new Error('catalog_panel_context_invalid');
     const own=()=>isCurrent(userId,organizationId);
-    const rows=catalog.filter(item=>item?.organizationId===organizationId
+    let rows=catalog.filter(item=>item?.organizationId===organizationId
       && kinds[item.kind] && item.id && item.name);
     const panel=element('section',null,{ class:'offline-catalog-panel',
       'aria-label':'Локальные черновики каталога' });
     panel.append(element('h3','Черновики каталога'));
     panel.append(element('p','Сохраняются только на этом устройстве. Другие сотрудники увидят изменения после подтверждения сервером. Фото, расписание и остатки здесь не меняются.'));
+    const loadMaterials=element('button','Обновить материалы для черновика',
+      { type:'button',class:'secondary-button compact-button' });
+    loadMaterials.disabled=!navigator.onLine || typeof loadInventory!=='function' || !canSend();
+    panel.append(loadMaterials);
     const form=element('form',null,{ class:'offline-catalog-panel-form' });
     const kind=select(form,'Что добавить или изменить','kind',Object.entries(kinds));
     const target=select(form,'Действие','target',[]);
@@ -57,6 +61,14 @@
     panel.append(form,message,list);
     root.append(panel);
     let selectedSnapshot=null;
+    async function restoreInventory() {
+      const snapshots=await drafts.listVersionSnapshots(userId,organizationId,'inventory');
+      if (!own()) return;
+      rows=rows.filter(item=>item.kind!=='inventory').concat(snapshots.map(item=>({
+        kind:'inventory',id:item.entityId,organizationId,name:item.fields.name,fields:item.fields
+      })));
+      if (kind.value==='inventory') refreshTarget();
+    }
     function refreshTarget() {
       target.replaceChildren(element('option','Новый элемент',{ value:'' }));
       for (const item of rows.filter(item=>item.kind===kind.value))
@@ -81,6 +93,7 @@
     }
     async function render() {
       if (!own()) { panel.remove(); return; }
+      loadMaterials.disabled=!navigator.onLine || typeof loadInventory!=='function' || !canSend();
       const { drafts:items,invalidCount }=await drafts.list(userId,organizationId);
       list.replaceChildren();
       if (invalidCount) list.append(element('p','Есть повреждённые локальные данные. Сохранение новых черновиков остановлено.'));
@@ -110,6 +123,20 @@
       }
     }
     kind.addEventListener('change',refreshTarget);
+    loadMaterials.addEventListener('click',async()=>{
+      if (!own() || !canSend() || typeof loadInventory!=='function') return;
+      loadMaterials.disabled=true;
+      message.textContent='Загружаем позиции каталога…';
+      try {
+        const loaded=await loadInventory();
+        if (!own()) return;
+        if (!loaded) throw new Error('catalog_inventory_unavailable');
+        await restoreInventory();
+        message.textContent='Поля и версии материалов сохранены на этом устройстве. Остатки не менялись.';
+      } catch {
+        if (own()) message.textContent='Не удалось обновить материалы. Сохранённые черновики не изменены.';
+      } finally { loadMaterials.disabled=!navigator.onLine || !canSend(); }
+    });
     target.addEventListener('change',async()=>{
       refreshFields();
       if (!target.value || !own()) return;
@@ -155,6 +182,7 @@
       } finally { save.disabled=false; }
     });
     refreshTarget();
+    restoreInventory().catch(()=>{ message.textContent='Сохранённые материалы недоступны.'; });
     render().catch(()=>{ message.textContent='Локальное хранилище недоступно.'; });
     return { refresh:render,dispose:()=>panel.remove() };
   }

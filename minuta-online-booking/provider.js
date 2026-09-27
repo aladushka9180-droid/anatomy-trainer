@@ -16236,6 +16236,15 @@ function renderOfflineCatalogDrafts() {
   const canSend = () => providerSessionTrust === 'verified' && writesAllowed && navigator.onLine;
   offlineCatalogPanel = panelApi.mount({ root,userId,organizationId,catalog,drafts:api,
     isCurrent,canSend,
+    loadInventory:async() => {
+      if (!canSend() || !isCurrent(userId,organizationId)) return false;
+      const response=await db.rpc('get_minuta_inventory_workspace_v181',
+        { p_organization:organizationId });
+      if (response.error || !isCurrent(userId,organizationId)) return false;
+      await api.captureInventoryVersions({ userId,organizationId,
+        workspace:response.data,isCurrent });
+      return isCurrent(userId,organizationId);
+    },
     rpc:async(name,args) => {
       if (!canSend() || !isCurrent(userId,organizationId)) throw new Error('catalog_session_unverified');
       return db.rpc(name,args);
