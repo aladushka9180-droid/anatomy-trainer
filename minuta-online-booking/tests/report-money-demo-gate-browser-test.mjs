@@ -8,6 +8,7 @@ const { chromium } = await import(modulePath ? pathToFileURL(modulePath).href : 
 const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const auditStyles = readFileSync(new URL('../statistics-audit-ui.css', import.meta.url), 'utf8');
+const uxStyles = readFileSync(new URL('../provider-ux.css', import.meta.url), 'utf8');
 const financeStyles = readFileSync(new URL('../finance-center.css', import.meta.url), 'utf8');
 const provider = readFileSync(new URL('../provider.js', import.meta.url), 'utf8');
 const start = provider.indexOf('function setReportSubview(');
@@ -38,6 +39,7 @@ try {
     await page.addStyleTag({ content:styles });
     await page.addStyleTag({ content:auditStyles });
     await page.addStyleTag({ content:financeStyles });
+    await page.addStyleTag({ content:uxStyles });
     await page.addScriptTag({ content:`
       let reportSubview = 'overview';
       let reportDataSource = 'demo';

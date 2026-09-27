@@ -33,7 +33,9 @@ for (const target of ['benefitInstrumentSearch','inventoryItemSku','inventoryMov
   assert.match(providerHtml, new RegExp(`data-code-scan-target="${target}"`));
 }
 assert.match(indexHtml, /data-code-scan-target="bookingBenefitCode"/);
-assert.match(sw, /\.\/code-scanner\.js\?v=811/);
+const scannerVersion = providerHtml.match(/code-scanner\.js\?v=(\d+)/)?.[1];
+assert.ok(scannerVersion, 'Не найдена версия сканера в кабинете');
+assert.match(sw, new RegExp(`\\.\\/code-scanner\\.js\\?v=${scannerVersion}`));
 assert.match(sw, /\.\/code-scanner\.css\?v=811/);
 assert.ok(scannerCss.length > 500);
 assert.match(scanner, /codes\.length \? codes\.includes\(needle\)/);
