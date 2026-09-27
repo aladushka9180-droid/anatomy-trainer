@@ -21,7 +21,7 @@ const server = createServer(async (request, response) => {
     response.end(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
       <link rel="stylesheet" href="/contextual-help.css">
       <style>*{box-sizing:border-box}body{margin:0;padding:20px;font:16px Arial,sans-serif}.help-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;max-width:1100px;margin:auto}.help-host{min-width:0;padding:10px;border:1px solid #dce7df;border-radius:12px}</style>
-      <body class="provider-body"><main class="help-grid">${hosts.map(host => `<section class="help-host">${host}</section>`).join('')}</main>
+      <body class="provider-body"><main class="help-grid">${hosts.map(host => `<section class="help-host">${host}</section>`).join('')}</main><section id="organizationPeopleSection"></section>
       <script src="/help/help-data.js"></script><script src="/contextual-help.js"></script></body>`);
     return;
   }
@@ -80,6 +80,13 @@ try {
     assert.equal(await overviewPanel.locator('.contextual-help__summary').innerText(),
       'Добавьте филиал и сотрудника. Затем настройте услуги и рабочее время. Ресурсы и склад подключайте, если они нужны для работы. Если организаций несколько, сначала выберите нужную.');
     assert.equal(await overviewPanel.locator('.contextual-help__detail').count(), 0, `${width}px: старая длинная справка видна в кабинете`);
+    const nextStep = overviewPanel.getByRole('button', { name: 'Люди и филиалы' });
+    assert.equal(await nextStep.getAttribute('data-section-target'), 'organizationPeopleSection');
+    await page.evaluate(() => document.addEventListener('click', event => {
+      window.requestedSection = event.target.closest('[data-section-target]')?.dataset.sectionTarget || '';
+    }, { once:true }));
+    await nextStep.click();
+    assert.equal(await page.evaluate(() => window.requestedSection), 'organizationPeopleSection');
     assert.match(await overviewPanel.getByRole('link', { name: /Подробнее/ }).getAttribute('href'), /organization-structure$/);
     await page.close();
   }

@@ -73,6 +73,24 @@ try {
       } finally { await f.page.close(); }
     });
   }
+  for (const width of [390, 760, 1440]) await test(`${width}px setup help opens People and branches`, async () => {
+    const f = await fixture(width, 'organizationOverviewSection'); try {
+      await f.page.addScriptTag({ path:resolve(root, 'help/help-data.js') });
+      await f.page.addScriptTag({ path:resolve(root, 'contextual-help.js') });
+      await f.page.evaluate(() => document.addEventListener('click', event => {
+        const target = event.target.closest('[data-section-target]');
+        if (target) { event.preventDefault(); scrollToProviderSection(target); }
+      }));
+      const help = f.page.locator('#organizationOverviewSection [data-help-slug="organization-structure"]');
+      await help.getByRole('button', { name:'С чего начать?' }).click();
+      assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);
+      if (process.env.MINUTA_SCREENSHOT_DIR) await f.page.screenshot({ path:resolve(process.env.MINUTA_SCREENSHOT_DIR, `a01-help-${width}.png`), animations:'disabled' });
+      await help.getByRole('button', { name:'Люди и филиалы' }).click();
+      assert.equal(await f.page.locator('#organizationPeopleSection').isVisible(), true);
+      assert.equal(await f.page.locator('#organizationSectionNav [data-section-target="organizationPeopleSection"]').getAttribute('aria-current'), 'location');
+      f.check();
+    } finally { await f.page.close(); }
+  });
   for (const width of [390, 760, 1440]) await test(`${width}px empty resources explain the sequence and link to branches`, async () => {
     const f = await fixture(width, 'resourcesPanel'); try {
       await f.page.waitForFunction(() => window.sets === 1);

@@ -55,6 +55,8 @@
       label: customLabel || (danger ? 'Что произойдёт?' : 'Как это работает?'),
       article: compactText(option(overrides.article, data.helpArticle) || (slug ? `help/article.html?slug=${encodeURIComponent(slug)}` : ''), 2000),
       articleTarget: compactText(option(overrides.articleTarget, data.helpArticleTarget), 20) || '_blank',
+      nextLabel: compactText(option(overrides.nextLabel, data.helpNextLabel), 80),
+      nextTarget: compactText(option(overrides.nextTarget, data.helpNextTarget), 120),
       question,
       assistant: parseBoolean(option(overrides.assistant, data.helpAssistant), true)
     };
@@ -183,9 +185,20 @@
     }
 
     const articleUrl = safeArticleUrl(config.article, doc);
-    if (articleUrl || config.assistant) {
+    const nextTarget = config.nextLabel && doc.getElementById(config.nextTarget) ? config.nextTarget : '';
+    if (nextTarget || articleUrl || config.assistant) {
       const actions = doc.createElement('div');
       actions.className = 'contextual-help__actions';
+
+      if (nextTarget) {
+        const nextButton = doc.createElement('button');
+        nextButton.className = 'contextual-help__action';
+        nextButton.type = 'button';
+        nextButton.textContent = config.nextLabel;
+        nextButton.dataset.sectionTarget = nextTarget;
+        nextButton.setAttribute('aria-controls', nextTarget);
+        actions.append(nextButton);
+      }
 
       if (articleUrl) {
         const article = doc.createElement('a');
