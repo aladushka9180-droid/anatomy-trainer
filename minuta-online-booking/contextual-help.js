@@ -36,8 +36,9 @@
     const articleData = articleBySlug(slug);
     const title = compactText(option(overrides.title, data.helpTitle) || articleData?.title, 180);
     const summary = compactText(option(overrides.summary, data.helpSummary) || articleData?.intro || articleData?.excerpt, 1200);
-    const example = compactText(option(overrides.example, data.helpExample) || articleExample(articleData), 1200);
-    const change = compactText(option(overrides.change, data.helpChange) || articleData?.note, 1200);
+    const brief = parseBoolean(option(overrides.brief, data.helpBrief));
+    const example = brief ? '' : compactText(option(overrides.example, data.helpExample) || articleExample(articleData), 1200);
+    const change = brief ? '' : compactText(option(overrides.change, data.helpChange) || articleData?.note, 1200);
     const danger = parseBoolean(option(overrides.danger, data.helpDanger), data.helpVariant === 'danger');
     const customLabel = compactText(option(overrides.label, data.helpLabel), 80);
     const question = compactText(

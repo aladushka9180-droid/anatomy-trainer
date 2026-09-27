@@ -72,6 +72,15 @@ try {
     await trigger.click();
     await page.locator('.contextual-help__panel:not([hidden])').waitFor();
     assert.equal(await trigger.getAttribute('aria-expanded'), 'true', `${width}px: подсказка не раскрылась`);
+
+    const overview = page.locator('[data-help-slug="organization-structure"]');
+    await overview.getByRole('button', { name: 'С чего начать?' }).click();
+    const overviewPanel = overview.locator('.contextual-help__panel:not([hidden])');
+    assert.equal(await overviewPanel.getByRole('heading').innerText(), 'Порядок настройки');
+    assert.equal(await overviewPanel.locator('.contextual-help__summary').innerText(),
+      'Добавьте филиал и сотрудника. Затем настройте услуги и рабочее время. Ресурсы и склад подключайте, если они нужны для работы. Если организаций несколько, сначала выберите нужную.');
+    assert.equal(await overviewPanel.locator('.contextual-help__detail').count(), 0, `${width}px: старая длинная справка видна в кабинете`);
+    assert.match(await overviewPanel.getByRole('link', { name: /Подробнее/ }).getAttribute('href'), /organization-structure$/);
     await page.close();
   }
 } finally {
