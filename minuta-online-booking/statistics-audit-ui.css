@@ -98,6 +98,9 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .re
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView[data-report-tab="money"][data-report-source="demo"] [data-report-section="money"] {
   display:none!important;
 }
+#analyticsView.finance-center-mounted[data-report-tab="money"][data-report-source="demo"] #financeCenterRoot:not([hidden]) {
+  display:none!important;
+}
 #analyticsView .report-money-demo-gate {
   max-width:640px;
   margin:18px auto;

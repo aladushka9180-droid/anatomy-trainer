@@ -64,12 +64,18 @@ try {
     await page.evaluate(() => {
       reportDataSource = 'own';
       document.querySelector('#analyticsView').dataset.reportSource = 'own';
+      document.querySelector('#analyticsView').classList.add('finance-center-mounted');
       setReportSubview('money');
     });
     assert.equal(await page.locator('#reportMoneyDemoGate').isVisible(), false, `${width}: gate closes on explicit source switch`);
     assert.equal(await page.locator('#financeCenterRoot').isVisible(), true, `${width}: real finance visible only in own mode`);
-    assert.equal(await page.locator('#moneyDashboard').isVisible(), true, `${width}: money dashboard restored in own mode`);
     assert.equal(await page.evaluate(() => loadCalls), 1, `${width}: own finance loads`);
+    await page.evaluate(() => {
+      reportDataSource = 'demo';
+      document.querySelector('#analyticsView').dataset.reportSource = 'demo';
+      setReportSubview('money');
+    });
+    assert.deepEqual(await page.locator('#analyticsView > [data-report-section="money"]').evaluateAll(elements => elements.filter(element => getComputedStyle(element).display !== 'none').map(element => element.id || element.className)), [], `${width}: returning to demo hides mounted finance too`);
     await page.close();
   }
 } finally {
