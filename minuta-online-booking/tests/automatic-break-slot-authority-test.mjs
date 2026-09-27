@@ -54,6 +54,7 @@ async function fixture({
     sessionGeneration:7,
     bookingCreationReady:true,
     writesAllowed:true,
+    bookingDeferredMode:() => false,
     newBookingMode:'client',
     newBookingHistoricalMode:false,
     newBookingPreferredTime:preferred,
