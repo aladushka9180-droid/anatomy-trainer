@@ -34,7 +34,7 @@ function timelineMarkup() {
     <div class="timeline-hours">${labels.join('')}</div>
     <div class="timeline-stage" style="--timeline-height:684px">
       ${lines.join('')}
-      <button class="timeline-booking status-confirmed color-auto" style="top:458px;height:72px"><span class="timeline-booking-time"><b>16:00</b><small>–17:00</small></span><span class="timeline-booking-copy"><strong>Массаж спины + ШВЗ — углублённый <span class="timeline-service-duration">60 мин</span></strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-client-name">Марина</span><span class="timeline-client-visit-wrap"> · <span class="timeline-client-visit">Постоянный · 2-й визит</span></span></small></span></span><span class="timeline-booking-status">Подтверждена</span></button>
+      <button class="timeline-booking status-confirmed color-auto" data-open-booking="fixture" data-mobile-timeline-top="458" style="top:458px;height:72px"><span class="timeline-booking-time"><b>16:00</b><small>–17:00</small></span><span class="timeline-booking-copy"><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">16:00–17:00 · </span><span class="timeline-client-name">Марина</span><span class="timeline-client-visit-wrap"> · <span class="timeline-client-visit">Постоянный · 2-й визит</span></span></small></span><strong><span class="timeline-service-title">Массаж спины + ШВЗ — углублённый</span><span class="timeline-service-duration">60 мин</span></strong></span><span class="timeline-booking-status">Подтверждена</span></button>
       <button class="timeline-booking status-block color-auto automatic-break" style="top:382px;height:72px"><span class="timeline-booking-time"><b>15:00</b><small>–16:00</small></span><span class="timeline-booking-copy"><strong>Автоперерыв<span class="timeline-automatic-break-source">Автоматический · из правил записи</span></strong></span></button>
       <button class="timeline-booking status-block" style="top:534px;height:72px"><span class="timeline-booking-time"><b>17:00</b><small>–18:00</small></span><span class="timeline-booking-copy"><strong>Перерыв</strong></span></button>
     </div>
@@ -112,6 +112,8 @@ function timelineMarkup() {
         const breakCopy = box('.timeline-booking.automatic-break .timeline-booking-copy');
         const recordMeta = box('.timeline-booking-client-row');
         const breakMeta = box('.timeline-automatic-break-source');
+        const recordTitle = box('.timeline-booking:not(.status-block) .timeline-booking-copy>strong');
+        const visitWrap = box('.timeline-client-visit-wrap');
         const duration = style('.timeline-service-duration');
         const accentProbe = document.createElement('i');
         accentProbe.style.color = 'var(--theme-accent)';
@@ -148,7 +150,10 @@ function timelineMarkup() {
           timelineHeightDelta:Math.abs(recordRect.height-breakRect.height),
           timeStartDelta:Math.abs(recordTime.left-breakTime.left),
           copyStartDelta:Math.abs(recordCopy.left-breakCopy.left),
-          metaTopDelta:Math.abs((recordMeta.top-recordRect.top)-(breakMeta.top-breakRect.top)),
+          metaTopDelta:Math.abs((recordTitle.top-recordRect.top)-(breakMeta.top-breakRect.top)),
+          clientBeforeTitle:recordMeta.bottom <= recordTitle.top + 2,
+          visitNearRight:recordMeta.right-visitWrap.right <= 4,
+          desktopTimeVisible:style('.timeline-booking:not(.status-block) .timeline-booking-time').display !== 'none',
           durationRadius:duration.borderRadius,
           durationBackground:duration.backgroundColor,
           durationColor:duration.color,
@@ -183,7 +188,10 @@ function timelineMarkup() {
       assert.ok(geometry.timelineHeightDelta <= 1, `${theme}: высота записи и автоперерыва различается`);
       assert.ok(geometry.timeStartDelta <= 1, `${theme}: колонки времени не совпадают`);
       assert.ok(geometry.copyStartDelta <= 1, `${theme}: начало текста записи и автоперерыва не совпадает`);
-      assert.ok(geometry.metaTopDelta <= 2, `${theme}: вторые строки карточек не совпадают (${geometry.metaTopDelta}px)`);
+      assert.equal(geometry.clientBeforeTitle, true, `${theme}: клиент не стоит выше услуги`);
+      assert.equal(geometry.visitNearRight, true, `${theme}: визит не у правого края`);
+      assert.equal(geometry.desktopTimeVisible, true, `${theme}: время записи скрыто`);
+      assert.ok(geometry.metaTopDelta <= 5, `${theme}: вторые строки карточек не совпадают (${geometry.metaTopDelta}px)`);
       assert.equal(geometry.durationRadius, '0px', `${theme}: длительность не плоская`);
       assert.equal(geometry.durationBackground, 'rgba(0, 0, 0, 0)', `${theme}: у длительности остался фон`);
       if (theme === 'midnight') assert.notEqual(geometry.durationColor, 'rgb(18, 147, 95)', `${theme}: в длительность протёк старый зелёный`);

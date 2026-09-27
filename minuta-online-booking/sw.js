@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v974`;
-const CACHE_READY = './.precache-ready-v974';
+const CACHE = `${CACHE_PREFIX}v975`;
+const CACHE_READY = './.precache-ready-v975';
 
 const ASSETS = [
   './provider.html',
@@ -14,14 +14,14 @@ const ASSETS = [
   './icon.svg',
   './ui-icons.svg',
   './styles.css?v=950',
-  './provider-reference-screens.css?v=974',
+  './provider-reference-screens.css?v=975',
   './onboarding.css?v=811',
   './visitor-presence.css?v=811',
   './provider-theme-loft-modern.css?v=811',
   './provider-themes-signature.css?v=885',
   './provider-themes-calm.css?v=811',
   './provider-layout-responsive.css?v=811',
-  './provider-ux.css?v=974',
+  './provider-ux.css?v=975',
   './provider-price-list.css?v=871',
   './provider-service-actions.css?v=811',
   './provider-header.css?v=865',
@@ -35,7 +35,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=974',
+  './site-update.js?v=975',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -61,7 +61,7 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=974',
+  './provider.js?v=975',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
@@ -85,7 +85,7 @@ const OPTIONAL_ASSETS = [
   './client-themes.css?v=885',
   './report-demo-live.js?v=811',
   './loyalty-program-v166.js?v=865',
-  './provider-schedule-desktop-reference.css?v=974',
+  './provider-schedule-desktop-reference.css?v=975',
   './settings-nav-scroll.js?v=882',
   './settings-smart-search.js?v=865',
   './provider-theme-noir-safari.css?v=811',

@@ -788,3 +788,40 @@
     gap:2px 12px!important;
   }
 }
+
+/* The real booking renderer carries data-open-booking and the optional schedule
+   typography stylesheet. Keep that typography, but use the approved desktop
+   card structure rather than its older client-first, one-column geometry. */
+@media (min-width:761px) {
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only) {
+    grid-template-columns:150px minmax(0,1fr)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only)>.timeline-booking-time {
+    display:flex!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only)>.timeline-booking-copy {
+    grid-column:2!important;
+    width:auto!important;
+    padding-right:0!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only) .timeline-booking-copy>strong {
+    display:flex!important;
+    order:1!important;
+    overflow:visible!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only) .timeline-booking-client {
+    display:flex!important;
+    align-items:center!important;
+    width:100%!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only) .timeline-mobile-time {
+    display:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only) .timeline-client-visit-wrap {
+    display:inline-flex!important;
+    margin-left:auto!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking[data-open-booking]:not(.minute-only) .timeline-service-duration {
+    display:inline-flex!important;
+  }
+}
