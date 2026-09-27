@@ -97,14 +97,20 @@ try {
       await integrationController.setOrganization({ id:'organization-a', current_role:'owner' });
     });
 
+    await page.locator('#providerIntegrationsWorkspace').waitFor({ state:'attached' });
+    assert.equal(await page.locator('#providerIntegrationsDisclosure').isVisible(), false,
+      `${width}: unfinished external connectors must not appear in the cabinet`);
+    assert.doesNotMatch(await page.locator('#paymentProviderPanel').innerText(), /DIKIDI|YCLIENTS|ДИКИДИ|ЮКЛИЕНТС/i);
+    await page.screenshot({ path:resolve(output, `hidden-${width}.png`), fullPage:true });
+    await page.addStyleTag({ content:'#providerIntegrationsDisclosure { display: block !important; }' });
     await page.locator('#providerIntegrationsWorkspace').waitFor({ state:'visible' });
-    assert.equal(await page.locator('#providerIntegrationsState').innerText(), 'Готово: 2 из 2');
+    assert.equal(await page.locator('#providerIntegrationsState').innerText(), 'Тестовых настроек: 2 из 2');
     assert.equal(await page.locator('[data-provider-integration="dikidi"] [data-provider-integration-account]').inputValue(), 'studio-1');
     assert.equal(await page.locator('[data-provider-integration="yclients"] [data-provider-integration-account]').inputValue(), 'salon-42');
     const text = await page.locator('#providerIntegrationsWorkspace').textContent();
     assert.match(text, /Черновик сохранён/);
-    assert.match(text, /Обновить тестовый черновик/);
-    assert.match(text, /Обмен данными выключен/);
+    assert.match(text, /Сохранить черновик/);
+    assert.match(text, /обмен выключен/);
     assert.match(text, /Запись обновлена/);
     assert.doesNotMatch(text, /\+7|7999|Ирина|Сергей/i);
     const layout = await page.evaluate(() => {

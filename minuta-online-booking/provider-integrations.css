@@ -4,6 +4,11 @@
   padding-top: 18px;
 }
 
+/* Keep the unfinished connector drafts available internally, but out of the cabinet UI. */
+#providerIntegrationsDisclosure {
+  display: none !important;
+}
+
 .payment-sandbox-disclosure {
   margin: 18px 0;
 }
