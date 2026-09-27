@@ -11148,12 +11148,19 @@ async function chooseNewBookingContact() {
       notify('В контакте нужны имя и российский номер телефона');
       return;
     }
+    clearTimeout(newBookingClientSuggestionTimer);
+    const phone = normalizePhone(rawPhone);
+    const exactClients = newBookingClientCandidates(rawPhone).filter(client => client.phone === phone);
+    const matchedClient = exactClients.find(client => client.name.toLocaleLowerCase('ru-RU') === name.toLocaleLowerCase('ru-RU'));
+    if (matchedClient) {
+      applyNewBookingClient(matchedClient);
+      return;
+    }
     $('#newBookingName').value = name;
     $('#newBookingPhone').value = newBookingClientPhoneLabel(rawPhone, String(rawPhone).slice(0, 24));
     newBookingAutoFilledName = '';
     newBookingAutoFilledPhone = '';
     handleNewBookingPhoneInput();
-    scheduleNewBookingClientSuggestions(name);
     saveNewBookingDraft();
   } catch (error) {
     if (form === $('#newBookingForm') && error?.name !== 'AbortError') notify(error?.message || 'Не удалось открыть телефонную книгу');
