@@ -9206,6 +9206,7 @@ function focusCreatedBooking(id) {
 function openBookingSheet(id) {
   const item = bookingSourceItems().find(booking => booking.id === id);
   if (!item) return;
+  $('#bookingSheet').classList.remove('booking-sheet-reference');
   $('#bookingSheet').dataset.bookingId = String(item.id || '');
   $('#bookingSheet').dataset.assistantContext = 'booking';
   const date = new Date(`${item.booking_date}T12:00:00`);
@@ -9289,6 +9290,11 @@ function openBookingSheet(id) {
     $('#bookingSheetContent').querySelectorAll('.booking-repeat-actions,.booking-sheet-secondary,.booking-sheet-actions,.booking-delete-zone').forEach(element => { element.hidden = true; });
     return;
   }
+  window.PrimeTimeBookingDetailCard?.render({
+    sheet:$('#bookingSheet'), item, outcome,
+    dateLabel:date.toLocaleDateString('ru-RU', { weekday:'short', day:'numeric', month:'long' }).replace(/^./, letter => letter.toLocaleUpperCase('ru-RU')),
+    receivedLabel:money(Math.max(0, Number(outcome.amount_rub) || 0))
+  });
   clientResultsController.mount({ form:$('#bookingVisitResultForm'), booking:item, expandEditor:true });
   $('#bookingVisitResultForm')?.addEventListener('submit', saveBookingVisitResult);
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
@@ -12372,6 +12378,7 @@ async function createNewBooking(event) {
 }
 
 function closeBookingSheet() {
+  $('#bookingSheet').classList.remove('booking-sheet-reference');
   const returnFocus = $('#bookingSheet').dataset.assistantContext === 'automatic-break' ? automaticBreakSheetInvoker : null;
   automaticBreakSheetInvoker = null;
   bookingSeriesCancellationRevision += 1;
