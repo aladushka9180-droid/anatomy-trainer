@@ -110,6 +110,7 @@ async function fixture(){
     var ids=${JSON.stringify(ids)},currentUser={id:'actor-A'},sessionGeneration=7,activeClientOrganizationId='org-A';
     var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
     var writesAllowed=true,bookingCreationReady=true,selectedDate='2020-01-05',editingOfflineBookingId='';
+    var bookingDeferredMode=()=>false;
     var readProviderBookingAttempt=()=>null;
     var newBookingTime='',newBookingSlots=[],newBookingHour='',newBookingPreferredTime='',newBookingSlotsRequestId=0,newBookingHistoricalMode=false,newBookingOutsideSchedule=false,newBookingMode='client';
     var displayPreferences={break_color_default:'auto'},newBookingModeState={client:{serviceId:'',durationMinutes:60,color:'auto'},block:{durationMinutes:60,color:'auto'}};
