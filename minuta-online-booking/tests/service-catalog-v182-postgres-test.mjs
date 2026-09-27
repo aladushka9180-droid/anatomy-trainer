@@ -56,6 +56,9 @@ try {
   await sleep(150);
   await first.query('commit');
   assert.equal((await competing).error?.message,'service_catalog_version_conflict');
+  assert.notEqual(saved.etag,initial.etag);
+  assert.equal(saved.etag,(await query(first,
+    'select public.get_minuta_service_catalog_draft_v182($1,$2) data',[org,service]))[0].data.etag);
   assert.deepEqual((await query(second,save,argsOne))[0].data,saved);
   assert.equal((await query(admin,'select photo_storage_path from public.service_public_details_v159 where service_id=$1',[service]))[0].photo_storage_path,
     `${actor}/services/${service}/photo.webp`);
@@ -70,7 +73,15 @@ try {
   assert.equal((await query(admin,'select count(*)::int n from public.service_catalog_requests_v182'))[0].n,2);
   const denied=await attempt(query(second,save,[foreignOrg,'44444444-4444-4444-8444-444444444444',null,null,'Чужая услуга',45,500,true]));
   assert.equal(denied.error?.message,'service_catalog_organization_denied');
+  const beforeDetails=(await query(first,
+    'select public.get_minuta_service_catalog_draft_v182($1,$2) data',[org,service]))[0].data;
+  await admin.query('begin');
   await query(admin,'update public.service_public_details_v159 set short_description=$1 where service_id=$2',['Внешняя правка',service]);
+  const pendingDetails=attempt(query(second,save,[org,'55555555-5555-4555-8555-555555555555',
+    service,beforeDetails.etag,'После карточки',90,1400,true]));
+  await sleep(150);
+  await admin.query('commit');
+  assert.equal((await pendingDetails).error?.message,'service_catalog_version_conflict');
   assert.deepEqual((await query(first,save,argsOne))[0].data,{saved:false,reason:'service_changed_after_save',id:service});
   await query(admin,'delete from public.services where id=$1',[created.id]);
   assert.deepEqual((await query(first,save,createArgs))[0].data,{saved:false,reason:'service_deleted',id:created.id});
