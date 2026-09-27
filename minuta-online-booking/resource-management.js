@@ -100,7 +100,7 @@
         payload = null;
         $('#resourceWorkspace').hidden = true;
         $('#resourcesUnavailable').hidden = false;
-        $('#resourcesUnavailableText').textContent = 'Филиалы и команда работают. Не удалось загрузить только кабинеты и оборудование.';
+        $('#resourcesUnavailableText').textContent = 'Филиалы и команда работают. Не удалось загрузить группы и отдельные ресурсы; повторите попытку.';
         return { ok: false, optional: true };
       }
       if (String(data?.organization_id || '') !== String(organizationId)) {
@@ -131,7 +131,7 @@
       const state = group.active ? 'Активна' : 'Отключена';
       if (!canManage) return `<article class="organization-row ${group.active ? '' : 'is-muted'}"><div class="organization-row-main"><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.description || kindLabels[group.kind] || 'Группа ресурсов')}</small></div><span class="organization-tags"><span class="organization-role">${escapeHtml(kindLabels[group.kind] || 'Другое')}</span><span class="organization-status ${group.active ? 'is-active' : ''}">${state}</span></span></article>`;
       const kinds = Object.entries(kindLabels).map(([value, label]) => `<option value="${value}" ${group.kind === value ? 'selected' : ''}>${label}</option>`).join('');
-      return `<details class="organization-row organization-editor ${group.active ? '' : 'is-muted'}" data-resource-group-card="${escapeHtml(group.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.description || 'Взаимозаменяемые ресурсы')}</small></div><span class="organization-tags"><span class="organization-role">${escapeHtml(kindLabels[group.kind] || 'Другое')}</span><span class="organization-status ${group.active ? 'is-active' : ''}">${state}</span></span></summary><form data-resource-group-form="${escapeHtml(group.id)}"><label>Название<input name="name" maxlength="120" value="${escapeHtml(group.name)}" required></label><div class="form-row"><label>Тип<select name="kind">${kinds}</select></label><label>Описание<input name="description" maxlength="500" value="${escapeHtml(group.description || '')}"></label></div><div class="organization-checks"><label><input name="active" type="checkbox" ${group.active ? 'checked' : ''}><span>Группа активна</span></label></div><p class="form-error" data-resource-group-error hidden></p><button class="secondary-button" type="submit" data-resource-write>Сохранить группу</button></form></details>`;
+      return `<details class="organization-row organization-editor ${group.active ? '' : 'is-muted'}" data-resource-group-card="${escapeHtml(group.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.description || 'Группа взаимозаменяемых ресурсов')}</small></div><span class="organization-tags"><span class="organization-role">${escapeHtml(kindLabels[group.kind] || 'Другое')}</span><span class="organization-status ${group.active ? 'is-active' : ''}">${state}</span></span></summary><form data-resource-group-form="${escapeHtml(group.id)}"><label>Название группы<input name="name" maxlength="120" value="${escapeHtml(group.name)}" required></label><div class="form-row"><label>Тип<select name="kind">${kinds}</select></label><label>Описание (необязательно)<input name="description" maxlength="500" value="${escapeHtml(group.description || '')}"></label></div><div class="organization-checks"><label><input name="active" type="checkbox" ${group.active ? 'checked' : ''}><span>Группа активна</span></label></div><p class="form-error" data-resource-group-error hidden></p><button class="secondary-button" type="submit" data-resource-write>Сохранить группу</button></form></details>`;
     }
 
     function resourceCard(resource, canManage) {
@@ -139,7 +139,7 @@
       if (!canManage) return `<article class="organization-row ${resource.active ? '' : 'is-muted'}"><div class="organization-row-main"><strong>${escapeHtml(resource.name)}</strong><small>${escapeHtml(resource.location_name)} · ${escapeHtml(resource.group_name)}</small></div><span class="organization-status ${resource.active ? 'is-active' : ''}">${state}</span></article>`;
       const locations = payload.locations.filter(item => item.active || item.id === resource.location_id);
       const groups = payload.groups.filter(item => item.active || item.id === resource.group_id);
-      return `<details class="organization-row organization-editor ${resource.active ? '' : 'is-muted'}" data-resource-card="${escapeHtml(resource.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(resource.name)}</strong><small>${escapeHtml(resource.location_name)} · ${escapeHtml(resource.group_name)}</small></div><span class="organization-tags"><span class="organization-role">${escapeHtml(kindLabels[resource.kind] || 'Ресурс')}</span><span class="organization-status ${resource.active ? 'is-active' : ''}">${state}</span></span></summary><form data-resource-form="${escapeHtml(resource.id)}"><label>Название<input name="name" maxlength="120" value="${escapeHtml(resource.name)}" required></label><div class="form-row"><label>Филиал<select name="location" required>${optionList(locations, resource.location_id, item => item.name)}</select></label><label>Группа<select name="group" required>${optionList(groups, resource.group_id, item => `${item.name} · ${kindLabels[item.kind] || 'Другое'}`)}</select></label></div><div class="organization-checks"><label><input name="active" type="checkbox" ${resource.active ? 'checked' : ''}><span>Ресурс активен</span></label></div><p class="form-error" data-resource-error hidden></p><button class="secondary-button" type="submit" data-resource-write>Сохранить ресурс</button></form></details>`;
+      return `<details class="organization-row organization-editor ${resource.active ? '' : 'is-muted'}" data-resource-card="${escapeHtml(resource.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(resource.name)}</strong><small>${escapeHtml(resource.location_name)} · ${escapeHtml(resource.group_name)}</small></div><span class="organization-tags"><span class="organization-role">${escapeHtml(kindLabels[resource.kind] || 'Ресурс')}</span><span class="organization-status ${resource.active ? 'is-active' : ''}">${state}</span></span></summary><form data-resource-form="${escapeHtml(resource.id)}"><label>Название ресурса<input name="name" maxlength="120" value="${escapeHtml(resource.name)}" required></label><div class="form-row"><label>Филиал<select name="location" required>${optionList(locations, resource.location_id, item => item.name)}</select></label><label>Группа ресурсов<select name="group" required>${optionList(groups, resource.group_id, item => `${item.name} · ${kindLabels[item.kind] || 'Другое'}`)}</select></label></div><div class="organization-checks"><label><input name="active" type="checkbox" ${resource.active ? 'checked' : ''}><span>Ресурс активен</span></label></div><p class="form-error" data-resource-error hidden></p><button class="secondary-button" type="submit" data-resource-write>Сохранить ресурс</button></form></details>`;
     }
 
     function auditCard(item) {
@@ -160,7 +160,7 @@
       }
       const values = new Map(payload.requirements.filter(item => item.service_id === service.id && item.active).map(item => [item.group_id, Number(item.quantity)]));
       const groups = payload.groups.filter(item => item.active || values.has(item.id));
-      holder.innerHTML = groups.length ? groups.map(group => `<label class="resource-requirement-row"><span><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(kindLabels[group.kind] || 'Ресурс')}</small></span><input type="number" min="0" max="20" step="1" value="${values.get(group.id) || 0}" data-requirement-group="${escapeHtml(group.id)}" aria-label="Количество: ${escapeHtml(group.name)}"></label>`).join('') : empty('Групп пока нет', 'Создайте группу кабинетов, столов или оборудования.');
+      holder.innerHTML = groups.length ? groups.map(group => `<label class="resource-requirement-row"><span><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(kindLabels[group.kind] || 'Ресурс')}</small></span><input type="number" min="0" max="20" step="1" value="${values.get(group.id) || 0}" data-requirement-group="${escapeHtml(group.id)}" aria-label="Количество: ${escapeHtml(group.name)}"></label>`).join('') : empty('Активных групп пока нет', payload.can_manage ? 'Создайте или включите группу ресурсов, чтобы указать её для услуги.' : 'Администратор ещё не настроил группы ресурсов.');
       $('#resourceRequirementSubmit').disabled = !payload.can_manage || !groups.length;
     }
 
@@ -179,33 +179,33 @@
       $('#resourcesCount').hidden = activeResourceCount === 0;
       $('#resourceGroupsCount').textContent = String(activeGroupCount);
       $('#resourceGroupsCount').hidden = activeGroupCount === 0;
-      $('#resourceGroupsList').innerHTML = hasGroups ? payload.groups.map(item => groupCard(item, canManage)).join('') : '';
-      $('#resourcesList').innerHTML = hasResources ? payload.resources.map(item => resourceCard(item, canManage)).join('') : '';
+      $('#resourceGroupsList').innerHTML = hasGroups ? payload.groups.map(item => groupCard(item, canManage)).join('') : canManage ? '' : empty('Групп ресурсов пока нет', 'Администратор ещё не создал группы ресурсов.');
+      $('#resourcesList').innerHTML = hasResources ? payload.resources.map(item => resourceCard(item, canManage)).join('') : canManage ? '' : empty('Ресурсов пока нет', 'Администратор ещё не добавил ресурсы в филиалы.');
       $('#resourceManagementGrid').dataset.resourceStep = hasGroups ? (hasResources ? 'ready' : 'resources') : 'groups';
       $('#resourceObjectsSection').hidden = !hasGroups;
       $('#resourceGroupCreator').hidden = !canManage;
       $('#resourceGroupCreator').dataset.emptyAction = String(!hasGroups);
-      $('#resourceGroupCreatorLabel').textContent = hasGroups ? 'Добавить группу' : 'Создать группу ресурсов';
-      $('#resourceGroupCreatorHint').textContent = hasGroups ? '' : 'Например, массажные кабинеты или столы';
+      $('#resourceGroupCreatorLabel').textContent = hasGroups ? 'Добавить группу' : 'Создать группу';
+      $('#resourceGroupCreatorHint').textContent = hasGroups ? '' : 'Например, массажные кабинеты';
       $('#resourceCreator').hidden = !canManage || !hasGroups;
       $('#resourceCreator').dataset.emptyAction = String(!hasResources);
-      $('#resourceCreatorLabel').textContent = hasResources ? 'Добавить ресурс' : 'Добавить первый кабинет или оборудование';
-      $('#resourceCreatorHint').textContent = hasResources ? '' : 'Выберите филиал и созданную группу';
+      $('#resourceCreatorLabel').textContent = hasResources ? 'Добавить ресурс' : 'Добавить первый ресурс';
+      $('#resourceCreatorHint').textContent = hasResources ? '' : 'Укажите конкретный кабинет или оборудование, филиал и группу';
        const activeLocations = payload.locations.filter(item => item.active);
        const activeGroups = payload.groups.filter(item => item.active);
        const setupGuide = $('#resourceSetupGuide');
        setupGuide.hidden = !canManage || (activeLocations.length > 0 && activeGroups.length > 0 && activeResourceCount > 0);
        setupGuide.textContent = !activeLocations.length
-         ? 'Сначала добавьте активный филиал. Затем создайте группу, добавьте конкретный кабинет или оборудование и укажите требования услуг при необходимости.'
+         ? 'Сначала добавьте активный филиал. Затем создайте группу взаимозаменяемых ресурсов и добавьте в неё конкретный кабинет или оборудование.'
          : !activeGroups.length
-           ? 'Сначала создайте группу взаимозаменяемых ресурсов. Затем добавьте конкретный кабинет или оборудование в филиал и укажите требования услуг при необходимости.'
-           : 'Добавьте конкретный кабинет или оборудование в филиал. После этого можно указать требования услуг.';
+           ? 'Сначала создайте группу взаимозаменяемых ресурсов. Затем добавьте конкретный кабинет или оборудование в филиал.'
+           : 'Добавьте конкретный кабинет или оборудование в филиал. Затем укажите, каким услугам нужны ресурсы этой группы.';
        $('#resourceLocationLink').hidden = !canManage || activeLocations.length > 0;
        $('#resourceRequirementsPanel').hidden = !canManage || !activeGroups.length || !activeResourceCount;
       $('#resourceLocation').innerHTML = optionList(activeLocations, '', item => item.name);
       $('#resourceGroup').innerHTML = optionList(activeGroups, '', item => `${item.name} · ${kindLabels[item.kind] || 'Другое'}`);
       $('#resourceForm button[type="submit"]').disabled = !activeLocations.length || !activeGroups.length;
-      $('#resourceCreateHelp').textContent = !activeLocations.length ? 'Сначала добавьте активный филиал.' : !activeGroups.length ? 'Сначала добавьте активную группу.' : '';
+      $('#resourceCreateHelp').textContent = !activeLocations.length ? 'Сначала добавьте активный филиал.' : !activeGroups.length ? 'Сначала создайте или включите группу ресурсов.' : '';
       $('#resourceRequirementService').innerHTML = optionList(payload.services, selectedServiceId, item => `${item.name} · ${item.performer_name}`);
       renderRequirements();
       $('#resourceAuditPanel').hidden = !canManage || !payload.audit.length;
@@ -251,12 +251,13 @@
       }
       if (error) {
         const text = `${error.message || ''} ${error.details || ''}`;
+        const subject = /resource_group/.test(rpc) ? 'группы' : 'ресурса';
         const message = /resource_has_future_bookings/i.test(text)
-          ? 'Сначала перенесите или отмените будущие записи, связанные с этим ресурсом.'
+          ? `Сначала перенесите или отмените будущие записи, связанные с настройками ${subject}.`
           : /resource_unavailable/i.test(text)
             ? 'Не всем будущим записям хватает свободных ресурсов. Настройки не изменены.'
             : /duplicate key/i.test(text)
-              ? 'Такое название уже используется в этом разделе.'
+              ? `Такое название ${subject} уже используется.`
               : 'Изменение не сохранено. Проверьте данные и повторите.';
         const refreshed = await load();
         if (refreshed?.ok && errorSelector) showError(errorSelector, message); else notify(message);
