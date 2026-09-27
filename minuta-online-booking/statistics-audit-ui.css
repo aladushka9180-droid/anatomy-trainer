@@ -41,7 +41,10 @@
 #analyticsView .report-heatmap-scroll-hint { display:none; margin:10px 0 0; color:var(--theme-muted); font-size:12px; line-height:1.4; }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-kicker,
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-summary[data-report-section="money"] :is(small,span,i),
-body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-reconciliation :is(small,span) {
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-reconciliation :is(small,span),
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics span,
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-plan-forecast :is(small,span),
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportTrendCoverage {
   font-size:calc(12px + var(--provider-text-step,0px));
   line-height:1.4;
 }
