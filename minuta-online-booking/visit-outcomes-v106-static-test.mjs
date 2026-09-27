@@ -29,6 +29,8 @@ assert.match(provider, /_sync_pending/);
 assert.doesNotMatch(provider, /delete compatibleRecord\.auto_complete_visits/);
 assert.match(expiry, /process_minuta_auto_completed_visits_v106/);
 assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v\d+`/);
-assert.match(html, /provider\.js\?v=811/);
+const providerVersion = html.match(/provider\.js\?v=(\d+)/)?.[1];
+assert.ok(providerVersion, 'Не найдена версия кабинета');
+assert.match(worker, new RegExp(`\\.\\/provider\\.js\\?v=${providerVersion}`));
 
 console.log('Visit outcomes v106 static checks passed.');
