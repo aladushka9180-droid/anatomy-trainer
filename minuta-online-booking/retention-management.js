@@ -335,6 +335,8 @@
           const cooldown = Number($('#retentionCooldownDays').value);
           const template = $('#retentionMessageTemplate').value;
           reviewingEnable = true;
+          const confirmationDialog = $('#providerConfirmDialog');
+          confirmationDialog?.classList.add('retention-enable-review');
           let confirmed = false;
           try {
             confirmed = await requestConfirmation({
@@ -343,6 +345,7 @@
               confirmLabel:'Включить', initialFocus:'cancel'
             });
           } catch (_) { confirmed = false; }
+          confirmationDialog?.classList.remove('retention-enable-review');
           if (!scopeIsCurrent(scope)) return;
           reviewingEnable = false;
           if (!confirmed || !event.target.checked || Number($('#retentionInactivityDays').value) !== inactivity

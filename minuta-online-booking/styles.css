@@ -768,6 +768,14 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .provider-confirm-actions button { min-height:46px; margin:0; border-radius:12px; cursor:pointer; font:850 12px/1 inherit; }
 .provider-confirm-submit { border:1px solid #a94842; background:#a94842; color:#fff; }
 .provider-confirm-submit:hover { border-color:#913a35; background:#913a35; }
+.provider-body[data-provider-theme="pink-porcelain"] .provider-confirm-dialog.retention-enable-review .provider-confirm-submit {
+  border-color:var(--theme-line);
+  background:var(--porcelain-action-bg);
+  color:var(--porcelain-action-ink);
+}
+.provider-body[data-provider-theme="pink-porcelain"] .provider-confirm-dialog.retention-enable-review .provider-confirm-submit:hover {
+  background:color-mix(in srgb,var(--porcelain-action-bg) 88%,var(--theme-accent));
+}
 .dialog-head { display:flex; justify-content:space-between; align-items:flex-start; }.dialog-head button { width:40px; height:40px; border:1px solid var(--line); border-radius:50%; background:white; cursor:pointer; font-size:24px; }
 .bookings-list { display:grid; gap:11px; margin-top:22px; overflow:auto; }
 .saved-booking { padding:16px; border:1px solid var(--line); border-radius:17px; background:#f8fbf9; }.saved-booking-head { display:flex; justify-content:space-between; gap:12px; }.saved-booking strong { font-size:15px; }.saved-booking .saved-code { color:var(--green); font-size:11px; font-weight:900; letter-spacing:.07em; }.saved-booking p { margin:7px 0 0; color:#687a71; font-size:13px; line-height:1.5; }.saved-booking button { margin-top:12px; padding:6px 10px; border:0; border-radius:999px; background:#fff0ef; color:#9a3936; cursor:pointer; font-size:11px; font-weight:800; }
