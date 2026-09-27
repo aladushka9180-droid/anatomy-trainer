@@ -52,7 +52,8 @@ assert.match(source, /requestId/);
 assert.match(source, /raw\.available === true/);
 assert.match(source, /raw\.financeEnabled === true/);
 assert.match(source, /raw\.resultReliable === true/);
-assert.match(source, /Итог за период не рассчитан/);
+assert.match(source, /Итог пока не рассчитан/);
+assert.match(source, /Визитов без подтверждённой оплаты/);
 assert.match(source, /aria-live="polite"/);
 assert.match(source, /ArrowLeft/);
 assert.match(source, /Оплата указана в \$\{known\} из \$\{total\} визитов/);
@@ -65,7 +66,7 @@ assert.doesNotMatch(source, /Материалы|Аренда|Зарплата|Р
 for (const marker of ['@media(max-width:760px)', '@media(max-width:520px)', 'env(safe-area-inset-bottom)', 'min-height:44px', 'white-space:nowrap', 'prefers-reduced-motion']) {
   assert.match(css, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 }
-assert.match(css, /\.finance-center__bar\.is-expense\{[^}]*border:1px dashed/);
+assert.match(css, /\.finance-center__bar\.is-expense\{[^}]*background:var\(--finance-muted\)/);
 assert.match(css, /width:min\(100%,1120px\)/);
 
 console.log('Finance center UI static contract passed.');

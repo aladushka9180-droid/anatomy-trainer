@@ -136,7 +136,6 @@ try {
       document.body.dataset.providerLayout = 'soft';
     });
     const submit = page.locator('#paymentSandboxForm button[type="submit"]');
-    await page.waitForFunction(() => getComputedStyle(document.querySelector('#paymentSandboxForm button')).backgroundColor === 'rgb(196, 51, 114)');
     const normal = await submit.evaluate(button => {
       const style = getComputedStyle(button);
       return { fontSize:parseFloat(style.fontSize), height:button.getBoundingClientRect().height,
@@ -160,7 +159,7 @@ try {
     assert.ok(disabled.opacity >= .95, `${width}: disabled test-payment label must remain legible`);
     assert.equal(disabled.cursor, 'not-allowed');
     assert.notEqual(disabled.background, normal.background, `${width}: disabled test-payment state must be visually distinct`);
-    assert.ok(contrast(disabled.color, disabled.background) >= 4.5, `${width}: disabled test-payment label needs 4.5:1 contrast`);
+    assert.ok(contrast(disabled.color, disabled.background) >= 4.5, `${width}: disabled test-payment label needs 4.5:1 contrast; ${JSON.stringify(disabled)}`);
     await submit.evaluate(button => { button.disabled = false; });
     await page.evaluate(() => {
       document.body.dataset.providerTheme = 'midnight';

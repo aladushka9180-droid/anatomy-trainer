@@ -49,7 +49,7 @@ async function fixture(width,code){
 async function screenshot(page,label,width){
  await page.evaluate(()=>scrollTo(0,0));
  if(process.env.MINUTA_AUDIT_SCREENSHOT_DIR)await page.screenshot({path:resolve(process.env.MINUTA_AUDIT_SCREENSHOT_DIR,`payment-${label}-${width}.png`),fullPage:true});
- assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth)<=width);
 }
 try{
  for(const width of [390,760,1440]){

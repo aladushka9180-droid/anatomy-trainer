@@ -60,7 +60,13 @@ try {
       document.body.dataset.providerTheme = theme;
       const button = document.querySelector('.provider-nav [data-provider-view="organization"]');
       const style = getComputedStyle(button);
-      return { visible:button.checkVisibility(), color:style.color, background:style.backgroundColor,
+      let backgroundNode = button;
+      let background = style.backgroundColor;
+      while (backgroundNode.parentElement && background === 'rgba(0, 0, 0, 0)') {
+        backgroundNode = backgroundNode.parentElement;
+        background = getComputedStyle(backgroundNode).backgroundColor;
+      }
+      return { visible:button.checkVisibility(), color:style.color, background,
         overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth };
     }, theme);
     assert.ok(state.visible, `${theme}: active Organization navigation is hidden`);

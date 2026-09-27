@@ -79,10 +79,15 @@ body.provider-body[data-provider-theme][data-provider-layout] #paymentSandboxFor
 body.provider-body[data-provider-theme][data-provider-layout] #paymentSandboxForm button.primary:disabled {
   opacity: 1 !important;
   border: 1px solid var(--theme-line, #dce7df) !important;
-  background: color-mix(in srgb, var(--theme-ink, #173b2c) 7%, var(--theme-surface, #fff)) !important;
-  color: var(--theme-ink, #173b2c) !important;
+  background: #f1e9ed !important;
+  color: #302c30 !important;
   box-shadow: none !important;
   transition: none !important;
+}
+
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard [data-provider-panel] #paymentSandboxForm button.primary:disabled {
+  background: #f1e9ed !important;
+  color: #302c30 !important;
 }
 
 .payment-sandbox-result {

@@ -116,7 +116,7 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '
   assert.equal(dom.elements.resourceGroupsList.innerHTML, '', 'Пустая карточка не должна дублировать первый шаг');
   assert.equal(dom.elements.resourceGroupCreator.hidden, false);
   assert.equal(dom.elements.resourceGroupCreator.dataset.emptyAction, 'true');
-  assert.match(dom.elements.resourceGroupCreatorLabel.textContent, /Создать группу ресурсов/);
+  assert.match(dom.elements.resourceGroupCreatorLabel.textContent, /Создать группу/);
   assert.equal(dom.elements.resourceObjectsSection.hidden, true, 'Следующий шаг скрыт до создания группы');
   assert.equal(dom.elements.resourceRequirementsPanel.hidden, true, 'Требования скрыты до создания ресурсов');
   assert.equal(dom.elements.resourceSetupGuide.hidden, false);

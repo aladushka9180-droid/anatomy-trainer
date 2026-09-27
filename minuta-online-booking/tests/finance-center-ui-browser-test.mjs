@@ -194,7 +194,7 @@ try {
       assert.equal(await page.locator('[data-finance-net]').innerText(), '—');
       assert.equal(await page.locator('[data-finance-expense]').innerText(), '—');
       assert.equal(await page.locator('[data-finance-received]').innerText(), '36\u00a0600\u00a0₽');
-      assert.match(await page.locator('[data-finance-completeness]').innerText(), /Расходы ещё не подключены.*Итог за период не рассчитан/);
+      assert.match(await page.locator('[data-finance-completeness]').innerText(), /Итог пока не рассчитан.*Финансовый журнал ещё не подключён: подтверждённые расходы недоступны/s);
       assert.match(await page.locator('[data-finance-ring]').innerText(), /после подключения финансового журнала/);
       assert.equal(await page.locator('[data-finance-add]').getAttribute('hidden'), '');
 

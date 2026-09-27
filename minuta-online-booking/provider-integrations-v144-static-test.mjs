@@ -16,8 +16,8 @@ assert.match(html, /id="providerIntegrationsDisclosure"[\s\S]*DIKIDI и YCLIENTS
 assert.match(html, /data-provider-integration-form="dikidi"/);
 assert.match(html, /data-provider-integration-form="yclients"/);
 assert.match(html, /Обмен данными не начинается/);
-assert.match(html, /Создать тестовый черновик/);
-assert.match(module, /Обновить тестовый черновик/);
+assert.match(html, /Сохранить черновик/);
+assert.match(module, /Сохранить черновик/);
 const integrationMarkup = html.match(/id="providerIntegrationsDisclosure"[\s\S]*?<\/details>\s*<\/section>/)?.[0] || '';
 assert.doesNotMatch(integrationMarkup, /Secret Key|API[- ]?ключ|токен/i);
 assert.match(html, /provider-integrations\.css\?v=\d+/);

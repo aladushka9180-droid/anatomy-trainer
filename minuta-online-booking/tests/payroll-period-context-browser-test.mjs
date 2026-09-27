@@ -69,8 +69,8 @@ try {
     });
     assert.equal((await page.evaluate(() => payrollController.setOrganization({id:'test-organization'}))).ok, true);
     assert.equal(await page.locator('#payrollPeriodsList').isVisible(), true);
-    assert.match(await page.locator('#payrollPeriodsList').innerText(), /Сначала добавьте план мотивации и включите зарплатный журнал/);
-    assert.match(await page.locator('#payrollPeriodsList').innerText(), /не создаёт начислений и выплат/);
+    assert.match(await page.locator('#payrollPeriodsList').innerText(), /Учёт зарплаты выключен.*Добавьте правило начисления/s);
+    assert.match(await page.locator('#payrollEnabledHint').innerText(), /не создаёт начислений и выплат/);
     assert.equal(await page.locator('#payrollPeriodCreator').getAttribute('hidden'), '');
     if (screenshotDir) await page.locator('#payrollPanel').screenshot({ path:resolve(screenshotDir, `${width}-disabled.png`) });
 

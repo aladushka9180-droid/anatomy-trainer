@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v998`;
-const CACHE_READY = './.precache-ready-v998';
+const CACHE = `${CACHE_PREFIX}v999`;
+const CACHE_READY = './.precache-ready-v999';
 
 const ASSETS = [
   './provider.html',
@@ -13,7 +13,7 @@ const ASSETS = [
   './provider-icon.svg?v=876',
   './icon.svg',
   './ui-icons.svg',
-  './styles.css?v=998',
+  './styles.css?v=999',
   './provider-reference-screens.css?v=998',
   './onboarding.css?v=811',
   './visitor-presence.css?v=811',
@@ -35,19 +35,19 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=998',
+  './site-update.js?v=999',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
   './social-auth.js?v=811',
-  './organization.js?v=998',
-  './payment-management.js?v=904',
-  './commerce-management.js?v=811',
+  './organization.js?v=999',
+  './payment-management.js?v=999',
+  './commerce-management.js?v=999',
   './client-fields.js?v=811',
   './client-import.js?v=811',
   './batch-bookings.js?v=811',
   './booking-policy-management.js?v=811',
-  './team-calendar.js?v=811',
+  './team-calendar.js?v=999',
   './free-slots-share.js?v=936',
   './group-bookings.js?v=811',
   './booking-widgets.js?v=811',
@@ -61,7 +61,7 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
-  './provider.js?v=998',
+  './provider.js?v=999',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
@@ -69,9 +69,9 @@ const ASSETS = [
 const OPTIONAL_ASSETS = [
   './utm-funnel.css?v=811',
   './subscription-pricing.css?v=811',
-  './statistics-audit-ui.css?v=998',
-  './statistics-audit-ui.js?v=908',
-  './statistics-audit-provider.js?v=908',
+  './statistics-audit-ui.css?v=999',
+  './statistics-audit-ui.js?v=999',
+  './statistics-audit-provider.js?v=999',
   './client-results.css?v=876',
   './provider-porcelain-detail.css?v=998',
   './provider-schedule-type.css?v=933',
@@ -98,10 +98,10 @@ const OPTIONAL_ASSETS = [
   './provider-help-workspace.css?v=811',
   './contextual-help.css?v=811',
   './settings-mobile-minimalism.css?v=960',
-  './provider-integrations.css?v=899',
-  './finance-center.css?v=998',
-  './finance-center.js?v=811',
-  './finance-center-provider.js?v=811',
+  './provider-integrations.css?v=999',
+  './finance-center.css?v=999',
+  './finance-center.js?v=999',
+  './finance-center-provider.js?v=999',
   './client-records.css?v=811',
   './client-records.js?v=811',
   './messages.html',
@@ -123,7 +123,7 @@ const OPTIONAL_ASSETS = [
   './free-slots-compact.css?v=931',
   './vendor/qrcodegen.js?v=811',
   './code-scanner.css?v=811',
-  './code-scanner.js?v=811',
+  './code-scanner.js?v=999',
   './portfolio-camera.js?v=811',
 ];
 let optionalWarmup = null;
