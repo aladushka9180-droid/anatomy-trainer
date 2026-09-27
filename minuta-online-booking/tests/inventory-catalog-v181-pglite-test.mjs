@@ -89,6 +89,11 @@ try {
   await db.exec('reset role;');
   assert.equal((await query('select count(*)::int n from public.inventory_items'))[0].n,2);
   assert.equal((await query('select count(*)::int n from public.inventory_catalog_requests_v181'))[0].n,2);
+  await query('delete from public.inventory_items where id=$1',[created.id]);
+  await db.exec('set role authenticated;');
+  assert.deepEqual((await query(saveSql,createArgs))[0].data,
+    {saved:false,reason:'inventory_item_deleted',organization_id:org,id:created.id});
+  await db.exec('reset role;');
   const rollback=readFileSync(new URL('../supabase-migration-v181-rollback.sql',import.meta.url),'utf8');
   await rejects(()=>db.exec(rollback),/v181_catalog_requests_must_be_preserved/);
   await db.exec('rollback;');
@@ -97,7 +102,7 @@ try {
   await db.exec(rollback);
   assert.equal((await query("select to_regclass('public.inventory_catalog_requests_v181') relation"))[0].relation,null);
   await db.exec(migration);
-  console.log('v181 isolated catalog contract passed: version, replay, mismatch, tenant, actor, create, guarded rollback, reapply');
+  console.log('v181 isolated catalog contract passed: version, replay, mismatch, tenant, actor, create, deletion tombstone, guarded rollback, reapply');
 } finally {
   await db.close();
 }
