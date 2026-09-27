@@ -95,7 +95,7 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .re
   .provider-body #analyticsView .report-heatmap-card .report-heatmap-cell { min-height:48px!important; }
   .provider-body #analyticsView .report-heatmap-card .report-heatmap-cell i { font-size:13px!important; }
 }
-#analyticsView[data-report-tab="money"][data-report-source="demo"] #financeCenterRoot:not([hidden]) {
+#analyticsView[data-report-tab="money"][data-report-source="demo"] [data-report-section="money"] {
   display:none!important;
 }
 #analyticsView .report-money-demo-gate {

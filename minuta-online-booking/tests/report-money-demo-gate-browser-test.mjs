@@ -52,6 +52,7 @@ try {
     await page.evaluate(() => setReportSubview('money'));
     assert.equal(await page.locator('#reportMoneyDemoGate').isVisible(), true, `${width}: demo gate visible`);
     assert.equal(await page.locator('#financeCenterRoot').isVisible(), false, `${width}: real finance hidden`);
+    assert.deepEqual(await page.locator('#analyticsView > [data-report-section="money"]').evaluateAll(elements => elements.filter(element => getComputedStyle(element).display !== 'none').map(element => element.id || element.className)), [], `${width}: no money panels visible under demo gate`);
     assert.equal(await page.evaluate(() => loadCalls), 0, `${width}: demo never loads real finance`);
     assert.equal(await page.locator('#reportMoneyDemoGate button').getAttribute('data-report-source'), 'own');
     const gateWidth = await page.locator('#reportMoneyDemoGate').evaluate(element => element.getBoundingClientRect().width);
@@ -65,6 +66,7 @@ try {
     });
     assert.equal(await page.locator('#reportMoneyDemoGate').isVisible(), false, `${width}: gate closes on explicit source switch`);
     assert.equal(await page.locator('#financeCenterRoot').isVisible(), true, `${width}: real finance visible only in own mode`);
+    assert.equal(await page.locator('#moneyDashboard').isVisible(), true, `${width}: money dashboard restored in own mode`);
     assert.equal(await page.evaluate(() => loadCalls), 1, `${width}: own finance loads`);
     await page.close();
   }
