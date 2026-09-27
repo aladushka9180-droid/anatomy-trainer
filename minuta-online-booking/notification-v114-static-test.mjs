@@ -81,7 +81,7 @@ assert.match(clientFunction, /mark_minuta_notification_worker_ready_v114/);
 assert.match(clientFunction, /telegram_write_access_required/);
 assert.match(clientFunction, /Deno\.serve\(/);
 
-assert.match(center, /sent:'передано каналу'/);
+assert.match(center, /sent:'отправлено'/);
 assert.match(center, /if \(item\.delivered_at\) return/);
 assert.match(center, /Шлюз канала не настроен/);
 assert.match(center, /Клиент подключает канал сам/);
