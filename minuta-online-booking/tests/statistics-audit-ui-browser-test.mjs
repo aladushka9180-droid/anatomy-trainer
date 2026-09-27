@@ -110,6 +110,10 @@ try {
     if (width <= 760) {
       assert.ok(layout.period >= 44, `${width}px period target`);
     }
+    if (width <= 390) {
+      const clippedChartValues = await page.evaluate(() => [...document.querySelectorAll('.report-chart-column>b')].filter(label => label.scrollWidth > label.clientWidth + 1).map(label => label.textContent.trim()));
+      assert.deepEqual(clippedChartValues, [], `${width}px chart values stay readable`);
+    }
     if (width <= 600) {
       assert.equal(layout.heatmapOverflow, true, `${width}px heatmap scrolls`);
       assert.notEqual(layout.hint, 'none');
@@ -130,9 +134,9 @@ try {
       const labels = await page.evaluate(() => {
         document.body.dataset.providerTextScale = 'default';
         const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
-        return { note:size('.report-team-note'), axis:size('.report-chart-column small'), source:size('.report-data-source>small'), chartContext:size('.report-chart-context small'), chartHint:size('.report-chart-hint') };
+        return { note:size('.report-team-note'), axis:size('.report-chart-column small'), source:size('.report-data-source>small'), chartContext:size('.report-chart-context small'), chartHint:size('.report-chart-hint'), period:size('.report-trend .panel-head p'), summary:size('.report-command-copy>p'), metric:size('.report-primary-metric small'), chartValue:size('.report-chart-column b') };
       });
-      assert.ok(labels.note >= 12 && labels.axis >= 11 && labels.source >= 12 && labels.chartContext >= 12 && labels.chartHint >= 12, `390px statistics labels: ${JSON.stringify(labels)}`);
+      assert.ok(labels.note >= 12 && labels.axis >= 11 && labels.source >= 12 && labels.chartContext >= 12 && labels.chartHint >= 12 && labels.period >= 12 && labels.summary >= 12 && labels.metric >= 12 && labels.chartValue >= 12, `390px statistics labels: ${JSON.stringify(labels)}`);
       const largeLabels = await page.evaluate(() => {
         document.body.dataset.providerTextScale = 'large';
         const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
