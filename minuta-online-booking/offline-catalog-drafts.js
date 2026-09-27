@@ -107,6 +107,35 @@
       && record.kind===kind && record.entityId===target && validVersion(kind,target,record.version)
       ? record.version : null;
   }
+  async function captureInventoryVersions({ userId,organizationId,workspace,isCurrent }) {
+    const scopedUser=requireId(userId), scopedOrg=requireId(organizationId);
+    if (typeof isCurrent!=='function' || workspace?.organization_id!==scopedOrg
+      || !Array.isArray(workspace.items)) throw new Error('catalog_sync_context_invalid');
+    let count=0;
+    for (const item of workspace.items) {
+      if (!isCurrent(scopedUser,scopedOrg)) break;
+      if (!UUID.test(String(item?.id || '')) || !validVersion('inventory',item.id,item.updated_at)) continue;
+      await rememberVersion({userId:scopedUser,organizationId:scopedOrg,kind:'inventory',
+        entityId:item.id,version:item.updated_at});
+      count++;
+    }
+    return count;
+  }
+  async function refreshServiceVersion({ userId,organizationId,entityId,rpc,isCurrent }) {
+    const scopedUser=requireId(userId), scopedOrg=requireId(organizationId), target=requireId(entityId);
+    if (typeof rpc!=='function' || typeof isCurrent!=='function') throw new Error('catalog_sync_context_invalid');
+    if (!navigator.onLine || !isCurrent(scopedUser,scopedOrg)) return null;
+    let response;
+    try { response=await rpc('get_minuta_service_catalog_draft_v182',{
+      p_organization:scopedOrg,p_service:target }); } catch { return null; }
+    if (!isCurrent(scopedUser,scopedOrg) || response?.error) return null;
+    const data=response?.data;
+    if (data?.organization_id!==scopedOrg || String(data?.id || '').toLowerCase()!==target
+      || !validVersion('service',target,data.etag)) return null;
+    await rememberVersion({userId:scopedUser,organizationId:scopedOrg,kind:'service',
+      entityId:target,version:data.etag});
+    return data.etag;
+  }
   async function queue({ userId,organizationId,kind,entityId=null,expectedVersion=null,values }) {
     requireStore();
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId);
@@ -180,5 +209,6 @@
     await store.removePrefix(`${VERSION_ROOT}${scopedUser}:`);
   }
 
-  window.MinutaOfflineCatalogDrafts={ queue,read,list,rememberVersion,readVersion,flushOne,remove,clearUser };
+  window.MinutaOfflineCatalogDrafts={ queue,read,list,rememberVersion,readVersion,
+    captureInventoryVersions,refreshServiceVersion,flushOne,remove,clearUser };
 })();

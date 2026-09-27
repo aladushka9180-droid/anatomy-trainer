@@ -78,6 +78,22 @@ try {
   assert.equal(await page.evaluate(async ({user,org,item})=>
     window.MinutaOfflineCatalogDrafts.readVersion(user,org,'inventory',item),{user,org,item}),
     versions.own);
+  const captured=await page.evaluate(async ({user,org,item})=>{
+    const api=window.MinutaOfflineCatalogDrafts;
+    const current=(u,o)=>u===user&&o===org;
+    const inventory=await api.captureInventoryVersions({userId:user,organizationId:org,isCurrent:current,
+      workspace:{organization_id:org,items:[{id:item,updated_at:'2026-09-27T02:00:00.000Z'}]}});
+    const wrongScope=await api.refreshServiceVersion({userId:user,organizationId:org,
+      entityId:item,isCurrent:current,rpc:async()=>({data:{organization_id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        id:item,etag:'0123456789abcdef0123456789abcdef'}})});
+    const service=await api.refreshServiceVersion({userId:user,organizationId:org,
+      entityId:item,isCurrent:current,rpc:async(name,params)=>({data:{organization_id:params.p_organization,
+        id:params.p_service,etag:'fedcba9876543210fedcba9876543210'}})});
+    return {inventory,wrongScope,service,storedInventory:await api.readVersion(user,org,'inventory',item),
+      storedService:await api.readVersion(user,org,'service',item)};
+  },{user,org,item});
+  assert.deepEqual(captured,{inventory:1,wrongScope:null,service:'fedcba9876543210fedcba9876543210',
+    storedInventory:'2026-09-27T02:00:00.000Z',storedService:'fedcba9876543210fedcba9876543210'});
   const scopeGuard=await page.evaluate(async ({user,org,item,requestId})=>{
     const api=window.MinutaOfflineCatalogDrafts;
     let calls=0,duplicate=false;
