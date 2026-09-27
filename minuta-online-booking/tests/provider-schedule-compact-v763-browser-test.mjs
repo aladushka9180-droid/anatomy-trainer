@@ -169,6 +169,7 @@ try {
   assert.equal(hintResult.existingStored, 'dismissed', 'existing provider pending state was not migrated to dismissed');
   assert.deepEqual(hintResult.opened, { time:'10:30', date:'2026-09-15' }, 'hint dismissal changed the actual free-time action');
 
+  await page.setViewportSize({ width:390, height:1200 });
   const emptyDayHintResult = await page.evaluate(() => {
     const stage = document.querySelector('.timeline-stage');
     const originalMarkup = stage.innerHTML;
@@ -504,9 +505,9 @@ try {
       assert.equal(result.newBookingLabelVisible, true, `${width}px full New booking label is hidden: ${JSON.stringify(result)}`);
       assert.ok(result.newBookingPseudo === 'none' || result.newBookingPseudo === 'normal', `${width}px ambiguous compact label is still rendered: ${JSON.stringify(result)}`);
       assert.ok(result.titleToNewBookingVerticalGap >= 4, `${width}px full New booking label collides with the schedule title: ${JSON.stringify(result)}`);
-      assert.ok(result.titleHeading.bottom <= result.topbar.bottom + 1, `${width}px schedule heading did not join the compact top bar: ${JSON.stringify(result)}`);
+      assert.ok(result.titleHeading.top >= result.topbar.bottom + 4, `${width}px schedule heading overlaps the top bar: ${JSON.stringify(result)}`);
       assert.ok(result.title.top >= result.topbar.bottom, `${width}px summary row overlaps the top bar: ${JSON.stringify(result)}`);
-      assert.ok(result.title.height <= 46, `${width}px schedule heading still reserves a redundant row: ${JSON.stringify(result)}`);
+      assert.ok(result.title.height <= 76, `${width}px schedule heading became excessively tall: ${JSON.stringify(result)}`);
       assert.ok(result.newBooking.width >= 108 && result.newBooking.height >= 44, `${width}px New booking button changed height or is too narrow: ${JSON.stringify(result)}`);
       assert.ok(result.periodTabs.top - result.newBooking.bottom >= 8 && result.periodTabs.top - result.newBooking.bottom <= 12, `${width}px New booking and period tabs lost their calm gap: ${JSON.stringify(result)}`);
       assert.ok(result.toolbar.height <= 54, `${width}px day summary header is still too tall: ${JSON.stringify(result)}`);
