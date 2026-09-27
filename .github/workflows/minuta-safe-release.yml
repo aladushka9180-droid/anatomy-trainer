@@ -12,6 +12,7 @@ on:
         options:
           - preflight
           - test-migration
+          - test-v181-inventory-shortfall
           - test-waitlist
           - validate-production-rollback
           - production-migration
@@ -65,10 +66,36 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ (inputs.phase == 'test-migration' || inputs.phase == 'test-waitlist') && 'minuta-test-database' || 'minuta-production-database' }}
+  group: ${{ (inputs.phase == 'test-migration' || inputs.phase == 'test-v181-inventory-shortfall' || inputs.phase == 'test-waitlist') && 'minuta-test-database' || 'minuta-production-database' }}
   cancel-in-progress: false
 
 jobs:
+  test-v181-inventory-shortfall:
+    if: inputs.phase == 'test-v181-inventory-shortfall' && github.ref == 'refs/heads/codex/minuta-hotfix-release-20260927'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Verify exact candidate and isolated database
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -n "$MINUTA_TEST_DATABASE_URL"
+          test -n "$MINUTA_TEST_PROJECT_REF"
+          test -n "$MINUTA_PRODUCTION_PROJECT_REF"
+          bash minuta-online-booking/tests/auto-complete-inventory-v181-integration.sh
+
   preflight:
     runs-on: ubuntu-latest
     timeout-minutes: 10
