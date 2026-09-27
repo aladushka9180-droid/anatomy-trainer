@@ -34,6 +34,15 @@ try {
         + Array.from({ length:7 }, (_, i) => `<b>${i + 1}</b>`).join('')
         + '<strong>10:00</strong>' + Array.from({ length:7 }, () => '<button class="report-heatmap-cell"><i>5</i></button>').join('');
       root.querySelector('#reportRevenueChart').innerHTML = Array.from({ length:5 }, (_, i) => `<button class="report-chart-column"><b>${(i + 1) * 1000} ₽</b><span></span><small>${i + 1}–${i + 7} сент</small></button>`).join('');
+      root.querySelector('#reportReconciliation').innerHTML = '<div><small>Сверка визитов</small><strong>Учебные данные</strong></div><span>Сумма подтверждена</span>';
+      for (const [selector, value] of Object.entries({
+        '#reportHeroRevenueTrend':'−47% к прошлому периоду',
+        '#reportWorkload':'54.3 ч работы',
+        '#reportHeroUtilizationNote':'Цель 70%',
+        '#reportPlanCaption':'План периода',
+        '#reportPlanProgressNote':'Добавьте цель',
+        '#reportTrendCoverage':'Оплата указана у 46 из 46 визитов'
+      })) root.querySelector(selector).textContent = value;
       document.querySelector('#reportUniqueClients').textContent = '2';
       document.querySelector('#reportNewClients').textContent = '1';
       document.querySelector('#reportReturningClients').textContent = '1';
@@ -107,6 +116,26 @@ try {
     });
     assert.equal(layout.pageOverflow, false, `${width}px page overflow`);
     assert.ok(layout.segment >= 44);
+    const overviewLabels = await page.evaluate(() => {
+      const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
+      return {
+        kicker:size('.report-command-kicker'),
+        completed:size('.report-summary-primary>span'),
+        payment:size('.report-summary-action>span'),
+        paymentHint:size('.report-summary-action>i'),
+        reconciliation:size('.report-reconciliation small'),
+        revenueTrend:size('#reportHeroRevenueTrend'),
+        workload:size('#reportWorkload'),
+        utilization:size('#reportHeroUtilizationNote'),
+        planCaption:size('#reportPlanCaption'),
+        planHint:size('#reportPlanProgressNote'),
+        trendCoverage:size('#reportTrendCoverage')
+      };
+    });
+    assert.ok(Object.values(overviewLabels).every(size => size >= 12), `${width}px overview labels: ${JSON.stringify(overviewLabels)}`);
+    const clippedOverviewLabels = await page.evaluate(() => ['#reportHeroRevenueTrend','#reportWorkload','#reportHeroUtilizationNote','#reportPlanCaption','#reportPlanProgressNote','#reportTrendCoverage']
+      .filter(selector => { const label = document.querySelector(selector); return label.scrollWidth > label.clientWidth + 1; }));
+    assert.deepEqual(clippedOverviewLabels, [], `${width}px overview explanations stay readable`);
     if (width <= 760) {
       assert.ok(layout.period >= 44, `${width}px period target`);
     }
