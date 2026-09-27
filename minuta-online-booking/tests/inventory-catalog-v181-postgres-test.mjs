@@ -110,6 +110,23 @@ try {
   assert.deepEqual((await duplicate).value?.[0]?.data,created,'parallel identical create must return one id');
   assert.equal((await query(admin,'select count(*)::int n from public.inventory_items'))[0].n,2);
   assert.equal((await query(admin,'select count(*)::int n from public.inventory_catalog_requests_v181'))[0].n,2);
+  assert.equal((await query(admin,'select count(*)::int n from public.inventory_audit_log'))[0].n,2,
+    'replayed requests must not duplicate production inventory audit');
+  await query(admin,'update public.organization_inventory_settings set enabled=false where organization_id=$1',[org]);
+  const disabled=await attempt(query(first,save,[org,'66666666-6666-4666-8666-666666666666',
+    null,null,'Выключенный склад','S3','piece',0,true]));
+  assert.equal(disabled.error?.message,'inventory_disabled');
+  await query(admin,'update public.organization_inventory_settings set enabled=true where organization_id=$1',[org]);
+  const duplicateSku=await attempt(query(first,save,[org,'77777777-7777-4777-8777-777777777777',
+    null,null,'Повтор артикула','S1','piece',0,true]));
+  assert.equal(duplicateSku.error?.code,'23505');
+  const current=(await query(first,'select public.get_minuta_inventory_workspace_v181($1) data',[org]))[0].data;
+  const currentVersion=current.items.find(row=>row.id===item).etag;
+  await query(admin,'insert into public.inventory_movements values($1,$2)',[org,item]);
+  const unitLocked=await attempt(query(first,save,[org,'88888888-8888-4888-8888-888888888888',
+    item,currentVersion,'Нельзя менять единицу','S1','ml',2,true]));
+  assert.equal(unitLocked.error?.message,'inventory_unit_locked_by_ledger');
+  assert.equal((await query(admin,'select count(*)::int n from public.inventory_catalog_requests_v181'))[0].n,2);
   await query(second,"select set_config('request.jwt.claim.sub',$1,false)",[other]);
   const stolen=await attempt(query(second,save,argsOne));
   assert.equal(stolen.error?.message,'inventory_catalog_request_mismatch');
@@ -119,7 +136,7 @@ try {
   await query(admin,'delete from public.inventory_items where id=$1',[created.id]);
   assert.deepEqual((await query(first,save,createdArgs))[0].data,
     {saved:false,reason:'inventory_item_deleted',organization_id:org,id:created.id});
-  console.log('v181 isolated PostgreSQL: parallel conflict, lost response, parallel create, actor isolation, later change and deletion tombstone passed');
+  console.log('v181 isolated PostgreSQL: production v82 writer, parallel conflict, replay, disabled stock, SKU and ledger guards passed');
 } finally {
   await Promise.allSettled(clients.map(client=>client.end()));
 }
