@@ -191,7 +191,7 @@
       if ($('#teamBadge')) $('#teamBadge').textContent = String(members.filter(item => item.active).length || 1);
       $('#organizationTitle').textContent = organization.name;
       $('#organizationAvatar').textContent = organization.name.slice(0, 1).toUpperCase();
-      $('#organizationSlug').textContent = `Адрес в системе: ${organization.public_slug}`;
+      $('#organizationSlug').textContent = `Код организации: ${organization.public_slug}`;
       $('#organizationPublicState').textContent = organization.public_booking_enabled
         ? 'Онлайн-запись команды включена'
         : 'Онлайн-запись команды пока выключена';
@@ -227,9 +227,11 @@
 
     function locationCard(location, canManage) {
       const state = location.active ? 'Активен' : 'Отключён';
-      const zone = `<small class="organization-location-zone">Часовой пояс: ${escapeHtml(location.timezone || 'Europe/Samara')}</small>`;
+      const timezone = location.timezone || 'Europe/Samara';
+      const zoneLabel = timezone === 'Europe/Samara' ? 'Самара, UTC+4' : timezone;
+      const zone = `<small class="organization-location-zone">Часовой пояс: ${escapeHtml(zoneLabel)}</small>`;
       if (!canManage) return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(location.name)}</strong><small>${escapeHtml(location.address || 'Адрес не указан')}</small>${zone}</div><span class="organization-status ${location.active ? 'is-active' : ''}">${location.is_primary ? 'Основной' : escapeHtml(state)}</span></article>`;
-      return `<details class="organization-row organization-editor" data-location-card="${escapeHtml(location.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(location.name)}</strong><small>${escapeHtml(location.address || 'Адрес не указан')}</small>${zone}</div><span class="organization-status ${location.active ? 'is-active' : ''}">${location.is_primary ? 'Основной' : escapeHtml(state)}</span></summary><form data-location-form="${escapeHtml(location.id)}"><label>Название<input name="name" maxlength="120" value="${escapeHtml(location.name)}" required></label><label>Адрес<input name="address" maxlength="500" value="${escapeHtml(location.address || '')}"></label><input name="timezone" type="hidden" value="${escapeHtml(location.timezone || 'Europe/Samara')}"><p class="settings-hint">Часовой пояс: ${escapeHtml(location.timezone || 'Europe/Samara')}. Изменить его в кабинете пока нельзя.</p><div class="organization-checks"><label><input name="active" type="checkbox" ${location.active ? 'checked' : ''} ${location.is_primary ? 'disabled' : ''}><span>Филиал активен</span></label><label><input name="primary" type="checkbox" ${location.is_primary ? 'checked disabled' : ''}><span>Сделать основным</span></label></div><p class="form-error" data-location-error hidden></p><button class="secondary-button" type="submit" data-organization-write>Сохранить филиал</button></form></details>`;
+      return `<details class="organization-row organization-editor" data-location-card="${escapeHtml(location.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(location.name)}</strong><small>${escapeHtml(location.address || 'Адрес не указан')}</small>${zone}</div><span class="organization-status ${location.active ? 'is-active' : ''}">${location.is_primary ? 'Основной' : escapeHtml(state)}</span></summary><form data-location-form="${escapeHtml(location.id)}"><label>Название<input name="name" maxlength="120" value="${escapeHtml(location.name)}" required></label><label>Адрес<input name="address" maxlength="500" value="${escapeHtml(location.address || '')}"></label><input name="timezone" type="hidden" value="${escapeHtml(timezone)}"><p class="settings-hint">Часовой пояс: ${escapeHtml(zoneLabel)}. Изменить его здесь нельзя.</p><div class="organization-checks"><label><input name="active" type="checkbox" ${location.active ? 'checked' : ''} ${location.is_primary ? 'disabled' : ''}><span>Филиал активен</span></label><label><input name="primary" type="checkbox" ${location.is_primary ? 'checked disabled' : ''}><span>Сделать основным</span></label></div><p class="form-error" data-location-error hidden></p><button class="secondary-button" type="submit" data-organization-write>Сохранить филиал</button></form></details>`;
     }
 
     function memberCard(member, organization, canManage) {
@@ -238,7 +240,7 @@
       const canEdit = canManage && !(organization.current_role === 'admin' && member.role !== 'specialist');
       if (!canEdit) return `<article class="organization-row ${member.active ? '' : 'is-muted'}"><span class="member-avatar">${escapeHtml(member.display_name.slice(0, 1).toUpperCase())}</span><div class="organization-row-main"><strong>${escapeHtml(member.display_name)}${member.is_current_user ? ' <em>это вы</em>' : ''}</strong><small>${escapeHtml(subtitle)}</small></div><span class="organization-role">${escapeHtml(role)}</span></article>`;
       const roleOptions = Object.entries(roleLabels).map(([value, label]) => `<option value="${value}" ${member.role === value ? 'selected' : ''} ${organization.current_role !== 'owner' && value !== 'specialist' ? 'disabled' : ''}>${escapeHtml(label)}</option>`).join('');
-      return `<details class="organization-row organization-editor ${member.active ? '' : 'is-muted'}" data-member-card="${escapeHtml(member.user_id)}"><summary><span class="member-avatar">${escapeHtml(member.display_name.slice(0, 1).toUpperCase())}</span><div class="organization-row-main"><strong>${escapeHtml(member.display_name)}${member.is_current_user ? ' <em>это вы</em>' : ''}</strong><small>${escapeHtml(subtitle)}</small></div><span class="organization-role">${escapeHtml(role)}</span></summary><form data-member-form="${escapeHtml(member.user_id)}"><label>Роль<select name="role">${roleOptions}</select></label><div class="organization-checks"><label><input name="bookable" type="checkbox" ${member.is_bookable ? 'checked' : ''}><span>Принимает клиентов</span></label><label><input name="active" type="checkbox" ${member.active ? 'checked' : ''}><span>Доступ активен</span></label></div><p class="form-error" data-member-error hidden></p><button class="secondary-button" type="submit" data-organization-write>Сохранить права</button></form></details>`;
+      return `<details class="organization-row organization-editor ${member.active ? '' : 'is-muted'}" data-member-card="${escapeHtml(member.user_id)}"><summary><span class="member-avatar">${escapeHtml(member.display_name.slice(0, 1).toUpperCase())}</span><div class="organization-row-main"><strong>${escapeHtml(member.display_name)}${member.is_current_user ? ' <em>это вы</em>' : ''}</strong><small>${escapeHtml(subtitle)}</small></div><span class="organization-role">${escapeHtml(role)}</span></summary><form data-member-form="${escapeHtml(member.user_id)}"><label>Роль<select name="role">${roleOptions}</select></label><div class="organization-checks"><label><input name="bookable" type="checkbox" ${member.is_bookable ? 'checked' : ''}><span>Принимает клиентов</span></label><label><input name="active" type="checkbox" ${member.active ? 'checked' : ''}><span>Доступ к организации</span></label></div><p class="form-error" data-member-error hidden></p><button class="secondary-button" type="submit" data-organization-write>Сохранить права</button></form></details>`;
     }
 
     function invitationCard(invitation) {
@@ -303,7 +305,7 @@
         return false;
       }
       applyPayload(data);
-      notify(successMessage);
+      if (successMessage) notify(successMessage);
       return data;
     }
 
@@ -321,12 +323,11 @@
       }
       if (event.target.id === 'memberInviteForm') {
         event.preventDefault();
-        const result = await mutate('invite_minuta_member', { p_organization: organization.id, p_email: $('#memberEmail').value.trim(), p_role: $('#memberRole').value, p_is_bookable: $('#memberBookable').checked }, event.submitter, 'Приглашение обработано', '#memberInviteError');
+        const result = await mutate('invite_minuta_member', { p_organization: organization.id, p_email: $('#memberEmail').value.trim(), p_role: $('#memberRole').value, p_is_bookable: $('#memberBookable').checked }, event.submitter, '', '#memberInviteError');
         if (result) {
-          if (result.status === 'already_member') notify('Этот сотрудник уже состоит в команде');
-          else notify(result.status === 'joined' ? 'Сотрудник добавлен' : 'Приглашение создано на 14 дней');
+          notify(result.status === 'already_member' ? 'Этот сотрудник уже числится в организации' : 'Приглашение действует 14 дней');
           const share = $('#memberInviteShare');
-          if (share) share.hidden = result.status !== 'invited';
+          if (share) share.hidden = result.status !== 'pending';
           event.target.reset(); $('#memberBookable').checked = true; $('#memberCreator').open = false;
         }
       }

@@ -27,7 +27,10 @@ try {
     });
     const labels = page.locator('.organization-location-zone');
     assert.equal(await labels.count(), 2, `${width}: zone labels for managed and read-only cards`);
-    assert.match(await page.locator('[data-location-card="branch-a"] summary').innerText(), /Часовой пояс: Europe\/Samara/);
+    assert.match(await page.locator('[data-location-card="branch-a"] summary').innerText(), /Часовой пояс: Самара, UTC\+4/);
+    await page.locator('[data-location-card="branch-a"] summary').click();
+    assert.match(await page.locator('[data-location-card="branch-a"] form').innerText(), /Часовой пояс: Самара, UTC\+4\. Изменить его здесь нельзя\./);
+    assert.equal(await page.locator('[data-location-card="branch-a"] input[name="timezone"]').getAttribute('value'), 'Europe/Samara');
     assert.match(await page.locator('#cards article').innerText(), /Часовой пояс: Asia\/Yekaterinburg/);
     const geometry = await page.evaluate(() => ({
       overflow:document.documentElement.scrollWidth - innerWidth,
