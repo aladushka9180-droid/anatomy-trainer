@@ -88,6 +88,9 @@
     }));
     const totalVisits = Math.max(0, safeInteger(confidence.completed_visits));
     const paymentKnownVisits = Math.min(totalVisits, Math.max(0, safeInteger(confidence.payment_marked_visits)));
+    const unpostedVisits = Math.min(totalVisits, Math.max(0, safeInteger(confidence.unposted_payment_visits)));
+    const serviceValueUnknownVisits = confidence.service_value_known_visits == null ? 0
+      : totalVisits - Math.min(totalVisits, Math.max(0, safeInteger(confidence.service_value_known_visits)));
     return {
       available:true,
       financeEnabled:raw.finance_enabled === true,
@@ -101,7 +104,9 @@
         serviceMinor:Math.max(0, safeInteger(raw.summary?.services_minor)),
         debtMinor:Math.max(0, safeInteger(raw.summary?.debt_minor)),
         totalVisits,
-        paymentKnownVisits
+        paymentKnownVisits,
+        unpostedVisits,
+        serviceValueUnknownVisits
       },
       movement:(Array.isArray(raw.series) ? raw.series : []).map(row => ({
         key:String(row.bucket_start || ''),

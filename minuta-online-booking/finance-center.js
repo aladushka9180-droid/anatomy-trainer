@@ -66,6 +66,8 @@
     const debtMinor = nonnegative(summary.debtMinor ?? raw.debt_minor);
     const totalVisits = nonnegative(summary.totalVisits ?? raw.total_visits);
     const paymentKnownVisits = Math.min(totalVisits, nonnegative(summary.paymentKnownVisits ?? raw.payment_known_visits));
+    const unpostedVisits = Math.min(totalVisits, nonnegative(summary.unpostedVisits));
+    const serviceValueUnknownVisits = Math.min(totalVisits, nonnegative(summary.serviceValueUnknownVisits));
     const movement = Array.isArray(raw.movement) ? raw.movement.slice(0, 31).map((item, index) => ({
       key:text(item?.key, String(index)),
       label:text(item?.label, '\u2014'),
@@ -93,7 +95,7 @@
       today:text(raw.today),
       periodLabel:text(raw.periodLabel, 'Выбранный период'),
       timezone:text(raw.timezone, 'Europe/Samara'),
-      summary:{ receivedMinor, expenseMinor, serviceMinor, debtMinor, totalVisits, paymentKnownVisits, netMinor:receivedMinor - expenseMinor },
+      summary:{ receivedMinor, expenseMinor, serviceMinor, debtMinor, totalVisits, paymentKnownVisits, unpostedVisits, serviceValueUnknownVisits, netMinor:receivedMinor - expenseMinor },
       movement,
       expenseCategories:categories,
       operations,
@@ -140,7 +142,7 @@
     return `
       <section class="finance-center" aria-labelledby="financeCenterTitle">
         <header class="finance-center__head">
-          <div><p class="finance-center__eyebrow">Статистика \u00b7 Деньги</p><h2 id="financeCenterTitle">Движение денег</h2></div>
+          <div><h2 id="financeCenterTitle">Деньги</h2></div>
           <button class="finance-center__primary" type="button" data-finance-add>Добавить расход</button>
         </header>
         <div class="finance-center__filters" aria-label="Фильтры финансов">
@@ -157,14 +159,14 @@
               <div><dt>Расходы</dt><dd data-finance-expense></dd><small>подтверждённые операции</small></div>
             </dl>
           </section>
-          <aside class="finance-center__completeness" data-finance-completeness hidden></aside>
+          <aside class="finance-center__completeness" data-finance-completeness hidden aria-live="polite"></aside>
           <dl class="finance-center__trust-metrics">
             <div><dt>Оказано услуг</dt><dd data-finance-services></dd><small>стоимость состоявшихся визитов</small></div>
             <div><dt>Долг</dt><dd data-finance-debt></dd><small>подтверждённая неоплата</small></div>
           </dl>
           <div class="finance-center__visuals">
             <section class="finance-center__panel finance-center__movement" aria-labelledby="financeMovementTitle">
-              <div class="finance-center__section-head"><div><h3 id="financeMovementTitle">Движение денег</h3><p data-finance-period-label></p></div><div class="finance-center__legend" aria-label="Обозначения"><span class="is-income">+ Получено</span><span class="is-expense">\u2212 Расходы</span></div></div>
+              <div class="finance-center__section-head"><div><h3 id="financeMovementTitle">По дням</h3><p data-finance-period-label></p></div><div class="finance-center__legend" aria-label="Обозначения"><span class="is-income">+ Получено</span><span class="is-expense">\u2212 Расходы</span></div></div>
               <div class="finance-center__chart" data-finance-chart role="group" aria-describedby="financeChartHelp"></div>
               <p id="financeChartHelp" class="finance-center__chart-help">Выберите столбец или используйте стрелки, чтобы увидеть точные суммы.</p>
               <p class="finance-center__chart-detail" data-finance-chart-detail aria-live="polite"></p>
@@ -363,13 +365,25 @@
       find('[data-finance-period-label]').textContent = data.periodLabel;
       const completeness = find('[data-finance-completeness]');
       const known = data.summary.paymentKnownVisits, total = data.summary.totalVisits;
-      const trustMessages = [];
-      if (!ledgerKnown) trustMessages.push('Расходы ещё не подключены к финансовому журналу. Итог за период не рассчитан.');
-      else if (!data.resultReliable) trustMessages.push('Не все финансовые источники сверены. Итог за период не рассчитан.');
-      if (data.completeness.message) trustMessages.push(data.completeness.message);
-      else if (total && known < total) trustMessages.push(`Оплата указана в ${known} из ${total} визитов. Получено учитывает только подтверждённые деньги.`);
-      completeness.textContent = trustMessages.join(' ');
-      completeness.hidden = !trustMessages.length;
+      const reasons = [];
+      if (!ledgerKnown) reasons.push('Финансовый журнал ещё не подключён: подтверждённые расходы недоступны.');
+      if (total > known) reasons.push(`Визитов без подтверждённой оплаты: ${total - known} из ${total}.`);
+      if (data.summary.unpostedVisits) reasons.push(`Визитов с указанной оплатой без проводки в журнале: ${data.summary.unpostedVisits}.`);
+      if (data.summary.serviceValueUnknownVisits) reasons.push(`Визитов без стоимости услуг: ${data.summary.serviceValueUnknownVisits}.`);
+      if (!netKnown && !reasons.length) reasons.push('Финансовые источники ещё не подтверждают полный итог.');
+      completeness.replaceChildren();
+      if (!netKnown) {
+        completeness.append(createElement('strong', '', 'Итог пока не рассчитан'));
+        const list = createElement('ul');
+        reasons.forEach(reason => list.append(createElement('li', '', reason)));
+        completeness.append(list);
+        if (ledgerKnown && (total > known || data.summary.unpostedVisits || data.summary.serviceValueUnknownVisits)) {
+          completeness.append(createElement('small', '', 'Список конкретных визитов здесь пока недоступен. Получено учитывает только подтверждённые деньги.'));
+        }
+      } else if (data.completeness.message || (total > known && data.completeness.partial)) {
+        completeness.append(createElement('p', '', data.completeness.message || `Оплата указана в ${known} из ${total} визитов. Получено учитывает только подтверждённые деньги.`));
+      }
+      completeness.hidden = !completeness.childNodes.length;
       const hasData = data.movement.length || data.operations.length || data.summary.receivedMinor || data.summary.expenseMinor || data.summary.serviceMinor || data.summary.debtMinor;
       const showContent = Boolean(hasData || !netKnown);
       const canAddExpense = data.permissions.canAddExpense && ledgerKnown && typeof adapter.createExpense === 'function';
