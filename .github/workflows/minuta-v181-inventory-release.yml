@@ -1,0 +1,186 @@
+name: Minuta v181 inventory SQL release
+run-name: v181 ${{ inputs.phase }} ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        required: true
+        type: choice
+        options: [validate-production, apply-production, observe-production]
+      commit_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      test_run_id:
+        description: Successful full-schema v181 test run on this SHA
+        required: true
+        type: string
+      validation_run_id:
+        description: Successful read-only validation run (apply only)
+        required: false
+        type: string
+      backup_run_id:
+        description: Fresh encrypted backup run on this SHA (apply only)
+        required: false
+        type: string
+      restore_run_id:
+        description: Offline v181 restore rehearsal run (apply only)
+        required: false
+        type: string
+      apply_run_id:
+        description: Successful apply run (observe only)
+        required: false
+        type: string
+      confirmation:
+        description: Enter APPLY_V181_AFTER_BACKUP_RESTORE to apply SQL
+        required: false
+        type: string
+
+permissions: { contents: read, actions: read }
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', fetch-depth: 0, persist-credentials: false }
+      - name: Pin main, SQL and successful test
+        shell: bash
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          TEST_RUN: ${{ inputs.test_run_id }}
+          VALIDATION_RUN: ${{ inputs.validation_run_id }}
+          BACKUP_RUN: ${{ inputs.backup_run_id }}
+          RESTORE_RUN: ${{ inputs.restore_run_id }}
+          APPLY_RUN: ${{ inputs.apply_run_id }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[a-f0-9]{40}$ && "$TEST_RUN" =~ ^[0-9]+$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test -s minuta-online-booking/supabase-migration-v181.sql
+          test -s minuta-online-booking/supabase-migration-v181-rollback.sql
+          test "$(git rev-parse HEAD:minuta-online-booking/supabase-migration-v181.sql)" = afc6bd59e3b08ed5fc880c4dccc8c3bbda49d351
+          test "$(git rev-parse HEAD:minuta-online-booking/supabase-migration-v181-rollback.sql)" = 5064d9c3535f4c473405e789f7eed5641dde6f3b
+          test_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TEST_RUN")"
+          jq -e --arg sha "$SHA" '.conclusion=="success" and .head_sha==$sha and .head_branch=="main" and .path==".github/workflows/minuta-v181-inventory-test.yml"' <<<"$test_run" >/dev/null
+          case "$PHASE" in
+            validate-production) ;;
+            apply-production)
+              test "$CONFIRMATION" = APPLY_V181_AFTER_BACKUP_RESTORE
+              [[ "$VALIDATION_RUN" =~ ^[0-9]+$ && "$BACKUP_RUN" =~ ^[0-9]+$ && "$RESTORE_RUN" =~ ^[0-9]+$ ]]
+              validation="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VALIDATION_RUN")"
+              jq -e --arg sha "$SHA" '.conclusion=="success" and .head_sha==$sha and .head_branch=="main" and .path==".github/workflows/minuta-v181-inventory-release.yml"' <<<"$validation" >/dev/null
+              gh run download "$VALIDATION_RUN" -R "$GITHUB_REPOSITORY" -n "minuta-v181-validation-$VALIDATION_RUN" -D "$RUNNER_TEMP/validation"
+              jq -e --arg sha "$SHA" '.status=="success" and .phase=="validate-production" and .commitSha==$sha and .readOnly==true and .productionWritten==false' "$RUNNER_TEMP/validation/v181-validation.json" >/dev/null
+              backup="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN")"
+              jq -e --arg sha "$SHA" '.conclusion=="success" and .event=="workflow_dispatch" and .head_sha==$sha and .head_branch=="main" and .path==".github/workflows/minuta-supabase-backup.yml"' <<<"$backup" >/dev/null
+              age="$(( $(date -u +%s) - $(date -u -d "$(jq -r .created_at <<<"$backup")" +%s) ))"
+              test "$age" -ge 0 && test "$age" -le 7200
+              artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN/artifacts")"
+              jq -e '[.artifacts[] | select(.expired==false and .size_in_bytes>0 and (.name|startswith("minuta-")))] | length==1' <<<"$artifacts" >/dev/null
+              restore="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESTORE_RUN")"
+              jq -e --arg sha "$SHA" '.conclusion=="success" and .event=="workflow_dispatch" and .head_sha==$sha and .head_branch=="main" and .path==".github/workflows/minuta-supabase-restore-drill.yml"' <<<"$restore" >/dev/null
+              test "$(date -u -d "$(jq -r .created_at <<<"$validation")" +%s)" -le "$(date -u -d "$(jq -r .created_at <<<"$backup")" +%s)"
+              test "$(date -u -d "$(jq -r .created_at <<<"$backup")" +%s)" -le "$(date -u -d "$(jq -r .created_at <<<"$restore")" +%s)"
+              gh run download "$RESTORE_RUN" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE_RUN" -D "$RUNNER_TEMP/restore"
+              jq -e --arg sha "$SHA" --arg backup "$BACKUP_RUN" --arg restore "$RESTORE_RUN" \
+                '.status=="success" and .sourceBackupRunId==$backup and .sourceBackupSha==$sha and .workflowRunId==$restore and .candidateVersion=="v181" and .candidateSha==$sha and .networkMode=="none" and .candidateMigrationApplied and .candidateRollbackVerified and .candidateReapplied and .ephemeralContainerDestroyed and (.productionWritten|not) and (.testDatabaseWritten|not)' \
+                "$RUNNER_TEMP/restore/minuta-ephemeral-restore.json" >/dev/null
+              ;;
+            observe-production)
+              [[ "$APPLY_RUN" =~ ^[0-9]+$ ]]
+              apply="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY_RUN")"
+              jq -e --arg sha "$SHA" '.conclusion=="success" and .head_sha==$sha and .head_branch=="main" and .path==".github/workflows/minuta-v181-inventory-release.yml"' <<<"$apply" >/dev/null
+              gh run download "$APPLY_RUN" -R "$GITHUB_REPOSITORY" -n "minuta-v181-apply-$APPLY_RUN" -D "$RUNNER_TEMP/apply"
+              jq -e --arg sha "$SHA" '.status=="success" and .phase=="apply-production" and .commitSha==$sha and .businessRowsChanged==false' "$RUNNER_TEMP/apply/v181-apply.json" >/dev/null
+              ;;
+            *) exit 1 ;;
+          esac
+
+  production:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Read-only production preflight and post health
+        shell: bash
+        env:
+          PHASE: ${{ inputs.phase }}
+          SHA: ${{ inputs.commit_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db" >/dev/null
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select jsonb_build_object(
+            'function',to_regprocedure('public.process_minuta_auto_completed_visits_v106(integer)') is not null,
+            'inventory',to_regprocedure('public.consume_minuta_inventory_for_booking(uuid)') is not null and to_regclass('public.inventory_stock_balances') is not null,
+            'version',coalesce(obj_description('public.process_minuta_auto_completed_visits_v106(integer)'::regprocedure,'pg_proc'),''),
+            'oldBatch',position('limit p_limit' in lower(pg_get_functiondef('public.process_minuta_auto_completed_visits_v106(integer)'::regprocedure)))>0,
+            'anonDenied',not has_function_privilege('anon','public.process_minuta_auto_completed_visits_v106(integer)','EXECUTE'),
+            'authenticatedDenied',not has_function_privilege('authenticated','public.process_minuta_auto_completed_visits_v106(integer)','EXECUTE'),
+            'bookings',(select count(*) from public.bookings),
+            'outcomes',(select count(*) from public.booking_outcomes),
+            'movements',(select count(*) from public.inventory_movements),
+            'balances',(select count(*) from public.inventory_stock_balances));")"
+          jq -e '.function and .inventory and .anonDenied and .authenticatedDenied and .bookings>=0 and .outcomes>=0 and .movements>=0 and .balances>=0' <<<"$state" >/dev/null
+          if test "$PHASE" = validate-production || test "$PHASE" = apply-production; then
+            jq -e '.version=="" and .oldBatch' <<<"$state" >/dev/null
+          else
+            jq -e '.version=="minuta:v181:auto-complete-inventory-shortfall" and (.oldBatch|not)' <<<"$state" >/dev/null
+          fi
+          if test "$PHASE" = validate-production; then
+            jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"validate-production",commitSha:$sha,readOnly:true,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v181-validation.json"
+          fi
+          if test "$PHASE" = apply-production; then
+            printf '%s' "$state" > "$RUNNER_TEMP/v181-before.json"
+          fi
+      - name: Apply only v181 function definition
+        if: inputs.phase == 'apply-production'
+        shell: bash
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          PGOPTIONS='-c statement_timeout=600000 -c lock_timeout=5000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v181.sql
+          after="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select jsonb_build_object(
+            'version',coalesce(obj_description('public.process_minuta_auto_completed_visits_v106(integer)'::regprocedure,'pg_proc'),''),
+            'bookings',(select count(*) from public.bookings),
+            'outcomes',(select count(*) from public.booking_outcomes),
+            'movements',(select count(*) from public.inventory_movements),
+            'balances',(select count(*) from public.inventory_stock_balances));")"
+          jq -e '.version=="minuta:v181:auto-complete-inventory-shortfall"' <<<"$after" >/dev/null
+          jq -e --argjson after "$after" '.bookings==$after.bookings and .outcomes==$after.outcomes and .movements==$after.movements and .balances==$after.balances' "$RUNNER_TEMP/v181-before.json" >/dev/null
+          jq -n --arg sha "$SHA" --argjson after "$after" '{status:"success",phase:"apply-production",commitSha:$sha,productionWritten:true,businessRowsChanged:false,state:$after}' > "$RUNNER_TEMP/v181-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.phase == 'validate-production'
+        with: { name: 'minuta-v181-validation-${{ github.run_id }}', path: '${{ runner.temp }}/v181-validation.json', if-no-files-found: error, retention-days: 35 }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.phase == 'apply-production'
+        with: { name: 'minuta-v181-apply-${{ github.run_id }}', path: '${{ runner.temp }}/v181-apply.json', if-no-files-found: error, retention-days: 90 }

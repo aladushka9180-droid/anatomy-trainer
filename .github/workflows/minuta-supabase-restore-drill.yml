@@ -31,8 +31,9 @@ on:
         options:
           - none
           - v180
+          - v181
       candidate_sha:
-        description: Exact reviewed commit containing v180 SQL (required for v180)
+        description: Exact reviewed commit containing candidate SQL
         required: false
         default: ""
         type: string
@@ -285,8 +286,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Проверить точный SHA кандидата v180
-        if: inputs.candidate_version == 'v180'
+      - name: Проверить точный SHA кандидата
+        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181'
         shell: bash
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
@@ -297,26 +298,29 @@ jobs:
           [[ "$MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        if: inputs.candidate_version == 'v180'
+        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181'
         with:
           ref: ${{ inputs.candidate_sha }}
-          path: candidate-v180
+          path: candidate-sql
           persist-credentials: false
           sparse-checkout: |
             minuta-online-booking/supabase-migration-v180.sql
             minuta-online-booking/supabase-migration-v180-rollback.sql
+            minuta-online-booking/supabase-migration-v181.sql
+            minuta-online-booking/supabase-migration-v181-rollback.sql
           sparse-checkout-cone-mode: false
 
       - name: Сверить файлы SQL с указанным SHA
-        if: inputs.candidate_version == 'v180'
+        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181'
         shell: bash
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_VERSION: ${{ inputs.candidate_version }}
         run: |
           set -euo pipefail
-          test "$(git -C candidate-v180 rev-parse HEAD)" = "$CANDIDATE_SHA"
-          test -s candidate-v180/minuta-online-booking/supabase-migration-v180.sql
-          test -s candidate-v180/minuta-online-booking/supabase-migration-v180-rollback.sql
+          test "$(git -C candidate-sql rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test -s "candidate-sql/minuta-online-booking/supabase-migration-$CANDIDATE_VERSION.sql"
+          test -s "candidate-sql/minuta-online-booking/supabase-migration-$CANDIDATE_VERSION-rollback.sql"
 
       - name: Найти свежую успешную production-копию
         id: source
@@ -379,8 +383,8 @@ jobs:
             echo "artifact_name=$artifact_name"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Подтвердить основу кандидата v180
-        if: inputs.candidate_version == 'v180'
+      - name: Подтвердить основу кандидата SQL
+        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -446,8 +450,8 @@ jobs:
         env:
           MINUTA_RESTORE_SOURCE_DUMP: ${{ runner.temp }}/minuta-restore-source.dump
           MINUTA_RESTORE_CANDIDATE_VERSION: ${{ inputs.candidate_version }}
-          MINUTA_RESTORE_MIGRATION_SQL: ${{ inputs.candidate_version == 'v180' && 'candidate-v180/minuta-online-booking/supabase-migration-v180.sql' || '' }}
-          MINUTA_RESTORE_ROLLBACK_SQL: ${{ inputs.candidate_version == 'v180' && 'candidate-v180/minuta-online-booking/supabase-migration-v180-rollback.sql' || '' }}
+          MINUTA_RESTORE_MIGRATION_SQL: ${{ inputs.candidate_version == 'v180' && 'candidate-sql/minuta-online-booking/supabase-migration-v180.sql' || inputs.candidate_version == 'v181' && 'candidate-sql/minuta-online-booking/supabase-migration-v181.sql' || '' }}
+          MINUTA_RESTORE_ROLLBACK_SQL: ${{ inputs.candidate_version == 'v180' && 'candidate-sql/minuta-online-booking/supabase-migration-v180-rollback.sql' || inputs.candidate_version == 'v181' && 'candidate-sql/minuta-online-booking/supabase-migration-v181-rollback.sql' || '' }}
         run: bash minuta-online-booking/scripts/ephemeral-restore-drill.sh
 
       - name: Записать проверяемый результат без персональных данных
@@ -461,7 +465,7 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: |
           set -euo pipefail
-          if test "$CANDIDATE_VERSION" = v180; then
+          if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181; then
             jq -e '.candidateMigrationApplied and .candidateRollbackVerified and .candidateReapplied' \
               "$RUNNER_TEMP/minuta-ephemeral-restore.json" >/dev/null
           fi
@@ -478,8 +482,8 @@ jobs:
             echo '- Контейнер: PostgreSQL 17, сеть отключена, после проверки удалён'
             echo '- Восстановлены только public schema/data; Auth и Storage не восстанавливались'
             echo '- Production и testDB: без записи'
-            if test "$CANDIDATE_VERSION" = v180; then
-              echo "- v180 apply/rollback/reapply: PASS, SHA \`$CANDIDATE_SHA\`"
+            if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181; then
+              echo "- $CANDIDATE_VERSION apply/rollback/reapply: PASS, SHA \`$CANDIDATE_SHA\`"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
