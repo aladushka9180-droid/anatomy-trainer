@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const source=readFileSync(new URL('provider.js',import.meta.url),'utf8');
-const functions=source.slice(source.indexOf('function compactSyncLabel('),source.indexOf('async function manualSynchronizeProvider('));
+const functions=source.slice(source.indexOf('function compactSyncLabel('),source.indexOf('function resetConnectionGuidance('))
+  + source.slice(source.indexOf('function setSyncState('),source.indexOf('async function manualSynchronizeProvider('));
 const label={}, attributes={}, events=[];
 const element={querySelector:()=>label,setAttribute:(key,value)=>attributes[key]=value};
 let availability=0;
