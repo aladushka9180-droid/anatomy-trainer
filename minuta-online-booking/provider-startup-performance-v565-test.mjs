@@ -79,8 +79,9 @@ const precacheBytes = assets.reduce((total, asset) => {
 // The v930 publication dialog and flexible offline booking add to the offline-critical shell.
 // The mobile booking sheets add about 4.5 KiB of offline-critical CSS/JS.
 // The v1006 connection guidance must also work from the cold offline shell.
-// Keep a narrow 3.61 MiB ceiling for its helper, styles and schedule status.
-assert.ok(precacheBytes <= 3.61 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
+// Loyalty integration adds 645 bytes to HTML/provider/import; artwork stays optional.
+// Keep the additional offline-critical allowance below 1.1 KiB.
+assert.ok(precacheBytes <= 3.611 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /try \{ await caches\.delete\(CACHE\); \} catch \{\}/,

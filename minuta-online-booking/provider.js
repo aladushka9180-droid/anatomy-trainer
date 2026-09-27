@@ -438,6 +438,7 @@ let pendingClientNotes = new Map();
 let clientLabels = new Map();
 let clientAvatars = new Map();
 let importedClients = [];
+let importedLoyaltyHistoryComplete = false;
 let importedBookingHistory = [];
 let clientAvatarsRemoteAvailable = false;
 let clientAvatarsLoaded = false;
@@ -9162,13 +9163,10 @@ function bookingClientProfileActionMarkup(item, { primary = false } = {}) {
   return `<button class="${primary ? 'primary ' : 'secondary-button '}booking-client-profile-action" type="button" data-open-client-profile="${escapeHtml(phone)}" data-client-booking-id="${escapeHtml(item.id)}">${uiIcon('user')}<span>Открыть карточку клиента</span></button>`;
 }
 
-function clientCompletedVisits(client, now = new Date()) {
-  return (client?.bookings || []).filter(item => {
-    const outcome = bookingOutcome(item);
-    if (outcome.visit_status === 'completed') return true;
-    if (outcome.visit_status === 'no_show') return false;
-    return item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now;
-  });
+function clientCompletedVisits(client) {
+  const unique = new Map((client?.bookings || []).map(item => [item.id, item]));
+  return [...unique.values()].filter(item => item.status !== 'cancelled'
+    && bookingOutcome(item).visit_status === 'completed');
 }
 
 function clientRelationshipFacts(client, completedVisits = clientCompletedVisits(client)) {
@@ -9210,7 +9208,8 @@ function bookingClientOverviewMarkup(item, now = new Date()) {
   const client = buildClients().find(entry => entry.phone === phone);
   if (!client) return '';
   const completedVisits = clientCompletedVisits(client, now);
-  const visits = Math.max(completedVisits.length, Number(client.imported?.visit_count || 0));
+  const importedRows = completedVisits.filter(item => item.is_imported_history).length;
+  const visits = completedVisits.length - importedRows + Math.max(importedRows, Number(client.imported?.visit_count || 0));
   const spent = completedVisits.reduce((sum, booking) => sum + Math.max(0, Number(bookingOutcome(booking).amount_rub || 0)), 0);
   const upcoming = clientNextBookingAfter(client, item, now);
   const lastVisit = [...completedVisits].sort((left, right) => `${right.booking_date}${right.booking_time}`.localeCompare(`${left.booking_date}${left.booking_time}`))[0];
@@ -13404,6 +13403,9 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   profileOrbit.classList.toggle('has-photo', Boolean(clientAvatar(client.phone)?.signed_url));
   profileOrbit.classList.remove('is-max-level');
   profileOrbit.setAttribute('aria-label', 'Прогресс программы лояльности загружается');
+  window.PrimeTimeLoyaltyFrames?.render({ client, outcome:bookingOutcome,
+    scope:`${currentUser?.id || ''}:${activeClientOrganizationId || ''}`,
+    complete:outcomesRemoteAvailable && !bookingsSnapshotFromCache && importedLoyaltyHistoryComplete });
   $('#clientRelationshipTitle').textContent = facts.title;
   $('#clientRelationshipLevel').textContent = '';
   const milestoneCard = $('#clientMilestoneCard');
@@ -17886,7 +17888,8 @@ const clientResultsController = window.MinutaClientResults?.createController({
 const clientImportController = window.MinutaClientImport?.createController ? window.MinutaClientImport.createController({
   db, $, escapeHtml, notify, requireWrites,
   getExistingPhones: () => buildClients().map(client => client.phone),
-  onLoaded: (clients, historyRows) => {
+  onLoaded: (clients, historyRows, summary, historyState) => {
+    importedLoyaltyHistoryComplete = Boolean(historyState?.complete);
     importedClients = Array.isArray(clients) ? clients : [];
     importedBookingHistory = (Array.isArray(historyRows) ? historyRows : []).map(item => ({
       id:`imported-history:${item.id}`,

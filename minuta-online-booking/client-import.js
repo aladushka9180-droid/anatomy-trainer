@@ -525,16 +525,19 @@
       if (error) { workspace = null; onLoaded?.([], []); render(); return { ok:false,optional:true }; }
       let historyPayload = null;
       const historyRows = [];
+      let historyComplete = true;
       for (let offset = 0; offset <= 100000; offset += pageSize) {
         const response = await db.rpc('get_minuta_imported_booking_history', { p_organization:organizationId,p_limit:pageSize,p_offset:offset });
         if (!requestIsCurrent()) return { ok:false,optional:true,stale:true };
         if (response.error) {
+          historyComplete = false;
           if (response.error.code === 'PGRST202' || /could not find.*get_minuta_imported_booking_history|function .* does not exist/i.test(response.error.message || '')) break;
           historyPayload = null; historyRows.length = 0; break;
         }
         historyPayload = response.data || {};
         historyRows.push(...(Array.isArray(historyPayload.rows) ? historyPayload.rows : []));
         if (!historyPayload.has_more) break;
+        if (offset === 100000) historyComplete = false;
       }
       if (!requestIsCurrent()) return { ok:false,optional:true,stale:true };
       let transferBatches = [];
@@ -543,7 +546,7 @@
       if (!journalResponse.error) transferBatches = Array.isArray(journalResponse.data?.batches) ? journalResponse.data.batches : [];
       else if (!missingRpc(journalResponse.error, 'get_minuta_provider_transfer_journal_v144')) transferBatches = [];
       workspace = { ...(payload || {}), clients,history_rows:historyRows,history_summary:historyPayload?.summary || null,transfer_batches:transferBatches };
-      onLoaded?.(clients, historyRows, workspace.history_summary);
+      onLoaded?.(clients, historyRows, workspace.history_summary, { complete:historyComplete });
       render();
       return { ok:true,optional:true };
     }

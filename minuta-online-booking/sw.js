@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1008`;
-const CACHE_READY = './.precache-ready-v1008';
+const CACHE = `${CACHE_PREFIX}v1009`;
+const CACHE_READY = './.precache-ready-v1009';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1008',
+  './site-update.js?v=1009',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -45,7 +45,7 @@ const ASSETS = [
   './payment-management.js?v=1004',
   './commerce-management.js?v=1004',
   './client-fields.js?v=811',
-  './client-import.js?v=811',
+  './client-import.js?v=1009',
   './batch-bookings.js?v=811',
   './booking-policy-management.js?v=811',
   './team-calendar.js?v=1004',
@@ -63,12 +63,16 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
   './provider-connection-guidance.js?v=1007',
-  './provider.js?v=1008',
+  './provider.js?v=1009',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
 
 const OPTIONAL_ASSETS = [
+  './client-loyalty-frames.css?v=1',
+  './client-loyalty-frames.js?v=1',
+  './assets/loyalty/frames-v1.png',
+  './assets/loyalty/frame-100-v1.png',
   './booking-detail-card.css?v=2',
   './booking-detail-card.js?v=1',
   './utm-funnel.css?v=811',
@@ -88,7 +92,7 @@ const OPTIONAL_ASSETS = [
   './porcelain-character-silk-v2.webp',
   './client-themes.css?v=885',
   './report-demo-live.js?v=811',
-  './loyalty-program-v166.js?v=865',
+  './loyalty-program-v166.js?v=1009',
   './provider-schedule-desktop-reference.css?v=975',
   './settings-nav-scroll.js?v=882',
   './settings-smart-search.js?v=865',

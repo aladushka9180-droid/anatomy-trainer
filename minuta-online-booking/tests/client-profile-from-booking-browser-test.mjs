@@ -54,7 +54,7 @@ try{
   await page.locator('#clientOverview').evaluate((host)=>{host.innerHTML=bookingClientOverviewMarkup(item,new Date('2026-09-06T00:00:00'));});
   const overview=page.locator('.booking-client-overview');
   assert.equal(await overview.getAttribute('open'),null,'History is closed by default');
-  assert.match(await overview.locator('summary').textContent(),/История клиента\s*·\s*4 визита\s*·\s*2[\s ]?000 ₽/);
+  assert.match(await overview.locator('summary').textContent(),/История клиента\s*·\s*5 визитов\s*·\s*2[\s ]?000 ₽/);
   assert.doesNotMatch(await overview.textContent(),/12 сент\. · 10:00/,'The open booking is not repeated as the next visit');
   assert.match(await overview.textContent(),/20 сент\. · 12:00/);
   assert.match(await overview.textContent(),/Последний визит\s*4 сент\. 2026 г\./);
