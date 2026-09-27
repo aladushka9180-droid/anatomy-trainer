@@ -22,6 +22,28 @@ SQL
 )"
 test "$(tr -d '[:space:]' <<<"$marker")" = 1
 
+# The test database is shared by release gates. Restore its baseline even if
+# an assertion fails after the candidate function has been installed.
+restore_baseline() {
+  local current
+  current="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c \
+    "select coalesce(obj_description('public.process_minuta_auto_completed_visits_v106(integer)'::regprocedure,'pg_proc'),'')")" || return 1
+  if test "$current" = 'minuta:v181:auto-complete-inventory-shortfall'; then
+    psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v181-rollback.sql
+  fi
+  if test -n "${baseline:-}"; then
+    test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c \
+      "select md5(pg_get_functiondef('public.process_minuta_auto_completed_visits_v106(integer)'::regprocedure))")" = "$baseline"
+  fi
+}
+finish() {
+  local result=$?
+  trap - EXIT
+  restore_baseline || result=1
+  exit "$result"
+}
+trap finish EXIT
+
 installed="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c \
   "select coalesce(obj_description('public.process_minuta_auto_completed_visits_v106(integer)'::regprocedure,'pg_proc'),'')")"
 case "$installed" in
@@ -46,4 +68,4 @@ restored="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c \
 test "$restored" = "$baseline"
 psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v181.sql
 psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/auto-complete-inventory-v181-integration.sql
-echo 'v181 isolated full-schema apply/reapply/rollback/reapply: PASS'
+echo 'v181 isolated full-schema apply/reapply/rollback/reapply: PASS (baseline restored on exit)'

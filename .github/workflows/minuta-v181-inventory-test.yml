@@ -1,0 +1,36 @@
+name: Minuta v181 inventory isolated test
+
+on:
+  push:
+    branches: [codex/pro-ui-batch-20260927]
+    paths:
+      - .github/workflows/minuta-v181-inventory-test.yml
+      - minuta-online-booking/supabase-migration-v181.sql
+      - minuta-online-booking/supabase-migration-v181-rollback.sql
+      - minuta-online-booking/tests/auto-complete-inventory-v181-integration.sh
+      - minuta-online-booking/tests/auto-complete-inventory-v181-integration.sql
+  workflow_dispatch:
+
+permissions: { contents: read }
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+
+jobs:
+  full-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { persist-credentials: false }
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply, verify, roll back, and reapply in isolated test DB
+        shell: bash
+        run: bash minuta-online-booking/tests/auto-complete-inventory-v181-integration.sh
