@@ -71,8 +71,8 @@ function syntheticLedger(fixture = ids) {
   return { apply, workspace, rows, get balance() { return balance; } };
 }
 
-async function harness({ deferFirstReply = true, deferAllReplies = false, firstRefusal = null } = {}) {
-  const ledger = syntheticLedger(), otherLedger = syntheticLedger(otherIds), calls = [], effects = [], listeners = new Map(), nodes = new Map();
+async function harness({ deferFirstReply = true, deferAllReplies = false, firstRefusal = null, confirmResult = true, onConfirm = null } = {}) {
+  const ledger = syntheticLedger(), otherLedger = syntheticLedger(otherIds), calls = [], effects = [], listeners = new Map(), nodes = new Map(), prompts = [];
   const thirdLedger = syntheticLedger(thirdIds);
   const ledgerFor = org => org === ids.org ? ledger : org === otherIds.org ? otherLedger : thirdLedger;
   const readResponses = [];
@@ -129,7 +129,7 @@ async function harness({ deferFirstReply = true, deferAllReplies = false, firstR
     escapeHtml:value => String(value ?? ''), notify:message => effects.push(['notify', message]),
     requireWrites:() => true, getCurrentUser:() => ({ id:auth.actor }), getSessionGeneration:() => auth.generation,
     sessionIsCurrent:(actor, generation) => actor === auth.actor && generation === auth.generation,
-    applyWriteAvailability() {},
+    applyWriteAvailability() {}, requestConfirmation:async options => { prompts.push(options); onConfirm?.(node); return confirmResult; },
     db:{ rpc:async (name, params) => {
       if (name === 'get_minuta_inventory_workspace_v130') {
         effects.push(['workspaceV130Unsupported']);
@@ -175,9 +175,38 @@ async function harness({ deferFirstReply = true, deferAllReplies = false, firstR
   }
   const restore = () => listeners.get('click')({ target:{ closest:selector => selector === '[data-inventory-restore-movement]' ? {} : null } });
   const reload = () => listeners.get('click')({ target:{ closest:selector => selector === '#reloadInventory' ? {} : null } });
-  return { ledger, otherLedger, thirdLedger, readResponses, calls, effects, controller, node, fill, submit, event, loseFirstReply, auth, restore, reload,
+  return { ledger, otherLedger, thirdLedger, readResponses, calls, effects, prompts, controller, node, fill, submit, event, loseFirstReply, auth, restore, reload,
     acknowledgeFirst:() => releaseFirstReply(calls[0].committedReply) };
 }
+
+test('O22 cancellation shows expected write-off balance without creating an intent or RPC', async () => {
+  const h = await harness({ confirmResult:false });
+  await h.event('change', 'inventoryMovementKind', 'write_off');
+  assert.match(h.node('inventoryMovementImpact').textContent, /10 → 8 шт/);
+  await h.submit();
+  assert.equal(h.calls.length, 0);
+  assert.equal(h.ledger.balance, 10);
+  assert.match(h.prompts[0].message, /10 → 8 шт/);
+  assert.equal(h.prompts[0].initialFocus, 'cancel');
+});
+
+test('O22 inventory count previews zero and cancellation leaves stock unchanged', async () => {
+  const h = await harness({ confirmResult:false });
+  h.fill({ kind:'inventory', reason:'Проверка остатков' });
+  await h.event('change', 'inventoryMovementKind', 'inventory');
+  assert.match(h.node('inventoryMovementImpact').textContent, /10 → 0 шт/);
+  await h.submit();
+  assert.equal(h.calls.length, 0);
+  assert.equal(h.ledger.balance, 10);
+  assert.match(h.prompts[0].message, /10 → 0 шт/);
+});
+
+test('O22 edited quantity during confirmation cannot send a stale write-off', async () => {
+  const h = await harness({ onConfirm:node => { node('inventoryMovementQuantity').value = '3'; } });
+  await h.submit();
+  assert.equal(h.calls.length, 0);
+  assert.match(h.node('inventoryMovementError').textContent, /Данные изменились/);
+});
 
 test('control: single acknowledged movement creates one document and updates balance', async () => {
   const h = await harness({ deferFirstReply:false }); await h.submit();

@@ -10,6 +10,7 @@ import {pathToFileURL} from 'node:url';
 // provider session/bootstrap. Reset means the same in-memory instance, not restart.
 const source=readFileSync(process.env.MINUTA_INVENTORY_SOURCE||new URL('../inventory-management.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
+const styles=readFileSync(new URL('../styles.css',import.meta.url),'utf8');
 const icons=readFileSync(new URL('../ui-icons.svg',import.meta.url),'utf8');
 const playwright=process.env.MINUTA_PLAYWRIGHT_MODULE;
 const {chromium}=await import(playwright?pathToFileURL(playwright).href:'playwright');
@@ -31,6 +32,7 @@ async function fixture(){
   });
   await page.goto('https://inventory-movement.test/');
   await page.evaluate(html=>{
+    document.body.classList.add('provider-body');
     const panel=new DOMParser().parseFromString(html,'text/html').querySelector('#inventoryPanel');
     if(!panel)throw Error('Missing actual inventory panel');
     panel.hidden=false;
@@ -39,10 +41,11 @@ async function fixture(){
     panel.querySelector('[data-inventory-pane="operations"]').hidden=false;
     document.body.append(document.importNode(panel,true));
   },html);
+  await page.addStyleTag({content:styles});
   await page.addScriptTag({content:source});
   await page.evaluate(async({org,actor,warehouse,item,location,orgB,warehouseB,itemB,locationB})=>{
     const clone=value=>JSON.parse(JSON.stringify(value));
-    window.calls=[];window.rows=[];window.notices=[];window.stock=10;
+    window.calls=[];window.rows=[];window.notices=[];window.stock=10;window.confirmResult=true;window.confirmPrompts=[];
     window.stockB=10;window.session={user:actor,generation:1};
     window.replyMode='success';window.deferReply=false;window.gates=[];window.nextRefusal=null;window.readFailure=null;
     const scopes=new Map([[org,{warehouse,item,location}],[orgB,{warehouse:warehouseB,item:itemB,location:locationB}]]);
@@ -100,7 +103,8 @@ async function fixture(){
     const $=selector=>document.querySelector(selector);
     window.controller=MinutaInventory.createController({db,$,escapeHtml:value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
       notify:message=>notices.push(message),requireWrites:()=>true,getCurrentUser:()=>session.user?{id:session.user}:null,getSessionGeneration:()=>session.generation,
-      sessionIsCurrent:(user,generation)=>user===session.user&&generation===session.generation,applyWriteAvailability(){}});
+      sessionIsCurrent:(user,generation)=>user===session.user&&generation===session.generation,applyWriteAvailability(){},
+      requestConfirmation:async options=>{confirmPrompts.push(options);return confirmResult;}});
     controller.bind();await controller.setOrganization({id:org,current_role:'owner'});
   },{org,actor,warehouse,item,location,orgB,warehouseB,itemB,locationB});
   return {context,page,errors,traffic};
@@ -131,6 +135,30 @@ async function uncertain(page,mode='lost'){
   return s;
 }
 const cases=[
+  ['O22 native preview and cancelled confirmation leave stock and request id untouched',async page=>{
+    await fill(page);
+    assert.match(await page.locator('#inventoryMovementImpact').innerText(),/10 → 8 шт/);
+    await page.evaluate(()=>{confirmResult=false;});
+    await submit(page);
+    const s=await state(page);
+    assert.equal(writes(s).length,0);assert.equal(s.stock,10);
+    assert.equal(await page.evaluate(()=>confirmPrompts[0].initialFocus),'cancel');
+    assert.equal(await page.locator('#inventoryCountedQuantity').getAttribute('value'),null);
+  }],
+  ['O22 preview remains readable at 390, 760 and 1440 pixels',async page=>{
+    await fill(page);
+    for(const width of [390,760,1440]){
+      await page.setViewportSize({width,height:900});
+      const state=await page.locator('#inventoryMovementImpact').evaluate(element=>({
+        visible:!element.hidden,fontSize:Number.parseFloat(getComputedStyle(element).fontSize),
+        color:getComputedStyle(element).color,sectionColor:getComputedStyle(element.closest('.inventory-operation')).color,
+        panelWidth:element.closest('#inventoryPanel').scrollWidth,viewportWidth:document.documentElement.clientWidth
+      }));
+      assert.equal(state.visible,true);assert.ok(state.fontSize>=12,`${width}: impact is too small`);
+      assert.equal(state.color,state.sectionColor,`${width}: preview must follow the active theme text colour`);
+      assert.ok(state.panelWidth<=state.viewportWidth,`${width}: inventory panel overflows`);
+    }
+  }],
   ['CONTROL native invalid empty quantity writes nothing',async page=>{
     await fill(page);await page.locator('#inventoryMovementQuantity').fill('');await page.locator(button).click();await settle(page);
     assert.equal(writes(await state(page)).length,0);

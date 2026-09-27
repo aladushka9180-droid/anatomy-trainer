@@ -17524,7 +17524,8 @@ function organizationFeatureOptions() {
     getCurrentUser: () => currentUser,
     getSessionGeneration: () => sessionGeneration,
     sessionIsCurrent,
-    applyWriteAvailability
+    applyWriteAvailability,
+    requestConfirmation:requestProviderConfirmation
   };
 }
 
