@@ -60,19 +60,28 @@ try {
       const neutralBorder={ width:getComputedStyle(button).borderTopWidth, style:getComputedStyle(button).borderTopStyle, color:getComputedStyle(button).borderTopColor };
       button.classList.add('is-current');
       const current=getComputedStyle(button).backgroundColor;
+      const currentBorder=getComputedStyle(button).borderTopColor;
       button.classList.remove('is-current');
       const probe=document.createElement('span');
       probe.style.color='var(--theme-ink)';document.body.append(probe);
       const expectedInk=getComputedStyle(probe).color;probe.remove();
-      return { neutral,current,neutralInk,neutralBorder,expectedInk };
+      const edge=document.createElement('span');
+      edge.style.border='2px solid color-mix(in srgb,var(--ref-a) 35%,var(--ref-l))';
+      document.body.append(edge);
+      const expectedBorder=getComputedStyle(edge).borderTopColor;
+      edge.style.borderColor='color-mix(in srgb,var(--ref-a) 48%,var(--ref-l))';
+      const expectedCurrentBorder=getComputedStyle(edge).borderTopColor;
+      edge.remove();
+      return { neutral,current,neutralInk,neutralBorder,currentBorder,expectedInk,expectedBorder,expectedCurrentBorder };
     });
     assert.notEqual(todayStates.current,todayStates.neutral,JSON.stringify({theme,width,todayStates}));
     assert.equal(todayStates.neutral,'rgb(255, 255, 255)',JSON.stringify({theme,width,todayStates}));
     assert.equal(todayStates.neutralInk,todayStates.expectedInk,JSON.stringify({theme,width,todayStates}));
     if (theme==='pink-porcelain' && width<=760) {
-      assert.ok(parseFloat(todayStates.neutralBorder.width)>0,JSON.stringify({theme,width,todayStates}));
+      assert.equal(todayStates.neutralBorder.width,'2px',JSON.stringify({theme,width,todayStates}));
       assert.equal(todayStates.neutralBorder.style,'solid',JSON.stringify({theme,width,todayStates}));
-      assert.notEqual(todayStates.neutralBorder.color,'rgba(0, 0, 0, 0)',JSON.stringify({theme,width,todayStates}));
+      assert.equal(todayStates.neutralBorder.color,todayStates.expectedBorder,JSON.stringify({theme,width,todayStates}));
+      assert.equal(todayStates.currentBorder,todayStates.expectedCurrentBorder,JSON.stringify({theme,width,todayStates}));
     }
     assert.equal(result.sameRow, width<=760, JSON.stringify({theme,width,result}));
     assert.equal(result.caption, width<=760?'Когда':'Дата');

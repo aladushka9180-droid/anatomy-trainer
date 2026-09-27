@@ -209,6 +209,14 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(#newBookingButton,.provider-mobile-create) :is(span,.ui-icon) {
   color:var(--porcelain-action-ink)!important;
 }
+@media (max-width:760px) {
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard#dashboard[data-active-view="bookings"] .date-navigation>.date-today-button {
+    border:2px solid color-mix(in srgb,var(--ref-a) 35%,var(--ref-l))!important;
+  }
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard#dashboard[data-active-view="bookings"] .date-navigation>.date-today-button.is-current {
+    border-color:color-mix(in srgb,var(--ref-a) 48%,var(--ref-l))!important;
+  }
+}
 
 /* Keep the chosen soft shade on filled controls throughout the Pro cabinet.
    Booking cards, automatic breaks and semantic danger states are separate. */

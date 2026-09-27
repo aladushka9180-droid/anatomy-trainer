@@ -16,6 +16,7 @@ function createHarness(clients) {
     '#newBookingSectionSubtitle':{ textContent:'Только необходимое для записи', dataset:{} },
     '#newBookingClientFields':{ dataset:{} },
     '#newBookingClientSuggestions':{ hidden:true, innerHTML:'', dataset:{} },
+    '#newBookingContactPicker':{ disabled:false, title:'Выбрать из телефонной книги', dataset:{} },
     '#newBookingRecentCalls':{ hidden:true, dataset:{} },
     '#newBookingForm':{ dataset:{} }
   };
@@ -27,6 +28,7 @@ function createHarness(clients) {
     clientNotes:new Map(),
     newBookingMode:'client',
     saveCount:0,
+    navigator:{ contacts:{ getProperties:async () => ['name','tel'], select:async () => [] } },
     buildClients:() => clients,
     normalizePhone(value) {
       let digits = String(value || '').replace(/\D/g, '');
@@ -39,7 +41,7 @@ function createHarness(clients) {
     saveNewBookingDraft() { context.saveCount += 1; }
   };
   vm.createContext(context);
-  vm.runInContext(`${providerSource.slice(start, end)}\nglobalThis.lookupApi = { newBookingClientCandidates, handleNewBookingPhoneInput, selectNewBookingClient, refreshNewBookingRecentCalls, chooseNewBookingRecentCall, receiveNewBookingRecentCall };`, context);
+  vm.runInContext(`${providerSource.slice(start, end)}\nglobalThis.lookupApi = { newBookingClientCandidates, handleNewBookingPhoneInput, selectNewBookingClient, chooseNewBookingContact, refreshNewBookingRecentCalls, chooseNewBookingRecentCall, receiveNewBookingRecentCall };`, context);
   return { context, nodes, api:context.lookupApi };
 }
 
@@ -63,6 +65,53 @@ const vera = {
   name:'Вера',
   bookings:[{ client_name:'Вера' }]
 };
+
+{
+  const { nodes, api, context } = createHarness([anna]);
+  context.navigator.contacts.select = async () => [{ name:['Анна'], tel:['8 (999) 050-95-25'] }];
+  await api.chooseNewBookingContact();
+  assert.equal(nodes['#newBookingName'].value, 'Анна');
+  assert.equal(nodes['#newBookingPhone'].value, '+7 (999) 050-95-25');
+  assert.equal(nodes['#newBookingClientFields'].dataset.clientLookupState, 'found', 'A selected contact matching the CRM name and phone must resolve to the existing card');
+  assert.equal(nodes['#newBookingContactPicker'].disabled, false);
+}
+
+{
+  const clientWithAliases = { ...anna, name:'Анна Новая', bookings:[{ client_name:'Анна' }, { client_name:'Анна Новая' }] };
+  const { nodes, api, context } = createHarness([clientWithAliases]);
+  context.navigator.contacts.select = async () => [{ name:['Анна'], tel:['+7 (999) 050-95-25'] }];
+  await api.chooseNewBookingContact();
+  assert.equal(nodes['#newBookingName'].value, 'Анна', 'The selected contact name must disambiguate aliases on the same CRM phone');
+  assert.equal(nodes['#newBookingClientFields'].dataset.clientLookupState, 'found');
+}
+
+{
+  const { nodes, api, context } = createHarness([anna]);
+  context.navigator.contacts.select = async () => [{ name:['Другое имя'], tel:['+7 (999) 050-95-25'] }];
+  await api.chooseNewBookingContact();
+  assert.equal(nodes['#newBookingName'].value, 'Другое имя', 'An unfamiliar contact name must not be silently replaced');
+  assert.equal(nodes['#newBookingClientFields'].dataset.clientLookupState, 'manual-name');
+  assert.equal(nodes['#newBookingClientSuggestions'].hidden, false, 'The matching CRM card must remain selectable by phone');
+}
+
+{
+  const clientWithAliases = { ...anna, name:'Анна Новая', bookings:[{ client_name:'Анна' }, { client_name:'Анна Новая' }] };
+  const { nodes, api, context } = createHarness([clientWithAliases]);
+  context.navigator.contacts.select = async () => [{ name:['Другое имя'], tel:['+7 (999) 050-95-25'] }];
+  await api.chooseNewBookingContact();
+  assert.equal(nodes['#newBookingClientFields'].dataset.clientLookupState, 'multiple');
+  assert.match(nodes['#newBookingClientSuggestions'].innerHTML, /Анна Новая/);
+  assert.match(nodes['#newBookingClientSuggestions'].innerHTML, />Анна</);
+}
+
+{
+  const { nodes, api, context } = createHarness([]);
+  context.navigator.contacts.select = async () => [{ name:['Новый контакт'], tel:['+7 (999) 111-22-33'] }];
+  await api.chooseNewBookingContact();
+  assert.equal(nodes['#newBookingName'].value, 'Новый контакт');
+  assert.equal(nodes['#newBookingPhone'].value, '+7 (999) 111-22-33');
+  assert.equal(nodes['#newBookingClientSuggestions'].hidden, true, 'An unrecognized contact must not suggest an unrelated same-name client');
+}
 
 {
   const { nodes, api, context } = createHarness([anna]);
@@ -138,4 +187,4 @@ const vera = {
   assert.equal(api.newBookingClientCandidates('525').length, 0, 'Three digits are too short for a safe phone match');
 }
 
-console.log('PASS: smart phone lookup ranks exact, suffix, prefix and formatted Russian matches');
+console.log('PASS: selected contacts resolve CRM cards by phone and smart phone lookup ranks Russian matches');
