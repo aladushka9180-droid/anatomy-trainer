@@ -122,7 +122,7 @@ try {
     }
     if (output && scenario.width === 390) await page.screenshot({ path:resolve(output, 'finance-center-390-light-full.png'), fullPage:true });
 
-    if (scenario.width === 390 || scenario.width === 1440) {
+    if ([390,760,1440].includes(scenario.width)) {
       await page.evaluate(async () => { mode = 'dense'; await controller.reload(); });
       const denseChart = await page.evaluate(() => {
         const grid = document.querySelector('.finance-center__chart-grid');
@@ -146,10 +146,15 @@ try {
         const grid = document.querySelector('.finance-center__chart-grid');
         const labels = [...grid.querySelectorAll('.finance-center__chart-label')];
         return { minFont:Math.min(...labels.map(label => parseFloat(getComputedStyle(label).fontSize))),
-          clipped:labels.filter(label => label.scrollWidth > label.clientWidth + 1).length };
+          clipped:labels.filter(label => label.scrollWidth > label.clientWidth + 1).length,
+          pageWidth:document.documentElement.scrollWidth,
+          filters:[...document.querySelectorAll('.finance-center__filters select')].map(select => { const style=getComputedStyle(select); const canvas=document.createElement('canvas'); const context=canvas.getContext('2d'); context.font=style.font; return { label:select.selectedOptions[0]?.textContent, width:select.clientWidth, textWidth:context.measureText(select.selectedOptions[0]?.textContent || '').width, padding:style.padding }; }) };
       });
-      assert.ok(doubledTextAxis.minFont >= 22 && doubledTextAxis.clipped === 0, `390px doubled root text axis: ${JSON.stringify(doubledTextAxis)}`);
-      await page.evaluate(() => { document.documentElement.style.fontSize = '16px'; });
+      if (scenario.width === 390) assert.ok(doubledTextAxis.filters[0].textWidth + 38 <= doubledTextAxis.filters[0].width, `390px doubled root text period clips: ${JSON.stringify(doubledTextAxis.filters[0])}`);
+      assert.ok(doubledTextAxis.pageWidth <= scenario.width + 1, `${scenario.width}px doubled root text overflows: ${JSON.stringify(doubledTextAxis)}`);
+      if (output && scenario.width === 390) await page.screenshot({ path:resolve(output, 'finance-center-390-doubled-text.png'), fullPage:true });
+      assert.ok(doubledTextAxis.minFont >= 22 && doubledTextAxis.clipped === 0, `${scenario.width}px doubled root text axis: ${JSON.stringify(doubledTextAxis)}`);
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale}px`; }, scenario.scale);
       await page.evaluate(async () => { mode = 'full'; await controller.reload(); });
       await page.locator('[data-finance-add]').click();
       await page.locator('[data-finance-category]').selectOption('materials');
