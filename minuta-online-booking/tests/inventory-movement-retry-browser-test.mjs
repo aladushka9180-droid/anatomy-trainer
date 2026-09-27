@@ -151,9 +151,11 @@ const cases=[
       await page.setViewportSize({width,height:900});
       const state=await page.locator('#inventoryMovementImpact').evaluate(element=>({
         visible:!element.hidden,fontSize:Number.parseFloat(getComputedStyle(element).fontSize),
+        color:getComputedStyle(element).color,sectionColor:getComputedStyle(element.closest('.inventory-operation')).color,
         panelWidth:element.closest('#inventoryPanel').scrollWidth,viewportWidth:document.documentElement.clientWidth
       }));
       assert.equal(state.visible,true);assert.ok(state.fontSize>=12,`${width}: impact is too small`);
+      assert.equal(state.color,state.sectionColor,`${width}: preview must follow the active theme text colour`);
       assert.ok(state.panelWidth<=state.viewportWidth,`${width}: inventory panel overflows`);
     }
   }],
