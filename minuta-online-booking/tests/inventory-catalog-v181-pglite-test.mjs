@@ -89,6 +89,13 @@ try {
   await db.exec('reset role;');
   assert.equal((await query('select count(*)::int n from public.inventory_items'))[0].n,2);
   assert.equal((await query('select count(*)::int n from public.inventory_catalog_requests_v181'))[0].n,2);
+  await query('update public.inventory_items set name=$1 where id=$2',['Последующая правка',item]);
+  await query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
+  await db.exec('set role authenticated;');
+  assert.deepEqual((await query(saveSql,args))[0].data,
+    {saved:false,reason:'inventory_item_changed_after_save',organization_id:org,id:item});
+  await db.exec('reset role;');
+  await query("select set_config('request.jwt.claim.sub',$1,false)",[other]);
   await query('delete from public.inventory_items where id=$1',[created.id]);
   await db.exec('set role authenticated;');
   assert.deepEqual((await query(saveSql,createArgs))[0].data,
@@ -102,7 +109,7 @@ try {
   await db.exec(rollback);
   assert.equal((await query("select to_regclass('public.inventory_catalog_requests_v181') relation"))[0].relation,null);
   await db.exec(migration);
-  console.log('v181 isolated catalog contract passed: version, replay, mismatch, tenant, actor, create, deletion tombstone, guarded rollback, reapply');
+  console.log('v181 isolated catalog contract passed: version, replay, mismatch, tenant, actor, create, later change, deletion tombstone, guarded rollback, reapply');
 } finally {
   await db.close();
 }

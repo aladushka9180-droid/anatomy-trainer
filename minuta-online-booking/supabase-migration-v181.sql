@@ -62,9 +62,14 @@ begin
     if v_prior.actor_id is distinct from auth.uid() or v_prior.payload_hash<>v_hash then
       raise exception using errcode='23505',message='inventory_catalog_request_mismatch';
     end if;
-    if not exists(select 1 from public.inventory_items item
-      where item.organization_id=p_organization and item.id=(v_prior.result->>'id')::uuid) then
+    select item.updated_at into v_current from public.inventory_items item
+      where item.organization_id=p_organization and item.id=(v_prior.result->>'id')::uuid;
+    if not found then
       return jsonb_build_object('saved',false,'reason','inventory_item_deleted',
+        'organization_id',p_organization,'id',v_prior.result->>'id');
+    end if;
+    if v_current is distinct from (v_prior.result->>'updated_at')::timestamptz then
+      return jsonb_build_object('saved',false,'reason','inventory_item_changed_after_save',
         'organization_id',p_organization,'id',v_prior.result->>'id');
     end if;
     return v_prior.result;

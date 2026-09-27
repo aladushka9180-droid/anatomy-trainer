@@ -96,10 +96,13 @@ try {
   await query(second,"select set_config('request.jwt.claim.sub',$1,false)",[other]);
   const stolen=await attempt(query(second,save,argsOne));
   assert.equal(stolen.error?.message,'inventory_catalog_request_mismatch');
+  await query(admin,'update public.inventory_items set name=$1 where id=$2',['Последующая правка',item]);
+  assert.deepEqual((await query(first,save,argsOne))[0].data,
+    {saved:false,reason:'inventory_item_changed_after_save',organization_id:org,id:item});
   await query(admin,'delete from public.inventory_items where id=$1',[created.id]);
   assert.deepEqual((await query(first,save,createdArgs))[0].data,
     {saved:false,reason:'inventory_item_deleted',organization_id:org,id:created.id});
-  console.log('v181 isolated PostgreSQL: parallel conflict, lost response, parallel create, actor isolation, deletion tombstone passed');
+  console.log('v181 isolated PostgreSQL: parallel conflict, lost response, parallel create, actor isolation, later change and deletion tombstone passed');
 } finally {
   await Promise.allSettled(clients.map(client=>client.end()));
 }
