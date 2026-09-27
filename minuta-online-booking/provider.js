@@ -4529,7 +4529,10 @@ function setReportSubview(view = 'overview', { focus = false } = {}) {
   });
   if (focus) $(`[data-report-view="${reportSubview}"]`)?.focus();
   if (reportSubview === 'clients') void ensureReportRetention();
-  if (reportSubview === 'money') void financeController?.load(reportRange());
+  const demoMoney = reportSubview === 'money' && reportDataSource === 'demo';
+  const demoGate = $('#reportMoneyDemoGate');
+  if (demoGate) demoGate.hidden = !demoMoney;
+  if (reportSubview === 'money' && !demoMoney) void financeController?.load(reportRange());
 }
 
 function reportGoalsScopeKey() {
@@ -16957,7 +16960,7 @@ document.addEventListener('click', async event => {
     }
     loadSelectedReportData();
     renderAnalytics();
-    if (reportSubview === 'money') void financeController.load(reportRange(), { force:true });
+    if (reportSubview === 'money' && reportDataSource !== 'demo') void financeController.load(reportRange(), { force:true });
   }
   if (openNotificationTemplates) {
     renderNotificationTemplates();
@@ -18606,7 +18609,7 @@ $('#providerNavigationForm')?.addEventListener('click', handleDisplayPreferences
 $('#providerNavigationForm')?.addEventListener('change', handleDisplayPreferencesChange);
 $('.report-view-tabs')?.addEventListener('keydown', event => {
   const current = event.target.closest('[data-report-view]');
-  if (!current || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  if (!current || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
   const buttons = $$('[data-report-view]');
   const index = buttons.indexOf(current);
@@ -18779,7 +18782,7 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   reportCustomEnd = end;
   loadSelectedReportData();
   renderAnalytics();
-  if (reportSubview === 'money') void financeController.load(reportRange(), { force:true });
+  if (reportSubview === 'money' && reportDataSource !== 'demo') void financeController.load(reportRange(), { force:true });
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
 $('#shareProviderClientPage')?.addEventListener('click', shareProviderClientPage);

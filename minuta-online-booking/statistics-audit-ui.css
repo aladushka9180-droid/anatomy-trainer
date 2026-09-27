@@ -95,3 +95,19 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .re
   .provider-body #analyticsView .report-heatmap-card .report-heatmap-cell { min-height:48px!important; }
   .provider-body #analyticsView .report-heatmap-card .report-heatmap-cell i { font-size:13px!important; }
 }
+#analyticsView.finance-center-mounted[data-report-tab="money"][data-report-source="demo"] #financeCenterRoot:not([hidden]) {
+  display:none!important;
+}
+#analyticsView .report-money-demo-gate {
+  max-width:640px;
+  margin:18px auto;
+  padding:24px;
+  border:1px solid var(--theme-line);
+  border-radius:18px;
+  background:var(--theme-surface);
+  color:var(--theme-ink);
+}
+#analyticsView .report-money-demo-gate[hidden] { display:none; }
+#analyticsView .report-money-demo-gate h3 { margin:0; font-size:1.2rem; }
+#analyticsView .report-money-demo-gate p { margin:10px 0 18px; color:var(--theme-muted); font-size:.9rem; line-height:1.5; }
+#analyticsView .report-money-demo-gate button { min-height:44px; }

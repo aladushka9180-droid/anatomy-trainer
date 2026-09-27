@@ -652,7 +652,7 @@
         </section>
 
         <section class="provider-view" id="analyticsView" data-provider-panel="analytics" hidden>
-          <div class="view-title report-head"><div><span>Результаты</span><h2 tabindex="-1">Статистика</h2><p class="view-description">Доход, клиенты и загрузка за выбранный период.</p></div><button class="secondary-button compact-button report-export-button" id="exportBookings" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Экспорт</span></button></div>
+          <div class="view-title report-head"><div><h2 tabindex="-1">Статистика</h2><p class="view-description">Доход, клиенты и загрузка за выбранный период.</p></div><button class="secondary-button compact-button report-export-button" id="exportBookings" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Экспорт</span></button></div>
           <dialog class="report-export-dialog" id="reportExportDialog" aria-labelledby="reportExportTitle">
             <div class="report-export-head"><div><small>Готовый документ</small><h3 id="reportExportTitle">Скачать отчёт</h3><p>Выберите формат и уровень видимости телефонов клиентов.</p></div><button type="button" data-close-report-export aria-label="Закрыть">×</button></div>
             <label class="report-export-privacy">Телефоны в отчёте<select id="reportExportPrivacy"><option value="masked" selected>Показывать частично</option><option value="full">Показывать полностью</option><option value="none">Не добавлять телефоны</option></select></label>
@@ -703,6 +703,11 @@
             <button id="reportTabTeam" type="button" data-report-view="team">Команда</button>
           </nav>
           <div id="financeCenterRoot" data-report-section="money" hidden></div>
+          <section class="report-money-demo-gate" id="reportMoneyDemoGate" aria-labelledby="reportMoneyDemoTitle" hidden>
+            <h3 id="reportMoneyDemoTitle">Демо-финансы пока недоступны</h3>
+            <p>Вкладка «Деньги» содержит только ваши реальные финансовые данные. Они откроются после явного переключения источника.</p>
+            <button class="primary" type="button" data-report-source="own">Показать реальные данные</button>
+          </section>
           <section class="report-command-center" id="reportCommandCenter" data-report-section="overview" aria-labelledby="reportCommandTitle">
             <div class="report-command-copy">
               <div class="report-command-heading">
