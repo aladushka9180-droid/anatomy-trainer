@@ -19,6 +19,14 @@ const requestOne='11111111-1111-4111-8111-111111111111';
 const requestTwo='22222222-2222-4222-8222-222222222222';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const attempt=promise=>promise.then(value=>({value}),error=>({error}));
+const v82=readFileSync(new URL('../supabase-migration-v82.sql',import.meta.url),'utf8');
+const productionFunction=name=>{
+  const start=v82.indexOf(`create or replace function public.${name}(`);
+  assert.ok(start>=0,`missing v82 function ${name}`);
+  const body=v82.indexOf('as $$',start),end=v82.indexOf('$$;',body+5);
+  assert.ok(body>start && end>body,`invalid v82 function ${name}`);
+  return v82.slice(start,end+3);
+};
 
 try {
   await admin.query(`
@@ -29,43 +37,42 @@ try {
     grant usage on schema auth to authenticated;
     grant execute on function auth.uid() to authenticated;
     create table auth.users(id uuid primary key);
-    create table public.organizations(id uuid primary key);
+    create table public.organizations(id uuid primary key,status text not null default 'active');
+    create table public.organization_memberships(organization_id uuid not null,user_id uuid not null,
+      role text not null,active boolean not null);
+    create table public.organization_inventory_settings(organization_id uuid primary key,
+      enabled boolean not null default false);
     create table public.inventory_items(
-      id uuid primary key default gen_random_uuid(),organization_id uuid not null,
-      name text not null,sku text not null,unit text not null,
-      low_stock_threshold numeric not null,active boolean not null,
+      id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id),
+      name text not null check(char_length(name) between 2 and 120),
+      sku text not null default '' check(char_length(sku)<=80),
+      unit text not null check(unit in ('piece','ml','g','kg','l','pack')),
+      low_stock_threshold numeric(14,3) not null default 0 check(low_stock_threshold>=0),
+      active boolean not null default true,created_by uuid references auth.users(id),
+      created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     );
+    create unique index inventory_items_sku_scope_idx on public.inventory_items(organization_id,lower(sku)) where sku<>'';
+    create table public.inventory_movements(organization_id uuid not null,inventory_item_id uuid not null);
+    create table public.inventory_audit_log(organization_id uuid not null,actor_id uuid,
+      action text not null,subject_id uuid,details jsonb not null);
     create function public.touch_inventory() returns trigger language plpgsql as $$
       begin new.updated_at:=now();return new;end $$;
     create trigger inventory_touch before update on public.inventory_items
       for each row execute function public.touch_inventory();
     grant select on public.inventory_items to authenticated;
-    create function public.get_minuta_inventory_role(p_organization uuid)
-    returns text language plpgsql as $$ begin
-      if auth.uid() is null or p_organization<>'${org}'::uuid then
-        raise exception using errcode='42501',message='inventory_management_denied';
-      end if; return 'owner'; end $$;
     create function public.get_minuta_inventory_workspace_v130(p_organization uuid)
     returns jsonb language sql as $$ select jsonb_build_object('organization_id',p_organization,'items','[]'::jsonb) $$;
-    create function public.upsert_minuta_inventory_item(
-      p_organization uuid,p_item uuid,p_name text,p_sku text,p_unit text,p_low_stock numeric,p_active boolean
-    ) returns jsonb language plpgsql as $$ declare v_id uuid; begin
-      if p_item is null then
-        insert into public.inventory_items(organization_id,name,sku,unit,low_stock_threshold,active)
-        values(p_organization,p_name,p_sku,p_unit,p_low_stock,p_active) returning id into v_id;
-      else
-        update public.inventory_items set name=p_name,sku=p_sku,unit=p_unit,
-          low_stock_threshold=p_low_stock,active=p_active
-        where id=p_item and organization_id=p_organization returning id into v_id;
-      end if;
-      return jsonb_build_object('organization_id',p_organization,'id',v_id);
-    end $$;
     insert into auth.users values('${owner}'),('${other}');
     insert into public.organizations values('${org}');
+    insert into public.organization_memberships values('${org}','${owner}','owner',true),
+      ('${org}','${other}','owner',true);
+    insert into public.organization_inventory_settings values('${org}',true);
     insert into public.inventory_items(id,organization_id,name,sku,unit,low_stock_threshold,active)
       values('${item}','${org}','База','S1','piece',1,true);
   `);
+  await admin.query(['get_minuta_inventory_role','write_minuta_inventory_audit',
+    'upsert_minuta_inventory_item'].map(productionFunction).join('\n'));
   await admin.query(readFileSync(new URL('../supabase-migration-v181.sql',import.meta.url),'utf8'));
   await admin.query('begin');
   await query(admin,'update public.inventory_items set name=$1 where id=$2',['Временная правка 1',item]);
