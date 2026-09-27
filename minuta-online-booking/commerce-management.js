@@ -305,7 +305,7 @@
       if (!select) return;
       const accounts = eligibleAccounts();
       const target = accounts.some(item => item.id === selected) ? selected : accounts[0]?.id || '';
-      select.innerHTML = accounts.length ? accountOptions(target) : '<option value="">Нет доступной кассы</option>';
+      select.innerHTML = accounts.length ? accountOptions(target) : `<option value="">${$('#commercePaymentMethod')?.value === 'cash' ? 'Нет доступной кассы' : 'Нет доступной кассы или счёта'}</option>`;
       select.value = target;
       select.disabled = accounts.length === 0;
       renderAccountSetup(accounts);
@@ -325,7 +325,7 @@
         hint.hidden = !missing;
         hint.textContent = $('#commercePaymentMethod')?.value === 'cash'
           ? 'Для наличной оплаты сначала создайте кассу.'
-          : 'Для ручной оплаты сначала создайте кассу или банковский счёт.';
+          : 'Для ручного учёта оплаты сначала добавьте кассу или банковский счёт. Перевод через банк здесь не выполняется.';
       }
       if (!allowed) {
         if (trigger) trigger.hidden = true;
@@ -343,6 +343,7 @@
       } else if (trigger) {
         trigger.hidden = !setup?.hidden;
       }
+      updateAccountSubmitLabel();
     }
 
     function toggleAccountSetup(force) {
@@ -357,8 +358,14 @@
         const name = $('#commerceAccountName');
         if (type && $('#commercePaymentMethod')?.value === 'cash') type.value = 'cash';
         if (name && !name.value) name.value = type?.value === 'bank' ? 'Расчётный счёт' : 'Основная касса';
+        updateAccountSubmitLabel();
         name?.focus({ preventScroll:true });
       }
+    }
+
+    function updateAccountSubmitLabel() {
+      const button = $('#commerceAccountSubmit');
+      if (button) button.textContent = $('#commerceAccountType')?.value === 'bank' ? 'Добавить счёт' : 'Добавить кассу';
     }
 
     async function createFinancialAccount() {
@@ -404,9 +411,10 @@
           }
           $('#commerceAccountName').value = '';
           updateSaleValidity();
-          notify(created.replayed ? 'Касса или счёт уже были созданы — повтор не добавлен' : 'Касса или счёт созданы');
+          const accountLabel = accountType === 'bank' ? 'Счёт' : 'Касса';
+          notify(created.replayed ? `${accountLabel} уже ${accountType === 'bank' ? 'создан' : 'создана'} — повтор не добавлен` : `${accountLabel} ${accountType === 'bank' ? 'создан' : 'создана'}`);
         } catch {
-          notify('Касса или счёт созданы. Список обновится после восстановления связи');
+          notify(`${accountType === 'bank' ? 'Счёт создан' : 'Касса создана'}. Список обновится после восстановления связи`);
         }
         return true;
       } catch (error) {
@@ -562,7 +570,7 @@
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         const recorded = String(item.last_occurred_on || '').startsWith(currentMonth);
-        return `<article class="commerce-recurring-row"><div><small>Ежемесячно, ${escapeHtml(String(item.day_of_month))}-го числа</small><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.supplier_name)} · ${escapeHtml(rubles(item.amount_minor))}</span></div><button class="secondary-button compact-button" type="button" data-commerce-record-expense="${escapeHtml(item.id)}"${recorded ? ' disabled' : ''}>${recorded ? 'Учтено' : 'Учесть сейчас'}</button></article>`;
+        return `<article class="commerce-recurring-row"><div><small>Ежемесячно, ${escapeHtml(String(item.day_of_month))}-го числа</small><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.supplier_name)} · ${escapeHtml(rubles(item.amount_minor))}</span></div><button class="secondary-button compact-button" type="button" data-commerce-record-expense="${escapeHtml(item.id)}"${recorded ? ' disabled' : ''}>${recorded ? 'Расход учтён' : 'Учесть расход'}</button></article>`;
       }).join('') : '<p class="report-empty-inline">Добавьте аренду или другой регулярный платёж.</p>';
     }
 
@@ -743,7 +751,7 @@
         if (result.error) throw result.error;
         clearIntent(intent.key);
         await load();
-        notify(result.data?.replayed ? 'Расход уже учтён в этом месяце' : 'Расход добавлен в денежный журнал');
+        notify(result.data?.replayed ? 'Расход уже учтён в этом месяце' : 'Расход учтён в финансах');
       } catch (error) {
         notify(errorMessage(error));
         button.disabled = false;
@@ -781,6 +789,8 @@
       $('#commercePaymentMethod')?.addEventListener('change', () => { renderPaymentAccounts(); updateSaleValidity(); });
       $('#commerceAccountCreateOpen')?.addEventListener('click', () => toggleAccountSetup());
       $('#commerceAccountSubmit')?.addEventListener('click', () => void createFinancialAccount());
+      $('#commerceAccountType')?.addEventListener('change', updateAccountSubmitLabel);
+      updateAccountSubmitLabel();
       $('#commerceAccountName')?.addEventListener('keydown', event => {
         if (event.key === 'Enter') { event.preventDefault(); void createFinancialAccount(); }
       });
