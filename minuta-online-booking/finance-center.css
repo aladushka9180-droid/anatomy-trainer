@@ -7,6 +7,11 @@
   .finance-center__chart-label{font-size:max(11px,.6875rem);text-overflow:clip}
   .finance-center__net small,.finance-center__main-metrics small,.finance-center__trust-metrics small,.finance-center__section-head p,.finance-center__legend span,.finance-center__ring span,.finance-center__operation small{font-size:max(12px,.75rem)}
 }
+@media(min-width:761px){
+  .finance-center__chart-grid{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(max(48px,3.25rem),1fr);overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin;scroll-snap-type:x proximity}
+  .finance-center__chart-point{scroll-snap-align:start}
+  .finance-center__chart-label{font-size:max(11px,.6875rem);text-overflow:clip}
+}
 @media(prefers-reduced-motion:reduce){.finance-center *{scroll-behavior:auto!important;transition:none!important}}
 .finance-center__unavailable{display:flex;align-items:flex-start;gap:12px;margin-top:18px;padding:18px;border:1px solid var(--finance-line);border-radius:16px;background:var(--finance-surface)}
 .finance-center__unavailable[hidden]{display:none}

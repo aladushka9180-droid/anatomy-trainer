@@ -122,7 +122,7 @@ try {
     }
     if (output && scenario.width === 390) await page.screenshot({ path:resolve(output, 'finance-center-390-light-full.png'), fullPage:true });
 
-    if (scenario.width === 390) {
+    if (scenario.width === 390 || scenario.width === 1440) {
       await page.evaluate(async () => { mode = 'dense'; await controller.reload(); });
       const denseChart = await page.evaluate(() => {
         const grid = document.querySelector('.finance-center__chart-grid');
@@ -135,12 +135,12 @@ try {
           clipped:labels.filter(label => label.scrollWidth > label.clientWidth + 1).length };
       });
       assert.equal(denseChart.pointCount, 30);
-      assert.ok(denseChart.scrollable && !denseChart.pageOverflow && denseChart.minWidth >= 44 && denseChart.minFont >= 11 && denseChart.clipped === 0, `390px dense finance axis: ${JSON.stringify(denseChart)}`);
+      assert.ok(denseChart.scrollable && !denseChart.pageOverflow && denseChart.minWidth >= 44 && denseChart.minFont >= 11 && denseChart.clipped === 0, `${scenario.width}px dense finance axis: ${JSON.stringify(denseChart)}`);
       await page.locator('[data-finance-chart] button').first().focus();
       await page.keyboard.press('End');
       assert.ok(await page.locator('.finance-center__chart-grid').evaluate(grid => grid.scrollLeft > 0), 'keyboard selection scrolls dense chart into view');
       assert.match(await page.locator('[data-finance-chart-detail]').innerText(), /30 сентября/);
-      if (output) await page.locator('.finance-center__movement').screenshot({ path:resolve(output, 'finance-center-390-dense-chart.png') });
+      if (output) await page.locator('.finance-center__movement').screenshot({ path:resolve(output, `finance-center-${scenario.width}-dense-chart.png`) });
       const doubledTextAxis = await page.evaluate(() => {
         document.documentElement.style.fontSize = '32px';
         const grid = document.querySelector('.finance-center__chart-grid');
