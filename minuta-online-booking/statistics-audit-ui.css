@@ -46,6 +46,11 @@
   #analyticsView .report-period-label,#analyticsView .report-performer-filter>span { font-size:12px; }
   #analyticsView .report-team-note { font-size:calc(12px + var(--provider-text-step,0px)); line-height:1.4; }
   #analyticsView .report-trend .report-chart-column small { font-size:calc(11px + var(--provider-text-step,0px)); }
+  #analyticsView :is(.report-data-source>small,.report-chart-context small,.report-chart-hint) { font-size:calc(12px + var(--provider-text-step,0px)); line-height:1.4; }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView > .report-data-source > small { font-size:calc(12px + var(--provider-text-step,0px)); }
+  #analyticsView :is(.report-trend .panel-head p,.report-primary-metric small,.report-trend .report-chart-column>b) { font-size:calc(12px + var(--provider-text-step,0px)); line-height:1.4; }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-copy > p { font-size:calc(12px + var(--provider-text-step,0px)); }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics small { font-size:calc(12px + var(--provider-text-step,0px)); }
 }
 @media (max-width:600px) {
   #analyticsView .report-heatmap-scroll-hint { display:block; }
