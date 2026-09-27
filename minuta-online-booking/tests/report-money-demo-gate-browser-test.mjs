@@ -31,7 +31,6 @@ try {
       document.body.style.cssText = '--theme-ink:#302b31;--theme-muted:#625c64;--theme-accent:#c43372;--theme-accent-contrast:#fff;--theme-line:#e9cbd6;--theme-surface:#fff;--theme-surface-alt:#ffe8f0;--theme-shadow:rgba(103,67,87,.09);background:#fff5f8';
       document.body.append(panel);
       panel.hidden = false;
-      panel.classList.add('finance-center-mounted');
       panel.dataset.reportSource = 'demo';
       panel.querySelector('#financeCenterRoot').hidden = false;
       panel.querySelector('#financeCenterRoot').textContent = 'Реальные операции';
