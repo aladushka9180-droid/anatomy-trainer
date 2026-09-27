@@ -55,6 +55,11 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .re
   font-size:calc(12px + var(--provider-text-step,0px));
   line-height:1.4;
 }
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-health-details :is(summary,small,i,p) {
+  font-size:calc(12px + var(--provider-text-step,0px));
+  line-height:1.4;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-health-details summary { min-height:44px; }
 
 @media (max-width:760px) {
   #analyticsView :is(.report-view-tabs button,.report-periods button,.report-data-source button,.report-mini-toggle button,.report-team-controls button,.report-export-formats button,.report-custom-period button,.report-goals-open,.report-source-list button,#reloadMoneyDashboard) { min-height:44px; font-size:max(12px,1em); }

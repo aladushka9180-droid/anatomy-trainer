@@ -30,6 +30,8 @@ try {
       root.dataset.reportEmpty = 'false';
       root.querySelector('.report-filters').classList.add('is-open');
       root.querySelector('.report-analytics-details').open = true;
+      root.querySelector('.report-health-details').open = true;
+      root.querySelector('#reportPaymentRateNote').textContent = '46 из 46 визитов; финансовая оценка доступна от 80%';
       root.querySelector('#reportFunnel').innerHTML = '<article><div><span>1</span><strong>Все записи</strong><b>53</b><small>Все записи периода</small></div><i></i></article>';
       root.querySelector('#reportHeatmapLegend').hidden = false;
       root.querySelector('#reportHeatmap').innerHTML = '<span class="report-heatmap-corner"></span>'
@@ -143,6 +145,10 @@ try {
       return selectors.map(selector => { const label = document.querySelector(selector); return { selector, size:parseFloat(getComputedStyle(label).fontSize), clipped:label.scrollWidth > label.clientWidth + 1 }; });
     });
     assert.ok(detailLabels.every(label => label.size >= 12 && !label.clipped), `${width}px expanded analytics labels: ${JSON.stringify(detailLabels)}`);
+    const healthLabels = await page.evaluate(() => [...document.querySelectorAll('.report-health-details summary,.report-health-factors small,.report-health-factors i,.report-health-details>p')]
+      .map(label => ({ text:label.textContent.trim().slice(0,40), size:parseFloat(getComputedStyle(label).fontSize), clipped:label.scrollWidth > label.clientWidth + 1 })));
+    assert.ok(healthLabels.every(label => label.size >= 12 && !label.clipped), `${width}px health explanation labels: ${JSON.stringify(healthLabels)}`);
+    assert.ok(await page.locator('.report-health-details summary').evaluate(label => label.getBoundingClientRect().height >= 44), `${width}px health explanation target`);
     if (width <= 760) {
       assert.ok(layout.period >= 44, `${width}px period target`);
     }
@@ -197,6 +203,7 @@ try {
     if (process.env.MINUTA_SCREENSHOT_DIR) {
       await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
       await page.screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/statistics-${width}.png`, fullPage:true });
+      await page.locator('.report-command-center').screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/health-${width}.png` });
     }
     await page.close();
   }
