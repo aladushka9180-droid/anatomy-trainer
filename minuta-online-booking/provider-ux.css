@@ -889,6 +889,7 @@
 }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics small { font-size:10px; white-space:normal; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics strong { font-size:clamp(19px,2.2vw,27px); }
+.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics > article:not(.report-primary-metric) strong { font-size:clamp(15px,1.7vw,21px); }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics span { font-size:10px; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-plan-forecast {
   display:grid;
@@ -1042,6 +1043,7 @@
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics > .report-primary-metric { grid-column:1/-1; min-height:78px; }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics > article:not([hidden]) { min-height:72px; padding:9px; }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics strong { font-size:20px; }
+  .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics > article:not(.report-primary-metric) strong { font-size:16px; }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-plan-forecast { grid-template-columns:1fr; gap:5px; }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-plan-forecast > article { min-height:52px; }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions > .report-smart-action:first-of-type { display:grid!important; }
