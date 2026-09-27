@@ -84,7 +84,7 @@ test('startup opens the trusted local session before any auth network wait', asy
 test('cached-only session path cannot start remote synchronization', () => {
   const handler = actual('handleSession');
   assert.match(handler, /cachedOnly \? null : accessVerified \? true/);
-  assert.match(handler, /if \(localSessionOnly\) \{[\s\S]*?return;[\s\S]*?\}\s*if \(navigator\.onLine && !bookingsChannel\) startLiveUpdates/);
+  assert.match(handler, /if \(localSessionOnly\) \{[\s\S]*?return;[\s\S]*?\}\s*if \(recoveringCachedSession\) beginConnectionGuidanceRecovery\(\);\s*if \(navigator\.onLine && !bookingsChannel\) startLiveUpdates/);
   assert.match(actual('canQueueOfflineBooking'), /offlineBookingAccessReady/);
 });
 

@@ -78,8 +78,9 @@ const precacheBytes = assets.reduce((total, asset) => {
 // Keep core interaction controllers available during a cold offline start.
 // The v930 publication dialog and flexible offline booking add to the offline-critical shell.
 // The mobile booking sheets add about 4.5 KiB of offline-critical CSS/JS.
-// Keep a narrow 3.60 MiB ceiling without evicting offline controllers.
-assert.ok(precacheBytes <= 3.60 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
+// The v1006 connection guidance must also work from the cold offline shell.
+// Keep a narrow 3.61 MiB ceiling for its helper, styles and schedule status.
+assert.ok(precacheBytes <= 3.61 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /try \{ await caches\.delete\(CACHE\); \} catch \{\}/,

@@ -495,6 +495,12 @@ let writesAllowed = false;
 let bookingCreationReady = false;
 let bookingReadConnectionUnavailable = false;
 let connectionWasOffline = false;
+let connectionGuidanceOutageObserved = !navigator.onLine;
+const connectionGuidanceTracker = window.MinutaProviderConnectionGuidance?.createRecoveryTracker?.() || null;
+let connectionGuidanceRecovery = null;
+let connectionGuidanceActor = '';
+let connectionGuidanceTimer = null;
+let manualSynchronizationPromise = null;
 let offlineBookingQueue = [];
 let offlineBookingFlushPromise = null;
 let offlineBookingSavePromise = Promise.resolve();
@@ -1219,6 +1225,10 @@ function showOfflineBookingCompletion(item, booking, notification) {
         : ''
   };
   item.bookingCreationConfirmed = true;
+  if (typeof connectionGuidanceTracker !== 'undefined' && connectionGuidanceTracker?.active) {
+    connectionGuidanceTracker.snapshot(currentUser?.id, [item]);
+    connectionGuidanceTracker.confirm(currentUser?.id, item.id);
+  }
   renderBookingData();
   renderOfflineBookingQueue();
   return true;
@@ -1236,6 +1246,7 @@ function openAnotherOfflineBooking() {
 }
 window.addEventListener('minuta:provider-session-reset', () => {
   if (typeof dismissOfflineBookingCompletion === 'function') dismissOfflineBookingCompletion();
+  if (typeof resetConnectionGuidance === 'function') resetConnectionGuidance();
 });
 function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = false } = {}) {
   const reason = item.reason || '';
@@ -1260,6 +1271,10 @@ function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = fal
 function deliverOfflineBookingProviderNotice(notice) {
   if (!notice) return false;
   recordConnectionEvent(notice.kind, notice.body);
+  if (typeof connectionGuidanceTracker !== 'undefined' && connectionGuidanceTracker?.active) {
+    connectionGuidanceTracker.snapshot(currentUser?.id, offlineBookingQueue);
+    return true;
+  }
   if (!document.hidden) notifyForDuration(notice.toast, 6000);
   if ('Notification' in window && Notification.permission === 'granted') {
     void showProviderSystemNotification({ ...notice, view:'bookings' });
@@ -1632,6 +1647,76 @@ function compactSyncLabel(kind, text) {
   if (text.includes('дополнительные')) return 'Записи обновлены';
   return 'Проверить связь';
 }
+function resetConnectionGuidance() {
+  clearTimeout(connectionGuidanceTimer);
+  connectionGuidanceTimer = null;
+  connectionGuidanceTracker?.reset();
+  connectionGuidanceRecovery = null;
+  connectionGuidanceActor = '';
+  renderProviderConnectionGuidance();
+}
+function beginConnectionGuidanceRecovery() {
+  const actor = currentUser?.id;
+  if (!actor || providerSessionTrust !== 'verified' || !navigator.onLine) return false;
+  if (connectionGuidanceActor && connectionGuidanceActor !== actor) resetConnectionGuidance();
+  clearTimeout(connectionGuidanceTimer);
+  connectionGuidanceTimer = null;
+  connectionGuidanceActor = actor;
+  connectionGuidanceTracker?.start(actor);
+  connectionGuidanceTracker?.snapshot(actor, offlineBookingQueue);
+  connectionGuidanceRecovery = { kind:'checking' };
+  renderProviderConnectionGuidance();
+  return true;
+}
+function finishConnectionGuidanceRecovery(bookingReady, complete) {
+  const actor = currentUser?.id;
+  if (!actor || actor !== connectionGuidanceActor || !connectionGuidanceTracker?.active) return false;
+  const summary = connectionGuidanceTracker.finish(actor, { bookingReady, complete, queue:offlineBookingQueue });
+  if (!summary) {
+    connectionGuidanceRecovery = null;
+    renderProviderConnectionGuidance();
+    return false;
+  }
+  connectionGuidanceRecovery = summary;
+  connectionGuidanceOutageObserved = false;
+  recordConnectionEvent('online', `Связь восстановлена. ${summary.text}`);
+  renderProviderConnectionGuidance();
+  if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+    void showProviderSystemNotification({ key:`provider-connection-recovered-${Date.now()}`, title:'Связь восстановлена', body:summary.text, view:'bookings' });
+  }
+  clearTimeout(connectionGuidanceTimer);
+  connectionGuidanceTimer = setTimeout(() => {
+    if (connectionGuidanceRecovery === summary) connectionGuidanceRecovery = null;
+    renderProviderConnectionGuidance();
+  }, 15000);
+  return true;
+}
+function renderProviderConnectionGuidance() {
+  const panel = $('#providerConnectionGuidance');
+  if (!panel) return;
+  if (connectionGuidanceActor && connectionGuidanceActor !== currentUser?.id) {
+    clearTimeout(connectionGuidanceTimer);
+    connectionGuidanceTimer = null;
+    connectionGuidanceTracker?.reset();
+    connectionGuidanceRecovery = null;
+    connectionGuidanceActor = '';
+  }
+  const hasSavedSchedule = Boolean(offlineBookingAccessReady && offlineBookingInputsReady && offlineBookingSnapshotFresh());
+  const state = window.MinutaProviderConnectionGuidance?.view?.({
+    online:navigator.onLine, hasUser:Boolean(currentUser), sessionTrust:providerSessionTrust,
+    canQueueBooking:canQueueOfflineBooking(), hasSavedSchedule,
+    serverUnavailable:bookingReadConnectionUnavailable, recovery:connectionGuidanceRecovery
+  });
+  panel.hidden = !state;
+  if (!state) return;
+  $('#providerConnectionGuidanceTitle').textContent = state.title;
+  $('#providerConnectionGuidanceDescription').textContent = state.description;
+  const help = $('#providerConnectionGuidanceHelp');
+  help.hidden = !state.help;
+  if (!state.help) help.open = false;
+  $('#providerConnectionGuidanceInspect').hidden = !state.inspect;
+  $('#providerConnectionGuidanceCheck').hidden = Boolean(state.inspect);
+}
 function setSyncState(kind, text) {
   const pendingMetadata = pendingBookingColors.size + pendingBookingNotes.size + pendingClientLabels.size + pendingClientNotes.size;
   if (kind === 'online' && pendingMetadata) {
@@ -1647,11 +1732,19 @@ function setSyncState(kind, text) {
   element.setAttribute('aria-label', `${text}. Открыть журнал связи`);
   recordConnectionEvent(kind, text);
   applyWriteAvailability();
+  if (typeof renderProviderConnectionGuidance === 'function') renderProviderConnectionGuidance();
 }
 async function manualSynchronizeProvider() {
+  if (manualSynchronizationPromise) return manualSynchronizationPromise;
+  const run = (async () => {
   const button = $('#manualSyncButton');
   if (!currentUser) return false;
-  if (!navigator.onLine) { notify('Нет интернета · показана сохранённая копия'); recordConnectionEvent('offline', 'Ручное обновление: нет интернета'); return false; }
+  if (!navigator.onLine) {
+    notify(offlineBookingAccessReady && offlineBookingInputsReady && offlineBookingSnapshotFresh()
+      ? 'Нет интернета · показана сохранённая копия' : 'Нет интернета · проверьте подключение');
+    recordConnectionEvent('offline', 'Ручное обновление: нет интернета');
+    return false;
+  }
   button.disabled = true;
   button.classList.add('is-spinning');
   recordConnectionEvent('manual', 'Запущено ручное обновление');
@@ -1670,6 +1763,10 @@ async function manualSynchronizeProvider() {
     button.disabled = false;
     button.classList.remove('is-spinning');
   }
+  })();
+  manualSynchronizationPromise = run;
+  try { return await run; }
+  finally { if (manualSynchronizationPromise === run) manualSynchronizationPromise = null; }
 }
 function cachedStateText(savedAt) {
   return `Офлайн · данные на ${reliability?.savedAtLabel(savedAt) || 'последнюю синхронизацию'}`;
@@ -14216,12 +14313,14 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
       return synchronizeProviderTables(tables, userId, generation);
     }
     const wasConnectionUnavailable = bookingReadConnectionUnavailable;
+    if (wasConnectionUnavailable && !connectionWasOffline && typeof beginConnectionGuidanceRecovery === 'function') beginConnectionGuidanceRecovery();
     bookingReadConnectionUnavailable = false;
     offlineBookingAccessReady = false;
     offlineBookingInputsReady = false;
     if (wasConnectionUnavailable) {
       applyWriteAvailability();
       if ($('#newBookingForm')) updateNewBookingConnectivity();
+      if (typeof renderProviderConnectionGuidance === 'function') renderProviderConnectionGuidance();
     }
     const primaryResults = (await Promise.allSettled([
       loadBookings({ silent:true, deferPresentation:true }),
@@ -14232,9 +14331,11 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     if (!sessionIsCurrent(userId, generation)) return false;
     const bookingReady = primaryResults.every(result => result?.ok);
     bookingReadConnectionUnavailable = navigator.onLine && providerCoreReadOutage(primaryResults);
+    if (bookingReadConnectionUnavailable) connectionGuidanceOutageObserved = true;
     if (!bookingReady) {
       setBookingCreationReady(false);
       setWritesAllowed(false);
+      connectionGuidanceRecovery = null;
     }
     const primarySnapshotVerified = primaryResults.every(result => result?.ok && !result?.cached && !result?.skipped);
     const offlineSnapshot = primarySnapshotVerified && navigator.onLine
@@ -14311,6 +14412,10 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
       scheduleSynchronizationRetry();
     }
     if (bookingReady && offlineBookingQueue.some(item => item.status === 'pending' || item.status === 'server_check_pending' || item.status === 'notification_pending')) setTimeout(() => flushOfflineBookings(), 0);
+    if (typeof connectionGuidanceTracker !== 'undefined' && connectionGuidanceTracker?.active && !connectionWasOffline) {
+      if (bookingCreationReady) await flushOfflineBookings();
+      finishConnectionGuidanceRecovery(bookingReady, complete);
+    }
     return complete;
   })().catch(async () => {
     if (!sessionIsCurrent(requestedUserId, requestedGeneration)) return false;
@@ -14459,6 +14564,10 @@ async function logout() {
 async function handleSession(session) {
   const { cachedOnly=false, accessVerified=false } = arguments[1] || {};
   const sameUser = session?.user?.id && session.user.id === currentUser?.id;
+  const recoveringCachedSession = window.MinutaProviderConnectionGuidance?.shouldRecoverCachedSession?.({
+    sameUser, previousTrust:providerSessionTrust, accessVerified, online:navigator.onLine,
+    outageObserved:connectionGuidanceOutageObserved
+  });
   if (sameUser && !(accessVerified && providerSessionTrust === 'cached')) {
     currentUser = session.user;
     if (providerSessionTrust === 'verified') providerVerifiedSessionExpiresAt = Number(session.expires_at || 0) * 1000;
@@ -14523,6 +14632,7 @@ async function handleSession(session) {
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
+  if (previousUserId && currentUser?.id !== previousUserId) connectionGuidanceOutageObserved = !navigator.onLine;
   const accessState = !currentUser ? false : cachedOnly ? null : accessVerified ? true : navigator.onLine ? await providerAccessAllowed(currentUser.id) : null;
   if (currentUser && accessState === false) {
     providerSessionTrust = 'none';
@@ -14674,6 +14784,7 @@ async function handleSession(session) {
     syncScheduleContextHistory();
     return;
   }
+  if (recoveringCachedSession) beginConnectionGuidanceRecovery();
   if (navigator.onLine && !bookingsChannel) startLiveUpdates({ catchUpOnSubscribe:false });
   await synchronizeProvider();
   if (!sessionIsCurrent(userId, generation)) return;
@@ -14938,11 +15049,13 @@ function verifyCachedProviderSession(expectedUserId) {
     let result;
     try { result = await db.auth.getSession(); }
     catch (error) {
+      if (authTemporarilyUnavailable(error)) connectionGuidanceOutageObserved = true;
       if (!authTemporarilyUnavailable(error)) await rejectCachedProviderSession(expectedUserId);
       return;
     }
     if (providerSessionTrust !== 'cached' || currentUser?.id !== expectedUserId) return;
     if (result.error) {
+      if (authTemporarilyUnavailable(result.error)) connectionGuidanceOutageObserved = true;
       if (!authTemporarilyUnavailable(result.error)) await rejectCachedProviderSession(expectedUserId);
       return;
     }
@@ -14953,7 +15066,7 @@ function verifyCachedProviderSession(expectedUserId) {
     }
     let accessState = null;
     try { accessState = navigator.onLine ? await providerAccessAllowed(expectedUserId) : null; }
-    catch { return; }
+    catch { connectionGuidanceOutageObserved = true; return; }
     if (providerSessionTrust !== 'cached' || currentUser?.id !== expectedUserId) return;
     if (accessState === true) await handleSession(session, { accessVerified:true });
     else if (accessState === false) await rejectCachedProviderSession(expectedUserId);
@@ -17452,6 +17565,8 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pageshow', event => { if (event.persisted) resumeProviderConnection(true); });
 window.addEventListener('offline', async () => {
   connectionWasOffline = true;
+  connectionGuidanceOutageObserved = true;
+  if (typeof resetConnectionGuidance === 'function') resetConnectionGuidance();
   stopLiveUpdates();
   clearTimeout(synchronizationRetryTimer);
   synchronizationRetryTimer = null;
@@ -17473,9 +17588,12 @@ window.addEventListener('offline', async () => {
 window.addEventListener('online', async () => {
   if (providerSessionTrust === 'cached' && currentUser?.id) {
     await verifyCachedProviderSession(currentUser.id);
+    if (connectionWasOffline && providerSessionTrust === 'verified') finishConnectionGuidanceRecovery(bookingCreationReady, writesAllowed);
+    connectionWasOffline = false;
     return;
   }
   if (providerSessionTrust !== 'verified') return;
+  if (connectionWasOffline && typeof beginConnectionGuidanceRecovery === 'function') beginConnectionGuidanceRecovery();
   recoverLiveUpdates(true);
   queueDisplayPreferencesSync(0);
   renderOfflineBookingQueue();
@@ -17483,7 +17601,7 @@ window.addEventListener('online', async () => {
   const complete = await synchronizeProvider();
   if (bookingCreationReady) await flushOfflineBookings();
   if ($('#newBookingForm')) await loadNewBookingSlots();
-  if (connectionWasOffline) notify(complete ? 'Интернет восстановлен · данные обновлены' : 'Интернет восстановлен · продолжаем синхронизацию');
+  if (connectionWasOffline && typeof finishConnectionGuidanceRecovery === 'function') finishConnectionGuidanceRecovery(bookingCreationReady, complete);
   connectionWasOffline = false;
 });
 $('#retryOfflineBookings')?.addEventListener('click', async () => {
@@ -18792,6 +18910,23 @@ $('#retryPasswordRecovery').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', logout);
 $('#manualSyncButton').addEventListener('click', manualSynchronizeProvider);
+$('#providerConnectionGuidanceCheck')?.addEventListener('click', async event => {
+  const button = event.currentTarget;
+  if (button.disabled) return;
+  button.disabled = true;
+  try { await manualSynchronizeProvider(); }
+  finally { button.disabled = false; renderProviderConnectionGuidance(); }
+});
+$('#providerConnectionGuidanceInspect')?.addEventListener('click', () => {
+  const queue = $('#offlineBookingQueuePanel');
+  if (queue && !queue.hidden) {
+    queue.scrollIntoView({ behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
+    queue.querySelector('button:not([hidden]):not(:disabled)')?.focus?.({ preventScroll:true });
+  } else {
+    renderConnectionLog();
+    $('#connectionLogDialog').showModal();
+  }
+});
 $('#syncState').addEventListener('click', () => { renderConnectionLog(); $('#connectionLogDialog').showModal(); });
 $('#connectionLogRefresh').addEventListener('click', manualSynchronizeProvider);
 $$('[data-close-connection-log]').forEach(button => button.addEventListener('click', () => $('#connectionLogDialog').close()));

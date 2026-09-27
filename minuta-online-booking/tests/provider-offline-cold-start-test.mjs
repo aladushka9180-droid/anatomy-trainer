@@ -202,7 +202,7 @@ test('cached trust fails closed before synchronization or queue flush can call t
   assert.equal(await box.flushOfflineBookings(), false);
   assert.equal(rpcCalls, 0);
   assert.match(actual('flushOfflineBookings'), /providerSessionTrust !== 'verified'[\s\S]*db\.rpc\('book_appointment'/);
-  assert.match(source, /window\.addEventListener\('online', async \(\) => \{\s*if \(providerSessionTrust === 'cached'[\s\S]*await verifyCachedProviderSession\(currentUser\.id\);\s*return;/);
+  assert.match(source, /window\.addEventListener\('online', async \(\) => \{\s*if \(providerSessionTrust === 'cached'[\s\S]*await verifyCachedProviderSession\(currentUser\.id\);\s*if \(connectionWasOffline && providerSessionTrust === 'verified'\) finishConnectionGuidanceRecovery\(bookingCreationReady, writesAllowed\);\s*connectionWasOffline = false;\s*return;/);
 });
 
 test('offline status distinguishes a usable snapshot from incomplete cached data', () => {
