@@ -610,7 +610,7 @@
       const visibleMembers = performerId ? members.filter(item => item.user_id === performerId) : members;
       const columns = visibleMembers.map(member => ({
         performer_id:member.user_id,date,label:member.display_name || 'Специалист',
-        subtitle:absenceFor(member.user_id,date) ? (absenceLabels[absenceFor(member.user_id,date).kind] || 'Недоступен') : shiftsFor(member.user_id,date).map(item => `${item.start_time}–${item.end_time}`).join(' · ') || 'График не задан',
+        subtitle:absenceFor(member.user_id,date) ? (absenceLabels[absenceFor(member.user_id,date).kind] || 'Недоступен') : shiftsFor(member.user_id,date).map(item => `${item.start_time}–${item.end_time}`).join(' · ') || 'Смена не задана',
         items:visible.filter(item => item.performer_id === member.user_id)
       }));
       visible.forEach(item => {
@@ -642,7 +642,7 @@
       const member = memberById(performerId);
       const columns = datesBetween(range.start,range.end).map(date => {
         const parsed = localDate(date);
-        return { performer_id:performerId,date,label:parsed.toLocaleDateString('ru-RU',{ weekday:'short',day:'numeric' }).replace('.',''),subtitle:shiftsFor(performerId,date).map(item => `${item.start_time}–${item.end_time}`).join(' · ') || 'Выходной',items:visible.filter(item => item.booking_date === date) };
+        return { performer_id:performerId,date,label:parsed.toLocaleDateString('ru-RU',{ weekday:'short',day:'numeric' }).replace('.',''),subtitle:shiftsFor(performerId,date).map(item => `${item.start_time}–${item.end_time}`).join(' · ') || 'Смена не задана',items:visible.filter(item => item.booking_date === date) };
       });
       renderTimeline(holder,columns,'team-dispatcher-week');
       const status = $('#teamCalendarStatus');

@@ -83,10 +83,13 @@ try {
 
     await page.evaluate(() => { shiftFixture.locations = [{id:'location-1', name:'Тестовый филиал', active:true}]; });
     await page.evaluate(() => shiftController.load());
-    assert.match(await page.locator('#shiftsList').textContent(), /Добавьте рабочие часы специалиста/);
+    assert.match(await page.locator('#shiftsList').textContent(), /Добавьте первую смену/);
+    assert.match(await page.locator('#shiftUtilization').textContent(), /Занятость появится после добавления смен/);
     assert.equal(await page.locator('#shiftCreator').getAttribute('hidden'), null);
     assert.equal(await page.locator('#shiftsList [data-section-target]').count(), 0);
     if (screenshotDir) await page.locator('#shiftsPanel').screenshot({ path:resolve(screenshotDir, `${width}-no-shifts.png`) });
+    await page.locator('#shiftCreator summary').click();
+    assert.equal(await page.locator('#shiftForm').isVisible(), true, `${width}: shift form must open`);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.ok(overflow <= 1, `${width}: horizontal overflow ${overflow}`);
     assert.deepEqual(await page.evaluate(() => shiftCalls), Array(3).fill('get_minuta_shift_workspace'));

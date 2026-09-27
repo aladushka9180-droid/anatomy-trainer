@@ -5,7 +5,7 @@
   const auditLabels = {
     shift_created: 'Создана смена', shift_updated: 'Изменена смена', shift_cancelled: 'Смена отменена',
     absence_created: 'Добавлено отсутствие', absence_cancelled: 'Отсутствие отменено',
-    schedule_enabled: 'Расписание филиалов включено', schedule_disabled: 'Расписание филиалов выключено',
+    schedule_enabled: 'Смены учитываются при онлайн-записи', schedule_disabled: 'Учёт смен при онлайн-записи выключен',
     booking_substituted: 'Специалист в записи заменён'
   };
 
@@ -165,7 +165,10 @@
       $('#substitutionBooking').innerHTML = active.length ? renderOptions(active, '', item => `${dateLabel(item.booking_date)} ${shortTime(item.booking_time)} · ${item.service_name || item.booking_code}`) : '<option value="">Нет записей в периоде</option>';
       const booking = active.find(item => item.id === $('#substitutionBooking').value) || active[0];
       const alternatives = booking ? payload.services.filter(service => service.performer_id !== booking.performer_id && Number(service.duration_minutes) === Number(booking.primary_duration_minutes || booking.duration_minutes)) : [];
-      $('#substitutionService').innerHTML = alternatives.length ? renderOptions(alternatives, '', item => `${item.name} · ${nameOf(payload.performers, item.performer_id, 'Специалист')}`) : '<option value="">Нет другого специалиста</option>';
+      const noAlternative = !booking ? 'Нет записей для замены'
+        : payload.performers.length < 2 ? 'Для замены нужен другой специалист'
+          : 'У другого специалиста нет услуги той же длительности';
+      $('#substitutionService').innerHTML = alternatives.length ? renderOptions(alternatives, '', item => `${nameOf(payload.performers, item.performer_id, 'Специалист')} · ${item.name}`) : `<option value="">${noAlternative}</option>`;
       panel.querySelector('button').disabled = !booking || !alternatives.length;
     }
 
@@ -201,9 +204,9 @@
       $('#shiftsList').innerHTML = payload.shifts.length ? payload.shifts.map(shiftCard).join('')
         : missingPrerequisite
           ? `<div class="provider-empty compact-empty"><strong>Смен пока нет</strong><small>${escapeHtml(missingPrerequisite)}</small><button type="button" class="secondary-button" data-section-target="organizationPeopleSection">Люди и филиалы</button></div>`
-          : empty('Смен пока нет', 'Добавьте рабочие часы специалиста в конкретном филиале.');
+          : empty('Смен пока нет', 'Добавьте первую смену.');
       $('#absencesList').innerHTML = payload.absences.length ? payload.absences.map(absenceCard).join('') : empty('Отсутствий нет', 'Отпуск и больничный можно добавить заранее.');
-      $('#shiftUtilization').innerHTML = payload.utilization.length ? payload.utilization.map(utilizationCard).join('') : empty('Загрузка появится после смен', 'Система сравнит рабочие минуты и записи.');
+      $('#shiftUtilization').innerHTML = payload.utilization.length ? payload.utilization.map(utilizationCard).join('') : empty('Занятость появится после добавления смен', 'Покажем, какая часть рабочего времени занята записями.');
       renderSubstitution(canManage);
       $('#shiftAuditPanel').hidden = !canManage;
       $('#shiftAuditCount').textContent = String(payload.audit.length);
@@ -311,7 +314,7 @@
       if (event.target.id === 'substitutionBooking') renderSubstitution(Boolean(payload?.can_manage_team));
       if (event.target.id === 'shiftSchedulingEnabled') {
         const desired = event.target.checked;
-        const ok = await mutate('set_minuta_branch_shifts_enabled', { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Смены включены в онлайн-запись' : 'Строгая проверка смен выключена');
+        const ok = await mutate('set_minuta_branch_shifts_enabled', { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Смены учитываются при онлайн-записи' : 'Учёт смен при онлайн-записи выключен');
         if (!ok && payload) event.target.checked = Boolean(payload.enabled);
       }
     }
