@@ -72,7 +72,6 @@ concurrency:
 jobs:
   test-v181-inventory-shortfall:
     if: inputs.phase == 'test-v181-inventory-shortfall' && github.ref == 'refs/heads/codex/minuta-hotfix-release-20260927'
-    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: minuta-test
@@ -83,6 +82,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 3
           persist-credentials: false
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -91,12 +91,16 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git diff --check HEAD~2..HEAD
+          bash -n minuta-online-booking/tests/auto-complete-inventory-v181-integration.sh
+          node --check minuta-online-booking/tests/auto-complete-inventory-v181-db-test.mjs
           test -n "$MINUTA_TEST_DATABASE_URL"
           test -n "$MINUTA_TEST_PROJECT_REF"
           test -n "$MINUTA_PRODUCTION_PROJECT_REF"
           bash minuta-online-booking/tests/auto-complete-inventory-v181-integration.sh
 
   preflight:
+    if: inputs.phase != 'test-v181-inventory-shortfall'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
