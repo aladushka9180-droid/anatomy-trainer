@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
+const declaration=name=>{const start=source.indexOf(`function ${name}(`);assert.ok(start>=0);return source.slice(start,source.indexOf('\n}',start)+2);};
+const context=vm.createContext({window:{},bookingOutcome:item=>item.outcome||{visit_status:'scheduled'}});
+vm.runInContext(declaration('clientCompletedVisits')+'\n'+declaration('clientRelationshipFacts'),context);
+const b=(id,visit_status='scheduled',status='confirmed',extra={})=>({id,booking_date:'2020-01-01',booking_time:'10:00',status,outcome:{visit_status,amount_rub:0},...extra});
+const client={bookings:[b('past'),b('done','completed'),b('cancelled','completed','cancelled'),b('missed','no_show'),b('done','completed'),b('import','completed','confirmed',{is_imported_history:true})],imported:{visit_count:4}};
+assert.deepEqual(Array.from(context.clientCompletedVisits(client),b=>b.id),['done','import'],'Past date alone, cancelled completions, no-shows and duplicates do not inflate visits');
+assert.equal(context.clientRelationshipFacts(client).visits,5,'One new visit plus imported total, without double counting its rows');
+client.bookings=client.bookings.map(row=>row.id==='done'?b('done','scheduled'):row);
+assert.equal(context.clientRelationshipFacts(client).visits,4,'Correcting completed back to scheduled reduces the count');
+client.bookings.push(b('new','completed','confirmed',{booking_date:'2099-01-01',services:[1,2,3]}));
+assert.equal(context.clientRelationshipFacts(client).visits,5,'Explicit completion is authoritative; service count and date are irrelevant');
+console.log('Actual client counter: completion-only, cancellation, no-show, corrections, duplicates and imported history PASS');

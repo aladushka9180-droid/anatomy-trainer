@@ -113,19 +113,19 @@
       if (!enabled) {
         $('#clientMilestoneText').textContent = 'Программа не включена';
         $('#clientMilestoneHint').textContent = 'Настройте цель, награду и срок примерно за минуту.';
-        orbit.setAttribute('aria-label', 'Программа лояльности не включена');
+        if (!orbit.classList.contains('has-session-frame')) orbit.setAttribute('aria-label', 'Программа лояльности не включена');
         return;
       }
       if (pending) {
         $('#clientMilestoneText').textContent = `Награда доступна: ${rewardText(pending)}`;
         $('#clientMilestoneHint').textContent = pending.expires_at ? `Использовать до ${dateText(pending.expires_at)}` : 'Без срока. Использование подтверждает мастер.';
-        orbit.setAttribute('aria-label', `Награда доступна. ${rewardText(pending)}`);
+        if (!orbit.classList.contains('has-session-frame')) orbit.setAttribute('aria-label', `Награда доступна. ${rewardText(pending)}`);
         return;
       }
       const remaining = Math.max(0, target - progress);
       $('#clientMilestoneText').textContent = `${progress} из ${target} ${visitWord(target)}`;
       $('#clientMilestoneHint').textContent = `Ещё ${remaining} ${visitWord(remaining)} до награды «${payload.rule.reward_title}»`;
-      orbit.setAttribute('aria-label', `${progress} из ${target} визитов, ещё ${remaining} до награды`);
+      if (!orbit.classList.contains('has-session-frame')) orbit.setAttribute('aria-label', `${progress} из ${target} визитов, ещё ${remaining} до награды`);
     }
 
     function renderClients() {
