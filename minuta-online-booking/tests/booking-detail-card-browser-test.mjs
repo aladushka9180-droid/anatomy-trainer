@@ -35,6 +35,40 @@ try {
     assert.ok(metrics.services<metrics.outcome&&metrics.outcome<metrics.extra,`${width}: approved section order`);
     if(process.env.MINUTA_CARD_SCREENSHOTS){mkdirSync(process.env.MINUTA_CARD_SCREENSHOTS,{recursive:true});await page.locator('.booking-sheet-panel').screenshot({path:`${process.env.MINUTA_CARD_SCREENSHOTS}/card-${width}.png`});}
   }
+  for(const theme of ['pink-porcelain','sage','noir-rose','midnight']) {
+    await page.locator('body').evaluate((body,value)=>body.dataset.providerTheme=value,theme);
+    for(const width of [390,760,1440]) {
+      await page.setViewportSize({width,height:900});
+      const colors=await page.evaluate(()=>{
+        const body=getComputedStyle(document.body);
+        const sheet=document.querySelector('#bookingSheet');
+        const panel=getComputedStyle(sheet.querySelector('.booking-sheet-panel'));
+        const close=getComputedStyle(sheet.querySelector('.booking-sheet-close'));
+        const primary=getComputedStyle(sheet.querySelector('.booking-repeat-actions>.primary'));
+        const soft=getComputedStyle(sheet.querySelector('.booking-repeat-actions>:not(.primary)'));
+        const sample=document.createElement('span');document.body.append(sample);
+        const resolve=value=>{sample.style.color=value;return getComputedStyle(sample).color};
+        const expected={surface:resolve(body.getPropertyValue('--theme-surface')),ink:resolve(body.getPropertyValue('--theme-ink')),
+          accent:resolve(body.getPropertyValue('--theme-accent')),soft:resolve(body.getPropertyValue('--theme-accent-soft')),
+          contrast:resolve(body.getPropertyValue('--theme-accent-contrast')),surfaceAlt:resolve(body.getPropertyValue('--theme-surface-alt'))};
+        sample.remove();
+        return {expected,panel:panel.backgroundColor,ink:panel.color,close:close.backgroundColor,closeInk:close.color,
+          primary:primary.backgroundColor,primaryInk:primary.color,soft:soft.backgroundColor,softInk:soft.color,
+          overflow:sheet.querySelector('.booking-sheet-panel').scrollWidth-sheet.querySelector('.booking-sheet-panel').clientWidth};
+      });
+      assert.equal(colors.panel,colors.expected.surface,`${theme}/${width}: panel follows theme surface`);
+      assert.equal(colors.ink,colors.expected.ink,`${theme}/${width}: text follows theme ink`);
+      assert.equal(colors.close,colors.expected.surfaceAlt,`${theme}/${width}: close control follows theme surface`);
+      assert.equal(colors.closeInk,colors.expected.ink,`${theme}/${width}: close icon stays readable`);
+      assert.equal(colors.primary,colors.expected.accent,`${theme}/${width}: primary action follows theme accent`);
+      assert.equal(colors.primaryInk,colors.expected.contrast,`${theme}/${width}: primary label follows theme contrast`);
+      assert.equal(colors.soft,colors.expected.soft,`${theme}/${width}: secondary actions follow theme tint`);
+      assert.equal(colors.softInk,colors.expected.accent,`${theme}/${width}: secondary labels follow theme accent`);
+      assert.ok(colors.overflow<=1,`${theme}/${width}: no horizontal overflow`);
+      if(process.env.MINUTA_CARD_SCREENSHOTS){await page.locator('.booking-sheet-panel').screenshot({path:`${process.env.MINUTA_CARD_SCREENSHOTS}/card-${theme}-${width}.png`});}
+    }
+  }
+  await page.locator('body').evaluate(body=>body.dataset.providerTheme='pink-porcelain');
   assert.equal(await page.locator('.booking-outcome-disclosure').getAttribute('open'),null,'Payment editor collapsed');
   assert.match(await page.locator('.booking-outcome-disclosure>summary').textContent(),/Получено 5\s?800 ₽ · Перевод/);
   assert.match(await page.locator('.detail-card-sync').textContent(),/Сохранено на устройствеОжидает синхронизации/);

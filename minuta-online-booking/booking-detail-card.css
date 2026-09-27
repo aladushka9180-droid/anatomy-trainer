@@ -9,16 +9,6 @@
   --detail-primary:var(--theme-accent,#d91e62);
   --detail-primary-ink:var(--theme-accent-contrast,#fff);
 }
-body[data-provider-theme="pink-porcelain"] #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) {
-  --detail-surface:#fff;
-  --detail-ink:#111722;
-  --detail-muted:#687487;
-  --detail-line:#e4e5eb;
-  --detail-accent:#d80a50;
-  --detail-soft:#fdecf3;
-  --detail-primary:#d91e62;
-  --detail-primary-ink:#fff;
-}
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-sheet-panel {
   width:min(620px,calc(100% - 32px)); max-height:calc(100dvh - 32px);
   margin:0; padding:24px; border:0; border-radius:24px;
@@ -30,7 +20,7 @@ body[data-provider-theme="pink-porcelain"] #bookingSheet.booking-sheet-reference
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) #bookingSheetContent { min-width:0; padding:0; }
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-sheet-close {
   position:absolute; top:12px; right:12px; width:44px; height:44px; min-height:44px;
-  border:0!important; border-radius:50%; background:#f5f5f7!important; color:#30394b!important;
+  border:0!important; border-radius:50%; background:var(--theme-surface-alt,#f5f5f7)!important; color:var(--detail-ink)!important;
   box-shadow:none; font-size:27px; font-weight:400;
 }
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-detail-heading {
@@ -46,7 +36,7 @@ body[data-provider-theme="pink-porcelain"] #bookingSheet.booking-sheet-reference
   border:0; border-radius:20px; font-size:13px; line-height:1.35;
   font-weight:400; text-transform:none; letter-spacing:0; white-space:normal; overflow:visible;
 }
-#bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-status.detail-card-completed { background:#e6f3e7!important; color:#28713c!important; }
+#bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-status.detail-card-completed { background:color-mix(in srgb,#4baf72 18%,var(--detail-surface))!important; color:color-mix(in srgb,#187043 75%,var(--detail-ink))!important; }
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-status .detail-card-icon { width:17px; height:17px; }
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-sheet-panel #bookingSheetTitle {
   display:block; margin:0 0 4px; color:var(--detail-ink)!important;

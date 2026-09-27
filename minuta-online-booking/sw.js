@@ -69,7 +69,7 @@ const ASSETS = [
 ];
 
 const OPTIONAL_ASSETS = [
-  './booking-detail-card.css?v=1',
+  './booking-detail-card.css?v=2',
   './booking-detail-card.js?v=1',
   './utm-funnel.css?v=811',
   './subscription-pricing.css?v=811',
