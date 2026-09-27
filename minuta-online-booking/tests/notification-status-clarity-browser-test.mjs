@@ -55,7 +55,7 @@ try {
 
   const content = await page.locator('#unifiedNotificationDeliveries').textContent();
   assert.match(content, /Запрос подтверждения записи/);
-  assert.match(content, /передано каналу/);
+  assert.match(content, /отправлено/);
   assert.match(content, /Подтверждения доставки нет/);
   assert.match(content, /доставлено/);
   assert.match(content, /Подтверждено каналом/);
@@ -65,7 +65,18 @@ try {
   assert.match(content, /Проверьте чат вручную/);
   assert.match(content, /отменено/);
   assert.match(content, /Событие устарело после переноса записи/);
-  assert.doesNotMatch(content, /отправлено/);
+  const sentRow = page.locator('#unifiedNotificationDeliveries .smart-delivery-row').filter({ hasText:'Резервный канал после Telegram' });
+  const deliveredRow = page.locator('#unifiedNotificationDeliveries .smart-delivery-row').filter({ hasText:'Подтверждено каналом' });
+  assert.equal(await sentRow.locator('span em').textContent(), 'отправлено', 'gateway acceptance is not recipient delivery');
+  assert.match(await sentRow.textContent(), /Подтверждения доставки нет/);
+  assert.equal(await deliveredRow.locator('span em').textContent(), 'доставлено', 'a delivery receipt has a distinct label');
+  await page.locator('[data-unified-delivery-filter="delivered"]').evaluate(button => button.click());
+  assert.equal(await sentRow.count(), 0, 'sent without receipt must not appear as delivered');
+  assert.equal(await deliveredRow.count(), 1);
+  await page.locator('[data-unified-delivery-filter="transit"]').evaluate(button => button.click());
+  assert.equal(await sentRow.count(), 1);
+  assert.equal(await deliveredRow.count(), 0, 'receipt-confirmed delivery must not remain in transit');
+  await page.locator('[data-unified-delivery-filter="all"]').evaluate(button => button.click());
   assert.equal(await page.locator('[data-unified-retry="primary"]').count(), 1);
   assert.equal(await page.locator('[data-unified-retry="unknown"]').count(), 0);
   for (const width of [390, 760, 1440]) {

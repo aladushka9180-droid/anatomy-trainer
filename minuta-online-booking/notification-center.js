@@ -3,7 +3,7 @@
 
   const CHANNEL_LABELS = { telegram:'Telegram', max:'MAX', whatsapp:'WhatsApp', sms:'SMS', vk:'VK', email:'Email', push:'Push' };
   const AUDIENCE_LABELS = { provider:'Команде', client:'Клиентам' };
-  const STATUS_LABELS = { pending:'в очереди', sending:'передаётся каналу', sent:'передано каналу', failed:'ошибка', cancelled:'отменено' };
+  const STATUS_LABELS = { pending:'в очереди', sending:'передаётся каналу', sent:'отправлено', failed:'ошибка', cancelled:'отменено' };
   const EVENT_LABELS = {
     booking_created:'Запись создана', booking_confirmed:'Запись подтверждена',
     booking_rescheduled:'Запись перенесена', booking_cancelled:'Запись отменена',
@@ -119,7 +119,7 @@
       deliveryUnknown:true
     };
     if (item.status === 'sent') return {
-      label:'передано каналу',
+      label:STATUS_LABELS.sent,
       detail:`Подтверждения доставки нет${formatMoment(item.sent_at) ? ` · передано ${formatMoment(item.sent_at)}` : ''}`,
       deliveryUnknown:false
     };
