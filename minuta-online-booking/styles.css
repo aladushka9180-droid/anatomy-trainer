@@ -2817,6 +2817,7 @@ html.provider-booting .provider-main {
 .provider-body .organization-row-main strong { display:block; overflow:hidden; color:#244535; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
 .provider-body .organization-row-main strong em { color:#809087; font-size:8px; font-style:normal; font-weight:800; }
 .provider-body .organization-row-main small { display:block; margin-top:3px; overflow:hidden; color:#74837a; font-size:9px; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
+.provider-body .organization-row-main .organization-location-zone { font-size:12px; white-space:normal; }
 .provider-body .member-avatar { display:grid; flex:none; width:36px; height:36px; place-items:center; border-radius:11px; background:#e7f0ea; color:#315a44; font-size:13px; font-weight:900; }
 .provider-body .organization-role,.provider-body .organization-status { flex:none; padding:6px 8px; border-radius:999px; background:#eef2ef; color:#65766d; font-size:8px; font-weight:850; }
 .provider-body .organization-status.is-active { background:#e7f4eb; color:#2e6d49; }
