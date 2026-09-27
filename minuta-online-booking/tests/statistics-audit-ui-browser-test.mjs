@@ -11,7 +11,7 @@ const auditScript = readFileSync(new URL('../statistics-audit-ui.js', import.met
 const browser = await chromium.launch({ headless:true });
 
 try {
-  for (const width of [390, 760, 1440]) {
+  for (const width of [360, 390, 760, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:900 } });
     await page.goto('about:blank');
     await page.evaluate(source => {
@@ -110,6 +110,18 @@ try {
     if (width <= 600) {
       assert.equal(layout.heatmapOverflow, true, `${width}px heatmap scrolls`);
       assert.notEqual(layout.hint, 'none');
+      for (const scale of ['default', 'large']) {
+        const tabs = await page.evaluate(textScale => {
+          document.body.dataset.providerTextScale = textScale;
+          const nav = document.querySelector('.report-view-tabs').getBoundingClientRect();
+          const buttons = [...document.querySelectorAll('.report-view-tabs button')];
+          return buttons.map(button => {
+            const rect = button.getBoundingClientRect();
+            return { label:button.textContent.trim(), height:rect.height, visible:rect.left >= nav.left - 1 && rect.right <= nav.right + 1 };
+          });
+        }, scale);
+        assert.ok(tabs.every(tab => tab.height >= 44 && tab.visible), `${width}px ${scale} statistics tabs: ${JSON.stringify(tabs)}`);
+      }
     }
     if (width === 390) {
       const smallTargets = await page.evaluate(() => {
@@ -127,6 +139,7 @@ try {
       });
       assert.deepEqual(smallTargets, [], `390px small targets: ${JSON.stringify(smallTargets)}`);
     }
+    if (process.env.MINUTA_SCREENSHOT_DIR) await page.screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/statistics-${width}.png` });
     await page.close();
   }
 } finally {
