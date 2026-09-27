@@ -203,7 +203,7 @@ assert.match(provider, /currentRole:readable \? String\(organization\?\.current_
 assert.match(provider, /offlineDraftAllowed[\s\S]*if \(!synchronized && !offlineDraftAllowed\) return \{ ok:false, reason:'not_synchronized' \}/, 'Черновик голосового помощника не отделяет синхронизированный и безопасный офлайн-режимы');
 assert.match(provider, /const offlineReadable = Boolean\(offline && snapshotCurrent\)[\s\S]*offlineReadable,/, 'Голосовой помощник не проверяет срок локальной копии');
 assert.match(provider, /clientName:offline \? 'Клиент'/, 'Офлайн-снимок голосового помощника раскрывает имя клиента');
-assert.match(provider, /function loadNewBookingSlots\(\)[\s\S]*if \(!navigator\.onLine\)[\s\S]*offlineCandidateSlots[\s\S]*renderNewBookingTimePicker\(\{ offline:true \}\)[\s\S]*После подключения система обязательно проверит/, 'Офлайн-режим не показывает предварительные окна или не объясняет серверную проверку');
+assert.match(provider, /function loadNewBookingSlots\(\)[\s\S]*if \(bookingDeferredMode\(\)\)[\s\S]*offlineCandidateSlots[\s\S]*renderNewBookingTimePicker\(\{ offline:true \}\)[\s\S]*После подключения система обязательно проверит/, 'Отложенная запись не показывает предварительные окна или не объясняет серверную проверку');
 assert.doesNotMatch(voiceAssistant, /\bdb\.from\(|\.rpc\(|\bfetch\(/, 'Голосовой помощник обращается к базе или сети напрямую');
 assert.doesNotMatch(voiceAssistant, /sessionStorage|indexedDB|localStorage\?*\.setItem\([^,]+,\s*(?:lastCommand|command|input\.value)/, 'Голосовая команда сохраняется в браузере');
 assert.match(voiceAssistant, /bridge\.prepareBookingDraft/, 'Голосовой помощник не использует ограниченный интерфейс черновика');

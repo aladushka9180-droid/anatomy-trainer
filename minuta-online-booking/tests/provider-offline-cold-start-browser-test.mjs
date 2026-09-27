@@ -29,6 +29,8 @@ const helperSource = `
   let currentUser = { id:'provider-1' };
   let sessionGeneration = 1;
   let providerSessionTrust = 'verified';
+  let providerVerifiedSessionExpiresAt = 0;
+  let bookingReadConnectionUnavailable = false;
   let allBookings = [{ id:'booking-1', booking_date:'2026-09-13', booking_time:'12:00', client_name:'Клиент из копии' }];
   let ownServices = [{ id:'service-1', name:'Услуга', active:true, duration_minutes:60 }];
   let scheduleRows = [{ weekday:7, start_time:'10:00', end_time:'20:00', slot_interval_minutes:5 }];
@@ -74,6 +76,7 @@ const helperSource = `
   ${actual('automaticBookingBreaks')}
   ${actual('applyProviderOfflineSnapshot')}
   ${actual('offlineBookingSnapshotFresh')}
+  ${actual('bookingDeferredMode')}
   ${actual('canQueueOfflineBooking')}
   ${actual('offlineBookingStatusText')}
   ${actual('compactSyncLabel')}
@@ -120,6 +123,20 @@ try {
     });
     assert.deepEqual(onlineState, { bookings:1, automaticBreaks:1 }, `online schedule at ${width}px`);
     assert.equal(await onlinePage.evaluate(async () => Boolean(await saveProviderOfflineSnapshot('provider-1', 1))), true);
+    const degradedOnline = await onlinePage.evaluate(async () => {
+      providerVerifiedSessionExpiresAt = Date.now() + 3600000;
+      bookingReadConnectionUnavailable = true;
+      const restored = applyProviderOfflineSnapshot(await readProviderOfflineSnapshot('provider-1'), 'provider-1', 1);
+      setSyncState('warning', offlineBookingStatusText());
+      return {
+        restored, canQueue:canQueueOfflineBooking(), title:document.querySelector('#syncState').title,
+        overflow:document.documentElement.scrollWidth > innerWidth + 1
+      };
+    });
+    assert.equal(degradedOnline.restored, true);
+    assert.equal(degradedOnline.canQueue, true);
+    assert.match(degradedOnline.title, /неподтверждённую запись/);
+    assert.equal(degradedOnline.overflow, false);
     await onlinePage.close();
 
     await context.addInitScript(() => {

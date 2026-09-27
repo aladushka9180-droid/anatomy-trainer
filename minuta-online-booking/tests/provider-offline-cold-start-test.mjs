@@ -208,6 +208,8 @@ test('cached trust fails closed before synchronization or queue flush can call t
 test('offline status distinguishes a usable snapshot from incomplete cached data', () => {
   const box = vm.createContext({
     canQueueOfflineBooking:() => true,
+    bookingReadConnectionUnavailable:false,
+    navigator:{ onLine:false },
     currentUser:{ id:'provider-1' },
     offlineBookingAccessReady:true,
     offlineBookingInputsReady:true,

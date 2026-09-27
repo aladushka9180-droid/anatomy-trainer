@@ -4,6 +4,7 @@
   // Explicitly audited read-only RPCs. Never infer safety from a name prefix.
   const READ_RPCS = new Set([
     'has_minuta_provider_access', 'get_minuta_workspace', 'get_provider_booking_reviews',
+    'get_minuta_service_public_details_v159', 'get_minuta_provider_automatic_breaks_v158',
     'get_minuta_team_calendar', 'get_minuta_team_calendar_v2', 'get_minuta_team_calendar_v3'
   ]);
   const TRANSIENT_STATUSES = new Set([408, 502, 503, 504, 520]);

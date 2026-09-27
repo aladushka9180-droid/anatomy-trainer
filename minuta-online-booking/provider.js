@@ -57,6 +57,7 @@ const providerAuthStorageKey = `sb-${new URL(window.MINUTA_CONFIG.supabaseUrl).h
 const providerLogoutSignalKey = 'minuta-provider-logout-v1';
 const providerAuthStorage = createProviderAuthStorage(window.localStorage, providerAuthStorageKey);
 let providerSessionTrust = 'none';
+let providerVerifiedSessionExpiresAt = 0;
 let cachedProviderVerification = null;
 let cachedProviderVerificationRetryTimer = null;
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, {
@@ -492,6 +493,7 @@ let lastProviderVerificationAt = 0;
 let synchronizationRetryTimer = null;
 let writesAllowed = false;
 let bookingCreationReady = false;
+let bookingReadConnectionUnavailable = false;
 let connectionWasOffline = false;
 let offlineBookingQueue = [];
 let offlineBookingFlushPromise = null;
@@ -1132,13 +1134,22 @@ function offlineBookingSnapshotFresh() {
   const savedAt = new Date(bookingsSnapshotSavedAt).getTime();
   return Number.isFinite(savedAt) && Date.now() - savedAt <= PROVIDER_CACHE_MAX_AGE;
 }
+function bookingDeferredMode() { return !navigator.onLine || bookingReadConnectionUnavailable; }
 function canQueueOfflineBooking() {
   const sessionCanUseOfflineSnapshot = providerSessionTrust === 'verified' || providerSessionTrust === 'cached';
-  return Boolean(sessionCanUseOfflineSnapshot && offlineBookingAccessReady && currentUser && !navigator.onLine && offlineBookingInputsReady && offlineBookingSnapshotFresh() && ownServices.some(item => item.active));
+  const verifiedOnlineOutage = navigator.onLine && bookingReadConnectionUnavailable && providerSessionTrust === 'verified'
+    && providerVerifiedSessionExpiresAt > Date.now() + 60000;
+  return Boolean(sessionCanUseOfflineSnapshot && offlineBookingAccessReady && currentUser
+    && (!navigator.onLine || verifiedOnlineOutage) && offlineBookingInputsReady
+    && offlineBookingSnapshotFresh() && ownServices.some(item => item.active));
 }
 function offlineBookingStatusText() {
-  if (canQueueOfflineBooking()) return 'Офлайн · можно создавать отложенные записи';
-  if (!currentUser) return 'Нет интернета · войдите после подключения';
+  if (canQueueOfflineBooking()) return bookingReadConnectionUnavailable && navigator.onLine
+    ? 'Сервер недоступен · можно сохранить неподтверждённую запись на устройстве'
+    : 'Офлайн · можно создавать отложенные записи';
+  if (!currentUser) return 'Нет подключения к серверу · войдите после восстановления связи';
+  if (bookingReadConnectionUnavailable && navigator.onLine && providerVerifiedSessionExpiresAt <= Date.now() + 60000)
+    return 'Сеанс нужно подтвердить после восстановления связи · только чтение';
   if (!offlineBookingAccessReady) return offlineBookingInputsReady
     ? 'Офлайн-копия есть, но не подтверждена для записи · только чтение'
     : 'Нет полной офлайн-копии · только чтение';
@@ -1585,7 +1596,7 @@ function requireBookingWrites() {
   if (bookingUsesDemoData()) { notify('Демо-записи доступны только для просмотра'); return false; }
   if ((writesAllowed || bookingCreationReady) && navigator.onLine && currentUser) return true;
   if (canQueueOfflineBooking()) return true;
-  if (!navigator.onLine) notify(offlineBookingStatusText());
+  if (bookingDeferredMode()) notify(offlineBookingStatusText());
   else {
     notify('Проверяем записи и расписание · повторите через несколько секунд');
     synchronizeProvider();
@@ -8826,7 +8837,7 @@ async function loadAutomaticBookingBreaks(dateIso = selectedDate, userId = curre
       automaticBookingBreakSegments.delete(dateIso);
       automaticBookingBreaksRemoteAvailable = false;
     }
-    return { ok:false, missing };
+    return { ok:false, missing, failure:providerCoreReadFailure(result.error) };
   }
   automaticBookingBreakSegments.set(dateIso, Array.isArray(result.data) ? result.data : []);
   automaticBookingBreaksRemoteAvailable = true;
@@ -10779,7 +10790,7 @@ async function loadNewBookingSlots() {
   if (historical) {
     newBookingHistoricalMode = true;
     newBookingTime = preferredTime || '';
-    if (!navigator.onLine) {
+    if (bookingDeferredMode()) {
       holder.innerHTML = '<div class="booking-time-warning"><strong>Для записи в прошлом нужен интернет.</strong><br>Сервер проверит права мастера и отсутствие пересечений.</div>';
     } else {
       renderHistoricalTimeEntry();
@@ -10789,7 +10800,7 @@ async function loadNewBookingSlots() {
     clearFormError('#newBookingError');
     return;
   }
-  if (!navigator.onLine) {
+  if (bookingDeferredMode()) {
     newBookingSlots = offlineCandidateSlots(service, date, duration);
     // An offline booking is a request that the server will validate after the
     // connection returns. Keep an explicitly selected timeline/draft time even
@@ -10985,29 +10996,28 @@ function updateNewBookingSubmitCaption() {
   if (recurrenceHint) recurrenceHint.hidden = occurrenceCount <= 1;
   const recurrence = $('#newBookingRecurrence');
   if (recurrence) recurrence.classList.toggle('is-single', occurrenceCount <= 1);
-  const historicalOffline = newBookingHistoricalMode && !navigator.onLine;
+  const historicalOffline = newBookingHistoricalMode && bookingDeferredMode();
   const historicalMethod = $('#newBookingHistoricalPaymentMethod')?.value || 'cash';
   const historicalAmountValue = $('#newBookingHistoricalAmount')?.value ?? '';
   const historicalAmount = historicalAmountValue === '' ? Number.NaN : Math.round(Number(historicalAmountValue));
   const historicalAmountValid = Number.isInteger(historicalAmount) && historicalAmount >= 0 && historicalAmount <= 1000000;
   const historicalCaption = 'Сохранить';
-  const creationAllowed = navigator.onLine
-    ? Boolean(currentUser && (writesAllowed || bookingCreationReady))
-    : canQueueOfflineBooking();
-  submit.textContent = editingOfflineBookingId ? 'Сохранить исправление' : newBookingHistoricalMode ? historicalCaption : !navigator.onLine && newBookingMode === 'client' ? 'Сохранить до подключения' : newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
+  const creationAllowed = bookingDeferredMode() ? canQueueOfflineBooking()
+    : Boolean(currentUser && (writesAllowed || bookingCreationReady));
+  submit.textContent = editingOfflineBookingId ? 'Сохранить исправление' : newBookingHistoricalMode ? historicalCaption : bookingDeferredMode() && newBookingMode === 'client' ? 'Сохранить до подключения' : newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
   submit.disabled = !newBookingTime || !creationAllowed;
   if (newBookingHistoricalMode && historicalMethod !== 'unpaid' && !historicalAmountValid) submit.disabled = true;
   if (historicalOffline) submit.disabled = true;
   submit.title = historicalOffline
     ? 'Запись в прошлом создаётся только при подключении к интернету'
     : !creationAllowed
-      ? (navigator.onLine ? 'Дождитесь безопасной сверки записей и расписания' : offlineBookingStatusText())
+      ? (bookingDeferredMode() ? offlineBookingStatusText() : 'Дождитесь безопасной сверки записей и расписания')
       : submit.disabled ? 'Сначала выберите время в расписании' : '';
 }
 
 function updateNewBookingConnectivity() {
   if (!$('#newBookingForm')) return;
-  const offline = !navigator.onLine;
+  const offline = bookingDeferredMode();
   const bookingDate = $('#newBookingDate')?.value || '';
   const today = businessTodayIso();
   const historical = bookingDate < today || (bookingDate === today && newBookingHistoricalMode);
@@ -11018,7 +11028,7 @@ function updateNewBookingConnectivity() {
     readiness.hidden = creationAllowed && !offline;
     readiness.dataset.state = creationAllowed ? (offline ? 'offline' : 'ready') : 'checking';
     readiness.textContent = creationAllowed
-      ? 'Офлайн: запрос сохранится на устройстве, а сервер проверит свободное время после подключения.'
+      ? 'Запрос сохранится на устройстве, а сервер проверит свободное время после восстановления связи.'
       : offline
         ? offlineBookingStatusText()
         : 'Проверяем записи и свободное время. Создание станет доступно автоматически.';
@@ -11841,7 +11851,7 @@ async function createNewBooking(event) {
   const intervalWeeks = Math.max(1, Number($('#newBookingInterval')?.value || 1));
   const selectedButtonTime = $('[data-new-booking-time].active')?.dataset.newBookingTime || '';
   newBookingTime = newBookingTime || selectedButtonTime;
-  const latestTime = !navigator.onLine ? ($('#newBookingFlexibleEnd')?.value || '') : '';
+  const latestTime = bookingDeferredMode() ? ($('#newBookingFlexibleEnd')?.value || '') : '';
   const historical = newBookingHistoricalMode || date < businessTodayIso() || (date === businessTodayIso() && newBookingTime && new Date(`${date}T${newBookingTime}:00`) < new Date());
   const historicalPaymentMethod = ['cash','transfer','card','unpaid'].includes($('#newBookingHistoricalPaymentMethod')?.value)
     ? $('#newBookingHistoricalPaymentMethod').value
@@ -11891,7 +11901,7 @@ async function createNewBooking(event) {
     showFormError('#newBookingError', 'В прошлом записи добавляются по одной, чтобы не создать лишние визиты.');
     return;
   }
-  if (historical && !navigator.onLine) {
+  if (historical && bookingDeferredMode()) {
     showFormError('#newBookingError', 'Для записи в прошлом нужен интернет: сервер должен проверить права и пересечения.');
     return;
   }
@@ -11923,7 +11933,7 @@ async function createNewBooking(event) {
   button.textContent = editingOfflineBookingId ? 'Сохраняем…' : block ? 'Занимаем…' : 'Создаём…';
   const note = block ? ($('#newBookingBlockNote')?.value.trim() || '') : $('#newBookingNote').value.trim();
   const unresolvedProviderAttempt = readProviderBookingAttempt(userId);
-  if (unresolvedProviderAttempt && (editingOfflineBookingId || !navigator.onLine || historical || occurrenceCount > 1 || block)) {
+  if (unresolvedProviderAttempt && (editingOfflineBookingId || bookingDeferredMode() || historical || occurrenceCount > 1 || block)) {
     button.disabled = false;
     updateNewBookingSubmitCaption();
     showFormError('#newBookingError', unresolvedProviderAttempt.legacyUncertain
@@ -11942,14 +11952,14 @@ async function createNewBooking(event) {
     clearNewBookingDraft(userId);
     closeBookingSheet();
     renderOfflineBookingQueue();
-    notify(navigator.onLine ? 'Исправление сохранено · проверяем запись на сервере' : 'Исправление сохранено на устройстве · проверим после подключения');
-    if (navigator.onLine) {
+    notify(bookingDeferredMode() ? 'Исправление сохранено на устройстве · проверим после подключения' : 'Исправление сохранено · проверяем запись на сервере');
+    if (!bookingDeferredMode()) {
       await synchronizeProvider();
       if (bookingCreationReady) await flushOfflineBookings();
     }
     return;
   }
-  if (!navigator.onLine) {
+  if (bookingDeferredMode()) {
     if (block || occurrenceCount > 1) {
       button.disabled = false;
       updateNewBookingSubmitCaption();
@@ -14198,8 +14208,14 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     if (tables?.length && tables.every(table => independentTables.has(table)) && writesAllowed && bookingCreationReady) {
       return synchronizeProviderTables(tables, userId, generation);
     }
+    const wasConnectionUnavailable = bookingReadConnectionUnavailable;
+    bookingReadConnectionUnavailable = false;
     offlineBookingAccessReady = false;
     offlineBookingInputsReady = false;
+    if (wasConnectionUnavailable) {
+      applyWriteAvailability();
+      if ($('#newBookingForm')) updateNewBookingConnectivity();
+    }
     const primaryResults = (await Promise.allSettled([
       loadBookings({ silent:true, deferPresentation:true }),
       loadOwnServices({ silent:true }),
@@ -14208,6 +14224,11 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     ])).map(result => result.status === 'fulfilled' ? result.value : { ok:false });
     if (!sessionIsCurrent(userId, generation)) return false;
     const bookingReady = primaryResults.every(result => result?.ok);
+    bookingReadConnectionUnavailable = navigator.onLine && providerCoreReadOutage(primaryResults);
+    if (!bookingReady) {
+      setBookingCreationReady(false);
+      setWritesAllowed(false);
+    }
     const primarySnapshotVerified = primaryResults.every(result => result?.ok && !result?.cached && !result?.skipped);
     const offlineSnapshot = primarySnapshotVerified && navigator.onLine
       ? await saveProviderOfflineSnapshot(userId, generation)
@@ -14231,7 +14252,11 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
       setWritesAllowed(false);
       const cached = primaryResults.filter(result => result?.cached).map(result => result.savedAt).filter(Boolean).sort()[0];
       const cachedText = cached ? `Не все данные обновлены · копия на ${reliability?.savedAtLabel(cached) || 'последнюю синхронизацию'}` : 'Данные не синхронизированы';
-      setSyncState('warning', `${cachedText} · только чтение`);
+      setSyncState('warning', bookingReadConnectionUnavailable
+        ? canQueueOfflineBooking() ? 'Сервер недоступен · неподтверждённую запись можно сохранить на устройстве'
+          : `${offlineBookingStatusText()} · ${cachedText}`
+        : `${cachedText} · только чтение`);
+      if ($('#newBookingForm')) void loadNewBookingSlots();
       scheduleSynchronizationRetry();
       return false;
     }
@@ -14282,6 +14307,7 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     return complete;
   })().catch(async () => {
     if (!sessionIsCurrent(requestedUserId, requestedGeneration)) return false;
+    bookingReadConnectionUnavailable = false;
     setWritesAllowed(false);
     setBookingCreationReady(false);
     if (!navigator.onLine) await hydrateOfflineBookingInputs(requestedUserId, requestedGeneration, null);
@@ -14428,6 +14454,7 @@ async function handleSession(session) {
   const sameUser = session?.user?.id && session.user.id === currentUser?.id;
   if (sameUser && !(accessVerified && providerSessionTrust === 'cached')) {
     currentUser = session.user;
+    if (providerSessionTrust === 'verified') providerVerifiedSessionExpiresAt = Number(session.expires_at || 0) * 1000;
     if (providerSessionTrust === 'verified') {
       if (restoreServiceScheduleNames(currentUser)) void syncServiceScheduleNames();
       void providerFeedbackController.refreshAvailability();
@@ -14454,6 +14481,8 @@ async function handleSession(session) {
   window.MinutaProviderOnboarding?.reset();
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
+  providerVerifiedSessionExpiresAt = 0;
+  bookingReadConnectionUnavailable = false;
   offlineBookingInputsReady = false;
   offlineBookingAccessReady = false;
   clearTimeout(displayPreferencesSaveTimer);
@@ -14510,6 +14539,7 @@ async function handleSession(session) {
   }
   const localSessionOnly = Boolean(currentUser) && accessState !== true;
   providerSessionTrust = !currentUser ? 'none' : localSessionOnly ? 'cached' : 'verified';
+  providerVerifiedSessionExpiresAt = localSessionOnly ? 0 : Number(session?.expires_at || 0) * 1000;
   if (currentUser && !localSessionOnly) void providerFeedbackController.refreshAvailability();
   const completedSocialFlow = window.MinutaSocialAuth?.flow();
   if (currentUser && !localSessionOnly && completedSocialFlow?.mode === 'provider-link') {
@@ -15467,10 +15497,10 @@ async function loadSchedule() {
       syncSlotIntervalOptions();
       renderSchedule();
       renderBookings();
-      return { ok: false, cached: true, savedAt: cached.savedAt };
+      return { ok: false, cached: true, savedAt: cached.savedAt, failure:providerCoreReadFailure(error) };
     }
     $('#weeklySchedule').innerHTML = '<div class="provider-empty"><strong>Расписание пока недоступно</strong><small>Соединение с сервером не установлено. Изменения не выполнялись.</small></div>';
-    return { ok: false };
+    return { ok: false, failure:providerCoreReadFailure(error) };
   }
   scheduleRows = data?.length ? data : defaultScheduleRows(userId);
   await saveProviderCache('schedule', scheduleRows, userId);
@@ -15564,12 +15594,12 @@ async function loadDaysOff() {
     if (cached?.data) {
       daysOff = cached.data;
       renderDaysOff();
-      return { ok: false, cached: true, savedAt: cached.savedAt };
+      return { ok: false, cached: true, savedAt: cached.savedAt, failure:providerCoreReadFailure(error) };
     }
     $('#daysOffList').innerHTML = '<div class="provider-empty compact-empty">Не удалось загрузить исключения.</div>';
     const summary = $('#dateExceptionsSummary');
     if (summary) summary.textContent = 'Не удалось загрузить';
-    return { ok: false };
+    return { ok: false, failure:providerCoreReadFailure(error) };
   }
   daysOff = data || [];
   await saveProviderCache('days-off', daysOff, userId);
@@ -16370,10 +16400,10 @@ async function loadOwnServices(options = {}) {
       ownServices = cached.data.filter(item => item?.name !== SCHEDULE_BLOCK_SERVICE_NAME);
       servicePublicDetailsReady = false;
       renderOwnServices();
-      return { ok: false, cached: true, savedAt: cached.savedAt };
+      return { ok: false, cached: true, savedAt: cached.savedAt, failure:providerCoreReadFailure(error) };
     }
     list.innerHTML = '<div class="provider-empty">Не удалось загрузить услуги.</div>';
-    return { ok: false };
+    return { ok: false, failure:providerCoreReadFailure(error) };
   }
   ownServices = (data || []).filter(item => item?.name !== SCHEDULE_BLOCK_SERVICE_NAME);
   const detailsResult = await db.rpc('get_minuta_service_public_details_v159', { p_service:null });
@@ -16409,6 +16439,16 @@ async function queryAllProviderBookings(userId, selection) {
 
 function shouldTryCompatibleProviderRead(error) {
   return Boolean(error) && !window.MinutaProviderReadFetch.isConnectionError(error);
+}
+function providerCoreReadFailure(error) {
+  if (!error) return 'other';
+  if (Number(error.status) === 401 || Number(error.status) === 403
+    || ['401', '403', '42501', 'PGRST301'].includes(String(error.code || ''))) return 'authorization';
+  return window.MinutaProviderReadFetch.isConnectionError(error) ? 'connection' : 'other';
+}
+function providerCoreReadOutage(results) {
+  const failures = results.filter(result => !result?.ok).map(result => result?.failure || 'other');
+  return failures.includes('connection') && failures.every(failure => failure === 'connection');
 }
 
 async function loadBookings(options = {}) {
@@ -16447,15 +16487,17 @@ async function loadBookings(options = {}) {
     if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok:false, stale:true };
     if (cached?.data) {
       if (!cacheShown) applyCachedBookings(cached);
-      return { ok: false, cached: true, savedAt:cached.savedAt };
+      return { ok: false, cached: true, savedAt:cached.savedAt, failure:providerCoreReadFailure(error) };
     }
     holder.innerHTML = '<div class="provider-empty"><strong>Не удалось загрузить записи</strong><small>Соединение с сервером не установлено. Попробуйте ещё раз.</small></div>';
-    return { ok: false };
+    return { ok: false, failure:providerCoreReadFailure(error) };
   }
   const previousSignature = bookingDataSignature();
   allBookings = data || [];
-  await loadAutomaticBookingBreaks(selectedDate, userId, generation);
+  const automaticBreakResult = await loadAutomaticBookingBreaks(selectedDate, userId, generation);
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
+  if (!automaticBreakResult.ok && !automaticBreakResult.missing)
+    return { ok:false, failure:automaticBreakResult.failure || 'other' };
   if (!options.deferPresentation) await loadRemoteBookingColors(userId, generation);
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   const savedSnapshot = await saveProviderCache('bookings', allBookings, userId);
@@ -18926,6 +18968,7 @@ db.auth.onAuthStateChange((event, session) => {
   }
   if (session?.user?.id && session.user.id === currentUser?.id) {
     currentUser = session.user;
+    if (providerSessionTrust === 'verified') providerVerifiedSessionExpiresAt = Number(session.expires_at || 0) * 1000;
     return;
   }
   setTimeout(() => {
