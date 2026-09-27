@@ -24,13 +24,13 @@ alter table public.inventory_catalog_requests_v181 enable row level security;
 revoke all on public.inventory_catalog_requests_v181 from public,anon,authenticated;
 grant all on public.inventory_catalog_requests_v181 to service_role;
 
-create function public.minuta_inventory_catalog_etag_v181(p_item uuid)
-returns text language sql stable security definer set search_path to '' as $$
-  select md5(jsonb_build_array(item.name,item.sku,item.unit,
-    item.low_stock_threshold,item.active)::text)
-  from public.inventory_items item where item.id=p_item;
+create function public.minuta_inventory_catalog_etag_v181(
+  p_name text,p_sku text,p_unit text,p_low_stock numeric,p_active boolean
+)
+returns text language sql immutable set search_path to '' as $$
+  select md5(jsonb_build_array(p_name,p_sku,p_unit,p_low_stock,p_active)::text);
 $$;
-revoke all on function public.minuta_inventory_catalog_etag_v181(uuid)
+revoke all on function public.minuta_inventory_catalog_etag_v181(text,text,text,numeric,boolean)
   from public,anon,authenticated,service_role;
 
 create or replace function public.get_minuta_inventory_workspace_v181(p_organization uuid)
@@ -43,7 +43,8 @@ begin
       'id',item.id,'name',item.name,'sku',item.sku,'unit',item.unit,
       'low_stock_threshold',item.low_stock_threshold,'active',item.active,
       'updated_at',item.updated_at,
-      'etag',public.minuta_inventory_catalog_etag_v181(item.id)
+      'etag',public.minuta_inventory_catalog_etag_v181(item.name,item.sku,item.unit,
+        item.low_stock_threshold,item.active)
     ) order by item.active desc,item.name,item.id)
     from public.inventory_items item where item.organization_id=p_organization
   ),'[]'::jsonb));
@@ -56,7 +57,7 @@ create or replace function public.save_minuta_inventory_item_draft_v181(
   p_name text,p_sku text,p_unit text,p_low_stock numeric,p_active boolean
 ) returns jsonb language plpgsql security definer set search_path to '' as $$
 declare v_hash text; v_prior public.inventory_catalog_requests_v181%rowtype;
-  v_current_etag text; v_saved jsonb; v_result jsonb;
+  v_current_etag text; v_saved jsonb; v_result jsonb; v_item public.inventory_items%rowtype;
 begin
   perform public.get_minuta_inventory_role(p_organization);
   if p_request_id is null then raise exception using errcode='22023',message='inventory_catalog_request_required'; end if;
@@ -73,13 +74,14 @@ begin
     if v_prior.actor_id is distinct from auth.uid() or v_prior.payload_hash<>v_hash then
       raise exception using errcode='23505',message='inventory_catalog_request_mismatch';
     end if;
-    select public.minuta_inventory_catalog_etag_v181(item.id) into v_current_etag
-      from public.inventory_items item
+    select item.* into v_item from public.inventory_items item
       where item.organization_id=p_organization and item.id=(v_prior.result->>'id')::uuid;
     if not found then
       return jsonb_build_object('saved',false,'reason','inventory_item_deleted',
         'organization_id',p_organization,'id',v_prior.result->>'id');
     end if;
+    v_current_etag:=public.minuta_inventory_catalog_etag_v181(v_item.name,v_item.sku,v_item.unit,
+      v_item.low_stock_threshold,v_item.active);
     if v_current_etag is distinct from v_prior.result->>'etag' then
       return jsonb_build_object('saved',false,'reason','inventory_item_changed_after_save',
         'organization_id',p_organization,'id',v_prior.result->>'id');
@@ -87,20 +89,22 @@ begin
     return v_prior.result;
   end if;
   if p_item is not null then
-    select public.minuta_inventory_catalog_etag_v181(item.id) into v_current_etag
-      from public.inventory_items item
+    select item.* into v_item from public.inventory_items item
       where item.id=p_item and item.organization_id=p_organization for update;
     if not found then raise exception using errcode='P0002',message='inventory_item_not_found'; end if;
+    v_current_etag:=public.minuta_inventory_catalog_etag_v181(v_item.name,v_item.sku,v_item.unit,
+      v_item.low_stock_threshold,v_item.active);
     if v_current_etag is distinct from p_expected_etag then
       raise exception using errcode='40001',message='inventory_catalog_version_conflict';
     end if;
   end if;
   v_saved:=public.upsert_minuta_inventory_item(p_organization,p_item,p_name,p_sku,p_unit,p_low_stock,p_active);
-  select jsonb_build_object('organization_id',p_organization,'id',item.id,
-    'updated_at',item.updated_at,'etag',public.minuta_inventory_catalog_etag_v181(item.id),
-    'saved',true) into v_result
-    from public.inventory_items item
+  select item.* into v_item from public.inventory_items item
     where item.organization_id=p_organization and item.id=(v_saved->>'id')::uuid;
+  v_result:=jsonb_build_object('organization_id',p_organization,'id',v_item.id,
+    'updated_at',v_item.updated_at,
+    'etag',public.minuta_inventory_catalog_etag_v181(v_item.name,v_item.sku,v_item.unit,
+      v_item.low_stock_threshold,v_item.active),'saved',true);
   insert into public.inventory_catalog_requests_v181(organization_id,request_id,actor_id,payload_hash,result)
     values(p_organization,p_request_id,auth.uid(),v_hash,v_result);
   return v_result;

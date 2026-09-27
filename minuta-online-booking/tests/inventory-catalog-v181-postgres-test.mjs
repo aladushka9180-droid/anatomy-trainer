@@ -70,10 +70,10 @@ try {
   await admin.query('begin');
   await query(admin,'update public.inventory_items set name=$1 where id=$2',['Временная правка 1',item]);
   const sameTransactionFirst=(await query(admin,
-    'select updated_at,public.minuta_inventory_catalog_etag_v181(id) etag from public.inventory_items where id=$1',[item]))[0];
+    'select updated_at,public.minuta_inventory_catalog_etag_v181(name,sku,unit,low_stock_threshold,active) etag from public.inventory_items where id=$1',[item]))[0];
   await query(admin,'update public.inventory_items set name=$1 where id=$2',['Временная правка 2',item]);
   const sameTransactionSecond=(await query(admin,
-    'select updated_at,public.minuta_inventory_catalog_etag_v181(id) etag from public.inventory_items where id=$1',[item]))[0];
+    'select updated_at,public.minuta_inventory_catalog_etag_v181(name,sku,unit,low_stock_threshold,active) etag from public.inventory_items where id=$1',[item]))[0];
   assert.equal(sameTransactionFirst.updated_at.getTime(),sameTransactionSecond.updated_at.getTime());
   assert.notEqual(sameTransactionFirst.etag,sameTransactionSecond.etag);
   await admin.query('rollback');
