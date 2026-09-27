@@ -80,6 +80,7 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false, note 
     newBookingOutsideSchedule:false, editingOfflineBookingId:'',
     ownServices:[{ id:serviceId, active:true, duration_minutes:60, name:'Услуга', price_rub:1000 }],
     BOOKING_COLOR_DEFAULT:'sky', navigator:{ onLine:true },
+    bookingDeferredMode:() => false,
     readProviderBookingAttempt:() => null,
     $:selector => nodes.get(selector),
     document:{ body:{ classList } }, requireBookingWrites:() => true,
