@@ -21,6 +21,7 @@
       organizationName:reportOrganization()?.display_name || reportOrganization()?.name || '',
       source:reportDataSource, start:range().start, end:range().end,
       performer:reportPerformerFilter, performerName:reportPerformerName(),
+      view:document.querySelector('#analyticsView')?.dataset.reportTab || 'overview',
       status:reportUsesScopedBookings() ? reportScopedBookingsState.status : 'ready' }),
     getSegments,
     download:(format, privacy) => {
