@@ -65,14 +65,14 @@
       if($('#benefitIssueRecovery'))$('#benefitIssueRecovery').hidden=!active;
       if($('#benefitIssueRecoveryStatus'))$('#benefitIssueRecoveryStatus').textContent=issueStorageFailed
         ? 'Не удалось прочитать сохранённую выдачу. Новая операция заблокирована до восстановления хранилища.'
-        : issueConfirmed ? 'Продукт уже выдан клиенту. Для отдельного абонемента или сертификата нажмите «Новая выдача».'
+        : issueConfirmed ? 'Абонемент или сертификат уже выдан клиенту. Для отдельной выдачи нажмите «Новая выдача».'
           : issueRejected ? 'Выдача отклонена сервером и не появилась в журнале. Нажмите «Новая выдача», чтобы исправить параметры.'
           : 'Выдача ожидает проверки. Проверим прежнюю операцию перед безопасным повтором.';
       if($('#benefitIssueNew')){$('#benefitIssueNew').hidden=!(issueConfirmed||issueRejected);$('#benefitIssueNew').disabled=writing;}
       const button=form.querySelector?.('button[type="submit"]');
       if(button){button.textContent=issueIntent?'Проверить выдачу':'Выдать без продажи';button.disabled=writing||issueStorageFailed;}
       if(active){$('#benefitIssueCreator').hidden=false;$('#benefitIssueCreator').open=true;}
-      for(const [id,key,label] of [['benefitIssueProduct','product_id','Сохранённый продукт'],['benefitIssueClient','client_account_id','Сохранённый клиент']]) {
+      for(const [id,key,label] of [['benefitIssueProduct','product_id','Сохранённый шаблон'],['benefitIssueClient','client_account_id','Сохранённый клиент']]) {
         const field=$(`#${id}`);if(!field)continue;
         if(issueIntent){
           if(![...(field.options||[])].some(option=>option.value===issueIntent[key]))field.innerHTML+=`<option value="${escapeHtml(issueIntent[key])}">${label}</option>`;
@@ -111,7 +111,7 @@
     function scopeMatches(data,id) { return Boolean(data && String(data.organization_id || '')===String(id)); }
     function rubles(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`; }
     function clientName(id) { const item=payload?.clients?.find(row=>row.id===id); return item ? `${item.client_name} · ${item.client_phone}` : 'Клиент'; }
-    function productName(id) { return payload?.products?.find(row=>row.id===id)?.name || 'Продукт'; }
+    function productName(id) { return payload?.products?.find(row=>row.id===id)?.name || 'Абонемент или сертификат'; }
     function serviceName(id) { return payload?.services?.find(row=>row.id===id)?.name || 'Услуга'; }
     function dateLabel(value) { const date=new Date(`${value}T12:00:00`); return Number.isNaN(date.getTime()) ? String(value||'') : date.toLocaleDateString('ru-RU'); }
     function optionsList(items,label) { return items.map(item=>`<option value="${escapeHtml(item.id)}">${escapeHtml(label(item))}</option>`).join(''); }
@@ -207,7 +207,7 @@
       const input=$('#benefitApplyAmount');
       input.disabled=!certificate;
       if(!certificate)input.value='';
-      $('#benefitApplyAmountHint').textContent=certificate?'Оставьте пустым, чтобы списать стоимость записи, но не больше остатка сертификата.':'Для абонемента и пакета сумма не требуется.';
+      $('#benefitApplyAmountHint').textContent=certificate?'Оставьте пустым, чтобы зарезервировать стоимость записи, но не больше остатка сертификата.':'Для абонемента и пакета сумма не требуется.';
     }
     function instrumentSupportsBooking(instrument,booking) {
       if(!instrument||!booking||booking.client_account_id!==instrument.client_account_id||booking.status==='cancelled')return false;
@@ -228,7 +228,7 @@
     function renderBookingOptions() {
       const instrument=payload.instruments.find(item=>item.id===$('#benefitApplyInstrument').value);
       const bookings=instrument?payload.bookings.filter(item=>instrumentSupportsBooking(instrument,item)):[];
-      $('#benefitApplyBooking').innerHTML=selectOptions(bookings,item=>`${dateLabel(item.booking_date)} · ${item.client_name} · ${item.service_name}`,'Нет записей, подходящих по клиенту, услуге и сроку');
+      $('#benefitApplyBooking').innerHTML=selectOptions(bookings,item=>`${dateLabel(item.booking_date)} · ${item.client_name} · ${item.service_name}`,'Нет подходящих записей');
       renderApplyAmount();
     }
     function render() {
@@ -240,21 +240,21 @@
       const today=todayIso();
       $('#benefitsWorkspace').hidden=false; $('#benefitsUnavailable').hidden=true; $('#benefitsEnabled').checked=Boolean(payload.enabled); $('#benefitsEnabled').disabled=payload.current_role!=='owner';
       $('#benefitProductsCount').textContent=String(payload.products.length); $('#benefitInstrumentsCount').textContent=String(payload.instruments.length);
-      $('#benefitProductsList').innerHTML=payload.products.length?payload.products.map(productCard).join(''):empty('Продуктов пока нет','Создайте абонемент, сертификат или пакет услуг.');
-      $('#benefitInstrumentsList').innerHTML=payload.instruments.length?payload.instruments.map(item=>instrumentCard(item,today)).join(''):empty('Ничего не выдано','Продажу оформляют в разделе «Продажи». Ручная выдача без продажи — ниже.');
+      $('#benefitProductsList').innerHTML=payload.products.length?payload.products.map(productCard).join(''):empty('Шаблонов пока нет','Создайте шаблон абонемента, сертификата или пакета услуг.');
+      $('#benefitInstrumentsList').innerHTML=payload.instruments.length?payload.instruments.map(item=>instrumentCard(item,today)).join(''):empty('Нет выданных абонементов и сертификатов','Оформите продажу в разделе «Продажи» или выдайте без продажи ниже.');
       filterInstruments();
-      $('#benefitRedemptionsList').innerHTML=payload.redemptions.length?payload.redemptions.map(redemptionCard).join(''):empty('Списаний пока нет','Примените продукт к записи клиента.');
+      $('#benefitRedemptionsList').innerHTML=payload.redemptions.length?payload.redemptions.map(redemptionCard).join(''):empty('Использований пока нет','Примените выданный абонемент или сертификат к записи клиента.');
       $('#benefitProductCreator').hidden=!payload.enabled; $('#benefitIssueCreator').hidden=!payload.enabled; $('#benefitApplyCreator').hidden=!payload.enabled;
       const activeProducts=payload.products.filter(item=>item.active);
-      $('#benefitIssueProduct').innerHTML=selectOptions(activeProducts,item=>`${item.name} · ${kindLabels[item.kind]||item.kind}`,'Сначала создайте продукт');
+      $('#benefitIssueProduct').innerHTML=selectOptions(activeProducts,item=>`${item.name} · ${kindLabels[item.kind]||item.kind}`,'Сначала создайте шаблон');
       $('#benefitIssueClient').innerHTML=selectOptions(payload.clients,item=>`${item.client_name} · ${item.client_phone}`,'Нет клиентов с записями');
       $('#benefitIssueExpiry').min=today;
       const activeInstruments=payload.instruments.filter(item=>item.status==='active'&&item.expires_on>=today);
-      $('#benefitApplyInstrument').innerHTML=selectOptions(activeInstruments,instrumentOption,'Сначала выдайте продукт клиенту');
+      $('#benefitApplyInstrument').innerHTML=selectOptions(activeInstruments,instrumentOption,'Нет доступных абонементов или сертификатов');
       renderBookingOptions();
       renderProductServices();
       const workflow=$('#benefitWorkflowStatus');
-      if(workflow)workflow.textContent=!payload.enabled?'Система выключена. Включить её может владелец организации.':!payload.products.length?'Система включена. Следующий шаг: создайте первый продукт.':!payload.instruments.length?'Продукты созданы. Оформите продажу или выдайте продукт без продажи.':`Система работает. Выдано клиентам: ${payload.instruments.length}.`;
+      if(workflow)workflow.textContent=!payload.enabled?'Абонементы выключены. Включить их может владелец организации.':!payload.products.length?'Абонементы включены. Создайте первый шаблон.':!payload.instruments.length?'Шаблоны готовы. Оформите продажу в разделе «Продажи». Для выдачи без продажи откройте форму ниже.':`Клиентам выдано: ${payload.instruments.length}.`;
       setBusy(false); applyWriteAvailability();renderIssueRecovery();
     }
 
@@ -308,7 +308,7 @@
         let intent=issueIntent;
         if(intent){
           const checked=await checkIssueIntent(intent,isCurrent);if(!isCurrent())return;
-          if(checked==='confirmed'){notify('Продукт уже выдан клиенту. Повторная выдача не создана.');return;}
+          if(checked==='confirmed'){notify('Абонемент или сертификат уже выдан клиенту. Повторная выдача не создана.');return;}
           if(['22023','42501','P0002','55000','23505'].includes(intent.rejection_code)){
             issueRejected=true;showFormError('#benefitIssueError','Предыдущая выдача отклонена. Для исправления параметров нажмите «Новая выдача».');return;
           }
@@ -325,13 +325,13 @@
         if(error && ['22023','42501','P0002','55000','23505'].includes(error.code)) {
           persistIssueIntent({...intent,rejection_code:error.code});
           const checked=await checkIssueIntent(issueIntent,isCurrent);if(!isCurrent())return;
-          if(checked==='confirmed'){notify('Продукт уже выдан клиенту. Повторная выдача не создана.');return;}
+          if(checked==='confirmed'){notify('Абонемент или сертификат уже выдан клиенту. Повторная выдача не создана.');return;}
           issueRejected=true;showFormError('#benefitIssueError',`${messageFor(error)} Для исправления нажмите «Новая выдача».`);return;
         }
         if(error||!scopeMatches(data,organizationId)||!data?.id||!data?.public_code||!/^\d{4}-\d{2}-\d{2}$/.test(data?.expires_on||'')){
           showFormError('#benefitIssueError','Выдача пока не подтверждена. Сохранена прежняя операция; проверьте её статус перед повтором.');return;
         }
-        issueConfirmed=true;notify('Продукт выдан клиенту');
+        issueConfirmed=true;notify('Абонемент или сертификат выдан клиенту');
       }catch{if(isCurrent())showFormError('#benefitIssueError','Не удалось сверить выдачу. Новая операция заблокирована; повторите проверку позже.');}
       finally{
         const stale=!isCurrent();writing=false;
@@ -344,11 +344,11 @@
       if(event.target.id==='benefitProductForm'){
         event.preventDefault();const kind=$('#benefitProductKind').value,services=selectedServices();const visits=kind==='package'?services.reduce((sum,item)=>sum+item.units,0):Number($('#benefitProductVisits').value||0);
         if(kind==='package'&&!services.length){showFormError('#benefitProductError','Для пакета выберите хотя бы одну услугу и укажите количество посещений.');return;}
-        const ok=await mutate('upsert_minuta_benefit_product',{p_organization:organization.id,p_product:null,p_name:$('#benefitProductName').value.trim(),p_kind:kind,p_sale_price_rub:Math.round(Number($('#benefitProductPrice').value)),p_face_value_rub:kind==='certificate'?Math.round(Number($('#benefitProductValue').value)):0,p_visits_count:kind==='certificate'?0:visits,p_validity_days:Math.round(Number($('#benefitProductValidity').value)),p_services:services},event.submitter,'Продукт сохранён','#benefitProductError');
+        const ok=await mutate('upsert_minuta_benefit_product',{p_organization:organization.id,p_product:null,p_name:$('#benefitProductName').value.trim(),p_kind:kind,p_sale_price_rub:Math.round(Number($('#benefitProductPrice').value)),p_face_value_rub:kind==='certificate'?Math.round(Number($('#benefitProductValue').value)):0,p_visits_count:kind==='certificate'?0:visits,p_validity_days:Math.round(Number($('#benefitProductValidity').value)),p_services:services},event.submitter,'Шаблон сохранён','#benefitProductError');
         if(ok){event.target.reset();renderProductServices();$('#benefitProductCreator').open=false;}return;
       }
       if(event.target.id==='benefitIssueForm'){event.preventDefault();await issueBenefit(event);return;}
-      if(event.target.id==='benefitApplyForm'){event.preventDefault();const ok=await applyBenefit({p_organization:organization.id,p_instrument:$('#benefitApplyInstrument').value,p_booking:$('#benefitApplyBooking').value,p_action:'reserve',p_amount_rub:$('#benefitApplyAmount').value?Math.round(Number($('#benefitApplyAmount').value)):null},event.submitter,'Продукт применён к записи','#benefitApplyError');if(ok)$('#benefitApplyCreator').open=false;}
+      if(event.target.id==='benefitApplyForm'){event.preventDefault();const ok=await applyBenefit({p_organization:organization.id,p_instrument:$('#benefitApplyInstrument').value,p_booking:$('#benefitApplyBooking').value,p_action:'reserve',p_amount_rub:$('#benefitApplyAmount').value?Math.round(Number($('#benefitApplyAmount').value)):null},event.submitter,'Баланс зарезервирован для записи. После завершения визита нажмите «Погасить».','#benefitApplyError');if(ok)$('#benefitApplyCreator').open=false;}
     }
     async function click(event) {
       if(event.target.closest('#benefitIssueNew')){newIssue();return;}
