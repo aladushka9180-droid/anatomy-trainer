@@ -45,6 +45,7 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
     const organizationFeatureRequests=new Map(); let organizationFeatureContext='',organizationFeatureContextRevision=0;
     const organizationController={getActiveOrganization:()=>window.activeOrg};
     const db={},escapeHtml=x=>x,requireWrites=()=>true,applyWriteAvailability=()=>{},notify=x=>window.notices.push(x);
+    const requestProviderConfirmation=async()=>false;
     const sessionIsCurrent=(id,generation)=>currentUser?.id===id&&sessionGeneration===generation;
     async function loadProviderFeatureScript(){window.loads++;if(window.deferred)await new Promise(resolve=>window.release=resolve);if(window.failed)throw Error('fixture network');}
     ${navigation}
@@ -96,6 +97,35 @@ try {
       if (process.env.MINUTA_SCREENSHOT_DIR) await f.page.locator('#resourcesPanel').screenshot({ path:resolve(process.env.MINUTA_SCREENSHOT_DIR, `o05-resources-${width}.png`) });
       await f.page.locator('#resourceLocationLink').click();
       assert.equal(await f.page.locator('[data-section-target="organizationPeopleSection"]').first().getAttribute('aria-current'), 'location');
+      f.check();
+    } finally { await f.page.close(); }
+  });
+  for (const width of [390, 760, 1440]) await test(`${width}px 21 resources keep branch and group visible`, async () => {
+    const f = await fixture(width, 'resourcesPanel'); try {
+      await f.page.waitForFunction(() => window.sets === 1);
+      await f.page.addScriptTag({ path:resolve(root, 'resource-management.js') });
+      await f.page.evaluate(async () => {
+        const locations = Array.from({ length:3 }, (_, index) => ({ id:`branch-${index + 1}`, name:`Филиал ${index + 1}`, active:true }));
+        const groups = [{ id:'group-a', name:'Кабинеты', kind:'room', active:true }];
+        const resources = Array.from({ length:21 }, (_, index) => ({
+          id:`resource-${index + 1}`, name:`Кабинет ${String(index + 1).padStart(2, '0')}`,
+          location_id:locations[index % 3].id, location_name:locations[index % 3].name,
+          group_id:'group-a', group_name:'Кабинеты', kind:'room', active:true
+        }));
+        const controller = window.MinutaResources.createController({
+          db:{ rpc:async () => ({ data:{ organization_id:'org-a', can_manage:true, locations, services:[], groups, resources, requirements:[], audit:[] }, error:null }) },
+          $:selector => document.querySelector(selector), escapeHtml:value => String(value), notify() {}, requireWrites:() => true,
+          getCurrentUser:() => ({ id:'user-a' }), getSessionGeneration:() => 1, sessionIsCurrent:() => true, applyWriteAvailability() {}
+        });
+        await controller.setOrganization({ id:'org-a', can_manage:true });
+      });
+      const rows = f.page.locator('#resourcesList [data-resource-card]');
+      assert.equal(await rows.count(), 21);
+      for (let index = 0; index < 21; index++) {
+        assert.match(await rows.nth(index).locator('summary').innerText(), new RegExp(`Кабинет ${String(index + 1).padStart(2, '0')}[\\s\\S]*Филиал ${(index % 3) + 1} · Кабинеты`));
+      }
+      assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);
+      if (process.env.MINUTA_SCREENSHOT_DIR) await f.page.locator('#resourceObjectsSection').screenshot({ path:resolve(process.env.MINUTA_SCREENSHOT_DIR, `o06-resources-${width}.png`) });
       f.check();
     } finally { await f.page.close(); }
   });
