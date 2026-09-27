@@ -30,6 +30,8 @@ try {
       root.dataset.reportEmpty = 'false';
       root.querySelector('.report-filters').classList.add('is-open');
       root.querySelector('.report-analytics-details').open = true;
+      root.querySelector('#reportFunnel').innerHTML = '<article><div><span>1</span><strong>Все записи</strong><b>53</b><small>Все записи периода</small></div><i></i></article>';
+      root.querySelector('#reportHeatmapLegend').hidden = false;
       root.querySelector('#reportHeatmap').innerHTML = '<span class="report-heatmap-corner"></span>'
         + Array.from({ length:7 }, (_, i) => `<b>${i + 1}</b>`).join('')
         + '<strong>10:00</strong>' + Array.from({ length:7 }, () => '<button class="report-heatmap-cell"><i>5</i></button>').join('');
@@ -136,6 +138,11 @@ try {
     const clippedOverviewLabels = await page.evaluate(() => ['#reportHeroRevenueTrend','#reportWorkload','#reportHeroUtilizationNote','#reportPlanCaption','#reportPlanProgressNote','#reportTrendCoverage']
       .filter(selector => { const label = document.querySelector(selector); return label.scrollWidth > label.clientWidth + 1; }));
     assert.deepEqual(clippedOverviewLabels, [], `${width}px overview explanations stay readable`);
+    const detailLabels = await page.evaluate(() => {
+      const selectors = ['.report-funnel-card .report-section-heading small','.report-funnel strong','.report-funnel small','.report-heatmap-legend span','.report-heatmap-legend small','.report-comparison .report-section-heading small','.report-comparison-list span','.report-comparison-list strong'];
+      return selectors.map(selector => { const label = document.querySelector(selector); return { selector, size:parseFloat(getComputedStyle(label).fontSize), clipped:label.scrollWidth > label.clientWidth + 1 }; });
+    });
+    assert.ok(detailLabels.every(label => label.size >= 12 && !label.clipped), `${width}px expanded analytics labels: ${JSON.stringify(detailLabels)}`);
     if (width <= 760) {
       assert.ok(layout.period >= 44, `${width}px period target`);
     }
@@ -187,7 +194,10 @@ try {
       });
       assert.deepEqual(smallTargets, [], `390px small targets: ${JSON.stringify(smallTargets)}`);
     }
-    if (process.env.MINUTA_SCREENSHOT_DIR) await page.screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/statistics-${width}.png` });
+    if (process.env.MINUTA_SCREENSHOT_DIR) {
+      await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
+      await page.screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/statistics-${width}.png`, fullPage:true });
+    }
     await page.close();
   }
 } finally {
