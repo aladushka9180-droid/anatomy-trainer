@@ -12,7 +12,11 @@
     payroll_bonus: 'Премия', bonus: 'Премия', payroll_deduction: 'Удержание', deduction: 'Удержание',
     payroll_payment: 'Выплата зарплаты', payment: 'Выплата зарплаты', payroll_advance: 'Аванс', advance: 'Аванс',
     payroll_advance_offset: 'Зачёт аванса', advance_offset: 'Зачёт аванса', offset: 'Зачёт аванса',
-    payroll_reversal: 'Отмена операции', reversal: 'Отмена операции'
+    payroll_reversal: 'Отмена операции', reversal: 'Отмена операции',
+    payroll_ledger_enabled_changed: 'Изменение учёта зарплаты', payroll_enabled_changed: 'Изменение учёта зарплаты',
+    payroll_plan_saved: 'Правило начисления сохранено', payroll_period_calculated: 'Расчёт подготовлен',
+    payroll_period_status_changed: 'Статус расчёта изменён', payroll_adjustment_added: 'Корректировка начисления',
+    payroll_financial_transaction_reversed: 'Операция отменена'
   });
 
   function localIso(date) { const copy = new Date(date); copy.setMinutes(copy.getMinutes() - copy.getTimezoneOffset()); return copy.toISOString().slice(0, 10); }
@@ -214,7 +218,7 @@
     function planCard(plan, canManage) {
       const tiers = Array.isArray(plan.tiers) && plan.tiers.length ? plan.tiers.map(tier => `от ${rubles(tier.threshold_rub)} — ${percent(tier.rate_bps)}`).join(' · ') : 'без ступеней';
       const dates = `${dateLabel(plan.effective_from)}${plan.effective_to ? ` — ${dateLabel(plan.effective_to)}` : ''}`;
-      return `<article class="organization-row payroll-plan-row ${plan.active === false ? 'is-muted' : ''}"><div class="organization-row-main"><strong>${escapeHtml(plan.name || 'План мотивации')} · ${escapeHtml(percent(plan.base_rate_bps))}</strong><small>${escapeHtml(memberName(plan.performer_id))} · ${escapeHtml(dates)} · ${escapeHtml(tiers)}</small></div>${canManage ? `<button class="secondary-button payroll-edit-plan" type="button" data-edit-payroll-plan="${escapeHtml(plan.id)}" data-payroll-write>Изменить</button>` : ''}</article>`;
+      return `<article class="organization-row payroll-plan-row ${plan.active === false ? 'is-muted' : ''}"><div class="organization-row-main"><strong>${escapeHtml(plan.name || 'Правило начисления')} · базовая ставка ${escapeHtml(percent(plan.base_rate_bps))}</strong><small>${escapeHtml(memberName(plan.performer_id))} · ${escapeHtml(dates)} · ${escapeHtml(tiers)}</small></div>${canManage ? `<button class="secondary-button payroll-edit-plan" type="button" data-edit-payroll-plan="${escapeHtml(plan.id)}" data-payroll-write>Изменить</button>` : ''}</article>`;
     }
     function periodCard(period, canManage, enabled) {
       const amounts = periodAmounts(period); let status = 'Готов к начислению';
@@ -230,14 +234,29 @@
       const value = minor(item, 'payroll_minor', 'amount_minor') || Math.round(Number(item.payroll_rub || 0) * 100);
       return `<article class="organization-row payroll-item-row"><div class="organization-row-main"><strong>${escapeHtml(item.service_name || 'Услуга')} · ${escapeHtml(moneyMinor(value))}</strong><small>${escapeHtml(memberName(item.performer_id))} · ${escapeHtml(dateLabel(item.booking_date))}${item.rate_bps ? ` · ${escapeHtml(percent(item.rate_bps))}` : ''}</small></div></article>`;
     }
-    function transactionType(item) { return String(item.transaction_type || item.operation_type || item.kind || item.type || 'payroll_operation').toLowerCase(); }
+    function transactionType(item) { return String(item.transaction_type || item.operation_type || item.kind || item.type || item.action || 'payroll_operation').toLowerCase(); }
     function transactionCard(item, canManage) {
-      const type = transactionType(item), amount = minor(item, 'amount_minor', 'gross_minor', 'payroll_minor');
-      const details = [item.performer_id ? memberName(item.performer_id) : '', item.period_id ? periodName(item.period_id) : '', dateTimeLabel(item.occurred_at || item.paid_at || item.created_at), item.reason || item.note].filter(Boolean).join(' · ');
+      const type = transactionType(item), audit = Boolean(item.action), auditDetails = item.details && typeof item.details === 'object' ? item.details : {};
+      const amount = audit && type === 'payroll_adjustment_added'
+        ? (Number.isFinite(Number(auditDetails.amount_minor)) ? Number(auditDetails.amount_minor) : Math.round(Number(auditDetails.amount_rub || 0) * 100))
+        : minor(item, 'amount_minor', 'gross_minor', 'payroll_minor');
+      const performer = item.performer_id || auditDetails.performer_id, period = item.period_id || auditDetails.period_id;
+      const context = type === 'payroll_ledger_enabled_changed' || type === 'payroll_enabled_changed'
+        ? (auditDetails.enabled === true ? 'Учёт включён' : auditDetails.enabled === false ? 'Учёт выключен' : '')
+        : type === 'payroll_period_status_changed'
+          ? (auditDetails.to === 'approved' ? 'Расчёт утверждён' : auditDetails.to === 'draft' ? 'Черновик расчёта' : '')
+          : '';
+      const details = [performer ? memberName(performer) : '', period ? periodName(period) : '', context,
+        dateTimeLabel(item.occurred_at || item.paid_at || item.created_at), item.reason || item.note || auditDetails.reason].filter(Boolean).join(' · ');
       const reversed = Boolean(item.reversed || item.reversed_at || item.reversal_transaction_id || item.reversed_by_transaction_id), isReversal = type.includes('reversal');
-      const canReverse = canManage && payload.enabled && item.id && item.reversible !== false && !reversed && !isReversal;
+      const canReverse = canManage && payload.enabled && !audit && item.id && item.reversible !== false && !reversed && !isReversal;
       const reverse = canReverse ? `<details class="payroll-reverse"><summary>Отменить запись</summary><form data-payroll-reversal-form data-transaction="${escapeHtml(item.id)}"><label>Причина отмены<input name="reason" maxlength="500" required></label><p class="form-error" hidden></p><button class="secondary-button" type="submit" data-payroll-write>Создать обратную операцию</button></form></details>` : '';
-      return `<article class="payroll-history-row ${reversed ? 'is-reversed' : ''}"><span class="payroll-history-kind">${escapeHtml(transactionLabels[type] || 'Операция зарплаты')}</span><div><strong>${escapeHtml(moneyMinor(amount))}</strong><small>${escapeHtml(details || 'Системная запись')}</small></div>${reversed ? '<span class="organization-status">Отменено</span>' : reverse}</article>`;
+      const label = type === 'payroll_adjustment_added' && auditDetails.kind === 'bonus' ? 'Премия добавлена'
+        : type === 'payroll_adjustment_added' && auditDetails.kind === 'deduction' ? 'Удержание добавлено'
+          : transactionLabels[type] || 'Событие учёта зарплаты';
+      const amountText = !audit || type === 'payroll_adjustment_added' && (auditDetails.amount_minor != null || auditDetails.amount_rub != null)
+        ? `<strong>${escapeHtml(moneyMinor(amount))}</strong>` : '';
+      return `<article class="payroll-history-row ${reversed ? 'is-reversed' : ''}"><span class="payroll-history-kind">${escapeHtml(label)}</span><div>${amountText}<small>${escapeHtml(details || 'Системная запись')}</small></div>${reversed ? '<span class="organization-status">Отменено</span>' : reverse}</article>`;
     }
     function summaryTotals() {
       const summary = payload.summary || {};
@@ -250,15 +269,15 @@
       const role = payload.current_role || '', canManage = Boolean(payload.can_manage) && (role === 'owner' || role === 'admin'), owner = role === 'owner', enabled = Boolean(payload.enabled), totals = summaryTotals();
       const accruedPeriods = payload.periods.filter(period => periodAmounts(period).accruedRecorded), debtRows = payload.debts.filter(item => Number(item.debt_minor || 0) > 0), openAdvances = payload.advances.filter(item => !item.reversed && minor(item, 'remaining_minor', 'open_minor', 'amount_remaining_minor') > 0);
       $('#payrollPanel').hidden = false; $('#payrollUnavailable').hidden = true; $('#payrollWorkspace').hidden = false;
-      $('#payrollEnabled').checked = enabled; $('#payrollEnabled').disabled = !owner; $('#payrollEnabledField').title = owner ? '' : 'Включить зарплатный журнал может только владелец';
-      $('#payrollEnabledHint').textContent = enabled ? 'Начисления, выплаты и отмены записываются в неизменяемую историю.' : 'По умолчанию выключено. Начисления и выплаты не создаются.';
+      $('#payrollEnabled').checked = enabled; $('#payrollEnabled').disabled = !owner; $('#payrollEnabledField').title = owner ? '' : 'Включить учёт зарплаты может только владелец';
+      $('#payrollEnabledHint').textContent = `${enabled ? 'Учёт включён.' : 'Учёт выключен.'} Включение само по себе не создаёт начислений и выплат.`;
       $('#payrollAccruedTotal').textContent = moneyMinor(totals.accrued); $('#payrollPaidTotal').textContent = moneyMinor(totals.paid); $('#payrollDebtTotal').textContent = moneyMinor(totals.debt); $('#payrollAdvanceTotal').textContent = moneyMinor(totals.advance);
       $('#payrollPlansCount').textContent = String(payload.plans.filter(item => item.active !== false).length); $('#payrollPeriodsCount').textContent = String(payload.periods.length);
-      $('#payrollPlansList').innerHTML = payload.plans.length ? payload.plans.map(item => planCard(item, canManage)).join('') : empty('Планов пока нет', canManage ? 'Создайте процент для сотрудника.' : 'Владелец ещё не настроил мотивацию.');
+      $('#payrollPlansList').innerHTML = payload.plans.length ? payload.plans.map(item => planCard(item, canManage)).join('') : empty('Правил начисления пока нет', canManage ? 'Укажите процент сотрудника.' : 'Владелец ещё не добавил правила начисления.');
       const emptyPeriodHint = !enabled
         ? payload.plans.length
-          ? 'Сначала включите зарплатный журнал выше. Само включение не создаёт начислений и выплат.'
-          : 'Сначала добавьте план мотивации и включите зарплатный журнал выше. Само включение не создаёт начислений и выплат.'
+          ? 'Учёт зарплаты выключен. Включите его выше, затем подготовьте расчёт.'
+          : 'Учёт зарплаты выключен. Добавьте правило начисления для сотрудника, затем включите учёт.'
         : 'Выберите даты выше и подготовьте расчёт. Начисление и выплата — отдельные действия.';
       $('#payrollPeriodsList').innerHTML = payload.periods.length ? payload.periods.map(item => periodCard(item, canManage, enabled)).join('') : empty('Расчётов пока нет', emptyPeriodHint);
       $('#payrollItemsList').innerHTML = payload.items.length ? payload.items.map(itemCard).join('') : empty('Начислений по визитам нет', 'Детализация появится после подготовки расчёта.');
@@ -279,7 +298,7 @@
 
     function userError(error) {
       const source = `${error?.message || ''} ${error?.details || ''}`;
-      const messages = [['payroll_ledger_disabled','Сначала включите зарплатный журнал.'],['payroll_disabled','Сначала включите зарплатный журнал.'],['payroll_period_not_accrued','Сначала зафиксируйте начисление этого периода.'],['payroll_period_already_accrued','Этот период уже начислен. Повторная запись не создана.'],['payroll_debt_exceeded','Сумма выплаты больше текущего долга.'],['payroll_advance_exceeded','Сумма зачёта больше остатка аванса или долга.'],['payroll_adjustment_kind_invalid','Выберите премию или удержание.'],['payroll_amount_invalid','Введите положительную сумму в целых рублях.'],['payroll_transaction_not_reversible','Эту запись нельзя отменить. История не изменена.'],['payroll_period_overlap','Для этого филиала уже есть пересекающийся расчёт.'],['payroll_plan_overlap','У сотрудника уже действует план на этот период.'],['payroll_plan_missing_for_completed_booking','Для завершённого визита не найден план мотивации.'],['payroll_requires_completed_bookings','В периоде нет завершённых записей для расчёта.'],['owner_required','Это действие доступно только владельцу.'],['organization_access_denied','Недостаточно прав для этой организации.']];
+      const messages = [['payroll_ledger_disabled','Сначала включите учёт зарплаты.'],['payroll_disabled','Сначала включите учёт зарплаты.'],['payroll_period_not_accrued','Сначала зафиксируйте начисление этого периода.'],['payroll_period_already_accrued','Этот период уже начислен. Повторная запись не создана.'],['payroll_debt_exceeded','Сумма выплаты больше текущего долга.'],['payroll_advance_exceeded','Сумма зачёта больше остатка аванса или долга.'],['payroll_adjustment_kind_invalid','Выберите премию или удержание.'],['payroll_amount_invalid','Введите положительную сумму в целых рублях.'],['payroll_transaction_not_reversible','Эту запись нельзя отменить. История не изменена.'],['payroll_period_overlap','Для этого филиала уже есть пересекающийся расчёт.'],['payroll_plan_overlap','У сотрудника уже действует правило начисления на этот период.'],['payroll_plan_missing_for_completed_booking','Для завершённого визита не найдено правило начисления.'],['payroll_requires_completed_bookings','В периоде нет завершённых записей для расчёта.'],['owner_required','Это действие доступно только владельцу.'],['organization_access_denied','Недостаточно прав для этой организации.']];
       return messages.find(([key]) => source.includes(key))?.[1] || 'Операция не записана. Проверьте данные и повторите.';
     }
     async function mutateAdjustment(parameters, button, errorSelector) {
@@ -394,8 +413,8 @@
     async function handleSubmit(event) {
       if (!event.target.closest('#payrollPanel')) return;
       if (event.target.id === 'payrollPlanForm') {
-        event.preventDefault(); let tiers; try { tiers = parseTiers($('#payrollPlanTiers').value); } catch { showError('#payrollPlanError', 'Ступени указываются построчно: сумма — процент.'); return; }
-        const saved = await mutate('upsert_minuta_payroll_plan', { p_organization: organization.id, p_plan: $('#payrollPlanId').value || null, p_performer: $('#payrollPlanPerformer').value, p_name: $('#payrollPlanName').value.trim(), p_effective_from: $('#payrollPlanFrom').value, p_effective_to: $('#payrollPlanTo').value || null, p_base_rate_bps: Math.round(Number($('#payrollPlanRate').value) * 100), p_tiers: tiers }, event.submitter, 'План мотивации сохранён', '#payrollPlanError');
+        event.preventDefault(); let tiers; try { tiers = parseTiers($('#payrollPlanTiers').value); } catch { showError('#payrollPlanError', 'Укажите каждую ступень с новой строки: выручка, ₽ — процент. Например: 100000 — 45.'); return; }
+        const saved = await mutate('upsert_minuta_payroll_plan', { p_organization: organization.id, p_plan: $('#payrollPlanId').value || null, p_performer: $('#payrollPlanPerformer').value, p_name: $('#payrollPlanName').value.trim(), p_effective_from: $('#payrollPlanFrom').value, p_effective_to: $('#payrollPlanTo').value || null, p_base_rate_bps: Math.round(Number($('#payrollPlanRate').value) * 100), p_tiers: tiers }, event.submitter, 'Правило начисления сохранено', '#payrollPlanError');
         if (saved) { event.target.reset(); $('#payrollPlanId').value = ''; disclosureBaselines.delete($('#payrollPlanCreator')); $('#payrollPlanCreator').open = false; } return;
       }
       if (event.target.id === 'payrollPeriodForm') {
@@ -458,7 +477,7 @@
     }
     async function handleChange(event) {
       if (event.target.id === 'payrollStartDate' || event.target.id === 'payrollEndDate') await load();
-      if (event.target.id === 'payrollEnabled') { const desired = event.target.checked, ok = await mutate(RPC.enabled, { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Зарплатный журнал включён' : 'Зарплатный журнал выключен'); if (!ok && payload) event.target.checked = Boolean(payload.enabled); }
+      if (event.target.id === 'payrollEnabled') { const desired = event.target.checked, ok = await mutate(RPC.enabled, { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Учёт зарплаты включён' : 'Учёт зарплаты выключен'); if (!ok && payload) event.target.checked = Boolean(payload.enabled); }
     }
     function bind() { document.addEventListener('submit', handleSubmit); document.addEventListener('click', handleClick); document.addEventListener('change', handleChange); document.addEventListener('toggle', handleDisclosureToggle, true); }
     return { bind, load, reset, setOrganization, get availability() { return availability; }, get payload() { return payload; } };
