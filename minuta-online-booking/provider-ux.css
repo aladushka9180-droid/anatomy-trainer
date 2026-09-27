@@ -915,7 +915,7 @@
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-health-details { padding-top:0; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions { gap:7px; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions > .report-smart-action { min-height:64px; padding:9px 10px; }
-.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions > .report-smart-action:nth-of-type(n+2):not(.is-expanded) { display:none; }
+.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions:not(.is-expanded) > .report-smart-action:nth-of-type(n+2) { display:none; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions.is-expanded > .report-smart-action { display:grid; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-actions-toggle { order:initial; min-height:40px; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-period-details,
