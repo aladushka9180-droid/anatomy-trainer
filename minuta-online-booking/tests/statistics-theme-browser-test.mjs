@@ -183,6 +183,24 @@ try {
       if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.utmOverflow || metrics.testSourceText !== 'Виджет онлайн-записиТестовые переходы с сайта · 3 посещения · не учитываются в показателях' || metrics.rawTestLabels || metrics.comparisonOverflow || metrics.comparisonTracks !== expectedComparisonTracks || metrics.visualGridOverflow || metrics.funnelOverflow || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || metrics.chartLabelOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
         failures.push({ width, theme, ...metrics });
       }
+      if (theme === 'warm') {
+        const expandedActions = await page.evaluate(() => {
+          const holder = document.querySelector('#reportSmartActions');
+          holder.classList.add('is-expanded');
+          const cards = [...holder.querySelectorAll(':scope > .report-smart-action')];
+          const expanded = cards.filter(card => getComputedStyle(card).display !== 'none').length;
+          const overflowing = cards.some(card => card.getBoundingClientRect().right > innerWidth + 2);
+          return { expanded, overflowing };
+        });
+        if (output) await page.locator('#reportSmartActions').screenshot({ path:path.join(output, `smart-actions-expanded-${width}.png`) });
+        const collapsed = await page.evaluate(() => {
+          const holder = document.querySelector('#reportSmartActions');
+          holder.classList.remove('is-expanded');
+          return [...holder.querySelectorAll(':scope > .report-smart-action')].filter(card => getComputedStyle(card).display !== 'none').length;
+        });
+        const actions = { ...expandedActions, collapsed };
+        if (actions.expanded !== 3 || actions.collapsed !== 1 || actions.overflowing) failures.push({ width, theme, actions });
+      }
       if (output && theme === 'warm') await page.screenshot({ path:path.join(output, `statistics-screen-${width}.png`), fullPage:true });
       if (output && theme === 'warm') await page.locator('.report-trend').screenshot({ path:path.join(output, `weekly-revenue-${width}.png`) });
       if (output && theme === 'warm') {

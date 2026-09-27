@@ -23,7 +23,7 @@ assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.report-filter-toggle \{
 assert.match(styles, /\.report-command-metrics article:nth-child\(2\),\.report-command-metrics article:nth-child\(3\) \{ display:none; \}/, 'Вторичные KPI всё ещё занимают первый экран телефона');
 assert.match(styles, /\.report-smart-actions \.report-smart-action:nth-of-type\(n\+2\) \{ display:none; \}/, 'Дополнительные рекомендации не скрыты на телефоне');
 assert.match(styles, /\.report-smart-actions \.report-smart-action \{ display:none;/, 'Рекомендации должны открываться по запросу на телефоне');
-assert.match(providerUx, /#reportSmartActions > \.report-smart-action:nth-of-type\(n\+2\)[\s\S]*display:none/, 'Новый компактный обзор не оставляет первую рекомендацию видимой');
+assert.match(providerUx, /#reportSmartActions:not\(\.is-expanded\) > \.report-smart-action:nth-of-type\(n\+2\)[\s\S]*display:none/, 'Новый компактный обзор не оставляет первую рекомендацию видимой');
 assert.match(providerUx, /#reportSmartActions\.is-expanded > \.report-smart-action \{ display:grid; \}/, 'Новый компактный обзор не раскрывает остальные рекомендации');
 assert.match(styles, /\.report-summary article:first-child \{ display:none; \}/, 'Выручка дублируется в мобильном обзоре');
 assert.match(styles, /\.report-insight \{ display:none!important; \}/, 'Главная рекомендация дублируется в мобильном обзоре');

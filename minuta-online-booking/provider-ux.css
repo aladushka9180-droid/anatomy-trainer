@@ -915,7 +915,7 @@
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-health-details { padding-top:0; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions { gap:7px; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions > .report-smart-action { min-height:64px; padding:9px 10px; }
-.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions > .report-smart-action:nth-of-type(n+2):not(.is-expanded) { display:none; }
+.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions:not(.is-expanded) > .report-smart-action:nth-of-type(n+2) { display:none; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions.is-expanded > .report-smart-action { display:grid; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-actions-toggle { order:initial; min-height:40px; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-period-details,
@@ -1049,8 +1049,10 @@
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions > .report-smart-action:first-of-type { display:grid!important; }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions:not(.is-expanded) > .report-smart-action:nth-of-type(n+2) { display:none!important; }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions .report-smart-action > div > small,
-  .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions .report-smart-action > div > i { display:block; }
+  .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions .report-smart-action > div > i { display:block; font-size:calc(12px + var(--provider-text-step, 0px)); line-height:1.4; }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions .report-smart-action > div > b { display:none; }
+  .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions .report-smart-action > button,
+  .provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportSmartActions > .report-actions-toggle { min-height:44px; font-size:calc(12px + var(--provider-text-step, 0px)); }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-secondary { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-summary[data-report-section="money"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-summary[data-report-section="money"] > .report-summary-primary { grid-column:1/-1; }

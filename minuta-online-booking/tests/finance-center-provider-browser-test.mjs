@@ -9,7 +9,7 @@ const uiSource = readFileSync(resolve(root, 'finance-center.js'), 'utf8');
 const adapterSource = readFileSync(resolve(root, 'finance-center-provider.js'), 'utf8');
 const playwright = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const chromium = playwright.chromium || playwright.default?.chromium;
-const browser = await chromium.launch({ headless:true });
+const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const output = process.env.MINUTA_VISUAL_OUTPUT ? resolve(process.env.MINUTA_VISUAL_OUTPUT) : '';
 if (output) mkdirSync(output, { recursive:true });
 const errors = [];

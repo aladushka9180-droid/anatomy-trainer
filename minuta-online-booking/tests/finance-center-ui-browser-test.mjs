@@ -69,6 +69,7 @@ try {
           if (mode === 'empty') return { available:true, financeEnabled:true, resultReliable:true, summary:{}, movement:[], operations:[], expenseCategories:[], expenseDirectory:fullFixture.expenseDirectory, paymentAccounts:fullFixture.paymentAccounts, permissions:{ canAddExpense:true }, filters:{ periods, masters, selectedPeriod:query.period, selectedMaster:query.masterId } };
           if (mode === 'unprepared') return { available:true, financeEnabled:true, resultReliable:true, summary:{}, movement:[], operations:[], expenseCategories:[], expenseDirectory:prepared ? fullFixture.expenseDirectory : [], paymentAccounts:prepared ? fullFixture.paymentAccounts : [], permissions:{ canAddExpense:true }, filters:{ periods, masters, selectedPeriod:query.period, selectedMaster:query.masterId } };
           if (mode === 'extreme') return { ...structuredClone(fullFixture), summary:{ receivedMinor:0, expenseMinor:999999999999, serviceMinor:1, debtMinor:0, totalVisits:1, paymentKnownVisits:1 }, movement:[{ key:'15', label:'15 сен', fullLabel:'15 сентября', receivedMinor:0, expenseMinor:999999999999 }], expenseCategories:[{ id:'large', name:'Большой подтверждённый расход', amountMinor:999999999999 }], operations:[], nextCursor:'', filters:{ periods, masters, selectedPeriod:query.period, selectedMaster:query.masterId } };
+          if (mode === 'dense') return { ...structuredClone(fullFixture), movement:Array.from({ length:30 }, (_, index) => ({ key:String(index + 1), label:`${index + 1} сен`, fullLabel:`${index + 1} сентября`, receivedMinor:1000000 + index * 1000, expenseMinor:0 })) };
           if (mode === 'disabled') return { available:true, financeEnabled:false, resultReliable:false, periodLabel:'1–15 сентября 2026', summary:{ receivedMinor:3660000, serviceMinor:9300000, debtMinor:1200000, totalVisits:43, paymentKnownVisits:11 }, movement:[{ key:'15', label:'15 сен', fullLabel:'15 сентября', receivedMinor:3660000, expenseMinor:0 }], operations:[], expenseCategories:[], expenseDirectory:[], permissions:{ canAddExpense:true }, filters:{ periods, masters, selectedPeriod:query.period, selectedMaster:query.masterId } };
           if (mode === 'unavailable') return { available:false, financeEnabled:false, resultReliable:false, availabilityMessage:'Финансовый журнал ещё не готов.', summary:{}, permissions:{ canAddExpense:false }, filters:{ periods, masters, selectedPeriod:query.period, selectedMaster:query.masterId } };
           return structuredClone({ ...fullFixture, filters:{ periods, masters, selectedPeriod:query.period, selectedMaster:query.masterId } });
@@ -114,9 +115,42 @@ try {
     assert.equal(geometry.visiblePrimary, 1, `${scenario.width}: exactly one primary action on the screen`);
     assert.ok(geometry.touch.every(height => height >= 44), `${scenario.width}: touch target below 44px`);
     assert.ok(geometry.pageBottom - geometry.operationsBottom >= 92, `${scenario.width}: bottom-nav clearance missing`);
+    if (scenario.width <= 760) {
+      const financeLabels = await page.evaluate(() => ['.finance-center__net small','.finance-center__main-metrics small','.finance-center__trust-metrics small','.finance-center__section-head p','.finance-center__legend span','.finance-center__ring span','.finance-center__operation small']
+        .map(selector => ({ selector, font:parseFloat(getComputedStyle(document.querySelector(selector)).fontSize) })));
+      assert.ok(financeLabels.every(label => label.font >= 12), `${scenario.width}: finance explanations ${JSON.stringify(financeLabels)}`);
+    }
     if (output && scenario.width === 390) await page.screenshot({ path:resolve(output, 'finance-center-390-light-full.png'), fullPage:true });
 
-    if (scenario.width === 390) {
+    if (scenario.width === 390 || scenario.width === 1440) {
+      await page.evaluate(async () => { mode = 'dense'; await controller.reload(); });
+      const denseChart = await page.evaluate(() => {
+        const grid = document.querySelector('.finance-center__chart-grid');
+        const labels = [...grid.querySelectorAll('.finance-center__chart-label')];
+        const points = [...grid.querySelectorAll('.finance-center__chart-point')];
+        return { pointCount:points.length, scrollable:grid.scrollWidth > grid.clientWidth + 1,
+          pageOverflow:document.documentElement.scrollWidth > innerWidth + 1,
+          minWidth:Math.min(...points.map(point => point.getBoundingClientRect().width)),
+          minFont:Math.min(...labels.map(label => parseFloat(getComputedStyle(label).fontSize))),
+          clipped:labels.filter(label => label.scrollWidth > label.clientWidth + 1).length };
+      });
+      assert.equal(denseChart.pointCount, 30);
+      assert.ok(denseChart.scrollable && !denseChart.pageOverflow && denseChart.minWidth >= 44 && denseChart.minFont >= 11 && denseChart.clipped === 0, `${scenario.width}px dense finance axis: ${JSON.stringify(denseChart)}`);
+      await page.locator('[data-finance-chart] button').first().focus();
+      await page.keyboard.press('End');
+      assert.ok(await page.locator('.finance-center__chart-grid').evaluate(grid => grid.scrollLeft > 0), 'keyboard selection scrolls dense chart into view');
+      assert.match(await page.locator('[data-finance-chart-detail]').innerText(), /30 сентября/);
+      if (output) await page.locator('.finance-center__movement').screenshot({ path:resolve(output, `finance-center-${scenario.width}-dense-chart.png`) });
+      const doubledTextAxis = await page.evaluate(() => {
+        document.documentElement.style.fontSize = '32px';
+        const grid = document.querySelector('.finance-center__chart-grid');
+        const labels = [...grid.querySelectorAll('.finance-center__chart-label')];
+        return { minFont:Math.min(...labels.map(label => parseFloat(getComputedStyle(label).fontSize))),
+          clipped:labels.filter(label => label.scrollWidth > label.clientWidth + 1).length };
+      });
+      assert.ok(doubledTextAxis.minFont >= 22 && doubledTextAxis.clipped === 0, `390px doubled root text axis: ${JSON.stringify(doubledTextAxis)}`);
+      await page.evaluate(() => { document.documentElement.style.fontSize = '16px'; });
+      await page.evaluate(async () => { mode = 'full'; await controller.reload(); });
       await page.locator('[data-finance-add]').click();
       await page.locator('[data-finance-category]').selectOption('materials');
       assert.equal(await page.locator('[data-finance-account]').inputValue(), '', 'multiple accounts must not be selected silently');

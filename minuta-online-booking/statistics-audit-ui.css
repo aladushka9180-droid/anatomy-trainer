@@ -48,8 +48,26 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #re
   font-size:calc(12px + var(--provider-text-step,0px));
   line-height:1.4;
 }
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView :is(.report-funnel-card,.report-comparison) .report-section-heading small,
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-funnel :is(strong,small),
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-heatmap-legend :is(span,small),
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-comparison-list :is(span,strong) {
+  font-size:calc(12px + var(--provider-text-step,0px));
+  line-height:1.4;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-health-details :is(summary,small,i,p) {
+  font-size:calc(12px + var(--provider-text-step,0px));
+  line-height:1.4;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-health-details summary { min-height:44px; }
 
 @media (max-width:760px) {
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView :is(.report-filter-toggle small,.report-data-source>span,.report-secondary small,.report-zero-summary strong,.report-reconciliation strong,.report-trend .panel-head small,.report-section-heading small,.report-retention-list span,.report-utilization-values span,.report-utilization-values b,.report-team-rank,.report-team-person em,.report-team-person small,.report-performer-value b,.report-performer-value small,.report-methodology-grid span),
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView :is(.report-period-details,.report-analytics-details,.report-methodology)>summary {
+    font-size:calc(12px + var(--provider-text-step,0px));
+    line-height:1.35;
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-team-person small { overflow:visible; text-overflow:clip; white-space:normal; }
   #analyticsView :is(.report-view-tabs button,.report-periods button,.report-data-source button,.report-mini-toggle button,.report-team-controls button,.report-export-formats button,.report-custom-period button,.report-goals-open,.report-source-list button,#reloadMoneyDashboard) { min-height:44px; font-size:max(12px,1em); }
   #analyticsView .report-performer-filter select,#analyticsView .report-custom-period input { min-height:44px; font-size:14px; }
   #analyticsView .report-period-label,#analyticsView .report-performer-filter>span { font-size:12px; }

@@ -9,7 +9,7 @@ const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const auditStyles = readFileSync(new URL('../statistics-audit-ui.css', import.meta.url), 'utf8');
 const providerUxStyles = readFileSync(new URL('../provider-ux.css', import.meta.url), 'utf8');
 const auditScript = readFileSync(new URL('../statistics-audit-ui.js', import.meta.url), 'utf8');
-const browser = await chromium.launch({ headless:true });
+const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 
 try {
   for (const width of [360, 390, 760, 1440]) {
@@ -30,11 +30,18 @@ try {
       root.dataset.reportEmpty = 'false';
       root.querySelector('.report-filters').classList.add('is-open');
       root.querySelector('.report-analytics-details').open = true;
+      root.querySelector('.report-health-details').open = true;
+      root.querySelector('#reportPaymentRateNote').textContent = '46 из 46 визитов; финансовая оценка доступна от 80%';
+      root.querySelector('#reportSmartActions').innerHTML = '<article class="report-smart-action is-money"><span>!</span><div><strong>Проверить оплаты</strong><small>Подтверждённый долг 5 995 ₽</small><i>Оплачено 96% стоимости услуг</i></div><button type="button">Проверить →</button></article><button class="report-actions-toggle" type="button">Ещё 2</button>';
+      root.querySelector('#reportFunnel').innerHTML = '<article><div><span>1</span><strong>Все записи</strong><b>53</b><small>Все записи периода</small></div><i></i></article>';
+      root.querySelector('#reportHeatmapLegend').hidden = false;
       root.querySelector('#reportHeatmap').innerHTML = '<span class="report-heatmap-corner"></span>'
         + Array.from({ length:7 }, (_, i) => `<b>${i + 1}</b>`).join('')
         + '<strong>10:00</strong>' + Array.from({ length:7 }, () => '<button class="report-heatmap-cell"><i>5</i></button>').join('');
       root.querySelector('#reportRevenueChart').innerHTML = Array.from({ length:5 }, (_, i) => `<button class="report-chart-column"><b>${(i + 1) * 1000} ₽</b><span></span><small>${i + 1}–${i + 7} сент</small></button>`).join('');
       root.querySelector('#reportReconciliation').innerHTML = '<div><small>Сверка визитов</small><strong>Учебные данные</strong></div><span>Сумма подтверждена</span>';
+      root.querySelector('#reportReconciliation').hidden = false;
+      root.querySelector('#reportPerformersList').innerHTML = '<button class="report-performer-row" type="button"><span class="report-team-rank">1</span><div class="report-team-person"><strong>Тестовый сотрудник <em>Лидер</em></strong><small>Четыре завершённых визита</small></div><span class="report-team-bar"><i style="width:60%"></i></span><div class="report-performer-value"><b>4 500 ₽</b><small>За выбранный период</small></div><span class="report-team-arrow">→</span></button>';
       for (const [selector, value] of Object.entries({
         '#reportHeroRevenueTrend':'−47% к прошлому периоду',
         '#reportWorkload':'54.3 ч работы',
@@ -136,8 +143,43 @@ try {
     const clippedOverviewLabels = await page.evaluate(() => ['#reportHeroRevenueTrend','#reportWorkload','#reportHeroUtilizationNote','#reportPlanCaption','#reportPlanProgressNote','#reportTrendCoverage']
       .filter(selector => { const label = document.querySelector(selector); return label.scrollWidth > label.clientWidth + 1; }));
     assert.deepEqual(clippedOverviewLabels, [], `${width}px overview explanations stay readable`);
+    const detailLabels = await page.evaluate(() => {
+      const selectors = ['.report-funnel-card .report-section-heading small','.report-funnel strong','.report-funnel small','.report-heatmap-legend span','.report-heatmap-legend small','.report-comparison .report-section-heading small','.report-comparison-list span','.report-comparison-list strong'];
+      return selectors.map(selector => { const label = document.querySelector(selector); return { selector, size:parseFloat(getComputedStyle(label).fontSize), clipped:label.scrollWidth > label.clientWidth + 1 }; });
+    });
+    assert.ok(detailLabels.every(label => label.size >= 12 && !label.clipped), `${width}px expanded analytics labels: ${JSON.stringify(detailLabels)}`);
+    const healthLabels = await page.evaluate(() => [...document.querySelectorAll('.report-health-details summary,.report-health-factors small,.report-health-factors i,.report-health-details>p')]
+      .map(label => ({ text:label.textContent.trim().slice(0,40), size:parseFloat(getComputedStyle(label).fontSize), clipped:label.scrollWidth > label.clientWidth + 1 })));
+    assert.ok(healthLabels.every(label => label.size >= 12 && !label.clipped), `${width}px health explanation labels: ${JSON.stringify(healthLabels)}`);
+    assert.ok(await page.locator('.report-health-details summary').evaluate(label => label.getBoundingClientRect().height >= 44), `${width}px health explanation target`);
+    if (width <= 760) {
+      const labels = await page.evaluate(() => {
+        const root = document.querySelector('#analyticsView');
+        const selectors = {
+          overview:['.report-data-source>span','.report-filter-toggle small','.report-secondary small','.report-secondary .report-zero-summary strong','.report-reconciliation strong','.report-trend .panel-head small','.report-period-details>summary','.report-analytics-details>summary','.report-methodology>summary','.report-methodology-grid span'],
+          clients:['.report-clients .report-section-heading small','.report-retention .report-section-heading small','.report-retention-list span'],
+          team:['.report-utilization .report-section-heading small','.report-utilization-values span','.report-performers .report-section-heading small','.report-team-rank','.report-team-person em','.report-team-person small','.report-performer-value b','.report-performer-value small']
+        };
+        const result = [];
+        for (const [tab, items] of Object.entries(selectors)) {
+          root.dataset.reportTab = tab;
+          for (const selector of items) {
+            const label = root.querySelector(selector);
+            if (!label) throw new Error(`Missing S05 label: ${selector}`);
+            result.push({ selector, size:parseFloat(getComputedStyle(label).fontSize), clipped:label.getClientRects().length > 0 && label.scrollWidth > label.clientWidth + 1 });
+          }
+          if (document.documentElement.scrollWidth > innerWidth + 1) result.push({ selector:`${tab} page overflow`, size:0, clipped:true });
+        }
+        root.dataset.reportTab = 'overview';
+        return result;
+      });
+      assert.ok(labels.every(label => label.size >= 12 && !label.clipped), `${width}px remaining report labels: ${JSON.stringify(labels)}`);
+    }
     if (width <= 760) {
       assert.ok(layout.period >= 44, `${width}px period target`);
+      const smartActions = await page.evaluate(() => [...document.querySelectorAll('#reportSmartActions small,#reportSmartActions i,#reportSmartActions button')]
+        .map(label => ({ text:label.textContent.trim(), button:label.tagName === 'BUTTON', size:parseFloat(getComputedStyle(label).fontSize), height:label.getBoundingClientRect().height, clipped:label.scrollWidth > label.clientWidth + 1 })));
+      assert.ok(smartActions.every(label => label.size >= 12 && !label.clipped && (!label.button || label.height >= 44)), `${width}px smart-action labels and targets: ${JSON.stringify(smartActions)}`);
     }
     if (width <= 390) {
       const clippedChartValues = await page.evaluate(() => [...document.querySelectorAll('.report-chart-column>b')].filter(label => label.scrollWidth > label.clientWidth + 1).map(label => label.textContent.trim()));
@@ -187,7 +229,17 @@ try {
       });
       assert.deepEqual(smallTargets, [], `390px small targets: ${JSON.stringify(smallTargets)}`);
     }
-    if (process.env.MINUTA_SCREENSHOT_DIR) await page.screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/statistics-${width}.png` });
+    if (process.env.MINUTA_SCREENSHOT_DIR) {
+      await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
+      await page.screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/statistics-${width}.png`, fullPage:true });
+      await page.locator('.report-command-center').screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/health-${width}.png` });
+      await page.locator('#reportSmartActions').screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/smart-actions-${width}.png` });
+      await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'clients'; });
+      await page.locator('.report-business-grid').screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/clients-${width}.png` });
+      await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'team'; });
+      await page.locator('.report-business-grid').screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/team-${width}.png` });
+      await page.locator('#reportPerformers').screenshot({ path:`${process.env.MINUTA_SCREENSHOT_DIR}/performers-${width}.png` });
+    }
     await page.close();
   }
 } finally {
