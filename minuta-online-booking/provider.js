@@ -13448,6 +13448,9 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
       payment:`Получено ${money(received)}${debt ? ` · Долг ${money(debt)}` : ''}${item.is_imported_history ? ' · Из импортированной истории' : ''}`};
   })});
   if (clientChanged) activateClientProfileJump('history', { scroll:false });
+  window.PrimeTimeClientProfileCard?.render({client,visits,
+    scope:`${currentUser?.id || ''}:${activeClientOrganizationId || ''}`,
+    outcome:bookingOutcome,status:bookingStatus,value:bookingCalculatedValue,money,serviceName});
 }
 
 async function loadClientNotes() {

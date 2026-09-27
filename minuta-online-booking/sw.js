@@ -71,6 +71,8 @@ const ASSETS = [
 const OPTIONAL_ASSETS = [
   './client-loyalty-frames.css?v=1',
   './client-loyalty-frames.js?v=1',
+  './client-profile-card.css?v=1',
+  './client-profile-card.js?v=1',
   './assets/loyalty/frames-v1.png',
   './assets/loyalty/frame-100-v1.png',
   './booking-detail-card.css?v=2',
