@@ -88,12 +88,17 @@ try {
         id:item,etag:'0123456789abcdef0123456789abcdef'}})});
     const service=await api.refreshServiceVersion({userId:user,organizationId:org,
       entityId:item,isCurrent:current,rpc:async(name,params)=>({data:{organization_id:params.p_organization,
-        id:params.p_service,etag:'fedcba9876543210fedcba9876543210'}})});
+        id:params.p_service,etag:'fedcba9876543210fedcba9876543210',
+        name:'Массаж',duration_minutes:60,price_rub:2500,active:true}})});
     return {inventory,wrongScope,service,storedInventory:await api.readVersion(user,org,'inventory',item),
-      storedService:await api.readVersion(user,org,'service',item)};
+      storedService:await api.readVersion(user,org,'service',item),
+      serviceSnapshot:await api.readVersionSnapshot(user,org,'service',item),
+      inventorySnapshot:await api.readVersionSnapshot(user,org,'inventory',item)};
   },{user,org,item});
   assert.deepEqual(captured,{inventory:1,wrongScope:null,service:'fedcba9876543210fedcba9876543210',
-    storedInventory:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',storedService:'fedcba9876543210fedcba9876543210'});
+    storedInventory:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',storedService:'fedcba9876543210fedcba9876543210',
+    serviceSnapshot:{version:'fedcba9876543210fedcba9876543210',
+      fields:{name:'Массаж',durationMinutes:60,priceRub:2500,active:true}},inventorySnapshot:null});
   const scopeGuard=await page.evaluate(async ({user,org,item,requestId})=>{
     const api=window.MinutaOfflineCatalogDrafts;
     let calls=0,duplicate=false;

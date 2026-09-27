@@ -27,7 +27,8 @@
     form.append(wrapper);
     return input;
   }
-  function mount({ root,userId,organizationId,catalog=[],drafts,rpc,isCurrent }) {
+  function mount({ root,userId,organizationId,catalog=[],drafts,rpc,isCurrent,
+    canSend=()=>true,onSelectExisting=null }) {
     if (!root || !drafts || typeof isCurrent!=='function') throw new Error('catalog_panel_context_invalid');
     const own=()=>isCurrent(userId,organizationId);
     const rows=catalog.filter(item=>item?.organizationId===organizationId
@@ -49,11 +50,13 @@
     const active=element('input',null,{ type:'checkbox',name:'active' });
     active.checked=true;
     const activeLabel=element('label','Активно'); activeLabel.prepend(active); form.append(activeLabel);
-    const save=element('button','Сохранить на этом устройстве',{ type:'submit' }); form.append(save);
+    const save=element('button','Сохранить на этом устройстве',
+      { type:'submit',class:'primary' }); form.append(save);
     const message=element('p',null,{ role:'status','aria-live':'polite' });
     const list=element('div',null,{ class:'offline-catalog-panel-list' });
     panel.append(form,message,list);
     root.append(panel);
+    let selectedSnapshot=null;
     function refreshTarget() {
       target.replaceChildren(element('option','Новый элемент',{ value:'' }));
       for (const item of rows.filter(item=>item.kind===kind.value))
@@ -61,17 +64,20 @@
       refreshFields();
     }
     function refreshFields() {
+      selectedSnapshot=null;
       const item=rows.find(row=>row.kind===kind.value && row.id===target.value);
-      name.value=item?.name || '';
-      const values=item?.fields || {};
+      applyValues({name:item?.name || '',...(item?.fields || {})});
+      for (const input of [duration,price]) input.parentElement.hidden=kind.value!=='service';
+      for (const input of [sku,unit,lowStock]) input.parentElement.hidden=kind.value!=='inventory';
+    }
+    function applyValues(values) {
+      name.value=values.name || '';
       duration.value=values.durationMinutes ?? 60;
       price.value=values.priceRub ?? 0;
       sku.value=values.sku ?? '';
       unit.value=values.unit ?? 'piece';
       lowStock.value=values.lowStock ?? 0;
       active.checked=values.active ?? true;
-      for (const input of [duration,price]) input.parentElement.hidden=kind.value!=='service';
-      for (const input of [sku,unit,lowStock]) input.parentElement.hidden=kind.value!=='inventory';
     }
     async function render() {
       if (!own()) { panel.remove(); return; }
@@ -85,10 +91,11 @@
         card.append(element('p',statuses[item.status] || 'Требуется проверка'));
         if (item.status==='conflict') card.append(element('p','Серверные данные изменились. Этот черновик не применён.'));
         if (item.status==='local' || item.status==='checking') {
-          const send=element('button','Проверить и отправить',{ type:'button' });
-          send.disabled=!navigator.onLine || typeof rpc!=='function';
+          const send=element('button','Проверить и отправить',
+            { type:'button',class:'secondary-button compact-button' });
+          send.disabled=!navigator.onLine || typeof rpc!=='function' || !canSend();
           send.addEventListener('click',async()=>{
-            if (!own()) return;
+            if (!own() || !canSend()) return;
             send.disabled=true; message.textContent='Проверяем черновик на сервере…';
             try {
               const outcome=await drafts.flushOne({ userId,organizationId,requestId:item.requestId,rpc,isCurrent });
@@ -103,15 +110,37 @@
       }
     }
     kind.addEventListener('change',refreshTarget);
-    target.addEventListener('change',refreshFields);
+    target.addEventListener('change',async()=>{
+      refreshFields();
+      if (!target.value || !own()) return;
+      const selectedKind=kind.value, selectedId=target.value;
+      save.disabled=true;
+      message.textContent='Проверяем актуальную версию…';
+      try {
+        let snapshot=null;
+        if (navigator.onLine && typeof onSelectExisting==='function')
+          snapshot=await onSelectExisting(selectedKind,selectedId);
+        if (!snapshot) snapshot=await drafts.readVersionSnapshot(userId,organizationId,selectedKind,selectedId);
+        if (!own() || kind.value!==selectedKind || target.value!==selectedId) return;
+        selectedSnapshot=snapshot;
+        if (snapshot) applyValues(snapshot.fields);
+        message.textContent=snapshot ? 'Сохранённые поля загружены. При отправке сервер проверит изменения.'
+          : 'Версия и поля недоступны. Изменение существующего элемента пока нельзя сохранить.';
+      } catch {
+        if (own()) message.textContent='Версия и поля недоступны. Изменение существующего элемента пока нельзя сохранить.';
+      } finally { save.disabled=false; }
+    });
     form.addEventListener('submit',async event=>{
       event.preventDefault();
       if (!own()) return;
       save.disabled=true; message.textContent='Сохраняем на этом устройстве…';
       try {
         const entityId=target.value || null;
-        const expectedVersion=entityId
-          ? await drafts.readVersion(userId,organizationId,kind.value,entityId) : null;
+        const currentSnapshot=entityId
+          ? await drafts.readVersionSnapshot(userId,organizationId,kind.value,entityId) : null;
+        const expectedVersion=entityId && selectedSnapshot && currentSnapshot
+          && selectedSnapshot.version===currentSnapshot.version
+          ? currentSnapshot.version : null;
         if (entityId && !expectedVersion) throw new Error('catalog_version_missing');
         const values=kind.value==='service'
           ? { name:name.value,durationMinutes:Number(duration.value),priceRub:Number(price.value),active:active.checked }

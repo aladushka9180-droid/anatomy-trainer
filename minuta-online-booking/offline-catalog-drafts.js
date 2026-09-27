@@ -86,12 +86,12 @@
     if (!confirmed || confirmed.revision !== draft.revision) throw new Error('catalog_storage_unconfirmed');
     return confirmed;
   }
-  async function rememberVersion({ userId,organizationId,kind,entityId,version }) {
+  async function rememberVersion({ userId,organizationId,kind,entityId,version,values=null }) {
     requireStore();
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId), target=requireId(entityId);
     if (!validVersion(kind,target,version)) throw new Error('catalog_version_invalid');
     const record={ schema:1,userId:scopedUser,organizationId:scopedOrg,kind,entityId:target,
-      version,savedAt:new Date().toISOString() };
+      version,fields:values ? fields(kind,values) : null,savedAt:new Date().toISOString() };
     await store.put(versionKey(scopedUser,scopedOrg,kind,target),record);
     const confirmed=await readVersion(scopedUser,scopedOrg,kind,target);
     if (confirmed!==version) throw new Error('catalog_storage_unconfirmed');
@@ -105,6 +105,16 @@
     return record?.schema===1 && record.userId===scopedUser && record.organizationId===scopedOrg
       && record.kind===kind && record.entityId===target && validVersion(kind,target,record.version)
       ? record.version : null;
+  }
+  async function readVersionSnapshot(userId,organizationId,kind,entityId) {
+    requireStore();
+    const scopedUser=requireId(userId), scopedOrg=requireId(organizationId), target=requireId(entityId);
+    const saved=await store.get(versionKey(scopedUser,scopedOrg,kind,target));
+    const record=saved?.data;
+    if (record?.schema!==1 || record.userId!==scopedUser || record.organizationId!==scopedOrg
+      || record.kind!==kind || record.entityId!==target || !validVersion(kind,target,record.version)) return null;
+    try { return { version:record.version,fields:fields(kind,record.fields) }; }
+    catch { return null; }
   }
   async function captureInventoryVersions({ userId,organizationId,workspace,isCurrent }) {
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId);
@@ -131,8 +141,11 @@
     const data=response?.data;
     if (data?.organization_id!==scopedOrg || String(data?.id || '').toLowerCase()!==target
       || !validVersion('service',target,data.etag)) return null;
+    let values;
+    try { values=fields('service',{name:data.name,durationMinutes:data.duration_minutes,
+      priceRub:data.price_rub,active:data.active}); } catch { return null; }
     await rememberVersion({userId:scopedUser,organizationId:scopedOrg,kind:'service',
-      entityId:target,version:data.etag});
+      entityId:target,version:data.etag,values});
     return data.etag;
   }
   async function queue({ userId,organizationId,kind,entityId=null,expectedVersion=null,values }) {
@@ -207,6 +220,6 @@
     await store.removePrefix(`${VERSION_ROOT}${scopedUser}:`);
   }
 
-  window.MinutaOfflineCatalogDrafts={ queue,read,list,rememberVersion,readVersion,
+  window.MinutaOfflineCatalogDrafts={ queue,read,list,rememberVersion,readVersion,readVersionSnapshot,
     captureInventoryVersions,refreshServiceVersion,flushOne,remove,clearUser };
 })();

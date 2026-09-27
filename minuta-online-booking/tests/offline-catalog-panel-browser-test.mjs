@@ -6,17 +6,23 @@ import { pathToFileURL } from 'node:url';
 const root=new URL('../',import.meta.url);
 const scripts=['reliability.js','offline-catalog-drafts.js','offline-catalog-panel.js'];
 const source=Object.fromEntries(scripts.map(name=>['/'+name,readFileSync(new URL(name,root),'utf8')]));
+const css=readFileSync(new URL('offline-catalog-panel.css',root),'utf8');
+const providerHtml=readFileSync(new URL('provider.html',root),'utf8');
+const worker=readFileSync(new URL('sw.js',root),'utf8');
+for(const name of ['offline-catalog-drafts.js','offline-catalog-panel.js','offline-catalog-panel.css']){
+  assert.match(providerHtml,new RegExp(name.replaceAll('.','\\.')));
+  assert.match(worker,new RegExp(name.replaceAll('.','\\.')));
+}
+assert.match(providerHtml,/id="offlineCatalogDrafts"/);
 const server=createServer((request,response)=>{
   if(request.url==='/'){
     response.writeHead(200,{'content-type':'text/html; charset=utf-8'});
-    response.end(`<!doctype html><html lang="ru"><meta name="viewport" content="width=device-width, initial-scale=1"><style>
-      body{font:16px Arial,sans-serif;max-width:760px;margin:20px auto;padding:0 16px}
-      .offline-catalog-panel-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px}
-      label{display:grid;gap:4px}input,select,button{font:inherit;max-width:100%;box-sizing:border-box;padding:8px}
-      .offline-catalog-panel-item{border:1px solid #ccc;border-radius:8px;padding:12px;margin:12px 0}
-      [hidden]{display:none!important}
-    </style><main id="root"></main>${scripts.map(name=>`<script src="/${name}"></script>`).join('')}</html>`);
+    response.end(`<!doctype html><html lang="ru"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/offline-catalog-panel.css"><style>body{font:16px Arial,sans-serif;max-width:760px;margin:20px auto;padding:0 16px}input,select,button{font:inherit;padding:8px}</style><main id="root"></main>${scripts.map(name=>`<script src="/${name}"></script>`).join('')}</html>`);
     return;
+  }
+  if(request.url==='/offline-catalog-panel.css'){
+    response.writeHead(200,{'content-type':'text/css; charset=utf-8'});
+    response.end(css);return;
   }
   if(source[request.url]){
     response.writeHead(200,{'content-type':'text/javascript; charset=utf-8'});
@@ -56,7 +62,13 @@ try {
   assert.equal((await page.evaluate(({user,org})=>window.MinutaOfflineCatalogDrafts.list(user,org),{user,org})).drafts.length,0);
   await page.evaluate(({user,org,service})=>window.MinutaOfflineCatalogDrafts.rememberVersion({
     userId:user,organizationId:org,kind:'service',entityId:service,
-    version:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}),{user,org,service});
+    version:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    values:{name:'Массаж обновлённый',durationMinutes:70,priceRub:3000,active:true}}),{user,org,service});
+  await page.getByLabel('Действие').selectOption('');
+  await page.getByLabel('Действие').selectOption(service);
+  await page.getByRole('status').getByText('Сохранённые поля загружены. При отправке сервер проверит изменения.').waitFor();
+  assert.equal(await page.getByLabel('Название').inputValue(),'Массаж обновлённый');
+  assert.equal(await page.getByLabel('Цена, ₽').inputValue(),'3000');
   await page.getByRole('button',{name:'Сохранить на этом устройстве'}).click();
   await page.getByText('На этом устройстве',{exact:true}).waitFor();
   let saved=await page.evaluate(({user,org})=>window.MinutaOfflineCatalogDrafts.list(user,org),{user,org});
@@ -77,6 +89,29 @@ try {
   await page.getByText('Подтверждено сервером',{exact:true}).waitFor();
   saved=await page.evaluate(({user,org})=>window.MinutaOfflineCatalogDrafts.list(user,org),{user,org});
   assert.equal(saved.drafts[0].status,'applied');
+  await context.setOffline(true);
+  await page.getByLabel('Действие').selectOption('');
+  await page.getByLabel('Название').fill('Новая услуга без сети');
+  await page.getByRole('button',{name:'Сохранить на этом устройстве'}).click();
+  const newCard=page.locator('.offline-catalog-panel-item').filter({hasText:'Новая услуга без сети'});
+  await newCard.getByText('На этом устройстве',{exact:true}).waitFor();
+  assert.equal(await newCard.getByRole('button',{name:'Проверить и отправить'}).isDisabled(),true);
+  await context.setOffline(false);
+  await page.evaluate(({user,org,service})=>{
+    window.testPanel.dispose();
+    window.testPanel=window.MinutaOfflineCatalogPanel.mount({
+      root:document.querySelector('#root'),userId:user,organizationId:org,
+      catalog:[{kind:'service',id:service,organizationId:org,name:'Массаж'}],
+      drafts:window.MinutaOfflineCatalogDrafts,
+      rpc:async()=>({data:{saved:false,reason:'service_catalog_version_conflict'}}),
+      isCurrent:()=>window.testCurrent
+    });
+  },{user,org,service});
+  const conflictCard=page.locator('.offline-catalog-panel-item').filter({hasText:'Новая услуга без сети'});
+  await conflictCard.getByRole('button',{name:'Проверить и отправить'}).click();
+  await conflictCard.getByText('Конфликт — проверьте актуальные данные').waitFor();
+  saved=await page.evaluate(({user,org})=>window.MinutaOfflineCatalogDrafts.list(user,org),{user,org});
+  assert.equal(saved.drafts.find(item=>item.fields.name==='Новая услуга без сети').status,'conflict');
   for(const width of [390,760,1440]){
     await page.setViewportSize({width,height:850});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
@@ -87,7 +122,7 @@ try {
     await window.testPanel.refresh();
   });
   assert.equal(await page.locator('.offline-catalog-panel').count(),0);
-  console.log('offline catalog panel: version gate, local persistence, explicit server confirmation, 390/760/1440 PASS');
+  console.log('offline catalog panel: version gate, offline persistence, confirmation/conflict, 390/760/1440 PASS');
 } finally {
   await browser.close();await new Promise(resolve=>server.close(resolve));
 }

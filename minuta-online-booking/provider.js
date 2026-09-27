@@ -341,6 +341,9 @@ const PER_MINUTE_BOOKING_MAX = 480;
 const BOOKING_RENDER_PAGE_SIZE = 100;
 const CLIENT_RENDER_PAGE_SIZE = 80;
 let currentUser = null;
+let offlineCatalogPanel = null;
+let offlineCatalogPanelScope = '';
+let offlineCatalogPanelCatalogKey = '';
 let providerMessagesController = null;
 let providerMessagesOrganizationId = '';
 let providerLoginPhone = '';
@@ -1556,6 +1559,7 @@ function applyWriteAvailability() {
 function setWritesAllowed(value) {
   writesAllowed = Boolean(value);
   applyWriteAvailability();
+  if (offlineCatalogPanel) void offlineCatalogPanel.refresh().catch(() => {});
   if ($('#newBookingForm')) updateNewBookingConnectivity();
 }
 function setBookingCreationReady(value) {
@@ -14321,7 +14325,8 @@ async function refreshAfterWrite() {
   return synchronizeProvider();
 }
 
-async function clearProviderDeviceData(userId, { preserveOfflineBookings = false } = {}) {
+async function clearProviderDeviceData(userId, { preserveOfflineBookings = false,
+  preserveOfflineCatalog = preserveOfflineBookings } = {}) {
   if (!userId) return;
   try { await reliability?.removePrefix(`provider:${userId}:`); } catch {}
   if (!preserveOfflineBookings) {
@@ -14329,6 +14334,9 @@ async function clearProviderDeviceData(userId, { preserveOfflineBookings = false
     try { await reliability?.remove?.(offlineBookingQueueKey(userId)); } catch {}
     clearProviderBookingAttempt('', userId);
     clearNewBookingDraft(userId);
+  }
+  if (!preserveOfflineCatalog) {
+    try { await window.MinutaOfflineCatalogDrafts?.clearUser(userId); } catch {}
   }
   try {
     Object.keys(localStorage).forEach(key => {
@@ -14484,6 +14492,7 @@ async function handleSession(session) {
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
+  renderOfflineCatalogDrafts();
   const accessState = !currentUser ? false : cachedOnly ? null : accessVerified ? true : navigator.onLine ? await providerAccessAllowed(currentUser.id) : null;
   if (currentUser && accessState === false) {
     providerSessionTrust = 'none';
@@ -16182,6 +16191,7 @@ async function movePortfolioItem(id, direction) {
 function renderOwnServices() {
   const list = $('#serviceManageList');
   refreshSettingsQuickStart();
+  renderOfflineCatalogDrafts();
   $('#servicesCount').textContent = String(ownServices.length);
   if ($('#servicesBadge')) $('#servicesBadge').textContent = String(ownServices.length);
   if (!ownServices.length) {
@@ -16194,6 +16204,51 @@ function renderOwnServices() {
     const meta = Number(item.duration_minutes) === 1 ? `Поминутно · ${money(item.price_rub)}/мин · обычно ${serviceDefaultDuration(item.id)} мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`;
     return `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${meta}${cardReady ? ' · Карточка заполнена' : ''}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`;
   }).join('');
+}
+
+function renderOfflineCatalogDrafts() {
+  const root = $('#offlineCatalogDrafts');
+  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  const userId = currentUser?.id || '';
+  const api = window.MinutaOfflineCatalogDrafts;
+  const panelApi = window.MinutaOfflineCatalogPanel;
+  if (!root || !userId || !organizationId || !api || !panelApi) {
+    offlineCatalogPanel?.dispose();
+    offlineCatalogPanel = null;
+    offlineCatalogPanelScope = '';
+    offlineCatalogPanelCatalogKey = '';
+    if (root) root.hidden = true;
+    return;
+  }
+  const catalog = ownServices.map(item => ({
+    kind:'service',id:item.id,organizationId,name:item.name,
+    fields:{ durationMinutes:Number(item.duration_minutes),priceRub:Number(item.price_rub),active:Boolean(item.active) }
+  }));
+  const catalogKey = JSON.stringify(catalog);
+  const generation = sessionGeneration;
+  const scope = `${userId}:${organizationId}:${generation}`;
+  if (offlineCatalogPanel && offlineCatalogPanelScope === scope
+    && offlineCatalogPanelCatalogKey === catalogKey) return;
+  offlineCatalogPanel?.dispose();
+  root.hidden = false;
+  const isCurrent = (expectedUser,expectedOrg) => sessionIsCurrent(expectedUser,generation)
+    && currentUser?.id === expectedUser && activeClientOrganizationId === expectedOrg;
+  const canSend = () => providerSessionTrust === 'verified' && writesAllowed && navigator.onLine;
+  offlineCatalogPanel = panelApi.mount({ root,userId,organizationId,catalog,drafts:api,
+    isCurrent,canSend,
+    rpc:async(name,args) => {
+      if (!canSend() || !isCurrent(userId,organizationId)) throw new Error('catalog_session_unverified');
+      return db.rpc(name,args);
+    },
+    onSelectExisting:async(kind,entityId) => {
+      if (kind !== 'service' || !canSend()) return null;
+      const version=await api.refreshServiceVersion({ userId,organizationId,entityId,
+        rpc:(name,args)=>db.rpc(name,args),isCurrent });
+      return version ? api.readVersionSnapshot(userId,organizationId,kind,entityId) : null;
+    }
+  });
+  offlineCatalogPanelScope = scope;
+  offlineCatalogPanelCatalogKey = catalogKey;
 }
 
 let priceListImageUrls = [];
@@ -17765,6 +17820,7 @@ const organizationController = window.MinutaOrganization.createController({
     if (clientOrganizationChanged && typeof resetProviderMessagesCenter === 'function') resetProviderMessagesCenter();
     if (clientOrganizationChanged) freeSlotsController?.invalidateScope();
     activeClientOrganizationId = nextClientOrganizationId;
+    renderOfflineCatalogDrafts();
     if (clientOrganizationChanged) bookingSeriesCancellationRevision += 1;
     if (clientOrganizationChanged) bookingEditorRevision += 1;
     if (clientOrganizationChanged) bookingMetadataRevision += 1;
