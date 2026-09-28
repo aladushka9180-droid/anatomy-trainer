@@ -54,4 +54,3 @@ try {
  }
  console.log('Photo fit: 14 apertures without gaps/spill; layers and portrait/landscape cover; photo click/Enter/Space choose file, separate level information, unavailable picker guarded PASS');
 } finally {await browser.close();await new Promise(resolve=>server.close(resolve));}
-

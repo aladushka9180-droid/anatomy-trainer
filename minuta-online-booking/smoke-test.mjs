@@ -238,7 +238,7 @@ assert.match(provider, /recordConnectionEvent\(kind, text\)[\s\S]*slice\(0, 30\)
 assert.match(provider, /finishConnectionGuidanceRecovery\(bookingCreationReady, complete\)/, 'После восстановления интернета нет проверки серверного результата');
 assert.match(providerConnectionGuidance, /Связь восстановлена/, 'После восстановления интернета нет понятного подтверждения');
 assert.match(providerHtml, /id="recoverySentAddress"[\s\S]*id="retryPasswordRecovery"/, 'Восстановление пароля не объясняет доставку письма и повторную отправку');
-assert.match(providerHtml, /Отдельная оплата не требуется[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет бесплатный доступ и передачу ссылки');
+assert.match(providerHtml, /Сотрудник примет приглашение после входа с этой почтой[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет вход и передачу ссылки');
 assert.match(organization, /providerInviteLink[\s\S]*navigator\.clipboard\.writeText/, 'Ссылку для сотрудника нельзя скопировать');
 assert.match(providerHtml, /team-calendar\.js\?v=\d+/, 'Кабинет не подключает версионированный контроллер командного календаря');
 for (const asset of ['resource-management.js','shift-management.js','payroll-management.js','benefit-management.js','retention-management.js']) {
