@@ -5127,6 +5127,9 @@ function renderAnalytics() {
   const sources = reportSourceMetrics(items);
   const sourceTotal = sources.online + sources.manual + sources.unknown;
   if (analyticsPanel) analyticsPanel.dataset.reportEmpty = items.length ? 'false' : 'true';
+  const clientsEmpty = scopedStatus === 'ready' && completed.length === 0;
+  if (analyticsPanel) analyticsPanel.dataset.reportClientsEmpty = String(clientsEmpty);
+  $('#reportClientsEmpty')?.toggleAttribute('hidden', !clientsEmpty);
   setReportSubview(reportSubview);
   setReportText('#reportDecisionHint', reportDataSource === 'demo' ? 'Учебные данные без перехода в журнал' : 'Нажмите показатель, чтобы открыть записи');
   const importedInPeriod = completed.filter(item => item.is_imported_history).length;
@@ -5134,6 +5137,7 @@ function renderAnalytics() {
   setReportText('#reportImportMethod', importedInPeriod ? `${importedInPeriod} ${reportVisitWord(importedInPeriod)} из прежнего журнала. Стоимость сохранена в оказанных услугах; без отметки оплаты она не входит в получено или подтверждённый долг.` : 'В выбранном периоде импортированных визитов нет.');
   updateReportFilterSummary();
   const visualPeriod = `${reportDateText(range.start, { day:'numeric', month:'short', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'short', year:'numeric' })} · ${reportPerformerName()}`;
+  if (clientsEmpty) setReportText('#reportClientsEmptyText', `Нет состоявшихся визитов за ${visualPeriod.split(' · ')[0]}`);
   setReportText('#reportTrendPeriod', visualPeriod);
   setReportText('#reportTeamPeriod', visualPeriod);
   $('#reportRevenue').textContent = money(revenue);
@@ -17096,6 +17100,10 @@ document.addEventListener('click', async event => {
   if (markImportantEventsButton) markAllImportantNotificationsRead();
   if (inventorySectionButton) setInventorySection(inventorySectionButton.dataset.inventorySection, true);
   if (reportFilterToggle) setReportFiltersExpanded(reportFilterToggle.getAttribute('aria-expanded') !== 'true');
+  if (event.target.closest('[data-report-change-period]')) {
+    setReportFiltersExpanded(true);
+    $('.report-periods [data-report-period].active')?.focus();
+  }
   if (reportSourceButton && reportSourceButton.dataset.reportSource !== reportDataSource) {
     if (reportDataSource === 'demo' && reportSourceButton.dataset.reportSource !== 'demo') restoreOwnBookingContext();
     reportDataSource = reportSourceButton.dataset.reportSource === 'demo' ? 'demo' : 'own';

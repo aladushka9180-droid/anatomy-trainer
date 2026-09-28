@@ -114,3 +114,11 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView[dat
 #analyticsView .report-money-demo-gate h3 { margin:0; font-size:1.2rem; }
 #analyticsView .report-money-demo-gate p { margin:10px 0 18px; color:var(--theme-muted); font-size:.9rem; line-height:1.5; }
 #analyticsView .report-money-demo-gate button { min-height:44px; }
+
+#analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-business-grid { display:grid!important; grid-template-columns:minmax(0,1fr); }
+#analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-business-grid>.report-retention,
+#analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-clients .report-metric-row { display:none!important; }
+#analyticsView .report-clients-empty:not([hidden]) { display:grid; justify-items:start; gap:12px; margin-top:14px; }
+#analyticsView .report-clients-empty p { margin:0; color:var(--theme-muted); font-size:14px; line-height:1.5; }
+#analyticsView .report-clients-empty button { width:auto; min-height:44px; padding-inline:18px; }
+@media(max-width:600px) { #analyticsView .report-clients-empty button { width:100%; } }

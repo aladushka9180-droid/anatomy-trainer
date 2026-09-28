@@ -8,6 +8,7 @@ const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
 const moduleSource=readFileSync(new URL('../report-reconciliation.js',import.meta.url),'utf8');
 function declaration(name){const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.ok(start>=0,name);const lineEnd=source.indexOf('\n',start);return source.slice(start,source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',start)+2);}
 const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange',
+  'setReportFiltersExpanded',
   'reportServiceValue','reportReceivedAmount','reportImportedValue','reportDebtAmount','reportEffectivePerformerId','reportReconciledTeamRows','reportExportValue','reportExportDuration',
   'reportExportSheets','reportExportCell','reportExportPhone','reportExportMaster','reportExportPerformers','reportExportCreator','reportCurrentTeamRows','reportCurrentEventRows','renderAnalytics',
   'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','exportBookingsXlsx','exportBookingsCsv','retryReportScopedBookings',
@@ -28,7 +29,7 @@ const script=`
   var normalizePhone=v=>String(v||'').replace(/\\D/g,''),parseLocalIsoDate=v=>new Date(v+'T00:00:00Z'),localIsoDate=v=>new Date(v).toISOString().slice(0,10);
   var money=v=>new Intl.NumberFormat('ru-RU').format(v)+' ₽',serviceName=v=>v,escapeHtml=v=>String(v).replaceAll('&','&amp;').replaceAll('<','&lt;');
   var reportExportDate=v=>v,reportExportEnd=()=> '11:00',reportExportSource=()=> 'Мастер',reportExportCreator=()=> 'Мастер',bookingDisplayNote=()=>'',paymentMethodLabel=v=>v;
-  var reportSourceMetrics=()=>({online:0,manual:0,unknown:0}),reportDateText=v=>v,reportVisitWord=()=> 'визитов',reportShare=(v,total)=>total?Math.round(v/total*100)+'%':'0%';
+  var reportSourceMetrics=()=>({online:0,manual:0,unknown:0}),reportDateText=(v,options={day:'numeric',month:'short'})=>parseLocalIsoDate(v).toLocaleDateString('ru-RU',options),reportVisitWord=()=> 'визитов',reportShare=(v,total)=>total?Math.round(v/total*100)+'%':'0%';
   var reportPerformerName=()=> 'Тестовый мастер',reportHours=v=>v/60+' ч',reportEventTitle=()=>'';
   var setReportText=(s,v)=>{const n=$(s);if(n)n.textContent=v;},setReportSubview=()=>{},updateReportFilterSummary=()=>{},previousReportRange=()=>null,setReportTrend=()=>{};
   var reportForecastEnd=r=>r.end,retryCalls=[],loadReportScopedBookings=(query,performer)=>{retryCalls.push({query,performer});reportScopedBookingsState.status='loading';};
@@ -54,6 +55,7 @@ try{
     await page.goto('https://analytics.test/');
     await page.evaluate(html=>{const doc=new DOMParser().parseFromString(html,'text/html');const panel=doc.querySelector('[data-provider-panel="analytics"]');if(!panel)throw Error('Actual analytics panel missing');document.body.append(panel.cloneNode(true));document.querySelectorAll('[hidden]').forEach(node=>{if(node.matches('[data-provider-panel]'))node.hidden=false;});},html);
     await page.addStyleTag({content:readFileSync(new URL('../styles.css',import.meta.url),'utf8')});
+    await page.addStyleTag({content:readFileSync(new URL('../statistics-audit-ui.css',import.meta.url),'utf8')});
     await page.addStyleTag({content:readFileSync(new URL('../finance-center.css',import.meta.url),'utf8')});
     await page.addScriptTag({content:script});
     await page.evaluate(()=>renderAnalytics());
@@ -88,6 +90,21 @@ try{
     assert.ok(artifacts.pdfText.some(text=>text==='Нет данных'));assert.ok(artifacts.pdfText.some(text=>text.includes('Оплата не указана:')));
     assert.ok(artifacts.xml[0].includes('Оплата не указана'));assert.ok(artifacts.xml[0].includes('Подтверждённый долг'));assert.ok(artifacts.xml[0].includes('2 из 3'));
     assert.equal(await page.evaluate(xml=>xml.some(text=>new DOMParser().parseFromString(text,'application/xml').querySelector('parsererror')),artifacts.xml),false);
+    await page.evaluate(()=>{range={start:'2025-01-01',end:'2025-01-07',period:'custom'};reportPeriod='custom';reportSubview='clients';$('#analyticsView').dataset.reportTab='clients';$('#reportFilterSummary').textContent='1–7 янв. 2025 · Вся команда';renderAnalytics();});
+    assert.equal(await page.locator('.report-clients').isVisible(),true,`Клиентская вкладка скрыта при ${width}px`);
+    assert.equal(await page.locator('#reportClientsEmpty').isVisible(),true);
+    assert.match(await page.locator('#reportClientsEmptyText').textContent(),/Нет состоявшихся визитов.*1.*янв.*2025.*7.*янв.*2025/);
+    assert.equal(await page.locator('.report-clients .report-metric-row').isVisible(),false);
+    assert.equal(await page.locator('.report-retention').isVisible(),false);
+    assert.equal(await page.locator('.report-summary').isVisible(),false);
+    if(process.env.REPORT_CLIENT_EMPTY_ARTIFACT_DIR){await mkdir(process.env.REPORT_CLIENT_EMPTY_ARTIFACT_DIR,{recursive:true});await page.locator('#analyticsView').screenshot({path:path.join(process.env.REPORT_CLIENT_EMPTY_ARTIFACT_DIR,`empty-clients-${width}.png`)});}
+    await page.evaluate(()=>{setReportFiltersExpanded(true);$('.report-periods [data-report-period].active')?.focus();});
+    assert.equal(await page.locator('#reportFilterToggle').getAttribute('aria-expanded'),'true');
+    assert.equal(await page.locator('.report-periods [data-report-period].active').evaluate(button=>button===document.activeElement),true);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`Клиентская вкладка переполнена при ${width}px`);
+    await page.evaluate(()=>{range={start:'2026-09-01',end:'2026-09-30',period:'month'};renderAnalytics();});
+    assert.equal(await page.locator('#reportClientsEmpty').isVisible(),false);
+    assert.equal(await page.locator('.report-clients .report-metric-row').isVisible(),true);
     await page.evaluate(()=>{range={start:'2026-09-04',end:'2026-09-18',period:'custom'};reportPeriod='custom';reportPerformerFilter='master-A';reportUsesScopedBookings=()=>true;reportScopedBookingsState={key:'synthetic-failure',status:'failed',rows:[]};renderAnalytics();});
     assert.equal(await page.locator('#reportLoadState [data-report-retry]').count(),1,'Ошибка статистики не предлагает повторить загрузку');
     const retryBox=await page.locator('#reportLoadState [data-report-retry]').evaluate(element=>{const rect=element.getBoundingClientRect();return {height:rect.height,right:rect.right,viewport:innerWidth};});
