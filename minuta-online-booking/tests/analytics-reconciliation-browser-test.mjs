@@ -102,7 +102,11 @@ try{
     assert.equal(await page.locator('#reportFilterToggle').getAttribute('aria-expanded'),'true');
     assert.equal(await page.locator('.report-periods [data-report-period].active').evaluate(button=>button===document.activeElement),true);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`Клиентская вкладка переполнена при ${width}px`);
-    await page.evaluate(()=>{range={start:'2026-09-01',end:'2026-09-30',period:'month'};renderAnalytics();});
+    await page.evaluate(()=>{window.savedClientRows={allBookings,importedBookingHistory};allBookings=allBookings.filter(item=>item.id==='scheduled');importedBookingHistory=[];range={start:'2026-09-01',end:'2026-09-30',period:'month'};renderAnalytics();});
+    assert.equal(await page.locator('#analyticsView').getAttribute('data-report-empty'),'false');
+    assert.equal(await page.locator('#reportClientsEmpty').isVisible(),true,'Будущая запись без состоявшихся визитов должна оставлять пустое клиентское состояние');
+    assert.equal(await page.locator('.report-summary').isVisible(),false,'Финансовые нули не должны подменять клиентов');
+    await page.evaluate(()=>{allBookings=window.savedClientRows.allBookings;importedBookingHistory=window.savedClientRows.importedBookingHistory;renderAnalytics();});
     assert.equal(await page.locator('#reportClientsEmpty').isVisible(),false);
     assert.equal(await page.locator('.report-clients .report-metric-row').isVisible(),true);
     await page.evaluate(()=>{range={start:'2026-09-04',end:'2026-09-18',period:'custom'};reportPeriod='custom';reportPerformerFilter='master-A';reportUsesScopedBookings=()=>true;reportScopedBookingsState={key:'synthetic-failure',status:'failed',rows:[]};renderAnalytics();});
