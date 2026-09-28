@@ -70,3 +70,7 @@ body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .new-book
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card #newBookingName {background:var(--card-soft)!important;}
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card :is(#newBookingPhone,#newBookingDate) {background:transparent!important;border-radius:0!important;}
 body.provider-body:is([data-provider-theme="noir-rose"],[data-provider-theme="midnight"]) #bookingSheet.new-booking-card input {color-scheme:dark;}
+@media(min-width:761px) {
+  body.provider-body[data-provider-theme] #bookingSheet.new-booking-card #newBookingPhone {padding-inline:18px;}
+  body.provider-body[data-provider-theme] #bookingSheet.new-booking-card #newBookingDate {padding-inline:18px;}
+}
