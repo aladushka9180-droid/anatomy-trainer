@@ -30,18 +30,26 @@ const server = createServer((request, response) => {
 let browser;
 let page;
 const errors = [];
-async function waitForReadyBuild(version) {
-  await page.waitForFunction(async expected => {
-    const controller = navigator.serviceWorker.controller;
-    if (!controller) return false;
-    const info = await new Promise(resolve => {
-      const channel = new MessageChannel();
-      const timer = setTimeout(() => { channel.port1.close(); resolve(null); }, 1200);
-      channel.port1.onmessage = event => { clearTimeout(timer); channel.port1.close(); resolve(event.data); };
-      controller.postMessage({type:"site-update-version"}, [channel.port2]);
-    });
-    return controller === navigator.serviceWorker.controller && info?.ready === true && info.version === Number(expected);
-  }, version);
+async function waitForReadyBuild(version, timeoutMs = 15000) {
+  // waitForFunction treats the Promise from an async predicate as truthy even
+  // when it resolves to false. Poll the resolved boolean, not the Promise.
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const ready = await page.evaluate(async ({expected, remaining}) => {
+      const controller = navigator.serviceWorker.controller;
+      if (!controller) return false;
+      const info = await new Promise(resolve => {
+        const channel = new MessageChannel();
+        const timer = setTimeout(() => { channel.port1.close(); resolve(null); }, Math.min(1200, remaining));
+        channel.port1.onmessage = event => { clearTimeout(timer); channel.port1.close(); resolve(event.data); };
+        controller.postMessage({type:"site-update-version"}, [channel.port2]);
+      });
+      return controller === navigator.serviceWorker.controller && info?.ready === true && info.version === Number(expected);
+    }, {expected:version, remaining:deadline - Date.now()});
+    if (ready === true && Date.now() <= deadline) return;
+    if (Date.now() < deadline) await page.waitForTimeout(Math.min(50, deadline - Date.now()));
+  }
+  assert.fail(`Ready worker build ${version} was not observed within ${timeoutMs}ms`);
 }
 try {
   await new Promise(done => server.listen(0, '127.0.0.1', done));
@@ -55,9 +63,17 @@ try {
   page.setDefaultTimeout(15000);
   await page.goto(`${origin}/provider.html`);
   await page.waitForFunction(() => navigator.serviceWorker.controller);
+  await assert.rejects(() => waitForReadyBuild(-1, 100), /Ready worker build -1 was not observed/, 'A false asynchronous readiness result must not pass');
   await page.reload();
   assert.equal(await page.locator('#siteUpdateNotice').count(), 0);
   await page.evaluate(() => localStorage.setItem('synthetic-offline-draft', 'preserved'));
+  // The stale-tab scenario needs an actual old document, not a new document
+  // created during replacement. Keep both clients alive until context cleanup.
+  const oldTab = process.env.EXPECT_OLD_BUG !== '1' ? await context.newPage() : null;
+  if (oldTab) {
+    await oldTab.goto(`${origin}/provider.html`);
+    assert.equal(await oldTab.locator('body').getAttribute('data-release'), oldRelease.version, 'The stale tab must actually contain the preceding release');
+  }
   phase = newRelease;
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
   await page.locator('#siteUpdateNotice button').waitFor();
@@ -79,13 +95,10 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('synthetic-offline-draft')), 'preserved');
   // A second, stale page can register the legacy URL while receiving the same new worker bytes.
   if (process.env.EXPECT_OLD_BUG !== '1') {
-    const oldTab = await context.newPage();
-    await oldTab.goto(`${origin}/provider.html`);
     await oldTab.evaluate(version => navigator.serviceWorker.register(`/sw.js?v=${version}`, {updateViaCache:'none'}), oldRelease.version);
     await page.waitForFunction(version => navigator.serviceWorker.controller?.scriptURL.endsWith(`sw.js?v=${version}`), oldRelease.version);
     await page.waitForTimeout(1200);
     assert.equal(await page.locator('#siteUpdateNotice').count(), 0, 'A stale tab must not create a false same-build notice');
-    await oldTab.close();
     // Reproduce a stale navigation shell independently of worker activation.
     await page.evaluate(async version => {
       const cache = await caches.open(`massage-izhevsk-v${version}`);
@@ -111,7 +124,13 @@ try {
     await page.locator('#siteUpdateNotice button').waitFor();
     assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version);
     console.log('PASS: a genuinely newer release still offers an update');
+    const freshTab = await context.newPage();
+    freshTab.on('pageerror', error => errors.push(error.message));
+    await freshTab.goto(`${origin}/provider.html`);
+    assert.equal(await freshTab.locator('body').getAttribute('data-release'), future, 'A fresh tab must load the updated shell');
+    assert.equal(await freshTab.evaluate(() => localStorage.getItem('synthetic-offline-draft')), 'preserved');
   }
+  assert.deepEqual(errors, []);
   console.log('PASS: one-release update lifecycle and offline draft preservation');
 } catch (error) {
   if (page && !page.isClosed()) console.log(JSON.stringify({errors, failureState:await page.evaluate(async()=>({loaded:document.body.dataset.release,notice:Boolean(document.querySelector('#siteUpdateNotice')),online:navigator.onLine,controller:navigator.serviceWorker.controller?.scriptURL,caches:await caches.keys(),registrations:(await navigator.serviceWorker.getRegistrations()).map(r=>({active:r.active?.scriptURL,activeState:r.active?.state,installing:r.installing?.scriptURL,waiting:r.waiting?.scriptURL}))}))}));
