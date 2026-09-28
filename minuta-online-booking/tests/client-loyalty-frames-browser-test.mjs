@@ -16,8 +16,8 @@ try{
     assert.equal(await page.locator('#clientProfileOrbit .loyalty-frame-count').innerText(),String(count));
     const geometry=await page.evaluate(()=>{const avatar=document.querySelector('#clientAvatar').getBoundingClientRect();const plaque=document.querySelector('#clientProfileOrbit .loyalty-frame-count').getBoundingClientRect();return {avatar:avatar.toJSON(),plaque:plaque.toJSON(),overflow:document.documentElement.scrollWidth-innerWidth};});
     assert.ok(geometry.overflow<=1,`${theme}/${width}/${count}: overflow`);
-    assert.ok(geometry.plaque.top>=geometry.avatar.bottom-1,`${theme}/${width}/${count}: plaque cannot cover photo`);
-    assert.equal(geometry.avatar.width,88,'Photo stays the same size');
+    assert.ok(geometry.plaque.top>=geometry.avatar.top+geometry.avatar.height*.65,`${theme}/${width}/${count}: plaque leaves face centre clear`);
+    assert.ok(geometry.avatar.width>=104&&geometry.avatar.width<=118,'Photo fills the current frame aperture');
    }
    await page.locator('#clientLoyaltyLevel').click();
    await page.getByRole('dialog').waitFor({state:'visible'});
@@ -36,7 +36,7 @@ try{
  for(const dimensions of [[300,500],[500,300]]){
   await page.evaluate(([w,h])=>{renderCount(100);const image=document.createElement('img');image.src='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#bcd9cc"/><circle cx="50%" cy="48%" r="60" fill="#c18e72"/></svg>`);document.querySelector('#clientAvatar').replaceChildren(image);document.querySelector('#clientProfileOrbit').classList.add('has-photo');},dimensions);
   const photo=await page.locator('#clientAvatar img').evaluate(el=>({fit:getComputedStyle(el).objectFit,w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height,clip:getComputedStyle(el.parentElement).overflow}));
-  assert.deepEqual(photo,{fit:'cover',w:88,h:88,clip:'hidden'},'Portrait and landscape photos keep an unobstructed circular crop');
+  assert.deepEqual(photo,{fit:'cover',w:118,h:118,clip:'hidden'},'Portrait and landscape photos fill the crown aperture with a circular crop');
  }
  await page.evaluate(()=>{document.querySelector('#clientAvatar').textContent='В';document.querySelector('#clientProfileOrbit').classList.remove('has-photo');});
  assert.deepEqual(errors,[]);
