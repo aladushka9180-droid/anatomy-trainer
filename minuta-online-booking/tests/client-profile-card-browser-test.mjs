@@ -35,7 +35,10 @@ try{
   assert.equal(await page.locator('#clientProfileOrbit .loyalty-frame-count').innerText(),String(total));
  }
  await page.evaluate(()=>renderProfile());
- await page.locator('.loyalty-frame-open').click();assert.equal(await page.getByRole('dialog').isVisible(),true);await page.keyboard.press('Escape');
+ const [photoChooser]=await Promise.all([page.waitForEvent('filechooser'),page.locator('.client-profile-photo-open').click()]);
+ assert.equal(await photoChooser.element().getAttribute('id'),'clientAvatarInput','Mobile avatar opens the existing photo picker');
+ assert.equal(await page.locator('dialog[open]').count(),0);
+ await page.locator('#clientLoyaltyLevel').click();assert.equal(await page.getByRole('dialog').isVisible(),true);await page.keyboard.press('Escape');
  for(const id of ['clientQuickRepeat','clientContactButton','clientBirthdayEdit','clientLoyaltyOpenSettings','clientCopyPhone'])await page.locator('#'+id).click();
  await page.locator('.profile-card-menu summary').click();await page.locator('#clientMoreButton').click();
  await page.locator('[data-open-booking=future]').click();

@@ -25,15 +25,33 @@ try {
   });
  });
  for(const fit of fits){assert.ok(fit.hole>6500&&fit.hole<10000,`${fit.total}: closed aperture`);assert.ok(fit.gap<=4,`${fit.total}: empty pixels inside rim: ${fit.gap}`);assert.ok(fit.spill<=4,`${fit.total}: photo outside rim: ${fit.spill}`);assert.ok(Number(fit.frameLayer)>Number(fit.photoLayer));assert.ok(Number(fit.picker)>Number(fit.frameLayer));}
+ const choosePhoto=async action=>{
+  const [chooser]=await Promise.all([page.waitForEvent('filechooser'),action()]);
+  assert.equal(await chooser.element().getAttribute('id'),'clientAvatarInput');
+  assert.equal(await page.locator('dialog[open]').count(),0,'Photo never opens level information');
+  // No file is submitted: exercise the existing picker without writing customer data.
+ };
+ await page.locator('.client-profile-photo-open').focus();
+ await choosePhoto(()=>page.keyboard.press('Enter'));
+ await choosePhoto(()=>page.keyboard.press('Space'));
  for(const dimensions of [[300,500],[500,300]]){
   await page.evaluate(([w,h])=>{const img=new Image();img.src='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#b9dbd2"/><circle cx="50%" cy="44%" r="65" fill="#b98062"/><path d="M0 ${h}Q${w/2} ${h/2} ${w} ${h}" fill="#526384"/></svg>`);document.querySelector('#clientAvatar').replaceChildren(img);document.querySelector('#clientProfileOrbit').classList.add('has-photo');},dimensions);
-  for(const total of [0,3,6,9,10,20,30,40,50,60,70,80,90,100]){await page.evaluate(n=>renderCount(n),total);const result=await page.locator('#clientAvatar img').evaluate(img=>{const r=img.getBoundingClientRect(),p=img.parentElement.getBoundingClientRect();return{w:r.width,h:r.height,pw:p.width,ph:p.height,fit:getComputedStyle(img).objectFit};});assert.equal(result.w,result.pw);assert.equal(result.h,result.ph);assert.equal(result.fit,'cover');}
+  for(const total of [0,3,6,9,10,20,30,40,50,60,70,80,90,100]){await page.evaluate(n=>renderCount(n),total);const result=await page.locator('#clientAvatar img').evaluate(img=>{const r=img.getBoundingClientRect(),p=img.parentElement.getBoundingClientRect();return{w:r.width,h:r.height,pw:p.width,ph:p.height,fit:getComputedStyle(img).objectFit};});assert.equal(result.w,result.pw);assert.equal(result.h,result.ph);assert.equal(result.fit,'cover');await choosePhoto(()=>page.locator('.client-profile-photo-open').click());}
  }
+ await choosePhoto(()=>page.locator('.client-profile-avatar-picker').click());
+ await page.locator('#clientLoyaltyLevel').click();
+ assert.equal(await page.getByRole('dialog').isVisible(),true,'Level information stays available in its row');
+ await page.keyboard.press('Escape');
+ for(const state of ['disabled','hidden']){
+  await page.evaluate(state=>{const input=document.querySelector('#clientAvatarInput');input.disabled=state==='disabled';input.closest('.client-avatar-picker').hidden=state==='hidden';renderCount(100);},state);
+  assert.equal(await page.locator('.client-profile-photo-open').isDisabled(),true,'Existing photo availability is respected');
+ }
+ await page.evaluate(()=>{const input=document.querySelector('#clientAvatarInput');input.disabled=false;input.closest('.client-avatar-picker').hidden=false;renderCount(100);});
  if(process.env.MINUTA_LOYALTY_SCREENSHOTS){
   mkdirSync(process.env.MINUTA_LOYALTY_SCREENSHOTS,{recursive:true});
   await page.evaluate(()=>{document.body.dataset.providerTheme='midnight';const gallery=document.createElement('div');gallery.id='fitGallery';gallery.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding:20px;background:var(--theme-surface);color:var(--theme-ink)';for(const n of PrimeTimeLoyaltyFrames.thresholds){renderCount(n);const box=document.createElement('div');box.style.textAlign='center';const frame=document.querySelector('#clientProfileOrbit').cloneNode(true);frame.removeAttribute('id');frame.querySelectorAll('input,button,label').forEach(el=>el.remove());frame.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));frame.style.margin='auto';box.append(frame);const label=document.createElement('p');label.textContent=n+' сеансов';box.append(label);gallery.append(box);}document.querySelector('main').hidden=true;document.body.append(gallery);});
   await page.locator('#fitGallery').screenshot({path:`${process.env.MINUTA_LOYALTY_SCREENSHOTS}/photo-fit-all-tiers.png`});
  }
- console.log('Photo fit: 14 raster apertures covered without spill; decorations above photo, picker above frame; portrait/landscape cover PASS');
+ console.log('Photo fit: 14 apertures without gaps/spill; layers and portrait/landscape cover; photo click/Enter/Space choose file, separate level information, unavailable picker guarded PASS');
 } finally {await browser.close();await new Promise(resolve=>server.close(resolve));}
 
