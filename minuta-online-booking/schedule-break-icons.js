@@ -33,12 +33,13 @@
     function refresh() {
       pending = false;
       const preferences = bridge.preferences();
+      const bookings = new Map(bridge.bookings().map(item => [String(item.id),item]));
       for (const [id,label] of [['todayBookingsLabel','Сегодня'],['tomorrowBookingsLabel','Завтра'],['upcomingBookingsLabel','Предстоящих записей']]) {
         const element = document.getElementById(id);
         if (element && element.textContent !== label) element.textContent = label;
       }
       document.querySelectorAll('#providerBookings [data-open-booking], #providerBookings [data-open-automatic-break]').forEach(button => {
-        const item = button.hasAttribute('data-open-automatic-break') ? {automatic_break:true} : bridge.booking(button.dataset.openBooking);
+        const item = button.hasAttribute('data-open-automatic-break') ? {automatic_break:true} : bookings.get(button.dataset.openBooking);
         if (!item) return;
         const card = button.closest('.provider-booking') || button;
         card.classList.toggle('is-online-booking', !item.automatic_break && !bridge.isBlock(item) && item.booking_source === 'client_online');
@@ -52,7 +53,7 @@
           previous?.remove(); title.insertAdjacentHTML('afterbegin', markup(item, preferences));
         }
       });
-      document.querySelectorAll('[data-provider-view="organization"] svg use[href$="#icon-users"]').forEach(use => {
+      document.querySelectorAll('.provider-mobile-nav [data-provider-view="organization"] svg use[href$="#icon-users"]').forEach(use => {
         const icon = use.parentElement;
         icon.setAttribute('viewBox','0 0 24 24');
         icon.innerHTML = '<path d="M4 21V3h11v18M15 10h5v11M2 21h20M7 7h5M7 11h5M7 15h5M8 21v-3h3v3M18 13v1M18 17v1"/>';
@@ -61,7 +62,7 @@
       const content = document.querySelector('#bookingSheetContent');
       if (sheet && content && !sheet.hidden && !content.querySelector('.schedule-break-icon-picker')) {
         const automatic = sheet.dataset.assistantContext === 'automatic-break';
-        const item = automatic ? null : bridge.booking(sheet.dataset.bookingId);
+        const item = automatic ? null : bookings.get(sheet.dataset.bookingId);
         if (automatic || (item && /^[a-zA-Z0-9_-]{1,100}$/.test(item.id) && bridge.isBlock(item) && !item.is_imported_history)) {
           const control = picker(automatic ? 'automatic' : String(item.id), automatic);
           const anchor = content.querySelector('.automatic-break-sheet-color, .booking-color-options, .booking-color-picker');
@@ -79,7 +80,7 @@
       if (!control || event.target.type !== 'radio') return;
       const preferences = bridge.preferences(), value = valid(event.target.value), scope = control.dataset.breakIconScope;
       if (scope !== 'automatic') {
-        const item = bridge.booking(scope);
+        const item = bridge.bookings().find(item => String(item.id) === scope);
         if (!item || !bridge.isBlock(item) || item.is_imported_history) return;
       }
       bridge.save({...preferences, break_icons:scope === 'automatic'
@@ -87,15 +88,18 @@
         : {...preferences.break_icons, bookings:{...preferences.break_icons?.bookings, [scope]:value}}});
       refresh();
     });
-    new MutationObserver(() => {
+    const observer = new MutationObserver(() => {
       if (!pending) { pending = true; queueMicrotask(refresh); }
-    }).observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['hidden','data-booking-id','data-assistant-context'] });
+    });
+    document.querySelectorAll('#providerBookings,#bookingSheetContent,.dashboard-summary,.provider-mobile-nav').forEach(container => observer.observe(container,{childList:true,subtree:true}));
+    const sheet = document.querySelector('#bookingSheet');
+    if (sheet) observer.observe(sheet,{attributes:true,attributeFilter:['hidden','data-booking-id','data-assistant-context']});
     refresh();
   }
   window.PrimeTimeBreakIcons = { valid, selected, markup, init };
   document.addEventListener('DOMContentLoaded', () => {
     if (typeof bookingSourceItems !== 'function' || typeof displayPreferences === 'undefined') return;
     init({preferences:() => displayPreferences, save:saveDisplayPreferences,
-      booking:id => bookingSourceItems().find(item => String(item.id) === id), isBlock:isScheduleBlock});
+      bookings:bookingSourceItems, isBlock:isScheduleBlock});
   }, {once:true});
 })();

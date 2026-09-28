@@ -26,7 +26,7 @@ try {
  });
  const page=await context.newPage(); const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('https://schedule.fixture.invalid/provider.html');
- await page.addScriptTag({path:resolve(root,'schedule-break-icons.js')}); await page.addStyleTag({path:resolve(root,'schedule-flat.css')});
+ await page.addScriptTag({path:resolve(root,'schedule-break-icons.js')}); const flatStyle=await page.addStyleTag({path:resolve(root,'schedule-flat.css')});
  await page.evaluate(()=>{
   document.documentElement.classList.remove('provider-booting','requires-top-level');document.querySelector('#providerBoot')?.remove();
   document.querySelector('#authCard').hidden=true;
@@ -60,7 +60,22 @@ try {
  window.redraw=()=>renderTimeline(items);redraw();
  window.fixturePreferences=()=>displayPreferences;
  window.fixtureAccount=p=>{displayPreferences=p;redraw();};
- PrimeTimeBreakIcons.init({preferences:()=>displayPreferences,save:p=>{displayPreferences=p;localStorage.setItem('synthetic-preferences',JSON.stringify(p));redraw();},booking:id=>items.find(i=>i.id===id),isBlock:isScheduleBlock});
+ let sourceReads=0,comparisons=0;
+ PrimeTimeBreakIcons.init({preferences:()=>displayPreferences,save:p=>{displayPreferences=p;localStorage.setItem('synthetic-preferences',JSON.stringify(p));redraw();},bookings:()=>{sourceReads++;return items;},booking:id=>items.find(i=>{comparisons++;return i.id===id;}),isBlock:isScheduleBlock});
+ window.fixturePerf=async()=>{
+  $('#bookingSheet').hidden=true;
+  const sample=$('[data-open-booking="manual"]').cloneNode(true),holder=$('#providerBookings');
+  items=Array.from({length:2000},(_,i)=>({...base,id:'history-'+i}));holder.innerHTML='';
+  for(let i=0;i<40;i++){const id='visible-'+i;items.push({...base,id});const card=sample.cloneNode(true);card.dataset.openBooking=id;holder.append(card);}
+  await new Promise(r=>setTimeout(r,0));sourceReads=0;comparisons=0;
+  holder.firstElementChild.append(document.createTextNode(' '));await new Promise(r=>setTimeout(r,0));
+  const relevantReads=sourceReads;sourceReads=0;comparisons=0;
+  const unrelated=document.createElement('div');document.body.append(unrelated);
+  const start=performance.now();
+  for(let i=0;i<20;i++){unrelated.textContent=String(i);await new Promise(r=>setTimeout(r,0));}
+  const result={relevantReads,sourceReads,comparisons,elapsedMs:Math.round(performance.now()-start)};
+  unrelated.remove();return result;
+ };
  window.openIconSettings=automatic=>{const sheet=$('#bookingSheet');sheet.dataset.assistantContext=automatic?'automatic-break':'booking';sheet.dataset.bookingId=automatic?'':'break';$('#bookingSheetContent').innerHTML='<h2>Перерыв</h2>';sheet.hidden=false;};
  `});
  for(const theme of ['pink-porcelain','carbon-crimson'])for(const width of [390,760,1440]){
@@ -93,5 +108,22 @@ try {
  await page.evaluate(()=>fixtureAccount({}));assert.equal(await page.locator('[data-open-booking="break"] .schedule-break-icon').getAttribute('data-break-icon'),'pause');
  await page.evaluate(p=>fixtureAccount(p),stored);assert.equal(await page.locator('[data-open-booking="break"] .schedule-break-icon').getAttribute('data-break-icon'),'personal');
  assert.deepEqual(errors,[]);
+ await page.evaluate(()=>{
+  document.querySelector('#bookingSheet').hidden=true;document.body.classList.remove('booking-sheet-open');
+  const nav=document.querySelector('.provider-mobile-nav');
+  const button=nav.querySelector('[data-provider-view="notifications"]');
+  button.dataset.providerView='organization';button.innerHTML='<svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg><span>Организация</span>';
+ });
+ assert.equal(await page.locator('.provider-mobile-nav [data-provider-view="organization"] svg path').count(),1,'Organization in the bottom navigation must use a building');
+ assert.equal(await page.locator('.provider-mobile-nav [data-provider-view="organization"]').isVisible(),true);
+ assert.ok(await page.locator('[data-provider-view="organization"] svg use[href$="#icon-users"]').count()>0,'Other menus must remain unchanged');
+ if(output)await page.screenshot({path:resolve(output,'organization-navigation-390.png')});
+ const workload=await page.evaluate(()=>fixturePerf());
+ assert.equal(workload.sourceReads,0,'Unrelated DOM changes must not read bookings');
+ assert.equal(workload.comparisons,0,'Unrelated DOM changes must not scan booking history');
+ assert.equal(workload.relevantReads,1,'One index must serve the entire visible schedule refresh');
+ console.log('Schedule refresh workload:',workload);
+ await page.evaluate(()=>{document.querySelector('#dashboard').hidden=true;});
+ assert.equal(await flatStyle.evaluate(element=>[...element.sheet.cssRules].filter(rule=>rule.selectorText?.includes(':has(#dashboard') && document.body.matches(rule.selectorText)).length),0,'Schedule body rules must not match a hidden dashboard');
  console.log('PASS flat schedule: light/dark 390/760/1440, online/manual borders, break time, six icons, persistence and account separation');
 } finally {await browser.close();}
