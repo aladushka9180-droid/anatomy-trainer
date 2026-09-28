@@ -169,6 +169,9 @@
         : payload.performers.length < 2 ? 'Для замены нужен другой специалист'
           : 'У другого специалиста нет услуги той же длительности';
       $('#substitutionService').innerHTML = alternatives.length ? renderOptions(alternatives, '', item => `${nameOf(payload.performers, item.performer_id, 'Специалист')} · ${item.name}`) : `<option value="">${noAlternative}</option>`;
+      $('#substitutionHint').textContent = payload.performers.length < 2
+        ? 'Для замены нужен другой специалист. Запись и ссылка клиента сохранятся.'
+        : 'Запись и ссылка клиента сохранятся. Замена возможна, если специалист и нужные ресурсы свободны.';
       panel.querySelector('button').disabled = !booking || !alternatives.length;
     }
 
