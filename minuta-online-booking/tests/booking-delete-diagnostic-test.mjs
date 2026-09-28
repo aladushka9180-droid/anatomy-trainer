@@ -9,6 +9,7 @@ const diagnostic = read('../scripts/booking-delete-diagnostic.sql');
 const deleteRpc = read('../supabase-migration-v64.sql');
 const messaging = read('../supabase-migration-v162.sql');
 const notices = [];
+let reportMetadata = [];
 const db = new PGlite();
 const actor = '00000000-0000-4000-8000-000000000001';
 const foreignActor = '00000000-0000-4000-8000-000000000002';
@@ -32,7 +33,8 @@ async function inspect(target = booking) {
   await db.exec('begin read only');
   try {
     await q("select set_config('eldion.diagnostic_booking',$1,true)", [target]);
-    await db.exec(diagnostic, { onNotice: notice => notices.push(notice.message) });
+    const results = await db.exec(diagnostic, { onNotice: notice => notices.push(notice.message) });
+    reportMetadata = results.flatMap(result => result.rows.map(row => row.jsonb_build_object)).filter(Boolean);
     return notices.filter(s => s.startsWith('booking_delete_diagnostic '))
       .map(s => JSON.parse(s.slice('booking_delete_diagnostic '.length)));
   } finally { await db.exec('rollback'); }
@@ -89,6 +91,7 @@ try {
   console.log('PASS: canonical v162 conversation FK reproduces v64 deletion refusal; data remains intact');
 
   await q('insert into composite_link values($1,$2)', [booking,org]);
+  await db.exec('alter table bookings enable row level security; alter table bookings force row level security');
   const report = await inspect();
   assert.equal(report.find(r => r.kind === 'target').matchingRows, 1);
   assert.equal(report.find(r => r.table === 'public.message_conversations_v162').matchingRows, 1);
@@ -96,6 +99,17 @@ try {
   assert.equal(report.find(r => r.table === 'public.payment_events').matchingRows, 1);
   assert.equal(await snapshot(), before, 'Read-only diagnostic must not change any target data');
   assert.ok(!JSON.stringify(report).includes(booking), 'Report omits the target UUID and row contents');
+  const security = reportMetadata.filter(row => row.kind === 'table_security');
+  assert.equal(security.length, 3);
+  const bookingSecurity = security.find(row => /(^|\.)bookings$/.test(row.table));
+  assert.equal(bookingSecurity.rowSecurity, true);
+  assert.equal(bookingSecurity.forceRowSecurity, true);
+  const rpc = reportMetadata.find(row => row.kind === 'delete_rpc');
+  assert.equal(rpc.owner, bookingSecurity.owner);
+  assert.equal(rpc.ownerSuperuser, true);
+  assert.equal(typeof rpc.ownerBypassRls, 'boolean');
+  assert.ok(!JSON.stringify(reportMetadata).includes(booking), 'Security metadata omits target row data');
+  console.log('PASS: function ownership and forced RLS metadata are reported without row contents');
   console.log('PASS: read-only report finds exact-row direct, payment and composite relationships without data exposure');
   const missing = await inspect('00000000-0000-4000-8000-000000000099');
   assert.deepEqual(missing, [{ kind:'target',matchingRows:0 }]);

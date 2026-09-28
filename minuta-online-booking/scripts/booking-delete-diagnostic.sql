@@ -67,8 +67,18 @@ end
 $diagnostic$;
 
 select jsonb_build_object('kind','delete_rpc','definition',pg_get_functiondef(oid),
-  'authenticatedCanExecute',has_function_privilege('authenticated',oid,'EXECUTE'))
+  'authenticatedCanExecute',has_function_privilege('authenticated',oid,'EXECUTE'),
+  'owner',pg_get_userbyid(proowner),
+  'ownerBypassRls',(select rolbypassrls from pg_roles where oid = proowner),
+  'ownerSuperuser',(select rolsuper from pg_roles where oid = proowner))
 from pg_proc where oid = to_regprocedure('public.provider_delete_booking(uuid)');
+
+select jsonb_build_object('kind','table_security','table',oid::regclass::text,
+  'rowSecurity',relrowsecurity,'forceRowSecurity',relforcerowsecurity,
+  'owner',pg_get_userbyid(relowner))
+from pg_class
+where oid in (to_regclass('public.bookings'),to_regclass('public.payments'),to_regclass('public.payment_events'))
+order by oid::regclass::text;
 
 select jsonb_build_object('kind','delete_trigger','table',tgrelid::regclass::text,
   'definition',pg_get_triggerdef(oid),'enabled',tgenabled)
