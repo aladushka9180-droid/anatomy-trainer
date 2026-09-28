@@ -51,7 +51,7 @@ assert.match(release, /supabase-migration-v127\.sql/);
 assert.match(release, /\.state\.workspaceFunction and \.state\.pgcrypto/);
 assert.doesNotMatch(release, /pull_request|push:/);
 
-assert.match(integration, /Race Eldion handoffs and verify latest-wins TTL/);
+assert.match(integration, /Race PrimeTime handoffs and verify latest-wins TTL/);
 assert.doesNotMatch(integration, /-c "[^"]*:'actor'/);
 
 console.log('PrimeTime handoff v127 static checks passed.');
