@@ -41,7 +41,7 @@ try {
     document.querySelectorAll('.provider-view').forEach(view => { view.hidden = view.dataset.providerPanel !== 'bookings'; });
     const panel = document.querySelector('#offlineBookingQueuePanel');
     panel.hidden = false;
-    document.querySelector('#offlineBookingQueueStatus').textContent = 'Когда интернет вернётся, PrimeTime Pro проверит выбранное время и создаст запись';
+    document.querySelector('#offlineBookingQueueStatus').textContent = 'Когда интернет вернётся, Eldion Pro проверит выбранное время и создаст запись';
     const list = document.querySelector('#offlineBookingQueueList');
     list.innerHTML = '<article class="offline-booking-item is-pending"><div><strong>Рамиль с очень длинной фамилией для проверки переноса</strong><span>23 сент. · 12:00–13:30</span><span>Общий оздоровительный массаж всего тела с длинным названием</span><small>Ожидает подключения</small></div><div class="offline-booking-actions"><button type="button">Удалить</button></div></article>';
     const holder = document.querySelector('#providerBookings');
@@ -55,7 +55,7 @@ try {
       panel.classList.remove('is-created');
       document.querySelector('#offlineBookingQueueHead').hidden = false;
       document.querySelector('#offlineBookingQueueTitle').textContent = 'Сохранено на устройстве';
-      document.querySelector('#offlineBookingQueueStatus').textContent = 'Когда интернет вернётся, PrimeTime Pro проверит выбранное время и создаст запись';
+      document.querySelector('#offlineBookingQueueStatus').textContent = 'Когда интернет вернётся, Eldion Pro проверит выбранное время и создаст запись';
       document.querySelector('#offlineBookingQueueDetails').hidden = true;
       document.querySelector('#offlineBookingQueueList').innerHTML = '<article class="offline-booking-item is-pending"><div><strong>Рамиль с очень длинной фамилией для проверки переноса</strong><span>23 сент. · 12:00–13:30</span><span>Общий оздоровительный массаж всего тела с длинным названием</span><small>Ожидает подключения</small></div><div class="offline-booking-actions"><button type="button">Удалить</button></div></article>';
     });
@@ -70,7 +70,7 @@ try {
       panel.classList.add('is-created');
       document.querySelector('#offlineBookingQueueHead').hidden = false;
       document.querySelector('#offlineBookingQueueTitle').textContent = 'Офлайн-запись';
-      document.querySelector('#offlineBookingQueueStatus').textContent = 'Когда интернет вернётся, PrimeTime Pro проверит выбранное время и создаст запись';
+      document.querySelector('#offlineBookingQueueStatus').textContent = 'Когда интернет вернётся, Eldion Pro проверит выбранное время и создаст запись';
       document.querySelector('#offlineBookingQueueDetails').hidden = true;
       document.querySelector('#offlineBookingQueueList').innerHTML = '<article class="offline-booking-item is-created"><div><strong>Запись создана</strong><b>Рамиль с очень длинной фамилией для проверки переноса</b><span>Общий оздоровительный массаж всего тела с длинным названием</span><span>23 сентября · 12:00–13:30</span><small>Уведомление клиенту не отправлено — Telegram не подключён</small></div><div class="offline-booking-actions offline-booking-created-actions"><button class="offline-booking-create-more" type="button">Создать ещё запись</button><button class="offline-booking-dismiss" type="button" aria-label="Закрыть подтверждение">×</button></div></article>';
     });
@@ -166,7 +166,7 @@ try {
       const panel = document.querySelector('#offlineBookingQueuePanel');
       panel.classList.remove('is-created');
       document.querySelector('#offlineBookingQueueTitle').textContent = 'Сохранено на устройстве';
-      document.querySelector('#offlineBookingQueueStatus').textContent = 'Когда интернет вернётся, PrimeTime Pro проверит выбранное время и создаст запись';
+      document.querySelector('#offlineBookingQueueStatus').textContent = 'Когда интернет вернётся, Eldion Pro проверит выбранное время и создаст запись';
       document.querySelector('#offlineBookingQueueList').innerHTML = '<article class="offline-booking-item is-pending"><div><strong>Рамиль с очень длинной фамилией для проверки переноса</strong><span>23 сент. · 12:00–13:30</span><span>Общий оздоровительный массаж всего тела с длинным названием</span><small>Ожидает подключения</small></div><div class="offline-booking-actions"><button type="button">Удалить</button></div></article>';
     }, graphite);
     await page.screenshot({ path:path.join(output, 'offline-booking-pending-graphite-390.png'), fullPage:true });

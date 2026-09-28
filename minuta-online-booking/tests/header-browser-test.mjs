@@ -102,7 +102,7 @@ try{
         const rows=new Set(rects.map(rect=>Math.round(rect.top)));
         const columns=new Set(rects.map(rect=>Math.round(rect.left)));
         if(rows.size!==6||columns.size!==1)errors.push('tools must be one vertical list');
-        const expectedLabels=['Помощник','Открыть PrimeTime','Ссылка для записи','Поделиться','Обновить','Установить'];
+        const expectedLabels=['Помощник','Открыть Eldion','Ссылка для записи','Поделиться','Обновить','Установить'];
         if(items.some((item,index)=>item.textContent.trim()!==expectedLabels[index]))errors.push('tool order or label changed');
         for(let index=0;index<items.length;index++){
           const item=items[index],rect=rects[index];

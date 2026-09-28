@@ -19,7 +19,7 @@ const helpPage = ({ type = 'index', value = '' } = {}) => `<!doctype html><meta 
       <a id="helpIndex" href="/help/index.html">Все инструкции</a>
       <a id="helpArticle" href="/help/article.html?slug=install-app">Установить приложение</a>
       <a id="helpCategory" href="/help/category.html?category=settings">Настройки</a>
-      <a id="providerReturn" href="/provider.html">Открыть PrimeTime Pro</a>
+      <a id="providerReturn" href="/provider.html">Открыть Eldion Pro</a>
       <a id="externalGuide" href="/external.html">Внешняя инструкция</a>
     </main>
     <footer class="help-footer">Внешний подвал помощи</footer>`;
