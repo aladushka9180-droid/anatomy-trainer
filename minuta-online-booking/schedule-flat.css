@@ -204,3 +204,50 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     padding-inline:0!important; margin-inline:0!important;
   }
 }
+/* Approved desktop controls; mobile keeps its existing layout. */
+@media(min-width:761px) {
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] {
+    & .schedule-title-line { align-items:center!important; }
+    & .dashboard-summary,
+    & .dashboard-summary>div { align-items:center!important; }
+    & .dashboard-summary strong { color:var(--theme-ink)!important; font-weight:600!important; }
+    & .schedule-card:has(#dateStrip) :is(.calendar-view-toggle,.calendar-view-toggle button,.date-today-button,.schedule-date-picker,.date-strip-shift) {
+      border:0!important; box-shadow:none!important; background-image:none!important;
+    }
+    & .schedule-card:has(#dateStrip) .calendar-view-toggle { background:transparent!important; overflow:visible!important; }
+    & .schedule-card:has(#dateStrip) .calendar-view-toggle button { border-radius:12px!important; }
+    & .schedule-card:has(#dateStrip) .calendar-view-toggle button:not(.active) { background:transparent!important; }
+    & .schedule-card:has(#dateStrip) :is(.calendar-view-toggle button.active,.date-today-button) { background:var(--theme-accent-soft)!important; }
+    & .schedule-card:has(#dateStrip) .schedule-date-picker { background:transparent!important; min-width:180px!important; }
+    & .schedule-card:has(#dateStrip) .schedule-date-picker input { background:transparent!important; font-size:14px!important; font-weight:500!important; }
+    & .schedule-card:has(#dateStrip) .schedule-date-picker>.ui-icon { color:var(--theme-ink)!important; width:18px!important; height:18px!important; }
+    & .schedule-card:has(#dateStrip) .date-strip-frame>.date-strip { width:calc(100% - 120px)!important; min-width:0!important; margin-inline:60px!important; padding-inline:0!important; }
+    & .schedule-card:has(#dateStrip) .date-strip-frame>.date-strip>button {
+      display:grid!important; grid-template-rows:16px 24px 16px!important;
+      align-content:center!important; justify-items:center!important; gap:2px!important;
+      height:80px!important; padding:8px 5px!important;
+    }
+    & .schedule-card:has(#dateStrip) .date-strip-frame>.date-strip>button>:is(span,strong,small) { margin:0!important; line-height:1.2!important; }
+    & .schedule-card:has(#dateStrip) .date-strip-frame>.date-strip>button>small { display:block!important; }
+    & .schedule-card:has(#dateStrip) .date-strip-frame>.date-strip>button.active { background:var(--theme-accent-soft)!important; color:var(--theme-accent)!important; }
+    & .schedule-card:has(#dateStrip) .date-strip-frame>.date-strip>button.active>:is(span,strong,small) { color:var(--theme-accent)!important; }
+    & .schedule-card:has(#dateStrip) .date-strip-frame>.date-strip>button::after { display:none!important; }
+    & .schedule-card:has(#dateStrip) .date-strip-shift { background:transparent!important; border-radius:0!important; }
+    & .schedule-card:has(#dateStrip) .date-strip-shift .ui-icon { display:none!important; }
+    & .schedule-card:has(#dateStrip) .date-strip-shift::before {
+      content:""; width:8px; height:8px; border-top:1.5px solid currentColor;
+      border-left:1.5px solid currentColor; transform:rotate(-45deg);
+    }
+    & .schedule-card:has(#dateStrip) .date-strip-shift[data-date-shift="1"]::before { transform:rotate(135deg); }
+    & #newBookingButton.primary {
+      min-height:36px!important; height:36px!important; padding:0 16px!important;
+      border-radius:12px!important; font-weight:500!important;
+    }
+    & #newBookingButton.primary span { font-weight:500!important; }
+    & #newBookingButton.primary .ui-icon { width:16px!important; height:16px!important; }
+    & .schedule-card:has(#dateStrip) :is(.calendar-view-toggle button,.date-today-button,.date-strip-shift):focus-visible {
+      outline:2px solid var(--theme-accent)!important; outline-offset:2px!important;
+    }
+    & .schedule-card:has(#dateStrip) .schedule-date-picker:focus-within { outline:2px solid var(--theme-accent)!important; outline-offset:2px!important; }
+  }
+}
