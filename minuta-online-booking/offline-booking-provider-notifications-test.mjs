@@ -15,24 +15,28 @@ assert.ok(start >= 0 && end > start, 'Не удалось извлечь обр�
 const journal = [];
 const toasts = [];
 const systemNotifications = [];
+const listeners = new Map();
+const toastDurations = [];
 const context = {
-  window:{ Notification:{ permission:'granted' } },
+  window:{ Notification:{ permission:'granted' }, addEventListener:(name, handler) => listeners.set(name, handler) },
   Notification:{ permission:'granted' },
   document:{ hidden:false },
   recordConnectionEvent:(kind, text) => journal.push({ kind, text }),
-  notify:text => toasts.push(text),
+  notifyForDuration:(text, duration) => { toasts.push(text); toastDurations.push(duration); },
   showProviderSystemNotification:notice => systemNotifications.push(notice),
 };
 vm.createContext(context);
 vm.runInContext(`${provider.slice(start, end)}\nthis.api = { stageOfflineBookingProviderNotice, deliverOfflineBookingProviderNotice };`, context);
 
 const successItem = { id:'offline-1', clientName:'Анна', date:'2026-09-03', time:'10:30', reason:'' };
+assert.equal(typeof listeners.get('minuta:provider-session-reset'), 'function');
 const success = context.api.stageOfflineBookingProviderNotice(successItem, 'created', { clientNotified:true });
 assert.equal(success.title, 'Отложенная запись создана');
 assert.match(success.body, /Анна.*Клиент получил подтверждение/);
 assert.equal(context.api.deliverOfflineBookingProviderNotice(success), true);
 assert.equal(journal.at(-1).kind, 'online');
 assert.equal(systemNotifications.at(-1).view, 'bookings');
+assert.equal(toastDurations.at(-1), 6000);
 
 const conflictItem = { id:'offline-2', clientName:'Борис', date:'2026-09-03', time:'11:00', reason:'slot_unavailable' };
 const conflict = context.api.stageOfflineBookingProviderNotice(conflictItem, 'conflict');
