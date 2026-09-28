@@ -1,122 +1,117 @@
--- Candidate only: core service catalog drafts, without media or client messages.
+-- Candidate only. Apply to isolated PostgreSQL first; production requires a separate release gate.
 begin;
 
 set local search_path = public, extensions, pg_catalog;
 
 do $$ begin
-  if to_regclass('public.services') is null
-     or to_regclass('public.service_public_details_v159') is null
-     or to_regclass('public.organization_memberships') is null
-     or to_regclass('public.organizations') is null then
-    raise exception using errcode='P0001',message='v182_requires_service_and_organization_schema';
+  if to_regprocedure('public.get_minuta_inventory_workspace_v130(uuid)') is null
+     or to_regprocedure('public.upsert_minuta_inventory_item(uuid,uuid,text,text,text,numeric,boolean)') is null
+     or to_regclass('public.inventory_items') is null then
+    raise exception using errcode='P0001',message='v182_requires_inventory_v130';
   end if;
 end $$;
 
-create table public.service_catalog_requests_v182 (
-  performer_id uuid not null,
-  request_id uuid not null,
+create table if not exists public.inventory_catalog_requests_v182 (
   organization_id uuid not null references public.organizations(id) on delete restrict,
+  request_id uuid not null,
+  actor_id uuid references auth.users(id) on delete set null,
   payload_hash text not null,
   result jsonb not null,
   created_at timestamptz not null default now(),
-  primary key (performer_id,request_id)
+  primary key (organization_id,request_id)
 );
-alter table public.service_catalog_requests_v182 enable row level security;
-revoke all on public.service_catalog_requests_v182 from public,anon,authenticated;
-grant all on public.service_catalog_requests_v182 to service_role;
+alter table public.inventory_catalog_requests_v182 enable row level security;
+revoke all on public.inventory_catalog_requests_v182 from public,anon,authenticated;
+grant all on public.inventory_catalog_requests_v182 to service_role;
 
-create function public.minuta_service_catalog_etag_v182(p_service uuid)
-returns text language sql stable security definer set search_path to '' as $$
-  select md5(jsonb_build_array(s.name,s.duration_minutes,s.price_rub,s.active,
-    d.short_description,d.highlights,d.important_note,d.photo_storage_path,
-    d.photo_alt,d.photo_width,d.photo_height)::text)
-  from public.services s left join public.service_public_details_v159 d on d.service_id=s.id
-  where s.id=p_service;
+create function public.minuta_inventory_catalog_etag_v182(
+  p_name text,p_sku text,p_unit text,p_low_stock numeric,p_active boolean
+)
+returns text language sql immutable set search_path to '' as $$
+  select md5(jsonb_build_array(p_name,p_sku,p_unit,p_low_stock,p_active)::text);
 $$;
-revoke all on function public.minuta_service_catalog_etag_v182(uuid) from public,anon,authenticated,service_role;
+revoke all on function public.minuta_inventory_catalog_etag_v182(text,text,text,numeric,boolean)
+  from public,anon,authenticated,service_role;
 
-create function public.get_minuta_service_catalog_draft_v182(p_organization uuid,p_service uuid)
+create or replace function public.get_minuta_inventory_workspace_v182(p_organization uuid)
 returns jsonb language plpgsql stable security definer set search_path to '' as $$
-declare v_service public.services%rowtype;
+declare v_base jsonb;
 begin
-  if auth.uid() is null or not exists(
-    select 1 from public.organization_memberships m
-    join public.organizations o on o.id=m.organization_id and o.status='active'
-    where m.organization_id=p_organization and m.user_id=auth.uid() and m.active
-  ) then raise exception using errcode='42501',message='service_catalog_organization_denied'; end if;
-  select * into v_service from public.services s where s.id=p_service and s.performer_id=auth.uid();
-  if not found then raise exception using errcode='P0002',message='service_catalog_service_not_found'; end if;
-  return jsonb_build_object('organization_id',p_organization,'id',v_service.id,
-    'name',v_service.name,'duration_minutes',v_service.duration_minutes,
-    'price_rub',v_service.price_rub,'active',v_service.active,
-    'etag',public.minuta_service_catalog_etag_v182(v_service.id));
+  v_base:=public.get_minuta_inventory_workspace_v130(p_organization);
+  return jsonb_set(v_base,'{items}',coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id',item.id,'name',item.name,'sku',item.sku,'unit',item.unit,
+      'low_stock_threshold',item.low_stock_threshold,'active',item.active,
+      'updated_at',item.updated_at,
+      'etag',public.minuta_inventory_catalog_etag_v182(item.name,item.sku,item.unit,
+        item.low_stock_threshold,item.active)
+    ) order by item.active desc,item.name,item.id)
+    from public.inventory_items item where item.organization_id=p_organization
+  ),'[]'::jsonb));
 end $$;
-revoke all on function public.get_minuta_service_catalog_draft_v182(uuid,uuid) from public,anon,authenticated,service_role;
-grant execute on function public.get_minuta_service_catalog_draft_v182(uuid,uuid) to authenticated;
+revoke all on function public.get_minuta_inventory_workspace_v182(uuid) from public,anon,authenticated,service_role;
+grant execute on function public.get_minuta_inventory_workspace_v182(uuid) to authenticated;
 
-create function public.save_minuta_service_catalog_draft_v182(
-  p_organization uuid,p_request_id uuid,p_service uuid,p_expected_etag text,
-  p_name text,p_duration_minutes integer,p_price_rub integer,p_active boolean
+create or replace function public.save_minuta_inventory_item_draft_v182(
+  p_organization uuid,p_request_id uuid,p_item uuid,p_expected_etag text,
+  p_name text,p_sku text,p_unit text,p_low_stock numeric,p_active boolean
 ) returns jsonb language plpgsql security definer set search_path to '' as $$
-declare v_uid uuid:=auth.uid(); v_hash text; v_prior public.service_catalog_requests_v182%rowtype;
-  v_id uuid; v_current_etag text; v_result jsonb;
+declare v_hash text; v_prior public.inventory_catalog_requests_v182%rowtype;
+  v_current_etag text; v_saved jsonb; v_result jsonb; v_item public.inventory_items%rowtype;
 begin
-  if v_uid is null or not exists(
-    select 1 from public.organization_memberships m
-    join public.organizations o on o.id=m.organization_id and o.status='active'
-    where m.organization_id=p_organization and m.user_id=v_uid and m.active
-  ) then raise exception using errcode='42501',message='service_catalog_organization_denied'; end if;
-  if p_request_id is null or (p_service is null and p_expected_etag is not null)
-     or (p_service is not null and (p_expected_etag is null or p_expected_etag !~ '^[0-9a-f]{32}$')) then
-    raise exception using errcode='22023',message='service_catalog_request_invalid';
+  perform public.get_minuta_inventory_role(p_organization);
+  if p_request_id is null then raise exception using errcode='22023',message='inventory_catalog_request_required'; end if;
+  if (p_item is null and p_expected_etag is not null)
+     or (p_item is not null and (p_expected_etag is null or p_expected_etag !~ '^[0-9a-f]{32}$')) then
+    raise exception using errcode='22023',message='inventory_catalog_expected_version_invalid';
   end if;
-  if char_length(btrim(coalesce(p_name,''))) not between 2 and 120
-     or coalesce(p_duration_minutes,0) not between 1 and 480
-     or coalesce(p_price_rub,-1) not between 0 and 1000000 or p_active is null then
-    raise exception using errcode='22023',message='service_catalog_fields_invalid';
-  end if;
-  v_hash:=md5(jsonb_build_array(p_organization,p_service,p_expected_etag,
-    btrim(p_name),p_duration_minutes,p_price_rub,p_active)::text);
-  perform pg_advisory_xact_lock(hashtextextended(v_uid::text||':'||p_request_id::text,182));
-  select * into v_prior from public.service_catalog_requests_v182
-    where performer_id=v_uid and request_id=p_request_id;
+  v_hash:=md5(jsonb_build_array(p_item,p_expected_etag,btrim(coalesce(p_name,'')),
+    btrim(coalesce(p_sku,'')),p_unit,p_low_stock,p_active)::text);
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':'||p_request_id::text,182));
+  select * into v_prior from public.inventory_catalog_requests_v182
+    where organization_id=p_organization and request_id=p_request_id;
   if found then
-    if v_prior.payload_hash<>v_hash then
-      raise exception using errcode='23505',message='service_catalog_request_mismatch';
+    if v_prior.actor_id is distinct from auth.uid() or v_prior.payload_hash<>v_hash then
+      raise exception using errcode='23505',message='inventory_catalog_request_mismatch';
     end if;
-    if not exists(select 1 from public.services s where s.id=(v_prior.result->>'id')::uuid and s.performer_id=v_uid) then
-      return jsonb_build_object('saved',false,'reason','service_deleted','id',v_prior.result->>'id');
+    select item.* into v_item from public.inventory_items item
+      where item.organization_id=p_organization and item.id=(v_prior.result->>'id')::uuid;
+    if not found then
+      return jsonb_build_object('saved',false,'reason','inventory_item_deleted',
+        'organization_id',p_organization,'id',v_prior.result->>'id');
     end if;
-    if public.minuta_service_catalog_etag_v182((v_prior.result->>'id')::uuid)<>v_prior.result->>'etag' then
-      return jsonb_build_object('saved',false,'reason','service_changed_after_save','id',v_prior.result->>'id');
+    v_current_etag:=public.minuta_inventory_catalog_etag_v182(v_item.name,v_item.sku,v_item.unit,
+      v_item.low_stock_threshold,v_item.active);
+    if v_current_etag is distinct from v_prior.result->>'etag' then
+      return jsonb_build_object('saved',false,'reason','inventory_item_changed_after_save',
+        'organization_id',p_organization,'id',v_prior.result->>'id');
     end if;
     return v_prior.result;
   end if;
-  if p_service is null then
-    insert into public.services(performer_id,name,duration_minutes,price_rub,active)
-      values(v_uid,btrim(p_name),p_duration_minutes,p_price_rub,p_active) returning id into v_id;
-  else
-    -- The online v159 writer locks details before services. Follow that order.
-    perform 1 from public.service_public_details_v159 d where d.service_id=p_service for update;
-    select s.id into v_id from public.services s
-      where s.id=p_service and s.performer_id=v_uid for update;
-    if not found then raise exception using errcode='P0002',message='service_catalog_service_not_found'; end if;
-    v_current_etag:=public.minuta_service_catalog_etag_v182(v_id);
-    if v_current_etag<>p_expected_etag then
-      raise exception using errcode='40001',message='service_catalog_version_conflict';
+  if p_item is not null then
+    select item.* into v_item from public.inventory_items item
+      where item.id=p_item and item.organization_id=p_organization for update;
+    if not found then raise exception using errcode='P0002',message='inventory_item_not_found'; end if;
+    v_current_etag:=public.minuta_inventory_catalog_etag_v182(v_item.name,v_item.sku,v_item.unit,
+      v_item.low_stock_threshold,v_item.active);
+    if v_current_etag is distinct from p_expected_etag then
+      raise exception using errcode='40001',message='inventory_catalog_version_conflict';
     end if;
-    update public.services set name=btrim(p_name),duration_minutes=p_duration_minutes,
-      price_rub=p_price_rub,active=p_active where id=v_id;
   end if;
-  v_result:=jsonb_build_object('saved',true,'organization_id',p_organization,
-    'id',v_id,'etag',public.minuta_service_catalog_etag_v182(v_id));
-  insert into public.service_catalog_requests_v182(performer_id,request_id,organization_id,payload_hash,result)
-    values(v_uid,p_request_id,p_organization,v_hash,v_result);
+  v_saved:=public.upsert_minuta_inventory_item(p_organization,p_item,p_name,p_sku,p_unit,p_low_stock,p_active);
+  select item.* into v_item from public.inventory_items item
+    where item.organization_id=p_organization and item.id=(v_saved->>'id')::uuid;
+  v_result:=jsonb_build_object('organization_id',p_organization,'id',v_item.id,
+    'updated_at',v_item.updated_at,
+    'etag',public.minuta_inventory_catalog_etag_v182(v_item.name,v_item.sku,v_item.unit,
+      v_item.low_stock_threshold,v_item.active),'saved',true);
+  insert into public.inventory_catalog_requests_v182(organization_id,request_id,actor_id,payload_hash,result)
+    values(p_organization,p_request_id,auth.uid(),v_hash,v_result);
   return v_result;
 end $$;
-revoke all on function public.save_minuta_service_catalog_draft_v182(uuid,uuid,uuid,text,text,integer,integer,boolean)
+revoke all on function public.save_minuta_inventory_item_draft_v182(uuid,uuid,uuid,text,text,text,text,numeric,boolean)
   from public,anon,authenticated,service_role;
-grant execute on function public.save_minuta_service_catalog_draft_v182(uuid,uuid,uuid,text,text,integer,integer,boolean)
+grant execute on function public.save_minuta_inventory_item_draft_v182(uuid,uuid,uuid,text,text,text,text,numeric,boolean)
   to authenticated;
 
 commit;

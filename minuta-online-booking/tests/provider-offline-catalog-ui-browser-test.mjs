@@ -65,7 +65,7 @@ try {
       window.catalogRpcCalls=[];
       const db={rpc:async(name,args)=>{
         window.catalogRpcCalls.push(name);
-        if(name==='get_minuta_inventory_workspace_v181') return {data:{organization_id:'${org}',items:[
+        if(name==='get_minuta_inventory_workspace_v182') return {data:{organization_id:'${org}',items:[
           {id:'${item}',name:'Масло',sku:'M1',unit:'ml',low_stock_threshold:2,active:true,
             etag:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}]}};
         return {error:{message:'unexpected_test_rpc'}};
@@ -85,7 +85,7 @@ try {
     await panel.getByLabel('Название',{exact:true}).fill('Масло для массажа');
     await panel.getByRole('button',{name:'Сохранить на этом устройстве'}).click();
     await panel.getByText('На этом устройстве',{exact:true}).waitFor();
-    assert.deepEqual(await page.evaluate(()=>window.catalogRpcCalls),['get_minuta_inventory_workspace_v181']);
+    assert.deepEqual(await page.evaluate(()=>window.catalogRpcCalls),['get_minuta_inventory_workspace_v182']);
     const state=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth+1,
       panel:document.querySelector('#offlineCatalogDrafts').getBoundingClientRect().width,
       viewport:innerWidth}));

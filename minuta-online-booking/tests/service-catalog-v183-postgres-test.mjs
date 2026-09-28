@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const url=new URL(process.env.MINUTA_V182_ISOLATED_DATABASE_URL || '');
-assert.ok(['localhost','127.0.0.1'].includes(url.hostname) && url.pathname==='/isolated_v182',
-  'v182 test accepts only a local ephemeral isolated_v182 database');
+const url=new URL(process.env.MINUTA_V183_ISOLATED_DATABASE_URL || '');
+assert.ok(['localhost','127.0.0.1'].includes(url.hostname) && url.pathname==='/isolated_v183',
+  'v183 test accepts only a local ephemeral isolated_v183 database');
 const { Client }=await import('pg');
 const clients=[];
 const connect=async()=>{const client=new Client({connectionString:url.href});await client.connect();clients.push(client);return client;};
@@ -17,7 +17,7 @@ const other='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const org='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const foreignOrg='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const service='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
-const save='select public.save_minuta_service_catalog_draft_v182($1,$2,$3,$4,$5,$6,$7,$8) data';
+const save='select public.save_minuta_service_catalog_draft_v183($1,$2,$3,$4,$5,$6,$7,$8) data';
 
 try {
   await admin.query(`
@@ -44,12 +44,12 @@ try {
     insert into public.service_public_details_v159(service_id,short_description,photo_storage_path)
       values('${service}','Описание сохранено','${actor}/services/${service}/photo.webp');
   `);
-  await admin.query(readFileSync(new URL('../supabase-migration-v182.sql',import.meta.url),'utf8'));
+  await admin.query(readFileSync(new URL('../supabase-migration-v183.sql',import.meta.url),'utf8'));
   for(const client of [first,second]){
     await query(client,"select set_config('request.jwt.claim.sub',$1,false)",[actor]);
     await client.query('set role authenticated');
   }
-  const initial=(await query(first,'select public.get_minuta_service_catalog_draft_v182($1,$2) data',[org,service]))[0].data;
+  const initial=(await query(first,'select public.get_minuta_service_catalog_draft_v183($1,$2) data',[org,service]))[0].data;
   const argsOne=[org,'11111111-1111-4111-8111-111111111111',service,initial.etag,'Первая правка',75,1200,true];
   const argsTwo=[org,'22222222-2222-4222-8222-222222222222',service,initial.etag,'Вторая правка',80,1300,true];
   await first.query('begin');
@@ -60,7 +60,7 @@ try {
   assert.equal((await competing).error?.message,'service_catalog_version_conflict');
   assert.notEqual(saved.etag,initial.etag);
   assert.equal(saved.etag,(await query(first,
-    'select public.get_minuta_service_catalog_draft_v182($1,$2) data',[org,service]))[0].data.etag);
+    'select public.get_minuta_service_catalog_draft_v183($1,$2) data',[org,service]))[0].data.etag);
   assert.deepEqual((await query(second,save,argsOne))[0].data,saved);
   assert.equal((await query(admin,'select photo_storage_path from public.service_public_details_v159 where service_id=$1',[service]))[0].photo_storage_path,
     `${actor}/services/${service}/photo.webp`);
@@ -72,7 +72,7 @@ try {
   await first.query('commit');
   assert.deepEqual((await duplicate).value?.[0]?.data,created);
   assert.equal((await query(admin,'select count(*)::int n from public.services'))[0].n,2);
-  assert.equal((await query(admin,'select count(*)::int n from public.service_catalog_requests_v182'))[0].n,2);
+  assert.equal((await query(admin,'select count(*)::int n from public.service_catalog_requests_v183'))[0].n,2);
   const denied=await attempt(query(second,save,[foreignOrg,'44444444-4444-4444-8444-444444444444',null,null,'Чужая услуга',45,500,true]));
   assert.equal(denied.error?.message,'service_catalog_organization_denied');
   await query(admin,'update public.organization_memberships set active=false where organization_id=$1 and user_id=$2',[org,actor]);
@@ -88,9 +88,9 @@ try {
   const foreignEdit=await attempt(query(second,save,[org,'88888888-8888-4888-8888-888888888888',
     foreignService,initial.etag,'Чужая правка',60,500,true]));
   assert.equal(foreignEdit.error?.message,'service_catalog_service_not_found');
-  assert.equal((await query(admin,'select count(*)::int n from public.service_catalog_requests_v182'))[0].n,2);
+  assert.equal((await query(admin,'select count(*)::int n from public.service_catalog_requests_v183'))[0].n,2);
   const beforeDetails=(await query(first,
-    'select public.get_minuta_service_catalog_draft_v182($1,$2) data',[org,service]))[0].data;
+    'select public.get_minuta_service_catalog_draft_v183($1,$2) data',[org,service]))[0].data;
   await admin.query('begin');
   await query(admin,'update public.service_public_details_v159 set short_description=$1 where service_id=$2',['Внешняя правка',service]);
   const pendingDetails=attempt(query(second,save,[org,'55555555-5555-4555-8555-555555555555',
@@ -101,5 +101,5 @@ try {
   assert.deepEqual((await query(first,save,argsOne))[0].data,{saved:false,reason:'service_changed_after_save',id:service});
   await query(admin,'delete from public.services where id=$1',[created.id]);
   assert.deepEqual((await query(first,save,createArgs))[0].data,{saved:false,reason:'service_deleted',id:created.id});
-  console.log('v182 isolated PostgreSQL: parallel conflict, replay, parallel create, details, scope and tombstones passed');
+  console.log('v183 isolated PostgreSQL: parallel conflict, replay, parallel create, details, scope and tombstones passed');
 } finally { await Promise.allSettled(clients.map(client=>client.end())); }
