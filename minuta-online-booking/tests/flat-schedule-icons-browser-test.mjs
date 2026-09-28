@@ -26,6 +26,9 @@ try {
  });
  const page=await context.newPage(); const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('https://schedule.fixture.invalid/provider.html');
+ const orgSprite = 'ui-icons.svg?v=1023#icon-org';
+ assert.deepEqual(await page.locator('[data-provider-view="organization"] svg use').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href'))),[orgSprite,orgSprite],'Both static organization icons must be buildings before scripts run');
+ assert.ok(readFileSync(resolve(root,'ui-icons.svg'),'utf8').includes('<symbol id="icon-org" viewBox="0 0 24 24"><path d="M4 21V3'),'Building symbol must exist in the cached sprite');
  await page.addScriptTag({path:resolve(root,'schedule-break-icons.js')}); const flatStyle=await page.addStyleTag({path:resolve(root,'schedule-flat.css')});
  await page.evaluate(()=>{
   document.documentElement.classList.remove('provider-booting','requires-top-level');document.querySelector('#providerBoot')?.remove();
@@ -43,7 +46,10 @@ try {
  await page.addScriptTag({content:`
  const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
  const escapeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const uiIcon=id=>'<svg class="ui-icon"><use href="ui-icons.svg#icon-'+id+'"></use></svg>';
+ ${actual('uiIcon')}
+ ${source.match(/const PROVIDER_MOBILE_NAV_ITEMS = Object\.freeze\(\[[\s\S]*?\]\);/)[0]}
+ const navigationForRole=()=>['bookings','clients','analytics','organization'],providerMobileMoreIsOpen=()=>false;
+ ${actual('renderMobileNavigation')}
  let displayPreferences={break_icons:{automatic:'pause',bookings:{}},show_notes:false};
  let selectedDate='2026-09-26',recentlyCreatedBookingId='';
  const businessTodayIso=()=> '2026-09-28',automaticBookingBreaks=()=>[],timelineBounds=()=>({start:600,end:1050}),stackMinuteTimelineItems=()=>{};
@@ -174,19 +180,64 @@ try {
  assert.deepEqual(errors,[]);
  await page.evaluate(()=>{
   document.querySelector('#bookingSheet').hidden=true;document.body.classList.remove('booking-sheet-open');
-  const nav=document.querySelector('.provider-mobile-nav');
-  const button=nav.querySelector('[data-provider-view="notifications"]');
-  button.dataset.providerView='organization';button.innerHTML='<svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg><span>Организация</span>';
+  renderMobileNavigation();
  });
- assert.equal(await page.locator('.provider-mobile-nav [data-provider-view="organization"] svg path').count(),1,'Organization in the bottom navigation must use a building');
+ const organizationIcon=page.locator('.provider-mobile-nav [data-provider-view="organization"] svg');
+ const initialIcon=await organizationIcon.evaluate(node=>node.outerHTML);
+ assert.equal(await organizationIcon.locator('use').getAttribute('href'),orgSprite,'First actual navigation render must use the new building sprite');
  assert.equal(await page.locator('.provider-mobile-nav [data-provider-view="organization"]').isVisible(),true);
- assert.ok(await page.locator('[data-provider-view="organization"] svg use[href$="#icon-users"]').count()>0,'Other menus must remain unchanged');
+ for(let i=0;i<3;i++){
+  await page.evaluate(()=>renderMobileNavigation());
+  assert.equal(await organizationIcon.evaluate(node=>node.outerHTML),initialIcon,'Building remains unchanged after navigation rerenders and observer callbacks');
+ }
+ assert.equal(await page.locator('.provider-mobile-nav [data-provider-view="clients"] use').getAttribute('href'),'ui-icons.svg?v=1023#icon-users','Clients keep the people icon');
  if(output)await page.screenshot({path:resolve(output,'organization-navigation-390.png')});
  const workload=await page.evaluate(()=>fixturePerf());
  assert.equal(workload.sourceReads,0,'Unrelated DOM changes must not read bookings');
  assert.equal(workload.comparisons,0,'Unrelated DOM changes must not scan booking history');
  assert.equal(workload.relevantReads,1,'One index must serve the entire visible schedule refresh');
  console.log('Schedule refresh workload:',workload);
+ await page.evaluate(()=>{
+  items=[];redraw();
+  document.querySelector('#todayBookingsLabel').textContent='Сегодня';document.querySelector('#tomorrowBookingsLabel').textContent='Завтра';
+  window.emptyHintClicks=0;document.querySelector('.timeline-stage').addEventListener('click',()=>window.emptyHintClicks++);
+ });
+ for(const theme of ['pink-porcelain','carbon-crimson'])for(const width of [360,390,760,800,900,1024,1100,1199,1440])for(const counts of [[0,1,2],[12,34,108]]){
+  await page.setViewportSize({width,height:1000});
+  await page.evaluate(({theme,counts})=>{
+   document.body.dataset.providerTheme=theme;document.body.dataset.providerResolvedColorMode=theme==='carbon-crimson'?'dark':'light';
+   ['todayBookingsCount','tomorrowBookingsCount','newBookingsCount'].forEach((id,i)=>document.getElementById(id).textContent=counts[i]);
+  },{theme,counts});
+  await page.waitForTimeout(250);
+  const label=JSON.stringify({theme,width,counts});
+  const state=await page.evaluate(()=>{
+   const r=s=>document.querySelector(s).getBoundingClientRect(),p='.schedule-title-line .dashboard-summary';
+   const hint=document.querySelector('.timeline-empty-state'),copy=hint.querySelector('small'),icon=hint.querySelector('span'),h=hint.getBoundingClientRect(),c=copy.getBoundingClientRect(),i=icon.getBoundingClientRect(),stage=hint.parentElement.getBoundingClientRect(),s=getComputedStyle(hint);
+   return {right:Math.abs(r('#tomorrowBookingsCount').right-r('#newBookingsCount').right),left:Math.abs(r(p+'>div:first-child').left-r(p+'>div:last-child').left),heading:Math.abs(r(p).left-r('.schedule-view-title h2').left),separate:r('#tomorrowBookingsCount').bottom<=r('#newBookingsCount').top+1,clearance:r(p).right+4<=r('#newBookingButton').left,overflow:document.documentElement.scrollWidth>innerWidth+1,copy:copy.innerText,rows:Math.round(c.height/parseFloat(getComputedStyle(copy).lineHeight)),center:Math.abs(h.x+h.width/2-stage.x-stage.width/2),delta:Math.abs(i.y+i.height/2-c.y-c.height/2),inside:h.left>=stage.left&&h.right<=stage.right,background:s.backgroundColor,gradient:s.backgroundImage,pointer:s.pointerEvents};
+  });
+  assert.ok(!state.overflow,label+' no overflow');
+  if(width>760){
+   assert.equal(state.copy,'Нажмите нужное время, чтобы записать клиента или поставить перерыв','Desktop wording preserved');
+   const desktop=await page.evaluate(()=>{
+    const rect=id=>document.getElementById(id).getBoundingClientRect();
+    return {order:[['todayBookingsLabel','todayBookingsCount'],['tomorrowBookingsLabel','tomorrowBookingsCount'],['upcomingBookingsLabel','newBookingsCount']].map(([label,count])=>rect(label).right<rect(count).left),headingGap:getComputedStyle(document.querySelector('.schedule-title-line')).gap,summaryGap:getComputedStyle(document.querySelector('.dashboard-summary')).gap};
+   });
+   assert.deepEqual(desktop.order,[true,true,true],label+' label precedes each count');
+   assert.ok(state.clearance,label+' summary clear of main action');
+   if(width>1100)assert.equal(desktop.headingGap,desktop.summaryGap,label+' consistent summary spacing');
+   if(output&&counts[0]===0)await page.screenshot({path:resolve(output,`desktop-summary-${theme}-${width}.png`)});
+   continue;
+  }
+  assert.ok(state.right<1&&state.left<1&&state.heading<1&&state.separate&&state.clearance,label+' both summary edges aligned without button overlap');
+  assert.equal(state.copy.replace(/\s+/g,' ').trim(),'Нажмите на время, чтобы добавить запись',label+' short mobile wording');
+  assert.equal(state.rows,2,label+' two hint lines');assert.ok(state.center<1&&state.delta<1&&state.inside,label+' centered hint');
+  assert.notEqual(state.background,'rgba(0, 0, 0, 0)',label+' opaque background covers grid');assert.equal(state.gradient,'none');assert.equal(state.pointer,'none');
+  if(output&&counts[0]===0)await page.screenshot({path:resolve(output,`mobile-polish-${theme}-${width}.png`)});
+ }
+ await page.setViewportSize({width:390,height:1000});await page.waitForTimeout(250);
+ const hintBox=await page.locator('.timeline-empty-state').boundingBox();
+ await page.mouse.click(hintBox.x+hintBox.width/2,hintBox.y+hintBox.height/2);
+ assert.equal(await page.evaluate(()=>emptyHintClicks),1,'Hint passes the click to the timeline');
  await page.evaluate(()=>{document.querySelector('#dashboard').hidden=true;});
  assert.equal(await flatStyle.evaluate(element=>[...element.sheet.cssRules].filter(rule=>rule.selectorText?.includes(':has(#dashboard') && document.body.matches(rule.selectorText)).length),0,'Schedule body rules must not match a hidden dashboard');
  console.log('PASS flat schedule: light/dark 390/760/1440, online/manual borders, break time, six icons, persistence and account separation');

@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1022`;
-const CACHE_READY = './.precache-ready-v1022';
+const CACHE = `${CACHE_PREFIX}v1023`;
+const CACHE_READY = './.precache-ready-v1023';
 
 const ASSETS = [
   './provider.html',
@@ -12,7 +12,7 @@ const ASSETS = [
   './provider-icon-maskable-512.png?v=1022',
   './provider-icon.svg?v=1022',
   './icon.svg',
-  './ui-icons.svg',
+  './ui-icons.svg?v=1023',
   './styles.css?v=1004',
   './provider-connection-guidance.css?v=1007',
   './provider-reference-screens.css?v=1022',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1022',
+  './site-update.js?v=1023',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -63,14 +63,14 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1007',
-  './provider.js?v=1022',
+  './provider.js?v=1023',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
 
 const OPTIONAL_ASSETS = [
-  './schedule-flat.css?v=1020',
-  './schedule-break-icons.js?v=1013',
+  './schedule-flat.css?v=1023',
+  './schedule-break-icons.js?v=1023',
   './client-loyalty-frames.css?v=3',
   './client-loyalty-frames.js?v=3',
   './client-profile-card.css?v=2',
@@ -85,7 +85,7 @@ const OPTIONAL_ASSETS = [
   './subscription-pricing.css?v=811',
   './statistics-audit-ui.css?v=1019',
   './statistics-audit-ui.js?v=1004',
-  './statistics-audit-provider.js?v=1019',
+  './statistics-audit-provider.js?v=1023',
   './client-results.css?v=876',
   './provider-porcelain-detail.css?v=998',
   './provider-schedule-type.css?v=933',
@@ -99,7 +99,7 @@ const OPTIONAL_ASSETS = [
   './client-themes.css?v=885',
   './report-demo-live.js?v=811',
   './loyalty-program-v166.js?v=1009',
-  './provider-schedule-desktop-reference.css?v=975',
+  './provider-schedule-desktop-reference.css?v=1023',
   './settings-nav-scroll.js?v=882',
   './settings-smart-search.js?v=865',
   './provider-theme-noir-safari.css?v=811',
@@ -115,7 +115,7 @@ const OPTIONAL_ASSETS = [
   './provider-integrations.css?v=1008',
   './finance-center.css?v=1020',
   './finance-center.js?v=1004',
-  './finance-center-provider.js?v=1004',
+  './finance-center-provider.js?v=1023',
   './client-records.css?v=811',
   './client-records.js?v=811',
   './messages.html',

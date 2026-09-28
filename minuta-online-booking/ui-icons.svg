@@ -37,4 +37,5 @@
   <symbol id="icon-shield-alert" viewBox="0 0 24 24"><path d="M12 3.5 19 6v5.3c0 4.4-2.4 7.4-7 9.2-4.6-1.8-7-4.8-7-9.2V6l7-2.5Zm0 4.2v5.1m0 3v.1"/></symbol>
   <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 16V5m-4 4 4-4 4 4M5 20h14"/></symbol>
   <symbol id="icon-edit" viewBox="0 0 24 24"><path d="m5 16-.8 3.8L8 19l10.5-10.5-3-3L5 16Zm8.8-8.8 3 3M4 20h16"/></symbol>
+  <symbol id="icon-org" viewBox="0 0 24 24"><path d="M4 21V3h11v18M15 10h5v11M2 21h20M7 7h5M7 11h5M7 15h5M8 21v-3h3v3M18 13v1M18 17v1"/></symbol>
 </svg>

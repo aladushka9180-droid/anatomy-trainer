@@ -206,7 +206,7 @@
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] .schedule-title-line {
     display:flex!important;
     align-items:center!important;
-    gap:24px!important;
+    gap:10px!important;
     min-width:0;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] .schedule-view-title h2 {
@@ -220,7 +220,7 @@
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] .dashboard-summary {
     display:inline-flex!important;
     align-items:baseline!important;
-    gap:7px!important;
+    gap:10px!important;
     margin:0!important;
     padding:0!important;
     border:0!important;
@@ -236,7 +236,7 @@
     align-items:baseline!important;
     gap:5px!important;
   }
-  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] .dashboard-summary>div:last-child {
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] .dashboard-summary>div {
     flex-direction:row-reverse;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #upcomingBookingsLabel::before { content:"всего "; }

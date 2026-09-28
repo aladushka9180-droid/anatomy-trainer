@@ -53,11 +53,6 @@
           previous?.remove(); title.insertAdjacentHTML('afterbegin', markup(item, preferences));
         }
       });
-      document.querySelectorAll('.provider-mobile-nav [data-provider-view="organization"] svg use[href$="#icon-users"]').forEach(use => {
-        const icon = use.parentElement;
-        icon.setAttribute('viewBox','0 0 24 24');
-        icon.innerHTML = '<path d="M4 21V3h11v18M15 10h5v11M2 21h20M7 7h5M7 11h5M7 15h5M8 21v-3h3v3M18 13v1M18 17v1"/>';
-      });
       const sheet = document.querySelector('#bookingSheet');
       const content = document.querySelector('#bookingSheetContent');
       if (sheet && content && !sheet.hidden && !content.querySelector('.schedule-break-icon-picker')) {
