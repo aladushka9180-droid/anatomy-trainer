@@ -310,3 +310,8 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     line-height:1.4!important; font-weight:400!important; white-space:normal!important;
   }
 }
+
+/* Keep the approved separators in the desktop schedule summary too. */
+@media(min-width:761px) {
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-title-line .dashboard-summary>div:not(:nth-of-type(3))>span::after { content:" —"; }
+}

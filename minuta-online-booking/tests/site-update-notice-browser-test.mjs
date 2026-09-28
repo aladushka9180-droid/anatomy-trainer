@@ -28,6 +28,21 @@ const server = createServer((request, response) => {
   response.writeHead(200, { 'Content-Type':path.endsWith('.js') ? 'text/javascript' : path.endsWith('.svg') ? 'image/svg+xml' : 'text/html', 'Cache-Control':'no-store', 'Service-Worker-Allowed':'/', 'Content-Security-Policy':"default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self'; object-src 'none'" }).end(body);
 });
 let browser;
+let page;
+const errors = [];
+async function waitForReadyBuild(version) {
+  await page.waitForFunction(async expected => {
+    const controller = navigator.serviceWorker.controller;
+    if (!controller) return false;
+    const info = await new Promise(resolve => {
+      const channel = new MessageChannel();
+      const timer = setTimeout(() => { channel.port1.close(); resolve(null); }, 1200);
+      channel.port1.onmessage = event => { clearTimeout(timer); channel.port1.close(); resolve(event.data); };
+      controller.postMessage({type:"site-update-version"}, [channel.port2]);
+    });
+    return controller === navigator.serviceWorker.controller && info?.ready === true && info.version === Number(expected);
+  }, version);
+}
 try {
   await new Promise(done => server.listen(0, '127.0.0.1', done));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -35,8 +50,7 @@ try {
   browser = await chromium.launch({headless:true, channel:process.env.BROWSER_CHANNEL || (process.platform === 'win32' ? 'chrome' : undefined)});
   const context = await browser.newContext({serviceWorkers:'allow'});
   await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
-  const page = await context.newPage();
-  const errors = [];
+  page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   page.setDefaultTimeout(15000);
   await page.goto(`${origin}/provider.html`);
@@ -50,7 +64,9 @@ try {
   await page.locator('#siteUpdateNotice button').click();
   await page.waitForFunction(version => document.body.dataset.release === version, newRelease.version);
   try {
-    await page.waitForFunction(version => navigator.serviceWorker.controller?.scriptURL.endsWith(`sw.js?v=${version}`), newRelease.version);
+    // Registration URLs can differ while the active worker contains the same release.
+    // Prove the actual ready build instead of requiring a redundant URL replacement.
+    await waitForReadyBuild(newRelease.version);
   } catch (error) {
     console.log(JSON.stringify({errors, state:await page.evaluate(async()=>({controller:navigator.serviceWorker.controller?.scriptURL,scripts:Array.from(document.scripts).map(s=>s.src),registrations:(await navigator.serviceWorker.getRegistrations()).map(r=>({active:r.active?.scriptURL,installing:r.installing?.scriptURL,waiting:r.waiting?.scriptURL}))}))}));
     throw error;
@@ -91,11 +107,15 @@ try {
     phase = {version:future,worker:advance(newRelease.worker),updater:advance(newRelease.updater)};
     await context.setOffline(false);
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+    await waitForReadyBuild(future);
     await page.locator('#siteUpdateNotice button').waitFor();
     assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version);
     console.log('PASS: a genuinely newer release still offers an update');
   }
   console.log('PASS: one-release update lifecycle and offline draft preservation');
+} catch (error) {
+  if (page && !page.isClosed()) console.log(JSON.stringify({errors, failureState:await page.evaluate(async()=>({loaded:document.body.dataset.release,notice:Boolean(document.querySelector('#siteUpdateNotice')),online:navigator.onLine,controller:navigator.serviceWorker.controller?.scriptURL,caches:await caches.keys(),registrations:(await navigator.serviceWorker.getRegistrations()).map(r=>({active:r.active?.scriptURL,activeState:r.active?.state,installing:r.installing?.scriptURL,waiting:r.waiting?.scriptURL}))}))}));
+  throw error;
 } finally {
   await browser?.close();
   await new Promise(done => server.close(done));
