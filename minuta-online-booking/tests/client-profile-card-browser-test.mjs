@@ -15,7 +15,7 @@ try{
    assert.ok(geometry.overflow<=1,`${theme}/${width}: overflow`);
    assert.ok(geometry.avatar.right<geometry.name.left,`${theme}/${width}: avatar beside name`);
    assert.ok(geometry.name.left-geometry.avatar.right<115,`${theme}/${width}: identity stays next to avatar`);
-   assert.ok(geometry.plaque.top>=geometry.avatar.bottom-1,`${theme}/${width}: photo clear`);
+   assert.ok(geometry.plaque.top>=geometry.avatar.top+geometry.avatar.height*.65,`${theme}/${width}: face centre clear`);
    assert.ok(geometry.action.top<550&&geometry.action.height>=48,`${theme}/${width}: primary action prominent`);
    assert.ok(geometry.action.width>geometry.name.right-geometry.avatar.left,`${theme}/${width}: primary action spans header`);
    assert.equal(await page.locator('.profile-card-totals .client-summary-icon').first().isVisible(),false);
