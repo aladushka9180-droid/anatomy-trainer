@@ -9,9 +9,9 @@ const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
 function actual(name) {
-  const start = providerSource.search(new RegExp(`^function ${name}\\(`, 'm'));
+  const start = providerSource.search(new RegExp(`^(?:async )?function ${name}\\(`, 'm'));
   assert.ok(start >= 0, name);
-  const next = providerSource.slice(start + 1).search(/^function /m);
+  const next = providerSource.slice(start + 1).search(/^(?:async )?function /m);
   return providerSource.slice(start, next < 0 ? undefined : start + 1 + next);
 }
 const output = process.env.MINUTA_CONNECTION_GUIDANCE_OUTPUT || '';
@@ -140,7 +140,63 @@ try {
   assert.match(integrated.session, /Сеанс нужно подтвердить/);
   assert.match(integrated.summary, /Сохранена 1 запись, 1 запись требует проверки/);
   assert.equal(integrated.afterAccountChange, true);
+  const clickStart = providerSource.indexOf("$('#providerConnectionGuidanceCheck')?.addEventListener");
+  const clickEnd = providerSource.indexOf("$('#providerConnectionGuidanceInspect')?.addEventListener", clickStart);
+  assert.ok(clickStart >= 0 && clickEnd > clickStart);
+  await page.addScriptTag({content:`
+    let manualSynchronizationPromise = null, synchronizationPromise = null;
+    let sessionGeneration = 1, bookingCreationReady = false;
+    let cachedProviderVerification = null, cachedProviderVerificationRetryTimer = null;
+    let connectionGuidanceOutageObserved = false;
+    const pendingBookingColors = new Map(), pendingBookingNotes = new Map();
+    const pendingClientLabels = new Map(), pendingClientNotes = new Map();
+    function sessionIsCurrent(id, generation) { return currentUser?.id === id && generation === sessionGeneration; }
+    function notify(text) { $('#toast').hidden = false; $('#toast').textContent = text; }
+    const db = {auth:{getSession:async () => {
+      window.testAuthCalls++;
+      await new Promise(resolve => { window.testReleaseAuth = resolve; });
+      return {data:{session:{user:{id:currentUser.id}}},error:null};
+    }}};
+    async function providerAccessAllowed() { return window.testAccess; }
+    async function handleSession() { providerSessionTrust = 'verified'; sessionGeneration++; }
+    async function rejectCachedProviderSession() { throw new Error('Unexpected rejection'); }
+    function authTemporarilyUnavailable() { return true; }
+    async function synchronizeProvider() {
+      if (providerSessionTrust !== 'verified') throw new Error('Refresh before access verification');
+      window.testSyncCalls++; return true;
+    }
+    async function flushOfflineBookings() { throw new Error('No booking writes in this fixture'); }
+    ${actual('verifyCachedProviderSession')}
+    ${actual('manualSynchronizeProvider')}
+    ${providerSource.slice(clickStart, clickEnd)}
+  `});
+  for (const width of [390, 760, 1440]) {
+    await page.setViewportSize({width, height:850});
+    await page.evaluate(() => {
+      resetConnectionGuidance(); providerSessionTrust = 'cached';
+      window.testOnline = true; window.testAccess = true;
+      window.testAuthCalls = 0; window.testSyncCalls = 0;
+      renderProviderConnectionGuidance();
+    });
+    await page.locator('#providerConnectionGuidanceCheck').click();
+    assert.equal(await page.locator('#providerConnectionGuidanceCheck').isDisabled(), true);
+    assert.deepEqual(await page.evaluate(() => [window.testAuthCalls, window.testSyncCalls]), [1,0]);
+    await page.evaluate(() => window.testReleaseAuth());
+    await page.locator('#providerConnectionGuidance').waitFor({state:'hidden'});
+    assert.equal(await page.locator('#toast').innerText(), 'Все данные обновлены');
+    assert.deepEqual(await page.evaluate(() => [window.testAuthCalls, window.testSyncCalls]), [1,1]);
+    if (output) await page.screenshot({path:path.join(output, `session-retry-success-${width}.png`)});
+  }
+  await page.evaluate(() => { providerSessionTrust = 'cached'; window.testAccess = null; renderProviderConnectionGuidance(); });
+  await page.locator('#providerConnectionGuidanceCheck').click();
+  await page.evaluate(() => window.testReleaseAuth());
+  await page.waitForFunction(() => !document.querySelector('#providerConnectionGuidanceCheck').disabled);
+  assert.equal(await page.locator('#providerConnectionGuidance').isVisible(), true);
+  assert.match(await page.locator('#toast').innerText(), /Не удалось подтвердить сеанс/);
+  assert.equal(await page.evaluate(() => window.testSyncCalls), 1);
+  await page.evaluate(() => clearTimeout(cachedProviderVerificationRetryTimer));
   console.log('provider connection guidance browser: 390/760/1440, offline/help/server/recovery/normal online PASS');
+  console.log('manual session retry browser: real button, verified recovery and temporary failure PASS');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
