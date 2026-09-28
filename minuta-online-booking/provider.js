@@ -4322,7 +4322,7 @@ function renderReportTeamRows(rows) {
     return revenue;
   };
   const metricLabel = (value, row) => {
-    if (value === null) return 'Не настроено';
+    if (value === null) return '—';
     if (reportTeamMetric === 'visits') return `${Math.round(value)} ${reportVisitWord(value)}`;
     if (reportTeamMetric === 'hours') return reportHours(Number(row.worked_minutes) || 0);
     if (reportTeamMetric === 'efficiency') return `${money(Math.round(value))}/ч`;
@@ -4339,7 +4339,7 @@ function renderReportTeamRows(rows) {
     const revenue = Math.max(0, Number(row.revenue_rub) || 0);
     const average = row.payment_known_visits ? revenue / row.payment_known_visits : null;
     const width = item.value === null ? 0 : Math.max(item.value > 0 ? 3 : 0, Math.round((item.value || 0) / maximum * 100));
-    return `<button class="report-performer-row${showLeader && index === 0 && item.value !== null ? ' is-leader' : ''}" type="button" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><span class="report-team-rank">${index + 1}</span><span class="report-team-person"><strong>${escapeHtml(row.performer_name || 'Мастер')}${showLeader && index === 0 && item.value !== null ? '<em>Лидер</em>' : ''}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)} · ${average === null ? 'Нет данных об оплате' : `${money(Math.round(average))}/визит с данными`}</small></span><span class="report-team-bar" aria-hidden="true"><i style="width:${width}%"></i></span><span class="report-performer-value"><b>${escapeHtml(metricLabel(item.value, row))}</b>${reportTeamMetric === 'payroll' && item.value === null ? '<small>Настройте начисление</small>' : ''}</span><span class="report-team-arrow" aria-hidden="true">→</span></button>`;
+    return `<button class="report-performer-row${showLeader && index === 0 && item.value !== null ? ' is-leader' : ''}" type="button" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><span class="report-team-rank">${index + 1}</span><span class="report-team-person"><strong>${escapeHtml(row.performer_name || 'Мастер')}${showLeader && index === 0 && item.value !== null ? '<em>Лидер</em>' : ''}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)} · ${average === null ? 'Нет данных об оплате' : `${money(Math.round(average))}/визит с данными`}</small></span><span class="report-team-bar" aria-hidden="true"><i style="width:${width}%"></i></span><span class="report-performer-value"><b>${escapeHtml(metricLabel(item.value, row))}</b>${reportTeamMetric === 'payroll' && item.value === null ? '<small>Схема начисления не задана</small>' : ''}</span><span class="report-team-arrow" aria-hidden="true">→</span></button>`;
   }).join('');
   holder.querySelectorAll('[data-report-performer]').forEach(row => {
     const select = () => { const control = $('#reportPerformerFilter'); if (!control) return; control.value = row.dataset.reportPerformer; control.dispatchEvent(new Event('change', { bubbles:true })); window.scrollTo({ top:$('#analyticsView')?.offsetTop || 0, behavior:'smooth' }); };

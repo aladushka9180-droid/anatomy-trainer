@@ -15,7 +15,7 @@ const browser = await chromium.launch({ headless:true });
 try {
   for (const width of [390, 760, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:900 } });
-    await page.setContent('<body class="provider-body" data-provider-theme="pink-porcelain" data-provider-layout="soft" data-provider-color-mode="light" data-provider-resolved-color-mode="light"><main id="analyticsView" style="max-width:900px;margin:auto"><section class="panel report-performers" id="reportPerformers"><div class="report-section-heading"><div><small>Команда</small><h3>Рейтинг сотрудников</h3></div></div><div class="report-team-controls"><button data-report-team-metric="revenue">Выручка</button></div><p id="reportTeamMetricNote"></p><div class="report-performer-list" id="reportPerformersList"></div></section><select id="reportPerformerFilter"><option value="all">Вся команда</option><option value="master-1">Мастер</option></select></main></body>');
+    await page.setContent('<body class="provider-body" data-provider-theme="pink-porcelain" data-provider-layout="soft" data-provider-color-mode="light" data-provider-resolved-color-mode="light"><main id="analyticsView" style="max-width:900px;margin:auto"><section class="panel report-performers" id="reportPerformers"><div class="report-section-heading"><div><small>Команда</small><h3>Рейтинг сотрудников</h3></div></div><div class="report-team-controls"><button data-report-team-metric="revenue">Выручка</button><button data-report-team-metric="payroll">Заработок</button></div><p id="reportTeamMetricNote"></p><div class="report-performer-list" id="reportPerformersList"></div></section><select id="reportPerformerFilter"><option value="all">Вся команда</option><option value="master-1">Мастер</option></select></main></body>');
     await page.addStyleTag({ path:path.join(root, 'styles.css') });
     await page.addScriptTag({ content:`
       var reportCanViewTeam=true, reportPerformerFilter='all', reportTeamMetric='revenue', reportTeamAnalyticsState={rows:[]};
@@ -48,6 +48,13 @@ try {
     await page.keyboard.press('Space');
     assert.equal(await page.locator('#reportPerformerFilter').inputValue(), 'master-1');
     assert.equal(await page.evaluate(() => window.teamSelectionCount), 3);
+    await page.locator('[data-report-team-metric="payroll"]').click();
+    assert.match(await row.innerText(), /Схема начисления не задана/);
+    assert.doesNotMatch(await row.innerText(), /Настройте начисление/);
+    await page.locator('#reportPerformerFilter').selectOption('all');
+    await row.click();
+    assert.equal(await page.locator('#reportPerformerFilter').inputValue(), 'master-1', 'the row still selects the employee');
+    assert.equal(await page.evaluate(() => window.teamSelectionCount), 5);
     await page.close();
   }
   console.log('Statistics team native button: 390/760/1440, Enter/Space, no overflow');
