@@ -46,13 +46,13 @@ try {
  const uiIcon=id=>'<svg class="ui-icon"><use href="ui-icons.svg#icon-'+id+'"></use></svg>';
  let displayPreferences={break_icons:{automatic:'pause',bookings:{}},show_notes:false};
  let selectedDate='2026-09-26',recentlyCreatedBookingId='';
- const businessTodayIso=()=> '2026-09-28',automaticBookingBreaks=()=>[],timelineBounds=()=>({start:600,end:1020}),stackMinuteTimelineItems=()=>{};
+ const businessTodayIso=()=> '2026-09-28',automaticBookingBreaks=()=>[],timelineBounds=()=>({start:600,end:1050}),stackMinuteTimelineItems=()=>{};
  const minutesFromTime=t=>Number(t.slice(0,2))*60+Number(t.slice(3,5)),timeFromMinutes=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
  const bookingStatus=i=>i.status,bookingStatusClass=i=>i.status,isScheduleBlock=i=>i.status==='block',bookingDisplayNote=()=>'',compactBookingCardsEnabled=()=>false;
  const bookingVisitSummaryText=()=>'',bookingVisitSummaryMarkup=()=>'',clientHighlightClasses=()=>'',clientBadgeText=()=>'',clientBadgeMarkup=()=>'',timelineMoveRestriction=()=>'';
  const timelineServiceNameMarkup=n=>escapeHtml(n),bookingNotePresenceMarkup=()=>'',bookingColor=()=> 'auto',serviceName=n=>n,scheduleNowMarkerMarkup=()=>'',timelineEmptyHintOffsetMinutes=()=>120,scheduleCreateHintMarkup=()=>'';
  const base={booking_date:selectedDate,status:'confirmed',client_name:'Анна',client_phone:'79000000000',services:{name:'Массаж спины + ШВЗ — углублённый'}};
- let items=[{...base,id:'online',booking_time:'10:00',duration_minutes:60,booking_source:'client_online'}, {...base,id:'auto',booking_time:'11:00',duration_minutes:120,status:'block',automatic_break:true}, {...base,id:'manual',booking_time:'13:00',duration_minutes:60,booking_source:'provider_manual',client_name:'Екатерина'}, {...base,id:'break',booking_time:'14:00',duration_minutes:60,status:'block',client_name:'Личное'}, {...base,id:'short',booking_time:'15:00',duration_minutes:30,status:'block'}, {...base,id:'long',booking_time:'16:00',duration_minutes:60,client_name:'Очень длинное имя клиента для проверки переноса'}];
+ let items=[{...base,id:'online',booking_time:'10:00',duration_minutes:60,booking_source:'client_online'}, {...base,id:'auto',booking_time:'11:00',duration_minutes:120,status:'block',automatic_break:true}, {...base,id:'manual',booking_time:'13:00',duration_minutes:60,booking_source:'provider_manual',client_name:'Екатерина'}, {...base,id:'break',booking_time:'14:00',duration_minutes:60,status:'block',client_name:'Личное'}, {...base,id:'short',booking_time:'15:00',duration_minutes:30,status:'block'}, {...base,id:'long',booking_time:'16:00',duration_minutes:90,client_name:'Очень длинное имя клиента для проверки переноса'}];
  ${actual('renderTimeline')}
  let automaticBreakSheetInvoker=null;
  const automaticBookingBreaksRemoteAvailable=false, AUTOMATIC_BREAK_COLOR_KEYS=['neutral','theme'],BOOKING_COLOR_LABELS={};
@@ -91,6 +91,28 @@ try {
   });
   assert.equal(state.overflow,false,`${theme}/${width}: overflow`);assert.equal(state.onlineBorder,'3px');assert.equal(state.manualShadow,'none');assert.ok(state.manualWidth==='0px'||state.manualBorder==='rgba(0, 0, 0, 0)',JSON.stringify(state));assert.equal(state.timeFirst,true,`${width} break time first`);assert.equal(state.manualTimeFirst,true,'Manual break time must precede title');assert.equal(state.pause,'pause');assert.equal(state.sourceDisplay,'none');assert.equal(state.gradients,0);assert.equal(state.titleWeight,'600');assert.equal(state.todayBorder,'1px');
   if(width<=760){
+   const layout=await page.evaluate(()=>{
+    const rect=e=>e.getBoundingClientRect(),q=s=>document.querySelector(s);
+    const title=rect(q('.schedule-view-title h2'));
+    const summary=q('.schedule-title-line .dashboard-summary'),rows=[...summary.querySelectorAll(':scope>div')];
+    return {
+     months:[...document.querySelectorAll('.date-strip>button')].map(button=>{
+      const month=rect(button.querySelector('small')),day=rect(button.querySelector('strong')),outer=rect(button);
+      return {visible:month.height>0,below:month.top>=day.bottom-1,inside:month.bottom<=outer.bottom+1};
+     }),
+     aligned:[summary,rows[0],rows[2]].every(e=>Math.abs(rect(e).left-title.left)<1),
+     lefts:[title.left,...[summary,rows[0],rows[2]].map(e=>rect(e).left)],
+     labelPadding:getComputedStyle(rows[2],'::before').paddingLeft,
+     cards:['online','manual','long'].map(id=>{
+      const card=q(`[data-open-booking="${id}"]`),time=rect(card.querySelector('.timeline-mobile-time')),name=rect(card.querySelector('.timeline-client-name')),service=rect(card.querySelector('.timeline-booking-copy>strong'));
+      return {id,timeVisible:time.height>0,nameVisible:name.height>0,separate:time.bottom<=name.top+1 && name.bottom<=service.top+1};
+     })
+    };
+   });
+   assert.ok(layout.months.every(m=>m.visible && m.below && m.inside),`${theme}/${width}: month labels ${JSON.stringify(layout.months)}`);
+   assert.ok(layout.aligned,`${theme}/${width}: both counter rows must align with the heading: ${layout.lefts}`);
+   assert.equal(layout.labelPadding,'0px');
+   for(const card of layout.cards)assert.ok(card.timeVisible && card.nameVisible && card.separate,`${theme}/${width}: time, client and service need separate rows: ${JSON.stringify(card)}`);
    const header=await page.evaluate(()=>{
     const css=s=>getComputedStyle(document.querySelector(s));
     return {todayInk:css('.date-today-button').color,tabInk:css('.calendar-view-toggle button.active').color,selectedBg:css('.date-strip>button.active').backgroundColor,tab:css('.calendar-view-toggle button.active').backgroundColor,navBorder:css('.date-navigation').borderTopWidth,stripBorder:css('.date-strip-frame').borderBottomWidth,dateBorder:css('.schedule-date-picker').borderTopWidth,todayBorder:css('.date-today-button').borderTopWidth,dateWeight:css('.schedule-date-picker input').fontWeight,buttonInk:css('#newBookingButton span').color,buttonBg:css('#newBookingButton').backgroundColor,topbarBorder:css('#providerTopbarToolsButton').borderTopWidth};

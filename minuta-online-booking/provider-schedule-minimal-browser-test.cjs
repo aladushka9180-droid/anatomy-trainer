@@ -313,6 +313,9 @@ const server = http.createServer((request, response) => {
               summaryShadow:summaryStyle.boxShadow,
               summaryBackground:summaryStyle.backgroundColor,
               futurePaddingLeft:parseFloat(futureStyle.paddingLeft),
+              futureLabelPaddingLeft:parseFloat(futureLabel.paddingLeft),
+              headingLeft:scheduleHeading.left,
+              todaySummaryLeft:summary.querySelector('div').getBoundingClientRect().left,
               futureLineHeight:parseFloat(futureLabel.lineHeight),
               futureLeft:future.getBoundingClientRect().left,
               summaryLeft:summary.getBoundingClientRect().left,
@@ -371,7 +374,8 @@ const server = http.createServer((request, response) => {
             assert.match(state.futureLabel, /Предстоящих записей/, `${theme} ${width}px ${stateName}: пропал полный мобильный лейбл «Предстоящих записей»`);
             assert.equal(state.futureOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Предстоящих записей» обрезается собственным контейнером`);
             assert.equal(state.summaryOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Предстоящих записей» обрезается сводкой`);
-            assert.ok(state.futurePaddingLeft >= 2, `${theme} ${width}px ${stateName}: у первой буквы «В» нет безопасного отступа`);
+            assert.equal(state.futurePaddingLeft + state.futureLabelPaddingLeft, 0, `${theme} ${width}px ${stateName}: строка предстоящих записей имеет лишний отступ`);
+            assert.ok(Math.abs(state.todaySummaryLeft - state.headingLeft) <= 1 && Math.abs(state.futureLeft - state.headingLeft) <= 1, `${theme} ${width}px ${stateName}: строки сводки не выровнены по заголовку`);
             assert.ok(state.futureLineHeight >= 13, `${theme} ${width}px ${stateName}: строке «Предстоящих записей» не хватает высоты`);
             assert.ok(state.futureLeft >= state.summaryLeft, `${theme} ${width}px ${stateName}: строка «Предстоящих записей» ушла за левую границу сводки`);
           }
