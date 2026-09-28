@@ -57,11 +57,18 @@ jobs:
           test "$marker" = 1
           docker exec -e TEST_DSN="$MINUTA_TEST_DATABASE_URL" "$PG_CONTAINER" sh -c 'pg_dump "$TEST_DSN" --schema-only --schema=public --no-owner --file=/tmp/source-schema.sql' 2>"$RUNNER_TEMP/eldion-delete-private.log"
           docker cp "$PG_CONTAINER:/tmp/source-schema.sql" "$RUNNER_TEMP/eldion-delete-private-schema.sql"
-          node minuta-online-booking/scripts/crm-snapshot-postdata.mjs "$RUNNER_TEMP/eldion-delete-private-schema.sql" "$RUNNER_TEMP/eldion-delete-private-filtered.sql"
+          node minuta-online-booking/tests/booking-delete-dialog-import.mjs prepare "$RUNNER_TEMP/eldion-delete-private-schema.sql" "$RUNNER_TEMP/eldion-delete-private-filtered.sql"
           docker cp minuta-online-booking/scripts/crm-snapshot-offline-bootstrap.sql "$PG_CONTAINER:/tmp/bootstrap.sql"
           docker cp minuta-online-booking/tests/booking-delete-dialog-bootstrap.sql "$PG_CONTAINER:/tmp/fixture-bootstrap.sql"
           docker cp "$RUNNER_TEMP/eldion-delete-private-filtered.sql" "$PG_CONTAINER:/tmp/schema.sql"
-          docker exec "$PG_CONTAINER" psql -U postgres -d eldion-delete-fixture -X -q -v ON_ERROR_STOP=1 -f /tmp/bootstrap.sql -f /tmp/fixture-bootstrap.sql -f /tmp/schema.sql >"$RUNNER_TEMP/eldion-delete-private.log" 2>&1 || { sed -nE 's/^(psql:[^:]+:[0-9]+: ERROR:).*/\1 schema import failed/p' "$RUNNER_TEMP/eldion-delete-private.log"; exit 1; }
+          for stage in bootstrap fixture-bootstrap schema-import; do
+            file="$stage"
+            if test "$stage" = schema-import; then file=schema; fi
+            if ! docker exec "$PG_CONTAINER" psql -U postgres -d eldion-delete-fixture -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f "/tmp/$file.sql" >"$RUNNER_TEMP/eldion-delete-private.log" 2>&1; then
+              node minuta-online-booking/tests/booking-delete-dialog-import.mjs diagnose "$stage" "$RUNNER_TEMP/eldion-delete-private.log"
+              exit 1
+            fi
+          done
       - name: Full-schema rollback rehearsal and concurrent requests
         env:
           MINUTA_TEST_DATABASE_URL: postgresql://postgres:ephemeral-fixture-only@127.0.0.1:55432/eldion-delete-fixture
