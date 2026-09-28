@@ -19,13 +19,13 @@ function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf(
 function listenerContaining(prefix,marker){const markerAt=source.indexOf(marker),start=source.lastIndexOf(prefix,markerAt),end=source.indexOf('\n});',markerAt);assert.ok(markerAt>=0&&start>=0&&end>markerAt);return source.slice(start,end+4);}
 const functions=['normalizeRepeatVisitPreview','repeatVisitPreviewMarkup','openNewBookingSheet','openTimelineBookingAtTime','createNewBooking','closeBookingSheet','layoutNewBookingBlockFields','setNewBookingMode','updateNewBookingHeading','updateNewBookingServiceOpen','openNewBookingServiceDialog','selectNewBookingService','loadNewBookingSlots','renderNewBookingTimePicker','newBookingPreferredUnavailableMarkup','renderHistoricalTimeEntry','bookingQuickTimeSlots','bookingNearbyTimeSlots','bookingRemainingTimeSlots','bookingRemainingTimeMarkup','activateBookingRemainingTimeScroll','bookingExactTimeMarkup','blockDurationChoices','activeProviderBlockContext','providerBlockLocationOptions','createOfflineBookingId','bookingMoveTimeIsPast',
   'renderNewBookingOutsideSchedulePrompt','newBookingOutsideScheduleLabel',
-  'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingHistoricalPayment','newBookingHistoricalCalculatedAmount','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService','normalizedOutcomePaymentMethod',
+  'refreshNewBookingCard','updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingHistoricalPayment','newBookingHistoricalCalculatedAmount','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService','normalizedOutcomePaymentMethod',
   'newBookingContactPickerSupported','refreshNewBookingContactPicker','chooseNewBookingContact','newBookingRecentCallsSupported','refreshNewBookingRecentCalls','chooseNewBookingRecentCall','receiveNewBookingRecentCall','newBookingClientPhoneLabel','newBookingClientCandidates',
   'hideNewBookingClientSuggestions','renderNewBookingClientSuggestions','scheduleNewBookingClientSuggestions','restoreNewBookingClientLookupStatus','applyNewBookingClient','selectNewBookingClient','handleNewBookingPhoneInput',
   'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','serviceScheduleName','bookingDateLabel','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','isNewBookingGridTime','isNewBookingFiveMinuteTime','newBookingGridSlots','parseLocalIsoDate','localIsoDate',
   'bookingDraftKey','readNewBookingDraft','saveNewBookingDraft','clearNewBookingDraft','bookingColorPicker','compactBookingColorPicker','bookingColor','validBookingColor',
   'saveBookingColor','persistBookingColors','bookingColorStorageKey','bookingColorPendingStorageKey','requireBookingWrites','sessionIsCurrent','captureBookingMetadataContext',
-  'showFormError','clearFormError','resetServicePublicCardPhotoPreview'];
+  'showFormError','clearFormError','resetServicePublicCardPhotoPreview','clientFramedAvatarMarkup','clientAvatarContent'];
 const constants=source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];assert.ok(constants);
 const bookingGridConstant=source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0];assert.ok(bookingGridConstant);
 const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision','portfolioEditorRevision'].map(name=>{
@@ -126,7 +126,7 @@ async function fixture(){
       const duration=Number(item?.duration_minutes||60);
       return !options.ignoreSchedule&&(start<600||start+duration>1200)?'Вне рабочего графика':null;
     };
-    var applyClientHighlightClasses=()=>{},buildClients=()=>clientFixtures;
+    var applyClientHighlightClasses=()=>{},buildClients=()=>clientFixtures,clientAvatar=()=>null;
     globalThis.PrimeTimeReceiveRecentCall=receiveNewBookingRecentCall;
     var organizationController={getActiveOrganization:()=>({id:activeClientOrganizationId})};
     var effects=[],gates=[],hold='color',refreshOutcome='success';

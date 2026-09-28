@@ -81,7 +81,9 @@ const precacheBytes = assets.reduce((total, asset) => {
 // The v1006 connection guidance must also work from the cold offline shell.
 // Loyalty integration adds 645 bytes to HTML/provider/import; artwork stays optional.
 // Keep the additional offline-critical allowance below 1.1 KiB.
-assert.ok(precacheBytes <= 3.611 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
+// Shared avatar/new-booking hooks add 2103 bytes to provider.js; presentation stays optional.
+// Reserve under 3.1 KiB including HTML asset links, without moving artwork into core.
+assert.ok(precacheBytes <= 3.614 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /try \{ await caches\.delete\(CACHE\); \} catch \{\}/,

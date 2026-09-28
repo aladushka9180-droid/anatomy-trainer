@@ -55,6 +55,13 @@
       : `--frame-height:${height / cell * size}px;--frame-top:${top-offset}px;--frame-sheet:${size*4}px;--frame-x:${-(index%4)*size}px;--frame-y:${-start/cell*size}px;`;
     return `<span class="loyalty-frame-art ${index === 13 ? 'loyalty-frame-crown' : ''} ${className}" aria-hidden="true" style="--frame-size:${size}px;${styles}"></span><span class="loyalty-frame-count" aria-hidden="true" style="top:${top + size * plaque - 10}px">${integer(total)}</span>`;
   }
+  // Content is already escaped by the provider's shared avatar renderer.
+  function compact({ total = 0, content = '', size = 76 } = {}) {
+    const rank = level(total), extent = Math.max(64, Math.min(112, integer(size)));
+    const [frameSize, center, plaque] = geometry[rank.index];
+    const countTop = (88 - frameSize * center + frameSize * plaque) * extent / 184 - 5;
+    return `<span class="client-framed-avatar" role="img" aria-label="Завершённых сеансов: ${rank.total}" data-session-tier="${rank.threshold}" style="--compact-size:${extent}px;--compact-scale:${extent / 184};${photoStyle(rank.index)}"><span class="client-framed-stage"><span class="client-framed-photo">${content}</span>${sprite(rank.index, rank.total)}</span><span class="client-framed-count" style="top:${countTop}px">${rank.total}</span></span>`;
+  }
   function ensureUI(orbit) {
     if (orbit.querySelector('.client-profile-photo-open')) return;
     orbit.removeAttribute('role');
@@ -137,5 +144,5 @@
   }
   function reset() { seen.clear(); current = null; document.getElementById('clientLoyaltyLevelsDialog')?.close(); }
   window.addEventListener('minuta:provider-session-reset', reset);
-  window.PrimeTimeLoyaltyFrames = Object.freeze({ thresholds, level, count, render, reset });
+  window.PrimeTimeLoyaltyFrames = Object.freeze({ thresholds, level, count, compact, render, reset });
 })();

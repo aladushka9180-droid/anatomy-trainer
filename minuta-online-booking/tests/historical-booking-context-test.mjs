@@ -114,6 +114,7 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false, note 
       } };
     } },
   };
+  state.refreshNewBookingCard = () => {}; // Presentation is covered by the isolated booking-card browser test.
   const context = vm.createContext(state);
   vm.runInContext(lifecycle + '\n' + resetHooks + '\n' + orgHook + '\n' + actual + '\n' + submitBinding, context);
   const originalForm = nodes.get('#newBookingForm'), button = nodes.get('#newBookingSubmit');
