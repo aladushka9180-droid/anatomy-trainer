@@ -85,6 +85,9 @@
   function render(options) {
     if (!$('#clientProfileContent') || !options?.client) return;
     mount();current=options;
+    const relationshipTitle = $('#clientRelationshipTitle');
+    const relationshipStatus = relationshipTitle?.closest('.client-relationship-status');
+    if (relationshipStatus) relationshipStatus.hidden = /^(Вернулся|Вернулась)$/.test(relationshipTitle.textContent.trim());
     const key=`${options.scope || ''}:${options.client.phone}`;
     if(key!==clientKey){clientKey=key;limit=8;}
     const digits=String(options.client.phone||'').replace(/\D/g,'');
