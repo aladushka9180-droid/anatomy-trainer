@@ -123,7 +123,14 @@ try {
     const css=s=>getComputedStyle(document.querySelector(s));
     return {todayInk:css('.date-today-button').color,tabInk:css('.calendar-view-toggle button.active').color,selectedBg:css('.date-strip>button.active').backgroundColor,tab:css('.calendar-view-toggle button.active').backgroundColor,navBorder:css('.date-navigation').borderTopWidth,stripBorder:css('.date-strip-frame').borderBottomWidth,dateBorder:css('.schedule-date-picker').borderTopWidth,todayBorder:css('.date-today-button').borderTopWidth,dateWeight:css('.schedule-date-picker input').fontWeight,buttonInk:css('#newBookingButton span').color,buttonBg:css('#newBookingButton').backgroundColor,topbarBorder:css('#providerTopbarToolsButton').borderTopWidth};
    });
-   assert.equal(header.todayInk,header.tabInk);assert.notEqual(header.selectedBg,'rgba(0, 0, 0, 0)');
+   if(theme==='carbon-crimson'){
+    const contrast=await page.locator('.date-today-button').evaluate(e=>{
+     const s=getComputedStyle(e),l=c=>c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);
+     const a=l(s.webkitTextFillColor||s.color),b=l(s.backgroundColor);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+    });
+    assert.ok(contrast>=4.5,'Dark mobile Today label remains readable');
+   }else assert.equal(header.todayInk,header.tabInk);
+   assert.notEqual(header.selectedBg,'rgba(0, 0, 0, 0)');
    assert.equal(header.tab,'rgba(0, 0, 0, 0)','Period tabs must only use an underline');
    assert.equal(header.navBorder,'0px');assert.equal(header.stripBorder,'0px');assert.equal(header.dateBorder,'0px');assert.equal(header.topbarBorder,'0px');assert.equal(header.todayBorder,'1px');assert.equal(header.dateWeight,'500');
    if(theme==='pink-porcelain')assert.equal(header.buttonInk,'rgb(255, 255, 255)');

@@ -1,0 +1,60 @@
+name: Eldion booking deletion read-only diagnostic
+run-name: Booking deletion read-only diagnostic - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact current main commit SHA
+        required: true
+        type: string
+      booking_id:
+        description: UUID of the single booking to inspect without deleting
+        required: true
+        type: string
+
+permissions: { contents: read }
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      SHA: ${{ inputs.commit_sha }}
+      BOOKING_ID: ${{ inputs.booking_id }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=2000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+      - name: Pin read-only target and validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BOOKING_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+          test "$SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
+          test -n "$SUPABASE_DB_URL"
+          [[ "$SUPABASE_DB_URL" == *"$PROJECT_REF"* ]]
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Read relationships without invoking the deletion RPC
+        shell: bash
+        run: |
+          set -euo pipefail
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=booking_id="$BOOKING_ID" <<'SQL'
+          begin read only;
+          select set_config('eldion.diagnostic_booking', :'booking_id', true) is not null;
+          \i minuta-online-booking/scripts/booking-delete-diagnostic.sql
+          rollback;
+          SQL

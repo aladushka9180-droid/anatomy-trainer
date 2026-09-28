@@ -17,6 +17,7 @@ jobs:
           node-version: 22
       - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
       - run: npx playwright install --with-deps chromium
+      - run: node minuta-online-booking/tests/booking-delete-diagnostic-test.mjs
       - run: node minuta-online-booking/tests/eldion-connection-browser-test.mjs
       - name: Verify one-release PWA update and stale-tab recovery
         run: |
