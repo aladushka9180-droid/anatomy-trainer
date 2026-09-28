@@ -37,6 +37,8 @@ try {
   document.querySelector('#dateStrip').innerHTML=[24,25,26,27,28].map((d,i)=>`<button data-booking-date="2026-09-${d}" class="${d===26?'active':d===28?'is-today':''}"><span>${['Чт','Пт','Сб','Вс','Пн'][i]}</span><strong>${d}</strong><small>сент</small></button>`).join('');
   document.querySelector('#selectedDateTitle').innerHTML='<span class="selected-date-title-default">Суббота</span><span class="selected-date-title-mobile">Суббота</span>';
   document.querySelector('#dateStrip').hidden=false;
+  document.querySelector('#scheduleDatePicker').value='2026-09-26';
+  document.querySelector('#dateStrip button.active').setAttribute('aria-pressed','true');
  });
  await page.addScriptTag({content:`
  const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
@@ -88,7 +90,18 @@ try {
    return {overflow:document.documentElement.scrollWidth>innerWidth+2,onlineBorder:style(online).borderLeftWidth,manualShadow:style(manual).boxShadow,manualWidth:style(manual).borderLeftWidth,manualBorder:style(manual).borderLeftColor,timeFirst:rect(time).bottom<=rect(label).top+1,manualTimeFirst:[...document.querySelectorAll('[data-open-booking].status-block:not(.compact):not(.minute-only)')].every(e=>rect(e.querySelector('.timeline-booking-client-row')).height>0 && style(e.querySelector('.timeline-booking-time')).display==='none' && rect(e.querySelector('.timeline-booking-client-row')).bottom<=rect(e.querySelector('.timeline-booking-copy>strong')).top+1),pause:auto.querySelector('.schedule-break-icon')?.dataset.breakIcon,gradients:[...document.querySelectorAll('#dashboard[data-active-view="bookings"] :is(.timeline-booking,.schedule-card,.timeline-view,.date-strip>button,#newBookingButton)')].filter(e=>style(e).backgroundImage.includes('gradient')).length,titleWeight:style(document.querySelector('.schedule-view-title h2')).fontWeight,sourceDisplay:style(auto.querySelector('.timeline-automatic-break-source')).display,todayBorder:style(document.querySelector('.date-strip .is-today')).borderTopWidth};
   });
   assert.equal(state.overflow,false,`${theme}/${width}: overflow`);assert.equal(state.onlineBorder,'3px');assert.equal(state.manualShadow,'none');assert.ok(state.manualWidth==='0px'||state.manualBorder==='rgba(0, 0, 0, 0)',JSON.stringify(state));assert.equal(state.timeFirst,true,`${width} break time first`);assert.equal(state.manualTimeFirst,true,'Manual break time must precede title');assert.equal(state.pause,'pause');assert.equal(state.sourceDisplay,'none');assert.equal(state.gradients,0);assert.equal(state.titleWeight,'600');assert.equal(state.todayBorder,'1px');
+  if(width<=760){
+   const header=await page.evaluate(()=>{
+    const css=s=>getComputedStyle(document.querySelector(s));
+    return {todayInk:css('.date-today-button').color,tabInk:css('.calendar-view-toggle button.active').color,selectedBg:css('.date-strip>button.active').backgroundColor,tab:css('.calendar-view-toggle button.active').backgroundColor,navBorder:css('.date-navigation').borderTopWidth,stripBorder:css('.date-strip-frame').borderBottomWidth,dateBorder:css('.schedule-date-picker').borderTopWidth,todayBorder:css('.date-today-button').borderTopWidth,dateWeight:css('.schedule-date-picker input').fontWeight,buttonInk:css('#newBookingButton span').color,buttonBg:css('#newBookingButton').backgroundColor,topbarBorder:css('#providerTopbarToolsButton').borderTopWidth};
+   });
+   assert.equal(header.todayInk,header.tabInk);assert.notEqual(header.selectedBg,'rgba(0, 0, 0, 0)');
+   assert.equal(header.tab,'rgba(0, 0, 0, 0)','Period tabs must only use an underline');
+   assert.equal(header.navBorder,'0px');assert.equal(header.stripBorder,'0px');assert.equal(header.dateBorder,'0px');assert.equal(header.topbarBorder,'0px');assert.equal(header.todayBorder,'1px');assert.equal(header.dateWeight,'500');
+   if(theme==='pink-porcelain')assert.equal(header.buttonInk,'rgb(255, 255, 255)');
+  }
   if(output)await page.screenshot({path:resolve(output,`${theme}-${width}.png`),fullPage:true});
+  if(output && width===390)await page.screenshot({path:resolve(output,`${theme}-header-390.png`),clip:{x:0,y:0,width:390,height:310}});
  }
  await page.setViewportSize({width:390,height:1000});
  await page.evaluate(()=>fixtureOpenAuto());
