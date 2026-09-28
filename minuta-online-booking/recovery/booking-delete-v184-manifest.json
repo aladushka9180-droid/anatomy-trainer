@@ -1,0 +1,14 @@
+{
+  "version": "v184",
+  "sourceSha": "9c801e41cb12be12d51a7ff364a66bb6915ea945",
+  "testRunId": "36485540325",
+  "testBranch": "codex/pro-delete-recovery-20260928",
+  "testWorkflow": ".github/workflows/eldion-booking-delete-isolated.yml",
+  "candidateGitBlob": "67475ee8ae4bd7c926213e5c5f5f358969cb7f7e",
+  "rollbackGitBlob": "2b18451409ec720fc941bb5ed50a530a74e86ba0",
+  "candidateSha256": "a8b83f0368c755e25df1d53aeaca55c1ffc9ed615c8b954fefdd8f1d998c7515",
+  "rollbackSha256": "cb1a0daa09730671f690fe802f3cc0da25025767d2d9afd8b9642230168c7c84",
+  "originalBodyMd5": "a253f555e7ddfa9ac60ce2f629c43865",
+  "candidateBodyMd5": "71c0034ac328ad54c677cce8483ccc05",
+  "marker": "eldion:booking-delete-dialog:1"
+}

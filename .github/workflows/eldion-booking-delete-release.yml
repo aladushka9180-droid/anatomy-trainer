@@ -1,0 +1,139 @@
+name: Eldion booking deletion v184 SQL release
+run-name: v184 ${{ inputs.phase }} ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        required: true
+        type: choice
+        default: validate-production
+        options: [validate-production, apply-production, observe-production]
+      commit_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      test_run_id:
+        description: Pinned successful full-schema and concurrency test
+        required: true
+        default: '36485540325'
+        type: string
+      validation_run_id:
+        description: Successful read-only validation on this SHA (apply only)
+        type: string
+      backup_run_id:
+        description: Encrypted backup on this SHA, at most two hours old (apply only)
+        type: string
+      restore_run_id:
+        description: Offline v184 apply/rollback/reapply rehearsal (apply only)
+        type: string
+      apply_run_id:
+        description: Successful apply run on this SHA (observe only)
+        type: string
+      confirmation:
+        description: APPLY_V184_AFTER_BACKUP_RESTORE required for SQL apply
+        type: string
+
+permissions: { contents: read, actions: read }
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    environment: minuta-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_PHASE: ${{ inputs.phase }}
+      RELEASE_SHA: ${{ inputs.commit_sha }}
+      TEST_RUN_ID: ${{ inputs.test_run_id }}
+      VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+      BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+      RESTORE_RUN_ID: ${{ inputs.restore_run_id }}
+      APPLY_RUN_ID: ${{ inputs.apply_run_id }}
+      RELEASE_CONFIRMATION: ${{ inputs.confirmation }}
+      PGSSLMODE: require
+      PGCONNECT_TIMEOUT: '15'
+      PGOPTIONS: '-c default_transaction_read_only=on -c statement_timeout=300000 -c lock_timeout=5000'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Verify pinned SQL and build guarded transaction locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node minuta-online-booking/scripts/booking-delete-v184-release-sql.mjs verify
+          node minuta-online-booking/scripts/booking-delete-v184-release-sql.mjs health "$RUNNER_TEMP/v184-health.sql"
+          if test "$RELEASE_PHASE" = apply-production; then
+            node minuta-online-booking/scripts/booking-delete-v184-release-sql.mjs apply "$RUNNER_TEMP/v184-apply.sql"
+          fi
+      - name: Verify exact main, native tests, phase and backup/restore evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node minuta-online-booking/scripts/booking-delete-v184-release-preflight.mjs
+      - name: Read-only target, schema, RPC and permission health
+        shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          session_url="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$session_url"
+          if ! psql "$session_url" -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate \
+            -f "$RUNNER_TEMP/v184-health.sql" > "$RUNNER_TEMP/v184-health.json" 2> "$RUNNER_TEMP/v184-private.log"; then
+            echo 'v184 read-only health failed; private database output withheld' >&2
+            exit 1
+          fi
+          node minuta-online-booking/scripts/booking-delete-v184-release-preflight.mjs health "$RUNNER_TEMP/v184-health.json"
+      - name: Apply once with preservation checked before commit
+        if: inputs.phase == 'apply-production'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$RELEASE_CONFIRMATION" = APPLY_V184_AFTER_BACKUP_RESTORE
+          session_url="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          node minuta-online-booking/scripts/booking-delete-v184-release-preflight.mjs last-check
+          if ! PGOPTIONS='-c default_transaction_read_only=off -c statement_timeout=300000 -c lock_timeout=5000' \
+            psql "$session_url" -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate \
+              -f "$RUNNER_TEMP/v184-apply.sql" > "$RUNNER_TEMP/v184-applied.json" 2> "$RUNNER_TEMP/v184-private.log"; then
+            echo 'v184 guarded transaction failed; check state before any retry; private output withheld' >&2
+            exit 1
+          fi
+      - name: Record only completed phase evidence
+        id: evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/booking-delete-v184-release-preflight.mjs record \
+            "$RUNNER_TEMP/v184-applied.json" "$RUNNER_TEMP/v184-result.json"
+          case "$RELEASE_PHASE" in
+            validate-production) echo 'phase=validate' >> "$GITHUB_OUTPUT" ;;
+            apply-production) echo 'phase=apply' >> "$GITHUB_OUTPUT" ;;
+            observe-production) echo 'phase=observe' >> "$GITHUB_OUTPUT" ;;
+          esac
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: eldion-v184-${{ steps.evidence.outputs.phase }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/v184-result.json
+          if-no-files-found: error
+          retention-days: 35
+      - name: Remove temporary SQL and private output
+        if: always()
+        shell: bash
+        run: |
+          rm -f -- "$RUNNER_TEMP/v184-health.sql" "$RUNNER_TEMP/v184-apply.sql" \
+            "$RUNNER_TEMP/v184-private.log" "$RUNNER_TEMP/v184-health.json" "$RUNNER_TEMP/v184-applied.json"

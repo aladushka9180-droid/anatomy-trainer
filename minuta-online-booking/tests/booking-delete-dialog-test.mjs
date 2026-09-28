@@ -2,13 +2,15 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { buildTransaction, healthSql } from '../scripts/booking-delete-v184-release-sql.mjs';
 const { PGlite } = await import(process.env.MINUTA_PGLITE_MODULE
   ? pathToFileURL(process.env.MINUTA_PGLITE_MODULE).href : '@electric-sql/pglite');
 const read = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 const source = read('../supabase-migration-v162.sql');
 const oldRpc = read('../supabase-migration-v64.sql');
-const migration = read('../recovery/booking-delete-dialog-candidate.sql');
-const rollback = read('../recovery/booking-delete-dialog-rollback.sql');
+const envelope = process.argv.includes('--v184-envelope');
+const migration = envelope ? buildTransaction('apply') : read('../recovery/booking-delete-dialog-candidate.sql');
+const rollback = envelope ? buildTransaction('rollback') : read('../recovery/booking-delete-dialog-rollback.sql');
 const ddl = name => {
   const match = source.match(new RegExp(`create table if not exists public\\.${name}\\([\\s\\S]*?\\n\\);`));
   assert.ok(match, name); return match[0];
@@ -112,6 +114,30 @@ try {
   pass('original RPC reproduces the confirmed FK refusal and rolls back payment cleanup');
 
   await db.exec(migration);
+  if(envelope) {
+    const health=(await q(healthSql()))[0].jsonb_build_object;
+    assert.equal(health.knownCandidate,true); assert.equal(health.archiveColumns,true);
+    assert.equal(health.archiveChecks,true); assert.equal(health.securityDefiner,true);
+    // A faulty migration must roll back before commit, not report a late mismatch.
+    const before=await snapshot();
+    const corrupt=migration.replace('do $verify$', `delete from public.bookings where id='${other}';\ndo $verify$`);
+    await assert.rejects(db.exec(corrupt),e=>e.code==='23503'||e.message==='v184_preservation_check_failed');
+    await db.exec('rollback');
+    assert.equal(await snapshot(),before);
+    const corruptHistory=migration.replace('do $verify$', `update public.message_participants_v162 set participant_role='admin' where id='${providerParticipant}';\ndo $verify$`);
+    await assert.rejects(db.exec(corruptHistory),e=>e.message==='v184_preservation_check_failed');
+    await db.exec('rollback');
+    assert.equal(await snapshot(),before);
+    for(const mutation of [
+      'grant execute on function public.provider_delete_booking(uuid) to anon;',
+      'create policy unexpected_public_read on message_conversations_v162 for select using(true);']) {
+      await assert.rejects(db.exec(migration.replace('do $verify$', `${mutation}\ndo $verify$`)),e=>e.message==='v184_preservation_check_failed');
+      await db.exec('rollback');
+      assert.equal(await snapshot(),before);
+      assert.equal(await scalar("select has_function_privilege('anon','public.provider_delete_booking(uuid)','EXECUTE')"),false);
+    }
+    pass('v184 envelope: row/author, ACL and RLS policy corruption abort before COMMIT and roll back');
+  }
   const applied=await snapshot();
   await db.exec(migration);
   assert.equal(await snapshot(),applied);
@@ -201,6 +227,13 @@ try {
   pass('RLS/grants/history immutability remain; archived client conversation/participant cannot be reopened');
 
   const beforeRollback=await snapshot();
+  if(envelope) {
+    const corruptArchive=migration.replace('do $verify$', `update public.message_participants_v162 set deleted_booking_id='${id(999)}' where id='${participant}';\ndo $verify$`);
+    await assert.rejects(db.exec(corruptArchive),e=>e.message==='v184_preservation_check_failed');
+    await db.exec('rollback');
+    assert.equal(await snapshot(),beforeRollback);
+    pass('archive NULL normalization never hides changes to an existing non-null historical reference');
+  }
   await db.exec(rollback); await db.exec(rollback);
   assert.equal(await snapshot(),beforeRollback);
   await assert.rejects(remove(other),e=>e.code==='23503');

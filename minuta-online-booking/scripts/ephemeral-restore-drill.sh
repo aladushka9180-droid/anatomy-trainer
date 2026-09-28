@@ -153,7 +153,11 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   test -f "${MINUTA_RESTORE_MIGRATION_SQL:?}"
   test -f "${MINUTA_RESTORE_ROLLBACK_SQL:?}"
   candidate_version="${MINUTA_RESTORE_CANDIDATE_VERSION:-v177}"
-  case "$candidate_version" in v177|v180|v181) ;; *) exit 1 ;; esac
+  case "$candidate_version" in v177|v180|v181|v184) ;; *) exit 1 ;; esac
+  if [[ "$candidate_version" == v184 ]]; then
+    stage=candidate-v184-guarded-rehearsal
+    bash "$script_dir/booking-delete-v184-restore.sh" "$container" "$private_log" "$result"
+  else
   bookings_before="$(docker exec "$container" psql -U postgres -X -qAt -v ON_ERROR_STOP=1 \
     -c 'select count(*) from public.bookings' 2>>"$private_log")"
   if [[ "$candidate_version" == v181 ]]; then
@@ -217,6 +221,7 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   jq '. + {candidateMigrationApplied:true,candidateRollbackVerified:true,candidateReapplied:true}' \
     "$result" > "$result.candidate"
   mv "$result.candidate" "$result"
+  fi
 fi
 
 stage=destroy-container
