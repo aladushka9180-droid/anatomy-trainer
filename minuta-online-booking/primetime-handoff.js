@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const TARGET = 'https://primetime-booking.aladushka9180.chatgpt.site/for-masters';
+  const TARGET = 'https://primetime-booking.primetime-booking-ru.workers.dev/for-masters';
   const START = `${TARGET}/start`;
   const button = document.getElementById('openPrimeTime');
   const params = new URLSearchParams(window.location.search);

@@ -284,7 +284,9 @@ try {
   });
   await page.reload();
   const offlineRequests = Object.fromEntries(offlineModules.map(module => [module, moduleRequest(newRelease, module)]));
-  const offlineIcons = ['ui-icons.svg', `ui-icons.svg?v=${newRelease.version}`];
+  const iconUrl = newFile('provider.html').toString('utf8').match(/href="(ui-icons\.svg\?v=\d+)#icon-org"/)?.[1];
+  assert.ok(iconUrl, 'The organization icon uses a versioned sprite URL');
+  const offlineIcons = ['ui-icons.svg', iconUrl];
   for (const icon of offlineIcons) offlineRequests[icon] = `./${icon}`;
   const offlineHashes = await page.evaluate(async ({ prefix, requests }) => {
     const result = {};

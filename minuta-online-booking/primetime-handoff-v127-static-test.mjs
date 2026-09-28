@@ -30,16 +30,17 @@ assert.match(rollback, /drop function if exists public\.consume_primetime_handof
 assert.match(rollback, /drop table if exists public\.primetime_handoffs/i);
 
 assert.match(provider, /id="openPrimeTime"/);
-assert.match(provider, /primetime-handoff\.js\?v=1022/);
+const version = worker.match(/CACHE_PREFIX}v(\d+)/)?.[1];
+assert.ok(version, 'Service Worker version is present');
+assert.ok(provider.includes(`primetime-handoff.js?v=${version}`));
 assert.doesNotMatch(worker, /primetime-handoff\.js/, 'handoff script must stay runtime-cached');
-assert.match(worker, /CACHE_PREFIX}v1022/);
 assert.equal((provider.match(/\?v=630/g) || []).length, 0);
 
 assert.match(script, /db\.rpc\('create_primetime_handoff', \{ p_state: state \}\)/);
 assert.match(script, /returning = \/\^\[0-9a-f\]\{64\}\$\//);
 assert.match(script, /const START = `\$\{TARGET\}\/start`/);
 assert.match(script, /#handoff=\$\{ticket\}/);
-assert.match(script, /https:\/\/primetime-booking\.aladushka9180\.chatgpt\.site\/for-masters/);
+assert.match(script, /https:\/\/primetime-booking\.primetime-booking-ru\.workers\.dev\/for-masters/);
 assert.doesNotMatch(script, /access_token|refresh_token|localStorage|sessionStorage|postMessage/i);
 
 assert.match(release, /test "\$GITHUB_REF" = refs\/heads\/main/);
