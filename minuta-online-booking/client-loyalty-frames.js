@@ -56,11 +56,14 @@
     return `<span class="loyalty-frame-art ${index === 13 ? 'loyalty-frame-crown' : ''} ${className}" aria-hidden="true" style="--frame-size:${size}px;${styles}"></span><span class="loyalty-frame-count" aria-hidden="true" style="top:${top + size * plaque - 10}px">${integer(total)}</span>`;
   }
   function ensureUI(orbit) {
-    if (orbit.querySelector('.loyalty-frame-open')) return;
+    if (orbit.querySelector('.client-profile-photo-open')) return;
     orbit.removeAttribute('role');
     orbit.removeAttribute('aria-label');
-    orbit.insertAdjacentHTML('beforeend', '<span class="loyalty-frame-decoration"></span><button type="button" class="loyalty-frame-open" aria-haspopup="dialog" aria-label="Сеансы и уровень клиента"></button>');
-    orbit.querySelector('.loyalty-frame-open').addEventListener('click', open);
+    orbit.insertAdjacentHTML('beforeend', '<span class="loyalty-frame-decoration"></span><button type="button" class="client-profile-photo-open" aria-label="Добавить или сменить фото клиента"></button>');
+    orbit.querySelector('.client-profile-photo-open').addEventListener('click', () => {
+      const input = orbit.querySelector('[data-client-avatar-input]');
+      if (input && !input.disabled && !input.closest('.client-avatar-picker')?.hidden) input.click();
+    });
     const row = document.createElement('button');
     row.id = 'clientLoyaltyLevel'; row.type = 'button'; row.className = 'loyalty-level-row';
     row.setAttribute('aria-haspopup', 'dialog');
@@ -117,7 +120,8 @@
     orbit.style.setProperty('--frame-photo-top', `${photoY-photoRadius}px`);
     orbit.style.setProperty('--frame-photo-size', `${photoRadius*2}px`);
     orbit.querySelector('.loyalty-frame-decoration').innerHTML = sprite(rank.index, rank.total);
-    orbit.querySelector('.loyalty-frame-open').setAttribute('aria-label', `${facts.total} сеансов. ${rank.next === null ? 'Максимальный ободок' : `До следующего: ${rank.remaining}`}. Открыть уровни`);
+    const avatarInput = orbit.querySelector('[data-client-avatar-input]');
+    orbit.querySelector('.client-profile-photo-open').disabled = !avatarInput || avatarInput.disabled || Boolean(avatarInput.closest('.client-avatar-picker')?.hidden);
     const row = document.getElementById('clientLoyaltyLevel');
     if (row) row.innerHTML = `<span><strong>${facts.total} сеансов</strong><small>${incomplete ? 'По доступной истории · ожидает сверки' : rank.next === null ? 'Максимальный ободок' : `Ещё ${rank.remaining} до следующего ободка`}</small></span><span aria-hidden="true">›</span>`;
     if (complete && !facts.pending) {

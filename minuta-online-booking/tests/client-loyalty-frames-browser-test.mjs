@@ -27,7 +27,7 @@ try{
   }
  }
  await page.evaluate(()=>{PrimeTimeLoyaltyFrames.reset();renderCount(8);});
- await page.locator('.loyalty-frame-open').focus();await page.keyboard.press('Enter');
+ await page.locator('#clientLoyaltyLevel').focus();await page.keyboard.press('Enter');
  assert.match(await page.getByRole('dialog').innerText(),/Следующий ободок — на 9 сеансах/);
  await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').isVisible(),false);
  await page.evaluate(()=>renderCount(9));assert.equal(await page.locator('#clientProfileOrbit').evaluate(el=>el.classList.contains('loyalty-level-up')),true);
