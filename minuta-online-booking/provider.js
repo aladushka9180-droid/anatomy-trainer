@@ -7123,6 +7123,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
   if (view === 'settings' && !document.querySelector('.settings-nav-scroll-shell')) {
     void loadProviderFeatureScript('settings-nav-scroll.js').then(refreshSectionNavigation).catch(() => {});
   }
+  if (view === 'settings') void window.MinutaEldionConnection?.refresh();
   if (view === 'feedback-inbox') void feedbackInboxController.load();
   if (view === 'portfolio' && currentUser && navigator.onLine && portfolioSyncDirty) scheduleBookingsReload('portfolio_items');
   if (view === 'waitlist') {
@@ -18029,6 +18030,7 @@ const organizationController = window.MinutaOrganization.createController({
     resetReportSessionState();
     renderReportDataSourceControl();
     void loadClientAppearanceSettings(organization);
+    void window.MinutaEldionConnection?.refresh();
     if (clientOrganizationChanged && currentUser && navigator.onLine) void loadBookingSettings();
     if (clientOrganizationChanged) {
       waitlistRequests = [];

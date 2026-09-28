@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1024`;
-const CACHE_READY = './.precache-ready-v1024';
+const CACHE = `${CACHE_PREFIX}v1025`;
+const CACHE_READY = './.precache-ready-v1025';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1024',
+  './site-update.js?v=1025',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -63,7 +63,7 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1007',
-  './provider.js?v=1024',
+  './provider.js?v=1025',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
@@ -145,6 +145,12 @@ let clientFlexibleWarmup = null;
 const CLIENT_FLEXIBLE_ASSETS = ['./index.html', './app.js?v=946', './client-offline-flexible.js?v=946'];
 
 self.addEventListener('message', event => {
+  if (event.data?.type === 'site-update-version') {
+    event.waitUntil(safeCacheMatch(CACHE_READY, { cacheName:CACHE }).then(ready => {
+      event.ports?.[0]?.postMessage({ version:Number(CACHE.match(/v(\d+)$/)?.[1]), ready:Boolean(ready) });
+    }));
+    return;
+  }
   if (event.data?.type === 'warm-client-flexible') {
     if (!clientFlexibleWarmup) {
       clientFlexibleWarmup = (async () => {
@@ -178,6 +184,7 @@ self.addEventListener('message', event => {
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
+    const hadReadyCache = Boolean(await safeCacheMatch(CACHE_READY, { cacheName:CACHE }));
     try {
       const cache = await caches.open(CACHE);
       await cache.addAll(ASSETS.map(asset => new Request(asset, { cache:'reload' })));
@@ -187,7 +194,7 @@ self.addEventListener('install', event => {
       await cache.put(CACHE_READY, new Response('ready'));
     } catch {
       // Let the network-safe worker replace a broken one, but retain older offline caches.
-      try { await caches.delete(CACHE); } catch {}
+      if (!hadReadyCache) { try { await caches.delete(CACHE); } catch {} }
     }
     await self.skipWaiting();
   })());
@@ -254,6 +261,17 @@ async function navigationResponse(event) {
     if (response.ok) await safeCachePut(shell, response.clone());
     return response;
   });
+  // An explicit reload must deliver the fresh shell in this navigation, not the next one.
+  if (cached && (request.cache === 'reload' || request.cache === 'no-cache')) {
+    let deadline;
+    try {
+      const fresh = await Promise.race([update, new Promise(resolve => { deadline = setTimeout(() => resolve(null), 4000); })]);
+      if (fresh?.ok) return fresh;
+    } catch { /* Preserve the complete offline shell when the network is unavailable. */ }
+    finally { clearTimeout(deadline); }
+    event.waitUntil(update.catch(() => {}));
+    return cached;
+  }
   if (cached) {
     event.waitUntil(update.catch(() => {}));
     return cached;

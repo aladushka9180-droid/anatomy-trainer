@@ -5,12 +5,49 @@
   if (new URLSearchParams(location.search).get('porcelain-preview') === '1') return;
 
   const scriptUrl = document.currentScript?.src || location.href;
-  const workerUrl = new URL('./sw.js?v=1024', scriptUrl).href;
+  const workerUrl = new URL('./sw.js?v=1025', scriptUrl).href;
+  const pageVersion = Number(new URL(workerUrl).searchParams.get('v'));
   const CHECK_INTERVAL_MS = 15 * 60 * 1000;
   let registration = null;
   let currentController = navigator.serviceWorker.controller;
   let lastCheck = 0;
   let checkPromise = null;
+
+  function workerVersion(controller) {
+    if (!controller) return Promise.resolve(null);
+    return new Promise(resolve => {
+      const channel = new MessageChannel();
+      let settled = false;
+      const finish = value => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        channel.port1.close();
+        resolve(value);
+      };
+      const timeout = setTimeout(() => finish(null), 1200);
+      channel.port1.onmessage = event => finish(event.data);
+      try { controller.postMessage({ type:'site-update-version' }, [channel.port2]); }
+      catch { finish(null); }
+    });
+  }
+
+  async function refreshUpdateNotice() {
+    const controller = navigator.serviceWorker.controller;
+    const info = await workerVersion(controller);
+    if (controller !== navigator.serviceWorker.controller) return;
+    // A different worker object/script URL can contain the same published build.
+    const version = Number(info?.version);
+    if (Number.isSafeInteger(version) && version > 0) {
+      if (version > pageVersion && info.ready === true) {
+        document.documentElement.dataset.siteUpdateReady = 'true';
+        showUpdateNotice();
+      } else {
+        delete document.documentElement.dataset.siteUpdateReady;
+        document.getElementById('siteUpdateNotice')?.remove();
+      }
+    }
+  }
 
   function showUpdateNotice() {
     if (document.getElementById('siteUpdateNotice')) return;
@@ -43,12 +80,13 @@
         if (!registration) {
           registration = await navigator.serviceWorker.register(workerUrl, { updateViaCache:'none' });
           lastCheck = Date.now();
-          if (registerOnly) return;
+          if (registerOnly) { void refreshUpdateNotice(); return; }
         }
         if (!registerOnly) {
           lastCheck = Date.now();
           await registration.update();
         }
+        void refreshUpdateNotice();
       } catch {
       } finally {
         checkPromise = null;
@@ -59,10 +97,7 @@
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     const nextController = navigator.serviceWorker.controller;
-    if (currentController && nextController && nextController !== currentController) {
-      document.documentElement.dataset.siteUpdateReady = 'true';
-      showUpdateNotice();
-    }
+    if (nextController && nextController !== currentController) void refreshUpdateNotice();
     currentController = nextController;
   });
 

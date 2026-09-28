@@ -17,6 +17,11 @@ jobs:
           node-version: 22
       - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
       - run: npx playwright install --with-deps chromium
+      - run: node minuta-online-booking/tests/eldion-connection-browser-test.mjs
+      - name: Verify one-release PWA update and stale-tab recovery
+        run: |
+          git fetch --no-tags --depth=1 origin 0a8cdc330410be36577e9ec4a596cdf04c62f2d1
+          node minuta-online-booking/tests/site-update-notice-browser-test.mjs 0a8cdc330410be36577e9ec4a596cdf04c62f2d1
       - name: Check theme colours and marked card states
         env:
           MINUTA_THEME_OUTPUT: ${{ runner.temp }}/theme-regression

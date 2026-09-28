@@ -26,7 +26,7 @@ try{for(const profile of profiles){const {name,...device}=profile;const context=
  // Actual update-notice renderer, isolated registration/event boundary. Do not reload or replace a real worker.
  await page.evaluate(()=>{const sw=window.auditWorker=new EventTarget();sw.controller={scriptURL:'old'};sw.register=async()=>({update:async()=>{}});Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:sw});});
  await page.addScriptTag({content:readFileSync(resolve(root,'site-update.js'),'utf8')});
- await page.evaluate(()=>{auditWorker.controller={scriptURL:'new'};auditWorker.dispatchEvent(new Event('controllerchange'));});
+ await page.evaluate(()=>{auditWorker.controller={scriptURL:'new',postMessage:(_message,ports)=>ports[0].postMessage({version:999999,ready:true})};auditWorker.dispatchEvent(new Event('controllerchange'));});
  await page.locator('#siteUpdateNotice').waitFor();const notice=await page.locator('#siteUpdateNotice').boundingBox();const button=await page.locator('#siteUpdateNotice button').boundingBox();assert.ok(notice.x>=0&&notice.x+notice.width<=device.viewport.width+1);assert.ok(button.height>=40);
  console.log(`PASS install fallback/prompt outcomes/update notice: ${name}; update target=${button.height}px`);
  if(process.env.MINUTA_AUDIT_SCREENSHOTS)await page.screenshot({path:resolve(process.env.MINUTA_AUDIT_SCREENSHOTS,`update-${name.replaceAll(' ','-')}.png`),fullPage:true});
