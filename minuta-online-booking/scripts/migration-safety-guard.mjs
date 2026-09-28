@@ -11,6 +11,11 @@ const releaseWorkflow = join(repositoryRoot, '.github', 'workflows', 'minuta-saf
 
 const PINNED_PROVIDER_DELETE_VERSION = 64;
 const PINNED_PROVIDER_DELETE_FILE = `supabase-migration-v${PINNED_PROVIDER_DELETE_VERSION}.sql`;
+// Reviewed v184 uses its own protected release, not the historical v64 chain.
+// Pin the exact native-tested SQL; every other later definition still fails.
+const ISOLATED_PROVIDER_DELETE_DEFINITIONS = new Map([
+  ['supabase-migration-v184.sql', 'a8b83f0368c755e25df1d53aeaca55c1ffc9ed615c8b954fefdd8f1d998c7515']
+]);
 const PROVIDER_DELETE_DEFINITION = /create\s+(?:or\s+replace\s+)?function\s+(?:"?public"?\s*\.\s*)?"?provider_delete_booking"?\s*\(/i;
 // v96 creates the historical lookup index concurrently before v95 import;
 // v97 then adds employee snapshots and deletion-safe audit history.
@@ -31,6 +36,7 @@ const ALLOWED_PROVIDER_DELETE_DEFINITIONS = new Set([
   'supabase-migration-v62.sql',
   'supabase-migration-v63.sql',
   PINNED_PROVIDER_DELETE_FILE,
+  ...ISOLATED_PROVIDER_DELETE_DEFINITIONS.keys(),
   'supabase/migrations/20260902140000_booking_reviews_and_repeat_booking.sql'
 ]);
 
@@ -69,6 +75,12 @@ function checkExactDuplicates() {
 }
 
 function checkProviderDeleteDefinitions() {
+  for (const [name, expectedHash] of ISOLATED_PROVIDER_DELETE_DEFINITIONS) {
+    const path = join(bookingRoot, name);
+    if (!existsSync(path) || sha256(readFileSync(path, 'utf8').replace(/\r\n/g, '\n')) !== expectedHash) {
+      errors.push(`Изолированная миграция ${name} не совпадает с проверенным SQL.`);
+    }
+  }
   const pinnedPath = join(bookingRoot, PINNED_PROVIDER_DELETE_FILE);
   if (!existsSync(pinnedPath)) {
     errors.push(`Обязательная миграция ${PINNED_PROVIDER_DELETE_FILE} не найдена.`);
@@ -88,7 +100,7 @@ function checkProviderDeleteDefinitions() {
   for (const migrationPath of legacyMigrations) {
     const match = /^supabase-migration-v(\d+)\.sql$/i.exec(relativePath(migrationPath));
     const version = Number(match?.[1]);
-    if (version > PINNED_PROVIDER_DELETE_VERSION && PROVIDER_DELETE_DEFINITION.test(contents.get(migrationPath).toString('utf8'))) {
+    if (version > PINNED_PROVIDER_DELETE_VERSION && !ISOLATED_PROVIDER_DELETE_DEFINITIONS.has(relativePath(migrationPath)) && PROVIDER_DELETE_DEFINITION.test(contents.get(migrationPath).toString('utf8'))) {
       errors.push(`Миграция v${version} переопределяет provider_delete_booking после v${PINNED_PROVIDER_DELETE_VERSION}. Сначала пересмотрите и обновите guard.`);
     }
   }
