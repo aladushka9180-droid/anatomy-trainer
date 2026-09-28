@@ -63,7 +63,7 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1007',
-  './provider.js?v=1025',
+  './provider.js?v=1026',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
