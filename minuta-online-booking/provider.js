@@ -4123,9 +4123,9 @@ function setReportFiltersExpanded(expanded) {
 }
 
 function updateReportFilterSummary() {
-  const summary = $('#reportFilterSummary');
-  if (!summary) return;
-  summary.textContent = `${reportPeriodName()} · ${reportPerformerName()}${reportDataSource === 'demo' ? ' · Демо' : ''}`;
+  const s=$('#reportFilterSummary');
+  if (!s) return;
+  s.textContent=`${window.MinutaStatisticsAuditProvider?.periodName?.()||reportPeriodName()} · ${reportPerformerName()}${reportDataSource==='demo'?' · Демо':''}`;
 }
 
 function renderReportPerformerFilter(range) {
