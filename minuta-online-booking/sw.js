@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1010`;
-const CACHE_READY = './.precache-ready-v1010';
+const CACHE = `${CACHE_PREFIX}v1011`;
+const CACHE_READY = './.precache-ready-v1011';
 
 const ASSETS = [
   './provider.html',
@@ -15,14 +15,14 @@ const ASSETS = [
   './ui-icons.svg',
   './styles.css?v=1004',
   './provider-connection-guidance.css?v=1007',
-  './provider-reference-screens.css?v=1010',
+  './provider-reference-screens.css?v=1011',
   './onboarding.css?v=811',
   './visitor-presence.css?v=811',
   './provider-theme-loft-modern.css?v=811',
   './provider-themes-signature.css?v=885',
   './provider-themes-calm.css?v=811',
   './provider-layout-responsive.css?v=811',
-  './provider-ux.css?v=1010',
+  './provider-ux.css?v=1011',
   './provider-price-list.css?v=871',
   './provider-service-actions.css?v=811',
   './provider-header.css?v=865',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1010',
+  './site-update.js?v=1011',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -63,16 +63,18 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=871',
   './provider-connection-guidance.js?v=1007',
-  './provider.js?v=1010',
+  './provider.js?v=1011',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
 
 const OPTIONAL_ASSETS = [
-  './client-loyalty-frames.css?v=2',
-  './client-loyalty-frames.js?v=2',
+  './client-loyalty-frames.css?v=3',
+  './client-loyalty-frames.js?v=3',
   './client-profile-card.css?v=2',
   './client-profile-card.js?v=2',
+  './new-booking-card.css?v=1',
+  './new-booking-card.js?v=1',
   './assets/loyalty/frames-v1.png',
   './assets/loyalty/frame-100-v1.png',
   './booking-detail-card.css?v=2',
@@ -117,7 +119,7 @@ const OPTIONAL_ASSETS = [
   './messages.html',
   './messages-center.css?v=886',
   './messages-core.js?v=811',
-  './provider-messages-center.js?v=886',
+  './provider-messages-center.js?v=1011',
   './client-messages.js?v=885',
   './provider-portfolio-responsive.css?v=811',
   './service-presets-catalog.js?v=811',
