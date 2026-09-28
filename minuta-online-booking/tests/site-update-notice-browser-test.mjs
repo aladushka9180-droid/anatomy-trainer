@@ -106,6 +106,9 @@ try {
     }, newRelease.version);
     await page.reload();
     assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version, 'Explicit reload must return fresh HTML immediately');
+    // The stale tab has fulfilled its scenario. Leave the test origin before
+    // restoring connectivity so its old updater cannot start another update.
+    await oldTab.goto('about:blank');
   }
   offline = true;
   await context.setOffline(true);
@@ -119,7 +122,8 @@ try {
     const advance = source => source.replaceAll(`v=${newRelease.version}`, `v=${future}`).replaceAll(`v${newRelease.version}`, `v${future}`);
     phase = {version:future,worker:advance(newRelease.worker),updater:advance(newRelease.updater)};
     await context.setOffline(false);
-    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+    // The page's online listener initiates this update; avoid a second update()
+    // racing the real updater against the same registration.
     await waitForReadyBuild(future);
     await page.locator('#siteUpdateNotice button').waitFor();
     assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version);
