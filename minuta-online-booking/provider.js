@@ -1924,10 +1924,19 @@ function clientAvatarContent(phone, name) {
   return escapeHtml(String(name || 'Клиент').trim().slice(0, 1).toUpperCase() || 'К');
 }
 
+function clientFramedAvatarMarkup(phone, name, client = null, size = 76) {
+  const content = clientAvatarContent(phone, name);
+  const frames = window.PrimeTimeLoyaltyFrames;
+  if (!frames?.compact) return `<span class="client-list-avatar">${content}</span>`;
+  const normalizedPhone = normalizePhone(phone);
+  const record = client || buildClients().find(item => item.phone === normalizedPhone);
+  return frames.compact({ content, size, total:frames.count(record, bookingOutcome).total });
+}
+
 function clientAvatarEditorMarkup(phone, name, bookingId = '') {
   const normalizedPhone = normalizePhone(phone);
   const avatar = clientAvatar(normalizedPhone);
-  const visual = `<span class="booking-sheet-client-avatar">${clientAvatarContent(normalizedPhone, name)}</span>`;
+  const visual = clientFramedAvatarMarkup(normalizedPhone, name);
   if (!clientAvatarsRemoteAvailable || !normalizedPhone) return visual;
   return `<span class="client-avatar-control booking-client-avatar-control">
     <label class="client-avatar-picker" title="${avatar ? 'Сменить фото клиента' : 'Добавить фото клиента'}">
@@ -7037,6 +7046,12 @@ async function loadProviderMessagesCenter() {
     root,
     db,
     organizationId:organization.id,
+    renderClientAvatar:conversation => {
+      if (conversation.kind !== 'client') return '';
+      const booking = allBookings.find(item => item.id === conversation.booking?.booking_id
+        && belongsToActiveOrganization(item));
+      return booking ? clientFramedAvatarMarkup(booking.client_phone, booking.client_name) : '';
+    },
     canManageSettings:['owner','admin'].includes(String(organization.current_role || ''))
   });
   return providerMessagesController;
@@ -9268,7 +9283,7 @@ function bookingDetailClientMarkup(item, { editableAvatar = true } = {}) {
   const phoneHref = escapeHtml(phoneValue.replace(/[^+\d]/g, ''));
   const avatar = editableAvatar
     ? clientAvatarEditorMarkup(item.client_phone, item.client_name, item.id)
-    : `<span class="booking-sheet-client-avatar">${clientAvatarContent(item.client_phone, item.client_name)}</span>`;
+    : clientFramedAvatarMarkup(item.client_phone, item.client_name);
   return `<div class="booking-sheet-client">${avatar}<div class="booking-sheet-client-copy"><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name || 'Клиент')}</strong>${clientBadgeMarkup(item.client_phone, { limit:1, showLabels:true })}</div><a href="tel:${phoneHref}">${escapeHtml(phoneValue)}</a></div></div>`;
 }
 
@@ -9319,7 +9334,7 @@ function openBookingSheet(id) {
   const actualMinutes = Number(outcome.actual_duration_minutes || 0);
   const calculatedAmount = Number(outcome.calculated_amount_rub || (actualMinutes ? actualMinutes * minuteRate : bookingSessionTotal(item)));
   const amount = Number(outcome.amount_rub || calculatedAmount);
-  $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet', 'booking-sheet-detail');
+  $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet', 'new-booking-card', 'booking-sheet-detail');
   applyClientHighlightClasses($('#bookingSheet'), isScheduleBlock(item) ? '' : item.client_phone, 'booking-sheet-');
   if (item.is_imported_history) {
     const sourceName = String(item.source_provider_name || 'Прежний журнал').trim();
@@ -11081,7 +11096,24 @@ function updateNewBookingHistoricalPayment({ resetAmount = false } = {}) {
   updateNewBookingSubmitCaption();
 }
 
+function refreshNewBookingCard() {
+  if (!window.PrimeTimeNewBookingCard || !$('#newBookingForm')) return;
+  const service = selectedNewBookingService();
+  const duration = newBookingDurationMinutes();
+  const name = $('#newBookingName')?.value.trim() || '';
+  const phone = $('#newBookingPhone')?.value || '';
+  const selected = $('#newBookingClientFields')?.dataset.clientLookupState === 'found' && Boolean(name && phone);
+  const price = newBookingRepeatVisit
+    ? Math.max(0, Number($('#repeatVisitTotalPrice')?.value ?? newBookingRepeatVisit.total_price_rub) || 0)
+    : Math.max(0, Number(service?.price_rub) || 0) * (Number(service?.duration_minutes) === 1 ? duration : 1);
+  window.PrimeTimeNewBookingCard.render({mode:newBookingMode, selected, name, phone,
+    avatar:selected ? clientFramedAvatarMarkup(phone, name, null, 88) : '',
+    duration, price:money(price), date:$('#newBookingDate')?.value || '', time:newBookingTime,
+    repeat:Boolean(newBookingRepeatVisit)});
+}
+
 function updateNewBookingSubmitCaption() {
+  refreshNewBookingCard();
   const submit = $('#newBookingSubmit');
   if (!submit) return;
   const historicalState = $('#newBookingForm')?.dataset.historicalCreateState;
@@ -11359,7 +11391,7 @@ function renderNewBookingClientSuggestions(query) {
   const clients = newBookingClientCandidates(query);
   newBookingClientSuggestionMap = new Map(clients.map((client, index) => [String(index), client]));
   if (!clients.length) { panel.hidden = true; panel.innerHTML = ''; return; }
-  panel.innerHTML = clients.map((client, index) => `<button type="button" role="option" data-new-booking-client="${index}"><span><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.displayPhone)}</small></span><span aria-hidden="true">Выбрать</span></button>`).join('');
+  panel.innerHTML = clients.map((client, index) => `<button type="button" role="option" data-new-booking-client="${index}">${clientFramedAvatarMarkup(client.phone, client.name)}<span><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.displayPhone)}</small></span><span aria-hidden="true">Выбрать</span></button>`).join('');
   panel.hidden = false;
 }
 
@@ -11374,6 +11406,7 @@ function restoreNewBookingClientLookupStatus() {
   delete fields.dataset.clientLookupState;
   $('#newBookingSheetTitle').textContent = newBookingClientBaseTitle;
   $('#newBookingSectionSubtitle').textContent = newBookingClientBaseSubtitle;
+  refreshNewBookingCard();
 }
 
 function applyNewBookingClient(client, { automatic = false } = {}) {
@@ -11394,6 +11427,7 @@ function applyNewBookingClient(client, { automatic = false } = {}) {
   $('#newBookingSectionSubtitle').textContent = 'Клиент найден в базе';
   $('#newBookingClientFields').dataset.clientLookupState = 'found';
   hideNewBookingClientSuggestions();
+  refreshNewBookingCard();
   saveNewBookingDraft();
   return true;
 }
@@ -11769,6 +11803,8 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingForm').addEventListener('submit', createNewBooking);
   $('#newBookingForm').addEventListener('input', saveNewBookingDraft);
   $('#newBookingForm').addEventListener('change', saveNewBookingDraft);
+  $('#newBookingForm').addEventListener('input', refreshNewBookingCard);
+  $('#newBookingForm').addEventListener('change', refreshNewBookingCard);
   const newBookingNameInput = $('#newBookingName');
   const newBookingPhoneInput = $('#newBookingPhone');
   newBookingNameInput.addEventListener('input', () => {
@@ -11808,10 +11844,12 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   if (preset.clientName) {
     $('#newBookingSheetTitle').textContent = preset.offlineEdit ? 'Исправить запись' : 'Повторная запись';
     $('#newBookingSectionSubtitle').textContent = preset.offlineEdit ? 'Измените данные и снова отправьте на проверку' : 'Клиент и услуга уже выбраны';
+    if (preset.clientPhone) $('#newBookingClientFields').dataset.clientLookupState = 'found';
   }
+  refreshNewBookingCard();
   setTimeout(() => {
     const target = preset.clientName
-      ? (newBookingPreferredTime ? $('#newBookingService') : $('#newBookingDate'))
+      ? (newBookingPreferredTime && !newBookingRepeatVisit ? ($('#bookingSheet').classList.contains('new-booking-card') ? $('#newBookingServiceOpen') : $('#newBookingService')) : $('#newBookingDate'))
       : $('#newBookingName');
     target?.focus();
   }, 0);
@@ -12484,7 +12522,7 @@ function closeBookingSheet() {
   newBookingRepeatVisit = null;
   resetServicePublicCardPhotoPreview('edit');
   $('#bookingSheet').hidden = true;
-  $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet', 'booking-sheet-detail');
+  $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet', 'new-booking-card', 'booking-sheet-detail');
   delete $('#bookingSheet').dataset.bookingId;
   delete $('#bookingSheet').dataset.assistantContext;
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
@@ -12838,9 +12876,8 @@ function renderClients() {
     const facts = clientRelationshipFacts(client);
     const knownCount = facts.visits;
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
-    const hasPhoto = Boolean(clientAvatar(client.phone)?.signed_url);
     const displayPhone = newBookingClientPhoneLabel(client.phone, client.displayPhone);
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}">${clientFramedAvatarMarkup(client.phone, client.name, client)}<span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
   }).join('') + (filtered.length > visibleClients.length ? `<button class="secondary-button" type="button" data-load-more-clients>Показать ещё · осталось ${filtered.length - visibleClients.length}</button>` : '');
 }
 
@@ -13483,6 +13520,7 @@ async function loadClientAvatars() {
     clientAvatarsRemoteAvailable = false;
     clientAvatars = new Map();
     renderClients();
+    refreshNewBookingCard();
     if (selectedClientPhone) renderClientDetail(selectedClientPhone);
     return { ok:false, optional:true };
   }
@@ -13500,6 +13538,7 @@ async function loadClientAvatars() {
   clientAvatarsLoaded = true;
   clientAvatarsRemoteAvailable = true;
   renderClients();
+  refreshNewBookingCard();
   if (selectedClientPhone) renderClientDetail(selectedClientPhone);
   return { ok:true, optional:true };
 }

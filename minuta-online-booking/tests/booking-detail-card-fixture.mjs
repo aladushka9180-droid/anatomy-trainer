@@ -16,11 +16,11 @@ const functions=['openBookingSheet','bookingDetailHeaderMarkup','bookingDetailCl
   'bookingClientProfileActionMarkup','bookingDetailSeriesMarkup','bookingClientOverviewMarkup',
   'clientCompletedVisits','clientNextBookingAfter','reportVisitWord','bookingSessionMarkup',
   'bookingClientLabelsMarkup','compactBookingColorPicker','bookingColorPicker','bookingClientResultMarkup',
-  'clientMessageButtonMarkup','providerConversationButtonMarkup','trapBookingSheetFocus'];
+  'clientMessageButtonMarkup','providerConversationButtonMarkup','trapBookingSheetFocus','clientFramedAvatarMarkup','clientAvatarEditorMarkup'];
 function fixture(){
   const styles=[...providerHtml.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"[^>]*>/g)]
     .map(match=>`<link rel="stylesheet" href="/${match[1]}">`).join('\n');
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карточка записи — тестовые данные</title>${styles}<link rel="stylesheet" href="/provider-clients-premium.css"><link rel="stylesheet" href="/booking-detail-card.css?v=2"><style>body{margin:0}*,*::before,*::after{animation:none!important;transition:none!important}</style></head><body class="provider-body booking-sheet-open" data-provider-theme="pink-porcelain" data-provider-layout="capsule" data-provider-text-scale="default" data-provider-porcelain-character="petal"><div class="booking-sheet" id="bookingSheet" hidden><button class="booking-sheet-backdrop" type="button" aria-label="Закрыть карточку записи"></button><section class="booking-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="bookingSheetTitle"><button class="booking-sheet-close" type="button" aria-label="Закрыть">×</button><div id="bookingSheetContent"></div></section></div><script src="/booking-detail-card.js"></script><script src="/fixture.js"></script></body></html>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карточка записи — тестовые данные</title>${styles}<link rel="stylesheet" href="/provider-clients-premium.css"><link rel="stylesheet" href="/booking-detail-card.css?v=2"><style>body{margin:0}*,*::before,*::after{animation:none!important;transition:none!important}</style></head><body class="provider-body booking-sheet-open" data-provider-theme="pink-porcelain" data-provider-layout="capsule" data-provider-text-scale="default" data-provider-porcelain-character="petal"><div class="booking-sheet" id="bookingSheet" hidden><button class="booking-sheet-backdrop" type="button" aria-label="Закрыть карточку записи"></button><section class="booking-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="bookingSheetTitle"><button class="booking-sheet-close" type="button" aria-label="Закрыть">×</button><div id="bookingSheetContent"></div></section></div><script src="/client-loyalty-frames.js"></script><script src="/booking-detail-card.js"></script><script src="/fixture.js"></script></body></html>`;
 }
 function script(){return `
 var $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -41,7 +41,7 @@ var bookingSessionDuration=items=>items.reduce((sum,item)=>sum+item.duration_min
 var autoCompleteSettingsActionMarkup=()=>'',automaticOutcomeHint=()=>fixtureOutcome._sync_pending?'Ожидает синхронизации':'';
 var outcomeVisitLabel=()=>bookingStatus(),quickVisitOutcomeMarkup=()=>'',bookingIsCompleted=()=>fixtureOutcome.visit_status!=='scheduled';
 var clientLabel=()=>({}),clientBadgeMarkup=()=>'',clientAvatarContent=()=>fixtureBooking.client_name.slice(0,1);
-var clientAvatarEditorMarkup=()=>'<span class="client-avatar-control"><label class="client-avatar-picker"><span class="booking-sheet-client-avatar">С</span><small>＋</small><input type="file" aria-label="Фото клиента" hidden></label></span>';
+var clientAvatar=()=>null,clientAvatarsRemoteAvailable=true;
 var buildClients=()=>[{phone:normalizePhone(fixtureBooking.client_phone),bookings:[fixtureBooking,{...fixtureBooking,id:'past',past:true,booking_date:'2026-09-20'}]}];
 var favoriteServiceNameKey=v=>String(v||''),clientFavoriteServiceFacts=()=>[];
 var BOOKING_COLOR_KEYS=['auto','sage','rose'],BOOKING_COLOR_LABELS={auto:'Авто',sage:'Шалфей',rose:'Розовый'},validBookingColor=v=>BOOKING_COLOR_KEYS.includes(v)?v:'auto',bookingColor=()=> 'auto';
