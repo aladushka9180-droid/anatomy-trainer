@@ -97,6 +97,21 @@ try {
     assert.equal(await page.locator('.finance-center__operation').count(), 4);
     assert.match(await page.locator('.finance-center__operation').last().innerText(), /−12,50\u00a0₽/);
 
+    const financeVisuals = await page.evaluate(() => ({
+      sourceSizes:[...document.querySelectorAll('.finance-center__net small,.finance-center__main-metrics small,.finance-center__trust-metrics small,.finance-center__legend span,.finance-center__ring span,.finance-center__operation small')]
+        .map(item => parseFloat(getComputedStyle(item).fontSize)),
+      expenseBackground:getComputedStyle(document.querySelector('.finance-center__bar.is-expense')).backgroundColor,
+      muted:getComputedStyle(document.querySelector('.finance-center__legend .is-expense')).color,
+      expensePattern:getComputedStyle(document.querySelector('.finance-center__bar.is-expense')).backgroundImage,
+      incomePattern:getComputedStyle(document.querySelector('.finance-center__bar.is-income')).backgroundImage,
+      expenseLegend:document.querySelector('.finance-center__legend .is-expense').textContent.trim()
+    }));
+    assert.ok(financeVisuals.sourceSizes.every(size => size >= 12), `${scenario.width}: small financial sources ${JSON.stringify(financeVisuals.sourceSizes)}`);
+    assert.equal(financeVisuals.expensePattern, 'none', 'expense bars have a solid fill');
+    assert.equal(financeVisuals.incomePattern, 'none', 'income bars retain their solid fill');
+    assert.equal(financeVisuals.expenseBackground, financeVisuals.muted, 'expense bars use the muted solid color');
+    assert.match(financeVisuals.expenseLegend, /^− Расходы$/);
+
     const originalSection = await page.locator('.finance-center').evaluate(node => { node.dataset.identity = 'stable'; return node.dataset.identity; });
     await page.locator('[data-finance-master]').selectOption('master-a');
     await page.waitForFunction(() => reads.at(-1)?.masterId === 'master-a');
@@ -120,7 +135,7 @@ try {
         .map(selector => ({ selector, font:parseFloat(getComputedStyle(document.querySelector(selector)).fontSize) })));
       assert.ok(financeLabels.every(label => label.font >= 12), `${scenario.width}: finance explanations ${JSON.stringify(financeLabels)}`);
     }
-    if (output && scenario.width === 390) await page.screenshot({ path:resolve(output, 'finance-center-390-light-full.png'), fullPage:true });
+    if (output) await page.screenshot({ path:resolve(output, `finance-center-${scenario.width}-${scenario.theme}-full.png`), fullPage:true });
 
     if ([390,760,1440].includes(scenario.width)) {
       await page.evaluate(async () => { mode = 'dense'; await controller.reload(); });
@@ -146,6 +161,7 @@ try {
         const grid = document.querySelector('.finance-center__chart-grid');
         const labels = [...grid.querySelectorAll('.finance-center__chart-label')];
         return { minFont:Math.min(...labels.map(label => parseFloat(getComputedStyle(label).fontSize))),
+          minSourceFont:Math.min(...[...document.querySelectorAll('.finance-center__net small,.finance-center__main-metrics small,.finance-center__trust-metrics small,.finance-center__legend span,.finance-center__ring span,.finance-center__operation small')].map(item => parseFloat(getComputedStyle(item).fontSize))),
           clipped:labels.filter(label => label.scrollWidth > label.clientWidth + 1).length,
           pageWidth:document.documentElement.scrollWidth,
           filters:[...document.querySelectorAll('.finance-center__filters select')].map(select => { const style=getComputedStyle(select); const canvas=document.createElement('canvas'); const context=canvas.getContext('2d'); context.font=style.font; return { label:select.selectedOptions[0]?.textContent, width:select.clientWidth, textWidth:context.measureText(select.selectedOptions[0]?.textContent || '').width, padding:style.padding }; }) };
@@ -154,6 +170,7 @@ try {
       assert.ok(doubledTextAxis.pageWidth <= scenario.width + 1, `${scenario.width}px doubled root text overflows: ${JSON.stringify(doubledTextAxis)}`);
       if (output && scenario.width === 390) await page.screenshot({ path:resolve(output, 'finance-center-390-doubled-text.png'), fullPage:true });
       assert.ok(doubledTextAxis.minFont >= 22 && doubledTextAxis.clipped === 0, `${scenario.width}px doubled root text axis: ${JSON.stringify(doubledTextAxis)}`);
+      assert.ok(doubledTextAxis.minSourceFont >= 24, `${scenario.width}px doubled root text sources: ${JSON.stringify(doubledTextAxis)}`);
       await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale}px`; }, scenario.scale);
       await page.evaluate(async () => { mode = 'full'; await controller.reload(); });
       await page.locator('[data-finance-add]').click();

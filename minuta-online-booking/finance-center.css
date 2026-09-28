@@ -41,3 +41,6 @@
 .finance-center__completeness li+li{margin-top:5px}
 .finance-center__completeness small{display:block;margin-top:8px;font-size:max(12px,.75rem)}
 .finance-center__completeness p{margin:0}
+
+/* Keep source notes readable at desktop size as well as on mobile. */
+.finance-center__net small,.finance-center__main-metrics small,.finance-center__trust-metrics small,.finance-center__legend span,.finance-center__ring span,.finance-center__operation small{font-size:max(12px,.75rem)}
