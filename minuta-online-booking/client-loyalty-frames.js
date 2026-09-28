@@ -11,6 +11,15 @@
     [172,.45,.77],[172,.45,.77],[172,.45,.77],[172,.45,.77],
     [176,.40,.73],[184,.49,.81]
   ];
+  // Circular photo bleeds under the opaque rim. Apertures differ across the atlas;
+  // these orbit-space centres/radii fill them without painting outside the frame.
+  const apertures = [[94,90,54],[92,88,55],[91,89,54],[90,89,54],
+    [92,84,54],[92,83,54],[91,82,54],[89,81,54],
+    [93,80,54],[93,80,54],[90,80,54],[89,81,53],[93,82,52],[91,84,59]];
+  function photoStyle(index) {
+    const [x,y,radius] = apertures[index];
+    return `--frame-photo-left:${x-radius}px;--frame-photo-top:${y-radius}px;--frame-photo-size:${radius*2}px;`;
+  }
   function level(value) {
     const total = integer(value);
     const index = thresholds.findLastIndex(value => value <= total);
@@ -78,7 +87,7 @@
     const preview = sprite(next.index, next.total);
     element.querySelector('.loyalty-level-content').innerHTML = `<p class="loyalty-level-total">${facts.total} сеансов</p>
       <p>${incomplete ? 'По доступной истории. Итог уточнится после загрузки и синхронизации.' : 'Завершённые сеансы за всё время.'}</p>
-      <div class="loyalty-next-preview"><span class="loyalty-preview-initial" aria-hidden="true">${rank.next === null ? '✓' : '+'}</span>${preview}</div>
+      <div class="loyalty-next-preview" style="${photoStyle(next.index)}"><span class="loyalty-preview-initial" aria-hidden="true">${rank.next === null ? '✓' : '+'}</span>${preview}</div>
       <strong>${rank.next === null ? 'Максимальный ободок — 100 сеансов' : `Следующий ободок — на ${rank.next} сеансах`}</strong>
       <p>${rank.next === null ? 'Счётчик продолжает расти после 100.' : `Осталось ${rank.remaining}. Счётчик растёт после каждого завершённого сеанса.`}</p>
       <ol class="loyalty-thresholds" aria-label="Пороги изменения ободка">${thresholds.map(value => `<li${value === rank.threshold ? ' aria-current="step"' : ''}>${value}</li>`).join('')}</ol>
@@ -103,6 +112,10 @@
     current = { facts, rank, incomplete };
     orbit.classList.add('has-session-frame');
     orbit.dataset.sessionTier = String(rank.threshold);
+    const [photoX,photoY,photoRadius] = apertures[rank.index];
+    orbit.style.setProperty('--frame-photo-left', `${photoX-photoRadius}px`);
+    orbit.style.setProperty('--frame-photo-top', `${photoY-photoRadius}px`);
+    orbit.style.setProperty('--frame-photo-size', `${photoRadius*2}px`);
     orbit.querySelector('.loyalty-frame-decoration').innerHTML = sprite(rank.index, rank.total);
     orbit.querySelector('.loyalty-frame-open').setAttribute('aria-label', `${facts.total} сеансов. ${rank.next === null ? 'Максимальный ободок' : `До следующего: ${rank.remaining}`}. Открыть уровни`);
     const row = document.getElementById('clientLoyaltyLevel');
