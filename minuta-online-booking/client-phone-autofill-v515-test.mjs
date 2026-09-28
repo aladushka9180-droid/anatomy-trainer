@@ -30,6 +30,8 @@ function createHarness(clients) {
     saveCount:0,
     navigator:{ contacts:{ getProperties:async () => ['name','tel'], select:async () => [] } },
     buildClients:() => clients,
+    refreshNewBookingCard() {}, // Presentation is exercised by new-booking-card-browser-test.
+    clientFramedAvatarMarkup:() => '',
     normalizePhone(value) {
       let digits = String(value || '').replace(/\D/g, '');
       if (digits.length === 11 && digits.startsWith('8')) digits = `7${digits.slice(1)}`;

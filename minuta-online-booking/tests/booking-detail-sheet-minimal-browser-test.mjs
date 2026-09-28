@@ -23,7 +23,7 @@ assert.match(source,/editableAvatar:false/,'Imported history uses a static avata
 assert.match(source,/bookingClientProfileActionMarkup\(item, \{ primary:true \}\)/,'Imported profile action is primary');
 assert.match(source,/booking-repeat-actions[^\n]+bookingClientProfileActionMarkup\(item, \{ primary:true \}\)/,'Regular booking profile action is primary');
 assert.match(source,/clientBadgeMarkup\(item\.client_phone, \{ limit:1, showLabels:true \}\)/,'Detail client block shows only the highest-priority badge');
-assert.match(source,/classList\.remove\('booking-sheet-wide', 'new-booking-sheet', 'booking-sheet-detail'\)/,'Closing clears the detail modifier');
+assert.match(source,/classList\.remove\('booking-sheet-wide', 'new-booking-sheet', 'new-booking-card', 'booking-sheet-detail'\)/,'Closing clears both creation and detail modifiers');
 assert.match(source,/addEventListener\('keydown', trapBookingSheetFocus\)/,'Existing detail focus trap remains active');
 
 const imported={
@@ -62,6 +62,7 @@ try{
     var uiIcon=name=>'<svg class="ui-icon" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"></circle></svg>';
     var clientAvatarContent=(phone,name)=>escapeHtml(String(name||'К').slice(0,1));
     var clientAvatarEditorMarkup=(phone,name)=>'<span class="booking-sheet-client-avatar">'+clientAvatarContent(phone,name)+'</span>';
+    var clientFramedAvatarMarkup=clientAvatarEditorMarkup; // Full frames have dedicated geometry/browser coverage.
     var clientBadgeMarkup=(phone,options)=>options.limit===1?'<span class="client-badges with-labels"><span class="client-badge badge-attention"><svg class="ui-icon"></svg><span>Внимание</span></span></span>':'';
     ${declaration('bookingClientProfileActionMarkup')}
     ${declaration('bookingDetailSeriesMarkup')}
