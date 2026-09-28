@@ -2277,6 +2277,7 @@ function normalizeDisplayPreferences(value = {}) {
     schedule_font_style:SCHEDULE_FONT_STYLE_KEYS.includes(source.schedule_font_style) ? source.schedule_font_style : DEFAULT_DISPLAY_PREFERENCES.schedule_font_style,
     break_color_default:BOOKING_COLOR_KEYS.includes(source.break_color_default) ? source.break_color_default : DEFAULT_DISPLAY_PREFERENCES.break_color_default,
     automatic_break_color:automaticBreakColor,
+    break_icons:source.break_icons && typeof source.break_icons === 'object' ? source.break_icons : {},
     automatic_break_color_initial:AUTOMATIC_BREAK_COLOR_KEYS.includes(source.automatic_break_color_initial)
       ? source.automatic_break_color_initial : automaticBreakColor,
     automatic_break_color_history:automaticBreakColorHistory,
@@ -2304,6 +2305,7 @@ function displayPreferencesEqual(left, right) {
     && a.schedule_font_style === b.schedule_font_style
     && a.break_color_default === b.break_color_default
     && a.automatic_break_color === b.automatic_break_color
+    && JSON.stringify(a.break_icons) === JSON.stringify(b.break_icons)
     && a.automatic_break_color_initial === b.automatic_break_color_initial
     && JSON.stringify(a.automatic_break_color_history) === JSON.stringify(b.automatic_break_color_history)
     && JSON.stringify(a.automatic_break_color_overrides) === JSON.stringify(b.automatic_break_color_overrides)
@@ -2856,6 +2858,7 @@ function displayPreferencesFromForm() {
     schedule_font_style:$('#providerDisplayForm input[name="scheduleFontStyle"]:checked')?.value,
     break_color_default:displayPreferences.break_color_default,
     automatic_break_color:$('#providerDisplayForm input[name="automaticBreakColor"]:checked')?.value || displayPreferences.automatic_break_color,
+    break_icons:displayPreferences.break_icons,
     automatic_break_color_initial:displayPreferences.automatic_break_color_initial,
     automatic_break_color_history:displayPreferences.automatic_break_color_history,
     automatic_break_color_overrides:displayPreferences.automatic_break_color_overrides,
@@ -7520,7 +7523,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
       const date = new Date(rangeStart);
       date.setDate(rangeStart.getDate() + index);
       const iso = localIsoDate(date);
-      const label = iso === todayIso ? 'Сегодня' : weekday.format(date).replace('.', '');
+      const label = weekday.format(date).replace('.', '');
       const fullDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       return `<button type="button" data-booking-date="${iso}" aria-label="${fullDate}"><span>${label}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</small></button>`;
     }).join('');
@@ -7817,7 +7820,7 @@ function updateBookingStats() {
   $('#todayBookingsLabel').textContent = 'сегодня';
   $('#tomorrowBookingsLabel').textContent = 'завтра';
   $('#upcomingBookingsLabel').textContent = 'впереди';
-  $('.dashboard-summary')?.setAttribute('aria-label', `${todayCount} сегодня, ${tomorrowCount} завтра, Всего впереди — ${upcomingCount}`);
+  $('.dashboard-summary')?.setAttribute('aria-label', `${todayCount} сегодня, ${tomorrowCount} завтра, Предстоящих записей — ${upcomingCount}`);
   const sidebarBadge = $('#newBookingsBadge');
   if (sidebarBadge) {
     sidebarBadge.textContent = String(upcomingCount);

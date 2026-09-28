@@ -1928,7 +1928,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     grid-row:2!important;
   }
   .provider-body .schedule-title-line .dashboard-summary>div:nth-of-type(3)::before {
-    content:"Всего впереди —";
+    content:"Предстоящих записей —";
     color:var(--theme-muted);
     font-size:10px;
     line-height:1.15;
@@ -2490,7 +2490,7 @@ html body.provider-body[data-provider-theme][data-provider-layout]
     overflow:visible!important;
   }
 
-  .provider-body #dashboard[data-active-view="bookings"] .schedule-view-title h2 {
+  .provider-body #dashboard[data-active-view="bookings"] .view-title.schedule-view-title h2 {
     position:static!important;
     grid-column:1/-1!important;
     grid-row:1!important;
@@ -2705,27 +2705,6 @@ html body.provider-body[data-provider-theme][data-provider-layout]
   html body.provider-body[data-provider-theme][data-provider-layout] .date-strip-frame>.date-strip>button.active {
     --date-card-width:var(--mobile-selected-date-card-width)!important;
   }
-}
-
-/* Keep the break marker a real two-bar pause icon in every schedule surface.
-   This final rule wins over older mobile optical offsets and font glyph styles. */
-.provider-body[data-provider-theme] :is(
-  .timeline-view .timeline-booking.status-block .timeline-booking-copy>strong,
-  .timeline-view .timeline-booking.automatic-break .timeline-booking-copy>strong,
-  .schedule-list .provider-booking.status-block h3,
-  .schedule-list .provider-booking.automatic-break h3
-)::before {
-  display:inline-block!important;
-  width:3px!important;
-  height:.85em!important;
-  margin-right:9px!important;
-  border-radius:1px!important;
-  background:currentColor!important;
-  background-image:none!important;
-  box-shadow:6px 0 0 currentColor!important;
-  opacity:1!important;
-  vertical-align:middle!important;
-  transform:translateY(-.02em);
 }
 
 @media (max-width:760px) {

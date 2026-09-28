@@ -45,6 +45,7 @@ const server = http.createServer((request, response) => {
     const page = await browser.newPage({ viewport:{ width:1440, height:900 } });
     await page.goto(`http://127.0.0.1:${server.address().port}/provider.html`);
     await page.addStyleTag({ path:path.join(root, 'provider-schedule-minimal.css') });
+    await page.addStyleTag({ path:path.join(root, 'schedule-flat.css') });
     await page.evaluate(() => {
       document.documentElement.classList.remove('provider-booting', 'requires-top-level');
       document.querySelector('#providerBoot')?.remove();
@@ -359,7 +360,7 @@ const server = http.createServer((request, response) => {
           assert.equal(state.summaryOutline, 'none', `${theme} ${width}px ${stateName}: у сводки осталась обводка`);
           assert.equal(state.summaryShadow, 'none', `${theme} ${width}px ${stateName}: у сводки осталась теневая обводка`);
           assert.equal(state.summaryBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px ${stateName}: у сводки осталась цветная подложка`);
-          assert.ok(state.futureBottom <= state.summaryBottom + 1, `${theme} ${width}px ${stateName}: строка «Всего впереди» вышла из сводки`);
+          assert.ok(state.futureBottom <= state.summaryBottom + 1, `${theme} ${width}px ${stateName}: строка «Предстоящих записей» вышла из сводки`);
           assert.ok(state.tabsTop - state.summaryBottom >= 8, `${theme} ${width}px ${stateName}: вкладки «День / Неделя» перекрывают сводку`);
           assert.ok(state.headingBottom <= state.summaryTop, `${theme} ${width}px ${stateName}: заголовок «Расписание» не поднят над сводкой`);
           assert.ok(Math.abs(state.actionCenter - state.summaryCenter) <= 2, `${theme} ${width}px ${stateName}: сводка и «Новая запись» не выровнены по центру`);
@@ -367,12 +368,12 @@ const server = http.createServer((request, response) => {
           assert.equal(state.titleFits, true, `${theme} ${width}px ${stateName}: полный день недели обрезан`);
           assert.equal(state.titleTextOverflow, 'clip', `${theme} ${width}px ${stateName}: заголовок вновь использует многоточие`);
           if (width <= 390) {
-            assert.match(state.futureLabel, /Всего впереди/, `${theme} ${width}px ${stateName}: пропал полный мобильный лейбл «Всего впереди»`);
-            assert.equal(state.futureOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Всего впереди» обрезается собственным контейнером`);
-            assert.equal(state.summaryOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Всего впереди» обрезается сводкой`);
+            assert.match(state.futureLabel, /Предстоящих записей/, `${theme} ${width}px ${stateName}: пропал полный мобильный лейбл «Предстоящих записей»`);
+            assert.equal(state.futureOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Предстоящих записей» обрезается собственным контейнером`);
+            assert.equal(state.summaryOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Предстоящих записей» обрезается сводкой`);
             assert.ok(state.futurePaddingLeft >= 2, `${theme} ${width}px ${stateName}: у первой буквы «В» нет безопасного отступа`);
-            assert.ok(state.futureLineHeight >= 13, `${theme} ${width}px ${stateName}: строке «Всего впереди» не хватает высоты`);
-            assert.ok(state.futureLeft >= state.summaryLeft, `${theme} ${width}px ${stateName}: строка «Всего впереди» ушла за левую границу сводки`);
+            assert.ok(state.futureLineHeight >= 13, `${theme} ${width}px ${stateName}: строке «Предстоящих записей» не хватает высоты`);
+            assert.ok(state.futureLeft >= state.summaryLeft, `${theme} ${width}px ${stateName}: строка «Предстоящих записей» ушла за левую границу сводки`);
           }
         }
         assert.equal(mobileCentering.far.activeDate, '2026-10-06', `${theme} ${width}px: дальний переход не выбрал 06.10`);
@@ -660,6 +661,8 @@ const server = http.createServer((request, response) => {
           fixture.append(accentProbe);
           const accentProbeStyle = getComputedStyle(accentProbe);
           const accentBackground = accentProbeStyle.backgroundColor;
+          accentProbe.style.background = 'color-mix(in srgb,var(--theme-accent) 12%,var(--theme-surface))';
+          const flatBackground = getComputedStyle(accentProbe).backgroundColor;
           const accentBorderColor = accentProbeStyle.borderColor;
           accentProbe.remove();
           const themeAccentProbe = document.createElement('span');
@@ -681,7 +684,7 @@ const server = http.createServer((request, response) => {
             activeTabMarker:activeTabMarker.backgroundColor,
             summaryStrongColor:summaryStrong.color,
             themeAccent,
-            accentBackground,
+            accentBackground, flatBackground,
             accentBorderColor,
             monthAutoBackground,
             restIconContent:restIcon.content,
@@ -700,7 +703,7 @@ const server = http.createServer((request, response) => {
         cards.normal.forEach((card, index) => {
           assert.equal(card.image, 'none', `${theme} ${width}px: лишний рисунок у записи ${index + 1}`);
           assert.ok(card.contrast >= 4.5, `${theme} ${width}px: низкий контраст записи ${index + 1} (${card.contrast.toFixed(2)})`);
-          if (theme === 'noir-rose') {
+          if (theme === 'noir-rose' && index >= 2) {
             assert.equal(card.background, 'rgb(97, 73, 83)', `${theme} ${width}px: запись ${index + 1} потеряла утверждённую rose-заливку`);
             assert.equal(card.borderColor, 'rgb(225, 165, 182)', `${theme} ${width}px: запись ${index + 1} потеряла розовую границу`);
             assert.match(card.shadow, /inset/, `${theme} ${width}px: нет розового маркера у записи ${index + 1}`);
@@ -709,9 +712,11 @@ const server = http.createServer((request, response) => {
           if (index === 2) {
             assert.equal(card.background, cards.monthAutoBackground, `${theme} ${width}px: компактная месячная запись потеряла нейтральный фон`);
             assert.equal(card.shadow, 'none', `${theme} ${width}px: месячная запись получила лишнюю постоянную тень`);
-          } else if (width > 760 && index === 0) {
-            assert.equal(card.shadow, 'none', `${theme} ${width}px: ПК-записи не нужна декоративная тень`);
-            assert.ok(card.surfaceContrast >= 1.04, `${theme} ${width}px: ПК-запись сливается с поверхностью (${card.surfaceContrast.toFixed(2)})`);
+          } else if (index < 2) {
+            assert.equal(card.shadow, 'none', `${theme} ${width}px: записи не нужна декоративная тень`);
+            assert.equal(card.background, cards.flatBackground, `${theme} ${width}px: неверная однотонная заливка`);
+            assert.equal(card.borderColor, 'rgba(0, 0, 0, 0)', `${theme} ${width}px: ручная запись получила обводку`);
+            assert.ok(card.surfaceContrast >= 1.04, `${theme} ${width}px: запись сливается с поверхностью (${card.surfaceContrast.toFixed(2)})`);
           } else {
             assert.equal(card.background, cards.accentBackground, `${theme} ${width}px: запись ${index + 1} не использует акцент выбранной темы`);
             assert.equal(card.borderColor, cards.accentBorderColor, `${theme} ${width}px: рамка записи ${index + 1} не использует акцент выбранной темы`);
