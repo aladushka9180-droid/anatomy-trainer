@@ -14,7 +14,7 @@
     button.disabled = value;
     button.setAttribute('aria-busy', value ? 'true' : 'false');
     const label = button.querySelector('span');
-    if (label) label.textContent = value ? 'Открываем PrimeTime…' : 'Управлять профилем в PrimeTime';
+    if (label) label.textContent = value ? 'Открываем Eldion…' : 'Управлять профилем в Eldion';
   }
 
   async function createHandoff() {
@@ -38,8 +38,8 @@
       if (!/^[0-9a-f]{64}$/.test(ticket)) throw new Error('invalid_primetime_handoff');
       window.location.assign(`${TARGET}#handoff=${ticket}`);
     } catch (error) {
-      console.error('PrimeTime handoff failed', error);
-      notify('Не удалось открыть PrimeTime · повторите через минуту');
+      console.error('Eldion handoff failed', error);
+      notify('Не удалось открыть Eldion · повторите через минуту');
     } finally {
       running = false;
       setBusy(false);

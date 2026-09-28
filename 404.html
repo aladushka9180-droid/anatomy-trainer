@@ -25,7 +25,7 @@
   </main>
   <script>
     if (location.pathname.includes('/minuta-online-booking/')) {
-      document.title = 'Страница не найдена — PrimeTime Pro';
+      document.title = 'Страница не найдена — Eldion Pro';
       const base = '/anatomy-trainer/minuta-online-booking/';
       const brand = document.getElementById('notFoundBrand');
       brand.href = base;
@@ -34,9 +34,9 @@
       icon.type = 'image/svg+xml';
       icon.href = base + 'provider-icon.svg?v=598';
       document.head.append(icon);
-      brand.querySelector('span').textContent = 'PT';
-      brand.setAttribute('aria-label', 'PrimeTime Pro — к онлайн-записи');
-      brand.querySelector('strong').textContent = 'PrimeTime Pro';
+      brand.querySelector('span').textContent = 'E';
+      brand.setAttribute('aria-label', 'Eldion Pro — к онлайн-записи');
+      brand.querySelector('strong').textContent = 'Eldion Pro';
       document.getElementById('notFoundActions').innerHTML =
         '<a class="legal-primary-action" href="' + base + '">Записаться</a>' +
         '<a href="' + base + 'my-bookings.html">Мои записи</a>' +

@@ -6,21 +6,21 @@
   <meta name="theme-color" content="#153c2c">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co https://primetime-booking.primetime-booking-ru.workers.dev; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; upgrade-insecure-requests">
-  <meta name="description" content="Кабинет исполнителя онлайн-записи PrimeTime Pro.">
-  <meta property="og:title" content="PrimeTime Pro — кабинет исполнителя">
+  <meta name="description" content="Кабинет исполнителя онлайн-записи Eldion Pro.">
+  <meta property="og:title" content="Eldion Pro — кабинет исполнителя">
   <meta property="og:description" content="Управляйте услугами, расписанием и записями клиентов.">
   <meta property="og:type" content="website">
-<meta property="og:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=871">
+<meta property="og:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=1022">
   <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=871">
-  <title>PrimeTime Pro — кабинет исполнителя</title>
-<link rel="icon" href="provider-icon.svg?v=876" type="image/svg+xml">
-<link rel="manifest" href="provider.webmanifest?v=876" type="application/manifest+json">
-<link rel="apple-touch-icon" href="provider-icon-192.png?v=876">
+<meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/provider-og.png?v=1022">
+  <title>Eldion Pro — кабинет исполнителя</title>
+<link rel="icon" href="provider-icon.svg?v=1022" type="image/svg+xml">
+<link rel="manifest" href="provider.webmanifest?v=1022" type="application/manifest+json">
+<link rel="apple-touch-icon" href="provider-icon-192.png?v=1022">
   <script src="pwa-install.js?v=811"></script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="PrimeTime">
+  <meta name="apple-mobile-web-app-title" content="Eldion Pro">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="styles.css?v=1004">
   <link rel="stylesheet" href="provider-connection-guidance.css?v=1007">
@@ -55,13 +55,13 @@
   <template data-provider-feature="scanner"><link rel="stylesheet" href="code-scanner.css?v=811"></template>
   <link rel="stylesheet" href="provider-theme-noir-safari.css?v=811">
   <link rel="stylesheet" href="provider-price-list.css?v=871">
-  <link rel="stylesheet" href="provider-reference-screens.css?v=1020">
+  <link rel="stylesheet" href="provider-reference-screens.css?v=1022">
   <link rel="stylesheet" href="booking-detail-card.css?v=2">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
   <section class="provider-boot-screen" id="providerBoot" role="status" aria-live="polite" aria-label="Открываем кабинет">
-    <span class="provider-boot-mark" aria-hidden="true">PT</span>
+    <span class="provider-boot-mark" aria-hidden="true">E</span>
     <strong>Открываем кабинет</strong>
     <small>Проверяем безопасный вход…</small>
     <i aria-hidden="true"></i>
@@ -69,7 +69,7 @@
 
   <main class="provider-main">
     <section class="auth-card" id="authCard" hidden>
-      <a class="brand" href="index.html" aria-label="PrimeTime Pro — к онлайн-записи"><span class="brand-mark">PT</span><span><strong>PrimeTime <em>Pro</em></strong><small>Кабинет исполнителя</small></span></a>
+      <a class="brand" href="index.html" aria-label="Eldion Pro — к онлайн-записи"><span class="brand-mark">E</span><span><strong>Eldion <em>Pro</em></strong><small>Кабинет исполнителя</small></span></a>
       <span class="status" id="authBadge"><i></i> Личный кабинет</span>
       <h1 id="authTitle">С возвращением!</h1>
       <p id="authDescription">Управляйте расписанием, записями и услугами.</p>
@@ -127,10 +127,10 @@
       <div class="recovery-sent" id="recoverySent" hidden><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"></use></svg></span><strong>Письмо отправлено</strong><p>Ссылка отправлена на <b id="recoverySentAddress"></b>. Если письма нет до 5 минут, проверьте папку «Спам» и правильность адреса.</p><button class="secondary-button" id="retryPasswordRecovery" type="button">Проверить адрес или отправить ещё раз</button><button class="auth-back-button" type="button" data-back-to-login>Вернуться ко входу</button></div>
       <div class="auth-footer-actions">
         <a class="back-to-booking" href="index.html"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Вернуться к записи клиента</span></a>
-        <a class="provider-apk-download" href="https://github.com/aladushka9180-droid/anatomy-trainer/releases/latest/download/PrimeTime-Pro.apk" aria-label="Скачать PrimeTime Pro для Android"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Скачать APK для Android</span></a>
+        <a class="provider-apk-download" href="https://github.com/aladushka9180-droid/anatomy-trainer/releases/latest/download/PrimeTime-Pro.apk" aria-label="Скачать Eldion Pro для Android"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Скачать APK для Android</span></a>
       </div>
     </section>
-    <aside class="auth-benefits" aria-label="Преимущества PrimeTime Pro">
+    <aside class="auth-benefits" aria-label="Преимущества Eldion Pro">
       <div><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg><span><strong>Ваши данные в безопасности</strong><small>Современные методы защиты</small></span></div>
       <div><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-monitor"></use></svg><span><strong>Работает на любых устройствах</strong><small>Компьютер, планшет и телефон</small></span></div>
       <div><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span><strong>Экономит ваше время</strong><small>Всё необходимое в одном месте</small></span></div>
@@ -138,7 +138,7 @@
 
     <section class="provider-app" id="dashboard" hidden>
       <aside class="provider-sidebar">
-        <div class="brand provider-brand"><span class="provider-brand-copy"><a class="provider-product-signature-link" href="index.html" aria-label="PrimeTime Pro — к онлайн-записи"><small class="provider-product-signature" aria-hidden="true"><span class="provider-product-name">PrimeTime</span><span class="provider-product-tier">Pro</span></small></a><button class="provider-business-name-action" id="editProviderBusinessName" type="button" data-provider-view="organization" data-edit-provider-business aria-label="Указать название бизнеса" title="Указать название бизнеса" disabled><strong id="providerBusinessName">Ваш бизнес</strong></button></span></div>
+        <div class="brand provider-brand"><span class="provider-brand-copy"><a class="provider-product-signature-link" href="index.html" aria-label="Eldion Pro — к онлайн-записи"><small class="provider-product-signature" aria-hidden="true"><span class="provider-product-name">Eldion</span><span class="provider-product-tier">Pro</span></small></a><button class="provider-business-name-action" id="editProviderBusinessName" type="button" data-provider-view="organization" data-edit-provider-business aria-label="Указать название бизнеса" title="Указать название бизнеса" disabled><strong id="providerBusinessName">Ваш бизнес</strong></button></span></div>
         <nav class="provider-nav" aria-label="Разделы кабинета">
           <span class="provider-nav-group-label">Работа</span>
           <button class="active" type="button" data-provider-view="bookings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-grid"></use></svg></span><span>Записи</span></button>
@@ -192,7 +192,7 @@
               <summary id="providerTopbarToolsButton" aria-label="Открыть дополнительные инструменты" aria-haspopup="menu" aria-controls="providerTopbarToolsMenu" aria-expanded="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Инструменты</span></summary>
               <div id="providerTopbarToolsMenu" role="menu" aria-labelledby="providerTopbarToolsButton">
                 <button class="voice-assistant-open" id="openVoiceAssistant" type="button" role="menuitem" aria-label="Открыть помощника" data-compact-label="Помощник" aria-haspopup="dialog" aria-controls="voiceAssistantDialog"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-microphone"></use></svg><span>Помощник</span></button>
-                <button class="topbar-client-link" id="openPrimeTime" type="button" role="menuitem" aria-label="Управлять профилем в PrimeTime" data-compact-label="Открыть PrimeTime"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Открыть PrimeTime</span></button>
+                <button class="topbar-client-link" id="openPrimeTime" type="button" role="menuitem" aria-label="Управлять профилем в Eldion" data-compact-label="Открыть Eldion"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Открыть Eldion</span></button>
                 <button class="topbar-client-link provider-client-share" id="shareProviderClientPage" type="button" role="menuitem" aria-label="Поделиться ссылкой для записи" data-compact-label="Ссылка для записи" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Ссылка для записи</span></button>
                 <button class="free-slots-open-button" id="openFreeSlots" type="button" role="menuitem" aria-label="Поделиться свободным временем" data-compact-label="Поделиться"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Поделиться</span></button>
                 <button class="sync-tool-button" id="manualSyncButton" type="button" role="menuitem" aria-label="Обновить данные" data-compact-label="Обновить"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Обновить</span></button>
@@ -516,13 +516,13 @@
             <div class="important-notification-list" id="importantNotificationList" aria-live="polite"><div class="loading-state compact"><i></i><span>Загружаем события…</span></div></div>
           </section>
           <section class="panel notification-queue-panel notification-primary-queue">
-            <div class="notification-toolbar"><div><small>Исходящие</small><h3 id="notificationDeliveryTitle" tabindex="-1">Доставка</h3><p>Ручная отметка означает, что вы отметили сообщение отправленным; PrimeTime не подтверждает доставку получателю.</p></div><div class="notification-toolbar-actions"><button class="secondary-button notification-mark-all" id="markAllNotificationsSent" type="button" hidden>Отметить все</button><div class="notification-filters"><button class="active" type="button" data-notification-filter="pending">К отправке</button><button type="button" data-notification-filter="sent">Отмечено</button><button type="button" data-notification-filter="all">Все</button></div></div></div>
+            <div class="notification-toolbar"><div><small>Исходящие</small><h3 id="notificationDeliveryTitle" tabindex="-1">Доставка</h3><p>Ручная отметка означает, что вы отметили сообщение отправленным; Eldion не подтверждает доставку получателю.</p></div><div class="notification-toolbar-actions"><button class="secondary-button notification-mark-all" id="markAllNotificationsSent" type="button" hidden>Отметить все</button><div class="notification-filters"><button class="active" type="button" data-notification-filter="pending">К отправке</button><button type="button" data-notification-filter="sent">Отмечено</button><button type="button" data-notification-filter="all">Все</button></div></div></div>
             <div class="notification-summary" aria-label="Сводка уведомлений">
               <div><strong id="notificationPendingCount">0</strong><span>непрочитано</span></div>
               <i></i><div><strong id="notificationSoonCount">0</strong><span>сегодня</span></div>
               <i></i><div><strong id="notificationSentCount">0</strong><span>ошибки доставки</span></div>
             </div>
-            <div data-contextual-help data-help-label="Как это работает?" data-help-slug="notification-queue" data-help-question="Объясни безопасную ручную отправку сообщений и разницу между отметкой в PrimeTime Pro и подтверждённой доставкой."></div>
+            <div data-contextual-help data-help-label="Как это работает?" data-help-slug="notification-queue" data-help-question="Объясни безопасную ручную отправку сообщений и разницу между отметкой в Eldion Pro и подтверждённой доставкой."></div>
             <div class="notification-list" id="notificationList" aria-live="polite"></div>
           </section>
           <section class="panel unified-notification-panel smart-delivery-panel" id="unifiedNotificationPanel" aria-labelledby="smartDeliveryTitle" hidden>
@@ -1069,7 +1069,7 @@
               <div data-contextual-help data-help-label="Как подключить оплату?" data-help-slug="setup-yookassa" data-help-question="Объясни безопасное подключение ЮKassa, тестовый режим, чеки и последствия включения предоплаты."></div>
               <details class="ux-disclosure payment-sandbox-disclosure" id="paymentSandboxDisclosure">
                 <summary><span><small>Без списаний и данных карты</small><strong>Проверка сценария оплаты</strong></span><span class="panel-count" id="paymentSandboxState">Не запускался</span></summary>
-                <p class="organization-invite-help">Проверка проходит внутри PrimeTime Pro. ЮKassa и банк не участвуют.</p>
+                <p class="organization-invite-help">Проверка проходит внутри Eldion Pro. ЮKassa и банк не участвуют.</p>
                 <div class="resource-inline-error" id="paymentSandboxUnavailable" role="status" aria-live="polite" hidden><div><strong>Тестовый контур временно недоступен</strong><small id="paymentSandboxUnavailableText">Рабочие платежи и записи продолжают работать независимо.</small></div><button class="secondary-button" type="button" data-payment-sandbox-action="reload">Повторить</button></div>
                 <div class="payment-sandbox-workspace" id="paymentSandboxWorkspace" hidden>
                   <form class="payment-sandbox-form" id="paymentSandboxForm">
@@ -1169,7 +1169,7 @@
                   </form>
                   <section class="commerce-client-access" id="commerceClientAccessResult" role="status" aria-live="polite" hidden>
                     <div class="commerce-client-access-copy">
-                      <small>Доступ в PrimeTime</small>
+                      <small>Доступ в Eldion</small>
                       <strong id="commerceClientAccessTitle">Передайте код клиенту</strong>
                       <code id="commerceClientAccessCode" hidden></code>
                       <span id="commerceClientAccessExpiry" hidden></span>
@@ -1415,7 +1415,7 @@
                   <div class="client-appearance-preview-shell">
                     <div class="client-appearance-preview" id="clientAppearancePreview" aria-label="Предпросмотр клиентской страницы">
                       <span class="client-appearance-preview-browser" aria-hidden="true"><i></i><i></i><i></i></span>
-                      <span class="client-appearance-preview-brand">PrimeTime</span>
+                      <span class="client-appearance-preview-brand">Eldion</span>
                       <small>Клиентская онлайн-запись · пример</small>
                       <strong id="clientAppearancePreviewHeadline">Массаж в удобное время.</strong>
                       <span class="porcelain-preview-tagline" id="clientAppearancePreviewTagline" hidden></span>
@@ -1612,13 +1612,13 @@
             <section class="panel settings-card install-app-card provider-section-anchor" id="installAppCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-download"></use></svg></div>
               <div class="settings-heading"><small>Быстрый доступ</small><h3>Установить приложение</h3><p>Открывайте кабинет с главного экрана телефона или рабочего стола.</p><a class="settings-help-link" href="help/article.html?slug=install-app" target="_blank" rel="noopener noreferrer">Как установить <span aria-hidden="true">↗</span></a></div>
-              <div data-contextual-help data-help-label="Как установить?" data-help-slug="install-app" data-help-question="Объясни установку PrimeTime Pro на это устройство и почему кнопка установки может быть недоступна."></div>
+              <div data-contextual-help data-help-label="Как установить?" data-help-slug="install-app" data-help-question="Объясни установку Eldion Pro на это устройство и почему кнопка установки может быть недоступна."></div>
               <div class="install-app-content">
-                <div class="install-app-actions"><button class="primary install-app-button" id="installAppButton" type="button" aria-expanded="false" aria-controls="desktopInstallGuide androidInstallGuide iosInstallGuide browserInstallGuide"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Установить приложение</span></button><div class="install-app-secondary-actions"><a class="provider-apk-download" href="https://github.com/aladushka9180-droid/anatomy-trainer/releases/latest/download/PrimeTime-Pro.apk" aria-label="Скачать PrimeTime Pro для Android"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>APK для Android</span></a><button class="install-fullscreen-button" id="providerFullscreenButton" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>На весь экран</span></button></div></div>
+                <div class="install-app-actions"><button class="primary install-app-button" id="installAppButton" type="button" aria-expanded="false" aria-controls="desktopInstallGuide androidInstallGuide iosInstallGuide browserInstallGuide"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Установить приложение</span></button><div class="install-app-secondary-actions"><a class="provider-apk-download" href="https://github.com/aladushka9180-droid/anatomy-trainer/releases/latest/download/PrimeTime-Pro.apk" aria-label="Скачать Eldion Pro для Android"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>APK для Android</span></a><button class="install-fullscreen-button" id="providerFullscreenButton" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>На весь экран</span></button></div></div>
                 <p class="install-app-status" id="installAppStatus" role="status" aria-live="polite">Определяем устройство и способ установки…</p>
                 <div class="install-guide desktop-install-guide" id="desktopInstallGuide" hidden>
                   <strong>Установка на компьютер</strong>
-                  <ol><li>Откройте кабинет в Microsoft Edge или Google Chrome.</li><li>Нажмите «Установить приложение» и подтвердите системное окно.</li><li>После установки разрешите создать ярлык на рабочем столе, если браузер покажет этот пункт.</li><li>Запускайте PrimeTime с рабочего стола, из меню «Пуск» или закрепите приложение на панели задач.</li></ol>
+                  <ol><li>Откройте кабинет в Microsoft Edge или Google Chrome.</li><li>Нажмите «Установить приложение» и подтвердите системное окно.</li><li>После установки разрешите создать ярлык на рабочем столе, если браузер покажет этот пункт.</li><li>Запускайте Eldion Pro с рабочего стола, из меню «Пуск» или закрепите приложение на панели задач.</li></ol>
                   <p>Приложение откроется отдельным окном без вкладок браузера. Размер окна сохранится после закрытия.</p>
                 </div>
                 <div class="install-guide android-install-guide" id="androidInstallGuide" hidden>
@@ -1798,7 +1798,7 @@
               <details class="security-more-methods">
                 <summary>Дополнительно: другие способы входа</summary>
               <section class="provider-social-link" aria-labelledby="providerSocialLinkTitle">
-                <div><strong id="providerSocialLinkTitle">Внешние аккаунты</strong><p>Привяжите их один раз, чтобы затем входить без пароля. Недоступная кнопка означает, что этот способ входа ещё не подключён администратором PrimeTime Pro.</p></div>
+                <div><strong id="providerSocialLinkTitle">Внешние аккаунты</strong><p>Привяжите их один раз, чтобы затем входить без пароля. Недоступная кнопка означает, что этот способ входа ещё не подключён администратором Eldion Pro.</p></div>
                 <div class="social-auth-link-list" id="providerSocialLinkList">
                   <button type="button" data-social-auth-link data-social-auth-provider="telegram" disabled><span>Telegram</span><small data-social-auth-state>Не подключён</small></button>
                   <button type="button" data-social-auth-link data-social-auth-provider="vk" disabled><span>VK ID</span><small data-social-auth-state>Не подключён</small></button>
@@ -1837,7 +1837,7 @@
             <button type="button" data-open-product-feedback hidden><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-info"></use></svg></span><strong>Обратная связь</strong><small>Сообщить о проблеме или предложить улучшение</small></button>
             <button type="button" data-provider-view="bookings"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-grid"></use></svg></span><strong>Записи</strong><small>Лента времени, список и управление визитами</small></button>
             <button type="button" data-provider-view="clients"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-users"></use></svg></span><strong>Клиенты</strong><small>История, контакты, заметки и личные метки</small></button>
-            <button type="button" data-provider-view="messages"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></span><strong>Сообщения</strong><small>Диалоги по записям и поддержка PrimeTime</small></button>
+            <button type="button" data-provider-view="messages"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></span><strong>Сообщения</strong><small>Диалоги по записям и поддержка Eldion Pro</small></button>
             <button type="button" data-provider-view="notifications"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-bell"></use></svg></span><strong>Уведомления</strong><small>Сообщения клиентам и шаблоны</small></button>
             <button type="button" data-provider-view="schedule"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg></span><strong>Рабочие часы</strong><small>Доступность, перерывы и выходные</small></button>
             <button type="button" data-provider-view="services"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg></span><strong>Услуги</strong><small>Цены, длительность и доступность</small></button>
@@ -1944,7 +1944,7 @@
   <dialog class="portfolio-photo-source-dialog" id="portfolioPhotoSourceDialog" aria-labelledby="portfolioPhotoSourceTitle">
     <div class="portfolio-photo-source-head"><div><small>Источник фотографии</small><h2 id="portfolioPhotoSourceTitle">Добавить фото</h2></div><button type="button" data-close-portfolio-photo-source aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <div class="portfolio-photo-source-actions">
-      <button type="button" data-portfolio-photo-pick="camera"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-camera"></use></svg></span><span><strong>Снять на камеру</strong><small>Камера откроется внутри PrimeTime Pro</small></span></button>
+      <button type="button" data-portfolio-photo-pick="camera"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-camera"></use></svg></span><span><strong>Снять на камеру</strong><small>Камера откроется внутри Eldion Pro</small></span></button>
       <button type="button" data-portfolio-photo-pick="files"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-image"></use></svg></span><span><strong>Выбрать готовое фото</strong><small>Из галереи или файлов устройства</small></span></button>
     </div>
   </dialog>
@@ -2075,7 +2075,7 @@
   <dialog class="voice-assistant-dialog" id="voiceAssistantDialog" aria-labelledby="voiceAssistantTitle" aria-describedby="voiceAssistantLead">
     <div class="voice-assistant-shell">
       <div class="voice-assistant-head">
-        <div><small>PrimeTime Pro</small><h2 id="voiceAssistantTitle">Помощник</h2></div>
+        <div><small>Eldion Pro</small><h2 id="voiceAssistantTitle">Помощник</h2></div>
         <div class="voice-assistant-head-actions">
           <button class="voice-assistant-back" type="button" data-voice-back aria-label="Вернуться к основному меню помощника" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Назад</span></button>
           <button type="button" data-close-voice-assistant aria-label="Закрыть помощника"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button>
@@ -2137,7 +2137,7 @@
           <p id="voiceAssistantSpeechHint">В каталоге только Дмитрий и Светлана. Единое звучание на компьютере и телефоне доступно после подключения защищённой облачной озвучки. Без неё может работать лишь одноимённый голос устройства; другой голос не подставляется, а ответ остаётся на экране.</p>
         </details>
         <details class="voice-assistant-memory"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>Что помощник запомнил</span></summary><p id="voiceAssistantMemoryText">Пока привычки не определены.</p><button class="secondary-button" id="voiceAssistantClearMemory" type="button" hidden>Удалить рабочие привычки</button></details>
-        <details class="voice-assistant-privacy"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg><span>Как защищены данные</span></summary><p>Сейчас текстовые команды разбираются локально внутри PrimeTime Pro и не отправляются во внешний ИИ. Полный текст команды не сохраняется. После явного исправления помощник может запомнить безопасную замену рабочего слова, а после подтверждённого выбора — только обычное время, услугу и длительность для текущего кабинета. Имена клиентов не сохраняются, а рабочие привычки можно удалить. Действия требуют вашего подтверждения. При включённой единой озвучке в Azure Speech через защищённый сервер передаётся только тот текст ответа, который уже показан на экране; ключ, скрытые идентификаторы и снимок кабинета браузер не получает и не отправляет.</p></details>
+        <details class="voice-assistant-privacy"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg><span>Как защищены данные</span></summary><p>Сейчас текстовые команды разбираются локально внутри Eldion Pro и не отправляются во внешний ИИ. Полный текст команды не сохраняется. После явного исправления помощник может запомнить безопасную замену рабочего слова, а после подтверждённого выбора — только обычное время, услугу и длительность для текущего кабинета. Имена клиентов не сохраняются, а рабочие привычки можно удалить. Действия требуют вашего подтверждения. При включённой единой озвучке в Azure Speech через защищённый сервер передаётся только тот текст ответа, который уже показан на экране; ключ, скрытые идентификаторы и снимок кабинета браузер не получает и не отправляет.</p></details>
         </details>
       </div>
       <div class="voice-assistant-composer">
@@ -2159,7 +2159,7 @@
         <label><span>Источник перехода</span><select id="bookingWidgetSource"><option value="website">Сайт</option><option value="yandex">Яндекс Карты</option><option value="google">Google Карты</option><option value="telegram">Telegram</option><option value="whatsapp">WhatsApp</option><option value="vk">ВКонтакте</option><option value="qr">QR-код</option><option value="direct">Другое</option></select></label>
         <div data-booking-widget-panel="link"><label><span>Готовая ссылка</span><textarea id="bookingWidgetOutput" rows="3" readonly></textarea></label><div class="booking-widget-actions"><button class="primary" type="button" data-booking-widget-copy="url">Скопировать</button><button class="secondary-button" id="openBookingWidgetResult" type="button">Открыть</button></div></div>
         <div data-booking-widget-panel="widget" hidden><label><span>Код для сайта</span><textarea id="bookingWidgetCode" rows="6" readonly></textarea></label><div class="booking-widget-actions"><button class="primary" type="button" data-booking-widget-copy="code">Скопировать код</button></div></div>
-        <details class="booking-widget-details"><summary>Как считается источник</summary><p>PrimeTime добавляет безопасные UTM-метки. Для Яндекс и Google Карт создаются отдельные ссылки: их переходы, записи, оплаты и конверсия попадут в общую аналитику источников.</p></details>
+        <details class="booking-widget-details"><summary>Как считается источник</summary><p>Eldion добавляет безопасные UTM-метки. Для Яндекс и Google Карт создаются отдельные ссылки: их переходы, записи, оплаты и конверсия попадут в общую аналитику источников.</p></details>
         <p id="bookingWidgetStatus" role="status" aria-live="polite">Выберите организацию.</p>
       </div>
       <div class="booking-widget-preview" data-booking-widget-panel="widget" hidden><small>Предпросмотр</small><div class="booking-widget-preview-frame" id="bookingWidgetPreview" role="group" aria-label="Предпросмотр виджета онлайн-записи"></div></div>
@@ -2187,12 +2187,12 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=1020" defer></script>
+  <script src="site-update.js?v=1022" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
   <script src="organization.js?v=1004" defer></script>
-  <script src="payment-management.js?v=1004" defer></script>
+  <script src="payment-management.js?v=1022" defer></script>
   <script src="commerce-management.js?v=1004" defer></script>
   <script src="integration-management.js?v=1004" defer></script>
   <script src="notification-center.js?v=1005" defer></script>
@@ -2204,14 +2204,14 @@
   <script src="booking-policy-management.js?v=811" defer></script>
   <script src="team-calendar.js?v=1004" defer></script>
   <template data-provider-feature="share"><script src="vendor/qrcodegen.js?v=811"></script></template>
-  <script src="free-slots-share.js?v=936" defer></script>
+  <script src="free-slots-share.js?v=1022" defer></script>
   <script src="group-bookings.js?v=811" defer></script>
   <script src="service-presets-catalog.js?v=811" defer></script>
   <script src="provider-price-list.js?v=1020" defer></script>
   <script src="onboarding.js?v=811" defer></script>
   <script src="client-messaging.js?v=811" defer></script>
   <script src="provider-read-fetch.js?v=1004" defer></script>
-  <script src="data-governance.js?v=884" defer></script>
+  <script src="data-governance.js?v=1022" defer></script>
   <script src="report-reconciliation.js?v=811" defer></script>
   <script src="report-demo-live.js?v=811" defer></script>
   <link rel="stylesheet" href="client-directory.css?v=811">
@@ -2241,8 +2241,8 @@
   <script src="booking-widgets.js?v=811" defer></script>
   <script src="provider-feature-assets.js?v=908" defer></script>
   <script src="portfolio-camera.js?v=811" defer></script>
-  <script src="messages-core.js?v=811" defer></script>
-  <script src="provider-messages-center.js?v=1012" defer></script>
+  <script src="messages-core.js?v=1022" defer></script>
+  <script src="provider-messages-center.js?v=1022" defer></script>
   <script src="finance-center.js?v=1004" defer></script>
   <script src="finance-center-provider.js?v=1004" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
@@ -2251,11 +2251,11 @@
   <script src="new-booking-card.js?v=1" defer></script>
   <script src="provider-connection-guidance.js?v=1007" defer></script>
   <script src="schedule-break-icons.js?v=1013" defer></script>
-  <script src="provider.js?v=1020" defer></script>
+  <script src="provider.js?v=1022" defer></script>
   <script src="provider-porcelain-detail.js?v=946" defer></script>
-  <script src="provider-help-workspace.js?v=811" defer></script>
+  <script src="provider-help-workspace.js?v=1022" defer></script>
   <script src="service-presets.js?v=811" defer></script>
-  <script src="primetime-handoff.js?v=811" defer></script>
+  <script src="primetime-handoff.js?v=1022" defer></script>
   <template data-provider-feature="scanner"><script src="code-scanner.js?v=1004"></script></template>
 </body>
 </html>

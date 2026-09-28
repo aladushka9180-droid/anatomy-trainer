@@ -93,7 +93,7 @@ assert.match(provider, /scrollToProviderSection\(button\)/);
 const release = worker.match(/CACHE_PREFIX}v(\d+)/)?.[1];
 const commerceRelease = html.match(/commerce-management\.js\?v=(\d+)/)?.[1];
 const stylesRelease = html.match(/styles\.css\?v=(\d+)/)?.[1];
-assert.ok(release && commerceRelease && stylesRelease, 'Не удалось определить версии PrimeTime Pro');
+assert.ok(release && commerceRelease && stylesRelease, 'Не удалось определить версии Eldion Pro');
 assert.match(worker, new RegExp(`commerce-management\\.js\\?v=${commerceRelease}`));
 assert.match(worker, new RegExp(`styles\\.css\\?v=${stylesRelease}`));
 assert.match(worker, new RegExp(`CACHE_PREFIX}v${release}`));

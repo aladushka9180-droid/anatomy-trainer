@@ -19,7 +19,7 @@
   };
 
   if (!category) {
-    document.title = 'Раздел не найден — PrimeTime Pro';
+    document.title = 'Раздел не найден — Eldion Pro';
     setText('#categoryTitle', 'Раздел не найден');
     setText('#categoryDescription', 'Возможно, ссылка устарела. Вернитесь к списку разделов базы знаний.');
     document.querySelector('.category-articles')?.setAttribute('hidden', '');
@@ -28,7 +28,7 @@
   }
 
   const categoryArticles = articles.filter(article => article.audience === category.audience && article.categorySlug === category.slug);
-  document.title = `${category.title} — помощь PrimeTime Pro`;
+  document.title = `${category.title} — помощь Eldion Pro`;
   document.querySelector('meta[name="description"]')?.setAttribute('content', category.description);
   setText('#categoryTitle', category.title);
   setText('#categoryDescription', category.description);
@@ -48,7 +48,7 @@
   if (productLink) {
     productLink.href = isClient ? '../index.html' : '../provider.html';
     const label = productLink.querySelector('span');
-    if (label) label.textContent = isClient ? 'К онлайн-записи' : 'Открыть PrimeTime Pro';
+    if (label) label.textContent = isClient ? 'К онлайн-записи' : 'Открыть Eldion Pro';
   }
   if (footerProductLink) {
     footerProductLink.href = isClient ? '../index.html' : '../provider.html';

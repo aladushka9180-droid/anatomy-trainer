@@ -10,21 +10,21 @@ const readProject = (name, encoding = 'utf8') => readFileSync(join(projectRoot, 
 const provider = read('provider.html');
 const worker = read('sw.js');
 const release = worker.match(/CACHE_PREFIX\}v(\d+)/)?.[1];
-assert.ok(release, 'не удалось определить версию PrimeTime Pro');
+assert.ok(release, 'не удалось определить версию Eldion Pro');
 const manifest = JSON.parse(read('provider.webmanifest'));
 
-assert.match(provider, /<title>PrimeTime Pro — кабинет исполнителя<\/title>/);
-assert.match(provider, /apple-mobile-web-app-title" content="PrimeTime"/);
-assert.match(provider, /<span class="provider-boot-mark"[^>]*>PT<\/span>/);
-assert.match(provider, /<span class="brand-mark">PT<\/span><span><strong>PrimeTime (?:Pro|<em>Pro<\/em>)<\/strong>/);
+assert.match(provider, /<title>Eldion Pro — кабинет исполнителя<\/title>/);
+assert.match(provider, /apple-mobile-web-app-title" content="Eldion Pro"/);
+assert.match(provider, /<span class="provider-boot-mark"[^>]*>E<\/span>/);
+assert.match(provider, /<span class="brand-mark">E<\/span><span><strong>Eldion (?:Pro|<em>Pro<\/em>)<\/strong>/);
 const iconVersion = provider.match(/rel="icon" href="provider-icon\.svg\?v=(\d+)"/)?.[1];
 assert.ok(iconVersion, 'У кабинета нет версионированной иконки');
 assert.ok(worker.includes(`'./provider-icon.svg?v=${iconVersion}'`), 'Иконка кабинета не согласована с service worker');
 const ogVersion = provider.match(/property="og:image" content="[^"]+\/provider-og\.png\?v=(\d+)"/)?.[1];
 assert.ok(ogVersion, 'У кабинета нет версионированного изображения для публикации');
 assert.match(provider, new RegExp(`name="twitter:image" content="[^"]+/provider-og\\.png\\?v=${ogVersion}"`));
-assert.equal(manifest.name, 'PrimeTime Pro — кабинет');
-assert.equal(manifest.short_name, 'PrimeTime');
+assert.equal(manifest.name, 'Eldion Pro — кабинет');
+assert.equal(manifest.short_name, 'Eldion Pro');
 for (const name of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-icon-maskable-512.png']) {
   const icon = manifest.icons.find(item => new RegExp(`^${name.replaceAll('.', '\\.')}\\?v=\\d+$`).test(item.src));
   assert.ok(icon, `${name}: отсутствует в манифесте`);
@@ -45,16 +45,17 @@ for (const file of publicBrandFiles) {
   const source = read(file);
   assert.doesNotMatch(source, /(?<![A-Za-z0-9_])Minuta(?![A-Za-z0-9_])/u, `${file}: осталось старое публичное имя Minuta`);
   assert.doesNotMatch(source, /«Минута»|>Минута<|— Минута|Минута ·/u, `${file}: осталось старое публичное имя Минута`);
+  assert.doesNotMatch(source, /(?<![A-Za-z0-9_])Prime ?Time(?: Pro)?(?![A-Za-z0-9_-])/u, `${file}: осталось старое публичное имя PrimeTime`);
 }
 
 for (const file of ['help/index.html', 'help/category.html', 'help/article.html']) {
   const source = read(file);
-  assert.match(source, /PrimeTime Pro/);
-  assert.match(source, /help-brand-mark">PT<\/span>/);
+  assert.match(source, /Eldion Pro/);
+  assert.match(source, /help-brand-mark">E<\/span>/);
 }
-assert.match(read('help/help-data.js'), /Интерфейс PrimeTime Pro/);
-assert.match(read('help/tools/capture-guide-screenshots.mjs'), /Интерфейс PrimeTime Pro · учебные данные/);
-assert.match(read('help/tools/capture-guide-screenshots.mjs'), /PrimeTime Pro · наглядно по шагам/);
+assert.match(read('help/help-data.js'), /Интерфейс Eldion Pro/);
+assert.match(read('help/tools/capture-guide-screenshots.mjs'), /Интерфейс Eldion Pro · учебные данные/);
+assert.match(read('help/tools/capture-guide-screenshots.mjs'), /Eldion Pro · наглядно по шагам/);
 assert.match(read('help/tools/capture-guide-screenshots.mjs'), /primetime-pro\.online\/book\/demo/);
 assert.doesNotMatch(read('help/tools/capture-guide-screenshots.mjs'), /minuta\.online/);
 
@@ -63,16 +64,16 @@ for (const file of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-
 }
 assert.match(read('provider-icon.svg'), /<path[^>]+fill="#f6fbf7"/);
 assert.match(read('provider-icon-maskable.svg'), /<path[^>]+fill="#f6fbf7"/);
-assert.match(read('data-governance.js'), /primetime-pro-bookings-/);
-assert.match(read('data-governance.js'), /primetime-pro-export-/);
-assert.match(read('free-slots-share.js'), /primetime-pro-booking-qr\.png/);
+assert.match(read('data-governance.js'), /eldion-pro-bookings-/);
+assert.match(read('data-governance.js'), /eldion-pro-export-/);
+assert.match(read('free-slots-share.js'), /eldion-pro-booking-qr\.png/);
 assert.match(read('voice-assistant.js'), /праймтайм\(\?:\\s\+про\)\?/);
 assert.match(read('voice-assistant.js'), /primetime\(\?:\\s\+pro\)\?/);
-assert.match(read('provider.js'), /ОТЧЁТ PRIMETIME PRO/);
+assert.match(read('provider.js'), /ОТЧЁТ ELDION PRO/);
 
 const rootNotFound = readProject('404.html');
-assert.match(rootNotFound, /Страница не найдена — PrimeTime Pro/);
-assert.match(rootNotFound, /textContent = 'PT'/);
+assert.match(rootNotFound, /Страница не найдена — Eldion Pro/);
+assert.match(rootNotFound, /textContent = 'E'/);
 assert.doesNotMatch(rootNotFound, /(?<![A-Za-z0-9_])Minuta(?![A-Za-z0-9_])/u);
 
 assert.match(read('index.html'), /<strong>Массаж в Ижевске<\/strong>/, 'название бизнеса клиента нельзя заменять брендом платформы');

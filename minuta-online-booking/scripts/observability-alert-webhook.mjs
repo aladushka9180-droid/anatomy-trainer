@@ -181,11 +181,11 @@ async function main() {
     timeoutMs: process.env.MINUTA_OBSERVABILITY_ALERT_TIMEOUT_MS,
     statePath: args.state
   });
-  console.log(`PrimeTime Pro observability alert: ${JSON.stringify(result)}`);
+  console.log(`Eldion Pro observability alert: ${JSON.stringify(result)}`);
 }
 
 const isMain = process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
 if (isMain) main().catch(error => {
-  console.error(`PrimeTime Pro observability alert: ERROR; ${error?.message || error}`);
+  console.error(`Eldion Pro observability alert: ERROR; ${error?.message || error}`);
   process.exitCode = 1;
 });

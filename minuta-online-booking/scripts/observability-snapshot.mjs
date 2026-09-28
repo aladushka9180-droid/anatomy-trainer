@@ -207,7 +207,7 @@ export function renderMarkdown(report) {
   const limitations = report.sourceLimitations.length
     ? `\n## Ограничения источников\n\n${report.sourceLimitations.map(item => `- ${item}`).join('\n')}\n`
     : '';
-  return `# PrimeTime Pro — observability snapshot\n\n` +
+  return `# Eldion Pro — observability snapshot\n\n` +
     `Сформирован: ${report.generatedAt}. Пороги: **предложены, ожидают подтверждения**. ` +
     `Покрытие: ${report.coverage.completeDaysWithAvailabilitySamples}/${report.coverage.requiredDays} полных дней.\n\n` +
     `| SLO | Цель | Наблюдение | Статус | Основание |\n| --- | --- | --- | --- | --- |\n${rows.join('\n')}\n\n` +
@@ -453,11 +453,11 @@ async function main() {
   if (args['json-out']) await writeOutput(args['json-out'], `${JSON.stringify(report, null, 2)}\n`);
   if (args['markdown-out']) await writeOutput(args['markdown-out'], markdown);
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`, 'utf8');
-  console.log(`PrimeTime Pro observability: ${report.summary.evaluation}; pass=${report.summary.pass}; fail=${report.summary.fail}; insufficient=${report.summary.insufficientData}; alert_would_fire=${report.alertPreview.wouldFire}`);
+  console.log(`Eldion Pro observability: ${report.summary.evaluation}; pass=${report.summary.pass}; fail=${report.summary.fail}; insufficient=${report.summary.insufficientData}; alert_would_fire=${report.alertPreview.wouldFire}`);
 }
 
 const isMain = process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
 if (isMain) main().catch(error => {
-  console.error(`PrimeTime Pro observability: ERROR; ${error?.message || error}`);
+  console.error(`Eldion Pro observability: ERROR; ${error?.message || error}`);
   process.exitCode = 1;
 });

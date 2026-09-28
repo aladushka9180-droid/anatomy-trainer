@@ -175,7 +175,7 @@
     if (productLink) {
       productLink.href = audience === 'client' ? '../index.html' : '../provider.html';
       const label = productLink.querySelector('span');
-      if (label) label.textContent = audience === 'client' ? 'К онлайн-записи' : 'Открыть PrimeTime Pro';
+      if (label) label.textContent = audience === 'client' ? 'К онлайн-записи' : 'Открыть Eldion Pro';
     }
     if (footerProductLink) {
       footerProductLink.href = audience === 'client' ? '../index.html' : '../provider.html';

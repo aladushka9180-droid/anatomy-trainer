@@ -11,7 +11,7 @@ const statusLabels = new Function(`return (${statusLabelsSource})`)();
 assert.equal(statusLabels.sent, 'Передано каналу');
 assert.match(providerSource, /task\.mark === 'sent' \? 'Отмечено отправленным'/u);
 assert.doesNotMatch(providerSource, /sent: 'Доставлено'/u);
-assert.match(providerHtml, /Ручная отметка означает, что вы отметили сообщение отправленным; PrimeTime не подтверждает доставку получателю\./u);
+assert.match(providerHtml, /Ручная отметка означает, что вы отметили сообщение отправленным; Eldion не подтверждает доставку получателю\./u);
 assert.match(providerHtml, /data-notification-filter="sent">Отмечено</u);
 
 const styleFiles = [...providerHtml.matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^" ]*)?"/gu)].map((match) => match[1]);

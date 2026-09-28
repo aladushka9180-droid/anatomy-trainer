@@ -30,9 +30,9 @@ assert.match(rollback, /drop function if exists public\.consume_primetime_handof
 assert.match(rollback, /drop table if exists public\.primetime_handoffs/i);
 
 assert.match(provider, /id="openPrimeTime"/);
-assert.match(provider, /primetime-handoff\.js\?v=811/);
+assert.match(provider, /primetime-handoff\.js\?v=1022/);
 assert.doesNotMatch(worker, /primetime-handoff\.js/, 'handoff script must stay runtime-cached');
-assert.match(worker, /CACHE_PREFIX}v811/);
+assert.match(worker, /CACHE_PREFIX}v1022/);
 assert.equal((provider.match(/\?v=630/g) || []).length, 0);
 
 assert.match(script, /db\.rpc\('create_primetime_handoff', \{ p_state: state \}\)/);
@@ -51,7 +51,7 @@ assert.match(release, /supabase-migration-v127\.sql/);
 assert.match(release, /\.state\.workspaceFunction and \.state\.pgcrypto/);
 assert.doesNotMatch(release, /pull_request|push:/);
 
-assert.match(integration, /Race PrimeTime handoffs and verify latest-wins TTL/);
+assert.match(integration, /Race Eldion handoffs and verify latest-wins TTL/);
 assert.doesNotMatch(integration, /-c "[^"]*:'actor'/);
 
 console.log('PrimeTime handoff v127 static checks passed.');

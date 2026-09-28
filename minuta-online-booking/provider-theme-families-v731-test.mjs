@@ -31,7 +31,7 @@ assert.match(css, /> \.provider-main\s*\{[\s\S]*?z-index:1;/);
 assert.match(css, /> \.ambient\s*\{[\s\S]*?display:none!important;/);
 assert.match(css, /:is\([\s\S]*?\.provider-sidebar[\s\S]*?\.booking-sheet-panel[\s\S]*?\)\s*\{[\s\S]*?background-image:none!important;/);
 assert.match(css, /:is\(input,select,textarea\)\s*\{[\s\S]*?background-image:none!important;/);
-assert.doesNotMatch(css, /booking-client-page|client-pattern|\.client-app/, 'Новый слой не должен затрагивать публичный PrimeTime');
+assert.doesNotMatch(css, /booking-client-page|client-pattern|\.client-app/, 'Новый слой не должен затрагивать публичный Eldion');
 assert.match(css, /\.provider-theme-option\[class\*="theme-"\]:not\(:is\(\.theme-snow-leopard,\.theme-pearl-zebra,\.theme-concrete-signal,\.theme-luxury,\.theme-cocoa-pearl,\.theme-coastal,\.theme-midnight,\.theme-noir-safari\)\) \.theme-swatch/);
 
 for (const theme of themes) {

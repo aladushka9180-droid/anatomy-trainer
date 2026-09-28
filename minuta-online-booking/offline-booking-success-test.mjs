@@ -75,7 +75,7 @@ box.offlineBookingQueue = [{ id:'offline-2', clientName:'Очень длинно
 box.ownServices[0].name = 'Очень длинное название услуги для проверки переноса строки';
 box.renderOfflineBookingQueue();
 assert.equal(nodes.title.textContent, 'Сохранено на устройстве');
-assert.equal(nodes.status.textContent, 'Когда интернет вернётся, PrimeTime Pro проверит выбранное время и создаст запись');
+assert.equal(nodes.status.textContent, 'Когда интернет вернётся, Eldion Pro проверит выбранное время и создаст запись');
 assert.match(nodes.list.innerHTML, /23 сент\. · 12:00–13:30/);
 assert.match(nodes.list.innerHTML, /Очень длинное название услуги/);
 assert.match(nodes.list.innerHTML, /Ожидает подключения/);

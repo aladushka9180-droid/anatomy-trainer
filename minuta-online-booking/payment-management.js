@@ -503,7 +503,7 @@
         if (amount && !amount.value) amount.value = String(Math.max(1, booking?.totalPriceRub || 1));
         if (setup?.querySelector('button[type="submit"]')) setup.querySelector('button[type="submit"]').disabled = !bookings.length || busy;
         if ($('#paymentSandboxHelp')) $('#paymentSandboxHelp').textContent = bookings.length
-          ? 'Проверка проходит внутри PrimeTime Pro. ЮKassa и банк не участвуют; клиент не получит уведомление.'
+          ? 'Проверка проходит внутри Eldion Pro. ЮKassa и банк не участвуют; клиент не получит уведомление.'
           : 'Нет доступных записей для проверки. Подходят записи текущего специалиста в этой организации, кроме отменённых и блокировок расписания.';
         return;
       }
@@ -630,7 +630,7 @@
         sandboxAvailable = true;
         persistSandboxReference({ ledgerId:reference.ledgerId, bookingId:reference.bookingId, pending:null });
         renderSandbox();
-        notify(`${sandboxStatusLabel(sandboxState.status)} · проверка внутри PrimeTime Pro`);
+        notify(`${sandboxStatusLabel(sandboxState.status)} · проверка внутри Eldion Pro`);
       } catch {
         if (!contextIsCurrent()) return;
         setBusy(false);

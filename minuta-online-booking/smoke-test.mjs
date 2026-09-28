@@ -708,7 +708,7 @@ assert.match(providerHtml, /class="provider-section-nav" aria-label="Разде�
 assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по настройкам"/, 'В длинном разделе настроек нет внутренней навигации');
 assert.equal((providerHtml.match(/class="[^"]*provider-client-link[^"]*"/g) || []).length, 2, 'Ссылки на страницу клиента не объединены общей логикой');
 assert.match(providerHtml, /provider-client-link[^>]*target="_blank"[^>]*rel="noopener noreferrer"/, 'Страница клиента не открывается безопасно в новой вкладке');
-assert.match(providerHtml, /id="openPrimeTime"[^>]*aria-label="Управлять профилем в PrimeTime"/, 'В дополнительных инструментах нет управления профилем PrimeTime');
+assert.match(providerHtml, /id="openPrimeTime"[^>]*aria-label="Управлять профилем в Eldion"/, 'В дополнительных инструментах нет управления профилем Eldion');
 assert.match(provider, /function buildProviderClientUrl[\s\S]*public_booking_enabled[\s\S]*searchParams\.set\('org', organization\.public_slug\)/, 'Ссылка на страницу клиента не учитывает выбранную организацию');
 assert.match(providerHtml, /id="bookingSearch"[^>]*Имя, телефон или услуга/, 'В истории записей нет поиска');
 assert.match(providerHtml, /id="bookingStatusFilter"[\s\S]*value="needs-result"[\s\S]*value="cancelled"/, 'В истории записей нет фильтра по статусу');
@@ -772,7 +772,7 @@ assert.match(providerHtml, /id="offlineBookingQueuePanel"[\s\S]*id="retryOffline
 assert.match(providerHtml, /Сохранено на устройстве[\s\S]*Как это работает/, 'Офлайн-очередь не объясняет автоматическую отправку компактно');
 assert.match(provider, /function showOfflineBookingCompletion[\s\S]*bookingCreationConfirmed[\s\S]*Уведомление клиенту не отправлено — Telegram не подключён/, 'Подтверждение синхронизированной записи не защищено от повторного показа или не отделяет Telegram-статус');
 assert.match(provider, /function renderOfflineBookingQueue[\s\S]*offline-booking-item is-created[\s\S]*Запись создана[\s\S]*data-dismiss-offline-booking-completion/, 'Успех синхронизации не заменяет ту же строку офлайн-очереди');
-assert.match(provider, /Когда интернет вернётся, PrimeTime Pro проверит выбранное время и создаст запись[\s\S]*Ожидает подключения/, 'Ожидающая офлайн-запись не объясняет один раз безопасную серверную проверку');
+assert.match(provider, /Когда интернет вернётся, Eldion Pro проверит выбранное время и создаст запись[\s\S]*Ожидает подключения/, 'Ожидающая офлайн-запись не объясняет один раз безопасную серверную проверку');
 assert.match(provider, /function openAnotherOfflineBooking[\s\S]*openNewBookingSheet\('', \{ clientName:completion\.client, clientPhone:completion\.clientPhone \}\)/, 'Повторное создание не открывает существующую форму с тем же клиентом');
 assert.doesNotMatch(provider.match(/function showOfflineBookingCompletion[\s\S]*?\r?\n}/)?.[0] || '', /setTimeout/, 'Карточка успеха исчезает раньше, чем пользователь успевает выбрать следующее действие');
 assert.match(provider, /function showOfflineBookingCompletion[\s\S]*renderBookingData\(\);\s*renderOfflineBookingQueue\(\);/, 'Подтверждение офлайн-записи может появиться раньше самой записи в расписании');

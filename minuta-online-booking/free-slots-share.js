@@ -1113,7 +1113,7 @@
     downloadQrButton.addEventListener('click', () => {
       if (!publicationIsCurrent() || qrCanvas.hidden || qrWrap.hidden) return;
       const link = document.createElement('a');
-      link.download = 'primetime-pro-booking-qr.png';
+      link.download = 'eldion-pro-booking-qr.png';
       link.href = qrCanvas.toDataURL('image/png');
       link.click();
     });

@@ -73,7 +73,7 @@
     return Object.freeze({
       id,
       kind,
-      title:text(item.title, 120).trim() || (kind === 'support' ? 'Поддержка PrimeTime' : 'Клиент'),
+      title:text(item.title, 120).trim() || (kind === 'support' ? 'Поддержка Eldion' : 'Клиент'),
       subtitle:text(item.subtitle, 220).trim(),
       preview:text(item.preview, 240).trim(),
       updated_at:updatedAt,

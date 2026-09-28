@@ -298,7 +298,11 @@ assert.equal(howAreYou.kind, 'small_talk');
 assert.match(howAreYou.message, /Спасибо, что спросили/);
 assert.equal(voice.interpretCommand('Привет', snapshot, now).kind, 'small_talk');
 assert.equal(voice.interpretCommand('Привет, Праймтайм Про', snapshot, now).kind, 'small_talk');
-assert.equal(voice.interpretCommand('Привет PrimeTime Pro', snapshot, now).kind, 'small_talk');
+assert.equal(voice.interpretCommand('Привет Eldion Pro', snapshot, now).kind, 'small_talk');
+for (const brand of ['Элдион', 'Элдион Про', 'Eldion', 'Eldion Pro', 'PrimeTime Pro']) {
+  assert.equal(voice.interpretCommand(`Привет ${brand}`, snapshot, now).kind, 'small_talk');
+  assert.equal(voice.interpretCommand(`Как дела ${brand}`, snapshot, now).kind, 'small_talk');
+}
 assert.equal(voice.interpretCommand('Привет, как дела?', snapshot, now).kind, 'small_talk');
 assert.equal(voice.interpretCommand('Большое спасибо', snapshot, now).title, 'Пожалуйста');
 assert.equal(voice.interpretCommand('Кто ты?', snapshot, now).kind, 'small_talk');

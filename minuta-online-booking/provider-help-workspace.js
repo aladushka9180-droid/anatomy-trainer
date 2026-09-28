@@ -20,10 +20,10 @@
     <header class="provider-help-workspace-bar">
       <button class="provider-help-workspace-back" type="button" data-provider-help-back>
         <svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg>
-        <span>Назад в PrimeTime Pro</span>
+        <span>Назад в Eldion Pro</span>
       </button>
       <div class="provider-help-workspace-heading">
-        <small>PrimeTime Pro</small>
+        <small>Eldion Pro</small>
         <strong id="providerHelpWorkspaceTitle">База знаний</strong>
       </div>
       <a class="provider-help-workspace-external" href="help/index.html" target="_blank" rel="noopener noreferrer">
@@ -33,7 +33,7 @@
     </header>
     <div class="provider-help-workspace-stage">
       <p class="provider-help-workspace-loading" role="status">Открываем инструкцию…</p>
-      <iframe title="База знаний PrimeTime Pro" loading="eager" referrerpolicy="no-referrer"></iframe>
+      <iframe title="База знаний Eldion Pro" loading="eager" referrerpolicy="no-referrer"></iframe>
     </div>`;
   document.body.append(workspace);
 
