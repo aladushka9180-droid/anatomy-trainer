@@ -54,7 +54,11 @@ assert.match(provider, /bookingNotePresenceMarkup\(note, 'timeline-booking-note-
 assert.match(provider, /const timelineClientRow = compactMobile && block\s*\? ''/, 'В коротком автоперерыве остаётся лишняя строка под названием');
 assert.match(provider, /const renderedStatus = mobileTimeline \? '' : timelineStatus;/, 'Статус мобильной записи всё ещё может вытеснить название');
 assert.match(provider, /function timelineEmptyHintOffsetMinutes\(start, end, mobileTimeline\)[\s\S]*?return Math\.min\(mobileTimeline \? 0 : 30, visibleDuration \/ 2\);/, 'Подсказка пустого дня не привязана к первому видимому участку шкалы');
-assert.match(provider, /timeline-empty-state" aria-label="День свободен\. Нажмите нужное время, чтобы записать клиента или поставить перерыв"[\s\S]*?<small>Нажмите нужное время, чтобы записать клиента или поставить перерыв<\/small>/, 'Подсказка пустого дня потеряла понятное действие');
+const emptyHintCopy = provider.match(/class="timeline-empty-state"[\s\S]*?<small>([\s\S]*?)<\/small>/)?.[1];
+assert.ok(emptyHintCopy, 'Подсказка пустого дня отсутствует');
+const hintText = hiddenTag => emptyHintCopy.replace(new RegExp(`<${hiddenTag}>[\\s\\S]*?<\\/${hiddenTag}>`, 'g'), '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+assert.equal(hintText('b'), 'Нажмите нужное время, чтобы записать клиента или поставить перерыв', 'Настольная подсказка потеряла понятное действие');
+assert.equal(hintText('i'), 'Нажмите на время, чтобы добавить запись', 'Мобильная подсказка потеряла короткое понятное действие');
 assert.doesNotMatch(provider, /timeline-empty-state[^`]*<strong>День свободен<\/strong>/, 'Подсказка пустого дня дублирует заголовок дня');
 assert.match(css, /@media \(max-width:760px\) \{[\s\S]*?timeline-empty-state \{[^}]*grid-template-columns:28px minmax\(0,360px\);[^}]*padding:8px 10px;[^}]*text-align:left;/, 'Мобильная подсказка пустого дня не помещается в первый видимый участок');
 assert.match(provider, /mobileTimeline \? \{ limit:1, showLabels:true \}/, 'Длинная мобильная запись снова выводит несколько конкурирующих меток');
