@@ -34,7 +34,7 @@ try {
   document.querySelectorAll('.provider-view').forEach(e=>e.hidden=e.dataset.providerPanel!=='bookings');
   document.body.dataset.providerTheme='pink-porcelain';document.body.dataset.providerLayout='soft';
   document.querySelector('[data-calendar-view="day"]').classList.add('active');
-  document.querySelector('#dateStrip').innerHTML=[24,25,26,27,28].map((d,i)=>`<button data-booking-date="2026-09-${d}" class="${d===26?'active':d===28?'is-today':''}"><span>${['Чт','Пт','Сб','Вс','Пн'][i]}</span><strong>${d}</strong><small>сент</small></button>`).join('');
+  document.querySelector('#dateStrip').innerHTML=[24,25,26,27,28,29,30,1,2].map((d,i)=>`<button data-booking-date="2026-${d<3?'10-0':'09-'}${d}" class="${d===26?'active':d===28?'is-today':''}"><span>${['Чт','Пт','Сб','Вс','Пн','Вт','Ср','Чт','Пт'][i]}</span><strong>${d}</strong><small>${d<3?'окт':'сент'}</small></button>`).join('');
   document.querySelector('#selectedDateTitle').innerHTML='<span class="selected-date-title-default">Суббота</span><span class="selected-date-title-mobile">Суббота</span>';
   document.querySelector('#dateStrip').hidden=false;
   document.querySelector('#scheduleDatePicker').value='2026-09-26';
@@ -80,7 +80,7 @@ try {
  };
  window.openIconSettings=automatic=>{const sheet=$('#bookingSheet');sheet.dataset.assistantContext=automatic?'automatic-break':'booking';sheet.dataset.bookingId=automatic?'':'break';$('#bookingSheetContent').innerHTML='<h2>Перерыв</h2>';sheet.hidden=false;};
  `});
- for(const theme of ['pink-porcelain','carbon-crimson'])for(const width of [390,760,1440]){
+ for(const theme of ['pink-porcelain','carbon-crimson'])for(const width of [390,760,1024,1440,2048]){
   await page.setViewportSize({width,height:1000});
   await page.evaluate(theme=>{document.body.dataset.providerTheme=theme;document.body.dataset.providerResolvedColorMode=theme==='carbon-crimson'?'dark':'light';redraw();},theme);
   await page.waitForTimeout(250); const state=await page.evaluate(()=>{
@@ -121,6 +121,33 @@ try {
    assert.equal(header.tab,'rgba(0, 0, 0, 0)','Period tabs must only use an underline');
    assert.equal(header.navBorder,'0px');assert.equal(header.stripBorder,'0px');assert.equal(header.dateBorder,'0px');assert.equal(header.topbarBorder,'0px');assert.equal(header.todayBorder,'1px');assert.equal(header.dateWeight,'500');
    if(theme==='pink-porcelain')assert.equal(header.buttonInk,'rgb(255, 255, 255)');
+  }
+  if(width>760){
+   const desktop=await page.evaluate(()=>{
+    const q=s=>document.querySelector(s),css=s=>getComputedStyle(q(s)),rect=s=>q(s).getBoundingClientRect();
+    const title=rect('.schedule-title-line h2'),summary=rect('.dashboard-summary');
+    return {
+     borders:['.calendar-view-toggle',...['day','week','month'].map(v=>`[data-calendar-view="${v}"]`),'.date-today-button','.schedule-date-picker','.date-strip-shift'].map(s=>css(s).borderTopWidth),
+     counterInk:css('.dashboard-summary strong').color,titleInk:css('.schedule-title-line h2').color,
+     centerDelta:Math.abs(title.top+title.height/2-summary.top-summary.height/2),
+     dateBg:css('.schedule-date-picker').backgroundColor,iconInk:css('.schedule-date-picker>.ui-icon').color,
+     iconWidth:rect('.schedule-date-picker>.ui-icon').width,buttonHeight:rect('#newBookingButton').height,
+     buttonWeight:css('#newBookingButton span').fontWeight,
+     months:[...q('#dateStrip').children].every(b=>{const m=b.querySelector('small').getBoundingClientRect(),d=b.querySelector('strong').getBoundingClientRect();return m.height>0 && m.top>=d.bottom-1 && m.bottom<=b.getBoundingClientRect().bottom+1;}),
+     activeInk:css('.date-strip>button.active strong').color,
+     accent:css('.date-strip>button.active').getPropertyValue('--theme-accent').trim()
+    };
+   });
+   assert.ok(desktop.borders.every(b=>b==='0px'),`${theme}/${width}: desktop borders ${desktop.borders}`);
+   assert.equal(desktop.counterInk,desktop.titleInk);assert.ok(desktop.centerDelta<=1,`${width}: counter alignment ${desktop.centerDelta}`);
+   assert.equal(desktop.dateBg,'rgba(0, 0, 0, 0)');assert.equal(desktop.iconInk,desktop.titleInk);assert.ok(desktop.iconWidth>=16);
+   assert.equal(desktop.buttonHeight,36);assert.equal(desktop.buttonWeight,'500');assert.ok(desktop.months);
+   await page.keyboard.press('Tab');
+   await page.locator('[data-calendar-view="week"]').focus();
+   assert.equal(await page.locator('[data-calendar-view="week"]').evaluate(e=>getComputedStyle(e).outlineStyle),'solid','Borderless tabs keep keyboard focus');
+   await page.locator('#scheduleDatePicker').focus();
+   assert.equal(await page.locator('.schedule-date-picker').evaluate(e=>getComputedStyle(e).outlineStyle),'solid','Borderless date picker keeps focus');
+   await page.locator('.schedule-title-line h2').click();
   }
   if(output)await page.screenshot({path:resolve(output,`${theme}-${width}.png`),fullPage:true});
   if(output && width===390)await page.screenshot({path:resolve(output,`${theme}-header-390.png`),clip:{x:0,y:0,width:390,height:310}});
