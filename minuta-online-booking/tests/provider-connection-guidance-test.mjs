@@ -128,6 +128,7 @@ test('manual check is single-flight and never claims a missing offline copy', as
   const button = { disabled:false, classList:{ add() {}, remove() {} } };
   const context = vm.createContext({
     currentUser:{ id:'actor' }, navigator:{ onLine:false }, offlineBookingAccessReady:false,
+    providerSessionTrust:'verified', sessionGeneration:1, sessionIsCurrent:() => true,
     offlineBookingInputsReady:false, offlineBookingSnapshotFresh:() => false,
     notify:text => messages.push(text), recordConnectionEvent() {},
     $:() => button, manualSynchronizationPromise:null, synchronizationPromise:null,

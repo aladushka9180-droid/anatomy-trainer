@@ -1740,6 +1740,7 @@ async function manualSynchronizeProvider() {
   const run = (async () => {
   const button = $('#manualSyncButton');
   if (!currentUser) return false;
+  const userId = currentUser.id;
   if (!navigator.onLine) {
     notify(offlineBookingAccessReady && offlineBookingInputsReady && offlineBookingSnapshotFresh()
       ? 'Нет интернета · показана сохранённая копия' : 'Нет интернета · проверьте подключение');
@@ -1750,9 +1751,22 @@ async function manualSynchronizeProvider() {
   button.classList.add('is-spinning');
   recordConnectionEvent('manual', 'Запущено ручное обновление');
   try {
+    if (providerSessionTrust === 'cached') {
+      await verifyCachedProviderSession(userId);
+      if (currentUser?.id !== userId) return false;
+      if (providerSessionTrust !== 'verified') {
+        recordConnectionEvent('warning', 'Ручное обновление: сеанс пока не подтверждён');
+        notify('Не удалось подтвердить сеанс · повторим автоматически');
+        return false;
+      }
+    }
+    const generation = sessionGeneration;
     if (synchronizationPromise) await synchronizationPromise;
+    if (!sessionIsCurrent(userId, generation)) return false;
     const complete = await synchronizeProvider();
+    if (!sessionIsCurrent(userId, generation)) return false;
     if (navigator.onLine && bookingCreationReady) await flushOfflineBookings();
+    if (!sessionIsCurrent(userId, generation)) return false;
     const pending = pendingBookingColors.size + pendingBookingNotes.size + pendingClientLabels.size + pendingClientNotes.size;
     notify(complete ? (pending ? 'Данные обновлены · есть изменения, ожидающие отправки' : 'Все данные обновлены') : bookingCreationReady ? 'Записи и расписание обновлены' : 'Не удалось обновить данные · повторим автоматически');
     return complete;
