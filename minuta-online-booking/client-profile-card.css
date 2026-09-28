@@ -18,6 +18,7 @@
 .client-profile-card .client-profile-identity>small {display:none;}
 .provider-body[data-provider-theme][data-provider-layout] .client-profile-card #clientName {font-size:26px;line-height:1.2;letter-spacing:-.5px;text-align:left;margin:0 0 8px;overflow-wrap:anywhere;}
 .provider-body .client-profile-card .client-relationship-status {justify-content:flex-start;margin:0 0 6px;}
+.provider-body .client-profile-card .client-relationship-status[hidden] {display:none;}
 .provider-body .client-profile-card #clientRelationshipTitle {font-size:12px;padding:5px 9px;border:0;border-radius:8px;background:var(--theme-accent-soft);color:var(--theme-accent);}
 .provider-body[data-provider-theme][data-provider-layout] .client-profile-card .client-profile-contact {display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:0 3px;margin:4px 0 0;text-align:left;}
 .provider-body[data-provider-theme][data-provider-layout] .client-profile-card #clientPhone {padding:0;min-height:0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--theme-ink);font-size:16px;font-weight:400;white-space:normal;overflow-wrap:anywhere;}
