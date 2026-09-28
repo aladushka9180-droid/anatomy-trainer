@@ -207,9 +207,9 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
 /* Approved desktop controls; mobile keeps its existing layout. */
 @media(min-width:761px) {
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] {
-    & .schedule-title-line { align-items:center!important; }
+    & .schedule-title-line { align-items:baseline!important; }
     & .dashboard-summary,
-    & .dashboard-summary>div { align-items:center!important; }
+    & .dashboard-summary>div { align-items:baseline!important; }
     & .dashboard-summary strong { color:var(--theme-ink)!important; font-weight:600!important; }
     & .schedule-card:has(#dateStrip) :is(.calendar-view-toggle,.calendar-view-toggle button,.date-today-button,.schedule-date-picker,.date-strip-shift) {
       border:0!important; box-shadow:none!important; background-image:none!important;

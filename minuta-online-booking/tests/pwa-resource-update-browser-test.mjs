@@ -284,6 +284,8 @@ try {
   });
   await page.reload();
   const offlineRequests = Object.fromEntries(offlineModules.map(module => [module, moduleRequest(newRelease, module)]));
+  const offlineIcons = ['ui-icons.svg', `ui-icons.svg?v=${newRelease.version}`];
+  for (const icon of offlineIcons) offlineRequests[icon] = `./${icon}`;
   const offlineHashes = await page.evaluate(async ({ prefix, requests }) => {
     const result = {};
     for (const [module, request] of Object.entries(requests)) {
@@ -294,7 +296,10 @@ try {
     }
     return result;
   }, { prefix, requests:offlineRequests });
-  assert.deepEqual(offlineHashes, expectedHashes(newRelease, offlineModules));
+  assert.deepEqual(offlineHashes, {
+    ...expectedHashes(newRelease, offlineModules),
+    ...Object.fromEntries(offlineIcons.map(icon => [icon, sha(newFile('ui-icons.svg'))]))
+  }, 'Both legacy and versioned icon URLs must work offline with the released sprite');
   const clientFlexibleHash = await page.evaluate(async ({ prefix, request }) => {
     const response = await fetch(`${prefix}${request.replace(/^\.\//, '')}`);
     if (!response.ok) throw new Error('Offline client flexible script is unavailable');

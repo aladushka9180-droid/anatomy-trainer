@@ -132,10 +132,13 @@ try {
    const desktop=await page.evaluate(()=>{
     const q=s=>document.querySelector(s),css=s=>getComputedStyle(q(s)),rect=s=>q(s).getBoundingClientRect();
     const title=rect('.schedule-title-line h2'),summary=rect('.dashboard-summary');
+    const baseline=element=>{const marker=document.createElement('span');marker.style.cssText='display:inline-block;width:0;height:0;padding:0;margin:0;border:0;vertical-align:baseline';element.append(marker);const y=marker.getBoundingClientRect().top;marker.remove();return y;};
+    const titleBaseline=baseline(q('.schedule-title-line h2'));
+    const counterBaselines=[...q('.dashboard-summary').querySelectorAll(':scope>div>:is(span,strong)')].map(baseline);
     return {
      borders:['.calendar-view-toggle',...['day','week','month'].map(v=>`[data-calendar-view="${v}"]`),'.date-today-button','.schedule-date-picker','.date-strip-shift'].map(s=>css(s).borderTopWidth),
      counterInk:css('.dashboard-summary strong').color,titleInk:css('.schedule-title-line h2').color,
-     centerDelta:Math.abs(title.top+title.height/2-summary.top-summary.height/2),
+     baselineDeltas:counterBaselines.map(y=>Math.abs(titleBaseline-y)),
      summaryRight:summary.right,buttonLeft:rect('#newBookingButton').left,
      dateBg:css('.schedule-date-picker').backgroundColor,iconInk:css('.schedule-date-picker>.ui-icon').color,
      iconWidth:rect('.schedule-date-picker>.ui-icon').width,buttonHeight:rect('#newBookingButton').height,
@@ -146,7 +149,7 @@ try {
     };
    });
    assert.ok(desktop.borders.every(b=>b==='0px'),`${theme}/${width}: desktop borders ${desktop.borders}`);
-   assert.equal(desktop.counterInk,desktop.titleInk);assert.ok(desktop.centerDelta<=1,`${width}: counter alignment ${desktop.centerDelta}`);
+   assert.equal(desktop.counterInk,desktop.titleInk);assert.ok(desktop.baselineDeltas.every(delta=>delta<=1),`${width}: title and counter baselines ${desktop.baselineDeltas}`);
    assert.ok(desktop.summaryRight<=desktop.buttonLeft,`${theme}/${width}: counters overlap the new booking button`);
    assert.equal(desktop.dateBg,'rgba(0, 0, 0, 0)');assert.equal(desktop.iconInk,desktop.titleInk);assert.ok(desktop.iconWidth>=16);
    assert.equal(desktop.buttonHeight,36);assert.equal(desktop.buttonWeight,'500');assert.ok(desktop.months);

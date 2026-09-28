@@ -205,7 +205,7 @@
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] .schedule-title-line {
     display:flex!important;
-    align-items:center!important;
+    align-items:baseline!important;
     gap:10px!important;
     min-width:0;
   }

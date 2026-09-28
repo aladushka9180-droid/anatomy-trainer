@@ -12,7 +12,7 @@ const ASSETS = [
   './provider-icon-maskable-512.png?v=1022',
   './provider-icon.svg?v=1022',
   './icon.svg',
-  './ui-icons.svg?v=1023',
+  './ui-icons.svg',
   './styles.css?v=1004',
   './provider-connection-guidance.css?v=1007',
   './provider-reference-screens.css?v=1022',
@@ -181,6 +181,9 @@ self.addEventListener('install', event => {
     try {
       const cache = await caches.open(CACHE);
       await cache.addAll(ASSETS.map(asset => new Request(asset, { cache:'reload' })));
+      const icons = await cache.match('./ui-icons.svg');
+      if (!icons) throw new Error('icons_not_cached');
+      await cache.put('./ui-icons.svg?v=1023', icons);
       await cache.put(CACHE_READY, new Response('ready'));
     } catch {
       // Let the network-safe worker replace a broken one, but retain older offline caches.
