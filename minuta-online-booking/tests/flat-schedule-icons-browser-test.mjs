@@ -80,7 +80,7 @@ try {
  };
  window.openIconSettings=automatic=>{const sheet=$('#bookingSheet');sheet.dataset.assistantContext=automatic?'automatic-break':'booking';sheet.dataset.bookingId=automatic?'':'break';$('#bookingSheetContent').innerHTML='<h2>Перерыв</h2>';sheet.hidden=false;};
  `});
- for(const theme of ['pink-porcelain','carbon-crimson'])for(const width of [390,760,1024,1440,2048]){
+ for(const theme of ['pink-porcelain','carbon-crimson'])for(const width of [390,760,981,1024,1100,1440,2048]){
   await page.setViewportSize({width,height:1000});
   await page.evaluate(theme=>{document.body.dataset.providerTheme=theme;document.body.dataset.providerResolvedColorMode=theme==='carbon-crimson'?'dark':'light';redraw();},theme);
   await page.waitForTimeout(250); const state=await page.evaluate(()=>{
@@ -130,6 +130,7 @@ try {
      borders:['.calendar-view-toggle',...['day','week','month'].map(v=>`[data-calendar-view="${v}"]`),'.date-today-button','.schedule-date-picker','.date-strip-shift'].map(s=>css(s).borderTopWidth),
      counterInk:css('.dashboard-summary strong').color,titleInk:css('.schedule-title-line h2').color,
      centerDelta:Math.abs(title.top+title.height/2-summary.top-summary.height/2),
+     summaryRight:summary.right,buttonLeft:rect('#newBookingButton').left,
      dateBg:css('.schedule-date-picker').backgroundColor,iconInk:css('.schedule-date-picker>.ui-icon').color,
      iconWidth:rect('.schedule-date-picker>.ui-icon').width,buttonHeight:rect('#newBookingButton').height,
      buttonWeight:css('#newBookingButton span').fontWeight,
@@ -140,6 +141,7 @@ try {
    });
    assert.ok(desktop.borders.every(b=>b==='0px'),`${theme}/${width}: desktop borders ${desktop.borders}`);
    assert.equal(desktop.counterInk,desktop.titleInk);assert.ok(desktop.centerDelta<=1,`${width}: counter alignment ${desktop.centerDelta}`);
+   assert.ok(desktop.summaryRight<=desktop.buttonLeft,`${theme}/${width}: counters overlap the new booking button`);
    assert.equal(desktop.dateBg,'rgba(0, 0, 0, 0)');assert.equal(desktop.iconInk,desktop.titleInk);assert.ok(desktop.iconWidth>=16);
    assert.equal(desktop.buttonHeight,36);assert.equal(desktop.buttonWeight,'500');assert.ok(desktop.months);
    await page.keyboard.press('Tab');
