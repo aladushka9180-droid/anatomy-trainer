@@ -53,9 +53,10 @@ try{
     page.on('pageerror',error=>errors.push(error.message));
     await context.route('**/*',route=>route.request().url()==='https://analytics.test/'?route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="ru"><body></body></html>'}):route.abort());
     await page.goto('https://analytics.test/');
-    await page.evaluate(html=>{const doc=new DOMParser().parseFromString(html,'text/html');const panel=doc.querySelector('[data-provider-panel="analytics"]');if(!panel)throw Error('Actual analytics panel missing');document.body.append(panel.cloneNode(true));document.querySelectorAll('[hidden]').forEach(node=>{if(node.matches('[data-provider-panel]'))node.hidden=false;});},html);
+    await page.evaluate(html=>{const doc=new DOMParser().parseFromString(html,'text/html');const panel=doc.querySelector('[data-provider-panel="analytics"]');if(!panel)throw Error('Actual analytics panel missing');document.body.className='provider-body';document.body.dataset.providerTheme='pink-porcelain';document.body.dataset.providerLayout='soft';document.body.append(panel.cloneNode(true));document.querySelectorAll('[hidden]').forEach(node=>{if(node.matches('[data-provider-panel]'))node.hidden=false;});},html);
     await page.addStyleTag({content:readFileSync(new URL('../styles.css',import.meta.url),'utf8')});
     await page.addStyleTag({content:readFileSync(new URL('../statistics-audit-ui.css',import.meta.url),'utf8')});
+    await page.addStyleTag({content:readFileSync(new URL('../provider-ux.css',import.meta.url),'utf8')});
     await page.addStyleTag({content:readFileSync(new URL('../finance-center.css',import.meta.url),'utf8')});
     await page.addScriptTag({content:script});
     await page.evaluate(()=>renderAnalytics());

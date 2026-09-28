@@ -96,8 +96,8 @@ const server = http.createServer((request, response) => {
           overflow:document.documentElement.scrollWidth > innerWidth + 2,
           quietSurfaces:innerWidth <= 760
             ? [navigationStyle,frameStyle,toolbarStyle].every(style => parseFloat(style.borderTopWidth) <= 1 && parseFloat(style.borderRightWidth) <= 1)
-              && navigationStyle.borderTopLeftRadius === '22px'
-              && frameStyle.borderBottomLeftRadius === '22px'
+              && navigationStyle.borderTopLeftRadius === '0px' && navigationStyle.borderTopWidth === '0px'
+              && frameStyle.borderBottomLeftRadius === '0px' && frameStyle.borderBottomWidth === '0px'
               && toolbarStyle.borderTopLeftRadius === '22px'
             : [navigationStyle,stripStyle,toolbarStyle].every(style => style.borderRadius === '0px' && style.boxShadow === 'none'),
           surfaceGeometry:[navigationStyle,frameStyle,toolbarStyle].map(style => ({ radius:style.borderRadius, topLeft:style.borderTopLeftRadius, bottomLeft:style.borderBottomLeftRadius, borderTop:style.borderTopWidth, borderRight:style.borderRightWidth, shadow:style.boxShadow })),
@@ -696,7 +696,7 @@ const server = http.createServer((request, response) => {
         assert.equal(cards.normal.length, 4, `${theme} ${width}px: проверены не все режимы записей`);
         assert.equal(cards.rest.length, 4, `${theme} ${width}px: проверены не все режимы перерывов`);
         if (width <= 760) {
-          assert.equal(cards.activeTabColor, theme === 'pink-porcelain' ? cards.porcelainActionInk : cards.themeAccent, `${theme} ${width}px: активная вкладка не использует читаемый цвет темы`);
+          assert.equal(cards.activeTabColor, cards.themeAccent, `${theme} ${width}px: активная вкладка не использует читаемый цвет темы`);
           assert.equal(cards.activeTabMarker, cards.themeAccent, `${theme} ${width}px: линия активной вкладки не использует акцент темы`);
           assert.equal(cards.summaryStrongColor, cards.themeAccent, `${theme} ${width}px: цифры сводки не используют акцент темы`);
         }

@@ -116,7 +116,7 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView[dat
 #analyticsView .report-money-demo-gate button { min-height:44px; }
 
 #analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-business-grid { display:grid!important; grid-template-columns:minmax(0,1fr); }
-#analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-summary { display:none!important; }
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-summary[data-report-section="money"] { display:none!important; }
 #analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-business-grid>.report-retention,
 #analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-clients .report-metric-row { display:none!important; }
 #analyticsView .report-clients-empty:not([hidden]) { display:grid; justify-items:start; gap:12px; margin-top:14px; }

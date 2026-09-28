@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1014`;
-const CACHE_READY = './.precache-ready-v1014';
+const CACHE = `${CACHE_PREFIX}v1015`;
+const CACHE_READY = './.precache-ready-v1015';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1014',
+  './site-update.js?v=1015',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -69,7 +69,7 @@ const ASSETS = [
 ];
 
 const OPTIONAL_ASSETS = [
-  './schedule-flat.css?v=1013',
+  './schedule-flat.css?v=1015',
   './schedule-break-icons.js?v=1013',
   './client-loyalty-frames.css?v=3',
   './client-loyalty-frames.js?v=3',
@@ -83,7 +83,7 @@ const OPTIONAL_ASSETS = [
   './booking-detail-card.js?v=1',
   './utm-funnel.css?v=811',
   './subscription-pricing.css?v=811',
-  './statistics-audit-ui.css?v=1014',
+  './statistics-audit-ui.css?v=1015',
   './statistics-audit-ui.js?v=1004',
   './statistics-audit-provider.js?v=1004',
   './client-results.css?v=876',

@@ -23,6 +23,50 @@
 html body.provider-body:has(#dashboard[data-active-view="bookings"]:not([hidden])) {
   background-image:none!important;
 }
+
+/* Header reference: one calendar surface, underline tabs and light date controls.
+   Match the legacy :has(#dateStrip) specificity without affecting other views. */
+@media (max-width:760px) {
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) :is(.date-navigation,.date-strip-frame) {
+    background:transparent!important; border:0!important; border-radius:0!important; box-shadow:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation {
+    padding:6px 8px 4px!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .calendar-view-toggle {
+    background:transparent!important; border:0!important; border-bottom:1px solid var(--theme-line)!important; border-radius:0!important; box-shadow:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .calendar-view-toggle button {
+    background:transparent!important; border:0!important; border-radius:0!important; box-shadow:none!important;
+    color:var(--theme-muted)!important; font-size:calc(14px + var(--provider-text-step,0px))!important; font-weight:500!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .calendar-view-toggle button.active {
+    color:var(--theme-accent)!important; font-weight:600!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button {
+    background:transparent!important; border:1px solid var(--theme-accent)!important; border-radius:10px!important; box-shadow:none!important;
+    color:var(--theme-accent)!important; font-size:calc(13px + var(--provider-text-step,0px))!important; font-weight:500!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.schedule-date-picker {
+    background:transparent!important; border:0!important; border-radius:0!important; box-shadow:none!important;
+    padding-inline:8px!important; gap:0!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .schedule-date-picker>.ui-icon { display:none!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .schedule-date-picker input {
+    font-size:calc(14px + var(--provider-text-step,0px))!important; font-weight:500!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-strip>button.active {
+    background:var(--theme-accent-soft)!important; background-image:none!important; color:var(--theme-accent)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-strip>button.active>strong { color:var(--theme-accent)!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] :is(#providerAppearanceMenu>summary,#providerTopbarToolsButton) {
+    background:transparent!important; border:0!important; box-shadow:none!important;
+  }
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] #newBookingButton.primary,
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] #newBookingButton.primary :is(span,svg) {
+  color:#fff!important;
+}
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] :is(.view-title,.dashboard-summary,.schedule-card,.schedule-toolbar,.date-navigation,.schedule-date-picker,.date-today-button,.date-strip-frame,.date-strip>button,.calendar-view-tabs,.calendar-view-tabs button,.journal-mode-toggle,.journal-mode-toggle button,.timeline-view,.timeline-stage,.timeline-booking,.provider-booking,#newBookingButton) {
   background-image:none!important;
 }
