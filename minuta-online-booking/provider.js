@@ -15275,14 +15275,9 @@ async function completePasswordRecovery(event) {
 }
 
 function serviceCreateErrorMessage(error) {
-  if (error?.code === '23505' && error?.message === 'duplicate_service_name') {
-    return 'Услуга с таким названием уже есть. Проверьте список «Мои услуги»: если она скрыта, её можно снова показать.';
-  }
-  if (error?.code === '23514' && /services_duration_minutes_check/.test(`${error.message || ''} ${error.details || ''}`)) {
-    return 'Сервер не принимает выбранную длительность услуги. Обратитесь в поддержку, чтобы проверить настройку базы.';
-  }
+  if (error?.message === 'duplicate_service_name') return 'Такая услуга уже есть. В «Мои услуги» можно снова показать скрытую услугу.';
   const code = /^[A-Z0-9]{5,8}$/.test(error?.code || '') ? ` (код ${error.code})` : '';
-  return `Не удалось добавить услугу${code}. Попробуйте ещё раз или обратитесь в поддержку.`;
+  return `Не удалось добавить услугу${code}. Попробуйте ещё раз.`;
 }
 
 async function addService(event) {

@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1019`;
-const CACHE_READY = './.precache-ready-v1019';
+const CACHE = `${CACHE_PREFIX}v1020`;
+const CACHE_READY = './.precache-ready-v1020';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1019',
+  './site-update.js?v=1020',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -61,15 +61,15 @@ const ASSETS = [
   './client-directory.js?v=811',
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
-  './provider-price-list.js?v=871',
+  './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1007',
-  './provider.js?v=1019',
+  './provider.js?v=1020',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
 
 const OPTIONAL_ASSETS = [
-  './schedule-flat.css?v=1019',
+  './schedule-flat.css?v=1020',
   './schedule-break-icons.js?v=1013',
   './client-loyalty-frames.css?v=3',
   './client-loyalty-frames.js?v=3',
@@ -113,7 +113,7 @@ const OPTIONAL_ASSETS = [
   './contextual-help.css?v=811',
   './settings-mobile-minimalism.css?v=960',
   './provider-integrations.css?v=1008',
-  './finance-center.css?v=1004',
+  './finance-center.css?v=1020',
   './finance-center.js?v=1004',
   './finance-center-provider.js?v=1004',
   './client-records.css?v=811',
