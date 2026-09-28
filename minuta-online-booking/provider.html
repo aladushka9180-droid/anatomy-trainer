@@ -942,7 +942,7 @@
             <div class="organization-grid provider-section-anchor" id="organizationPeopleSection">
               <section class="panel organization-section">
                 <div class="panel-head"><div><h3>Филиалы</h3></div><span class="panel-count" id="locationsCount">0</span></div>
-                <div data-contextual-help data-help-label="Филиал и сотрудник" data-help-slug="branches-and-employees" data-help-question="Объясни, как связаны филиалы, сотрудники, услуги и смены и что проверить перед изменением."></div>
+                <div data-contextual-help data-help-label="Филиал и сотрудник" data-help-slug="branches-and-employees" data-help-title="Филиал и сотрудник" data-help-summary="Добавьте филиал и укажите адрес. Затем настройте сотрудника для работы в этом филиале." data-help-brief="true" data-help-question="Объясни, как связаны филиалы, сотрудники, услуги и смены и что проверить перед изменением."></div>
                 <div class="organization-list" id="locationsList"></div>
                 <details class="organization-create" id="locationCreator">
                   <summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить филиал</span></summary>
@@ -952,11 +952,11 @@
 
               <section class="panel organization-section">
                 <div class="panel-head"><div><h3>Сотрудники</h3></div><span class="panel-count" id="membersCount">0</span></div>
-                <div data-contextual-help data-help-label="Роли и доступ" data-help-slug="roles-access-safety" data-help-question="Объясни роли сотрудников и как безопасно проверить права и доступ к онлайн-записи."></div>
+                <div data-contextual-help data-help-label="Роли и доступ" data-help-slug="roles-access-safety" data-help-title="Роли и доступ" data-help-summary="Роль определяет права сотрудника в кабинете. «Принимает клиентов» разрешает добавлять сотрудника в онлайн-запись. Доступ к организации настраивается отдельно." data-help-brief="true" data-help-question="Объясни роли сотрудников и как безопасно проверить права и доступ к онлайн-записи."></div>
                 <div class="organization-list" id="membersList"></div>
                 <details class="organization-create" id="memberCreator">
                   <summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Пригласить сотрудника</span></summary>
-                  <form id="memberInviteForm"><label>Электронная почта<input id="memberEmail" type="email" maxlength="320" autocomplete="email" placeholder="specialist@example.com" required></label><div class="form-row"><label>Роль<select id="memberRole"><option value="specialist">Специалист</option><option value="admin">Администратор</option><option value="owner">Владелец</option></select></label><label class="settings-check member-bookable-check"><input id="memberBookable" type="checkbox" checked><span><strong>Принимает клиентов</strong><small>Сотрудника можно добавить в онлайн-запись.</small></span></label></div><p class="organization-invite-help">Отдельная оплата не требуется. Сотрудник примет приглашение после входа с этой почтой.</p><p class="form-error" id="memberInviteError" hidden></p><button class="primary" type="submit">Пригласить сотрудника</button></form>
+                  <form id="memberInviteForm"><label>Электронная почта<input id="memberEmail" type="email" maxlength="320" autocomplete="email" placeholder="specialist@example.com" required></label><div class="form-row"><label>Роль<select id="memberRole"><option value="specialist">Специалист</option><option value="admin">Администратор</option><option value="owner">Владелец</option></select></label><label class="settings-check member-bookable-check"><input id="memberBookable" type="checkbox" checked><span><strong>Принимает клиентов</strong><small>Сотрудника можно добавить в онлайн-запись.</small></span></label></div><p class="organization-invite-help">Сотрудник примет приглашение после входа с этой почтой.</p><p class="form-error" id="memberInviteError" hidden></p><button class="primary" type="submit">Пригласить сотрудника</button></form>
                 </details>
                 <div class="organization-invite-share" id="memberInviteShare" hidden><div><strong>Передайте сотруднику ссылку</strong><small>Войдите с этим email и откройте «Организация → Люди и филиалы».</small></div><button class="secondary-button" id="copyMemberInviteLink" type="button">Скопировать ссылку</button></div>
               </section>
@@ -1312,7 +1312,7 @@
               <div class="panel-head"><div><small>Ожидают регистрации</small><h3>Приглашения</h3></div><span class="panel-count" id="invitationsCount">0</span></div><div class="organization-list" id="invitationsList"></div>
             </section>
 
-            <details class="panel organization-audit" id="organizationAuditPanel"><summary><span><small>Защита от незаметных изменений</small><strong>Журнал действий</strong></span><span id="auditCount">0</span></summary><div class="organization-audit-list" id="organizationAuditList"></div></details>
+            <details class="panel organization-audit" id="organizationAuditPanel"><summary><span><strong>Журнал действий</strong></span><span id="auditCount">0</span></summary><div class="organization-audit-list" id="organizationAuditList"></div></details>
           </div>
         </section>
 
