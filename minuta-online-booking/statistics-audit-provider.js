@@ -39,6 +39,8 @@
     }
   });
   audit.mount();
+  document.querySelector('#reportTeamMetricNote')?.insertAdjacentHTML('afterend',
+    '<p class="report-team-payment-warning">Есть визиты без отметки оплаты; они не входят в выручку.</p>');
   window.MinutaStatisticsAuditProvider = Object.freeze({ refresh:() => audit.refresh(), periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
   if (reportPeriod === 'custom') updateReportFilterSummary();
 })();

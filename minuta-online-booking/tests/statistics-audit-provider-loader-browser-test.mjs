@@ -37,7 +37,7 @@ try {
     }
   }, html);
   await page.addScriptTag({ content:`
-    let sessionGeneration=1, reportScopedBookingsState={status:'ready',rows:[]}, reportDataSource='own';
+    let sessionGeneration=1, reportScopedBookingsState={status:'ready',rows:[]}, reportDataSource='own', reportPeriod='last30';
     let reportPerformerFilter='all', importedBookingHistory=[], allBookings=[];
     function reportRange(){return {start:'2026-09-01',end:'2026-09-30'};}
     function reportUsesScopedBookings(){return false;}
@@ -58,6 +58,19 @@ try {
   await page.locator('#exportBookings').click();
   await page.locator('#reportExportDialog').waitFor({ state:'visible' });
   assert.equal(await page.locator('.report-segment-button').count(), 3, 'feature mounted once');
+  assert.equal(await page.locator('.report-team-payment-warning').count(), 1, 'team payment caveat mounted once');
+  await page.evaluate(() => {
+    const report = document.querySelector('#analyticsView');
+    report.dataset.reportTab = 'team';
+    const evidence = document.createElement('details');
+    evidence.id = 'reportPaymentEvidence';
+    report.append(evidence);
+    report.querySelector('[data-report-team-metric="revenue"]').setAttribute('aria-pressed', 'true');
+  });
+  assert.equal(await page.locator('.report-team-payment-warning').isVisible(), true, 'incomplete payment warns beside revenue ranking');
+  await page.locator('#reportPaymentEvidence').evaluate(element => { element.hidden = true; });
+  assert.equal(await page.locator('.report-team-payment-warning').isVisible(), false, 'complete payment hides the caveat');
+  await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
   assert.equal(loaded, 2, 'both scripts loaded exactly once');
   assert.deepEqual(await page.evaluate(() => window.downloads), [], 'opening export does not download');
   await page.locator('#reportExportPrivacy').selectOption('full');

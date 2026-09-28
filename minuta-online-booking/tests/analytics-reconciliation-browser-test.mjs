@@ -110,6 +110,17 @@ try{
     await page.evaluate(()=>{allBookings=window.savedClientRows.allBookings;importedBookingHistory=window.savedClientRows.importedBookingHistory;renderAnalytics();});
     assert.equal(await page.locator('#reportClientsEmpty').isVisible(),false);
     assert.equal(await page.locator('.report-clients .report-metric-row').isVisible(),true);
+    assert.equal(await page.locator('.report-summary').isVisible(),false,'Client metrics should lead the populated Clients tab');
+    if(process.env.REPORT_N07_ARTIFACT_DIR){await mkdir(process.env.REPORT_N07_ARTIFACT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.REPORT_N07_ARTIFACT_DIR,`clients-${width}.png`),fullPage:false});}
+    await page.evaluate(()=>{$('#analyticsView').dataset.reportTab='team';});
+    assert.equal(await page.locator('.report-summary').isVisible(),false,'Team metrics should lead the Team tab');
+    assert.equal(await page.locator('.report-utilization').isVisible(),true);
+    if(process.env.REPORT_N07_ARTIFACT_DIR)await page.screenshot({path:path.join(process.env.REPORT_N07_ARTIFACT_DIR,`team-${width}.png`),fullPage:false});
+    await page.evaluate(()=>{$('#analyticsView').dataset.reportTab='money';});
+    assert.equal(await page.locator('.report-summary').isVisible(),true,'Full financial cards remain in Money');
+    await page.evaluate(()=>{$('#analyticsView').dataset.reportTab='overview';});
+    assert.equal(await page.locator('.report-summary').isVisible(),true,'Full financial cards remain in Overview');
+    await page.evaluate(()=>{$('#analyticsView').dataset.reportTab='clients';});
     await page.evaluate(()=>{range={start:'2026-09-04',end:'2026-09-18',period:'custom'};reportPeriod='custom';reportPerformerFilter='master-A';reportUsesScopedBookings=()=>true;reportScopedBookingsState={key:'synthetic-failure',status:'failed',rows:[]};renderAnalytics();});
     assert.equal(await page.locator('#reportLoadState [data-report-retry]').count(),1,'Ошибка статистики не предлагает повторить загрузку');
     const retryBox=await page.locator('#reportLoadState [data-report-retry]').evaluate(element=>{const rect=element.getBoundingClientRect();return {height:rect.height,right:rect.right,viewport:innerWidth};});
