@@ -15,10 +15,11 @@ assert.match(html, /<a class="mobile-master-profile-link" href="https:\/\/primet
 assert.match(provider, /title:'Развитие', keys:\['analytics','portfolio'\], extras:\['\.mobile-master-profile-link'\]/);
 assert.ok(html.includes(`site-update.js?v=${version}`));
 assert.ok(html.includes(`provider.js?v=${version}`));
-assert.ok(html.includes(`provider-reference-screens.css?v=${version}`));
+const referenceStyle = html.match(/href="(provider-reference-screens\.css\?v=\d+)"/)?.[1];
+assert.ok(referenceStyle, 'Reference stylesheet has a versioned URL');
 assert.ok(worker.includes(`site-update.js?v=${version}`));
 assert.ok(worker.includes(`provider.js?v=${version}`));
-assert.ok(worker.includes(`provider-reference-screens.css?v=${version}`));
+assert.ok(worker.includes(referenceStyle), 'HTML and offline cache use the same reference stylesheet');
 assert.ok(update.includes(`sw.js?v=${version}`));
 
 console.log('PrimeTime Pro master-profile entry and PWA version: OK');
