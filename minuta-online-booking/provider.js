@@ -15274,6 +15274,17 @@ async function completePasswordRecovery(event) {
   notify('Пароль изменён — войдите с новым паролем');
 }
 
+function serviceCreateErrorMessage(error) {
+  if (error?.code === '23505' && error?.message === 'duplicate_service_name') {
+    return 'Услуга с таким названием уже есть. Проверьте список «Мои услуги»: если она скрыта, её можно снова показать.';
+  }
+  if (error?.code === '23514' && /services_duration_minutes_check/.test(`${error.message || ''} ${error.details || ''}`)) {
+    return 'Сервер не принимает выбранную длительность услуги. Обратитесь в поддержку, чтобы проверить настройку базы.';
+  }
+  const code = /^[A-Z0-9]{5,8}$/.test(error?.code || '') ? ` (код ${error.code})` : '';
+  return `Не удалось добавить услугу${code}. Попробуйте ещё раз или обратитесь в поддержку.`;
+}
+
 async function addService(event) {
   event.preventDefault();
   if (!requireWrites()) return;
@@ -15295,7 +15306,7 @@ async function addService(event) {
   const button = event.submitter;
   button.disabled = true;
   const { data:createdService, error } = await db.from('services').insert({ performer_id: currentUser.id, name, price_rub: Math.round(price), duration_minutes: duration, active: true }).select('id').single();
-  if (error) { button.disabled = false; showFormError('#serviceError', 'Не удалось добавить услугу.'); return; }
+  if (error) { button.disabled = false; showFormError('#serviceError', serviceCreateErrorMessage(error)); return; }
   try {
     await persistServiceWithPublicCard({ serviceId:createdService.id,name,duration,price,active:true,prefix:'create',existing:{} });
   } catch {

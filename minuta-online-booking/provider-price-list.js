@@ -57,9 +57,7 @@
       const width = 720;
       ctx.font = '600 23px system-ui, sans-serif';
       const rows = subset.map(item => ({ item, lines:wrap(ctx, item.name.trim(), 630) }));
-      ctx.font = '16px system-ui, sans-serif';
-      const linkLines = wrap(ctx, url, width - 88);
-      const height = 181 + rows.reduce((sum, row) => sum + row.lines.length * 29 + 82, 0) + 106 + linkLines.length * 20;
+      const height = 181 + rows.reduce((sum, row) => sum + row.lines.length * 29 + 82, 0) + 16;
       canvas.width = width * 2;
       canvas.height = height * 2;
       ctx.scale(2, 2);
@@ -77,10 +75,6 @@
         ctx.fillStyle = palette.line; ctx.fillRect(44, y + 38, width - 88, 1);
         y += 82;
       }
-      ctx.font = '600 19px system-ui, sans-serif'; ctx.fillStyle = palette.ink;
-      ctx.fillText('Онлайн-запись', 44, height - 91);
-      ctx.font = '16px system-ui, sans-serif'; ctx.fillStyle = palette.accent;
-      linkLines.forEach((line, index) => ctx.fillText(line, 44, height - 65 - (linkLines.length - 1 - index) * 20));
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error('image export failed');
       files.push(new File([blob], `primetime-price-list-${page + 1}.png`, { type:'image/png' }));

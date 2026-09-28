@@ -6,11 +6,12 @@ const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('provider-price-list.js', root), 'utf8');
 const providerSource = readFileSync(new URL('provider.js', root), 'utf8');
 class FakeFile { constructor(parts, name, options) { this.parts = parts; this.name = name; this.type = options.type; } }
+const drawnText = [];
 const context = {
   window:{}, File:FakeFile,
   document:{ createElement:() => ({ getContext:() => ({
     measureText:value => ({ width:String(value).length * 12 }),
-    scale(){}, fillRect(){}, fillText(){},
+    scale(){}, fillRect(){}, fillText(value){ drawnText.push(value); },
   }), toBlob:callback => callback({ image:true }) }) },
   Intl,
 };
@@ -48,4 +49,7 @@ const many = Array.from({ length:41 }, (_, i) => ({ name:`Услуга ${i + 1}`
 const pages = await model.imageFiles(many, 'https://example.test/book');
 assert.equal(pages.length, 3);
 assert.equal(pages.map(file => file.name).join(','), 'primetime-price-list-1.png,primetime-price-list-2.png,primetime-price-list-3.png');
+assert.ok(drawnText.includes('Прайс услуг'));
+assert.ok(drawnText.some(value => String(value).includes('Услуга 1')));
+assert.ok(!drawnText.some(value => String(value).includes('Онлайн-запись') || String(value).includes('https://')));
 console.log('Price list checks passed');
