@@ -7,6 +7,7 @@ on:
       - '.github/workflows/public-multi-resource-v176-native-pg.yml'
       - 'minuta-online-booking/supabase-migration-v188*.sql'
       - 'minuta-online-booking/tests/public-multi-resource-v176-*.mjs'
+      - 'minuta-online-booking/tests/public-multi-resource-v176-*.sql'
   workflow_dispatch:
 
 permissions:
@@ -125,17 +126,18 @@ jobs:
           docker cp minuta-online-booking/supabase-migration-v188.sql "$PG_CONTAINER:/tmp/v188.sql"
           docker cp minuta-online-booking/tests/booking-atomic-create-v153-integration.sql "$PG_CONTAINER:/tmp/v153-integration.sql"
           docker cp minuta-online-booking/tests/public-multi-service-v167-integration.sql "$PG_CONTAINER:/tmp/v167-integration.sql"
+          docker cp minuta-online-booking/tests/public-multi-resource-v176-full-schema-route.sql "$PG_CONTAINER:/tmp/v176-route.sql"
           if ! docker exec "$PG_CONTAINER" psql -U postgres -d minuta-v176-fixture -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -c begin -f /tmp/v123-fixture.sql -c commit >"$RUNNER_TEMP/v176-private.log" 2>&1; then
             echo 'synthetic legacy fixture failed; private SQL details withheld'
             exit 1
           fi
-          for stage in v188 v153-integration v167-integration; do
+          for stage in v188 v153-integration v167-integration v176-route; do
             if ! docker exec "$PG_CONTAINER" psql -U postgres -d minuta-v176-fixture -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f "/tmp/$stage.sql" >"$RUNNER_TEMP/v176-private.log" 2>&1; then
               echo "$stage failed; private SQL details withheld"
               exit 1
             fi
           done
-          echo 'PASS: v153 and v167 full-schema integration with v188 installed'
+          echo 'PASS: v153 and v167 integration plus two-performer v176 route on full schema with v188 installed'
       - name: Remove private schema and logs
         if: always()
         run: rm -f -- "$RUNNER_TEMP/v176-private-schema.sql" "$RUNNER_TEMP/v176-private-filtered.sql" "$RUNNER_TEMP/v176-private.log"
