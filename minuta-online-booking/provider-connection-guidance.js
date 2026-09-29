@@ -18,24 +18,25 @@
 
   function view({ online, hasUser, sessionTrust, canQueueBooking, hasSavedSchedule, serverUnavailable, recovery } = {}) {
     if (!hasUser) return null;
+    const canCreate = canQueueBooking && hasSavedSchedule;
+    const savedBookingText = 'Можно смотреть сохранённые записи и добавлять новые. Новые записи сохраним на устройстве; после подключения проверим доступ и свободное время';
     if (!online) return {
       kind:'offline', title:'Нет интернета',
-      description:canQueueBooking && hasSavedSchedule
-        ? 'Можно смотреть сохранённые записи и добавлять новые. Новые записи сохраним на устройстве, а после подключения проверим свободное время'
+      description:canCreate ? savedBookingText
         : hasSavedSchedule
           ? 'Можно смотреть сохранённые записи. Новую запись сейчас создать нельзя'
           : 'Соединение отсутствует. Сохранённое расписание недоступно, новую запись сейчас создать нельзя',
       help:true, inspect:false
     };
     if (sessionTrust !== 'verified') return {
-      kind:'session', title:'Сеанс нужно подтвердить',
-      description:'После восстановления доступа проверим расписание. Новые записи пока недоступны',
+      kind:'session', title:'Проверяем доступ',
+      description:canCreate ? savedBookingText
+        : `${hasSavedSchedule ? 'Можно смотреть сохранённые записи. ' : ''}Создание станет доступно после проверки доступа и расписания`,
       help:false, inspect:false
     };
     if (serverUnavailable) return {
       kind:'server', title:'Нет связи с сервером',
-      description:canQueueBooking && hasSavedSchedule
-        ? 'Повторим автоматически. Неподтверждённую запись можно сохранить на устройстве; после подключения проверим свободное время'
+      description:canCreate ? savedBookingText
         : 'Повторим автоматически. Новую запись пока создать нельзя',
       help:false, inspect:false
     };

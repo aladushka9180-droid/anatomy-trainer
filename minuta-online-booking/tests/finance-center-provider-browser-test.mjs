@@ -84,7 +84,7 @@ try {
     assert.equal(await page.locator('[data-finance-expense]').innerText(), '1\u00a0200\u00a0₽');
     assert.equal(await page.locator('[data-finance-net]').innerText(), '—', 'partial/unsynchronised result must not look exact');
     assert.equal(await page.locator('.report-filters').isHidden(), true);
-    assert.equal(await page.locator('#reportDataSource').isHidden(), true);
+    assert.equal(await page.locator('#reportDataSource').isVisible(), true, 'the selected data source stays visible in the mounted Money tab');
     assert.equal(await page.locator('#moneyDashboard').isHidden(), true);
     assert.equal(await page.locator('.report-summary[data-report-section="money"]').isHidden(), true);
     const call = await page.evaluate(() => calls.find(item => item.name === 'get_minuta_finance_screen_v163'));

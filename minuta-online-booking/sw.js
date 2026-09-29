@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1032`;
-const CACHE_READY = './.precache-ready-v1032';
+const CACHE = `${CACHE_PREFIX}v1034`;
+const CACHE_READY = './.precache-ready-v1034';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1032',
+  './site-update.js?v=1034',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -62,8 +62,8 @@ const ASSETS = [
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
-  './provider-connection-guidance.js?v=1007',
-  './provider.js?v=1032',
+  './provider-connection-guidance.js?v=1034',
+  './provider.js?v=1034',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
@@ -84,8 +84,8 @@ const OPTIONAL_ASSETS = [
   './utm-funnel.css?v=811',
   './subscription-pricing.css?v=811',
   './statistics-audit-ui.css?v=1019',
-  './statistics-audit-ui.js?v=1004',
-  './statistics-audit-provider.js?v=1023',
+  './statistics-audit-ui.js?v=1034',
+  './statistics-audit-provider.js?v=1034',
   './client-results.css?v=876',
   './provider-porcelain-detail.css?v=998',
   './provider-schedule-type.css?v=933',
@@ -113,9 +113,9 @@ const OPTIONAL_ASSETS = [
   './contextual-help.css?v=811',
   './settings-mobile-minimalism.css?v=960',
   './provider-integrations.css?v=1008',
-  './finance-center.css?v=1020',
-  './finance-center.js?v=1004',
-  './finance-center-provider.js?v=1023',
+  './finance-center.css?v=1034',
+  './finance-center.js?v=1034',
+  './finance-center-provider.js?v=1034',
   './client-records.css?v=811',
   './client-records.js?v=811',
   './messages.html',
@@ -257,15 +257,21 @@ async function navigationResponse(event) {
   const shell = navigationShell(request);
   const cacheReady = Boolean(await safeCacheMatch(CACHE_READY, { cacheName:CACHE }));
   const cached = cacheReady ? await safeCacheMatch(shell, { cacheName:CACHE }) : undefined;
-  const update = fetch(request).then(async response => {
+  const cachedReload = cached && (request.cache === 'reload' || request.cache === 'no-cache');
+  const networkController = cachedReload ? new AbortController() : null;
+  if (networkController && request.signal) {
+    if (request.signal.aborted) networkController.abort();
+    else request.signal.addEventListener('abort', () => networkController.abort(), { once:true });
+  }
+  const update = (networkController ? fetch(request, { signal:networkController.signal }) : fetch(request)).then(async response => {
     if (response.ok) await safeCachePut(shell, response.clone());
     return response;
   });
   // An explicit reload must deliver the fresh shell in this navigation, not the next one.
-  if (cached && (request.cache === 'reload' || request.cache === 'no-cache')) {
+  if (cachedReload) {
     let deadline;
     try {
-      const fresh = await Promise.race([update, new Promise(resolve => { deadline = setTimeout(() => resolve(null), 4000); })]);
+      const fresh = await Promise.race([update, new Promise(resolve => { deadline = setTimeout(() => { networkController.abort(); resolve(null); }, 4000); })]);
       if (fresh?.ok) return fresh;
     } catch { /* Preserve the complete offline shell when the network is unavailable. */ }
     finally { clearTimeout(deadline); }

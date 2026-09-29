@@ -1141,18 +1141,18 @@ function offlineBookingSnapshotFresh() {
   const savedAt = new Date(bookingsSnapshotSavedAt).getTime();
   return Number.isFinite(savedAt) && Date.now() - savedAt <= PROVIDER_CACHE_MAX_AGE;
 }
-function bookingDeferredMode() { return !navigator.onLine || bookingReadConnectionUnavailable; }
+function bookingDeferredMode() { return !navigator.onLine || bookingReadConnectionUnavailable || providerSessionTrust === 'cached'; }
 function canQueueOfflineBooking() {
   const sessionCanUseOfflineSnapshot = providerSessionTrust === 'verified' || providerSessionTrust === 'cached';
   const verifiedOnlineOutage = navigator.onLine && bookingReadConnectionUnavailable && providerSessionTrust === 'verified'
     && providerVerifiedSessionExpiresAt > Date.now() + 60000;
   return Boolean(sessionCanUseOfflineSnapshot && offlineBookingAccessReady && currentUser
-    && (!navigator.onLine || verifiedOnlineOutage) && offlineBookingInputsReady
+    && (!navigator.onLine || verifiedOnlineOutage || providerSessionTrust === 'cached') && offlineBookingInputsReady
     && offlineBookingSnapshotFresh() && ownServices.some(item => item.active));
 }
 function offlineBookingStatusText() {
-  if (canQueueOfflineBooking()) return bookingReadConnectionUnavailable && navigator.onLine
-    ? 'Сервер недоступен · можно сохранить неподтверждённую запись на устройстве'
+  if (canQueueOfflineBooking()) return navigator.onLine
+    ? 'Можно сохранить неподтверждённую запись на устройстве'
     : 'Офлайн · можно создавать отложенные записи';
   if (!currentUser) return 'Нет подключения к серверу · войдите после восстановления связи';
   if (bookingReadConnectionUnavailable && navigator.onLine && providerVerifiedSessionExpiresAt <= Date.now() + 60000)
