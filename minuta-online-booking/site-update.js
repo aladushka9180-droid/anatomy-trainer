@@ -12,6 +12,7 @@
   let currentController = navigator.serviceWorker.controller;
   let lastCheck = 0;
   let checkPromise = null;
+  let recheck = false;
 
   function workerVersion(controller) {
     if (!controller) return Promise.resolve(null);
@@ -72,7 +73,7 @@
   }
 
   function checkForUpdate({ force = false, registerOnly = false } = {}) {
-    if (checkPromise) return checkPromise;
+    if (checkPromise) { if (force) recheck = true; return checkPromise; }
     const now = Date.now();
     if (!registerOnly && !force && now - lastCheck < CHECK_INTERVAL_MS) return Promise.resolve();
     checkPromise = (async () => {
@@ -90,6 +91,7 @@
       } catch {
       } finally {
         checkPromise = null;
+        if (recheck) { recheck = false; void checkForUpdate({ force:true }); }
       }
     })();
     return checkPromise;

@@ -117,6 +117,14 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('synthetic-offline-draft')), 'preserved');
   assert.deepEqual(errors, []);
   if (process.env.EXPECT_OLD_BUG !== '1') {
+    // Headless Chromium can reset the new document's network state on reload.
+    // Establish a real offline->online edge in this document, keeping the
+    // fixture server disconnected throughout; do not dispatch a fake event.
+    if (await page.evaluate(() => navigator.onLine)) {
+      await context.setOffline(false);
+      await context.setOffline(true);
+    }
+    await page.waitForFunction(() => navigator.onLine === false);
     offline = false;
     const future = String(Number(newRelease.version) + 1);
     const advance = source => source.replaceAll(`v=${newRelease.version}`, `v=${future}`).replaceAll(`v${newRelease.version}`, `v${future}`);
