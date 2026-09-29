@@ -14,7 +14,8 @@ assert.equal(dsn.username, 'postgres');
 const pg = await import(pathToFileURL(process.env.MINUTA_PG_MODULE).href);
 const Client = pg.Client || pg.default?.Client;
 assert.equal(typeof Client, 'function');
-const read = name => readFileSync(new URL('../' + name, import.meta.url), 'utf8');
+const read = name => readFileSync(new URL('../' + name, import.meta.url), 'utf8')
+  .replace(/^\\set ON_ERROR_STOP on\s*/i, '');
 const clients = [];
 async function connect() {
   const client = new Client({ connectionString: dsn.href, application_name: 'minuta-v185-empty-fixture' });
