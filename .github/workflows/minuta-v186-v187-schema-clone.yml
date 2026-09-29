@@ -127,14 +127,20 @@ jobs:
           docker cp minuta-online-booking/tests/booking-delete-dialog-bootstrap.sql "$container:/tmp/fixture.sql"
           docker cp "$RUNNER_TEMP/catalog-clone-filtered.sql" "$container:/tmp/schema.sql"
           for stage in bootstrap fixture schema; do
-            docker exec "$container" psql -U postgres -d postgres -X -q \
-              -v ON_ERROR_STOP=1 -f "/tmp/$stage.sql" >>"$private_log" 2>&1
+            if ! docker exec "$container" psql -U postgres -d postgres -X -q \
+              -v ON_ERROR_STOP=1 -f "/tmp/$stage.sql" >>"$private_log" 2>&1; then
+              echo "Catalog clone setup failed at $stage; private output withheld" >&2
+              exit 1
+            fi
           done
-          docker exec "$container" psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
+          if ! docker exec "$container" psql -U postgres -d postgres -X -q \
+            -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate \
             -c "insert into auth.users(id) values ('00000000-0000-4000-8000-00000000c186');
                 insert into public.services(performer_id,name,duration_minutes,price_rub,active)
-                values ('00000000-0000-4000-8000-00000000c186','Catalog rehearsal service',45,1000,true);" \
-            >>"$private_log" 2>&1
+                values ('00000000-0000-4000-8000-00000000c186','Catalog rehearsal service',45,1000,true);"; then
+            echo 'Synthetic service seed failed; SQLSTATE above, no row output' >&2
+            exit 1
+          fi
           test "$(docker exec "$container" psql -U postgres -d postgres -X -qAt \
             -c 'select count(*) from public.services')" = 1
           bash minuta-online-booking/scripts/catalog-v186-v187-restore.sh \

@@ -85,7 +85,10 @@ apply_stage() {
     echo "catalog isolated rehearsal refused $stage; private output withheld" >&2
     return 1
   fi
-  test "$(business_digest)" = "$baseline"
+  if test "$(business_digest)" != "$baseline"; then
+    echo "catalog business digest changed at $stage; row contents withheld" >&2
+    return 1
+  fi
 }
 
 test "$(contract_absent)" = 1
