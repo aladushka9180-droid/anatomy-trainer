@@ -5,15 +5,15 @@ on:
     branches:
       - codex/pro-offline-cabinet-20260925
     paths:
-      - .github/workflows/minuta-v182-isolated-catalog.yml
-      - minuta-online-booking/supabase-migration-v182.sql
-      - minuta-online-booking/supabase-migration-v182-rollback.sql
-      - minuta-online-booking/tests/inventory-catalog-v182-postgres-test.mjs
-      - minuta-online-booking/tests/inventory-catalog-v182-pglite-test.mjs
-      - minuta-online-booking/supabase-migration-v183.sql
-      - minuta-online-booking/supabase-migration-v183-rollback.sql
-      - minuta-online-booking/tests/service-catalog-v183-postgres-test.mjs
-      - minuta-online-booking/tests/service-catalog-v183-pglite-test.mjs
+      - .github/workflows/minuta-v185-isolated-catalog.yml
+      - minuta-online-booking/supabase-migration-v185.sql
+      - minuta-online-booking/supabase-migration-v185-rollback.sql
+      - minuta-online-booking/tests/inventory-catalog-v185-postgres-test.mjs
+      - minuta-online-booking/tests/inventory-catalog-v185-pglite-test.mjs
+      - minuta-online-booking/supabase-migration-v186.sql
+      - minuta-online-booking/supabase-migration-v186-rollback.sql
+      - minuta-online-booking/tests/service-catalog-v186-postgres-test.mjs
+      - minuta-online-booking/tests/service-catalog-v186-pglite-test.mjs
 
 permissions:
   contents: read
@@ -28,11 +28,11 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: isolated-test-only
-          POSTGRES_DB: isolated_v182
+          POSTGRES_DB: isolated_v185
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d isolated_v182"
+          --health-cmd="pg_isready -U postgres -d isolated_v185"
           --health-interval=5s --health-timeout=5s --health-retries=12
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -42,10 +42,10 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-save --no-package-lock --ignore-scripts pg@8.16.3
-      - run: node --check minuta-online-booking/tests/inventory-catalog-v182-postgres-test.mjs
-      - run: node minuta-online-booking/tests/inventory-catalog-v182-postgres-test.mjs
+      - run: node --check minuta-online-booking/tests/inventory-catalog-v185-postgres-test.mjs
+      - run: node minuta-online-booking/tests/inventory-catalog-v185-postgres-test.mjs
         env:
-          MINUTA_V182_ISOLATED_DATABASE_URL: postgres://postgres:isolated-test-only@127.0.0.1:5432/isolated_v182
+          MINUTA_V185_ISOLATED_DATABASE_URL: postgres://postgres:isolated-test-only@127.0.0.1:5432/isolated_v185
 
   isolated_service_postgres:
     runs-on: ubuntu-latest
@@ -56,11 +56,11 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: isolated-test-only
-          POSTGRES_DB: isolated_v183
+          POSTGRES_DB: isolated_v186
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d isolated_v183"
+          --health-cmd="pg_isready -U postgres -d isolated_v186"
           --health-interval=5s --health-timeout=5s --health-retries=12
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -70,7 +70,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-save --no-package-lock --ignore-scripts pg@8.16.3
-      - run: node --check minuta-online-booking/tests/service-catalog-v183-postgres-test.mjs
-      - run: node minuta-online-booking/tests/service-catalog-v183-postgres-test.mjs
+      - run: node --check minuta-online-booking/tests/service-catalog-v186-postgres-test.mjs
+      - run: node minuta-online-booking/tests/service-catalog-v186-postgres-test.mjs
         env:
-          MINUTA_V183_ISOLATED_DATABASE_URL: postgres://postgres:isolated-test-only@127.0.0.1:5432/isolated_v183
+          MINUTA_V186_ISOLATED_DATABASE_URL: postgres://postgres:isolated-test-only@127.0.0.1:5432/isolated_v186

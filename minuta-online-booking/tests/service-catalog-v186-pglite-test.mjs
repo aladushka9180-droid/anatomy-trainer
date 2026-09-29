@@ -13,7 +13,7 @@ const foreignOrg='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const service='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const read=name=>readFileSync(new URL(name,import.meta.url),'utf8');
 const query=async(sql,params=[])=>(await db.query(sql,params)).rows;
-const save='select public.save_minuta_service_catalog_draft_v183($1,$2,$3,$4,$5,$6,$7,$8) data';
+const save='select public.save_minuta_service_catalog_draft_v186($1,$2,$3,$4,$5,$6,$7,$8) data';
 
 try {
   await db.exec(`
@@ -39,11 +39,11 @@ try {
     insert into public.service_public_details_v159(service_id,short_description,photo_storage_path)
       values('${service}','Описание сохранено','${actor}/services/${service}/photo.webp');
   `);
-  const migration=read('../supabase-migration-v183.sql');
+  const migration=read('../supabase-migration-v186.sql');
   await db.exec(migration);
   await query("select set_config('request.jwt.claim.sub',$1,false)",[actor]);
   await db.exec('set role authenticated;');
-  const initial=(await query('select public.get_minuta_service_catalog_draft_v183($1,$2) data',[org,service]))[0].data;
+  const initial=(await query('select public.get_minuta_service_catalog_draft_v186($1,$2) data',[org,service]))[0].data;
   assert.match(initial.etag,/^[0-9a-f]{32}$/);
   const request='11111111-1111-4111-8111-111111111111';
   const args=[org,request,service,initial.etag,'Новая услуга',75,1200,true];
@@ -59,7 +59,7 @@ try {
   assert.equal((await query(save,createdArgs))[0].data.id,created.id);
   await db.exec('reset role;');
   assert.equal((await query('select count(*)::int n from public.services'))[0].n,2);
-  assert.equal((await query('select count(*)::int n from public.service_catalog_requests_v183'))[0].n,2);
+  assert.equal((await query('select count(*)::int n from public.service_catalog_requests_v186'))[0].n,2);
   assert.equal((await query('select short_description from public.service_public_details_v159 where service_id=$1',[service]))[0].short_description,'Описание сохранено');
   await query('update public.service_public_details_v159 set short_description=$1 where service_id=$2',['Внешняя правка',service]);
   await db.exec('set role authenticated;');
@@ -70,12 +70,12 @@ try {
   await db.exec('set role authenticated;');
   assert.deepEqual((await query(save,createdArgs))[0].data,{saved:false,reason:'service_deleted',id:created.id});
   await db.exec('reset role;');
-  const rollback=read('../supabase-migration-v183-rollback.sql');
-  await assert.rejects(()=>db.exec(rollback),/v183_service_requests_must_be_preserved/);
+  const rollback=read('../supabase-migration-v186-rollback.sql');
+  await assert.rejects(()=>db.exec(rollback),/v186_service_requests_must_be_preserved/);
   await db.exec('rollback;');
-  await db.exec('delete from public.service_catalog_requests_v183;');
+  await db.exec('delete from public.service_catalog_requests_v186;');
   await db.exec(rollback);
-  assert.equal((await query("select to_regclass('public.service_catalog_requests_v183') value"))[0].value,null);
+  assert.equal((await query("select to_regclass('public.service_catalog_requests_v186') value"))[0].value,null);
   await db.exec(migration);
-  console.log('v183 isolated service catalog: version, replay, scope, details preservation, later change, deletion, rollback, reapply passed');
+  console.log('v186 isolated service catalog: version, replay, scope, details preservation, later change, deletion, rollback, reapply passed');
 } finally { await db.close(); }

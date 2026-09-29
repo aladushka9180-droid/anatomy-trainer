@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const url = new URL(process.env.MINUTA_V182_ISOLATED_DATABASE_URL || '');
-assert.ok(['localhost','127.0.0.1'].includes(url.hostname) && url.pathname === '/isolated_v182',
-  'v182 test accepts only a local ephemeral isolated_v182 database');
+const url = new URL(process.env.MINUTA_V185_ISOLATED_DATABASE_URL || '');
+assert.ok(['localhost','127.0.0.1'].includes(url.hostname) && url.pathname === '/isolated_v185',
+  'v185 test accepts only a local ephemeral isolated_v185 database');
 const { Client } = await import('pg');
 const clients=[];
 const connect=async()=>{const client=new Client({connectionString:url.href});await client.connect();clients.push(client);return client;};
@@ -14,7 +14,7 @@ const owner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const other='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const org='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const item='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
-const save=`select public.save_minuta_inventory_item_draft_v182($1,$2,$3,$4,$5,$6,$7,$8,$9) data`;
+const save=`select public.save_minuta_inventory_item_draft_v185($1,$2,$3,$4,$5,$6,$7,$8,$9) data`;
 const requestOne='11111111-1111-4111-8111-111111111111';
 const requestTwo='22222222-2222-4222-8222-222222222222';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -73,14 +73,14 @@ try {
   `);
   await admin.query(['get_minuta_inventory_role','write_minuta_inventory_audit',
     'upsert_minuta_inventory_item'].map(productionFunction).join('\n'));
-  await admin.query(readFileSync(new URL('../supabase-migration-v182.sql',import.meta.url),'utf8'));
+  await admin.query(readFileSync(new URL('../supabase-migration-v185.sql',import.meta.url),'utf8'));
   await admin.query('begin');
   await query(admin,'update public.inventory_items set name=$1 where id=$2',['Временная правка 1',item]);
   const sameTransactionFirst=(await query(admin,
-    'select updated_at,public.minuta_inventory_catalog_etag_v182(name,sku,unit,low_stock_threshold,active) etag from public.inventory_items where id=$1',[item]))[0];
+    'select updated_at,public.minuta_inventory_catalog_etag_v185(name,sku,unit,low_stock_threshold,active) etag from public.inventory_items where id=$1',[item]))[0];
   await query(admin,'update public.inventory_items set name=$1 where id=$2',['Временная правка 2',item]);
   const sameTransactionSecond=(await query(admin,
-    'select updated_at,public.minuta_inventory_catalog_etag_v182(name,sku,unit,low_stock_threshold,active) etag from public.inventory_items where id=$1',[item]))[0];
+    'select updated_at,public.minuta_inventory_catalog_etag_v185(name,sku,unit,low_stock_threshold,active) etag from public.inventory_items where id=$1',[item]))[0];
   assert.equal(sameTransactionFirst.updated_at.getTime(),sameTransactionSecond.updated_at.getTime());
   assert.notEqual(sameTransactionFirst.etag,sameTransactionSecond.etag);
   await admin.query('rollback');
@@ -88,7 +88,7 @@ try {
     await query(client,"select set_config('request.jwt.claim.sub',$1,false)",[owner]);
     await client.query('set role authenticated');
   }
-  const workspace=(await query(first,'select public.get_minuta_inventory_workspace_v182($1) data',[org]))[0].data;
+  const workspace=(await query(first,'select public.get_minuta_inventory_workspace_v185($1) data',[org]))[0].data;
   const version=workspace.items[0].etag;
   const argsOne=[org,requestOne,item,version,'Первая правка','S1','piece',2,true];
   const argsTwo=[org,requestTwo,item,version,'Вторая правка','S1','piece',3,true];
@@ -100,7 +100,7 @@ try {
   const conflict=await competing;
   assert.equal(conflict.error?.message,'inventory_catalog_version_conflict');
   assert.deepEqual((await query(second,save,argsOne))[0].data,saved,'lost response must replay');
-  assert.equal((await query(admin,'select count(*)::int n from public.inventory_catalog_requests_v182'))[0].n,1);
+  assert.equal((await query(admin,'select count(*)::int n from public.inventory_catalog_requests_v185'))[0].n,1);
   const createdArgs=[org,'33333333-3333-4333-8333-333333333333',null,null,'Новый материал','S2','piece',0,true];
   await first.query('begin');
   const created=(await query(first,save,createdArgs))[0].data;
@@ -109,7 +109,7 @@ try {
   await first.query('commit');
   assert.deepEqual((await duplicate).value?.[0]?.data,created,'parallel identical create must return one id');
   assert.equal((await query(admin,'select count(*)::int n from public.inventory_items'))[0].n,2);
-  assert.equal((await query(admin,'select count(*)::int n from public.inventory_catalog_requests_v182'))[0].n,2);
+  assert.equal((await query(admin,'select count(*)::int n from public.inventory_catalog_requests_v185'))[0].n,2);
   assert.equal((await query(admin,'select count(*)::int n from public.inventory_audit_log'))[0].n,2,
     'replayed requests must not duplicate production inventory audit');
   await query(admin,'update public.organization_inventory_settings set enabled=false where organization_id=$1',[org]);
@@ -120,13 +120,13 @@ try {
   const duplicateSku=await attempt(query(first,save,[org,'77777777-7777-4777-8777-777777777777',
     null,null,'Повтор артикула','S1','piece',0,true]));
   assert.equal(duplicateSku.error?.code,'23505');
-  const current=(await query(first,'select public.get_minuta_inventory_workspace_v182($1) data',[org]))[0].data;
+  const current=(await query(first,'select public.get_minuta_inventory_workspace_v185($1) data',[org]))[0].data;
   const currentVersion=current.items.find(row=>row.id===item).etag;
   await query(admin,'insert into public.inventory_movements values($1,$2)',[org,item]);
   const unitLocked=await attempt(query(first,save,[org,'88888888-8888-4888-8888-888888888888',
     item,currentVersion,'Нельзя менять единицу','S1','ml',2,true]));
   assert.equal(unitLocked.error?.message,'inventory_unit_locked_by_ledger');
-  assert.equal((await query(admin,'select count(*)::int n from public.inventory_catalog_requests_v182'))[0].n,2);
+  assert.equal((await query(admin,'select count(*)::int n from public.inventory_catalog_requests_v185'))[0].n,2);
   await query(second,"select set_config('request.jwt.claim.sub',$1,false)",[other]);
   const stolen=await attempt(query(second,save,argsOne));
   assert.equal(stolen.error?.message,'inventory_catalog_request_mismatch');
@@ -136,7 +136,7 @@ try {
   await query(admin,'delete from public.inventory_items where id=$1',[created.id]);
   assert.deepEqual((await query(first,save,createdArgs))[0].data,
     {saved:false,reason:'inventory_item_deleted',organization_id:org,id:created.id});
-  console.log('v182 isolated PostgreSQL: production v82 writer, parallel conflict, replay, disabled stock, SKU and ledger guards passed');
+  console.log('v185 isolated PostgreSQL: production v82 writer, parallel conflict, replay, disabled stock, SKU and ledger guards passed');
 } finally {
   await Promise.allSettled(clients.map(client=>client.end()));
 }
