@@ -167,7 +167,32 @@ try {
     (await window.MinutaOfflineCatalogDrafts.list(user,org)).drafts.length,{user,org})),0);
   assert.equal(await page.evaluate(async ({user,org,item})=>
     window.MinutaOfflineCatalogDrafts.readVersion(user,org,'inventory',item),{user,org,item}),null);
-  console.log('Offline catalog drafts browser passed: durable reload, scoped versions, same request replay, conflict, storage failure, sign-out cleanup');
+  await page.evaluate(({user,org,item})=>{
+    const store=window.MinutaReliability,put=store.put;
+    window.versionPutEntered=false;
+    store.put=async (...args)=>{
+      if (args[0].startsWith('minuta-offline-catalog-version-v1:')) {
+        window.versionPutEntered=true;
+        await new Promise(resolve=>{ window.releaseVersionPut=resolve; });
+      }
+      return put(...args);
+    };
+    window.pendingVersion=window.MinutaOfflineCatalogDrafts.rememberVersion({
+      userId:user,organizationId:org,kind:'inventory',entityId:item,
+      version:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      values:{name:'Масло',sku:'M1',unit:'ml',lowStock:2,active:true}
+    }).then(()=>null,error=>error.message).finally(()=>{store.put=put;});
+  },{user,org,item});
+  await page.waitForFunction(()=>window.versionPutEntered);
+  const staleVersion=await page.evaluate(async user=>{
+    await window.MinutaOfflineCatalogDrafts.clearUser(user);
+    window.releaseVersionPut();
+    return window.pendingVersion;
+  },user);
+  assert.equal(staleVersion,'catalog_session_changed');
+  assert.equal(await page.evaluate(async ({user,org,item})=>
+    window.MinutaOfflineCatalogDrafts.readVersion(user,org,'inventory',item),{user,org,item}),null);
+  console.log('Offline catalog drafts browser passed: durable reload, scoped versions, same request replay, conflict, storage failure, sign-out races');
 } finally {
   await browser.close();
   await new Promise(resolve=>server.close(resolve));

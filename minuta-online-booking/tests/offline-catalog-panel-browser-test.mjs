@@ -166,7 +166,39 @@ try {
     await window.testPanel.refresh();
   });
   assert.equal(await page.locator('.offline-catalog-panel').count(),0);
-  console.log('offline catalog panel: service and inventory snapshots, offline persistence, confirmation/conflict, 390/760/1440 PASS');
+  await page.evaluate(({user,org})=>{
+    window.testCurrent=true;
+    window.delayedPutEntered=false;
+    window.staleWriteRemoved=false;
+    const originalPut=window.MinutaReliability.put;
+    const originalRemove=window.MinutaReliability.remove;
+    window.MinutaReliability.put=async (...args)=>{
+      if (args[0].startsWith('minuta-offline-catalog-v1:')) {
+        window.delayedPutEntered=true;
+        await new Promise(resolve=>{ window.releaseDelayedPut=resolve; });
+      }
+      return originalPut(...args);
+    };
+    window.MinutaReliability.remove=async (...args)=>{
+      await originalRemove(...args);
+      if (args[0].startsWith('minuta-offline-catalog-v1:')) window.staleWriteRemoved=true;
+    };
+    window.testPanel=window.MinutaOfflineCatalogPanel.mount({
+      root:document.querySelector('#root'),userId:user,organizationId:org,
+      catalog:[],drafts:window.MinutaOfflineCatalogDrafts,isCurrent:()=>window.testCurrent
+    });
+  },{user,org});
+  await page.getByLabel('Название').fill('Черновик при выходе');
+  await page.getByRole('button',{name:'Сохранить на этом устройстве'}).click();
+  await page.waitForFunction(()=>window.delayedPutEntered);
+  await page.evaluate(async user=>{
+    window.testCurrent=false;
+    await window.MinutaOfflineCatalogDrafts.clearUser(user);
+    window.releaseDelayedPut();
+  },user);
+  await page.waitForFunction(()=>window.staleWriteRemoved);
+  assert.equal((await page.evaluate(({user,org})=>window.MinutaOfflineCatalogDrafts.list(user,org),{user,org})).drafts.length,0);
+  console.log('offline catalog panel: service and inventory snapshots, offline persistence, confirmation/conflict, sign-out race, 390/760/1440 PASS');
 } finally {
   await browser.close();await new Promise(resolve=>server.close(resolve));
 }

@@ -9,6 +9,8 @@
   const ROOT = 'minuta-offline-catalog-v1:';
   const VERSION_ROOT = 'minuta-offline-catalog-version-v1:';
   const states = new Set(['local','checking','conflict','applied']);
+  const clearEpochs = new Map();
+  const clearEpoch = userId => clearEpochs.get(userId) || 0;
 
   function requireId(value) {
     if (!UUID.test(String(value || ''))) throw new Error('catalog_scope_invalid');
@@ -102,19 +104,30 @@
     drafts.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
     return { drafts,invalidCount };
   }
-  async function persist(draft) {
+  async function persist(draft,startedEpoch=clearEpoch(draft.userId)) {
+    if (clearEpoch(draft.userId)!==startedEpoch) throw new Error('catalog_session_changed');
     await store.put(key(draft.userId,draft.organizationId,draft.requestId),draft);
+    if (clearEpoch(draft.userId)!==startedEpoch) {
+      await store.remove(key(draft.userId,draft.organizationId,draft.requestId));
+      throw new Error('catalog_session_changed');
+    }
     const confirmed=await read(draft.userId,draft.organizationId,draft.requestId);
     if (!confirmed || confirmed.revision !== draft.revision) throw new Error('catalog_storage_unconfirmed');
     return confirmed;
   }
-  async function rememberVersion({ userId,organizationId,kind,entityId,version,values=null }) {
+  async function rememberVersion({ userId,organizationId,kind,entityId,version,values=null },startedEpoch=null) {
     requireStore();
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId), target=requireId(entityId);
+    const expectedEpoch=startedEpoch ?? clearEpoch(scopedUser);
     if (!validVersion(kind,target,version)) throw new Error('catalog_version_invalid');
     const record={ schema:1,userId:scopedUser,organizationId:scopedOrg,kind,entityId:target,
       version,fields:values ? fields(kind,values) : null,savedAt:new Date().toISOString() };
+    if (clearEpoch(scopedUser)!==expectedEpoch) throw new Error('catalog_session_changed');
     await store.put(versionKey(scopedUser,scopedOrg,kind,target),record);
+    if (clearEpoch(scopedUser)!==expectedEpoch) {
+      await store.remove(versionKey(scopedUser,scopedOrg,kind,target));
+      throw new Error('catalog_session_changed');
+    }
     const confirmed=await readVersion(scopedUser,scopedOrg,kind,target);
     if (confirmed!==version) throw new Error('catalog_storage_unconfirmed');
     return record;
@@ -154,6 +167,7 @@
   }
   async function captureInventoryVersions({ userId,organizationId,workspace,isCurrent }) {
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId);
+    const startedEpoch=clearEpoch(scopedUser);
     if (typeof isCurrent!=='function' || workspace?.organization_id!==scopedOrg
       || !Array.isArray(workspace.items)) throw new Error('catalog_sync_context_invalid');
     let count=0;
@@ -164,13 +178,14 @@
       try { values=fields('inventory',{name:item.name,sku:item.sku,unit:item.unit,
         lowStock:item.low_stock_threshold,active:item.active}); } catch { continue; }
       await rememberVersion({userId:scopedUser,organizationId:scopedOrg,kind:'inventory',
-        entityId:item.id,version:item.etag,values});
+        entityId:item.id,version:item.etag,values},startedEpoch);
       count++;
     }
     return count;
   }
   async function refreshServiceVersion({ userId,organizationId,entityId,rpc,isCurrent }) {
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId), target=requireId(entityId);
+    const startedEpoch=clearEpoch(scopedUser);
     if (typeof rpc!=='function' || typeof isCurrent!=='function') throw new Error('catalog_sync_context_invalid');
     if (!navigator.onLine || !isCurrent(scopedUser,scopedOrg)) return null;
     let response;
@@ -184,12 +199,13 @@
     try { values=fields('service',{name:data.name,durationMinutes:data.duration_minutes,
       priceRub:data.price_rub,active:data.active}); } catch { return null; }
     await rememberVersion({userId:scopedUser,organizationId:scopedOrg,kind:'service',
-      entityId:target,version:data.etag,values});
+      entityId:target,version:data.etag,values},startedEpoch);
     return data.etag;
   }
   async function queue({ userId,organizationId,kind,entityId=null,expectedVersion=null,values }) {
     requireStore();
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId);
+    const startedEpoch=clearEpoch(scopedUser);
     const target=entityId ? requireId(entityId) : null;
     if (!validVersion(kind,target,expectedVersion)) throw new Error('catalog_version_invalid');
     const normalized=fields(kind,values);
@@ -202,10 +218,10 @@
     const now=new Date().toISOString();
     return persist({ schema:1,userId:scopedUser,organizationId:scopedOrg,requestId,
       kind,entityId:target,expectedVersion:expectedVersion ?? null,fields:normalized,
-      status:'local',createdAt:now,updatedAt:now,revision:crypto.randomUUID() });
+      status:'local',createdAt:now,updatedAt:now,revision:crypto.randomUUID() },startedEpoch);
   }
-  async function withStatus(draft,status,result=null) {
-    return persist({ ...draft,status,result,updatedAt:new Date().toISOString(),revision:crypto.randomUUID() });
+  async function withStatus(draft,status,result=null,startedEpoch=clearEpoch(draft.userId)) {
+    return persist({ ...draft,status,result,updatedAt:new Date().toISOString(),revision:crypto.randomUUID() },startedEpoch);
   }
   function call(draft) {
     const common={ p_organization:draft.organizationId,p_request_id:draft.requestId };
@@ -222,11 +238,12 @@
   }
   async function flushOne({ userId,organizationId,requestId,rpc,isCurrent }) {
     if (typeof rpc !== 'function' || typeof isCurrent !== 'function') throw new Error('catalog_sync_context_invalid');
+    const startedEpoch=clearEpoch(requireId(userId));
     let draft=await read(userId,organizationId,requestId);
     if (!draft) throw new Error('catalog_draft_missing');
     if (draft.status==='applied' || draft.status==='conflict') return draft;
     if (!isCurrent(draft.userId,draft.organizationId) || !navigator.onLine) return draft;
-    if (draft.status==='local') draft=await withStatus(draft,'checking');
+    if (draft.status==='local') draft=await withStatus(draft,'checking',null,startedEpoch);
     if (!isCurrent(draft.userId,draft.organizationId)) return draft;
     const [name,parameters]=call(draft);
     let response;
@@ -241,10 +258,10 @@
       && ETAG.test(String(data.etag || ''));
     if (validSuccess) return withStatus(current,'applied',{
       id:String(data.id).toLowerCase(),version:data.etag
-    });
+    },startedEpoch);
     const reason=String(data?.reason || response?.error?.message || '');
     if (/^(service_catalog_version_conflict|inventory_catalog_version_conflict|service_deleted|inventory_item_deleted|service_changed_after_save|inventory_item_changed_after_save)$/.test(reason))
-      return withStatus(current,'conflict',{ reason });
+      return withStatus(current,'conflict',{ reason },startedEpoch);
     return current;
   }
   async function remove(userId,organizationId,requestId) {
@@ -255,6 +272,7 @@
   async function clearUser(userId) {
     requireStore();
     const scopedUser=requireId(userId);
+    clearEpochs.set(scopedUser,clearEpoch(scopedUser)+1);
     await store.removePrefix(`${ROOT}${scopedUser}:`);
     await store.removePrefix(`${VERSION_ROOT}${scopedUser}:`);
   }
