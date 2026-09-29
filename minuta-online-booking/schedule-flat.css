@@ -668,6 +668,20 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
   }
 }
 
+/* A 40-minute card has only 27px of desktop content height after its fixed
+   padding. Keep both text rows at their real line height so the client name
+   cannot be flex-shrunk behind the service row. */
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-booking-client-row {
+  flex:none!important;
+}
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) :is(.timeline-booking-client,.timeline-client-name,.timeline-booking-copy>strong,.timeline-service-title) {
+  font-size:11px!important;
+  line-height:12px!important;
+}
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-mobile-time {
+  margin-right:4px!important;
+}
+
 /* The final flat schedule layer previously reduced every dark appointment to
    a 12% accent mix. Restore the dark theme's own accent on real visits only. */
 html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings :is(.timeline-booking,.provider-booking):not(.status-block):not(.automatic-break):not(.status-cancelled) {

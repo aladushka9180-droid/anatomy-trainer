@@ -18,7 +18,7 @@ async function scenario({ reconnect, failFirst = false }) {
   vm.runInNewContext(source, {
     URL, URLSearchParams, setTimeout, clearTimeout,
     location:{ search:'', href:'http://127.0.0.1/provider.html' },
-    document:{ currentScript:{ src:'http://127.0.0.1/site-update.js?v=1037' }, hidden:false,
+    document:{ currentScript:{ src:'http://127.0.0.1/site-update.js?v=1038' }, hidden:false,
       addEventListener:(name,fn) => documentEvents.set(name,fn),
       documentElement:{ dataset:{} }, getElementById:() => null },
     navigator:{ serviceWorker:{ controller:null, register:async () => registration, addEventListener() {} } },
