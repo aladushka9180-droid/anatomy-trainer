@@ -248,6 +248,7 @@
               <button class="date-nav-button" type="button" data-date-shift="-1" aria-label="Показать предыдущий день"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Предыдущий</span></button>
               <button class="date-today-button" type="button" data-date-today aria-label="Вернуться к моим записям на сегодня">Сегодня</button>
               <label class="schedule-date-picker"><span class="sr-only">Календарь</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"></use></svg><input id="scheduleDatePicker" type="date" aria-label="Выбрать дату в календаре"></label>
+              <div class="schedule-mobile-mode-toggle" role="group" aria-label="Вид журнала" hidden><button class="active" type="button" data-journal-mode="timeline" aria-label="Временная лента" title="Лента" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg></button><button type="button" data-journal-mode="list" aria-label="Компактный список" title="Список" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-list"></use></svg></button></div>
               <button class="date-nav-button" type="button" data-date-shift="1" aria-label="Показать следующий день"><span>Следующий</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
             </div>
             <div class="date-strip-frame">
@@ -256,7 +257,7 @@
               <button class="date-strip-shift" type="button" data-date-shift="1" aria-label="Следующий день"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
             </div>
             <div class="schedule-toolbar">
-              <div><strong id="selectedDateTitle"><span class="selected-date-title-default">Сегодня</span><span class="selected-date-title-mobile">Суббота</span></strong><span id="selectedDateSummary">Записей нет</span></div>
+              <div><strong id="selectedDateTitle"><span class="selected-date-title-default">Сегодня</span><span class="selected-date-title-mobile">Суббота</span></strong><span id="selectedDateSummary">Записей нет</span><span class="schedule-mobile-summary" id="scheduleMobileSummary" aria-label="Сводка записей" hidden><span>Сегодня <strong id="mobileTodayBookingsCount">0</strong></span><i aria-hidden="true">·</i><span>Завтра <strong id="mobileTomorrowBookingsCount">0</strong></span><i aria-hidden="true">·</i><span>Впереди <strong id="mobileUpcomingBookingsCount">0</strong></span></span></div>
               <div class="schedule-controls">
                 <div class="journal-mode-toggle" role="group" aria-label="Вид журнала"><button class="active" type="button" data-journal-mode="timeline" aria-label="Временная лента" title="Лента" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>Лента</span></button><button type="button" data-journal-mode="list" aria-label="Компактный список" title="Список" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-list"></use></svg><span>Список</span></button></div>
                 <div class="booking-filters" role="group" aria-label="Какие записи показать"><button class="active" type="button" data-filter="day" aria-pressed="true">Выбранный день</button><button type="button" data-filter="upcoming" aria-pressed="false">Будущие</button><button type="button" data-filter="all" aria-pressed="false">Все записи</button></div>
@@ -2227,7 +2228,7 @@
   <link rel="stylesheet" href="provider-schedule-desktop-reference.css?v=1023" media="(min-width: 761px)">
   <link rel="stylesheet" href="client-profile-card.css?v=2">
   <link rel="stylesheet" href="new-booking-card.css?v=2">
-  <link rel="stylesheet" href="schedule-flat.css?v=1026">
+  <link rel="stylesheet" href="schedule-flat.css?v=1028">
   <script src="theme-catalog.js?v=885" defer></script>
   <script src="provider-porcelain-matrix.js?v=942" defer></script>
   <script src="provider-color-mode.js?v=811" defer></script>
@@ -2251,7 +2252,7 @@
   <script src="new-booking-card.js?v=1" defer></script>
   <script src="provider-connection-guidance.js?v=1007" defer></script>
   <script src="schedule-break-icons.js?v=1023" defer></script>
-  <script src="provider.js?v=1027" defer></script>
+  <script src="provider.js?v=1028" defer></script>
   <script src="provider-porcelain-detail.js?v=946" defer></script>
   <script src="provider-help-workspace.js?v=1022" defer></script>
   <script src="service-presets.js?v=811" defer></script>

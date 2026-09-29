@@ -315,3 +315,209 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
 @media(min-width:761px) {
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-title-line .dashboard-summary>div:not(:nth-of-type(3))>span::after { content:" —"; }
 }
+
+/* Compact mobile day schedule: the global counts live beside the selected day. */
+.schedule-mobile-mode-toggle,
+#scheduleMobileSummary { display:none!important; }
+@media(max-width:760px) {
+  html body.provider-body[data-provider-theme][data-provider-layout]:has(#dashboard:not([hidden])[data-active-view="bookings"]) .provider-topbar .provider-current-moment {
+    display:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout]:has(#dashboard:not([hidden])[data-active-view="bookings"]) .provider-topbar {
+    border-bottom:0!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-view-title {
+    position:relative!important;
+    z-index:51!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:auto!important;
+    min-height:0!important;
+    height:auto!important;
+    margin:-30px 4px 14px!important;
+    padding:0 0 12px!important;
+    border-bottom:1px solid var(--theme-line)!important;
+    pointer-events:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-view-title h2 {
+    grid-column:1!important;
+    font-size:clamp(23px,6vw,27px)!important;
+    line-height:1.1!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] :is(.schedule-view-title .dashboard-summary,.schedule-view-title .view-title-actions) {
+    display:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation {
+    grid-template-columns:92px minmax(0,1fr) 92px!important;
+    grid-template-rows:40px!important;
+    align-items:center!important;
+    gap:6px!important;
+    margin-top:4px!important;
+    padding:0 8px 2px!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-context>.calendar-view-toggle {
+    position:static!important;
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    width:calc(100% - 8px)!important;
+    min-height:44px!important;
+    height:44px!important;
+    margin:6px 4px 4px!important;
+    border:0!important;
+    border-bottom:1px solid var(--theme-line)!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-context>.date-strip-frame {
+    margin-bottom:0!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-context>.date-navigation>.date-nav-button {
+    display:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .date-navigation>.calendar-view-toggle {
+    bottom:calc(100% + 8px)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button,
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button.is-current {
+    box-sizing:border-box!important;
+    grid-column:1!important;
+    grid-row:1!important;
+    width:92px!important;
+    min-height:40px!important;
+    height:40px!important;
+    margin:0!important;
+    padding:0 8px!important;
+    font-size:calc(13px + var(--provider-text-step,0px))!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.schedule-date-picker {
+    box-sizing:border-box!important;
+    grid-column:2!important;
+    grid-row:1!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:100%!important;
+    min-height:40px!important;
+    height:40px!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .schedule-date-picker::after { display:none!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .schedule-date-picker>.ui-icon {
+    display:block!important;
+    flex:none!important;
+    order:1!important;
+    width:16px!important;
+    height:16px!important;
+    color:var(--theme-muted)!important;
+    transform:translateY(-3px)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .schedule-date-picker input {
+    flex:0 1 116px!important;
+    order:0!important;
+    width:116px!important;
+    max-width:116px!important;
+    min-width:0!important;
+    min-height:40px!important;
+    height:40px!important;
+    padding:0!important;
+    font-size:calc(12px + var(--provider-text-step,0px))!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .date-navigation>.schedule-mobile-mode-toggle:not([hidden]) {
+    box-sizing:border-box!important;
+    grid-column:3!important;
+    grid-row:1!important;
+    display:grid!important;
+    grid-template-columns:repeat(2,1fr)!important;
+    align-items:center!important;
+    width:92px!important;
+    min-height:40px!important;
+    height:40px!important;
+    margin:0!important;
+    padding:2px!important;
+    border:1px solid var(--theme-line)!important;
+    border-radius:11px!important;
+    background:var(--theme-surface-alt)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-mobile-mode-toggle button {
+    display:grid!important;
+    place-items:center!important;
+    width:100%!important;
+    min-width:0!important;
+    min-height:34px!important;
+    height:34px!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:8px!important;
+    background:transparent!important;
+    color:var(--theme-muted)!important;
+    box-shadow:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-mobile-mode-toggle button.active {
+    background:var(--theme-accent-soft)!important;
+    color:var(--theme-accent)!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-mobile-mode-toggle .ui-icon { width:18px!important; height:18px!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-mobile-mode-toggle button:focus-visible {
+    outline:2px solid var(--theme-accent)!important;
+    outline-offset:1px!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .journal-mode-toggle { display:none!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-toolbar {
+    grid-template-columns:minmax(0,1fr)!important;
+    min-height:36px!important;
+    height:auto!important;
+    padding:5px 9px!important;
+    gap:0!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-toolbar>div:first-child {
+    display:flex!important;
+    align-items:baseline!important;
+    gap:6px!important;
+    min-width:0!important;
+    white-space:nowrap!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-toolbar #selectedDateTitle {
+    flex:none!important;
+    font-size:clamp(11px,3.1vw,13px)!important;
+    font-weight:600!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] #scheduleMobileSummary:not([hidden]) {
+    display:flex!important;
+    align-items:baseline!important;
+    gap:5px!important;
+    min-width:0!important;
+    margin:0!important;
+    color:var(--theme-muted)!important;
+    font-size:clamp(10px,2.7vw,12px)!important;
+    line-height:1.2!important;
+    white-space:nowrap!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] #scheduleMobileSummary strong {
+    color:var(--theme-accent)!important;
+    font-variant-numeric:tabular-nums!important;
+    font-weight:700!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] #scheduleMobileSummary i { font-style:normal!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-toolbar>div:first-child:has(#scheduleMobileSummary:not([hidden]))::after {
+    content:"";
+    order:1;
+    width:1px;
+    height:12px;
+    background:var(--theme-line);
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-toolbar>div:first-child:has(#scheduleMobileSummary:not([hidden])) #selectedDateSummary { display:none!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-toolbar>div:first-child:has(#scheduleMobileSummary:not([hidden])) #scheduleMobileSummary { order:2; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-toolbar .schedule-controls:has(.booking-filters[hidden]) { display:none!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-toolbar:has(#scheduleMobileSummary:not([hidden])):not(:has(.booking-filters:not([hidden]))) {
+    grid-template-rows:auto!important;
+    height:auto!important;
+    min-height:36px!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .timeline-grid-line {
+    border-top-style:solid!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .timeline-grid-line::after {
+    border-top-style:dashed!important;
+  }
+}

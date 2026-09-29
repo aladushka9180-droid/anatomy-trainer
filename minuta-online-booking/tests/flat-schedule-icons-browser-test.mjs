@@ -116,7 +116,7 @@ try {
     };
    });
    assert.ok(layout.months.every(m=>m.visible && m.below && m.inside),`${theme}/${width}: month labels ${JSON.stringify(layout.months)}`);
-   assert.ok(layout.aligned,`${theme}/${width}: both counter rows must align with the heading: ${layout.lefts}`);
+   // The compact mobile schedule moves counters beside the selected weekday.
    assert.equal(layout.labelPadding,'0px');
    for(const card of layout.cards)assert.ok(card.timeVisible && card.nameVisible && card.separate,`${theme}/${width}: time, client and service need separate rows: ${JSON.stringify(card)}`);
    const header=await page.evaluate(()=>{
@@ -238,7 +238,8 @@ try {
    if(output&&counts[0]===0)await page.screenshot({path:resolve(output,`desktop-summary-${theme}-${width}.png`)});
    continue;
   }
-  assert.ok(state.right<1&&state.left<1&&state.heading<1&&state.separate&&state.clearance,label+' both summary edges aligned without button overlap');
+  // Mobile counters now live in the selected-day toolbar; their layout is covered
+  // by compact-mobile-schedule-browser-test.mjs.
   assert.equal(state.copy.replace(/\s+/g,' ').trim(),'Нажмите на время, чтобы добавить запись',label+' short mobile wording');
   assert.equal(state.rows,2,label+' two hint lines');assert.ok(state.center<1&&state.delta<1&&state.inside,label+' centered hint');
   assert.notEqual(state.background,'rgba(0, 0, 0, 0)',label+' opaque background covers grid');assert.equal(state.gradient,'none');assert.equal(state.pointer,'none');

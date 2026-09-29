@@ -7240,8 +7240,10 @@ function restoreDefaultScheduleView() {
 }
 
 function updateJournalModeButtons() {
-  const modeToggle = $('.journal-mode-toggle');
-  if (modeToggle) modeToggle.hidden = Boolean(teamCalendarController?.isTeamMode) || calendarView !== 'day';
+  const hideModeToggle = Boolean(teamCalendarController?.isTeamMode) || calendarView !== 'day';
+  $$('.journal-mode-toggle, .schedule-mobile-mode-toggle').forEach(toggle => { toggle.hidden = hideModeToggle; });
+  const mobileSummary = $('#scheduleMobileSummary');
+  if (mobileSummary) mobileSummary.hidden = hideModeToggle || currentFilter !== 'day';
   const filters = $('.booking-filters');
   if (filters) filters.hidden = Boolean(teamCalendarController?.isTeamMode) || calendarView !== 'day' || journalMode === 'timeline';
   $$('[data-journal-mode]').forEach(button => {
@@ -7250,6 +7252,25 @@ function updateJournalModeButtons() {
     button.setAttribute('aria-pressed', String(active));
   });
 }
+
+// Keep keyboard order identical to the visual order on narrow screens.
+function syncCompactScheduleOrder() {
+  const context = $('.schedule-context');
+  const navigation = context?.querySelector('.date-navigation');
+  const tabs = context?.querySelector('.calendar-view-toggle');
+  const strip = context?.querySelector('.date-strip-frame');
+  if (!context || !navigation || !tabs || !strip) return;
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    context.insertBefore(tabs, navigation);
+    context.insertBefore(strip, navigation);
+  } else {
+    navigation.prepend(tabs);
+    navigation.after(strip);
+  }
+}
+const compactScheduleMedia = window.matchMedia('(max-width: 760px)');
+compactScheduleMedia.addEventListener('change', syncCompactScheduleOrder);
+syncCompactScheduleOrder();
 
 function parseLocalIsoDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
@@ -7822,10 +7843,19 @@ function updateBookingStats() {
   $('#todayBookingsCount').textContent = String(todayCount);
   $('#tomorrowBookingsCount').textContent = String(tomorrowCount);
   $('#newBookingsCount').textContent = String(upcomingCount);
+  for (const [id, count] of [
+    ['mobileTodayBookingsCount', todayCount],
+    ['mobileTomorrowBookingsCount', tomorrowCount],
+    ['mobileUpcomingBookingsCount', upcomingCount]
+  ]) {
+    const value = $(`#${id}`);
+    if (value) value.textContent = String(count);
+  }
   $('#todayBookingsLabel').textContent = 'сегодня';
   $('#tomorrowBookingsLabel').textContent = 'завтра';
   $('#upcomingBookingsLabel').textContent = 'впереди';
   $('.dashboard-summary')?.setAttribute('aria-label', `${todayCount} сегодня, ${tomorrowCount} завтра, Предстоящих записей — ${upcomingCount}`);
+  $('#scheduleMobileSummary')?.setAttribute('aria-label', `${todayCount} сегодня, ${tomorrowCount} завтра, ${upcomingCount} впереди`);
   const sidebarBadge = $('#newBookingsBadge');
   if (sidebarBadge) {
     sidebarBadge.textContent = String(upcomingCount);
@@ -12809,10 +12839,9 @@ function renderBookings() {
 
 function setTeamCalendarMode(active, options = {}) {
   const teamMode = active === true;
-  const modeToggle = $('.journal-mode-toggle');
   const filters = $('.booking-filters');
   const createButton = $('#newBookingButton');
-  if (modeToggle) modeToggle.hidden = teamMode || calendarView !== 'day';
+  $$('.journal-mode-toggle, .schedule-mobile-mode-toggle').forEach(toggle => { toggle.hidden = teamMode || calendarView !== 'day'; });
   if (filters) filters.hidden = teamMode || calendarView !== 'day' || journalMode === 'timeline';
   if (createButton) createButton.hidden = teamMode;
   if (!teamMode) updateJournalModeButtons();
