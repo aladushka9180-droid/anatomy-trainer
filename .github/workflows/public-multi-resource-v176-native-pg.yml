@@ -1,0 +1,45 @@
+name: Public multi-resource v176 native PostgreSQL
+
+on:
+  push:
+    branches: [codex/pro-multi-resource-v176-rebase-20260929]
+    paths:
+      - '.github/workflows/public-multi-resource-v176-native-pg.yml'
+      - 'minuta-online-booking/supabase-migration-v176*.sql'
+      - 'minuta-online-booking/tests/public-multi-resource-v176-*.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-native-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-fixture-only
+          POSTGRES_DB: minuta-v176-fixture
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with: {node-version: 22}
+      - name: Install test-only PostgreSQL driver
+        run: npm install --prefix "$RUNNER_TEMP/v176-pg-deps" --no-package-lock --ignore-scripts --no-audit --no-fund pg@8.16.3
+      - name: Verify v176 contract on empty disposable PostgreSQL 17
+        env:
+          MINUTA_V176_EPHEMERAL_CONFIRM: EMPTY_LOCAL_POSTGRES
+          MINUTA_V176_EPHEMERAL_DATABASE_URL: postgresql://postgres:ephemeral-fixture-only@127.0.0.1:55432/minuta-v176-fixture
+        run: |
+          set -euo pipefail
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/v176-pg-deps/node_modules/pg/lib/index.js"
+          export MINUTA_PGLITE_MODULE="$GITHUB_WORKSPACE/minuta-online-booking/tests/public-multi-resource-v176-native-pg-adapter.mjs"
+          node minuta-online-booking/tests/public-multi-resource-v176-pglite-test.mjs
