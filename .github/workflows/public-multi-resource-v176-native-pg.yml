@@ -49,7 +49,7 @@ jobs:
     timeout-minutes: 20
     environment: minuta-test
     concurrency:
-      group: minuta-test-database
+      group: minuta-v176-schema-read
       cancel-in-progress: false
     services:
       postgres:
