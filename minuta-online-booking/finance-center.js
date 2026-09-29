@@ -366,20 +366,41 @@
       const completeness = find('[data-finance-completeness]');
       const known = data.summary.paymentKnownVisits, total = data.summary.totalVisits;
       const reasons = [];
-      if (!ledgerKnown) reasons.push('Финансовый журнал ещё не подключён: подтверждённые расходы недоступны.');
-      if (total > known) reasons.push(`Визитов без подтверждённой оплаты: ${total - known} из ${total}.`);
-      if (data.summary.unpostedVisits) reasons.push(`Визитов с указанной оплатой без проводки в журнале: ${data.summary.unpostedVisits}.`);
-      if (data.summary.serviceValueUnknownVisits) reasons.push(`Визитов без стоимости услуг: ${data.summary.serviceValueUnknownVisits}.`);
-      if (!netKnown && !reasons.length) reasons.push('Финансовые источники ещё не подтверждают полный итог.');
+      if (!ledgerKnown) reasons.push({
+        title:'Финансовый журнал ещё не подключён: подтверждённые расходы недоступны. Число операций неизвестно.',
+        detail:'Подтверждённые расходы и список операций до подключения журнала недоступны.'
+      });
+      if (total > known) reasons.push({
+        title:`Визитов без отметки оплаты: ${total - known} из ${total}.`,
+        detail:`Оплата отмечена у ${known} из ${total} состоявшихся визитов. Список визитов без отметки в этом отчёте недоступен.`
+      });
+      if (data.summary.unpostedVisits) reasons.push({
+        title:`Визитов с указанной оплатой без проводки в журнале: ${data.summary.unpostedVisits}.`,
+        detail:`Из ${known} визитов с отметкой оплаты ${data.summary.unpostedVisits} ещё не проведены в журнале. Раздел «Операции» показывает только проведённые записи; список этих визитов здесь недоступен.`
+      });
+      if (data.summary.serviceValueUnknownVisits) reasons.push({
+        title:`Визитов без стоимости услуг: ${data.summary.serviceValueUnknownVisits}.`,
+        detail:`Стоимость известна у ${total - data.summary.serviceValueUnknownVisits} из ${total} состоявшихся визитов. Список визитов без стоимости здесь недоступен.`
+      });
+      if (!netKnown && !reasons.length) reasons.push({
+        title:'Финансовые источники ещё не подтверждают полный итог: количество не указано.',
+        detail:'Сервер не передал отдельную причину и список проблемных данных. Расшифровка здесь недоступна.'
+      });
       completeness.replaceChildren();
       if (!netKnown) {
         completeness.append(createElement('strong', '', 'Итог пока не рассчитан'));
-        const list = createElement('ul');
-        reasons.forEach(reason => list.append(createElement('li', '', reason)));
+        const list = createElement('div');
+        reasons.forEach(reason => {
+          const disclosure = createElement('details');
+          disclosure.style.marginTop = '8px';
+          const summary = createElement('summary', '', reason.title);
+          summary.style.padding = '14px 0';
+          summary.style.cursor = 'pointer';
+          disclosure.append(summary, createElement('p', '', reason.detail));
+          list.append(disclosure);
+        });
         completeness.append(list);
-        if (ledgerKnown && (total > known || data.summary.unpostedVisits || data.summary.serviceValueUnknownVisits)) {
-          completeness.append(createElement('small', '', 'Список конкретных визитов здесь пока недоступен. Получено учитывает только подтверждённые деньги.'));
-        }
+        completeness.append(createElement('small', '', 'Причины могут относиться к одному визиту; их количества нельзя складывать. «Получено» отражает учтённые системой суммы, а не рассчитанную прибыль.'));
       } else if (data.completeness.message || (total > known && data.completeness.partial)) {
         completeness.append(createElement('p', '', data.completeness.message || `Оплата указана в ${known} из ${total} визитов. Получено учитывает только подтверждённые деньги.`));
       }

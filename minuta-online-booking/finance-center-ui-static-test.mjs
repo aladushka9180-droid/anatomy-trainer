@@ -53,7 +53,7 @@ assert.match(source, /raw\.available === true/);
 assert.match(source, /raw\.financeEnabled === true/);
 assert.match(source, /raw\.resultReliable === true/);
 assert.match(source, /Итог пока не рассчитан/);
-assert.match(source, /Визитов без подтверждённой оплаты/);
+assert.match(source, /Визитов без отметки оплаты/);
 assert.match(source, /aria-live="polite"/);
 assert.match(source, /ArrowLeft/);
 assert.match(source, /Оплата указана в \$\{known\} из \$\{total\} визитов/);

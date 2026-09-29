@@ -24,10 +24,21 @@ test('online transport failure and unverified session never claim internet loss 
   assert.match(server.description, /Повторим автоматически/);
   assert.doesNotMatch(server.description, /сохранить на устройстве/);
   assert.equal(server.help, false);
-  assert.match(view({ ...basic, sessionTrust:'verified', serverUnavailable:true, canQueueBooking:true, hasSavedSchedule:true }).description, /Неподтверждённую запись можно сохранить/);
+  assert.match(view({ ...basic, sessionTrust:'verified', serverUnavailable:true, canQueueBooking:true, hasSavedSchedule:true }).description, /сохраним на устройстве/);
   assert.equal(view({ ...basic, sessionTrust:'cached', serverUnavailable:true }).kind, 'session');
   assert.equal(view({ ...basic, sessionTrust:'none', serverUnavailable:true }).kind, 'session');
   assert.equal(view({ ...basic, sessionTrust:'verified' }), null, 'ordinary online stays clear');
+});
+
+test('pending access verification explains usable offline booking without promising confirmation', () => {
+  const basic = { online:true, hasUser:true, sessionTrust:'cached', hasSavedSchedule:true };
+  const usable = view({ ...basic, canQueueBooking:true });
+  assert.equal(usable.title, 'Проверяем доступ');
+  assert.match(usable.description, /смотреть сохранённые записи и добавлять новые/);
+  assert.match(usable.description, /на устройстве.*проверим доступ и свободное время/);
+  assert.doesNotMatch(usable.description, /недоступны|подтверждены/);
+  assert.doesNotMatch(view({ ...basic, canQueueBooking:false }).description, /добавлять новые|сохраним на устройстве/);
+  assert.doesNotMatch(view({ ...basic, hasSavedSchedule:false, canQueueBooking:true }).description, /смотреть сохранённые|добавлять новые|сохраним на устройстве/);
 });
 
 test('recovery reports only confirmed queue IDs and actual remaining conflicts', () => {

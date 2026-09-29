@@ -21,8 +21,10 @@ jobs:
       - run: node minuta-online-booking/tests/eldion-connection-browser-test.mjs
       - name: Verify one-release PWA update and stale-tab recovery
         run: |
-          git fetch --no-tags --depth=1 origin 0a8cdc330410be36577e9ec4a596cdf04c62f2d1
-          node minuta-online-booking/tests/site-update-notice-browser-test.mjs 0a8cdc330410be36577e9ec4a596cdf04c62f2d1
+          git fetch --no-tags --depth=1 origin 8908228f8f1b4195251154c7e4e8d496940b2baf
+          node minuta-online-booking/tests/site-update-notice-browser-test.mjs 8908228f8f1b4195251154c7e4e8d496940b2baf
+      - name: Verify pending navigation cannot block the next worker
+        run: node minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs
       - name: Check theme colours and marked card states
         env:
           MINUTA_THEME_OUTPUT: ${{ runner.temp }}/theme-regression
@@ -60,6 +62,10 @@ jobs:
       - run: node minuta-online-booking/tests/client-page-settings-v118-pglite-test.mjs
       - run: node minuta-online-booking/tests/pink-porcelain-v177-pglite-test.mjs
       - run: node minuta-online-booking/tests/analytics-reconciliation-browser-test.mjs
+      - run: node minuta-online-booking/tests/report-money-source-visibility-browser-test.mjs
+      - run: node minuta-online-booking/tests/finance-warning-n14-browser-test.mjs
+      - run: node minuta-online-booking/tests/statistics-heatmap-scroll-hint-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-connection-guidance-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-theme-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-metric-hierarchy-browser-test.mjs
       - run: node minuta-online-booking/tests/free-slots-publication-browser-test.mjs

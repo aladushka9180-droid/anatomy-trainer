@@ -34,7 +34,10 @@ test('a connection failure can use only a fresh, verified same-session snapshot'
   assert.equal(box.canQueueOfflineBooking(), false, 'unverified snapshot');
   box.offlineBookingAccessReady = true;
   box.providerSessionTrust = 'cached';
-  assert.equal(box.canQueueOfflineBooking(), false, 'cached session cannot use online outage fallback');
+  assert.equal(box.canQueueOfflineBooking(), true, 'cached session may save locally while access is verified');
+  assert.equal(box.bookingDeferredMode(), true, 'cached session must use the deferred form path');
+  box.providerSessionTrust = 'none';
+  assert.equal(box.canQueueOfflineBooking(), false, 'rejected session cannot queue');
   box.providerSessionTrust = 'verified';
   box.bookingReadConnectionUnavailable = false;
   assert.equal(box.canQueueOfflineBooking(), false, 'ordinary online creation still needs live readiness');
