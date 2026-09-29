@@ -102,7 +102,8 @@
         const card=element('div',null,{ class:'offline-catalog-panel-item' });
         card.append(element('strong',`${kinds[item.kind]}: ${item.fields.name}`));
         card.append(element('p',statuses[item.status] || 'Требуется проверка'));
-        if (item.status==='conflict') card.append(element('p','Серверные данные изменились. Этот черновик не применён.'));
+        if (item.status==='conflict') card.append(element('p',
+          'Сервер отклонил изменение или данные изменились. Этот черновик не применён.'));
         if (item.status==='local' || item.status==='checking') {
           const send=element('button','Проверить и отправить',
             { type:'button',class:'secondary-button compact-button' });

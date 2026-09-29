@@ -9,6 +9,13 @@
   const ROOT = 'minuta-offline-catalog-v1:';
   const VERSION_ROOT = 'minuta-offline-catalog-version-v1:';
   const states = new Set(['local','checking','conflict','applied']);
+  const conflictReasons = new Set([
+    'service_catalog_version_conflict','inventory_catalog_version_conflict',
+    'service_deleted','inventory_item_deleted',
+    'service_changed_after_save','inventory_item_changed_after_save',
+    'service_catalog_service_not_found','inventory_item_not_found',
+    'service_catalog_request_mismatch','inventory_catalog_request_mismatch'
+  ]);
   const clearEpochs = new Map();
   const clearEpoch = userId => clearEpochs.get(userId) || 0;
 
@@ -260,7 +267,7 @@
       id:String(data.id).toLowerCase(),version:data.etag
     },startedEpoch);
     const reason=String(data?.reason || response?.error?.message || '');
-    if (/^(service_catalog_version_conflict|inventory_catalog_version_conflict|service_deleted|inventory_item_deleted|service_changed_after_save|inventory_item_changed_after_save)$/.test(reason))
+    if (conflictReasons.has(reason))
       return withStatus(current,'conflict',{ reason },startedEpoch);
     return current;
   }

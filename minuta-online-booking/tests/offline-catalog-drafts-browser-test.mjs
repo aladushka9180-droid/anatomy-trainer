@@ -151,6 +151,25 @@ try {
     return {unverified:unverified.status,status:result.status,reason:result.result?.reason};
   },{user,org});
   assert.deepEqual(conflict,{unverified:'checking',status:'conflict',reason:'service_changed_after_save'});
+  const rejected=await page.evaluate(async ({user,org,item})=>{
+    const api=window.MinutaOfflineCatalogDrafts;
+    const current=(u,o)=>u===user&&o===org;
+    const missing=await api.queue({userId:user,organizationId:org,kind:'inventory',entityId:item,
+      expectedVersion:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      values:{name:'Масло',sku:'M1',unit:'ml',lowStock:2,active:true}});
+    const missingResult=await api.flushOne({userId:user,organizationId:org,
+      requestId:missing.requestId,isCurrent:current,
+      rpc:async()=>({error:{message:'inventory_item_not_found'}})});
+    const mismatch=await api.queue({userId:user,organizationId:org,kind:'service',
+      values:{name:'Новая услуга 2',durationMinutes:45,priceRub:700,active:true}});
+    const mismatchResult=await api.flushOne({userId:user,organizationId:org,
+      requestId:mismatch.requestId,isCurrent:current,
+      rpc:async()=>({error:{message:'service_catalog_request_mismatch'}})});
+    return [missingResult.status,missingResult.result?.reason,
+      mismatchResult.status,mismatchResult.result?.reason];
+  },{user,org,item});
+  assert.deepEqual(rejected,['conflict','inventory_item_not_found',
+    'conflict','service_catalog_request_mismatch']);
   const unavailable=await page.evaluate(async ({user,org})=>{
     const store=window.MinutaReliability,original=store.put;
     store.put=async()=>{throw new Error('idb_unavailable');};
