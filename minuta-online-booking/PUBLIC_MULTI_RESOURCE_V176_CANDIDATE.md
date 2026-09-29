@@ -48,8 +48,11 @@ browser execution or connect the client route on the strength of this candidate.
   `get_available_slots` function.
 - PostgreSQL 17 CI with a schema-only clone of the isolated test project:
   migration apply twice, legacy v167/single definitions and `anon` grants,
-  private tables/RLS, closed v176 RPC, rollback and reapply pass. No source
-  rows or production data are copied to the disposable server.
+  private tables/RLS, closed v176 RPC, rollback and reapply pass. On that clone,
+  the existing v153 and v167 integration suites, a two-performer route through
+  the real v153 booking RPC, and separate-connection duplicate/calendar races
+  pass. The losing calendar route leaves no partial bookings. No source rows or
+  production data are copied to the disposable server.
 
 ## Full-schema rehearsal — required before integration
 
@@ -87,11 +90,11 @@ those tables would be a separate, destructive migration and is not authorized.
 
 ## Current verification limit
 
-The full-schema clone has only exercised migration compatibility and access
-control. It has not executed v176 with synthetic bookings against the real
-v153 single-booking function or repeated v167/single integration and calendar
-races on that same final schema. The native concurrency check uses test stubs,
-not the full production function chain. Those are required before integration.
-Cross-location production traffic also needs a trusted server travel-time
-source; none is configured. Production application requires the release
-owner's fresh backup/restore/rollback proof and explicit SQL authorization.
+The full-schema checks use a schema-only clone with synthetic rows. They do
+not prove production behavior, external travel-time evidence, or an actual
+client booking. Cross-location production traffic needs a trusted server
+travel-time source; none is configured. The candidate remains closed to all
+browser roles. Production application requires the release owner's fresh
+backup/restore/rollback proof, current migration-number check, and explicit
+SQL authorization. Client multi-performer integration needs its own gated
+release and live validation after the server contract is installed.
