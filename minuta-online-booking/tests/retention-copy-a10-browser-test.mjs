@@ -19,6 +19,9 @@ try {
   const source = readFileSync(join(project, paths[1]), 'utf8');
   const help = readFileSync(join(project, paths[2]), 'utf8');
   const css = readFileSync(join(project, 'minuta-online-booking/styles.css'), 'utf8');
+  const uxCss = readFileSync(join(project, 'minuta-online-booking/provider-ux.css'), 'utf8');
+  const familyCss = readFileSync(join(project, 'minuta-online-booking/provider-theme-families.css'), 'utf8');
+  const loftCss = readFileSync(join(project, 'minuta-online-booking/provider-theme-loft-modern.css'), 'utf8');
   const providerSource = readFileSync(join(project, 'minuta-online-booking/provider.js'), 'utf8');
   const confirmationStart = providerSource.indexOf('function requestProviderConfirmation(');
   const confirmationEnd = providerSource.indexOf('\nfunction visitorVisitTimeLabel(', confirmationStart);
@@ -54,6 +57,9 @@ try {
       document.body.append(main, document.importNode(dialog, true));
     }, html);
     await page.addStyleTag({ content:css });
+    await page.addStyleTag({ content:uxCss });
+    await page.addStyleTag({ content:familyCss });
+    await page.addStyleTag({ content:loftCss });
     await page.addScriptTag({ content:`function $(selector) { return document.querySelector(selector); }\n${confirmationSource}` });
     await page.addScriptTag({ content:source });
     await page.evaluate(async () => {
@@ -87,6 +93,18 @@ try {
     });
     assert.equal(await page.locator('#retentionPanel .panel-head h3').innerText(), 'Возврат клиентов');
     assert.match(await page.locator('#retentionEnabled').locator('..').innerText(), /Подбирать клиентов после перерыва/);
+    const enabledAppearance = await page.locator('#retentionEnabled').evaluate(input => {
+      const previous = input.checked;
+      const theme = document.body.dataset.providerTheme;
+      document.body.dataset.providerTheme = 'loft';
+      input.checked = true;
+      const track = getComputedStyle(input).backgroundColor;
+      const knob = getComputedStyle(input, '::after').backgroundColor;
+      input.checked = previous;
+      document.body.dataset.providerTheme = theme;
+      return { track, knob };
+    });
+    assert.notEqual(enabledAppearance.track, enabledAppearance.knob, `${width}: enabled switch must look selected`);
     assert.match(await page.locator('#retentionPanel').innerText(), /Дней после последнего визита/);
     assert.match(await page.locator('#retentionPanel').innerText(), /Повторное предложение — не раньше чем через/);
     assert.match(await page.locator('#retentionPanel').innerText(), /Подготовленные сообщения/);

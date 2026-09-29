@@ -594,3 +594,101 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     border-top-style:dashed!important;
   }
 }
+
+/* Short mobile visits keep the real time height. Give the client and service
+   one deliberate line each instead of letting the service fall below the card. */
+@media (max-width:760px) {
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-booking-copy {
+    top:0!important;
+    right:0!important;
+    bottom:0!important;
+    left:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    gap:0!important;
+    box-sizing:border-box!important;
+    width:100%!important;
+    height:100%!important;
+    max-height:none!important;
+    padding:1px 34px 1px 10px!important;
+    transform:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block)>.timeline-booking-time {
+    display:none!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-booking-client-row {
+    display:block!important;
+    order:-1!important;
+    flex:none!important;
+    min-width:0!important;
+    padding:0!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-booking-client {
+    display:block!important;
+    overflow:hidden!important;
+    color:var(--theme-ink)!important;
+    font-size:11px!important;
+    font-weight:550!important;
+    line-height:1.1!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-mobile-time {
+    display:inline!important;
+    color:inherit!important;
+    font-size:10px!important;
+    font-weight:400!important;
+    opacity:1!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-booking-copy>strong {
+    display:block!important;
+    order:0!important;
+    flex:none!important;
+    width:100%!important;
+    min-width:0!important;
+    padding:0!important;
+    color:var(--theme-ink)!important;
+    font-size:11px!important;
+    font-weight:400!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+    -webkit-line-clamp:unset!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-service-title {
+    display:block!important;
+    overflow:hidden!important;
+    font-size:11px!important;
+    line-height:1!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-service-duration {
+    display:none!important;
+  }
+}
+
+/* The final flat schedule layer previously reduced every dark appointment to
+   a 12% accent mix. Restore the dark theme's own accent on real visits only. */
+html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings :is(.timeline-booking,.provider-booking):not(.status-block):not(.automatic-break):not(.status-cancelled) {
+  border-color:color-mix(in srgb,var(--schedule-entry-tone,var(--theme-accent)) 72%,var(--theme-line))!important;
+  background:color-mix(in srgb,var(--schedule-entry-tone,var(--theme-accent)) 40%,var(--theme-surface))!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  color:var(--theme-ink)!important;
+}
+html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-theme="loft"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings :is(.timeline-booking,.provider-booking):not(.status-block):not(.automatic-break):not(.status-cancelled) {
+  background:color-mix(in srgb,var(--schedule-entry-tone,var(--theme-accent)) 48%,var(--theme-surface))!important;
+}
+html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking:not(.status-block):not(.automatic-break) .timeline-mobile-time {
+  color:var(--theme-ink)!important;
+  opacity:1!important;
+}
+
+/* The stronger dark visit fill must keep the mobile client name legible at
+   other real durations too; the 40-minute layout already uses this ink. */
+@media (max-width:760px) {
+  html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking[data-open-booking]:not(.status-block):not(.automatic-break):not(.status-cancelled) .timeline-client-name {
+    color:var(--theme-ink)!important;
+  }
+}

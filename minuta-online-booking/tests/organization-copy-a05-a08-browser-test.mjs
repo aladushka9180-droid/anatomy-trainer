@@ -72,6 +72,14 @@ try {
     await page.screenshot({ path:resolve(output, 'screenshots', `a05-${width}.png`), fullPage:true });
 
     await page.evaluate(() => showAuditPanel('paymentProviderPanel'));
+    await page.evaluate(() => { document.querySelector('#paymentProviderState').textContent = 'Приём предоплаты выключен'; });
+    const badge = await page.locator('#paymentProviderState').evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return { bottom:bounds.bottom, lineBottoms:[...range.getClientRects()].map(rect => rect.bottom) };
+    });
+    assert.ok(badge.lineBottoms.every(bottom => bottom <= badge.bottom - 1), `${width}: payment state must fit inside its badge`);
     await page.locator('#paymentSandboxDisclosure summary').click();
     await page.evaluate(() => { document.querySelector('#paymentProviderWorkspace').hidden = false; });
     const payment = await page.locator('#paymentProviderPanel').innerText();
