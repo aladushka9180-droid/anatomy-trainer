@@ -82,7 +82,9 @@ const precacheBytes = assets.reduce((total, asset) => {
 // Loyalty integration adds 645 bytes to HTML/provider/import; artwork stays optional.
 // The v1010 organization copy and shared avatar/new-booking hooks add to the offline shell.
 // Reserve under 3.1 KiB for the new hooks and HTML asset links; artwork stays optional.
-assert.ok(precacheBytes <= 3.614 * 1024 * 1024, `Core precache is too large: ${precacheBytes} bytes`);
+// v1029 adds 2,431 measured bytes for the approved mobile controls and offline hooks
+// (3,788,986 -> 3,791,417 on aad905fb); reserve only 2.5 KB, keeping artwork optional.
+assert.ok(precacheBytes <= 3.614 * 1024 * 1024 + 2500, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /try \{ await caches\.delete\(CACHE\); \} catch \{\}/,

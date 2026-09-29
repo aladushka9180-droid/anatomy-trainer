@@ -73,9 +73,13 @@ try {
   });
   assert.deepEqual(modes, { listSync:true, hiddenOutsideDay:true });
 
-  for (const width of [360, 390, 760, 1440]) {
+  for (const theme of ['carbon-crimson', 'pink-porcelain']) for (const width of [360, 390, 760, 1440]) {
     await page.setViewportSize({ width, height:844 });
-    await page.evaluate(() => syncCompactScheduleOrder());
+    await page.evaluate(theme => {
+      document.body.dataset.providerTheme = theme;
+      document.body.dataset.providerResolvedColorMode = theme === 'carbon-crimson' ? 'dark' : 'light';
+      syncCompactScheduleOrder();
+    }, theme);
     const state = await page.evaluate(() => {
       const rect = selector => document.querySelector(selector).getBoundingClientRect();
       const style = selector => getComputedStyle(document.querySelector(selector));
@@ -97,7 +101,8 @@ try {
         dateIcon:{ x:rect('.schedule-date-picker>.ui-icon').x, w:rect('.schedule-date-picker>.ui-icon').width },
         dateInputRight:rect('.schedule-date-picker input').right,
         extraArrows:[...document.querySelectorAll('.date-navigation>.date-nav-button')].some(button => getComputedStyle(button).display !== 'none'),
-        heading:{ x:rect('.schedule-view-title h2').x, y:rect('.schedule-view-title h2').y },
+        heading:{ x:rect('.schedule-view-title h2').x, bottom:rect('.schedule-view-title h2').bottom },
+        tabsTop:rect('.calendar-view-toggle').top,
       };
     });
     assert.equal(state.overflow, false, `${width}: horizontal overflow`);
@@ -116,6 +121,7 @@ try {
       assert.equal(state.dateIcon.w, 16);
       assert.ok(state.dateIcon.x >= state.dateInputRight - 1, `${width}: calendar icon is not after date`);
       assert.ok(state.heading.x <= 18, `${width}: heading shifted right`);
+      assert.ok(state.heading.bottom < state.tabsTop, `${theme}/${width}: period tabs overlap heading`);
       const controlColors = await page.evaluate(() => {
         const today = document.querySelector('.date-navigation>.date-today-button');
         const toggle = document.querySelector('.schedule-mobile-mode-toggle');
@@ -133,12 +139,12 @@ try {
       assert.equal(controlColors.todayBackground, controlColors.toggleBackground, `${width}: Today and switch surfaces differ`);
       assert.equal(controlColors.currentDay, controlColors.accent, `${width}: Today is not pink when selected`);
       assert.notEqual(controlColors.otherDay, controlColors.accent, `${width}: Today is pink on another day`);
-      assert.equal(controlColors.activeBackground, 'rgb(40, 57, 74)', `${width}: selected switch fill differs from reference`);
+      if (theme === 'carbon-crimson') assert.equal(controlColors.activeBackground, 'rgb(40, 57, 74)', `${width}: selected switch fill differs from reference`);
     } else {
       assert.equal(state.topSummary === 'none', false, 'desktop summary was hidden');
       assert.equal(state.toggle.h, 0, 'mobile toggle visible on desktop');
     }
-    if (output) await page.screenshot({ path:resolve(output, `compact-schedule-${width}.png`), clip:width <= 760 ? { x:0, y:0, width, height:Math.min(335, 844) } : undefined });
+    if (output) await page.screenshot({ path:resolve(output, `compact-schedule-${theme}-${width}.png`), clip:width <= 760 ? { x:0, y:0, width, height:Math.min(335, 844) } : undefined });
   }
   console.log('Compact schedule layout and timeline lines: PASS');
 } finally {
