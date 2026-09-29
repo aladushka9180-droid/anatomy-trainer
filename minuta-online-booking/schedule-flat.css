@@ -335,7 +335,7 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     grid-template-rows:auto!important;
     min-height:0!important;
     height:auto!important;
-    margin:-46px 4px 14px!important;
+    margin:-46px 4px 0!important;
     padding:0 0 12px!important;
     border-bottom:1px solid var(--theme-line)!important;
     pointer-events:none!important;
