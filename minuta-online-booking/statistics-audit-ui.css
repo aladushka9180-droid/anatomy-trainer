@@ -49,7 +49,6 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #re
   line-height:1.4;
 }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView :is(.report-funnel-card,.report-comparison) .report-section-heading small,
-body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-funnel :is(strong,small),
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-heatmap-legend :is(span,small),
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-comparison-list :is(span,strong) {
   font-size:calc(12px + var(--provider-text-step,0px));
@@ -62,20 +61,20 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .re
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-health-details summary { min-height:44px; }
 
 @media (max-width:760px) {
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView :is(.report-filter-toggle small,.report-data-source>span,.report-secondary small,.report-zero-summary strong,.report-reconciliation strong,.report-trend .panel-head small,.report-section-heading small,.report-retention-list span,.report-utilization-values span,.report-utilization-values b,.report-team-rank,.report-team-person em,.report-team-person small,.report-performer-value b,.report-performer-value small,.report-methodology-grid span),
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView :is(.report-filter-toggle small,.report-secondary small,.report-zero-summary strong,.report-reconciliation strong,.report-trend .panel-head small,.report-section-heading small,.report-utilization-values span,.report-utilization-values b,.report-team-rank,.report-team-person em,.report-team-person small,.report-performer-value b,.report-performer-value small,.report-methodology-grid span),
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView :is(.report-period-details,.report-analytics-details,.report-methodology)>summary {
     font-size:calc(12px + var(--provider-text-step,0px));
     line-height:1.35;
   }
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-team-person small { overflow:visible; text-overflow:clip; white-space:normal; }
-  #analyticsView :is(.report-view-tabs button,.report-periods button,.report-data-source button,.report-mini-toggle button,.report-team-controls button,.report-export-formats button,.report-custom-period button,.report-goals-open,.report-source-list button,#reloadMoneyDashboard) { min-height:44px; font-size:max(12px,1em); }
+  #analyticsView :is(.report-view-tabs button,.report-periods button,.report-mini-toggle button,.report-team-controls button,.report-export-formats button,.report-custom-period button,.report-goals-open,.report-source-list button,#reloadMoneyDashboard) { min-height:44px; font-size:max(12px,1em); }
   #analyticsView .report-performer-filter select,#analyticsView .report-custom-period input { min-height:44px; font-size:14px; }
   #analyticsView .report-period-label,#analyticsView .report-performer-filter>span { font-size:12px; }
   #analyticsView .report-team-note { font-size:calc(12px + var(--provider-text-step,0px)); line-height:1.4; }
-  #analyticsView .report-trend .report-chart-column small { font-size:calc(11px + var(--provider-text-step,0px)); }
-  #analyticsView :is(.report-data-source>small,.report-chart-context small,.report-chart-hint) { font-size:calc(12px + var(--provider-text-step,0px)); line-height:1.4; }
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView > .report-data-source > small { font-size:calc(12px + var(--provider-text-step,0px)); }
-  #analyticsView :is(.report-trend .panel-head p,.report-primary-metric small,.report-trend .report-chart-column>b) { font-size:calc(12px + var(--provider-text-step,0px)); line-height:1.4; }
+  #analyticsView .report-trend .report-chart-column small { font-size:max(.8125rem,calc(13px + var(--provider-text-step,0px))); }
+  #analyticsView :is(.report-data-source>small,.report-chart-context small,.report-chart-hint) { font-size:max(.8125rem,calc(13px + var(--provider-text-step,0px))); line-height:1.4; }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView > .report-data-source > small { font-size:max(.8125rem,calc(13px + var(--provider-text-step,0px))); }
+  #analyticsView :is(.report-trend .panel-head p,.report-primary-metric small,.report-trend .report-chart-column>b) { font-size:max(.8125rem,calc(13px + var(--provider-text-step,0px))); line-height:1.4; }
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-copy > p { font-size:calc(12px + var(--provider-text-step,0px)); }
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-command-metrics small { font-size:calc(12px + var(--provider-text-step,0px)); }
 }
@@ -127,3 +126,13 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView:is(
 #analyticsView .report-clients-empty p { margin:0; color:var(--theme-muted); font-size:14px; line-height:1.5; }
 #analyticsView .report-clients-empty button { width:auto; min-height:44px; padding-inline:18px; }
 @media(max-width:600px) { #analyticsView .report-clients-empty button { width:100%; } }
+
+#analyticsView .report-trend .report-chart{height:max(210px,14rem);min-height:max(210px,14rem);overflow-x:auto}
+#analyticsView .report-trend .report-chart-column{flex:1 0 max(80px,5rem);grid-template-rows:minmax(2rem,auto) minmax(0,1fr) minmax(2.5rem,auto)}
+#analyticsView .report-trend .report-chart-column small{overflow-wrap:anywhere;text-overflow:clip;white-space:normal}
+#analyticsView .report-funnel article>div{align-items:start;row-gap:.3rem}
+#analyticsView .report-funnel :is(strong,small){line-height:1.3}
+body.provider-body[data-provider-text-scale] #analyticsView :is(.report-data-source>span,.report-retention-list span,.report-funnel small){font-size:calc(.8125rem + var(--provider-text-step,0px))}
+body.provider-body[data-provider-text-scale] #analyticsView .report-funnel strong{font-size:calc(.875rem + var(--provider-text-step,0px))}
+body.provider-body[data-provider-text-scale] #analyticsView :is(.report-data-source button,.report-trend-open){font-size:calc(1rem + var(--provider-text-step,0px))}
+@media(max-width:760px){#analyticsView .report-trend .report-chart{height:max(190px,13rem);min-height:max(190px,13rem)}}

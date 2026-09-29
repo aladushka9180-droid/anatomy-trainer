@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -10,9 +11,8 @@ const project = resolve(here, '..');
 const html = readFileSync(join(project, 'provider.html'), 'utf8');
 const source = readFileSync(join(project, 'inventory-management.js'), 'utf8');
 const providerSource = readFileSync(join(project, 'provider.js'), 'utf8');
-const css = readFileSync(join(project, 'styles.css'), 'utf8');
-const themeCss = ['provider-themes-signature.css', 'provider-layout-responsive.css', 'provider-ux.css', 'provider-porcelain-detail.css', 'provider-reference-screens.css']
-  .map(name => readFileSync(join(project, name), 'utf8'));
+const cssLayers = [...html.replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, '').matchAll(/<link\s+rel="stylesheet"[^>]*href="([^"?]+)(?:\?[^"]*)?"[^>]*>/g)].map(match => ({ name:match[1], media:match[0].match(/media="([^"]+)"/)?.[1] || '' }));
+const css = cssLayers.map(layer => ({ ...layer, content:readFileSync(join(project, layer.name), 'utf8') }));
 const messageStart = source.indexOf('function messageFor(error)');
 const messageEnd = source.indexOf('async function mutate(', messageStart);
 assert.ok(messageStart >= 0 && messageEnd > messageStart, 'real error mapper must exist');
@@ -26,8 +26,7 @@ assert.equal(messageFor({ message:'inventory_unit_locked_by_ledger' }), 'Нел�
 assert.equal(messageFor({ message:'inventory_warehouse_location_locked_by_ledger' }), 'Нельзя перенести склад в другой филиал после первой операции. Создайте новый склад.');
 
 const modulePath = process.env.MINUTA_PLAYWRIGHT_MODULE;
-if (!modulePath) throw new Error('Set MINUTA_PLAYWRIGHT_MODULE to the local Playwright index.mjs');
-const { chromium } = await import(pathToFileURL(modulePath).href);
+const { chromium } = modulePath ? await import(pathToFileURL(modulePath).href) : createRequire(import.meta.url)('playwright');
 const browser = await chromium.launch({ headless:true,
   ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const outputDir = process.env.MINUTA_A11_SCREENSHOT_DIR;
@@ -51,14 +50,15 @@ try {
       document.body.className = 'provider-body';
       document.body.dataset.providerTheme = 'pink-porcelain';
       document.body.dataset.providerPorcelainCharacter = 'pearl';
+      document.body.dataset.providerLayout = 'soft';
+      document.body.dataset.providerTextScale = 'default';
       document.body.style.margin = '0';
       const main = document.createElement('main');
       main.style.cssText = 'max-width:1100px;margin:auto;padding:12px;box-sizing:border-box';
       main.append(document.importNode(panel, true));
       document.body.append(main);
     }, html);
-    await page.addStyleTag({ content:css });
-    for (const layer of themeCss) await page.addStyleTag({ content:layer });
+    for (const layer of css) { const style = await page.addStyleTag({ content:layer.content }); if (layer.media) await style.evaluate((node,media) => { node.media = media; }, layer.media); }
     await page.addScriptTag({ content:source });
     await page.addScriptTag({ content:`function $$(selector) { return [...document.querySelectorAll(selector)]; }
 ${inventoryNavigation}
@@ -118,6 +118,21 @@ setInventorySection('balances');` });
     assert.equal(initial.quantityLabel, 'Расход на один визит, мл');
     assert.deepEqual(initial.rpcCalls, ['get_minuta_inventory_workspace_v130']);
     assert.ok(initial.overflow <= 1, `${width}px initial overflow ${initial.overflow}`);
+    assert.equal(await page.locator('#inventoryPanel>.panel-head h3').innerText(), 'Склад');
+    assert.equal(await page.locator('#inventoryPanel>.panel-head small').count(), 0);
+    assert.equal(await page.locator('#inventoryFirstRun ol li').count(), 2);
+    await page.locator('[data-inventory-section="catalog"]').click();
+    await page.locator('#inventoryItemCreator>summary').click();
+    await page.locator('#inventoryWarehouseCreator>summary').click();
+    assert.match(await page.locator('[data-inventory-pane="catalog"]').innerText(), /Один филиал — один склад\. После первой операции нельзя изменить единицу материала или перенести склад в другой филиал\./);
+    assert.match(await page.locator('#inventoryItemForm').innerText(), /После отключения позиция останется в истории\./);
+    assert.match(await page.locator('#inventoryWarehouseForm').innerText(), /Использовать склад[\s\S]*Отключённый склад не участвует в операциях и автосписании\./);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), `${width}px catalogue overflow`);
+    if (outputDir) await page.locator('#inventoryPanel').screenshot({ path:join(outputDir, `a11-inventory-${width}.png`) });
+    await page.locator('#inventoryItemCreator>summary').click();
+    await page.locator('#inventoryWarehouseCreator>summary').click();
+    await page.locator('[data-inventory-section="history"]').click();
+    assert.equal((await page.locator('#inventoryMovementsPanel>summary').innerText()).replace(/\s*0$/, '').trim(), 'История операций');
 
     await page.locator('[data-inventory-section="operations"]').click();
     assert.equal(await page.locator('[data-inventory-pane="operations"]').isVisible(), true);
@@ -142,16 +157,6 @@ setInventorySection('balances');` });
     assert.equal(await page.locator('#inventoryTransfersHint').textContent(), 'Режим перемещений может менять только владелец.');
     assert.equal(await page.locator('#inventoryEnabled').isDisabled(), true);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth <= 1));
-    if (outputDir) {
-      await page.evaluate(async () => {
-        a11Payload = { ...a11Payload, current_role:'owner', transfers_enabled:false, transfers_initialized_at:null };
-        await a11Controller.load();
-        setInventorySection('catalog');
-        document.querySelector('#inventoryItemCreator').open = true;
-        document.querySelector('#inventoryWarehouseCreator').open = true;
-      });
-      await page.locator('#inventoryPanel').screenshot({ path:join(outputDir, `a11-inventory-${width}.png`) });
-    }
     console.log(`${width}px: controller copy, status, units, four operations, tabs, overflow PASS`);
     await page.close();
   }

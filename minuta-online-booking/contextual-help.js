@@ -33,10 +33,11 @@
   function readConfiguration(host, overrides = {}) {
     const data = host.dataset || {};
     const slug = compactText(option(overrides.slug, data.helpSlug), 120);
+    const roleTable = parseBoolean(option(overrides.roleTable, data.helpRoleTable));
     const articleData = articleBySlug(slug);
-    const title = compactText(option(overrides.title, data.helpTitle) || articleData?.title, 180);
-    const summary = compactText(option(overrides.summary, data.helpSummary) || articleData?.intro || articleData?.excerpt, 1200);
-    const brief = parseBoolean(option(overrides.brief, data.helpBrief));
+    const title = compactText(option(overrides.title, data.helpTitle) || (roleTable ? 'Роли и доступ' : articleData?.title), 180);
+    const summary = compactText(option(overrides.summary, data.helpSummary) || (roleTable ? 'Роль задаёт права в кабинете. Приём клиентов и доступ к организации включаются отдельно.' : articleData?.intro || articleData?.excerpt), 1200);
+    const brief = roleTable || parseBoolean(option(overrides.brief, data.helpBrief));
     const example = brief ? '' : compactText(option(overrides.example, data.helpExample) || articleExample(articleData), 1200);
     const change = brief ? '' : compactText(option(overrides.change, data.helpChange) || articleData?.note, 1200);
     const danger = parseBoolean(option(overrides.danger, data.helpDanger), data.helpVariant === 'danger');
@@ -52,8 +53,10 @@
       example,
       change,
       danger,
-      label: customLabel || (danger ? 'Что произойдёт?' : 'Как это работает?'),
+      label: customLabel || (roleTable ? 'Роли и доступ' : danger ? 'Что произойдёт?' : 'Как это работает?'),
       article: compactText(option(overrides.article, data.helpArticle) || (slug ? `help/article.html?slug=${encodeURIComponent(slug)}` : ''), 2000),
+      articleLabel: compactText(option(overrides.articleLabel, data.helpArticleLabel), 80) || (roleTable ? 'Права ролей' : 'Подробнее'),
+      roleTable,
       articleTarget: compactText(option(overrides.articleTarget, data.helpArticleTarget), 20) || '_blank',
       nextLabel: compactText(option(overrides.nextLabel, data.helpNextLabel), 80),
       nextTarget: compactText(option(overrides.nextTarget, data.helpNextTarget), 120),
@@ -175,6 +178,13 @@
       panel.setAttribute('aria-label', config.label);
     }
     if (config.summary) appendTextElement(doc, panel, 'p', 'contextual-help__summary', config.summary);
+    if (config.roleTable) {
+      const table = doc.createElement('table');
+      table.setAttribute('aria-label', 'Права ролей');
+      table.style.cssText = 'width:100%;table-layout:fixed;margin:10px 0;font-size:max(.8125rem,calc(13px + var(--provider-text-step,0px)));line-height:1.4;text-align:left;overflow-wrap:anywhere';
+      table.innerHTML = '<thead><tr><th scope="col" style="width:44%;text-align:left">Роль</th><th scope="col" style="text-align:left">Права в организации</th></tr></thead><tbody><tr><th scope="row" style="text-align:left">Владелец</th><td>Название, филиалы, приглашения и права команды; последнего владельца нельзя отключить</td></tr><tr><th scope="row" style="text-align:left">Администратор</th><td>Название, филиалы, приглашения и права специалистов</td></tr><tr><th scope="row" style="text-align:left">Специалист</th><td>Видит свою строку; организацию и команду не меняет</td></tr></tbody>';
+      panel.append(table);
+    }
 
     if (config.example || config.change) {
       const details = doc.createElement('div');
@@ -204,13 +214,13 @@
         const article = doc.createElement('a');
         article.className = 'contextual-help__action';
         article.href = articleUrl;
-        article.textContent = 'Подробнее';
+        article.textContent = config.articleLabel;
         if (config.articleTarget === '_self') {
           article.target = '_self';
         } else {
           article.target = '_blank';
           article.rel = 'noopener noreferrer';
-          article.setAttribute('aria-label', `Подробнее: ${config.title || config.label}. Откроется в новой вкладке`);
+          article.setAttribute('aria-label', `${config.articleLabel}: ${config.title || config.label}. Откроется в новой вкладке`);
         }
         actions.append(article);
       }
