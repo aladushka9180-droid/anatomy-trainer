@@ -136,6 +136,8 @@ jobs:
           if ! docker exec "$container" psql -U postgres -d postgres -X -q \
             -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate \
             -c "insert into auth.users(id) values ('00000000-0000-4000-8000-00000000c186');
+                insert into public.performer_profiles(id,display_name)
+                values ('00000000-0000-4000-8000-00000000c186','Catalog rehearsal actor');
                 insert into public.services(performer_id,name,duration_minutes,price_rub,active)
                 values ('00000000-0000-4000-8000-00000000c186','Catalog rehearsal service',45,1000,true);"; then
             echo 'Synthetic service seed failed; SQLSTATE above, no row output' >&2
