@@ -403,9 +403,9 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
   html body.provider-body[data-provider-theme][data-provider-layout][data-provider-resolved-color-mode="dark"] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button.is-current {
     background:#17232f!important;
   }
-  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout][data-provider-resolved-color-mode="light"] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button,
-  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout][data-provider-resolved-color-mode="light"] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button.is-current,
-  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout][data-provider-resolved-color-mode="light"] #dashboard:not([hidden])[data-active-view="bookings"] .date-navigation>.schedule-mobile-mode-toggle:not([hidden]) {
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout]:not([data-provider-resolved-color-mode="dark"]) #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button,
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout]:not([data-provider-resolved-color-mode="dark"]) #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button.is-current,
+  html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout]:not([data-provider-resolved-color-mode="dark"]) #dashboard:not([hidden])[data-active-view="bookings"] .date-navigation>.schedule-mobile-mode-toggle:not([hidden]) {
     background:#fff!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.schedule-date-picker {
