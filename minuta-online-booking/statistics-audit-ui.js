@@ -285,6 +285,9 @@
       hint.className = 'report-heatmap-scroll-hint';
       hint.textContent = 'Проведите по таблице вбок, чтобы увидеть остальные дни →';
       heatmap.before(hint);
+      heatmap.addEventListener('scroll', () => {
+        if (Math.abs(heatmap.scrollLeft) > 1) hint.hidden = true;
+      }, { passive:true });
     }
     function mount() { mountSegments(); mountExport(); mountDateValidation(); mountHeatmapHint(); }
     return { mount, refresh, openSegment, openExport, chooseFormat, validateCustomDates, invalidate };
