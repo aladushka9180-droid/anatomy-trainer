@@ -139,12 +139,19 @@ jobs:
                 insert into public.performer_profiles(id,display_name)
                 values ('00000000-0000-4000-8000-00000000c186','Catalog rehearsal actor');
                 insert into public.services(performer_id,name,duration_minutes,price_rub,active)
-                values ('00000000-0000-4000-8000-00000000c186','Catalog rehearsal service',45,1000,true);"; then
-            echo 'Synthetic service seed failed; SQLSTATE above, no row output' >&2
+                values ('00000000-0000-4000-8000-00000000c186','Catalog rehearsal service',45,1000,true);
+                insert into public.organizations(id,name,public_slug,status,public_booking_enabled,created_by)
+                values ('00000000-0000-4000-8000-00000000c187','Catalog rehearsal organization',
+                  'catalog-rehearsal-only','active',false,'00000000-0000-4000-8000-00000000c186');
+                insert into public.inventory_items(organization_id,name,unit)
+                values ('00000000-0000-4000-8000-00000000c187','Catalog rehearsal item','piece');"; then
+            echo 'Synthetic catalog seed failed; SQLSTATE above, no row output' >&2
             exit 1
           fi
           test "$(docker exec "$container" psql -U postgres -d postgres -X -qAt \
             -c 'select count(*) from public.services')" = 1
+          test "$(docker exec "$container" psql -U postgres -d postgres -X -qAt \
+            -c 'select count(*) from public.inventory_items')" = 1
           bash minuta-online-booking/scripts/catalog-v186-v187-restore.sh \
             "$container" "$private_log" "$result" \
             minuta-online-booking/supabase-migration-v186.sql \
