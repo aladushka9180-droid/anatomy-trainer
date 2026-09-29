@@ -1,0 +1,50 @@
+name: Minuta v185 notification isolated test
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/pro-booking-reliability-audit-20260929]
+    paths:
+      - '.github/workflows/minuta-v185-notification-isolated.yml'
+      - 'minuta-online-booking/supabase-migration-v185*.sql'
+      - 'minuta-online-booking/notification-v126-integration-test.ts'
+      - 'minuta-online-booking/tests/notification-v185-*'
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-v185-only
+          POSTGRES_DB: minuta_v185_fixture
+        ports: ['55433:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d minuta_v185_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.x
+      - name: Synthetic PGlite contract and formatting
+        run: |
+          deno fmt --check minuta-online-booking/notification-v126-integration-test.ts
+          deno lint --rules-exclude=no-unversioned-import minuta-online-booking/notification-v126-integration-test.ts
+          deno test --allow-read minuta-online-booking/notification-v126-integration-test.ts
+          node minuta-online-booking/notification-v126-static-test.mjs
+      - name: Real PostgreSQL 17 lock and rollback fixture
+        env:
+          MINUTA_V185_EPHEMERAL_CONFIRM: EMPTY_LOOPBACK_POSTGRES_17
+          MINUTA_V185_EPHEMERAL_DATABASE_URL: postgresql://postgres:ephemeral-v185-only@127.0.0.1:55433/minuta_v185_fixture
+        run: |
+          npm install --prefix "$RUNNER_TEMP/v185-deps" --no-save --ignore-scripts --no-audit --no-fund pg@8.16.3
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/v185-deps/node_modules/pg/lib/index.js"
+          node minuta-online-booking/tests/notification-v185-postgres-test.mjs

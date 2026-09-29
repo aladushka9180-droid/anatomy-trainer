@@ -13,6 +13,16 @@ const rollback = psqlBody(
     new URL("./supabase-migration-v126-rollback.sql", import.meta.url),
   ),
 );
+const migrationV185 = psqlBody(
+  await Deno.readTextFile(
+    new URL("./supabase-migration-v185.sql", import.meta.url),
+  ),
+);
+const rollbackV185 = psqlBody(
+  await Deno.readTextFile(
+    new URL("./supabase-migration-v185-rollback.sql", import.meta.url),
+  ),
+);
 export const database = new PGlite();
 export const organization = "00000000-0000-4000-8000-000000000001";
 export const performer = "00000000-0000-4000-8000-000000000002";
@@ -283,11 +293,146 @@ Deno.test("v126 quiet hours, confirmation request, fallback and rollback contrac
     { id: otherReceiptOutbox, delivered: false },
   ]);
 
+  // A return to the same slot is a new change, even when an earlier event for
+  // that slot was cancelled or sent. A duplicate enqueue at one revision is not.
+  await database.exec(migrationV185);
+  await database.exec(migrationV185);
+  const pendingCycle = "40000000-0000-4000-8000-000000000001";
+  const sentCycle = "40000000-0000-4000-8000-000000000002";
+  await database.exec(`insert into public.bookings(
+      id,booking_code,manage_token,performer_id,service_id,client_name,client_phone,
+      booking_date,booking_time,status,organization_id)
+    values
+      ('${pendingCycle}','CYCLE-P',gen_random_uuid(),'${performer}','${service}',
+        'Клиент','79990000001','2099-09-09','14:00','confirmed','${organization}'),
+      ('${sentCycle}','CYCLE-S',gen_random_uuid(),'${performer}','${service}',
+        'Клиент','79990000001','2099-09-09','14:00','confirmed','${organization}');
+    select public.enqueue_minuta_booking_notification('${pendingCycle}','booking_rescheduled');
+    select public.enqueue_minuta_booking_notification('${pendingCycle}','booking_reminder');
+    select public.enqueue_minuta_booking_notification('${sentCycle}','booking_rescheduled');`);
+  const revisionZeroKey = await database.query<{ event_key: string }>(
+    "select event_key from public.notification_outbox where booking_id='" +
+      pendingCycle +
+      "' and kind='booking_rescheduled' and audience='client' and channel='telegram'",
+  );
+  assertEquals(revisionZeroKey.rows, [{
+    event_key: "booking:" + pendingCycle +
+      ":booking_rescheduled:2099-09-09:14:00:00:client:telegram",
+  }]);
+  const duplicate = await database.query<{ inserted: number }>(`
+    select public.enqueue_minuta_booking_notification(
+      '${pendingCycle}','booking_rescheduled') inserted`);
+  assertEquals(duplicate.rows, [{ inserted: 0 }]);
+  await database.exec(`update public.notification_outbox
+    set status='sent',attempts=1,sent_at=now(),provider_message_id='cycle-fixture'
+    where booking_id='${sentCycle}' and kind='booking_rescheduled'
+      and audience='client' and channel='telegram';
+    update public.bookings set booking_time='15:00'
+      where id in('${pendingCycle}','${sentCycle}');
+    update public.bookings set booking_time='14:00'
+      where id in('${pendingCycle}','${sentCycle}');`);
+  const reminderAfterReturn = await database.query<{ inserted: number }>(`
+    select public.enqueue_minuta_booking_notification(
+      '${pendingCycle}','booking_reminder') inserted`);
+  await database.exec(`update public.bookings
+    set booking_date='2099-09-09',booking_time='14:00'
+    where id in('${pendingCycle}','${sentCycle}');`);
+  const noOpReplay = await database.query<{
+    rescheduled: number;
+    reminder: number;
+  }>(`select
+    public.enqueue_minuta_booking_notification(
+      '${pendingCycle}','booking_rescheduled') rescheduled,
+    public.enqueue_minuta_booking_notification(
+      '${pendingCycle}','booking_reminder') reminder`);
+  const cycle = await database.query<{
+    booking_id: string;
+    kind: string;
+    cancelled: number;
+    sent: number;
+    pending: number;
+  }>(`select booking_id::text,kind,
+      count(*) filter(where status='cancelled')::integer cancelled,
+      count(*) filter(where status='sent')::integer sent,
+      count(*) filter(where status='pending')::integer pending
+    from public.notification_outbox
+    where booking_id in('${pendingCycle}','${sentCycle}')
+      and audience='client' and channel='telegram'
+      and payload->>'booking_time'='14:00:00'
+      and kind in('booking_rescheduled','booking_reminder')
+    group by booking_id,kind order by booking_id,kind`);
+  assertEquals(noOpReplay.rows, [{ rescheduled: 0, reminder: 0 }]);
+  assertEquals(reminderAfterReturn.rows, [{ inserted: 3 }]);
+  assertEquals(cycle.rows, [
+    {
+      booking_id: pendingCycle,
+      kind: "booking_reminder",
+      cancelled: 1,
+      sent: 0,
+      pending: 1,
+    },
+    {
+      booking_id: pendingCycle,
+      kind: "booking_rescheduled",
+      cancelled: 1,
+      sent: 0,
+      pending: 1,
+    },
+    {
+      booking_id: sentCycle,
+      kind: "booking_rescheduled",
+      cancelled: 0,
+      sent: 1,
+      pending: 1,
+    },
+  ]);
+  const revision = await database.query<{ revision: number }>(
+    "select notification_schedule_revision::integer revision from public.bookings where id='" +
+      pendingCycle + "'",
+  );
+  assertEquals(revision.rows, [{ revision: 2 }]);
+  await database.exec(rollbackV185);
+  const operationalRollback = await database.query<{
+    revision: number;
+    old_source: boolean;
+  }>(
+    "select booking.notification_schedule_revision::integer revision," +
+      "position('notification_schedule_revision' in proc.prosrc)=0 old_source " +
+      "from public.bookings booking,pg_proc proc where booking.id='" +
+      pendingCycle +
+      "' and proc.oid='public.enqueue_minuta_booking_notification(uuid,text)'::regprocedure",
+  );
+  assertEquals(operationalRollback.rows, [{ revision: 2, old_source: true }]);
+  await database.exec(migrationV185);
+  const replayAfterReapply = await database.query<{ inserted: number }>(
+    "select public.enqueue_minuta_booking_notification('" + pendingCycle +
+      "','booking_reminder') inserted",
+  );
+  assertEquals(replayAfterReapply.rows, [{ inserted: 0 }]);
+  await database.exec(
+    "update public.bookings set status='cancelled' where id='" + sentCycle +
+      "'",
+  );
+  const afterCancellation = await database.query<{
+    sent: number;
+    cancelled: number;
+    pending: number;
+  }>(
+    "select count(*) filter(where status='sent')::integer sent," +
+      "count(*) filter(where status='cancelled')::integer cancelled," +
+      "count(*) filter(where status='pending')::integer pending " +
+      "from public.notification_outbox where booking_id='" + sentCycle +
+      "' and kind='booking_rescheduled' and audience='client' and channel='telegram'",
+  );
+  assertEquals(afterCancellation.rows, [{ sent: 1, cancelled: 2, pending: 0 }]);
+
   await database.exec(`delete from public.notification_delivery_attempts;
     delete from public.notification_outbox;
+    delete from public.bookings where id in('${pendingCycle}','${sentCycle}');
     delete from public.organization_notification_fallbacks;
     update public.organization_notification_settings
       set booking_confirmation_request_enabled=false,quiet_hours_enabled=false;`);
+  await database.exec(rollbackV185);
   await database.exec(rollback);
   const after = await database.query<
     {
