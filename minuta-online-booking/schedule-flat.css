@@ -612,6 +612,7 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     height:100%!important;
     max-height:none!important;
     padding:1px 34px 1px 10px!important;
+    overflow:visible!important;
     transform:none!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block)>.timeline-booking-time {
@@ -625,7 +626,8 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     padding:0!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-booking-client {
-    display:block!important;
+    display:flex!important;
+    flex-direction:column!important;
     overflow:hidden!important;
     color:var(--theme-ink)!important;
     font-size:11px!important;
@@ -635,11 +637,17 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     white-space:nowrap!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-mobile-time {
-    display:inline!important;
+    display:block!important;
     color:inherit!important;
     font-size:10px!important;
     font-weight:400!important;
     opacity:1!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-client-name {
+    display:block!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-booking-copy>strong {
     display:block!important;
@@ -668,18 +676,19 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
   }
 }
 
-/* A 40-minute card has only 27px of desktop content height after its fixed
-   padding. Keep both text rows at their real line height so the client name
-   cannot be flex-shrunk behind the service row. */
+/* Keep each compact 40-minute row at its real line height. The mobile card
+   uses 14+15+15px text lines inside 46px at the 75px hourly scale. */
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-booking-client-row {
   flex:none!important;
 }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) :is(.timeline-booking-client,.timeline-client-name,.timeline-booking-copy>strong,.timeline-service-title) {
-  font-size:11px!important;
-  line-height:12px!important;
+  font-size:12px!important;
+  line-height:15px!important;
 }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.compact.timeline-tight[data-open-booking][data-booking-duration="40"]:not(.minute-only):not(.status-block) .timeline-mobile-time {
-  margin-right:4px!important;
+  margin-right:0!important;
+  font-size:11px!important;
+  line-height:14px!important;
 }
 
 /* The final flat schedule layer previously reduced every dark appointment to

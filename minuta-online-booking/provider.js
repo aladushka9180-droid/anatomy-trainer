@@ -9073,9 +9073,9 @@ function renderTimeline(sourceItems) {
   const fullBounds = timelineBounds(items);
   let { start, end } = fullBounds;
   const currentClock = selectedDate === businessTodayIso() ? businessClock() : null;
-  // The compact mobile scale keeps five complete hours readable above the
-  // fixed navigation without changing desktop density or booking duration.
-  const hourHeight = mobileTimeline ? 65 : 76;
+  // Three readable lines on a 40-minute mobile visit need a 46px card:
+  // 40/60 * 75 - 4 = 46. Keep the desktop scale and booking times unchanged.
+  const hourHeight = mobileTimeline ? 75 : 76;
   const naturalTimelineHeight = ((end - start) / 60) * hourHeight;
   const timelineItems = items.map((item, index) => {
     const itemStart = minutesFromTime(item.booking_time);
@@ -9128,7 +9128,7 @@ function renderTimeline(sourceItems) {
     const timelineClientRow = compactMobile && block
       ? ''
       : tightMobile && !block
-      ? `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRangeMarkup} · </span><span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${timelinePhoneMarkup}${notePresence ? '<span> · есть заметка</span>' : ''}</small></span>`
+      ? `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRangeMarkup}${mobileTimeline && duration === 40 ? '' : ' · '}</span><span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${timelinePhoneMarkup}${notePresence ? '<span> · есть заметка</span>' : ''}</small></span>`
       : `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRangeMarkup}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>`;
     const ariaDetails = displayPreferences.show_notes && note ? `${clientDetails}, заметка: ${note}` : clientDetails;
     const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
