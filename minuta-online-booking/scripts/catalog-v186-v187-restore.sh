@@ -26,8 +26,9 @@ for i in 0 1 2 3; do
   docker cp "${files[$i]}" "$container:/tmp/catalog-$i.sql" >/dev/null
 done
 
-# A byte-for-byte plain dump of the existing business tables detects changes
+# A repeatable plain dump of the existing business tables detects changes
 # beyond counts while keeping rows and their digest out of public logs.
+# The fixed restrict key is only for comparing dumps; this output is never run.
 tables=(
   --table=public.services
   --table=public.service_public_details_v159
@@ -38,7 +39,8 @@ tables=(
 )
 business_digest() {
   docker exec "$container" pg_dump -U postgres -d postgres --data-only \
-    --no-owner --no-privileges "${tables[@]}" --file=/tmp/catalog-business.sql \
+    --no-owner --no-privileges --restrict-key=CatalogCompareOnly \
+    "${tables[@]}" --file=/tmp/catalog-business.sql \
     >>"$private_log" 2>&1
   docker exec "$container" sha256sum /tmp/catalog-business.sql | cut -d' ' -f1
 }
