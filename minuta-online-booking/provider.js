@@ -3667,6 +3667,7 @@ function rememberOwnBookingContext() {
 
 function prepareDemoBookingContext(preferredDate = '') {
   if (!bookingUsesDemoData()) return;
+  if (bookingAnalyticsScope?.analytics === 'heatmap' && $('#dashboard')?.dataset.activeView === 'bookings') return;
   rememberOwnBookingContext();
   const rows = bookingSourceItems().filter(item => !isScheduleBlock(item));
   const availableDates = new Set(rows.map(item => item.booking_date).filter(Boolean));
@@ -4873,6 +4874,7 @@ function bookingMatchesAnalyticsScope(item, scope = bookingAnalyticsScope) {
   if (scope.end && item.booking_date > scope.end) return false;
   if (scope.performer && scope.performer !== 'all' && reportEffectivePerformerId(item) !== String(scope.performer)) return false;
   if (scope.analytics !== 'heatmap') return true;
+  if (scope.source && scope.source !== reportDataSource || scope.organization && item.organization_id && String(item.organization_id) !== String(scope.organization)) return false;
   if (item.status === 'cancelled' || isScheduleBlock(item)) return false;
   const date = parseLocalIsoDate(item.booking_date);
   const weekday = Number(scope.weekday);
@@ -17174,10 +17176,11 @@ document.addEventListener('click', async event => {
     const timeFrom = Number(reportHeatmapCell.dataset.reportHeatmapFrom);
     const timeTo = Number(reportHeatmapCell.dataset.reportHeatmapTo);
     const weekdays = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-    const label = `${weekdays[weekday] || 'День'}, ${timeFromMinutes(timeFrom)}–${timeFromMinutes(timeTo)}`;
+    const scope = reportDrilldownScope();
+    const label = `${[scope.start, scope.end].map(reportExportDate).join('–')} · ${weekdays[weekday] || 'День'}, ${timeFromMinutes(timeFrom)}–${timeFromMinutes(timeTo)} · ${reportPerformerName()} · ${scope.source === 'demo' ? 'Демо' : 'Свои данные'}`;
     openReportBookings({
       analytics:'heatmap',
-      scope:{ ...reportDrilldownScope(), analytics:'heatmap', weekday, timeFrom, timeTo, label }
+      scope:{ ...scope, analytics:'heatmap', weekday, timeFrom, timeTo, label }
     });
     notify(`Показаны записи: ${label}`);
   }
