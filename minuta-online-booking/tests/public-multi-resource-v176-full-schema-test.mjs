@@ -45,8 +45,8 @@ try {
   const missing = Object.entries(prerequisites).filter(([, present]) => !present).map(([name]) => name);
   assert.deepEqual(missing, [], `v176 full-schema prerequisites absent: ${missing.join(', ')}`);
   const before = await legacy();
-  await db.query(body('supabase-migration-v176.sql'));
-  await db.query(body('supabase-migration-v176.sql'));
+  await db.query(body('supabase-migration-v188.sql'));
+  await db.query(body('supabase-migration-v188.sql'));
   assert.deepEqual(await legacy(), before);
   for (const table of ['public_route_travel_evidence_v176', 'public_multi_resource_routes_v176', 'public_multi_resource_route_items_v176']) {
     assert.equal(await scalar('select relrowsecurity from pg_class where oid=$1::regclass', [`public.${table}`]), true);
@@ -57,9 +57,9 @@ try {
   const signature = 'public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb)';
   for (const role of ['anon', 'authenticated', 'service_role'])
     assert.equal(await scalar('select has_function_privilege($1,$2,\'execute\')', [role, signature]), false);
-  await db.query(body('supabase-migration-v176-rollback.sql'));
+  await db.query(body('supabase-migration-v188-rollback.sql'));
   assert.deepEqual(await legacy(), before);
-  await db.query(body('supabase-migration-v176.sql'));
+  await db.query(body('supabase-migration-v188.sql'));
   assert.deepEqual(await legacy(), before);
   assert.equal(await scalar('select has_function_privilege(\'anon\',$1,\'execute\')', [signature]), false);
   console.log('PASS: full-schema apply twice, legacy definitions and grants, closed RPC/RLS, rollback/reapply');

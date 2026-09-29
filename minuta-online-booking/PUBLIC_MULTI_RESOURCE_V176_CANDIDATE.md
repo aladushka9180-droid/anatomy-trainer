@@ -1,5 +1,9 @@
 # Multi-resource public booking RPC v176 — isolated candidate
 
+Migration file number: v188. Current `origin/main` already contains v184, and
+another open package uses v186/v187. The RPC/table contract retains v176;
+the migration number is independent. Recheck uniqueness before integration.
+
 Scope: provider-owned PostgreSQL expansion for an ordered route of 2–6 ordinary
 bookings. No client UI, traffic switch, production SQL, or live travel adapter is
 included. The existing v167 route and single-booking RPC are unchanged.
@@ -38,6 +42,14 @@ browser execution or connect the client route on the strength of this candidate.
 - v152/v153 single-booking static release check and source-contract script:
   pass. These checks verify the baseline files, not v176 behavior on a restored
   full schema.
+- PostgreSQL 17 CI with an empty synthetic schema: the v176 contract above and
+  a real concurrent duplicate-route lock/replay pass. This exposed and fixed
+  an incorrect three-argument prerequisite check for the live four-argument
+  `get_available_slots` function.
+- PostgreSQL 17 CI with a schema-only clone of the isolated test project:
+  migration apply twice, legacy v167/single definitions and `anon` grants,
+  private tables/RLS, closed v176 RPC, rollback and reapply pass. No source
+  rows or production data are copied to the disposable server.
 
 ## Full-schema rehearsal — required before integration
 
@@ -50,7 +62,7 @@ webhooks/delivery. Do not copy production data into this rehearsal.
    uniqueness and test DB identity. Take a fresh test-schema backup, verify the
    archive integrity, restore it to a disposable database, and verify required
    tables, functions, constraints, RLS and role grants before applying v176.
-2. Apply `supabase-migration-v176.sql` twice. Confirm old v167 and single RPC
+2. Apply `supabase-migration-v188.sql` twice. Confirm old v167 and single RPC
    definitions and grants are byte-identical to the pre-apply snapshot; the new
    route tables are private and the new RPC is not executable by browser roles.
 3. In the disposable database, use synthetic roles, organizations, locations,
@@ -65,7 +77,7 @@ webhooks/delivery. Do not copy production data into this rehearsal.
    route UUIDs, a booking on the second calendar, and a changed travel
    attestation. Assert one complete route or a clean failure, never a partial
    route or duplicate booking. Repeat with ordinary single/v167 calls.
-5. Apply `supabase-migration-v176-rollback.sql`. Verify browser execution is
+5. Apply `supabase-migration-v188-rollback.sql`. Verify browser execution is
    still denied and existing route journals/bookings remain. Reapply v176,
    verify the same state and legacy paths. Destroy the disposable database.
 
@@ -75,12 +87,11 @@ those tables would be a separate, destructive migration and is not authorized.
 
 ## Current verification limit
 
-The present Windows workspace has no `psql`, `pg_dump`, `pg_restore`, Docker,
-PostgreSQL server or `MINUTA_TEST_DATABASE_URL`. No PostgreSQL/ Docker Windows
-service or listener on localhost ports 5432/5433/6543 is present; WSL has no
-installed distribution. `gh auth status` reports an invalid token, and remote
-branch/CI writes are outside this task's authorization. The existing test CI
-cannot be dispatched from this task.
-The full-schema restore, concurrency and legacy integration gates remain open.
-Production application also requires the separate release owner's fresh
-backup/restore/rollback proof and explicit SQL authorization.
+The full-schema clone has only exercised migration compatibility and access
+control. It has not executed v176 with synthetic bookings against the real
+v153 single-booking function or repeated v167/single integration and calendar
+races on that same final schema. The native concurrency check uses test stubs,
+not the full production function chain. Those are required before integration.
+Cross-location production traffic also needs a trusted server travel-time
+source; none is configured. Production application requires the release
+owner's fresh backup/restore/rollback proof and explicit SQL authorization.

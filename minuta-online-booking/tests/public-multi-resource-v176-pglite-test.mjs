@@ -134,7 +134,7 @@ try {
   const legacyDefinitions = (await db.query(`select
     pg_get_functiondef('public.book_minuta_multi_service_route_v167(uuid,text,uuid,text,text,jsonb)'::regprocedure) as route,
     pg_get_functiondef('public.book_minuta_appointment_v2(uuid,text,uuid,uuid,date,time without time zone,text,text,integer,integer)'::regprocedure) as single`)).rows[0];
-  await db.exec(read('supabase-migration-v176.sql'));
+  await db.exec(read('supabase-migration-v188.sql'));
   assert.deepEqual((await db.query(`select
     pg_get_functiondef('public.book_minuta_multi_service_route_v167(uuid,text,uuid,text,text,jsonb)'::regprocedure) as route,
     pg_get_functiondef('public.book_minuta_appointment_v2(uuid,text,uuid,uuid,date,time without time zone,text,text,integer,integer)'::regprocedure) as single`)).rows[0], legacyDefinitions);
@@ -289,11 +289,11 @@ try {
     }
   }
 
-  await db.exec(read('supabase-migration-v176-rollback.sql'));
+  await db.exec(read('supabase-migration-v188-rollback.sql'));
   assert.equal(await scalar(`select has_function_privilege('anon',
     'public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb)','execute')`),false);
   assert.equal(await count('public_multi_resource_routes_v176',route),1);
-  await db.exec(read('supabase-migration-v176.sql'));
+  await db.exec(read('supabase-migration-v188.sql'));
   assert.equal(await scalar(`select has_function_privilege('anon',
     'public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb)','execute')`),false);
   assert.equal(await count('public_multi_resource_routes_v176',route),1);
