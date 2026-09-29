@@ -161,15 +161,18 @@
       const panel = $('#shiftSubstitutionPanel');
       panel.hidden = !canManage;
       if (!canManage) return;
-      const active = payload.bookings.filter(item => item.status !== 'cancelled' && !item.has_addons);
-      $('#substitutionBooking').innerHTML = active.length ? renderOptions(active, '', item => `${dateLabel(item.booking_date)} ${shortTime(item.booking_time)} · ${item.service_name || item.booking_code}`) : '<option value="">Нет записей в периоде</option>';
+      const unclassified = payload.bookings.some(item => typeof item.is_schedule_block !== 'boolean');
+      const active = unclassified ? [] : payload.bookings.filter(item => item.status !== 'cancelled' && !item.has_addons && item.is_schedule_block === false);
+      $('#substitutionBooking').innerHTML = active.length ? renderOptions(active, '', item => `${dateLabel(item.booking_date)} ${shortTime(item.booking_time)} · ${item.service_name || item.booking_code}`)
+        : `<option value="">${unclassified ? 'Список записей временно недоступен' : 'Нет записей в периоде'}</option>`;
       const booking = active.find(item => item.id === $('#substitutionBooking').value) || active[0];
       const alternatives = booking ? payload.services.filter(service => service.performer_id !== booking.performer_id && Number(service.duration_minutes) === Number(booking.primary_duration_minutes || booking.duration_minutes)) : [];
       const noAlternative = !booking ? 'Нет записей для замены'
         : payload.performers.length < 2 ? 'Для замены нужен другой специалист'
           : 'У другого специалиста нет услуги той же длительности';
       $('#substitutionService').innerHTML = alternatives.length ? renderOptions(alternatives, '', item => `${nameOf(payload.performers, item.performer_id, 'Специалист')} · ${item.name}`) : `<option value="">${noAlternative}</option>`;
-      $('#substitutionHint').textContent = payload.performers.length < 2
+      $('#substitutionHint').textContent = unclassified ? 'Обновите график позже: сервер пока не различает записи и блоки времени.'
+        : payload.performers.length < 2
         ? 'Для замены нужен другой специалист. Запись и ссылка клиента сохранятся.'
         : 'Запись и ссылка клиента сохранятся. Замена возможна, если специалист и нужные ресурсы свободны.';
       panel.querySelector('button').disabled = !booking || !alternatives.length;
@@ -244,6 +247,7 @@
           ['shift_overlaps_absence', 'Смена пересекается с отпуском или больничным.'],
           ['shift_has_bookings', 'Нельзя отменить смену с действующими записями. Сначала переназначьте клиентов.'],
           ['absence_has_bookings', 'На этот период уже есть записи. Сначала замените специалиста.'],
+          ['schedule_block_substitution_denied', 'Блок времени нельзя заменить как запись клиента.'],
           ['existing_bookings_outside_shifts', 'Не все будущие записи попадают в подготовленные смены. Строгий режим не включён.'],
           ['booking_outside_active_shift', 'Новый специалист не работает в этом филиале и в это время.'],
           ['bookings_performer_active_no_overlap', 'У нового специалиста это время уже занято.'],
