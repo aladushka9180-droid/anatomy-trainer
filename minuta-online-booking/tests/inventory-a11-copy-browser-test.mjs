@@ -21,6 +21,10 @@ const navStart = providerSource.indexOf('function setInventorySection(');
 const navEnd = providerSource.indexOf('const PROVIDER_ASSISTANT_UNDO_TTL_MS', navStart);
 assert.ok(navStart >= 0 && navEnd > navStart, 'real inventory navigation must exist');
 const inventoryNavigation = providerSource.slice(navStart, navEnd);
+const colorStart = providerSource.indexOf('function applyProviderColorMode()');
+const colorEnd = providerSource.indexOf('function applyDisplayPreferences()', colorStart);
+assert.ok(colorStart >= 0 && colorEnd > colorStart, 'real palette application must exist');
+const applyColorMode = providerSource.slice(colorStart, colorEnd);
 assert.equal(messageFor({ message:'inventory_transfers_disabled' }), 'Перемещения выключены.');
 assert.equal(messageFor({ message:'inventory_unit_locked_by_ledger' }), 'Нельзя изменить единицу материала после первой операции. Создайте новую позицию.');
 assert.equal(messageFor({ message:'inventory_warehouse_location_locked_by_ledger' }), 'Нельзя перенести склад в другой филиал после первой операции. Создайте новый склад.');
@@ -45,20 +49,33 @@ try {
     });
     await page.goto('https://a11-synthetic.test/');
     await page.evaluate(markup => {
-      const panel = new DOMParser().parseFromString(markup, 'text/html').getElementById('inventoryPanel');
+      const parsed = new DOMParser().parseFromString(markup, 'text/html');
+      const panel = parsed.getElementById('inventoryPanel');
       if (!panel) throw new Error('Real inventory panel missing');
       document.body.className = 'provider-body';
       document.body.dataset.providerTheme = 'pink-porcelain';
-      document.body.dataset.providerPorcelainCharacter = 'pearl';
+      document.body.dataset.providerPorcelainCharacter = 'petal';
       document.body.dataset.providerLayout = 'soft';
       document.body.dataset.providerTextScale = 'default';
       document.body.style.margin = '0';
       const main = document.createElement('main');
+      main.id = 'dashboard';
+      main.dataset.activeView = 'organization';
       main.style.cssText = 'max-width:1100px;margin:auto;padding:12px;box-sizing:border-box';
-      main.append(document.importNode(panel, true));
+      const organization = document.importNode(panel.closest('[data-provider-panel]'), false);
+      organization.hidden = false;
+      organization.append(document.importNode(panel, true));
+      main.append(organization);
       document.body.append(main);
     }, html);
     for (const layer of css) { const style = await page.addStyleTag({ content:layer.content }); if (layer.media) await style.evaluate((node,media) => { node.media = media; }, layer.media); }
+    for (const file of ['theme-catalog.js', 'provider-color-mode.js', 'provider-porcelain-matrix.js']) {
+      await page.addScriptTag({ content:readFileSync(join(project, file), 'utf8') });
+    }
+    await page.addScriptTag({ content:`const displayPreferences = { theme:'pink-porcelain', color_mode:'light', porcelain:{ character:'petal', shade:'gentle-pink' } };
+const providerColorSchemeQuery = { matches:false };
+${applyColorMode}
+applyProviderColorMode();` });
     await page.addScriptTag({ content:source });
     await page.addScriptTag({ content:`function $$(selector) { return [...document.querySelectorAll(selector)]; }
 ${inventoryNavigation}

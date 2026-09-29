@@ -7,8 +7,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = path.resolve(fileURLToPath(new URL('../', import.meta.url)));
 const html = readFileSync(path.join(root, 'provider.html'), 'utf8');
 const matrix = readFileSync(path.join(root, 'provider-porcelain-matrix.js'), 'utf8');
-const cssFiles = [...html.matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^\"]*)?"/g)]
-  .map(match => match[1]);
+const cssLayers = [...html.matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^\"]*)?"[^>]*>/g)]
+  .map(match => ({ file:match[1], media:match[0].match(/media="([^"]+)"/)?.[1] || '' }));
+const cssFiles = cssLayers.map(layer => layer.file);
 assert.ok(cssFiles.includes('provider-porcelain-detail.css'));
 assert.ok(cssFiles.includes('client-profile-card.css'));
 assert.ok(cssFiles.includes('free-slots-compact.css'));
@@ -74,7 +75,10 @@ try {
       dialog.append(times); document.body.append(dialog);
       document.querySelectorAll('#inventoryEnabled,#inventoryAutoDeduct,#retentionEnabled').forEach(input => { input.checked = true; });
     }, html);
-    for (const file of cssFiles) await page.addStyleTag({ content:readFileSync(path.join(root, file), 'utf8') });
+    for (const { file, media } of cssLayers) {
+      const style = await page.addStyleTag({ content:readFileSync(path.join(root, file), 'utf8') });
+      if (media) await style.evaluate((element, value) => { element.media = value; }, media);
+    }
     await page.addScriptTag({ content:matrix });
     const filled = [
       '#clientQuickRepeat', '#clientRecords .cr-button', '.booking-time-slots button.active',
