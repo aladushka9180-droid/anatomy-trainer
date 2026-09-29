@@ -10,7 +10,7 @@ begin
      or to_regprocedure('public.book_minuta_multi_service_route_v167(uuid,text,uuid,text,text,jsonb)') is null
      or to_regprocedure('public.book_minuta_appointment_v2(uuid,text,uuid,uuid,date,time without time zone,text,text,integer,integer)') is null
      or to_regprocedure('public.get_public_minuta_catalog_v5(text)') is null
-     or to_regprocedure('public.get_available_slots(uuid,date,date)') is null
+     or to_regprocedure('public.get_available_slots(uuid,date,date,uuid)') is null
      or to_regprocedure('extensions.digest(bytea,text)') is null then
     raise exception using errcode='55000',message='v176_multi_resource_prerequisites_missing';
   end if;

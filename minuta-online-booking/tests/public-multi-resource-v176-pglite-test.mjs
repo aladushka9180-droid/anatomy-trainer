@@ -79,7 +79,8 @@ try {
       join public.locations location on location.organization_id=organization.id and location.active
       where organization.public_slug=slug
     $catalog$;
-    create function public.get_available_slots(service_id uuid,start_date date,end_date date)
+    create function public.get_available_slots(service_id uuid,start_date date,end_date date,
+      ignore_booking_id uuid default null)
       returns table(booking_date date,booking_time time) language sql stable as $slots$
       select start_date,t.slot_time from (values(time '09:00'),(time '10:00'),
         (time '11:00'),(time '12:00'),(time '13:00'),(time '14:00'),
