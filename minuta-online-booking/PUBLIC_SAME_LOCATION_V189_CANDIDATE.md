@@ -1,0 +1,31 @@
+# Same-location server entry point — candidate v189
+
+This migration depends on the closed v188/v176 multi-resource route. It adds
+`book_minuta_same_location_route_v189(uuid,text,text,jsonb)` for the trusted
+client Worker. The wrapper accepts 2–6 items only when every item names the
+same organization and location; it supplies an empty travel-transition list
+to v176. The cross-location v176 RPC remains revoked for `service_role`,
+`anon`, and `authenticated`. The new wrapper grants `EXECUTE` only to
+`service_role`; browser roles cannot call it.
+
+The client Worker must call the four-argument v189 wrapper and keep
+`PRIMETIME_MULTI_RESOURCE_SAME_LOCATION_ENABLED` off until the production
+contract, backup, rollback, access grant, and live validation are complete.
+The Worker alone enforces public-session authorization and requires its
+existing service-role credential. This migration does not send messages,
+charge payments, create a route by itself, or configure cross-location travel.
+
+The isolated PGlite test applies v188 and v189 twice, checks function
+privileges, creates one synthetic two-performer route, rejects a cross-location
+route with no rows, replays after a price change, revokes access without
+removing bookings or journals, and reapplies the grant. It does not prove a
+production booking or the client Worker integration.
+
+Before production SQL: recheck the migration number against fresh `main` and
+other release candidates; the sole Pro release owner must verify a fresh
+closed backup, isolated restoration, apply/rollback/reapply and existing
+booking paths on the target schema, then confirm the user's exact SQL
+authorization. Apply v188 before v189. Keep the client flag off until both
+servers and the final Worker release are checked. Operational rollback applies
+`supabase-migration-v189-rollback.sql` to revoke new traffic while retaining
+confirmed bookings and route journals.

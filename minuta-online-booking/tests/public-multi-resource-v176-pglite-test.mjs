@@ -297,7 +297,49 @@ try {
   assert.equal(await scalar(`select has_function_privilege('anon',
     'public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb)','execute')`),false);
   assert.equal(await count('public_multi_resource_routes_v176',route),1);
+
+  await db.exec(read('supabase-migration-v189.sql'));
+  await db.exec(read('supabase-migration-v189.sql'));
+  assert.equal(await scalar(`select has_function_privilege('service_role',
+    'public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb)','execute')`),false);
+  assert.equal(await scalar(`select has_function_privilege('anon',
+    'public.book_minuta_same_location_route_v189(uuid,text,text,jsonb)','execute')`),false);
+  assert.equal(await scalar(`select has_function_privilege('service_role',
+    'public.book_minuta_same_location_route_v189(uuid,text,text,jsonb)','execute')`),true);
+  const sameLocationDate=await scalar('select (current_date+2)::text');
+  const sameLocationRoute=next();
+  const sameLocationItems=makeItems(sameLocationDate,'09:00','10:00',{sameOrg:true});
+  const callSameLocation=(routeId,routeItems)=>db.query(
+    'select public.book_minuta_same_location_route_v189($1::uuid,$2,$3,$4::jsonb) as result',
+    [routeId,'V189 client','+79990001789',JSON.stringify(routeItems)],
+  );
+  await db.exec('set role anon');
+  await expectFailure(() => callSameLocation(sameLocationRoute,sameLocationItems),'permission denied');
+  await db.exec('reset role; set role service_role');
+  const sameLocationCreated=(await callSameLocation(sameLocationRoute,sameLocationItems)).rows[0].result;
+  assert.equal(sameLocationCreated.idempotent,false);
+  assert.deepEqual(sameLocationCreated.bookings.map(b=>b.performer_id),[id.masterA,id.masterB]);
+  const crossLocationRoute=next();
+  const crossLocationItems=makeItems(sameLocationDate,'11:00','12:00');
+  await expectFailure(() => callSameLocation(crossLocationRoute,crossLocationItems),
+    'same_location_route_scope_invalid');
+  assert.equal(await count('public_multi_resource_routes_v176',crossLocationRoute),0);
+  await db.exec('reset role');
+  await db.query('update public.services set price_rub=1800 where id=$1',[id.serviceA]);
+  await db.exec('set role service_role');
+  const sameLocationReplay=(await callSameLocation(sameLocationRoute,sameLocationItems)).rows[0].result;
+  assert.equal(sameLocationReplay.idempotent,true);
+  assert.deepEqual(sameLocationReplay.bookings,sameLocationCreated.bookings);
+  await db.exec('reset role');
+  await db.exec(read('supabase-migration-v189-rollback.sql'));
+  assert.equal(await scalar(`select has_function_privilege('service_role',
+    'public.book_minuta_same_location_route_v189(uuid,text,text,jsonb)','execute')`),false);
+  assert.equal(await count('public_multi_resource_routes_v176',sameLocationRoute),1);
+  await db.exec(read('supabase-migration-v189.sql'));
+  assert.equal(await scalar(`select has_function_privilege('service_role',
+    'public.book_minuta_same_location_route_v189(uuid,text,text,jsonb)','execute')`),true);
   console.log('v176 PGlite: cross-org, multi-performer, replay, rights, stale/slow/no travel, overlap, timezone/terms, atomic rollback, reapply PASS');
+  console.log('v189 PGlite: service-role-only same-location wrapper, cross-location refusal, replay after terms drift, rollback/reapply PASS');
 } finally {
   await db.close();
 }
