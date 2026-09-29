@@ -40,6 +40,7 @@ try {
     document.documentElement.classList.remove('provider-booting', 'requires-top-level');
     document.querySelector('#providerBoot')?.remove();
     document.querySelector('#dashboard').hidden = false;
+    document.querySelector('#authCard').hidden = true;
     document.querySelector('#dashboard').dataset.activeView = 'bookings';
     document.body.dataset.providerTheme = 'pink-porcelain';
     document.querySelectorAll('.provider-view').forEach(view => { view.hidden = view.dataset.providerPanel !== 'bookings'; });
@@ -137,7 +138,7 @@ try {
   assert.doesNotMatch(integrated.noSnapshot, /добавлять новые/);
   assert.match(integrated.server, /Нет связи с сервером/);
   assert.doesNotMatch(integrated.server, /Нет интернета/);
-  assert.match(integrated.session, /Сеанс нужно подтвердить/);
+  assert.match(integrated.session, /Проверяем доступ/);
   assert.match(integrated.summary, /Сохранена 1 запись, 1 запись требует проверки/);
   assert.equal(integrated.afterAccountChange, true);
   const clickStart = providerSource.indexOf("$('#providerConnectionGuidanceCheck')?.addEventListener");
@@ -195,7 +196,39 @@ try {
   assert.match(await page.locator('#toast').innerText(), /Не удалось подтвердить сеанс/);
   assert.equal(await page.evaluate(() => window.testSyncCalls), 1);
   await page.evaluate(() => clearTimeout(cachedProviderVerificationRetryTimer));
+  await page.addScriptTag({content:`
+    let providerVerifiedSessionExpiresAt = 0;
+    let bookingsSnapshotSavedAt = new Date().toISOString();
+    const PROVIDER_CACHE_MAX_AGE = 7 * 86400000;
+    const ownServices = [{id:'synthetic-service', active:true}];
+    ${actual('offlineBookingSnapshotFresh')}
+    ${actual('bookingDeferredMode')}
+    ${actual('canQueueOfflineBooking')}
+    ${actual('offlineBookingStatusText')}
+  `});
+  for (const width of [390, 760, 1440]) for (const theme of ['pink-porcelain', 'carbon-crimson']) {
+    await page.setViewportSize({width, height:850});
+    await page.evaluate(theme => {
+      $('#toast').hidden = true;
+      document.body.dataset.providerTheme = theme;
+      providerSessionTrust = 'cached'; window.testOnline = true;
+      offlineBookingAccessReady = true; offlineBookingInputsReady = true;
+      bookingReadConnectionUnavailable = false;
+      renderProviderConnectionGuidance();
+    }, theme);
+    const panel = page.locator('#providerConnectionGuidance');
+    assert.match(await panel.innerText(), /Проверяем доступ/);
+    assert.match(await panel.innerText(), /смотреть сохранённые записи и добавлять новые/);
+    assert.doesNotMatch(await panel.innerText(), /Новые записи пока недоступны/);
+    assert.deepEqual(await page.evaluate(() => [bookingDeferredMode(), canQueueOfflineBooking()]), [true,true]);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);
+    if (output) await page.screenshot({path:path.join(output, `cached-session-${theme}-${width}.png`)});
+  }
+  await page.evaluate(() => { offlineBookingAccessReady = false; renderProviderConnectionGuidance(); });
+  assert.doesNotMatch(await page.locator('#providerConnectionGuidance').innerText(), /добавлять новые|сохраним на устройстве/);
+  assert.equal(await page.evaluate(() => canQueueOfflineBooking()), false);
   console.log('provider connection guidance browser: 390/760/1440, offline/help/server/recovery/normal online PASS');
+  console.log('cached online booking: real gates and banner, 390/760/1440 in light/dark themes PASS');
   console.log('manual session retry browser: real button, verified recovery and temporary failure PASS');
 } finally {
   await browser?.close();
