@@ -5,13 +5,14 @@
   if (new URLSearchParams(location.search).get('porcelain-preview') === '1') return;
 
   const scriptUrl = document.currentScript?.src || location.href;
-  const workerUrl = new URL('./sw.js?v=1034', scriptUrl).href;
+  const workerUrl = new URL('./sw.js?v=1036', scriptUrl).href;
   const pageVersion = Number(new URL(workerUrl).searchParams.get('v'));
   const CHECK_INTERVAL_MS = 15 * 60 * 1000;
   let registration = null;
   let currentController = navigator.serviceWorker.controller;
   let lastCheck = 0;
   let checkPromise = null;
+  let recheck = false;
 
   function workerVersion(controller) {
     if (!controller) return Promise.resolve(null);
@@ -32,10 +33,14 @@
     });
   }
 
-  async function refreshUpdateNotice() {
+  async function refreshUpdateNotice(attempt = 0) {
     const controller = navigator.serviceWorker.controller;
     const info = await workerVersion(controller);
     if (controller !== navigator.serviceWorker.controller) return;
+    if (controller && !info?.ready && attempt < 3) {
+      setTimeout(() => refreshUpdateNotice(attempt + 1), 500);
+      return;
+    }
     // A different worker object/script URL can contain the same published build.
     const version = Number(info?.version);
     if (Number.isSafeInteger(version) && version > 0) {
@@ -72,7 +77,7 @@
   }
 
   function checkForUpdate({ force = false, registerOnly = false } = {}) {
-    if (checkPromise) return checkPromise;
+    if (checkPromise) { if (force) recheck = true; return checkPromise; }
     const now = Date.now();
     if (!registerOnly && !force && now - lastCheck < CHECK_INTERVAL_MS) return Promise.resolve();
     checkPromise = (async () => {
@@ -90,6 +95,7 @@
       } catch {
       } finally {
         checkPromise = null;
+        if (recheck) { recheck = false; void checkForUpdate({ force:true }); }
       }
     })();
     return checkPromise;

@@ -22,11 +22,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Eldion Pro">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="styles.css?v=1004">
+<link rel="stylesheet" href="styles.css?v=1036">
   <link rel="stylesheet" href="provider-connection-guidance.css?v=1007">
-  <template data-provider-feature="statistics"><link rel="stylesheet" href="statistics-audit-ui.css?v=1019"></template>
+  <template data-provider-feature="statistics"><link rel="stylesheet" href="statistics-audit-ui.css?v=1036"></template>
   <link rel="stylesheet" href="messages-center.css?v=886">
-  <link rel="stylesheet" href="finance-center.css?v=1034">
+  <link rel="stylesheet" href="finance-center.css?v=1036">
   <link rel="stylesheet" href="utm-funnel.css?v=811">
   <link rel="stylesheet" href="onboarding.css?v=811">
   <link rel="stylesheet" href="service-presets.css?v=811">
@@ -41,7 +41,7 @@
 <link rel="stylesheet" href="provider-header.css?v=865">
   <link rel="stylesheet" href="client-themes.css?v=885">
   <link rel="stylesheet" href="provider-themes-wildlife.css?v=811">
-  <link rel="stylesheet" href="provider-porcelain-detail.css?v=998">
+  <link rel="stylesheet" href="provider-porcelain-detail.css?v=1036">
 <link rel="stylesheet" href="settings-nav-scroll.css?v=865">
   <link rel="stylesheet" href="settings-smart-search.css?v=811">
   <link rel="stylesheet" href="provider-help-workspace.css?v=811">
@@ -49,7 +49,7 @@
   <link rel="stylesheet" href="settings-mobile-minimalism.css?v=960">
   <template data-provider-feature="share"><link rel="stylesheet" href="free-slots-compact.css?v=931"></template>
   <link rel="stylesheet" href="client-records.css?v=811">
-  <link rel="stylesheet" href="benefit-lifecycle.css?v=811">
+  <link rel="stylesheet" href="benefit-lifecycle.css?v=1036">
   <link rel="stylesheet" href="provider-integrations.css?v=1008">
   <link rel="stylesheet" href="client-results.css?v=876">
   <template data-provider-feature="scanner"><link rel="stylesheet" href="code-scanner.css?v=811"></template>
@@ -957,11 +957,11 @@
 
               <section class="panel organization-section">
                 <div class="panel-head"><div><h3>Сотрудники</h3></div><span class="panel-count" id="membersCount">0</span></div>
-                <div data-contextual-help data-help-label="Роли и доступ" data-help-slug="roles-access-safety" data-help-title="Роли и доступ" data-help-summary="Роль определяет права сотрудника в кабинете. «Принимает клиентов» разрешает добавлять сотрудника в онлайн-запись. Доступ к организации настраивается отдельно." data-help-brief="true" data-help-question="Объясни роли сотрудников и как безопасно проверить права и доступ к онлайн-записи."></div>
+                <div data-contextual-help data-help-label="Роли и доступ" data-help-slug="roles-access-safety" data-help-role-table="1"></div>
                 <div class="organization-list" id="membersList"></div>
                 <details class="organization-create" id="memberCreator">
                   <summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Пригласить сотрудника</span></summary>
-                  <form id="memberInviteForm"><label>Электронная почта<input id="memberEmail" type="email" maxlength="320" autocomplete="email" placeholder="specialist@example.com" required></label><div class="form-row"><label>Роль<select id="memberRole"><option value="specialist">Специалист</option><option value="admin">Администратор</option><option value="owner">Владелец</option></select></label><label class="settings-check member-bookable-check"><input id="memberBookable" type="checkbox" checked><span><strong>Принимает клиентов</strong><small>Сотрудника можно добавить в онлайн-запись.</small></span></label></div><p class="organization-invite-help">Сотрудник примет приглашение после входа с этой почтой.</p><p class="form-error" id="memberInviteError" hidden></p><button class="primary" type="submit">Пригласить сотрудника</button></form>
+                  <form id="memberInviteForm"><label>Электронная почта<input id="memberEmail" type="email" maxlength="320" autocomplete="email" placeholder="specialist@example.com" required></label><div class="form-row"><label>Роль<select id="memberRole"><option value="specialist">Специалист</option><option value="admin">Администратор</option><option value="owner">Владелец</option></select></label><label class="settings-check member-bookable-check"><input id="memberBookable" type="checkbox" checked><span><strong>Принимает клиентов</strong><small>Нужны доступ к организации, активная услуга и включённая онлайн-запись команды.</small></span></label></div><p class="organization-invite-help">Сотрудник примет приглашение после входа с этой почтой.</p><p class="form-error" id="memberInviteError" hidden></p><button class="primary" type="submit">Пригласить сотрудника</button></form>
                 </details>
                 <div class="organization-invite-share" id="memberInviteShare" hidden><div><strong>Передайте сотруднику ссылку</strong><small>Войдите с этим email и откройте «Организация → Люди и филиалы».</small></div><button class="secondary-button" id="copyMemberInviteLink" type="button">Скопировать ссылку</button></div>
               </section>
@@ -1058,14 +1058,14 @@
                     <details class="payroll-action-card" id="payrollOffsetPanel"><summary><span><small>Уменьшить долг на аванс</small><strong>Зачесть аванс</strong></span><span>＋</span></summary><form id="payrollOffsetForm"><label>Аванс<select id="payrollOffsetAdvance" required></select></label><label class="payroll-wide-field">Долг сотрудника<select id="payrollOffsetDebt" required></select></label><label>Сумма, ₽<input id="payrollOffsetAmount" type="number" min="1" max="1000000" step="1" required></label><p class="form-error" id="payrollOffsetError" hidden></p><button class="secondary-button" type="submit" data-payroll-write>Зачесть</button></form></details>
                   </div>
                 </section>
-                <details class="resource-audit payroll-items"><summary><span><small>Из чего сложилось начисление</small><strong>Детали начислений</strong></span><span>Детали</span></summary><div class="organization-list" id="payrollItemsList"></div></details>
-                <details class="resource-audit payroll-history" id="payrollAuditPanel" open><summary><span><small>Неизменяемая история операций</small><strong>История начислений и выплат</strong></span><span id="payrollAuditCount">0</span></summary><div class="organization-list" id="payrollAuditList"></div></details>
+                <details class="resource-audit payroll-items"><summary><span><strong>Детали начислений</strong></span></summary><div class="organization-list" id="payrollItemsList"></div></details>
+                <details class="resource-audit payroll-history" id="payrollAuditPanel" open><summary><span><strong>История начислений и выплат</strong></span><span id="payrollAuditCount">0</span></summary><div class="organization-list" id="payrollAuditList"></div></details>
               </div>
             </section>
 
             <section class="panel organization-section payment-provider-panel" id="paymentProviderPanel" hidden>
-              <div class="panel-head"><div><small>Интернет-эквайринг</small><h3>ЮKassa</h3></div><span class="panel-count" id="paymentProviderState">Выключена</span></div>
-              <p class="organization-invite-help">Подключите приём предоплаты, проверьте тестовый платёж и только затем включайте рабочий режим.</p>
+              <div class="panel-head"><div><h3>Предоплата через ЮKassa</h3></div><span class="panel-count" id="paymentProviderState">Выключена</span></div>
+              <p class="organization-invite-help">Для подключения нужен администратор системы: он настроит магазин на сервере. Включайте предоплату после проверки подключения к ЮKassa.</p>
               <details class="ux-disclosure payment-technical-details"><summary>Техническая безопасность</summary><p>Ключи хранятся только на защищённом сервере. Браузер получает ссылку на оплату, но не получает Shop ID или Secret Key.</p></details>
               <div data-contextual-help data-help-label="Как подключить оплату?" data-help-slug="setup-yookassa" data-help-question="Объясни безопасное подключение ЮKassa, тестовый режим, чеки и последствия включения предоплаты."></div>
               <details class="ux-disclosure payment-sandbox-disclosure" id="paymentSandboxDisclosure">
@@ -1098,7 +1098,7 @@
                 <form id="paymentProviderSettingsForm" class="payment-provider-settings">
                   <label class="settings-check"><input id="paymentProviderEnabled" type="checkbox"><span><strong>Принимать предоплату через ЮKassa</strong><small>После настройки магазина и проверки подключения к ЮKassa.</small></span></label>
                   <div id="paymentProviderControls">
-                    <div class="form-row"><label>Режим<select id="paymentProviderEnvironment"><option value="test">Тестовый магазин</option><option value="production">Рабочий магазин</option></select></label><label class="settings-check"><input id="paymentFiscalizationEnabled" type="checkbox"><span><strong>Чеки от ЮKassa</strong><small>Требует подтверждённых настроек бухгалтера.</small></span></label></div>
+                    <div class="form-row"><label>Режим<select id="paymentProviderEnvironment"><option value="test">Тестовый магазин</option><option value="production">Рабочий магазин</option></select></label><label class="settings-check"><input id="paymentFiscalizationEnabled" type="checkbox"><span><strong>Отправлять чеки через ЮKassa</strong><small>Перед включением согласуйте настройки чеков с бухгалтером.</small></span></label></div>
                     <div class="payment-fiscalization-fields" id="paymentFiscalizationFields" hidden><label>Система налогообложения<select id="paymentTaxation"><option value="usn_income">УСН доходы</option><option value="usn_income_outcome">УСН доходы минус расходы</option><option value="osn">ОСН</option><option value="esn">ЕСХН</option><option value="patent">Патент</option></select></label><label>НДС<select id="paymentVatCode"><option value="1">Без НДС</option><option value="2">0%</option><option value="3">10%</option><option value="4">20%</option><option value="5">10/110</option><option value="6">20/120</option><option value="7">5%</option><option value="8">7%</option><option value="9">5/105</option><option value="10">7/107</option><option value="11">22%</option><option value="12">22/122</option></select></label><label>Способ расчёта<select id="paymentMode"><option value="full_prepayment">Полная предоплата</option><option value="partial_prepayment">Частичная предоплата</option><option value="full_payment">Полный расчёт</option></select></label></div>
                     <button class="primary" type="submit">Сохранить настройки</button>
                   </div>
@@ -1134,17 +1134,18 @@
             </section>
 
             <section class="panel organization-section commerce-panel" id="commercePanel" hidden>
-              <div class="panel-head"><div><small>Единая операция</small><h3>Продажи</h3></div><span class="panel-count" id="commerceSalesCount">0</span></div>
-              <p class="organization-invite-help">Продажа одновременно фиксируется в деньгах, на складе и в карточке клиента. Банковское списание здесь не выполняется.</p>
+              <div class="panel-head"><div><h3>Продажи</h3></div><span class="panel-count" id="commerceSalesCount">0</span></div>
+              <p class="organization-invite-help">Продажа учитывается в финансах и остатках. Если выбран клиент — в его карточке.</p>
               <div class="loading-state compact" id="commerceLoading" hidden><i></i><span>Загружаем продажи…</span></div>
               <div class="resource-inline-error" id="commerceUnavailable" role="status" hidden><div><strong>Продажи временно недоступны</strong><small id="commerceUnavailableText"></small></div><button class="secondary-button" id="reloadCommerce" type="button">Повторить</button></div>
               <div class="commerce-workspace" id="commerceWorkspace" hidden>
-                <label class="settings-check commerce-finance-toggle"><input id="commerceFinanceEnabled" type="checkbox" data-commerce-write><span><strong>Включить единый финансовый учёт</strong><small>Создаёт безопасный денежный журнал. Существующие записи не меняются.</small></span></label>
+                <label class="settings-check commerce-finance-toggle"><input id="commerceFinanceEnabled" type="checkbox" data-commerce-write><span><strong>Финансовый учёт</strong><small>Записывает продажи, возвраты и расходы.</small></span></label>
                 <div class="commerce-summary" aria-live="polite"><article><small>Продано</small><strong id="commerceGross">0 ₽</strong></article><article><small>Возвращено</small><strong id="commerceRefunded">0 ₽</strong></article><article><small>Продажи за вычетом возвратов</small><strong id="commerceNet">0 ₽</strong></article></div>
                 <details class="organization-create commerce-create" id="commerceSaleCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Новая продажа</span></summary>
                   <form id="commerceSaleForm">
+                    <p class="organization-invite-help">Деньги с карты не списываются.</p>
                     <div class="form-row"><label>Клиент<select id="commerceClient"><option value="">Без клиента</option></select></label><label>Связать с визитом<select id="commerceBooking"><option value="">Отдельная продажа</option></select></label></div>
-                    <div class="form-row"><label>Что продаём<select id="commerceItemKind"><option value="inventory_item">Товар</option><option value="benefit_product">Абонемент, пакет или сертификат</option></select></label><label>Позиция<select id="commerceItem" required></select></label></div>
+                    <div class="form-row"><label>Тип продажи<select id="commerceItemKind"><option value="inventory_item">Товар</option><option value="benefit_product">Абонемент, пакет или сертификат</option></select></label><label>Позиция<select id="commerceItem" required></select></label></div>
                     <div class="form-row commerce-sale-amounts"><label id="commerceQuantityField">Количество<input id="commerceQuantity" type="number" min="0.001" max="1000000" step="0.001" value="1" required></label><label>Цена за единицу, ₽<input id="commerceUnitPrice" type="number" min="1" max="10000000" step="0.01" required></label></div>
                     <details class="commerce-sale-options" id="commerceSaleOptions"><summary><span>Склад, продавец и оплата</span><small id="commerceSaleOptionsSummary">Заполните детали операции</small></summary><div class="commerce-sale-options-fields">
                       <label id="commerceWarehouseField">Склад<select id="commerceWarehouse"></select></label>
@@ -1165,7 +1166,7 @@
                     </div></details>
                     <div class="commerce-sale-commit">
                       <div class="commerce-sale-total" aria-live="polite"><span>Итого к оплате</span><strong id="commerceSaleTotal">—</strong></div>
-                      <p class="form-error" id="commerceSaleError" role="alert" hidden></p><button class="primary" id="commerceSaleSubmit" type="submit" data-commerce-write disabled>Продать</button>
+                      <p class="form-error" id="commerceSaleError" role="alert" hidden></p><button class="primary" id="commerceSaleSubmit" type="submit" data-commerce-write disabled>Оформить продажу</button>
                     </div>
                   </form>
                   <section class="commerce-client-access" id="commerceClientAccessResult" role="status" aria-live="polite" hidden>
@@ -1182,7 +1183,7 @@
                     </div>
                   </section>
                 </details>
-                <section><div class="resource-subhead"><div><small>Касса, склад и клиент</small><strong>Последние продажи</strong></div></div><div class="organization-list commerce-sales-list" id="commerceSalesList"></div></section>
+                <section><div class="resource-subhead"><div><strong>Последние продажи</strong></div></div><div class="organization-list commerce-sales-list" id="commerceSalesList"></div></section>
                 <details class="resource-audit commerce-audit"><summary><span><small>Продажи, возвраты и расходы</small><strong>История продаж</strong></span><span id="commerceAuditCount">0</span></summary><div class="organization-audit-list" id="commerceAuditList"></div></details>
                 <p class="report-empty-inline commerce-refund-empty" id="commerceRefundEmpty" hidden>Все продажи полностью возвращены.</p>
                 <details class="organization-create commerce-refund" id="commerceRefundCreator" hidden><summary>Найти продажу для возврата</summary><form id="commerceRefundForm"><label>Продажа<select id="commerceRefundSale" required><option value="">Выберите продажу</option></select></label><div class="form-row"><label>Количество<input id="commerceRefundQuantity" type="number" min="0.001" step="0.001" required></label><label>Сумма возврата, ₽<input id="commerceRefundAmount" type="number" min="0.01" step="0.01" readonly required></label></div><small class="organization-invite-help">Сумма рассчитывается автоматически пропорционально количеству и скидке.</small><label>Причина<input id="commerceRefundReason" minlength="3" maxlength="500" required></label><p class="form-error" id="commerceRefundError" role="alert" hidden></p><button class="secondary-button" id="commerceRefundSubmit" type="submit" data-commerce-write disabled>Вернуть</button></form></details>
@@ -1193,7 +1194,7 @@
             <section class="panel organization-section organization-benefits" id="benefitsPanel" hidden>
               <div class="panel-head"><div><h3>Абонементы и сертификаты</h3></div><span class="panel-count" id="benefitProductsCount">0</span></div>
               <p class="organization-invite-help">При применении к записи посещение или сумма резервируется сразу. После завершения визита подтвердите использование кнопкой «Погасить».</p>
-              <details class="ux-disclosure"><summary>Как работают абонементы и сертификаты</summary><div class="benefit-guide"><ol><li>Включите систему и создайте абонемент, пакет или сертификат.</li><li>Оформите продажу в разделе «Продажи» или выдайте продукт без продажи здесь.</li><li>Примените продукт к записи: посещение или сумма временно резервируются.</li><li>После завершения визита нажмите «Погасить». При отмене нажмите «Вернуть».</li></ol></div></details><p id="benefitWorkflowStatus" role="status" aria-live="polite">Проверяем состояние системы…</p>
+              <details class="ux-disclosure"><summary>Как работают абонементы и сертификаты</summary><div class="benefit-guide"><ol><li>Создайте шаблон и оформите продажу в разделе «Продажи». При необходимости выдайте без продажи.</li><li>Примените абонемент к записи: посещение или сумма будут зарезервированы.</li><li>После завершения визита нажмите «Погасить». При отмене нажмите «Вернуть».</li></ol></div></details><p id="benefitWorkflowStatus" role="status" aria-live="polite">Проверяем состояние системы…</p>
               <div class="loading-state compact" id="benefitsLoading" hidden><i></i><span>Загружаем абонементы…</span></div>
               <div class="resource-inline-error" id="benefitsUnavailable" role="status" hidden><div><strong>Абонементы временно недоступны</strong><small id="benefitsUnavailableText"></small></div><button class="secondary-button" id="reloadBenefits" type="button">Повторить</button></div>
               <div class="benefits-workspace" id="benefitsWorkspace" hidden>
@@ -1203,9 +1204,9 @@
                     <div class="resource-subhead"><div><small>Что можно продать клиенту</small><strong>Шаблоны абонементов и сертификатов</strong></div></div>
                     <div class="organization-list" id="benefitProductsList"></div>
                     <details class="organization-create" id="benefitProductCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать шаблон</span></summary><form id="benefitProductForm">
-                        <p class="benefit-form-help"><strong>Создаётся шаблон для продажи.</strong> Серый текст является примером, а не введённым значением.</p><div class="form-row"><label>Тип<select id="benefitProductKind"><option value="visit_pass">Абонемент</option><option value="package">Пакет услуг</option><option value="certificate">Сертификат</option></select><small>Абонемент: посещения. Пакет: посещения по разным услугам. Сертификат: сумма в рублях.</small></label><label>Название<input id="benefitProductName" maxlength="120" placeholder="Например, 5 сеансов массажа" required><small>Это название увидите вы и клиент.</small></label></div>
-                      <div class="form-row"><label>Цена продажи, ₽<input id="benefitProductPrice" type="number" min="0" max="10000000" step="1" value="0" required></label><label>Срок, дней<input id="benefitProductValidity" type="number" min="1" max="3650" step="1" value="90" required></label></div>
-                        <div class="form-row"><label id="benefitProductVisitsField">Посещений<input id="benefitProductVisits" type="number" min="1" max="10000" step="1" value="5"><small>Общее количество посещений в абонементе.</small></label><label id="benefitProductValueField" hidden>Номинал сертификата, ₽<input id="benefitProductValue" type="number" min="1" max="10000000" step="1" value="5000"><small>Сумма, которой клиент сможет оплачивать записи.</small></label></div>
+                        <p class="benefit-form-help"><strong>Создаётся шаблон для продажи.</strong></p><div class="form-row"><label>Тип<select id="benefitProductKind"><option value="visit_pass">Абонемент</option><option value="package">Пакет услуг</option><option value="certificate">Сертификат</option></select><small id="benefitProductKindHelp">Абонемент — заданное число посещений.</small></label><label>Название<input id="benefitProductName" maxlength="120" placeholder="Например, 5 сеансов массажа" required><small>Название видно клиенту.</small></label></div>
+                      <div class="form-row"><label>Цена продажи, ₽<input id="benefitProductPrice" type="number" min="0" max="10000000" step="1" value="0" required></label><label>Срок действия, дней<input id="benefitProductValidity" type="number" min="1" max="3650" step="1" value="90" required></label></div>
+                        <div class="form-row"><label id="benefitProductVisitsField">Количество посещений<input id="benefitProductVisits" type="number" min="1" max="10000" step="1" value="5"><small>Общее количество посещений в абонементе.</small></label><label id="benefitProductValueField" hidden>Номинал сертификата, ₽<input id="benefitProductValue" type="number" min="1" max="10000000" step="1" value="5000"><small>Сумма, которой клиент сможет оплачивать записи.</small></label></div>
                         <fieldset class="benefit-service-fieldset"><legend>Услуги и количество</legend><div class="benefit-service-options" id="benefitProductServices"></div><small id="benefitProductServicesHint">Для абонемента можно выбрать разрешённые услуги. Если ничего не выбрать, он действует на все услуги.</small></fieldset>
                         <p class="form-error" id="benefitProductError" role="alert" hidden></p><button class="primary" type="submit" data-benefit-write>Создать шаблон</button>
                     </form></details>
@@ -1213,10 +1214,10 @@
                   <section>
                     <div class="resource-subhead"><div><small>Активные балансы клиентов</small><strong>Абонементы и сертификаты клиентов</strong></div><span class="panel-count" id="benefitInstrumentsCount">0</span></div>
                     <div class="scan-field"><label>Найти по коду<input id="benefitInstrumentSearch" type="search" maxlength="40" placeholder="MIN-… или штрихкод"></label><button class="secondary-button" type="button" data-code-scan-target="benefitInstrumentSearch" data-code-scan-mode="benefit" data-code-scan-title="Абонемент или сертификат">Сканировать</button></div><div class="organization-list" id="benefitInstrumentsList"></div>
-                      <details class="organization-create" id="benefitIssueCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Выдать без продажи</span></summary><form id="benefitIssueForm"><p class="benefit-form-help">Это ручная выдача без оформления продажи. Сначала создайте продукт, затем выберите клиента. Если срок не указать, он рассчитается по настройке продукта.</p><label>Шаблон<select id="benefitIssueProduct" required></select></label><label>Клиент<select id="benefitIssueClient" required></select></label><label>Срок действия до<input id="benefitIssueExpiry" type="date"><small>Можно оставить пустым для автоматического расчёта.</small></label><p class="form-error" id="benefitIssueError" role="alert" hidden></p><button class="primary" type="submit" data-benefit-write>Выдать без продажи</button></form></details>
+                      <details class="organization-create" id="benefitIssueCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Выдать без продажи</span></summary><form id="benefitIssueForm"><p class="benefit-form-help">Это ручная выдача без продажи. Сначала создайте шаблон и выберите клиента.</p><label>Шаблон<select id="benefitIssueProduct" required></select></label><label>Клиент<select id="benefitIssueClient" required></select></label><label>Срок действия до<input id="benefitIssueExpiry" type="date"><small>Если не указать дату, срок рассчитается по шаблону.</small></label><p class="form-error" id="benefitIssueError" role="alert" hidden></p><button class="primary" type="submit" data-benefit-write>Выдать без продажи</button></form></details>
                   </section>
                 </div>
-                <section class="benefit-redemptions"><div class="resource-subhead"><div><small>Резерв и погашение без двойного списания</small><strong>Использование в записях</strong></div></div><div class="organization-list" id="benefitRedemptionsList"></div>
+                <section class="benefit-redemptions"><div class="resource-subhead"><div><strong>Использование в записях</strong></div></div><div class="organization-list" id="benefitRedemptionsList"></div>
                     <details class="organization-create" id="benefitApplyCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Применить к записи</span></summary><form id="benefitApplyForm"><p class="benefit-form-help">При применении к записи баланс резервируется сразу. После завершения визита нажмите «Погасить».</p><div class="form-row"><label>Абонемент или сертификат<select id="benefitApplyInstrument" required></select></label><label>Запись клиента<select id="benefitApplyBooking" required></select><small>Нужна запись этого клиента на подходящую услугу в срок действия абонемента.</small></label></div><label>Сумма сертификата, ₽<input id="benefitApplyAmount" type="number" min="1" max="10000000" step="1" placeholder="Автоматически по стоимости записи"><small id="benefitApplyAmountHint">Для абонемента и пакета сумма не требуется.</small></label><p class="form-error" id="benefitApplyError" role="alert" hidden></p><button class="secondary-button" type="submit" data-benefit-write>Зарезервировать</button></form></details>
                 </section>
               </div>
@@ -1250,7 +1251,7 @@
             </section>
 
             <section class="panel organization-section organization-inventory" id="inventoryPanel" hidden>
-              <div class="panel-head"><div><small>Товары, материалы и расходники</small><h3>Склад</h3></div><span class="panel-count" id="inventoryItemsCount">0</span></div>
+              <div class="panel-head"><div><h3>Склад</h3></div><span class="panel-count" id="inventoryItemsCount">0</span></div>
               <p class="organization-invite-help">Остатки по филиалам. Все операции сохраняются в истории. Материалы списываются по нормам после завершения визита.</p>
               <div data-contextual-help data-help-label="Как настроить склад?" data-help-slug="inventory-setup" data-help-question="Объясни безопасный порядок настройки каталога, складов филиалов, остатков и автоматического списания."></div>
               <div class="loading-state compact" id="inventoryLoading" hidden><i></i><span>Загружаем склад…</span></div>
@@ -1258,7 +1259,7 @@
               <div class="inventory-workspace" id="inventoryWorkspace" hidden>
                 <div class="inventory-first-run" id="inventoryFirstRun" hidden>
                   <strong>Первые шаги со складом</strong>
-                  <ol><li>Добавьте материал в каталог.</li><li>Создайте склад для филиала.</li><li>Оформите приход — остаток появится по филиалу.</li><li>Если нужно автосписание, задайте норму расхода перед его включением.</li></ol>
+                  <ol><li>Добавьте материал и склад филиала. Затем оформите приход.</li><li>Для автоматического списания задайте расход материала на один визит.</li></ol>
                   <p id="inventoryFirstRunHint"></p>
                   <button class="secondary-button" id="inventoryFirstRunAction" type="button" data-inventory-target="catalog">К каталогу и складам</button>
                 </div>
@@ -1277,39 +1278,39 @@
                   <section class="inventory-balances-section" data-inventory-pane="balances"><div class="resource-subhead"><div><small>Фактическое наличие</small><strong>Остатки по филиалам</strong></div></div><div class="inventory-balances" id="inventoryBalances"></div></section>
                   <div class="inventory-management-grid" data-inventory-pane="catalog" hidden>
                     <section><div class="resource-subhead"><div><small>Единицы и минимальные остатки</small><strong>Каталог</strong></div></div><div class="organization-list" id="inventoryItemsList"></div>
-                      <details class="organization-create" id="inventoryItemCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить позицию</span></summary><form id="inventoryItemForm"><input id="inventoryItemId" type="hidden"><div class="form-row"><label>Название<input id="inventoryItemName" maxlength="120" placeholder="Например, Массажное масло" required></label><div class="scan-field"><label>Артикул или штрихкод<input id="inventoryItemSku" maxlength="80" placeholder="Необязательно"></label><button class="secondary-button" type="button" data-code-scan-target="inventoryItemSku" data-code-scan-mode="inventory" data-code-scan-title="Код складской позиции">Сканировать</button></div></div><div class="form-row"><label>Единица измерения<select id="inventoryItemUnit"><option value="piece">шт.</option><option value="ml">мл</option><option value="g">г</option><option value="kg">кг</option><option value="l">л</option><option value="pack">упаковка</option></select></label><label>Минимальный остаток<input id="inventoryItemLow" type="number" min="0" max="99999999999" step="0.001" value="0" required></label></div><label class="settings-check"><input id="inventoryItemActive" type="checkbox" checked><span><strong>Использовать в операциях</strong><small>Неактивная останется в истории, но новые операции будут запрещены.</small></span></label><p class="form-error" id="inventoryItemError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-item>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
+                      <details class="organization-create" id="inventoryItemCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить позицию</span></summary><form id="inventoryItemForm"><input id="inventoryItemId" type="hidden"><div class="form-row"><label>Название<input id="inventoryItemName" maxlength="120" placeholder="Например, Массажное масло" required></label><div class="scan-field"><label>Артикул или штрихкод<input id="inventoryItemSku" maxlength="80" placeholder="Необязательно"></label><button class="secondary-button" type="button" data-code-scan-target="inventoryItemSku" data-code-scan-mode="inventory" data-code-scan-title="Код складской позиции">Сканировать</button></div></div><div class="form-row"><label>Единица измерения<select id="inventoryItemUnit"><option value="piece">шт.</option><option value="ml">мл</option><option value="g">г</option><option value="kg">кг</option><option value="l">л</option><option value="pack">упаковка</option></select></label><label>Минимальный остаток<input id="inventoryItemLow" type="number" min="0" max="99999999999" step="0.001" value="0" required></label></div><label class="settings-check"><input id="inventoryItemActive" type="checkbox" checked><span><strong>Использовать в операциях</strong><small>После отключения позиция останется в истории.</small></span></label><p class="form-error" id="inventoryItemError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-item>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
                     </section>
-                    <section><div class="resource-subhead"><div><small>Один склад на филиал</small><strong>Склады</strong></div><span class="panel-count" id="inventoryWarehousesCount">0</span></div><div class="organization-list" id="inventoryWarehousesList"></div>
-                      <details class="organization-create" id="inventoryWarehouseCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать склад</span></summary><form id="inventoryWarehouseForm"><input id="inventoryWarehouseId" type="hidden"><label>Филиал<select id="inventoryWarehouseLocation" required></select></label><label>Название<input id="inventoryWarehouseName" maxlength="120" placeholder="Например, Склад — Центр" required></label><label class="settings-check"><input id="inventoryWarehouseActive" type="checkbox" checked><span><strong>Активный склад</strong><small>Только активный склад участвует в операциях и автоматическом списании.</small></span></label><p class="form-error" id="inventoryWarehouseError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-warehouse>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
+                    <section><div class="resource-subhead"><div><strong>Склады</strong></div><span class="panel-count" id="inventoryWarehousesCount">0</span></div><p class="organization-invite-help">Один филиал — один склад. После первой операции нельзя изменить единицу материала или перенести склад в другой филиал.</p><div class="organization-list" id="inventoryWarehousesList"></div>
+                      <details class="organization-create" id="inventoryWarehouseCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать склад</span></summary><form id="inventoryWarehouseForm"><input id="inventoryWarehouseId" type="hidden"><label>Филиал<select id="inventoryWarehouseLocation" required></select></label><label>Название<input id="inventoryWarehouseName" maxlength="120" placeholder="Например, Склад — Центр" required></label><label class="settings-check"><input id="inventoryWarehouseActive" type="checkbox" checked><span><strong>Использовать склад</strong><small>Отключённый склад не участвует в операциях и автосписании.</small></span></label><p class="form-error" id="inventoryWarehouseError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-warehouse>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
                     </section>
                   </div>
                   <div class="inventory-management-grid" data-inventory-pane="operations" hidden>
                     <section class="inventory-operation"><div class="resource-subhead"><div><small>Приход, списание, пересчёт или перемещение</small><strong>Новая операция</strong></div></div><div data-contextual-help data-help-label="Что произойдёт?" data-help-slug="inventory-movement" data-help-danger="true" data-help-question="Объясни разницу между приходом, списанием, инвентаризацией и перемещением между складами. Ничего не проводи."></div><form id="inventoryMovementForm"><div class="form-row"><label><span id="inventoryMovementWarehouseLabel">Склад</span><select id="inventoryMovementWarehouse" required></select></label><div class="scan-field"><label>Позиция<select id="inventoryMovementItem" required></select></label><button class="secondary-button" id="inventoryMovementScan" type="button" data-code-scan-target="inventoryMovementItem" data-code-scan-match="option" data-code-scan-preset="sale" data-code-scan-mode="sale" data-code-scan-title="Товар для операции">Сканировать товар</button></div></div><label>Операция<select id="inventoryMovementKind"><option value="receipt">Приход</option><option value="write_off">Списание</option><option value="inventory">Инвентаризация</option><option value="transfer">Перемещение между складами</option></select></label><label id="inventoryTransferDestinationField" hidden>На склад<select id="inventoryTransferDestination"></select></label><label id="inventoryMovementQuantityField">Количество<input id="inventoryMovementQuantity" type="number" min="0.001" max="99999999999" step="0.001" required></label><label id="inventoryCountedQuantityField" hidden>Фактический остаток<input id="inventoryCountedQuantity" type="number" min="0" max="99999999999" step="0.001"></label><label>Причина<input id="inventoryMovementReason" maxlength="500" placeholder="Обязательна для списания, пересчёта и перемещения"></label><small id="inventoryMovementImpact" aria-live="polite" hidden></small><small id="inventoryTransferBalance" hidden>Выберите исходный склад и позицию.</small><p class="form-error" id="inventoryMovementError" hidden></p><p class="form-error" id="inventoryTransferError" role="alert" hidden></p><button class="primary" type="submit" data-inventory-write>Провести операцию</button></form><p class="organization-invite-help" id="inventoryTransfersState" hidden></p></section>
                     <section class="inventory-usage"><div class="resource-subhead"><div><small>Автосписание за визит</small><strong>Расход на один визит</strong></div></div><div class="organization-list" id="inventoryUsageList"></div><form id="inventoryUsageForm"><label>Услуга<select id="inventoryUsageService" required></select></label><div class="form-row"><label>Материал<select id="inventoryUsageItem" required></select></label><label>Количество<input id="inventoryUsageQuantity" type="number" min="0.001" max="99999999999" step="0.001" required></label></div><p class="form-error" id="inventoryUsageError" hidden></p><button class="secondary-button" type="submit" data-inventory-write>Сохранить норму</button></form></section>
                   </div>
-                  <details class="resource-audit" id="inventoryMovementsPanel" data-inventory-pane="history" hidden open><summary><span><small>Неизменяемая история остатков и перемещений</small><strong>История операций</strong></span><span id="inventoryMovementsCount">0</span></summary><div class="organization-audit-list" id="inventoryTransferDocumentsList"></div><div class="organization-audit-list" id="inventoryMovementsList"></div></details>
+                  <details class="resource-audit" id="inventoryMovementsPanel" data-inventory-pane="history" hidden open><summary><span><strong>История операций</strong></span><span id="inventoryMovementsCount">0</span></summary><div class="organization-audit-list" id="inventoryTransferDocumentsList"></div><div class="organization-audit-list" id="inventoryMovementsList"></div></details>
                 </div>
               </div>
             </section>
 
             <section class="panel organization-section organization-retention" id="retentionPanel" hidden>
-              <div class="panel-head"><div><small>Возврат без спама</small><h3>Клиенты после перерыва</h3></div><span class="panel-count" id="retentionEligibleCount">0</span></div>
-              <p class="organization-invite-help">Система сама находит клиентов после перерыва. Сообщение можно подготовить только при явно зафиксированном согласии, а период защиты исключает частые повторы.</p>
+              <div class="panel-head"><div><h3>Возврат клиентов</h3></div><span class="panel-count" id="retentionEligibleCount">0</span></div>
+              <p class="organization-invite-help">Подготовьте сообщение клиентам, которые давно не приходили и согласились получать сообщения.</p>
               <div data-contextual-help data-help-label="Кто попадёт в список?" data-help-slug="client-retention" data-help-question="Объясни условия попадания клиента в список, согласие, сроки и безопасную ручную отправку."></div>
               <div class="loading-state compact" id="retentionLoading" hidden><i></i><span>Проверяем историю клиентов…</span></div>
               <div class="resource-inline-error" id="retentionUnavailable" role="status" hidden><div><strong>Возврат клиентов временно недоступен</strong><small id="retentionUnavailableText"></small></div><button class="secondary-button" id="reloadRetention" type="button">Повторить</button></div>
               <div class="retention-workspace" id="retentionWorkspace" hidden>
                 <form id="retentionSettingsForm" class="retention-settings-form">
-                  <label class="settings-check retention-toggle"><input id="retentionEnabled" type="checkbox" data-retention-write><span><strong>Возвращать клиентов после перерыва</strong><small>Сообщение подготавливается только после явно указанного согласия</small></span></label>
+                  <label class="settings-check retention-toggle"><input id="retentionEnabled" type="checkbox" data-retention-write><span><strong>Подбирать клиентов после перерыва</strong><small>Включение подбора не отправляет сообщения</small></span></label>
                   <div class="retention-thresholds">
-                    <label class="retention-number-field"><span><strong>Считать после перерыва</strong><small>Сколько дней без визитов</small></span><span class="retention-number-control"><input id="retentionInactivityDays" type="number" min="7" max="730" step="1" value="45" aria-label="Дней без визитов" data-retention-write required><em>дней</em></span></label>
-                    <label class="retention-number-field"><span><strong>Не предлагать повторно</strong><small>Защита от частых сообщений</small></span><span class="retention-number-control"><input id="retentionCooldownDays" type="number" min="7" max="730" step="1" value="90" aria-label="Дней до повторного сообщения" data-retention-write required><em>дней</em></span></label>
+                    <label class="retention-number-field"><span><strong>Дней после последнего визита</strong></span><span class="retention-number-control"><input id="retentionInactivityDays" type="number" min="7" max="730" step="1" value="45" aria-label="Дней после последнего визита" data-retention-write required><em>дней</em></span></label>
+                    <label class="retention-number-field"><span><strong>Повторное предложение — не раньше чем через</strong></span><span class="retention-number-control"><input id="retentionCooldownDays" type="number" min="7" max="730" step="1" value="90" aria-label="Дней до повторного предложения" data-retention-write required><em>дней</em></span></label>
                   </div>
-                  <label class="retention-message-field"><span>Текст сообщения</span><textarea id="retentionMessageTemplate" rows="4" minlength="20" maxlength="1000" data-retention-write required>Здравствуйте, {имя}! Давно вас не было в {организация}. Будем рады видеть снова: {ссылка}</textarea><small>Можно использовать: {имя}, {организация}, {ссылка}</small></label>
+                  <label class="retention-message-field"><span>Текст сообщения</span><textarea id="retentionMessageTemplate" rows="4" minlength="20" maxlength="1000" data-retention-write required>Здравствуйте, {имя}! Это {организация}. Выбрать время и записаться: {ссылка}</textarea><small>Можно использовать: {имя}, {организация}, {ссылка}</small></label>
                   <small class="retention-save-status" id="retentionSaveStatus" role="status" aria-live="polite">Изменения сохраняются автоматически</small>
                 </form>
-                <section class="retention-list-section"><div class="resource-subhead"><div><small>Согласие и подходящий срок</small><strong>Клиенты</strong></div></div><div class="organization-list retention-clients-list" id="retentionClientsList"></div></section>
-                <section class="retention-list-section"><div class="resource-subhead"><div><small>Контролируемая отправка</small><strong>Подготовленные сообщения</strong></div></div><div class="organization-list" id="retentionDeliveriesList"></div></section>
+                <section class="retention-list-section"><div class="resource-subhead"><div><small>Согласие и подходящий срок</small><strong>Клиенты после перерыва</strong></div></div><div class="organization-list retention-clients-list" id="retentionClientsList"></div></section>
+                <section class="retention-list-section"><div class="resource-subhead"><div><strong>Подготовленные сообщения</strong></div></div><div class="organization-list" id="retentionDeliveriesList"></div></section>
               </div>
             </section>
 
@@ -2188,13 +2189,13 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=1034" defer></script>
+  <script src="site-update.js?v=1036" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
-  <script src="organization.js?v=1004" defer></script>
+  <script src="organization.js?v=1036" defer></script>
   <script src="payment-management.js?v=1022" defer></script>
-  <script src="commerce-management.js?v=1004" defer></script>
+  <script src="commerce-management.js?v=1036" defer></script>
   <script src="integration-management.js?v=1004" defer></script>
   <script src="notification-center.js?v=1005" defer></script>
   <script src="client-fields.js?v=811" defer></script>
@@ -2244,19 +2245,19 @@
   <script src="portfolio-camera.js?v=811" defer></script>
   <script src="messages-core.js?v=1022" defer></script>
   <script src="provider-messages-center.js?v=1022" defer></script>
-  <script src="finance-center.js?v=1034" defer></script>
-  <script src="finance-center-provider.js?v=1034" defer></script>
+  <script src="finance-center.js?v=1036" defer></script>
+  <script src="finance-center-provider.js?v=1036" defer></script>
   <script src="provider-service-actions.js?v=811" defer></script>
-  <template data-provider-feature="statistics"><script src="statistics-audit-ui.js?v=1034"></script><script src="statistics-audit-provider.js?v=1034"></script></template>
+  <template data-provider-feature="statistics"><script src="statistics-audit-ui.js?v=1036"></script><script src="statistics-audit-provider.js?v=1036"></script></template>
   <script src="booking-detail-card.js?v=1" defer></script>
   <script src="new-booking-card.js?v=1" defer></script>
-  <script src="provider-connection-guidance.js?v=1034" defer></script>
+  <script src="provider-connection-guidance.js?v=1036" defer></script>
   <script src="schedule-break-icons.js?v=1023" defer></script>
-  <script src="provider.js?v=1034" defer></script>
+  <script src="provider.js?v=1036" defer></script>
   <script src="provider-porcelain-detail.js?v=946" defer></script>
   <script src="provider-help-workspace.js?v=1022" defer></script>
   <script src="service-presets.js?v=811" defer></script>
-  <script src="primetime-handoff.js?v=1034" defer></script>
+  <script src="primetime-handoff.js?v=1036" defer></script>
   <template data-provider-feature="scanner"><script src="code-scanner.js?v=1004"></script></template>
 </body>
 </html>

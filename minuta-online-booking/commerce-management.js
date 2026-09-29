@@ -435,7 +435,8 @@
       const seller = (state?.sellers || []).find(item => item.id === $('#commerceSeller')?.value)?.name;
       const account = (state?.accounts || []).find(item => item.id === $('#commercePaymentAccount')?.value)?.name;
       const payment = $('#commercePaymentMethod')?.value === 'manual' ? 'вручную' : 'наличные';
-      summary.textContent = [$('#commerceItemKind')?.value === 'inventory_item' ? warehouse : null, seller, `${payment}${account ? ` · ${account}` : ''}`]
+      const discount = minor($('#commerceDiscount')?.value || 0);
+      summary.textContent = [$('#commerceItemKind')?.value === 'inventory_item' ? warehouse : null, seller, `${payment}${account ? ` · ${account}` : ''}`, discount > 0 ? `скидка ${rubles(discount)}` : null]
         .filter(Boolean).join(' · ') || 'Заполните детали операции';
     }
 
