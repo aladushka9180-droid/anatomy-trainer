@@ -22,6 +22,9 @@ workflow проверки и данный план. Старую UI-ветку
 - На свежем `main` SQL-only SHA `7f25681b`: isolated PostgreSQL 17
   `36571758657`, booking smoke `36571758731` и theme/browser CI
   `36571758770` успешны. Полный restore не делали.
+- Schema-only clone тестовой БД на `6d2c4145` прошёл CI `36573493387`:
+  v186 → v187 → rollback → reapply на пустой PostgreSQL 17. Этот запуск
+  не читает строки рабочей базы и не проверяет миграцию на её данных.
 - SQL SHA-256 кандидата `ac1f5b30`:
   - `supabase-migration-v186.sql`: `9125d3a3578d32566a356713c4da01e740eaeee89495586237c52288e3d6a137`;
   - `supabase-migration-v186-rollback.sql`: `a65e3d0c8f9d53bfcadac2b5b025dabf1463cbc37db1be45dfd91fd123afc03b`;
