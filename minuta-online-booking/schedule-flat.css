@@ -671,11 +671,13 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
 /* The final flat schedule layer previously reduced every dark appointment to
    a 12% accent mix. Restore the dark theme's own accent on real visits only. */
 html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings :is(.timeline-booking,.provider-booking):not(.status-block):not(.automatic-break):not(.status-cancelled) {
-  border-color:color-mix(in srgb,var(--schedule-entry-tone,var(--theme-accent)) 72%,var(--theme-line))!important;
   background:color-mix(in srgb,var(--schedule-entry-tone,var(--theme-accent)) 40%,var(--theme-surface))!important;
   background-image:none!important;
   box-shadow:none!important;
   color:var(--theme-ink)!important;
+}
+html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings :is(.timeline-booking,.provider-booking).is-online-booking:not(.status-block):not(.automatic-break):not(.status-cancelled) {
+  border-color:color-mix(in srgb,var(--schedule-entry-tone,var(--theme-accent)) 72%,var(--theme-line))!important;
 }
 html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-theme="loft"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings :is(.timeline-booking,.provider-booking):not(.status-block):not(.automatic-break):not(.status-cancelled) {
   background:color-mix(in srgb,var(--schedule-entry-tone,var(--theme-accent)) 48%,var(--theme-surface))!important;
