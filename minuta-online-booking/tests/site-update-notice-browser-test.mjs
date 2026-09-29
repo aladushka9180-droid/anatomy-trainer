@@ -106,9 +106,9 @@ try {
     }, newRelease.version);
     await page.reload();
     assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version, 'Explicit reload must return fresh HTML immediately');
-    // The stale tab has fulfilled its scenario. Leave the test origin before
+    // The stale tab has fulfilled its scenario. Close the client before
     // restoring connectivity so its old updater cannot start another update.
-    await oldTab.goto('about:blank');
+    await oldTab.close();
   }
   offline = true;
   await context.setOffline(true);
