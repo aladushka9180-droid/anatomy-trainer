@@ -55,6 +55,7 @@ const release=read('../../.github/workflows/eldion-booking-delete-release.yml');
 assert.match(release,/default: validate-production/);
 assert.match(release,/group: minuta-production-database/);
 assert.match(release,/environment: minuta-production/);
+assert.match(release,/MINUTA_PRODUCTION_PROJECT_REF:\s*\$\{\{ vars\.MINUTA_PRODUCTION_PROJECT_REF \}\}/, 'Target guard must receive the protected production project ref before any DB call');
 assert.match(release,/default_transaction_read_only=on/);
 assert.equal((release.match(/default_transaction_read_only=off/g)||[]).length,1);
 assert.match(release,/if: inputs.phase == 'apply-production'/);

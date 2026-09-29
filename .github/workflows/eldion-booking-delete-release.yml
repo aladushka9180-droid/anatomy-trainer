@@ -46,6 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
       RELEASE_PHASE: ${{ inputs.phase }}
       RELEASE_SHA: ${{ inputs.commit_sha }}
       TEST_RUN_ID: ${{ inputs.test_run_id }}
