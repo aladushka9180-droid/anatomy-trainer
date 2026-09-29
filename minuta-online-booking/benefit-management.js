@@ -194,7 +194,7 @@
       const holder=$('#benefitProductServices');
       const kind=$('#benefitProductKind').value;
       const certificate=kind==='certificate';
-      $('#benefitProductKindHelp').textContent=kind==='certificate'?'Сертификат — сумма для оплаты визитов.':kind==='package'?'Пакет — посещения выбранных услуг.':'Абонемент — заданное число посещений.';
+      const kindHelp=$('#benefitProductKindHelp');if(kindHelp)kindHelp.textContent=kind==='certificate'?'Сертификат — сумма для оплаты визитов.':kind==='package'?'Пакет — посещения выбранных услуг.':'Абонемент — заданное число посещений.';
       const servicesFieldset=holder.closest('fieldset');
       if(servicesFieldset)servicesFieldset.hidden=certificate;
       $('#benefitProductVisitsField').hidden=kind!=='visit_pass';

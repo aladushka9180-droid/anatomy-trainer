@@ -14,7 +14,7 @@ const url='https://benefit-application.test/minuta-online-booking/provider.html'
 const errors=[],unexpected=[];
 const mime={'.css':'text/css','.js':'text/javascript','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2','.html':'text/html'};
 
-async function fixture(width,code=source){
+async function fixture(width,code=source,{withoutKindHelp=false}={}){
   const page=await browser.newPage({bypassCSP:true,serviceWorkers:'block',viewport:{width,height:960}});
   page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/*',route=>{
@@ -38,6 +38,7 @@ async function fixture(width,code=source){
     document.querySelectorAll('#organizationSectionNav button').forEach(button=>button.classList.toggle('active',button.dataset.sectionTarget==='benefitsPanel'));
     document.querySelectorAll('[data-provider-panel="organization"] .organization-section').forEach(panel=>panel.hidden=panel.id!=='benefitsPanel');
   });
+  if(withoutKindHelp)await page.locator('#benefitProductKindHelp').evaluate(element=>element.remove());
   await page.addScriptTag({content:code});
   await page.evaluate(async()=>{
     const payload=window.applicationPayload={organization_id:'org-a',current_role:'owner',enabled:true,
@@ -53,13 +54,17 @@ async function fixture(width,code=source){
         {id:'package-a',product_id:'product-package',client_account_id:'client-a',public_code:'MIN-PACK',status:'active',expires_on:'2026-12-01',remaining_visits:2,remaining_amount_rub:0,product_snapshot:{name:'Пакет',kind:'package'},service_balances:[{service_id:'service-a',remaining_units:2}]},
         {id:'certificate-a',product_id:'product-certificate',client_account_id:'client-a',public_code:'MIN-CERT',status:'active',expires_on:'2026-12-01',remaining_visits:0,remaining_amount_rub:5000,product_snapshot:{name:'Сертификат',kind:'certificate'},service_balances:[]}
       ]};
-    const state=window.applicationState={calls:[],notices:[]};
+    const state=window.applicationState={calls:[],productCalls:[],notices:[]};
     const db={rpc:async(name,args)=>{
       if(name==='get_minuta_benefit_workspace')return {data:structuredClone(payload),error:null};
       if(name==='apply_minuta_benefit_v149'){
         state.calls.push(structuredClone(args));
         payload.redemptions.push({id:'redemption-a',instrument_id:args.p_instrument,booking_id:args.p_booking,status:'reserved',amount_rub:args.p_amount_rub||0,units:args.p_amount_rub?0:1});
         return {data:{id:'redemption-a',organization_id:'org-a',status:'reserved',request_id:args.p_request_id,replayed:false},error:null};
+      }
+      if(name==='upsert_minuta_benefit_product'){
+        state.productCalls.push(structuredClone(args));
+        return {data:{id:'product-synthetic',organization_id:'org-a'},error:null};
       }
       throw Error(`Unexpected RPC: ${name}`);
     },from(){throw Error('Unexpected direct table read');}};
@@ -103,6 +108,25 @@ try{
     await visual(page,'reserved',width);
     console.log(`PASS native ${width}px: eligible visit pass/package/certificate choices, idempotency key, reservation render and no overflow`);
     await page.close();
+
+    const legacy=await fixture(width,source,{withoutKindHelp:true});
+    assert.equal(await legacy.locator('#benefitProductKindHelp').count(),0,'only the new optional helper is absent');
+    await legacy.locator('#benefitProductCreator>summary').click();
+    await legacy.locator('#benefitProductKind').selectOption('package');
+    assert.equal(await legacy.locator('#benefitProductVisitsField').isVisible(),false,'package hides visit count');
+    assert.equal(await legacy.locator('#benefitProductServices').isVisible(),true,'package keeps service choices');
+    await legacy.locator('#benefitProductKind').selectOption('certificate');
+    assert.equal(await legacy.locator('#benefitProductValueField').isVisible(),true,'certificate shows face value');
+    await legacy.locator('#benefitProductName').fill('Учебный сертификат');
+    await legacy.locator('#benefitProductPrice').fill('1200');
+    await legacy.locator('#benefitProductForm button[type=submit]').click();
+    await legacy.waitForFunction(()=>applicationState.productCalls.length===1);
+    const productCall=await legacy.evaluate(()=>applicationState.productCalls[0]);
+    assert.equal(productCall.p_kind,'certificate');
+    assert.equal(productCall.p_name,'Учебный сертификат');
+    assert.equal(await legacy.locator('#benefitProductError').isHidden(),true);
+    assert.equal(await legacy.locator('#benefitProductCreator').getAttribute('open'),null,'synthetic form completes without helper');
+    await legacy.close();
   }
   assert.deepEqual(errors,[]);assert.deepEqual(unexpected,[]);
 }finally{await browser.close();}

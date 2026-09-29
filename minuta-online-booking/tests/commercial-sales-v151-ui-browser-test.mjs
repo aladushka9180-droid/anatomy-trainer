@@ -214,7 +214,11 @@ try {
     assert.equal(await page.locator('#commerceItem').inputValue(), ids.secondItem, 'selecting another sale item must not snap back to the first');
     await page.locator('#commerceUnitPrice').fill('500');
     await page.locator('#commerceQuantity').fill('2');
+    assert.doesNotMatch(await page.locator('#commerceSaleOptionsSummary').innerText(), /скидка/i, 'zero discount stays out of compact summary');
+    await page.locator('#commerceDiscount').fill('100.50');
+    assert.match(await page.locator('#commerceSaleOptionsSummary').innerText(), /скидка 100,5 ₽/, 'fractional discount uses the existing Russian money formatter');
     await page.locator('#commerceDiscount').fill('100');
+    assert.match(await page.locator('#commerceSaleOptionsSummary').innerText(), /скидка 100 ₽/, 'whole discount remains correct');
     assert.equal(await page.locator('#commerceSaleTotal').innerText(), '900 ₽');
     assert.equal(await page.locator('#commerceSaleSubmit').isEnabled(), true);
     assert.equal(await page.locator('#commerceSaleSubmit').isVisible(), true);
