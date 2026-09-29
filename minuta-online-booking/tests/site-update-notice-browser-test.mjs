@@ -117,6 +117,14 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('synthetic-offline-draft')), 'preserved');
   assert.deepEqual(errors, []);
   if (process.env.EXPECT_OLD_BUG !== '1') {
+    // Headless Chromium can reset the new document's network state on reload.
+    // Establish a real offline->online edge in this document, keeping the
+    // fixture server disconnected throughout; do not dispatch a fake event.
+    if (await page.evaluate(() => navigator.onLine)) {
+      await context.setOffline(false);
+      await context.setOffline(true);
+    }
+    await page.waitForFunction(() => navigator.onLine === false);
     offline = false;
     const future = String(Number(newRelease.version) + 1);
     const advance = source => source.replaceAll(`v=${newRelease.version}`, `v=${future}`).replaceAll(`v${newRelease.version}`, `v${future}`);
@@ -137,7 +145,7 @@ try {
   assert.deepEqual(errors, []);
   console.log('PASS: one-release update lifecycle and offline draft preservation');
 } catch (error) {
-  if (page && !page.isClosed()) console.log(JSON.stringify({errors, failureState:await page.evaluate(async()=>({loaded:document.body.dataset.release,notice:Boolean(document.querySelector('#siteUpdateNotice')),online:navigator.onLine,controller:navigator.serviceWorker.controller?.scriptURL,caches:await caches.keys(),registrations:(await navigator.serviceWorker.getRegistrations()).map(r=>({active:r.active?.scriptURL,activeState:r.active?.state,installing:r.installing?.scriptURL,waiting:r.waiting?.scriptURL}))}))}));
+  if (page && !page.isClosed()) console.log(JSON.stringify({errors, failureState:await page.evaluate(async()=>({loaded:document.body.dataset.release,notice:Boolean(document.querySelector('#siteUpdateNotice')),online:navigator.onLine,updateReady:document.documentElement.dataset.siteUpdateReady,scripts:Array.from(document.scripts).map(script=>script.src),controller:navigator.serviceWorker.controller?.scriptURL,caches:await caches.keys(),registrations:(await navigator.serviceWorker.getRegistrations()).map(r=>({active:r.active?.scriptURL,activeState:r.active?.state,installing:r.installing?.scriptURL,waiting:r.waiting?.scriptURL}))}))}));
   throw error;
 } finally {
   await browser?.close();

@@ -21,8 +21,10 @@ jobs:
       - run: node minuta-online-booking/tests/eldion-connection-browser-test.mjs
       - name: Verify one-release PWA update and stale-tab recovery
         run: |
-          git fetch --no-tags --depth=1 origin 8908228f8f1b4195251154c7e4e8d496940b2baf
-          node minuta-online-booking/tests/site-update-notice-browser-test.mjs 8908228f8f1b4195251154c7e4e8d496940b2baf
+          git fetch --no-tags --depth=1 origin ba455d0f04ebb6f53d9414becf742a25941de9b2
+          node minuta-online-booking/tests/site-update-online-race-test.mjs
+          node minuta-online-booking/tests/site-update-notice-retry-test.mjs
+          node minuta-online-booking/tests/site-update-notice-browser-test.mjs ba455d0f04ebb6f53d9414becf742a25941de9b2
       - name: Verify pending navigation cannot block the next worker
         run: node minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs
       - name: Check theme colours and marked card states
@@ -48,6 +50,7 @@ jobs:
       - run: node minuta-online-booking/tests/pink-personal-theme-browser-test.mjs
       - run: node minuta-online-booking/tests/pink-porcelain-visual-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-cabinet-accent-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-porcelain-x15-ordinary-accents-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-white-text-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-editor-browser-test.mjs
       - run: node minuta-online-booking/tests/client-theme-visual-parity-browser-test.mjs
@@ -65,6 +68,14 @@ jobs:
       - run: node minuta-online-booking/tests/report-money-source-visibility-browser-test.mjs
       - run: node minuta-online-booking/tests/finance-warning-n14-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-heatmap-scroll-hint-browser-test.mjs
+      - run: node minuta-online-booking/tests/statistics-heatmap-drilldown-browser-test.mjs --project-root .
+      - run: node minuta-online-booking/tests/retention-copy-a10-browser-test.mjs
+      - run: node minuta-online-booking/tests/organization-roles-a02-browser-test.mjs
+      - run: node minuta-online-booking/tests/statistics-typography-n15-browser-test.mjs
+      - run: node minuta-online-booking/tests/organization-copy-a05-a08-browser-test.mjs
+      - run: node minuta-online-booking/tests/inventory-a11-copy-browser-test.mjs
+      - run: node minuta-online-booking/tests/benefit-application-v149-browser-test.mjs
+      - run: node minuta-online-booking/tests/commercial-sales-v151-ui-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-connection-guidance-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-theme-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-metric-hierarchy-browser-test.mjs

@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const defaultTemplate = 'Здравствуйте, {имя}! Давно вас не было в {организация}. Будем рады видеть снова: {ссылка}';
+  const defaultTemplate = 'Здравствуйте, {имя}! Это {организация}. Выбрать время и записаться: {ссылка}';
 
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
@@ -184,7 +184,10 @@
       const action = client.eligible
         ? `<button class="primary compact-button" type="button" data-retention-prepare="${escapeHtml(client.client_account_id)}" data-retention-write>Подготовить сообщение</button>`
         : '';
-      return `<article class="organization-row retention-client-row"><div class="organization-row-main"><strong>${escapeHtml(client.client_name || 'Клиент')}</strong><small>${escapeHtml(client.client_phone || '')} · последний визит ${escapeHtml(formatDate(client.last_visit_on))} · завершено ${Number(client.completed_visits || 0)}</small>${client.last_sent_at ? `<small>Последнее сообщение: ${escapeHtml(formatDateTime(client.last_sent_at))}</small>` : ''}</div><span class="retention-row-actions"><label class="retention-consent-field"><span>Согласие на сообщения</span><select data-retention-consent="${escapeHtml(client.client_account_id)}" aria-label="Согласие на сообщения для ${escapeHtml(client.client_name || 'клиента')}"><option value="unknown" ${client.consent_status === 'unknown' ? 'selected' : ''}>Не указано</option><option value="granted" ${client.consent_status === 'granted' ? 'selected' : ''}>Разрешено</option><option value="revoked" ${client.consent_status === 'revoked' ? 'selected' : ''}>Запрещено</option></select></label>${action}</span></article>`;
+      const visits = client.last_visit_on
+        ? `Последний визит ${formatDate(client.last_visit_on)} · завершено ${Number(client.completed_visits || 0)}`
+        : 'Завершённых визитов нет';
+      return `<article class="organization-row retention-client-row"><div class="organization-row-main"><strong>${escapeHtml(client.client_name || 'Клиент')}</strong><small>${client.client_phone ? `${escapeHtml(client.client_phone)} · ` : ''}${escapeHtml(visits)}</small>${client.last_sent_at ? `<small>Последнее сообщение: ${escapeHtml(formatDateTime(client.last_sent_at))}</small>` : ''}</div><span class="retention-row-actions"><label class="retention-consent-field"><span>Согласие на сообщения</span><select data-retention-consent="${escapeHtml(client.client_account_id)}" aria-label="Согласие на сообщения для ${escapeHtml(client.client_name || 'клиента')}"><option value="unknown" ${client.consent_status === 'unknown' ? 'selected' : ''}>Согласие не указано</option><option value="granted" ${client.consent_status === 'granted' ? 'selected' : ''}>Клиент согласен</option><option value="revoked" ${client.consent_status === 'revoked' ? 'selected' : ''}>Клиент отказался</option></select></label>${action}</span></article>`;
     }
     function deliveryCard(delivery) {
       const client = clientById(delivery.client_account_id) || {};
@@ -213,18 +216,18 @@
           ? 'Включённую программу может настраивать только владелец; администратор может её выключить'
           : 'Администратор может настроить выключенную программу; включить её может только владелец';
       $('#retentionClientsList').innerHTML = payload.clients.length ? payload.clients.map(clientCard).join('') : empty('Клиентов пока нет', 'После завершённых визитов здесь появятся клиенты.');
-      $('#retentionDeliveriesList').innerHTML = payload.deliveries.length ? payload.deliveries.map(deliveryCard).join('') : empty('Сообщений пока нет', 'Система не отправляет сообщения без зафиксированного согласия клиента.');
+      $('#retentionDeliveriesList').innerHTML = payload.deliveries.length ? payload.deliveries.map(deliveryCard).join('') : empty('Сообщений пока нет', 'Сообщения не отправляются автоматически. Отправка — вручную; Eldion Pro не подтверждает доставку.');
       applyWriteAvailability?.();
     }
     function messageFor(error) {
       const text = `${error?.message || ''} ${error?.details || ''}`;
       const rows = [
-        ['owner_required', 'Включить автоматизацию может только владелец.'],
+        ['owner_required', 'Включить подбор клиентов может только владелец.'],
         ['marketing_consent_required', 'Сначала зафиксируйте согласие клиента на сообщения.'],
         ['client_not_inactive', 'Клиент ещё не достиг выбранного срока без визитов.'],
-        ['retention_cooldown_active', 'Повторное сообщение пока заблокировано периодом защиты.'],
+        ['retention_cooldown_active', 'Повторное предложение доступно после заданного интервала.'],
         ['retention_already_prepared', 'Для клиента уже подготовлено сообщение.'],
-        ['retention_disabled', 'Сначала включите возврат клиентов.'],
+        ['retention_disabled', 'Сначала включите подбор клиентов.'],
         ['invalid_retention_settings', 'Проверьте сроки и оставьте в шаблоне переменную {ссылка}.']
       ];
       return rows.find(([key]) => text.includes(key))?.[1] || 'Не удалось подтвердить результат. Проверьте актуальные данные перед повтором.';
@@ -340,7 +343,7 @@
           let confirmed = false;
           try {
             confirmed = await requestConfirmation({
-              title:'Включить возврат клиентов?',
+              title:'Включить подбор клиентов?',
               message:`Клиент попадёт в список после ${inactivity} дней без визита. Повторное предложение — не раньше чем через ${cooldown} дней. Сообщения не отправляются автоматически; подготовка и отправка остаются отдельными действиями.`,
               confirmLabel:'Включить', initialFocus:'cancel'
             });

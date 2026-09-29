@@ -73,9 +73,12 @@ try{
  for(const width of [390,760,1440]){
   const before=await fixture(width,null,baseline);await screenshot(before,'before',width);await before.close();
   const page=await fixture(width);await screenshot(page,'after',width);
-  assert.equal(await page.locator('#benefitsPanel .benefit-guide').locator('xpath=..').getAttribute('open'),'', 'Empty issuance shows the four-step guide');
-  assert.equal(await page.locator('#benefitsPanel .benefit-guide li').count(),4);
-  assert.match(await page.locator('#benefitsPanel .benefit-guide').innerText(),/Оформите продажу.*без продажи/s);
+  assert.equal(await page.locator('#benefitsPanel .benefit-guide').locator('xpath=..').getAttribute('open'),'', 'Empty issuance shows the first-run guide');
+  const guideSteps=await page.locator('#benefitsPanel .benefit-guide li').allTextContents();
+  assert.equal(guideSteps.length,3);
+  assert.match(guideSteps[0],/Создайте шаблон.*оформите продажу.*без продажи/s);
+  assert.match(guideSteps[1],/Примените.*к записи.*зарезервированы/s);
+  assert.match(guideSteps[2],/завершения визита.*Погасить.*отмене.*Вернуть/s);
   assert.match(await page.locator('#benefitInstrumentsList').innerText(),/Продажи.*без продажи/s);
   assert.match(await page.locator('#benefitWorkflowStatus').innerText(),/Оформите продажу.*без продажи/s);
   assert.match(await page.locator('#benefitIssueCreator > summary').innerText(),/Выдать без продажи/);
