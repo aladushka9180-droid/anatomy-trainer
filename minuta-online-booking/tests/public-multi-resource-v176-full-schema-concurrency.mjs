@@ -85,7 +85,7 @@ try {
   await first.query('set role anon');
   await second.query('set role anon');
   const secondPid = await one(second, 'select pg_backend_pid()');
-  const selectPair = async () => (await admin.query(`select first_slot.booking_date::text day,
+  const selectPair = async () => (await admin.query(`select first_slot.booking_date::text as visit_date,
     first_slot.booking_time::text start_a,second_slot.booking_time::text start_b
     from public.get_available_slots($1,current_date+1,current_date+7) first_slot
     join public.get_available_slots($2,current_date+1,current_date+7) second_slot
@@ -96,10 +96,10 @@ try {
     [serviceA, serviceB])).rows[0];
   const makeItems = pair => [
     { request_id: randomUUID(), organization_slug: slug, location_id: loc, performer_id: actorA,
-      service_id: serviceA, booking_date: pair.day, booking_time: pair.start_a,
+      service_id: serviceA, booking_date: pair.visit_date, booking_time: pair.start_a,
       expected_price_rub: 1761, expected_duration_minutes: 30 },
     { request_id: randomUUID(), organization_slug: slug, location_id: loc, performer_id: actorB,
-      service_id: serviceB, booking_date: pair.day, booking_time: pair.start_b,
+      service_id: serviceB, booking_date: pair.visit_date, booking_time: pair.start_b,
       expected_price_rub: 1762, expected_duration_minutes: 30 }
   ];
 
