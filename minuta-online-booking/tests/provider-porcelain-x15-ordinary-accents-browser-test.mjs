@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -14,8 +15,7 @@ assert.ok(cssFiles.includes('free-slots-compact.css'));
 for (const file of cssFiles) assert.ok(existsSync(path.join(root, file)), `Missing stylesheet: ${file}`);
 
 const modulePath = process.env.MINUTA_PLAYWRIGHT_MODULE;
-if (!modulePath) throw new Error('Set MINUTA_PLAYWRIGHT_MODULE to local Playwright index.mjs');
-const { chromium } = await import(pathToFileURL(modulePath).href);
+const { chromium } = modulePath ? await import(pathToFileURL(modulePath).href) : createRequire(import.meta.url)('playwright');
 const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const outputDir = process.env.MINUTA_X15_SCREENSHOT_DIR;
 if (outputDir) mkdirSync(outputDir, { recursive:true });
@@ -34,6 +34,7 @@ try {
     const page = await browser.newPage({ viewport:{ width, height:1000 }, serviceWorkers:'block' });
     const blocked = [];
     const errors = [];
+    let minimumThumbContrast = Infinity;
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', route => { blocked.push(route.request().url()); return route.abort(); });
     await page.setContent('<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body class="provider-body" data-provider-theme="pink-porcelain" data-provider-layout="soft" data-provider-resolved-color-mode="light"></body></html>');
@@ -79,7 +80,7 @@ try {
       '#clientQuickRepeat', '#clientRecords .cr-button', '.booking-time-slots button.active',
       '#freeSlotsDialog .free-slots-source input:checked+span', '#freeSlotsDialog .free-slots-time-grid input:checked+span'
     ];
-    const customChecks = ['.organization-checks input:checked', '.retention-toggle>input:checked'];
+    const customChecks = ['.organization-checks input:checked'];
     const nativeChecks = ['#inventoryEnabled', '#inventoryAutoDeduct', '#freeSlotsDialog .free-slots-title-toggle input:checked'];
     for (const character of ['pearl', 'petal', 'silk']) {
       for (const shade of ['pearl-white', 'porcelain-white', 'gentle-pink', 'petal-pink', 'pink-accent']) {
@@ -108,6 +109,18 @@ try {
           assert.equal(actual.color, toRgb(palette.actionInk), `${width} ${character}/${shade} ${selector} ink`);
           assert.ok(contrast(actual.color, actual.background) >= 4.5, `${width} ${character}/${shade} ${selector} contrast`);
         }
+        const retention = await page.locator('#retentionEnabled').evaluate(element => {
+          const track = getComputedStyle(element);
+          const thumb = getComputedStyle(element, '::after');
+          return { track:track.backgroundColor, thumb:thumb.backgroundColor,
+            top:thumb.top, left:thumb.left, width:thumb.width, height:thumb.height,
+            offset:new DOMMatrixReadOnly(thumb.transform).m41 };
+        });
+        assert.equal(retention.track, toRgb(palette.actionBg), `${width} ${character}/${shade} retention track`);
+        assert.equal(retention.thumb, toRgb(palette.actionInk), `${width} ${character}/${shade} retention thumb`);
+        minimumThumbContrast = Math.min(minimumThumbContrast, contrast(retention.thumb, retention.track));
+        assert.ok(contrast(retention.thumb, retention.track) >= 3, `${width} ${character}/${shade} retention thumb contrast`);
+        assert.deepEqual([retention.top, retention.left, retention.width, retention.height, retention.offset], ['3px', '3px', '16px', '16px', 20], 'checked thumb geometry');
         for (const selector of nativeChecks) {
           assert.equal(await page.locator(selector).evaluate(element => getComputedStyle(element).accentColor), toRgb(palette.actionBg), `${width} ${character}/${shade} ${selector} accent`);
         }
@@ -128,12 +141,20 @@ try {
     }
     await page.locator('#retentionEnabled').evaluate(input => { input.checked = false; });
     await page.waitForTimeout(350);
-    assert.notEqual(await page.locator('#retentionEnabled').evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#e5a3be'), 'unchecked retention stays neutral');
+    const unchecked = await page.locator('#retentionEnabled').evaluate(element => {
+      const thumb = getComputedStyle(element, '::after');
+      return { track:getComputedStyle(element).backgroundColor, thumb:thumb.backgroundColor,
+        top:thumb.top, left:thumb.left, width:thumb.width, height:thumb.height,
+        offset:new DOMMatrixReadOnly(thumb.transform).m41 };
+    });
+    assert.notEqual(unchecked.track, toRgb('#e5a3be'), 'unchecked retention track stays neutral');
+    assert.equal(unchecked.thumb, toRgb('#ffffff'), 'unchecked thumb keeps surface color');
+    assert.deepEqual([unchecked.top, unchecked.left, unchecked.width, unchecked.height, unchecked.offset], ['3px', '3px', '16px', '16px', 0], 'unchecked thumb geometry');
     await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
     assert.equal(await page.locator('#clientRecords .cr-button').evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#287a58'), 'another theme keeps own action');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow`);
     assert.deepEqual(errors, [], `${width}px page errors`);
-    console.log(`${width}px: 15 palettes, ordinary controls, semantic exclusions, contrast, overflow PASS; network attempts blocked: ${blocked.length}`);
+    console.log(`${width}px: 15 palettes, retention thumb minimum ${minimumThumbContrast.toFixed(2)}:1, ordinary controls, semantic exclusions, contrast, overflow PASS; network attempts blocked: ${blocked.length}`);
     await page.close();
   }
 } finally {
