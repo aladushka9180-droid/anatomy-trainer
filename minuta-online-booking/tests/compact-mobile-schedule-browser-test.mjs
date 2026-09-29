@@ -52,7 +52,7 @@ try {
     document.querySelector('#mobileTodayBookingsCount').textContent = '12';
     document.querySelector('#mobileTomorrowBookingsCount').textContent = '10';
     document.querySelector('#mobileUpcomingBookingsCount').textContent = '24';
-    document.querySelector('#dateStrip').innerHTML = [25, 26, 27, 28, 29].map((day, index) => `<button type="button" class="${day === 27 ? 'active' : ''}"><span>${['Пт','Сб','Вс','Пн','Вт'][index]}</span><strong>${day}</strong><small>сент</small></button>`).join('');
+    document.querySelector('#dateStrip').innerHTML = [25, 26, 27, 28, 29].map((day, index) => `<button type="button" data-date-distance="${Math.abs(index - 2)}" class="${day === 27 ? 'active' : ''}"><span>${['Пт','Сб','Вс','Пн','Вт'][index]}</span><strong>${day}</strong><small>сент</small></button>`).join('');
     document.querySelector('#providerBookings').className = 'provider-bookings timeline-view';
     document.querySelector('#providerBookings').innerHTML = '<div class="day-timeline" style="--timeline-height:180px;--half-hour-offset:45px"><div class="timeline-hours"></div><div class="timeline-stage"><i class="timeline-grid-line" style="top:0"></i></div></div>';
   });
@@ -73,7 +73,7 @@ try {
   });
   assert.deepEqual(modes, { listSync:true, hiddenOutsideDay:true });
 
-  for (const theme of ['carbon-crimson', 'pink-porcelain']) for (const width of [360, 390, 760, 1440]) {
+  for (const theme of ['carbon-crimson', 'pink-porcelain', 'sage']) for (const width of [360, 390, 760, 1440]) {
     await page.setViewportSize({ width, height:844 });
     await page.evaluate(theme => {
       document.body.dataset.providerTheme = theme;
@@ -100,6 +100,11 @@ try {
         halfHourLine:getComputedStyle(document.querySelector('.timeline-grid-line'), '::after').borderTopStyle,
         dateIcon:{ x:rect('.schedule-date-picker>.ui-icon').x, w:rect('.schedule-date-picker>.ui-icon').width },
         dateInputRight:rect('.schedule-date-picker input').right,
+        dateGroupCenter:(rect('.schedule-date-picker input').left + rect('.schedule-date-picker>.ui-icon').right) / 2,
+        controlsCenter:(today.right + toggle.left) / 2,
+        dateOpacity:[...document.querySelectorAll('#dateStrip button')].map(button => getComputedStyle(button).opacity),
+        headingCenter:rect('.schedule-view-title h2').y + rect('.schedule-view-title h2').height / 2,
+        actionsCenter:rect('.provider-topbar-actions').y + rect('.provider-topbar-actions').height / 2,
         extraArrows:[...document.querySelectorAll('.date-navigation>.date-nav-button')].some(button => getComputedStyle(button).display !== 'none'),
         heading:{ x:rect('.schedule-view-title h2').x, bottom:rect('.schedule-view-title h2').bottom },
         tabsTop:rect('.calendar-view-toggle').top,
@@ -120,6 +125,10 @@ try {
       assert.equal(state.extraArrows, false, `${width}: duplicate day arrows`);
       assert.equal(state.dateIcon.w, 16);
       assert.ok(state.dateIcon.x >= state.dateInputRight - 1, `${width}: calendar icon is not after date`);
+      assert.ok(state.dateIcon.x - state.dateInputRight <= 5, `${width}: calendar icon detached from date`);
+      assert.ok(Math.abs(state.dateGroupCenter - state.controlsCenter) <= 1, `${width}: date/calendar group not centered`);
+      assert.ok(state.dateOpacity.every(opacity => opacity === '1'), `${width}: visible dates are dimmed`);
+      assert.ok(Math.abs(state.headingCenter - state.actionsCenter) <= 3, `${theme}/${width}: heading below topbar icons`);
       assert.ok(state.heading.x <= 18, `${width}: heading shifted right`);
       assert.ok(state.heading.bottom < state.tabsTop, `${theme}/${width}: period tabs overlap heading`);
       const controlColors = await page.evaluate(() => {

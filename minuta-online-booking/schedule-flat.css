@@ -333,7 +333,7 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     grid-template-rows:auto!important;
     min-height:0!important;
     height:auto!important;
-    margin:-30px 4px 14px!important;
+    margin:-46px 4px 14px!important;
     padding:0 0 12px!important;
     border-bottom:1px solid var(--theme-line)!important;
     pointer-events:none!important;
@@ -361,7 +361,7 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     width:calc(100% - 8px)!important;
     min-height:44px!important;
     height:44px!important;
-    margin:6px 4px 4px!important;
+    margin:2px 4px 4px!important;
     border:0!important;
     border-bottom:1px solid var(--theme-line)!important;
     border-radius:0!important;
@@ -370,6 +370,9 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-context>.date-strip-frame {
     margin-bottom:0!important;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .date-strip>button {
+    opacity:1!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-context>.date-navigation>.date-nav-button {
     display:none!important;
@@ -416,6 +419,7 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     align-items:center!important;
     justify-content:center!important;
     width:100%!important;
+    gap:4px!important;
     min-height:40px!important;
     height:40px!important;
     margin:0!important;
@@ -432,10 +436,10 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
     transform:translateY(-3px)!important;
   }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .schedule-date-picker input {
-    flex:0 1 116px!important;
+    flex:0 1 auto!important;
     order:0!important;
-    width:116px!important;
-    max-width:116px!important;
+    width:10.5ch!important;
+    max-width:calc(100% - 20px)!important;
     min-width:0!important;
     min-height:40px!important;
     height:40px!important;
