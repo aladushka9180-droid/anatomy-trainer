@@ -275,3 +275,16 @@ html body.provider-body[data-provider-theme="pink-porcelain"] .message-center-di
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] :is(#clientRecords .cr-button,.booking-time-slots button.active,#freeSlotsDialog input:checked,#freeSlotsDialog input:checked+span,.retention-toggle>input:checked,.organization-checks input:checked,#inventoryEnabled:checked,#inventoryAutoDeduct:checked){border-color:var(--theme-line)!important;background:var(--porcelain-action-bg)!important;color:var(--porcelain-action-ink)!important;accent-color:var(--porcelain-action-bg)!important}
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] .retention-toggle>input:checked::after{background:var(--porcelain-action-ink)!important}
+/* Timeline markers carry no status; keep their small circles visible without moving them. */
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] :is(#clientRecords .cr-event-dot,.client-benefit-history-marker) {
+  background:var(--porcelain-action-bg)!important;
+  box-shadow:inset 0 0 0 1px var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] .loyalty-thresholds [aria-current] {
+  border-color:var(--porcelain-action-ink)!important;
+  background:var(--porcelain-action-bg)!important;
+  color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] :is(#inventoryItemActive:checked,#inventoryWarehouseActive:checked,#inventoryTransfersEnabled:checked) {
+  accent-color:var(--porcelain-action-bg)!important;
+}
