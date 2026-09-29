@@ -21,7 +21,7 @@ jobs:
         image: postgres:17
         env:
           POSTGRES_PASSWORD: ephemeral-fixture-only
-          POSTGRES_DB: minuta-v189-fixture
+          POSTGRES_DB: minuta-v176-fixture
         ports: ['55432:5432']
         options: >-
           --health-cmd "pg_isready -U postgres"
@@ -37,7 +37,7 @@ jobs:
       - name: Verify v188 and v189 on disposable PostgreSQL 17
         env:
           MINUTA_V176_EPHEMERAL_CONFIRM: EMPTY_LOCAL_POSTGRES
-          MINUTA_V176_EPHEMERAL_DATABASE_URL: postgresql://postgres:ephemeral-fixture-only@127.0.0.1:55432/minuta-v189-fixture
+          MINUTA_V176_EPHEMERAL_DATABASE_URL: postgresql://postgres:ephemeral-fixture-only@127.0.0.1:55432/minuta-v176-fixture
           MINUTA_V176_NATIVE_CONCURRENCY: '1'
         run: |
           set -euo pipefail
