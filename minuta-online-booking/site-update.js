@@ -33,10 +33,14 @@
     });
   }
 
-  async function refreshUpdateNotice() {
+  async function refreshUpdateNotice(attempt = 0) {
     const controller = navigator.serviceWorker.controller;
     const info = await workerVersion(controller);
     if (controller !== navigator.serviceWorker.controller) return;
+    if (controller && !info?.ready && attempt < 3) {
+      setTimeout(() => refreshUpdateNotice(attempt + 1), 500);
+      return;
+    }
     // A different worker object/script URL can contain the same published build.
     const version = Number(info?.version);
     if (Number.isSafeInteger(version) && version > 0) {

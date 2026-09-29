@@ -23,6 +23,7 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin ba455d0f04ebb6f53d9414becf742a25941de9b2
           node minuta-online-booking/tests/site-update-online-race-test.mjs
+          node minuta-online-booking/tests/site-update-notice-retry-test.mjs
           node minuta-online-booking/tests/site-update-notice-browser-test.mjs ba455d0f04ebb6f53d9414becf742a25941de9b2
       - name: Verify pending navigation cannot block the next worker
         run: node minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs
