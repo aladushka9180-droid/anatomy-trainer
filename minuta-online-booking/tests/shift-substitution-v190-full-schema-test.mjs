@@ -72,12 +72,14 @@ try {
   await db.query(`insert into public.provider_schedule(performer_id,weekday,enabled,start_time,end_time,slot_interval_minutes)
     select $1,day,true,'09:00','18:00',15 from generate_series(1,7) day`, [nextActor]);
   await db.query("select set_config('minuta.booking_organization',$1,true),set_config('minuta.booking_location',$2,true)", [fixture.org, fixture.loc]);
-  const blocks = [randomUUID(), randomUUID(), randomUUID()];
+  const blocks = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+  const flaggedBlocks = blocks.slice(0, 3);
   const [client, clientAfterReapply] = [randomUUID(), randomUUID()];
   for (const [id, time, service, isBlock] of [
     [blocks[0], '11:00', fixture.service, true],
     [blocks[1], '12:00', technicalServices[0], true],
     [blocks[2], '13:00', technicalServices[1], true],
+    [blocks[3], '14:00', technicalServices[1], true],
     [client, '15:00', fixture.service, false],
     [clientAfterReapply, '17:00', fixture.service, false]
   ]) {
@@ -93,15 +95,29 @@ try {
   await db.query(`update public.bookings
     set booking_policy_snapshot=coalesce(booking_policy_snapshot,'{}'::jsonb)
       || jsonb_build_object('schedule_block',true,'payment_suppressed',true)
-    where id=any($1::uuid[])`, [blocks]);
+    where id=any($1::uuid[])`, [flaggedBlocks]);
   await db.query(`update public.bookings
     set booking_policy_snapshot=booking_policy_snapshot || jsonb_build_object('integration_calendar_block',true)
     where id=$1`, [blocks[2]]);
+  // v142 writes its snapshot in INSERT; an enabled v76 policy replaces it.
+  // Keep this fourth calendar block unflagged and identify it by its mapping.
+  const connection = randomUUID();
+  await db.query(`insert into public.integration_connections_v142
+    (id,organization_id,provider,environment,external_account_id,enabled,created_by)
+    values($1,$2,'fixture','testing','a04-synthetic',true,$3)`, [connection, fixture.org, fixture.actor]);
+  await db.query(`insert into public.integration_calendar_events_v142
+    (connection_id,organization_id,external_event_id,local_booking_id,location_id,
+      performer_id,source_revision,payload_sha256)
+    values($1,$2,'a04:unflagged',$3,$4,$5,'fixture-1',$6)`,
+  [connection, fixture.org, blocks[3], fixture.loc, fixture.actor, 'a'.repeat(64)]);
   const beforeWorkspace = await one('select public.get_minuta_shift_workspace($1,$2,$2)', [fixture.org, fixture.date]);
   assert.deepEqual(beforeWorkspace.bookings.map(item => item.id).sort(), [...blocks, client, clientAfterReapply].sort());
   assert.ok(beforeWorkspace.bookings.every(item => !Object.hasOwn(item, 'is_schedule_block')));
   assert.equal(await one("select count(*)::int from public.bookings where id=any($1::uuid[]) and booking_policy_snapshot @> '{\"schedule_block\":true}'::jsonb", [blocks]), 3,
-    'all three synthetic blocks must persist the canonical flag after v76 INSERT policy');
+    'three synthetic blocks must persist the canonical flag after v76 INSERT policy');
+  assert.equal(await one("select booking_policy_snapshot @> '{\"schedule_block\":true}'::jsonb from public.bookings where id=$1", [blocks[3]]), false,
+    'mapped v142 block must reproduce the missing snapshot flag');
+  assert.equal(await one('select count(*)::int from public.integration_calendar_events_v142 where local_booking_id=$1 and organization_id=$2', [blocks[3], fixture.org]), 1);
   const blockState = async () => JSON.stringify(await q(`select to_jsonb(b) booking,
     (select count(*) from public.booking_session_items where booking_id=b.id) items,
     (select count(*) from public.booking_session_revisions where booking_id=b.id) revisions,

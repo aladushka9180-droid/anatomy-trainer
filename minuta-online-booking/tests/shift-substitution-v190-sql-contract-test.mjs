@@ -22,7 +22,9 @@ assert.equal(definitions(rollback, 'get_minuta_shift_workspace').length, 0,
   'operational rollback must retain the safe workspace read contract');
 
 const guard = forwardWrite[0].indexOf("v_booking.booking_policy_snapshot @> '{\"schedule_block\":true}'::jsonb");
+const mappingGuard = forwardWrite[0].indexOf('or exists(select 1 from public.integration_calendar_events_v142 mapping');
 assert.ok(guard > forwardWrite[0].indexOf('if v_booking.id is null'), 'guard follows the locked booking lookup');
+assert.ok(mappingGuard > guard, 'mapped external calendar guard follows the snapshot check');
 for (const write of [
   'update public.booking_session_items',
   'insert into public.booking_session_revisions',
@@ -32,10 +34,12 @@ for (const write of [
   'perform public.write_minuta_schedule_audit'
 ]) {
   assert.ok(forwardWrite[0].indexOf(write) > guard, `${write} must follow the schedule-block refusal`);
+  assert.ok(forwardWrite[0].indexOf(write) > mappingGuard, `${write} must follow the calendar mapping refusal`);
 }
 assert.match(forwardWrite[0], /raise exception using errcode='55000', message='schedule_block_substitution_denied'/);
-assert.match(forwardRead[0], /'is_schedule_block',coalesce\(booking\.booking_policy_snapshot @> '\{"schedule_block":true\}'::jsonb,false\)/);
-assert.match(forwardRead[0], /booking\.status<>'cancelled' and not coalesce\(booking\.booking_policy_snapshot @> '\{"schedule_block":true\}'::jsonb,false\)/);
+assert.match(forwardRead[0], /'is_schedule_block',\(coalesce\(booking\.booking_policy_snapshot @> '\{"schedule_block":true\}'::jsonb,false\) or exists\(select 1 from public\.integration_calendar_events_v142 mapping where mapping\.local_booking_id=booking\.id and mapping\.organization_id=p_organization\)\)/);
+assert.match(forwardRead[0], /booking\.status<>'cancelled' and not \(coalesce\(booking\.booking_policy_snapshot @> '\{"schedule_block":true\}'::jsonb,false\) or exists\(select 1 from public\.integration_calendar_events_v142 mapping where mapping\.local_booking_id=booking\.id and mapping\.organization_id=p_organization\)\)/);
+assert.match(forwardWrite[0], /or exists\(select 1 from public\.integration_calendar_events_v142 mapping\s+where mapping\.local_booking_id=v_booking\.id and mapping\.organization_id=p_organization\) then/);
 
 assert.match(rollbackWrite[0], /raise exception using errcode='55000', message='booking_substitution_temporarily_unavailable'/);
 assert.doesNotMatch(rollbackWrite[0], /\b(?:update|delete|insert|truncate|drop)\b/i,

@@ -7,8 +7,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(resolve(root, 'provider.html'), 'utf8');
 const source = readFileSync(resolve(root, 'shift-management.js'), 'utf8');
 const migration = readFileSync(resolve(root, 'supabase-migration-v190.sql'), 'utf8');
-assert.match(migration, /'is_schedule_block',coalesce\(booking\.booking_policy_snapshot @> '\{"schedule_block":true\}'::jsonb,false\)/);
-assert.match(migration, /booking\.status<>'cancelled' and not coalesce\(booking\.booking_policy_snapshot @> '\{"schedule_block":true\}'::jsonb,false\)/);
+assert.match(migration, /'is_schedule_block',\(coalesce\(booking\.booking_policy_snapshot @> '\{"schedule_block":true\}'::jsonb,false\) or exists\(select 1 from public\.integration_calendar_events_v142 mapping where mapping\.local_booking_id=booking\.id and mapping\.organization_id=p_organization\)\)/);
+assert.match(migration, /booking\.status<>'cancelled' and not \(coalesce\(booking\.booking_policy_snapshot @> '\{"schedule_block":true\}'::jsonb,false\) or exists\(select 1 from public\.integration_calendar_events_v142 mapping where mapping\.local_booking_id=booking\.id and mapping\.organization_id=p_organization\)\)/);
 assert.match(migration, /message='schedule_block_substitution_denied'/);
 
 const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
