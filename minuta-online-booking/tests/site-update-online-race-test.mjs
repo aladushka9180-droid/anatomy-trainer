@@ -8,7 +8,7 @@ const source = readFileSync(new URL('../site-update.js', import.meta.url), 'utf8
 const flush = () => new Promise(resolve => setImmediate(resolve));
 async function scenario({ reconnect, failFirst = false }) {
   const events = new Map(), documentEvents = new Map(), pending = [];
-  let calls = 0, active = 0, maxActive = 0;
+  let calls = 0, registrations = 0, active = 0, maxActive = 0;
   const registration = { update() {
     calls++; active++; maxActive = Math.max(maxActive, active);
     return new Promise((resolve, reject) => pending.push(fail => {
@@ -21,7 +21,7 @@ async function scenario({ reconnect, failFirst = false }) {
     document:{ currentScript:{ src:'http://127.0.0.1/site-update.js?v=1038' }, hidden:false,
       addEventListener:(name,fn) => documentEvents.set(name,fn),
       documentElement:{ dataset:{} }, getElementById:() => null },
-    navigator:{ serviceWorker:{ controller:null, register:async () => registration, addEventListener() {} } },
+    navigator:{ serviceWorker:{ controller:null, register:async () => { registrations++; return registration; }, addEventListener() {} } },
     window:{ addEventListener:(name,fn) => events.set(name,fn), setInterval() {} }
   });
   events.get('load')();
@@ -36,6 +36,9 @@ async function scenario({ reconnect, failFirst = false }) {
   assert.equal(maxActive, 1, 'Reconnection checks must remain sequential');
   if (pending.length) { pending.shift()(false); await flush(); }
   assert.equal(calls, reconnect ? 2 : 1, 'A burst of online events must not create an update loop');
+  // A stale tab can change the shared registration's script URL. The fresh
+  // page re-registers its own URL on the reconnect edge before update().
+  assert.equal(registrations, reconnect ? 2 : 1, 'Reconnect must restore this page’s worker URL after a stale tab changes it');
 }
 await scenario({ reconnect:true });
 await scenario({ reconnect:true, failFirst:true });

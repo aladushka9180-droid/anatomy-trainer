@@ -82,7 +82,7 @@
     if (!registerOnly && !force && now - lastCheck < CHECK_INTERVAL_MS) return Promise.resolve();
     checkPromise = (async () => {
       try {
-        if (!registration) {
+        if (!registration || force) {
           registration = await navigator.serviceWorker.register(workerUrl, { updateViaCache:'none' });
           lastCheck = Date.now();
           if (registerOnly) { void refreshUpdateNotice(); return; }
