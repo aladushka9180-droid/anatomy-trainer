@@ -1,0 +1,76 @@
+name: Minuta isolated catalog contracts
+
+on:
+  push:
+    branches:
+      - codex/pro-catalog-sql-v186-v187
+    paths:
+      - .github/workflows/minuta-v186-isolated-catalog.yml
+      - minuta-online-booking/supabase-migration-v186.sql
+      - minuta-online-booking/supabase-migration-v186-rollback.sql
+      - minuta-online-booking/tests/inventory-catalog-v186-postgres-test.mjs
+      - minuta-online-booking/tests/inventory-catalog-v186-pglite-test.mjs
+      - minuta-online-booking/supabase-migration-v187.sql
+      - minuta-online-booking/supabase-migration-v187-rollback.sql
+      - minuta-online-booking/tests/service-catalog-v187-postgres-test.mjs
+      - minuta-online-booking/tests/service-catalog-v187-pglite-test.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  isolated_postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-test-only
+          POSTGRES_DB: isolated_v186
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d isolated_v186"
+          --health-interval=5s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm install --no-save --no-package-lock --ignore-scripts pg@8.16.3
+      - run: node --check minuta-online-booking/tests/inventory-catalog-v186-postgres-test.mjs
+      - run: node minuta-online-booking/tests/inventory-catalog-v186-postgres-test.mjs
+        env:
+          MINUTA_V186_ISOLATED_DATABASE_URL: postgres://postgres:isolated-test-only@127.0.0.1:5432/isolated_v186
+
+  isolated_service_postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-test-only
+          POSTGRES_DB: isolated_v187
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d isolated_v187"
+          --health-interval=5s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm install --no-save --no-package-lock --ignore-scripts pg@8.16.3
+      - run: node --check minuta-online-booking/tests/service-catalog-v187-postgres-test.mjs
+      - run: node minuta-online-booking/tests/service-catalog-v187-postgres-test.mjs
+        env:
+          MINUTA_V187_ISOLATED_DATABASE_URL: postgres://postgres:isolated-test-only@127.0.0.1:5432/isolated_v187
