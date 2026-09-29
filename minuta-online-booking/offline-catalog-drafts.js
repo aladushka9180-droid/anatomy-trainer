@@ -152,7 +152,7 @@
     if (typeof rpc!=='function' || typeof isCurrent!=='function') throw new Error('catalog_sync_context_invalid');
     if (!navigator.onLine || !isCurrent(scopedUser,scopedOrg)) return null;
     let response;
-    try { response=await rpc('get_minuta_service_catalog_draft_v186',{
+    try { response=await rpc('get_minuta_service_catalog_draft_v187',{
       p_organization:scopedOrg,p_service:target }); } catch { return null; }
     if (!isCurrent(scopedUser,scopedOrg) || response?.error) return null;
     const data=response?.data;
@@ -187,12 +187,12 @@
   }
   function call(draft) {
     const common={ p_organization:draft.organizationId,p_request_id:draft.requestId };
-    if (draft.kind === 'service') return ['save_minuta_service_catalog_draft_v186',{
+    if (draft.kind === 'service') return ['save_minuta_service_catalog_draft_v187',{
       ...common,p_service:draft.entityId,p_expected_etag:draft.expectedVersion,
       p_name:draft.fields.name,p_duration_minutes:draft.fields.durationMinutes,
       p_price_rub:draft.fields.priceRub,p_active:draft.fields.active
     }];
-    return ['save_minuta_inventory_item_draft_v185',{
+    return ['save_minuta_inventory_item_draft_v186',{
       ...common,p_item:draft.entityId,p_expected_etag:draft.expectedVersion,
       p_name:draft.fields.name,p_sku:draft.fields.sku,p_unit:draft.fields.unit,
       p_low_stock:draft.fields.lowStock,p_active:draft.fields.active

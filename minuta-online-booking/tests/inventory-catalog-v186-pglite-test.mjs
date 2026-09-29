@@ -62,14 +62,14 @@ try {
     insert into public.inventory_items(id,organization_id,name,sku,unit,low_stock_threshold,active)
       values('${item}','${org}','Старое имя','S1','piece',1,true);
   `);
-  const migration = readFileSync(new URL('../supabase-migration-v185.sql',import.meta.url),'utf8');
+  const migration = readFileSync(new URL('../supabase-migration-v186.sql',import.meta.url),'utf8');
   await db.exec(migration);
   await query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
   await db.exec('set role authenticated;');
-  const workspace = (await query('select public.get_minuta_inventory_workspace_v185($1) data',[org]))[0].data;
+  const workspace = (await query('select public.get_minuta_inventory_workspace_v186($1) data',[org]))[0].data;
   const version = workspace.items.find(row => row.id===item)?.etag;
   assert.ok(version);
-  const saveSql = `select public.save_minuta_inventory_item_draft_v185(
+  const saveSql = `select public.save_minuta_inventory_item_draft_v186(
     $1,$2,$3,$4,$5,$6,$7,$8,$9) data`;
   const args = [org,request,item,version,'Новое имя','S1','piece',2,true];
   const first = (await query(saveSql,args))[0].data;
@@ -77,7 +77,7 @@ try {
   assert.equal(first.saved,true);
   assert.deepEqual((await query(saveSql,args))[0].data,first,'lost-response replay must return same result');
   assert.equal((await query('select count(*)::int n from public.inventory_items'))[0].n,1);
-  await rejects(()=>query('select count(*) from public.inventory_catalog_requests_v185'),/permission denied/);
+  await rejects(()=>query('select count(*) from public.inventory_catalog_requests_v186'),/permission denied/);
   await rejects(()=>query(saveSql,[org,request,item,version,'Подмена','S1','piece',2,true]),/inventory_catalog_request_mismatch/);
   await rejects(()=>query(saveSql,[org,'22222222-2222-4222-8222-222222222222',item,version,'Устаревшее','S1','piece',2,true]),/inventory_catalog_version_conflict/);
   await rejects(()=>query(saveSql,[secondOrg,'33333333-3333-4333-8333-333333333333',item,version,'Чужая','S1','piece',2,true]),/inventory_management_denied/);
@@ -88,7 +88,7 @@ try {
   assert.equal((await query(saveSql,createArgs))[0].data.id,created.id);
   await db.exec('reset role;');
   assert.equal((await query('select count(*)::int n from public.inventory_items'))[0].n,2);
-  assert.equal((await query('select count(*)::int n from public.inventory_catalog_requests_v185'))[0].n,2);
+  assert.equal((await query('select count(*)::int n from public.inventory_catalog_requests_v186'))[0].n,2);
   await query('update public.inventory_items set name=$1 where id=$2',['Последующая правка',item]);
   await query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
   await db.exec('set role authenticated;');
@@ -101,15 +101,15 @@ try {
   assert.deepEqual((await query(saveSql,createArgs))[0].data,
     {saved:false,reason:'inventory_item_deleted',organization_id:org,id:created.id});
   await db.exec('reset role;');
-  const rollback=readFileSync(new URL('../supabase-migration-v185-rollback.sql',import.meta.url),'utf8');
-  await rejects(()=>db.exec(rollback),/v185_catalog_requests_must_be_preserved/);
+  const rollback=readFileSync(new URL('../supabase-migration-v186-rollback.sql',import.meta.url),'utf8');
+  await rejects(()=>db.exec(rollback),/v186_catalog_requests_must_be_preserved/);
   await db.exec('rollback;');
-  assert.equal((await query('select count(*)::int n from public.inventory_catalog_requests_v185'))[0].n,2);
-  await db.exec('delete from public.inventory_catalog_requests_v185;');
+  assert.equal((await query('select count(*)::int n from public.inventory_catalog_requests_v186'))[0].n,2);
+  await db.exec('delete from public.inventory_catalog_requests_v186;');
   await db.exec(rollback);
-  assert.equal((await query("select to_regclass('public.inventory_catalog_requests_v185') relation"))[0].relation,null);
+  assert.equal((await query("select to_regclass('public.inventory_catalog_requests_v186') relation"))[0].relation,null);
   await db.exec(migration);
-  console.log('v185 isolated catalog contract passed: version, replay, mismatch, tenant, actor, create, later change, deletion tombstone, guarded rollback, reapply');
+  console.log('v186 isolated catalog contract passed: version, replay, mismatch, tenant, actor, create, later change, deletion tombstone, guarded rollback, reapply');
 } finally {
   await db.close();
 }

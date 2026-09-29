@@ -16238,7 +16238,7 @@ function renderOfflineCatalogDrafts() {
     isCurrent,canSend,
     loadInventory:async() => {
       if (!canSend() || !isCurrent(userId,organizationId)) return false;
-      const response=await db.rpc('get_minuta_inventory_workspace_v185',
+      const response=await db.rpc('get_minuta_inventory_workspace_v186',
         { p_organization:organizationId });
       if (response.error || !isCurrent(userId,organizationId)) return false;
       await api.captureInventoryVersions({ userId,organizationId,
