@@ -8,6 +8,10 @@ const { chromium } = require('playwright');
 const root = __dirname;
 const themeCatalog = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
 const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
+const compactOrderStart = providerSource.indexOf('function syncCompactScheduleOrder()');
+const compactOrderEnd = providerSource.indexOf('function parseLocalIsoDate(', compactOrderStart);
+assert.ok(compactOrderStart >= 0 && compactOrderEnd > compactOrderStart, 'Порядок компактного расписания не найден');
+const compactOrderHelper = providerSource.slice(compactOrderStart, compactOrderEnd);
 const helperStart = providerSource.indexOf('function updateDateStripTodayVisibility(');
 const helperEnd = providerSource.indexOf('function bookingCountWord(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Помощники адаптивной ленты дат не найдены');
@@ -65,7 +69,11 @@ const server = http.createServer((request, response) => {
       }
       document.querySelector('#bookingSheet').hidden = false;
       document.body.classList.add('booking-sheet-open');
+      document.querySelector('#scheduleMobileSummary').hidden = false;
+      document.querySelector('.schedule-mobile-mode-toggle').hidden = false;
     });
+    // The inert fixture still executes the real responsive DOM ordering.
+    await page.addScriptTag({ content:`(() => { const $ = selector => document.querySelector(selector); ${compactOrderHelper} })();` });
 
     for (const width of [360, 390, 1440]) {
       await page.setViewportSize({ width, height:900 });
@@ -287,16 +295,16 @@ const server = http.createServer((request, response) => {
             const active = strip.querySelector('[data-booking-date].active');
             const stripRect = strip.getBoundingClientRect();
             const activeRect = active?.getBoundingClientRect();
-            const summary = document.querySelector('.schedule-title-line .dashboard-summary');
-            const future = summary.querySelector('div:nth-of-type(3)');
-            const futureStyle = getComputedStyle(future);
+            const summary = document.querySelector('#scheduleMobileSummary');
+            const summaryRect = summary.getBoundingClientRect();
             const summaryStyle = getComputedStyle(summary);
-            const futureLabel = getComputedStyle(future, '::before');
             const title = document.querySelector('#selectedDateTitle');
+            const titleRect = title.getBoundingClientRect();
             const titleStyle = getComputedStyle(title);
             const visibleTitle = title.querySelector('.selected-date-title-mobile');
             const scheduleHeading = document.querySelector('.schedule-view-title h2').getBoundingClientRect();
-            const action = document.querySelector('#newBookingButton').getBoundingClientRect();
+            const tabs = document.querySelector('.calendar-view-toggle').getBoundingClientRect();
+            const navigation = document.querySelector('.date-navigation').getBoundingClientRect();
             return {
               count:buttons.length,
               activeIndex:buttons.indexOf(active),
@@ -305,28 +313,28 @@ const server = http.createServer((request, response) => {
               rangeStart:strip.dataset.rangeStart,
               rangeEnd:strip.dataset.rangeEnd,
               centerDelta:activeRect ? Math.abs((activeRect.left + activeRect.right - stripRect.left - stripRect.right) / 2) : 999,
-              futureLabel:futureLabel.content,
-              futureOverflow:futureStyle.overflow,
-              summaryOverflow:summaryStyle.overflow,
+              summaryVisible:summaryRect.width > 0 && summaryRect.height > 0 && summaryStyle.display !== 'none',
+              summaryText:summary.textContent,
+              summaryFits:summary.scrollWidth <= summary.clientWidth + 1,
+              summaryLeft:summaryRect.left,
+              summaryRight:summaryRect.right,
+              summaryTop:summaryRect.top,
+              summaryBottom:summaryRect.bottom,
+              titleRight:titleRect.right,
+              titleTop:titleRect.top,
+              titleBottom:titleRect.bottom,
+              oldSummaryHidden:document.querySelector('.schedule-title-line .dashboard-summary').getBoundingClientRect().height === 0,
               summaryBorder:[summaryStyle.borderTopWidth,summaryStyle.borderRightWidth,summaryStyle.borderBottomWidth,summaryStyle.borderLeftWidth],
               summaryOutline:summaryStyle.outlineStyle,
               summaryShadow:summaryStyle.boxShadow,
               summaryBackground:summaryStyle.backgroundColor,
-              futurePaddingLeft:parseFloat(futureStyle.paddingLeft),
-              futureLabelPaddingLeft:parseFloat(futureLabel.paddingLeft),
-              headingLeft:scheduleHeading.left,
-              todaySummaryLeft:summary.querySelector('div').getBoundingClientRect().left,
-              futureLineHeight:parseFloat(futureLabel.lineHeight),
-              futureLeft:future.getBoundingClientRect().left,
-              summaryLeft:summary.getBoundingClientRect().left,
-              futureBottom:future.getBoundingClientRect().bottom,
-              summaryBottom:summary.getBoundingClientRect().bottom,
-              tabsTop:document.querySelector('.date-navigation').getBoundingClientRect().top,
+              tabsTop:tabs.top,
+              tabsBottom:tabs.bottom,
+              stripTop:stripRect.top,
+              stripBottom:stripRect.bottom,
+              navigationTop:navigation.top,
+              navigationBottom:navigation.bottom,
               headingBottom:scheduleHeading.bottom,
-              summaryTop:summary.getBoundingClientRect().top,
-              actionBottom:action.bottom,
-              actionCenter:(action.top + action.bottom) / 2,
-              summaryCenter:(summary.getBoundingClientRect().top + summary.getBoundingClientRect().bottom) / 2,
               titleText:visibleTitle?.textContent || title.textContent,
               titleTextOverflow:titleStyle.textOverflow,
               titleFits:title.scrollWidth <= title.clientWidth + 1,
@@ -363,22 +371,19 @@ const server = http.createServer((request, response) => {
           assert.equal(state.summaryOutline, 'none', `${theme} ${width}px ${stateName}: у сводки осталась обводка`);
           assert.equal(state.summaryShadow, 'none', `${theme} ${width}px ${stateName}: у сводки осталась теневая обводка`);
           assert.equal(state.summaryBackground, 'rgba(0, 0, 0, 0)', `${theme} ${width}px ${stateName}: у сводки осталась цветная подложка`);
-          assert.ok(state.futureBottom <= state.summaryBottom + 1, `${theme} ${width}px ${stateName}: строка «Предстоящих записей» вышла из сводки`);
-          assert.ok(state.tabsTop - state.summaryBottom >= 8, `${theme} ${width}px ${stateName}: вкладки «День / Неделя» перекрывают сводку`);
-          assert.ok(state.headingBottom <= state.summaryTop, `${theme} ${width}px ${stateName}: заголовок «Расписание» не поднят над сводкой`);
-          assert.ok(Math.abs(state.actionCenter - state.summaryCenter) <= 2, `${theme} ${width}px ${stateName}: сводка и «Новая запись» не выровнены по центру`);
-          assert.ok(state.tabsTop - Math.max(state.summaryBottom, state.actionBottom) >= 8, `${theme} ${width}px ${stateName}: вкладки заходят на кнопку или сводку`);
+          assert.equal(state.oldSummaryHidden, true, `${theme} ${width}px ${stateName}: прежняя сводка дублирует компактную`);
+          assert.equal(state.summaryVisible, true, `${theme} ${width}px ${stateName}: компактная сводка скрыта`);
+          assert.equal(state.summaryFits, true, `${theme} ${width}px ${stateName}: компактная сводка обрезана`);
+          assert.match(state.summaryText, /Сегодня\s*\d+[\s\S]*Завтра\s*\d+[\s\S]*Впереди\s*\d+/, `${theme} ${width}px ${stateName}: потеряны счётчики`);
+          assert.ok(state.tabsTop >= state.headingBottom, `${theme} ${width}px ${stateName}: вкладки перекрывают заголовок`);
+          assert.ok(state.stripTop >= state.tabsBottom - 1, `${theme} ${width}px ${stateName}: даты перекрывают вкладки`);
+          assert.ok(state.navigationTop >= state.stripBottom - 1, `${theme} ${width}px ${stateName}: управление перекрывает ленту дат`);
+          assert.ok(state.titleTop >= state.navigationBottom - 1, `${theme} ${width}px ${stateName}: день недели перекрывает управление`);
+          assert.ok(state.summaryLeft >= state.titleRight && state.summaryRight <= width, `${theme} ${width}px ${stateName}: сводка перекрывает день недели или край экрана`);
+          // Baseline alignment permits different line heights, but never a second row.
+          assert.ok(Math.min(state.summaryBottom, state.titleBottom) > Math.max(state.summaryTop, state.titleTop), `${theme} ${width}px ${stateName}: день недели и сводка разошлись по строкам`);
           assert.equal(state.titleFits, true, `${theme} ${width}px ${stateName}: полный день недели обрезан`);
           assert.equal(state.titleTextOverflow, 'clip', `${theme} ${width}px ${stateName}: заголовок вновь использует многоточие`);
-          if (width <= 390) {
-            assert.match(state.futureLabel, /Предстоящих записей/, `${theme} ${width}px ${stateName}: пропал полный мобильный лейбл «Предстоящих записей»`);
-            assert.equal(state.futureOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Предстоящих записей» обрезается собственным контейнером`);
-            assert.equal(state.summaryOverflow, 'visible', `${theme} ${width}px ${stateName}: строка «Предстоящих записей» обрезается сводкой`);
-            assert.equal(state.futurePaddingLeft + state.futureLabelPaddingLeft, 0, `${theme} ${width}px ${stateName}: строка предстоящих записей имеет лишний отступ`);
-            assert.ok(Math.abs(state.todaySummaryLeft - state.headingLeft) <= 1 && Math.abs(state.futureLeft - state.headingLeft) <= 1, `${theme} ${width}px ${stateName}: строки сводки не выровнены по заголовку`);
-            assert.ok(state.futureLineHeight >= 13, `${theme} ${width}px ${stateName}: строке «Предстоящих записей» не хватает высоты`);
-            assert.ok(state.futureLeft >= state.summaryLeft, `${theme} ${width}px ${stateName}: строка «Предстоящих записей» ушла за левую границу сводки`);
-          }
         }
         assert.equal(mobileCentering.far.activeDate, '2026-10-06', `${theme} ${width}px: дальний переход не выбрал 06.10`);
         assert.equal(mobileCentering.start.titleText, 'Суббота', `${theme} ${width}px: заголовок не показал полный день недели`);
