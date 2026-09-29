@@ -76,21 +76,18 @@
     document.body.append(notice);
   }
 
-  function checkForUpdate({ force = false, registerOnly = false } = {}) {
+  function checkForUpdate({ force = false } = {}) {
+    if (!navigator.onLine) return Promise.resolve();
     if (checkPromise) { if (force) recheck = true; return checkPromise; }
     const now = Date.now();
-    if (!registerOnly && !force && now - lastCheck < CHECK_INTERVAL_MS) return Promise.resolve();
+    if (!force && now - lastCheck < CHECK_INTERVAL_MS) return Promise.resolve();
     checkPromise = (async () => {
       try {
         if (!registration || force) {
           registration = await navigator.serviceWorker.register(workerUrl, { updateViaCache:'none' });
-          lastCheck = Date.now();
-          if (registerOnly) { void refreshUpdateNotice(); return; }
         }
-        if (!registerOnly) {
-          lastCheck = Date.now();
-          await registration.update();
-        }
+        lastCheck = Date.now();
+        await registration.update();
         void refreshUpdateNotice();
       } catch {
       } finally {
