@@ -83,16 +83,25 @@ try {
   ]) {
     await db.query(`insert into public.bookings(id,booking_code,manage_token,performer_id,service_id,
       client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,
-      status,deposit_amount_rub,payment_status,payment_url,booking_policy_snapshot)
-      values($1,$2,$3,$4,$5,$6,'79990000001',$7,$8,60,1000,1000,'confirmed',0,'not_required','',$9::jsonb)`,
+      status,deposit_amount_rub,payment_status,payment_url)
+      values($1,$2,$3,$4,$5,$6,'79990000001',$7,$8,60,1000,1000,'confirmed',0,'not_required','')`,
     [id, id.replaceAll('-', '').slice(0, 10).toUpperCase(), randomUUID(), fixture.actor, service,
-      isBlock ? 'A04 synthetic time block' : 'A04 synthetic visit', fixture.date, time,
-      JSON.stringify(isBlock ? { schedule_block:true } : {})]);
+      isBlock ? 'A04 synthetic time block' : 'A04 synthetic visit', fixture.date, time]);
   }
+  // v76's BEFORE INSERT policy trigger replaces the supplied snapshot. The
+  // v123/v141 block writers mark it after INSERT, so mirror that persisted state.
+  await db.query(`update public.bookings
+    set booking_policy_snapshot=coalesce(booking_policy_snapshot,'{}'::jsonb)
+      || jsonb_build_object('schedule_block',true,'payment_suppressed',true)
+    where id=any($1::uuid[])`, [blocks]);
+  await db.query(`update public.bookings
+    set booking_policy_snapshot=booking_policy_snapshot || jsonb_build_object('integration_calendar_block',true)
+    where id=$1`, [blocks[2]]);
   const beforeWorkspace = await one('select public.get_minuta_shift_workspace($1,$2,$2)', [fixture.org, fixture.date]);
   assert.deepEqual(beforeWorkspace.bookings.map(item => item.id).sort(), [...blocks, client, clientAfterReapply].sort());
   assert.ok(beforeWorkspace.bookings.every(item => !Object.hasOwn(item, 'is_schedule_block')));
-  assert.equal(await one("select count(*)::int from public.bookings where id=any($1::uuid[]) and booking_policy_snapshot @> '{\"schedule_block\":true}'::jsonb", [blocks]), 3);
+  assert.equal(await one("select count(*)::int from public.bookings where id=any($1::uuid[]) and booking_policy_snapshot @> '{\"schedule_block\":true}'::jsonb", [blocks]), 3,
+    'all three synthetic blocks must persist the canonical flag after v76 INSERT policy');
   const blockState = async () => JSON.stringify(await q(`select to_jsonb(b) booking,
     (select count(*) from public.booking_session_items where booking_id=b.id) items,
     (select count(*) from public.booking_session_revisions where booking_id=b.id) revisions,
