@@ -194,6 +194,7 @@
       const holder=$('#benefitProductServices');
       const kind=$('#benefitProductKind').value;
       const certificate=kind==='certificate';
+      $('#benefitProductKindHelp').textContent=kind==='certificate'?'Сертификат — сумма для оплаты визитов.':kind==='package'?'Пакет — посещения выбранных услуг.':'Абонемент — заданное число посещений.';
       const servicesFieldset=holder.closest('fieldset');
       if(servicesFieldset)servicesFieldset.hidden=certificate;
       $('#benefitProductVisitsField').hidden=kind!=='visit_pass';
@@ -366,7 +367,7 @@
       if(!event.target.closest('#benefitsPanel'))return;
       const holders={benefitProductForm:'#benefitProductError',benefitIssueForm:'#benefitIssueError',benefitApplyForm:'#benefitApplyError'};
       const holder=holders[event.target.form?.id];if(!holder)return;
-      const messages={benefitProductName:'Введите название продукта. Серый текст является только примером.',benefitProductPrice:'Укажите цену продажи.',benefitProductValidity:'Укажите срок действия от 1 дня.',benefitProductVisits:'Укажите количество посещений.',benefitProductValue:'Укажите номинал сертификата.',benefitIssueProduct:'Сначала создайте продукт.',benefitIssueClient:'Выберите клиента, у которого уже есть запись.',benefitIssueExpiry:'Выберите будущую дату или оставьте поле пустым.',benefitApplyInstrument:'Сначала выдайте продукт клиенту.',benefitApplyBooking:'У выбранного клиента нет подходящей записи.',benefitApplyAmount:'Укажите положительную сумму сертификата или оставьте поле пустым для автоматического расчёта.'};
+      const messages={benefitProductName:'Введите название шаблона.',benefitProductPrice:'Укажите цену продажи.',benefitProductValidity:'Укажите срок действия от 1 дня.',benefitProductVisits:'Укажите количество посещений.',benefitProductValue:'Укажите номинал сертификата.',benefitIssueProduct:'Сначала создайте шаблон.',benefitIssueClient:'Выберите клиента, у которого уже есть запись.',benefitIssueExpiry:'Выберите будущую дату или оставьте поле пустым.',benefitApplyInstrument:'Сначала выдайте абонемент или сертификат клиенту.',benefitApplyBooking:'Нет подходящих записей: нужна запись этого клиента на подходящую услугу в срок действия абонемента.',benefitApplyAmount:'Укажите положительную сумму сертификата или оставьте поле пустым для автоматического расчёта.'};
       showFormError(holder,messages[event.target.id]||'Заполните обязательное поле и проверьте введённое значение.');
     }
     function input(event){if(event.target.id==='benefitInstrumentSearch')filterInstruments();const holder=event.target.form?.querySelector('.form-error');if(holder&&!holder.hidden){holder.hidden=true;holder.textContent='';}}

@@ -56,6 +56,8 @@
 .provider-body .client-benefit-history li strong { color:var(--theme-ink,var(--ink)); font-size:.8rem; }
 .provider-body .client-benefit-history-empty { margin:0; color:var(--theme-muted,var(--muted)); font-size:.78rem; }
 
+.provider-body #benefitProductName::placeholder { font-weight:400; opacity:.6!important; }
+
 @media (max-width:760px) {
   .provider-body .client-benefit-lifecycle { padding:12px; border-radius:14px; }
   .provider-body .client-benefit-card { padding:12px; }
