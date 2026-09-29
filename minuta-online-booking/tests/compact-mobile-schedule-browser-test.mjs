@@ -9,7 +9,10 @@ const providerSource = readFileSync(resolve(root, 'provider.js'), 'utf8');
 const modeStart = providerSource.indexOf('function updateJournalModeButtons()');
 const orderStart = providerSource.indexOf('function syncCompactScheduleOrder()');
 const orderEnd = providerSource.indexOf('const compactScheduleMedia', orderStart);
+const dateDisplayStart = providerSource.indexOf('function syncScheduleDateDisplay()');
+const dateDisplayEnd = providerSource.indexOf('function renderDateStrip(', dateDisplayStart);
 assert.ok(modeStart >= 0 && orderStart > modeStart && orderEnd > orderStart);
+assert.ok(dateDisplayStart >= 0 && dateDisplayEnd > dateDisplayStart);
 const { chromium } = process.env.MINUTA_PLAYWRIGHT_MODULE
   ? await import(pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href)
   : createRequire(import.meta.url)('playwright');
@@ -18,7 +21,7 @@ const output = process.env.MINUTA_SCHEDULE_OUTPUT;
 if (output) mkdirSync(output, { recursive:true });
 
 try {
-  const context = await browser.newContext({ viewport:{ width:390, height:844 }, deviceScaleFactor:2, bypassCSP:true });
+  const context = await browser.newContext({ viewport:{ width:390, height:844 }, deviceScaleFactor:2, locale:'ru-RU', bypassCSP:true });
   await context.route('**/*', route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -62,7 +65,18 @@ try {
     let teamCalendarController = null, calendarView = 'day', currentFilter = 'day', journalMode = 'timeline';
     ${providerSource.slice(modeStart, orderStart)}
     ${providerSource.slice(orderStart, orderEnd)}
+    ${providerSource.slice(dateDisplayStart, dateDisplayEnd)}
+    ${providerSource.match(/\$\('#scheduleDatePicker'\)\.addEventListener\('input', syncScheduleDateDisplay\);/)[0]}
+    syncScheduleDateDisplay();
   ` });
+  await page.getByLabel('Выбрать дату в календаре').fill('2026-12-31');
+  assert.equal(await page.locator('#scheduleDateDisplay').textContent(), '31.12.2026', 'Visible date follows native input edits');
+  await page.evaluate(() => { $('#scheduleDatePicker').value = '2026-09-29'; syncScheduleDateDisplay(); });
+  assert.equal(await page.locator('#scheduleDateDisplay').textContent(), '29.09.2026', 'Date-strip selection updates the full date');
+  await page.locator('#scheduleDatePicker').click();
+  assert.equal(await page.locator('#scheduleDatePicker').evaluate(input => input.matches(':open')), true, 'The visible date opens the native calendar');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => document.activeElement?.blur());
   const modes = await page.evaluate(() => {
     journalMode = 'list'; updateJournalModeButtons();
     const listSync = [...document.querySelectorAll('[data-journal-mode="list"]')].every(button => button.classList.contains('active') && button.getAttribute('aria-pressed') === 'true');
@@ -73,13 +87,14 @@ try {
   });
   assert.deepEqual(modes, { listSync:true, hiddenOutsideDay:true });
 
-  for (const theme of ['carbon-crimson', 'pink-porcelain', 'sage']) for (const width of [360, 390, 760, 1440]) {
+  for (const theme of ['carbon-crimson', 'pink-porcelain', 'sage']) for (const width of [360, 390, 760, 1440]) for (const scale of ['default', 'comfortable', 'large']) {
     await page.setViewportSize({ width, height:844 });
-    await page.evaluate(theme => {
+    await page.evaluate(({theme, scale}) => {
       document.body.dataset.providerTheme = theme;
+      document.body.dataset.providerTextScale = scale;
       document.body.dataset.providerResolvedColorMode = theme === 'carbon-crimson' ? 'dark' : 'light';
       syncCompactScheduleOrder();
-    }, theme);
+    }, {theme, scale});
     const state = await page.evaluate(() => {
       const rect = selector => document.querySelector(selector).getBoundingClientRect();
       const style = selector => getComputedStyle(document.querySelector(selector));
@@ -99,8 +114,13 @@ try {
         hourLine:style('.timeline-grid-line').borderTopStyle,
         halfHourLine:getComputedStyle(document.querySelector('.timeline-grid-line'), '::after').borderTopStyle,
         dateIcon:{ x:rect('.schedule-date-picker>.ui-icon').x, w:rect('.schedule-date-picker>.ui-icon').width },
-        dateInputRight:rect('.schedule-date-picker input').right,
-        dateGroupCenter:(rect('.schedule-date-picker input').left + rect('.schedule-date-picker>.ui-icon').right) / 2,
+        dateTextRight:rect('#scheduleDateDisplay').right,
+        dateGroupCenter:(rect('#scheduleDateDisplay').left + rect('.schedule-date-picker>.ui-icon').right) / 2,
+        dateText:document.querySelector('#scheduleDateDisplay').textContent,
+        dateFits:rect('#scheduleDateDisplay').left >= today.right && rect('.schedule-date-picker>.ui-icon').right <= toggle.left,
+        dateUnclipped:document.querySelector('#scheduleDateDisplay').scrollWidth <= document.querySelector('#scheduleDateDisplay').clientWidth,
+        dateInputOpacity:style('#scheduleDatePicker').opacity,
+        dateIconMask:style('.schedule-date-picker>.ui-icon').maskImage,
         controlsCenter:(today.right + toggle.left) / 2,
         dateOpacity:[...document.querySelectorAll('#dateStrip button')].map(button => getComputedStyle(button).opacity),
         headingCenter:rect('.schedule-view-title h2').y + rect('.schedule-view-title h2').height / 2,
@@ -124,8 +144,12 @@ try {
       assert.equal(state.halfHourLine, 'dashed');
       assert.equal(state.extraArrows, false, `${width}: duplicate day arrows`);
       assert.equal(state.dateIcon.w, 16);
-      assert.ok(state.dateIcon.x >= state.dateInputRight - 1, `${width}: calendar icon is not after date`);
-      assert.ok(state.dateIcon.x - state.dateInputRight <= 5, `${width}: calendar icon detached from date`);
+      assert.equal(state.dateText, '29.09.2026');
+      assert.ok(state.dateFits && state.dateUnclipped, `${theme}/${width}/${scale}: full date clips or overlaps a neighbour: ${JSON.stringify(state)}`);
+      assert.equal(state.dateInputOpacity, '0', 'Native field internals must not clip the visible date');
+      assert.equal((decodeURIComponent(state.dateIconMask).match(/<circle /g) || []).length, 6, 'Calendar has six date dots');
+      assert.ok(state.dateIcon.x >= state.dateTextRight - 1, `${width}: calendar icon is not after date`);
+      assert.ok(state.dateIcon.x - state.dateTextRight <= 5, `${width}: calendar icon detached from date`);
       assert.ok(Math.abs(state.dateGroupCenter - state.controlsCenter) <= 1, `${width}: date/calendar group not centered`);
       assert.ok(state.dateOpacity.every(opacity => opacity === '1'), `${width}: visible dates are dimmed`);
       assert.ok(Math.abs(state.headingCenter - state.actionsCenter) <= 3, `${theme}/${width}: heading below topbar icons`);
@@ -152,8 +176,10 @@ try {
     } else {
       assert.equal(state.topSummary === 'none', false, 'desktop summary was hidden');
       assert.equal(state.toggle.h, 0, 'mobile toggle visible on desktop');
+      assert.equal(state.dateInputOpacity, '1', 'Desktop native date field is unchanged');
+      assert.equal(state.dateIconMask, 'none', 'Mobile calendar detail stays scoped');
     }
-    if (output) await page.screenshot({ path:resolve(output, `compact-schedule-${theme}-${width}.png`), clip:width <= 760 ? { x:0, y:0, width, height:Math.min(335, 844) } : undefined });
+    if (output) await page.screenshot({ path:resolve(output, `compact-schedule-${theme}-${width}-${scale}.png`), clip:width <= 760 ? { x:0, y:0, width, height:Math.min(335, 844) } : undefined });
   }
   console.log('Compact schedule layout and timeline lines: PASS');
 } finally {

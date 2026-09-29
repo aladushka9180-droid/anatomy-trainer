@@ -7514,6 +7514,14 @@ function dateStripRangeHasRunway(dateStrip, value, runwayDays = 28) {
   return start <= selected && selected <= end;
 }
 
+function syncScheduleDateDisplay() {
+  const picker = $('#scheduleDatePicker');
+  const display = $('#scheduleDateDisplay');
+  if (!picker || !display) return;
+  display.textContent = picker.value.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3.$2.$1');
+  picker.closest('.schedule-date-picker')?.classList.toggle('has-date-display', Boolean(picker.value));
+}
+
 function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
   const dateStrip = $('#dateStrip');
   if (!dateStrip) return;
@@ -7572,6 +7580,7 @@ function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {
   dateStrip.dataset.selectedDate = selectedDate;
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
+  syncScheduleDateDisplay();
   const todayButton = $('[data-date-today]');
   if (todayButton) {
     const current = selectedDate === todayIso && currentFilter === 'day';
@@ -19012,6 +19021,7 @@ $('#clientsList').addEventListener('click', event => {
   renderClients();
 });
 $('#scheduleDatePicker').addEventListener('change', event => selectScheduleDate(event.target.value));
+$('#scheduleDatePicker').addEventListener('input', syncScheduleDateDisplay);
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $('#retryPasswordRecovery').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
