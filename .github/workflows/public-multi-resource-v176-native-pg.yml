@@ -138,6 +138,16 @@ jobs:
             fi
           done
           echo 'PASS: v153 and v167 integration plus two-performer v176 route on full schema with v188 installed'
+      - name: Race real multi-performer and calendar routes on full schema
+        env:
+          MINUTA_TEST_DATABASE_URL: postgresql://postgres:ephemeral-fixture-only@127.0.0.1:55432/minuta-v176-fixture
+          MINUTA_TEST_PROJECT_REF: minuta-v176-fixture
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+          MINUTA_V176_EPHEMERAL_CONFIRM: SCHEMA_ONLY_EMPTY_DATABASE
+        run: |
+          set -euo pipefail
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/v176-pg-deps/node_modules/pg/lib/index.js"
+          node minuta-online-booking/tests/public-multi-resource-v176-full-schema-concurrency.mjs
       - name: Remove private schema and logs
         if: always()
         run: rm -f -- "$RUNNER_TEMP/v176-private-schema.sql" "$RUNNER_TEMP/v176-private-filtered.sql" "$RUNNER_TEMP/v176-private.log"
