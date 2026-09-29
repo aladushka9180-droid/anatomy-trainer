@@ -18,7 +18,7 @@ const output = process.env.MINUTA_SCHEDULE_OUTPUT;
 if (output) mkdirSync(output, { recursive:true });
 
 try {
-  const context = await browser.newContext({ viewport:{ width:390, height:844 }, bypassCSP:true });
+  const context = await browser.newContext({ viewport:{ width:390, height:844 }, deviceScaleFactor:2, bypassCSP:true });
   await context.route('**/*', route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -116,6 +116,24 @@ try {
       assert.equal(state.dateIcon.w, 16);
       assert.ok(state.dateIcon.x >= state.dateInputRight - 1, `${width}: calendar icon is not after date`);
       assert.ok(state.heading.x <= 18, `${width}: heading shifted right`);
+      const controlColors = await page.evaluate(() => {
+        const today = document.querySelector('.date-navigation>.date-today-button');
+        const toggle = document.querySelector('.schedule-mobile-mode-toggle');
+        const activeMode = toggle.querySelector('button.active');
+        const otherDay = getComputedStyle(today).color;
+        const todayBackground = getComputedStyle(today).backgroundColor;
+        const toggleBackground = getComputedStyle(toggle).backgroundColor;
+        const activeBackground = getComputedStyle(activeMode).backgroundColor;
+        const accent = getComputedStyle(activeMode).color;
+        today.classList.add('is-current');
+        const currentDay = getComputedStyle(today).color;
+        today.classList.remove('is-current');
+        return { otherDay, currentDay, accent, todayBackground, toggleBackground, activeBackground };
+      });
+      assert.equal(controlColors.todayBackground, controlColors.toggleBackground, `${width}: Today and switch surfaces differ`);
+      assert.equal(controlColors.currentDay, controlColors.accent, `${width}: Today is not pink when selected`);
+      assert.notEqual(controlColors.otherDay, controlColors.accent, `${width}: Today is pink on another day`);
+      assert.equal(controlColors.activeBackground, 'rgb(40, 57, 74)', `${width}: selected switch fill differs from reference`);
     } else {
       assert.equal(state.topSummary === 'none', false, 'desktop summary was hidden');
       assert.equal(state.toggle.h, 0, 'mobile toggle visible on desktop');
