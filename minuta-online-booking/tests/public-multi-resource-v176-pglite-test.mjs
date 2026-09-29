@@ -253,6 +253,41 @@ try {
   assert.equal(Number(await scalar('select count(*) from public.bookings where request_id=$1 or request_id=$2',
     [failureItems[0].request_id,failureItems[1].request_id])),0);
 
+  if (process.env.MINUTA_V176_NATIVE_CONCURRENCY === '1') {
+    const second = new PGlite();
+    const observer = new PGlite();
+    const raceRoute = next();
+    const raceItems = makeItems(routeDate,'13:00','14:00',{sameOrg:true});
+    const raceSql = 'select public.book_minuta_multi_resource_route_v176($1::uuid,$2,$3,$4::jsonb,$5::jsonb) as result';
+    try {
+      await second.exec('set role anon');
+      const secondPid = (await second.query('select pg_backend_pid() as pid')).rows[0].pid;
+      await db.exec('begin; set role anon');
+      const firstResult = (await call(raceRoute,raceItems)).rows[0].result;
+      const waiting = second.query(raceSql,
+        [raceRoute,'V176 client','+79990001750',JSON.stringify(raceItems),'[]']);
+      let locked = false;
+      for (let attempt=0; attempt<30; attempt++) {
+        locked = (await observer.query(`select wait_event_type='Lock' as locked
+          from pg_stat_activity where pid=$1`,[secondPid])).rows[0]?.locked === true;
+        if (locked) break;
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+      assert.equal(locked,true,'duplicate route must wait for first transaction lock');
+      await db.exec('commit; reset role');
+      const secondResult = (await waiting).rows[0].result;
+      assert.equal(firstResult.idempotent,false);
+      assert.equal(secondResult.idempotent,true);
+      assert.deepEqual(secondResult.bookings,firstResult.bookings);
+      assert.equal(await count('public_multi_resource_routes_v176',raceRoute),1);
+      console.log('v176 native PostgreSQL: concurrent duplicate waits and replays one complete route PASS');
+    } finally {
+      await db.exec('rollback; reset role');
+      await second.close();
+      await observer.close();
+    }
+  }
+
   await db.exec(read('supabase-migration-v176-rollback.sql'));
   assert.equal(await scalar(`select has_function_privilege('anon',
     'public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb)','execute')`),false);

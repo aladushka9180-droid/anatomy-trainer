@@ -38,6 +38,7 @@ jobs:
         env:
           MINUTA_V176_EPHEMERAL_CONFIRM: EMPTY_LOCAL_POSTGRES
           MINUTA_V176_EPHEMERAL_DATABASE_URL: postgresql://postgres:ephemeral-fixture-only@127.0.0.1:55432/minuta-v176-fixture
+          MINUTA_V176_NATIVE_CONCURRENCY: '1'
         run: |
           set -euo pipefail
           export MINUTA_PG_MODULE="$RUNNER_TEMP/v176-pg-deps/node_modules/pg/lib/index.js"

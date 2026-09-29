@@ -34,6 +34,16 @@ try {
     where project_ref=$1 and allow_migrations`, [process.env.MINUTA_TEST_PROJECT_REF]), 1);
   for (const table of ['bookings', 'public_multi_service_routes_v167'])
     assert.equal(await scalar(`select count(*)::int from public.${table}`), 0, 'schema clone must have no source rows');
+  const prerequisites = (await db.query(`select
+    to_regclass('public.bookings') is not null bookings,
+    to_regclass('public.public_multi_service_routes_v167') is not null route_v167_table,
+    to_regprocedure('public.book_minuta_multi_service_route_v167(uuid,text,uuid,text,text,jsonb)') is not null route_v167_rpc,
+    to_regprocedure('public.book_minuta_appointment_v2(uuid,text,uuid,uuid,date,time without time zone,text,text,integer,integer)') is not null single_rpc,
+    to_regprocedure('public.get_public_minuta_catalog_v5(text)') is not null catalog_rpc,
+    to_regprocedure('public.get_available_slots(uuid,date,date)') is not null slots_rpc,
+    to_regprocedure('extensions.digest(bytea,text)') is not null digest_rpc`)).rows[0];
+  const missing = Object.entries(prerequisites).filter(([, present]) => !present).map(([name]) => name);
+  assert.deepEqual(missing, [], `v176 full-schema prerequisites absent: ${missing.join(', ')}`);
   const before = await legacy();
   await db.query(body('supabase-migration-v176.sql'));
   await db.query(body('supabase-migration-v176.sql'));
