@@ -23,6 +23,8 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin 8908228f8f1b4195251154c7e4e8d496940b2baf
           node minuta-online-booking/tests/site-update-notice-browser-test.mjs 8908228f8f1b4195251154c7e4e8d496940b2baf
+      - name: Verify pending navigation cannot block the next worker
+        run: node minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs
       - name: Check theme colours and marked card states
         env:
           MINUTA_THEME_OUTPUT: ${{ runner.temp }}/theme-regression

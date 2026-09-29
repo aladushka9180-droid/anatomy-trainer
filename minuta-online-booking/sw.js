@@ -257,15 +257,21 @@ async function navigationResponse(event) {
   const shell = navigationShell(request);
   const cacheReady = Boolean(await safeCacheMatch(CACHE_READY, { cacheName:CACHE }));
   const cached = cacheReady ? await safeCacheMatch(shell, { cacheName:CACHE }) : undefined;
-  const update = fetch(request).then(async response => {
+  const cachedReload = cached && (request.cache === 'reload' || request.cache === 'no-cache');
+  const networkController = cachedReload ? new AbortController() : null;
+  if (networkController && request.signal) {
+    if (request.signal.aborted) networkController.abort();
+    else request.signal.addEventListener('abort', () => networkController.abort(), { once:true });
+  }
+  const update = (networkController ? fetch(request, { signal:networkController.signal }) : fetch(request)).then(async response => {
     if (response.ok) await safeCachePut(shell, response.clone());
     return response;
   });
   // An explicit reload must deliver the fresh shell in this navigation, not the next one.
-  if (cached && (request.cache === 'reload' || request.cache === 'no-cache')) {
+  if (cachedReload) {
     let deadline;
     try {
-      const fresh = await Promise.race([update, new Promise(resolve => { deadline = setTimeout(() => resolve(null), 4000); })]);
+      const fresh = await Promise.race([update, new Promise(resolve => { deadline = setTimeout(() => { networkController.abort(); resolve(null); }, 4000); })]);
       if (fresh?.ok) return fresh;
     } catch { /* Preserve the complete offline shell when the network is unavailable. */ }
     finally { clearTimeout(deadline); }
