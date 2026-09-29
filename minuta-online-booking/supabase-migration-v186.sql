@@ -114,4 +114,5 @@ revoke all on function public.save_minuta_inventory_item_draft_v186(uuid,uuid,uu
 grant execute on function public.save_minuta_inventory_item_draft_v186(uuid,uuid,uuid,text,text,text,text,numeric,boolean)
   to authenticated;
 
+notify pgrst,'reload schema';
 commit;

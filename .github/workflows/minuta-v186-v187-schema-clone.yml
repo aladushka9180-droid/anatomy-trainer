@@ -80,10 +80,10 @@ jobs:
           set -euo pipefail
           umask 077
           printf '%s  %s\n' \
-            9125d3a3578d32566a356713c4da01e740eaeee89495586237c52288e3d6a137 minuta-online-booking/supabase-migration-v186.sql \
-            a65e3d0c8f9d53bfcadac2b5b025dabf1463cbc37db1be45dfd91fd123afc03b minuta-online-booking/supabase-migration-v186-rollback.sql \
-            ec7fcdadd4da1d739d0e737130a9317b2cd1b33444d5473cc756236865067f8a minuta-online-booking/supabase-migration-v187.sql \
-            fe5f1efbfe50a32df92bdd8da17898535f5041b21f294fccb83ba1ccfbde80ca minuta-online-booking/supabase-migration-v187-rollback.sql \
+            4b744d779b6acd9e365c6239c75a63a0d885572051f196288211d4ccc86c4c45 minuta-online-booking/supabase-migration-v186.sql \
+            ac196802a201ac37f8e5cc52849dcc6c5d58805df0fb6cf5e8e1111bc5b43a53 minuta-online-booking/supabase-migration-v186-rollback.sql \
+            05f4c6f2fff3d66e5bdc1018dc71d6ec0eeafb3e878784d4092eaeea7d50055a minuta-online-booking/supabase-migration-v187.sql \
+            3d9f8b399460995b16f62f745750cd7058129ccfe0ab131c87c2f95bbacf9031 minuta-online-booking/supabase-migration-v187-rollback.sql \
             | sha256sum --status -c -
           test "$(docker exec "$PG_CONTAINER" psql -U postgres -d catalog-schema-fixture -X -qAt -c "select count(*) from pg_proc where proname in ('save_minuta_inventory_item_draft_v186','save_minuta_service_catalog_draft_v187')")" = 0
           for stage in v186 v187 v187-rollback v186-rollback v186 v187; do

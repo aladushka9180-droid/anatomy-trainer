@@ -12,4 +12,5 @@ drop function if exists public.get_minuta_service_catalog_draft_v187(uuid,uuid);
 drop function if exists public.minuta_service_catalog_etag_v187(uuid);
 drop table if exists public.service_catalog_requests_v187;
 
+notify pgrst,'reload schema';
 commit;

@@ -119,4 +119,5 @@ revoke all on function public.save_minuta_service_catalog_draft_v187(uuid,uuid,u
 grant execute on function public.save_minuta_service_catalog_draft_v187(uuid,uuid,uuid,text,text,integer,integer,boolean)
   to authenticated;
 
+notify pgrst,'reload schema';
 commit;

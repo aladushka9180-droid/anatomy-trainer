@@ -15,4 +15,5 @@ drop function if exists public.get_minuta_inventory_workspace_v186(uuid);
 drop function if exists public.minuta_inventory_catalog_etag_v186(text,text,text,numeric,boolean);
 drop table if exists public.inventory_catalog_requests_v186;
 
+notify pgrst,'reload schema';
 commit;

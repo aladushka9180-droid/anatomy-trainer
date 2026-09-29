@@ -25,14 +25,15 @@ workflow проверки и данный план. Старую UI-ветку
 - Schema-only clone тестовой БД на `6d2c4145` прошёл CI `36573493387`:
   v186 → v187 → rollback → reapply на пустой PostgreSQL 17. Этот запуск
   не читает строки рабочей базы и не проверяет миграцию на её данных.
-- SQL SHA-256 кандидата `ac1f5b30`:
-  - `supabase-migration-v186.sql`: `9125d3a3578d32566a356713c4da01e740eaeee89495586237c52288e3d6a137`;
-  - `supabase-migration-v186-rollback.sql`: `a65e3d0c8f9d53bfcadac2b5b025dabf1463cbc37db1be45dfd91fd123afc03b`;
-  - `supabase-migration-v187.sql`: `ec7fcdadd4da1d739d0e737130a9317b2cd1b33444d5473cc756236865067f8a`;
-  - `supabase-migration-v187-rollback.sql`: `fe5f1efbfe50a32df92bdd8da17898535f5041b21f294fccb83ba1ccfbde80ca`.
-- Это SHA-256 нормализованных Git blob, одинаковых на `ac1f5b30` и
-  `7f25681b`; Windows checkout содержит CRLF и имеет иные побайтовые хеши.
-  Хеши Git blob пересчитать после любого изменения SQL. Предыдущий backup
+- SQL SHA-256 текущего кандидата после добавления `notify pgrst` в оба
+  применения и оба отката; эти байты ещё требуют новых isolated CI:
+  - `supabase-migration-v186.sql`: `4b744d779b6acd9e365c6239c75a63a0d885572051f196288211d4ccc86c4c45`;
+  - `supabase-migration-v186-rollback.sql`: `ac196802a201ac37f8e5cc52849dcc6c5d58805df0fb6cf5e8e1111bc5b43a53`;
+  - `supabase-migration-v187.sql`: `05f4c6f2fff3d66e5bdc1018dc71d6ec0eeafb3e878784d4092eaeea7d50055a`;
+  - `supabase-migration-v187-rollback.sql`: `3d9f8b399460995b16f62f745750cd7058129ccfe0ab131c87c2f95bbacf9031`.
+- Это SHA-256 нормализованных Git blob; Windows checkout содержит CRLF и
+  имеет иные побайтовые хеши. Хеши Git blob пересчитать после любого
+  изменения SQL. Предыдущий backup
   `36282912896` исторический и не доказывает свежесть данных к выпуску.
 
 ## Последовательные ворота
