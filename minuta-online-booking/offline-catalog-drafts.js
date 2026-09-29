@@ -58,8 +58,30 @@
     } catch { return false; }
   }
   function requireStore() {
-    if (!store?.get || !store?.put || !store?.list || !store?.remove || !store?.removePrefix)
+    if (!store?.get || !store?.put || !store?.remove || !store?.removePrefix)
       throw new Error('catalog_storage_unavailable');
+  }
+  async function listStored(prefix) {
+    if (!('indexedDB' in window)) throw new Error('catalog_storage_unavailable');
+    const database=await new Promise((resolve,reject)=>{
+      const request=indexedDB.open('minuta-reliability-v1',1);
+      request.onupgradeneeded=()=>{
+        if (!request.result.objectStoreNames.contains('snapshots'))
+          request.result.createObjectStore('snapshots');
+      };
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error || new Error('catalog_storage_unavailable'));
+    });
+    try {
+      return await new Promise((resolve,reject)=>{
+        const transaction=database.transaction('snapshots','readonly');
+        const request=transaction.objectStore('snapshots').getAll(
+          IDBKeyRange.bound(prefix,prefix+'\uffff'));
+        transaction.oncomplete=()=>resolve(request.result);
+        transaction.onerror=()=>reject(transaction.error || new Error('catalog_storage_unavailable'));
+        transaction.onabort=()=>reject(transaction.error || new Error('catalog_storage_unavailable'));
+      });
+    } finally { database.close(); }
   }
   async function read(userId, organizationId, requestId) {
     requireStore();
@@ -70,7 +92,7 @@
   async function list(userId, organizationId) {
     requireStore();
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId);
-    const rows=await store.list(prefix(scopedUser,scopedOrg));
+    const rows=await listStored(prefix(scopedUser,scopedOrg));
     const drafts=[];
     let invalidCount=0;
     for (const row of rows) {
@@ -120,7 +142,7 @@
     requireStore();
     const scopedUser=requireId(userId), scopedOrg=requireId(organizationId);
     if (!['service','inventory'].includes(kind)) throw new Error('catalog_kind_invalid');
-    const rows=await store.list(`${VERSION_ROOT}${scopedUser}:${scopedOrg}:${kind}:`);
+    const rows=await listStored(`${VERSION_ROOT}${scopedUser}:${scopedOrg}:${kind}:`);
     const snapshots=[];
     for (const row of rows) {
       const entityId=row?.data?.entityId;

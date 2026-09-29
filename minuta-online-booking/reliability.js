@@ -58,28 +58,6 @@
     }
   }
 
-  async function list(prefix) {
-    const database = await openDatabase();
-    try {
-      return await new Promise((resolve, reject) => {
-        const matches = [];
-        const transaction = database.transaction(STORE, 'readonly');
-        const request = transaction.objectStore(STORE).openCursor();
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor) return;
-          if (String(cursor.key).startsWith(prefix)) matches.push({ key:String(cursor.key), ...cursor.value });
-          cursor.continue();
-        };
-        transaction.oncomplete = () => resolve(matches);
-        transaction.onerror = () => reject(transaction.error || new Error('indexeddb_list_failed'));
-        transaction.onabort = () => reject(transaction.error || new Error('indexeddb_list_aborted'));
-      });
-    } finally {
-      database.close();
-    }
-  }
-
   async function removePrefix(prefix) {
     const database = await openDatabase();
     try {
@@ -154,5 +132,5 @@
   }
 
   try { localStorage.removeItem('minuta-last-booking-url'); } catch {}
-  window.MinutaReliability = { get, list, put, remove, removePrefix, removeExpired, removeMatching, savedAtLabel };
+  window.MinutaReliability = { get, put, remove, removePrefix, removeExpired, removeMatching, savedAtLabel };
 })();
