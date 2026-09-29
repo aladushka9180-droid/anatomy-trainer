@@ -273,3 +273,4 @@ html body.provider-body[data-provider-theme="pink-porcelain"] .message-center-di
   background:var(--porcelain-action-bg)!important;
   color:var(--porcelain-action-ink)!important;
 }
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] :is(#clientRecords .cr-button,.booking-time-slots button.active,#freeSlotsDialog input:checked,#freeSlotsDialog input:checked+span,.retention-toggle>input:checked,.organization-checks input:checked,#inventoryEnabled:checked,#inventoryAutoDeduct:checked){border-color:var(--theme-line)!important;background:var(--porcelain-action-bg)!important;color:var(--porcelain-action-ink)!important;accent-color:var(--porcelain-action-bg)!important}
