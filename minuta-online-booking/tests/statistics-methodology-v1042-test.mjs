@@ -36,9 +36,10 @@ try {
     document.body.dataset.providerLayout = 'soft';
     document.body.append(report);
   }, html);
-  for (const name of ['styles.css','provider-ux.css','utm-funnel.css','statistics-audit-ui.css']) {
+  for (const name of ['styles.css','provider-themes-signature.css','provider-layout-responsive.css','provider-ux.css','provider-porcelain-detail.css','utm-funnel.css','statistics-audit-ui.css']) {
     await page.addStyleTag({ content:read(name) });
   }
+  assert.notEqual(await page.evaluate(() => getComputedStyle(document.body).getPropertyValue('--theme-surface').trim()), '', 'load the real Pink Porcelain theme before checking layout');
   await page.addScriptTag({ content:`
     let sessionGeneration=1, reportScopedBookingsState={status:'ready',rows:[]}, reportDataSource='own', reportPeriod='last30';
     let reportPerformerFilter='all', importedBookingHistory=[], allBookings=[];
@@ -74,6 +75,7 @@ try {
     ];
     document.querySelector('.report-analytics-details').open = true;
     document.querySelector('#reportUtmFunnelCard').hidden = false;
+    document.querySelector('#reportUtmFunnelState').hidden = true;
     document.querySelector('#reportUtmFunnelCard').style.setProperty('display', 'grid', 'important');
     document.querySelector('#reportUtmFunnelSources').hidden = false;
     document.querySelector('#reportUtmFunnelSources').style.setProperty('display', 'grid', 'important');
@@ -106,6 +108,7 @@ try {
       await page.locator('#reportUtmFunnelCard').screenshot({ path:path.join(output, `sources-${width}.png`) });
     }
     await page.locator('#reportGoalsDialog').evaluate(dialog => dialog.showModal());
+    assert.notEqual(await page.locator('#reportGoalsDialog').evaluate(dialog => getComputedStyle(dialog).backgroundColor), 'rgba(0, 0, 0, 0)', 'the open goals dialog has the real opaque theme surface');
     assert.equal(await page.locator('#reportGoalsScope').isVisible(), true);
     assert.equal(await page.locator('.report-goals-defaults').isVisible(), true);
     const dialogSize = await page.locator('#reportGoalsDialog').evaluate(dialog => ({
@@ -116,6 +119,11 @@ try {
     }));
     assert.ok(dialogSize.width <= width && dialogSize.right <= width + 1 && dialogSize.scrollWidth <= dialogSize.clientWidth + 1, `goals dialog fits ${width}px`);
     if (output) await page.locator('#reportGoalsDialog').screenshot({ path:path.join(output, `goals-${width}.png`) });
+    const saveGoals = page.getByRole('button', { name:'Сохранить цели', exact:true });
+    await saveGoals.scrollIntoViewIfNeeded();
+    const saveRect = await saveGoals.boundingBox();
+    assert.ok(saveRect && saveRect.y >= 0 && saveRect.y + saveRect.height <= 900, `goals action remains reachable after scrolling at ${width}px`);
+    if (output) await page.locator('#reportGoalsDialog').screenshot({ path:path.join(output, `goals-footer-${width}.png`) });
     await page.locator('#reportGoalsDialog').evaluate(dialog => dialog.close());
   }
   await page.close();
