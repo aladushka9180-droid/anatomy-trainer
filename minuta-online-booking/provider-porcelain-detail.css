@@ -277,10 +277,17 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 html body.provider-body[data-provider-theme="pink-porcelain"] .message-center-notice .message-center-enable,
 html body.provider-body[data-provider-theme="pink-porcelain"] .message-center-dialog-actions button[type="submit"],
 html body.provider-body[data-provider-theme="pink-porcelain"] :is(.client-message-presets,.booking-time-hours) button.active,
-html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDialog [data-service-presets-next]:not(.danger) {
+html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDialog [data-service-presets-next]:not(.danger),
+html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDialog [data-custom-service-footer] button.primary:not(.danger) {
   border-color:var(--theme-line)!important;
   background:var(--porcelain-action-bg)!important;
   color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDialog :is(#serviceForm :is(input,select,textarea,summary),[data-custom-service-footer] button.primary):focus-visible {
+  outline-color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDialog #serviceForm :is(input,select,textarea):focus {
+  border-color:var(--theme-line)!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog :is(#copyFreeSlots,#updateFreeSlotsText) {
   border-color:var(--theme-line)!important;

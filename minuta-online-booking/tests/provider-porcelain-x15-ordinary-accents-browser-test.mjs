@@ -459,6 +459,78 @@ try {
     await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
     assert.notEqual(await serviceAction.evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#f3b8ce'), 'another theme keeps own service action');
     await page.evaluate(() => MinutaServicePresets.close());
+    await page.evaluate(markup => {
+      document.body.dataset.providerTheme = 'pink-porcelain';
+      const source = new DOMParser().parseFromString(markup, 'text/html').querySelector('#serviceCreatorContent');
+      const creator = document.importNode(source, true);
+      creator.hidden = false;
+      document.body.append(creator);
+    }, html);
+    await page.evaluate(() => MinutaServicePresets.open({ prepareCustom:() => {}, professionIds:['tire_fitter'] }));
+    await page.locator('#servicePresetsDialog [data-start-custom-service]').click();
+    const customServiceAction = page.locator('#servicePresetsDialog [data-custom-service-footer] button.primary[type="submit"][form="serviceForm"]');
+    assert.equal(await customServiceAction.count(), 1, 'real custom service form submit moves into the wizard footer');
+    for (const character of ['pearl', 'petal', 'silk']) {
+      for (const shade of ['pearl-white', 'porcelain-white', 'gentle-pink', 'petal-pink', 'pink-accent']) {
+        const palette = await page.evaluate(({ character, shade }) => {
+          const palette = MinutaProviderPorcelainMatrix.paletteFor(character, shade);
+          document.body.dataset.providerPorcelainCharacter = character;
+          for (const [name, value] of Object.entries({
+            '--theme-bg':palette.bg, '--theme-surface':palette.surface, '--theme-surface-alt':palette.surfaceAlt,
+            '--theme-ink':palette.ink, '--theme-muted':palette.muted, '--theme-line':palette.line,
+            '--theme-accent':palette.accent, '--theme-accent-soft':palette.accentSoft,
+            '--theme-accent-contrast':palette.contrast, '--theme-shadow':palette.shadow,
+            '--porcelain-action-bg':palette.actionBg, '--porcelain-action-ink':palette.actionInk
+          })) document.body.style.setProperty(name, value);
+          return palette;
+        }, { character, shade });
+        await page.waitForFunction(({ background, border }) => {
+          const style = getComputedStyle(document.querySelector('#servicePresetsDialog [data-custom-service-footer] button'));
+          return style.backgroundColor === background && style.borderTopColor === border;
+        }, { background:toRgb(palette.actionBg), border:toRgb(palette.line) }, { timeout:1500 });
+        const action = await customServiceAction.evaluate(element => ({
+          background:getComputedStyle(element).backgroundColor, color:getComputedStyle(element).color,
+          border:getComputedStyle(element).borderTopColor
+        }));
+        assert.deepEqual(action, { background:toRgb(palette.actionBg), color:toRgb(palette.actionInk), border:toRgb(palette.line) },
+          `${width} ${character}/${shade} real custom service footer action`);
+        assert.ok(contrast(action.color, action.background) >= 4.5, 'custom service action text contrast');
+        if (character === 'petal' && shade === 'gentle-pink') {
+          assert.equal(await page.locator('#servicePresetsDialog #serviceForm .service-public-card-editor summary')
+            .evaluate(element => getComputedStyle(element).color), toRgb(palette.muted), `${width} custom service summary stays muted`);
+          for (const selector of ['#serviceName', '#serviceDuration', '#servicePrice',
+            '#createServiceShortDescription', '#serviceForm .service-public-card-editor summary']) {
+            const control = page.locator(`#servicePresetsDialog ${selector}`);
+            if (selector.includes('summary')) await page.keyboard.press('Tab');
+            await control.focus();
+            const style = await control.evaluate(element => ({
+              outline:getComputedStyle(element).outlineColor,
+              border:getComputedStyle(element).borderTopColor
+            }));
+            assert.equal(style.outline, toRgb(palette.actionInk), `${width} ${selector} quiet focus outline`);
+            if (!selector.includes('summary')) assert.equal(style.border, toRgb(palette.line), `${width} ${selector} quiet focus border`);
+          }
+          await customServiceAction.hover();
+          assert.equal(await customServiceAction.evaluate(element => getComputedStyle(element).backgroundColor),
+            toRgb(palette.actionBg), `${width} custom service hover fill`);
+          await customServiceAction.focus();
+          assert.equal(await customServiceAction.evaluate(element => getComputedStyle(element).outlineColor),
+            toRgb(palette.actionInk), `${width} custom service focus outline`);
+          await customServiceAction.evaluate(element => { element.disabled = true; });
+          await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('#servicePresetsDialog [data-custom-service-footer] button')).opacity) < .99);
+          assert.ok(await customServiceAction.evaluate(element => Number(getComputedStyle(element).opacity) < 1),
+            `${width} custom service disabled appearance`);
+          await customServiceAction.evaluate(element => { element.disabled = false; });
+          await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('#servicePresetsDialog [data-custom-service-footer] button')).opacity) > .99);
+          if (outputDir) await page.locator('#servicePresetsDialog').screenshot({ path:path.join(outputDir, `x15-custom-service-${width}.png`) });
+        }
+      }
+    }
+    await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
+    await page.waitForTimeout(250);
+    assert.notEqual(await customServiceAction.evaluate(element => getComputedStyle(element).backgroundColor),
+      toRgb('#f3b8ce'), 'another theme keeps its custom service action');
+    await page.evaluate(() => MinutaServicePresets.close());
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow`);
     assert.deepEqual(errors, [], `${width}px page errors`);
     console.log(`${width}px: 15 palettes, retention thumb minimum ${minimumThumbContrast.toFixed(2)}:1, ordinary controls, timeline markers, current threshold, inventory, contrast, overflow PASS; network attempts blocked: ${blocked.length}`);
