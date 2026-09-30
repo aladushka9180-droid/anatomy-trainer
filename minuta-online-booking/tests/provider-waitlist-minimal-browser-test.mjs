@@ -39,10 +39,10 @@ try {
   });
 
   await page.goto('https://waitlist-preview.test/provider.html?section=waitlist#/waitlist');
-  await page.evaluate(() => {
+  await page.evaluate(theme => {
     document.documentElement.classList.remove('provider-booting');
     document.documentElement.classList.add('top-level', 'provider-ready');
-    document.body.dataset.providerTheme = 'noir-safari';
+    document.body.dataset.providerTheme = theme;
     document.body.dataset.providerLayout = 'capsule';
     document.querySelector('#providerBoot')?.remove();
     const auth = document.querySelector('#providerAuth');
@@ -55,7 +55,7 @@ try {
     document.querySelector('#sidebarName').textContent = 'PrimeTime Pro';
     document.querySelector('#waitlistCount').hidden = true;
     document.querySelector('#waitlistList').innerHTML = '<div class="provider-empty compact-empty waitlist-empty-state"><strong>Заявок пока нет</strong><small>Когда клиенту не подойдёт свободное время, его заявка появится здесь.</small><div class="provider-empty-actions"><a class="primary compact-button provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer">Открыть страницу клиента</a></div></div>';
-  });
+  }, process.env.PROVIDER_THEME || 'noir-safari');
 
   const screenshotDirectory = process.env.SCREENSHOT_DIR;
   if (screenshotDirectory) await mkdir(screenshotDirectory, { recursive: true });

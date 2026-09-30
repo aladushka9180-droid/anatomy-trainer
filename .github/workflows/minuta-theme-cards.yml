@@ -52,6 +52,7 @@ jobs:
       - run: node minuta-online-booking/tests/pink-porcelain-visual-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-cabinet-accent-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-x15-ordinary-accents-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-payment-review-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-white-text-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-editor-browser-test.mjs
       - run: node minuta-online-booking/tests/client-theme-visual-parity-browser-test.mjs
@@ -76,6 +77,7 @@ jobs:
       - run: node minuta-online-booking/tests/statistics-heatmap-drilldown-browser-test.mjs --project-root .
       - run: node minuta-online-booking/tests/retention-copy-a10-browser-test.mjs
       - run: node minuta-online-booking/tests/organization-roles-a02-browser-test.mjs
+      - run: node minuta-online-booking/tests/organization-overview-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-typography-n15-browser-test.mjs
       - run: node minuta-online-booking/tests/organization-copy-a05-a08-browser-test.mjs
       - run: node minuta-online-booking/tests/inventory-a11-copy-browser-test.mjs

@@ -135,7 +135,7 @@ assert.match(distinctCss, /\.provider-theme-option \.theme-swatch\s*\{[^}]*var\(
 assert.match(distinctCss, /\.provider-theme-option \.theme-swatch i\s*\{[^}]*var\(--theme-preview-item-radius,6px\)!important;/s, 'Theme swatch details must keep their own preview geometry');
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 assert.match(providerHtml, /id="waitlistCount" hidden>0<\/span>/, 'An empty waitlist must not repeat a zero counter');
-assert.match(providerHtml, /Заявки клиентов на занятые даты\./, 'The waitlist introduction must stay concise');
+assert.match(providerHtml, /создайте запись вручную\. Кнопка «Записан» только закрывает заявку\./, 'The waitlist introduction must explain manual booking and the status action');
 assert.doesNotMatch(providerHtml, /data-provider-panel="waitlist"[\s\S]{0,220}Свободные окна/, 'The waitlist title must not repeat a decorative eyebrow');
 assert.match(provider, /waitlist-empty-state[^`]+Открыть страницу клиента/, 'The empty waitlist must keep one clear action');
 assert.doesNotMatch(provider, /Заявок пока нет[^`]+Проверить расписание/, 'The empty waitlist must not duplicate the persistent Bookings navigation');
