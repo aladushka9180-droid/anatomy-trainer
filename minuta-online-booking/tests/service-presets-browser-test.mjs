@@ -7,7 +7,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const playwrightModule = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const { chromium } = playwrightModule.default || playwrightModule;
-const html = `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/service-presets.css"><body class="provider-body"><button data-open-service-presets>Добавить по шаблону</button><script src="/theme-catalog.js"></script><script src="/service-presets-catalog.js"></script><script src="/service-presets.js"></script></body></html>`;
+const providerHtml = readFileSync(resolve(root, 'provider.html'), 'utf8');
+const providerSource = readFileSync(resolve(root, 'provider.js'), 'utf8');
+const customForm = providerHtml.match(/<div id="serviceCreatorContent" hidden>[\s\S]*?<\/form>\s*<\/div>/)[0];
+const customFunctions = providerSource.slice(providerSource.indexOf('function prepareServiceCreator('), providerSource.indexOf('async function changePassword('));
+const html = `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/service-presets.css"><body class="provider-body"><button data-open-service-presets>Добавить по шаблону</button>${customForm}<script src="/theme-catalog.js"></script><script src="/service-presets-catalog.js"></script><script src="/service-presets.js"></script></body></html>`;
 const mime = { '.css':'text/css', '.js':'text/javascript' };
 const server = createServer((request, response) => {
   const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
@@ -71,6 +75,94 @@ async function fixture(width = 390, mode = 'normal') {
 }
 
 try {
+  const search = await fixture(390);
+  await search.page.locator('[data-service-professions-search]').fill('резина');
+  assert.equal(await search.page.locator('[data-service-profession]').count(), 1);
+  await search.page.locator('.service-profession-chip').click();
+  await search.page.locator('[data-service-professions-search]').fill('нет такой профессии');
+  assert.equal(await search.page.locator('[data-service-profession]').count(), 0);
+  assert.equal(await search.page.locator('[data-start-custom-service]').isVisible(), true);
+  await search.page.locator('[data-service-professions-search]').fill('');
+  assert.equal(await search.page.locator('[data-service-profession][value="massage_therapist"]').isChecked(), true, 'Search must not erase hidden selections');
+  assert.equal(await search.page.locator('[data-service-profession][value="tire_fitter"]').isChecked(), true);
+  await search.page.locator('[data-service-presets-next]').click();
+  await search.page.locator('[data-service-presets-more="tire_fitter"]').click();
+  assert.equal(await search.page.locator('[data-service-preset="tire_sensor"]').isVisible(), true);
+  await search.page.locator('[data-service-preset="tire_seasonal"]').click();
+  await search.page.locator('[data-draft-duration]').fill('37');
+  await search.page.locator('[data-draft-price]').fill('2345');
+  await search.page.locator('[data-service-presets-next]').click();
+  assert.match(await search.page.locator('.service-preset-review').innerText(), /37 мин/);
+  await search.browserContext.close();
+
+  const customFirst = await fixture(390);
+  await customFirst.page.locator('[data-start-custom-service]').click();
+  assert.equal(await customFirst.page.locator('[data-service-draft]').count(), 1);
+  assert.equal(await customFirst.page.evaluate(() => fixture.calls.length), 0);
+  await customFirst.browserContext.close();
+
+  for (const width of [390, 760, 1440]) {
+    const own = await fixture(width);
+    await own.page.evaluate(functions => {
+      document.querySelector('#servicePresetsDialog').close();
+      Object.assign(window, {
+        $:selector => document.querySelector(selector),
+        currentUser:{ id:'11111111-1111-4111-8111-111111111111' },
+        requireWrites:() => true,
+        clearFormError:selector => { document.querySelector(selector).hidden = true; },
+        showFormError:(selector, message) => { const el=document.querySelector(selector); el.hidden=false; el.textContent=message; },
+        resetServicePublicCardPhotoPreview:() => {},
+        bindServiceScheduleNameSetting:() => {}, bindServicePublicCardEditor:() => {},
+        updateServiceDefaultDurationField:() => {}, normalizePerMinuteDuration:Number,
+        saveServiceDefaultDuration:async (id, duration) => { fixture.defaultDuration = duration; },
+        saveServiceScheduleName:async (id, enabled, name) => { fixture.scheduleName = name; return true; },
+        persistServiceWithPublicCard:async options => {
+          fixture.card = options;
+          fixture.description = document.querySelector('#createServiceShortDescription').value;
+          fixture.photo = document.querySelector('#createServicePhoto').files[0]?.name;
+        },
+        notify:() => {}, refreshAfterWrite:async () => {}, serviceCreateErrorMessage:e => e.message,
+        db:{ from:table => ({ insert:row => ({ select:() => ({ single:async () => {
+          fixture.calls.push({ table, row });
+          return { data:{id:'synthetic-service'}, error:null };
+        } }) }) }) }
+      });
+      window.eval(functions);
+      document.querySelector('#serviceForm').addEventListener('submit', addService);
+      window.MinutaServicePresets.open({ prepareCustom:prepareServiceCreator, professionIds:['massage_therapist'] });
+      fixture.applyTheme(window.MinutaThemeCatalog.themes.find(theme => theme.key === 'pink-porcelain'));
+    }, customFunctions);
+    await own.page.locator('[data-start-custom-service]').click();
+    await own.page.locator('#serviceName').fill('Тест своей услуги');
+    await own.page.locator('#serviceDuration').selectOption('1');
+    await own.page.locator('#servicePrice').fill('32');
+    await own.page.locator('#createServiceShortDescription').fill('Сохранить описание');
+    await own.page.locator('#createServicePhoto').setInputFiles({ name:'fixture.png', mimeType:'image/png', buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64') });
+    await own.page.locator('[data-service-presets-back]').click();
+    await own.page.locator('[data-start-custom-service]').click();
+    assert.equal(await own.page.locator('#serviceName').inputValue(), 'Тест своей услуги');
+    assert.equal(await own.page.locator('#createServicePhoto').evaluate(el => el.files[0]?.name), 'fixture.png');
+    assert.equal(await own.page.locator('#serviceForm').count(), 1);
+    const saveButton = own.page.locator('button[form="serviceForm"]');
+    assert.equal(await saveButton.evaluate(el => { const r=el.getBoundingClientRect(); return r.top>=0 && r.bottom<=innerHeight && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===el; }), true, `${width}: own-service save button must remain visible`);
+    if (screenshots) await own.page.screenshot({ path:resolve(screenshots, `service-presets-custom-${width}.png`), fullPage:true });
+    await own.page.evaluate(() => { currentUser.id = '22222222-2222-4222-8222-222222222222'; });
+    await saveButton.click();
+    assert.equal(await own.page.evaluate(() => fixture.calls.length), 0, 'Switched account must not save');
+    assert.match(await own.page.locator('#serviceError').innerText(), /Аккаунт изменился/);
+    await own.page.evaluate(() => { currentUser.id = '11111111-1111-4111-8111-111111111111'; });
+    await saveButton.click();
+    await own.page.locator('#servicePresetsDialog').waitFor({ state:'hidden' });
+    const result = await own.page.evaluate(() => fixture);
+    assert.equal(result.calls.length, 1);
+    assert.equal(result.calls[0].table, 'services');
+    assert.equal(result.calls[0].row.duration_minutes, 1);
+    assert.equal(result.defaultDuration, 60);
+    assert.equal(result.description, 'Сохранить описание');
+    assert.equal(result.photo, 'fixture.png');
+    await own.browserContext.close();
+  }
+
   const entry = await fixture(390);
   await entry.page.evaluate(() => {
     document.querySelector('#servicePresetsDialog').close();
@@ -105,7 +197,7 @@ try {
 
   const { page, browserContext } = await fixture(390);
   const professions = page.locator('[data-service-profession]');
-  assert.equal(await professions.count(), 12);
+  assert.equal(await professions.count(), 20);
   assert.equal(await professions.nth(0).isChecked?.() ?? true, true);
   await page.locator('.service-profession-chip').filter({ has:page.locator('[data-service-profession][value="esthetician"]') }).click();
   await page.locator('[data-service-presets-next]').click();
@@ -124,7 +216,7 @@ try {
   const custom = page.locator('[data-service-draft]').last();
   await custom.locator('[data-draft-name]').fill('Авторская услуга');
   await custom.locator('[data-draft-price]').fill('1800');
-  await custom.locator('[data-draft-duration]').selectOption('60');
+  await custom.locator('[data-draft-duration]').fill('60');
   await page.locator('[data-service-presets-next]').click();
   const reviewCount = await page.locator('.service-preset-review article').count();
   const reviewError = await page.locator('[role="alert"]').allTextContents();
@@ -164,7 +256,16 @@ try {
     assert.deepEqual(metrics.failures, [], `${width}px theme/layout geometry failures`);
     assert.ok(metrics.themeCount >= 35);
     assert.ok(metrics.scrollWidth <= width + 1);
+    await current.page.evaluate(() => { fixture.applyTheme(window.MinutaThemeCatalog.themes.find(theme => theme.key === 'pink-porcelain')); document.body.dataset.providerLayout = 'soft'; });
+    const visibleFooter = async () => current.page.locator('[data-service-presets-next]').evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      return rect.top >= 0 && rect.bottom <= innerHeight && document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === el;
+    });
+    assert.equal(await visibleFooter(), true, `${width}: continue button must remain visible without scrolling`);
     if (screenshots) await current.page.screenshot({ path:resolve(screenshots, `service-presets-professions-${width}.png`), fullPage:true });
+    await current.page.locator('[data-service-presets-next]').click();
+    await current.page.locator('[data-service-presets-more]').click();
+    assert.equal(await visibleFooter(), true, `${width}: expanded services must not push footer away`);
     await current.browserContext.close();
   }
 

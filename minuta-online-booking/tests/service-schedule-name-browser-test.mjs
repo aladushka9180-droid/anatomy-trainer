@@ -47,11 +47,15 @@ try {
       document.querySelector('#providerBoot').hidden = true;
       const updateNotice = document.querySelector('#siteUpdateNotice');
       if (updateNotice) updateNotice.hidden = true;
-      const dialog = document.querySelector('#serviceCreatorDialog');
-      document.body.replaceChildren(dialog);
-      dialog.querySelector('#serviceName').value = 'Массаж спины + ШВЗ — углублённый (с акцентом на проблемные зоны)';
-      dialog.showModal();
+      const content = document.querySelector('#serviceCreatorContent');
+      document.body.replaceChildren(content);
+      content.querySelector('#serviceName').value = 'Массаж спины + ШВЗ — углублённый (с акцентом на проблемные зоны)';
+
     });
+    await page.addScriptTag({ content:readFileSync(resolve(root, 'service-presets-catalog.js'), 'utf8') });
+    await page.addScriptTag({ content:readFileSync(resolve(root, 'service-presets.js'), 'utf8') });
+    await page.evaluate(() => window.MinutaServicePresets.open({ prepareCustom:() => {} }));
+    await page.locator('[data-start-custom-service]').click();
     await page.addScriptTag({ content:`const $=selector=>document.querySelector(selector);const serviceName=value=>value;let serviceScheduleNames={};${featureFunctions};bindServiceScheduleNameSetting({prefix:'create',nameSelector:'#serviceName'});` });
     assert.equal(await page.locator('[data-service-schedule-name-recommended]').isVisible(), true, `${width}: recommendation not shown`);
     await page.locator('#createServiceScheduleNameEnabled').click();
@@ -66,7 +70,7 @@ try {
       'Массаж спины + швз — углубленный (с акцентом на проблемные зоны) — 60 мин'
     )), 'Массаж спины + ШВЗ — углублённый');
     const geometry = await page.evaluate(() => {
-      const dialog = document.querySelector('#serviceCreatorDialog').getBoundingClientRect();
+      const dialog = document.querySelector('#servicePresetsDialog').getBoundingClientRect();
       const toggle = document.querySelector('.service-schedule-name-toggle').getBoundingClientRect();
       const field = document.querySelector('#createServiceScheduleName').getBoundingClientRect();
       const preview = document.querySelector('.service-schedule-name-preview').getBoundingClientRect();

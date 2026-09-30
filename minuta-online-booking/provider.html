@@ -906,7 +906,7 @@
         </section>
 
         <section class="provider-view" data-provider-panel="services" hidden>
-          <div class="view-title"><div><span>Каталог</span><h2>Мои услуги</h2></div><div class="view-title-actions"><div class="services-view-switch" role="group" aria-label="Раздел каталога"><button type="button" data-service-catalog-tab="services" aria-pressed="true"><span>Услуги</span><span aria-hidden="true">·</span><span id="servicesCount">0</span></button><button type="button" data-service-catalog-tab="presets" data-open-service-presets aria-pressed="false"><span>Шаблоны</span></button></div><button class="secondary-button compact-button" id="openPriceList" type="button">Поделиться прайсом</button><button class="primary compact-button" type="button" data-open-service-creator><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить услугу</span></button></div></div>
+          <div class="view-title"><div><span>Каталог</span><h2>Мои услуги</h2></div><div class="view-title-actions"><span class="panel-count" aria-label="Количество услуг" id="servicesCount">0</span><button class="secondary-button compact-button" id="openPriceList" type="button">Поделиться прайсом</button><button class="primary compact-button" type="button" data-open-service-creator><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить услугу</span></button></div></div>
           <div class="services-layout">
             <section class="panel service-catalog" aria-label="Услуги в онлайн-записи"><div class="service-manage-list" id="serviceManageList"></div></section>
           </div>
@@ -2036,8 +2036,7 @@
     <p class="client-message-status" id="clientMessagingHelp">Сообщение не отправится автоматически: сайт только откроет выбранное приложение.</p>
     <p class="client-message-status" id="clientMessagingStatus" role="status" aria-live="polite"></p>
   </dialog>
-  <dialog class="service-creator-dialog" id="serviceCreatorDialog" aria-labelledby="serviceCreatorTitle">
-    <div class="notification-template-dialog-head"><div><small>Каталог</small><h2 id="serviceCreatorTitle">Новая услуга</h2></div><button type="button" data-close-service-creator aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
+  <div id="serviceCreatorContent" hidden>
     <form id="serviceForm" class="service-form">
       <label>Название услуги<input id="serviceName" placeholder="Например, Спортивный массаж" maxlength="120" required></label>
       <section class="service-schedule-name-setting" data-service-schedule-name-setting>
@@ -2059,7 +2058,7 @@
       </section>
       <p class="form-error" id="serviceError" hidden></p><button class="primary" type="submit">Добавить услугу</button>
     </form>
-  </dialog>
+  </div>
   <dialog class="service-creator-dialog group-event-dialog" id="groupEventDialog" aria-labelledby="groupEventDialogTitle">
     <div class="notification-template-dialog-head"><div><small>Групповая запись</small><h2 id="groupEventDialogTitle">Новое событие</h2></div><button id="closeGroupEventDialog" type="button" aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <form id="groupEventForm" class="group-event-form">

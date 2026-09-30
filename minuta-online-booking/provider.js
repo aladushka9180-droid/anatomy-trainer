@@ -1551,7 +1551,7 @@ const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton
 const writeSelectors = [
   '#newBookingButton', '#mobileNewBookingButton', '[data-create-empty-booking]', '[data-quick-repeat-client]', '[data-client-favorite-service]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
   '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
-  '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
+  '#serviceForm button[type="submit"]', 'button[form="serviceForm"][type="submit"]', '#dayOffForm button[type="submit"]',
   '#bookingOutcomeForm button[type="submit"]',
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
@@ -15345,10 +15345,26 @@ function serviceCreateErrorMessage(error) {
   return `Не удалось добавить услугу${code}. Попробуйте ещё раз.`;
 }
 
+function prepareServiceCreator() {
+  $('#serviceForm').reset();
+  $('#serviceForm').dataset.ownerId = currentUser.id;
+  resetServicePublicCardPhotoPreview('create');
+  $('#serviceDuration').value = '60';
+  $('#serviceDefaultDuration').value = '60';
+  updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
+  clearFormError('#serviceError');
+  bindServiceScheduleNameSetting({ prefix:'create', nameSelector:'#serviceName' });
+  bindServicePublicCardEditor('create');
+}
+
 async function addService(event) {
   event.preventDefault();
   if (!requireWrites()) return;
   clearFormError('#serviceError');
+  if ($('#serviceForm').dataset.ownerId !== currentUser?.id) {
+    showFormError('#serviceError', 'Аккаунт изменился. Закройте окно и откройте добавление заново.');
+    return;
+  }
   const name = $('#serviceName').value.trim();
   const price = Number($('#servicePrice').value);
   const duration = Number($('#serviceDuration').value);
@@ -15382,7 +15398,7 @@ async function addService(event) {
   $('#serviceDuration').value = '60';
   $('#serviceDefaultDuration').value = '60';
   updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
-  $('#serviceCreatorDialog').close();
+  window.MinutaServicePresets?.close();
   notify(scheduleNameSynced ? 'Услуга добавлена' : 'Услуга добавлена · короткое название синхронизируется');
   await refreshAfterWrite();
 }
@@ -17054,8 +17070,6 @@ document.addEventListener('click', async event => {
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
   const openNotificationDelivery = event.target.closest('[data-open-notification-delivery]');
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
-  const openServiceCreator = event.target.closest('[data-open-service-creator]');
-  const closeServiceCreator = event.target.closest('[data-close-service-creator]');
   const openPortfolioEditorButton = event.target.closest('[data-open-portfolio-editor]');
   const closePortfolioEditorButton = event.target.closest('[data-close-portfolio-editor]');
   const editPortfolio = event.target.closest('[data-edit-portfolio]');
@@ -17286,21 +17300,6 @@ document.addEventListener('click', async event => {
     showDelivery();
   }
   if (closeNotificationTemplates) $('#notificationTemplatesDialog').close();
-  if (openServiceCreator) {
-    $('#serviceForm').reset();
-    resetServicePublicCardPhotoPreview('create');
-    $('#serviceDuration').value = '60';
-    $('#serviceDefaultDuration').value = '60';
-    updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
-    clearFormError('#serviceError');
-    $('#serviceCreatorDialog').showModal();
-    bindServiceScheduleNameSetting({ prefix:'create', nameSelector:'#serviceName' });
-    bindServicePublicCardEditor('create');
-  }
-  if (closeServiceCreator) {
-    resetServicePublicCardPhotoPreview('create');
-    $('#serviceCreatorDialog').close();
-  }
   if (portfolioActions) { event.preventDefault(); openPortfolioActions(portfolioActions); return; }
   if (closePortfolioActionButton) { closePortfolioActions(); return; }
   if (openPortfolioEditorButton) openPortfolioEditor();
