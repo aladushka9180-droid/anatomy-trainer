@@ -38,12 +38,14 @@ const server = createServer((request, response) => {
 let browser;
 let page;
 const errors = [];
-async function ready(expected) {
+async function ready(expected, previousController = null) {
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
-    const matched = await page.evaluate(async expected => {
+    const matched = await page.evaluate(async ({ expected, previousController }) => {
       const controller = navigator.serviceWorker.controller;
-      if (!controller) return false;
+      // Do not keep the outgoing worker busy with extendable message events.
+      // First observe the real controller handoff, then verify its ready build.
+      if (!controller || controller === previousController) return false;
       const info = await new Promise(resolve => {
         const channel = new MessageChannel();
         const timer = setTimeout(() => { channel.port1.close(); resolve(null); }, 1200);
@@ -53,7 +55,7 @@ async function ready(expected) {
         controller.postMessage({ type:'site-update-version' }, [channel.port2]);
       });
       return controller === navigator.serviceWorker.controller && info?.ready === true && info.version === Number(expected);
-    }, expected);
+    }, { expected, previousController });
     if (matched === true) return;
     await page.waitForTimeout(50);
   }
@@ -88,11 +90,16 @@ try {
   await page.reload();
   assert.ok(heldRequests > 0, 'The reload must encounter the held network request');
   assert.equal(await page.locator('body').getAttribute('data-release'), version, 'The cached shell remains usable');
+  const previousController = await page.evaluateHandle(() => navigator.serviceWorker.controller);
   holdNavigation = false;
   worker = source.replaceAll(`v=${version}`, `v=${future}`).replaceAll(`v${version}`, `v${future}`);
   servedVersion = future;
-  await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
-  await ready(future);
+  try {
+    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+    await ready(future, previousController);
+  } finally {
+    await previousController.dispose();
+  }
   assert.equal(await page.locator('body').getAttribute('data-release'), version, 'Worker activation does not reload the document');
   assert.equal(await page.evaluate(() => localStorage.getItem('synthetic-offline-draft')), 'preserved');
 
