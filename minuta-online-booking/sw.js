@@ -69,6 +69,7 @@ const ASSETS = [
 ];
 
 const OPTIONAL_ASSETS = [
+  './payment-review.js?v=1044',
   './organization-overview.css?v=1044',
   './resource-management.js?v=1044',
   './shift-management.js?v=1044',
