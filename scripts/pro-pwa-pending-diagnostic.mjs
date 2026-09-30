@@ -34,6 +34,22 @@ let test=readFileSync('minuta-online-booking/tests/site-update-pending-navigatio
 test=test.replace("channel:process.env.BROWSER_CHANNEL || (process.platform === 'win32' ? 'chrome' : undefined)",'channel:undefined');
 test=test.replace("const context = await browser.newContext({ serviceWorkers:'allow' });", "const context = await browser.newContext({ serviceWorkers:'allow' });\n  context.on('console', message => console.log(message.text()));");
 test=test.replace('heldRequests, ready:future','workerRequests, heldRequests, ready:future');
+if(mode==='baseline') {
+  // Observe a failed gate after messaging stops, without turning that failure
+  // into a pass or extending the original 15-second acceptance deadline.
+  test=test.replace('  assert.fail(`Pending navigation prevented', `  await page.waitForTimeout(2200);
+  console.log('AFTER_QUIET', await page.evaluate(async () => {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const info = await new Promise(resolve => {
+      const channel = new MessageChannel();
+      const timer = setTimeout(() => { channel.port1.close(); resolve(null); }, 1200);
+      channel.port1.onmessage = event => {clearTimeout(timer);channel.port1.close();resolve(event.data)};
+      navigator.serviceWorker.controller?.postMessage({type:'site-update-version'},[channel.port2]);
+    });
+    return {waiting:reg?.waiting?.state,info};
+  }));
+  assert.fail(\`Pending navigation prevented`);
+}
 if(mode==='quiet-poll') {
   test=test.replace('if (!controller) return false;', 'if (!controller || controller === window.previousController) return false;');
   test=test.replace('holdNavigation = false;\n  worker =', 'holdNavigation = false;\n  await page.evaluate(() => { window.previousController = navigator.serviceWorker.controller; });\n  worker =');
