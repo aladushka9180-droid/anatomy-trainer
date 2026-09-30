@@ -16,6 +16,9 @@ const read = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 const fixture = read('report-export-owner-scope-fixture.sql');
 const candidate = read('../report-export-owner-scope-candidate.sql');
 const rollback = read('../report-export-owner-scope-rollback.sql');
+const offlineAuthTable = read('../scripts/crm-snapshot-offline-bootstrap.sql').match(/^create table auth\.users\([^;]+;/m)?.[0];
+const fullSchemaAuthInsert = read('report-export-owner-scope-full-schema.sql').match(/^insert into auth\.users\([\s\S]*?;/m)?.[0];
+assert.ok(offlineAuthTable && fullSchemaAuthInsert, 'offline auth fixture contract must exist');
 const client = new Client({ connectionString, application_name:'eldion-report-export-synthetic' });
 const org = '00000000-0000-4000-8000-000000000001';
 const foreignOrg = '00000000-0000-4000-8000-000000000002';
@@ -96,6 +99,14 @@ try {
   await client.query('begin');
   await client.query("set local statement_timeout='20s'; set local lock_timeout='5s'");
   await client.query(fixture);
+  // Execute the actual full-schema identity insert against the actual public-only
+  // restore placeholder. This catches unavailable auth columns before a backup run.
+  await client.query(offlineAuthTable);
+  for (const [name, id] of [['owner', owner], ['admin', admin], ['staff', specialist]]) {
+    await client.query("select set_config($1,$2,true)", ['export_probe.' + name, id]);
+  }
+  await client.query(fullSchemaAuthInsert);
+  assert.equal((await client.query('select count(*)::int count from auth.users')).rows[0].count, 3);
   await client.query(candidate);
   await verify();
   await client.query(rollback);
