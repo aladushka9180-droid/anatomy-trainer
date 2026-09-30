@@ -16,7 +16,7 @@ assert.ok(version, 'Не удалось определить версию отч
 const workerVersion = source.match(/new Worker\('\.\/report-worker\.js\?v=(\d+)'\)/)?.[1];
 assert.ok(workerVersion, 'Не удалось определить версию worker отчёта');
 const start = source.indexOf('function reportXmlText');
-const end = source.indexOf('function exportBookingsXlsx');
+const end = source.indexOf('function reportExportScope');
 assert.ok(start >= 0 && end > start, 'Не найден генератор Excel-отчёта');
 
 const context = { Blob, TextEncoder };
