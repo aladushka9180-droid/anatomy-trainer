@@ -10,6 +10,8 @@ const matrix = readFileSync(path.join(root, 'provider-porcelain-matrix.js'), 'ut
 const recordsScript = readFileSync(path.join(root, 'client-records.js'), 'utf8');
 const benefitScript = readFileSync(path.join(root, 'benefit-lifecycle.js'), 'utf8');
 const loyaltyScript = readFileSync(path.join(root, 'client-loyalty-frames.js'), 'utf8');
+const serviceCatalogScript = readFileSync(path.join(root, 'service-presets-catalog.js'), 'utf8');
+const servicePresetsScript = readFileSync(path.join(root, 'service-presets.js'), 'utf8');
 const cssLayers = [...html.matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^\"]*)?"[^>]*>/g)]
   .map(match => ({ file:match[1], media:match[0].match(/media="([^"]+)"/)?.[1] || '' }));
 const cssFiles = cssLayers.map(layer => layer.file);
@@ -65,6 +67,18 @@ try {
       const bookings = document.createElement('section'); bookings.dataset.providerPanel = 'bookings'; bookings.className = 'provider-view';
       bookings.innerHTML = '<div class="booking-time-slots"><button class="active" type="button">10:00</button></div>';
       dashboard.append(bookings);
+      const schedule = document.createElement('section'); schedule.dataset.providerPanel = 'schedule'; schedule.className = 'provider-view';
+      schedule.append(clone('.schedule-quick-setup')); dashboard.append(schedule);
+      schedule.querySelector('[data-schedule-quick-preset="custom"]').classList.add('active');
+      schedule.querySelectorAll('[data-schedule-quick-day]').forEach(input => { input.checked = input.dataset.scheduleQuickDay !== '1'; });
+      schedule.querySelector('#scheduleQuickBreak').checked = true;
+      const themeFilters = document.createElement('section'); themeFilters.dataset.providerPanel = 'settings';
+      themeFilters.append(clone('.provider-client-theme-filters')); dashboard.append(themeFilters);
+      document.body.append(clone('#clientMessagingDialog .client-message-presets'));
+      document.querySelector('.client-message-presets button').classList.add('active');
+      const hours = document.createElement('div'); hours.className = 'booking-time-hours';
+      hours.innerHTML = '<button type="button" class="active" aria-pressed="true" data-edit-booking-hour="10">10:00</button>';
+      document.body.append(hours);
       const organization = document.createElement('section'); organization.dataset.providerPanel = 'organization'; organization.className = 'provider-view organization-section';
       organization.append(clone('#inventoryPanel .inventory-settings'),
         clone('#inventoryItemCreator'), clone('#inventoryWarehouseCreator'), clone('#inventoryMovementForm'),
@@ -80,7 +94,7 @@ try {
         + '<label class="smart-channel-toggle"><input type="checkbox" checked></label>'
         + '<label class="break-toggle"><input type="checkbox" data-schedule-break checked></label>';
       for (const selector of ['#unifiedNotificationsEnabled', '#fullDataExportConfirm', '#providerNavigationForm',
-        '#groupBookingsEnabled', '#createServiceScheduleNameEnabled', '.telegram-event-settings', '#scheduleQuickBreak', '#shiftHasBreak']) {
+        '#groupBookingsEnabled', '#createServiceScheduleNameEnabled', '.telegram-event-settings', '#shiftHasBreak']) {
         const element = original.querySelector(selector);
         if (!element) throw new Error(`Real provider HTML missing: ${selector}`);
         regular.append(document.importNode(element.closest('label') || element, true));
@@ -108,6 +122,8 @@ try {
     await page.addScriptTag({ content:recordsScript });
     await page.addScriptTag({ content:benefitScript });
     await page.addScriptTag({ content:loyaltyScript });
+    await page.addScriptTag({ content:serviceCatalogScript });
+    await page.addScriptTag({ content:servicePresetsScript });
     await page.evaluate(async () => {
       const recordController = MinutaClientRecords.createController({
         db:{ rpc:async () => ({ data:{ enabled:true, entries:[{ id:'note-1', kind:'note', body:'Тестовая заметка', created_at:'2026-01-04T12:00:00Z', can_delete:false }] } }) },
@@ -214,6 +230,21 @@ try {
         for (const selector of ['#scheduleQuickBreak', '#shiftHasBreak', '[data-schedule-break]']) {
           assert.equal(await page.locator(selector).evaluate(element => getComputedStyle(element).accentColor), toRgb(palette.accent), `${selector} break unchanged`);
         }
+        for (const selector of ['[data-schedule-quick-preset="custom"].active', '.schedule-quick-days input[data-schedule-quick-day="2"]:checked+span',
+          '.provider-client-theme-filters button.active', '.client-message-presets button.active', '.booking-time-hours button.active']) {
+          const selected = await page.locator(selector).evaluate(element => ({
+            background:getComputedStyle(element).backgroundColor,
+            color:getComputedStyle(element).color,
+            border:getComputedStyle(element).borderTopColor,
+            height:element.getBoundingClientRect().height
+          }));
+          assert.equal(selected.background, toRgb(palette.actionBg), `${width} ${character}/${shade} ${selector} fill`);
+          assert.equal(selected.color, toRgb(palette.actionInk), `${width} ${character}/${shade} ${selector} ink`);
+          assert.equal(selected.border, toRgb(palette.line), `${width} ${character}/${shade} ${selector} border`);
+          assert.ok(contrast(selected.color, selected.background) >= 4.5, `${selector} readable`);
+          if (selector.includes('schedule-quick')) assert.ok(selected.height >= 44, `${selector} tappable`);
+        }
+        assert.notEqual(await page.locator('.schedule-quick-days input[data-schedule-quick-day="1"]+span').evaluate(element => getComputedStyle(element).backgroundColor), toRgb(palette.actionBg), 'unchecked day remains neutral');
         for (const selector of ['#inventoryItemActive', '#inventoryWarehouseActive', '#inventoryTransfersEnabled']) {
           const input = page.locator(selector);
           const size = await input.evaluate(element => {
@@ -288,6 +319,14 @@ try {
           });
         }
         if (outputDir && character === 'petal' && shade === 'gentle-pink') {
+          await page.evaluate(() => document.querySelector('#clientLoyaltyLevelsDialog').close());
+          const monday = page.locator('.schedule-quick-days label').first();
+          await monday.click();
+          assert.equal(await monday.locator('input').isChecked(), true, 'real weekday label toggles on click');
+          await monday.click();
+          assert.equal(await monday.locator('input').isChecked(), false, 'real weekday label toggles off click');
+          await page.locator('.schedule-quick-setup').screenshot({ path:path.join(outputDir, `x15-schedule-${width}.png`) });
+          await page.evaluate(() => document.querySelector('#clientLoyaltyLevelsDialog').showModal());
           await page.screenshot({ path:path.join(outputDir, `x15-ordinary-${width}.png`), fullPage:true });
           await page.evaluate(() => { document.querySelector('#clientLoyaltyLevelsDialog').close(); window.scrollTo(0, 0); });
           await page.locator('#clientRecords').screenshot({ path:path.join(outputDir, `x15-records-${width}.png`) });
@@ -311,6 +350,36 @@ try {
     await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
     assert.equal(await page.locator('#clientRecords [data-cr-note] .cr-button').evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#287a58'), 'another theme keeps own action');
     assert.equal(await page.locator('#groupBookingsEnabled').evaluate(element => getComputedStyle(element).accentColor), toRgb('#287a58'), 'another theme keeps own checkbox accent');
+    await page.evaluate(() => MinutaServicePresets.open({ professionIds:['tire_fitter'], existingServices:[] }));
+    await page.locator('#servicePresetsDialog [data-service-presets-next]').click();
+    await page.locator('#servicePresetsDialog [data-service-preset]').first().click();
+    await page.locator('#servicePresetsDialog [data-draft-price]').fill('500');
+    await page.locator('#servicePresetsDialog [data-service-presets-next]').click();
+    const serviceAction = page.locator('#servicePresetsDialog [data-service-presets-next]');
+    assert.equal(await serviceAction.textContent(), 'Добавить услуги', 'real service wizard reaches review without saving');
+    for (const character of ['pearl', 'petal', 'silk']) {
+      for (const shade of ['pearl-white', 'porcelain-white', 'gentle-pink', 'petal-pink', 'pink-accent']) {
+        const palette = await page.evaluate(({ character, shade }) => {
+          const palette = MinutaProviderPorcelainMatrix.paletteFor(character, shade);
+          document.body.dataset.providerTheme = 'pink-porcelain';
+          for (const [name, value] of Object.entries({
+            '--theme-accent':palette.accent, '--theme-line':palette.line,
+            '--porcelain-action-bg':palette.actionBg, '--porcelain-action-ink':palette.actionInk
+          })) document.body.style.setProperty(name, value);
+          return palette;
+        }, { character, shade });
+        await page.waitForFunction(expected => getComputedStyle(document.querySelector('#servicePresetsDialog [data-service-presets-next]')).backgroundColor === expected, toRgb(palette.actionBg), { timeout:1500 });
+        const actual = await serviceAction.evaluate(element => ({ background:getComputedStyle(element).backgroundColor, color:getComputedStyle(element).color, border:getComputedStyle(element).borderTopColor }));
+        assert.deepEqual(actual, { background:toRgb(palette.actionBg), color:toRgb(palette.actionInk), border:toRgb(palette.line) }, `${width} ${character}/${shade} service review action`);
+        assert.ok(contrast(actual.color, actual.background) >= 4.5, 'service review action text contrast');
+        if (outputDir && character === 'petal' && shade === 'gentle-pink') {
+          await page.locator('#servicePresetsDialog').screenshot({ path:path.join(outputDir, `x15-service-review-${width}.png`) });
+        }
+      }
+    }
+    await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
+    assert.notEqual(await serviceAction.evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#f3b8ce'), 'another theme keeps own service action');
+    await page.evaluate(() => MinutaServicePresets.close());
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow`);
     assert.deepEqual(errors, [], `${width}px page errors`);
     console.log(`${width}px: 15 palettes, retention thumb minimum ${minimumThumbContrast.toFixed(2)}:1, ordinary controls, timeline markers, current threshold, inventory, contrast, overflow PASS; network attempts blocked: ${blocked.length}`);
