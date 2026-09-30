@@ -42,7 +42,7 @@ try {
   const page = await browser.newPage({ viewport:{ width:1440, height:900 } });
   await page.goto(`http://127.0.0.1:${server.address().port}/provider.html`);
   await page.addScriptTag({ content:[
-    'var scheduleRows = []; var daysOff = []; var scheduleDirty = false; var selectedDate = ""; var currentFilter = "day"; var calendarView = "day"; var journalMode = "list"; var bookingRenderLimit = 100; var reportScopedBookingsState = { status:"ready" }; var teamCalendarController = null; var timelineBookingDrag = null; var recentlyCreatedBookingId = ""; var displayPreferences = {};',
+    'var scheduleRows = []; var daysOff = []; var scheduleDirty = false; var selectedDate = ""; var currentFilter = "day"; var calendarView = "day"; var journalMode = "list"; var bookingRenderLimit = 100; var reportScopedBookingsState = { status:"ready" }; var teamCalendarController = null; var timelineBookingDrag = null; var recentlyCreatedBookingId = ""; var displayPreferences = {}; var currentUser = { id:"fixture-user" }; var sessionGeneration = 1; var db;',
     declaration('parseLocalIsoDate'),
     declaration('localIsoDate'),
     declaration('escapeHtml'),
@@ -51,7 +51,9 @@ try {
     declaration('calendarOverviewBookingMarkup'),
     declaration('calendarMonthMobileAgendaMarkup'),
     declaration('renderCalendarOverview'),
-    declaration('renderBookings')
+    declaration('renderTimeline'),
+    declaration('renderBookings'),
+    declaration('loadDaysOff')
   ].join('\n') });
   await page.evaluate(() => {
     document.documentElement.classList.remove('provider-booting', 'requires-top-level');
@@ -73,7 +75,16 @@ try {
     window.isScheduleBlock = () => false;
     window.automaticBookingBreaks = () => [];
     window.renderSelectedDateTitle = () => {};
-    window.renderTimeline = () => {};
+    window.renderDaysOff = () => {};
+    window.sessionIsCurrent = () => true;
+    window.saveProviderCache = async () => {};
+    window.timelineBounds = () => ({ start:600, end:1200 });
+    window.stackMinuteTimelineItems = () => {};
+    window.scheduleNowMarkerMarkup = () => '';
+    window.timelineEmptyHintOffsetMinutes = () => 120;
+    window.scheduleCreateHintMarkup = () => '';
+    window.timeFromMinutes = minute => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+    window.uiIcon = () => '';
     window.renderBookingDataSourceNotice = () => {};
     window.updateBookingQueryTools = () => {};
     window.renderBookingList = (_items, message) => { document.querySelector('#providerBookings').innerHTML = `<div class="provider-empty"><strong>${message}</strong></div>`; };
@@ -82,7 +93,7 @@ try {
     window.businessTodayIso = () => '2026-09-01';
     window.seriesBookingCountLabel = count => `${count} записи`;
     scheduleRows = Array.from({ length:7 }, (_, index) => ({ weekday:index + 1, enabled:index !== 6, start_time:'10:00', end_time:'20:00' }));
-    daysOff = [{ id:'manual-full-day', off_date:'2026-09-21', all_day:true }];
+    daysOff = [{ id:'manual-full-day', off_date:'2026-09-21', all_day:true }, { id:'partial', off_date:'2026-09-22', all_day:false, start_time:'12:00', end_time:'13:00' }];
   });
 
   for (const width of [390, 760, 1440]) {
@@ -113,6 +124,34 @@ try {
       };
     });
     if (output) await page.screenshot({ path:path.join(output, `manual-closed-day-${width}.png`), fullPage:false });
+    const timeline = await page.evaluate(() => {
+      journalMode = 'timeline';
+      renderBookings();
+      const closed = {
+        summary:document.querySelector('#selectedDateSummary').textContent,
+        message:document.querySelector('#providerBookings').textContent.trim(),
+        freeTimePicker:!!document.querySelector('#providerBookings [data-create-booking-at]'),
+        overflow:document.documentElement.scrollWidth > innerWidth + 2
+      };
+      selectedDate = '2026-09-20';
+      renderBookings();
+      const weekly = {
+        summary:document.querySelector('#selectedDateSummary').textContent,
+        message:document.querySelector('#providerBookings').textContent.trim(),
+        freeTimePicker:!!document.querySelector('#providerBookings [data-create-booking-at]')
+      };
+      selectedDate = '2026-09-22';
+      renderBookings();
+      const partial = {
+        summary:document.querySelector('#selectedDateSummary').textContent,
+        freeTimePicker:!!document.querySelector('#providerBookings [data-create-booking-at]'),
+        pickerRole:document.querySelector('#providerBookings [data-create-booking-at]')?.getAttribute('role'),
+        pickerTabIndex:document.querySelector('#providerBookings [data-create-booking-at]')?.tabIndex,
+        pickerDate:document.querySelector('#providerBookings [data-create-booking-at]')?.dataset.timelineDate
+      };
+      journalMode = 'list';
+      return { closed, weekly, partial };
+    });
     const month = await page.evaluate(() => {
       selectedDate = '2026-09-20';
       renderCalendarOverview('month');
@@ -120,6 +159,7 @@ try {
       return {
         weeklyClosed:label('2026-09-20'),
         manualException:label('2026-09-21'),
+        partialException:label('2026-09-22'),
         overflow:document.documentElement.scrollWidth > innerWidth + 2
       };
     });
@@ -131,10 +171,52 @@ try {
     assert.match(manualDay.empty, /^День закрыт\./, `${width}px: закрытый день предлагает свободное время`);
     assert.doesNotMatch(manualDay.empty, /свободн/i, `${width}px: ручное закрытие не должно обещать свободное время`);
     assert.equal(manualDay.overflow, false, `${width}px: ручное закрытие дня переполнено`);
+    assert.equal(timeline.closed.summary, 'День закрыт', `${width}px: лента не показывает ручное закрытие`);
+    assert.match(timeline.closed.message, /День закрыт/, `${width}px: лента не объясняет закрытие`);
+    assert.equal(timeline.closed.freeTimePicker, false, `${width}px: закрытый день предлагает свободный слот`);
+    assert.equal(timeline.closed.overflow, false, `${width}px: лента закрытого дня переполнена`);
+    assert.equal(timeline.weekly.summary, 'Выходной', `${width}px: лента не показывает обычный выходной`);
+    assert.match(timeline.weekly.message, /Выходной/, `${width}px: лента не объясняет выходной`);
+    assert.equal(timeline.weekly.freeTimePicker, false, `${width}px: выходной предлагает свободный слот`);
+    assert.equal(timeline.partial.summary, 'Свободный день', `${width}px: частичное закрытие ошибочно названо полным`);
+    assert.equal(timeline.partial.freeTimePicker, true, `${width}px: частичное закрытие заблокировало весь день`);
+    assert.equal(timeline.partial.pickerRole, 'group', `${width}px: выбор времени должен сохранять доступную роль группы`);
+    assert.equal(timeline.partial.pickerTabIndex, 0, `${width}px: выбор времени должен быть доступен с клавиатуры`);
+    assert.equal(timeline.partial.pickerDate, '2026-09-22', `${width}px: выбор времени должен сохранять показанную дату`);
     assert.equal(month.weeklyClosed, 'Выходной', `${width}px: месячный вид не отличает выходной от свободного рабочего дня`);
     assert.equal(month.manualException, 'День закрыт', `${width}px: полнодневное ручное закрытие не должно выглядеть свободным`);
+    assert.equal(month.partialException, 'Свободно', `${width}px: частичное исключение не должно закрывать весь день`);
     assert.equal(month.overflow, false, `${width}px: появилось горизонтальное переполнение`);
   }
+  const lateExceptions = await page.evaluate(async () => {
+    selectedDate = '2026-09-21';
+    calendarView = 'month';
+    daysOff = [];
+    renderBookings();
+    const before = document.querySelector('[data-calendar-date="2026-09-21"] .calendar-overview-count')?.textContent;
+    db = { from:() => ({ select:() => ({ eq:() => ({ gte:() => ({ order:async () => ({ data:[{ id:'manual-full-day', off_date:'2026-09-21', all_day:true }], error:null }) }) }) }) }) };
+    await loadDaysOff();
+    const after = document.querySelector('[data-calendar-date="2026-09-21"] .calendar-overview-count')?.textContent;
+    return { before, after };
+  });
+  assert.equal(lateExceptions.before, 'Свободно', 'fixture должен воспроизводить рендер до загрузки исключений');
+  assert.equal(lateExceptions.after, 'День закрыт', 'поздняя загрузка исключений должна обновить записи');
+  const existingBooking = await page.evaluate(() => {
+    const item = { id:'existing', booking_date:'2026-09-21', status:'confirmed' };
+    window.bookingSourceItems = () => [item];
+    window.filteredBookings = () => [item];
+    window.calendarOverviewBookingMarkup = () => '<button>Существующая запись</button>';
+    calendarView = 'day';
+    journalMode = 'list';
+    renderBookings();
+    const day = document.querySelector('#selectedDateSummary').textContent;
+    calendarView = 'month';
+    renderBookings();
+    const month = document.querySelector('[data-calendar-date="2026-09-21"] .calendar-overview-count')?.textContent;
+    return { day, month };
+  });
+  assert.equal(existingBooking.day, 'День закрыт · 1 запись', 'сохранённая запись не должна скрывать статус закрытого дня');
+  assert.equal(existingBooking.month, 'День закрыт · 1 запись', 'сохранённая запись не должна скрывать статус месяца');
   console.log('Provider off-day labels: 390/760/1440 OK');
 } finally {
   await browser.close();

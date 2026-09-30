@@ -109,14 +109,10 @@ try {
       }
       regular.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = true; });
       workspace.append(regular);
-      const dialog = document.createElement('dialog'); dialog.id = 'freeSlotsDialog'; dialog.className = 'free-slots-dialog'; dialog.open = true;
-      dialog.append(clone('#freeSlotsDialog .free-slots-source'), clone('#freeSlotsDialog .free-slots-title-toggle'));
-      const textOptions = document.createElement('div'); textOptions.className = 'free-slots-text-options';
-      textOptions.innerHTML = '<label><input type="checkbox" checked>Включить</label>';
-      dialog.append(textOptions);
-      const times = document.createElement('div'); times.className = 'free-slots-time-grid';
-      times.innerHTML = '<label><input type="checkbox" checked><span>10:00</span></label>';
-      dialog.append(times); document.body.append(dialog);
+      const dialog = clone('#freeSlotsDialog'); dialog.open = true;
+      dialog.querySelector('#freeSlotsTimeChoices').innerHTML = '<div class="free-slots-time-grid"><label><input type="checkbox" checked><span>10:00</span></label></div>';
+      dialog.querySelectorAll('.free-slots-text-options input').forEach(input => { input.checked = true; });
+      document.body.append(dialog);
       document.querySelectorAll('#inventoryEnabled,#inventoryAutoDeduct,#retentionEnabled,#inventoryItemActive,#inventoryWarehouseActive,#inventoryTransfersEnabled').forEach(input => { input.checked = true; });
       document.querySelector('#inventoryTransfersSetting').hidden = false;
       document.querySelector('#inventoryItemCreator').open = true;
@@ -203,6 +199,25 @@ try {
           assert.equal(actual.background, toRgb(palette.actionBg), `${width} ${character}/${shade} ${selector} background`);
           assert.equal(actual.color, toRgb(palette.actionInk), `${width} ${character}/${shade} ${selector} ink`);
           assert.ok(contrast(actual.color, actual.background) >= 4.5, `${width} ${character}/${shade} ${selector} contrast`);
+        }
+        for (const selector of ['#copyFreeSlots', '#updateFreeSlotsText']) {
+          const action = await page.locator(selector).evaluate(element => ({
+            background:getComputedStyle(element).backgroundColor, color:getComputedStyle(element).color,
+            border:getComputedStyle(element).borderTopColor
+          }));
+          assert.deepEqual(action, {
+            background:toRgb(palette.actionBg), color:toRgb(palette.actionInk), border:toRgb(palette.line)
+          }, `${width} ${character}/${shade} ${selector} free-slots primary action`);
+          assert.ok(contrast(action.color, action.background) >= 4.5, `${selector} text contrast`);
+        }
+        for (const selector of ['#copyFreeSlotsLink', '#shareFreeSlots', '#resetFreeSlotsText',
+          '#keepFreeSlotsText', '#freeSlotsClearSelection', '#freeSlotsAutoSelection', '#downloadFreeSlotsQr', '#freeSlotsChangeDates']) {
+          assert.equal(await page.locator(selector).evaluate(element => getComputedStyle(element).color),
+            toRgb(palette.actionInk), `${width} ${character}/${shade} ${selector} quiet ink`);
+        }
+        for (const selector of ['#copyFreeSlots', '#copyFreeSlotsLink', '#shareFreeSlots']) {
+          assert.ok(await page.locator(selector).evaluate(element => Number(getComputedStyle(element).opacity) < 1),
+            `${width} ${character}/${shade} ${selector} disabled appearance`);
         }
         for (const selector of ['#newBookingButton span', '#newBookingButton .ui-icon', '#mobileNewBookingButton span', '#mobileNewBookingButton .ui-icon']) {
           const ink = await page.locator(selector).evaluate(element => getComputedStyle(element).color);
@@ -334,6 +349,30 @@ try {
             window.__x15RecordsController.setView('notes');
             document.querySelector('#clientRecords details[data-cr-panel="note"]').open = true;
           });
+          await page.locator('#freeSlotsDialog .free-slots-actions button').evaluateAll(buttons =>
+            buttons.forEach(button => { button.disabled = false; }));
+          await page.waitForFunction(() => [...document.querySelectorAll('#freeSlotsDialog .free-slots-actions button')]
+            .every(button => Number(getComputedStyle(button).opacity) > .99));
+          for (const selector of ['#copyFreeSlots', '#copyFreeSlotsLink', '#shareFreeSlots']) {
+            for (const state of ['hover', 'focus']) {
+              if (state === 'hover') await page.locator(selector).hover();
+              else await page.locator(selector).focus();
+              const style = await page.locator(selector).evaluate(element => ({
+                background:getComputedStyle(element).backgroundColor, color:getComputedStyle(element).color,
+                opacity:Number(getComputedStyle(element).opacity),
+                outline:getComputedStyle(element).outlineColor
+              }));
+              assert.equal(style.color, toRgb(palette.actionInk), `${width} ${selector} ${state} ink`);
+              if (selector === '#copyFreeSlots') assert.equal(style.background, toRgb(palette.actionBg), `${width} primary ${state} fill`);
+              assert.equal(style.opacity, 1, `${width} ${selector} enabled ${state} appearance`);
+              if (state === 'focus') assert.equal(style.outline, toRgb(palette.actionInk), `${width} ${selector} focus outline`);
+            }
+          }
+          if (outputDir) await page.locator('#freeSlotsDialog').screenshot({ path:path.join(outputDir, `x15-free-slots-${width}.png`) });
+          await page.locator('#freeSlotsDialog .free-slots-actions button').evaluateAll(buttons =>
+            buttons.forEach(button => { button.disabled = true; }));
+          await page.waitForFunction(() => [...document.querySelectorAll('#freeSlotsDialog .free-slots-actions button')]
+            .every(button => Number(getComputedStyle(button).opacity) < .56));
           await page.locator('#clientRecords [data-cr-note] .cr-button').hover();
           await page.locator('.booking-time-slots button.active').focus();
           await page.waitForTimeout(350);
@@ -382,6 +421,14 @@ try {
     await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
     assert.equal(await page.locator('#clientRecords [data-cr-note] .cr-button').evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#287a58'), 'another theme keeps own action');
     assert.equal(await page.locator('#groupBookingsEnabled').evaluate(element => getComputedStyle(element).accentColor), toRgb('#287a58'), 'another theme keeps own checkbox accent');
+    for (const selector of ['#copyFreeSlots', '#updateFreeSlotsText']) {
+      assert.notEqual(await page.locator(selector).evaluate(element => getComputedStyle(element).backgroundColor),
+        toRgb('#f3b8ce'), `${selector} keeps other theme primary`);
+    }
+    for (const selector of ['#copyFreeSlotsLink', '#shareFreeSlots', '#resetFreeSlotsText',
+      '#keepFreeSlotsText', '#freeSlotsClearSelection', '#freeSlotsAutoSelection', '#downloadFreeSlotsQr', '#freeSlotsChangeDates']) {
+      assert.notEqual(await page.locator(selector).evaluate(element => getComputedStyle(element).color), toRgb('#382532'), `${selector} keeps other theme ink`);
+    }
     await page.evaluate(() => MinutaServicePresets.open({ professionIds:['tire_fitter'], existingServices:[] }));
     await page.locator('#servicePresetsDialog [data-service-presets-next]').click();
     await page.locator('#servicePresetsDialog [data-service-preset]').first().click();
@@ -411,6 +458,78 @@ try {
     }
     await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
     assert.notEqual(await serviceAction.evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#f3b8ce'), 'another theme keeps own service action');
+    await page.evaluate(() => MinutaServicePresets.close());
+    await page.evaluate(markup => {
+      document.body.dataset.providerTheme = 'pink-porcelain';
+      const source = new DOMParser().parseFromString(markup, 'text/html').querySelector('#serviceCreatorContent');
+      const creator = document.importNode(source, true);
+      creator.hidden = false;
+      document.body.append(creator);
+    }, html);
+    await page.evaluate(() => MinutaServicePresets.open({ prepareCustom:() => {}, professionIds:['tire_fitter'] }));
+    await page.locator('#servicePresetsDialog [data-start-custom-service]').click();
+    const customServiceAction = page.locator('#servicePresetsDialog [data-custom-service-footer] button.primary[type="submit"][form="serviceForm"]');
+    assert.equal(await customServiceAction.count(), 1, 'real custom service form submit moves into the wizard footer');
+    for (const character of ['pearl', 'petal', 'silk']) {
+      for (const shade of ['pearl-white', 'porcelain-white', 'gentle-pink', 'petal-pink', 'pink-accent']) {
+        const palette = await page.evaluate(({ character, shade }) => {
+          const palette = MinutaProviderPorcelainMatrix.paletteFor(character, shade);
+          document.body.dataset.providerPorcelainCharacter = character;
+          for (const [name, value] of Object.entries({
+            '--theme-bg':palette.bg, '--theme-surface':palette.surface, '--theme-surface-alt':palette.surfaceAlt,
+            '--theme-ink':palette.ink, '--theme-muted':palette.muted, '--theme-line':palette.line,
+            '--theme-accent':palette.accent, '--theme-accent-soft':palette.accentSoft,
+            '--theme-accent-contrast':palette.contrast, '--theme-shadow':palette.shadow,
+            '--porcelain-action-bg':palette.actionBg, '--porcelain-action-ink':palette.actionInk
+          })) document.body.style.setProperty(name, value);
+          return palette;
+        }, { character, shade });
+        await page.waitForFunction(({ background, border }) => {
+          const style = getComputedStyle(document.querySelector('#servicePresetsDialog [data-custom-service-footer] button'));
+          return style.backgroundColor === background && style.borderTopColor === border;
+        }, { background:toRgb(palette.actionBg), border:toRgb(palette.line) }, { timeout:1500 });
+        const action = await customServiceAction.evaluate(element => ({
+          background:getComputedStyle(element).backgroundColor, color:getComputedStyle(element).color,
+          border:getComputedStyle(element).borderTopColor
+        }));
+        assert.deepEqual(action, { background:toRgb(palette.actionBg), color:toRgb(palette.actionInk), border:toRgb(palette.line) },
+          `${width} ${character}/${shade} real custom service footer action`);
+        assert.ok(contrast(action.color, action.background) >= 4.5, 'custom service action text contrast');
+        if (character === 'petal' && shade === 'gentle-pink') {
+          assert.equal(await page.locator('#servicePresetsDialog #serviceForm .service-public-card-editor summary')
+            .evaluate(element => getComputedStyle(element).color), toRgb(palette.muted), `${width} custom service summary stays muted`);
+          for (const selector of ['#serviceName', '#serviceDuration', '#servicePrice',
+            '#createServiceShortDescription', '#serviceForm .service-public-card-editor summary']) {
+            const control = page.locator(`#servicePresetsDialog ${selector}`);
+            if (selector.includes('summary')) await page.keyboard.press('Tab');
+            await control.focus();
+            const style = await control.evaluate(element => ({
+              outline:getComputedStyle(element).outlineColor,
+              border:getComputedStyle(element).borderTopColor
+            }));
+            assert.equal(style.outline, toRgb(palette.actionInk), `${width} ${selector} quiet focus outline`);
+            if (!selector.includes('summary')) assert.equal(style.border, toRgb(palette.line), `${width} ${selector} quiet focus border`);
+          }
+          await customServiceAction.hover();
+          assert.equal(await customServiceAction.evaluate(element => getComputedStyle(element).backgroundColor),
+            toRgb(palette.actionBg), `${width} custom service hover fill`);
+          await customServiceAction.focus();
+          assert.equal(await customServiceAction.evaluate(element => getComputedStyle(element).outlineColor),
+            toRgb(palette.actionInk), `${width} custom service focus outline`);
+          await customServiceAction.evaluate(element => { element.disabled = true; });
+          await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('#servicePresetsDialog [data-custom-service-footer] button')).opacity) < .99);
+          assert.ok(await customServiceAction.evaluate(element => Number(getComputedStyle(element).opacity) < 1),
+            `${width} custom service disabled appearance`);
+          await customServiceAction.evaluate(element => { element.disabled = false; });
+          await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('#servicePresetsDialog [data-custom-service-footer] button')).opacity) > .99);
+          if (outputDir) await page.locator('#servicePresetsDialog').screenshot({ path:path.join(outputDir, `x15-custom-service-${width}.png`) });
+        }
+      }
+    }
+    await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
+    await page.waitForTimeout(250);
+    assert.notEqual(await customServiceAction.evaluate(element => getComputedStyle(element).backgroundColor),
+      toRgb('#f3b8ce'), 'another theme keeps its custom service action');
     await page.evaluate(() => MinutaServicePresets.close());
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow`);
     assert.deepEqual(errors, [], `${width}px page errors`);
