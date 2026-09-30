@@ -144,7 +144,10 @@ try {
       renderBookings();
       const partial = {
         summary:document.querySelector('#selectedDateSummary').textContent,
-        freeTimePicker:!!document.querySelector('#providerBookings [data-create-booking-at]')
+        freeTimePicker:!!document.querySelector('#providerBookings [data-create-booking-at]'),
+        pickerRole:document.querySelector('#providerBookings [data-create-booking-at]')?.getAttribute('role'),
+        pickerTabIndex:document.querySelector('#providerBookings [data-create-booking-at]')?.tabIndex,
+        pickerDate:document.querySelector('#providerBookings [data-create-booking-at]')?.dataset.timelineDate
       };
       journalMode = 'list';
       return { closed, weekly, partial };
@@ -177,6 +180,9 @@ try {
     assert.equal(timeline.weekly.freeTimePicker, false, `${width}px: выходной предлагает свободный слот`);
     assert.equal(timeline.partial.summary, 'Свободный день', `${width}px: частичное закрытие ошибочно названо полным`);
     assert.equal(timeline.partial.freeTimePicker, true, `${width}px: частичное закрытие заблокировало весь день`);
+    assert.equal(timeline.partial.pickerRole, 'group', `${width}px: выбор времени должен сохранять доступную роль группы`);
+    assert.equal(timeline.partial.pickerTabIndex, 0, `${width}px: выбор времени должен быть доступен с клавиатуры`);
+    assert.equal(timeline.partial.pickerDate, '2026-09-22', `${width}px: выбор времени должен сохранять показанную дату`);
     assert.equal(month.weeklyClosed, 'Выходной', `${width}px: месячный вид не отличает выходной от свободного рабочего дня`);
     assert.equal(month.manualException, 'День закрыт', `${width}px: полнодневное ручное закрытие не должно выглядеть свободным`);
     assert.equal(month.partialException, 'Свободно', `${width}px: частичное исключение не должно закрывать весь день`);
