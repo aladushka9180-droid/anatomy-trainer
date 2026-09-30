@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 
 const migration = readFileSync(new URL('../supabase-migration-v166.sql', import.meta.url), 'utf8');
+const previewCandidate = readFileSync(new URL('../supabase-candidate-loyalty-adjustment-preview.sql', import.meta.url), 'utf8');
+const previewRollback = readFileSync(new URL('../supabase-candidate-loyalty-adjustment-preview-rollback.sql', import.meta.url), 'utf8');
 const rollback = readFileSync(new URL('../supabase-migration-v166-operational-rollback.sql', import.meta.url), 'utf8');
 const stateQuery = readFileSync(new URL('../scripts/loyalty-program-v166-state.sql', import.meta.url), 'utf8');
 const db = new PGlite();
@@ -47,6 +49,7 @@ try {
     select set_config('test.uid','${actor}',false);
   `);
   await db.exec(migration);
+  await db.exec(previewCandidate);
   let releaseState=Object.values(await one(stateQuery))[0];
   assert.equal(releaseState.classification,'exact','Release state recognizes the exact applied schema');
   assert.equal(releaseState.authenticatedDirectSettings,false,'Release state proves direct tables stay private');
@@ -108,10 +111,24 @@ try {
   assert.equal(workspace.accounts[0].progress,1,'A voided threshold restores the unfinished cycle');
   assert.ok(workspace.history.some(row=>row.event_type==='visit_reversed'),'Reversal is retained in history');
 
-  const adjustment=(await one(`select public.adjust_minuta_loyalty_progress_v166(
-    '${org}','${client}',1,'Исправление истории','${id(102)}'
+  const preview=(await one(`select public.preview_minuta_loyalty_adjustment_v166(
+    '${org}','${client}',1
+  ) value`)).value;
+  assert.deepEqual([preview.before,preview.after,preview.goal_visits,preview.allowed,preview.reaches_goal],[1,2,2,true,true]);
+  const adjustment=(await one(`select public.confirm_minuta_loyalty_adjustment_v166(
+    '${org}','${client}',1,'Исправление истории','${id(102)}',
+    ${preview.before},${preview.cycle_number},'${preview.rule_id}'
   ) value`)).value;
   assert.ok(adjustment.reward_id,'A reasoned adjustment can safely re-earn the voided cycle');
+  const repeatedAdjustment=(await one(`select public.confirm_minuta_loyalty_adjustment_v166(
+    '${org}','${client}',1,'Исправление истории','${id(102)}',
+    ${preview.before},${preview.cycle_number},'${preview.rule_id}'
+  ) value`)).value;
+  assert.equal(repeatedAdjustment.recovered,true,'An ambiguous retry recovers the original reward operation');
+  await assert.rejects(()=>q(`select public.confirm_minuta_loyalty_adjustment_v166(
+    '${org}','${client}',-1,'Исправление истории','${id(102)}',
+    ${preview.before},${preview.cycle_number},'${preview.rule_id}'
+  )`),/loyalty_program_request_conflict/,'A reused request cannot change its delta');
   workspace=(await one(`select public.get_minuta_loyalty_program_workspace_v166('${org}') value`)).value;
   assert.equal(workspace.rewards.filter(row=>row.status==='pending').length,1,'Re-earned reward reuses the original entitlement without duplication');
 
@@ -125,10 +142,30 @@ try {
   await q(`update booking_outcomes set visit_status='no_show' where booking_id=$1`,[client2Threshold]);
   const debt=await one(`select manual_progress from loyalty_program_accounts_v166 where organization_id='${org}' and client_account_id='${client2}'`);
   assert.equal(debt.manual_progress,-1,'A reversed source of a consumed reward becomes one-visit debt instead of erasing history');
+  const debtPreview=(await one(`select public.preview_minuta_loyalty_adjustment_v166(
+    '${org}','${client2}',1
+  ) value`)).value;
+  assert.equal(debtPreview.before,-1,'Preview exposes the true negative source while workspace keeps public zero');
+  assert.equal(debtPreview.after,0);
   await booking(10,{account:client2});
+  await assert.rejects(()=>q(`select public.confirm_minuta_loyalty_adjustment_v166(
+    '${org}','${client2}',1,'Исправление долга','${id(104)}',
+    ${debtPreview.before},${debtPreview.cycle_number},'${debtPreview.rule_id}'
+  )`),/loyalty_adjustment_preview_stale/,'A visit between preview and confirmation invalidates the preview');
   await booking(11,{account:client2});
   workspace=(await one(`select public.get_minuta_loyalty_program_workspace_v166('${org}') value`)).value;
   assert.equal(workspace.accounts.find(row=>row.client_account_id===client2).progress,1,'Debt is hidden from the client and delays the next threshold');
+  const outside=(await one(`select public.preview_minuta_loyalty_adjustment_v166(
+    '${org}','${client2}',100
+  ) value`)).value;
+  assert.equal(outside.allowed,false,'Preview refuses an out-of-range result without writing');
+  const belowZero=(await one(`select public.preview_minuta_loyalty_adjustment_v166(
+    '${org}','${client2}',-100
+  ) value`)).value;
+  assert.equal(belowZero.allowed,false,'Preview refuses a negative final progress');
+  await assert.rejects(()=>q(`select public.preview_minuta_loyalty_adjustment_v166(
+    '${foreignOrg}','${client2}',1
+  )`),/loyalty_program_access_denied|organization/, 'Preview has the same organization gate as the writer');
   await booking(12,{account:client2});
   workspace=(await one(`select public.get_minuta_loyalty_program_workspace_v166('${org}') value`)).value;
   assert.equal(workspace.rewards.filter(row=>row.client_account_id===client2 && row.status==='pending').length,1,'The next reward needs one replacement visit after a redeemed reversal');
@@ -144,7 +181,18 @@ try {
     has_function_privilege('anon','public.get_client_loyalty_program_v166(text,uuid)','execute') client_rpc`);
   assert.equal(privileges.direct_rewards,false,'Authenticated clients cannot read reward tables directly');
   assert.equal(privileges.client_rpc,true,'Client can only use the scoped RPC');
+  const previewPrivileges=await one(`select
+    has_function_privilege('anon','public.preview_minuta_loyalty_adjustment_v166(uuid,uuid,integer)','execute') anon_preview,
+    has_function_privilege('authenticated','public.preview_minuta_loyalty_adjustment_v166(uuid,uuid,integer)','execute') owner_preview`);
+  assert.equal(previewPrivileges.anon_preview,false,'Anonymous users cannot inspect private debt');
+  assert.equal(previewPrivileges.owner_preview,true,'Authenticated roles still pass through the organization role gate');
 
+  await db.exec(previewRollback);
+  const afterPreviewRollback=await one(`select
+    to_regprocedure('public.preview_minuta_loyalty_adjustment_v166(uuid,uuid,integer)') is null preview_removed,
+    to_regprocedure('public.adjust_minuta_loyalty_progress_v166(uuid,uuid,integer,text,uuid)') is not null old_writer_preserved`);
+  assert.equal(afterPreviewRollback.preview_removed,true);
+  assert.equal(afterPreviewRollback.old_writer_preserved,true,'Candidate rollback preserves the v166 writer and history');
   await db.exec(rollback);
   releaseState=Object.values(await one(stateQuery))[0];
   assert.equal(releaseState.classification,'disabled','Release state recognizes the data-preserving operational rollback');

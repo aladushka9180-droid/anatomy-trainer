@@ -12,6 +12,9 @@
     let selectedClient = null;
     let writing = false;
     let automaticRewardTitle = false;
+    let adjustmentPreview = null;
+    let adjustmentPreviewRevision = 0;
+    let lastMutationErrorKnown = false;
 
     const uuid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const stableJson = value => {
@@ -61,6 +64,44 @@
       holder.textContent = message; holder.hidden = false;
     };
     const clearError = selector => { const holder = $(selector); if (holder) { holder.hidden = true; holder.textContent = ''; } };
+
+    function clearAdjustmentPreview(message = 'Выберите клиента и число визитов для проверки.') {
+      adjustmentPreviewRevision += 1;
+      adjustmentPreview = null;
+      const holder = $('#loyaltyAdjustmentPreview');
+      if (holder) holder.textContent = message;
+      const button = $('#loyaltyAdjustmentForm button[type="submit"]');
+      if (button) button.disabled = true;
+    }
+
+    async function refreshAdjustmentPreview() {
+      const client = $('#loyaltyAdjustmentClient')?.value;
+      const rawDelta = $('#loyaltyAdjustmentPoints')?.value;
+      const delta = Number(rawDelta);
+      clearAdjustmentPreview();
+      if (!organization?.id || !client || !rawDelta || !Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 100) return;
+      const current = adjustmentPreviewRevision;
+      const organizationId = organization.id;
+      const userId = getCurrentUser()?.id;
+      const generation = getSessionGeneration();
+      $('#loyaltyAdjustmentPreview').textContent = 'Проверяем точный прогресс на сервере…';
+      try {
+        const { data, error } = await db.rpc('preview_minuta_loyalty_adjustment_v166', {
+          p_organization:organizationId,p_client_account:client,p_delta:delta
+        });
+        if (error) throw error;
+        if (current !== adjustmentPreviewRevision || organization?.id !== organizationId || !sessionIsCurrent(userId,generation)) return;
+        adjustmentPreview = data;
+        const before = integer(data.before), after = integer(data.after), target = integer(data.goal_visits);
+        $('#loyaltyAdjustmentPreview').textContent = data.allowed
+          ? `Было ${before} → станет ${after} из ${target} ${visitWord(target)}.${data.reaches_goal ? ' Цель достигнута; сервер проверит выдачу награды и новый цикл.' : ''}`
+          : `Было ${before} → станет ${after}. Допустимый итог: от 0 до ${target} визитов. Измените число визитов.`;
+        $('#loyaltyAdjustmentForm button[type="submit"]').disabled = !data.allowed;
+      } catch (_) {
+        if (current !== adjustmentPreviewRevision) return;
+        clearAdjustmentPreview('Не удалось проверить точный прогресс. Повторите проверку перед сохранением.');
+      }
+    }
 
     function goal() {
       const preset = $('#loyaltyGoalPreset')?.value || '10';
@@ -204,7 +245,7 @@
       $('#loyaltyRedeemedCount').textContent = String(payload?.stats?.redeemed || 0);
       const clients = payload?.clients || [];
       $('#loyaltyAdjustmentClient').innerHTML = `<option value="">Выберите клиента</option>${clients.map(client => `<option value="${escapeHtml(client.id)}">${escapeHtml(client.client_name || 'Клиент')}</option>`).join('')}`;
-      renderClients(); renderRewards(); renderHistory(); updateForm(); renderCard();
+      renderClients(); renderRewards(); renderHistory(); updateForm(); renderCard(); clearAdjustmentPreview();
       $('#loyaltyWorkflowStatus').textContent = enabled ? 'Программа включена. Текущие циклы сохраняют правила, с которыми начались.' : 'Программа выключена. История и выданные награды сохранены.';
       applyWriteAvailability?.();
     }
@@ -234,14 +275,19 @@
       try {
         const { error } = await db.rpc(rpc, parameters);
         if (error) throw error;
+        lastMutationErrorKnown = false;
         clearIntent(intent); await load(); notify(success); return true;
       } catch (error) {
         const code = String(error?.code || '');
         const known = code.startsWith('22') || code.startsWith('23') || code === '42501' || code === '55000' || code === 'P0002';
+        lastMutationErrorKnown = known;
         if (known) clearIntent(intent);
         if (!known) notify('Не удалось подтвердить результат. Повторите исходное действие после обновления данных.');
         return false;
-      } finally { writing = false; if (button) button.disabled = false; }
+      } finally {
+        writing = false;
+        if (button) button.disabled = rpc === 'confirm_minuta_loyalty_adjustment_v166' ? !adjustmentPreview?.allowed : false;
+      }
     }
 
     async function submit(event) {
@@ -258,12 +304,21 @@
       }
       if (event.target.id === 'loyaltyAdjustmentForm') {
         event.preventDefault(); clearError('#loyaltyAdjustmentError');
-        const client = $('#loyaltyAdjustmentClient').value, delta = integer($('#loyaltyAdjustmentPoints').value), reason = $('#loyaltyAdjustmentReason').value.trim();
+        const client = $('#loyaltyAdjustmentClient').value, delta = Number($('#loyaltyAdjustmentPoints').value), reason = $('#loyaltyAdjustmentReason').value.trim();
         if (!client || !delta || reason.length < 3) { showError('#loyaltyAdjustmentError','Выберите клиента, изменение и укажите причину.'); return; }
-        const parameters = {p_organization:organization.id,p_client_account:client,p_delta:delta,p_reason:reason};
+        const preview = adjustmentPreview;
+        if (!preview?.allowed || preview.delta !== delta) {
+          showError('#loyaltyAdjustmentError','Сначала проверьте точный прогресс для этого изменения.');
+          await refreshAdjustmentPreview(); return;
+        }
+        const parameters = {p_organization:organization.id,p_client_account:client,p_delta:delta,p_reason:reason,
+          p_expected_before:preview.before,p_expected_cycle:preview.cycle_number,p_expected_rule:preview.rule_id};
         const intent = prepareIntent('adjustment',parameters); parameters.p_request_id = intent.requestId;
-        const ok = await mutate('adjust_minuta_loyalty_progress_v166',parameters,event.submitter,'Прогресс скорректирован',intent);
-        if (ok) event.target.reset(); else showError('#loyaltyAdjustmentError','Корректировка не сохранена. Проверьте допустимый итог прогресса.');
+        const ok = await mutate('confirm_minuta_loyalty_adjustment_v166',parameters,event.submitter,'Прогресс скорректирован',intent);
+        if (ok) event.target.reset(); else {
+          showError('#loyaltyAdjustmentError','Корректировка не сохранена. Прогресс мог измениться; проверьте его снова.');
+          if (lastMutationErrorKnown) await refreshAdjustmentPreview();
+        }
       }
     }
 
@@ -282,11 +337,30 @@
     function input(event) {
       if (event.target.id === 'loyaltyRewardTitle') automaticRewardTitle = false;
       if (event.target.closest('#loyaltyProgramForm')) { clearError('#loyaltyRuleError'); updateForm(); }
-      if (event.target.closest('#loyaltyAdjustmentForm')) clearError('#loyaltyAdjustmentError');
+      if (event.target.closest('#loyaltyAdjustmentForm')) {
+        clearError('#loyaltyAdjustmentError');
+        if (['loyaltyAdjustmentClient','loyaltyAdjustmentPoints'].includes(event.target.id)) void refreshAdjustmentPreview();
+      }
     }
-    function change(event) { if (event.target.closest('#loyaltyProgramForm')) updateForm(); }
-    function bind() { document.addEventListener('submit',submit); document.addEventListener('click',click); document.addEventListener('input',input); document.addEventListener('change',change); }
-    function reset() { organization=null;payload=null;availability='idle';revision+=1;selectedClient=null;automaticRewardTitle=false;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
+    function change(event) {
+      if (event.target.closest('#loyaltyProgramForm')) updateForm();
+      if (event.target.id === 'loyaltyAdjustmentClient') void refreshAdjustmentPreview();
+    }
+    function bind() {
+      const form = $('#loyaltyAdjustmentForm');
+      if (form && !$('#loyaltyAdjustmentPreview')) {
+        const input = $('#loyaltyAdjustmentPoints');
+        if (input?.parentElement?.firstChild?.nodeType === 3) input.parentElement.firstChild.textContent = 'Изменить на, визитов';
+        const preview = document.createElement('p');
+        preview.id = 'loyaltyAdjustmentPreview'; preview.className = 'loyalty-form-help'; preview.setAttribute('role','status');
+        preview.setAttribute('aria-live','polite'); preview.textContent = 'Выберите клиента и число визитов для проверки.';
+        form.insertBefore(preview,$('#loyaltyAdjustmentError'));
+        clearAdjustmentPreview();
+      }
+      document.addEventListener('submit',submit); document.addEventListener('click',click);
+      document.addEventListener('input',input); document.addEventListener('change',change);
+    }
+    function reset() { organization=null;payload=null;availability='idle';revision+=1;selectedClient=null;automaticRewardTitle=false;clearAdjustmentPreview();$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
     async function setOrganization(next) {
       if (next?.id && organization?.id === next.id && payload) { organization=next; render(); return true; }
       organization=next || null; payload=null; if (!organization?.id) { reset(); return false; } return load();

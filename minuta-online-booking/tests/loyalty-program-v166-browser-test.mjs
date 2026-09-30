@@ -85,9 +85,14 @@ try {
     let failOnce = true;
     window.__loyaltyCalls = [];
     const workspace = { enabled:false, rule:null, clients:[], accounts:[], rewards:[], history:[], stats:{ issued:0, redeemed:0 } };
+    window.__loyaltyWorkspace = workspace;
     const db = { async rpc(name, parameters) {
       window.__loyaltyCalls.push({ name, parameters:{ ...parameters } });
       if (name === 'get_minuta_loyalty_program_workspace_v166') return { data:workspace, error:null };
+      if (name === 'preview_minuta_loyalty_adjustment_v166') return { data:{ before:-1,after:-1+parameters.p_delta,
+        delta:parameters.p_delta,goal_visits:10,rule_id:'rule',cycle_number:2,
+        allowed:-1+parameters.p_delta >= 0 && -1+parameters.p_delta <= 10,reaches_goal:false }, error:null };
+      if (name === 'confirm_minuta_loyalty_adjustment_v166') return { data:{ progress:0,recovered:false }, error:null };
       if (name === 'set_minuta_loyalty_program_v166' && failOnce) { failOnce = false; return { data:null, error:{ code:'FETCH_FAILED' } }; }
       workspace.enabled = Boolean(parameters.p_enabled);
       workspace.rule = { id:'rule', goal_visits:parameters.p_goal_visits, reward_kind:parameters.p_reward_kind, reward_value:parameters.p_reward_value, reward_title:parameters.p_reward_title, reward_terms:parameters.p_reward_terms, validity_days:parameters.p_validity_days };
@@ -99,6 +104,7 @@ try {
       sessionIsCurrent:() => true, applyWriteAvailability:() => {}
     });
     controller.bind();
+    window.__loyaltyController = controller;
     await controller.setOrganization({ id:'organization-v166' });
   });
   await page.locator('#loyaltyEnabled').check();
@@ -147,6 +153,31 @@ try {
   assert.equal(await page.locator('#loyaltyRewardTitle').evaluate(input => input.validity.valid), false);
   await page.locator('#loyaltyEnabled').uncheck();
   assert.equal(await page.locator('#loyaltyRewardTitle').evaluate(input => input.validity.valid), true, 'Conflict cannot prevent switching program off');
+
+  await page.evaluate(async () => {
+    const workspace = window.__loyaltyWorkspace;
+    workspace.enabled = true;
+    workspace.rule = { id:'rule', goal_visits:10, reward_kind:'percent', reward_value:1000,
+      reward_title:'Скидка 10%', reward_terms:'', validity_days:null };
+    workspace.clients = [{ id:'client-1', client_name:'Ирина Орлова' }];
+    workspace.accounts = [{ client_account_id:'client-1', progress:0, goal_visits:10 }];
+    await window.__loyaltyController.load();
+    document.querySelector('details.loyalty-operation').open = true;
+  });
+  assert.match(await page.locator('#loyaltyAdjustmentPreview').innerText(),/Выберите клиента/);
+  assert.equal(await page.locator('#loyaltyAdjustmentForm button[type="submit"]').isDisabled(),true);
+  await page.locator('#loyaltyAdjustmentClient').selectOption('client-1');
+  await page.locator('#loyaltyAdjustmentPoints').fill('100');
+  await page.waitForFunction(() => document.querySelector('#loyaltyAdjustmentPreview').textContent.includes('станет 99'));
+  assert.equal(await page.locator('#loyaltyAdjustmentForm button[type="submit"]').isDisabled(),true,'Out-of-range preview blocks submission');
+  await page.locator('#loyaltyAdjustmentPoints').fill('1');
+  await page.waitForFunction(() => document.querySelector('#loyaltyAdjustmentPreview').textContent.includes('Было -1 → станет 0'));
+  assert.equal(await page.locator('#loyaltyAdjustmentForm button[type="submit"]').isDisabled(),false);
+  await page.locator('#loyaltyAdjustmentReason').fill('Исправление долга');
+  await page.locator('#loyaltyAdjustmentForm button[type="submit"]').click();
+  const confirmation = await page.evaluate(() => window.__loyaltyCalls.find(call => call.name === 'confirm_minuta_loyalty_adjustment_v166'));
+  assert.deepEqual([confirmation.parameters.p_expected_before,confirmation.parameters.p_expected_cycle,confirmation.parameters.p_expected_rule],[-1,2,'rule'],
+    'Confirmation carries the exact server balance and cycle');
 
   console.log(`loyalty program v166 browser: PASS (${themes.length * widths.length} theme/width checks)`);
 } finally {
