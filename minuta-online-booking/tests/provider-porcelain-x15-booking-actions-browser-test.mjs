@@ -40,7 +40,9 @@ try {
         await page.locator('[data-new-booking-time="10:30"]').click();
         await page.locator('#newBookingServiceOpen').click();
         await page.locator('[data-pick-new-booking-service="s2"]').click();
+        await page.locator('#newBookingWhen').click();
         await page.locator('[data-new-booking-time="11:00"]').click();
+        await page.locator('#newBookingWhen').click();
         assert.equal(await page.locator('#newBookingSubmit').isEnabled(), true, 'selection enables submit without creating a booking');
       }
       await page.addScriptTag({ content:matrix });
