@@ -79,7 +79,7 @@ try {
   assert.deepEqual(errors, []);
   if (process.env.MINUTA_PREVIEW_BASELINE) process.exitCode = 0;
   else {
-    assert.ok(cold.firstMs < cold.freshMs + 50, 'cold preview does not wait for the short link');
+    assert.ok(cold.firstMs < cold.freshMs - 250, 'cold preview does not wait for the short link');
     assert.ok(warm.firstMs < warm.freshMs - 250, 'same-scope preview appears before the fresh availability read');
     assert.match(warm.checking, /Проверяем актуальность/);
     assert.equal(warm.disabled, true, 'cached preview cannot be copied while checking');
