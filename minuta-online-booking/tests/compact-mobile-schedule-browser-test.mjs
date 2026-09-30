@@ -47,7 +47,7 @@ try {
     document.body.dataset.providerLayout = 'soft';
     document.body.dataset.providerResolvedColorMode = 'dark';
     document.querySelectorAll('.provider-view').forEach(view => { view.hidden = view.dataset.providerPanel !== 'bookings'; });
-    document.querySelector('.schedule-mobile-mode-toggle').hidden = false;
+    document.querySelector('.schedule-menu-journal').hidden = false;
     document.querySelector('#scheduleMobileSummary').hidden = false;
     document.querySelector('.booking-filters').hidden = true;
     document.querySelector('#scheduleDatePicker').value = '2026-09-27';
@@ -67,7 +67,22 @@ try {
     ${providerSource.slice(orderStart, orderEnd)}
     ${providerSource.slice(dateDisplayStart, dateDisplayEnd)}
     ${providerSource.match(/\$\('#scheduleDatePicker'\)\.addEventListener\('input', syncScheduleDateDisplay\);/)[0]}
+    const JOURNAL_MODE_KEY = 'fixture-journal', SCHEDULE_FILTER_KEY = 'fixture-filter', CALENDAR_VIEW_KEY = 'fixture-calendar';
+    function updateBookingQueryTools() {}
+    function syncScheduleContextHistory() {}
+    function renderDateStrip() {}
+    function renderBookings() { document.querySelector('#providerBookings').dataset.fixtureView = calendarView + ':' + journalMode; }
+    ${providerSource.slice(providerSource.indexOf('function setJournalMode('), providerSource.indexOf('function restoreDefaultScheduleView('))}
+    ${providerSource.slice(providerSource.indexOf('function updateCalendarViewControls('), providerSource.indexOf('function selectScheduleDate('))}
+    ${providerSource.slice(providerSource.indexOf('const scheduleViewMenu ='), providerSource.indexOf('function parseLocalIsoDate('))}
+    document.body.addEventListener('click', event => {
+      const journalView = event.target.closest('[data-journal-mode]');
+      const calendarViewButton = event.target.closest('[data-calendar-view]');
+      ${providerSource.slice(providerSource.indexOf('  if (journalView) setJournalMode('), providerSource.indexOf('  if (calendarOpenDate) {', providerSource.indexOf('  if (journalView) setJournalMode(')))}
+    });
     syncScheduleDateDisplay();
+    syncCompactScheduleOrder();
+    updateCalendarViewControls();
   ` });
   await page.getByLabel('Выбрать дату в календаре').fill('2026-12-31');
   assert.equal(await page.locator('#scheduleDateDisplay').textContent(), '31.12.2026', 'Visible date follows native input edits');
@@ -81,11 +96,35 @@ try {
     journalMode = 'list'; updateJournalModeButtons();
     const listSync = [...document.querySelectorAll('[data-journal-mode="list"]')].every(button => button.classList.contains('active') && button.getAttribute('aria-pressed') === 'true');
     calendarView = 'week'; updateJournalModeButtons();
-    const hiddenOutsideDay = document.querySelector('.schedule-mobile-mode-toggle').hidden && document.querySelector('#scheduleMobileSummary').hidden;
+    const hiddenOutsideDay = document.querySelector('.schedule-menu-journal').hidden && document.querySelector('#scheduleMobileSummary').hidden;
     calendarView = 'day'; journalMode = 'timeline'; updateJournalModeButtons();
     return { listSync, hiddenOutsideDay };
   });
   assert.deepEqual(modes, { listSync:true, hiddenOutsideDay:true });
+
+  const menu = page.locator('#scheduleViewMenu');
+  const menuSummary = menu.locator('summary');
+  for (const period of ['week','month','day']) {
+    await menuSummary.click();
+    await menu.locator('[data-calendar-view="' + period + '"]').click();
+    assert.equal(await menu.getAttribute('open'), null, 'Selection closes the menu');
+    assert.equal(await page.locator('#providerBookings').getAttribute('data-fixture-view'), period + ':timeline');
+    assert.equal(await page.evaluate(() => localStorage.getItem('fixture-calendar')), period);
+    assert.equal(await page.locator('.schedule-menu-journal').getAttribute('hidden') === '', period !== 'day');
+    assert.equal(await menuSummary.evaluate(el => el === document.activeElement), true, 'Focus returns to summary');
+  }
+  for (const mode of ['list','timeline']) {
+    await menuSummary.press('Enter');
+    await menu.locator('[data-journal-mode="' + mode + '"]').press('Enter');
+    assert.equal(await page.locator('#scheduleViewLabel').textContent(), mode === 'list' ? 'День · Список' : 'День · Лента');
+    assert.equal(await page.evaluate(() => localStorage.getItem('fixture-journal')), mode);
+  }
+  await menuSummary.click();
+  await page.keyboard.press('Escape');
+  assert.equal(await menu.getAttribute('open'), null);
+  await menuSummary.click();
+  await page.locator('#selectedDateTitle').click();
+  assert.equal(await menu.getAttribute('open'), null, 'Click outside closes the menu');
 
   for (const theme of ['carbon-crimson', 'pink-porcelain', 'sage']) for (const width of [360, 390, 760, 1440]) for (const scale of ['default', 'comfortable', 'large']) {
     await page.setViewportSize({ width, height:844 });
@@ -99,7 +138,7 @@ try {
       const rect = selector => document.querySelector(selector).getBoundingClientRect();
       const style = selector => getComputedStyle(document.querySelector(selector));
       const today = rect('.date-navigation>.date-today-button');
-      const toggle = rect('.schedule-mobile-mode-toggle');
+      const toggle = rect('#scheduleViewMenu');
       const summary = rect('#scheduleMobileSummary');
       const title = rect('#selectedDateTitle');
       return {
@@ -127,16 +166,24 @@ try {
         actionsCenter:rect('.provider-topbar-actions').y + rect('.provider-topbar-actions').height / 2,
         extraArrows:[...document.querySelectorAll('.date-navigation>.date-nav-button')].some(button => getComputedStyle(button).display !== 'none'),
         heading:{ x:rect('.schedule-view-title h2').x, bottom:rect('.schedule-view-title h2').bottom },
-        tabsTop:rect('.calendar-view-toggle').top,
+        periodTabsDisplay:style('.calendar-view-toggle').display,
       };
     });
     assert.equal(state.overflow, false, `${width}: horizontal overflow`);
     assert.equal(state.monthVisible, true, `${width}: month abbreviation disappeared`);
     if (width <= 760) {
+      const listFits = await page.evaluate(() => {
+        journalMode = 'list'; updateJournalModeButtons();
+        const label = $('#scheduleViewMenu>summary');
+        const fits = label.scrollWidth <= label.clientWidth;
+        journalMode = 'timeline'; updateJournalModeButtons();
+        return fits;
+      });
+      assert.equal(listFits, true, `${theme}/${width}/${scale}: Day/List label clips`);
       assert.equal(state.topSummary, 'none');
       assert.equal(state.oldToggle, 'none');
-      assert.equal(state.today.h, 40);
-      assert.equal(state.toggle.h, 40);
+      assert.equal(state.today.h, 52);
+      assert.equal(state.toggle.h, 52);
       assert.ok(Math.abs(state.today.y - state.toggle.y) <= 1, `${width}: controls not aligned`);
       assert.ok(state.summary.x > state.title.right, `${width}: summary overlaps weekday`);
       assert.ok(state.summary.right <= width - 8, `${width}: two-digit summary clips`);
@@ -154,11 +201,11 @@ try {
       assert.ok(state.dateOpacity.every(opacity => opacity === '1'), `${width}: visible dates are dimmed`);
       assert.ok(Math.abs(state.headingCenter - state.actionsCenter) <= 3, `${theme}/${width}: heading below topbar icons`);
       assert.ok(state.heading.x <= 18, `${width}: heading shifted right`);
-      assert.ok(state.heading.bottom < state.tabsTop, `${theme}/${width}: period tabs overlap heading`);
+      assert.equal(state.periodTabsDisplay, 'none', 'Mobile periods belong in the view menu');
       const controlColors = await page.evaluate(() => {
         const today = document.querySelector('.date-navigation>.date-today-button');
-        const toggle = document.querySelector('.schedule-mobile-mode-toggle');
-        const activeMode = toggle.querySelector('button.active');
+        const toggle = document.querySelector('#scheduleViewMenu>summary');
+        const activeMode = document.querySelector('#scheduleViewMenu [data-journal-mode].active');
         const otherDay = getComputedStyle(today).color;
         const todayBackground = getComputedStyle(today).backgroundColor;
         const toggleBackground = getComputedStyle(toggle).backgroundColor;
@@ -172,7 +219,7 @@ try {
       assert.equal(controlColors.todayBackground, controlColors.toggleBackground, `${width}: Today and switch surfaces differ`);
       assert.equal(controlColors.currentDay, controlColors.accent, `${width}: Today is not pink when selected`);
       assert.notEqual(controlColors.otherDay, controlColors.accent, `${width}: Today is pink on another day`);
-      if (theme === 'carbon-crimson') assert.equal(controlColors.activeBackground, 'rgb(40, 57, 74)', `${width}: selected switch fill differs from reference`);
+      if (theme === 'carbon-crimson') assert.equal(controlColors.toggleBackground, 'rgb(23, 35, 47)', `${width}: menu surface differs from Today`);
     } else {
       assert.equal(state.topSummary === 'none', false, 'desktop summary was hidden');
       assert.equal(state.toggle.h, 0, 'mobile toggle visible on desktop');
