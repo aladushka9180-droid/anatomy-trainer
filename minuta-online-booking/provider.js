@@ -15381,26 +15381,31 @@ async function addService(event) {
   }
   const button = event.submitter;
   button.disabled = true;
-  const { data:createdService, error } = await db.from('services').insert({ performer_id: currentUser.id, name, price_rub: Math.round(price), duration_minutes: duration, active: true }).select('id').single();
-  if (error) { button.disabled = false; showFormError('#serviceError', serviceCreateErrorMessage(error)); return; }
+  window.MinutaServicePresets?.setCustomSaving(true);
   try {
-    await persistServiceWithPublicCard({ serviceId:createdService.id,name,duration,price,active:true,prefix:'create',existing:{} });
-  } catch {
-    await db.from('services').delete().eq('id', createdService.id).eq('performer_id', currentUser.id);
+    const { data:createdService, error } = await db.from('services').insert({ performer_id: currentUser.id, name, price_rub: Math.round(price), duration_minutes: duration, active: true }).select('id').single();
+    if (error) { button.disabled = false; showFormError('#serviceError', serviceCreateErrorMessage(error)); return; }
+    try {
+      await persistServiceWithPublicCard({ serviceId:createdService.id,name,duration,price,active:true,prefix:'create',existing:{} });
+    } catch {
+      await db.from('services').delete().eq('id', createdService.id).eq('performer_id', currentUser.id);
+      button.disabled = false;
+      showFormError('#serviceError', 'Не удалось сохранить карточку услуги. Проверьте фото и попробуйте ещё раз.');
+      return;
+    }
     button.disabled = false;
-    showFormError('#serviceError', 'Не удалось сохранить карточку услуги. Проверьте фото и попробуйте ещё раз.');
-    return;
+    if (duration === 1 && createdService?.id) await saveServiceDefaultDuration(createdService.id, defaultDuration);
+    const scheduleNameSynced = createdService?.id && scheduleNameEnabled ? await saveServiceScheduleName(createdService.id, true, scheduleName) : true;
+    event.target.reset();
+    $('#serviceDuration').value = '60';
+    $('#serviceDefaultDuration').value = '60';
+    updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
+    window.MinutaServicePresets?.close();
+    notify(scheduleNameSynced ? 'Услуга добавлена' : 'Услуга добавлена · короткое название синхронизируется');
+    await refreshAfterWrite();
+  } finally {
+    window.MinutaServicePresets?.setCustomSaving(false);
   }
-  button.disabled = false;
-  if (duration === 1 && createdService?.id) await saveServiceDefaultDuration(createdService.id, defaultDuration);
-  const scheduleNameSynced = createdService?.id && scheduleNameEnabled ? await saveServiceScheduleName(createdService.id, true, scheduleName) : true;
-  event.target.reset();
-  $('#serviceDuration').value = '60';
-  $('#serviceDefaultDuration').value = '60';
-  updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
-  window.MinutaServicePresets?.close();
-  notify(scheduleNameSynced ? 'Услуга добавлена' : 'Услуга добавлена · короткое название синхронизируется');
-  await refreshAfterWrite();
 }
 
 async function changePassword(event) {

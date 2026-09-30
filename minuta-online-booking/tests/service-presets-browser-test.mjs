@@ -124,6 +124,7 @@ try {
         notify:() => {}, refreshAfterWrite:async () => {}, serviceCreateErrorMessage:e => e.message,
         db:{ from:table => ({ insert:row => ({ select:() => ({ single:async () => {
           fixture.calls.push({ table, row });
+          if (fixture.holdSave) await new Promise(resolve => { fixture.releaseSave = resolve; });
           return { data:{id:'synthetic-service'}, error:null };
         } }) }) }) }
       });
@@ -133,6 +134,20 @@ try {
       fixture.applyTheme(window.MinutaThemeCatalog.themes.find(theme => theme.key === 'pink-porcelain'));
     }, customFunctions);
     await own.page.locator('[data-start-custom-service]').click();
+    // Disabled by write availability is different from an actual request in flight.
+    await own.page.locator('button[form="serviceForm"]').evaluate(el => { el.disabled = true; });
+    await own.page.locator('[data-service-presets-back]').click();
+    assert.equal(await own.page.locator('#servicePresetsTitle').innerText(), 'Чем вы занимаетесь?');
+    await own.page.locator('[data-start-custom-service]').click();
+    await own.page.keyboard.press('Escape');
+    await own.page.locator('#servicePresetsDialog').waitFor({state:'hidden'});
+    await own.page.evaluate(() => window.MinutaServicePresets.open({prepareCustom:prepareServiceCreator}));
+    await own.page.locator('[data-start-custom-service]').click();
+    await own.page.locator('[data-close-service-presets]').click();
+    await own.page.locator('#servicePresetsDialog').waitFor({state:'hidden'});
+    await own.page.evaluate(() => window.MinutaServicePresets.open({prepareCustom:prepareServiceCreator}));
+    await own.page.locator('[data-start-custom-service]').click();
+    await own.page.locator('button[form="serviceForm"]').evaluate(el => { el.disabled = false; });
     await own.page.locator('#serviceName').fill('Тест своей услуги');
     await own.page.locator('#serviceDuration').selectOption('1');
     await own.page.locator('#servicePrice').fill('32');
@@ -151,7 +166,15 @@ try {
     assert.equal(await own.page.evaluate(() => fixture.calls.length), 0, 'Switched account must not save');
     assert.match(await own.page.locator('#serviceError').innerText(), /Аккаунт изменился/);
     await own.page.evaluate(() => { currentUser.id = '11111111-1111-4111-8111-111111111111'; });
+    await own.page.evaluate(() => { fixture.holdSave = true; });
     await saveButton.click();
+    await own.page.waitForFunction(() => typeof fixture.releaseSave === 'function');
+    await own.page.locator('[data-service-presets-back]').click();
+    await own.page.locator('[data-close-service-presets]').click();
+    await own.page.keyboard.press('Escape');
+    assert.equal(await own.page.locator('#servicePresetsDialog').isVisible(), true, 'In-flight save still prevents dismissal');
+    assert.equal(await own.page.locator('#servicePresetsTitle').innerText(), 'Своя услуга');
+    await own.page.evaluate(() => { fixture.releaseSave(); delete fixture.releaseSave; });
     await own.page.locator('#servicePresetsDialog').waitFor({ state:'hidden' });
     const result = await own.page.evaluate(() => fixture);
     assert.equal(result.calls.length, 1);
@@ -214,6 +237,12 @@ try {
   await page.locator('[data-service-presets-search]').fill('');
   await page.locator('[data-add-custom-service]').click();
   const custom = page.locator('[data-service-draft]').last();
+  await custom.locator('[data-draft-price]').focus();
+  assert.equal(await page.evaluate(async () => {
+    const focused = document.activeElement;
+    await new Promise(requestAnimationFrame);
+    return document.activeElement === focused;
+  }), true, 'A queued wizard focus must not steal input from the next field');
   await custom.locator('[data-draft-name]').fill('Авторская услуга');
   await custom.locator('[data-draft-price]').fill('1800');
   await custom.locator('[data-draft-duration]').fill('60');

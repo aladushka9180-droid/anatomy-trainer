@@ -10,6 +10,7 @@
   let busy = false;
   let opening = false;
   let customSubmit = null;
+  let savingCustom = false;
 
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, symbol => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[symbol]);
   const requestId = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -17,7 +18,7 @@
   const existingByName = () => new Map((context?.existingServices || []).map(item => [catalog.normalizeName(item.name), item]));
   const existingFor = name => existingByName().get(catalog.normalizeName(name)) || null;
   const rubles = value => `${Number(value || 0).toLocaleString('ru-RU')} ₽`;
-  const customSaving = () => state?.custom && customSubmit?.disabled;
+  const customSaving = () => state?.custom && savingCustom;
 
   function newState(professionIds = []) {
     return {
@@ -165,7 +166,7 @@
   function render(focusSelector = '') {
     if (!dialog || !state) return;
     shell();
-    if (focusSelector) requestAnimationFrame(() => dialog.querySelector(focusSelector)?.focus());
+    if (focusSelector) dialog.querySelector(focusSelector)?.focus();
   }
 
   function togglePreset(id) {
@@ -319,7 +320,7 @@
     busy = false;
     render();
     if (!dialog.open) dialog.showModal();
-    requestAnimationFrame(() => dialog.querySelector('[data-service-professions-search]')?.focus());
+    dialog.querySelector('[data-service-professions-search]')?.focus();
   }
 
   document.addEventListener('click', async event => {
@@ -355,5 +356,5 @@
     });
   });
 
-  window.MinutaServicePresets = Object.freeze({ open, validationMessage, catalog, close:() => dialog?.close() });
+  window.MinutaServicePresets = Object.freeze({ open, validationMessage, catalog, close:() => dialog?.close(), setCustomSaving:value => { savingCustom = value === true; } });
 })();
