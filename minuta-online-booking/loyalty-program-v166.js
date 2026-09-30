@@ -11,6 +11,7 @@
     let revision = 0;
     let selectedClient = null;
     let writing = false;
+    let automaticRewardTitle = false;
 
     const uuid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const stableJson = value => {
@@ -75,6 +76,17 @@
       const value = $('#loyaltyValidity')?.value;
       return value === 'none' ? null : integer(value);
     }
+    function rewardTitleIssue(kind, value, title) {
+      if (kind === 'text') return '';
+      const claims = [...title.matchAll(/(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d+)?)\s*(%|％|₽|руб(?:\.|ля|лей|ль)?)/giu)];
+      const amount = kind === 'percent' ? `${value}%` : `${integer(value).toLocaleString('ru-RU')} ₽`;
+      for (const claim of claims) {
+        const percent = /[%％]/u.test(claim[2]);
+        if (percent !== (kind === 'percent')) return `В настройках скидка ${amount}, а в названии другая единица. Измените название или тип награды.`;
+        if (Number(claim[1].replace(/[\s\u00a0]/g,'').replace(',','.')) !== value) return `В настройках скидка ${amount}, а в названии другой размер. Уточните название или размер награды.`;
+      }
+      return '';
+    }
     function updateForm() {
       const enabled = Boolean($('#loyaltyEnabled')?.checked);
       const preset = $('#loyaltyGoalPreset')?.value || '10';
@@ -86,6 +98,15 @@
       if ($('#loyaltyRewardValueField')) $('#loyaltyRewardValueField').hidden = kind === 'text';
       const input = $('#loyaltyRewardValue');
       if (input) { input.max = kind === 'percent' ? '100' : '10000000'; input.step = kind === 'percent' ? '0.01' : '1'; }
+      if ($('#loyaltyRewardValueLabel')) $('#loyaltyRewardValueLabel').textContent = kind === 'percent' ? 'Скидка, %' : 'Скидка, ₽';
+      const title = $('#loyaltyRewardTitle');
+      if (title && automaticRewardTitle) title.value = kind === 'percent' ? `Скидка ${value}% на следующий визит`
+        : kind === 'fixed' ? `Скидка ${integer(value).toLocaleString('ru-RU')} ₽ на следующий визит` : 'Бонус на следующий визит';
+      const issue = enabled && title ? rewardTitleIssue(kind,value,title.value.trim()) : '';
+      title?.setCustomValidity(issue);
+      if (title) { if (issue) title.setAttribute('aria-invalid','true'); else title.removeAttribute('aria-invalid'); }
+      const hint = $('#loyaltyRewardTitleHint');
+      if (hint) { hint.textContent = issue; hint.hidden = !issue; }
       const description = kind === 'percent' ? `скидка ${value || 0}%` : kind === 'fixed'
         ? `скидка ${integer(value).toLocaleString('ru-RU')} ₽` : ($('#loyaltyRewardTitle')?.value.trim() || 'бонус');
       if ($('#loyaltyPreviewTitle')) $('#loyaltyPreviewTitle').textContent = `${goal()} ${visitWord(goal())} → ${description}`;
@@ -165,6 +186,7 @@
       const rule = payload?.rule || {};
       if ($('#loyaltyEnabled')) $('#loyaltyEnabled').checked = enabled;
       if (rule.id) {
+        automaticRewardTitle = false;
         const preset = [5,10,20].includes(integer(rule.goal_visits)) ? String(rule.goal_visits) : 'custom';
         $('#loyaltyGoalPreset').value = preset;
         $('#loyaltyGoalCustom').value = String(rule.goal_visits || 10);
@@ -173,6 +195,10 @@
         $('#loyaltyRewardTitle').value = rule.reward_title || '';
         $('#loyaltyRewardTerms').value = rule.reward_terms || '';
         $('#loyaltyValidity').value = rule.validity_days == null ? 'none' : String(rule.validity_days);
+      } else {
+        automaticRewardTitle = true;
+        $('#loyaltyRewardKind').value = 'percent';
+        $('#loyaltyRewardValue').value = '10';
       }
       $('#loyaltyIssuedCount').textContent = String(payload?.stats?.issued || 0);
       $('#loyaltyRedeemedCount').textContent = String(payload?.stats?.redeemed || 0);
@@ -223,6 +249,8 @@
         event.preventDefault(); clearError('#loyaltyRuleError');
         const enabled = $('#loyaltyEnabled').checked, target = goal(), kind = $('#loyaltyRewardKind').value;
         if (enabled && (target < 2 || target > 100)) { showError('#loyaltyRuleError','Цель должна быть от 2 до 100 визитов.'); return; }
+        const titleIssue = enabled ? rewardTitleIssue(kind,Number($('#loyaltyRewardValue').value),$('#loyaltyRewardTitle').value.trim()) : '';
+        if (titleIssue) { showError('#loyaltyRuleError',titleIssue); $('#loyaltyRewardTitle').focus(); return; }
         const parameters = { p_organization:organization.id,p_enabled:enabled,p_goal_visits:enabled?target:null,p_reward_kind:enabled?kind:null,p_reward_value:enabled?rewardValue():null,p_reward_title:enabled?$('#loyaltyRewardTitle').value.trim():null,p_reward_terms:enabled?$('#loyaltyRewardTerms').value.trim():null,p_validity_days:enabled?validity():null };
         const intent = prepareIntent('settings',parameters); parameters.p_request_id = intent.requestId;
         const ok = await mutate('set_minuta_loyalty_program_v166',parameters,event.submitter,enabled?'Программа лояльности сохранена':'Программа выключена; история сохранена',intent);
@@ -252,12 +280,13 @@
     }
 
     function input(event) {
+      if (event.target.id === 'loyaltyRewardTitle') automaticRewardTitle = false;
       if (event.target.closest('#loyaltyProgramForm')) { clearError('#loyaltyRuleError'); updateForm(); }
       if (event.target.closest('#loyaltyAdjustmentForm')) clearError('#loyaltyAdjustmentError');
     }
     function change(event) { if (event.target.closest('#loyaltyProgramForm')) updateForm(); }
     function bind() { document.addEventListener('submit',submit); document.addEventListener('click',click); document.addEventListener('input',input); document.addEventListener('change',change); }
-    function reset() { organization=null;payload=null;availability='idle';revision+=1;selectedClient=null;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
+    function reset() { organization=null;payload=null;availability='idle';revision+=1;selectedClient=null;automaticRewardTitle=false;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
     async function setOrganization(next) {
       if (next?.id && organization?.id === next.id && payload) { organization=next; render(); return true; }
       organization=next || null; payload=null; if (!organization?.id) { reset(); return false; } return load();

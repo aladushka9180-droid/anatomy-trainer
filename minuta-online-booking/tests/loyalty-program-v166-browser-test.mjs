@@ -69,7 +69,10 @@ try {
   await page.evaluate(() => {
     const panel = document.querySelector('#loyaltyPanel');
     document.body.replaceChildren(panel);
+    document.documentElement.className = 'top-level provider-ready';
     document.body.className = 'provider-body';
+    document.body.dataset.providerLayout = 'bento';
+    document.body.dataset.providerTheme = 'porcelain';
     panel.hidden = false;
   });
   await page.addScriptTag({ content:moduleSource });
@@ -94,6 +97,30 @@ try {
     controller.bind();
     await controller.setOrganization({ id:'organization-v166' });
   });
+  await page.locator('#loyaltyEnabled').check();
+  await page.locator('#loyaltyRewardKind').selectOption('fixed');
+  assert.equal(await page.locator('#loyaltyRewardTitle').inputValue(), 'Скидка 10 ₽ на следующий визит', 'Untouched template follows reward units');
+  assert.equal(await page.locator('#loyaltyRewardValueLabel').innerText(), 'Скидка, ₽');
+  await page.locator('#loyaltyRewardTitle').fill('Скидка 10% на следующий визит');
+  assert.equal(await page.locator('#loyaltyRewardTitle').evaluate(input => input.validity.valid), false, 'Contradictory unit is rejected before RPC');
+  await page.getByRole('button', { name:'Сохранить программу', exact:true }).click();
+  assert.equal(await page.evaluate(() => window.__loyaltyCalls.filter(c => c.name === 'set_minuta_loyalty_program_v166').length), 0, 'Invalid settings never reach the server');
+  for (const width of [390,760,1440]) {
+    await page.setViewportSize({ width,height:1000 });
+    assert.equal(await page.locator('#loyaltyRewardTitleHint').isVisible(), true);
+    assert.ok(await page.evaluate(width => document.documentElement.scrollWidth <= width + 1,width), 'Unit explanation fits viewport');
+    if (process.env.MINUTA_LOYALTY_UNITS_SCREENSHOT) await page.screenshot({path:`${process.env.MINUTA_LOYALTY_UNITS_SCREENSHOT}-${width}.png`,fullPage:true});
+  }
+  await page.locator('#loyaltyRewardTitle').fill('Спасибо за доверие');
+  await page.locator('#loyaltyRewardKind').selectOption('percent');
+  await page.locator('#loyaltyRewardValue').fill('15.5');
+  assert.equal(await page.locator('#loyaltyRewardTitle').inputValue(), 'Спасибо за доверие', 'Custom name is never overwritten');
+  await page.locator('#loyaltyRewardTitle').fill('Скидка 10%');
+  assert.equal(await page.locator('#loyaltyRewardTitle').evaluate(input => input.validity.valid), false, 'Wrong numeric amount also conflicts');
+  await page.locator('#loyaltyRewardTitle').fill('Скидка 15,5%');
+  assert.equal(await page.locator('#loyaltyRewardTitle').evaluate(input => input.validity.valid), true, 'Russian decimal amount agrees with percent storage');
+  await page.locator('#loyaltyRewardValue').fill('10');
+  await page.locator('#loyaltyRewardTitle').fill('Скидка 10% на следующий визит');
   await page.evaluate(async () => {
     const form = document.querySelector('#loyaltyProgramForm');
     const button = form.querySelector('button[type="submit"]');
@@ -111,6 +138,11 @@ try {
   assert.equal(retry.ids[0], retry.ids[1], 'An ambiguous retry reuses the idempotency key');
   assert.equal(retry.storage.length, 0, 'Successful confirmation clears the stored retry intent');
   assert.match(retry.notice, /сохранена/i, 'Successful retry is reported');
+  await page.locator('#loyaltyRewardKind').selectOption('fixed');
+  assert.equal(await page.locator('#loyaltyRewardTitle').inputValue(), 'Скидка 10% на следующий визит', 'Saved title is preserved even when it resembles the default');
+  assert.equal(await page.locator('#loyaltyRewardTitle').evaluate(input => input.validity.valid), false);
+  await page.locator('#loyaltyEnabled').uncheck();
+  assert.equal(await page.locator('#loyaltyRewardTitle').evaluate(input => input.validity.valid), true, 'Conflict cannot prevent switching program off');
 
   console.log(`loyalty program v166 browser: PASS (${themes.length * widths.length} theme/width checks)`);
 } finally {
