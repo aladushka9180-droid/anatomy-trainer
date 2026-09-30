@@ -1,0 +1,10 @@
+diff --git a/minuta-online-booking/provider.html b/minuta-online-booking/provider.html
+--- a/minuta-online-booking/provider.html
++++ b/minuta-online-booking/provider.html
+@@ -37,5 +37,6 @@
+   <link rel="stylesheet" href="provider-layout-responsive.css?v=811">
+ <link rel="stylesheet" href="provider-ux.css?v=1044">
++  <link rel="stylesheet" href="organization-overview.css?v=1">
+   <link rel="stylesheet" href="provider-service-actions.css?v=811">
+ <link rel="stylesheet" href="provider-header.css?v=865">
+   <link rel="stylesheet" href="client-themes.css?v=885">
