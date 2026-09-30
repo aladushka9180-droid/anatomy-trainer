@@ -9081,6 +9081,12 @@ function renderTimeline(sourceItems) {
   const operationalItems = sourceItems.filter(item => !item.is_imported_history);
   const items = [...sourceItems, ...automaticBookingBreaks(operationalItems)];
   const holder = $('#providerBookings');
+  const closedLabel = scheduleEmptyDayLabel(selectedDate, '');
+  if (closedLabel && !items.length) {
+    holder.className = 'provider-bookings timeline-view';
+    holder.innerHTML = `<div class="provider-empty schedule-empty"><strong>${escapeHtml(closedLabel)}</strong><small>Запись на этот день закрыта.</small></div>`;
+    return;
+  }
   const mobileTimeline = window.matchMedia('(max-width: 760px)').matches;
   const fullBounds = timelineBounds(items);
   let { start, end } = fullBounds;
@@ -9197,7 +9203,8 @@ function renderTimeline(sourceItems) {
   const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
   const emptyHintTop = timelineEmptyHintOffsetMinutes(start, end, mobileTimeline) / 60 * hourHeight;
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px;--timeline-empty-hint-top:${emptyHintTop}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group" tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись">${lines.join('')}${nowMarker}${scheduleCreateHintMarkup()}${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><small>Нажмите <i>нужное </i><b>на </b>время,<br> чтобы <i>записать клиента или поставить перерыв</i><b>добавить запись</b></small></div>`}</div></div>`;
+  const stageInteraction = closedLabel ? '' : `data-create-booking-at tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись"`;
+  holder.innerHTML = `${closedLabel ? `<div class="provider-empty compact-empty"><strong>${escapeHtml(closedLabel)}</strong><small>Запись на этот день закрыта.</small></div>` : ''}<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px;--timeline-empty-hint-top:${emptyHintTop}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" ${stageInteraction} data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group">${lines.join('')}${nowMarker}${closedLabel ? '' : scheduleCreateHintMarkup()}${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><small>Нажмите <i>нужное </i><b>на </b>время,<br> чтобы <i>записать клиента или поставить перерыв</i><b>добавить запись</b></small></div>`}</div></div>`;
   if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
 }
 
@@ -12798,7 +12805,9 @@ function renderCalendarOverview(view) {
       const limit = view === 'month' ? 2 : items.length;
       const hiddenCount = Math.max(0, items.length - limit);
       const fullDate = date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-      const monthCount = items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : scheduleEmptyDayLabel(iso, 'Свободно');
+      const dayStatus = scheduleEmptyDayLabel(iso, '');
+      const bookingCount = items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : '';
+      const monthCount = [dayStatus, bookingCount].filter(Boolean).join(' · ') || 'Свободно';
       return `<article class="calendar-overview-day${iso === today ? ' is-today' : ''}${iso === selectedDate ? ' is-selected' : ''}" data-calendar-date="${iso}">
         <button class="calendar-overview-date" type="button" data-calendar-open-date="${iso}" ${iso === today ? 'aria-current="date"' : ''} aria-label="${escapeHtml(fullDate)}. ${view === 'month' ? `${escapeHtml(monthCount)}. ` : ''}Открыть день"><span>${view === 'week' ? escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', '')) : ''}</span><strong>${date.getDate()}</strong>${view === 'week' ? `<small>${escapeHtml(date.toLocaleDateString('ru-RU', { month:'short' }).replace('.', ''))}</small>` : `<small class="calendar-overview-count">${escapeHtml(monthCount)}</small>`}</button>
         <div class="calendar-overview-items">${items.slice(0, limit).map(item => calendarOverviewBookingMarkup(item, view === 'month')).join('')}${hiddenCount ? `<button class="calendar-overview-more" type="button" data-calendar-open-date="${iso}">+ ещё ${seriesBookingCountLabel(hiddenCount)}</button>` : ''}</div>
@@ -12848,7 +12857,7 @@ function renderBookings() {
   const blockCount = items.filter(isScheduleBlock).length + (currentFilter === 'day' ? automaticBookingBreaks(operationalItems).length : 0);
   const daySummary = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : '', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
   $('#selectedDateSummary').textContent = currentFilter === 'day'
-    ? (daySummary || scheduleEmptyDayLabel(selectedDate, 'Свободный день'))
+    ? ([scheduleEmptyDayLabel(selectedDate, ''), daySummary].filter(Boolean).join(' · ') || 'Свободный день')
     : `${currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей'}${bookingQueryIsActive() ? ` · найдено ${items.length}` : ''}`;
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
   else {
@@ -15872,6 +15881,7 @@ async function loadDaysOff() {
     if (cached?.data) {
       daysOff = cached.data;
       renderDaysOff();
+      renderBookings();
       return { ok: false, cached: true, savedAt: cached.savedAt, failure:providerCoreReadFailure(error) };
     }
     $('#daysOffList').innerHTML = '<div class="provider-empty compact-empty">Не удалось загрузить исключения.</div>';
@@ -15883,6 +15893,7 @@ async function loadDaysOff() {
   await saveProviderCache('days-off', daysOff, userId);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   renderDaysOff();
+  renderBookings();
   return { ok: true };
 }
 
