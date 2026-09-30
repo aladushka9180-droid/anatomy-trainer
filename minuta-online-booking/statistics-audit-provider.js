@@ -2,6 +2,16 @@
 (function () {
   'use strict';
   const range = () => reportRange();
+  function reportFreshnessLabel() {
+    if (reportDataSource === 'demo') return 'Учебный расчёт';
+    const scoped = reportUsesScopedBookings();
+    const received = scoped ? reportScopedBookingsState.receivedAt : bookingsSnapshotSavedAt;
+    if (scoped && reportScopedBookingsState.status !== 'ready' || !received) return '';
+    const date = new Date(received);
+    if (!Number.isFinite(date.getTime())) return '';
+    const label = !scoped && bookingsSnapshotFromCache ? 'Сохранённые записи от' : 'Записи получены';
+    return `${label} ${date.toLocaleString('ru-RU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}`;
+  }
   function customPeriodName() {
     const { start, end } = range();
     const sameYear = start.slice(0, 4) === end.slice(0, 4);
@@ -41,6 +51,7 @@
   audit.mount();
   document.querySelector('#reportTeamMetricNote')?.insertAdjacentHTML('afterend',
     '<p class="report-team-payment-warning">Есть визиты без отметки оплаты; они не входят в выручку.</p>');
-  window.MinutaStatisticsAuditProvider = Object.freeze({ refresh:() => audit.refresh(), periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
+  window.MinutaStatisticsAuditProvider = Object.freeze({ freshnessLabel:reportFreshnessLabel, refresh:() => audit.refresh(), periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
   if (reportPeriod === 'custom') updateReportFilterSummary();
+  if (document.querySelector('#dashboard')?.dataset.activeView === 'analytics') renderAnalytics();
 })();

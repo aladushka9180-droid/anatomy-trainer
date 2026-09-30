@@ -3,12 +3,42 @@ import {readFileSync} from 'node:fs';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
+import vm from 'node:vm';
+const binding=readFileSync(new URL('../statistics-audit-provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
+const freshness=binding.match(/  function reportFreshnessLabel\(\) \{[\s\S]*?\n  \}/)?.[0].replace(/^  /gm,'');
+assert.ok(freshness,'Actual optional statistics freshness binding exists');
+const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n')+'\n'+freshness+'\n';
 const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
 const moduleSource=readFileSync(new URL('../report-reconciliation.js',import.meta.url),'utf8');
 function declaration(name){const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.ok(start>=0,name);const lineEnd=source.indexOf('\n',start);return source.slice(start,source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',start)+2);}
+// Receipt time belongs to a successful, current request, never to a local redraw.
+const receiptScope=vm.createContext({Date,navigator:{onLine:true},currentUser:{id:'master'},sessionGeneration:1,
+  reportCanViewTeam:true,reportScopedBookingsState:{key:'',status:'idle',rows:[]},
+  reportDataQueryRange:r=>r,reportOrganizationId:()=> 'org',reportSessionKey:(...args)=>args.join(':'),
+  bookingUsesDemoData:()=>false,sessionIsCurrent:()=>true,reportQueryWindows:r=>[r],
+  document:{body:{classList:{add(){},remove(){}}}},$:()=>null,renderAnalytics(){},notify(){},
+  db:{rpc:async()=>({data:{bookings:[],has_more:false},error:null})}});
+vm.runInContext(declaration('loadReportScopedBookings'),receiptScope);
+const receiptRange={start:'2026-09-01',end:'2026-09-30'};
+const requestStarted=Date.now();
+await receiptScope.loadReportScopedBookings(receiptRange,'all');
+assert.ok(Date.parse(receiptScope.reportScopedBookingsState.receivedAt)>=requestStarted);
+receiptScope.reportScopedBookingsState={key:'',status:'idle',rows:[]};
+receiptScope.db.rpc=async()=>({data:null,error:{code:'network_error'}});
+await receiptScope.loadReportScopedBookings(receiptRange,'all');
+assert.equal(receiptScope.reportScopedBookingsState.status,'failed');
+assert.equal(receiptScope.reportScopedBookingsState.receivedAt,undefined);
+let finishOldRequest;
+receiptScope.reportScopedBookingsState={key:'',status:'idle',rows:[]};
+receiptScope.db.rpc=()=>new Promise(resolve=>{finishOldRequest=resolve;});
+const oldRequest=receiptScope.loadReportScopedBookings(receiptRange,'all');
+receiptScope.reportScopedBookingsState={key:'new-scope',status:'loading',rows:[]};
+finishOldRequest({data:{bookings:[],has_more:false},error:null});
+await oldRequest;
+assert.equal(receiptScope.reportScopedBookingsState.key,'new-scope');
+assert.equal(receiptScope.reportScopedBookingsState.receivedAt,undefined);
 const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange',
-  'setReportFiltersExpanded','reportHours','reportVisitWord','reportClientWord','renderReportTeamRows',
+  'setReportFiltersExpanded','reportHours','reportVisitWord','reportClientWord','renderReportTeamRows','reportFreshnessLabel',
   'reportServiceValue','reportReceivedAmount','reportImportedValue','reportDebtAmount','reportEffectivePerformerId','reportReconciledTeamRows','reportExportValue','reportExportDuration',
   'reportExportSheets','reportExportCell','reportExportPhone','reportExportMaster','reportExportPerformers','reportExportCreator','reportCurrentTeamRows','reportCurrentEventRows','renderAnalytics',
   'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','exportBookingsXlsx','exportBookingsCsv','retryReportScopedBookings',
@@ -16,6 +46,8 @@ const names=['reportBookings','reportCompletedItems','reportRevenue','reportClie
 const script=`
   var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
   var currentUser={id:'master-A'},sessionGeneration=1,reportDataSource='own',reportPeriod='month',reportCanViewTeam=false,reportPerformerFilter='all';
+  var bookingsSnapshotSavedAt='2026-09-30T08:15:00Z',bookingsSnapshotFromCache=false;
+  window.MinutaStatisticsAuditProvider={freshnessLabel:reportFreshnessLabel,refresh(){}};
   var reportServiceMetric='revenue',reportTeamMetric='hours',reportServicesExpanded=false,reportSubview='overview';
   var range={start:'2026-09-01',end:'2026-09-30',period:'month'};
   var row=(id,changes={})=>({id,booking_date:'2026-09-10',booking_time:'10:00:00',duration_minutes:60,performer_id:'master-A',organization_id:'org-A',client_name:'Тестовый клиент',client_phone:'79990000000',status:'confirmed',value:1000,booking_outcomes:{visit_status:'completed',payment_method:'cash',amount_rub:600},...changes});
@@ -72,6 +104,18 @@ try{
     assert.match(await page.locator('#reportPaymentEvidence').textContent(),/Оплата не указана/);
     assert.match(await page.locator('#reportTrendTitle').textContent(),/^Фактически получено/);
     assert.match(await page.locator('#reportTrendCoverage').textContent(),/Оплата указана: 2 из 3/);
+    assert.equal(await page.locator('#reportWorkload').textContent(),'2,5 ч работы');
+    const receivedLabel=await page.locator('#reportPeriodLabel').textContent();
+    assert.match(receivedLabel,/Записи получены/);
+    await page.evaluate(()=>renderAnalytics());
+    assert.equal(await page.locator('#reportPeriodLabel').textContent(),receivedLabel);
+    await page.evaluate(()=>{bookingsSnapshotFromCache=true;renderAnalytics();});
+    assert.match(await page.locator('#reportPeriodLabel').textContent(),/Сохранённые записи от/);
+    assert.doesNotMatch(await page.locator('#reportPeriodLabel').textContent(),/Записи получены/);
+    await page.evaluate(()=>{bookingsSnapshotFromCache=false;reportDataSource='demo';renderAnalytics();});
+    assert.match(await page.locator('#reportPeriodLabel').textContent(),/Учебный расчёт/);
+    assert.doesNotMatch(await page.locator('#reportPeriodLabel').textContent(),/Записи получены/);
+    await page.evaluate(()=>{reportDataSource='own';renderAnalytics();});
     assert.equal(await page.locator('#reportRevenueChart .report-chart-column').count(),5);
     assert.match(await page.locator('#reportRevenueChart .is-unknown').first().textContent(),/Нет данных/);
     assert.match(await page.locator('#reportRevenueChart .is-empty').first().textContent(),/Нет визитов/);

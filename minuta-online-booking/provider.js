@@ -4262,7 +4262,7 @@ async function loadReportScopedBookings(range, performerId) {
     const applied = applyReportDemoLiveRows(reportRange(), range);
     reportScopedBookingsState = applied.result ? { key, status:'ready', rows:applied.rows } : { key, status:error ? 'failed' : 'ready', rows };
   } else if (error) reportScopedBookingsState = { key, status:'failed', rows:[] };
-  else reportScopedBookingsState = { key, status:'ready', rows };
+  else reportScopedBookingsState = { key, status:'ready', rows, receivedAt:new Date().toISOString() };
   document.body.classList.remove('report-scope-loading');
   if (select) select.disabled = false;
   if (exportButton) exportButton.disabled = false;
@@ -5139,7 +5139,8 @@ function renderAnalytics() {
   setReportSubview(reportSubview);
   setReportText('#reportDecisionHint', reportDataSource === 'demo' ? 'Учебные данные без перехода в журнал' : 'Нажмите показатель, чтобы открыть записи');
   const importedInPeriod = completed.filter(item => item.is_imported_history).length;
-  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })}`;
+  const freshness = window.MinutaStatisticsAuditProvider?.freshnessLabel?.();
+  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })}${freshness ? ` · ${freshness}` : ''}`;
   setReportText('#reportImportMethod', importedInPeriod ? `${importedInPeriod} ${reportVisitWord(importedInPeriod)} из прежнего журнала. Стоимость сохранена в оказанных услугах; без отметки оплаты она не входит в получено или подтверждённый долг.` : 'В выбранном периоде импортированных визитов нет.');
   updateReportFilterSummary();
   const visualPeriod = `${reportDateText(range.start, { day:'numeric', month:'short', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'short', year:'numeric' })} · ${reportPerformerName()}`;
@@ -5153,12 +5154,12 @@ function renderAnalytics() {
   $('#reportDebt').textContent = money(debt);
   $('#reportCompleted').textContent = String(completed.length);
   $('#reportUnpaid').textContent = unpaid.length ? `${unpaid.length} ${reportVisitWord(unpaid.length)} с подтверждённым долгом` : 'Нет подтверждённого долга';
-  $('#reportWorkload').textContent = workedMinutes >= 60 ? `${Math.round(workedMinutes / 6) / 10} ч работы` : `${workedMinutes} мин работы`;
+  $('#reportWorkload').textContent = workedMinutes >= 60 ? `${reportHours(workedMinutes)} работы` : `${workedMinutes} мин работы`;
   $('#reportAverage').textContent = knownPaymentCount ? money(Math.round(average)) : 'Нет данных';
   $('#reportAverage').title = 'Средняя отмеченная оплата по визитам с данными об оплате. Неизвестные оплаты исключены.';
   $('#reportPending').textContent = String(pending.length);
   const secondaryMetrics = [
-    { selector:'#reportPendingMetric', value:pending.length, clear:'Все визиты отмечены' }
+    { selector:'#reportPendingMetric', value:pending.length, clear:'Результат указан у всех визитов' }
   ];
   const clearMetrics = secondaryMetrics.filter(metric => metric.value === 0);
   secondaryMetrics.forEach(metric => { const node = $(metric.selector); if (node) node.hidden = metric.value === 0; });
@@ -9073,8 +9074,7 @@ function renderTimeline(sourceItems) {
   const fullBounds = timelineBounds(items);
   let { start, end } = fullBounds;
   const currentClock = selectedDate === businessTodayIso() ? businessClock() : null;
-  // Three readable lines on a 40-minute mobile visit need a 46px card:
-  // 40/60 * 75 - 4 = 46. Keep the desktop scale and booking times unchanged.
+  // 40 min: 46px for three lines; desktop unchanged.
   const hourHeight = mobileTimeline ? 75 : 76;
   const naturalTimelineHeight = ((end - start) / 60) * hourHeight;
   const timelineItems = items.map((item, index) => {
