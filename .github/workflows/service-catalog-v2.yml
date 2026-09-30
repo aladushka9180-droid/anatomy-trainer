@@ -1,0 +1,46 @@
+name: Service catalog v2 isolated contract
+on:
+  push:
+    branches: ['codex/pro-service-master-*']
+    paths:
+      - '.github/workflows/service-catalog-v2.yml'
+      - 'minuta-online-booking/supabase-service-catalog-v2*'
+      - 'minuta-online-booking/tests/service-catalog-v2*'
+      - 'minuta-online-booking/service-presets-catalog.js'
+      - 'minuta-online-booking/scripts/build-service-catalog-v2.mjs'
+  pull_request:
+    paths:
+      - '.github/workflows/service-catalog-v2.yml'
+      - 'minuta-online-booking/supabase-service-catalog-v2*'
+      - 'minuta-online-booking/tests/service-catalog-v2*'
+      - 'minuta-online-booking/service-presets-catalog.js'
+      - 'minuta-online-booking/scripts/build-service-catalog-v2.mjs'
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-local-test
+          POSTGRES_DB: service_catalog_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.13.3
+      - name: Verify catalog, cached clients, isolation and rollback
+        env:
+          SERVICE_CATALOG_LOCAL_POSTGRES_URL: postgres://postgres:synthetic-local-test@127.0.0.1:5432/service_catalog_test
+        run: node minuta-online-booking/tests/service-catalog-v2-test.mjs --postgres

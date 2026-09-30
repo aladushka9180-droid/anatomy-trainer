@@ -717,9 +717,11 @@ for(const theme of ['sage','pink-porcelain','snow-leopard','pearl-zebra','luxury
     const originalBackground=await booking.evaluate(el=>getComputedStyle(el).backgroundColor);
     assert.notEqual(originalBackground,'rgba(0, 0, 0, 0)','Booking has a permanent fill even without hover');
     assert.equal(await booking.evaluate(el=>{
-      const probe=document.createElement('span');probe.style.background='color-mix(in srgb,var(--theme-surface) 90%,var(--theme-ink))';el.append(probe);
+      const probe=document.createElement('span');
+      const calmPink=document.body.dataset.providerTheme==='pink-porcelain'&&document.body.dataset.providerResolvedColorMode!=='dark';
+      probe.style.background=calmPink?'color-mix(in srgb,var(--theme-accent) 12%,var(--theme-surface))':'color-mix(in srgb,var(--theme-surface) 90%,var(--theme-ink))';el.append(probe);
       const matches=getComputedStyle(el).backgroundColor===getComputedStyle(probe).backgroundColor;probe.remove();return matches;
-    }),true,'Default booking uses the theme-adapted grey fill');
+    }),true,'Default booking uses the calm theme fill');
     assert.equal(await booking.evaluate(el=>{
       el.classList.replace('color-auto','color-rose');const custom=getComputedStyle(el).backgroundColor;
       el.classList.replace('color-rose','color-auto');return custom!==getComputedStyle(el).backgroundColor;

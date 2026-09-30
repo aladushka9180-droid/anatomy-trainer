@@ -13,7 +13,7 @@
     if (!$('#newBookingSelectedClient')) {
       const selected = document.createElement('div');
       selected.id = 'newBookingSelectedClient';
-      selected.innerHTML = '<span class="new-booking-selected-avatar"></span><span class="new-booking-selected-copy"><strong></strong><small></small></span><button type="button">Изменить</button>';
+      selected.innerHTML = '<span class="new-booking-selected-avatar"></span><span class="new-booking-selected-copy"><strong></strong><small></small></span><button type="button">Изменить</button><button type="button" data-open-selected-client>Карточка и история</button>';
       $('#newBookingClientEntry').before(selected);
       selected.querySelector('button').addEventListener('click', () => {
         delete $('#newBookingClientFields').dataset.clientLookupState;
@@ -35,6 +35,7 @@
     const selected = $('#newBookingSelectedClient');
     selected.hidden = !options.selected;
     $('#newBookingClientEntry').hidden = Boolean(options.selected);
+    selected.querySelector('[data-open-selected-client]').hidden = !options.clientExists;
     if (options.selected) {
       text(selected.querySelector('strong'), options.name);
       text(selected.querySelector('.new-booking-selected-copy small'), options.phone);

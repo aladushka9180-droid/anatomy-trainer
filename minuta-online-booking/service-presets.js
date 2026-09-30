@@ -9,6 +9,8 @@
   let context = null;
   let busy = false;
   let opening = false;
+  let customSubmit = null;
+  let savingCustom = false;
 
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, symbol => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[symbol]);
   const requestId = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -16,11 +18,7 @@
   const existingByName = () => new Map((context?.existingServices || []).map(item => [catalog.normalizeName(item.name), item]));
   const existingFor = name => existingByName().get(catalog.normalizeName(name)) || null;
   const rubles = value => `${Number(value || 0).toLocaleString('ru-RU')} ₽`;
-  const setCatalogTab = value => {
-    document.querySelectorAll('[data-service-catalog-tab]').forEach(button => {
-      button.setAttribute('aria-pressed', String(button.dataset.serviceCatalogTab === value));
-    });
-  };
+  const customSaving = () => state?.custom && savingCustom;
 
   function newState(professionIds = []) {
     return {
@@ -29,6 +27,9 @@
       drafts: new Map(),
       expanded: new Set(),
       search: '',
+      professionSearch: '',
+      custom: false,
+      customPrepared: false,
       requestId: requestId(),
       error: ''
     };
@@ -44,10 +45,10 @@
     dialog.addEventListener('input', handleInput);
     dialog.addEventListener('change', handleInput);
     dialog.addEventListener('cancel', event => {
-      if (busy) event.preventDefault();
+      if (busy || customSaving()) event.preventDefault();
     });
     dialog.addEventListener('close', () => {
-      setCatalogTab('services');
+      context?.onCustomClose?.();
       context?.onClose?.();
     });
     document.body.append(dialog);
@@ -56,17 +57,19 @@
   function professionStep() {
     return `
       <div class="service-presets-heading">
-        <small>Быстрый старт</small>
+        <small>Добавление услуг</small>
         <h2 id="servicePresetsTitle">Чем вы занимаетесь?</h2>
-        <p>Можно выбрать несколько направлений. Ничего не добавится без вашего подтверждения.</p>
+        <p>Выберите профессию и готовые услуги или сразу создайте свою.</p>
       </div>
+      <button class="service-presets-own service-presets-own-start" type="button" data-start-custom-service>+ Своя услуга</button>
+      <label class="service-presets-search"><span class="sr-only">Поиск профессии</span><input type="search" value="${escapeHtml(state.professionSearch)}" placeholder="Найти профессию, например шиномонтажник" data-service-professions-search></label>
       <fieldset class="service-profession-grid">
         <legend class="sr-only">Направления работы</legend>
-        ${catalog.professions.map(item => {
+        ${catalog.searchProfessions(state.professionSearch).map(item => {
           const selected = state.professionIds.includes(item.id);
           return `<label class="service-profession-chip${selected ? ' is-selected' : ''}"><input type="checkbox" value="${item.id}" data-service-profession ${selected ? 'checked' : ''}><span>${escapeHtml(item.label)}</span><i aria-hidden="true">✓</i></label>`;
         }).join('')}
-      </fieldset>`;
+      </fieldset>${catalog.searchProfessions(state.professionSearch).length ? '' : '<p class="service-presets-empty">Профессия не найдена. Можно создать свою услугу выше.</p>'}`;
   }
 
   function presetButton(item) {
@@ -97,7 +100,7 @@
     return `<article class="service-preset-draft" data-service-draft="${escapeHtml(item.itemId)}">
       <div class="service-preset-draft-head"><strong>${item.presetId ? 'Черновик услуги' : 'Своя услуга'}</strong><button type="button" data-remove-service-draft="${escapeHtml(item.itemId)}" aria-label="Убрать услугу">Убрать</button></div>
       <label><span>Название</span><input maxlength="120" value="${escapeHtml(item.name)}" data-draft-name required></label>
-      <div><label><span>Длительность</span><select data-draft-duration>${[20,30,45,60,75,90,120,150,180].map(value => `<option value="${value}" ${value === Number(item.duration) ? 'selected' : ''}>${value} мин</option>`).join('')}</select></label><label><span>Цена, ₽</span><input type="number" inputmode="numeric" min="0" max="1000000" step="1" placeholder="Введите свою" value="${escapeHtml(item.price)}" data-draft-price required></label></div>
+      <div><label><span>Длительность, мин</span><input type="number" inputmode="numeric" min="5" max="480" step="1" value="${escapeHtml(item.duration)}" data-draft-duration required></label><label><span>Цена, ₽</span><input type="number" inputmode="numeric" min="0" max="1000000" step="1" placeholder="Введите свою" value="${escapeHtml(item.price)}" data-draft-price required></label></div>
       ${existing ? `<p class="service-preset-duplicate">Услуга с таким названием уже добавлена.</p>` : ''}
     </article>`;
   }
@@ -140,20 +143,30 @@
   }
 
   function shell() {
-    const first = state.step === 1;
+    const customForm = document.querySelector('#serviceForm');
+    customSubmit ||= customForm?.querySelector('button[type="submit"]');
+    if (customForm && customSubmit && !customForm.contains(customSubmit)) customForm.append(customSubmit);
+    // Keep the original form node, file input and event listeners through wizard renders.
+    if (customForm && dialog.contains(customForm)) document.querySelector('#serviceCreatorContent').append(customForm);
+    const first = state.step === 1 && !state.custom;
     const last = state.step === 3;
     const nextLabel = last ? 'Добавить услуги' : 'Продолжить';
     dialog.innerHTML = `<div class="service-presets-shell">
-      <header class="service-presets-top"><button type="button" data-service-presets-back ${first ? 'hidden' : ''} aria-label="Назад">←</button><span>Шаг ${state.step} из 3</span><button type="button" data-close-service-presets aria-label="Закрыть">×</button></header>
-      <main>${first ? professionStep() : state.step === 2 ? serviceStep() : reviewStep()}</main>
-      <footer>${state.error ? `<p role="alert" tabindex="-1">${escapeHtml(state.error)}</p>` : '<span></span>'}<button class="primary" type="button" data-service-presets-next ${busy ? 'disabled' : ''}>${busy ? 'Добавляем…' : nextLabel}</button></footer>
+      <header class="service-presets-top"><button type="button" data-service-presets-back ${first ? 'hidden' : ''} aria-label="Назад">←</button><span>${state.custom ? 'Своя услуга' : `Шаг ${state.step} из 3`}</span><button type="button" data-close-service-presets aria-label="Закрыть">×</button></header>
+      <main>${state.custom ? '<div class="service-presets-heading compact"><h2 id="servicePresetsTitle">Своя услуга</h2><p>Укажите название, длительность и цену. Дополнения к карточке — по желанию.</p></div><div data-custom-service-slot></div>' : first ? professionStep() : state.step === 2 ? serviceStep() : reviewStep()}</main>
+      ${state.custom ? '<footer data-custom-service-footer><span></span></footer>' : `<footer>${state.error ? `<p role="alert" tabindex="-1">${escapeHtml(state.error)}</p>` : '<span></span>'}<button class="primary" type="button" data-service-presets-next ${busy ? 'disabled' : ''}>${busy ? 'Добавляем…' : nextLabel}</button></footer>`}
     </div>`;
+    if (state.custom && customForm) dialog.querySelector('[data-custom-service-slot]').append(customForm);
+    if (state.custom && customSubmit) {
+      customSubmit.setAttribute('form', 'serviceForm');
+      dialog.querySelector('[data-custom-service-footer]').append(customSubmit);
+    }
   }
 
   function render(focusSelector = '') {
     if (!dialog || !state) return;
     shell();
-    if (focusSelector) requestAnimationFrame(() => dialog.querySelector(focusSelector)?.focus());
+    if (focusSelector) dialog.querySelector(focusSelector)?.focus();
   }
 
   function togglePreset(id) {
@@ -176,6 +189,7 @@
   }
 
   async function save() {
+    if (context.isCurrentUser && !context.isCurrentUser()) { state.error = 'Аккаунт изменился. Закройте окно и откройте добавление заново.'; render('[role="alert"]'); return; }
     const error = validationMessage();
     if (error) { state.error = error; state.step = 2; render('[data-draft-price]'); return; }
     if (!navigator.onLine) { state.error = 'Нет соединения. Черновик сохранён в этом окне — повторите после подключения.'; render(); return; }
@@ -225,9 +239,17 @@
 
   function handleClick(event) {
     const button = event.target.closest('button');
-    if (!button || busy) return;
+    if (!button || busy || customSaving()) return;
     if (button.matches('[data-close-service-presets]')) { dialog.close(); return; }
-    if (button.matches('[data-service-presets-back]')) { state.step = Math.max(1, state.step - 1); state.error = ''; render(); return; }
+    if (button.matches('[data-service-presets-back]')) { if (state.custom) state.custom = false; else state.step = Math.max(1, state.step - 1); state.error = ''; render(); return; }
+    if (button.matches('[data-start-custom-service]')) {
+      if (context.prepareCustom && document.querySelector('#serviceForm')) {
+        if (!state.customPrepared) { context.prepareCustom(); state.customPrepared = true; }
+        state.custom = true;
+        render('#serviceName');
+      } else { const id = customDraft(); state.step = 2; render(`[data-service-draft="${id}"] input`); }
+      return;
+    }
     if (button.matches('[data-service-preset]')) { togglePreset(button.dataset.servicePreset); state.error = ''; render(`[data-service-preset="${button.dataset.servicePreset}"]`); return; }
     if (button.matches('[data-service-presets-more]')) {
       const id = button.dataset.servicePresetsMore;
@@ -255,7 +277,9 @@
     if (!state || busy) return;
     const target = event.target;
     if (target.matches('[data-service-profession]')) {
-      state.professionIds = [...dialog.querySelectorAll('[data-service-profession]:checked')].map(input => input.value);
+      const chosen = new Set(state.professionIds);
+      target.checked ? chosen.add(target.value) : chosen.delete(target.value);
+      state.professionIds = [...chosen];
       for (const [id, draft] of state.drafts) {
         if (draft.professionId && !state.professionIds.includes(draft.professionId)) state.drafts.delete(id);
       }
@@ -266,11 +290,13 @@
       target.closest('label')?.classList.toggle('is-selected', target.checked);
       return;
     }
-    if (target.matches('[data-service-presets-search]')) {
-      state.search = target.value;
+    if (target.matches('[data-service-presets-search], [data-service-professions-search]')) {
+      const professionSearch = target.matches('[data-service-professions-search]');
+      state[professionSearch ? 'professionSearch' : 'search'] = target.value;
+      const selector = professionSearch ? '[data-service-professions-search]' : '[data-service-presets-search]';
       const selection = [target.selectionStart, target.selectionEnd];
-      render('[data-service-presets-search]');
-      const input = dialog.querySelector('[data-service-presets-search]');
+      render(selector);
+      const input = dialog.querySelector(selector);
       input?.setSelectionRange(...selection);
       return;
     }
@@ -292,14 +318,13 @@
     context = options;
     state = newState(options.professionIds || []);
     busy = false;
-    setCatalogTab('presets');
     render();
     if (!dialog.open) dialog.showModal();
-    requestAnimationFrame(() => dialog.querySelector('[data-service-profession]')?.focus());
+    dialog.querySelector('[data-service-professions-search]')?.focus();
   }
 
   document.addEventListener('click', async event => {
-    const button = event.target.closest('[data-open-service-presets]');
+    const button = event.target.closest('[data-open-service-presets], [data-open-service-creator]');
     if (!button || opening) return;
     if (typeof currentUser === 'undefined' || !currentUser?.id || typeof db === 'undefined') return;
     const user = currentUser;
@@ -318,6 +343,9 @@
       user,
       existingServices:typeof ownServices === 'undefined' ? [] : ownServices,
       professionIds,
+      isCurrentUser:() => typeof currentUser !== 'undefined' && currentUser?.id === user.id,
+      prepareCustom:typeof prepareServiceCreator === 'function' ? prepareServiceCreator : null,
+      onCustomClose:() => { if (typeof resetServicePublicCardPhotoPreview === 'function') resetServicePublicCardPhotoPreview('create'); },
       onSaved:async result => {
         if (typeof refreshAfterWrite === 'function') await refreshAfterWrite();
         if (typeof notify === 'function') notify(result?.created_count ? `Добавлено услуг: ${result.created_count}` : 'Услуги уже были добавлены');
@@ -328,5 +356,5 @@
     });
   });
 
-  window.MinutaServicePresets = Object.freeze({ open, validationMessage, catalog });
+  window.MinutaServicePresets = Object.freeze({ open, validationMessage, catalog, close:() => dialog?.close(), isCustomSaving:() => savingCustom, setCustomSaving:value => { savingCustom = value === true; } });
 })();

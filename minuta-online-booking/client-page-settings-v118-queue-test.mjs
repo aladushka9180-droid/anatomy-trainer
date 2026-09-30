@@ -39,12 +39,13 @@ function createRuntime() {
     let clientPageSettingsSaveRevision = 0;
     let clientPageSettingsSaveQueue = Promise.resolve();
     const clientPageSettingsQueuedRevisions = new Map();
+    let clientPageSettingsServerSupportsPorcelain = false;
     let clientPageSettings = { theme_key:'sage',headline_key:'massage-time' };
     const organizationController = { getActiveOrganization:() => __state.activeOrganization };
     const sessionIsCurrent = (userId,generation) => currentUser?.id === userId && sessionGeneration === generation;
     const db = { rpc:async (name,args) => {
       __rpcCalls.push({ name,args });
-      return { data:{ ...args,updated_at:'2026-09-06T00:00:00Z' },error:null };
+      return { data:{ theme_key:args.p_theme_key,headline_key:args.p_headline_key,updated_at:'2026-09-06T00:00:00Z' },error:null };
     } };
     const $ = () => null;
     const notify = () => {};
@@ -106,6 +107,7 @@ for (const scenario of [
   assert.equal(result.ok,true);
   assert.equal(runtime.rpcCalls.length,1,'current owner context must call RPC once');
   assert.equal(runtime.api.read(organization.id).sync_status,'confirmed');
+  assert.equal(runtime.api.read(organization.id).headline_key,'care','saved headline must survive server confirmation');
 }
 
 console.log('Client page settings v118 queue regression checks passed.');

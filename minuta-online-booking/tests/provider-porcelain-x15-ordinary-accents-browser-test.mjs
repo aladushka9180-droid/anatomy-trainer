@@ -73,8 +73,25 @@ try {
       checks.innerHTML = '<label><input type="checkbox" checked><span>Активен</span></label>';
       organization.append(checks); dashboard.append(organization);
       const danger = document.createElement('button'); danger.className = 'primary danger'; danger.textContent = 'Удалить'; organization.append(danger);
+      const regular = document.createElement('section'); regular.dataset.providerPanel = 'settings';
+      regular.innerHTML = '<div id="clientDirectoryFilters"><label class="client-directory-check"><input type="checkbox" checked></label></div>'
+        + '<label class="booking-series-scope"><input type="checkbox" checked></label>'
+        + '<div class="unified-channel-card"><input type="checkbox" checked></div>'
+        + '<label class="smart-channel-toggle"><input type="checkbox" checked></label>'
+        + '<label class="break-toggle"><input type="checkbox" data-schedule-break checked></label>';
+      for (const selector of ['#unifiedNotificationsEnabled', '#fullDataExportConfirm', '#providerNavigationForm',
+        '#groupBookingsEnabled', '#createServiceScheduleNameEnabled', '.telegram-event-settings', '#scheduleQuickBreak', '#shiftHasBreak']) {
+        const element = original.querySelector(selector);
+        if (!element) throw new Error(`Real provider HTML missing: ${selector}`);
+        regular.append(document.importNode(element.closest('label') || element, true));
+      }
+      regular.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = true; });
+      dashboard.append(regular);
       const dialog = document.createElement('dialog'); dialog.id = 'freeSlotsDialog'; dialog.className = 'free-slots-dialog'; dialog.open = true;
       dialog.append(clone('#freeSlotsDialog .free-slots-source'), clone('#freeSlotsDialog .free-slots-title-toggle'));
+      const textOptions = document.createElement('div'); textOptions.className = 'free-slots-text-options';
+      textOptions.innerHTML = '<label><input type="checkbox" checked>Включить</label>';
+      dialog.append(textOptions);
       const times = document.createElement('div'); times.className = 'free-slots-time-grid';
       times.innerHTML = '<label><input type="checkbox" checked><span>10:00</span></label>';
       dialog.append(times); document.body.append(dialog);
@@ -133,6 +150,12 @@ try {
     const customChecks = ['.organization-checks input:checked'];
     const nativeChecks = ['#inventoryEnabled', '#inventoryAutoDeduct', '#inventoryItemActive', '#inventoryWarehouseActive',
       '#inventoryTransfersEnabled', '#freeSlotsDialog .free-slots-title-toggle input:checked'];
+    const remainingNativeChecks = [
+      '#clientDirectoryFilters .client-directory-check input', '#freeSlotsDialog .free-slots-text-options input',
+      '#fullDataExportConfirm', '.provider-navigation-form .settings-check input', '.booking-series-scope input',
+      '#unifiedNotificationsEnabled', '#createServiceScheduleNameEnabled', '.telegram-event-settings .settings-check input',
+      '#groupBookingsEnabled', '.unified-channel-card input', '.smart-channel-toggle input'
+    ];
     const inventoryButtons = ['#inventoryItemForm button.primary[type="submit"]',
       '#inventoryWarehouseForm button.primary[type="submit"]', '#inventoryMovementForm button.primary[type="submit"]'];
     const inventoryCheckboxGeometry = new Map();
@@ -177,6 +200,19 @@ try {
         assert.deepEqual([retention.top, retention.left, retention.width, retention.height, retention.offset], ['3px', '3px', '16px', '16px', 20], 'checked thumb geometry');
         for (const selector of nativeChecks) {
           assert.equal(await page.locator(selector).evaluate(element => getComputedStyle(element).accentColor), toRgb(palette.actionBg), `${width} ${character}/${shade} ${selector} accent`);
+        }
+        for (const selector of remainingNativeChecks) {
+          const matches = page.locator(selector);
+          assert.ok(await matches.count() > 0, `${selector} fixture exists`);
+          for (const input of await matches.all()) {
+            assert.equal(await input.evaluate(element => getComputedStyle(element).accentColor), toRgb(palette.actionBg), `${width} ${character}/${shade} ${selector} checked accent`);
+            await input.evaluate(element => { element.checked = false; });
+            assert.notEqual(await input.evaluate(element => getComputedStyle(element).accentColor), toRgb(palette.actionBg), `${width} ${character}/${shade} ${selector} unchecked unchanged`);
+            await input.evaluate(element => { element.checked = true; });
+          }
+        }
+        for (const selector of ['#scheduleQuickBreak', '#shiftHasBreak', '[data-schedule-break]']) {
+          assert.equal(await page.locator(selector).evaluate(element => getComputedStyle(element).accentColor), toRgb(palette.accent), `${selector} break unchanged`);
         }
         for (const selector of ['#inventoryItemActive', '#inventoryWarehouseActive', '#inventoryTransfersEnabled']) {
           const input = page.locator(selector);
@@ -274,6 +310,7 @@ try {
     assert.deepEqual([unchecked.top, unchecked.left, unchecked.width, unchecked.height, unchecked.offset], ['3px', '3px', '16px', '16px', 0], 'unchecked thumb geometry');
     await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
     assert.equal(await page.locator('#clientRecords [data-cr-note] .cr-button').evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#287a58'), 'another theme keeps own action');
+    assert.equal(await page.locator('#groupBookingsEnabled').evaluate(element => getComputedStyle(element).accentColor), toRgb('#287a58'), 'another theme keeps own checkbox accent');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow`);
     assert.deepEqual(errors, [], `${width}px page errors`);
     console.log(`${width}px: 15 palettes, retention thumb minimum ${minimumThumbContrast.toFixed(2)}:1, ordinary controls, timeline markers, current threshold, inventory, contrast, overflow PASS; network attempts blocked: ${blocked.length}`);

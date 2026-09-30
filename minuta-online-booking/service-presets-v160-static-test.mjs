@@ -11,19 +11,24 @@ const fixture = { window:{} };
 vm.runInNewContext(catalogSource, fixture, { filename:'service-presets-catalog.js' });
 const catalog = fixture.window.MinutaServicePresetCatalog;
 
-assert.equal(catalog.version, 1);
+assert.equal(catalog.version, 2);
 assert.equal(catalog.locale, 'ru-RU');
-assert.equal(catalog.professions.length, 12);
-assert.equal(catalog.professions.flatMap(item => item.services).length, 83);
+const originalProfessions = [...migration.matchAll(/\(1,'ru-RU','([^']+)','([^']+)','([^']+)',(\d+),true\)/g)];
+const originalPresets = [...migration.matchAll(/\(1,'ru-RU','([^']+)','([^']+)','([^']+)','([^']+)',(\d+),(\d+),true\)/g)];
+assert.equal(originalProfessions.length, 12);
+assert.equal(originalPresets.length, 83);
 const sql = value => String(value).replaceAll("'", "''");
-for (const [professionOrder, profession] of catalog.professions.entries()) {
+for (const [, id,,, order] of originalProfessions) {
+  const profession = catalog.profession(id);
+  const professionOrder = Number(order);
   assert.ok(migration.includes(`(1,'ru-RU','${sql(profession.id)}','${sql(profession.label)}','${sql(profession.shortLabel)}',${professionOrder},true)`),
     `SQL profession seed drift: ${profession.id}`);
-  for (const service of profession.services) {
+  for (const service of profession.services.filter(item => originalPresets.some(row => row[1] === item.id))) {
     assert.ok(migration.includes(`(1,'ru-RU','${sql(service.id)}','${sql(profession.id)}','${sql(service.name)}','${sql(service.category)}',${service.defaultDuration},${service.rank},true)`),
       `SQL preset seed drift: ${service.id}`);
   }
 }
+for (const [, id] of originalPresets) assert.ok(catalog.preset(id), `Cached v1 preset removed: ${id}`);
 
 assert.match(migration, /create function public\.create_provider_services_from_presets_v160\(\s*p_request uuid,p_catalog_version integer,p_professions text\[\],p_services jsonb\s*\)/i);
 assert.match(migration, /v_uid uuid:=auth\.uid\(\)/);

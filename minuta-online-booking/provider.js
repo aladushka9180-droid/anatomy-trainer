@@ -250,7 +250,7 @@ const SERVICE_SYNC_INTERVAL_MS = 300000;
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
 const PROVIDER_THEME_KEYS = Object.freeze([...window.MinutaThemeCatalog.themeKeys]);
-const PROVIDER_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all'];
+const PROVIDER_THEME_FILTER_KEYS = ['all', 'light', 'dark'];
 const PROVIDER_COLOR_MODE_KEYS = Object.freeze([...window.MinutaProviderColorMode.modes]);
 const PROVIDER_DARK_THEME_KEYS = Object.freeze(window.MinutaThemeCatalog.themes.filter(theme => theme.palette.dark).map(theme => theme.key));
 const PROVIDER_COLOR_MODE_LABELS = Object.freeze({ light:'светлый', dark:'тёмный', system:'как на устройстве' });
@@ -1551,7 +1551,7 @@ const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton
 const writeSelectors = [
   '#newBookingButton', '#mobileNewBookingButton', '[data-create-empty-booking]', '[data-quick-repeat-client]', '[data-client-favorite-service]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
   '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
-  '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
+  '#serviceForm button[type="submit"]', 'button[form="serviceForm"][type="submit"]', '#dayOffForm button[type="submit"]',
   '#bookingOutcomeForm button[type="submit"]',
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
@@ -2527,6 +2527,8 @@ function renderProviderAppearanceMenu(colorState = null) {
   }
   const themeName = $('#providerAppearanceThemeName');
   if (themeName) themeName.textContent = theme.label;
+  const currentTheme = $('#providerCurrentTheme');
+  if (currentTheme) currentTheme.textContent = theme.label;
   const layoutName = $('#providerAppearanceLayoutName');
   if (layoutName) layoutName.textContent = PROVIDER_LAYOUT_LABELS[displayPreferences.layout] || PROVIDER_LAYOUT_LABELS.soft;
 }
@@ -2614,17 +2616,13 @@ function setTeamCalendarEnabledPreference(nextEnabled) {
 function applyProviderThemeFilter(nextFilter, { focus = false } = {}) {
   const form = $('#providerDisplayForm');
   if (!form) return;
-  const filter = PROVIDER_THEME_FILTER_KEYS.includes(nextFilter) ? nextFilter : 'featured';
+  const filter = PROVIDER_THEME_FILTER_KEYS.includes(nextFilter) ? nextFilter : 'all';
   providerThemeFilter = filter;
   const options = [...form.querySelectorAll('.provider-theme-option')];
-  const featuredOptions = options.filter(option => String(option.dataset.themeGroups || '').split(/\s+/).includes('featured'));
-  const selectedOption = options.find(option => option.querySelector('input')?.checked);
-  const recommendedOptions = featuredOptions.slice(0, 4);
-  if (selectedOption && !recommendedOptions.includes(selectedOption)) recommendedOptions.splice(-1, 1, selectedOption);
   let visibleCount = 0;
   options.forEach(option => {
     const groups = String(option.dataset.themeGroups || '').split(/\s+/).filter(Boolean);
-    const visible = filter === 'featured' ? recommendedOptions.includes(option) : filter === 'all' || groups.includes(filter);
+    const visible = filter === 'all' || groups.includes(filter);
     option.hidden = !visible;
     if (visible) visibleCount += 1;
   });
@@ -2635,7 +2633,7 @@ function applyProviderThemeFilter(nextFilter, { focus = false } = {}) {
     if (active && focus) button.focus();
   });
   const status = $('#providerThemeFilterStatus');
-  if (status) status.textContent = filter === 'featured' ? `Рекомендуемые темы · ${visibleCount}` : filter === 'all' ? `Все темы · ${visibleCount}` : `Показано тем: ${visibleCount}`;
+  if (status) status.textContent = filter === 'all' ? `Все темы · ${visibleCount}` : `Показано тем: ${visibleCount}`;
 }
 function renderDisplayPreferencesForm() {
   const form = $('#providerDisplayForm');
@@ -2654,7 +2652,7 @@ function renderDisplayPreferencesForm() {
     $('#providerPorcelainCharacterOptions').innerHTML = catalog.porcelainCharacters.map(item => `<label class="porcelain-option porcelain-art-${item.key}"><input type="radio" name="providerPorcelainCharacter" value="${item.key}" ${item.key === porcelain.character ? 'checked' : ''}><span class="porcelain-art" aria-hidden="true"><i></i><b></b></span><span class="porcelain-option-copy"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.tagline)}</small><span class="porcelain-mini-palette" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></span></label>`).join('');
   }
   if (!providerThemeFilter) {
-    providerThemeFilter = 'featured';
+    providerThemeFilter = 'all';
   }
   applyProviderThemeFilter(providerThemeFilter);
   const textScale = form.querySelector(`input[name="providerTextScale"][value="${displayPreferences.text_scale}"]`);
@@ -4049,6 +4047,7 @@ function renderReportUtilization(range, workedMinutes) {
 }
 
 function renderReportRetention() {
+  if (window.MinutaStatisticsAuditProvider?.retention) return window.MinutaStatisticsAuditProvider.retention();
   const panel = $('.report-retention');
   const setEmptyText = text => {
     if (!panel) return;
@@ -4262,7 +4261,7 @@ async function loadReportScopedBookings(range, performerId) {
     const applied = applyReportDemoLiveRows(reportRange(), range);
     reportScopedBookingsState = applied.result ? { key, status:'ready', rows:applied.rows } : { key, status:error ? 'failed' : 'ready', rows };
   } else if (error) reportScopedBookingsState = { key, status:'failed', rows:[] };
-  else reportScopedBookingsState = { key, status:'ready', rows };
+  else reportScopedBookingsState = { key, status:'ready', rows, receivedAt:new Date().toISOString() };
   document.body.classList.remove('report-scope-loading');
   if (select) select.disabled = false;
   if (exportButton) exportButton.disabled = false;
@@ -4285,6 +4284,7 @@ function retryReportScopedBookings() {
 }
 
 function renderReportTeamRows(rows) {
+  if (window.MinutaStatisticsAuditProvider?.team) return window.MinutaStatisticsAuditProvider.team(rows);
   rows = reportReconciledTeamRows(reportCompletedItems(reportBookings(reportRange())), reportRange());
   const panel = $('#reportPerformers');
   const holder = $('#reportPerformersList');
@@ -4381,8 +4381,7 @@ async function loadReportTeamAnalytics(range) {
     reportCanViewTeam = priorCanViewTeam;
     reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:priorCanViewTeam };
     if (priorCanViewTeam) {
-      panel.hidden = false;
-      setReportText('#reportTeamMetricNote', 'Не удалось обновить рейтинг команды. Общие показатели рассчитаны по загруженным записям.');
+      renderReportTeamRows([]);
       renderReportPerformerFilter(range);
     } else panel.hidden = true;
     return;
@@ -5139,7 +5138,8 @@ function renderAnalytics() {
   setReportSubview(reportSubview);
   setReportText('#reportDecisionHint', reportDataSource === 'demo' ? 'Учебные данные без перехода в журнал' : 'Нажмите показатель, чтобы открыть записи');
   const importedInPeriod = completed.filter(item => item.is_imported_history).length;
-  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })}`;
+  const freshness = window.MinutaStatisticsAuditProvider?.freshnessLabel?.();
+  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })}${freshness ? ` · ${freshness}` : ''}`;
   setReportText('#reportImportMethod', importedInPeriod ? `${importedInPeriod} ${reportVisitWord(importedInPeriod)} из прежнего журнала. Стоимость сохранена в оказанных услугах; без отметки оплаты она не входит в получено или подтверждённый долг.` : 'В выбранном периоде импортированных визитов нет.');
   updateReportFilterSummary();
   const visualPeriod = `${reportDateText(range.start, { day:'numeric', month:'short', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'short', year:'numeric' })} · ${reportPerformerName()}`;
@@ -5153,12 +5153,12 @@ function renderAnalytics() {
   $('#reportDebt').textContent = money(debt);
   $('#reportCompleted').textContent = String(completed.length);
   $('#reportUnpaid').textContent = unpaid.length ? `${unpaid.length} ${reportVisitWord(unpaid.length)} с подтверждённым долгом` : 'Нет подтверждённого долга';
-  $('#reportWorkload').textContent = workedMinutes >= 60 ? `${Math.round(workedMinutes / 6) / 10} ч работы` : `${workedMinutes} мин работы`;
+  $('#reportWorkload').textContent = workedMinutes >= 60 ? `${reportHours(workedMinutes)} работы` : `${workedMinutes} мин работы`;
   $('#reportAverage').textContent = knownPaymentCount ? money(Math.round(average)) : 'Нет данных';
   $('#reportAverage').title = 'Средняя отмеченная оплата по визитам с данными об оплате. Неизвестные оплаты исключены.';
   $('#reportPending').textContent = String(pending.length);
   const secondaryMetrics = [
-    { selector:'#reportPendingMetric', value:pending.length, clear:'Все визиты отмечены' }
+    { selector:'#reportPendingMetric', value:pending.length, clear:'Результат указан у всех визитов' }
   ];
   const clearMetrics = secondaryMetrics.filter(metric => metric.value === 0);
   secondaryMetrics.forEach(metric => { const node = $(metric.selector); if (node) node.hidden = metric.value === 0; });
@@ -5229,6 +5229,7 @@ function renderAnalytics() {
   const outcomeList = $('#reportOutcomeList');
   if (outcomeList) outcomeList.innerHTML = outcomes.map(item => `<button type="button" data-report-outcome="${item.key}" data-report-status="${item.status}" data-report-filter="${item.filter}"><i class="report-outcome-dot is-${item.key}" aria-hidden="true"></i><span>${item.label}</span><strong>${item.value}</strong><small>${reportShare(item.value, outcomeTotal)}</small></button>`).join('');
   const utilizationPercent = renderReportUtilization(range, workedMinutes);
+  window.MinutaStatisticsAuditProvider?.calculations?.({ range, completed, revenue, knownPaymentCount, unknownPaymentCount, workedMinutes });
   renderReportRetention();
   loadReportTeamAnalytics(range);
   renderReportUtmFunnel();
@@ -7246,7 +7247,9 @@ function restoreDefaultScheduleView() {
 
 function updateJournalModeButtons() {
   const hideModeToggle = Boolean(teamCalendarController?.isTeamMode) || calendarView !== 'day';
-  $$('.journal-mode-toggle, .schedule-mobile-mode-toggle').forEach(toggle => { toggle.hidden = hideModeToggle; });
+  $$('.journal-mode-toggle, .schedule-menu-journal').forEach(toggle => { toggle.hidden = hideModeToggle; });
+  const viewLabel = $('#scheduleViewLabel');
+  if (viewLabel) viewLabel.textContent = ({day:'День',week:'Неделя',month:'Месяц'}[calendarView] || 'День') + (hideModeToggle ? '' : ` · ${journalMode === 'list' ? 'Список' : 'Лента'}`);
   const mobileSummary = $('#scheduleMobileSummary');
   if (mobileSummary) mobileSummary.hidden = hideModeToggle || currentFilter !== 'day';
   const filters = $('.booking-filters');
@@ -7276,6 +7279,15 @@ function syncCompactScheduleOrder() {
 const compactScheduleMedia = window.matchMedia('(max-width: 760px)');
 compactScheduleMedia.addEventListener('change', syncCompactScheduleOrder);
 syncCompactScheduleOrder();
+const scheduleViewMenu = $('#scheduleViewMenu');
+scheduleViewMenu?.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  scheduleViewMenu.open = false;
+  scheduleViewMenu.querySelector('summary')?.focus();
+});
+document.addEventListener('click', event => {
+  if (!event.target.closest('#scheduleViewMenu')) scheduleViewMenu?.removeAttribute('open');
+});
 
 function parseLocalIsoDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
@@ -9073,8 +9085,7 @@ function renderTimeline(sourceItems) {
   const fullBounds = timelineBounds(items);
   let { start, end } = fullBounds;
   const currentClock = selectedDate === businessTodayIso() ? businessClock() : null;
-  // Three readable lines on a 40-minute mobile visit need a 46px card:
-  // 40/60 * 75 - 4 = 46. Keep the desktop scale and booking times unchanged.
+  // 40 min: 46px for three lines; desktop unchanged.
   const hourHeight = mobileTimeline ? 75 : 76;
   const naturalTimelineHeight = ((end - start) / 60) * hourHeight;
   const timelineItems = items.map((item, index) => {
@@ -11172,7 +11183,7 @@ function refreshNewBookingCard() {
   const price = newBookingRepeatVisit
     ? Math.max(0, Number($('#repeatVisitTotalPrice')?.value ?? newBookingRepeatVisit.total_price_rub) || 0)
     : Math.max(0, Number(service?.price_rub) || 0) * (Number(service?.duration_minutes) === 1 ? duration : 1);
-  window.PrimeTimeNewBookingCard.render({mode:newBookingMode, selected, name, phone,
+  window.PrimeTimeNewBookingCard.render({mode:newBookingMode, selected, clientExists:selected && buildClients().some(client => client.phone === normalizePhone(phone)), name, phone,
     avatar:selected ? clientFramedAvatarMarkup(phone, name, null, 88) : '',
     duration, price:money(price), date:$('#newBookingDate')?.value || '', time:newBookingTime,
     repeat:Boolean(newBookingRepeatVisit)});
@@ -12843,8 +12854,8 @@ function renderBookings() {
   else {
     const emptyMessage = bookingQueryIsActive()
       ? 'По заданным условиям ничего не найдено.'
-      : currentFilter === 'day' && scheduleEmptyDayLabel(selectedDate, '') === 'Выходной'
-        ? 'Выходной. В обычном графике этот день закрыт.'
+      : currentFilter === 'day' && scheduleEmptyDayLabel(selectedDate, '')
+        ? `${scheduleEmptyDayLabel(selectedDate, '')}. Запись на этот день закрыта.`
         : 'На выбранный период всё свободно.';
     renderBookingList(visibleItems, emptyMessage);
     if (paginated) $('#providerBookings').insertAdjacentHTML('beforeend', `<button class="secondary-button" type="button" data-load-more-bookings>Показать ещё · осталось ${items.length - visibleItems.length}</button>`);
@@ -12855,7 +12866,7 @@ function setTeamCalendarMode(active, options = {}) {
   const teamMode = active === true;
   const filters = $('.booking-filters');
   const createButton = $('#newBookingButton');
-  $$('.journal-mode-toggle, .schedule-mobile-mode-toggle').forEach(toggle => { toggle.hidden = teamMode || calendarView !== 'day'; });
+  $$('.journal-mode-toggle, .schedule-menu-journal').forEach(toggle => { toggle.hidden = teamMode || calendarView !== 'day'; });
   if (filters) filters.hidden = teamMode || calendarView !== 'day' || journalMode === 'timeline';
   if (createButton) createButton.hidden = teamMode;
   if (!teamMode) updateJournalModeButtons();
@@ -13377,6 +13388,16 @@ function openClientProfileFromBooking(bookingId, requestedPhone = '') {
   const transition = setProviderView('clients');
   if (transition?.updateCallbackDone?.then) transition.updateCallbackDone.then(showClient).catch(showClient);
   else showClient();
+}
+
+async function openSelectedNewBookingClientProfile() {
+  const phone = normalizePhone($('#newBookingPhone')?.value);
+  if (!buildClients().some(client => client.phone === phone)) return;
+  closeBookingSheet();
+  try { await setProviderView('clients')?.updateCallbackDone; } catch {}
+  setClientProfileDetailMode(true);
+  renderClientDetail(phone);
+  activateClientProfileJump('history', { scroll:false });
 }
 
 function returnFromClientProfile() {
@@ -15324,10 +15345,26 @@ function serviceCreateErrorMessage(error) {
   return `Не удалось добавить услугу${code}. Попробуйте ещё раз.`;
 }
 
+function prepareServiceCreator() {
+  $('#serviceForm').reset();
+  $('#serviceForm').dataset.ownerId = currentUser.id;
+  resetServicePublicCardPhotoPreview('create');
+  $('#serviceDuration').value = '60';
+  $('#serviceDefaultDuration').value = '60';
+  updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
+  clearFormError('#serviceError');
+  bindServiceScheduleNameSetting({ prefix:'create', nameSelector:'#serviceName' });
+  bindServicePublicCardEditor('create');
+}
+
 async function addService(event) {
   event.preventDefault();
-  if (!requireWrites()) return;
+  if (!requireWrites() || window.MinutaServicePresets?.isCustomSaving()) return;
   clearFormError('#serviceError');
+  if ($('#serviceForm').dataset.ownerId !== currentUser?.id) {
+    showFormError('#serviceError', 'Аккаунт изменился. Закройте окно и откройте добавление заново.');
+    return;
+  }
   const name = $('#serviceName').value.trim();
   const price = Number($('#servicePrice').value);
   const duration = Number($('#serviceDuration').value);
@@ -15344,26 +15381,31 @@ async function addService(event) {
   }
   const button = event.submitter;
   button.disabled = true;
-  const { data:createdService, error } = await db.from('services').insert({ performer_id: currentUser.id, name, price_rub: Math.round(price), duration_minutes: duration, active: true }).select('id').single();
-  if (error) { button.disabled = false; showFormError('#serviceError', serviceCreateErrorMessage(error)); return; }
+  window.MinutaServicePresets?.setCustomSaving(true);
   try {
-    await persistServiceWithPublicCard({ serviceId:createdService.id,name,duration,price,active:true,prefix:'create',existing:{} });
-  } catch {
-    await db.from('services').delete().eq('id', createdService.id).eq('performer_id', currentUser.id);
+    const { data:createdService, error } = await db.from('services').insert({ performer_id: currentUser.id, name, price_rub: Math.round(price), duration_minutes: duration, active: true }).select('id').single();
+    if (error) { button.disabled = false; showFormError('#serviceError', serviceCreateErrorMessage(error)); return; }
+    try {
+      await persistServiceWithPublicCard({ serviceId:createdService.id,name,duration,price,active:true,prefix:'create',existing:{} });
+    } catch {
+      await db.from('services').delete().eq('id', createdService.id).eq('performer_id', currentUser.id);
+      button.disabled = false;
+      showFormError('#serviceError', 'Не удалось сохранить карточку услуги. Проверьте фото и попробуйте ещё раз.');
+      return;
+    }
     button.disabled = false;
-    showFormError('#serviceError', 'Не удалось сохранить карточку услуги. Проверьте фото и попробуйте ещё раз.');
-    return;
+    if (duration === 1 && createdService?.id) await saveServiceDefaultDuration(createdService.id, defaultDuration);
+    const scheduleNameSynced = createdService?.id && scheduleNameEnabled ? await saveServiceScheduleName(createdService.id, true, scheduleName) : true;
+    event.target.reset();
+    $('#serviceDuration').value = '60';
+    $('#serviceDefaultDuration').value = '60';
+    updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
+    window.MinutaServicePresets?.close();
+    notify(scheduleNameSynced ? 'Услуга добавлена' : 'Услуга добавлена · короткое название синхронизируется');
+    await refreshAfterWrite();
+  } finally {
+    window.MinutaServicePresets?.setCustomSaving(false);
   }
-  button.disabled = false;
-  if (duration === 1 && createdService?.id) await saveServiceDefaultDuration(createdService.id, defaultDuration);
-  const scheduleNameSynced = createdService?.id && scheduleNameEnabled ? await saveServiceScheduleName(createdService.id, true, scheduleName) : true;
-  event.target.reset();
-  $('#serviceDuration').value = '60';
-  $('#serviceDefaultDuration').value = '60';
-  updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
-  $('#serviceCreatorDialog').close();
-  notify(scheduleNameSynced ? 'Услуга добавлена' : 'Услуга добавлена · короткое название синхронизируется');
-  await refreshAfterWrite();
 }
 
 async function changePassword(event) {
@@ -15504,6 +15546,7 @@ function scheduleStateForDate(dateIso) {
 }
 function scheduleEmptyDayLabel(dateIso, fallback) {
   const state = scheduleStateForDate(dateIso);
+  if (state.fullDayOff) return 'День закрыт';
   return state.weekly && state.weekly.enabled === false ? 'Выходной' : fallback;
 }
 function schedulePresetDays(preset) {
@@ -15601,12 +15644,12 @@ function renderMonthlyScheduleDetails() {
   const bookingCount = allBookings.filter(item => item.booking_date === dateIso && item.status !== 'cancelled').length;
   const weeklyHours = state.weekly?.enabled ? `${shortTime(state.weekly.start_time, '10:00')}–${shortTime(state.weekly.end_time, '20:00')}` : 'выходной';
   const partialText = exceptions.length ? exceptions.map(item => `${shortTime(item.start_time, '')}–${shortTime(item.end_time, '')}`).join(', ') : 'нет';
-  const status = !state.weekly?.enabled ? 'Закрыт обычной неделей' : state.fullDayOff ? 'Выходной на эту дату' : exceptions.length ? 'Рабочий с закрытым временем' : 'Рабочий день';
+  const status = scheduleEmptyDayLabel(dateIso, exceptions.length ? 'Рабочий с закрытым временем' : 'Рабочий день');
   const primaryAction = !state.weekly?.enabled
     ? '<button class="secondary-button" type="button" data-monthly-schedule-action="weekly">Изменить обычную неделю</button>'
     : state.fullDayOff
       ? '<button class="secondary-button" type="button" data-monthly-schedule-action="open">Открыть по обычному графику</button>'
-      : '<button class="secondary-button" type="button" data-monthly-schedule-action="close">Сделать выходным</button>';
+      : '<button class="secondary-button" type="button" data-monthly-schedule-action="close">Закрыть день</button>';
   const partialAction = state.weekly?.enabled && !state.fullDayOff ? '<button type="button" data-monthly-schedule-action="partial">Закрыть часть дня</button>' : '';
   const restoreAction = exceptions.length ? '<button type="button" data-monthly-schedule-action="restore">Вернуть обычный график</button>' : '';
   holder.hidden = false;
@@ -15635,9 +15678,9 @@ function renderMonthlySchedule() {
     const state = scheduleStateForDate(dateIso);
     const past = dateIso < today;
     const weeklyClosed = !state.weekly?.enabled;
-    const status = weeklyClosed ? 'По неделе' : state.fullDayOff ? 'Выходной' : state.partialDayOff ? 'Частично' : 'Рабочий';
+    const status = scheduleEmptyDayLabel(dateIso, state.partialDayOff ? 'Частично' : 'Рабочий');
     const className = weeklyClosed ? 'is-weekly-closed' : state.fullDayOff ? 'is-closed' : 'is-working';
-    const action = weeklyClosed ? 'Сначала включите этот день недели в обычном графике' : state.fullDayOff ? 'Открыть день' : 'Сделать выходным';
+    const action = weeklyClosed ? 'Сначала включите этот день недели в обычном графике' : state.fullDayOff ? 'Открыть день' : 'Закрыть день';
     const label = `${date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}. ${status}. ${action}`;
     const selected = selectedMonthlyScheduleDate === dateIso;
     return `<button class="monthly-schedule-day ${className}${past ? ' is-past' : ''}${selected ? ' is-selected' : ''}" type="button" data-monthly-schedule-date="${dateIso}" aria-label="${escapeHtml(label)}" aria-pressed="${selected}" ${past ? 'disabled' : ''}><strong>${day}</strong><i aria-hidden="true"></i><span class="sr-only">${status}</span></button>`;
@@ -15657,7 +15700,7 @@ async function toggleMonthlyScheduleDay(dateIso, button) {
   }
   const status = $('#monthlyScheduleStatus');
   button.disabled = true;
-  if (status) status.textContent = state.fullDayOff ? 'Открываем день…' : 'Сохраняем выходной…';
+  if (status) status.textContent = state.fullDayOff ? 'Открываем день…' : 'Закрываем день…';
   const request = state.fullDayOff
     ? db.from('provider_days_off').delete().eq('id', state.fullDayOff.id).eq('performer_id', userId)
     : db.from('provider_days_off').insert({ performer_id:userId, off_date:dateIso, all_day:true, start_time:null, end_time:null, note:'Месячный график' });
@@ -15671,7 +15714,7 @@ async function toggleMonthlyScheduleDay(dateIso, button) {
   await loadDaysOff();
   renderBookings();
   freeSlotsController.refresh();
-  if (status) status.textContent = state.fullDayOff ? 'День снова открыт для записи.' : 'День отмечен выходным.';
+  if (status) status.textContent = state.fullDayOff ? 'День снова открыт для записи.' : 'День закрыт.';
 }
 
 async function restoreMonthlyScheduleDate(dateIso, button) {
@@ -17032,8 +17075,6 @@ document.addEventListener('click', async event => {
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
   const openNotificationDelivery = event.target.closest('[data-open-notification-delivery]');
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
-  const openServiceCreator = event.target.closest('[data-open-service-creator]');
-  const closeServiceCreator = event.target.closest('[data-close-service-creator]');
   const openPortfolioEditorButton = event.target.closest('[data-open-portfolio-editor]');
   const closePortfolioEditorButton = event.target.closest('[data-close-portfolio-editor]');
   const editPortfolio = event.target.closest('[data-edit-portfolio]');
@@ -17264,21 +17305,6 @@ document.addEventListener('click', async event => {
     showDelivery();
   }
   if (closeNotificationTemplates) $('#notificationTemplatesDialog').close();
-  if (openServiceCreator) {
-    $('#serviceForm').reset();
-    resetServicePublicCardPhotoPreview('create');
-    $('#serviceDuration').value = '60';
-    $('#serviceDefaultDuration').value = '60';
-    updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
-    clearFormError('#serviceError');
-    $('#serviceCreatorDialog').showModal();
-    bindServiceScheduleNameSetting({ prefix:'create', nameSelector:'#serviceName' });
-    bindServicePublicCardEditor('create');
-  }
-  if (closeServiceCreator) {
-    resetServicePublicCardPhotoPreview('create');
-    $('#serviceCreatorDialog').close();
-  }
   if (portfolioActions) { event.preventDefault(); openPortfolioActions(portfolioActions); return; }
   if (closePortfolioActionButton) { closePortfolioActions(); return; }
   if (openPortfolioEditorButton) openPortfolioEditor();
@@ -17322,6 +17348,10 @@ document.addEventListener('click', async event => {
   if (filter) setFilter(filter.dataset.filter);
   if (journalView) setJournalMode(journalView.dataset.journalMode);
   if (calendarViewButton) setCalendarView(calendarViewButton.dataset.calendarView);
+  if ((journalView || calendarViewButton)?.closest('#scheduleViewMenu')) {
+    $('#scheduleViewMenu').open = false;
+    $('#scheduleViewMenu>summary')?.focus({ preventScroll:true });
+  }
   if (calendarOpenDate) {
     setCalendarView('day');
     selectScheduleDate(calendarOpenDate.dataset.calendarOpenDate);
@@ -17349,6 +17379,7 @@ document.addEventListener('click', async event => {
   if (commerceBookingSale) await openCommerceSaleFromBooking(commerceBookingSale.dataset.commerceBookingSale);
   if (commerceClientSale) await openCommerceSale({ clientId:commerceClientSale.dataset.commerceClientSale || '' });
   if (openClientProfile) openClientProfileFromBooking(openClientProfile.dataset.clientBookingId, openClientProfile.dataset.openClientProfile);
+  if (event.target.closest('[data-open-selected-client]')) { await openSelectedNewBookingClientProfile(); return; }
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (quickCompleteBookingButton) await quickCompleteBookingOutcome(quickCompleteBookingButton);
   if (openAutoCompleteSettingsButton) await openAutoCompleteSettings();
@@ -19325,8 +19356,6 @@ function initializeProviderUx() {
     panels.forEach(panel => new MutationObserver(syncTools).observe(panel, { attributes:true, attributeFilter:['hidden','open'] }));
     syncTools();
   }
-  const textScale = $('.provider-text-scale-picker');
-  if (textScale) $('.provider-layout-picker')?.before(textScale);
   const evidence = document.createElement('details');
   evidence.id = 'reportPaymentEvidence';
   evidence.className = 'report-payment-evidence';
