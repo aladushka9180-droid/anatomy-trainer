@@ -69,8 +69,8 @@ insert into public.organization_memberships(organization_id,user_id,role,is_book
 values (current_setting('export_probe.org')::uuid,current_setting('export_probe.owner')::uuid,'owner',true,true),
   (current_setting('export_probe.org')::uuid,current_setting('export_probe.admin')::uuid,'admin',false,true),
   (current_setting('export_probe.org')::uuid,current_setting('export_probe.staff')::uuid,'specialist',true,true);
-insert into public.services(id,organization_id,performer_id,name,duration_minutes,price_rub,active)
-values (current_setting('export_probe.service')::uuid,current_setting('export_probe.org')::uuid,
+insert into public.services(id,performer_id,name,duration_minutes,price_rub,active)
+values (current_setting('export_probe.service')::uuid,
   current_setting('export_probe.staff')::uuid,'Export synthetic service',40,1000,true);
 insert into public.bookings(id,booking_code,manage_token,organization_id,location_id,performer_id,service_id,
   client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,

@@ -17,8 +17,14 @@ const fixture = read('report-export-owner-scope-fixture.sql');
 const candidate = read('../report-export-owner-scope-candidate.sql');
 const rollback = read('../report-export-owner-scope-rollback.sql');
 const offlineAuthTable = read('../scripts/crm-snapshot-offline-bootstrap.sql').match(/^create table auth\.users\([^;]+;/m)?.[0];
-const fullSchemaAuthInsert = read('report-export-owner-scope-full-schema.sql').match(/^insert into auth\.users\([\s\S]*?;/m)?.[0];
+const fullSchemaSql = read('report-export-owner-scope-full-schema.sql');
+const fullSchemaAuthInsert = fullSchemaSql.match(/^insert into auth\.users\([\s\S]*?;/m)?.[0];
+// Only columns used by this fixture, observed in a compared offline public restore.
+// This is a column/type rehearsal, not a replacement for full constraints or RLS.
+const observed = JSON.parse(read('report-export-owner-scope-observed-columns.json'));
 assert.ok(offlineAuthTable && fullSchemaAuthInsert, 'offline auth fixture contract must exist');
+assert.equal(observed.sourceRun,'36774331133');
+assert.equal(observed.fullPublicRestoreCompared,true);
 const client = new Client({ connectionString, application_name:'eldion-report-export-synthetic' });
 const org = '00000000-0000-4000-8000-000000000001';
 const foreignOrg = '00000000-0000-4000-8000-000000000002';
@@ -94,11 +100,47 @@ async function verify() {
   await client.query('update public.organization_memberships set role=$1,active=true where organization_id=$2 and user_id=$3',['admin',org,admin]);
 }
 
+async function verifyObservedFixtureInserts() {
+  const setup = fullSchemaSql.match(/do \$fixture\$[\s\S]*?end \$fixture\$;/)?.[0];
+  assert.ok(setup,'full-schema fixture settings missing');
+  const inserts = [...fullSchemaSql.matchAll(/^insert into (auth|public)\.([a-z_]+)\s*\(([^)]*)\)\s*(?:values|select)[\s\S]*?;/gm)];
+  assert.equal(inserts.length,Object.keys(observed.tables).length,'every fixture INSERT needs an observed table');
+  const identifiers = /^[a-z_][a-z0-9_]*$/;
+  const types = new Set(['uuid','text','integer','bigint','boolean','date','time without time zone','timestamp with time zone','jsonb']);
+  const usedTables = new Set();
+  await client.query('create schema export_fixture_contract');
+  for (const [qualified,table] of Object.entries(observed.tables)) {
+    const [schema,name] = qualified.split('.');
+    assert.ok(['auth','public'].includes(schema) && identifiers.test(name));
+    const fields = Object.entries(table.columns).map(([column,type]) => {
+      assert.ok(identifiers.test(column) && types.has(type));
+      const required = table.required.includes(column) ? ' not null' : '';
+      const generated = table.defaulted.includes(column) && type==='uuid' ? ' default gen_random_uuid()' : '';
+      return `"${column}" ${type}${required}${generated}`;
+    });
+    await client.query(`create table export_fixture_contract."${name}" (${fields.join(',')})`);
+  }
+  await client.query(setup);
+  for (const match of inserts) {
+    const key=`${match[1]}.${match[2]}`,table=observed.tables[key];
+    assert.ok(table && !usedTables.has(key),`unexpected or duplicate fixture INSERT: ${key}`);
+    usedTables.add(key);
+    const columns=match[3].split(',').map(value=>value.trim());
+    assert.equal(new Set(columns).size,columns.length,`duplicate INSERT column: ${key}`);
+    for (const column of columns) assert.ok(Object.hasOwn(table.columns,column),`unobserved INSERT column: ${key}.${column}`);
+    for (const required of table.required) assert.ok(columns.includes(required),`required INSERT column omitted: ${key}.${required}`);
+    const sql=match[0].replace(/\b(?:auth|public)\./g,'export_fixture_contract.');
+    await client.query(sql);
+  }
+  assert.equal(usedTables.size,Object.keys(observed.tables).length);
+}
+
 await client.connect();
 try {
   await client.query('begin');
   await client.query("set local statement_timeout='20s'; set local lock_timeout='5s'");
   await client.query(fixture);
+  await verifyObservedFixtureInserts();
   // Execute the actual full-schema identity insert against the actual public-only
   // restore placeholder. This catches unavailable auth columns before a backup run.
   await client.query(offlineAuthTable);

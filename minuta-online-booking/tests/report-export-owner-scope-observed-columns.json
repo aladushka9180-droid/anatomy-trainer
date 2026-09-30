@@ -1,0 +1,334 @@
+{
+  "sourceRun": "36774331133",
+  "fullPublicRestoreCompared": true,
+  "tables": {
+    "auth.users": {
+      "columns": {
+        "id": "uuid"
+      },
+      "defaulted": [],
+      "required": [
+        "id"
+      ]
+    },
+    "public.performer_profiles": {
+      "columns": {
+        "id": "uuid",
+        "display_name": "text"
+      },
+      "defaulted": [],
+      "required": [
+        "id",
+        "display_name"
+      ]
+    },
+    "public.organizations": {
+      "columns": {
+        "id": "uuid",
+        "name": "text",
+        "created_by": "uuid"
+      },
+      "defaulted": [
+        "id"
+      ],
+      "required": [
+        "name"
+      ]
+    },
+    "public.locations": {
+      "columns": {
+        "id": "uuid",
+        "organization_id": "uuid",
+        "name": "text",
+        "timezone": "text",
+        "is_primary": "boolean"
+      },
+      "defaulted": [
+        "id",
+        "timezone",
+        "is_primary"
+      ],
+      "required": [
+        "organization_id",
+        "name"
+      ]
+    },
+    "public.organization_memberships": {
+      "columns": {
+        "organization_id": "uuid",
+        "user_id": "uuid",
+        "role": "text",
+        "is_bookable": "boolean",
+        "active": "boolean"
+      },
+      "defaulted": [
+        "is_bookable",
+        "active"
+      ],
+      "required": [
+        "organization_id",
+        "user_id",
+        "role"
+      ]
+    },
+    "public.services": {
+      "columns": {
+        "id": "uuid",
+        "performer_id": "uuid",
+        "name": "text",
+        "duration_minutes": "integer",
+        "price_rub": "integer",
+        "active": "boolean"
+      },
+      "defaulted": [
+        "id",
+        "active"
+      ],
+      "required": [
+        "performer_id",
+        "name",
+        "duration_minutes",
+        "price_rub"
+      ]
+    },
+    "public.bookings": {
+      "columns": {
+        "id": "uuid",
+        "booking_code": "text",
+        "manage_token": "uuid",
+        "organization_id": "uuid",
+        "location_id": "uuid",
+        "performer_id": "uuid",
+        "service_id": "uuid",
+        "client_name": "text",
+        "client_phone": "text",
+        "booking_date": "date",
+        "booking_time": "time without time zone",
+        "duration_minutes": "integer",
+        "original_price_rub": "integer",
+        "total_price_rub": "integer",
+        "status": "text",
+        "deposit_amount_rub": "integer",
+        "payment_status": "text",
+        "payment_url": "text",
+        "booking_policy_snapshot": "jsonb",
+        "booking_source": "text"
+      },
+      "defaulted": [
+        "id",
+        "manage_token",
+        "duration_minutes",
+        "status",
+        "deposit_amount_rub",
+        "payment_status",
+        "payment_url",
+        "booking_policy_snapshot"
+      ],
+      "required": [
+        "booking_code",
+        "performer_id",
+        "service_id",
+        "client_name",
+        "client_phone",
+        "booking_date",
+        "booking_time",
+        "organization_id",
+        "location_id"
+      ]
+    },
+    "public.booking_outcomes": {
+      "columns": {
+        "booking_id": "uuid",
+        "performer_id": "uuid",
+        "completed_performer_id": "uuid",
+        "visit_status": "text",
+        "payment_method": "text",
+        "amount_rub": "integer",
+        "actual_duration_minutes": "integer",
+        "calculated_amount_rub": "integer",
+        "completion_source": "text",
+        "updated_at": "timestamp with time zone"
+      },
+      "defaulted": [
+        "visit_status",
+        "payment_method",
+        "amount_rub",
+        "completion_source",
+        "updated_at"
+      ],
+      "required": [
+        "booking_id",
+        "performer_id"
+      ]
+    },
+    "public.booking_session_items": {
+      "columns": {
+        "booking_id": "uuid",
+        "performer_id": "uuid",
+        "position": "integer",
+        "item_kind": "text",
+        "service_id": "uuid",
+        "title": "text",
+        "duration_minutes": "integer",
+        "price_rub": "integer",
+        "extends_duration": "boolean"
+      },
+      "defaulted": [
+        "extends_duration"
+      ],
+      "required": [
+        "booking_id",
+        "performer_id",
+        "position",
+        "item_kind",
+        "title",
+        "duration_minutes",
+        "price_rub"
+      ]
+    },
+    "public.client_import_batches": {
+      "columns": {
+        "id": "uuid",
+        "organization_id": "uuid",
+        "request_id": "uuid",
+        "source_system": "text",
+        "payload_hash": "text",
+        "input_count": "integer",
+        "actor_id": "uuid"
+      },
+      "defaulted": [
+        "id"
+      ],
+      "required": [
+        "organization_id",
+        "request_id",
+        "source_system",
+        "payload_hash",
+        "input_count",
+        "actor_id"
+      ]
+    },
+    "public.booking_history_import_batches": {
+      "columns": {
+        "id": "uuid",
+        "organization_id": "uuid",
+        "request_id": "uuid",
+        "source_file_name": "text",
+        "payload_hash": "text",
+        "input_count": "integer",
+        "actor_id": "uuid",
+        "client_import_batch_id": "uuid"
+      },
+      "defaulted": [
+        "id"
+      ],
+      "required": [
+        "organization_id",
+        "request_id",
+        "source_file_name",
+        "payload_hash",
+        "input_count",
+        "actor_id",
+        "client_import_batch_id"
+      ]
+    },
+    "public.organization_imported_booking_history": {
+      "columns": {
+        "id": "uuid",
+        "organization_id": "uuid",
+        "performer_id": "uuid",
+        "import_batch_id": "uuid",
+        "source_fingerprint": "text",
+        "source_file_name": "text",
+        "source_sheet": "text",
+        "booking_date": "date",
+        "booking_time": "time without time zone",
+        "duration_minutes": "integer",
+        "client_name": "text",
+        "normalized_phone": "text",
+        "display_phone": "text",
+        "service_name": "text",
+        "price_rub": "integer"
+      },
+      "defaulted": [
+        "id",
+        "price_rub"
+      ],
+      "required": [
+        "organization_id",
+        "performer_id",
+        "import_batch_id",
+        "source_fingerprint",
+        "source_file_name",
+        "source_sheet",
+        "booking_date",
+        "booking_time",
+        "duration_minutes",
+        "client_name",
+        "normalized_phone",
+        "display_phone",
+        "service_name"
+      ]
+    },
+    "public.payroll_periods": {
+      "columns": {
+        "id": "uuid",
+        "organization_id": "uuid",
+        "name": "text",
+        "starts_on": "date",
+        "ends_on": "date",
+        "status": "text"
+      },
+      "defaulted": [
+        "id",
+        "status"
+      ],
+      "required": [
+        "organization_id",
+        "name",
+        "starts_on",
+        "ends_on"
+      ]
+    },
+    "public.payroll_adjustments": {
+      "columns": {
+        "period_id": "uuid",
+        "organization_id": "uuid",
+        "performer_id": "uuid",
+        "amount_rub": "integer",
+        "reason": "text"
+      },
+      "defaulted": [],
+      "required": [
+        "period_id",
+        "organization_id",
+        "performer_id",
+        "amount_rub",
+        "reason"
+      ]
+    },
+    "public.booking_events": {
+      "columns": {
+        "organization_id": "uuid",
+        "booking_id": "uuid",
+        "performer_id": "uuid",
+        "event_type": "text",
+        "actor_user_id": "uuid",
+        "actor_role": "text",
+        "booking_date": "date",
+        "delta_completed_rub": "integer",
+        "delta_received_rub": "integer"
+      },
+      "defaulted": [
+        "actor_role",
+        "delta_completed_rub",
+        "delta_received_rub"
+      ],
+      "required": [
+        "organization_id",
+        "event_type",
+        "booking_date"
+      ]
+    }
+  }
+}
