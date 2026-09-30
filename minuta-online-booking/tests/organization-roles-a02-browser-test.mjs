@@ -41,7 +41,8 @@ try {
       ? Buffer.byteLength(readFileSync(absolute, 'utf8').replace(/\r\n/g, '\n'))
       : statSync(absolute).size);
   }, 0);
-  assert.ok(precacheBytes <= 3.614 * 1024 * 1024 + 2500, `Core precache is too large: ${precacheBytes} bytes`);
+  // Keep the approved 512-byte manual client-history reserve aligned with the startup budget.
+  assert.ok(precacheBytes <= 3.614 * 1024 * 1024 + 3012, `Core precache is too large: ${precacheBytes} bytes`);
   const roleArticle = help.split("makeArticle('roles-access-safety'")[1]?.split("makeArticle('service-resources'")[0] || '';
   assert.ok(roleArticle.includes('Доступа к организации') && roleArticle.includes('аккаунт сохраняется'), 'linked article must explain this organization and account preservation');
   assert.ok(!roleArticle.includes('«Доступ активен»'), 'stale A02 toggle label must be gone');

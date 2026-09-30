@@ -103,6 +103,16 @@ try {
       await mkdir(output, { recursive:true });
       await page.screenshot({ path:path.join(output, `offday-day-${width}.png`), fullPage:false });
     }
+    const manualDay = await page.evaluate(() => {
+      selectedDate = '2026-09-21';
+      renderBookings();
+      return {
+        summary:document.querySelector('#selectedDateSummary').textContent,
+        empty:document.querySelector('#providerBookings').textContent.trim(),
+        overflow:document.documentElement.scrollWidth > innerWidth + 2
+      };
+    });
+    if (output) await page.screenshot({ path:path.join(output, `manual-closed-day-${width}.png`), fullPage:false });
     const month = await page.evaluate(() => {
       selectedDate = '2026-09-20';
       renderCalendarOverview('month');
@@ -117,8 +127,12 @@ try {
     assert.equal(daily.summary, 'Выходной', `${width}px: дневной вид не отличает выходной от свободного рабочего дня`);
     assert.match(daily.empty, /^Выходной\./, `${width}px: основное пустое состояние осталось двусмысленным`);
     assert.equal(daily.overflow, false, `${width}px: дневной вид переполнен`);
+    assert.equal(manualDay.summary, 'День закрыт', `${width}px: ручное закрытие дня не названо явно`);
+    assert.match(manualDay.empty, /^День закрыт\./, `${width}px: закрытый день предлагает свободное время`);
+    assert.doesNotMatch(manualDay.empty, /свободн/i, `${width}px: ручное закрытие не должно обещать свободное время`);
+    assert.equal(manualDay.overflow, false, `${width}px: ручное закрытие дня переполнено`);
     assert.equal(month.weeklyClosed, 'Выходной', `${width}px: месячный вид не отличает выходной от свободного рабочего дня`);
-    assert.equal(month.manualException, 'Свободно', `${width}px: ручное исключение не должно выдаваться за обычный выходной`);
+    assert.equal(month.manualException, 'День закрыт', `${width}px: полнодневное ручное закрытие не должно выглядеть свободным`);
     assert.equal(month.overflow, false, `${width}px: появилось горизонтальное переполнение`);
   }
   console.log('Provider off-day labels: 390/760/1440 OK');

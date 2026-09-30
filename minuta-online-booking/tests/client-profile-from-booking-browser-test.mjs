@@ -5,7 +5,7 @@ import {pathToFileURL} from 'node:url';
 const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
 const styles=readFileSync(new URL('../client-records.css',import.meta.url),'utf8');
 function declaration(name){
-  const start=source.search(new RegExp(`^function ${name}\\(`,'m'));assert.ok(start>=0,`Actual ${name}`);
+  const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.ok(start>=0,`Actual ${name}`);
   const end=source.indexOf('\n}',start)+2;assert.ok(end>start);return source.slice(start,end);
 }
 assert.match(source,/booking-repeat-actions[^\n]+bookingClientProfileActionMarkup\(item, \{ primary:true \}\)/,'Current booking exposes the full client profile as the primary action');
@@ -13,13 +13,14 @@ assert.match(source,/imported-history-readonly[\s\S]*?bookingClientProfileAction
 assert.match(source,/booking-sheet-detail/,'Booking details have an isolated layout modifier');
 assert.match(source,/bookingClientProfileActionMarkup\(item, \{ primary:true \}\)/,'Imported history promotes the profile action');
 assert.match(source,/if \(openClientProfile\) openClientProfileFromBooking/,'Delegated click opens the shared profile');
+assert.match(source,/data-open-selected-client[^\n]+openSelectedNewBookingClientProfile\(\)/,'Selected number opens the client profile explicitly');
 assert.match(source,/bookingClientOverviewMarkup\(item\)[\s\S]*?id="bookingOutcomeForm"/,'Client context is added without removing visit result and payment controls');
 
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
 try{
   const page=await browser.newPage();
-  await page.setContent('<div id="bookingSheet"></div><div id="clientOverview"></div><div id="clientsLayout"><button class="client-list-item" data-client-phone="79990000001"></button></div><button id="clientProfileBack"><span>Назад к клиентам</span></button>');
+  await page.setContent('<div id="bookingSheet"><input id="newBookingPhone"></div><div id="clientOverview"></div><div id="clientsLayout"><button class="client-list-item" data-client-phone="79990000001"></button></div><button id="clientProfileBack"><span>Назад к клиентам</span></button>');
   await page.addScriptTag({content:`
     var clientProfileReturnContext=null,selectedClientPhone='79990000001';
     var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
@@ -37,11 +38,13 @@ try{
     var notify=text=>effects.push(['notify',text]),closeBookingSheet=()=>effects.push(['close']);
     var setProviderView=view=>{effects.push(['view',view]);};
     var renderClientDetail=(phone,options)=>effects.push(['client',phone,options]);
+    var activateClientProfileJump=(tab)=>effects.push(['tab',tab]);
     var selectScheduleDate=date=>effects.push(['date',date]);
     var openBookingSheet=id=>effects.push(['booking',id]);
     ${declaration('setClientProfileDetailMode')}
     ${declaration('resetClientProfileReturnContext')}
     ${declaration('openClientProfileFromBooking')}
+    ${declaration('openSelectedNewBookingClientProfile')}
     ${declaration('returnFromClientProfile')}
     ${declaration('clientUpcoming')}
     ${declaration('clientCompletedVisits')}
@@ -98,5 +101,11 @@ try{
   assert.equal(await page.locator('#clientProfileBack').evaluate(el=>el.classList.contains('is-booking-return')),false);
   assert.equal(await page.evaluate(()=>clientProfileReturnContext),null);
   assert.deepEqual(await page.evaluate(()=>{effects=[];openClientProfileFromBooking('missing','');return effects;}),[['notify','Карточка клиента недоступна']]);
+  await page.locator('#newBookingPhone').fill('+7 999 000-00-01');
+  await page.evaluate(()=>{effects=[];});
+  await page.evaluate(()=>openSelectedNewBookingClientProfile());
+  assert.deepEqual(await page.evaluate(()=>effects),[['close'],['view','clients'],['client','79990000001',undefined],['tab','history']]);
+  await page.locator('#newBookingPhone').fill('+7 999 000-00-02');
+  assert.deepEqual(await page.evaluate(async()=>{effects=[];await openSelectedNewBookingClientProfile();return effects;}),[]);
   console.log('Client profile from booking: shared detail and return context PASS (browser fixture)');
 } finally {await browser.close();}
