@@ -1,0 +1,41 @@
+name: Eldion report export isolated PostgreSQL
+on:
+  push:
+    branches: [codex/pro-export-owner-guard-20260930]
+    paths:
+      - '.github/workflows/eldion-report-export-isolated.yml'
+      - 'minuta-online-booking/report-export-owner-scope-*.sql'
+      - 'minuta-online-booking/tests/report-export-owner-scope-*.mjs'
+      - 'minuta-online-booking/tests/report-export-owner-scope-*.sql'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-export-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-fixture-only
+          POSTGRES_DB: eldion-report-export-fixture
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with: {node-version: 22}
+      - name: Install test-only PostgreSQL driver
+        run: npm install --prefix "$RUNNER_TEMP/eldion-report-export-deps" --no-package-lock --ignore-scripts --no-audit --no-fund pg@8.16.3
+      - name: Apply, verify rights and scope, rollback, reapply
+        env:
+          MINUTA_TEST_DATABASE_URL: postgresql://postgres:ephemeral-fixture-only@127.0.0.1:55432/eldion-report-export-fixture
+          MINUTA_REPORT_EXPORT_EPHEMERAL_CONFIRM: LOCAL_SYNTHETIC_DB_ONLY
+        run: |
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/eldion-report-export-deps/node_modules/pg/lib/index.js"
+          node minuta-online-booking/tests/report-export-owner-scope-postgres-test.mjs
