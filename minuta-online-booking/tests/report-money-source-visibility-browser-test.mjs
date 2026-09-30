@@ -91,6 +91,17 @@ try {
     assert.equal(await gate.isVisible(), true);
     assert.equal(await finance.isVisible(), false, `${width}: mounted real finance hidden in demo`);
     assert.equal(await page.evaluate(() => loadCalls), 1, `${width}: return to demo does not reload real finance`);
+    // A visit-report request may still be idle, loading, or failed while the
+    // independent finance view has already loaded. Its source boundary remains usable.
+    for (const status of ['idle', 'loading', 'failed', 'ready']) {
+      await page.locator('#analyticsView').evaluate((panel, value) => { panel.dataset.reportLoadState = value; }, status);
+      assert.equal(await gate.isVisible(), true, `${width}/${status}: demo explanation stays visible`);
+      assert.equal(await finance.isVisible(), false, `${width}/${status}: real finance stays hidden in demo`);
+      await own.click();
+      assert.equal(await gate.isVisible(), false, `${width}/${status}: own source hides the demo explanation`);
+      assert.equal(await finance.isVisible(), true, `${width}/${status}: visit loading cannot hide independently loaded finance`);
+      await demo.click();
+    }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1), `${width}: no page overflow`);
     if (screenshotDir) await page.screenshot({ path:join(screenshotDir, `demo-money-${width}.png`) });
     await page.close();

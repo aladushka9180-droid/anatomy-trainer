@@ -174,7 +174,9 @@ try{
     await page.evaluate(()=>{range={start:'2026-09-04',end:'2026-09-18',period:'custom'};reportPeriod='custom';reportPerformerFilter='master-A';reportUsesScopedBookings=()=>true;reportScopedBookingsState={key:'synthetic-failure',status:'failed',rows:[]};renderAnalytics();});
     const assertUnconfirmedHidden=async status=>{
       assert.equal(await page.locator('#analyticsView').getAttribute('data-report-load-state'),status);
-      for(const selector of ['#reportCommandCenter','.report-summary','.report-secondary','.report-business-grid','#reportPaymentEvidence','#financeCenterRoot']) {
+      // Only visit-report metrics depend on this loader. Finance owns its own
+      // loading/error state, covered by finance-center-ui-browser-test.
+      for(const selector of ['#reportCommandCenter','.report-summary','.report-secondary','.report-business-grid','#reportPaymentEvidence']) {
         if(await page.locator(selector).count()) {
           const visible=await page.locator(selector).isVisible();
           assert.equal(visible,false,`${status}: ${selector} must not present unconfirmed metrics`);

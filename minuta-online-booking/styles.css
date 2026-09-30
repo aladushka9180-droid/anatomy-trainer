@@ -7560,7 +7560,7 @@ html.provider-booting .provider-main {
 .report-load-state { margin:0 0 12px; padding:12px 14px; border:1px solid color-mix(in srgb,#d69b37 48%,var(--theme-line)); border-radius:12px; background:color-mix(in srgb,#d69b37 10%,var(--theme-surface)); color:var(--theme-ink); font-size:12px; font-weight:800; }
 .report-load-state.is-failed { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; border-color:color-mix(in srgb,#b74343 48%,var(--theme-line)); background:color-mix(in srgb,#b74343 9%,var(--theme-surface)); }
 .report-load-state.is-failed [data-report-retry] { flex:0 0 auto; width:auto; min-width:112px; min-height:44px; margin-left:auto; }
-.provider-body[data-provider-theme][data-provider-layout] #analyticsView.provider-view[data-report-load-state]:not([data-report-load-state="ready"]) > :is([data-report-section],.report-business-grid,.report-methodology,#reportPaymentEvidence,#reportMoneyDemoGate) { display:none!important; }
+.provider-body[data-provider-theme][data-provider-layout] #analyticsView.provider-view[data-report-load-state]:not([data-report-load-state="ready"]) > :is([data-report-section]:not(#financeCenterRoot),.report-business-grid,.report-methodology,#reportPaymentEvidence) { display:none!important; }
 .report-command-center { grid-template-columns:minmax(0,1fr) 118px; gap:16px; margin:0; padding:20px; border:1px solid var(--theme-line); border-radius:var(--report-radius); background:var(--theme-surface); box-shadow:none; }
 .report-command-center::after { display:none; }
 .report-command-heading { display:flex; align-items:start; justify-content:space-between; gap:14px; }
