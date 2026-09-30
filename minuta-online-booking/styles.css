@@ -280,6 +280,10 @@
 .calendar-overview-date strong { display:grid; width:29px; height:29px; place-items:center; border-radius:9px; font-size:13px; }
 .calendar-overview-date small { margin-left:4px; color:var(--theme-muted,#64756c); font-size:9px; }
 .calendar-overview-count { display:none; }
+@media (min-width:901px) {
+  .provider-body .calendar-overview-date:is([aria-label*=". День закрыт"],[aria-label*=". Выходной"]) { flex-wrap:wrap; }
+  .provider-body .calendar-overview-date:is([aria-label*=". День закрыт"],[aria-label*=". Выходной"]) .calendar-overview-count { display:block; flex-basis:100%; margin:2px 0 0; font-size:12px; line-height:1.2; text-align:right; }
+}
 .calendar-overview-items { display:grid; gap:5px; padding-top:7px; }
 .calendar-overview-booking { display:grid; grid-template-columns:38px minmax(0,1fr); align-items:start; gap:6px; width:100%; min-height:44px; padding:7px; border:1px solid color-mix(in srgb,var(--theme-accent,#235b40) 17%,var(--theme-line,#dce7df)); border-radius:9px; background:var(--theme-accent-soft,#edf6f0); color:var(--theme-ink,#173b2a); cursor:pointer; text-align:left; }
 .calendar-overview-booking time { padding-top:1px; color:var(--theme-accent,#235b40); font-size:10px; font-weight:900; }
