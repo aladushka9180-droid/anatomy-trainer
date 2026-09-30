@@ -4293,7 +4293,7 @@ function renderReportTeamRows(rows) {
   panel.hidden = !allTeamSelected || !rows.length;
   if (!allTeamSelected) { holder.innerHTML = ''; return; }
   if (!rows.length) { holder.innerHTML = ''; return; }
-  const controls = $('[data-report-team-metric]');
+  const controls = $$('[data-report-team-metric]');
   controls.forEach(button => {
     const active = button.dataset.reportTeamMetric === reportTeamMetric;
     button.classList.toggle('active', active);
