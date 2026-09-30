@@ -39,11 +39,7 @@ async function reportExportAuthorized(scope, privacy, fullConsent) {
   } catch { return false; }
 }
 function reportExportDenied() { notify('Экспорт остановлен: проверьте аккаунт, организацию и права, затем повторите.'); }
-function reportExportFailed(error) {
-  if (error?.message === 'report_export_location_import_history_undecided')
-    notify('Экспорт одного филиала пока недоступен: импортная история не содержит филиал.');
-  else reportExportDenied();
-}
+function reportExportFailed() { reportExportDenied(); }
 function reportExportSegmentItems(items, segment) {
   if (segment === 'all') return items;
   const firstVisits = new Map();
@@ -58,12 +54,14 @@ function reportExportSegmentItems(items, segment) {
 }
 async function reportExportItems(scope, privacy, fullConsent) {
   if (scope.source === 'demo') return null;
-  if (scope.locationId !== 'all') throw new Error('report_export_location_import_history_undecided');
+  const selectedLocation = scope.locationId === 'all' ? null : scope.locationId;
   const params = { p_organization:scope.organizationId, p_start:scope.start, p_end:scope.end,
-    p_performer:scope.performer === 'all' ? null : scope.performer, p_location:null,
+    p_performer:scope.performer === 'all' ? null : scope.performer, p_location:selectedLocation,
     p_phone_mode:privacy, p_limit:1000, p_offset:0 };
   const rows = [];
-  for (const name of ['get_minuta_report_export_bookings','get_minuta_report_export_imported_history']) {
+  const sources = selectedLocation ? ['get_minuta_report_export_bookings']
+    : ['get_minuta_report_export_bookings','get_minuta_report_export_imported_history'];
+  for (const name of sources) {
     let offset = 0;
     do {
       if (!await reportExportAuthorized(scope, privacy, fullConsent)) throw new Error('report_export_context_changed');
@@ -71,7 +69,7 @@ async function reportExportItems(scope, privacy, fullConsent) {
       if (result.error) throw result.error;
       const payload = result.data;
       if (!payload || String(payload.organization_id || '') !== scope.organizationId
-        || (payload.location_id || null) !== null
+        || (payload.location_id || null) !== (name === 'get_minuta_report_export_bookings' ? selectedLocation : null)
         || String(payload.performer_id || 'all') !== scope.performer
         || payload.phone_mode !== privacy || !Array.isArray(payload.bookings)
         || payload.bookings.length > 1000) throw new Error('report_export_scope_mismatch');
@@ -79,6 +77,7 @@ async function reportExportItems(scope, privacy, fullConsent) {
         if (!item || String(item.organization_id || '') !== scope.organizationId
           || item.booking_date < scope.start || item.booking_date > scope.end
           || (scope.performer !== 'all' && String(item.performer_id || '') !== scope.performer)
+          || (selectedLocation && (String(item.location_id || '') !== selectedLocation || item.is_imported_history))
           || (privacy !== 'full' && /\d{6,}/.test(String(item.client_phone || '').replaceAll(/[^\d]/g,''))))
           throw new Error('report_export_row_scope_mismatch');
         rows.push({ ...item, is_report_export:true });
@@ -94,7 +93,9 @@ async function reportExportItems(scope, privacy, fullConsent) {
 async function reportExportPreparedData(scope, privacy, fullConsent) {
   const items = await reportExportItems(scope, privacy, fullConsent);
   if (!await reportExportAuthorized(scope, privacy, fullConsent)) throw new Error('report_export_context_changed');
-  return reportExportData(privacy, items, scope);
+  const data = reportExportData(privacy, items, scope);
+  if (scope.locationId !== 'all') notify('Выбранный филиал: импортированные визиты без филиала исключены из этого отчёта.');
+  return data;
 }
 async function exportBookingsXlsx(privacy='masked') {
   const scope = reportExportScope(), consent = reportExportFullConsent();
