@@ -15,8 +15,10 @@ let scenario = 'initial';
 let holdNavigation = false;
 let heldRequests = 0;
 const pendingResponses = new Set();
+const workerRequests = [];
 const server = createServer((request, response) => {
   const path = new URL(request.url, 'http://localhost').pathname;
+  if (path.endsWith('/sw.js')) workerRequests.push({ servedVersion, holdNavigation });
   if (holdNavigation && path === '/provider.html') {
     heldRequests++;
     pendingResponses.add(response);
@@ -55,7 +57,17 @@ async function ready(expected) {
     if (matched === true) return;
     await page.waitForTimeout(50);
   }
-  assert.fail(`Pending navigation prevented ready worker ${expected}`);
+  const registration = await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    return {
+      active:registration?.active?.state,
+      waiting:registration?.waiting?.state,
+      installing:registration?.installing?.state,
+      controller:navigator.serviceWorker.controller?.scriptURL,
+      caches:await caches.keys()
+    };
+  });
+  assert.fail(`Pending navigation prevented ready worker ${expected}: ${JSON.stringify({ registration, workerRequests, heldRequests, pendingResponses:pendingResponses.size })}`);
 }
 try {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

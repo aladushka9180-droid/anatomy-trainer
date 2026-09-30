@@ -40,6 +40,7 @@ jobs:
       - run: node minuta-online-booking/provider-schedule-minimal-browser-test.cjs
       - run: node minuta-online-booking/tests/flat-schedule-icons-browser-test.mjs
       - run: node minuta-online-booking/tests/compact-mobile-schedule-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-appearance-layout-browser-test.mjs
       - run: node minuta-online-booking/tests/shift-load-timeout-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-master-profile-link-static-test.mjs
       - run: node minuta-online-booking/tests/provider-magnetic-schedule-browser-test.mjs
@@ -67,6 +68,7 @@ jobs:
       - run: node minuta-online-booking/tests/analytics-reconciliation-browser-test.mjs
       - run: node minuta-online-booking/tests/report-money-source-visibility-browser-test.mjs
       - run: node minuta-online-booking/tests/finance-warning-n14-browser-test.mjs
+      - run: node minuta-online-booking/tests/finance-report-scope-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-heatmap-scroll-hint-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-heatmap-drilldown-browser-test.mjs --project-root .
       - run: node minuta-online-booking/tests/retention-copy-a10-browser-test.mjs

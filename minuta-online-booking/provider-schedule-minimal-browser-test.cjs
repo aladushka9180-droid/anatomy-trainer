@@ -70,7 +70,7 @@ const server = http.createServer((request, response) => {
       document.querySelector('#bookingSheet').hidden = false;
       document.body.classList.add('booking-sheet-open');
       document.querySelector('#scheduleMobileSummary').hidden = false;
-      document.querySelector('.schedule-mobile-mode-toggle').hidden = false;
+      document.querySelector('.schedule-menu-journal').hidden = false;
     });
     // The inert fixture still executes the real responsive DOM ordering.
     await page.addScriptTag({ content:`(() => { const $ = selector => document.querySelector(selector); ${compactOrderHelper} })();` });
@@ -328,8 +328,7 @@ const server = http.createServer((request, response) => {
               summaryOutline:summaryStyle.outlineStyle,
               summaryShadow:summaryStyle.boxShadow,
               summaryBackground:summaryStyle.backgroundColor,
-              tabsTop:tabs.top,
-              tabsBottom:tabs.bottom,
+              tabsHeight:tabs.height,
               stripTop:stripRect.top,
               stripBottom:stripRect.bottom,
               navigationTop:navigation.top,
@@ -375,8 +374,8 @@ const server = http.createServer((request, response) => {
           assert.equal(state.summaryVisible, true, `${theme} ${width}px ${stateName}: компактная сводка скрыта`);
           assert.equal(state.summaryFits, true, `${theme} ${width}px ${stateName}: компактная сводка обрезана`);
           assert.match(state.summaryText, /Сегодня\s*\d+[\s\S]*Завтра\s*\d+[\s\S]*Впереди\s*\d+/, `${theme} ${width}px ${stateName}: потеряны счётчики`);
-          assert.ok(state.tabsTop >= state.headingBottom, `${theme} ${width}px ${stateName}: вкладки перекрывают заголовок`);
-          assert.ok(state.stripTop >= state.tabsBottom - 1, `${theme} ${width}px ${stateName}: даты перекрывают вкладки`);
+          assert.equal(state.tabsHeight, 0, `${theme} ${width}px ${stateName}: выбор периода должен быть в мобильном меню`);
+          assert.ok(state.stripTop >= state.headingBottom - 1, `${theme} ${width}px ${stateName}: даты перекрывают заголовок`);
           assert.ok(state.navigationTop >= state.stripBottom - 1, `${theme} ${width}px ${stateName}: управление перекрывает ленту дат`);
           assert.ok(state.titleTop >= state.navigationBottom - 1, `${theme} ${width}px ${stateName}: день недели перекрывает управление`);
           assert.ok(state.summaryLeft >= state.titleRight && state.summaryRight <= width, `${theme} ${width}px ${stateName}: сводка перекрывает день недели или край экрана`);
@@ -719,7 +718,7 @@ const server = http.createServer((request, response) => {
             return;
           }
           if (index === 2) {
-            assert.equal(card.background, cards.monthAutoBackground, `${theme} ${width}px: компактная месячная запись потеряла нейтральный фон`);
+            assert.equal(card.background, theme === 'pink-porcelain' ? cards.flatBackground : cards.monthAutoBackground, `${theme} ${width}px: неверный фон месячной записи`);
             assert.equal(card.shadow, 'none', `${theme} ${width}px: месячная запись получила лишнюю постоянную тень`);
           } else if (index < 2) {
             assert.equal(card.shadow, 'none', `${theme} ${width}px: записи не нужна декоративная тень`);

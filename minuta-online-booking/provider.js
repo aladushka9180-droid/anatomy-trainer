@@ -250,7 +250,7 @@ const SERVICE_SYNC_INTERVAL_MS = 300000;
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
 const PROVIDER_THEME_KEYS = Object.freeze([...window.MinutaThemeCatalog.themeKeys]);
-const PROVIDER_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all'];
+const PROVIDER_THEME_FILTER_KEYS = ['all', 'light', 'dark'];
 const PROVIDER_COLOR_MODE_KEYS = Object.freeze([...window.MinutaProviderColorMode.modes]);
 const PROVIDER_DARK_THEME_KEYS = Object.freeze(window.MinutaThemeCatalog.themes.filter(theme => theme.palette.dark).map(theme => theme.key));
 const PROVIDER_COLOR_MODE_LABELS = Object.freeze({ light:'светлый', dark:'тёмный', system:'как на устройстве' });
@@ -2527,6 +2527,8 @@ function renderProviderAppearanceMenu(colorState = null) {
   }
   const themeName = $('#providerAppearanceThemeName');
   if (themeName) themeName.textContent = theme.label;
+  const currentTheme = $('#providerCurrentTheme');
+  if (currentTheme) currentTheme.textContent = theme.label;
   const layoutName = $('#providerAppearanceLayoutName');
   if (layoutName) layoutName.textContent = PROVIDER_LAYOUT_LABELS[displayPreferences.layout] || PROVIDER_LAYOUT_LABELS.soft;
 }
@@ -2614,17 +2616,13 @@ function setTeamCalendarEnabledPreference(nextEnabled) {
 function applyProviderThemeFilter(nextFilter, { focus = false } = {}) {
   const form = $('#providerDisplayForm');
   if (!form) return;
-  const filter = PROVIDER_THEME_FILTER_KEYS.includes(nextFilter) ? nextFilter : 'featured';
+  const filter = PROVIDER_THEME_FILTER_KEYS.includes(nextFilter) ? nextFilter : 'all';
   providerThemeFilter = filter;
   const options = [...form.querySelectorAll('.provider-theme-option')];
-  const featuredOptions = options.filter(option => String(option.dataset.themeGroups || '').split(/\s+/).includes('featured'));
-  const selectedOption = options.find(option => option.querySelector('input')?.checked);
-  const recommendedOptions = featuredOptions.slice(0, 4);
-  if (selectedOption && !recommendedOptions.includes(selectedOption)) recommendedOptions.splice(-1, 1, selectedOption);
   let visibleCount = 0;
   options.forEach(option => {
     const groups = String(option.dataset.themeGroups || '').split(/\s+/).filter(Boolean);
-    const visible = filter === 'featured' ? recommendedOptions.includes(option) : filter === 'all' || groups.includes(filter);
+    const visible = filter === 'all' || groups.includes(filter);
     option.hidden = !visible;
     if (visible) visibleCount += 1;
   });
@@ -2635,7 +2633,7 @@ function applyProviderThemeFilter(nextFilter, { focus = false } = {}) {
     if (active && focus) button.focus();
   });
   const status = $('#providerThemeFilterStatus');
-  if (status) status.textContent = filter === 'featured' ? `Рекомендуемые темы · ${visibleCount}` : filter === 'all' ? `Все темы · ${visibleCount}` : `Показано тем: ${visibleCount}`;
+  if (status) status.textContent = filter === 'all' ? `Все темы · ${visibleCount}` : `Показано тем: ${visibleCount}`;
 }
 function renderDisplayPreferencesForm() {
   const form = $('#providerDisplayForm');
@@ -2654,7 +2652,7 @@ function renderDisplayPreferencesForm() {
     $('#providerPorcelainCharacterOptions').innerHTML = catalog.porcelainCharacters.map(item => `<label class="porcelain-option porcelain-art-${item.key}"><input type="radio" name="providerPorcelainCharacter" value="${item.key}" ${item.key === porcelain.character ? 'checked' : ''}><span class="porcelain-art" aria-hidden="true"><i></i><b></b></span><span class="porcelain-option-copy"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.tagline)}</small><span class="porcelain-mini-palette" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></span></label>`).join('');
   }
   if (!providerThemeFilter) {
-    providerThemeFilter = 'featured';
+    providerThemeFilter = 'all';
   }
   applyProviderThemeFilter(providerThemeFilter);
   const textScale = form.querySelector(`input[name="providerTextScale"][value="${displayPreferences.text_scale}"]`);
@@ -7247,7 +7245,9 @@ function restoreDefaultScheduleView() {
 
 function updateJournalModeButtons() {
   const hideModeToggle = Boolean(teamCalendarController?.isTeamMode) || calendarView !== 'day';
-  $$('.journal-mode-toggle, .schedule-mobile-mode-toggle').forEach(toggle => { toggle.hidden = hideModeToggle; });
+  $$('.journal-mode-toggle, .schedule-menu-journal').forEach(toggle => { toggle.hidden = hideModeToggle; });
+  const viewLabel = $('#scheduleViewLabel');
+  if (viewLabel) viewLabel.textContent = ({day:'День',week:'Неделя',month:'Месяц'}[calendarView] || 'День') + (hideModeToggle ? '' : ` · ${journalMode === 'list' ? 'Список' : 'Лента'}`);
   const mobileSummary = $('#scheduleMobileSummary');
   if (mobileSummary) mobileSummary.hidden = hideModeToggle || currentFilter !== 'day';
   const filters = $('.booking-filters');
@@ -7277,6 +7277,15 @@ function syncCompactScheduleOrder() {
 const compactScheduleMedia = window.matchMedia('(max-width: 760px)');
 compactScheduleMedia.addEventListener('change', syncCompactScheduleOrder);
 syncCompactScheduleOrder();
+const scheduleViewMenu = $('#scheduleViewMenu');
+scheduleViewMenu?.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  scheduleViewMenu.open = false;
+  scheduleViewMenu.querySelector('summary')?.focus();
+});
+document.addEventListener('click', event => {
+  if (!event.target.closest('#scheduleViewMenu')) scheduleViewMenu?.removeAttribute('open');
+});
 
 function parseLocalIsoDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
@@ -12855,7 +12864,7 @@ function setTeamCalendarMode(active, options = {}) {
   const teamMode = active === true;
   const filters = $('.booking-filters');
   const createButton = $('#newBookingButton');
-  $$('.journal-mode-toggle, .schedule-mobile-mode-toggle').forEach(toggle => { toggle.hidden = teamMode || calendarView !== 'day'; });
+  $$('.journal-mode-toggle, .schedule-menu-journal').forEach(toggle => { toggle.hidden = teamMode || calendarView !== 'day'; });
   if (filters) filters.hidden = teamMode || calendarView !== 'day' || journalMode === 'timeline';
   if (createButton) createButton.hidden = teamMode;
   if (!teamMode) updateJournalModeButtons();
@@ -17322,6 +17331,10 @@ document.addEventListener('click', async event => {
   if (filter) setFilter(filter.dataset.filter);
   if (journalView) setJournalMode(journalView.dataset.journalMode);
   if (calendarViewButton) setCalendarView(calendarViewButton.dataset.calendarView);
+  if ((journalView || calendarViewButton)?.closest('#scheduleViewMenu')) {
+    $('#scheduleViewMenu').open = false;
+    $('#scheduleViewMenu>summary')?.focus({ preventScroll:true });
+  }
   if (calendarOpenDate) {
     setCalendarView('day');
     selectScheduleDate(calendarOpenDate.dataset.calendarOpenDate);
@@ -19325,8 +19338,6 @@ function initializeProviderUx() {
     panels.forEach(panel => new MutationObserver(syncTools).observe(panel, { attributes:true, attributeFilter:['hidden','open'] }));
     syncTools();
   }
-  const textScale = $('.provider-text-scale-picker');
-  if (textScale) $('.provider-layout-picker')?.before(textScale);
   const evidence = document.createElement('details');
   evidence.id = 'reportPaymentEvidence';
   evidence.className = 'report-payment-evidence';
