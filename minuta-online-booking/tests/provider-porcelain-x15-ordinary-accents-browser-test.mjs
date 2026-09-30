@@ -53,9 +53,11 @@ try {
         result.removeAttribute('hidden');
         return result;
       };
-      const app = document.createElement('div'); app.className = 'provider-app';
-      const dashboard = document.createElement('main'); dashboard.id = 'dashboard';
-      app.append(dashboard); document.body.append(app);
+      const dashboard = document.createElement('section'); dashboard.id = 'dashboard'; dashboard.className = 'provider-app';
+      dashboard.dataset.activeView = 'bookings';
+      const workspace = document.createElement('div'); workspace.className = 'provider-workspace';
+      dashboard.append(clone('.provider-sidebar'), workspace, clone('#mobileNewBookingButton'));
+      document.body.append(dashboard);
       const clients = document.createElement('section'); clients.dataset.providerPanel = 'clients'; clients.className = 'provider-view';
       const profile = document.createElement('div'); profile.className = 'client-profile-card';
       profile.append(clone('#clientQuickRepeat')); clients.append(profile);
@@ -63,17 +65,23 @@ try {
       head.append(clone('#clientProfileOrbit')); clients.append(head);
       const records = clone('#clientRecords');
       records.replaceChildren(); clients.append(records);
-      clients.append(clone('#clientBenefitLifecycle')); dashboard.append(clients);
+      clients.append(clone('#clientBenefitLifecycle')); workspace.append(clients);
       const bookings = document.createElement('section'); bookings.dataset.providerPanel = 'bookings'; bookings.className = 'provider-view';
       bookings.innerHTML = '<div class="booking-time-slots"><button class="active" type="button">10:00</button></div>';
-      dashboard.append(bookings);
+      bookings.prepend(clone('.schedule-view-title'));
+      const stripCard = document.createElement('div'); stripCard.className = 'schedule-card';
+      const strip = clone('.date-strip-frame');
+      strip.querySelector('#dateStrip').innerHTML = '<button type="button" class="is-today" aria-current="date" aria-pressed="false" data-booking-date="2026-09-30"><span>Ср</span><strong>30</strong><small>сент</small></button>'
+        + '<button type="button" class="active" aria-pressed="true" data-booking-date="2026-10-01"><span>Чт</span><strong>1</strong><small>окт</small></button>';
+      stripCard.append(strip); bookings.append(stripCard);
+      workspace.append(bookings);
       const schedule = document.createElement('section'); schedule.dataset.providerPanel = 'schedule'; schedule.className = 'provider-view';
-      schedule.append(clone('.schedule-quick-setup')); dashboard.append(schedule);
+      schedule.append(clone('.schedule-quick-setup')); workspace.append(schedule);
       schedule.querySelector('[data-schedule-quick-preset="custom"]').classList.add('active');
       schedule.querySelectorAll('[data-schedule-quick-day]').forEach(input => { input.checked = input.dataset.scheduleQuickDay !== '1'; });
       schedule.querySelector('#scheduleQuickBreak').checked = true;
       const themeFilters = document.createElement('section'); themeFilters.dataset.providerPanel = 'settings';
-      themeFilters.append(clone('.provider-client-theme-filters')); dashboard.append(themeFilters);
+      themeFilters.append(clone('.provider-client-theme-filters')); workspace.append(themeFilters);
       document.body.append(clone('#clientMessagingDialog .client-message-presets'));
       document.querySelector('.client-message-presets button').classList.add('active');
       const hours = document.createElement('div'); hours.className = 'booking-time-hours';
@@ -85,7 +93,7 @@ try {
         document.importNode(original.querySelector('#retentionEnabled').closest('label'), true));
       const checks = document.createElement('div'); checks.className = 'organization-checks';
       checks.innerHTML = '<label><input type="checkbox" checked><span>Активен</span></label>';
-      organization.append(checks); dashboard.append(organization);
+      organization.append(checks); workspace.append(organization);
       const danger = document.createElement('button'); danger.className = 'primary danger'; danger.textContent = 'Удалить'; organization.append(danger);
       const regular = document.createElement('section'); regular.dataset.providerPanel = 'settings';
       regular.innerHTML = '<div id="clientDirectoryFilters"><label class="client-directory-check"><input type="checkbox" checked></label></div>'
@@ -100,7 +108,7 @@ try {
         regular.append(document.importNode(element.closest('label') || element, true));
       }
       regular.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = true; });
-      dashboard.append(regular);
+      workspace.append(regular);
       const dialog = document.createElement('dialog'); dialog.id = 'freeSlotsDialog'; dialog.className = 'free-slots-dialog'; dialog.open = true;
       dialog.append(clone('#freeSlotsDialog .free-slots-source'), clone('#freeSlotsDialog .free-slots-title-toggle'));
       const textOptions = document.createElement('div'); textOptions.className = 'free-slots-text-options';
@@ -160,7 +168,7 @@ try {
     assert.equal(await page.locator('.client-benefit-history-marker').count(), 3, 'real benefit renderer: three synthetic events');
     assert.equal(await page.locator('.loyalty-thresholds li').count(), 14, 'real loyalty renderer: all thresholds');
     const filled = [
-      '#clientQuickRepeat', '#clientRecords [data-cr-note] .cr-button', '.booking-time-slots button.active',
+      '#clientQuickRepeat', '#clientRecords [data-cr-note] .cr-button', '#newBookingButton', '#mobileNewBookingButton', '.booking-time-slots button.active',
       '#freeSlotsDialog .free-slots-source input:checked+span', '#freeSlotsDialog .free-slots-time-grid input:checked+span'
     ];
     const customChecks = ['.organization-checks input:checked'];
@@ -196,6 +204,25 @@ try {
           assert.equal(actual.color, toRgb(palette.actionInk), `${width} ${character}/${shade} ${selector} ink`);
           assert.ok(contrast(actual.color, actual.background) >= 4.5, `${width} ${character}/${shade} ${selector} contrast`);
         }
+        for (const selector of ['#newBookingButton span', '#newBookingButton .ui-icon', '#mobileNewBookingButton span', '#mobileNewBookingButton .ui-icon']) {
+          const ink = await page.locator(selector).evaluate(element => getComputedStyle(element).color);
+          assert.equal(ink, toRgb(palette.actionInk), `${width} ${character}/${shade} ${selector} ink`);
+        }
+        const today = await page.locator('#dateStrip>button.is-today:not(.active)').evaluate(element => {
+          const edge = getComputedStyle(element);
+          const sample = document.createElement('span');
+          sample.style.color = 'var(--porcelain-quiet-mark)';
+          document.body.append(sample);
+          const expected = getComputedStyle(sample).color;
+          sample.remove();
+          const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+          const context = canvas.getContext('2d'); context.fillStyle = edge.borderTopColor; context.fillRect(0, 0, 1, 1);
+          const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
+          return { color:edge.borderTopColor, rgb:`rgb(${red}, ${green}, ${blue})`, width:parseFloat(edge.borderTopWidth), expected };
+        });
+        assert.equal(today.color, today.expected, `${width} ${character}/${shade} today border follows soft shade`);
+        assert.ok(today.width >= .8 && today.color !== toRgb(palette.accent), 'today remains a distinct, quiet outline');
+        assert.ok(contrast(today.rgb, toRgb(palette.surface)) >= 3, 'today outline stays visible on the schedule surface');
         for (const selector of customChecks) {
           const actual = await page.locator(selector).evaluate(element => ({ background:getComputedStyle(element).backgroundColor, color:getComputedStyle(element).color }));
           assert.equal(actual.background, toRgb(palette.actionBg), `${width} ${character}/${shade} ${selector} background`);
@@ -320,6 +347,11 @@ try {
         }
         if (outputDir && character === 'petal' && shade === 'gentle-pink') {
           await page.evaluate(() => document.querySelector('#clientLoyaltyLevelsDialog').close());
+          await page.locator('.schedule-view-title').screenshot({ path:path.join(outputDir, `x15-bookings-header-${width}.png`) });
+          await page.locator('.date-strip-frame').screenshot({ path:path.join(outputDir, `x15-today-marker-${width}.png`) });
+          if (await page.locator('#mobileNewBookingButton').isVisible()) {
+            await page.locator('#mobileNewBookingButton').screenshot({ path:path.join(outputDir, `x15-mobile-create-${width}.png`) });
+          }
           const monday = page.locator('.schedule-quick-days label').first();
           await monday.click();
           assert.equal(await monday.locator('input').isChecked(), true, 'real weekday label toggles on click');
