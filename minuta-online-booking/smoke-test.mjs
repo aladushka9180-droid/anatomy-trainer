@@ -445,7 +445,7 @@ assert.equal(timelineTimeFromClick(timelineStage, { clientY: 190 }), '11:30', '�
 assert.equal(timelineTimeFromClick(timelineStage, { clientY: 219.999 }), '11:30', 'Нижняя половина часа остаётся в блоке 11:30');
 assert.equal(timelineTimeFromClick(timelineStage, { clientY: 220 }), '12:00', 'Линия 12:00 выбирает начало следующего блока');
 assert.match(provider, /openTimelineBookingAtTime\(time, stage\.dataset\.timelineDate \|\| selectedDate\)/, 'Дата клика должна браться из показанного расписания, а не из изменяемого глобального состояния');
-assert.match(provider, /data-create-booking-at data-timeline-date="\$\{selectedDate\}"/, 'Расписание не закрепляет дату для создаваемой записи');
+assert.match(provider, /class="timeline-stage" \$\{stageInteraction\} data-timeline-date="\$\{selectedDate\}"/, 'Расписание не закрепляет дату для создаваемой записи');
 assert.match(provider, /const requestId = \+\+newBookingSlotsRequestId;[\s\S]*?if \(!requestIsCurrent\(\)\) return;/, 'Устаревший ответ свободных окон может заменить актуальные дату, услугу или время');
 assert.doesNotMatch(provider, /#newBookingService'\)\.addEventListener\('change',[^\n]*newBookingPreferredTime = ''/, 'Смена услуги не должна терять время, выбранное в расписании');
 assert.match(provider, /#newBookingDate'\)\.addEventListener\('change',[^\n]*newBookingPreferredTime = ''/, 'Смена даты должна сбрасывать время, выбранное для другого дня');

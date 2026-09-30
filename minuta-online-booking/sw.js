@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1044`;
-const CACHE_READY = './.precache-ready-v1044';
+const CACHE = `${CACHE_PREFIX}v1048`;
+const CACHE_READY = './.precache-ready-v1048';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1044',
+  './site-update.js?v=1048',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -49,7 +49,7 @@ const ASSETS = [
   './batch-bookings.js?v=811',
   './booking-policy-management.js?v=811',
   './team-calendar.js?v=1004',
-  './free-slots-share.js?v=1022',
+  './free-slots-share.js?v=1047',
   './group-bookings.js?v=811',
   './booking-widgets.js?v=811',
   './onboarding.js?v=811',
@@ -63,20 +63,24 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1036',
-  './provider.js?v=1044',
+  './provider.js?v=1048',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
 
 const OPTIONAL_ASSETS = [
-  './schedule-flat.css?v=1040',
+  './payment-review.js?v=1044',
+  './organization-overview.css?v=1044',
+  './resource-management.js?v=1044',
+  './shift-management.js?v=1044',
+  './schedule-flat.css?v=1048',
   './schedule-break-icons.js?v=1023',
   './client-loyalty-frames.css?v=3',
   './client-loyalty-frames.js?v=3',
   './client-profile-card.css?v=2',
   './client-profile-card.js?v=2',
-  './new-booking-card.css?v=1042',
-  './new-booking-card.js?v=1042',
+  './new-booking-card.css?v=1045',
+  './new-booking-card.js?v=1045',
   './assets/loyalty/frames-v1.png',
   './assets/loyalty/frame-100-v1.png',
   './booking-detail-card.css?v=2',
@@ -88,7 +92,7 @@ const OPTIONAL_ASSETS = [
   './report-export-provider.js?v=1044',
   './statistics-audit-provider.js?v=1043',
   './client-results.css?v=876',
-  './provider-porcelain-detail.css?v=1036',
+  './provider-porcelain-detail.css?v=1048',
   './provider-schedule-type.css?v=933',
   './manrope-cyrillic-v20.woff2',
   './manrope-latin-v20.woff2',

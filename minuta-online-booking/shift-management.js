@@ -175,6 +175,43 @@
       panel.querySelector('button').disabled = !booking || !alternatives.length;
     }
 
+    function renderWeekOverview() {
+      const anchor = $('#shiftUtilization');
+      if (!$('#shiftWeekOverview') && typeof anchor.insertAdjacentHTML === 'function') {
+        anchor.insertAdjacentHTML('afterend', '<details class="shift-week-overview" id="shiftWeekOverview" open><summary><strong>Обзор недели</strong><span id="shiftWeekRange"></span></summary><div class="shift-week-controls"><button type="button" class="secondary-button" data-shift-week="-1" aria-label="Предыдущие 7 дней">←</button><span>Существующие смены и отсутствия</span><button type="button" class="secondary-button" data-shift-week="1" aria-label="Следующие 7 дней">→</button></div><div class="shift-week-scroll" role="region" aria-label="Обзор смен за семь дней" tabindex="0"><div class="shift-week-grid" id="shiftWeekGrid"></div></div><small class="shift-week-hint" id="shiftWeekHint"></small></details>');
+      }
+      if (!$('#shiftWeekOverview')) return;
+      const start = $('#shiftStartDate').value || isoToday();
+      const dates = Array.from({ length: 7 }, (_, index) => addDays(start, index));
+      $('#shiftWeekRange').textContent = `${dateLabel(start)} — ${dateLabel(dates[6])}`;
+      const shifts = payload.shifts.filter(item => item.active);
+      const absences = payload.absences.filter(item => item.active);
+      $('#shiftWeekOverview').hidden = !shifts.length && !absences.length;
+      const conflicts = new Set();
+      for (const shift of shifts) {
+        if (absences.some(item => item.performer_id === shift.performer_id && item.starts_on <= shift.shift_date && item.ends_on >= shift.shift_date)) conflicts.add(shift.id);
+        if (shifts.some(item => item.id !== shift.id && item.performer_id === shift.performer_id && item.shift_date === shift.shift_date && shortTime(item.start_time) < shortTime(shift.end_time) && shortTime(item.end_time) > shortTime(shift.start_time))) conflicts.add(shift.id);
+      }
+      const header = `<div class="shift-week-person shift-week-heading">Специалист</div>${dates.map(date => `<div class="shift-week-heading">${escapeHtml(dateLabel(date))}</div>`).join('')}`;
+      const rows = payload.performers.map(performer => {
+        const cells = dates.map(date => {
+          const dayShifts = shifts.filter(item => item.performer_id === performer.id && item.shift_date === date);
+          const dayAbsences = absences.filter(item => item.performer_id === performer.id && item.starts_on <= date && item.ends_on >= date);
+          const parts = dayShifts.map(item => {
+            const location = nameOf(payload.locations, item.location_id, 'Филиал');
+            const conflict = conflicts.has(item.id);
+            return `<span class="shift-week-chip${conflict ? ' is-conflict' : ''}"><strong>${escapeHtml(shortTime(item.start_time))}–${escapeHtml(shortTime(item.end_time))}</strong><small>${escapeHtml(location)}</small>${conflict ? '<em>Конфликт</em>' : ''}</span>`;
+          });
+          if (dayAbsences.length) parts.push(`<span class="shift-week-chip is-absence">${escapeHtml(dayAbsences.map(item => absenceLabels[item.kind] || 'Отсутствие').join(', '))}</span>`);
+          return `<div class="shift-week-day" aria-label="${escapeHtml(nameOf(payload.performers, performer.id, 'Специалист'))}, ${escapeHtml(dateLabel(date))}">${parts.join('') || '<span class="shift-week-empty">—</span>'}</div>`;
+        });
+        return `<div class="shift-week-person">${escapeHtml(performer.display_name || performer.name || 'Специалист')}</div>${cells.join('')}`;
+      });
+      $('#shiftWeekGrid').innerHTML = payload.performers.length ? header + rows.join('') : empty('Специалистов пока нет', 'Добавьте специалиста в разделе «Люди и филиалы».');
+      const visibleConflicts = shifts.filter(item => dates.includes(item.shift_date) && conflicts.has(item.id)).length;
+      $('#shiftWeekHint').textContent = visibleConflicts ? `Конфликтующих смен: ${visibleConflicts}. Проверьте пересечение смен и отсутствия ниже.` : 'Конфликтов в показанных сменах нет.';
+    }
+
     function render() {
       if (!payload) return;
       const canManage = Boolean(payload.can_manage_team);
@@ -210,6 +247,7 @@
           : empty('Смен пока нет', 'Добавьте первую смену.');
       $('#absencesList').innerHTML = payload.absences.length ? payload.absences.map(absenceCard).join('') : empty('Отсутствий нет', 'Отпуск и больничный можно добавить заранее.');
       $('#shiftUtilization').innerHTML = payload.utilization.length ? payload.utilization.map(utilizationCard).join('') : empty('Занятость появится после добавления смен', 'Покажем, какая часть рабочего времени занята записями.');
+      renderWeekOverview();
       renderSubstitution(canManage);
       $('#shiftAuditPanel').hidden = !canManage;
       $('#shiftAuditCount').textContent = String(payload.audit.length);
@@ -283,6 +321,12 @@
     }
 
     async function handleClick(event) {
+      const weekButton = event.target.closest('[data-shift-week]');
+      if (weekButton) {
+        $('#shiftStartDate').value = addDays($('#shiftStartDate').value || isoToday(), Number(weekButton.dataset.shiftWeek) * 7);
+        await load();
+        return;
+      }
       const reload = event.target.closest('#reloadShifts');
       if (reload) await load();
       const shift = event.target.closest('[data-cancel-shift]');

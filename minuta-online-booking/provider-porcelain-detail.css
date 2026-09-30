@@ -49,15 +49,15 @@ html[data-porcelain-read-only-preview="true"] body.provider-body [data-create-em
 
 /* Selected controls use the character/shade's soft pink, with dark legible text. */
 body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(#newBookingButton,.date-navigation>.date-today-button,.date-strip button.active,.journal-mode-toggle button.active,.booking-filters button.active) {
-  border-color:var(--theme-accent)!important;
+  border-color:var(--theme-line)!important;
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
   color:var(--porcelain-action-ink)!important;
 }
 body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(#newBookingButton,.date-navigation>.date-today-button,.date-strip button.active,.journal-mode-toggle button.active,.booking-filters button.active) :is(span,.ui-icon) { color:var(--porcelain-action-ink)!important; }
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #dateStrip button.active { border-color:var(--theme-accent)!important; background:var(--porcelain-action-bg)!important; background-image:none!important; color:var(--porcelain-action-ink)!important; }
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #dateStrip button.active { border-color:var(--theme-line)!important; background:var(--porcelain-action-bg)!important; background-image:none!important; color:var(--porcelain-action-ink)!important; }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #dateStrip button.active :is(span,strong,small) { color:var(--porcelain-action-ink)!important; }
-body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .calendar-view-toggle button.active { color:var(--theme-accent)!important; border-bottom-color:var(--theme-accent)!important; }
+body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .calendar-view-toggle button.active { color:var(--porcelain-action-ink)!important; border-bottom-color:var(--theme-line)!important; }
 
 /* The editor is a subpage of real settings; it does not add a fictitious menu. */
 .provider-body[data-porcelain-editor-open] [data-provider-panel="settings"] .provider-section-nav,
@@ -159,6 +159,9 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(.date-navigation>.date-today-button,#dateStrip button.active) :is(span,strong,small,.ui-icon) {
   color:var(--porcelain-action-ink)!important;
 }
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #dateStrip>button.is-today:not(.active) {
+  border-color:var(--porcelain-quiet-mark)!important;
+}
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking:not(.status-block):not(.automatic-break):not(.status-cancelled) {
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
@@ -187,7 +190,7 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] .provider-nav button.active,
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .calendar-view-toggle button.active {
-  border-color:var(--theme-accent)!important;
+  border-color:var(--theme-line)!important;
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
   color:var(--porcelain-action-ink)!important;
@@ -199,14 +202,15 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
   color:var(--porcelain-action-ink)!important;
   background:var(--porcelain-action-bg)!important;
 }
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #newBookingButton,
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .provider-mobile-create {
-  border-color:var(--theme-accent)!important;
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] [data-provider-panel="bookings"] .schedule-view-title #newBookingButton.primary,
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #mobileNewBookingButton.primary {
+  border-color:var(--theme-line)!important;
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
   color:var(--porcelain-action-ink)!important;
 }
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(#newBookingButton,.provider-mobile-create) :is(span,.ui-icon) {
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] [data-provider-panel="bookings"] .schedule-view-title #newBookingButton.primary :is(span,.ui-icon,svg),
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #mobileNewBookingButton.primary :is(span,.ui-icon) {
   color:var(--porcelain-action-ink)!important;
 }
 @media (max-width:760px) {
@@ -225,8 +229,11 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard [data-provider-panel] :is(
   .primary:not(.danger):not(.danger-primary),
+  .schedule-quick-presets button.active,
+  .schedule-quick-days input:checked+span,
   .provider-section-nav button.active,
   .provider-theme-filter button.active,
+  .provider-client-theme-filters button.active,
   .notification-filters button.active,
   .report-periods button.active,
   .report-data-source button.active,
@@ -268,10 +275,32 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 
 /* Message activation is a regular action, not a danger state. */
 html body.provider-body[data-provider-theme="pink-porcelain"] .message-center-notice .message-center-enable,
-html body.provider-body[data-provider-theme="pink-porcelain"] .message-center-dialog-actions button[type="submit"] {
+html body.provider-body[data-provider-theme="pink-porcelain"] .message-center-dialog-actions button[type="submit"],
+html body.provider-body[data-provider-theme="pink-porcelain"] :is(.client-message-presets,.booking-time-hours) button.active,
+html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDialog [data-service-presets-next]:not(.danger),
+html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDialog [data-custom-service-footer] button.primary:not(.danger) {
   border-color:var(--theme-line)!important;
   background:var(--porcelain-action-bg)!important;
   color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDialog :is(#serviceForm :is(input,select,textarea,summary),[data-custom-service-footer] button.primary):focus-visible {
+  outline-color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDialog #serviceForm :is(input,select,textarea):focus {
+  border-color:var(--theme-line)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog :is(#copyFreeSlots,#updateFreeSlotsText) {
+  border-color:var(--theme-line)!important;
+  background:var(--porcelain-action-bg)!important;
+  background-image:none!important;
+  color:var(--porcelain-action-ink)!important;
+  text-shadow:none!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog :is(.secondary-button,#freeSlotsChangeDates) {
+  color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog .free-slots-actions button:focus-visible {
+  outline-color:var(--porcelain-action-ink)!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] :is(#clientRecords .cr-button,.booking-time-slots button.active,#freeSlotsDialog input:checked,#freeSlotsDialog input:checked+span,.retention-toggle>input:checked,.organization-checks input:checked,#inventoryEnabled:checked,#inventoryAutoDeduct:checked){border-color:var(--theme-line)!important;background:var(--porcelain-action-bg)!important;color:var(--porcelain-action-ink)!important;accent-color:var(--porcelain-action-bg)!important}
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] .retention-toggle>input:checked::after{background:var(--porcelain-action-ink)!important}
@@ -288,3 +317,11 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] :is(#inventoryItemActive:checked,#inventoryWarehouseActive:checked,#inventoryTransfersEnabled:checked) {
   accent-color:var(--porcelain-action-bg)!important;
 }
+html body.provider-body[data-provider-theme="pink-porcelain"] input[type="checkbox"]:checked:not(:is(#scheduleQuickBreak,#shiftHasBreak,[data-schedule-break],#editBookingFutureBreakColor,#newBookingFutureBreakColor)) { accent-color:var(--porcelain-action-bg)!important; }
+html body.provider-body[data-provider-theme="pink-porcelain"] #bookingSheet :is(.booking-repeat-actions [data-repeat-booking],#newBookingSubmit:not(:disabled)),
+html body.provider-body[data-provider-theme="pink-porcelain"] #bookingSheet.new-booking-card .booking-time-slots button.active {
+  border-color:var(--theme-line)!important;
+  background:var(--porcelain-action-bg)!important;
+  color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #bookingSheet.new-booking-card .new-booking-mode-toggle button.active::after { background:var(--porcelain-quiet-mark)!important; }

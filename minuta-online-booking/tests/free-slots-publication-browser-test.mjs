@@ -212,7 +212,8 @@ try {
   await page.evaluate(()=>{window.testNow='2026-09-06T13:01:00Z';});
   await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('18:00–20:00 · 2 часа'));
   await page.evaluate(()=>{window.serverFail=true;window.controller.refresh();});
-  await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('не опубликовано'));
+  await page.waitForFunction(()=>document.querySelector('#freeSlotsEmpty strong').textContent.includes('Актуальность не подтверждена'));
+  assert.ok((await text()).includes('18:00–20:00 · 2 часа'),'Last confirmed preview stays visible, but read-only, after a refresh error');
   assert.equal(await page.locator('#copyFreeSlots').isDisabled(),true);
   assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true);
   await page.evaluate(()=>{window.serverFail=false;window.generalWindows=[];window.controller.refresh();});

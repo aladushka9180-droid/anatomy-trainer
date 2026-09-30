@@ -17,6 +17,8 @@
     let availability = null;
     let requestRevision = 0;
     let selectedServiceId = '';
+    let resourceQuery = '';
+    let resourceLocationId = '';
     let writePending = false;
     let pendingOrganization;
 
@@ -42,6 +44,8 @@
       payload = null;
       availability = null;
       selectedServiceId = '';
+      resourceQuery = '';
+      resourceLocationId = '';
       writePending = false;
       pendingOrganization = undefined;
       $('#resourcesPanel').hidden = true;
@@ -70,6 +74,8 @@
       payload = null;
       availability = null;
       selectedServiceId = '';
+      resourceQuery = '';
+      resourceLocationId = '';
       return load();
     }
 
@@ -164,6 +170,34 @@
       $('#resourceRequirementSubmit').disabled = !payload.can_manage || !groups.length;
     }
 
+    function renderResourceList(canManage) {
+      const list = $('#resourcesList');
+      const normalized = resourceQuery.trim().toLocaleLowerCase('ru-RU');
+      const visible = payload.resources.filter(item =>
+        (!resourceLocationId || String(item.location_id) === resourceLocationId) &&
+        (!normalized || String(item.name || '').toLocaleLowerCase('ru-RU').includes(normalized)));
+      list.innerHTML = visible.length ? visible.map(item => resourceCard(item, canManage)).join('')
+        : payload.resources.length ? empty('Ничего не найдено', 'Измените название или филиал.')
+          : canManage ? '' : empty('Ресурсов пока нет', 'Администратор ещё не добавил ресурсы в филиалы.');
+      const count = $('#resourceListMatchCount');
+      if (count) count.textContent = `${visible.length} из ${payload.resources.length}`;
+    }
+
+    function renderResourceFilters() {
+      const list = $('#resourcesList');
+      if (!$('#resourceListFilters') && typeof list.insertAdjacentHTML === 'function') {
+        list.insertAdjacentHTML('beforebegin', '<div class="resource-list-filters" id="resourceListFilters"><label>Найти ресурс<input id="resourceListSearch" type="search" autocomplete="off" placeholder="Название кабинета или оборудования"></label><label>Филиал<select id="resourceListLocation" aria-label="Фильтр ресурсов по филиалу"></select></label><span id="resourceListMatchCount" role="status" aria-live="polite"></span></div>');
+      }
+      const filters = $('#resourceListFilters');
+      if (!filters) return;
+      filters.hidden = !payload.resources.length;
+      const locations = payload.locations.filter(item => payload.resources.some(resource => String(resource.location_id) === String(item.id)));
+      if (resourceLocationId && !locations.some(item => String(item.id) === resourceLocationId)) resourceLocationId = '';
+      $('#resourceListLocation').innerHTML = `<option value="">Все филиалы</option>${optionList(locations, resourceLocationId, item => item.name)}`;
+      $('#resourceListLocation').value = resourceLocationId;
+      $('#resourceListSearch').value = resourceQuery;
+    }
+
     function render() {
       if (availability !== 'ready' || !payload) return;
       const canManage = Boolean(payload.can_manage);
@@ -180,7 +214,8 @@
       $('#resourceGroupsCount').textContent = String(activeGroupCount);
       $('#resourceGroupsCount').hidden = activeGroupCount === 0;
       $('#resourceGroupsList').innerHTML = hasGroups ? payload.groups.map(item => groupCard(item, canManage)).join('') : canManage ? '' : empty('Групп ресурсов пока нет', 'Администратор ещё не создал группы ресурсов.');
-      $('#resourcesList').innerHTML = hasResources ? payload.resources.map(item => resourceCard(item, canManage)).join('') : canManage ? '' : empty('Ресурсов пока нет', 'Администратор ещё не добавил ресурсы в филиалы.');
+      renderResourceFilters();
+      renderResourceList(canManage);
       $('#resourceManagementGrid').dataset.resourceStep = hasGroups ? (hasResources ? 'ready' : 'resources') : 'groups';
       $('#resourceObjectsSection').hidden = !hasGroups;
       $('#resourceGroupCreator').hidden = !canManage;
@@ -309,6 +344,11 @@
     }
 
     function handleChange(event) {
+      if (event.target.id === 'resourceListLocation') {
+        resourceLocationId = event.target.value;
+        if (payload) renderResourceList(Boolean(payload.can_manage));
+        return;
+      }
       if (event.target.id !== 'resourceRequirementService') return;
       selectedServiceId = event.target.value;
       $('#resourceRequirementError').hidden = true;
@@ -322,6 +362,11 @@
     function bind() {
       document.addEventListener('submit', handleSubmit);
       document.addEventListener('change', handleChange);
+      document.addEventListener('input', event => {
+        if (event.target.id !== 'resourceListSearch') return;
+        resourceQuery = event.target.value;
+        if (payload) renderResourceList(Boolean(payload.can_manage));
+      });
       document.addEventListener('click', handleClick);
     }
 

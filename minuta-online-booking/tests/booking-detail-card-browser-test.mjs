@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {mkdirSync} from 'node:fs';
+import {mkdirSync,readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {startFixture} from './booking-detail-card-fixture.mjs';
 
@@ -13,6 +13,13 @@ try {
   // The fixture serves real renderers and the production stylesheet cascade, without any backend.
   await page.route('**/*',route=>route.request().url().startsWith(url)?route.continue():route.abort());
   await page.goto(url);
+  // Production configures Porcelain action colors through its palette matrix.
+  await page.addScriptTag({content:readFileSync(new URL('../provider-porcelain-matrix.js',import.meta.url),'utf8')});
+  await page.evaluate(()=>{
+    const palette=MinutaProviderPorcelainMatrix.paletteFor('petal','gentle-pink');
+    document.body.style.setProperty('--porcelain-action-bg',palette.actionBg);
+    document.body.style.setProperty('--porcelain-action-ink',palette.actionInk);
+  });
   assert.deepEqual(errors,[],'Actual booking renderer loads');
   await page.locator('.booking-sheet-reference').waitFor();
   for(const width of [360,390,760,1440]) {
@@ -50,7 +57,8 @@ try {
         const resolve=value=>{sample.style.color=value;return getComputedStyle(sample).color};
         const expected={surface:resolve(body.getPropertyValue('--theme-surface')),ink:resolve(body.getPropertyValue('--theme-ink')),
           accent:resolve(body.getPropertyValue('--theme-accent')),soft:resolve(body.getPropertyValue('--theme-accent-soft')),
-          contrast:resolve(body.getPropertyValue('--theme-accent-contrast')),surfaceAlt:resolve(body.getPropertyValue('--theme-surface-alt'))};
+          contrast:resolve(body.getPropertyValue('--theme-accent-contrast')),surfaceAlt:resolve(body.getPropertyValue('--theme-surface-alt')),
+          actionBg:resolve(body.getPropertyValue('--porcelain-action-bg')),actionInk:resolve(body.getPropertyValue('--porcelain-action-ink'))};
         sample.remove();
         return {expected,panel:panel.backgroundColor,ink:panel.color,close:close.backgroundColor,closeInk:close.color,
           primary:primary.backgroundColor,primaryInk:primary.color,soft:soft.backgroundColor,softInk:soft.color,
@@ -60,8 +68,8 @@ try {
       assert.equal(colors.ink,colors.expected.ink,`${theme}/${width}: text follows theme ink`);
       assert.equal(colors.close,colors.expected.surfaceAlt,`${theme}/${width}: close control follows theme surface`);
       assert.equal(colors.closeInk,colors.expected.ink,`${theme}/${width}: close icon stays readable`);
-      assert.equal(colors.primary,colors.expected.accent,`${theme}/${width}: primary action follows theme accent`);
-      assert.equal(colors.primaryInk,colors.expected.contrast,`${theme}/${width}: primary label follows theme contrast`);
+      assert.equal(colors.primary,theme==='pink-porcelain'?colors.expected.actionBg:colors.expected.accent,`${theme}/${width}: primary action follows selected action palette`);
+      assert.equal(colors.primaryInk,theme==='pink-porcelain'?colors.expected.actionInk:colors.expected.contrast,`${theme}/${width}: primary label follows selected action contrast`);
       assert.equal(colors.soft,colors.expected.soft,`${theme}/${width}: secondary actions follow theme tint`);
       assert.equal(colors.softInk,colors.expected.accent,`${theme}/${width}: secondary labels follow theme accent`);
       assert.ok(colors.overflow<=1,`${theme}/${width}: no horizontal overflow`);

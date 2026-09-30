@@ -118,11 +118,15 @@ try {
       }, { character, bg:expected.bg, accent:expected.accent });
       const todayState = await frame.locator('.date-today-button').evaluate(button => ({
         background:getComputedStyle(button).backgroundColor,
+        color:getComputedStyle(button).color,
+        neutralInk:getComputedStyle(document.body).getPropertyValue('--theme-ink').trim(),
         current:button.classList.contains('is-current')
       }));
       const action = expected.actionBg.match(/[a-f\d]{2}/gi).map(part => parseInt(part, 16));
       assert.equal(todayState.current,false,`${character}/${shade}: preview is dated away from today`);
-      assert.equal(todayState.background,'rgb(255, 255, 255)',`${character}/${shade}: Today must be neutral on another date`);
+      assert.equal(todayState.background,'rgba(0, 0, 0, 0)',`${character}/${shade}: flat mobile Today must have no filled background`);
+      const neutralInk = todayState.neutralInk.match(/[a-f\d]{2}/gi).map(part => parseInt(part, 16));
+      assert.equal(todayState.color,`rgb(${neutralInk.join(', ')})`,`${character}/${shade}: Today must use neutral text on another date`);
       await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainApply')).backgroundColor === color, `rgb(${action.join(', ')})`);
       assert.equal(await page.locator('#providerPorcelainApply').evaluate(button => getComputedStyle(button).backgroundColor), `rgb(${action.join(', ')})`, `${character}/${shade}: editor action must follow the draft shade`);
       await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainPreview').contentDocument.querySelector('#dateStrip button.active')).backgroundColor === color, `rgb(${action.join(', ')})`);

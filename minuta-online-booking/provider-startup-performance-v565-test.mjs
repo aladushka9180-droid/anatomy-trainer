@@ -85,7 +85,11 @@ const precacheBytes = assets.reduce((total, asset) => {
 // v1029 adds 2,431 measured bytes for the approved mobile controls and offline hooks
 // (3,788,986 -> 3,791,417 on aad905fb); reserve only 2.5 KB, keeping artwork optional.
 // Manual client-card navigation adds 902 measured bytes; allow 512 more than the v1029 reserve.
-assert.ok(precacheBytes <= 3.614 * 1024 * 1024 + 3012, `Core precache is too large: ${precacheBytes} bytes`);
+// v1047 confirmed-preview cache adds 5,477 measured bytes (0.15%); no new assets.
+// Keep this controller available offline; cap the exact integrated total without extra reserve.
+// v1048 X01 adds 825 measured bytes (0.022%) for closed-day rendering and late-load refresh.
+// These schedule rules must also work offline; no assets or unmeasured reserve are added.
+assert.ok(precacheBytes <= 3_798_677, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /try \{ await caches\.delete\(CACHE\); \} catch \{\}/,

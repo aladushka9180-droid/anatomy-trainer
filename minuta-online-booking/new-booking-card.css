@@ -4,6 +4,7 @@ body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .booking-
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .booking-sheet-close {width:44px;height:44px;min-height:44px;border:0;background:transparent;color:var(--card-ink);box-shadow:none;}
 #bookingSheet.new-booking-card #bookingSheetTitle {margin:10px 42px 16px 0;font-size:26px;line-height:1.2;letter-spacing:-.5px;}
 #bookingSheet.new-booking-card .new-booking-heading-context {display:none;}
+#bookingSheet.new-booking-card .new-booking-mode-toggle[hidden] {display:none;}
 #bookingSheet.new-booking-card .new-booking-mode-toggle {display:flex;gap:24px;padding:0;margin:0 0 18px;border:0;border-bottom:1px solid var(--card-line);border-radius:0;background:none;box-shadow:none;}
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .new-booking-mode-toggle button {position:relative;flex:none;min-height:46px;margin:0;padding:8px 0;border:0;border-radius:0;background:none;color:var(--card-muted);box-shadow:none;font-size:16px;font-weight:400;}
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .new-booking-mode-toggle button.active {color:var(--card-ink);font-weight:600;}
@@ -25,7 +26,9 @@ body.provider-body[data-provider-theme] #bookingSheet.new-booking-card #newBooki
 #bookingSheet.new-booking-card .new-booking-phone-actions {position:static;display:flex;flex:none;gap:2px;}
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .new-booking-phone-actions button {width:44px;min-width:44px;min-height:44px;margin:0;padding:10px;border:0;background:none;color:var(--card-accent);box-shadow:none;}
 #bookingSheet.new-booking-card #newBookingRecentCalls:not([hidden]) {width:auto;}
-#bookingSheet.new-booking-card #newBookingSelectedClient {display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:10px;align-items:center;margin:8px 0 18px;}
+#bookingSheet.new-booking-card #newBookingSelectedClient {display:grid;grid-template-columns:100px minmax(0,1fr);column-gap:18px;row-gap:0;align-items:center;margin:4px 0 18px;}
+#bookingSheet.new-booking-card .new-booking-selected-avatar {grid-row:1/3;display:grid;place-items:center;min-height:112px;}
+#bookingSheet.new-booking-card #newBookingSelectedClient>button {grid-column:2;justify-self:start;}
 #bookingSheet.new-booking-card .new-booking-selected-copy {min-width:0;}
 #bookingSheet.new-booking-card .new-booking-selected-copy strong {display:block;font-size:17px;line-height:1.25;overflow-wrap:anywhere;}
 #bookingSheet.new-booking-card .new-booking-selected-copy small {display:block;margin-top:6px;color:var(--card-muted);font-size:14px;overflow-wrap:anywhere;}
@@ -64,7 +67,7 @@ body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .booking-
 #bookingSheet.new-booking-card #newBookingSelectionSummary small {font-size:13px;color:var(--card-muted);}
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card #newBookingSubmit {width:100%;min-height:48px;margin:0;border:0;border-radius:10px;background:var(--card-accent);color:var(--theme-accent-contrast,#fff);font-size:16px;font-weight:600;box-shadow:none;}
 @media(max-width:760px) {body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .booking-sheet-panel {width:100%;max-height:96dvh;border-radius:26px 26px 0 0;}}
-@media(max-width:370px) {#bookingSheet.new-booking-card #newBookingSelectedClient {grid-template-columns:76px minmax(0,1fr);gap:8px;}#bookingSheet.new-booking-card #newBookingSelectedClient>button {grid-column:2;justify-self:start;}}
+@media(max-width:370px) {#bookingSheet.new-booking-card #newBookingSelectedClient {grid-template-columns:100px minmax(0,1fr);column-gap:16px;}}
 /* Override the existing global material/theme control rules in this form only. */
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .new-booking-mode-toggle,
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .new-booking-mode-toggle button {border-radius:0!important;background:transparent!important;}
@@ -75,3 +78,23 @@ body.provider-body:is([data-provider-theme="noir-rose"],[data-provider-theme="mi
   body.provider-body[data-provider-theme] #bookingSheet.new-booking-card #newBookingPhone {padding-inline:18px;}
   body.provider-body[data-provider-theme] #bookingSheet.new-booking-card #newBookingDate {padding-inline:18px;}
 }
+/* Compact selected-client state: the original controls remain the editor. */
+#bookingSheet.new-booking-card #newBookingWhen {display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:80px;padding:16px 0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--card-ink);text-align:left;font-weight:400;}
+#bookingSheet.new-booking-card #newBookingWhen>span {display:grid;gap:6px;min-width:0;font-size:15px;line-height:1.45;}
+#bookingSheet.new-booking-card #newBookingWhen small {color:var(--card-muted);font-size:13px;font-weight:400;}
+#bookingSheet.new-booking-card #newBookingWhen em {font-size:14px;font-style:normal;font-weight:400;color:var(--card-accent);}
+#bookingSheet.new-booking-card #newBookingWhen[hidden],#bookingSheet.new-booking-card #newBookingDateTimeEditor[hidden],#bookingSheet.new-booking-card #newBookingSelectionSummary span[hidden] {display:none;}
+#bookingSheet.new-booking-card #newBookingAdvancedSummary {display:block;margin-top:4px;font-size:12px;line-height:1.4;font-weight:400;color:var(--card-muted);}
+#bookingSheet.new-booking-card .new-booking-advanced>summary {display:block;position:relative;padding-right:40px;}
+#bookingSheet.new-booking-card .new-booking-advanced>summary::after {position:absolute;right:6px;top:14px;}
+#bookingSheet.new-booking-card #newBookingNote {min-height:88px;font-size:15px;font-weight:400;background:var(--card-soft);border-color:transparent;}
+#bookingSheet.new-booking-card #newBookingNote::placeholder {font-weight:400;}
+body.provider-body[data-provider-theme] #bookingSheet.new-booking-card #newBookingNote {background:var(--card-soft)!important;border-color:transparent!important;}
+#bookingSheet.new-booking-card #compactRepeatDetails {margin:0;padding:16px 0;border:0;border-top:1px solid var(--card-line);border-radius:0;background:none;box-shadow:none;}
+#bookingSheet.new-booking-card #compactRepeatDetails>summary {display:grid;gap:5px;position:relative;padding:0 90px 0 0;list-style:none;cursor:pointer;color:var(--card-ink);}
+#bookingSheet.new-booking-card #compactRepeatDetails>summary::-webkit-details-marker {display:none;}
+#bookingSheet.new-booking-card #compactRepeatDetails>summary::after {display:none;}
+#bookingSheet.new-booking-card #compactRepeatDetails>summary strong {font-size:18px;font-weight:600;line-height:1.3;overflow-wrap:anywhere;}
+#bookingSheet.new-booking-card #compactRepeatDetails>summary :is(small,span) {color:var(--card-muted);font-size:13px;font-weight:400;}
+#bookingSheet.new-booking-card #compactRepeatDetails>summary em {position:absolute;right:0;top:50%;font-size:12px;font-weight:400;font-style:normal;color:var(--card-accent);}
+#bookingSheet.new-booking-card #compactRepeatDetails #repeatVisitPreview {margin:16px 0 0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;}
