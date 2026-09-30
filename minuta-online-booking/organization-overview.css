@@ -28,9 +28,15 @@
   opacity: .75;
 }
 
+#shiftsPanel,
+#shiftWorkspace { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+
 #shiftsPanel .shift-week-overview {
   margin: 14px 0;
-  border: 1px solid var(--line, #d8dde2);
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--theme-line, #d8dde2);
   border-radius: 12px;
   padding: 12px;
 }
@@ -55,31 +61,33 @@
 
 #shiftsPanel .shift-week-controls span { margin-right: auto; }
 
-#shiftsPanel .shift-week-controls button { min-width: 40px; }
+#shiftsPanel .shift-week-controls button { flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; padding: 0; }
 
-#shiftsPanel .shift-week-scroll { max-width: 100%; overflow-x: auto; }
+#shiftsPanel .shift-week-scroll { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; }
 
 #shiftsPanel .shift-week-grid {
   display: grid;
   grid-template-columns: minmax(120px, 1.3fr) repeat(7, minmax(100px, 1fr));
   min-width: 840px;
   gap: 1px;
-  background: var(--line, #d8dde2);
-  border: 1px solid var(--line, #d8dde2);
+  background: var(--theme-line, #d8dde2);
+  border: 1px solid var(--theme-line, #d8dde2);
   border-radius: 8px;
   overflow: hidden;
 }
 
 #shiftsPanel .shift-week-grid > div {
   min-width: 0;
-  background: var(--surface, #fff);
+  background: var(--theme-surface, #fff);
   padding: 7px;
   font-size: .82em;
 }
 
 #shiftsPanel .shift-week-heading { font-weight: 600; }
 
-#shiftsPanel .shift-week-person { font-weight: 600; overflow-wrap: anywhere; }
+#shiftsPanel .shift-week-person { position: sticky; left: 0; z-index: 1; font-weight: 600; overflow-wrap: anywhere; }
+
+#shiftsPanel .shift-week-person.shift-week-heading { z-index: 2; }
 
 #shiftsPanel .shift-week-chip {
   display: grid;
@@ -87,7 +95,7 @@
   border-radius: 6px;
   padding: 5px;
   margin-bottom: 4px;
-  background: var(--surface-raised, #f1f4f6);
+  background: var(--theme-surface-alt, #f1f4f6);
   overflow-wrap: anywhere;
 }
 
@@ -111,4 +119,5 @@
 @media (max-width: 760px) {
   #resourceObjectsSection .resource-list-filters label { flex-basis: 100%; }
   #resourceListMatchCount { padding-bottom: 0; }
+  #shiftsPanel .shift-week-hint::after { content: ' Листайте дни по горизонтали.'; }
 }
