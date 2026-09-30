@@ -1,0 +1,13 @@
+diff --git a/minuta-online-booking/provider.html b/minuta-online-booking/provider.html
+--- a/minuta-online-booking/provider.html
++++ b/minuta-online-booking/provider.html
+@@ -1397,8 +1397,8 @@
+                 <div class="settings-heading"><small>Тариф и подписка</small><h3 id="subscriptionTitle">Полный доступ</h3><p>Оплата пока не включена: все функции кабинета доступны без выбора тарифа.</p></div>
+                 <span class="subscription-trial-badge">Оплата не включена</span>
+               </div>
+               <div data-contextual-help data-help-label="Как выбрать тариф?" data-help-slug="subscription-plans" data-help-question="Объясни, какой тариф подходит, кто считается принимающим специалистом, как учитываются филиалы и что оплачивается отдельно."></div>
+-              <p class="subscription-launch-note">До запуска оплаты ничего выбирать и оплачивать не нужно.</p>
++              <p class="subscription-launch-note">Сейчас доступ к кабинету действует без выбора тарифа и оплаты. Цены, лимиты и условия ниже относятся к будущим планам и сейчас не применяются. Перед запуском платного доступа действующие права и окончательные условия должны быть объявлены отдельно.</p>
+               <details class="subscription-plans-disclosure">
+                 <summary>Посмотреть будущие тарифы</summary>
+               <div class="subscription-pricing">
