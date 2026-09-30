@@ -165,8 +165,8 @@ try {
    assert.equal(desktop.dateBg,'rgba(0, 0, 0, 0)');assert.equal(desktop.iconInk,desktop.titleInk);assert.ok(desktop.iconWidth>=16);
    assert.equal(desktop.buttonHeight,36);assert.equal(desktop.buttonWeight,'500');assert.ok(desktop.months);
    await page.keyboard.press('Tab');
-   await page.locator('[data-calendar-view="week"]').focus();
-   assert.equal(await page.locator('[data-calendar-view="week"]').evaluate(e=>getComputedStyle(e).outlineStyle),'solid','Borderless tabs keep keyboard focus');
+   await page.locator('.calendar-view-toggle [data-calendar-view="week"]').focus();
+   assert.equal(await page.locator('.calendar-view-toggle [data-calendar-view="week"]').evaluate(e=>getComputedStyle(e).outlineStyle),'solid','Borderless tabs keep keyboard focus');
    await page.locator('#scheduleDatePicker').focus();
    assert.equal(await page.locator('.schedule-date-picker').evaluate(e=>getComputedStyle(e).outlineStyle),'solid','Borderless date picker keeps focus');
    await page.locator('.schedule-title-line h2').click();
