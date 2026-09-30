@@ -90,7 +90,7 @@ const OPTIONAL_ASSETS = [
   './statistics-audit-ui.js?v=1040',
   './statistics-audit-provider.js?v=1043',
   './client-results.css?v=876',
-  './provider-porcelain-detail.css?v=1036',
+  './provider-porcelain-detail.css?v=1044',
   './provider-schedule-type.css?v=933',
   './manrope-cyrillic-v20.woff2',
   './manrope-latin-v20.woff2',
