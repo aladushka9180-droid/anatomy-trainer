@@ -1,0 +1,65 @@
+diff --git a/minuta-online-booking/shift-management.js b/minuta-online-booking/shift-management.js
+index 7e11f331..108616da 100644
+--- a/minuta-online-booking/shift-management.js
++++ b/minuta-online-booking/shift-management.js
+@@ -8,2 +8,3 @@
+     schedule_enabled: 'Смены учитываются при онлайн-записи', schedule_disabled: 'Учёт смен при онлайн-записи выключен',
++    schedule_partial_coverage_confirmed: 'Подтверждено неполное покрытие горизонта записи',
+     booking_substituted: 'Специалист в записи заменён'
+@@ -247,2 +248,5 @@
+           ['existing_bookings_outside_shifts', 'Не все будущие записи попадают в подготовленные смены. Строгий режим не включён.'],
++          ['shift_coverage_zero', 'Нет смен на открытом горизонте записи. Добавьте смены перед включением строгого режима.'],
++          ['shift_coverage_confirmation_required', 'Неполное покрытие требует отдельного подтверждения. Повторите включение.'],
++          ['shift_coverage_preview_stale', 'Расписание изменилось. Проверьте покрытие и подтвердите его снова.'],
+           ['booking_outside_active_shift', 'Новый специалист не работает в этом филиале и в это время.'],
+@@ -319,3 +323,49 @@
+         const desired = event.target.checked;
+-        const ok = await mutate('set_minuta_branch_shifts_enabled', { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Смены учитываются при онлайн-записи' : 'Учёт смен при онлайн-записи выключен');
++        const button = event.target;
++        if (!requireWrites() || pending || !organization?.id || !payload) {
++          button.checked = Boolean(payload?.enabled);
++          return;
++        }
++        const organizationId = organization.id;
++        let confirmation = false;
++        let token = null;
++        if (desired) {
++          const userId = getCurrentUser()?.id;
++          const generation = getSessionGeneration();
++          const currentRevision = revision;
++          button.disabled = true;
++          let preview;
++          let previewError;
++          try {
++            ({ data: preview, error: previewError } = await db.rpc('preview_minuta_shift_coverage', { p_organization: organizationId }));
++          } catch (error) { previewError = error; }
++          button.disabled = false;
++          if (!sessionIsCurrent(userId, generation) || organization?.id !== organizationId || currentRevision !== revision || !payload) {
++            button.checked = Boolean(payload?.enabled);
++            return;
++          }
++          if (previewError || !preview || !['zero', 'partial', 'full'].includes(preview.status)) {
++            notify('Покрытие смен не удалось проверить. Строгий режим не включён.');
++            button.checked = Boolean(payload.enabled);
++            return;
++          }
++          if (preview.status === 'zero') {
++            notify('Нет смен на открытом горизонте записи. Добавьте смены перед включением строгого режима.');
++            button.checked = Boolean(payload.enabled);
++            return;
++          }
++          if (preview.status === 'partial') {
++            const missing = Array.isArray(preview.missing_dates) ? preview.missing_dates.join(', ') : '';
++            confirmation = window.confirm(`Смены есть на ${preview.covered_days} из ${preview.horizon_days} дней открытой записи (${preview.horizon_start} — ${preview.horizon_end}). Без смен: ${missing}. В эти дни клиент не сможет записаться. Включить строгий режим?`);
++            if (!confirmation) {
++              button.checked = Boolean(payload.enabled);
++              return;
++            }
++            token = preview.token;
++          }
++        }
++        const ok = await mutate('set_minuta_branch_shifts_enabled_v2', {
++          p_organization: organizationId, p_enabled: desired,
++          p_confirm_partial: confirmation, p_expected_token: token
++        }, button, desired ? 'Смены учитываются при онлайн-записи' : 'Учёт смен при онлайн-записи выключен');
+         if (!ok && payload) event.target.checked = Boolean(payload.enabled);
