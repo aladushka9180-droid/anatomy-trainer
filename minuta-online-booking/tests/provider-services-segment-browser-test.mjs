@@ -37,7 +37,17 @@ try {
 
     await entry.click();
     await page.locator('#servicePresetsDialog').waitFor({ state:'visible' });
+    const footerVisible = () => page.locator('[data-service-presets-next]').evaluate(el => {
+      const r = el.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= innerHeight && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2) === el;
+    });
+    assert.equal(await footerVisible(), true, `${width}: continue must be visible in the actual provider styles`);
     if (screenshotDir) await page.screenshot({ path:resolve(screenshotDir, `provider-services-presets-${theme}-${width}.png`), fullPage:true });
+    await page.locator('.service-profession-chip').filter({ has:page.locator('[value="massage_therapist"]') }).click();
+    await page.locator('[data-service-presets-next]').click();
+    assert.equal(await page.locator('#servicePresetsTitle').innerText(), 'Типичные услуги');
+    await page.locator('[data-service-presets-more]').click();
+    assert.equal(await footerVisible(), true, `${width}: expanded list must keep the action visible`);
     await page.locator('[data-close-service-presets]').click();
     await page.locator('#servicePresetsDialog').waitFor({ state:'hidden' });
     assert.equal(await entry.isVisible(), true);
