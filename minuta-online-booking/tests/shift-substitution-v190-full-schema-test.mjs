@@ -1,23 +1,22 @@
-// Run only against an empty local PostgreSQL 17 clone of the test schema.
-// The entire fixture, apply, rollback and reapply cycle is rolled back.
+// Run against an empty schema fixture or an externally attested, fully restored
+// local PostgreSQL 17 disposable database. All A04 changes roll back.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { assertA04RestoreServer, validateA04TargetEnv } from './shift-substitution-v190-target.mjs';
 
 const root = new URL('../', import.meta.url);
-const endpoint = new URL(process.env.MINUTA_TEST_DATABASE_URL);
-assert.equal(process.env.MINUTA_A04_EPHEMERAL_CONFIRM, 'SCHEMA_ONLY_EMPTY_DATABASE');
-assert.ok(['127.0.0.1', 'localhost'].includes(endpoint.hostname));
-assert.equal(endpoint.pathname, '/a04-shifts-fixture');
-assert.equal(process.env.MINUTA_TEST_PROJECT_REF, 'a04-shifts-fixture');
+const target = validateA04TargetEnv(process.env);
 execFileSync(process.execPath, [fileURLToPath(new URL('scripts/migration-config-guard.mjs', root))], { stdio:'inherit' });
 const pg = await import(process.env.MINUTA_PG_MODULE ? pathToFileURL(process.env.MINUTA_PG_MODULE).href : 'pg');
 const Client = pg.Client || pg.default?.Client;
 const db = new Client({ connectionString:process.env.MINUTA_TEST_DATABASE_URL,
   application_name:'a04-shifts-full-schema-isolated' });
 await db.connect();
+try { await assertA04RestoreServer(db.query.bind(db), target); }
+catch (error) { await db.end(); throw error; }
 const q = async (sql, parameters=[]) => (await db.query(sql, parameters)).rows;
 const one = async (sql, parameters=[]) => Object.values((await q(sql, parameters))[0])[0];
 const sqlFile = name => readFileSync(new URL(name, root), 'utf8').replace(/\r\n/g, '\n');
@@ -41,9 +40,11 @@ try {
   assert.equal(await one(`select count(*)::int from minuta_migration_guard.target
     where project_ref=$1 and allow_migrations is true`, [process.env.MINUTA_TEST_PROJECT_REF]), 1);
   assert.equal(await one('select current_setting(\'server_version_num\')::int / 10000'), 17);
-  assert.equal(await one('select count(*)::int from public.bookings'), 0, 'clone must contain schema only');
-  assert.equal(await one('select count(*)::int from public.organizations'), 0, 'clone must contain no organizations');
-  assert.equal(await one('select count(*)::int from auth.users'), 0, 'clone must contain no users');
+  if (!target.restore) {
+    assert.equal(await one('select count(*)::int from public.bookings'), 0, 'clone must contain schema only');
+    assert.equal(await one('select count(*)::int from public.organizations'), 0, 'clone must contain no organizations');
+    assert.equal(await one('select count(*)::int from auth.users'), 0, 'clone must contain no users');
+  }
   originalRead = await one("select pg_get_functiondef('public.get_minuta_shift_workspace(uuid,date,date)'::regprocedure)");
   originalWrite = await one("select pg_get_functiondef('public.substitute_minuta_booking(uuid,uuid,uuid)'::regprocedure)");
   assert.ok(!originalRead.includes('is_schedule_block'), 'baseline must still expose the A04 read defect');
@@ -52,16 +53,20 @@ try {
   fixture = (await q(`select current_setting('v123.actor') actor,current_setting('v123.org') org,
     current_setting('v123.loc') loc,current_setting('v123.service') service,
     current_setting('v123.date') date`))[0];
-  const nextActor = randomUUID(), nextService = randomUUID();
+  const nextActor = randomUUID(), adminActor = randomUUID(), nextService = randomUUID();
   await db.query('set local session_replication_role=replica');
   await db.query(`insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,
     raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
     values($1,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
-    $2,now(),'{}','{}',now(),now())`, [nextActor, `${nextActor}@example.invalid`]);
+    $2,now(),'{}','{}',now(),now()),
+    ($3,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+    $4,now(),'{}','{}',now(),now())`, [nextActor, `${nextActor}@example.invalid`, adminActor, `${adminActor}@example.invalid`]);
   await db.query('set local session_replication_role=origin');
   await db.query('insert into public.performer_profiles(id,display_name) values($1,$2)', [nextActor, 'A04 synthetic replacement']);
   await db.query(`insert into public.organization_memberships(organization_id,user_id,role,is_bookable,active)
     values($1,$2,'specialist',true,true)`, [fixture.org, nextActor]);
+  await db.query(`insert into public.organization_memberships(organization_id,user_id,role,is_bookable,active)
+    values($1,$2,'admin',false,true)`, [fixture.org, adminActor]);
   await db.query(`insert into public.services(id,performer_id,name,duration_minutes,price_rub,active)
     values($1,$2,'A04 synthetic alternative',60,1000,true)`, [nextService, nextActor]);
   const technicalServices = [randomUUID(), randomUUID()];
@@ -135,6 +140,16 @@ try {
   assert.ok(workspace.bookings.every(item => item.is_schedule_block === false));
   for (const block of blocks)
     await rejected(() => substitute(block, nextService), '55000', 'schedule_block_substitution_denied');
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)", [adminActor]);
+  assert.equal((await one('select public.get_minuta_shift_workspace($1,$2,$2)', [fixture.org, fixture.date])).current_role, 'admin');
+  for (const block of blocks)
+    await rejected(() => substitute(block, nextService), '55000', 'schedule_block_substitution_denied');
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)", [nextActor]);
+  const specialistWorkspace = await one('select public.get_minuta_shift_workspace($1,$2,$2)', [fixture.org, fixture.date]);
+  assert.equal(specialistWorkspace.current_role, 'specialist');
+  assert.equal(specialistWorkspace.can_manage_team, false);
+  await rejected(() => substitute(clientAfterReapply, nextService), '42501', 'booking_substitution_denied');
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)", [fixture.actor]);
   assert.equal(await substitute(client, nextService), true);
   await db.query('reset role');
   assert.equal(await blockState(), beforeBlock);
@@ -156,7 +171,7 @@ try {
   assert.equal(await substitute(clientAfterReapply, nextService), true);
   await db.query('reset role');
   assert.equal(await blockState(), beforeBlock);
-  console.log('PASS: isolated full schema v190 apply twice, block refusal/preservation, client substitution, rollback denial, reapply');
+  console.log(`PASS: ${target.restore ? 'attested full restore' : 'empty schema'} v190 apply twice, block refusal/preservation, owner/admin/specialist, client substitution, rollback denial, reapply`);
 } catch (error) {
   console.error(JSON.stringify({ error:error.message, code:error.code }));
   process.exitCode = 1;
