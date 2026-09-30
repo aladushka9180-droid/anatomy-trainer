@@ -24,7 +24,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="styles.css?v=1039">
   <link rel="stylesheet" href="provider-connection-guidance.css?v=1007">
-  <template data-provider-feature="statistics"><link rel="stylesheet" href="statistics-audit-ui.css?v=1040"></template>
+  <template data-provider-feature="statistics"><link rel="stylesheet" href="statistics-audit-ui.css?v=1041"></template>
   <link rel="stylesheet" href="messages-center.css?v=886">
   <link rel="stylesheet" href="finance-center.css?v=1040">
   <link rel="stylesheet" href="utm-funnel.css?v=811">
@@ -773,7 +773,7 @@
               <div class="money-dashboard-grid"><section><div class="resource-subhead"><div><small>За выбранный период</small><strong>Структура расходов</strong></div></div><div id="moneyExpenseStructure"></div></section><section><div class="resource-subhead"><div><small>Единый денежный журнал</small><strong>Последние операции</strong></div></div><div class="organization-list" id="moneyRecentOperations"></div></section></div>
             </div>
           </section>
-          <div class="report-secondary" data-report-section="overview" aria-label="Дополнительные показатели"><article><small>Средняя оплата за визит</small><strong id="reportAverage">0 ₽</strong></article><article class="report-action-metric" id="reportPendingMetric" role="button" tabindex="0" title="Открыть записи, требующие завершения"><small>Требуют завершения</small><strong id="reportPending">0</strong><span>Открыть записи</span></article><article class="report-zero-summary" id="reportZeroSummary" hidden><small>В порядке</small><strong id="reportZeroSummaryText">Все визиты отмечены</strong></article></div>
+          <div class="report-secondary" data-report-section="overview" aria-label="Дополнительные показатели"><article><small>Средняя оплата за визит</small><strong id="reportAverage">0 ₽</strong></article><article class="report-action-metric" id="reportPendingMetric" role="button" tabindex="0" title="Открыть записи, требующие завершения"><small>Требуют завершения</small><strong id="reportPending">0</strong><span>Открыть записи</span></article><article class="report-zero-summary" id="reportZeroSummary" hidden><small>В порядке</small><strong id="reportZeroSummaryText">Все визиты отмечены</strong></article><details class="report-calculation"><summary>Как считается средняя оплата</summary><p id="reportAverageCalculation">Расчёт появится после загрузки данных.</p></details></div>
           <section class="report-reconciliation" id="reportReconciliation" data-report-section="overview" aria-live="polite"></section>
           <section class="panel report-trend" data-report-section="overview" aria-labelledby="reportTrendTitle">
             <div class="panel-head">
@@ -863,9 +863,12 @@
                 <span>Свободно <b id="reportFreeHours">0 ч</b></span>
               </div>
               <p id="reportUtilizationNote">Учитываются рабочие часы без перерывов и закрытого времени.</p>
+              <details class="report-calculation"><summary>Как считаются время и загрузка</summary><p id="reportDurationCalculation">Расчёт появится после загрузки данных.</p><p id="reportUtilizationCalculation">Нужен полный рабочий график выбранной области.</p></details>
             </section>
             <section class="panel report-business-card report-retention" data-report-section="clients" aria-labelledby="reportRetentionTitle">
               <div class="report-section-heading"><div><small>Возврат клиентов</small><h3 id="reportRetentionTitle">Клиенты после перерыва</h3></div></div>
+              <p class="report-scope-note">По всей организации. Период и сотрудник выше не применяются.</p>
+              <details class="report-calculation"><summary>Условия отбора клиентов</summary><p id="reportRetentionConditions">Сроки отбора появятся после загрузки сегмента. Нужны согласие на обращение и отсутствие предстоящей записи. Сообщения не отправляются автоматически.</p></details>
               <div class="report-retention-list">
                 <article><span>Можно связаться</span><strong id="reportRetentionEligible">0</strong></article>
                 <article><span>Постоянные после перерыва</span><strong id="reportRetentionRegular">0</strong></article>
@@ -877,6 +880,7 @@
           </div>
           <section class="panel report-performers" id="reportPerformers" data-report-section="team" aria-labelledby="reportPerformersTitle">
             <div class="report-section-heading"><div><small>Команда</small><h3 id="reportPerformersTitle">Рейтинг сотрудников</h3></div><span id="reportTeamPeriod">Выбранный период</span></div>
+            <button id="reportShowAllTeam" class="secondary-button compact-button" type="button" hidden>Вся команда</button>
             <div class="report-team-controls" role="group" aria-label="Показатель рейтинга сотрудников">
               <button class="active" type="button" data-report-team-metric="revenue" aria-pressed="true">Выручка</button>
               <button type="button" data-report-team-metric="payroll" aria-pressed="false">Заработок</button>
@@ -2210,7 +2214,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=1040" defer></script>
+  <script src="site-update.js?v=1041" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2274,11 +2278,11 @@
   <script src="new-booking-card.js?v=1" defer></script>
   <script src="provider-connection-guidance.js?v=1036" defer></script>
   <script src="schedule-break-icons.js?v=1023" defer></script>
-  <script src="provider.js?v=1040" defer></script>
+  <script src="provider.js?v=1041" defer></script>
   <script src="provider-porcelain-detail.js?v=946" defer></script>
   <script src="provider-help-workspace.js?v=1022" defer></script>
   <script src="service-presets.js?v=811" defer></script>
-  <script src="primetime-handoff.js?v=1040" defer></script>
+  <script src="primetime-handoff.js?v=1041" defer></script>
   <template data-provider-feature="scanner"><script src="code-scanner.js?v=1004"></script></template>
 </body>
 </html>

@@ -38,7 +38,7 @@ await oldRequest;
 assert.equal(receiptScope.reportScopedBookingsState.key,'new-scope');
 assert.equal(receiptScope.reportScopedBookingsState.receivedAt,undefined);
 const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange',
-  'setReportFiltersExpanded','reportHours','reportVisitWord','reportClientWord','renderReportTeamRows','reportFreshnessLabel',
+  'setReportFiltersExpanded','reportHours','reportVisitWord','reportClientWord','renderReportTeamRows','reportFreshnessLabel','renderReportCalculationDetails','renderReportRetention','renderReportUtilization',
   'reportServiceValue','reportReceivedAmount','reportImportedValue','reportDebtAmount','reportEffectivePerformerId','reportReconciledTeamRows','reportExportValue','reportExportDuration',
   'reportExportSheets','reportExportCell','reportExportPhone','reportExportMaster','reportExportPerformers','reportExportCreator','reportCurrentTeamRows','reportCurrentEventRows','renderAnalytics',
   'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','exportBookingsXlsx','exportBookingsCsv','retryReportScopedBookings',
@@ -65,7 +65,9 @@ const script=`
   var reportPerformerName=()=> 'Тестовый мастер',reportEventTitle=()=>'';
   var setReportText=(s,v)=>{const n=$(s);if(n)n.textContent=v;},setReportSubview=()=>{},updateReportFilterSummary=()=>{},previousReportRange=()=>null,setReportTrend=()=>{},setReportComparison=()=>{};
   var reportForecastEnd=r=>r.end,retryCalls=[],loadReportScopedBookings=(query,performer)=>{retryCalls.push({query,performer});reportScopedBookingsState.status='loading';};
-  var bookingIsCompleted=()=>true,renderReportUtilization=()=>40,renderReportRetention=()=>{},loadReportTeamAnalytics=()=>{},renderReportUtmFunnel=()=>{},loadReportUtmFunnel=()=>{},loadReportEvents=()=>{};
+  var bookingIsCompleted=()=>true,loadReportTeamAnalytics=()=>{},renderReportUtmFunnel=()=>{},loadReportUtmFunnel=()=>{},loadReportEvents=()=>{};
+  var availableMinutes=600,reportAvailableScheduleMinutes=()=>availableMinutes,reportAvailabilityState={status:'ready',total:1,configured:1};
+  var retentionController={availability:'ready',payload:{organization_id:'org-A',inactivity_days:45,cooldown_days:90,clients:[],deliveries:[]}};
   var renderReportFunnel=()=>{},renderReportHeatmap=()=>{},renderReportCommandCenter=()=>{},providerPerformance={measure:()=>1,record(){}};
   var pendingNavigation=[],bookingStatusFilter='all',setJournalMode=v=>pendingNavigation.push(['mode',v]),setFilter=v=>pendingNavigation.push(['filter',v]),setProviderView=v=>pendingNavigation.push(['view',v]);
   document.addEventListener('click',event=>{const openPendingBookings=event.target.closest('[data-open-pending-bookings]');
@@ -78,6 +80,7 @@ const script=`
   ${moduleSource}
   ${names.map(declaration).join('\n')}
   var actualLoadReportScopedBookings=${declaration('loadReportScopedBookings')};
+  var actualLoadReportTeamAnalytics=${declaration('loadReportTeamAnalytics')},reportRangeDays=()=>30,renderReportPerformerFilter=()=>{};
   var bookingUsesDemoData=()=>false,sessionIsCurrent=(id,generation)=>id===currentUser.id&&generation===sessionGeneration;
   var reportQueryWindows=r=>[r],rpcCalls=0,reportResponse,db={rpc:()=>{rpcCalls++;return new Promise(resolve=>reportResponse=resolve);}};
   ${source.slice(source.indexOf("$('#reportLoadState')?.addEventListener("),source.indexOf('\n});',source.indexOf("$('#reportLoadState')?.addEventListener("))+4)}
@@ -89,6 +92,7 @@ const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANN
 try{
   for(const width of [390,760,1440]){
     const context=await browser.newContext({viewport:{width,height:950},serviceWorkers:'block'}),page=await context.newPage(),errors=[];
+    const capture=async(name,selector)=>{if(!process.env.REPORT_CALCULATION_ARTIFACT_DIR)return;await page.evaluate(()=>{document.querySelectorAll('[data-report-view]').forEach(button=>{const active=button.dataset.reportView===document.querySelector('#analyticsView').dataset.reportTab;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});document.querySelectorAll('[data-report-period]').forEach(button=>button.classList.toggle('active',button.dataset.reportPeriod===range.period));document.querySelector('#reportFilterSummary').textContent=reportDateText(range.start,{day:'numeric',month:'short',year:'numeric'})+' — '+reportDateText(range.end,{day:'numeric',month:'short',year:'numeric'})+' · '+(!reportPerformerFilter||reportPerformerFilter==='all'?'Вся команда':'Тестовый мастер');});await mkdir(process.env.REPORT_CALCULATION_ARTIFACT_DIR,{recursive:true});await page.locator(selector).scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.REPORT_CALCULATION_ARTIFACT_DIR,`${name}-${width}.png`)});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${name}: overflow at ${width}px`);};
     page.on('pageerror',error=>errors.push(error.message));
     await context.route('**/*',route=>route.request().url()==='https://analytics.test/'?route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="ru"><body></body></html>'}):route.abort());
     await page.goto('https://analytics.test/');
@@ -98,6 +102,17 @@ try{
     await page.evaluate(()=>renderAnalytics());
     const number=async id=>Number((await page.locator(id).textContent()).replace(/[^0-9-]/g,''));
     assert.equal(await number('#reportRevenue'),700);assert.equal(await number('#reportCompletedValue'),2300);assert.equal(await number('#reportPaymentUnknownValue'),1000);assert.equal(await number('#reportDebt'),600);assert.equal(await number('#reportAverage'),350);
+    await page.getByText('Как считается средняя оплата',{exact:true}).press('Enter');
+    assert.match(await page.locator('#reportAverageCalculation').innerText(),/700 ₽ получено ÷ 2 визита.*350 ₽.*без отметки оплаты: 1.*нулевая оплата входит/);
+    await capture('average','#reportAverageCalculation');
+    await page.getByText('Как считается средняя оплата',{exact:true}).press('Space');
+    assert.equal(await page.locator('#reportAverageCalculation').isVisible(),false);
+    assert.match(await page.locator('#reportDurationCalculation').textContent(),/150 мин.*фактическая длительность.*плановая.*С плановой длительностью: 2/);
+    assert.match(await page.locator('#reportUtilizationCalculation').textContent(),/150 ÷ 600 × 100 = 25%/);
+    await page.evaluate(()=>{availableMinutes=null;renderAnalytics();});
+    assert.match(await page.locator('#reportUtilizationCalculation').textContent(),/Процент недоступен/);
+    assert.equal(await page.locator('#reportUtilizationPercent').textContent(),'—');
+    await page.evaluate(()=>{availableMinutes=600;renderAnalytics();});
     assert.match(await page.locator('#reportPaymentUnknown').textContent(),/1 визит/);
     assert.match(await page.locator('#reportUnpaid').textContent(),/2 визита.*подтверждённым долгом/);
     assert.match(await page.locator('#reportPaymentEvidence').textContent(),/2 из 3/);
@@ -174,7 +189,22 @@ try{
     assert.match(await page.locator('#reportClientsEmptyText').textContent(),/Нет состоявшихся визитов.*1.*янв.*2025.*7.*янв.*2025/);
     assert.match(await page.locator('#reportInsight').textContent(),/нет состоявшихся визитов/);
     assert.equal(await page.locator('.report-clients .report-metric-row').isVisible(),false);
-    assert.equal(await page.locator('.report-retention').isVisible(),false);
+    assert.equal(await page.locator('.report-retention').isVisible(),true,'Organization retention is independent of the empty visit period');
+    assert.match(await page.locator('.report-retention .report-scope-note').innerText(),/По всей организации.*Период и сотрудник выше не применяются/);
+    await page.getByText('Условия отбора клиентов',{exact:true}).click();
+    assert.match(await page.locator('#reportRetentionConditions').innerText(),/последнего завершённого визита.*предыдущего обращения.*согласие.*отсутствие предстоящей записи/);
+    assert.doesNotMatch(await page.locator('#reportRetentionConditions').innerText(),/45 дн|90 дн/,'Normalized fallback values must not be presented as confirmed server thresholds');
+    await capture('retention','.report-retention');
+    await page.evaluate(()=>{retentionController.payload.organization_id='other-org';renderReportRetention();});
+    assert.doesNotMatch(await page.locator('#reportRetentionConditions').textContent(),/45 дн|90 дн/);
+    assert.equal(await page.locator('#reportRetentionEligible').textContent(),'—');
+    await page.evaluate(()=>{retentionController.payload.organization_id='org-A';retentionController.availability='error';renderReportRetention();});
+    assert.doesNotMatch(await page.locator('#reportRetentionConditions').textContent(),/45 дн|90 дн/);
+    await page.evaluate(()=>{retentionController.availability='ready';reportDataSource='demo';renderReportRetention();});
+    assert.match(await page.locator('#reportRetentionConditions').textContent(),/Для демо-данных/);
+    assert.doesNotMatch(await page.locator('#reportRetentionConditions').textContent(),/45 дн|90 дн/);
+    await page.evaluate(()=>{reportDataSource='own';renderReportRetention();});
+    await page.getByText('Условия отбора клиентов',{exact:true}).click();
     assert.equal(await page.locator('.report-summary').isVisible(),false);
     if(process.env.REPORT_CLIENT_EMPTY_ARTIFACT_DIR){await mkdir(process.env.REPORT_CLIENT_EMPTY_ARTIFACT_DIR,{recursive:true});await page.locator('#analyticsView').screenshot({path:path.join(process.env.REPORT_CLIENT_EMPTY_ARTIFACT_DIR,`empty-clients-${width}.png`)});}
     await page.evaluate(()=>{setReportFiltersExpanded(true);$('.report-periods [data-report-period].active')?.focus();});
@@ -199,12 +229,47 @@ try{
     assert.equal(await page.locator('.report-summary').isVisible(),false,'Client metrics should lead the populated Clients tab');
     if(process.env.REPORT_N07_ARTIFACT_DIR){await mkdir(process.env.REPORT_N07_ARTIFACT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.REPORT_N07_ARTIFACT_DIR,`clients-${width}.png`),fullPage:false});}
     await page.evaluate(()=>{$('#analyticsView').dataset.reportTab='team';});
+    await page.getByText('Как считаются время и загрузка',{exact:true}).click();
+    await capture('duration','#reportUtilizationCalculation');
+    await page.getByText('Как считаются время и загрузка',{exact:true}).click();
     assert.equal(await page.locator('.report-summary').isVisible(),false,'Team metrics should lead the Team tab');
     await page.evaluate(()=>{reportCanViewTeam=true;renderReportTeamRows([]);});
     assert.match(await page.locator('#reportPerformersList .report-team-person small').first().textContent(),/1 клиент · 2,5 ч/);
     assert.match(await page.locator('#reportPerformersList .report-performer-value').first().textContent(),/2,5 ч/);
     await page.locator('[data-report-team-metric="visits"]').click();
     assert.match(await page.locator('#reportPerformersList .report-performer-value').first().textContent(),/3 визита/);
+    await page.locator('[data-report-team-metric="hours"]').click();
+    await page.evaluate(()=>{
+      $('#reportPerformerFilterWrap').hidden=false;
+      setReportFiltersExpanded(true);
+      $('#reportPerformerFilter').innerHTML='<option value="all">Вся команда</option><option value="master-A">Тестовый мастер</option>';
+      $('#reportPerformerFilter').addEventListener('change',event=>{reportPerformerFilter=event.target.value;renderReportTeamRows([]);});
+      reportTeamAnalyticsState.rows.push({performer_id:'master-B',performer_name:'Другой сотрудник',payroll_rub:99999});
+    });
+    await page.locator('#reportPerformerFilter').selectOption('master-A');
+    assert.equal(await page.locator('#reportPerformersTitle').innerText(),'Результаты сотрудника');
+    assert.equal(await page.locator('#reportPerformersList .report-team-rank').count(),0);
+    assert.equal(await page.locator('#reportPerformersList .is-leader').count(),0);
+    assert.doesNotMatch(await page.locator('#reportPerformersList').innerText(),/Другой сотрудник|99999|Лидер/);
+    assert.match(await page.locator('#reportPerformersList').innerText(),/2,5 ч/);
+    await capture('personal','#reportPerformers');
+    await page.locator('[data-report-team-metric="payroll"]').click();
+    assert.match(await page.locator('#reportPerformersList').innerText(),/-321 ₽/);
+    await page.evaluate(()=>{reportTeamAnalyticsState.rows[0].payroll_rub=null;renderReportTeamRows([]);});
+    assert.match(await page.locator('#reportPerformersList').innerText(),/Схема начисления не задана/);
+    await page.evaluate(async()=>{window.savedTeamState=reportTeamAnalyticsState;window.savedRpc=db.rpc;db.rpc=async()=>({data:null,error:{code:'network_error'}});await actualLoadReportTeamAnalytics({start:'2026-08-01',end:'2026-08-31'});});
+    assert.match(await page.locator('#reportPerformersList').innerText(),/Не удалось загрузить показатели/);
+    assert.doesNotMatch(await page.locator('#reportPerformersList').innerText(),/2,5 ч|-321|99999/,'Failed period change must clear prior personal metrics');
+    await page.locator('[data-report-team-metric="hours"]').click();
+    assert.match(await page.locator('#reportPerformersList').innerText(),/Не удалось загрузить показатели/,'Metric switch cannot revive stale rows after load failure');
+    await page.evaluate(()=>{reportTeamAnalyticsState=window.savedTeamState;db.rpc=window.savedRpc;renderReportTeamRows([]);});
+    await page.evaluate(()=>{reportCanViewTeam=false;renderReportTeamRows([]);});
+    assert.equal(await page.locator('#reportPerformers').isVisible(),false,'No staff permission means no personal salary panel');
+    await page.evaluate(()=>{reportCanViewTeam=true;reportTeamAnalyticsState.rows[0].payroll_rub=-321;reportTeamAnalyticsState.rows.pop();renderReportTeamRows([]);});
+    await page.locator('#reportShowAllTeam').click();
+    assert.equal(await page.locator('#reportPerformerFilter').inputValue(),'all');
+    assert.equal(await page.locator('#reportPerformersTitle').innerText(),'Рейтинг сотрудников');
+    assert.deepEqual(await page.evaluate(()=>range),{start:'2026-09-01',end:'2026-09-30',period:'month'});
     await page.locator('[data-report-team-metric="hours"]').click();
     if(process.env.REPORT_LANGUAGE_ARTIFACT_DIR){await mkdir(process.env.REPORT_LANGUAGE_ARTIFACT_DIR,{recursive:true});await page.locator('#reportPerformers').screenshot({path:path.join(process.env.REPORT_LANGUAGE_ARTIFACT_DIR,`language-team-${width}.png`)});}
     await page.evaluate(()=>{reportCanViewTeam=false;});

@@ -23,7 +23,7 @@ try {
       var $=selector=>document.querySelector(selector), $$=selector=>[...document.querySelectorAll(selector)];
       var reportRange=()=>({start:'2026-09-01',end:'2026-09-30'}), reportBookings=()=>[], reportCompletedItems=items=>items;
       var reportReconciledTeamRows=()=>fixture, setReportText=(selector,value)=>$(selector).textContent=value;
-      var reportVisitWord=()=> 'визита', reportHours=()=> '3 ч', money=value=>value+' ₽';
+      var reportVisitWord=()=> 'визита', reportClientWord=()=> 'клиента', reportHours=()=> '3 ч', money=value=>value+' ₽';
       var escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
       ${renderer}
       renderReportTeamRows([]);
