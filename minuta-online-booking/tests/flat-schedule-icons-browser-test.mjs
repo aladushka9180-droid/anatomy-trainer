@@ -52,6 +52,9 @@ try {
  ${actual('renderMobileNavigation')}
  let displayPreferences={break_icons:{automatic:'pause',bookings:{}},show_notes:false};
  let selectedDate='2026-09-26',recentlyCreatedBookingId='';
+ const scheduleDirty=false,daysOff=[],scheduleRows=[{weekday:6,enabled:true}],parseLocalIsoDate=v=>new Date(v+'T12:00:00');
+ ${actual('scheduleStateForDate')}
+ ${actual('scheduleEmptyDayLabel')}
  const businessTodayIso=()=> '2026-09-28',automaticBookingBreaks=()=>[],timelineBounds=()=>({start:600,end:1050}),stackMinuteTimelineItems=()=>{};
  const minutesFromTime=t=>Number(t.slice(0,2))*60+Number(t.slice(3,5)),timeFromMinutes=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
  const bookingStatus=i=>i.status,bookingStatusClass=i=>i.status,isScheduleBlock=i=>i.status==='block',bookingDisplayNote=()=>'',compactBookingCardsEnabled=()=>false;
@@ -62,7 +65,7 @@ try {
  ${actual('renderTimeline')}
  let automaticBreakSheetInvoker=null;
  const automaticBookingBreaksRemoteAvailable=false, AUTOMATIC_BREAK_COLOR_KEYS=['neutral','theme'],BOOKING_COLOR_LABELS={};
- const parseLocalIsoDate=v=>new Date(v+'T12:00:00'),applyWriteAvailability=()=>{};
+ const applyWriteAvailability=()=>{};
  ${actual('openAutomaticBreakSheet')}
  window.fixtureOpenAuto=()=>openAutomaticBreakSheet($('[data-open-automatic-break]'));
  window.redraw=()=>renderTimeline(items);redraw();
