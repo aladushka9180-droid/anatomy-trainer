@@ -32,7 +32,7 @@ PGHOST=127.0.0.1 PGPORT=5432 psql -U postgres -d postgres -X -q \
   -f /tmp/export-probe/minuta-online-booking/tests/report-export-owner-scope-full-schema.sql
 ```
 
-The runner requires the exact marker, `postgres` database and loopback connection before reading any business table. It rejects an existing export candidate, requires the existing legacy report functions and tables, and never calls an external service. A failure ends the psql session with an open transaction, which PostgreSQL rolls back. On success the runner explicitly rolls back; the sole success line is `report export full-schema apply/roles/scope/legacy/rollback/reapply: ok`.
+The runner requires the exact marker, `postgres` database and TCP loopback connection before reading any business table. A Unix socket has no server address and is rejected, including its `NULL` address. It rejects an existing export candidate, requires the existing legacy report functions and tables, and never calls an external service. A failure ends the psql session with an open transaction, which PostgreSQL rolls back. On success the runner explicitly rolls back; the sole success line is `report export full-schema apply/roles/scope/legacy/rollback/reapply: ok`.
 
 ## Scope of the proof
 

@@ -17,20 +17,24 @@ begin
     current_setting('export_probe.loc_b')::uuid,'masked',100,0);
   none_rows:=public.get_minuta_report_export_bookings(current_setting('export_probe.org')::uuid,
     current_setting('export_probe.date')::date,current_setting('export_probe.date')::date,null,null,'none',100,0);
-  if all_rows->>'organization_id'<>current_setting('export_probe.org')
-    or all_rows->>'phone_mode'<>'full' or jsonb_array_length(all_rows->'bookings')<>2
-    or jsonb_array_length(imported->'bookings')<>1
-    or jsonb_array_length(branch_rows->'bookings')<>1
-    or jsonb_array_length(other_branch_rows->'bookings')<>1
-    or branch_rows->>'location_id'<>current_setting('export_probe.loc_a')
-    or other_branch_rows->>'location_id'<>current_setting('export_probe.loc_b')
-    or exists(select 1 from jsonb_array_elements(none_rows->'bookings') booking where booking->>'client_phone'<>'') then
+  if all_rows->>'organization_id' is distinct from current_setting('export_probe.org')
+    or all_rows->>'phone_mode' is distinct from 'full'
+    or jsonb_array_length(all_rows->'bookings') is distinct from 2
+    or jsonb_array_length(imported->'bookings') is distinct from 1
+    or jsonb_array_length(branch_rows->'bookings') is distinct from 1
+    or jsonb_array_length(other_branch_rows->'bookings') is distinct from 1
+    or branch_rows->>'location_id' is distinct from current_setting('export_probe.loc_a')
+    or other_branch_rows->>'location_id' is distinct from current_setting('export_probe.loc_b')
+    or jsonb_array_length(none_rows->'bookings') is distinct from 2
+    or exists(select 1 from jsonb_array_elements(none_rows->'bookings') booking
+      where booking->>'client_phone' is distinct from '') then
     raise exception 'export_owner_scope_or_phone_payload_failed';
   end if;
   select booking->>'client_export_key' into matched_key from jsonb_array_elements(all_rows->'bookings') booking
   where booking->>'id'=current_setting('export_probe.booking_a');
-  if matched_key is null or matched_key not like 'record:%'
-    or (select booking->>'client_export_key' from jsonb_array_elements(imported->'bookings') booking limit 1)<>matched_key
+  if matched_key is null or (matched_key like 'record:%') is distinct from true
+    or (select booking->>'client_export_key' from jsonb_array_elements(imported->'bookings') booking limit 1)
+      is distinct from matched_key
     or not exists(select 1 from jsonb_array_elements(all_rows->'bookings') booking
       where booking->>'id'=current_setting('export_probe.booking_a')
         and booking->>'client_phone'='79990000001' and (booking->>'client_had_previous')::boolean
@@ -77,11 +81,12 @@ begin
     current_setting('export_probe.date')::date,current_setting('export_probe.date')::date,null,null,'masked',100,0);
   imported:=public.get_minuta_report_export_imported_history(current_setting('export_probe.org')::uuid,
     current_setting('export_probe.date')::date,current_setting('export_probe.date')::date,null,null,'masked',100,0);
-  if jsonb_array_length(masked->'bookings')<>2 or jsonb_array_length(imported->'bookings')<>1
+  if jsonb_array_length(masked->'bookings') is distinct from 2
+    or jsonb_array_length(imported->'bookings') is distinct from 1
     or exists(select 1 from jsonb_array_elements(masked->'bookings') booking
-      where booking->>'client_phone' !~ '^\+7 \*\*\* \*\*\*-[0-9]{2}-[0-9]{2}$')
+      where (booking->>'client_phone' ~ '^\+7 \*\*\* \*\*\*-[0-9]{2}-[0-9]{2}$') is distinct from true)
     or exists(select 1 from jsonb_array_elements(imported->'bookings') booking
-      where booking->>'client_phone' !~ '^\+7 \*\*\* \*\*\*-[0-9]{2}-[0-9]{2}$') then
+      where (booking->>'client_phone' ~ '^\+7 \*\*\* \*\*\*-[0-9]{2}-[0-9]{2}$') is distinct from true) then
     raise exception 'export_admin_mask_failed';
   end if;
   begin
@@ -110,8 +115,8 @@ begin
     current_setting('export_probe.date')::date,current_setting('export_probe.date')::date,null,null,'masked',100,0);
   old_report:=public.get_minuta_staff_report_bookings_v97(current_setting('export_probe.org')::uuid,
     current_setting('export_probe.date')::date,current_setting('export_probe.date')::date,null,100,0);
-  if own_rows->>'performer_id'<>current_setting('export_probe.staff')
-    or jsonb_array_length(own_rows->'bookings')<>2
+  if own_rows->>'performer_id' is distinct from current_setting('export_probe.staff')
+    or jsonb_array_length(own_rows->'bookings') is distinct from 2
     or not exists(select 1 from jsonb_array_elements(old_report->'bookings') booking
       where booking->>'client_phone'='79990000001') then
     raise exception 'export_staff_scope_or_legacy_contact_failed';

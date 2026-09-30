@@ -7,13 +7,15 @@ set local lock_timeout = '5s';
 do $guard$
 declare marker_count integer;
 begin
-  if current_database() <> 'postgres' or inet_server_addr() <> inet '127.0.0.1'
-    or pg_is_in_recovery() or to_regclass('minuta_export_fixture_guard.target') is null then
+  if current_database() is distinct from 'postgres'
+    or inet_server_addr() is distinct from inet '127.0.0.1'
+    or pg_is_in_recovery() is distinct from false
+    or to_regclass('minuta_export_fixture_guard.target') is null then
     raise exception 'export_full_schema_disposable_loopback_marker_required';
   end if;
   execute 'select count(*) from minuta_export_fixture_guard.target where purpose=$1 and disposable is true'
     into marker_count using 's04-s10-full-schema';
-  if marker_count <> 1 then raise exception 'export_full_schema_marker_missing'; end if;
+  if marker_count is distinct from 1 then raise exception 'export_full_schema_marker_missing'; end if;
   if to_regprocedure('public.get_minuta_report_export_bookings(uuid,date,date,uuid,uuid,text,integer,integer)') is not null
     or to_regprocedure('public.get_minuta_report_export_imported_history(uuid,date,date,uuid,uuid,text,integer,integer)') is not null
     or to_regprocedure('public.minuta_report_export_client_key(uuid,text)') is not null then
@@ -138,8 +140,9 @@ begin
     current_setting('export_probe.date')::date,current_setting('export_probe.date')::date,100,0);
   old_report:=public.get_minuta_staff_report_bookings_v97(current_setting('export_probe.org')::uuid,
     current_setting('export_probe.date')::date,current_setting('export_probe.date')::date,null,100,0);
-  if team->>'can_view_team'<>'true' or jsonb_array_length(events->'events')<>1
-    or jsonb_array_length(old_report->'bookings')<>2
+  if team->>'can_view_team' is distinct from 'true'
+    or jsonb_array_length(events->'events') is distinct from 1
+    or jsonb_array_length(old_report->'bookings') is distinct from 2
     or not exists(select 1 from jsonb_array_elements(team->'performers') performer
       where performer->>'performer_id'=current_setting('export_probe.staff') and (performer->>'payroll_rub')::integer=321) then
     raise exception 'export_legacy_payload_baseline_failed';
@@ -166,19 +169,19 @@ end $legacy_baseline$;
 
 do $catalog$
 begin
-  if not has_function_privilege('authenticated',
-      'public.get_minuta_report_export_bookings(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE')
-    or not has_function_privilege('authenticated',
-      'public.get_minuta_report_export_imported_history(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE')
+  if has_function_privilege('authenticated',
+      'public.get_minuta_report_export_bookings(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE') is distinct from true
+    or has_function_privilege('authenticated',
+      'public.get_minuta_report_export_imported_history(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE') is distinct from true
     or has_function_privilege('anon',
-      'public.get_minuta_report_export_bookings(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE')
+      'public.get_minuta_report_export_bookings(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE') is distinct from false
     or has_function_privilege('anon',
-      'public.get_minuta_report_export_imported_history(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE')
+      'public.get_minuta_report_export_imported_history(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE') is distinct from false
     or has_function_privilege('service_role',
-      'public.get_minuta_report_export_bookings(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE')
+      'public.get_minuta_report_export_bookings(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE') is distinct from false
     or has_function_privilege('service_role',
-      'public.get_minuta_report_export_imported_history(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE')
-    or has_function_privilege('authenticated','public.minuta_report_export_client_key(uuid,text)','EXECUTE')
+      'public.get_minuta_report_export_imported_history(uuid,date,date,uuid,uuid,text,integer,integer)','EXECUTE') is distinct from false
+    or has_function_privilege('authenticated','public.minuta_report_export_client_key(uuid,text)','EXECUTE') is distinct from false
     or not exists(select 1 from pg_class where oid='public.bookings'::regclass and relrowsecurity)
     or not exists(select 1 from pg_class where oid='public.organization_imported_booking_history'::regclass and relrowsecurity) then
     raise exception 'export_grant_or_rls_contract_failed';
