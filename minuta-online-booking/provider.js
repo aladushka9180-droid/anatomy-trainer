@@ -12854,8 +12854,8 @@ function renderBookings() {
   else {
     const emptyMessage = bookingQueryIsActive()
       ? 'По заданным условиям ничего не найдено.'
-      : currentFilter === 'day' && scheduleEmptyDayLabel(selectedDate, '') === 'Выходной'
-        ? 'Выходной. В обычном графике этот день закрыт.'
+      : currentFilter === 'day' && scheduleEmptyDayLabel(selectedDate, '')
+        ? `${scheduleEmptyDayLabel(selectedDate, '')}. Запись на этот день закрыта.`
         : 'На выбранный период всё свободно.';
     renderBookingList(visibleItems, emptyMessage);
     if (paginated) $('#providerBookings').insertAdjacentHTML('beforeend', `<button class="secondary-button" type="button" data-load-more-bookings>Показать ещё · осталось ${items.length - visibleItems.length}</button>`);
@@ -15525,6 +15525,7 @@ function scheduleStateForDate(dateIso) {
 }
 function scheduleEmptyDayLabel(dateIso, fallback) {
   const state = scheduleStateForDate(dateIso);
+  if (state.fullDayOff) return 'День закрыт';
   return state.weekly && state.weekly.enabled === false ? 'Выходной' : fallback;
 }
 function schedulePresetDays(preset) {
@@ -15622,12 +15623,12 @@ function renderMonthlyScheduleDetails() {
   const bookingCount = allBookings.filter(item => item.booking_date === dateIso && item.status !== 'cancelled').length;
   const weeklyHours = state.weekly?.enabled ? `${shortTime(state.weekly.start_time, '10:00')}–${shortTime(state.weekly.end_time, '20:00')}` : 'выходной';
   const partialText = exceptions.length ? exceptions.map(item => `${shortTime(item.start_time, '')}–${shortTime(item.end_time, '')}`).join(', ') : 'нет';
-  const status = !state.weekly?.enabled ? 'Закрыт обычной неделей' : state.fullDayOff ? 'Выходной на эту дату' : exceptions.length ? 'Рабочий с закрытым временем' : 'Рабочий день';
+  const status = scheduleEmptyDayLabel(dateIso, exceptions.length ? 'Рабочий с закрытым временем' : 'Рабочий день');
   const primaryAction = !state.weekly?.enabled
     ? '<button class="secondary-button" type="button" data-monthly-schedule-action="weekly">Изменить обычную неделю</button>'
     : state.fullDayOff
       ? '<button class="secondary-button" type="button" data-monthly-schedule-action="open">Открыть по обычному графику</button>'
-      : '<button class="secondary-button" type="button" data-monthly-schedule-action="close">Сделать выходным</button>';
+      : '<button class="secondary-button" type="button" data-monthly-schedule-action="close">Закрыть день</button>';
   const partialAction = state.weekly?.enabled && !state.fullDayOff ? '<button type="button" data-monthly-schedule-action="partial">Закрыть часть дня</button>' : '';
   const restoreAction = exceptions.length ? '<button type="button" data-monthly-schedule-action="restore">Вернуть обычный график</button>' : '';
   holder.hidden = false;
@@ -15656,9 +15657,9 @@ function renderMonthlySchedule() {
     const state = scheduleStateForDate(dateIso);
     const past = dateIso < today;
     const weeklyClosed = !state.weekly?.enabled;
-    const status = weeklyClosed ? 'По неделе' : state.fullDayOff ? 'Выходной' : state.partialDayOff ? 'Частично' : 'Рабочий';
+    const status = scheduleEmptyDayLabel(dateIso, state.partialDayOff ? 'Частично' : 'Рабочий');
     const className = weeklyClosed ? 'is-weekly-closed' : state.fullDayOff ? 'is-closed' : 'is-working';
-    const action = weeklyClosed ? 'Сначала включите этот день недели в обычном графике' : state.fullDayOff ? 'Открыть день' : 'Сделать выходным';
+    const action = weeklyClosed ? 'Сначала включите этот день недели в обычном графике' : state.fullDayOff ? 'Открыть день' : 'Закрыть день';
     const label = `${date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}. ${status}. ${action}`;
     const selected = selectedMonthlyScheduleDate === dateIso;
     return `<button class="monthly-schedule-day ${className}${past ? ' is-past' : ''}${selected ? ' is-selected' : ''}" type="button" data-monthly-schedule-date="${dateIso}" aria-label="${escapeHtml(label)}" aria-pressed="${selected}" ${past ? 'disabled' : ''}><strong>${day}</strong><i aria-hidden="true"></i><span class="sr-only">${status}</span></button>`;
@@ -15678,7 +15679,7 @@ async function toggleMonthlyScheduleDay(dateIso, button) {
   }
   const status = $('#monthlyScheduleStatus');
   button.disabled = true;
-  if (status) status.textContent = state.fullDayOff ? 'Открываем день…' : 'Сохраняем выходной…';
+  if (status) status.textContent = state.fullDayOff ? 'Открываем день…' : 'Закрываем день…';
   const request = state.fullDayOff
     ? db.from('provider_days_off').delete().eq('id', state.fullDayOff.id).eq('performer_id', userId)
     : db.from('provider_days_off').insert({ performer_id:userId, off_date:dateIso, all_day:true, start_time:null, end_time:null, note:'Месячный график' });
@@ -15692,7 +15693,7 @@ async function toggleMonthlyScheduleDay(dateIso, button) {
   await loadDaysOff();
   renderBookings();
   freeSlotsController.refresh();
-  if (status) status.textContent = state.fullDayOff ? 'День снова открыт для записи.' : 'День отмечен выходным.';
+  if (status) status.textContent = state.fullDayOff ? 'День снова открыт для записи.' : 'День закрыт.';
 }
 
 async function restoreMonthlyScheduleDate(dateIso, button) {
