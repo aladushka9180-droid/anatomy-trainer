@@ -69,6 +69,9 @@ const ASSETS = [
 ];
 
 const OPTIONAL_ASSETS = [
+  './organization-overview.css?v=1044',
+  './resource-management.js?v=1044',
+  './shift-management.js?v=1044',
   './schedule-flat.css?v=1040',
   './schedule-break-icons.js?v=1023',
   './client-loyalty-frames.css?v=3',
