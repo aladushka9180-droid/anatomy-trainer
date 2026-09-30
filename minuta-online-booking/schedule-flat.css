@@ -674,14 +674,17 @@ html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-
 #scheduleViewMenu { display:none; }
 @media (max-width:760px) {
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-context>.calendar-view-toggle { display:none!important; }
-  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation { grid-template-columns:96px minmax(0,1fr) 96px!important; grid-template-rows:52px!important; overflow:visible!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation { grid-template-columns:96px minmax(0,1fr) 96px!important; grid-template-rows:44px!important; align-items:center!important; padding-block:0!important; overflow:visible!important; }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button,
-  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button.is-current { width:96px!important; min-height:52px!important; height:52px!important; }
-  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.schedule-date-picker { min-height:52px!important; height:52px!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.date-today-button.is-current { position:relative!important; width:96px!important; min-height:42px!important; height:42px!important; font-size:11.5px!important; font-weight:400!important; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) .date-navigation>.schedule-date-picker { min-height:44px!important; height:44px!important; }
   #dashboard[data-active-view="bookings"] #scheduleViewMenu { position:relative; grid-column:3; grid-row:1; display:block; width:96px; margin:0; padding:0; border:0; background:none; }
-  #dashboard #scheduleViewMenu>summary { box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:3px; min-height:52px; padding:0 3px; border:1px solid var(--theme-line); border-radius:11px; background:var(--theme-surface-alt); color:var(--theme-ink); list-style:none; white-space:nowrap; cursor:pointer; font-size:12px; font-weight:500; }
+  #dashboard #scheduleViewMenu>summary { position:relative; box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:4px; min-height:42px; height:42px; padding:0 3px; border:1px solid var(--theme-line); border-radius:11px; background:var(--theme-surface-alt); color:var(--theme-ink); list-style:none; white-space:nowrap; cursor:pointer; font-size:11.5px; font-weight:400; }
   #scheduleViewMenu>summary::-webkit-details-marker { display:none; }
-  #scheduleViewMenu>summary b { font-weight:500; }
+  /* Keep a 44px hit area around the approved 42px visual controls. */
+  .date-navigation>.date-today-button::after,
+  #scheduleViewMenu>summary::after { content:""; position:absolute; inset:-1px 0; }
+  #scheduleViewMenu>summary b { display:block; flex:0 0 8px; width:8px; height:5px; font-size:0; background:currentColor; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1.5 5 4.5 9 1.5' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat; }
   #scheduleViewMenu[open]>summary b { transform:rotate(180deg); }
   #scheduleViewMenu>summary:focus-visible { outline:2px solid var(--theme-accent); outline-offset:2px; }
   body[data-provider-theme="pink-porcelain"]:not([data-provider-resolved-color-mode="dark"]) #dashboard #scheduleViewMenu>summary { background:#fff; }

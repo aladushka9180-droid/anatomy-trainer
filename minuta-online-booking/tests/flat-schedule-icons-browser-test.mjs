@@ -137,7 +137,8 @@ try {
    assert.notEqual(header.selectedBg,'rgba(0, 0, 0, 0)');
    assert.equal(header.tab,'rgba(0, 0, 0, 0)','Period tabs must only use an underline');
    assert.equal(header.navBorder,'0px');assert.equal(header.stripBorder,'0px');assert.equal(header.dateBorder,'0px');assert.equal(header.topbarBorder,'0px');assert.equal(header.todayBorder,'1px');assert.equal(header.dateWeight,'500');
-   if(theme==='pink-porcelain')assert.equal(header.buttonInk,'rgb(255, 255, 255)');
+   // X15 uses dark ink on soft pink controls; the 15-palette suite checks contrast.
+   if(theme==='pink-porcelain')assert.equal(header.buttonInk,'rgb(48, 44, 48)');
   }
   if(width>760){
    const desktop=await page.evaluate(()=>{

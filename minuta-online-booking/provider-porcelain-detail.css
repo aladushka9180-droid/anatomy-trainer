@@ -159,6 +159,9 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(.date-navigation>.date-today-button,#dateStrip button.active) :is(span,strong,small,.ui-icon) {
   color:var(--porcelain-action-ink)!important;
 }
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #dateStrip>button.is-today:not(.active) {
+  border-color:var(--porcelain-quiet-mark)!important;
+}
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.timeline-view .timeline-booking:not(.status-block):not(.automatic-break):not(.status-cancelled) {
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
@@ -199,14 +202,15 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
   color:var(--porcelain-action-ink)!important;
   background:var(--porcelain-action-bg)!important;
 }
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #newBookingButton,
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .provider-mobile-create {
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] [data-provider-panel="bookings"] .schedule-view-title #newBookingButton.primary,
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #mobileNewBookingButton.primary {
   border-color:var(--theme-line)!important;
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
   color:var(--porcelain-action-ink)!important;
 }
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(#newBookingButton,.provider-mobile-create) :is(span,.ui-icon) {
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] [data-provider-panel="bookings"] .schedule-view-title #newBookingButton.primary :is(span,.ui-icon,svg),
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #mobileNewBookingButton.primary :is(span,.ui-icon) {
   color:var(--porcelain-action-ink)!important;
 }
 @media (max-width:760px) {

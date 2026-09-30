@@ -144,6 +144,11 @@ try {
       return {
         overflow: document.documentElement.scrollWidth > innerWidth + 2,
         today:{ x:today.x, y:today.y, h:today.height },
+        rowHeight:rect('.date-navigation').height,
+        controlsFont:[style('.date-today-button').fontSize,style('#scheduleViewMenu>summary').fontSize],
+        controlsWeight:[style('.date-today-button').fontWeight,style('#scheduleViewMenu>summary').fontWeight],
+        hitInsets:[getComputedStyle(document.querySelector('.date-today-button'),'::after').top,getComputedStyle(document.querySelector('#scheduleViewMenu>summary'),'::after').top],
+        chevron:{w:rect('#scheduleViewMenu>summary b').width,h:rect('#scheduleViewMenu>summary b').height},
         toggle:{ x:toggle.x, y:toggle.y, h:toggle.height },
         summary:{ x:summary.x, right:summary.right, y:summary.y, h:summary.height },
         title:{ right:title.right, y:title.y },
@@ -182,8 +187,13 @@ try {
       assert.equal(listFits, true, `${theme}/${width}/${scale}: Day/List label clips`);
       assert.equal(state.topSummary, 'none');
       assert.equal(state.oldToggle, 'none');
-      assert.equal(state.today.h, 52);
-      assert.equal(state.toggle.h, 52);
+      assert.equal(state.today.h, 42, 'Visual buttons are approximately20% lower than52px');
+      assert.equal(state.toggle.h, 42);
+      assert.equal(state.rowHeight, 44, 'The whole54px row shrinks by10px');
+      assert.deepEqual(state.controlsFont, ['11.5px','11.5px']);
+      assert.deepEqual(state.controlsWeight, ['400','400']);
+      assert.deepEqual(state.hitInsets, ['-1px','-1px'], 'Keep44px pointer targets');
+      assert.deepEqual(state.chevron, {w:8,h:5}, 'Small wide down chevron');
       assert.ok(Math.abs(state.today.y - state.toggle.y) <= 1, `${width}: controls not aligned`);
       assert.ok(state.summary.x > state.title.right, `${width}: summary overlaps weekday`);
       assert.ok(state.summary.right <= width - 8, `${width}: two-digit summary clips`);
