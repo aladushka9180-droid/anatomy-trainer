@@ -5,7 +5,7 @@
   if (new URLSearchParams(location.search).get('porcelain-preview') === '1') return;
 
   const scriptUrl = document.currentScript?.src || location.href;
-  const workerUrl = new URL('./sw.js?v=1037', scriptUrl).href;
+  const workerUrl = new URL('./sw.js?v=1038', scriptUrl).href;
   const pageVersion = Number(new URL(workerUrl).searchParams.get('v'));
   const CHECK_INTERVAL_MS = 15 * 60 * 1000;
   let registration = null;
@@ -34,6 +34,7 @@
   }
 
   async function refreshUpdateNotice(attempt = 0) {
+    if (registration?.installing || registration?.waiting) return;
     const controller = navigator.serviceWorker.controller;
     const info = await workerVersion(controller);
     if (controller !== navigator.serviceWorker.controller) return;
@@ -76,21 +77,18 @@
     document.body.append(notice);
   }
 
-  function checkForUpdate({ force = false, registerOnly = false } = {}) {
+  function checkForUpdate({ force = false } = {}) {
+    if (!navigator.onLine) return Promise.resolve();
     if (checkPromise) { if (force) recheck = true; return checkPromise; }
     const now = Date.now();
-    if (!registerOnly && !force && now - lastCheck < CHECK_INTERVAL_MS) return Promise.resolve();
+    if (!force && now - lastCheck < CHECK_INTERVAL_MS) return Promise.resolve();
     checkPromise = (async () => {
       try {
-        if (!registration) {
+        if (!registration || force) {
           registration = await navigator.serviceWorker.register(workerUrl, { updateViaCache:'none' });
-          lastCheck = Date.now();
-          if (registerOnly) { void refreshUpdateNotice(); return; }
         }
-        if (!registerOnly) {
-          lastCheck = Date.now();
-          await registration.update();
-        }
+        lastCheck = Date.now();
+        await registration.update();
         void refreshUpdateNotice();
       } catch {
       } finally {

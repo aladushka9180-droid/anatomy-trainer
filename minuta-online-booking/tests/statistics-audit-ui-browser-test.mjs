@@ -28,6 +28,7 @@ try {
       root.hidden = false;
       root.dataset.reportTab = 'clients';
       root.dataset.reportEmpty = 'false';
+      root.dataset.reportLoadState = 'ready';
       root.querySelector('.report-filters').classList.add('is-open');
       root.querySelector('.report-analytics-details').open = true;
       root.querySelector('.report-health-details').open = true;

@@ -40,6 +40,7 @@ try {
     document.querySelector('#dashboard').hidden = false;
     for (const panel of document.querySelectorAll('[data-provider-panel]')) panel.hidden = panel.dataset.providerPanel !== 'analytics';
     const analytics = document.querySelector('#analyticsView');
+    analytics.dataset.reportLoadState = 'ready';
     analytics.dataset.reportTab = 'overview';
     analytics.dataset.reportEmpty = 'false';
     analytics.dataset.reportSource = 'own';
@@ -211,6 +212,20 @@ try {
         await page.locator('.report-summary[data-report-section="money"]').screenshot({ path:path.join(output, `payment-separation-${width}.png`) });
         await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
       }
+      const unconfirmed = await page.evaluate(() => {
+        document.querySelector('#analyticsView').dataset.reportLoadState = 'loading';
+        const notice = document.querySelector('#reportLoadState');
+        notice.hidden = false;
+        notice.textContent = 'Обновляем статистику…';
+        return ['#reportCommandCenter','.report-summary','.report-secondary','.report-business-grid']
+          .filter(selector => document.querySelector(selector).getClientRects().length);
+      });
+      assert.deepEqual(unconfirmed, [], `${theme} ${width}: theme rules must not reveal pending metrics`);
+      if (output && theme === 'warm') await page.screenshot({path:path.join(output, `statistics-loading-${width}.png`)});
+      await page.evaluate(() => {
+        document.querySelector('#analyticsView').dataset.reportLoadState = 'ready';
+        document.querySelector('#reportLoadState').hidden = true;
+      });
     }
   }
   assert.deepEqual(failures, [], `Ошибки статистики в матрице тем: ${JSON.stringify(failures.slice(0, 8))}`);
