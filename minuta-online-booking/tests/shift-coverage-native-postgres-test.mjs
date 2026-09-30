@@ -37,16 +37,22 @@ const extractFunction=name=>{
   assert.ok(match,`Exact v71 source missing: ${name}`);
   return match[0];
 };
-const coverage=async c=>(await one(c,'select public.preview_minuta_shift_coverage($1) value',[org])).value;
+let expectedHorizonStart;
+const coverage=async c=>{
+  const value=(await one(c,'select public.preview_minuta_shift_coverage($1) value',[org])).value;
+  if(expectedHorizonStart) assert.equal(value.horizon_start,expectedHorizonStart,
+    'Samara midnight crossed during the fixture; rerun on a fresh local database');
+  return value;
+};
 const enable=async(c,flag,confirmed=false,token=null)=>(await one(c,
   'select public.set_minuta_branch_shifts_enabled_v2($1,$2,$3,$4) value',
   [org,flag,confirmed,token])).value;
 const oldEnable=async(c,flag)=>(await one(c,
   'select public.set_minuta_branch_shifts_enabled($1,$2) value',[org,flag])).value;
-async function addShift(c,date) {
+async function addShift(c,date,start='09:00',end='18:00') {
   return (await one(c,`select public.upsert_minuta_staff_shift(
-    $1,null,$2,$3,$4,'09:00','18:00',null,null,'Synthetic shift') id`,
-    [org,location,owner,date])).id;
+    $1,null,$2,$3,$4,$5,$6,null,null,'Synthetic shift') id`,
+    [org,location,owner,date,start,end])).id;
 }
 async function waitForLock(observer,pid) {
   for(let attempt=0;attempt<100;attempt+=1) {
@@ -77,6 +83,7 @@ try {
   const api=await connect(true), shiftWriter=await connect(true), bookingWriter=await connect();
   await admin.query(apply);
   const initial=await coverage(api);
+  expectedHorizonStart=initial.horizon_start;
   assert.deepEqual([initial.status,initial.covered_days,initial.horizon_days],['zero',0,14]);
   await expectCode(oldEnable(api,true),'55000');
   assert.equal((await one(admin,'select count(*)::integer count from organization_shift_settings')).count,0);
@@ -147,7 +154,9 @@ try {
   assert.equal(await enable(api,true,true,(await coverage(api)).token),true);
   assert.equal(await oldEnable(api,false),false);
 
-  for(let offset=0;offset<14;offset+=1) {
+  // Today's shift must remain usable through the Samara date boundary.
+  await addShift(api,day(0),'00:00','24:00');
+  for(let offset=1;offset<14;offset+=1) {
     if([1,2,3].includes(offset)) continue;
     await addShift(api,day(offset));
   }
