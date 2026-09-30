@@ -147,7 +147,14 @@ try {
         rowHeight:rect('.date-navigation').height,
         controlsFont:[style('.date-today-button').fontSize,style('#scheduleViewMenu>summary').fontSize],
         controlsWeight:[style('.date-today-button').fontWeight,style('#scheduleViewMenu>summary').fontWeight],
-        hitInsets:[getComputedStyle(document.querySelector('.date-today-button'),'::after').top,getComputedStyle(document.querySelector('#scheduleViewMenu>summary'),'::after').top],
+        hitTargets:[...document.querySelectorAll('.date-today-button,#scheduleViewMenu>summary')].map(el => {
+          const r=el.getBoundingClientRect(), after=getComputedStyle(el,'::after');
+          const points=[r.top-.5,r.bottom+.5].map(y => {
+            const target=document.elementFromPoint(r.left+r.width/2,y);
+            return target===el || el.contains(target);
+          });
+          return {height:parseFloat(after.height),points};
+        }),
         chevron:{w:rect('#scheduleViewMenu>summary b').width,h:rect('#scheduleViewMenu>summary b').height},
         toggle:{ x:toggle.x, y:toggle.y, h:toggle.height },
         summary:{ x:summary.x, right:summary.right, y:summary.y, h:summary.height },
@@ -192,7 +199,10 @@ try {
       assert.equal(state.rowHeight, 44, 'The whole54px row shrinks by10px');
       assert.deepEqual(state.controlsFont, ['11.5px','11.5px']);
       assert.deepEqual(state.controlsWeight, ['400','400']);
-      assert.deepEqual(state.hitInsets, ['-1px','-1px'], 'Keep44px pointer targets');
+      for (const target of state.hitTargets) {
+        assert.ok(target.height >= 44, 'Actual generated pointer target is at least44px');
+        assert.deepEqual(target.points,[true,true], 'Both visual edges extend the clickable area');
+      }
       assert.deepEqual(state.chevron, {w:8,h:5}, 'Small wide down chevron');
       assert.ok(Math.abs(state.today.y - state.toggle.y) <= 1, `${width}: controls not aligned`);
       assert.ok(state.summary.x > state.title.right, `${width}: summary overlaps weekday`);
