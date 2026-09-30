@@ -194,11 +194,11 @@ try {
       assert.equal(listFits, true, `${theme}/${width}/${scale}: Day/List label clips`);
       assert.equal(state.topSummary, 'none');
       assert.equal(state.oldToggle, 'none');
-      assert.equal(state.today.h, 42, 'Visual buttons are approximately20% lower than52px');
-      assert.equal(state.toggle.h, 42);
-      assert.equal(state.rowHeight, 44, 'The whole54px row shrinks by10px');
-      assert.deepEqual(state.controlsFont, ['11.5px','11.5px']);
-      assert.deepEqual(state.controlsWeight, ['400','400']);
+      assert.equal(state.today.h, 44, 'The mobile Today action has a comfortable touch target');
+      assert.equal(state.toggle.h, 44);
+      assert.ok(state.rowHeight >= 48 && state.rowHeight <= 55, 'The simple action row stays compact');
+      assert.ok(state.controlsFont.every(size => parseFloat(size) >= 12 && parseFloat(size) <= 14), 'Action labels stay legible on mobile');
+      assert.deepEqual(state.controlsWeight, ['500','400']);
       for (const target of state.hitTargets) {
         assert.ok(target.height >= 44, 'Actual generated pointer target is at least44px');
         assert.deepEqual(target.points,[true,true], 'Both visual edges extend the clickable area');
@@ -210,7 +210,7 @@ try {
       assert.equal(state.hourLine, 'solid');
       assert.equal(state.halfHourLine, 'dashed');
       assert.equal(state.extraArrows, false, `${width}: duplicate day arrows`);
-      assert.equal(state.dateIcon.w, 16);
+      assert.equal(state.dateIcon.w, 18);
       assert.equal(state.dateText, '29.09.2026');
       assert.ok(state.dateFits && state.dateUnclipped, `${theme}/${width}/${scale}: full date clips or overlaps a neighbour: ${JSON.stringify(state)}`);
       assert.equal(state.dateInputOpacity, '0', 'Native field internals must not clip the visible date');
@@ -239,7 +239,7 @@ try {
       assert.equal(controlColors.todayBackground, controlColors.toggleBackground, `${width}: Today and switch surfaces differ`);
       assert.equal(controlColors.currentDay, controlColors.accent, `${width}: Today is not pink when selected`);
       assert.notEqual(controlColors.otherDay, controlColors.accent, `${width}: Today is pink on another day`);
-      if (theme === 'carbon-crimson') assert.equal(controlColors.toggleBackground, 'rgb(23, 35, 47)', `${width}: menu surface differs from Today`);
+      assert.equal(controlColors.toggleBackground, 'rgba(0, 0, 0, 0)', `${width}: navigation controls still have a filled surface`);
     } else {
       assert.equal(state.topSummary === 'none', false, 'desktop summary was hidden');
       assert.equal(state.toggle.h, 0, 'mobile toggle visible on desktop');
