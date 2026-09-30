@@ -1,0 +1,31 @@
+name: Pro pending worker isolated diagnostic
+on:
+  push:
+    branches: [codex/pro-pwa-pending-diagnostic-20260930]
+    paths: ['scripts/pro-pwa-pending-diagnostic.mjs', '.github/workflows/pro-pwa-pending-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [baseline, quiet-poll, no-routing]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/pro-pwa-pending-diagnostic.mjs
+        env:
+          PWA_DIAGNOSTIC_MODE: ${{ matrix.mode }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pwa-pending-${{ matrix.mode }}
+          path: pwa-diagnostic-results
+          retention-days: 3
