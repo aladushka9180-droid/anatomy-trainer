@@ -1,0 +1,48 @@
+name: Loyalty adjustment preview native contract
+
+on:
+  push:
+    branches: ['codex/pro-loyalty-preview-*']
+    paths:
+      - '.github/workflows/loyalty-preview-native.yml'
+      - 'minuta-online-booking/supabase-candidate-loyalty-adjustment-preview*.sql'
+      - 'minuta-online-booking/supabase-migration-v166.sql'
+      - 'minuta-online-booking/tests/loyalty-preview-native-*'
+  pull_request:
+    paths:
+      - '.github/workflows/loyalty-preview-native.yml'
+      - 'minuta-online-booking/supabase-candidate-loyalty-adjustment-preview*.sql'
+      - 'minuta-online-booking/supabase-migration-v166.sql'
+      - 'minuta-online-booking/tests/loyalty-preview-native-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-postgres-17:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-local-test
+          POSTGRES_DB: loyalty_preview_fixture
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.13.3
+      - name: Apply, roll back, reapply, and race real transactions
+        env:
+          LOYALTY_PREVIEW_LOCAL_POSTGRES_URL: postgresql://postgres:synthetic-local-test@127.0.0.1:5432/loyalty_preview_fixture
+        run: node minuta-online-booking/tests/loyalty-preview-native-postgres-test.mjs

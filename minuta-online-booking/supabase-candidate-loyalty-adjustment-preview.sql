@@ -79,9 +79,9 @@ begin
     where organization_id=p_organization and client_account_id=p_client_account for update;
   v_preview:=public.preview_minuta_loyalty_adjustment_v166(
     p_organization,p_client_account,p_delta);
-  if (v_preview->>'before')::integer<>p_expected_before
-     or (v_preview->>'cycle_number')::integer<>p_expected_cycle
-     or (v_preview->>'rule_id')::uuid<>p_expected_rule then
+  if (v_preview->>'before')::integer is distinct from p_expected_before
+     or (v_preview->>'cycle_number')::integer is distinct from p_expected_cycle
+     or (v_preview->>'rule_id')::uuid is distinct from p_expected_rule then
     raise exception using errcode='55000',message='loyalty_adjustment_preview_stale';
   end if;
   if not (v_preview->>'allowed')::boolean then
@@ -91,8 +91,9 @@ begin
     p_organization,p_client_account,p_delta,p_reason,p_request_id);
   select * into v_actual from public.loyalty_program_history_v166
     where organization_id=p_organization and request_id=p_request_id;
-  if v_actual.progress_after<>(v_preview->>'after')::integer
-     or v_actual.rule_id<>(v_preview->>'rule_id')::uuid then
+  if v_actual.id is null
+     or v_actual.progress_after is distinct from (v_preview->>'after')::integer
+     or v_actual.rule_id is distinct from (v_preview->>'rule_id')::uuid then
     raise exception using errcode='55000',message='loyalty_adjustment_preview_stale';
   end if;
   return v_result;

@@ -5,6 +5,8 @@ import { PGlite } from '@electric-sql/pglite';
 const migration = readFileSync(new URL('../supabase-migration-v166.sql', import.meta.url), 'utf8');
 const previewCandidate = readFileSync(new URL('../supabase-candidate-loyalty-adjustment-preview.sql', import.meta.url), 'utf8');
 const previewRollback = readFileSync(new URL('../supabase-candidate-loyalty-adjustment-preview-rollback.sql', import.meta.url), 'utf8');
+assert.match(previewCandidate,/v_actual\.id is null[\s\S]*v_actual\.progress_after is distinct from/i,
+  'Confirmation must reject absent or NULL-valued history instead of accepting SQL UNKNOWN');
 const rollback = readFileSync(new URL('../supabase-migration-v166-operational-rollback.sql', import.meta.url), 'utf8');
 const stateQuery = readFileSync(new URL('../scripts/loyalty-program-v166-state.sql', import.meta.url), 'utf8');
 const db = new PGlite();
