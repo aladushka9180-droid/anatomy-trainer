@@ -1,6 +1,6 @@
 # Export contract candidate (S04/S10)
 
-This is an integration candidate, not a production migration. Assign a migration number only after reconciling fresh `main`. The SQL is additive; rollback drops only its three new functions. No existing table or report RPC is modified.
+This is an integration candidate, not a production migration. Reserved migration v191 after checking fresh main2873d655, queued v185-v190 and all local refs on1October. The numbered SQL/rollback are exact aliases of immutable62ea48a6 candidate bytes; the private guarded release continues to pin that immutable source. This reservation is not SQL authorization. The SQL is additive; rollback drops only its three new functions. No existing table or report RPC is modified.
 
 ## Existing phone readers and compatibility
 
