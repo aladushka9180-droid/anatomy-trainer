@@ -187,6 +187,16 @@ try {
     assert.equal(month.manualException, 'День закрыт', `${width}px: полнодневное ручное закрытие не должно выглядеть свободным`);
     assert.equal(month.partialException, 'Свободно', `${width}px: частичное исключение не должно закрывать весь день`);
     assert.equal(month.overflow, false, `${width}px: появилось горизонтальное переполнение`);
+    for (const date of ['2026-09-20', '2026-09-21']) {
+      const label = page.locator(`[data-calendar-date="${date}"] .calendar-overview-count`);
+      assert.equal(await label.isVisible(), true, `${width}px: подпись закрытого дня скрыта CSS`);
+      const fits = await label.evaluate(element => {
+        const box = element.getBoundingClientRect();
+        const cell = element.closest('.calendar-overview-day').getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && box.left >= cell.left && box.right <= cell.right + 1;
+      });
+      assert.equal(fits, true, `${width}px: подпись закрытого дня выходит из ячейки`);
+    }
   }
   const lateExceptions = await page.evaluate(async () => {
     selectedDate = '2026-09-21';
