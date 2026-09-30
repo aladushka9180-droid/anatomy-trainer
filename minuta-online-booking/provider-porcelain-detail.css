@@ -49,15 +49,15 @@ html[data-porcelain-read-only-preview="true"] body.provider-body [data-create-em
 
 /* Selected controls use the character/shade's soft pink, with dark legible text. */
 body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(#newBookingButton,.date-navigation>.date-today-button,.date-strip button.active,.journal-mode-toggle button.active,.booking-filters button.active) {
-  border-color:var(--theme-accent)!important;
+  border-color:var(--theme-line)!important;
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
   color:var(--porcelain-action-ink)!important;
 }
 body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] :is(#newBookingButton,.date-navigation>.date-today-button,.date-strip button.active,.journal-mode-toggle button.active,.booking-filters button.active) :is(span,.ui-icon) { color:var(--porcelain-action-ink)!important; }
-html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #dateStrip button.active { border-color:var(--theme-accent)!important; background:var(--porcelain-action-bg)!important; background-image:none!important; color:var(--porcelain-action-ink)!important; }
+html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #dateStrip button.active { border-color:var(--theme-line)!important; background:var(--porcelain-action-bg)!important; background-image:none!important; color:var(--porcelain-action-ink)!important; }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #dateStrip button.active :is(span,strong,small) { color:var(--porcelain-action-ink)!important; }
-body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .calendar-view-toggle button.active { color:var(--theme-accent)!important; border-bottom-color:var(--theme-accent)!important; }
+body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .calendar-view-toggle button.active { color:var(--porcelain-action-ink)!important; border-bottom-color:var(--theme-line)!important; }
 
 /* The editor is a subpage of real settings; it does not add a fictitious menu. */
 .provider-body[data-porcelain-editor-open] [data-provider-panel="settings"] .provider-section-nav,
@@ -187,7 +187,7 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] .provider-nav button.active,
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .calendar-view-toggle button.active {
-  border-color:var(--theme-accent)!important;
+  border-color:var(--theme-line)!important;
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
   color:var(--porcelain-action-ink)!important;
@@ -201,7 +201,7 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 }
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] #newBookingButton,
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] #dashboard[data-active-view="bookings"] .provider-mobile-create {
-  border-color:var(--theme-accent)!important;
+  border-color:var(--theme-line)!important;
   background:var(--porcelain-action-bg)!important;
   background-image:none!important;
   color:var(--porcelain-action-ink)!important;
@@ -288,3 +288,4 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] :is(#inventoryItemActive:checked,#inventoryWarehouseActive:checked,#inventoryTransfersEnabled:checked) {
   accent-color:var(--porcelain-action-bg)!important;
 }
+html body.provider-body[data-provider-theme="pink-porcelain"] input[type="checkbox"]:checked:not(:is(#scheduleQuickBreak,#shiftHasBreak,[data-schedule-break],#editBookingFutureBreakColor,#newBookingFutureBreakColor)) { accent-color:var(--porcelain-action-bg)!important; }
