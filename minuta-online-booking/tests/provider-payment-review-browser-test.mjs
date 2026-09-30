@@ -8,6 +8,7 @@ const output = resolve(root, '.tmp-provider-payment-review');
 mkdirSync(output, { recursive:true });
 const html = readFileSync(resolve(root, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
 const source = readFileSync(resolve(root, 'payment-management.js'), 'utf8');
+const reviewSource = readFileSync(resolve(root, 'payment-review.js'), 'utf8');
 const playwright = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const chromium = playwright.chromium || playwright.default?.chromium;
@@ -58,15 +59,18 @@ try {
       });
     });
     await page.addScriptTag({ content:source });
+    await page.addScriptTag({ content:reviewSource });
     await page.evaluate(async id => {
       window.reviewCalls = [];
       window.reviewNotices = [];
       window.reviewRole = 'owner';
+      window.reviewError = false;
       const db = {
         rpc:async (name, args) => {
           reviewCalls.push({ name, args });
+          if (reviewError) return { data:null, error:{ code:'temporary_error' } };
           if (name === 'get_minuta_payment_workspace') return { data:{
-            organization_id:id, current_role:reviewRole, settings:{ enabled:false, environment:'test', fiscalization_enabled:false },
+            organization_id:args.p_organization, current_role:reviewRole, settings:{ enabled:false, environment:'test', fiscalization_enabled:false },
             recent_attempts:[], recent_refunds:[], recent_reconciliations:[]
           }, error:null };
           throw new Error(`Unexpected RPC: ${name}`);
@@ -81,10 +85,10 @@ try {
       reviewController.bind();
       window.reviewLoadResult = await reviewController.setOrganization({ id, current_role:'owner' });
     }, organizationId);
-    assert.match(await page.locator('#paymentProviderReviewMode').textContent(), /тестовый магазин; приём выключен/,
+    assert.match(await page.locator('#paymentProviderReviewMode').textContent(), /Приём предоплаты выключен.*Сохранённый режим: тестовый магазин/,
       JSON.stringify(await page.evaluate(() => ({ result:reviewLoadResult, calls:reviewCalls, notice:reviewNotices, unavailable:document.querySelector('#paymentProviderUnavailableText')?.textContent, panelHidden:document.querySelector('#paymentProviderPanel').hidden, workspaceHidden:document.querySelector('#paymentProviderWorkspace').hidden }))));
-    assert.match(await page.locator('#paymentProviderReviewTest').textContent(), /нет подтверждённого результата.*не тест ЮKassa/);
-    assert.match(await page.locator('#paymentProviderReviewRights').textContent(), /владелец.*может сохранять/);
+    assert.match(await page.locator('#paymentProviderReviewTest').textContent(), /не запускался.*не проверяет ЮKassa/);
+    assert.match(await page.locator('#paymentProviderReviewRights').textContent(), /владелец может изменить настройки/);
     assert.equal(await page.locator('#paymentProviderProductionReview').isVisible(), false);
     await page.screenshot({ path:resolve(output, `payment-default-${width}.png`), fullPage:true });
     await page.locator('#paymentProviderEnvironment').selectOption('production');
@@ -92,7 +96,7 @@ try {
     await page.locator('#paymentProviderEnabled').check();
     await page.locator('#paymentProviderSettingsForm button[type="submit"]').click();
     assert.equal(await page.evaluate(() => reviewCalls.some(call => call.name === 'set_minuta_yookassa_settings')), false);
-    assert.match((await page.evaluate(() => reviewNotices.at(-1))), /review/);
+    assert.match(await page.locator('#paymentProviderReviewNotice').textContent(), /подтвердите ознакомление/);
     assert.equal(await page.locator('#paymentProviderSettingsForm button[type="submit"]').isEnabled(), true);
     const layout = await page.evaluate(() => ({
       viewport:innerWidth, scrollWidth:document.documentElement.scrollWidth,
@@ -104,8 +108,23 @@ try {
     assert.ok(layout.review.width > 0 && layout.form.width > 0);
     await page.screenshot({ path:resolve(output, `payment-review-${width}.png`), fullPage:true });
     if (width === 390) {
+      await page.locator('#paymentProviderProductionAcknowledged').check();
+      const otherOrganization = '33333333-3333-4333-8333-333333333333';
+      await page.evaluate(async id => { await reviewController.setOrganization({ id, current_role:'owner' }); }, otherOrganization);
+      assert.equal(await page.locator('#paymentProviderProductionAcknowledged').isChecked(), false,
+        'Production acknowledgement must not transfer to another organization');
+      await page.locator('#paymentProviderEnvironment').selectOption('production');
+      await page.locator('#paymentProviderProductionAcknowledged').check();
+      await page.evaluate(() => reviewController.reset());
+      assert.equal(await page.locator('#paymentProviderProductionAcknowledged').isChecked(), false,
+        'Production acknowledgement must clear on session reset');
+      assert.equal(await page.locator('#paymentProviderReview').isVisible(), false);
+      await page.evaluate(async id => { reviewError = true; await reviewController.setOrganization({ id, current_role:'owner' }); }, organizationId);
+      assert.equal(await page.locator('#paymentProviderReview').isVisible(), false,
+        'Unknown settings must not be shown as a verified test mode');
+      await page.evaluate(() => { reviewError = false; });
       await page.evaluate(async id => { reviewRole = 'admin'; await reviewController.setOrganization({ id, current_role:'admin' }); }, organizationId);
-      assert.match(await page.locator('#paymentProviderReviewRights').textContent(), /администратор.*просмотр без сохранения/);
+      assert.match(await page.locator('#paymentProviderReviewRights').textContent(), /администратор может просматривать/);
       assert.equal(await page.locator('#paymentProviderSettingsForm').isVisible(), false);
     }
     await page.close();

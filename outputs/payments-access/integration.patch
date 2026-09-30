@@ -7,7 +7,23 @@ diff --git a/minuta-online-booking/provider.html b/minuta-online-booking/provide
                </div>
                <div data-contextual-help data-help-label="Как выбрать тариф?" data-help-slug="subscription-plans" data-help-question="Объясни, какой тариф подходит, кто считается принимающим специалистом, как учитываются филиалы и что оплачивается отдельно."></div>
 -              <p class="subscription-launch-note">До запуска оплаты ничего выбирать и оплачивать не нужно.</p>
-+              <p class="subscription-launch-note">Сейчас доступ к кабинету действует без выбора тарифа и оплаты. Цены, лимиты и условия ниже относятся к будущим планам и сейчас не применяются. Перед запуском платного доступа действующие права и окончательные условия должны быть объявлены отдельно.</p>
++              <p class="subscription-launch-note">Сейчас доступ без тарифа и оплаты. Цены и лимиты ниже — будущие планы; они пока не действуют. Условия сообщим до запуска.</p>
                <details class="subscription-plans-disclosure">
                  <summary>Посмотреть будущие тарифы</summary>
                <div class="subscription-pricing">
+@@ -2220,5 +2220,6 @@
+   <script src="organization.js?v=1036" defer></script>
+   <script src="payment-management.js?v=1022" defer></script>
++  <script src="payment-review.js?v=1045" defer></script>
+   <script src="commerce-management.js?v=1036" defer></script>
+   <script src="integration-management.js?v=1004" defer></script>
+   <script src="notification-center.js?v=1005" defer></script>
+diff --git a/minuta-online-booking/sw.js b/minuta-online-booking/sw.js
+--- a/minuta-online-booking/sw.js
++++ b/minuta-online-booking/sw.js
+@@ -71,4 +71,5 @@
+ const OPTIONAL_ASSETS = [
++  './payment-review.js?v=1045',
+   './schedule-flat.css?v=1040',
+   './schedule-break-icons.js?v=1023',
+   './client-loyalty-frames.css?v=3',

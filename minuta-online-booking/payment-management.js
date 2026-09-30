@@ -483,7 +483,6 @@
           ? 'Не удалось сохранить защиту от повторного запуска. Освободите хранилище браузера и повторите.'
           : sandboxAvailable === false ? 'Контур появится после безопасного обновления базы.'
             : 'Не удалось проверить журнал. Рабочие платежи и записи продолжают работать.';
-        renderPaymentReview();
         return;
       }
       const bookings = sandboxBookings();
@@ -506,7 +505,6 @@
         if ($('#paymentSandboxHelp')) $('#paymentSandboxHelp').textContent = bookings.length
           ? 'Проверка проходит внутри Eldion Pro. ЮKassa и банк не участвуют; клиент не получит уведомление.'
           : 'Нет доступных записей для проверки. Подходят записи текущего специалиста в этой организации, кроме отменённых и блокировок расписания.';
-        renderPaymentReview();
         return;
       }
       const remaining = Number(sandboxState.capturedMinor) - Number(sandboxState.refundedMinor);
@@ -534,7 +532,6 @@
         $('#paymentSandboxRefundAmount').max = minorInputValue(remaining);
         if (!$('#paymentSandboxRefundAmount').value) $('#paymentSandboxRefundAmount').value = minorInputValue(remaining);
       }
-      renderPaymentReview();
     }
     async function loadSandbox() {
       if (!organization?.id || !manager()) return;
@@ -711,29 +708,6 @@
     function refundStatusLabel(value) {
       return ({ creating:'создаётся', pending:'в обработке', succeeded:'выполнено', canceled:'отменено', failed:'ошибка' })[value] || value || '—';
     }
-    function renderPaymentReview() {
-      const form = $('#paymentProviderSettingsForm');
-      if (!form) return;
-      let review = $('#paymentProviderReview');
-      if (!review) {
-        review = document.createElement('section');
-        review.id = 'paymentProviderReview';
-        review.className = 'organization-invite-help';
-        review.setAttribute('aria-live', 'polite');
-        review.innerHTML = '<strong>Состояние подключения</strong><p id="paymentProviderReviewMode"></p><p id="paymentProviderReviewTest"></p><p id="paymentProviderReviewRights"></p><div id="paymentProviderProductionReview" hidden><strong>Перед рабочим магазином</strong><p>Внутренняя проверка не проверяет ЮKassa, реквизиты, webhook и чеки. Отдельный допуск рабочего магазина ещё не подтверждён этим экраном.</p><label class="settings-check"><input id="paymentProviderProductionAcknowledged" type="checkbox"><span>Я проверил режим и понимаю, что это подтверждение в интерфейсе, а не серверный допуск.</span></label></div>';
-        form.before(review);
-      }
-      const settings = payload?.settings || {};
-      $('#paymentProviderReviewMode').textContent = `Сохранённый режим: ${settings.environment === 'production' ? 'рабочий' : 'тестовый'} магазин; приём ${settings.enabled ? 'включён' : 'выключен'}.`;
-      const sandboxResult = sandboxState && sandboxAvailable === true && !sandboxStorageFailed
-        ? sandboxStatusLabel(sandboxState.status)
-        : sandboxReference?.pending ? 'результат проверяется' : 'нет подтверждённого результата';
-      $('#paymentProviderReviewTest').textContent = `Внутренний тест: ${sandboxResult}. Это не тест ЮKassa.`;
-      $('#paymentProviderReviewRights').textContent = `Ваши права: ${owner() ? 'владелец — может сохранять настройки' : 'администратор — просмотр без сохранения настроек'}.`;
-      const productionReview = $('#paymentProviderProductionReview');
-      productionReview.hidden = !owner() || $('#paymentProviderEnvironment')?.value !== 'production';
-      if (productionReview.hidden) $('#paymentProviderProductionAcknowledged').checked = false;
-    }
     function render(error = null) {
       const panel = $('#paymentProviderPanel');
       if (!panel) return;
@@ -838,6 +812,7 @@
       if (event.target.id === 'paymentProviderSettingsForm') {
         event.preventDefault();
         if (!organization || !owner() || busy || !requireWrites()) return;
+        const isCurrent = beginOperation();
         const fiscal = $('#paymentFiscalizationEnabled').checked;
         const expected = {
           enabled:$('#paymentProviderEnabled').checked,
@@ -847,12 +822,6 @@
           vat_code:fiscal ? Number($('#paymentVatCode').value) : null,
           payment_mode:fiscal ? $('#paymentMode').value : null
         };
-        if (expected.environment === 'production' && !$('#paymentProviderProductionAcknowledged')?.checked) {
-          renderPaymentReview();
-          notify('Перед сохранением рабочего режима прочитайте review и подтвердите его. Внутренний тест не подтверждает готовность ЮKassa.');
-          return;
-        }
-        const isCurrent = beginOperation();
         try {
           const result = await db.rpc('set_minuta_yookassa_settings', {
             p_organization:organization.id,
@@ -992,7 +961,6 @@
     }
     function change(event) {
       if (event.target.id === 'paymentFiscalizationEnabled' || event.target.id === 'paymentRefundAttempt') updateRefundAmount();
-      if (event.target.id === 'paymentProviderEnvironment') renderPaymentReview();
       if (event.target.id === 'paymentSandboxBooking') {
         const booking = sandboxBookings().find(item => item.id === event.target.value);
         if ($('#paymentSandboxAmount')) $('#paymentSandboxAmount').value = String(Math.max(1, booking?.totalPriceRub || 1));
