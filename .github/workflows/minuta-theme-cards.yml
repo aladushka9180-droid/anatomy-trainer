@@ -68,6 +68,7 @@ jobs:
       - run: node minuta-online-booking/tests/analytics-reconciliation-browser-test.mjs
       - run: node minuta-online-booking/tests/report-money-source-visibility-browser-test.mjs
       - run: node minuta-online-booking/tests/finance-warning-n14-browser-test.mjs
+      - run: node minuta-online-booking/tests/finance-report-scope-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-heatmap-scroll-hint-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-heatmap-drilldown-browser-test.mjs --project-root .
       - run: node minuta-online-booking/tests/retention-copy-a10-browser-test.mjs

@@ -149,6 +149,7 @@
           <label><span>Период</span><select data-finance-period></select></label>
           <label><span>Мастер</span><select data-finance-master></select></label>
         </div>
+        <p class="finance-center__scope" data-finance-scope hidden></p>
         <div class="finance-center__status" data-finance-status role="status" aria-live="polite"></div>
         <div class="finance-center__unavailable" data-finance-unavailable hidden><div aria-hidden="true">!</div><section><h3>Финансовый итог пока недоступен</h3><p data-finance-unavailable-message></p></section></div>
         <div data-finance-content hidden>
@@ -240,6 +241,7 @@
       root.querySelector('.finance-center')?.setAttribute('aria-busy', String(loading));
       elements.status.textContent = message;
       elements.status.hidden = !message;
+      find('[data-finance-scope]').hidden = loading || Boolean(message) || !state.data?.available;
     }
 
     function setMoney(selector, value, known = true) {
@@ -350,6 +352,9 @@
       state.data = data; state.operations = data.operations; state.nextCursor = data.nextCursor;
       state.period = data.filters.selectedPeriod || state.period; state.master = data.filters.selectedMaster || state.master;
       fillOptions(elements.period, data.filters.periods, state.period); fillOptions(elements.master, data.filters.masters, state.master);
+      const scope = find('[data-finance-scope]');
+      scope.textContent = data.available ? 'Финансовые данные: ' + data.periodLabel + ' · ' + (elements.master.selectedOptions[0]?.textContent || 'Все мастера') : '';
+      scope.hidden = !data.available;
       const unavailable = find('[data-finance-unavailable]');
       if (!data.available) {
         unavailable.hidden = false;

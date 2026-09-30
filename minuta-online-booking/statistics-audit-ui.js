@@ -5,7 +5,6 @@
   const segmentTitles = Object.freeze({ all:'Посетило', new:'Новые', returning:'Приходили раньше' });
   const formats = Object.freeze({ xlsx:'Excel (.xlsx)', csv:'CSV (.csv)', pdf:'PDF (.pdf)' });
   const phoneModes = Object.freeze({ masked:'частично скрыты', none:'не включены', full:'полные телефоны клиентов' });
-  const viewTitles = Object.freeze({ overview:'Обзор', money:'Деньги', clients:'Клиенты', team:'Команда' });
   const contents = Object.freeze({
     xlsx:'Сводка по визитам и отмеченным оплатам, реестр записей, мастера, клиенты и история изменений. Расходы не входят.',
     csv:'Только реестр записей с данными визитов и отмеченной оплаты. Расходы не входят.',
@@ -55,7 +54,7 @@
 
   function scopeText(scope) {
     const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value.split('-').reverse().join('.') : '—';
-    const view = viewTitles[scope.view] ? ` · Открыта вкладка: ${viewTitles[scope.view]}` : '';
+    const view = scope.view === 'money' ? ' · Период и сотрудник — из вкладки «Обзор»' : '';
     return `${date(scope.start)} — ${date(scope.end)} · ${scope.performerName || 'Личная статистика'} · Источник: ${scope.source === 'demo' ? 'демо' : 'реальные данные'} · ${scope.organizationName || 'Организация'}${view}`;
   }
 
@@ -84,6 +83,7 @@
       closeIfOpen(exportDialog);
     }
     function refresh() {
+      renderVisitExportScope();
       if (capturedScope && scopeKey(getScope()) !== scopeKey(capturedScope)) invalidate();
     }
 
@@ -222,7 +222,30 @@
       download(format, privacy);
       return true;
     }
+    function renderVisitExportScope() {
+      const scope = getScope();
+      const money = (scope?.view || report?.dataset.reportTab) === 'money';
+      const button = $('#exportBookings');
+      const label = button?.querySelector('span');
+      if (label) label.textContent = money ? 'Отчёт по визитам' : 'Экспорт';
+      button?.setAttribute('aria-label', money ? 'Отчёт по визитам' : 'Экспорт');
+      const note = $('#reportVisitExportScope');
+      if (!note) return;
+      note.hidden = !money;
+      note.textContent = money && scope
+        ? 'Отчёт по визитам: ' + scopeText(scope) + '. Экспорт финансовых операций и расходов пока недоступен.'
+        : '';
+    }
     function mountExport() {
+      if (report && !$('#reportVisitExportScope')) {
+        const note = document.createElement('p');
+        note.id = 'reportVisitExportScope';
+        note.className = 'report-visit-export-scope';
+        note.hidden = true;
+        (report.querySelector('.report-head') || $('#exportBookings'))?.after(note);
+        new MutationObserver(refresh).observe(report, { attributes:true, attributeFilter:['data-report-tab'] });
+      }
+      renderVisitExportScope();
       // Capture protects the review even if the legacy direct-download listener
       // was registered earlier on a format button.
       $('#exportBookings')?.addEventListener('click', event => {

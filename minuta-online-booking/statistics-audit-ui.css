@@ -136,3 +136,6 @@ body.provider-body[data-provider-text-scale] #analyticsView :is(.report-data-sou
 body.provider-body[data-provider-text-scale] #analyticsView .report-funnel strong{font-size:calc(.875rem + var(--provider-text-step,0px))}
 body.provider-body[data-provider-text-scale] #analyticsView :is(.report-data-source button,.report-trend-open){font-size:calc(1rem + var(--provider-text-step,0px))}
 @media(max-width:760px){#analyticsView .report-trend .report-chart{height:max(190px,13rem);min-height:max(190px,13rem)}}
+
+#analyticsView .report-visit-export-scope { margin:4px 0 14px; color:var(--theme-muted); font-size:12px; line-height:1.5; }
+#analyticsView .report-visit-export-scope[hidden] { display:none; }
