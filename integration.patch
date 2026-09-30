@@ -1,0 +1,29 @@
+diff --git a/minuta-online-booking/provider.html b/minuta-online-booking/provider.html
+--- a/minuta-online-booking/provider.html
++++ b/minuta-online-booking/provider.html
+@@ -2252,5 +2252,6 @@
+   <link rel="stylesheet" href="client-profile-card.css?v=2">
+   <link rel="stylesheet" href="new-booking-card.css?v=1042">
+   <link rel="stylesheet" href="schedule-flat.css?v=1040">
++  <link rel="stylesheet" href="inventory-item-catalog.css?v=1">
+   <script src="theme-catalog.js?v=885" defer></script>
+   <script src="provider-porcelain-matrix.js?v=942" defer></script>
+diff --git a/minuta-online-booking/provider.js b/minuta-online-booking/provider.js
+--- a/minuta-online-booking/provider.js
++++ b/minuta-online-booking/provider.js
+@@ -17835,6 +17835,6 @@
+   ['commercePanel', { script:'commerce-management.js', api:() => window.MinutaCommerce, get:() => commerceController, set:value => { commerceController = value; }, admin:true }],
+   ['benefitsPanel', { script:'benefit-management.js', api:() => window.MinutaBenefits, get:() => benefitController, set:value => { benefitController = value; }, admin:true }],
+   ['loyaltyPanel', { script:'loyalty-program-v166.js', api:() => window.MinutaLoyalty, get:() => loyaltyController, set:value => { loyaltyController = value; }, admin:true }],
+-  ['inventoryPanel', { script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true }],
++  ['inventoryPanel', { script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true, inventoryCatalog:true }],
+   ['retentionPanel', { script:'retention-management.js', api:() => window.MinutaRetention, get:() => retentionController, set:value => { retentionController = value; }, admin:true }]
+ ]);
+@@ -17917,6 +17917,6 @@
+       || organizationController.getActiveOrganization()?.id !== organization.id) return null;
+     const api = definition.api();
+     if (!api?.createController) throw new Error(`Модуль ${definition.script} недоступен`);
+-    controller = api.createController(organizationFeatureOptions());
++    controller = api.createController({ ...organizationFeatureOptions(), inventoryCatalog:definition.inventoryCatalog === true });
+     controller.bind();
+     definition.set(controller);

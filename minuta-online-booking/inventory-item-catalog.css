@@ -1,0 +1,29 @@
+#inventoryPanel .inventory-item-icon {
+  display: inline-block;
+  width: 1.4em;
+  font-size: .95em;
+  line-height: 1;
+  vertical-align: baseline;
+}
+
+#inventoryPanel .organization-row-main { min-width: 0; }
+
+#inventoryPanel .inventory-item-meta {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#inventoryPanel .inventory-item-category {
+  display: inline-block;
+  max-width: 9ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+#inventoryItemCatalogFields[hidden] { display: none; }

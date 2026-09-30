@@ -1,0 +1,44 @@
+name: Inventory item catalog isolated PostgreSQL 17
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/inventory-item-catalog-isolated.yml'
+      - 'minuta-online-booking/inventory-item-catalog-*'
+      - 'minuta-online-booking/tests/inventory-item-catalog-*'
+      - 'minuta-online-booking/inventory-management.js'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-local-test
+          POSTGRES_DB: isolated-catalog
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d isolated-catalog"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      MINUTA_TEST_DATABASE_URL: postgres://postgres:synthetic-local-test@127.0.0.1:5432/isolated-catalog
+      MINUTA_TEST_PROJECT_REF: isolated-catalog
+      MINUTA_PRODUCTION_PROJECT_REF: production-placeholder
+      MINUTA_TEST_MIGRATION_CONFIRM: MIGRATE_ONLY_ISOLATED_TEST_DATABASE
+      MINUTA_CATALOG_BOOTSTRAP: synthetic
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - name: Test additive category/icon migration
+        run: node minuta-online-booking/tests/inventory-item-catalog-postgres-test.mjs

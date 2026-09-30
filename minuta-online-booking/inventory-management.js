@@ -3,9 +3,11 @@
 
   const unitLabels = { piece:'шт.', ml:'мл', g:'г', kg:'кг', l:'л', pack:'упак.' };
   const movementLabels = { receipt:'Приход', write_off:'Списание', inventory:'Инвентаризация', service_use:'Завершённый визит', transfer_out:'Перемещение: отправлено', transfer_in:'Перемещение: получено' };
+  const itemIcons = { bottle:'🧴', box:'📦', tools:'🧰', care:'🩹' };
 
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
+    const catalogRequested = options.inventoryCatalog === true;
     const requestConfirmation = options.requestConfirmation || (() => Promise.resolve(false));
     const select = typeof options.$ === 'function' ? options.$ : selector => document.querySelector(selector);
     function $(selector) { return select(selector); }
@@ -108,7 +110,9 @@
       availability = 'loading'; payload = null; $('#inventoryPanel').hidden = false; $('#inventoryLoading').hidden = false; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
       let result;
       try {
-        result = await db.rpc('get_minuta_inventory_workspace_v130', { p_organization:organizationId });
+        if (catalogRequested) result = await db.rpc('get_minuta_inventory_workspace_catalog', { p_organization:organizationId });
+        if (!result || result?.error && unsupported(result.error, 'get_minuta_inventory_workspace_catalog'))
+          result = await db.rpc('get_minuta_inventory_workspace_v130', { p_organization:organizationId });
         if (result?.error && unsupported(result.error, 'get_minuta_inventory_workspace_v130'))
           result = await db.rpc('get_minuta_inventory_workspace', { p_organization:organizationId });
       }
@@ -160,7 +164,20 @@
 
     function itemCard(row) {
       const total = totalFor(row.id), low = row.active && total <= Number(row.low_stock_threshold || 0);
-      return `<article class="organization-row ${low ? 'inventory-low' : ''}"><div class="organization-row-main"><strong>${escapeHtml(row.name)} · ${escapeHtml(quantity(total))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</strong><small>${row.sku ? `Артикул ${escapeHtml(row.sku)} · ` : ''}минимум ${escapeHtml(quantity(row.low_stock_threshold))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</small></div><span class="organization-tags"><span class="organization-status ${row.active ? 'is-active' : ''}">${low ? 'Ниже минимума' : row.active ? 'Активен' : 'Скрыт'}</span><button class="secondary-button" type="button" data-inventory-edit-item="${escapeHtml(row.id)}" data-inventory-write>Изменить</button></span></article>`;
+      const icon = itemIcons[row.icon] ? `<span class="inventory-item-icon" aria-hidden="true">${itemIcons[row.icon]}</span>` : '';
+      const category = row.category ? `<span class="inventory-item-category" title="${escapeHtml(row.category)}">${escapeHtml(row.category)}</span> · ` : '';
+      return `<article class="organization-row ${low ? 'inventory-low' : ''}"><div class="organization-row-main"><strong>${icon}${escapeHtml(row.name)} · ${escapeHtml(quantity(total))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</strong><small class="${category ? 'inventory-item-meta' : ''}">${category}${row.sku ? `Артикул ${escapeHtml(row.sku)} · ` : ''}минимум ${escapeHtml(quantity(row.low_stock_threshold))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</small></div><span class="organization-tags"><span class="organization-status ${row.active ? 'is-active' : ''}">${low ? 'Ниже минимума' : row.active ? 'Активен' : 'Скрыт'}</span><button class="secondary-button" type="button" data-inventory-edit-item="${escapeHtml(row.id)}" data-inventory-write>Изменить</button></span></article>`;
+    }
+
+    function renderItemCatalogFields() {
+      if (!$('#inventoryItemCatalogFields')) {
+        const anchor = $('#inventoryItemLow')?.closest?.('.form-row');
+        if (typeof anchor?.insertAdjacentHTML === 'function') anchor.insertAdjacentHTML('afterend', '<div class="form-row inventory-item-catalog-fields" id="inventoryItemCatalogFields"><label>Категория (необязательно)<input id="inventoryItemCategory" maxlength="60" autocomplete="off" placeholder="Например, расходники"></label><label>Иконка (необязательно)<select id="inventoryItemIcon"><option value="">Без иконки</option><option value="bottle">🧴 Флакон</option><option value="box">📦 Упаковка</option><option value="tools">🧰 Инструменты</option><option value="care">🩹 Уход</option></select></label></div>');
+      }
+      const fields = $('#inventoryItemCatalogFields');
+      if (!fields) return;
+      fields.hidden = Number(payload.catalog_version) !== 1;
+      if (fields.hidden) { $('#inventoryItemCategory').value = ''; $('#inventoryItemIcon').value = ''; }
     }
 
     function warehouseCard(row) {
@@ -269,6 +286,7 @@
         ? enabled ? 'Учёт включён. Старые визиты не списываются.' : 'Учёт выключен. Включение не спишет материалы за старые визиты.'
         : enabled ? 'Учёт включён. Изменить настройку может только владелец.' : 'Учёт выключен. Включить его может только владелец.';
       $('#inventoryItemsCount').textContent = String(payload.items.length); $('#inventoryWarehousesCount').textContent = String(payload.warehouses.length);
+      renderItemCatalogFields();
       $('#inventoryItemsList').innerHTML = payload.items.length ? payload.items.map(itemCard).join('') : empty('Товаров и материалов пока нет', 'Добавьте первую складскую позицию.');
       $('#inventoryWarehousesList').innerHTML = payload.warehouses.length ? payload.warehouses.map(warehouseCard).join('') : empty('Склады не созданы', 'Создайте по одному складу для нужных филиалов.');
       $('#inventoryBalances').innerHTML = payload.warehouses.filter(row => row.active).length ? payload.warehouses.filter(row => row.active).map(balanceCard).join('') : empty('Нет активных складов', 'Создайте склад филиала, затем оформите приход.');
@@ -623,7 +641,13 @@
     async function submit(event) {
       if (!event.target.closest('#inventoryPanel')) return;
       if (event.target.id === 'inventoryItemForm') {
-        event.preventDefault(); const ok = await mutate('upsert_minuta_inventory_item', { p_organization:organization.id,p_item:$('#inventoryItemId').value || null,p_name:$('#inventoryItemName').value.trim(),p_sku:$('#inventoryItemSku').value.trim(),p_unit:$('#inventoryItemUnit').value,p_low_stock:Number($('#inventoryItemLow').value || 0),p_active:$('#inventoryItemActive').checked }, event.submitter, 'Складская позиция сохранена', '#inventoryItemError'); if (ok) clearItemForm(); return;
+        event.preventDefault();
+        const catalog = Number(payload?.catalog_version) === 1;
+        const parameters = { p_organization:organization.id,p_item:$('#inventoryItemId').value || null,p_name:$('#inventoryItemName').value.trim(),p_sku:$('#inventoryItemSku').value.trim(),p_unit:$('#inventoryItemUnit').value,p_low_stock:Number($('#inventoryItemLow').value || 0),p_active:$('#inventoryItemActive').checked };
+        if (catalog) { parameters.p_category=$('#inventoryItemCategory').value.trim() || null; parameters.p_icon=$('#inventoryItemIcon').value || null; }
+        const ok = await mutate(catalog ? 'upsert_minuta_inventory_item_catalog' : 'upsert_minuta_inventory_item', parameters, event.submitter, 'Складская позиция сохранена', '#inventoryItemError');
+        if (ok) clearItemForm();
+        return;
       }
       if (event.target.id === 'inventoryWarehouseForm') {
         event.preventDefault(); const ok = await mutate('upsert_minuta_inventory_warehouse', { p_organization:organization.id,p_warehouse:$('#inventoryWarehouseId').value || null,p_location:$('#inventoryWarehouseLocation').value,p_name:$('#inventoryWarehouseName').value.trim(),p_active:$('#inventoryWarehouseActive').checked }, event.submitter, 'Склад сохранён', '#inventoryWarehouseError'); if (ok) clearWarehouseForm(); return;
@@ -677,7 +701,7 @@
       }
       if (event.target.closest('#reloadInventory')) { await load(); return; }
       const editItem = event.target.closest('[data-inventory-edit-item]');
-      if (editItem) { const row = item(editItem.dataset.inventoryEditItem); if (!row) return; $('#inventoryItemId').value=row.id; $('#inventoryItemName').value=row.name; $('#inventoryItemSku').value=row.sku || ''; $('#inventoryItemUnit').value=row.unit; $('#inventoryItemLow').value=row.low_stock_threshold; $('#inventoryItemActive').checked=Boolean(row.active); $('#inventoryItemCreator').open=true; $('#inventoryItemName').focus(); return; }
+      if (editItem) { const row = item(editItem.dataset.inventoryEditItem); if (!row) return; $('#inventoryItemId').value=row.id; $('#inventoryItemName').value=row.name; $('#inventoryItemSku').value=row.sku || ''; $('#inventoryItemUnit').value=row.unit; $('#inventoryItemLow').value=row.low_stock_threshold; $('#inventoryItemActive').checked=Boolean(row.active); if ($('#inventoryItemCategory')) $('#inventoryItemCategory').value=row.category || ''; if ($('#inventoryItemIcon')) $('#inventoryItemIcon').value=itemIcons[row.icon] ? row.icon : ''; $('#inventoryItemCreator').open=true; $('#inventoryItemName').focus(); return; }
       const editWarehouse = event.target.closest('[data-inventory-edit-warehouse]');
       if (editWarehouse) { const row=warehouse(editWarehouse.dataset.inventoryEditWarehouse); if (!row) return; $('#inventoryWarehouseId').value=row.id; $('#inventoryWarehouseLocation').value=row.location_id; $('#inventoryWarehouseName').value=row.name; $('#inventoryWarehouseActive').checked=Boolean(row.active); $('#inventoryWarehouseCreator').open=true; $('#inventoryWarehouseName').focus(); return; }
       if (event.target.closest('[data-inventory-cancel-item]')) { clearItemForm(); return; }
