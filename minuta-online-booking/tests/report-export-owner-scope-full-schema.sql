@@ -50,9 +50,10 @@ end $fixture$;
 -- Disable only fixture-trigger side effects, then restore normal trigger mode
 -- before calling any existing or candidate RPC. All rows are rolled back.
 set local session_replication_role = replica;
-insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
-select actor,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
-  actor::text||'@example.invalid',now(),'{}','{}',now(),now()
+-- The verified public-only restore creates auth.users(id) placeholders. Auth data
+-- is intentionally not restored, so synthetic identities need only that key.
+insert into auth.users(id)
+select actor
 from (values (current_setting('export_probe.owner')::uuid),
   (current_setting('export_probe.admin')::uuid),(current_setting('export_probe.staff')::uuid)) users(actor);
 insert into public.performer_profiles(id,display_name)
