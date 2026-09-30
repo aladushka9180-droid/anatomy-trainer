@@ -10,6 +10,60 @@
     document.querySelector("#reportPerformers .report-section-heading")?.insertAdjacentHTML("afterend", "<button id=\"reportShowAllTeam\" class=\"secondary-button compact-button\" type=\"button\" hidden>Вся команда</button>");
   }
 
+  function mountReportMethodology() {
+    const details = document.querySelector('#reportHealthDetails');
+    if (details && !document.querySelector('#reportIndexMethod')) {
+      details.querySelector('summary').textContent = 'Индекс-ориентир: как рассчитан';
+      const explanation = details.querySelector(':scope > p');
+      explanation.id = 'reportIndexMethod';
+      explanation.textContent = 'Индекс от 0 до 100 показывает выполнение выбранных целей за период, а не независимую оценку бизнеса. При выборе сотрудника используются его записи, цели остаются целями организации.';
+      explanation.insertAdjacentHTML('afterend', `<ul class="report-index-method-list">
+        <li><strong>Посещения · 30%</strong><span>Состоявшиеся ÷ записи с известным исходом; ориентир — 100% минус допустимые отмены и неявки.</span></li>
+        <li><strong>Оплаты · 25%</strong><span>Отмечено полученным ÷ стоимость состоявшихся визитов с известной оплатой. Если оплата указана менее чем у 80% визитов, общий индекс скрыт.</span></li>
+        <li><strong>Повторные клиенты · 20%</strong><span>Вернувшиеся ÷ уникальные клиенты относительно цели. Компонент доступен от трёх клиентов.</span></li>
+        <li><strong>Загрузка · 25%</strong><span>Занятое время ÷ доступное рабочее время относительно цели; нужен полный график.</span></li>
+      </ul><p class="report-index-method-foot">Каждый доступный компонент ограничен 100 баллами. Если компонент недоступен, веса остальных пересчитываются. Нужны минимум два компонента и три записи с известным исходом. План выручки показывается отдельно и в индекс не входит.</p>`);
+      document.querySelector('#reportHealthRing')?.setAttribute('aria-describedby', 'reportIndexMethod');
+    }
+    const goals = document.querySelector('#reportGoalsDialog .report-export-head');
+    if (goals && !document.querySelector('#reportGoalsScope')) {
+      goals.insertAdjacentHTML('afterend', '<p class="report-goals-scope" id="reportGoalsScope"></p>');
+      document.querySelector('#reportGoalsDialog .report-goals-grid')?.insertAdjacentHTML('afterend', '<p class="report-goals-defaults">Значения при сбросе: выручка 0 ₽ (план выключен), загрузка 70%, возвращаемость 35%, допустимые отмены и неявки 10%. Сброс меняет поля; примените их кнопкой «Сохранить цели».</p>');
+    }
+    const utm = document.querySelector('#reportUtmFunnelCard .report-section-heading');
+    if (utm && !document.querySelector('#reportUtmExplanation')) {
+      utm.insertAdjacentHTML('afterend', '<p class="report-utm-explanation" id="reportUtmExplanation">Конверсия источника — доля сессий, в которых создана запись: сессии с записью ÷ сессии с открытием страницы × 100%. Проценты этапов считаются от всех открывших страницу; посещения — сессии, а не уникальные люди. Только переходы с точной меткой utm_source=primetime_external_test показаны отдельно и исключены из итогов. Похожие названия учитываются обычно.</p>');
+    }
+  }
+
+  function refreshReportMethodology() {
+    const scope = document.querySelector('#reportGoalsScope');
+    if (!scope || typeof reportGoalsScopeKey !== 'function' || typeof displayPreferences === 'undefined') return;
+    const organization = reportOrganization();
+    const name = String(organization?.display_name || organization?.name || '').trim();
+    const target = reportDataSource === 'demo' ? 'демо-режима' : name ? `организации «${name}»` : 'вашего профиля';
+    const saved = Boolean(displayPreferences.analytics_goals_by_scope?.[reportGoalsScopeKey()]);
+    scope.textContent = `Эти цели сохраняются для ${target}. ${saved ? 'Здесь показаны сохранённые цели этой области.' : 'Пока используются общие значения; сохранение задаст цели только для этой области.'}`;
+  }
+
+  function refreshReportUtmPresentation() {
+    const sources = document.querySelector('#reportUtmFunnelSources');
+    if (!sources || typeof reportUtmFunnelState === 'undefined' || typeof reportUtmIsTestSource !== 'function') return;
+    const testTitle = sources.querySelector('.report-utm-test-source strong');
+    if (testTitle) testTitle.textContent = 'Тестовые переходы';
+    const rows = Array.isArray(reportUtmFunnelState.data?.rows)
+      ? reportUtmFunnelState.data.rows.filter(row => !reportUtmIsTestSource(row)) : [];
+    sources.querySelectorAll(':scope > article').forEach((article, index) => {
+      const row = rows[index];
+      if (String(row?.utm_source || '').trim().toLowerCase() !== 'master'
+        || String(row?.utm_campaign || '').trim().toLowerCase() !== 'free_slots') return;
+      const title = article.querySelector('strong');
+      const subtitle = article.querySelector('small');
+      if (title) title.textContent = 'Ссылка мастера · Свободные окна';
+      if (subtitle && String(row?.utm_medium || '').trim().toLowerCase() === 'link') subtitle.textContent = 'Ссылка на запись';
+    });
+  }
+
   function renderReportCalculationDetails({ range, completed, revenue, knownPaymentCount, unknownPaymentCount, workedMinutes }) {
     const average = knownPaymentCount ? money(Math.round(revenue / knownPaymentCount)) : 'Нет данных';
     setReportText('#reportAverageCalculation', knownPaymentCount
@@ -204,9 +258,17 @@
   });
   audit.mount();
   mountReportClarity();
+  mountReportMethodology();
+  refreshReportMethodology();
+  document.querySelector('#reportGoalsOpen')?.addEventListener('click', refreshReportMethodology);
+  const utmSources = document.querySelector('#reportUtmFunnelSources');
+  if (utmSources) {
+    new MutationObserver(refreshReportUtmPresentation).observe(utmSources, { childList:true });
+    refreshReportUtmPresentation();
+  }
   document.querySelector('#reportTeamMetricNote')?.insertAdjacentHTML('afterend',
     '<p class="report-team-payment-warning">Есть визиты без отметки оплаты; они не входят в выручку.</p>');
-  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, refresh:() => audit.refresh(), periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
+  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, refresh:() => { audit.refresh(); refreshReportMethodology(); }, periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
   if (reportPeriod === 'custom') updateReportFilterSummary();
   if (document.querySelector('#dashboard')?.dataset.activeView === 'analytics') renderAnalytics();
 })();
