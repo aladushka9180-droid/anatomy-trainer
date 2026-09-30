@@ -149,3 +149,15 @@ body.provider-body[data-provider-text-scale] #analyticsView :is(.report-data-sou
 #analyticsView .report-personal-result { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:16px; padding:12px 0; }
 #analyticsView .report-personal-result .report-team-person small { white-space:normal; overflow:visible; }
 @media(max-width:600px) { #analyticsView .report-personal-result { grid-template-columns:minmax(0,1fr); gap:8px; } #analyticsView .report-personal-result .report-performer-value { text-align:left; } }
+
+#analyticsView .report-index-method-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:0 0 10px; padding:0; list-style:none; }
+#analyticsView .report-index-method-list li { display:grid; gap:4px; min-width:0; padding:10px 11px; border:1px solid var(--theme-line); border-radius:10px; background:var(--theme-surface-alt); }
+#analyticsView .report-index-method-list :is(strong,span),
+#analyticsView :is(.report-index-method-foot,.report-utm-explanation,.report-goals-scope,.report-goals-defaults) { color:var(--theme-muted); font-size:calc(12px + var(--provider-text-step,0px)); line-height:1.45; overflow-wrap:anywhere; }
+#analyticsView .report-index-method-list strong { color:var(--theme-ink); font-weight:700; }
+#analyticsView :is(.report-index-method-foot,.report-utm-explanation,.report-goals-scope,.report-goals-defaults) { margin:0; }
+#analyticsView .report-index-method-foot { margin-bottom:12px; }
+#analyticsView .report-utm-explanation { max-width:850px; }
+#analyticsView .report-goals-scope { margin:10px 0 14px; }
+#analyticsView .report-goals-defaults { margin-top:12px; }
+@media(max-width:760px) { #analyticsView .report-index-method-list { grid-template-columns:minmax(0,1fr); } }
