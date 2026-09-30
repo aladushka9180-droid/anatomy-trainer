@@ -109,14 +109,10 @@ try {
       }
       regular.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = true; });
       workspace.append(regular);
-      const dialog = document.createElement('dialog'); dialog.id = 'freeSlotsDialog'; dialog.className = 'free-slots-dialog'; dialog.open = true;
-      dialog.append(clone('#freeSlotsDialog .free-slots-source'), clone('#freeSlotsDialog .free-slots-title-toggle'));
-      const textOptions = document.createElement('div'); textOptions.className = 'free-slots-text-options';
-      textOptions.innerHTML = '<label><input type="checkbox" checked>Включить</label>';
-      dialog.append(textOptions);
-      const times = document.createElement('div'); times.className = 'free-slots-time-grid';
-      times.innerHTML = '<label><input type="checkbox" checked><span>10:00</span></label>';
-      dialog.append(times); document.body.append(dialog);
+      const dialog = clone('#freeSlotsDialog'); dialog.open = true;
+      dialog.querySelector('#freeSlotsTimeChoices').innerHTML = '<div class="free-slots-time-grid"><label><input type="checkbox" checked><span>10:00</span></label></div>';
+      dialog.querySelectorAll('.free-slots-text-options input').forEach(input => { input.checked = true; });
+      document.body.append(dialog);
       document.querySelectorAll('#inventoryEnabled,#inventoryAutoDeduct,#retentionEnabled,#inventoryItemActive,#inventoryWarehouseActive,#inventoryTransfersEnabled').forEach(input => { input.checked = true; });
       document.querySelector('#inventoryTransfersSetting').hidden = false;
       document.querySelector('#inventoryItemCreator').open = true;
@@ -203,6 +199,25 @@ try {
           assert.equal(actual.background, toRgb(palette.actionBg), `${width} ${character}/${shade} ${selector} background`);
           assert.equal(actual.color, toRgb(palette.actionInk), `${width} ${character}/${shade} ${selector} ink`);
           assert.ok(contrast(actual.color, actual.background) >= 4.5, `${width} ${character}/${shade} ${selector} contrast`);
+        }
+        for (const selector of ['#copyFreeSlots', '#updateFreeSlotsText']) {
+          const action = await page.locator(selector).evaluate(element => ({
+            background:getComputedStyle(element).backgroundColor, color:getComputedStyle(element).color,
+            border:getComputedStyle(element).borderTopColor
+          }));
+          assert.deepEqual(action, {
+            background:toRgb(palette.actionBg), color:toRgb(palette.actionInk), border:toRgb(palette.line)
+          }, `${width} ${character}/${shade} ${selector} free-slots primary action`);
+          assert.ok(contrast(action.color, action.background) >= 4.5, `${selector} text contrast`);
+        }
+        for (const selector of ['#copyFreeSlotsLink', '#shareFreeSlots', '#resetFreeSlotsText',
+          '#keepFreeSlotsText', '#freeSlotsClearSelection', '#freeSlotsAutoSelection', '#downloadFreeSlotsQr', '#freeSlotsChangeDates']) {
+          assert.equal(await page.locator(selector).evaluate(element => getComputedStyle(element).color),
+            toRgb(palette.actionInk), `${width} ${character}/${shade} ${selector} quiet ink`);
+        }
+        for (const selector of ['#copyFreeSlots', '#copyFreeSlotsLink', '#shareFreeSlots']) {
+          assert.ok(await page.locator(selector).evaluate(element => Number(getComputedStyle(element).opacity) < 1),
+            `${width} ${character}/${shade} ${selector} disabled appearance`);
         }
         for (const selector of ['#newBookingButton span', '#newBookingButton .ui-icon', '#mobileNewBookingButton span', '#mobileNewBookingButton .ui-icon']) {
           const ink = await page.locator(selector).evaluate(element => getComputedStyle(element).color);
@@ -334,6 +349,30 @@ try {
             window.__x15RecordsController.setView('notes');
             document.querySelector('#clientRecords details[data-cr-panel="note"]').open = true;
           });
+          await page.locator('#freeSlotsDialog .free-slots-actions button').evaluateAll(buttons =>
+            buttons.forEach(button => { button.disabled = false; }));
+          await page.waitForFunction(() => [...document.querySelectorAll('#freeSlotsDialog .free-slots-actions button')]
+            .every(button => Number(getComputedStyle(button).opacity) > .99));
+          for (const selector of ['#copyFreeSlots', '#copyFreeSlotsLink', '#shareFreeSlots']) {
+            for (const state of ['hover', 'focus']) {
+              if (state === 'hover') await page.locator(selector).hover();
+              else await page.locator(selector).focus();
+              const style = await page.locator(selector).evaluate(element => ({
+                background:getComputedStyle(element).backgroundColor, color:getComputedStyle(element).color,
+                opacity:Number(getComputedStyle(element).opacity),
+                outline:getComputedStyle(element).outlineColor
+              }));
+              assert.equal(style.color, toRgb(palette.actionInk), `${width} ${selector} ${state} ink`);
+              if (selector === '#copyFreeSlots') assert.equal(style.background, toRgb(palette.actionBg), `${width} primary ${state} fill`);
+              assert.equal(style.opacity, 1, `${width} ${selector} enabled ${state} appearance`);
+              if (state === 'focus') assert.equal(style.outline, toRgb(palette.actionInk), `${width} ${selector} focus outline`);
+            }
+          }
+          if (outputDir) await page.locator('#freeSlotsDialog').screenshot({ path:path.join(outputDir, `x15-free-slots-${width}.png`) });
+          await page.locator('#freeSlotsDialog .free-slots-actions button').evaluateAll(buttons =>
+            buttons.forEach(button => { button.disabled = true; }));
+          await page.waitForFunction(() => [...document.querySelectorAll('#freeSlotsDialog .free-slots-actions button')]
+            .every(button => Number(getComputedStyle(button).opacity) < .56));
           await page.locator('#clientRecords [data-cr-note] .cr-button').hover();
           await page.locator('.booking-time-slots button.active').focus();
           await page.waitForTimeout(350);
@@ -382,6 +421,14 @@ try {
     await page.evaluate(() => { document.body.dataset.providerTheme = 'sage'; document.body.style.setProperty('--theme-accent', '#287a58'); });
     assert.equal(await page.locator('#clientRecords [data-cr-note] .cr-button').evaluate(element => getComputedStyle(element).backgroundColor), toRgb('#287a58'), 'another theme keeps own action');
     assert.equal(await page.locator('#groupBookingsEnabled').evaluate(element => getComputedStyle(element).accentColor), toRgb('#287a58'), 'another theme keeps own checkbox accent');
+    for (const selector of ['#copyFreeSlots', '#updateFreeSlotsText']) {
+      assert.notEqual(await page.locator(selector).evaluate(element => getComputedStyle(element).backgroundColor),
+        toRgb('#f3b8ce'), `${selector} keeps other theme primary`);
+    }
+    for (const selector of ['#copyFreeSlotsLink', '#shareFreeSlots', '#resetFreeSlotsText',
+      '#keepFreeSlotsText', '#freeSlotsClearSelection', '#freeSlotsAutoSelection', '#downloadFreeSlotsQr', '#freeSlotsChangeDates']) {
+      assert.notEqual(await page.locator(selector).evaluate(element => getComputedStyle(element).color), toRgb('#382532'), `${selector} keeps other theme ink`);
+    }
     await page.evaluate(() => MinutaServicePresets.open({ professionIds:['tire_fitter'], existingServices:[] }));
     await page.locator('#servicePresetsDialog [data-service-presets-next]').click();
     await page.locator('#servicePresetsDialog [data-service-preset]').first().click();

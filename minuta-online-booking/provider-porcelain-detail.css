@@ -282,6 +282,19 @@ html body.provider-body[data-provider-theme="pink-porcelain"] #servicePresetsDia
   background:var(--porcelain-action-bg)!important;
   color:var(--porcelain-action-ink)!important;
 }
+html body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog :is(#copyFreeSlots,#updateFreeSlotsText) {
+  border-color:var(--theme-line)!important;
+  background:var(--porcelain-action-bg)!important;
+  background-image:none!important;
+  color:var(--porcelain-action-ink)!important;
+  text-shadow:none!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog :is(.secondary-button,#freeSlotsChangeDates) {
+  color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #freeSlotsDialog .free-slots-actions button:focus-visible {
+  outline-color:var(--porcelain-action-ink)!important;
+}
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] :is(#clientRecords .cr-button,.booking-time-slots button.active,#freeSlotsDialog input:checked,#freeSlotsDialog input:checked+span,.retention-toggle>input:checked,.organization-checks input:checked,#inventoryEnabled:checked,#inventoryAutoDeduct:checked){border-color:var(--theme-line)!important;background:var(--porcelain-action-bg)!important;color:var(--porcelain-action-ink)!important;accent-color:var(--porcelain-action-bg)!important}
 html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layout] .retention-toggle>input:checked::after{background:var(--porcelain-action-ink)!important}
 /* Timeline markers carry no status; keep their small circles visible without moving them. */
