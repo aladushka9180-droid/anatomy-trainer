@@ -11183,7 +11183,7 @@ function refreshNewBookingCard() {
   const price = newBookingRepeatVisit
     ? Math.max(0, Number($('#repeatVisitTotalPrice')?.value ?? newBookingRepeatVisit.total_price_rub) || 0)
     : Math.max(0, Number(service?.price_rub) || 0) * (Number(service?.duration_minutes) === 1 ? duration : 1);
-  window.PrimeTimeNewBookingCard.render({mode:newBookingMode, selected, name, phone,
+  window.PrimeTimeNewBookingCard.render({mode:newBookingMode, selected, clientExists:selected && buildClients().some(client => client.phone === normalizePhone(phone)), name, phone,
     avatar:selected ? clientFramedAvatarMarkup(phone, name, null, 88) : '',
     duration, price:money(price), date:$('#newBookingDate')?.value || '', time:newBookingTime,
     repeat:Boolean(newBookingRepeatVisit)});
@@ -13388,6 +13388,16 @@ function openClientProfileFromBooking(bookingId, requestedPhone = '') {
   const transition = setProviderView('clients');
   if (transition?.updateCallbackDone?.then) transition.updateCallbackDone.then(showClient).catch(showClient);
   else showClient();
+}
+
+async function openSelectedNewBookingClientProfile() {
+  const phone = normalizePhone($('#newBookingPhone')?.value);
+  if (!buildClients().some(client => client.phone === phone)) return;
+  closeBookingSheet();
+  try { await setProviderView('clients')?.updateCallbackDone; } catch {}
+  setClientProfileDetailMode(true);
+  renderClientDetail(phone);
+  activateClientProfileJump('history', { scroll:false });
 }
 
 function returnFromClientProfile() {
@@ -17364,6 +17374,7 @@ document.addEventListener('click', async event => {
   if (commerceBookingSale) await openCommerceSaleFromBooking(commerceBookingSale.dataset.commerceBookingSale);
   if (commerceClientSale) await openCommerceSale({ clientId:commerceClientSale.dataset.commerceClientSale || '' });
   if (openClientProfile) openClientProfileFromBooking(openClientProfile.dataset.clientBookingId, openClientProfile.dataset.openClientProfile);
+  if (event.target.closest('[data-open-selected-client]')) { await openSelectedNewBookingClientProfile(); return; }
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (quickCompleteBookingButton) await quickCompleteBookingOutcome(quickCompleteBookingButton);
   if (openAutoCompleteSettingsButton) await openAutoCompleteSettings();

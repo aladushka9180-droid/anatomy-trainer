@@ -22,6 +22,7 @@ try {
   assert.equal(await page.locator('#newBookingSelectedClient').isVisible(),true);
   assert.equal(await page.locator('#newBookingClientEntry').isVisible(),false);
   assert.equal(await page.locator('#newBookingSelectedClient .client-framed-count').textContent(),'50');
+  assert.equal(await page.getByRole('button',{name:'Карточка и история'}).isVisible(),true);
   await page.locator('[data-new-booking-time="10:30"]').click();
   assert.match(await page.locator('#newBookingSelectionSummary').innerText(),/10:30–11:30/);
   await page.locator('#newBookingServiceOpen').click();
@@ -39,7 +40,7 @@ try {
   });
   assert.ok(layout.overflow<=1,JSON.stringify(layout));assert.ok(layout.page<=1);assert.ok(layout.gap>=0);assert.equal(layout.tabRadius,'0px');
   if(out&&width===390)await page.screenshot({path:resolve(out,`new-booking-${theme}.png`)});
-  await page.locator('#newBookingSelectedClient>button').click();
+  await page.getByRole('button',{name:'Изменить'}).click();
   assert.equal(await page.locator('#newBookingName').isVisible(),true);
   await page.locator('#newBookingName').fill('Ан');await page.locator('[data-new-booking-client]').click();
   await page.locator('[data-new-booking-mode="block"]').click();
@@ -51,6 +52,8 @@ try {
   await page.locator('#newBookingSubmit').click();
   const result=await page.evaluate(()=>window.fixtureSubmitted);
   assert.equal(result.name,'Анна');assert.equal(result.time,'10:00');assert.equal(result.service,'s2');
+  await page.evaluate(()=>{document.querySelector('#newBookingPhone').value='+7 900 000-00-02';fixtureRefresh();});
+  assert.equal(await page.getByRole('button',{name:'Карточка и история'}).isVisible(),false);
   assert.deepEqual(errors,[]);await page.close();
  }
  const page=await browser.newPage({viewport:{width:360,height:640},reducedMotion:'reduce'});

@@ -30,6 +30,7 @@ body.provider-body[data-provider-theme] #bookingSheet.new-booking-card .new-book
 #bookingSheet.new-booking-card .new-booking-selected-copy strong {display:block;font-size:17px;line-height:1.25;overflow-wrap:anywhere;}
 #bookingSheet.new-booking-card .new-booking-selected-copy small {display:block;margin-top:6px;color:var(--card-muted);font-size:14px;overflow-wrap:anywhere;}
 body.provider-body[data-provider-theme] #bookingSheet.new-booking-card #newBookingSelectedClient>button {padding:8px 0;min-height:44px;border:0;background:none;color:var(--card-accent);font-size:14px;font-weight:500;box-shadow:none;}
+#newBookingSelectedClient>[data-open-selected-client]{grid-column:1/-1;justify-self:start;}
 #bookingSheet.new-booking-card .new-booking-service-field {position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:0!important;clip-path:inset(50%);overflow:hidden;}
 #bookingSheet.new-booking-card .new-booking-service-label {display:block;margin:0;padding:18px 0 4px;border-top:1px solid var(--card-line);font-size:13px;font-weight:400;color:var(--card-muted);}
 #bookingSheet.new-booking-card .new-booking-service-label[hidden] {display:none;}
