@@ -2,6 +2,160 @@
 (function () {
   'use strict';
   const range = () => reportRange();
+  function mountReportClarity() {
+    if (document.querySelector('#reportAverageCalculation')) return;
+    document.querySelector(".report-secondary")?.insertAdjacentHTML("beforeend", "<details class=\"report-calculation\"><summary>Как считается средняя оплата</summary><p id=\"reportAverageCalculation\">Расчёт появится после загрузки данных.</p></details>");
+    document.querySelector("#reportUtilizationNote")?.insertAdjacentHTML("afterend", "<details class=\"report-calculation\"><summary>Как считаются время и загрузка</summary><p id=\"reportDurationCalculation\">Расчёт появится после загрузки данных.</p><p id=\"reportUtilizationCalculation\">Нужен полный рабочий график выбранной области.</p></details>");
+    document.querySelector(".report-retention .report-section-heading")?.insertAdjacentHTML("afterend", "<p class=\"report-scope-note\">По всей организации. Период и сотрудник выше не применяются.</p>\n              <details class=\"report-calculation\"><summary>Условия отбора клиентов</summary><p id=\"reportRetentionConditions\">Сроки отбора появятся после загрузки сегмента. Нужны согласие на обращение и отсутствие предстоящей записи. Сообщения не отправляются автоматически.</p></details>");
+    document.querySelector("#reportPerformers .report-section-heading")?.insertAdjacentHTML("afterend", "<button id=\"reportShowAllTeam\" class=\"secondary-button compact-button\" type=\"button\" hidden>Вся команда</button>");
+  }
+
+  function renderReportCalculationDetails({ range, completed, revenue, knownPaymentCount, unknownPaymentCount, workedMinutes }) {
+    const average = knownPaymentCount ? money(Math.round(revenue / knownPaymentCount)) : 'Нет данных';
+    setReportText('#reportAverageCalculation', knownPaymentCount
+      ? `${money(revenue)} получено ÷ ${knownPaymentCount} ${reportVisitWord(knownPaymentCount)} с известной оплатой = ${average}. Исключено без отметки оплаты: ${unknownPaymentCount}. Известная нулевая оплата входит в расчёт.`
+      : `Нет состоявшихся визитов с известной оплатой. Исключено без отметки оплаты: ${unknownPaymentCount}. Известная нулевая оплата входит в расчёт.`);
+    const plannedCount = completed.filter(item => !(Number(bookingOutcome(item).actual_duration_minutes) > 0)).length;
+    setReportText('#reportDurationCalculation', `Состоявшиеся визиты: ${completed.length}. Учтено ${reportHours(workedMinutes)} (${workedMinutes} мин). Используется положительная фактическая длительность; если её нет — плановая. С плановой длительностью: ${plannedCount} ${reportVisitWord(plannedCount)}.`);
+    const availableMinutes = reportAvailableScheduleMinutes(range);
+    setReportText('#reportUtilizationCalculation', availableMinutes === null
+      ? 'Процент недоступен: нужен полный рабочий график выбранных сотрудников и периода. Из рабочего времени исключаются перерывы, выходные и закрытое время.'
+      : `Занято ${reportHours(workedMinutes)} (${workedMinutes} мин) из ${reportHours(availableMinutes)} (${availableMinutes} мин) доступного рабочего времени. ${availableMinutes > 0 ? `${workedMinutes} ÷ ${availableMinutes} × 100 = ${Math.round(workedMinutes / availableMinutes * 100)}%.` : 'При нуле доступных минут текущий расчёт показывает 0%.'} Учитываются выбранные период и сотрудники; перерывы, выходные и закрытое время исключены.`);
+  }
+
+  function renderReportTeamRows(rows) {
+    rows = reportReconciledTeamRows(reportCompletedItems(reportBookings(reportRange())), reportRange());
+    const panel = $('#reportPerformers');
+    const holder = $('#reportPerformersList');
+    if (!panel || !holder) return;
+    const allTeamSelected = reportCanViewTeam && (!reportPerformerFilter || reportPerformerFilter === 'all');
+    const personalSelected = reportCanViewTeam && !allTeamSelected;
+    if (personalSelected) rows = rows.filter(row => String(row.performer_id || '') === String(reportPerformerFilter));
+    panel.hidden = !reportCanViewTeam || (!rows.length && !personalSelected);
+    panel.classList.toggle('is-personal', personalSelected);
+    const title = $('#reportPerformersTitle');
+    if (title) title.textContent = personalSelected ? 'Результаты сотрудника' : 'Рейтинг сотрудников';
+    const allTeamButton = $('#reportShowAllTeam');
+    if (allTeamButton) {
+      allTeamButton.hidden = !personalSelected;
+      allTeamButton.onclick = () => {
+        const control = $('#reportPerformerFilter');
+        if (control) { control.value = 'all'; control.dispatchEvent(new Event('change', { bubbles:true })); }
+      };
+    }
+    panel.querySelector('.report-team-controls')?.setAttribute('aria-label', personalSelected ? 'Показатель сотрудника' : 'Показатель рейтинга сотрудников');
+    if (!reportCanViewTeam) { holder.innerHTML = ''; return; }
+    if (reportTeamAnalyticsState.status === 'failed') {
+      panel.hidden = false;
+      holder.innerHTML = '<p class="report-empty-inline">Не удалось загрузить показатели сотрудников за выбранный период.</p>';
+      setReportText('#reportTeamMetricNote', 'Показатели прошлого периода скрыты. Общие показатели рассчитаны по загруженным записям.');
+      return;
+    }
+    if (!rows.length) { holder.innerHTML = '<p class="report-empty-inline">Данные сотрудника за выбранный период пока недоступны.</p>'; return; }
+    const controls = $$('[data-report-team-metric]');
+    controls.forEach(button => {
+      const active = button.dataset.reportTeamMetric === reportTeamMetric;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.onclick = () => {
+        reportTeamMetric = button.dataset.reportTeamMetric || 'revenue';
+        renderReportTeamRows(reportTeamAnalyticsState.rows || []);
+      };
+    });
+    const metricNotes = {
+      revenue:'Фактически полученная оплата за состоявшиеся визиты.',
+      payroll:'Сумма к выплате по настроенной схеме начисления.',
+      visits:'Количество состоявшихся визитов.',
+      hours:'Время состоявшихся визитов: фактическое, а если оно не указано — плановое.',
+      efficiency:'Полученная оплата за час учтённого времени: фактического, а если оно не указано — планового.'
+    };
+    setReportText('#reportTeamMetricNote', metricNotes[reportTeamMetric] || metricNotes.revenue);
+    const metricValue = row => {
+      const visits = Math.max(0, Number(row.completed_visits) || 0);
+      const minutes = Math.max(0, Number(row.worked_minutes) || 0);
+      const revenue = Math.max(0, Number(row.revenue_rub) || 0);
+      if (reportTeamMetric === 'payroll') return row.payroll_rub === null || row.payroll_rub === undefined || !Number.isFinite(Number(row.payroll_rub)) ? null : Number(row.payroll_rub);
+      if (reportTeamMetric === 'visits') return visits;
+      if (reportTeamMetric === 'hours') return minutes / 60;
+      if (reportTeamMetric === 'efficiency') return minutes > 0 ? revenue / (minutes / 60) : 0;
+      return revenue;
+    };
+    const metricLabel = (value, row) => {
+      if (value === null) return '—';
+      if (reportTeamMetric === 'visits') return `${Math.round(value)} ${reportVisitWord(value)}`;
+      if (reportTeamMetric === 'hours') return reportHours(Number(row.worked_minutes) || 0);
+      if (reportTeamMetric === 'efficiency') return `${money(Math.round(value))}/ч`;
+      return money(Math.round(value));
+    };
+    const rankedRows = rows.map(row => ({ row, value:metricValue(row) })).sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
+    const maximum = Math.max(1, ...rankedRows.map(item => item.value || 0));
+    const showLeader = allTeamSelected && rankedRows.length > 1;
+    holder.innerHTML = rankedRows.map((item, index) => {
+      const row = item.row;
+      const visits = Math.max(0, Number(row.completed_visits) || 0);
+      const clients = Math.max(0, Number(row.unique_clients) || 0);
+      const minutes = Math.max(0, Number(row.worked_minutes) || 0);
+      const revenue = Math.max(0, Number(row.revenue_rub) || 0);
+      const average = row.payment_known_visits ? revenue / row.payment_known_visits : null;
+      const width = item.value === null ? 0 : Math.max(item.value > 0 ? 3 : 0, Math.round((item.value || 0) / maximum * 100));
+      if (personalSelected) return `<article class="report-personal-result"><span class="report-team-person"><strong>${escapeHtml(row.performer_name || 'Сотрудник')}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} ${reportClientWord(clients)} · ${reportHours(minutes)} · ${average === null ? 'Нет данных об оплате' : `${money(Math.round(average))}/визит с данными`}</small></span><span class="report-performer-value"><b>${escapeHtml(metricLabel(item.value, row))}</b>${reportTeamMetric === 'payroll' && item.value === null ? '<small>Схема начисления не задана</small>' : ''}</span></article>`;
+      return `<button class="report-performer-row${showLeader && index === 0 && item.value !== null ? ' is-leader' : ''}" type="button" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><span class="report-team-rank">${index + 1}</span><span class="report-team-person"><strong>${escapeHtml(row.performer_name || 'Мастер')}${showLeader && index === 0 && item.value !== null ? '<em>Лидер</em>' : ''}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} ${reportClientWord(clients)} · ${reportHours(minutes)} · ${average === null ? 'Нет данных об оплате' : `${money(Math.round(average))}/визит с данными`}</small></span><span class="report-team-bar" aria-hidden="true"><i style="width:${width}%"></i></span><span class="report-performer-value"><b>${escapeHtml(metricLabel(item.value, row))}</b>${reportTeamMetric === 'payroll' && item.value === null ? '<small>Схема начисления не задана</small>' : ''}</span><span class="report-team-arrow" aria-hidden="true">→</span></button>`;
+    }).join('');
+    holder.querySelectorAll('[data-report-performer]').forEach(row => {
+      const select = () => { const control = $('#reportPerformerFilter'); if (!control) return; control.value = row.dataset.reportPerformer; control.dispatchEvent(new Event('change', { bubbles:true })); window.scrollTo({ top:$('#analyticsView')?.offsetTop || 0, behavior:'smooth' }); };
+      row.addEventListener('click', select);
+    });
+  }
+
+  function renderReportRetention() {
+    const panel = $('.report-retention');
+    const setEmptyText = text => {
+      if (!panel) return;
+      let empty = panel.querySelector('.report-retention-empty');
+      if (!empty) {
+        panel.insertAdjacentHTML('beforeend', '<p class="report-retention-empty"></p>');
+        empty = panel.querySelector('.report-retention-empty');
+      }
+      empty.textContent = text;
+    };
+    const availability = retentionController?.availability || 'idle';
+    const payloadValue = retentionController?.payload;
+    const payload = typeof payloadValue === 'function' ? payloadValue.call(retentionController) : payloadValue;
+    const payloadMatchesScope = String(payload?.organization_id || '') === String(reportOrganizationId() || '');
+    const scopeReady = reportDataSource !== 'demo' && availability === 'ready' && payloadMatchesScope;
+    const periods = scopeReady
+      ? 'Учитываются перерыв после последнего завершённого визита и интервал после предыдущего обращения. Сроки задаются в настройках возврата клиентов. '
+      : reportDataSource === 'demo' ? 'Для демо-данных сегмент возврата не рассчитывается. ' : 'Условия отбора станут доступны после загрузки сегмента. ';
+    setReportText('#reportRetentionConditions', `${periods}Нужны согласие на обращение и отсутствие предстоящей записи. Сообщения не отправляются автоматически.`);
+    if (reportDataSource === 'demo' || availability !== 'ready' || !payloadMatchesScope) {
+      ['#reportRetentionEligible','#reportRetentionRegular','#reportRetentionPrepared','#reportRetentionSent','#reportRetentionUnknownConsent'].forEach(selector => setReportText(selector, '—'));
+      panel?.classList.remove('is-empty');
+      setEmptyText(reportDataSource === 'demo'
+        ? 'Возврат клиентов доступен только для ваших данных'
+        : availability === 'loading' ? 'Загружаем сегмент клиентов…'
+          : availability === 'error' ? 'Не удалось загрузить сегмент клиентов'
+            : availability === 'unsupported' ? 'Сегмент возврата пока недоступен'
+              : 'Откройте вкладку «Клиенты», чтобы загрузить сегмент');
+      return;
+    }
+    const clients = Array.isArray(payload?.clients) ? payload.clients : [];
+    const deliveries = Array.isArray(payload?.deliveries) ? payload.deliveries : [];
+    const eligible = clients.filter(item => item.eligible === true).length;
+    const regular = clients.filter(item => item.eligible === true && Number(item.completed_visits || 0) >= 3).length;
+    const prepared = deliveries.filter(item => ['prepared', 'draft'].includes(String(item.status || '').toLowerCase())).length;
+    const sent = deliveries.filter(item => ['sent', 'delivered'].includes(String(item.status || '').toLowerCase())).length;
+    const unknownConsent = clients.filter(item => !item.consent_status || String(item.consent_status).toLowerCase() === 'unknown').length;
+    setReportText('#reportRetentionEligible', eligible);
+    setReportText('#reportRetentionRegular', regular);
+    setReportText('#reportRetentionPrepared', prepared);
+    setReportText('#reportRetentionSent', sent);
+    setReportText('#reportRetentionUnknownConsent', unknownConsent);
+    if (panel) {
+      const isEmpty = eligible + regular + prepared + sent === 0;
+      panel.classList.toggle('is-empty', isEmpty);
+      setEmptyText('Клиентов для возвращения пока нет' + (unknownConsent ? ` · у ${unknownConsent} не указано согласие` : ''));
+    }
+  }
   function reportFreshnessLabel() {
     if (reportDataSource === 'demo') return 'Учебный расчёт';
     const scoped = reportUsesScopedBookings();
@@ -49,9 +203,10 @@
     }
   });
   audit.mount();
+  mountReportClarity();
   document.querySelector('#reportTeamMetricNote')?.insertAdjacentHTML('afterend',
     '<p class="report-team-payment-warning">Есть визиты без отметки оплаты; они не входят в выручку.</p>');
-  window.MinutaStatisticsAuditProvider = Object.freeze({ freshnessLabel:reportFreshnessLabel, refresh:() => audit.refresh(), periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
+  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, refresh:() => audit.refresh(), periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
   if (reportPeriod === 'custom') updateReportFilterSummary();
   if (document.querySelector('#dashboard')?.dataset.activeView === 'analytics') renderAnalytics();
 })();

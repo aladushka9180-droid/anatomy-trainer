@@ -59,6 +59,9 @@ try {
   await page.locator('#reportExportDialog').waitFor({ state:'visible' });
   assert.equal(await page.locator('.report-segment-button').count(), 3, 'feature mounted once');
   assert.equal(await page.locator('.report-team-payment-warning').count(), 1, 'team payment caveat mounted once');
+  assert.equal(await page.locator('#reportAverageCalculation').count(), 1, 'calculation disclosure mounts with the optional feature');
+  assert.equal(await page.locator('#reportShowAllTeam').count(), 1, 'personal metrics return action mounts once');
+  assert.equal(await page.locator('.report-retention .report-scope-note').count(), 1, 'organization retention scope mounts once');
   await page.evaluate(() => {
     const report = document.querySelector('#analyticsView');
     report.dataset.reportTab = 'team';
@@ -73,6 +76,9 @@ try {
   await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
   assert.equal(loaded, 2, 'both scripts loaded exactly once');
   assert.deepEqual(await page.evaluate(() => window.downloads), [], 'opening export does not download');
+  await page.locator('#reportExportDialog').waitFor({ state:'hidden' });
+  await page.locator('#exportBookings').click();
+  await page.locator('#reportExportDialog').waitFor({ state:'visible' });
   await page.locator('#reportExportPrivacy').selectOption('full');
   await page.locator('[data-report-export="csv"]').click();
   await page.locator('.report-export-review [data-audit-confirm]').click();

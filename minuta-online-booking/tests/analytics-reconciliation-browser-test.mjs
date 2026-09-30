@@ -10,7 +10,7 @@ assert.ok(freshness,'Actual optional statistics freshness binding exists');
 const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n')+'\n'+freshness+'\n';
 const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
 const moduleSource=readFileSync(new URL('../report-reconciliation.js',import.meta.url),'utf8');
-function declaration(name){const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.ok(start>=0,name);const lineEnd=source.indexOf('\n',start);return source.slice(start,source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',start)+2);}
+function declaration(name,sourceText=source){const source=sourceText;const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.ok(start>=0,name);const lineEnd=source.indexOf('\n',start);return source.slice(start,source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',start)+2);}
 // Receipt time belongs to a successful, current request, never to a local redraw.
 const receiptScope=vm.createContext({Date,navigator:{onLine:true},currentUser:{id:'master'},sessionGeneration:1,
   reportCanViewTeam:true,reportScopedBookingsState:{key:'',status:'idle',rows:[]},
@@ -38,7 +38,7 @@ await oldRequest;
 assert.equal(receiptScope.reportScopedBookingsState.key,'new-scope');
 assert.equal(receiptScope.reportScopedBookingsState.receivedAt,undefined);
 const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange',
-  'setReportFiltersExpanded','reportHours','reportVisitWord','reportClientWord','renderReportTeamRows','reportFreshnessLabel','renderReportCalculationDetails','renderReportRetention','renderReportUtilization',
+  'setReportFiltersExpanded','reportHours','reportVisitWord','reportClientWord','renderReportTeamRows','reportFreshnessLabel','renderReportRetention','renderReportUtilization',
   'reportServiceValue','reportReceivedAmount','reportImportedValue','reportDebtAmount','reportEffectivePerformerId','reportReconciledTeamRows','reportExportValue','reportExportDuration',
   'reportExportSheets','reportExportCell','reportExportPhone','reportExportMaster','reportExportPerformers','reportExportCreator','reportCurrentTeamRows','reportCurrentEventRows','renderAnalytics',
   'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','exportBookingsXlsx','exportBookingsCsv','retryReportScopedBookings',
@@ -47,7 +47,12 @@ const script=`
   var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
   var currentUser={id:'master-A'},sessionGeneration=1,reportDataSource='own',reportPeriod='month',reportCanViewTeam=false,reportPerformerFilter='all';
   var bookingsSnapshotSavedAt='2026-09-30T08:15:00Z',bookingsSnapshotFromCache=false;
-  window.MinutaStatisticsAuditProvider={freshnessLabel:reportFreshnessLabel,refresh(){}};
+  window.MinutaStatisticsAuditProvider={freshnessLabel:reportFreshnessLabel,refresh(){},
+    team:${declaration('renderReportTeamRows',binding.replace(/^  /gm,''))},
+    retention:${declaration('renderReportRetention',binding.replace(/^  /gm,''))},
+    calculations:${declaration('renderReportCalculationDetails',binding.replace(/^  /gm,''))}};
+  ${declaration('mountReportClarity',binding.replace(/^  /gm,''))}
+  mountReportClarity();
   var reportServiceMetric='revenue',reportTeamMetric='hours',reportServicesExpanded=false,reportSubview='overview';
   var range={start:'2026-09-01',end:'2026-09-30',period:'month'};
   var row=(id,changes={})=>({id,booking_date:'2026-09-10',booking_time:'10:00:00',duration_minutes:60,performer_id:'master-A',organization_id:'org-A',client_name:'Тестовый клиент',client_phone:'79990000000',status:'confirmed',value:1000,booking_outcomes:{visit_status:'completed',payment_method:'cash',amount_rub:600},...changes});
@@ -78,7 +83,7 @@ const script=`
   window.pdfText=[];const originalFillText=CanvasRenderingContext2D.prototype.fillText;
   CanvasRenderingContext2D.prototype.fillText=function(text,...args){pdfText.push(String(text));return originalFillText.call(this,text,...args);};
   ${moduleSource}
-  ${names.map(declaration).join('\n')}
+  ${names.map(name=>declaration(name)).join('\n')}
   var actualLoadReportScopedBookings=${declaration('loadReportScopedBookings')};
   var actualLoadReportTeamAnalytics=${declaration('loadReportTeamAnalytics')},reportRangeDays=()=>30,renderReportPerformerFilter=()=>{};
   var bookingUsesDemoData=()=>false,sessionIsCurrent=(id,generation)=>id===currentUser.id&&generation===sessionGeneration;
