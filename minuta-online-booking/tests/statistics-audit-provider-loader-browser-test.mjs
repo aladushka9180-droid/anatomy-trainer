@@ -8,6 +8,7 @@ const read = name => readFileSync(new URL(`../${name}`, import.meta.url), 'utf8'
 const html = read('provider.html');
 const scripts = new Map([
   ['statistics-audit-ui.js', read('statistics-audit-ui.js')],
+  ['report-export-provider.js', read('report-export-provider.js')],
   ['statistics-audit-provider.js', read('statistics-audit-provider.js')],
 ]);
 const browser = await chromium.launch({ headless:true });
@@ -42,7 +43,7 @@ try {
     function reportRange(){return {start:'2026-09-01',end:'2026-09-30'};}
     function reportUsesScopedBookings(){return false;}
     function reportOrganizationId(){return 'org';}
-    function reportOrganization(){return {name:'Тест'};}
+    function reportOrganization(){return {name:'Тест',current_role:'owner',locations:[]};}
     function reportPerformerName(){return 'Вся команда';}
     function reportCompletedItems(rows){return rows;}
     function reportBookings(){return [];}
@@ -74,7 +75,7 @@ try {
   await page.locator('#reportPaymentEvidence').evaluate(element => { element.hidden = true; });
   assert.equal(await page.locator('.report-team-payment-warning').isVisible(), false, 'complete payment hides the caveat');
   await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
-  assert.equal(loaded, 2, 'both scripts loaded exactly once');
+  assert.equal(loaded, 3, 'all statistics scripts loaded exactly once');
   assert.deepEqual(await page.evaluate(() => window.downloads), [], 'opening export does not download');
   await page.locator('#reportExportDialog').waitFor({ state:'hidden' });
   await page.locator('#exportBookings').click();
@@ -84,9 +85,9 @@ try {
   await page.locator('.report-export-review [data-audit-confirm]').click();
   assert.deepEqual(await page.evaluate(() => window.downloads), [], 'full phone export requires checkbox');
   await page.locator('.report-export-review input').check();
-  await page.locator('.report-export-review [data-audit-confirm]').click();
-  assert.deepEqual(await page.evaluate(() => window.downloads), [['csv','full']]);
+  await page.locator('.report-export-review [data-audit-cancel]').click();
+  assert.deepEqual(await page.evaluate(() => window.downloads), [], 'loader fixture never produces a file');
   await page.locator('#exportBookings').click();
-  assert.equal(loaded, 2, 'second click reuses loaded feature');
+  assert.equal(loaded, 3, 'second click reuses loaded feature');
   await page.close();
 } finally { await browser.close(); }

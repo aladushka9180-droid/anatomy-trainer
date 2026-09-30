@@ -3,10 +3,11 @@
   'use strict';
 
   const segmentTitles = Object.freeze({ all:'Посетило', new:'Новые', returning:'Приходили раньше' });
+  const exportSegmentTitles = Object.freeze({ all:'Все клиенты', new:'Новые', returning:'Приходили раньше' });
   const formats = Object.freeze({ xlsx:'Excel (.xlsx)', csv:'CSV (.csv)', pdf:'PDF (.pdf)' });
   const phoneModes = Object.freeze({ masked:'частично скрыты', none:'не включены', full:'полные телефоны клиентов' });
   const contents = Object.freeze({
-    xlsx:'Сводка по визитам и отмеченным оплатам, реестр записей, мастера, клиенты и история изменений. Расходы не входят.',
+    xlsx:'Сводка по визитам и отмеченным оплатам, реестр записей, мастера и клиенты. Расходы не входят.',
     csv:'Только реестр записей с данными визитов и отмеченной оплаты. Расходы не входят.',
     pdf:'Сводка по визитам и отмеченным оплатам, до 12 мастеров и сокращённый реестр записей. Расходы и телефоны не входят.'
   });
@@ -49,13 +50,33 @@
 
   function scopeKey(scope) {
     if (!scope) return '';
-    return JSON.stringify([scope.session, scope.organization, scope.organizationName, scope.source, scope.start, scope.end, scope.performer, scope.performerName, scope.view, scope.status]);
+    return JSON.stringify([scope.session, scope.organization, scope.organizationName, scope.source, scope.start, scope.end, scope.performer, scope.performerName, scope.view, scope.status, scope.role, scope.locations, scope.locationId, scope.segment]);
   }
 
   function scopeText(scope) {
     const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value.split('-').reverse().join('.') : '—';
     const view = scope.view === 'money' ? ' · Период и сотрудник — из вкладки «Обзор»' : '';
     return `${date(scope.start)} — ${date(scope.end)} · ${scope.performerName || 'Личная статистика'} · Источник: ${scope.source === 'demo' ? 'демо' : 'реальные данные'} · ${scope.organizationName || 'Организация'}${view}`;
+  }
+
+  function exportLocationName(scope) {
+    if (scope.locationId === 'all') return 'Все филиалы';
+    return scope.locations?.find(item => item.id === scope.locationId)?.name || '';
+  }
+  function exportScopeText(scope) {
+    return `${scopeText(scope)} · Филиал: ${exportLocationName(scope)} · Сегмент: ${exportSegmentTitles[scope.segment]}`;
+  }
+  function exportScopeNote(scope) {
+    const location = scope.source === 'demo' ? 'В демо выбор филиала и сегмента недоступен.'
+      : scope.locationId === 'all' ? 'Импортированные визиты без филиала включены.'
+      : 'Импортированные визиты без филиала исключены из отчёта выбранного филиала.';
+    return `${location} Сегменты считаются по состоявшимся визитам; реестр содержит все записи выбранных клиентов за период.`;
+  }
+  function exportContents(format, scope) {
+    const history = format === 'xlsx' ? scope.source === 'demo'
+      ? ' Лист истории изменений в демо пуст.' : scope.locationId === 'all' && scope.segment === 'all'
+        ? ' Лист истории изменений включён.' : ' Лист истории изменений пуст для выбранного филиала или сегмента.' : '';
+    return `${contents[format]}${history}`;
   }
 
   function create({ document, getScope, getSegments, download }) {
@@ -72,7 +93,11 @@
     function closeIfOpen(dialog) { if (dialog?.open) dialog.close(); }
     function readyScope() {
       const scope = getScope();
-      return scope && scope.status === 'ready' && scope.start && scope.end && scope.start <= scope.end ? scope : null;
+      if (!scope || scope.status !== 'ready' || !scope.start || !scope.end || scope.start > scope.end) return null;
+      const locationId = $('#reportExportLocation')?.value || 'all';
+      const segment = $('#reportExportSegment')?.value || 'all';
+      if (!exportSegmentTitles[segment] || locationId !== 'all' && !scope.locations?.some(item => item.id === locationId)) return null;
+      return { ...scope, locationId, segment };
     }
     function invalidate() {
       capturedScope = null;
@@ -84,7 +109,36 @@
     }
     function refresh() {
       renderVisitExportScope();
-      if (capturedScope && scopeKey(getScope()) !== scopeKey(capturedScope)) invalidate();
+      if (capturedScope && scopeKey(readyScope()) !== scopeKey(capturedScope)) invalidate();
+    }
+
+    function syncExportControls(scope) {
+      const location = $('#reportExportLocation');
+      const segment = $('#reportExportSegment');
+      const privacy = $('#reportExportPrivacy');
+      if (!location || !segment || !privacy) return;
+      const selected = location.value;
+      location.replaceChildren(new Option('Все филиалы', 'all'));
+      if (scope?.source === 'own') for (const item of scope.locations || []) {
+        if (item.id) location.add(new Option(item.name || 'Филиал', item.id));
+      }
+      location.value = [...location.options].some(option => option.value === selected) ? selected : 'all';
+      location.disabled = scope?.source !== 'own';
+      segment.disabled = scope?.source !== 'own';
+      if (segment.disabled) segment.value = 'all';
+      const full = privacy.querySelector('option[value="full"]');
+      const owner = scope?.source === 'own' && scope.role === 'owner';
+      full.hidden = !owner;
+      full.disabled = !owner;
+      privacy.value = 'masked';
+      $('#reportExportPhoneNote').textContent = owner
+        ? 'Полные телефоны требуют отдельного подтверждения перед скачиванием.'
+        : 'Полные телефоны доступны только владельцу организации.';
+    }
+    function renderExportSelection(scope) {
+      if (!scope) return;
+      exportDialog.querySelector('.report-audit-scope').textContent = exportScopeText(scope);
+      $('#reportExportScopeNote').textContent = exportScopeNote(scope);
     }
 
     function ensureSegmentDialog() {
@@ -156,7 +210,7 @@
       reviewDialog = document.createElement('dialog');
       reviewDialog.className = 'report-audit-dialog report-export-review';
       reviewDialog.setAttribute('aria-labelledby', 'reportExportReviewTitle');
-      reviewDialog.innerHTML = '<div class="report-audit-head"><div><small>Параметры отчёта</small><h3 id="reportExportReviewTitle">Отчёт по визитам</h3></div></div><p class="report-audit-scope"></p><p class="report-audit-format"></p><p class="report-audit-contents"></p><p class="report-audit-privacy"></p><label class="report-audit-consent" hidden><input type="checkbox"><span>Подтверждаю скачивание отчёта с полными телефонами клиентов на это устройство</span></label><p class="report-audit-error" role="alert" hidden></p><div class="report-audit-actions"><button type="button" class="secondary-button" data-audit-cancel>Отмена</button><button type="button" class="primary" data-audit-confirm>Скачать</button></div>';
+      reviewDialog.innerHTML = '<div class="report-audit-head"><div><small>Параметры отчёта</small><h3 id="reportExportReviewTitle">Отчёт по визитам</h3></div></div><p class="report-audit-scope"></p><p class="report-audit-scope-note"></p><p class="report-audit-format"></p><p class="report-audit-contents"></p><p class="report-audit-privacy"></p><label class="report-audit-consent" hidden><input type="checkbox"><span>Подтверждаю скачивание отчёта с полными телефонами клиентов на это устройство</span></label><p class="report-audit-error" role="alert" hidden></p><div class="report-audit-actions"><button type="button" class="secondary-button" data-audit-cancel>Отмена</button><button type="button" class="primary" data-audit-confirm>Скачать</button></div>';
       reviewDialog.querySelector('[data-audit-cancel]').addEventListener('click', () => reviewDialog.close());
       reviewDialog.querySelector('[data-audit-confirm]').addEventListener('click', confirmExport);
       reviewDialog.addEventListener('close', () => { capturedScope = null; pendingFormat = ''; pendingPrivacy = ''; reviewDialog.querySelector('input').checked = false; });
@@ -164,6 +218,7 @@
       return reviewDialog;
     }
     function openExport() {
+      syncExportControls(getScope());
       const scope = readyScope();
       if (!scope || !exportDialog) return false;
       capturedScope = { ...scope };
@@ -173,14 +228,14 @@
         summary.className = 'report-audit-scope';
         exportDialog.querySelector('.report-export-head')?.after(summary);
       }
-      summary.textContent = scopeText(scope);
+      renderExportSelection(scope);
       const title = exportDialog.querySelector('#reportExportTitle');
       if (title) title.textContent = 'Отчёт по визитам';
       const intro = exportDialog.querySelector('.report-export-head p');
       if (intro) intro.textContent = 'Выберите формат. Отчёт строится по датам визитов; расходы и финансовый журнал не входят.';
-      for (const [format, content] of Object.entries(contents)) {
+      for (const format of Object.keys(contents)) {
         const hint = exportDialog.querySelector(`[data-report-export="${format}"] small`);
-        if (hint) hint.textContent = content;
+        if (hint) hint.textContent = exportContents(format, scope);
       }
       exportDialog.showModal();
       return true;
@@ -190,14 +245,15 @@
       const scope = readyScope();
       if (!capturedScope || scopeKey(scope) !== scopeKey(capturedScope)) { invalidate(); return false; }
       const privacy = $('#reportExportPrivacy')?.value;
-      if (!phoneModes[privacy]) return false;
+      if (!phoneModes[privacy] || privacy === 'full' && (scope.source !== 'own' || scope.role !== 'owner')) return false;
       pendingFormat = format;
       pendingPrivacy = format === 'pdf' ? 'none' : privacy;
       closeIfOpen(exportDialog);
       const dialog = ensureReviewDialog();
-      dialog.querySelector('.report-audit-scope').textContent = scopeText(scope);
+      dialog.querySelector('.report-audit-scope').textContent = exportScopeText(scope);
+      dialog.querySelector('.report-audit-scope-note').textContent = exportScopeNote(scope);
       dialog.querySelector('.report-audit-format').textContent = `Формат: ${formats[format]}`;
-      dialog.querySelector('.report-audit-contents').textContent = `Состав: ${contents[format]}`;
+      dialog.querySelector('.report-audit-contents').textContent = `Состав: ${exportContents(format, scope)}`;
       dialog.querySelector('.report-audit-privacy').textContent = `Телефоны: ${phoneModes[pendingPrivacy]}`;
       dialog.querySelector('.report-audit-consent').hidden = pendingPrivacy !== 'full';
       dialog.querySelector('input').checked = false;
@@ -263,6 +319,14 @@
           else { closeIfOpen(exportDialog); capturedScope = null; }
         } else if (event.target === exportDialog) { closeIfOpen(exportDialog); capturedScope = null; }
       }, true);
+      for (const selector of ['#reportExportLocation', '#reportExportSegment']) $(selector)?.addEventListener('change', () => {
+        const scope = readyScope();
+        if (!scope) { invalidate(); return; }
+        capturedScope = { ...scope };
+        renderExportSelection(scope);
+        const hint = exportDialog?.querySelector('[data-report-export="xlsx"] small');
+        if (hint) hint.textContent = exportContents('xlsx', scope);
+      });
     }
 
     function validateCustomDates() {

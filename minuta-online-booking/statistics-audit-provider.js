@@ -245,6 +245,8 @@
   const audit = MinutaStatisticsAuditUI.create({ document,
     getScope:() => ({ session:sessionGeneration, organization:reportOrganizationId(),
       organizationName:reportOrganization()?.display_name || reportOrganization()?.name || '',
+      role:reportOrganization()?.current_role || '',
+      locations:(reportOrganization()?.locations || []).map(item => ({ id:String(item.id || ''), name:String(item.name || '') })),
       source:reportDataSource, start:range().start, end:range().end,
       performer:reportPerformerFilter, performerName:reportPerformerName(),
       view:document.querySelector('#analyticsView')?.dataset.reportTab || 'overview',

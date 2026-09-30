@@ -10,6 +10,7 @@ assert.ok(start >= 0 && end > start);
 
 const state = { user:'user-a', auth:'user-a', org:'org-a', active:'org-a', role:'owner',
   source:'own', period:'last30', performer:'all', team:true, status:'ready', key:'scope-a', consent:false,
+  location:'all', segment:'all',
   workspaceReads:0, afterWorkspace:null };
 const downloads = [], notifications = [], payloads = [];
 const context = {
@@ -29,7 +30,9 @@ const context = {
   reportForecastEnd:range => range.end,
   reportDataQueryRange:range => range,
   reportSessionKey:() => 'scope-a',
-  document:{ querySelector:() => state.consent ? { checked:true } : null },
+  document:{ querySelector:selector => selector === '#reportExportLocation' ? { value:state.location }
+    : selector === '#reportExportSegment' ? { value:state.segment }
+    : state.consent ? { checked:true } : null },
   db:{
     auth:{ getUser:async () => ({ data:{ user:{ id:state.auth } }, error:null }) },
     async rpc(name) {
@@ -37,7 +40,7 @@ const context = {
       state.workspaceReads += 1;
       const role = state.role;
       state.afterWorkspace?.(state.workspaceReads);
-      return { data:{ organizations:[{ id:'org-a', current_role:role, status:'active' }] }, error:null };
+      return { data:{ organizations:[{ id:'org-a', current_role:role, status:'active', locations:[{ id:'branch-a' }] }] }, error:null };
     }
   },
   notify:value => notifications.push(value),
@@ -73,6 +76,13 @@ assert.equal(payloads.length, 0);
 reset();
 await csv('masked');
 assert.equal(downloads.length, 1, 'admin can download masked CSV');
+reset(); state.location = 'branch-a';
+await csv('masked');
+assert.equal(downloads.length, 1, 'admin can download a known branch with masked phones');
+reset(); state.location = 'foreign-branch';
+await csv('masked');
+assert.equal(downloads.length, 0, 'a branch absent from the current workspace is denied');
+state.location = 'all';
 reset(); state.role = 'specialist';
 await xlsx('full');
 assert.equal(downloads.length, 0, 'specialist must not get full XLSX');

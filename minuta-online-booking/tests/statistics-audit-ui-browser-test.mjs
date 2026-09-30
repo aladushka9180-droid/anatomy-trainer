@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const modulePath = process.env.MINUTA_PLAYWRIGHT_MODULE;
@@ -8,6 +9,7 @@ const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const auditStyles = readFileSync(new URL('../statistics-audit-ui.css', import.meta.url), 'utf8');
 const providerUxStyles = readFileSync(new URL('../provider-ux.css', import.meta.url), 'utf8');
+const signatureStyles = readFileSync(new URL('../provider-themes-signature.css', import.meta.url), 'utf8');
 const auditScript = readFileSync(new URL('../statistics-audit-ui.js', import.meta.url), 'utf8');
 const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 
@@ -19,7 +21,7 @@ try {
       const parsed = new DOMParser().parseFromString(source, 'text/html');
       const report = parsed.querySelector('#analyticsView');
       document.body.className = 'provider-body';
-      document.body.dataset.providerTheme = 'sage-studio';
+      document.body.dataset.providerTheme = 'pink-porcelain';
       document.body.dataset.providerLayout = 'soft';
       document.body.style.margin = '0';
       document.body.style.padding = '12px';
@@ -58,12 +60,13 @@ try {
     await page.addStyleTag({ content:styles });
     await page.addStyleTag({ content:auditStyles });
     await page.addStyleTag({ content:providerUxStyles });
+    await page.addStyleTag({ content:signatureStyles });
     await page.addScriptTag({ content:auditScript });
     await page.evaluate(() => {
       const first = { client_name:'<img src=x onerror=alert(1)>', client_phone:'79991111111', booking_date:'2026-09-02', booking_time:'10:00' };
       const firstAgain = { ...first, booking_date:'2026-09-10', booking_time:'12:00' };
       const second = { client_name:'Мария', client_phone:'79992222222', booking_date:'2026-09-03', booking_time:'10:00' };
-      window.auditTest = { scope:{ session:1, organization:'org-1', source:'own', start:'2026-09-01', end:'2026-09-30', performer:'all', performerName:'Вся команда', status:'ready' }, downloads:[] };
+      window.auditTest = { scope:{ session:1, organization:'org-1', source:'own', role:'owner', locations:[{id:'branch-a',name:'Первый филиал'}], start:'2026-09-01', end:'2026-09-30', performer:'all', performerName:'Вся команда', status:'ready' }, downloads:[] };
       window.auditTest.legacyDownloads = 0;
       window.auditTest.legacyDateSubmits = 0;
       document.querySelector('#exportBookings').addEventListener('click', () => document.querySelector('#reportExportDialog').showModal());
@@ -73,7 +76,9 @@ try {
         document,
         getScope:() => window.auditTest.scope,
         getSegments:() => window.MinutaStatisticsAuditUI.buildClientSegments({ completed:[first,firstAgain,second], history:[{ client_phone:'79992222222' }], identityFor:item => item.client_phone }),
-        download:(format,privacy) => window.auditTest.downloads.push({ format,privacy })
+        download:(format,privacy) => window.auditTest.downloads.push({ format,privacy,
+          location:document.querySelector('#reportExportLocation').value,
+          segment:document.querySelector('#reportExportSegment').value })
       });
       window.auditController.mount();
     });
@@ -86,17 +91,42 @@ try {
     await page.locator('.report-segment-dialog [data-audit-close]').click();
     await page.locator('#exportBookings').click();
     assert.match(await page.locator('#reportExportDialog .report-audit-scope').innerText(), /01.09.2026 — 30.09.2026 · Вся команда/);
+    assert.match(await page.locator('#reportExportScopeNote').innerText(), /Импортированные визиты без филиала включены/);
+    await page.locator('#reportExportLocation').selectOption('branch-a');
+    await page.locator('#reportExportSegment').selectOption('new');
+    assert.match(await page.locator('#reportExportScopeNote').innerText(), /исключены из отчёта выбранного филиала/);
+    assert.equal(await page.locator('#reportExportDialog').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true, `${width}px export dialog overflow`);
+    if (process.env.REPORT_EXPORT_SCREENSHOT_DIR) {
+      mkdirSync(process.env.REPORT_EXPORT_SCREENSHOT_DIR, { recursive:true });
+      await page.locator('#reportExportDialog').screenshot({ path:path.join(process.env.REPORT_EXPORT_SCREENSHOT_DIR, `export-dialog-${width}.png`) });
+    }
     await page.locator('#reportExportPrivacy').selectOption('full');
     await page.locator('[data-report-export="csv"]').click();
+    assert.match(await page.locator('.report-export-review .report-audit-scope').innerText(), /Филиал: Первый филиал · Сегмент: Новые/);
+    assert.match(await page.locator('.report-export-review .report-audit-scope-note').innerText(), /Импортированные визиты без филиала исключены/);
+    assert.equal(await page.locator('.report-export-review').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true, `${width}px export review overflow`);
+    if (process.env.REPORT_EXPORT_SCREENSHOT_DIR) await page.locator('.report-export-review').screenshot({ path:path.join(process.env.REPORT_EXPORT_SCREENSHOT_DIR, `export-review-${width}.png`) });
     await page.locator('.report-export-review [data-audit-confirm]').click();
     assert.equal(await page.evaluate(() => window.auditTest.downloads.length), 0, 'full phones require confirmation');
     await page.locator('.report-export-review input[type="checkbox"]').check();
     await page.locator('.report-export-review [data-audit-confirm]').click();
-    assert.deepEqual(await page.evaluate(() => window.auditTest.downloads), [{ format:'csv', privacy:'full' }]);
+    assert.deepEqual(await page.evaluate(() => window.auditTest.downloads), [{ format:'csv', privacy:'full', location:'branch-a', segment:'new' }]);
     assert.equal(await page.evaluate(() => window.auditTest.legacyDownloads), 0, 'old direct export listener is intercepted');
+    await page.evaluate(() => { window.auditTest.scope = { ...window.auditTest.scope, role:'specialist' }; });
     await page.locator('#exportBookings').click();
+    assert.equal(await page.locator('#reportExportPrivacy option[value="full"]').evaluate(el => el.disabled), true, 'specialist cannot select full phones');
+    await page.evaluate(() => { document.querySelector('#reportExportPrivacy').value = 'full'; });
+    await page.locator('[data-report-export="csv"]').click();
+    assert.equal(await page.locator('.report-export-review').count(), 1);
+    assert.equal(await page.locator('.report-export-review').evaluate(el => el.open), false, 'UI rejects a forced full-phone value for specialist');
+    await page.evaluate(() => { window.auditTest.scope = { ...window.auditTest.scope, role:'owner' }; });
+    await page.locator('#reportExportDialog [data-close-report-export]').click();
+    await page.locator('#exportBookings').click();
+    await page.locator('#reportExportLocation').selectOption('all');
+    await page.locator('#reportExportSegment').selectOption('all');
     await page.locator('#reportExportPrivacy').selectOption('masked');
     await page.locator('[data-report-export="pdf"]').click();
+    assert.match(await page.locator('.report-export-review .report-audit-privacy').innerText(), /не включены/);
     await page.locator('.report-export-review [data-audit-cancel]').click();
     assert.equal(await page.evaluate(() => window.auditTest.downloads.length), 1, 'cancel never downloads');
     await page.locator('#exportBookings').click();
@@ -104,6 +134,12 @@ try {
     await page.evaluate(() => { window.auditTest.scope = { ...window.auditTest.scope, performer:'staff-1' }; window.auditController.refresh(); });
     assert.equal(await page.locator('.report-export-review').evaluate(el => el.open), false, 'scope change closes review');
     assert.equal(await page.evaluate(() => window.auditTest.downloads.length), 1);
+    await page.evaluate(() => { window.auditTest.scope = { ...window.auditTest.scope, source:'demo' }; });
+    await page.locator('#exportBookings').click();
+    assert.equal(await page.locator('#reportExportLocation').isDisabled(), true, 'demo cannot request an unsupported branch');
+    assert.equal(await page.locator('#reportExportSegment').isDisabled(), true, 'demo cannot request an unsupported segment');
+    assert.match(await page.locator('#reportExportScopeNote').innerText(), /В демо выбор филиала и сегмента недоступен/);
+    await page.locator('#reportExportDialog [data-close-report-export]').click();
     await page.evaluate(() => { document.querySelector('#reportDateFrom').value = '2026-09-30'; document.querySelector('#reportDateTo').value = '2026-09-01'; document.querySelector('#reportCustomPeriod').requestSubmit(); });
     assert.equal(await page.locator('#reportDateTo').getAttribute('aria-invalid'), 'true');
     assert.match(await page.locator('#reportDateToError').innerText(), /раньше начала/);
