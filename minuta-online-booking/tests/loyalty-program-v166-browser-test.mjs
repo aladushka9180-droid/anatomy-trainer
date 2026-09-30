@@ -68,11 +68,15 @@ try {
   await page.addStyleTag({ content:css });
   await page.evaluate(() => {
     const panel = document.querySelector('#loyaltyPanel');
-    document.body.replaceChildren(panel);
+    const view = document.querySelector('[data-provider-panel="organization"]');
+    const dashboard = document.querySelector('#dashboard');
+    view.replaceChildren(panel); view.hidden = false;
+    dashboard.replaceChildren(view); dashboard.hidden = false;
+    document.body.replaceChildren(dashboard);
     document.documentElement.className = 'top-level provider-ready';
     document.body.className = 'provider-body';
     document.body.dataset.providerLayout = 'bento';
-    document.body.dataset.providerTheme = 'porcelain';
+    document.body.dataset.providerTheme = 'pink-porcelain';
     panel.hidden = false;
   });
   await page.addScriptTag({ content:moduleSource });
