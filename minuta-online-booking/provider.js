@@ -4047,6 +4047,7 @@ function renderReportUtilization(range, workedMinutes) {
 }
 
 function renderReportRetention() {
+  if (window.MinutaStatisticsAuditProvider?.retention) return window.MinutaStatisticsAuditProvider.retention();
   const panel = $('.report-retention');
   const setEmptyText = text => {
     if (!panel) return;
@@ -4283,6 +4284,7 @@ function retryReportScopedBookings() {
 }
 
 function renderReportTeamRows(rows) {
+  if (window.MinutaStatisticsAuditProvider?.team) return window.MinutaStatisticsAuditProvider.team(rows);
   rows = reportReconciledTeamRows(reportCompletedItems(reportBookings(reportRange())), reportRange());
   const panel = $('#reportPerformers');
   const holder = $('#reportPerformersList');
@@ -4379,8 +4381,7 @@ async function loadReportTeamAnalytics(range) {
     reportCanViewTeam = priorCanViewTeam;
     reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:priorCanViewTeam };
     if (priorCanViewTeam) {
-      panel.hidden = false;
-      setReportText('#reportTeamMetricNote', 'Не удалось обновить рейтинг команды. Общие показатели рассчитаны по загруженным записям.');
+      renderReportTeamRows([]);
       renderReportPerformerFilter(range);
     } else panel.hidden = true;
     return;
@@ -5228,6 +5229,7 @@ function renderAnalytics() {
   const outcomeList = $('#reportOutcomeList');
   if (outcomeList) outcomeList.innerHTML = outcomes.map(item => `<button type="button" data-report-outcome="${item.key}" data-report-status="${item.status}" data-report-filter="${item.filter}"><i class="report-outcome-dot is-${item.key}" aria-hidden="true"></i><span>${item.label}</span><strong>${item.value}</strong><small>${reportShare(item.value, outcomeTotal)}</small></button>`).join('');
   const utilizationPercent = renderReportUtilization(range, workedMinutes);
+  window.MinutaStatisticsAuditProvider?.calculations?.({ range, completed, revenue, knownPaymentCount, unknownPaymentCount, workedMinutes });
   renderReportRetention();
   loadReportTeamAnalytics(range);
   renderReportUtmFunnel();

@@ -55,7 +55,7 @@ try {
     settings.style.display = 'block';
     document.querySelector('#clientAppearanceSettingsCard').style.display = 'grid';
     document.querySelector('#clientHeadlineOptions').innerHTML = Array.from({ length: 4 }, (_, index) =>
-      `<label class="client-headline-option"><input type="radio" name="headline" ${index === 0 ? 'checked' : ''}><strong>Заголовок ${index + 1}</strong><small>Краткое описание</small></label>`).join('');
+      `<label class="client-headline-option"><input type="radio" name="providerClientHeadline" value="headline-${index + 1}" ${index === 0 ? 'checked' : ''}><strong>Заголовок ${index + 1}</strong><small>Краткое описание</small></label>`).join('');
   });
   for (const width of [390, 760, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -106,6 +106,55 @@ try {
     }
   }
   const providerSource = await readFile(path.join(root, 'provider.js'), 'utf8');
+  const storageRuntime = providerSource.slice(providerSource.indexOf('function clientPageSettingsStorageKey'), providerSource.indexOf('function settingsForClientLink'));
+  const saveRuntime = providerSource.slice(providerSource.indexOf('function enqueueClientAppearanceServerSave'), providerSource.indexOf("window.addEventListener('online'"));
+  assert.ok(storageRuntime.startsWith('function clientPageSettingsStorageKey'));
+  assert.ok(saveRuntime.includes('async function saveClientAppearanceSettings'));
+  await page.addScriptTag({ content: `
+    let currentUser = { id:'synthetic-user' };
+    let sessionGeneration = 1;
+    let clientPageSettingsSaveRevision = 0;
+    let clientPageSettingsSaveQueue = Promise.resolve();
+    const clientPageSettingsQueuedRevisions = new Map();
+    let clientPageSettingsServerSupportsPorcelain = false;
+    let clientPageSettings = { theme_key:'sage',headline_key:'headline-1' };
+    let clientPageSettingsOrganizationId = '';
+    const organizationController = { getActiveOrganization:() => ({ id:'synthetic-org',current_role:'owner' }) };
+    const sessionIsCurrent = (userId,generation) => currentUser?.id === userId && sessionGeneration === generation;
+    const db = { rpc:async (name,args) => {
+      window.x08RpcCalls.push({ name,args });
+      return { data:{ theme_key:args.p_theme_key,headline_key:args.p_headline_key },error:null };
+    } };
+    const $ = selector => document.querySelector(selector);
+    const notify = () => {};
+    const normalizeClientPageSettings = value => ({ theme_key:value?.theme_key || 'sage',headline_key:value?.headline_key || 'headline-1' });
+    const updateProviderClientLinks = () => {};
+    const requireWrites = () => true;
+    const clientAppearanceDraftFromForm = () => ({ theme_key:'sage',headline_key:document.querySelector('[name="providerClientHeadline"]:checked')?.value });
+    window.x08RpcCalls = [];
+    ${storageRuntime}
+    ${saveRuntime}
+    document.querySelector('#clientAppearanceForm').addEventListener('submit',saveClientAppearanceSettings);
+  ` });
+  for (const [index,width] of [390,760,1440].entries()) {
+    const headline = `headline-${index + 2}`;
+    await page.setViewportSize({ width,height:900 });
+    await page.locator('#clientHeadlineOptions label').nth(index + 1).click();
+    await page.locator('#applyClientAppearance').click();
+    await page.waitForFunction(expected => {
+      const stored = JSON.parse(localStorage.getItem('minuta-provider-client-page-v1:synthetic-user:synthetic-org') || '{}');
+      return stored.sync_status === 'confirmed' && stored.headline_key === expected;
+    },headline);
+    const savedAppearance = await page.evaluate(() => ({
+      stored:JSON.parse(localStorage.getItem('minuta-provider-client-page-v1:synthetic-user:synthetic-org')),
+      calls:window.x08RpcCalls,
+      status:document.querySelector('#clientAppearanceStatus').textContent,
+    }));
+    assert.equal(savedAppearance.stored.headline_key,headline,`${width}px selection must survive a save`);
+    assert.equal(savedAppearance.calls.length,index + 1,`${width}px save must make one synthetic RPC`);
+    assert.equal(savedAppearance.calls[index].args.p_headline_key,headline);
+    assert.match(savedAppearance.status,/Сохранено для всей организации/);
+  }
   const quickStartFunction = providerSource.match(/function refreshSettingsQuickStart\(\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(quickStartFunction, 'First-run visibility must still be controlled by provider.js');
   await page.addScriptTag({ content: `window.ownServices=[];window.scheduleRows=[];window.$=selector=>document.querySelector(selector);${quickStartFunction}` });

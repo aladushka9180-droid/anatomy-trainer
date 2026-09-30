@@ -120,7 +120,6 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView:is(
 #analyticsView .report-team-payment-warning { display:none; margin:8px 0 0; color:var(--theme-muted); font-size:12px; line-height:1.45; }
 #analyticsView[data-report-tab="team"]:has(#reportPaymentEvidence:not([hidden])):has([data-report-team-metric="revenue"][aria-pressed="true"]) .report-team-payment-warning,
 #analyticsView[data-report-tab="team"]:has(#reportPaymentEvidence:not([hidden])):has([data-report-team-metric="efficiency"][aria-pressed="true"]) .report-team-payment-warning { display:block; }
-#analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-business-grid>.report-retention,
 #analyticsView[data-report-tab="clients"][data-report-clients-empty="true"] .report-clients .report-metric-row { display:none!important; }
 #analyticsView .report-clients-empty:not([hidden]) { display:grid; justify-items:start; gap:12px; margin-top:14px; }
 #analyticsView .report-clients-empty p { margin:0; color:var(--theme-muted); font-size:14px; line-height:1.5; }
@@ -139,3 +138,14 @@ body.provider-body[data-provider-text-scale] #analyticsView :is(.report-data-sou
 
 #analyticsView .report-visit-export-scope { margin:4px 0 14px; color:var(--theme-muted); font-size:12px; line-height:1.5; }
 #analyticsView .report-visit-export-scope[hidden] { display:none; }
+
+#analyticsView .report-calculation { margin-top:8px; min-width:0; }
+#analyticsView .report-secondary>.report-calculation { grid-column:1/-1; margin:0; padding:4px 13px 10px; background:var(--theme-surface); }
+#analyticsView #reportAverage { white-space:nowrap; flex-shrink:0; }
+#analyticsView .report-calculation>summary { min-height:44px; align-content:center; cursor:pointer; color:var(--theme-text); font-size:13px; line-height:1.4; font-weight:600; text-transform:none; letter-spacing:normal; }
+#analyticsView .report-calculation>summary:focus-visible { outline:2px solid var(--theme-accent); outline-offset:3px; border-radius:4px; }
+#analyticsView :is(.report-calculation p,.report-scope-note) { margin:6px 0 0; color:var(--theme-muted); font-size:13px; line-height:1.5; overflow-wrap:anywhere; text-transform:none; letter-spacing:normal; }
+#analyticsView #reportShowAllTeam:not([hidden]) { margin-top:12px; min-height:44px; }
+#analyticsView .report-personal-result { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:16px; padding:12px 0; }
+#analyticsView .report-personal-result .report-team-person small { white-space:normal; overflow:visible; }
+@media(max-width:600px) { #analyticsView .report-personal-result { grid-template-columns:minmax(0,1fr); gap:8px; } #analyticsView .report-personal-result .report-performer-value { text-align:left; } }
