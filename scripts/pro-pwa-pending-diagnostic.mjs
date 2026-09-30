@@ -29,13 +29,14 @@ self.addEventListener('activate',()=>trace('activate',JSON.stringify([...pending
 self.addEventListener('message',e=>{if(e.data?.type==='site-update-version' && pending.size>1)trace('pending',JSON.stringify([...pending]))});
 `;
 writeFileSync(join(temp,'sw.js'),instrumentation+source);
-let test=readFileSync('minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs','utf8');
+let test=readFileSync('minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs','utf8').replace(/\r\n/g,'\n');
 test=test.replace("channel:process.env.BROWSER_CHANNEL || (process.platform === 'win32' ? 'chrome' : undefined)",'channel:undefined');
 test=test.replace("const context = await browser.newContext({ serviceWorkers:'allow' });", "const context = await browser.newContext({ serviceWorkers:'allow' });\n  context.on('console', message => console.log(message.text()));");
 test=test.replace('heldRequests, ready:future','workerRequests, heldRequests, ready:future');
 if(mode==='quiet-poll') {
   test=test.replace('if (!controller) return false;', 'if (!controller || controller === window.previousController) return false;');
   test=test.replace('holdNavigation = false;\n  worker =', 'holdNavigation = false;\n  await page.evaluate(() => { window.previousController = navigator.serviceWorker.controller; });\n  worker =');
+  if(!test.includes('window.previousController = navigator.serviceWorker.controller'))throw new Error('Quiet-poll fixture was not installed');
 }
 if(mode==='no-routing') {
   // Source contains only same-origin relative assets; fixture HTML is inert and
