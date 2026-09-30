@@ -77,4 +77,25 @@ assert.equal(workerMessages.length, 1, 'Worker не завершил десят�
 assert.ok(workerMessages[0].blob instanceof Blob, `Десятилетний экспорт завершился ошибкой: ${workerMessages[0].error || 'нет файла'}`);
 assert.ok(workerMessages[0].blob.size > 1_000_000, 'Десятилетний экспорт неожиданно потерял строки');
 
+// A captured all-locations scope must retain the existing change-history sheet
+// and reconciled payroll path, including older callers without a captured scope.
+const historyProof = [{id:'history-proof',occurred_at:'2026-09-03T10:00:00Z'}];
+let reconciledCalls=0,limitedCalls=0;
+Object.assign(context, {
+  reportRange:()=>({start:'2026-09-01',end:'2026-09-30'}), reportBookings:()=>[],
+  isScheduleBlock:()=>false, reportCompletedItems:items=>items, reportRevenue:()=>0,
+  reportClientMetrics:()=>({}), reportSourceMetrics:()=>({}), reportExportPerformers:()=>[],
+  reportExportClientMetrics:()=>({}), reportCanViewTeam:true,reportPerformerFilter:'all',
+  reportReconciledTeamRows:()=>{reconciledCalls++;return [];},
+  MinutaReportReconciliation:{teamRows:()=>{limitedCalls++;return [];}},
+  bookingOutcome:()=>({}),reportServiceValue:()=>0,reportClientIdentity:()=>'',
+  reportCurrentEventRows:()=>historyProof
+});
+for (const scope of [null,{start:'2026-09-01',end:'2026-09-30',segment:'all',locationId:'all'}]) {
+  const data=context.reportExportData('masked',[],scope);
+  assert.equal(data.events,historyProof,'All-clients export silently lost change history');
+}
+assert.equal(reconciledCalls,2,'Unrestricted exports lost the reconciled payroll path');
+assert.equal(limitedCalls,0);
+
 console.log('report xlsx test: ok');
