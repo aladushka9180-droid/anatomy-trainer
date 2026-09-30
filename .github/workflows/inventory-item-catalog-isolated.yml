@@ -1,5 +1,12 @@
 name: Inventory item catalog isolated PostgreSQL 17
 on:
+  push:
+    branches: ['codex/pro-inventory-category-20260930']
+    paths:
+      - '.github/workflows/inventory-item-catalog-isolated.yml'
+      - 'minuta-online-booking/inventory-item-catalog-*'
+      - 'minuta-online-booking/tests/inventory-item-catalog-*'
+      - 'minuta-online-booking/inventory-management.js'
   pull_request:
     paths:
       - '.github/workflows/inventory-item-catalog-isolated.yml'
