@@ -15,6 +15,7 @@ function makeHarness() {
   let nextTimer = 1;
   const timers = new Map();
   const listeners = new Map();
+  const windowListeners = new Map();
   const nodes = new Map();
   const document = {
     currentScript: { src:`http://127.0.0.1/site-update.js?v=${build}` },
@@ -32,13 +33,14 @@ function makeHarness() {
       };
     }
   };
+  const registration = { installing:null, waiting:null, async update() {} };
   const serviceWorker = {
     controller:null,
     addEventListener(type, callback) { listeners.set(type, callback); },
-    async register() { throw new Error('Registration is outside this notice-only test'); }
+    async register() { return registration; }
   };
   const navigator = { serviceWorker, onLine:true };
-  const window = { addEventListener() {}, setInterval() {} };
+  const window = { addEventListener(type, callback) { windowListeners.set(type, callback); }, setInterval() {} };
   const setTimeout = (callback, delay) => {
     const id = nextTimer++;
     timers.set(id, { at:clock + delay, callback });
@@ -83,7 +85,12 @@ function makeHarness() {
     await settle();
   }
   return {
-    controller, change, next, settle,
+    controller, change, next, settle, registration,
+    async load(initialController) {
+      serviceWorker.controller = initialController;
+      windowListeners.get('load')();
+      await settle();
+    },
     get noticeCount() { return nodes.has('siteUpdateNotice') ? 1 : 0; },
     get timerCount() { return timers.size; },
     get ready() { return document.documentElement.dataset.siteUpdateReady; }
@@ -147,4 +154,20 @@ for (const kind of ['no-reply', 'not-ready']) {
   assert.equal(app.timerCount, 0);
 }
 
-console.log('PASS: bounded notice reply retry, same-build guard, stale-controller guard, later build');
+// Probing a retiring worker can restart it during replacement. The updater
+// waits for controllerchange, then still offers the genuinely newer release.
+for (const stage of ['installing', 'waiting']) {
+  const app = makeHarness();
+  const retiring = app.controller((_message, port) => port.reply({version:build, ready:true}));
+  app.registration[stage] = {};
+  await app.load(retiring);
+  assert.equal(retiring.messages, 0, `${stage}: do not wake the retiring controller`);
+  assert.equal(app.noticeCount, 0);
+  app.registration[stage] = null;
+  const replacement = app.controller((_message, port) => port.reply({version:build+1, ready:true}));
+  await app.change(replacement);
+  assert.equal(app.noticeCount, 1, `${stage}: offer the replacement after activation`);
+  assert.equal(app.timerCount, 0);
+}
+
+console.log('PASS: bounded notice retry, same-build/stale-controller guards, replacement without waking the retiring worker');

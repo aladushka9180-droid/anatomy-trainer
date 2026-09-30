@@ -15,7 +15,13 @@ const cacheVersion = worker.match(/CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/)?.[1];
 assert.ok(cacheVersion, 'Service worker cache version must be declared');
 assert.match(worker, /'\.\/index\.html'/);
 assert.match(worker, /'\.\/redirect\.js\?v=826'/);
-assert.ok(provider.includes(`provider.js?v=${cacheVersion}`), 'Provider script must match the service worker cache version');
+const providerScriptVersion = provider.match(/<script\s+src="provider\.js\?v=(\d+)"/)?.[1];
+assert.equal(providerScriptVersion, cacheVersion,
+  `provider.html loads provider.js?v=${providerScriptVersion ?? '(missing)'}, but sw.js caches v${cacheVersion}`);
+assert.ok(worker.includes(`'./provider.js?v=${cacheVersion}'`),
+  `sw.js precache must include provider.js?v=${cacheVersion}`);
+assert.ok(provider.includes(`primetime-handoff.js?v=${cacheVersion}`),
+  `provider.html must load primetime-handoff.js?v=${cacheVersion}`);
 assert.doesNotMatch(provider, /primetime-booking\.github\.io/);
 
 function runRedirect({ hostname, pathname, search = '', hash = '' }) {

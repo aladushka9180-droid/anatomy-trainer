@@ -21,10 +21,10 @@ jobs:
       - run: node minuta-online-booking/tests/eldion-connection-browser-test.mjs
       - name: Verify one-release PWA update and stale-tab recovery
         run: |
-          git fetch --no-tags --depth=1 origin ba455d0f04ebb6f53d9414becf742a25941de9b2
+          git fetch --no-tags --depth=1 origin fdae2ae2a4b9f7e65ae9cb5db2ad9126f0e1032d
           node minuta-online-booking/tests/site-update-online-race-test.mjs
           node minuta-online-booking/tests/site-update-notice-retry-test.mjs
-          node minuta-online-booking/tests/site-update-notice-browser-test.mjs ba455d0f04ebb6f53d9414becf742a25941de9b2
+          node minuta-online-booking/tests/site-update-notice-browser-test.mjs fdae2ae2a4b9f7e65ae9cb5db2ad9126f0e1032d
       - name: Verify pending navigation cannot block the next worker
         run: node minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs
       - name: Check theme colours and marked card states

@@ -27,6 +27,7 @@ try {
       document.body.append(panel);
       panel.hidden = false;
       panel.dataset.reportSource = 'demo';
+      panel.dataset.reportLoadState = 'ready'; // The synthetic heatmap below is already loaded.
       panel.dataset.reportTab = 'overview';
       panel.querySelector('.report-analytics-details').open = true;
       const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];

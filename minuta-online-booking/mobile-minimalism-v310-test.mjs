@@ -26,7 +26,8 @@ assert.match(styles, /\.report-smart-actions \.report-smart-action \{ display:no
 assert.match(providerUx, /#reportSmartActions:not\(\.is-expanded\) > \.report-smart-action:nth-of-type\(n\+2\)[\s\S]*display:none/, 'Новый компактный обзор не оставляет первую рекомендацию видимой');
 assert.match(providerUx, /#reportSmartActions\.is-expanded > \.report-smart-action \{ display:grid; \}/, 'Новый компактный обзор не раскрывает остальные рекомендации');
 assert.match(styles, /\.report-summary article:first-child \{ display:none; \}/, 'Выручка дублируется в мобильном обзоре');
-assert.match(styles, /\.report-insight \{ display:none!important; \}/, 'Главная рекомендация дублируется в мобильном обзоре');
+assert.match(html, /<details class="report-period-details"[^>]*><summary>Подробнее за период<\/summary><section class="report-insight"/, 'Подробные выводы должны оставаться внутри свёрнутого блока');
+assert.doesNotMatch(styles, /\.report-insight \{ display:none!important; \}/, 'Раскрытый блок не должен скрывать новые выводы');
 assert.match(styles, /\.report-view-tabs button\.active,\.report-data-source button\.active,\.report-mini-toggle button\.active,\.report-team-controls button\.active \{[^}]*var\(--theme-accent-contrast/, 'Активные элементы статистики не используют контраст темы');
 assert.match(styles, /\.schedule-settings-layout,\.schedule-settings-layout>\.panel[^{]*\{[^}]*box-sizing:border-box/, 'Панели графика могут выходить за экран телефона');
 

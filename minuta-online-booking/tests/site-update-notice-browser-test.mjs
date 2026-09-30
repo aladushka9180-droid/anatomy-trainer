@@ -30,14 +30,21 @@ const server = createServer((request, response) => {
 let browser;
 let page;
 const errors = [];
-async function waitForReadyBuild(version, timeoutMs = 15000) {
+async function waitForReadyBuild(version, timeoutMs = 15000, requireSettledRegistration = false) {
   // waitForFunction treats the Promise from an async predicate as truthy even
   // when it resolves to false. Poll the resolved boolean, not the Promise.
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const ready = await page.evaluate(async ({expected, remaining}) => {
+    const ready = await page.evaluate(async ({expected, remaining, settled}) => {
       const controller = navigator.serviceWorker.controller;
       if (!controller) return false;
+      const registration = await navigator.serviceWorker.getRegistration();
+      // A version probe wakes a stopping worker. Observe activation without
+      // messaging the retiring controller while a replacement is pending.
+      if (registration?.installing || registration?.waiting || registration?.active?.state !== 'activated') return false;
+      if (settled) {
+        if (registration.active !== controller || !controller.scriptURL.endsWith(`sw.js?v=${expected}`)) return false;
+      }
       const info = await new Promise(resolve => {
         const channel = new MessageChannel();
         const timer = setTimeout(() => { channel.port1.close(); resolve(null); }, Math.min(1200, remaining));
@@ -45,7 +52,7 @@ async function waitForReadyBuild(version, timeoutMs = 15000) {
         controller.postMessage({type:"site-update-version"}, [channel.port2]);
       });
       return controller === navigator.serviceWorker.controller && info?.ready === true && info.version === Number(expected);
-    }, {expected:version, remaining:deadline - Date.now()});
+    }, {expected:version, remaining:deadline - Date.now(), settled:requireSettledRegistration});
     if (ready === true && Date.now() <= deadline) return;
     if (Date.now() < deadline) await page.waitForTimeout(Math.min(50, deadline - Date.now()));
   }
@@ -55,7 +62,9 @@ try {
   await new Promise(done => server.listen(0, '127.0.0.1', done));
   const origin = `http://127.0.0.1:${server.address().port}`;
   const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
-  browser = await chromium.launch({headless:true, channel:process.env.BROWSER_CHANNEL || (process.platform === 'win32' ? 'chrome' : undefined)});
+  browser = await chromium.launch({headless:true, ...(process.env.MINUTA_CHROMIUM_EXECUTABLE
+    ? {executablePath:process.env.MINUTA_CHROMIUM_EXECUTABLE}
+    : {channel:process.env.BROWSER_CHANNEL || (process.platform === 'win32' ? 'chrome' : undefined)})});
   const context = await browser.newContext({serviceWorkers:'allow'});
   await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
   page = await context.newPage();
@@ -65,6 +74,7 @@ try {
   await page.waitForFunction(() => navigator.serviceWorker.controller);
   await assert.rejects(() => waitForReadyBuild(-1, 100), /Ready worker build -1 was not observed/, 'A false asynchronous readiness result must not pass');
   await page.reload();
+  await waitForReadyBuild(oldRelease.version, 15000, true);
   assert.equal(await page.locator('#siteUpdateNotice').count(), 0);
   await page.evaluate(() => localStorage.setItem('synthetic-offline-draft', 'preserved'));
   // The stale-tab scenario needs an actual old document, not a new document
@@ -106,9 +116,12 @@ try {
     }, newRelease.version);
     await page.reload();
     assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version, 'Explicit reload must return fresh HTML immediately');
-    // The stale tab has fulfilled its scenario. Leave the test origin before
+    // The stale tab has fulfilled its scenario. Close the client before
     // restoring connectivity so its old updater cannot start another update.
-    await oldTab.goto('about:blank');
+    await oldTab.close();
+    // The fresh document registers its own URL after load. Finish that same-build
+    // replacement before starting the separate offline/online recovery scenario.
+    await waitForReadyBuild(newRelease.version, 15000, true);
   }
   offline = true;
   await context.setOffline(true);
@@ -145,7 +158,15 @@ try {
   assert.deepEqual(errors, []);
   console.log('PASS: one-release update lifecycle and offline draft preservation');
 } catch (error) {
-  if (page && !page.isClosed()) console.log(JSON.stringify({errors, failureState:await page.evaluate(async()=>({loaded:document.body.dataset.release,notice:Boolean(document.querySelector('#siteUpdateNotice')),online:navigator.onLine,updateReady:document.documentElement.dataset.siteUpdateReady,scripts:Array.from(document.scripts).map(script=>script.src),controller:navigator.serviceWorker.controller?.scriptURL,caches:await caches.keys(),registrations:(await navigator.serviceWorker.getRegistrations()).map(r=>({active:r.active?.scriptURL,activeState:r.active?.state,installing:r.installing?.scriptURL,waiting:r.waiting?.scriptURL}))}))}));
+  console.error(error.message);
+  if (page && !page.isClosed()) {
+    let deadline;
+    const failureState = await Promise.race([
+      page.evaluate(() => ({loaded:document.body.dataset.release,notice:Boolean(document.querySelector('#siteUpdateNotice')),online:navigator.onLine,updateReady:document.documentElement.dataset.siteUpdateReady,controller:navigator.serviceWorker.controller?.scriptURL})),
+      new Promise(resolve => { deadline=setTimeout(() => resolve({diagnosticTimeout:true}),2000); })
+    ]).catch(() => ({diagnosticUnavailable:true})).finally(() => clearTimeout(deadline));
+    console.log(JSON.stringify({errors,failureState}));
+  }
   throw error;
 } finally {
   await browser?.close();

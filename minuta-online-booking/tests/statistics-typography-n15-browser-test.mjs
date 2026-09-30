@@ -75,6 +75,7 @@ try {
         document.querySelector('.provider-main').append(analytics);
         analytics.hidden = false;
         analytics.dataset.reportTab = 'overview';
+        analytics.dataset.reportLoadState = 'ready'; // Typography uses confirmed synthetic metrics.
         analytics.dataset.reportEmpty = 'false';
         analytics.dataset.reportSource = 'own';
         analytics.querySelector('#reportDataSource').hidden = false;

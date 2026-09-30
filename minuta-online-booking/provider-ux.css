@@ -724,6 +724,7 @@
     font-size:11px;
     line-height:1.4;
   }
+  #paymentProviderState{height:auto;min-height:34px;padding-block:6px;line-height:1.25;text-align:center}
   .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"]>.view-title {
     align-items:center;
   }
@@ -1109,3 +1110,5 @@
     padding:10px 12px;
   }
 }
+
+#retentionPanel .retention-toggle>input:checked{background-color:var(--theme-accent,var(--green))!important;border-color:var(--theme-accent,var(--green))!important}
