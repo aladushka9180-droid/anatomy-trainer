@@ -356,5 +356,5 @@
     });
   });
 
-  window.MinutaServicePresets = Object.freeze({ open, validationMessage, catalog, close:() => dialog?.close(), setCustomSaving:value => { savingCustom = value === true; } });
+  window.MinutaServicePresets = Object.freeze({ open, validationMessage, catalog, close:() => dialog?.close(), isCustomSaving:() => savingCustom, setCustomSaving:value => { savingCustom = value === true; } });
 })();

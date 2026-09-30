@@ -169,6 +169,9 @@ try {
     await own.page.evaluate(() => { fixture.holdSave = true; });
     await saveButton.click();
     await own.page.waitForFunction(() => typeof fixture.releaseSave === 'function');
+    await saveButton.evaluate(el => { el.disabled = false; });
+    await saveButton.click();
+    assert.equal(await own.page.evaluate(() => fixture.calls.length), 1, 'Write availability must not allow a second in-flight insert');
     await own.page.locator('[data-service-presets-back]').click();
     await own.page.locator('[data-close-service-presets]').click();
     await own.page.keyboard.press('Escape');

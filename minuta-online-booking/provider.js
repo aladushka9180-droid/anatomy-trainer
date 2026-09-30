@@ -15359,7 +15359,7 @@ function prepareServiceCreator() {
 
 async function addService(event) {
   event.preventDefault();
-  if (!requireWrites()) return;
+  if (!requireWrites() || window.MinutaServicePresets?.isCustomSaving()) return;
   clearFormError('#serviceError');
   if ($('#serviceForm').dataset.ownerId !== currentUser?.id) {
     showFormError('#serviceError', 'Аккаунт изменился. Закройте окно и откройте добавление заново.');
