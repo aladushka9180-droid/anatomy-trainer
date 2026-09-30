@@ -294,3 +294,10 @@ html body.provider-body[data-provider-theme="pink-porcelain"][data-provider-layo
   accent-color:var(--porcelain-action-bg)!important;
 }
 html body.provider-body[data-provider-theme="pink-porcelain"] input[type="checkbox"]:checked:not(:is(#scheduleQuickBreak,#shiftHasBreak,[data-schedule-break],#editBookingFutureBreakColor,#newBookingFutureBreakColor)) { accent-color:var(--porcelain-action-bg)!important; }
+html body.provider-body[data-provider-theme="pink-porcelain"] #bookingSheet :is(.booking-repeat-actions [data-repeat-booking],#newBookingSubmit:not(:disabled)),
+html body.provider-body[data-provider-theme="pink-porcelain"] #bookingSheet.new-booking-card .booking-time-slots button.active {
+  border-color:var(--theme-line)!important;
+  background:var(--porcelain-action-bg)!important;
+  color:var(--porcelain-action-ink)!important;
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #bookingSheet.new-booking-card .new-booking-mode-toggle button.active::after { background:var(--porcelain-quiet-mark)!important; }
