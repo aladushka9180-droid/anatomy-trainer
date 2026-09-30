@@ -2,9 +2,10 @@
 import {readFileSync,writeFileSync,mkdirSync,mkdtempSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
-import {resolve,join} from 'node:path';
+import {resolve,join,dirname} from 'node:path';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
+const playwrightModule=process.env.MINUTA_PLAYWRIGHT_MODULE || join(dirname(require.resolve('playwright/package.json')),'index.mjs');
 const mode=process.env.PWA_DIAGNOSTIC_MODE || 'baseline';
 if(!['baseline','quiet-poll','no-routing'].includes(mode))throw new Error('Unknown diagnostic mode');
 const temp=mkdtempSync(join(tmpdir(),'pro-pwa-pending-'));
@@ -49,7 +50,7 @@ const logRoot=resolve('pwa-diagnostic-results',mode);
 mkdirSync(logRoot,{recursive:true});
 let failed=false;
 for(let i=1;i<=4;i++) {
-  const result=spawnSync(process.execPath,[join(temp,'tests','pending.mjs')],{encoding:'utf8',timeout:45000,env:{...process.env,MINUTA_PLAYWRIGHT_MODULE:process.env.MINUTA_PLAYWRIGHT_MODULE || require.resolve('playwright')}});
+  const result=spawnSync(process.execPath,[join(temp,'tests','pending.mjs')],{encoding:'utf8',timeout:45000,env:{...process.env,MINUTA_PLAYWRIGHT_MODULE:playwrightModule}});
   const output=(result.stdout||'')+'\n'+(result.stderr||'');
   writeFileSync(join(logRoot,`${i}.log`),output);
   console.log(JSON.stringify({mode,trial:i,status:result.status,error:result.error?.message}));
