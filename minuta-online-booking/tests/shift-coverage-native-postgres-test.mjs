@@ -83,6 +83,28 @@ try {
 
   const firstDay=new Date(`${initial.horizon_start}T12:00:00Z`);
   const day=offset=>{const date=new Date(firstDay);date.setUTCDate(date.getUTCDate()+offset);return date.toISOString().slice(0,10);};
+  // An elapsed interval, or a break consuming its remaining hours, cannot cover today.
+  const businessTime=await one(admin,"select timezone('Europe/Samara',now())::time value");
+  if(businessTime.value<'00:00:02') await new Promise(resolve=>setTimeout(resolve,2000));
+  const todayShift=(await one(admin,`insert into staff_location_shifts(
+    organization_id,location_id,performer_id,shift_date,start_time,end_time)
+    values($1,$2,$3,$4,'00:00:00','00:00:01') returning id`,
+    [org,location,owner,day(0)])).id;
+  const elapsedToday=await coverage(api);
+  assert.deepEqual([elapsedToday.status,elapsedToday.covered_days],['zero',0],
+    'A shift whose working interval has ended must not cover today');
+  await admin.query(`update staff_location_shifts set end_time='24:00:00',
+    break_start='00:00:01',break_end='24:00:00' where id=$1`,[todayShift]);
+  assert.equal((await coverage(api)).status,'zero',
+    'A break consuming every remaining hour must not cover today');
+  await admin.query("update staff_location_shifts set break_end='12:00:00' where id=$1",[todayShift]);
+  const remainingToday=await coverage(api);
+  assert.deepEqual([remainingToday.status,remainingToday.covered_days,
+    remainingToday.missing_dates.includes(day(0))],['partial',1,false],
+    'Working time after the break must cover today');
+  await admin.query('delete from staff_location_shifts where id=$1',[todayShift]);
+  assert.equal((await coverage(api)).status,'zero');
+
   await addShift(api,day(1));
   const partial=await coverage(api);
   assert.deepEqual([partial.status,partial.covered_days,partial.missing_dates.length],['partial',1,13]);

@@ -26,7 +26,8 @@ create function public.preview_minuta_shift_coverage(p_organization uuid)
 returns jsonb language plpgsql volatile security definer set search_path to '' as $$
 declare
   v_role text;
-  v_start date:=timezone('Europe/Samara',now())::date;
+  v_business_now timestamp without time zone:=timezone('Europe/Samara',now());
+  v_start date:=v_business_now::date;
   v_end date;
   v_covered jsonb;
   v_missing jsonb;
@@ -49,9 +50,13 @@ begin
       join public.organization_memberships membership
         on membership.organization_id=p_organization and membership.user_id=shift_row.performer_id
         and membership.active and membership.is_bookable
+      cross join lateral (select case when shift_row.shift_date=v_start
+        then greatest(shift_row.start_time,v_business_now::time)
+        else shift_row.start_time end as remaining_start) remaining
       where shift_row.organization_id=p_organization and shift_row.shift_date=days.day
         and shift_row.active
-        and (shift_row.break_start is null or shift_row.break_start>shift_row.start_time
+        and shift_row.end_time>remaining.remaining_start
+        and (shift_row.break_start is null or shift_row.break_start>remaining.remaining_start
           or shift_row.break_end<shift_row.end_time)
         and not exists (
           select 1 from public.staff_absences absence
