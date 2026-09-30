@@ -85,6 +85,7 @@ const OPTIONAL_ASSETS = [
   './subscription-pricing.css?v=811',
   './statistics-audit-ui.css?v=1043',
   './statistics-audit-ui.js?v=1040',
+  './report-export-provider.js?v=1044',
   './statistics-audit-provider.js?v=1043',
   './client-results.css?v=876',
   './provider-porcelain-detail.css?v=1036',

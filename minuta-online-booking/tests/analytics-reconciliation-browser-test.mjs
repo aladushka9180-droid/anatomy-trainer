@@ -7,7 +7,7 @@ import vm from 'node:vm';
 const binding=readFileSync(new URL('../statistics-audit-provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
 const freshness=binding.match(/  function reportFreshnessLabel\(\) \{[\s\S]*?\n  \}/)?.[0].replace(/^  /gm,'');
 assert.ok(freshness,'Actual optional statistics freshness binding exists');
-const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n')+'\n'+freshness+'\n';
+const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n').replace('function notificationTaskKey(',readFileSync(new URL('../report-export-provider.js',import.meta.url),'utf8')+'\nfunction notificationTaskKey(')+'\n'+freshness+'\n';
 const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
 const moduleSource=readFileSync(new URL('../report-reconciliation.js',import.meta.url),'utf8');
 function declaration(name,sourceText=source){const source=sourceText;const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.ok(start>=0,name);const lineEnd=source.indexOf('\n',start);return source.slice(start,source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',start)+2);}
@@ -41,9 +41,14 @@ const names=['reportBookings','reportCompletedItems','reportRevenue','reportClie
   'setReportFiltersExpanded','reportHours','reportVisitWord','reportClientWord','renderReportTeamRows','reportFreshnessLabel','renderReportRetention','renderReportUtilization',
   'reportServiceValue','reportReceivedAmount','reportImportedValue','reportDebtAmount','reportEffectivePerformerId','reportReconciledTeamRows','reportExportValue','reportExportDuration',
   'reportExportSheets','reportExportCell','reportExportPhone','reportExportMaster','reportExportPerformers','reportExportCreator','reportCurrentTeamRows','reportCurrentEventRows','renderAnalytics',
-  'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','exportBookingsXlsx','exportBookingsCsv','retryReportScopedBookings',
-  'exportBookingsPdf','reportPdfText','reportPdfPage','reportPdfImageBytes','reportPdfBlob','reportTrendMarkup','selectReportTrendBucket'];
+  'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','retryReportScopedBookings',
+  'reportTrendMarkup','selectReportTrendBucket'];
 const script=`
+  // Reconciliation/format fixture; owner scope and RPC composer have separate focused proofs.
+  function reportExportScope(){return {};}
+  function reportExportFullConsent(){return true;}
+  async function reportExportAuthorized(){return true;}
+  async function reportExportPreparedData(_scope,privacy){return reportExportData(privacy);}
   var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
   var currentUser={id:'master-A'},sessionGeneration=1,reportDataSource='own',reportPeriod='month',reportCanViewTeam=false,reportPerformerFilter='all';
   var bookingsSnapshotSavedAt='2026-09-30T08:15:00Z',bookingsSnapshotFromCache=false;
@@ -103,6 +108,7 @@ try{
     await page.goto('https://analytics.test/');
     await page.evaluate(html=>{const doc=new DOMParser().parseFromString(html,'text/html');const panel=doc.querySelector('[data-provider-panel="analytics"]');if(!panel)throw Error('Actual analytics panel missing');document.documentElement.className='provider-ready';document.body.className='provider-body';document.body.dataset.providerTheme='sage';document.body.dataset.providerLayout='soft';document.body.dataset.providerTextScale='default';document.body.append(panel.cloneNode(true));document.querySelectorAll('[hidden]').forEach(node=>{if(node.matches('[data-provider-panel]'))node.hidden=false;});},html);
     for(const [,href] of html.matchAll(/<link rel="stylesheet" href="([^\"]+)"/g)) await page.addStyleTag({content:readFileSync(new URL(`../${href.split('?')[0]}`,import.meta.url),'utf8')});
+    await page.addScriptTag({content:readFileSync(new URL('../report-export-provider.js',import.meta.url),'utf8')});
     await page.addScriptTag({content:script});
     await page.evaluate(()=>renderAnalytics());
     const number=async id=>Number((await page.locator(id).textContent()).replace(/[^0-9-]/g,''));
@@ -153,7 +159,7 @@ try{
     assert.equal(data.rows.reduce((sum,row)=>sum+Number(row[11]||0),0),600);
     assert.equal(data.team[0][6],-321);assert.equal(data.clientRows[0][4],3);
     const history=data.rows.find(row=>row[12].includes('Нет данных'));assert.equal(history[10],null);assert.equal(history[11],null);
-    await page.evaluate(()=>{exportBookingsCsv('full');exportBookingsXlsx('full');exportBookingsPdf('full');});
+    await page.evaluate(async()=>{await exportBookingsCsv('full');await exportBookingsXlsx('full');await exportBookingsPdf();});
     const artifacts=await page.evaluate(async()=>{const csv=await exports[0].blob.text(),xlsx=new Uint8Array(await exports[1].blob.arrayBuffer()),pdf=await exports[2].blob.text();return {csv,zip:[...xlsx.slice(0,4)],pdf:pdf.slice(0,8),pdfText,xml:reportExportSheets(reportExportData()).map(sheet=>reportExportSheet(sheet.rows,sheet.options))};});
     assert.match(artifacts.csv,/Нет данных об оплате \(история\)/);assert.deepEqual(artifacts.zip,[80,75,3,4]);assert.match(artifacts.pdf,/^%PDF-1.4/);
     assert.ok(artifacts.pdfText.some(text=>text==='Нет данных'));assert.ok(artifacts.pdfText.some(text=>text.includes('Оплата не указана:')&&text.includes('визитов: 1 из 3')));

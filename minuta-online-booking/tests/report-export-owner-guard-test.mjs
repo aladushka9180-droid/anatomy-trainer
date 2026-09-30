@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
-const source = readFileSync(fileURLToPath(new URL('../provider.js', import.meta.url)), 'utf8');
+const source = readFileSync(fileURLToPath(new URL('../provider.js', import.meta.url)), 'utf8').replace('function notificationTaskKey(',readFileSync(new URL('../report-export-provider.js',import.meta.url),'utf8')+'\nfunction notificationTaskKey(');
 const start = source.indexOf('function reportExportFilename(');
 const end = source.indexOf('function reportPdfText', start);
 assert.ok(start >= 0 && end > start);

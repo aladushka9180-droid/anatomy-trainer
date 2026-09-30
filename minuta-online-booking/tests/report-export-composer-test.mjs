@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 // Synthetic RPC fixture only; no network, user records, or downloads.
-const source = readFileSync(fileURLToPath(new URL('../provider.js',import.meta.url)),'utf8');
+const source = readFileSync(fileURLToPath(new URL('../provider.js',import.meta.url)),'utf8').replace('function notificationTaskKey(',readFileSync(new URL('../report-export-provider.js',import.meta.url),'utf8')+'\nfunction notificationTaskKey(');
 const start = source.indexOf('function reportExportSegmentItems(');
 const end = source.indexOf('async function exportBookingsXlsx(',start);
 assert.ok(start >= 0 && end > start);
