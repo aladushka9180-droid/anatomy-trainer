@@ -34,6 +34,7 @@
   }
 
   async function refreshUpdateNotice(attempt = 0) {
+    if (registration?.installing || registration?.waiting) return;
     const controller = navigator.serviceWorker.controller;
     const info = await workerVersion(controller);
     if (controller !== navigator.serviceWorker.controller) return;
