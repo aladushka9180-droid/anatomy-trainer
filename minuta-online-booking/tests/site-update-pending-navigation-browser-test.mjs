@@ -90,10 +90,10 @@ try {
   await page.reload();
   assert.ok(heldRequests > 0, 'The reload must encounter the held network request');
   assert.equal(await page.locator('body').getAttribute('data-release'), version, 'The cached shell remains usable');
+  const previousController = await page.evaluateHandle(() => navigator.serviceWorker.controller);
   holdNavigation = false;
   worker = source.replaceAll(`v=${version}`, `v=${future}`).replaceAll(`v${version}`, `v${future}`);
   servedVersion = future;
-  const previousController = await page.evaluateHandle(() => navigator.serviceWorker.controller);
   try {
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
     await ready(future, previousController);
