@@ -49,6 +49,16 @@ try {
     check(contrast(calendar.fg,calendar.surface)>=4.5,`${theme}/${width}: calendar legend contrast`);
     check(await page.locator('#daysOffList .day-off-item').count()===2&&calendar.gap>=12&&calendar.gap<=32,`${theme}/${width}: exception list stays visible with a compact gap ${calendar.gap}`);
     check(!(await page.locator('#monthlyScheduleStatus').isVisible()),'Empty calendar status does not reserve space');
+    const exceptionText=await page.locator('.day-off-item').evaluateAll(items=>items.map(item=>{
+      const date=getComputedStyle(item.querySelector('strong')),time=getComputedStyle(item.querySelector('span'));
+      return {dateSize:parseFloat(date.fontSize),timeSize:parseFloat(time.fontSize),timeColor:time.color,bg:getComputedStyle(item).backgroundColor};
+    }));
+    check(exceptionText.every(e=>e.dateSize>=14&&e.timeSize>=13),'Exception dates and time ranges are readable');
+    check(exceptionText.every(e=>contrast(e.timeColor,e.bg)>=4.5),'Exception time text has sufficient contrast');
+    if(width<=760) {
+      const applyGap=await page.evaluate(()=>document.querySelector('.booking-step-setting').getBoundingClientRect().top-document.querySelector('#applyQuickSchedule').getBoundingClientRect().bottom);
+      check(applyGap>=12&&applyGap<=24,`${theme}/${width}: compact mobile spacing after Apply (${applyGap})`);
+    }
     const step=await page.locator('.booking-step-setting').evaluate(e=>{
       const text=e.firstElementChild.getBoundingClientRect(),control=e.lastElementChild.getBoundingClientRect();
       return {textWidth:text.width,textRight:text.right,controlLeft:control.left,parentWidth:e.getBoundingClientRect().width,
@@ -76,6 +86,7 @@ try {
     await page.locator('#scheduleQuickStart').fill('09:00');await page.locator('#scheduleQuickEnd').fill('18:00');
     await page.getByRole('button',{name:'Применить часы',exact:true}).click();
     check(await page.locator('#scheduleQuickStatus').getAttribute('data-state')==='ready','Apply remains an unsaved draft');
+    check(await page.locator('#scheduleQuickStatus').isVisible(),'Apply feedback remains visible');
     check((await page.evaluate(()=>window.hoursFixtureWrites)).length===0,'Applying a template does not write');
     check(await page.getByRole('button',{name:'Сохранить',exact:true}).isVisible(),'Save remains available');
     check((await page.locator('#weeklyScheduleSummary').innerText()).includes('09:00–18:00'),'Summary reflects draft');
