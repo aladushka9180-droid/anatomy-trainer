@@ -136,13 +136,20 @@ try {
           $:selector => document.querySelector(selector), escapeHtml:value => String(value), notify() {}, requireWrites:() => true,
           getCurrentUser:() => ({ id:'user-a' }), getSessionGeneration:() => 1, sessionIsCurrent:() => true, applyWriteAvailability() {}
         });
+        controller.bind();
         await controller.setOrganization({ id:'org-a', can_manage:true });
       });
+      await f.page.addStyleTag({ path:resolve(root, 'resources-soft-minimalism.css') });
       const rows = f.page.locator('#resourcesList [data-resource-card]');
+      assert.equal(await rows.count(), 12);
+      assert.equal(await f.page.locator('#resourceListMatchCount').textContent(), 'Найдено: 21 из 21');
+      await f.page.locator('#resourceListMore').click();
       assert.equal(await rows.count(), 21);
       for (let index = 0; index < 21; index++) {
         assert.match(await rows.nth(index).locator('summary').innerText(), new RegExp(`Кабинет ${String(index + 1).padStart(2, '0')}[\\s\\S]*Филиал ${(index % 3) + 1} · Кабинеты`));
       }
+      await f.page.locator('#resourceListCollapse').click();
+      assert.equal(await f.page.locator('#resourcesList [data-resource-card]:visible').count(), 12);
       assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);
       if (process.env.MINUTA_SCREENSHOT_DIR) await f.page.locator('#resourceObjectsSection').screenshot({ path:resolve(process.env.MINUTA_SCREENSHOT_DIR, `o06-resources-${width}.png`) });
       f.check();

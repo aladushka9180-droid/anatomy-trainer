@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1054`;
-const CACHE_READY = './.precache-ready-v1054';
+const CACHE = `${CACHE_PREFIX}v1055`;
+const CACHE_READY = './.precache-ready-v1055';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1054',
+  './site-update.js?v=1055',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -63,29 +63,35 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1036',
-  './provider.js?v=1054',
+  './provider.js?v=1055',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
 
 const OPTIONAL_ASSETS = [
+  './benefits-soft-polish.css?v=1055',
+  './payment-soft-ui.css?v=1055',
+  './loyalty-soft-ui.css?v=1055',
+  './resources-soft-minimalism.css?v=1',
+  './resource-icons.svg?v=1',
+  './payroll-management.js?v=1055',
   './inventory-soft-ui.css?v=1054',
-  './inventory-soft-ui.js?v=1054',
-  './inventory-management.js?v=1054',
+  './inventory-soft-ui.js?v=1055',
+  './inventory-management.js?v=1055',
   './provider-selects.css?v=1054',
   './provider-selects.js?v=1054',
   './commerce-soft-ui.css?v=1053',
   './commerce-soft-ui.js?v=1053',
   './payroll-soft-minimalism.css?v=1053',
   './payroll-soft-minimalism.js?v=1053',
-  './benefit-management.js?v=1054',
-  './retention-management.js?v=1054',
-  './payment-review.js?v=1044',
+  './benefit-management.js?v=1055',
+  './retention-management.js?v=1055',
+  './payment-review.js?v=1055',
   './organization-overview.css?v=1044',
   './organization-group-navigation.css?v=1051',
   './organization-group-navigation.js?v=1051',
-  './resource-management.js?v=1044',
-  './shift-management.js?v=1044',
+  './resource-management.js?v=1055',
+  './shift-management.js?v=1055',
   './schedule-flat.css?v=1052',
   './schedule-break-icons.js?v=1023',
   './client-loyalty-frames.css?v=3',
@@ -116,7 +122,7 @@ const OPTIONAL_ASSETS = [
   './porcelain-character-silk-v2.webp',
   './client-themes.css?v=885',
   './report-demo-live.js?v=811',
-  './loyalty-program-v166.js?v=1044',
+  './loyalty-program-v166.js?v=1055',
   './provider-schedule-desktop-reference.css?v=1023',
   './settings-nav-scroll.js?v=882',
   './settings-smart-search.js?v=865',

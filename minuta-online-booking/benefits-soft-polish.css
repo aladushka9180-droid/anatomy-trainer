@@ -1,0 +1,23 @@
+/* Only presentation in the benefits panel; financial controls retain their handlers. */
+.provider-body #benefitsPanel.commerce-soft-panel .panel-head { align-items:center; margin-bottom:8px; }
+.provider-body #benefitsPanel.commerce-soft-panel .panel-head h3 { margin:0; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefits-workspace { gap:16px!important; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefits-management-grid { gap:24px; }
+.provider-body #benefitsPanel.commerce-soft-panel .settings-check.benefits-enable-field input[type="checkbox"] { accent-color:var(--cs-accent)!important; }
+.provider-body #benefitsPanel.commerce-soft-panel .organization-row-main { min-width:0; }
+.provider-body #benefitsPanel.commerce-soft-panel .organization-row-main :is(strong,small) { white-space:normal; overflow-wrap:anywhere; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefit-card-balance { display:block; margin:3px 0; color:var(--cs-ink); font-size:14px; font-weight:600; line-height:1.5; }
+.provider-body #benefitsPanel.commerce-soft-panel .organization-status { font-size:12px; font-weight:500; line-height:1.4; padding:3px 8px; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefit-instrument-row .organization-tags { gap:6px; align-items:flex-end; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefit-redemption-row { display:grid!important; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefit-redemption-row .organization-tags { display:flex; flex-direction:row; align-items:center; flex-wrap:wrap; gap:8px; }
+.provider-body #benefitsPanel.commerce-soft-panel :is(.benefit-instrument-row,.benefit-redemption-row) button { width:auto; min-height:44px; margin:0; padding:10px 14px; line-height:1.4; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefit-redemption-row .primary { color:var(--cs-surface); background:var(--cs-accent); border:1px solid var(--cs-accent); border-radius:12px; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefit-redemption-row .primary:disabled { opacity:.55; }
+.provider-body #benefitsPanel.commerce-soft-panel :is(.benefit-instrument-row,.benefit-redemption-row) button:focus-visible { outline:2px solid var(--cs-accent); outline-offset:3px; }
+@media (max-width:760px) {
+  .provider-body #benefitsPanel.commerce-soft-panel .benefit-instrument-row { grid-template-columns:38px minmax(0,1fr)!important; }
+  .provider-body #benefitsPanel.commerce-soft-panel .benefit-instrument-row .organization-tags { grid-column:2; flex-direction:row; justify-content:flex-start; align-items:center; flex-wrap:wrap; gap:8px; }
+  .provider-body #benefitsPanel.commerce-soft-panel .benefit-redemption-row { grid-template-columns:minmax(0,1fr); }
+  .provider-body #benefitsPanel.commerce-soft-panel .benefit-redemption-row .organization-tags { justify-content:flex-start; }
+}

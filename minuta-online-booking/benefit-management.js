@@ -110,7 +110,7 @@
     }
     function scopeMatches(data,id) { return Boolean(data && String(data.organization_id || '')===String(id)); }
     function rubles(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`; }
-    function clientName(id) { const item=payload?.clients?.find(row=>row.id===id); return item ? `${item.client_name} · ${item.client_phone}` : 'Клиент'; }
+    function clientName(id) { const item=payload?.clients?.find(row=>row.id===id); return item ? [item.client_name,item.client_phone].filter(Boolean).join(' · ') || 'Клиент' : 'Клиент'; }
     function productName(id) { return payload?.products?.find(row=>row.id===id)?.name || 'Абонемент или сертификат'; }
     function serviceName(id) { return payload?.services?.find(row=>row.id===id)?.name || 'Услуга'; }
     function dateLabel(value) { const date=new Date(`${value}T12:00:00`); return Number.isNaN(date.getTime()) ? String(value||'') : date.toLocaleDateString('ru-RU'); }
@@ -181,7 +181,7 @@
       const balance=snapshot.kind==='certificate'?rubles(item.remaining_amount_rub):`${item.remaining_visits} посещ.`;
       const actions=status==='active'?`<button class="secondary-button" type="button" data-benefit-status="frozen" data-benefit-instrument="${escapeHtml(item.id)}" data-benefit-write>Заморозить</button>`:status==='frozen'?`<button class="secondary-button" type="button" data-benefit-status="active" data-benefit-instrument="${escapeHtml(item.id)}" data-benefit-write>Разморозить</button>`:'';
       const icon=window.MinutaCommerceSoftUI?.iconMarkup(snapshot)||'';
-      return `<article class="organization-row" data-benefit-code="${escapeHtml(item.public_code)}">${icon}<div class="organization-row-main"><strong>${escapeHtml(snapshot.name||productName(item.product_id))} · ${escapeHtml(balance)}</strong><small>${escapeHtml(clientName(item.client_account_id))} · код ${escapeHtml(item.public_code)} · до ${escapeHtml(dateLabel(item.expires_on))}</small></div><span class="organization-tags"><span class="organization-status ${status==='active'?'is-active':''}">${escapeHtml(statusLabels[status]||status)}</span>${actions}</span></article>`;
+      return `<article class="organization-row benefit-instrument-row" data-benefit-code="${escapeHtml(item.public_code)}">${icon}<div class="organization-row-main"><strong>${escapeHtml(snapshot.name||productName(item.product_id))}</strong><span class="benefit-card-balance">Остаток: ${escapeHtml(balance)}</span><small>${escapeHtml(clientName(item.client_account_id))} · код ${escapeHtml(item.public_code)} · до ${escapeHtml(dateLabel(item.expires_on))}</small></div><span class="organization-tags"><span class="organization-status ${status==='active'?'is-active':''}">${escapeHtml(statusLabels[status]||status)}</span>${actions}</span></article>`;
     }
     function filterInstruments() {
       const query=String($('#benefitInstrumentSearch')?.value||'').trim().toLocaleLowerCase('ru-RU');
@@ -191,8 +191,8 @@
       const booking=payload.bookings.find(row=>row.id===item.booking_id);
       const releaseLabel=item.status==='reserved'?'Вернуть резерв':'Вернуть на баланс';
       const release=`<button class="secondary-button" type="button" data-benefit-action="release" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>${releaseLabel}</button>`;
-      const actions=item.status==='reserved'?`<button class="primary-button" type="button" data-benefit-action="redeem" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>Погасить</button>${release}`:item.status==='redeemed'&&payload.current_role==='owner'?release:'';
-      return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(booking?.service_name||'Запись')} · ${item.amount_rub?escapeHtml(rubles(item.amount_rub)):`${item.units} посещ.`}</strong><small>${escapeHtml(booking?.client_name||'Клиент')} · ${escapeHtml(redemptionStatusLabels[item.status]||item.status)}</small></div><span class="organization-tags">${actions}</span></article>`;
+      const actions=item.status==='reserved'?`<button class="primary" type="button" data-benefit-action="redeem" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>Погасить</button>${release}`:item.status==='redeemed'&&payload.current_role==='owner'?release:'';
+      return `<article class="organization-row benefit-redemption-row"><div class="organization-row-main"><strong>${escapeHtml(booking?.service_name||'Запись')} · ${item.amount_rub?escapeHtml(rubles(item.amount_rub)):`${item.units} посещ.`}</strong><small>${escapeHtml(booking?.client_name||'Клиент')} · ${escapeHtml(redemptionStatusLabels[item.status]||item.status)}</small></div><span class="organization-tags">${actions}</span></article>`;
     }
     function renderProductServices() {
       const holder=$('#benefitProductServices');
@@ -252,7 +252,7 @@
       $('#benefitProductCreator').hidden=!payload.enabled; $('#benefitIssueCreator').hidden=!payload.enabled; $('#benefitApplyCreator').hidden=!payload.enabled;
       const activeProducts=payload.products.filter(item=>item.active);
       $('#benefitIssueProduct').innerHTML=selectOptions(activeProducts,item=>`${item.name} · ${kindLabels[item.kind]||item.kind}`,'Сначала создайте шаблон');
-      $('#benefitIssueClient').innerHTML=selectOptions(payload.clients,item=>`${item.client_name} · ${item.client_phone}`,'Нет клиентов с записями');
+      $('#benefitIssueClient').innerHTML=selectOptions(payload.clients,item=>[item.client_name,item.client_phone].filter(Boolean).join(' · ')||'Клиент','Нет клиентов с записями');
       $('#benefitIssueExpiry').min=today;
       const activeInstruments=payload.instruments.filter(item=>item.status==='active'&&item.expires_on>=today);
       $('#benefitApplyInstrument').innerHTML=selectOptions(activeInstruments,instrumentOption,'Нет доступных абонементов или сертификатов');
