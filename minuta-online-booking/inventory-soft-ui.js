@@ -47,7 +47,14 @@
     if (restoreFocus && editor.trigger?.isConnected && !editor.trigger.disabled) editor.trigger.focus({ preventScroll:true });
   }
   function reset() {
-    for (const kind of editors.keys()) closeEditor(kind, false);
+    for (const [kind, editor] of editors) {
+      closeEditor(kind, false);
+      editor.form.reset();
+      const suffix = kind === 'item' ? 'Item' : 'Warehouse';
+      $(`#inventory${suffix}Id`).value = '';
+      $(`#inventory${suffix}Error`).hidden = true;
+      if (editor.extra) editor.extra.open = false;
+    }
     lastOrganization = null;
     if (settings) settings.open = false;
   }
@@ -173,7 +180,7 @@
     init();
     if (!panel || !payload) return;
     if (lastOrganization !== payload.organization_id) {
-      for (const kind of editors.keys()) closeEditor(kind, false);
+      reset();
       settings.open = !payload.enabled;
       lastOrganization = payload.organization_id;
     }

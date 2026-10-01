@@ -162,6 +162,10 @@ try {
     await page.locator('#inventoryItemCreator>summary').click();
     await page.evaluate(org => window.controller.setOrganization({ id:`${org}-other`, current_role:'owner' }), org);
     assert.equal(await page.locator('#inventoryItemDialog').evaluate(node => node.open), false);
+    assert.equal(await page.locator('#inventoryItemId').inputValue(), '');
+    assert.equal(await page.locator('#inventoryItemName').inputValue(), '');
+    assert.equal(await page.locator('#inventoryItemSku').inputValue(), '');
+    assert.equal(await page.locator('#inventoryWarehouseId').inputValue(), '');
     await page.evaluate(org => window.controller.setOrganization({ id:org, current_role:'owner' }), org);
     await page.evaluate(() => {
       window.workspace.current_role = 'admin';
