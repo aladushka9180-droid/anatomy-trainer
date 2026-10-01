@@ -1,22 +1,45 @@
 name: Minuta theme card browser regression
 on:
   push:
+    branches: [main]
     paths: ['minuta-online-booking/**', '.github/workflows/minuta-theme-cards.yml']
   pull_request:
+    branches: [main]
     paths: ['minuta-online-booking/**', '.github/workflows/minuta-theme-cards.yml']
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
   card-states:
+    needs: [card-regressions, layout-regressions]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every card regression group
+        env:
+          CARD_RESULT: ${{ needs.card-regressions.result }}
+          LAYOUT_RESULT: ${{ needs.layout-regressions.result }}
+        run: test "$CARD_RESULT" = success && test "$LAYOUT_RESULT" = success
+  card-regressions:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare the container checkout and evidence directory
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          echo "MINUTA_THEME_OUTPUT=$RUNNER_TEMP/theme-regression" >> "$GITHUB_ENV"
+          echo "MINUTA_SCREENSHOT_DIR=$RUNNER_TEMP/theme-regression/organization-groups" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
-      - run: npx playwright install --with-deps chromium
+      - name: Install the Chrome channel required by the existing overview test
+        run: npx playwright install chrome
       - run: node minuta-online-booking/tests/booking-delete-diagnostic-test.mjs
       - run: node minuta-online-booking/tests/eldion-connection-browser-test.mjs
       - name: Verify one-release PWA update and stale-tab recovery
@@ -28,16 +51,9 @@ jobs:
       - name: Verify pending navigation cannot block the next worker
         run: node minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs
       - name: Check theme colours and marked card states
-        env:
-          MINUTA_THEME_OUTPUT: ${{ runner.temp }}/theme-regression
         run: node minuta-online-booking/tests/theme-card-browser-test.mjs
-      - name: Check every provider theme, layout and viewport
-        env:
-          MINUTA_LAYOUT_OUTPUT: ${{ runner.temp }}/theme-regression/layouts
-        run: node minuta-online-booking/provider-layout-browser-test.cjs
       - name: Keep layout picker geometry independent
         run: node minuta-online-booking/tests/provider-layout-picker-geometry-browser-test.mjs
-      - run: node minuta-online-booking/provider-schedule-minimal-browser-test.cjs
       - run: node minuta-online-booking/tests/flat-schedule-icons-browser-test.mjs
       - run: node minuta-online-booking/tests/compact-mobile-schedule-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-appearance-layout-browser-test.mjs
@@ -57,7 +73,6 @@ jobs:
       - run: node minuta-online-booking/tests/provider-porcelain-white-text-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-porcelain-editor-browser-test.mjs
       - run: node minuta-online-booking/tests/client-theme-visual-parity-browser-test.mjs
-      - run: node minuta-online-booking/tests/client-relationship-appearance-browser-test.mjs
       - run: node minuta-online-booking/tests/client-profile-long-history-hierarchy-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-client-appearance-save-proximity-browser-test.mjs
       - run: node minuta-online-booking/tests/benefit-issue-recovery-browser-test.mjs
@@ -82,8 +97,6 @@ jobs:
       - run: node minuta-online-booking/tests/organization-roles-a02-browser-test.mjs
       - run: node minuta-online-booking/tests/organization-overview-browser-test.mjs
       - name: Verify organization groups, roles and sticky navigation
-        env:
-          MINUTA_SCREENSHOT_DIR: ${{ runner.temp }}/theme-regression/organization-groups
         run: node minuta-online-booking/tests/organization-group-navigation-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-typography-n15-browser-test.mjs
       - run: node minuta-online-booking/tests/organization-copy-a05-a08-browser-test.mjs
@@ -112,6 +125,32 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: minuta-theme-regression
+          path: ${{ runner.temp }}/theme-regression
+          if-no-files-found: ignore
+  layout-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare the container checkout and evidence directory
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          echo "MINUTA_LAYOUT_OUTPUT=$RUNNER_TEMP/theme-regression/layouts" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
+      - name: Check every provider theme, layout and viewport
+        run: node minuta-online-booking/provider-layout-browser-test.cjs
+      - run: node minuta-online-booking/provider-schedule-minimal-browser-test.cjs
+      - run: node minuta-online-booking/tests/client-relationship-appearance-browser-test.mjs
+      - name: Upload layout regression evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minuta-layout-regression
           path: ${{ runner.temp }}/theme-regression
           if-no-files-found: ignore
   header-states:
