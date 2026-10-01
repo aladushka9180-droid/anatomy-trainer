@@ -17494,13 +17494,19 @@ document.addEventListener('click', async event => {
   }
   if ((toggle || remove || removeDayOff || booking || deleteBookingButton || waitlistStatus || reviewVisibility) && !requireWrites()) return;
   if (reviewVisibility) {
+    if (reviewVisibility.disabled) return;
     reviewVisibility.disabled = true;
     const publish = reviewVisibility.dataset.reviewPublished !== 'true';
-    const { error } = await db.rpc('set_booking_review_published', { p_review:reviewVisibility.dataset.reviewVisibility, p_published:publish });
-    reviewVisibility.disabled = false;
-    if (error) { notify('Не удалось изменить видимость отзыва'); return; }
-    notify(publish ? 'Отзыв опубликован на сайте' : 'Отзыв скрыт с сайта');
-    await loadProviderReviews();
+    try {
+      const { error } = await db.rpc('set_booking_review_published', { p_review:reviewVisibility.dataset.reviewVisibility, p_published:publish });
+      if (error) { notify('Не удалось изменить видимость отзыва'); return; }
+      notify(publish ? 'Отзыв опубликован на сайте' : 'Отзыв скрыт с сайта');
+      await loadProviderReviews();
+    } catch {
+      notify('Не удалось изменить видимость отзыва. Повторите попытку.');
+    } finally {
+      reviewVisibility.disabled = false;
+    }
   }
   if (toggle) {
     await toggleServiceVisibility(toggle);
