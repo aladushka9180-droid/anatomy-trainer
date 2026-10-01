@@ -31,12 +31,14 @@ with both migrations installed. Native execution passed on 2026-10-02 at
 `3bb6d45f` (Actions run `36921656346`); it is not a production backup or
 restoration rehearsal.
 
-The added client contract step pins client PR #35 to `43ad6cd` and runs its
-actual adapter against the disposable PostgreSQL v189 wrapper, including the
-existing single-booking RPC and native booking rows for two consecutive
-performers. Exact replay must return the same bookings. No request reaches
-a public API, and this step rolls its synthetic records back. Execution of
-this final cross-repository step is pending.
+The final contract check captures input and acknowledgements from the native
+v189 wrapper, existing single-booking RPC and native booking rows for two
+consecutive synthetic performers. The private client runs its actual adapter
+against these captured responses and compares its emitted body to the body
+executed by PostgreSQL. Exact replay must return the same bookings. The
+artifact contains only disposable fixture data; client source and private
+schema are not uploaded. No request reaches a public API, and the capture
+transaction rolls back. Execution of this final contract check is pending.
 
 Before production SQL: recheck the migration number against fresh `main` and
 other release candidates; the sole Pro release owner must verify a fresh
