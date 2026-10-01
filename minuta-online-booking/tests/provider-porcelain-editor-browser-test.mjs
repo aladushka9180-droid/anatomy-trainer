@@ -71,7 +71,7 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${server.address().port}/provider.html`);
-  await page.locator('#providerThemeDisclosure > summary').click();
+  assert.equal(await page.locator('.theme-pink-porcelain').isVisible(),true);
   await page.locator('.theme-pink-porcelain').click();
   assert.equal(await page.locator('#providerPorcelainPage').isVisible(), true, `editor missing: ${JSON.stringify({ errors, pages:await page.locator('#providerPorcelainPage').count(), body:await page.locator('body').getAttribute('data-porcelain-editor-open') })}`);
   assert.equal(await page.evaluate(() => window.__fixture.saves), 0);

@@ -46,7 +46,7 @@
   <link rel="stylesheet" href="settings-smart-search.css?v=811">
   <link rel="stylesheet" href="provider-help-workspace.css?v=811">
   <link rel="stylesheet" href="contextual-help.css?v=811">
-  <link rel="stylesheet" href="settings-mobile-minimalism.css?v=1040">
+  <link rel="stylesheet" href="settings-mobile-minimalism.css?v=1052">
   <template data-provider-feature="share"><link rel="stylesheet" href="free-slots-compact.css?v=931"></template>
   <link rel="stylesheet" href="client-records.css?v=811">
   <link rel="stylesheet" href="benefit-lifecycle.css?v=1036">
@@ -1484,8 +1484,8 @@
               <div data-contextual-help data-help-label="Как выбрать оформление?" data-help-slug="cabinet-layout-theme" data-help-question="Объясни разницу между компоновкой, темой, размером текста и отображением данных в карточке записи."></div>
               <form id="providerDisplayForm" class="provider-display-form">
                 <div class="provider-display-save-state"><span class="provider-display-status" id="providerDisplayStatus" role="status" aria-live="polite">Автосохранение включено</span></div>
-  <details class="provider-theme-disclosure" id="providerThemeDisclosure">
-    <summary><span class="provider-current-theme-swatch" aria-hidden="true"></span><span><strong>Тема и цвет</strong><small id="providerCurrentTheme">Текущая тема</small></span><span class="provider-theme-disclosure-action">Выбрать тему <b aria-hidden="true">⌄</b></span></summary>
+  <section class="provider-theme-disclosure" id="providerThemeDisclosure" aria-labelledby="providerThemeHeading">
+    <div class="provider-theme-heading"><span class="provider-current-theme-swatch" aria-hidden="true"></span><span><strong id="providerThemeHeading">Тема и цвет</strong><small id="providerCurrentTheme">Текущая тема</small></span></div>
   <fieldset class="provider-theme-picker">
     <legend class="sr-only">Каталог тем</legend>
     <div class="provider-theme-filter" role="group" aria-label="Категория тем">
@@ -1542,7 +1542,7 @@
       <fieldset class="porcelain-picker"><legend>Оттенок темы кабинета</legend><div class="porcelain-shade-list" id="providerPorcelainShadeOptions"></div></fieldset>
     </div>
   </fieldset>
-  </details>
+  </section>
   <fieldset class="provider-layout-picker">
     <legend>Структура интерфейса</legend>
     <div class="provider-layout-options">
