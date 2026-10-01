@@ -2,18 +2,20 @@ name: Loyalty adjustment preview native contract
 
 on:
   push:
-    branches: ['codex/pro-loyalty-preview-*']
+    branches: ['codex/pro-loyalty-preview-*', 'codex/pro-o19-full-restore-proof-20261001']
     paths:
       - '.github/workflows/loyalty-preview-native.yml'
       - 'minuta-online-booking/supabase-candidate-loyalty-adjustment-preview*.sql'
       - 'minuta-online-booking/supabase-migration-v166.sql'
       - 'minuta-online-booking/tests/loyalty-preview-native-*'
+      - 'minuta-online-booking/tests/loyalty-preview-full-restore-*'
   pull_request:
     paths:
       - '.github/workflows/loyalty-preview-native.yml'
       - 'minuta-online-booking/supabase-candidate-loyalty-adjustment-preview*.sql'
       - 'minuta-online-booking/supabase-migration-v166.sql'
       - 'minuta-online-booking/tests/loyalty-preview-native-*'
+      - 'minuta-online-booking/tests/loyalty-preview-full-restore-*'
   workflow_dispatch:
 
 permissions:
@@ -42,6 +44,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 22 }
       - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.13.3
+      - name: Verify full-restore probe guards and immutable SQL without a database
+        run: node --test minuta-online-booking/tests/loyalty-preview-full-restore-probe-contract-test.mjs
       - name: Apply, roll back, reapply, and race real transactions
         env:
           LOYALTY_PREVIEW_LOCAL_POSTGRES_URL: postgresql://postgres:synthetic-local-test@127.0.0.1:5432/loyalty_preview_fixture
