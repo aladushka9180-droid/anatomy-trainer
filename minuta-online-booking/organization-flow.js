@@ -8,7 +8,7 @@
     { name: 'Рабочее время', title: 'Заполните график команды', description: 'Проверяем активные смены сотрудников в филиалах на ближайшие 14 дней. Учёт смен и онлайн-запись включаются отдельно.', action: 'Открыть график команды', section: 'shiftsPanel' }
   ];
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-  const clock = value => /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(String(value || ''));
+  const clock = value => /^(?:([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?|24:00(?::00)?)$/.test(String(value || ''));
   const timeMinutes = value => Number(String(value).slice(0, 2)) * 60 + Number(String(value).slice(3, 5));
   const day = date => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Samara', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
   const addDays = (iso, count) => new Date(Date.parse(`${iso}T12:00:00Z`) + count * 86400000).toISOString().slice(0, 10);
@@ -142,7 +142,13 @@
       if (!next) return;
       scopeId = next.id;
       if (submitted?.id === next.id) {
-        if (next.name === submitted.name) { form.hidden = true; draft = null; submitted = null; find('.of-notice').textContent = 'Название сохранено'; }
+        if (next.name === submitted.name) {
+          const changedWhileSaving = draft !== null && draft.trim() !== submitted.name;
+          form.hidden = !changedWhileSaving;
+          if (changedWhileSaving) find('#organizationName').value = draft; else draft = null;
+          submitted = null;
+          find('.of-notice').textContent = changedWhileSaving ? 'Название сохранено. Новое изменение ещё не сохранено.' : 'Название сохранено';
+        }
         else if (draft !== null) find('#organizationName').value = draft;
       } else if (!changed && !form.hidden && draft !== null) find('#organizationName').value = draft;
       render();

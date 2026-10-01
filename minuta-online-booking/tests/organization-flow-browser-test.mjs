@@ -77,6 +77,31 @@ try {
   await page.evaluate(() => { generation++; flow.reset(); resolveShift(); });
   assert.equal(await page.evaluate(() => orgData.public_booking_enabled), false); checks++;
   await page.close();
+  const edge = await browser.newPage({ viewport: { width: 390, height: 1000 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  await fixture(edge, { ready: true });
+  const truth = await edge.evaluate(() => {
+    const count = (org, data) => MinutaOrganizationFlow.configuration(org, data, 'ready', '2026-10-02', '2026-10-15').filter(item => item.done === true).length;
+    const variants = [];
+    let org = structuredClone(orgData), data = structuredClone(shiftData); data.shifts[0].end_time = '24:00:00'; variants.push(count(org, data));
+    org = structuredClone(orgData); data = structuredClone(shiftData); org.members[0].active = false; variants.push(count(org, data));
+    org = structuredClone(orgData); data = structuredClone(shiftData); org.locations[0].address = ''; variants.push(count(org, data));
+    org = structuredClone(orgData); data = structuredClone(shiftData); data.shifts[0].shift_date = '2026-10-01'; variants.push(count(org, data));
+    org = structuredClone(orgData); data = structuredClone(shiftData); data.absences = [{ performer_id: 'test-user', active: true, starts_on: '2026-10-02', ends_on: '2026-10-03' }]; variants.push(count(org, data));
+    org = structuredClone(orgData); data = structuredClone(shiftData); org.members.push({ user_id: 'second', active: true, is_bookable: true }); variants.push(count(org, data));
+    return variants;
+  });
+  assert.deepEqual(truth, [4, 1, 2, 3, 3, 2]); checks += truth.length;
+  await edge.locator('[data-org-action="rename"]').click();
+  await edge.locator('#organizationName').fill('Первое имя');
+  await edge.evaluate(() => { renamePending = true; });
+  await edge.locator('#organizationForm button[type="submit"]').click();
+  await edge.waitForFunction(() => Boolean(window.resolveRename));
+  await edge.locator('#organizationName').fill('Следующий черновик');
+  await edge.evaluate(() => { resolveRename(); });
+  await edge.waitForFunction(() => document.getElementById('organizationTitle').textContent === 'Первое имя');
+  assert.equal(await edge.locator('#organizationName').inputValue(), 'Следующий черновик'); checks++;
+  assert.equal(await edge.locator('#organizationForm').isVisible(), true); checks++;
+  await edge.close();
   assert.deepEqual(errors, []);
   console.log(`Organization flow: ${checks} browser checks PASS; 3 themes × 390/760/1440; all networking intercepted; synthetic rename only.`);
 } finally { await browser.close(); }
