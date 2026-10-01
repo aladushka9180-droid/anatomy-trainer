@@ -57,4 +57,6 @@ show(new URLSearchParams(location.search).get('panel')||'commercePanel').catch(e
 const output = resolve(process.argv[2] || resolve(root,'../outputs/commerce-soft-ui'), 'fixture.html');
 mkdirSync(resolve(output,'..'), {recursive:true});
 writeFileSync(output, fixture);
+// Existing summary/scan icons must match the real panels during visual review.
+writeFileSync(resolve(output, '..', 'ui-icons.svg'), read('ui-icons.svg'));
 console.log(output);
