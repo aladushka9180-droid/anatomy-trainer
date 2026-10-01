@@ -241,7 +241,7 @@
       const panel=$('#benefitsPanel'),workflowStatus=$('#benefitWorkflowStatus');
       const head=panel?.querySelector?.('.panel-head'),guide=panel?.querySelector?.('.benefit-guide')?.closest('details');
       if(head&&workflowStatus)head.after(workflowStatus);
-      if(guide){const intro=panel.querySelector(':scope > .organization-invite-help');if(intro)guide.querySelector('summary').after(intro);const firstRun=!payload.instruments.length;if(firstRun)workflowStatus?.after(guide);else panel.append(guide);if(!guide.dataset.softGuideReady){guide.open=false;guide.dataset.softGuideReady='true';}}
+      if(guide){const intro=panel.querySelector(':scope > .organization-invite-help');if(intro)guide.querySelector('summary').after(intro);const firstRun=!payload.instruments.length;if(firstRun)workflowStatus?.after(guide);else panel.append(guide);if(!guide.dataset.softGuideReady){guide.open=firstRun;guide.dataset.softGuideReady='true';}}
       const today=todayIso();
       $('#benefitsWorkspace').hidden=false; $('#benefitsUnavailable').hidden=true; $('#benefitsEnabled').checked=Boolean(payload.enabled); $('#benefitsEnabled').disabled=payload.current_role!=='owner';
       $('#benefitProductsCount').textContent=String(payload.products.length); $('#benefitInstrumentsCount').textContent=String(payload.instruments.length);
