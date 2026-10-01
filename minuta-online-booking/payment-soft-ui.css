@@ -1,0 +1,90 @@
+/* Payment presentation only. Existing controls, permissions and payment gates remain in their modules. */
+.provider-body #paymentProviderPanel.payment-soft-panel {
+  --ps-surface:var(--theme-surface,#fff);
+  --ps-ink:var(--theme-ink,#302d31);
+  --ps-muted:var(--theme-muted,#716a73);
+  --ps-line:var(--theme-line,#eee4e9);
+  --ps-accent:var(--theme-accent,#ad3d70);
+  --ps-soft:var(--theme-accent-soft,#fbeaf1);
+  width:100%; max-width:1040px; box-sizing:border-box; margin-inline:auto; padding:28px;
+  background:var(--ps-surface)!important; color:var(--ps-ink); box-shadow:none;
+}
+.provider-body #paymentProviderPanel.payment-soft-panel [hidden] { display:none!important; }
+#paymentProviderPanel.payment-soft-panel .payment-soft-icon { width:20px; height:20px; flex:0 0 20px; fill:none; stroke:currentColor; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; }
+#paymentProviderPanel.payment-soft-panel .payment-soft-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
+.provider-body #paymentProviderPanel.payment-soft-panel .panel-head { align-items:center; gap:16px; margin:0 0 22px; }
+.provider-body #paymentProviderPanel.payment-soft-panel .panel-head h3 { display:flex; align-items:center; gap:12px; font-size:21px; line-height:1.35; font-weight:650; letter-spacing:-.4px; }
+#paymentProviderPanel.payment-soft-panel .panel-head h3>.payment-soft-icon { width:44px; height:44px; flex-basis:44px; padding:11px; box-sizing:border-box; background:var(--ps-soft); color:var(--ps-accent); border-radius:13px; }
+#paymentProviderPanel.payment-soft-panel .payment-soft-badges { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }
+#paymentProviderPanel.payment-soft-panel .payment-soft-badge { padding:6px 10px; border-radius:999px; background:color-mix(in srgb,var(--ps-ink) 5%,var(--ps-surface)); color:var(--ps-muted); font-size:12px; font-weight:500; line-height:1.4; }
+#paymentProviderPanel.payment-soft-panel .payment-soft-badge[data-enabled=true] { background:var(--ps-soft); color:var(--ps-accent); }
+#paymentProviderPanel.payment-soft-panel .payment-soft-mode { background:var(--ps-soft); color:var(--ps-accent); }
+.provider-body #paymentProviderPanel.payment-soft-panel [data-contextual-help] { margin:0 0 24px; }
+.provider-body #paymentProviderPanel.payment-soft-panel .contextual-help__trigger { display:inline-flex; align-items:center; gap:8px; min-height:44px; font-size:13px; font-weight:500; color:var(--ps-muted); }
+.provider-body #paymentProviderPanel.payment-soft-panel :is(.payment-soft-heading,.resource-subhead strong) { display:flex; align-items:center; gap:9px; margin:0; font-size:15px; line-height:1.5; font-weight:600; color:var(--ps-ink); }
+.provider-body #paymentProviderPanel.payment-soft-panel .payment-provider-settings { display:grid; gap:0; margin:0 0 26px; }
+.provider-body #paymentProviderPanel.payment-soft-panel .payment-provider-settings>.payment-soft-heading { margin:0 0 10px; }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentProviderControls { display:grid; gap:0; }
+.provider-body #paymentProviderPanel.payment-soft-panel .settings-check.payment-soft-setting { display:grid; grid-template-columns:22px minmax(0,1fr) 20px; align-items:center; gap:12px; margin:0; padding:16px 0!important; border:0; border-bottom:1px solid var(--ps-line); border-radius:0; background:var(--ps-surface)!important; cursor:pointer; }
+#paymentProviderPanel.payment-soft-panel .payment-soft-setting>.payment-soft-icon { color:var(--ps-muted); }
+.provider-body #paymentProviderPanel.payment-soft-panel .settings-check.payment-soft-setting>span { display:grid; gap:3px; }
+.provider-body #paymentProviderPanel.payment-soft-panel .settings-check.payment-soft-setting strong { font-size:14px; font-weight:600; line-height:1.45; }
+.provider-body #paymentProviderPanel.payment-soft-panel .settings-check.payment-soft-setting small { font-size:13px; font-weight:400; line-height:1.5; color:var(--ps-muted); }
+.provider-body #paymentProviderPanel.payment-soft-panel input[type=checkbox] { width:20px; height:20px; min-height:20px; margin:0; padding:0; accent-color:var(--ps-accent); flex-shrink:0; }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentProviderControls>.form-row { grid-template-columns:minmax(0,320px); margin:18px 0 0; }
+.provider-body #paymentProviderPanel.payment-soft-panel label:not(.settings-check) { gap:7px; font-size:13px; font-weight:500; line-height:1.5; }
+.provider-body #paymentProviderPanel.payment-soft-panel :is(select,input:not([type=checkbox])) { min-height:46px; padding:10px 12px; border:1px solid var(--ps-line); border-radius:12px; background:var(--ps-surface); color:var(--ps-ink); font-family:inherit; font-size:14px; font-weight:400; line-height:1.5; }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentFiscalizationFields { gap:14px; margin-top:18px; }
+#paymentProviderPanel.payment-soft-panel .payment-soft-footer { display:flex; align-items:center; flex-wrap:wrap; gap:12px 18px; margin-top:20px; }
+.provider-body #paymentProviderPanel.payment-soft-panel :is(button.primary,button.secondary-button) { min-height:44px; padding:11px 17px; border-radius:12px; font-size:13px; font-weight:600; line-height:1.5; box-shadow:none; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard #paymentProviderPanel.payment-soft-panel button.primary { background:var(--ps-accent)!important; background-image:none!important; border-color:var(--ps-accent)!important; color:var(--theme-accent-contrast,#fff)!important; }
+html body.provider-body[data-provider-theme=pink-porcelain][data-provider-layout] #dashboard #paymentProviderPanel.payment-soft-panel button.primary { background:var(--porcelain-action-bg,#f3b8cf)!important; border-color:var(--ps-line)!important; color:var(--porcelain-action-ink,var(--ps-ink))!important; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard #paymentProviderPanel.payment-soft-panel button.primary:disabled { background:color-mix(in srgb,var(--ps-ink) 5%,var(--ps-surface))!important; border:1px solid var(--ps-line)!important; color:var(--ps-muted)!important; opacity:1; cursor:not-allowed; }
+#paymentProviderPanel.payment-soft-panel .payment-soft-footer p { margin:0; font-size:13px; line-height:1.5; color:var(--ps-muted); }
+#paymentProviderPanel.payment-soft-panel .payment-soft-footer p[data-dirty=true] { color:var(--ps-accent); }
+.provider-body #paymentProviderPanel.payment-soft-panel .payment-soft-operations { border-top:1px solid var(--ps-line); padding-top:20px; }
+.provider-body #paymentProviderPanel.payment-soft-panel .resource-subhead { margin:0 0 12px; align-items:center; }
+.provider-body #paymentProviderPanel.payment-soft-panel .resource-subhead>div { display:flex; flex-direction:column-reverse; gap:3px; }
+.provider-body #paymentProviderPanel.payment-soft-panel .resource-subhead small { font-size:12px; font-weight:400; color:var(--ps-muted); }
+.provider-body #paymentProviderPanel.payment-soft-panel .provider-empty { min-height:82px; padding:16px 18px; border:1px solid var(--ps-line); border-radius:13px; background:color-mix(in srgb,var(--ps-ink) 2%,var(--ps-surface)); text-align:left; align-items:start; justify-items:start; gap:4px; }
+.provider-body #paymentProviderPanel.payment-soft-panel .provider-empty strong { font-size:14px; font-weight:500; line-height:1.5; }
+.provider-body #paymentProviderPanel.payment-soft-panel .provider-empty small { font-size:13px; line-height:1.5; color:var(--ps-muted); }
+.provider-body #paymentProviderPanel.payment-soft-panel .payment-attempt-row { padding:14px 0; background:var(--ps-surface); border:0; border-bottom:1px solid var(--ps-line); border-radius:0; font-size:13px; }
+.provider-body #paymentProviderPanel.payment-soft-panel .payment-attempt-row strong { font-size:14px; font-weight:600; }
+.provider-body #paymentProviderPanel.payment-soft-panel .payment-attempt-row small { font-size:13px; font-weight:400; line-height:1.5; }
+.provider-body #paymentProviderPanel.payment-soft-panel .ux-disclosure { border:0; border-top:1px solid var(--ps-line); border-radius:0; padding:0; background:transparent; margin:18px 0 0; }
+.provider-body #paymentProviderPanel.payment-soft-panel .ux-disclosure>summary { display:flex; align-items:center; gap:10px; min-height:56px; padding:12px 0; font-size:14px; font-weight:500; line-height:1.5; }
+.provider-body #paymentProviderPanel.payment-soft-panel .ux-disclosure>summary::after { margin-left:auto; color:var(--ps-muted); }
+.provider-body #paymentProviderPanel.payment-soft-panel .ux-disclosure>summary>span:first-of-type { flex:1; min-width:0; display:flex; flex-direction:column-reverse; gap:2px; }
+.provider-body #paymentProviderPanel.payment-soft-panel .ux-disclosure>summary :is(strong,small) { text-transform:none; letter-spacing:0; }
+.provider-body #paymentProviderPanel.payment-soft-panel .ux-disclosure>summary strong { font-size:14px; font-weight:500; }
+.provider-body #paymentProviderPanel.payment-soft-panel .ux-disclosure>summary small { font-size:13px; font-weight:400; color:var(--ps-muted); }
+.provider-body #paymentProviderPanel.payment-soft-panel .ux-disclosure .panel-count { padding:5px 9px; border-radius:999px; background:color-mix(in srgb,var(--ps-ink) 5%,var(--ps-surface)); font-size:12px; font-weight:500; color:var(--ps-muted); }
+.provider-body #paymentProviderPanel.payment-soft-panel :is(.organization-invite-help,.payment-soft-review p,.payment-technical-details p,#paymentProviderProductionReview p) { font-size:13px; line-height:1.6; font-weight:400; color:var(--ps-muted); margin:8px 0 14px; }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentSandboxForm { display:grid; grid-template-columns:minmax(0,1fr) 140px auto; gap:12px; align-items:end; padding:0; }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentSandboxForm>small { grid-column:1/-1; font-size:13px; font-weight:400; line-height:1.5; }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentSandboxResult { margin-top:16px; padding:16px; border:1px solid var(--ps-line); border-radius:13px; background:var(--ps-surface); }
+.provider-body #paymentProviderPanel.payment-soft-panel .payment-sandbox-actions { gap:8px; }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentProviderProductionReview { margin-top:18px; padding:16px; border:1px solid var(--ps-line); border-radius:13px; background:var(--ps-soft); }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentProviderProductionReview strong { font-size:14px; font-weight:600; }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentProviderProductionReview .settings-check { padding:10px 0; border:0; background:transparent; font-size:13px; font-weight:500; align-items:center; }
+.provider-body #paymentProviderPanel.payment-soft-panel #paymentProviderReviewNotice { color:var(--ps-accent); margin-bottom:0; }
+.provider-body #paymentProviderPanel.payment-soft-panel .provider-integration-card { border:1px solid var(--ps-line); border-radius:13px; padding:16px; background:var(--ps-surface); box-shadow:none; }
+.provider-body #paymentProviderPanel.payment-soft-panel :is(input,select,button,summary):focus-visible { outline:2px solid var(--ps-accent); outline-offset:3px; }
+@media(max-width:760px) {
+  .provider-body #paymentProviderPanel.payment-soft-panel { padding:22px; }
+  .provider-body #paymentProviderPanel.payment-soft-panel .panel-head { align-items:flex-start; flex-direction:column; gap:12px; }
+  .provider-body #paymentProviderPanel.payment-soft-panel #paymentSandboxForm { grid-template-columns:minmax(0,1fr) 130px; }
+  .provider-body #paymentProviderPanel.payment-soft-panel #paymentSandboxForm>button { grid-column:1/-1; justify-self:start; }
+}
+@media(max-width:480px) {
+  .provider-body #paymentProviderPanel.payment-soft-panel { padding:18px; }
+  .provider-body #paymentProviderPanel.payment-soft-panel .panel-head h3 { font-size:18px; gap:10px; }
+  #paymentProviderPanel.payment-soft-panel .panel-head h3>.payment-soft-icon { width:38px; height:38px; flex-basis:38px; padding:9px; }
+  .provider-body #paymentProviderPanel.payment-soft-panel .settings-check.payment-soft-setting { gap:10px; padding:14px 0!important; }
+  .provider-body #paymentProviderPanel.payment-soft-panel #paymentSandboxForm { grid-template-columns:minmax(0,1fr); }
+  .provider-body #paymentProviderPanel.payment-soft-panel #paymentSandboxForm>button { width:100%; }
+  .provider-body #paymentProviderPanel.payment-soft-panel :is(select,input:not([type=checkbox])) { font-size:16px; }
+  .provider-body #paymentProviderPanel.payment-soft-panel .ux-disclosure>summary { flex-wrap:wrap; gap:7px; }
+  .provider-body #paymentProviderPanel.payment-soft-panel .payment-attempt-row { flex-direction:column; align-items:start; gap:4px; }
+}
