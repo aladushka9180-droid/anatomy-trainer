@@ -57,3 +57,22 @@ test('server identity and marker must both match without accepting SQL NULL', as
   await assert.rejects(assertA04RestoreServer(query(server, 0), target));
   await assert.rejects(assertA04RestoreServer(async () => { throw new Error('marker absent'); }, target));
 });
+
+test('PostgreSQL inet /32 is compared through host() without weakening loopback checks', async () => {
+  const target = validateA04TargetEnv(restored);
+  const server = { database:target.database,server_address:'127.0.0.1',client_address:'127.0.0.1',
+    server_port:target.port,in_recovery:false,server_version:170011 };
+  let checkedAddressSql = false;
+  await assertA04RestoreServer(async (sql) => {
+    if (sql.includes('a04_full_restore_marker')) return { rows:[{ present:1 }] };
+    assert.match(sql, /pg_catalog\.host\(inet_server_addr\(\)\) server_address/);
+    assert.match(sql, /pg_catalog\.host\(inet_client_addr\(\)\) client_address/);
+    assert.doesNotMatch(sql, /inet_(?:server|client)_addr\(\)::text/);
+    checkedAddressSql = true;
+    return { rows:[server] };
+  }, target);
+  assert.equal(checkedAddressSql, true);
+  // PostgreSQL inet::text includes /32; host(inet) yields the expected address.
+  await assert.rejects(assertA04RestoreServer(async (sql) => ({ rows:sql.includes('a04_full_restore_marker')
+    ? [{ present:1 }] : [{ ...server,server_address:'127.0.0.1/32' }] }), target));
+});

@@ -34,7 +34,7 @@ export function validateA04TargetEnv(env) {
 export async function assertA04RestoreServer(query, target) {
   if (!target.restore) return;
   const { rows } = await query(`select current_database() database,
-    inet_server_addr()::text server_address,inet_client_addr()::text client_address,
+    pg_catalog.host(inet_server_addr()) server_address,pg_catalog.host(inet_client_addr()) client_address,
     inet_server_port() server_port,pg_is_in_recovery() in_recovery,
     current_setting('server_version_num')::int server_version`);
   const server = rows[0];
