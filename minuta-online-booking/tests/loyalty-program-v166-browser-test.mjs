@@ -7,7 +7,7 @@ const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('provider.html', root), 'utf8');
 const moduleSource = readFileSync(new URL('loyalty-program-v166.js', root), 'utf8');
 const cssFiles = [...html.matchAll(/<link[^>]+href="([^"?]+\.css)(?:\?[^"#]*)?"/g)].map(match => match[1]);
-const css = cssFiles.map(file => readFileSync(new URL(file, root), 'utf8')).join('\n');
+const css = [...cssFiles,'loyalty-soft-ui.css'].map(file => readFileSync(new URL(file, root), 'utf8')).join('\n');
 const shell = html
   .replace(/<script\b[\s\S]*?<\/script>/gi, '')
   .replace(/<link\b[^>]+rel="stylesheet"[^>]*>/gi, '')
@@ -142,6 +142,7 @@ try {
   assert.equal(retry.ids[0], retry.ids[1], 'An ambiguous retry reuses the idempotency key');
   assert.equal(retry.storage.length, 0, 'Successful confirmation clears the stored retry intent');
   assert.match(retry.notice, /сохранена/i, 'Successful retry is reported');
+  await page.locator('#editLoyaltyProgram').click();
   await page.locator('#loyaltyRewardKind').selectOption('fixed');
   assert.equal(await page.locator('#loyaltyRewardTitle').inputValue(), 'Скидка 10% на следующий визит', 'Saved title is preserved even when it resembles the default');
   assert.equal(await page.locator('#loyaltyRewardTitle').evaluate(input => input.validity.valid), false);
