@@ -1,7 +1,7 @@
 name: Inventory item catalog isolated PostgreSQL 17
 on:
   push:
-    branches: ['codex/pro-inventory-category-20260930']
+    branches: ['codex/pro-inventory-category-20260930', 'codex/pro-o24-full-restore-proof-20261001']
     paths:
       - '.github/workflows/inventory-item-catalog-isolated.yml'
       - 'minuta-online-booking/inventory-item-catalog-*'
@@ -47,5 +47,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - name: Verify full-restore probe guards and immutable SQL without a database
+        run: node --test minuta-online-booking/tests/inventory-item-catalog-full-restore-probe-contract-test.mjs
       - name: Test additive category/icon migration
         run: node minuta-online-booking/tests/inventory-item-catalog-postgres-test.mjs
