@@ -191,7 +191,7 @@
     }
     function deliveryCard(delivery) {
       const client = clientById(delivery.client_account_id) || {};
-      const status = { prepared: 'Готово к ручной отправке', sent: 'Отмечено отправленным вручную', cancelled: 'Отменено', failed: 'Ошибка' }[delivery.status] || delivery.status;
+      const status = { prepared: 'Подготовлено · не отправлено', sent: 'Отмечено отправленным вручную', cancelled: 'Отменено', failed: 'Ошибка' }[delivery.status] || delivery.status;
       const actions = delivery.status === 'prepared' ? `<a class="secondary-button" href="${escapeHtml(whatsappUrl(client.client_phone, delivery.message_snapshot))}" target="_blank" rel="noopener noreferrer">Открыть WhatsApp и отправить</a><button class="primary compact-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="sent" data-retention-write>Я отправил · отметить</button><button class="danger-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="cancelled" data-retention-write>Отменить</button>` : '';
       return `<article class="organization-row retention-delivery-row"><div class="organization-row-main"><strong>${escapeHtml(client.client_name || 'Клиент')} · ${escapeHtml(status)}</strong><small>${escapeHtml(delivery.message_snapshot)}</small><small>${escapeHtml(formatDateTime(delivery.prepared_at))}</small></div><span class="retention-row-actions">${actions}</span></article>`;
     }
@@ -218,6 +218,7 @@
       $('#retentionClientsList').innerHTML = payload.clients.length ? payload.clients.map(clientCard).join('') : empty('Клиентов пока нет', 'После завершённых визитов здесь появятся клиенты.');
       $('#retentionDeliveriesList').innerHTML = payload.deliveries.length ? payload.deliveries.map(deliveryCard).join('') : empty('Сообщений пока нет', 'Сообщения не отправляются автоматически. Отправка — вручную; Eldion Pro не подтверждает доставку.');
       applyWriteAvailability?.();
+      window.MinutaCommerceSoftUI?.syncRetention(organization?.name || '');
     }
     function messageFor(error) {
       const text = `${error?.message || ''} ${error?.details || ''}`;

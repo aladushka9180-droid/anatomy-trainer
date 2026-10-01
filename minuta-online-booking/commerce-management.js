@@ -283,6 +283,7 @@
       const selected = items.find(item => item.id === selectedItemId) || items[0];
       if (itemSelect && selected) itemSelect.value = selected.id;
       if (benefits && selected && $('#commerceUnitPrice')) $('#commerceUnitPrice').value = String((Number(selected.sale_price_minor) || 0) / 100);
+      window.MinutaCommerceSoftUI?.syncSale(items);
     }
 
     function renderBookings() {
@@ -474,7 +475,8 @@
         const remainingAmount = Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0);
         const remainingQuantity = number(sale.line?.quantity) - number(sale.line?.refunded_quantity);
         const status = sale.status === 'refunded' ? 'Возвращено' : sale.status === 'partially_refunded' ? 'Частичный возврат' : 'Оплачено';
-        return `<article class="commerce-sale-row"><div><small>${escapeHtml(dateText(sale.occurred_at))} · ${escapeHtml(status)}</small><strong>${escapeHtml(sale.line?.item_name || 'Продажа')}</strong><span>${sale.client_name ? `${escapeHtml(sale.client_name)} · ` : ''}${escapeHtml(String(sale.line?.quantity || 1))} × ${escapeHtml(rubles(sale.line?.unit_price_minor))}${sale.booking_id ? ' · внутри визита' : ' · отдельно'}</span><span>Продавец: ${escapeHtml(sale.seller_name || 'Сотрудник')}</span></div><div><strong>${escapeHtml(rubles(Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0)))}</strong>${remainingAmount > 0 && remainingQuantity > 0 ? `<button class="secondary-button compact-button" type="button" data-commerce-refund="${escapeHtml(sale.id)}">Возврат</button>` : ''}</div></article>`;
+        const itemIcon = window.MinutaCommerceSoftUI?.iconMarkup({name:sale.line?.item_name}) || '';
+        return `<article class="commerce-sale-row">${itemIcon}<div><small>${escapeHtml(dateText(sale.occurred_at))} · ${escapeHtml(status)}</small><strong>${escapeHtml(sale.line?.item_name || 'Продажа')}</strong><span>${sale.client_name ? `${escapeHtml(sale.client_name)} · ` : ''}${escapeHtml(String(sale.line?.quantity || 1))} × ${escapeHtml(rubles(sale.line?.unit_price_minor))}${sale.booking_id ? ' · внутри визита' : ' · отдельно'}</span><span>Продавец: ${escapeHtml(sale.seller_name || 'Сотрудник')}</span></div><div><strong>${escapeHtml(rubles(Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0)))}</strong>${remainingAmount > 0 && remainingQuantity > 0 ? `<button class="secondary-button compact-button" type="button" data-commerce-refund="${escapeHtml(sale.id)}">Возврат</button>` : ''}</div></article>`;
       }).join('') : '<p class="report-empty-inline">Продаж пока нет.</p>';
     }
 
@@ -844,13 +846,15 @@
           selectSaleSeller((state?.bookings || []).find(item => item.id === bookingId)?.performer_id);
         } else selectSaleSeller();
         updateSaleValidity();
-        $('#commerceItem').focus({ preventScroll:true });
+        if (window.MinutaCommerceSoftUI) window.MinutaCommerceSoftUI.focusItem();
+        else $('#commerceItem').focus({ preventScroll:true });
       },
       async setOrganization(next) {
         if (organization?.id === next?.id && organization?.current_role === next?.current_role && state) return;
         clearSaleClaimResult();
         organization = next || null;
         state = null;
+        window.MinutaCommerceSoftUI?.resetSale();
         $('#commerceWorkspace').hidden = true;
         if (organization?.id) await load();
       },
@@ -858,6 +862,7 @@
         clearSaleClaimResult();
         organization = null;
         state = null;
+        window.MinutaCommerceSoftUI?.resetSale();
         $('#commerceWorkspace').hidden = true;
         $('#commerceSaleCreator').open = false;
         $('#commerceAccountSetup').hidden = true;

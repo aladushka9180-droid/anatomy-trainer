@@ -1,0 +1,147 @@
+/* Local to the three approved commerce panels; every colour follows the theme. */
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel {
+  --cs-surface:var(--theme-surface,#fff);
+  --cs-soft:var(--theme-accent-soft,#edf6f0);
+  --cs-ink:var(--theme-ink,#173b2a);
+  --cs-muted:var(--theme-muted,#6f8076);
+  --cs-line:var(--theme-line,#dce6df);
+  --cs-accent:var(--theme-accent,#235b40);
+  --cs-radius:14px;
+  color:var(--cs-ink);
+}
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(.organization-invite-help,.benefit-form-help) { margin:8px 0 16px; font-size:13px; line-height:1.6; color:var(--cs-muted); }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(.commerce-workspace,.retention-workspace,.benefits-workspace) { gap:20px; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(.organization-create,.benefits-management-grid>section,.benefit-redemptions,.retention-settings-form,.retention-list-section,.organization-row,.commerce-summary article,.commerce-sale-options) { background:var(--cs-surface); box-shadow:none; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(.benefits-management-grid>section,.benefit-redemptions,.retention-settings-form,.retention-list-section) { padding:0; border:0; border-radius:0; align-content:start; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .resource-subhead { padding:0 0 12px; margin:0; border-bottom:1px solid var(--cs-line); }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .resource-subhead strong { font-size:16px; font-weight:650; line-height:1.4; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(.resource-subhead small,.organization-row-main small,.organization-tags,.retention-consent-field>span,.benefit-form-help small) { font-size:12px; font-weight:400; line-height:1.5; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(.organization-row strong,.commerce-sale-row strong) { font-size:14px; font-weight:650; line-height:1.45; overflow-wrap:anywhere; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(.organization-list,.commerce-sales-list) { gap:0; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .organization-row { padding:14px 0; border:0; border-bottom:1px solid var(--cs-line); border-radius:0; gap:12px; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .organization-row:last-child { border-bottom:0; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .provider-empty { min-height:76px; padding:18px 0; border:0; border-radius:0; background:transparent; gap:5px; text-align:left; align-items:start; justify-items:start; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .provider-empty strong { font-size:14px; font-weight:600; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .provider-empty small { font-size:12px; line-height:1.5; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .organization-create { border:1px solid var(--cs-line); border-radius:var(--cs-radius); margin:12px 0 0; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .organization-create>summary { padding:12px 14px; min-height:44px; font-size:14px; font-weight:600; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .organization-create>form { padding:16px; gap:16px; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(label,.benefit-service-fieldset legend) { font-size:13px; font-weight:500; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(input,select,textarea) { font-family:inherit; font-size:14px; font-weight:400; color:var(--cs-ink); border-radius:12px; background:var(--cs-surface); }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(input,select) { min-height:44px; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(button,.secondary-button) { font-size:13px; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(.settings-check,.retention-toggle) { padding:12px 0!important; border:0; border-bottom:1px solid var(--cs-line); border-radius:0; background:var(--cs-surface)!important; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .settings-check span strong { font-size:13px; font-weight:600; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .settings-check span small { font-size:12px; font-weight:400; line-height:1.5; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-summary { gap:0; padding:4px 0 16px; border-bottom:1px solid var(--cs-line); }
+.provider-body #commercePanel.commerce-soft-panel .commerce-summary article { border:0; border-radius:0; padding:8px 16px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-summary article:first-child { padding-left:0; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-summary article+article { border-left:1px solid var(--cs-line); }
+.provider-body #commercePanel.commerce-soft-panel .commerce-summary small { font-size:12px; line-height:1.45; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-summary strong { font-size:22px; font-weight:600; }
+.provider-body #commercePanel.commerce-soft-panel #commerceSaleForm { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:18px 28px; align-items:start; }
+.provider-body #commercePanel.commerce-soft-panel #commerceSaleForm>.form-row { grid-column:1; grid-template-columns:repeat(2,minmax(0,1fr)); margin:0; }
+.provider-body #commercePanel.commerce-soft-panel #commerceSaleForm>.form-row:first-of-type { grid-template-columns:1fr; }
+.provider-body #commercePanel.commerce-soft-panel .cs-native-item { display:none; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-options { grid-column:1; border:0; border-top:1px solid var(--cs-line); border-radius:0; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-options>summary { padding:12px 0; flex-wrap:wrap; gap:4px 12px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-options>summary span { font-size:13px; font-weight:600; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-options>summary small { font-size:12px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-options-fields { padding:0 0 12px; gap:14px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-commit { grid-column:2; grid-row:1/6; position:static; order:0; display:grid; grid-template-columns:1fr; padding:18px; border:0; border-radius:var(--cs-radius); background:color-mix(in srgb,var(--cs-soft) 60%,var(--cs-surface)); box-shadow:none; backdrop-filter:none; gap:14px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-total { display:grid; padding:0; gap:8px; background:transparent; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-total span { font-size:13px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-total strong { font-size:28px; font-weight:600; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-commit>.form-error { grid-column:auto; margin:0; }
+.provider-body #commercePanel.commerce-soft-panel .cs-payment-note { margin:0; font-size:12px; line-height:1.5; }
+.provider-body #commercePanel.commerce-soft-panel .cs-product-choice { display:flex; align-items:center; gap:10px; width:100%; min-width:0; min-height:72px; margin:0; padding:10px 12px; border:1px solid var(--cs-line); border-radius:12px; background:var(--cs-surface); color:var(--cs-ink); text-align:left; }
+.cs-product-copy { display:grid; flex:1; min-width:0; gap:3px; }
+.cs-product-copy small { color:var(--cs-muted); font-size:12px; }
+.cs-product-copy strong { font-size:14px; font-weight:600; overflow-wrap:anywhere; }
+.cs-change-label { color:var(--cs-accent); font-size:12px; }
+.cs-item-icon { flex:0 0 38px; display:grid; place-items:center; width:38px; height:38px; border-radius:11px; color:var(--theme-accent,#235b40); background:color-mix(in srgb,var(--theme-accent-soft,#edf6f0) 62%,var(--theme-surface,#fff)); }
+.cs-item-icon svg { display:block; width:23px; height:23px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-row { display:grid; grid-template-columns:38px minmax(0,1fr) auto; gap:12px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-row>div { min-width:0; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-row :is(span,small) { font-size:12px; line-height:1.5; }
+.provider-body #commercePanel.commerce-soft-panel .cs-quantity { display:flex; align-items:center; border:1px solid var(--cs-line); border-radius:12px; margin-top:7px; overflow:hidden; }
+.provider-body #commercePanel.commerce-soft-panel .cs-quantity input { min-width:0; width:100%; margin:0; border:0; border-radius:0; text-align:center; appearance:textfield; }
+.cs-quantity input::-webkit-inner-spin-button { appearance:none; }
+.provider-body #commercePanel.commerce-soft-panel .cs-quantity-button { flex:0 0 44px; width:44px; min-height:44px; padding:0; margin:0; border:0; border-radius:0; background:transparent; color:var(--cs-accent); font-size:20px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-account-setup { background:var(--cs-surface); }
+.provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm { display:grid; grid-template-columns:1fr; gap:18px; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-number-field { border:0; border-radius:0; padding:4px 0; gap:10px; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-number-field strong { font-size:13px; font-weight:500; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-number-field small { font-size:12px; font-weight:400; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-number-control em { font-size:12px; font-weight:400; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-number-control input { width:66px; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-message-field { gap:8px; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-message-field textarea { padding:12px 14px; border:1px solid var(--cs-line); border-radius:12px; min-height:110px; line-height:1.65; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-message-field small { font-size:12px; font-weight:400; }
+.cs-message-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:-10px; }
+.cs-variable-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.provider-body #retentionPanel.commerce-soft-panel .cs-variable-chip { margin:0; min-height:44px; padding:6px 10px; border:0; border-radius:9px; background:var(--cs-soft); color:var(--cs-accent); font-size:12px; font-weight:500; }
+.provider-body #retentionPanel.commerce-soft-panel .cs-preview-toggle { padding:8px 0; min-height:44px; margin:0; background:transparent; color:var(--cs-accent); border:0; }
+.cs-message-preview { display:grid; gap:6px; padding:16px; border:1px solid var(--cs-line); border-radius:var(--cs-radius); background:var(--cs-surface); }
+.cs-message-preview[hidden] { display:none; }
+.cs-message-preview strong { font-size:14px; font-weight:600; }
+.cs-message-preview small { font-size:12px; color:var(--cs-muted); }
+.cs-message-preview p { margin:4px 0 0; font-size:14px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-save-status { text-align:left; font-size:12px; font-weight:400; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-workspace { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm { grid-column:1/-1; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-clients-list { grid-template-columns:1fr; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-client-row { padding:14px 0!important; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-row-actions { justify-content:flex-start; }
+.provider-body #benefitsPanel.commerce-soft-panel #benefitWorkflowStatus { margin:8px 0 12px; font-size:13px; line-height:1.6; color:var(--cs-muted); }
+.provider-body #benefitsPanel.commerce-soft-panel .ux-disclosure { margin:0 0 16px; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefit-guide { padding:0; border:0; background:transparent; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefit-guide li { font-size:13px; line-height:1.6; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefits-management-grid { gap:28px; align-items:start; }
+.provider-body #benefitsPanel.commerce-soft-panel .benefit-redemptions { border-top:1px solid var(--cs-line); padding-top:20px; }
+.provider-body #benefitsPanel.commerce-soft-panel :is(#benefitProductsList,#benefitInstrumentsList) .organization-row { display:grid; grid-template-columns:38px minmax(0,1fr) auto; }
+.provider-body #benefitsPanel.commerce-soft-panel .scan-field { display:flex; align-items:end; gap:10px; margin:12px 0; }
+.provider-body #benefitsPanel.commerce-soft-panel .scan-field label { flex:1; min-width:0; }
+.provider-body #benefitsPanel.commerce-soft-panel .scan-field button { flex:none; width:auto; min-height:44px; margin:0; display:flex; align-items:center; gap:7px; }
+.provider-body :is(.cs-product-choice,.cs-quantity-button,.cs-variable-chip,.cs-preview-toggle,.cs-picker-row):focus-visible { outline:3px solid color-mix(in srgb,var(--theme-accent,#235b40) 35%,transparent); outline-offset:2px; }
+.provider-body .cs-product-dialog { box-sizing:border-box; width:min(560px,calc(100% - 32px)); max-height:min(620px,calc(100dvh - 40px)); padding:20px; color:var(--theme-ink,#173b2a); background:var(--theme-surface,#fff); border:1px solid var(--theme-line,#dce6df); border-radius:20px; box-shadow:0 16px 60px #0002; }
+.cs-product-dialog::backdrop { background:#0005; }
+.cs-picker-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.cs-picker-head h3 { margin:0; font-size:18px; font-weight:600; }
+.cs-picker-head button { width:auto; margin:0; min-height:44px; }
+.cs-picker-search { box-sizing:border-box; width:100%; min-height:44px; margin:0 0 10px; padding:10px 12px; font-family:inherit; font-size:14px; line-height:1.4; border:1px solid var(--theme-line,#dce6df); border-radius:12px; color:var(--theme-ink,#173b2a); background:var(--theme-surface,#fff); }
+.cs-picker-list { max-height:380px; overflow-y:auto; overscroll-behavior:contain; }
+.cs-picker-row { display:flex; align-items:center; gap:12px; width:100%; min-height:60px; padding:10px; margin:0; color:var(--theme-ink,#173b2a); background:transparent; border:0; border-bottom:1px solid var(--theme-line,#dce6df); border-radius:0; text-align:left; font-family:inherit; font-size:14px; line-height:1.4; }
+.cs-picker-row span:not(.cs-item-icon) { flex:1; min-width:0; overflow-wrap:anywhere; }
+.cs-picker-row[aria-selected="true"] { color:var(--theme-accent,#235b40); background:var(--theme-accent-soft,#edf6f0); border-radius:10px; }
+.cs-picker-row[aria-selected="true"]::after { content:'✓'; }
+.cs-picker-empty { padding:16px 0; color:var(--theme-muted,#6f8076); font-size:14px; }
+@media (min-width:981px) {
+  .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open { grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); }
+  .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open .retention-message-field { grid-column:1; }
+  .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open .cs-message-toolbar { grid-column:1; }
+  .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open .cs-message-preview { grid-column:2; grid-row:3/5; align-self:start; }
+}
+@media (max-width:980px) {
+  .provider-body #commercePanel.commerce-soft-panel #commerceSaleForm { grid-template-columns:1fr; }
+  .provider-body #commercePanel.commerce-soft-panel .commerce-sale-commit { grid-column:1; grid-row:auto; order:0; }
+  .provider-body #commercePanel.commerce-soft-panel #commerceSaleForm>.form-row,.provider-body #commercePanel.commerce-soft-panel .commerce-sale-options { grid-column:1; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-workspace { grid-template-columns:1fr; }
+}
+@media (max-width:760px) {
+  .provider-body #commercePanel.commerce-soft-panel .commerce-summary strong { font-size:18px; }
+  .provider-body #commercePanel.commerce-soft-panel .commerce-summary article { padding:4px 10px; }
+  .provider-body #commercePanel.commerce-soft-panel .commerce-summary small { font-size:12px; }
+  .provider-body #commercePanel.commerce-soft-panel #commerceSaleForm>.form-row { grid-template-columns:1fr; }
+  .provider-body #commercePanel.commerce-soft-panel #commerceSaleForm>.commerce-sale-amounts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .provider-body #commercePanel.commerce-soft-panel .commerce-sale-options-fields { grid-template-columns:1fr; }
+  .provider-body #commercePanel.commerce-soft-panel .commerce-sale-options>summary small { max-width:100%; white-space:normal; text-align:left; }
+  .provider-body #commercePanel.commerce-soft-panel .cs-change-label { font-size:12px; }
+  .provider-body #commercePanel.commerce-soft-panel .commerce-sale-row { grid-template-columns:38px minmax(0,1fr); }
+  .provider-body #commercePanel.commerce-soft-panel .commerce-sale-row>div:last-child { grid-column:2; display:flex; justify-content:space-between; width:100%; }
+  .provider-body #benefitsPanel.commerce-soft-panel :is(#benefitProductsList,#benefitInstrumentsList) .organization-row { grid-template-columns:38px minmax(0,1fr); }
+  .provider-body #benefitsPanel.commerce-soft-panel :is(#benefitProductsList,#benefitInstrumentsList) .organization-row>:last-child { grid-column:2; justify-self:start; }
+  .provider-body #benefitsPanel.commerce-soft-panel .scan-field { flex-wrap:wrap; }
+  .provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .organization-create>form { padding:12px; }
+}
+.provider-body[data-provider-layout="linear"] .commerce-soft-panel,.provider-body[data-provider-layout="editorial"] .commerce-soft-panel { --cs-radius:0px; }
