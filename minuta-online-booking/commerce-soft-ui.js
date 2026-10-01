@@ -151,6 +151,9 @@
     itemDialog.addEventListener('close', () => { if (!$('#commercePanel')?.hidden) itemButton.focus({ preventScroll:true }); });
     select.addEventListener('invalid', event => { event.preventDefault(); itemButton.focus(); });
     const quantity = $('#commerceQuantity');
+    // A label with several labelable descendants loses its implicit association.
+    quantity.closest('label')?.setAttribute('for', quantity.id);
+    quantity.setAttribute('aria-label', 'Количество');
     const counter = element('span', 'cs-quantity'); quantity.before(counter);
     quantityMinus = button('−', 'cs-quantity-button'); quantityMinus.setAttribute('aria-label', 'Уменьшить количество');
     quantityPlus = button('+', 'cs-quantity-button'); quantityPlus.setAttribute('aria-label', 'Увеличить количество');
