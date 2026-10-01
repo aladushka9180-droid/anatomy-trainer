@@ -8,7 +8,7 @@ try {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  for (const width of [390, 760, 1440]) {
+  for (const width of [390, 760, 1180, 1440]) {
     await page.setViewportSize({ width, height:1000 });
     await page.goto('about:blank');
     await page.setContent(portfolioSoftFixture());
@@ -24,6 +24,7 @@ try {
         columns:getComputedStyle(root.querySelector('#portfolioManageList')).gridTemplateColumns.split(' ').length,
         filledStars:[...root.querySelectorAll('.portfolio-soft-stars .is-filled path')].every(e=>getComputedStyle(e).fill !== 'none'),
         emptyStars:[...root.querySelectorAll('.portfolio-soft-stars .ui-icon:not(.is-filled) path')].every(e=>getComputedStyle(e).fill === 'none'),
+        photoLabelsFit:[...root.querySelectorAll('.portfolio-card-photos')].every(photos=>{const mark=photos.querySelector('.portfolio-soft-photo-trigger>span').getBoundingClientRect();return [...photos.querySelectorAll('.portfolio-photo>span')].filter(e=>e.getClientRects().length).every(e=>{const a=e.getBoundingClientRect();return a.right<=mark.left||a.left>=mark.right||a.bottom<=mark.top||a.top>=mark.bottom})}),
         ratingGap:(()=>{const head=root.querySelector('.portfolio-soft-review-name');return head.querySelector('span').getBoundingClientRect().left-head.querySelector('strong').getBoundingClientRect().right})(),
         controls:[...root.querySelectorAll('button,summary')].filter(e=>e.getClientRects().length).map(e=>({name:e.getAttribute('aria-label')||e.textContent.trim(),w:e.getBoundingClientRect().width,h:e.getBoundingClientRect().height,minHeight:getComputedStyle(e).minHeight})),
         smallest:Math.min(...[...root.querySelectorAll('.portfolio-photo>span,.portfolio-card-status,.portfolio-card-copy>small,.provider-review-head small')].filter(e=>e.getClientRects().length).map(e=>parseFloat(getComputedStyle(e).fontSize)))
@@ -35,6 +36,7 @@ try {
       assert.ok(geometry.ratingGap <= 11);
       assert.equal(geometry.filledStars, true);
       assert.equal(geometry.emptyStars, true);
+      assert.equal(geometry.photoLabelsFit, true, `${width}/${theme}: photo caption overlaps preview icon`);
       assert.ok(geometry.smallest >= 12);
       assert.ok(geometry.controls.every(e=>e.h >= 44 && e.w >= 44), `${width}/${theme}: ${JSON.stringify(geometry.controls.filter(e=>e.h<44||e.w<44))}`);
       assert.equal(await view.locator('.portfolio-title-actions .primary').evaluate(e=>getComputedStyle(e).color===getComputedStyle(e.querySelector('span')).color), true, `${theme}: button label contrast`);
@@ -91,5 +93,5 @@ try {
     assert.equal(await view.locator('.provider-review-card').count(), 2);
   }
   assert.deepEqual(errors, []);
-  console.log('Portfolio soft UI: PASS; 9 viewport/theme combinations, 390/760/1440, native menu/gallery, empty/error/retry. No production network.');
+  console.log('Portfolio soft UI: PASS; 12 viewport/theme combinations, actual sidebar/workspace, 390/760/1180/1440, native menu/gallery, empty/error/retry. No production network.');
 } finally { await browser.close(); }
