@@ -1,6 +1,81 @@
 (function () {
   'use strict';
 
+  const moduleUrl = document.currentScript?.src;
+  function mountSoftView($) {
+    const panel = $('#loyaltyPanel'), form = $('#loyaltyProgramForm'), fields = $('#loyaltyProgramFields');
+    if (!panel?.querySelector || !form || !fields || !document.createElement) return null;
+    if (!document.getElementById('loyaltySoftStyles')) {
+      const sheet = document.createElement('link'); sheet.id = 'loyaltySoftStyles'; sheet.rel = 'stylesheet';
+      const source = new URL(moduleUrl || 'loyalty-program-v166.js', document.baseURI);
+      const url = new URL('loyalty-soft-ui.css', source); url.search = source.search; sheet.href = url.href;
+      document.head.append(sheet);
+    }
+    const icon = name => `<svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-${name}"></use></svg>`;
+    const make = (tag, className, html = '') => {
+      const node = document.createElement(tag); node.className = className; node.innerHTML = html; return node;
+    };
+    if (!panel.classList.contains('loyalty-soft')) {
+      panel.classList.add('loyalty-soft');
+      panel.querySelector('.panel-head h3')?.insertAdjacentHTML('afterbegin', icon('heart'));
+      panel.querySelector('.panel-head small')?.remove();
+      panel.querySelector('.organization-invite-help').textContent = 'Награждайте клиентов за завершённые визиты.';
+      const heading = make('div','ls-settings-head',`${icon('settings')}<strong>Настройки программы</strong><span id="loyaltySavedStatus" class="ls-status"></span>`);
+      form.prepend(heading);
+      const summary = make('section','ls-saved-summary',`<div>${icon('heart')}<span><strong id="loyaltySavedTitle"></strong><small id="loyaltySavedDetails"></small></span></div><button type="button" class="secondary-button" id="editLoyaltyProgram" aria-controls="loyaltyProgramForm" aria-expanded="false">${icon('edit')}Изменить</button>`);
+      summary.id = 'loyaltySavedSummary'; summary.hidden = true; form.before(summary);
+      const sections = [...fields.children];
+      const goalLabel = $('#loyaltyGoalPreset').closest('label'), validityLabel = $('#loyaltyValidity').closest('label');
+      const rewardLabel = $('#loyaltyRewardKind').closest('label'), valueLabel = $('#loyaltyRewardValueField');
+      for (const option of $('#loyaltyRewardKind').options) option.textContent = ({percent:'Скидка, %',fixed:'Скидка, ₽',text:'Бонус или дополнение'})[option.value] || option.textContent;
+      const titleLabel = $('#loyaltyRewardTitle').closest('label'), termsLabel = $('#loyaltyRewardTerms').closest('label');
+      const basics = make('div','ls-basics');
+      const goalField = make('div','ls-goal-field'); goalField.append(goalLabel,$('#loyaltyGoalCustomField'));
+      goalLabel.querySelector('small')?.remove(); validityLabel.querySelector('small')?.remove();
+      basics.append(goalField,validityLabel,rewardLabel,valueLabel);
+      const clientText = make('details','ls-client-text',`<summary>${icon('edit')}<span>Название и условия для клиента</span></summary>`);
+      clientText.id = 'loyaltyClientText'; clientText.open = !window.matchMedia('(max-width:600px)').matches;
+      const editor = make('div','ls-client-fields'); editor.append(titleLabel,termsLabel); clientText.append(editor);
+      const lower = make('div','ls-config-lower'); lower.append(clientText,panel.querySelector('.loyalty-program-preview'));
+      const preview = lower.querySelector('.loyalty-program-preview');
+      preview.querySelector('small').textContent = 'Предпросмотр награды';
+      const rewardName = make('span','ls-preview-name'); rewardName.id = 'loyaltyPreviewReward';
+      const terms = make('span','ls-preview-terms'); terms.id = 'loyaltyPreviewTerms'; preview.append(rewardName,terms);
+      fields.replaceChildren(basics,lower);
+      sections.forEach(node => node.remove());
+      const enable = $('#loyaltyEnabled'); enable.setAttribute('role','switch');
+      const enableHelp = form.querySelector('.loyalty-enable-field small'); enableHelp.textContent = 'Отсчёт начинается со следующего завершённого визита.';
+      const footer = make('div','ls-form-footer','<p>Скидки и сообщения не применяются автоматически.</p>');
+      footer.append(form.querySelector('button[type="submit"]')); form.append(footer);
+      for (const [selector,name] of [['.loyalty-program-clients','users'],['.loyalty-program-rewards','spark']]) {
+        panel.querySelector(`${selector} .resource-subhead strong`)?.insertAdjacentHTML('afterbegin',icon(name));
+      }
+      panel.querySelector('.resource-audit summary strong')?.insertAdjacentHTML('afterbegin',icon('list'));
+      form.addEventListener('invalid', event => {
+        if (clientText.contains(event.target)) clientText.open = true;
+      },true);
+    }
+    return {
+      edit(open, focus = false) {
+        form.hidden = !open; $('#loyaltySavedSummary').hidden = open;
+        $('#editLoyaltyProgram').setAttribute('aria-expanded', String(open));
+        if (focus) (open ? $('#loyaltyEnabled') : $('#editLoyaltyProgram')).focus();
+      },
+      saved(data, ruleDescription) {
+        $('#loyaltySavedStatus').textContent = data?.enabled ? 'Включена' : 'Выключена';
+        $('#loyaltySavedTitle').textContent = data?.rule?.id ? ruleDescription : 'Программа выключена';
+        $('#loyaltySavedDetails').textContent = data?.rule?.id
+          ? `${data.rule.validity_days ? `${data.rule.validity_days} дней с выдачи` : 'Без срока'} · ${data.enabled ? 'Программа включена' : 'Программа выключена'}`
+          : 'Настройте цель, награду и срок.';
+      },
+      preview(title, terms) {
+        $('#loyaltyPreviewReward').textContent = title;
+        $('#loyaltyPreviewTerms').textContent = terms; $('#loyaltyPreviewTerms').hidden = !terms;
+      },
+      revealTitle() { $('#loyaltyClientText').open = true; }
+    };
+  }
+
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
     const select = typeof options.$ === 'function' ? options.$ : selector => document.querySelector(selector);
@@ -12,6 +87,7 @@
     let selectedClient = null;
     let writing = false;
     let automaticRewardTitle = false;
+    let softView = null, editing = null;
 
     const uuid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const stableJson = value => {
@@ -113,6 +189,7 @@
       if ($('#loyaltyPreviewText')) $('#loyaltyPreviewText').textContent = enabled
         ? `После ${goal()}-го завершённого визита появится одна награда${period ? ` на ${period} дней` : ' без срока'}.`
         : 'Включите программу, чтобы начать отсчёт со следующего завершённого визита.';
+      softView?.preview(title?.value.trim() || 'Награда', $('#loyaltyRewardTerms')?.value.trim() || '');
     }
 
     function renderCard() {
@@ -206,10 +283,13 @@
       $('#loyaltyAdjustmentClient').innerHTML = `<option value="">Выберите клиента</option>${clients.map(client => `<option value="${escapeHtml(client.id)}">${escapeHtml(client.client_name || 'Клиент')}</option>`).join('')}`;
       renderClients(); renderRewards(); renderHistory(); updateForm(); renderCard();
       $('#loyaltyWorkflowStatus').textContent = enabled ? 'Программа включена. Текущие циклы сохраняют правила, с которыми начались.' : 'Программа выключена. История и выданные награды сохранены.';
+      softView?.saved(payload, `${rule.goal_visits} ${visitWord(rule.goal_visits)} → ${rewardText(rule)}`);
+      if (editing === null) editing = !rule.id;
+      softView?.edit(editing);
       applyWriteAvailability?.();
     }
 
-    async function load() {
+    async function load({ preserveSettings = false } = {}) {
       if (!organization?.id || !getCurrentUser()?.id) return false;
       const userId = getCurrentUser().id, generation = getSessionGeneration(), current = ++revision, organizationId = organization.id;
       availability = 'loading';
@@ -222,19 +302,26 @@
         $('#loyaltyWorkspace').hidden = false; render(); return true;
       } catch (error) {
         if (!sessionIsCurrent(userId,generation) || current !== revision) return false;
-        availability = 'failed'; $('#loyaltyWorkspace').hidden = true; $('#loyaltyUnavailable').hidden = false;
-        $('#loyaltyUnavailableText').textContent = navigator.onLine === false ? 'Нет сети. Данные не изменены; повторите после подключения.' : 'Данные не изменены. Повторите загрузку.';
+        availability = 'failed'; $('#loyaltyWorkspace').hidden = !preserveSettings; $('#loyaltyUnavailable').hidden = false;
+        $('#loyaltyUnavailableText').textContent = preserveSettings
+          ? 'Свежие данные не загрузились. Черновик сохранён; повторите загрузку или исходное сохранение.'
+          : navigator.onLine === false ? 'Нет сети. Данные не изменены; повторите после подключения.' : 'Данные не изменены. Повторите загрузку.';
         return false;
       } finally { if (current === revision) $('#loyaltyLoading').hidden = true; }
     }
 
     async function mutate(rpc, parameters, button, success, intent) {
       if (writing || !organization?.id || !requireWrites()) return false;
+      const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
       writing = true; if (button) button.disabled = true;
       try {
         const { error } = await db.rpc(rpc, parameters);
         if (error) throw error;
-        clearIntent(intent); await load(); notify(success); return true;
+        if (!sessionIsCurrent(userId,generation) || organization?.id !== organizationId) return false;
+        const refreshed = await load({ preserveSettings:rpc === 'set_minuta_loyalty_program_v166' });
+        if (rpc === 'set_minuta_loyalty_program_v166' && !refreshed) return false;
+        clearIntent(intent);
+        notify(success); return true;
       } catch (error) {
         const code = String(error?.code || '');
         const known = code.startsWith('22') || code.startsWith('23') || code === '42501' || code === '55000' || code === 'P0002';
@@ -250,11 +337,12 @@
         const enabled = $('#loyaltyEnabled').checked, target = goal(), kind = $('#loyaltyRewardKind').value;
         if (enabled && (target < 2 || target > 100)) { showError('#loyaltyRuleError','Цель должна быть от 2 до 100 визитов.'); return; }
         const titleIssue = enabled ? rewardTitleIssue(kind,Number($('#loyaltyRewardValue').value),$('#loyaltyRewardTitle').value.trim()) : '';
-        if (titleIssue) { showError('#loyaltyRuleError',titleIssue); $('#loyaltyRewardTitle').focus(); return; }
+        if (titleIssue) { showError('#loyaltyRuleError',titleIssue); softView?.revealTitle(); $('#loyaltyRewardTitle').focus(); return; }
         const parameters = { p_organization:organization.id,p_enabled:enabled,p_goal_visits:enabled?target:null,p_reward_kind:enabled?kind:null,p_reward_value:enabled?rewardValue():null,p_reward_title:enabled?$('#loyaltyRewardTitle').value.trim():null,p_reward_terms:enabled?$('#loyaltyRewardTerms').value.trim():null,p_validity_days:enabled?validity():null };
         const intent = prepareIntent('settings',parameters); parameters.p_request_id = intent.requestId;
         const ok = await mutate('set_minuta_loyalty_program_v166',parameters,event.submitter,enabled?'Программа лояльности сохранена':'Программа выключена; история сохранена',intent);
-        if (!ok) showError('#loyaltyRuleError','Не удалось сохранить. Проверьте поля и повторите то же действие.');
+        if (!ok) showError('#loyaltyRuleError','Не удалось подтвердить сохранение. Настройки остаются открытыми; обновите данные и повторите исходное действие.');
+        else { editing = false; softView?.edit(false,true); }
       }
       if (event.target.id === 'loyaltyAdjustmentForm') {
         event.preventDefault(); clearError('#loyaltyAdjustmentError');
@@ -268,7 +356,8 @@
     }
 
     async function click(event) {
-      if (event.target.closest('#reloadLoyalty')) { await load(); return; }
+      if (event.target.closest('#editLoyaltyProgram')) { editing = true; softView?.edit(true,true); return; }
+      if (event.target.closest('#reloadLoyalty')) { await load({ preserveSettings:Boolean(editing && payload) }); return; }
       const redeem = event.target.closest('[data-redeem-loyalty-reward]');
       if (!redeem) return;
       const reward = payload?.rewards?.find(row => row.id === redeem.dataset.redeemLoyaltyReward);
@@ -285,11 +374,11 @@
       if (event.target.closest('#loyaltyAdjustmentForm')) clearError('#loyaltyAdjustmentError');
     }
     function change(event) { if (event.target.closest('#loyaltyProgramForm')) updateForm(); }
-    function bind() { document.addEventListener('submit',submit); document.addEventListener('click',click); document.addEventListener('input',input); document.addEventListener('change',change); }
-    function reset() { organization=null;payload=null;availability='idle';revision+=1;selectedClient=null;automaticRewardTitle=false;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
+    function bind() { softView = mountSoftView($); document.addEventListener('submit',submit); document.addEventListener('click',click); document.addEventListener('input',input); document.addEventListener('change',change); }
+    function reset() { organization=null;payload=null;availability='idle';revision+=1;selectedClient=null;automaticRewardTitle=false;editing=null;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
     async function setOrganization(next) {
       if (next?.id && organization?.id === next.id && payload) { organization=next; render(); return true; }
-      organization=next || null; payload=null; if (!organization?.id) { reset(); return false; } return load();
+      organization=next || null; payload=null; editing=null; if (!organization?.id) { reset(); return false; } return load();
     }
     function setClient(client) { selectedClient=client || null; renderCard(); }
     return { bind,load,reset,setOrganization,setClient,get availability(){return availability;},get payload(){return payload;} };

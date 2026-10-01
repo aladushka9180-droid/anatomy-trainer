@@ -19,6 +19,11 @@
     let selectedServiceId = '';
     let resourceQuery = '';
     let resourceLocationId = '';
+    let resourceGroupId = '';
+    let resourceStatus = '';
+    let resourceLimit = 12;
+    let resourceMatchCount = 0;
+    let groupsOpen = false;
     let writePending = false;
     let pendingOrganization;
 
@@ -46,12 +51,17 @@
       selectedServiceId = '';
       resourceQuery = '';
       resourceLocationId = '';
+      resourceGroupId = '';
+      resourceStatus = '';
+      resourceLimit = 12;
+      groupsOpen = false;
       writePending = false;
       pendingOrganization = undefined;
       $('#resourcesPanel').hidden = true;
       $('#resourcesLoading').hidden = true;
       $('#resourcesUnavailable').hidden = true;
       $('#resourceWorkspace').hidden = true;
+      if ($('#resourceHeaderActions')) $('#resourceHeaderActions').hidden = true;
     }
 
     async function setOrganization(next) {
@@ -66,6 +76,7 @@
         $('#resourcesUnavailable').hidden = true;
         $('#resourcesPanel').hidden = !normalized;
         $('#resourcesLoading').hidden = !normalized;
+        if ($('#resourceHeaderActions')) $('#resourceHeaderActions').hidden = true;
         return { ok: false, optional: true, pending: true };
       }
       if (!normalized) { reset(); return { ok: false, optional: true }; }
@@ -76,6 +87,15 @@
       selectedServiceId = '';
       resourceQuery = '';
       resourceLocationId = '';
+      resourceGroupId = '';
+      resourceStatus = '';
+      resourceLimit = 12;
+      groupsOpen = false;
+      for (const selector of ['#resourceCreator', '#resourceGroupCreator']) {
+        const creator = $(selector);
+        creator.open = false;
+        creator.querySelector('form')?.reset?.();
+      }
       return load();
     }
 
@@ -92,6 +112,7 @@
       $('#resourcesLoading').hidden = false;
       $('#resourcesUnavailable').hidden = true;
       $('#resourceWorkspace').hidden = true;
+      if ($('#resourceHeaderActions')) $('#resourceHeaderActions').hidden = true;
       const { data, error } = await db.rpc('get_minuta_resource_workspace', { p_organization: organizationId });
       if (!sessionIsCurrent(userId, generation) || revision !== requestRevision || organization?.id !== organizationId) return { ok: false, optional: true, stale: true };
       $('#resourcesLoading').hidden = true;
@@ -133,19 +154,71 @@
       return items.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === selected ? 'selected' : ''}>${escapeHtml(label(item))}</option>`).join('');
     }
 
+    function icon(kind) {
+      const name = Object.hasOwn(kindLabels, kind) ? kind : 'other';
+      return `<span class="resource-kind-icon"><svg aria-hidden="true"><use href="resource-icons.svg?v=1#${name}"></use></svg></span>`;
+    }
+
+    function installLayout() {
+      const panel = $('#resourcesPanel');
+      if (!panel.classList || panel.classList.contains('resources-soft-minimalism')) return;
+      panel.classList.add('resources-soft-minimalism');
+      if (!$('#resourceSoftMinimalismStyles')) {
+        const sheet = document.createElement('link');
+        sheet.id = 'resourceSoftMinimalismStyles';
+        sheet.rel = 'stylesheet';
+        sheet.href = 'resources-soft-minimalism.css?v=1';
+        document.head.append(sheet);
+      }
+      const head = panel.querySelector('.panel-head');
+      head.firstElementChild.classList.add('resource-title');
+      head.firstElementChild.append($('#resourcesCount'));
+      head.insertAdjacentHTML('beforeend', '<div class="resource-header-actions" id="resourceHeaderActions"><button class="secondary-button" id="resourceGroupsToggle" type="button" aria-controls="resourceGroupsSection" aria-expanded="false"><svg aria-hidden="true"><use href="resource-icons.svg?v=1#groups"></use></svg><span id="resourceGroupsToggleLabel">Группы</span></button><button class="primary" id="resourceMainAction" type="button" data-resource-write><svg aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span id="resourceMainActionLabel">Добавить ресурс</span></button></div>');
+      const grid = $('#resourceManagementGrid');
+      grid.before($('#resourceGroupsSection'));
+      $('#resourceGroupsSection').hidden = true;
+      $('#resourceGroupsSection').querySelector('.resource-subhead').insertAdjacentHTML('beforeend', '<button class="resource-text-button" type="button" data-resource-close-groups>Закрыть</button>');
+      $('#resourceObjectsSection').prepend($('#resourceCreator'));
+      $('#resourceObjectsSection').querySelector('.resource-subhead').classList.add('resource-objects-heading');
+      for (const id of ['resourceForm', 'resourceGroupForm']) {
+        $('#' + id).insertAdjacentHTML('beforeend', '<button class="resource-text-button resource-cancel" type="button" data-resource-cancel>Отмена</button>');
+      }
+      const requirements = $('#resourceRequirementsPanel');
+      const disclosure = document.createElement('details');
+      disclosure.id = 'resourceRequirementsDisclosure';
+      disclosure.className = 'resource-secondary';
+      disclosure.innerHTML = '<summary><svg aria-hidden="true"><use href="ui-icons.svg#icon-settings"></use></svg><span>Ресурсы для услуг</span><span class="resource-chevron" aria-hidden="true">⌄</span></summary>';
+      requirements.before(disclosure);
+      disclosure.append(requirements);
+    }
+
+    function renderHeader(canManage, hasGroups, activeLocations, activeGroups) {
+      const actions = $('#resourceHeaderActions');
+      if (!actions?.setAttribute) return;
+      actions.hidden = false;
+      $('#resourceMainAction').hidden = !canManage;
+      $('#resourceMainAction').disabled = hasGroups && (!activeLocations.length || !activeGroups.length);
+      $('#resourceMainActionLabel').textContent = hasGroups ? 'Добавить ресурс' : 'Создать группу';
+      $('#resourceGroupsToggleLabel').textContent = `Группы · ${payload.groups.length}`;
+      // The first setup keeps the existing group-creation step visible.
+      $('#resourceGroupsSection').hidden = hasGroups ? !groupsOpen : false;
+      $('#resourceGroupsToggle').setAttribute('aria-expanded', String(!$('#resourceGroupsSection').hidden));
+      $('#resourceRequirementsDisclosure').hidden = $('#resourceRequirementsPanel').hidden;
+    }
+
     function groupCard(group, canManage) {
       const state = group.active ? 'Активна' : 'Отключена';
-      if (!canManage) return `<article class="organization-row ${group.active ? '' : 'is-muted'}"><div class="organization-row-main"><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.description || kindLabels[group.kind] || 'Группа ресурсов')}</small></div><span class="organization-tags"><span class="organization-role">${escapeHtml(kindLabels[group.kind] || 'Другое')}</span><span class="organization-status ${group.active ? 'is-active' : ''}">${state}</span></span></article>`;
+      if (!canManage) return `<article class="organization-row resource-item ${group.active ? '' : 'is-muted'}">${icon(group.kind)}<div class="organization-row-main"><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.description || kindLabels[group.kind] || 'Группа ресурсов')}</small></div><span class="organization-status ${group.active ? 'is-active' : ''}">${state}</span></article>`;
       const kinds = Object.entries(kindLabels).map(([value, label]) => `<option value="${value}" ${group.kind === value ? 'selected' : ''}>${label}</option>`).join('');
-      return `<details class="organization-row organization-editor ${group.active ? '' : 'is-muted'}" data-resource-group-card="${escapeHtml(group.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.description || 'Группа взаимозаменяемых ресурсов')}</small></div><span class="organization-tags"><span class="organization-role">${escapeHtml(kindLabels[group.kind] || 'Другое')}</span><span class="organization-status ${group.active ? 'is-active' : ''}">${state}</span></span></summary><form data-resource-group-form="${escapeHtml(group.id)}"><label>Название группы<input name="name" maxlength="120" value="${escapeHtml(group.name)}" required></label><div class="form-row"><label>Тип<select name="kind">${kinds}</select></label><label>Описание (необязательно)<input name="description" maxlength="500" value="${escapeHtml(group.description || '')}"></label></div><div class="organization-checks"><label><input name="active" type="checkbox" ${group.active ? 'checked' : ''}><span>Группа активна</span></label></div><p class="form-error" data-resource-group-error hidden></p><button class="secondary-button" type="submit" data-resource-write>Сохранить группу</button></form></details>`;
+      return `<details class="organization-row organization-editor resource-item ${group.active ? '' : 'is-muted'}" data-resource-group-card="${escapeHtml(group.id)}"><summary>${icon(group.kind)}<div class="organization-row-main"><strong>${escapeHtml(group.name)}</strong><small>${escapeHtml(group.description || kindLabels[group.kind] || 'Группа взаимозаменяемых ресурсов')}</small></div><span class="organization-status ${group.active ? 'is-active' : ''}">${state}</span><span class="resource-chevron" aria-hidden="true">›</span></summary><form data-resource-group-form="${escapeHtml(group.id)}"><label>Название группы<input name="name" maxlength="120" value="${escapeHtml(group.name)}" required></label><div class="form-row"><label>Тип<select name="kind">${kinds}</select></label><label>Описание (необязательно)<input name="description" maxlength="500" value="${escapeHtml(group.description || '')}"></label></div><div class="organization-checks"><label><input name="active" type="checkbox" ${group.active ? 'checked' : ''}><span>Группа активна</span></label></div><p class="form-error" data-resource-group-error hidden></p><div class="resource-form-actions"><button class="primary" type="submit" data-resource-write>Сохранить группу</button><button class="resource-text-button" type="button" data-resource-cancel>Отмена</button></div></form></details>`;
     }
 
     function resourceCard(resource, canManage) {
       const state = resource.active ? 'Активен' : 'Отключён';
-      if (!canManage) return `<article class="organization-row ${resource.active ? '' : 'is-muted'}"><div class="organization-row-main"><strong>${escapeHtml(resource.name)}</strong><small>${escapeHtml(resource.location_name)} · ${escapeHtml(resource.group_name)}</small></div><span class="organization-status ${resource.active ? 'is-active' : ''}">${state}</span></article>`;
+      if (!canManage) return `<article class="organization-row resource-item ${resource.active ? '' : 'is-muted'}">${icon(resource.kind)}<div class="organization-row-main"><strong>${escapeHtml(resource.name)}</strong><small>${escapeHtml(resource.location_name)} · ${escapeHtml(resource.group_name)}</small></div><span class="organization-status ${resource.active ? 'is-active' : ''}">${state}</span></article>`;
       const locations = payload.locations.filter(item => item.active || item.id === resource.location_id);
       const groups = payload.groups.filter(item => item.active || item.id === resource.group_id);
-      return `<details class="organization-row organization-editor ${resource.active ? '' : 'is-muted'}" data-resource-card="${escapeHtml(resource.id)}"><summary><div class="organization-row-main"><strong>${escapeHtml(resource.name)}</strong><small>${escapeHtml(resource.location_name)} · ${escapeHtml(resource.group_name)}</small></div><span class="organization-tags"><span class="organization-role">${escapeHtml(kindLabels[resource.kind] || 'Ресурс')}</span><span class="organization-status ${resource.active ? 'is-active' : ''}">${state}</span></span></summary><form data-resource-form="${escapeHtml(resource.id)}"><label>Название ресурса<input name="name" maxlength="120" value="${escapeHtml(resource.name)}" required></label><div class="form-row"><label>Филиал<select name="location" required>${optionList(locations, resource.location_id, item => item.name)}</select></label><label>Группа ресурсов<select name="group" required>${optionList(groups, resource.group_id, item => `${item.name} · ${kindLabels[item.kind] || 'Другое'}`)}</select></label></div><div class="organization-checks"><label><input name="active" type="checkbox" ${resource.active ? 'checked' : ''}><span>Ресурс активен</span></label></div><p class="form-error" data-resource-error hidden></p><button class="secondary-button" type="submit" data-resource-write>Сохранить ресурс</button></form></details>`;
+      return `<details class="organization-row organization-editor resource-item ${resource.active ? '' : 'is-muted'}" data-resource-card="${escapeHtml(resource.id)}"><summary>${icon(resource.kind)}<div class="organization-row-main"><strong>${escapeHtml(resource.name)}</strong><small>${escapeHtml(resource.location_name)} · ${escapeHtml(resource.group_name)}</small></div><span class="organization-status ${resource.active ? 'is-active' : ''}">${state}</span><span class="resource-chevron" aria-hidden="true">›</span></summary><form data-resource-form="${escapeHtml(resource.id)}"><label>Название ресурса<input name="name" maxlength="120" value="${escapeHtml(resource.name)}" required></label><div class="form-row"><label>Филиал<select name="location" required>${optionList(locations, resource.location_id, item => item.name)}</select></label><label>Группа ресурсов<select name="group" required>${optionList(groups, resource.group_id, item => `${item.name} · ${kindLabels[item.kind] || 'Другое'}`)}</select></label></div><div class="organization-checks"><label><input name="active" type="checkbox" ${resource.active ? 'checked' : ''}><span>Ресурс активен</span></label></div><p class="form-error" data-resource-error hidden></p><div class="resource-form-actions"><button class="primary" type="submit" data-resource-write>Сохранить ресурс</button><button class="resource-text-button" type="button" data-resource-cancel>Отмена</button></div></form></details>`;
     }
 
     function auditCard(item) {
@@ -170,23 +243,46 @@
       $('#resourceRequirementSubmit').disabled = !payload.can_manage || !groups.length;
     }
 
-    function renderResourceList(canManage) {
+    function renderPagination() {
+      const more = $('#resourceListMore');
+      if (more) {
+        more.hidden = resourceMatchCount <= resourceLimit;
+        more.textContent = `Показать ещё · ${Math.min(12, Math.max(0, resourceMatchCount - resourceLimit))}`;
+      }
+      if ($('#resourceListCollapse')) $('#resourceListCollapse').hidden = resourceLimit <= 12 || resourceMatchCount <= 12;
+      if ($('#resourceListPageCount')) $('#resourceListPageCount').textContent = resourceMatchCount > resourceLimit ? `Показано ${resourceLimit} из ${resourceMatchCount}` : '';
+    }
+
+    function renderResourceList(canManage, keepEditors = false) {
       const list = $('#resourcesList');
       const normalized = resourceQuery.trim().toLocaleLowerCase('ru-RU');
       const visible = payload.resources.filter(item =>
         (!resourceLocationId || String(item.location_id) === resourceLocationId) &&
+        (!resourceGroupId || String(item.group_id) === resourceGroupId) &&
+        (!resourceStatus || Boolean(item.active) === (resourceStatus === 'active')) &&
         (!normalized || String(item.name || '').toLocaleLowerCase('ru-RU').includes(normalized)));
-      list.innerHTML = visible.length ? visible.map(item => resourceCard(item, canManage)).join('')
-        : payload.resources.length ? empty('Ничего не найдено', 'Измените название или филиал.')
+      resourceMatchCount = visible.length;
+      const editors = keepEditors ? new Map([...list.querySelectorAll('[data-resource-card][open]')].map(node => [node.dataset.resourceCard, node])) : new Map();
+      list.innerHTML = visible.length ? visible.slice(0, resourceLimit).map(item => resourceCard(item, canManage)).join('')
+        : payload.resources.length ? empty('Ничего не найдено', 'Измените поиск или сбросьте фильтры.')
           : canManage ? '' : empty('Ресурсов пока нет', 'Администратор ещё не добавил ресурсы в филиалы.');
+      list.querySelectorAll('[data-resource-card]').forEach(node => {
+        const editor = editors.get(node.dataset.resourceCard);
+        if (editor) { editor.hidden = false; node.replaceWith(editor); }
+      });
       const count = $('#resourceListMatchCount');
-      if (count) count.textContent = `${visible.length} из ${payload.resources.length}`;
+      if (count) count.textContent = `Найдено: ${visible.length} из ${payload.resources.length}`;
+      renderPagination();
+      if ($('#resourceListReset')) $('#resourceListReset').hidden = !resourceQuery && !resourceLocationId && !resourceGroupId && !resourceStatus;
+      if ($('#resourceFiltersToggle')) $('#resourceFiltersToggle').textContent = `Фильтры${[resourceLocationId, resourceGroupId, resourceStatus].filter(Boolean).length ? ' · ' + [resourceLocationId, resourceGroupId, resourceStatus].filter(Boolean).length : ''}`;
+      if (writePending) setResourceWritesDisabled(true);
     }
 
     function renderResourceFilters() {
       const list = $('#resourcesList');
       if (!$('#resourceListFilters') && typeof list.insertAdjacentHTML === 'function') {
-        list.insertAdjacentHTML('beforebegin', '<div class="resource-list-filters" id="resourceListFilters"><label>Найти ресурс<input id="resourceListSearch" type="search" autocomplete="off" placeholder="Название кабинета или оборудования"></label><label>Филиал<select id="resourceListLocation" aria-label="Фильтр ресурсов по филиалу"></select></label><span id="resourceListMatchCount" role="status" aria-live="polite"></span></div>');
+        list.insertAdjacentHTML('beforebegin', '<div class="resource-list-filters" id="resourceListFilters"><div class="resource-search-row"><label class="resource-search"><span class="resource-visually-hidden">Найти ресурс</span><svg aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg><input id="resourceListSearch" type="search" autocomplete="off" placeholder="Найти ресурс"></label><button class="secondary-button" id="resourceFiltersToggle" type="button" aria-controls="resourceExtraFilters" aria-expanded="false">Фильтры</button></div><div class="resource-extra-filters" id="resourceExtraFilters"><label><span class="resource-visually-hidden">Фильтр ресурсов по филиалу</span><select id="resourceListLocation" aria-label="Фильтр ресурсов по филиалу"></select></label><label><span class="resource-visually-hidden">Фильтр ресурсов по группе</span><select id="resourceListGroup" aria-label="Фильтр ресурсов по группе"></select></label><label><span class="resource-visually-hidden">Фильтр ресурсов по статусу</span><select id="resourceListStatus" aria-label="Фильтр ресурсов по статусу"><option value="">Все статусы</option><option value="active">Активные</option><option value="inactive">Отключённые</option></select></label></div><div class="resource-filter-result"><span id="resourceListMatchCount" role="status" aria-live="polite"></span><button class="resource-text-button" id="resourceListReset" type="button" hidden>Сбросить фильтры</button></div></div>');
+        list.insertAdjacentHTML('afterend', '<div class="resource-list-pagination"><span id="resourceListPageCount"></span><button class="secondary-button" id="resourceListMore" type="button" hidden>Показать ещё</button><button class="resource-text-button" id="resourceListCollapse" type="button" hidden>Свернуть список</button></div>');
       }
       const filters = $('#resourceListFilters');
       if (!filters) return;
@@ -196,23 +292,30 @@
       $('#resourceListLocation').innerHTML = `<option value="">Все филиалы</option>${optionList(locations, resourceLocationId, item => item.name)}`;
       $('#resourceListLocation').value = resourceLocationId;
       $('#resourceListSearch').value = resourceQuery;
+      const groups = payload.groups.filter(item => payload.resources.some(resource => String(resource.group_id) === String(item.id)));
+      if (resourceGroupId && !groups.some(item => String(item.id) === resourceGroupId)) resourceGroupId = '';
+      if ($('#resourceListGroup')) {
+        $('#resourceListGroup').innerHTML = `<option value="">Все группы</option>${optionList(groups, resourceGroupId, item => item.name)}`;
+        $('#resourceListGroup').value = resourceGroupId;
+      }
+      if ($('#resourceListStatus')) $('#resourceListStatus').value = resourceStatus;
     }
 
     function render() {
       if (availability !== 'ready' || !payload) return;
+      installLayout();
       const canManage = Boolean(payload.can_manage);
       setResourceWritesDisabled(false);
       $('#resourcesPanel').hidden = false;
       $('#resourcesUnavailable').hidden = true;
       $('#resourceWorkspace').hidden = false;
       const activeResourceCount = payload.resources.filter(item => item.active).length;
-      const activeGroupCount = payload.groups.filter(item => item.active).length;
       const hasGroups = payload.groups.length > 0;
       const hasResources = payload.resources.length > 0;
-      $('#resourcesCount').textContent = String(activeResourceCount);
-      $('#resourcesCount').hidden = activeResourceCount === 0;
-      $('#resourceGroupsCount').textContent = String(activeGroupCount);
-      $('#resourceGroupsCount').hidden = activeGroupCount === 0;
+      $('#resourcesCount').textContent = String(payload.resources.length);
+      $('#resourcesCount').hidden = !payload.resources.length;
+      $('#resourceGroupsCount').textContent = String(payload.groups.length);
+      $('#resourceGroupsCount').hidden = !payload.groups.length;
       $('#resourceGroupsList').innerHTML = hasGroups ? payload.groups.map(item => groupCard(item, canManage)).join('') : canManage ? '' : empty('Групп ресурсов пока нет', 'Администратор ещё не создал группы ресурсов.');
       renderResourceFilters();
       renderResourceList(canManage);
@@ -247,6 +350,7 @@
       $('#resourceAuditCount').textContent = String(payload.audit.length);
       $('#resourceAuditCount').hidden = payload.audit.length === 0;
       $('#resourceAuditList').innerHTML = payload.audit.length ? payload.audit.map(auditCard).join('') : empty('Изменений пока нет', 'Здесь появятся действия с группами, ресурсами и требованиями услуг.');
+      renderHeader(canManage, hasGroups, activeLocations, activeGroups);
       applyWriteAvailability();
     }
 
@@ -255,6 +359,18 @@
       if (!holder) return;
       holder.textContent = message;
       holder.hidden = false;
+      if (holder.closest?.('details')) {
+        holder.closest('details').open = true;
+        if (holder.closest('#resourceGroupsSection')) {
+          groupsOpen = true;
+          $('#resourceGroupsSection').hidden = false;
+          $('#resourceGroupsToggle')?.setAttribute?.('aria-expanded', 'true');
+        }
+      }
+      if (holder.setAttribute) {
+        holder.setAttribute('tabindex', '-1');
+        holder.focus();
+      }
     }
 
     async function mutate(rpc, parameters, button, success, errorSelector) {
@@ -344,9 +460,12 @@
     }
 
     function handleChange(event) {
-      if (event.target.id === 'resourceListLocation') {
-        resourceLocationId = event.target.value;
-        if (payload) renderResourceList(Boolean(payload.can_manage));
+      if (['resourceListLocation', 'resourceListGroup', 'resourceListStatus'].includes(event.target.id)) {
+        if (event.target.id === 'resourceListLocation') resourceLocationId = event.target.value;
+        if (event.target.id === 'resourceListGroup') resourceGroupId = event.target.value;
+        if (event.target.id === 'resourceListStatus') resourceStatus = event.target.value;
+        resourceLimit = 12;
+        if (payload) renderResourceList(Boolean(payload.can_manage), true);
         return;
       }
       if (event.target.id !== 'resourceRequirementService') return;
@@ -357,6 +476,58 @@
 
     async function handleClick(event) {
       if (event.target.closest('#reloadResources') && !writePending) await load();
+      if (!event.target.closest('#resourcesPanel')) return;
+      if (event.target.closest('#resourceGroupsToggle') || event.target.closest('[data-resource-close-groups]')) {
+        groupsOpen = event.target.closest('[data-resource-close-groups]') ? false : $('#resourceGroupsSection').hidden;
+        $('#resourceGroupsSection').hidden = !groupsOpen;
+        $('#resourceGroupsToggle').setAttribute('aria-expanded', String(groupsOpen));
+        if (!groupsOpen) $('#resourceGroupsToggle').focus();
+      }
+      if (event.target.closest('#resourceMainAction') && payload?.can_manage && !writePending) {
+        const createGroup = !payload.groups.length;
+        if (createGroup) {
+          groupsOpen = true;
+          $('#resourceGroupsSection').hidden = false;
+          $('#resourceGroupsToggle').setAttribute('aria-expanded', 'true');
+        }
+        const creator = $(createGroup ? '#resourceGroupCreator' : '#resourceCreator');
+        creator.open = true;
+        $(createGroup ? '#resourceGroupName' : '#resourceName').focus();
+      }
+      if (event.target.closest('#resourceFiltersToggle')) {
+        const filters = $('#resourceListFilters');
+        const open = filters.dataset.expanded !== 'true';
+        filters.dataset.expanded = String(open);
+        $('#resourceFiltersToggle').setAttribute('aria-expanded', String(open));
+      }
+      if (event.target.closest('#resourceListReset')) {
+        resourceQuery = ''; resourceLocationId = ''; resourceGroupId = ''; resourceStatus = ''; resourceLimit = 12;
+        renderResourceFilters();
+        renderResourceList(Boolean(payload.can_manage), true);
+        $('#resourceListSearch').focus();
+      }
+      if (event.target.closest('#resourceListMore') && payload) {
+        resourceLimit += 12;
+        renderResourceList(Boolean(payload.can_manage), true);
+      }
+      if (event.target.closest('#resourceListCollapse') && payload) {
+        resourceLimit = 12;
+        // Keep hidden editors in the DOM so folding does not discard a draft.
+        $('#resourcesList').querySelectorAll('.resource-item').forEach((node, index) => { node.hidden = index >= resourceLimit; });
+        renderPagination();
+        $('#resourceListMore').focus();
+      }
+      if (event.target.closest('[data-resource-cancel]') && !writePending) cancelEditor(event.target);
+    }
+
+    function cancelEditor(target) {
+      const editor = target.closest('details');
+      if (!editor) return;
+      editor.querySelector('form')?.reset();
+      editor.querySelectorAll('.form-error').forEach(error => { error.hidden = true; });
+      editor.open = false;
+      const create = editor.id === 'resourceCreator' || editor.id === 'resourceGroupCreator';
+      (create ? $('#resourceMainAction') : editor.querySelector('summary'))?.focus();
     }
 
     function bind() {
@@ -365,9 +536,17 @@
       document.addEventListener('input', event => {
         if (event.target.id !== 'resourceListSearch') return;
         resourceQuery = event.target.value;
-        if (payload) renderResourceList(Boolean(payload.can_manage));
+        resourceLimit = 12;
+        if (payload) renderResourceList(Boolean(payload.can_manage), true);
       });
       document.addEventListener('click', handleClick);
+      document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || writePending || !event.target.closest('#resourcesPanel details[open]')) return;
+        const editor = event.target.closest('details');
+        if (!editor?.querySelector('form')) return;
+        event.preventDefault();
+        cancelEditor(event.target);
+      });
     }
 
     return { bind, load, reset, setOrganization, render, get availability() { return availability; } };

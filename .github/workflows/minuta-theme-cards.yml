@@ -102,6 +102,7 @@ jobs:
       - run: node minuta-online-booking/tests/organization-copy-a05-a08-browser-test.mjs
       - run: node minuta-online-booking/tests/inventory-a11-copy-browser-test.mjs
       - run: node minuta-online-booking/tests/inventory-soft-ui-browser-test.mjs
+      - run: node minuta-online-booking/tests/resources-soft-minimalism-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-selects-browser-test.mjs
       - run: node minuta-online-booking/tests/benefit-application-v149-browser-test.mjs
       - run: node minuta-online-booking/tests/commercial-sales-v151-ui-browser-test.mjs
