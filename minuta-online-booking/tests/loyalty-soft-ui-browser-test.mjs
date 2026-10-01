@@ -96,6 +96,10 @@ try {
   assert.equal(await page.locator('#loyaltyWorkspace').isVisible(),true,'Read-after-save failure cannot hide the draft');
   assert.equal(await page.locator('#loyaltyRewardValue').inputValue(),'15');
   assert.equal(await page.locator('#loyaltyProgramForm').isVisible(),true);
+  assert.doesNotMatch(await page.locator('#loyaltyUnavailableText').innerText(),/Данные не изменены/,'A failed refresh cannot deny an acknowledged write');
+  await page.locator('#reloadLoyalty').click();
+  assert.equal(await page.locator('#loyaltyProgramForm').isVisible(),true,'Repeated failed reload keeps the editor');
+  assert.equal(await page.locator('#loyaltyRewardValue').inputValue(),'15');
   await page.evaluate(() => { window.testReadFailure=false; });
   await page.locator('#loyaltyProgramForm button[type="submit"]').click();
   await page.locator('#loyaltySavedSummary').waitFor({state:'visible'});

@@ -303,7 +303,9 @@
       } catch (error) {
         if (!sessionIsCurrent(userId,generation) || current !== revision) return false;
         availability = 'failed'; $('#loyaltyWorkspace').hidden = !preserveSettings; $('#loyaltyUnavailable').hidden = false;
-        $('#loyaltyUnavailableText').textContent = navigator.onLine === false ? 'Нет сети. Данные не изменены; повторите после подключения.' : 'Данные не изменены. Повторите загрузку.';
+        $('#loyaltyUnavailableText').textContent = preserveSettings
+          ? 'Свежие данные не загрузились. Черновик сохранён; повторите загрузку или исходное сохранение.'
+          : navigator.onLine === false ? 'Нет сети. Данные не изменены; повторите после подключения.' : 'Данные не изменены. Повторите загрузку.';
         return false;
       } finally { if (current === revision) $('#loyaltyLoading').hidden = true; }
     }
@@ -355,7 +357,7 @@
 
     async function click(event) {
       if (event.target.closest('#editLoyaltyProgram')) { editing = true; softView?.edit(true,true); return; }
-      if (event.target.closest('#reloadLoyalty')) { await load(); return; }
+      if (event.target.closest('#reloadLoyalty')) { await load({ preserveSettings:Boolean(editing && payload) }); return; }
       const redeem = event.target.closest('[data-redeem-loyalty-reward]');
       if (!redeem) return;
       const reward = payload?.rewards?.find(row => row.id === redeem.dataset.redeemLoyaltyReward);
