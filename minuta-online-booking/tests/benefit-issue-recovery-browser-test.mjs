@@ -73,7 +73,16 @@ try{
  for(const width of [390,760,1440]){
   const before=await fixture(width,null,baseline);await screenshot(before,'before',width);await before.close();
   const page=await fixture(width);await screenshot(page,'after',width);
-  assert.equal(await page.locator('#benefitsPanel .benefit-guide').locator('xpath=..').getAttribute('open'),'', 'Empty issuance shows the first-run guide');
+  const guide=page.locator('#benefitsPanel .benefit-guide').locator('xpath=..');
+  assert.equal(await guide.getAttribute('open'),'','Empty issuance shows the first-run guide');
+  await page.evaluate(()=>benefitController.load());
+  assert.equal(await guide.getAttribute('open'),'','Refreshing data preserves the first-run guide');
+  await guide.locator('summary').click();
+  await page.evaluate(()=>benefitController.load());
+  assert.equal(await guide.getAttribute('open'),null,'Refreshing data preserves the manually collapsed guide');
+  await guide.locator('summary').click();
+  await page.evaluate(()=>benefitController.load());
+  assert.equal(await guide.getAttribute('open'),'','Refreshing data preserves the manually expanded guide');
   const guideSteps=await page.locator('#benefitsPanel .benefit-guide li').allTextContents();
   assert.equal(guideSteps.length,3);
   assert.match(guideSteps[0],/Создайте шаблон.*оформите продажу.*без продажи/s);

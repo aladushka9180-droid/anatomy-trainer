@@ -171,7 +171,8 @@
 
     function productCard(item) {
       const value=item.kind==='certificate'?rubles(item.face_value_rub):`${item.visits_count} посещ.`;
-      return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(item.name)} · ${escapeHtml(value)}</strong><small>${escapeHtml(kindLabels[item.kind]||item.kind)} · продажа ${escapeHtml(rubles(item.sale_price_rub))} · ${item.validity_days} дней</small></div><span class="organization-status ${item.active?'is-active':''}">${item.active?'Доступен':'Скрыт'}</span></article>`;
+      const icon=window.MinutaCommerceSoftUI?.iconMarkup(item)||'';
+      return `<article class="organization-row">${icon}<div class="organization-row-main"><strong>${escapeHtml(item.name)} · ${escapeHtml(value)}</strong><small>${escapeHtml(kindLabels[item.kind]||item.kind)} · продажа ${escapeHtml(rubles(item.sale_price_rub))} · ${item.validity_days} дней</small></div><span class="organization-status ${item.active?'is-active':''}">${item.active?'Доступен':'Скрыт'}</span></article>`;
     }
     function instrumentCard(item,today) {
       const expired=String(item.expires_on)<today;
@@ -179,7 +180,8 @@
       const snapshot=item.product_snapshot||{};
       const balance=snapshot.kind==='certificate'?rubles(item.remaining_amount_rub):`${item.remaining_visits} посещ.`;
       const actions=status==='active'?`<button class="secondary-button" type="button" data-benefit-status="frozen" data-benefit-instrument="${escapeHtml(item.id)}" data-benefit-write>Заморозить</button>`:status==='frozen'?`<button class="secondary-button" type="button" data-benefit-status="active" data-benefit-instrument="${escapeHtml(item.id)}" data-benefit-write>Разморозить</button>`:'';
-      return `<article class="organization-row" data-benefit-code="${escapeHtml(item.public_code)}"><div class="organization-row-main"><strong>${escapeHtml(snapshot.name||productName(item.product_id))} · ${escapeHtml(balance)}</strong><small>${escapeHtml(clientName(item.client_account_id))} · код ${escapeHtml(item.public_code)} · до ${escapeHtml(dateLabel(item.expires_on))}</small></div><span class="organization-tags"><span class="organization-status ${status==='active'?'is-active':''}">${escapeHtml(statusLabels[status]||status)}</span>${actions}</span></article>`;
+      const icon=window.MinutaCommerceSoftUI?.iconMarkup(snapshot)||'';
+      return `<article class="organization-row" data-benefit-code="${escapeHtml(item.public_code)}">${icon}<div class="organization-row-main"><strong>${escapeHtml(snapshot.name||productName(item.product_id))} · ${escapeHtml(balance)}</strong><small>${escapeHtml(clientName(item.client_account_id))} · код ${escapeHtml(item.public_code)} · до ${escapeHtml(dateLabel(item.expires_on))}</small></div><span class="organization-tags"><span class="organization-status ${status==='active'?'is-active':''}">${escapeHtml(statusLabels[status]||status)}</span>${actions}</span></article>`;
     }
     function filterInstruments() {
       const query=String($('#benefitInstrumentSearch')?.value||'').trim().toLocaleLowerCase('ru-RU');
@@ -187,7 +189,9 @@
     }
     function redemptionCard(item) {
       const booking=payload.bookings.find(row=>row.id===item.booking_id);
-      const actions=item.status==='reserved'?`<button class="primary-button" type="button" data-benefit-action="redeem" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>Погасить</button><button class="secondary-button" type="button" data-benefit-action="release" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>Вернуть</button>`:item.status==='redeemed'&&payload.current_role==='owner'?`<button class="secondary-button" type="button" data-benefit-action="release" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>Вернуть</button>`:'';
+      const releaseLabel=item.status==='reserved'?'Вернуть резерв':'Вернуть на баланс';
+      const release=`<button class="secondary-button" type="button" data-benefit-action="release" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>${releaseLabel}</button>`;
+      const actions=item.status==='reserved'?`<button class="primary-button" type="button" data-benefit-action="redeem" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>Погасить</button>${release}`:item.status==='redeemed'&&payload.current_role==='owner'?release:'';
       return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(booking?.service_name||'Запись')} · ${item.amount_rub?escapeHtml(rubles(item.amount_rub)):`${item.units} посещ.`}</strong><small>${escapeHtml(booking?.client_name||'Клиент')} · ${escapeHtml(redemptionStatusLabels[item.status]||item.status)}</small></div><span class="organization-tags">${actions}</span></article>`;
     }
     function renderProductServices() {
@@ -237,7 +241,7 @@
       const panel=$('#benefitsPanel'),workflowStatus=$('#benefitWorkflowStatus');
       const head=panel?.querySelector?.('.panel-head'),guide=panel?.querySelector?.('.benefit-guide')?.closest('details');
       if(head&&workflowStatus)head.after(workflowStatus);
-      if(guide){const intro=panel.querySelector(':scope > .organization-invite-help');if(intro)guide.querySelector('summary').after(intro);const firstRun=!payload.instruments.length;if(firstRun)workflowStatus?.after(guide);else panel.append(guide);guide.open=firstRun;}
+      if(guide){const intro=panel.querySelector(':scope > .organization-invite-help');if(intro)guide.querySelector('summary').after(intro);const firstRun=!payload.instruments.length;if(firstRun)workflowStatus?.after(guide);else panel.append(guide);if(!guide.dataset.softGuideReady){guide.open=firstRun;guide.dataset.softGuideReady='true';}}
       const today=todayIso();
       $('#benefitsWorkspace').hidden=false; $('#benefitsUnavailable').hidden=true; $('#benefitsEnabled').checked=Boolean(payload.enabled); $('#benefitsEnabled').disabled=payload.current_role!=='owner';
       $('#benefitProductsCount').textContent=String(payload.products.length); $('#benefitInstrumentsCount').textContent=String(payload.instruments.length);
