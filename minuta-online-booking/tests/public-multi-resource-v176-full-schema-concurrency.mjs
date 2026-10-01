@@ -1,6 +1,7 @@
 // Native races on a disposable schema-only PostgreSQL clone; no external writes.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const endpoint = new URL(process.env.MINUTA_TEST_DATABASE_URL || '');
@@ -21,8 +22,11 @@ async function connect(label) {
 }
 const one = async (client, sql, params = []) => Object.values((await client.query(sql, params)).rows[0])[0];
 const pending = promise => promise.then(result => ({ result }), error => ({ error }));
+const sameLocation = process.env.MINUTA_V189_FULL_SCHEMA === '1';
 const call = (client, route, items) => client.query(
-  'select public.book_minuta_multi_resource_route_v176($1::uuid,$2,$3,$4::jsonb,\'[]\'::jsonb) result',
+  sameLocation
+    ? 'select public.book_minuta_same_location_route_v189($1::uuid,$2,$3,$4::jsonb) result'
+    : 'select public.book_minuta_multi_resource_route_v176($1::uuid,$2,$3,$4::jsonb,\'[]\'::jsonb) result',
   [route, 'V176 isolated race', '+79990001761', JSON.stringify(items)]
 );
 async function lockWait(observer, pid, task) {
@@ -79,11 +83,20 @@ try {
     await admin.query('rollback');
     throw error;
   }
-  // This temporary grant models the caller; the migration itself keeps EXECUTE closed.
-  await admin.query('grant execute on function public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb) to anon');
+  // The legacy test models its caller; v189 tests use the migration's real service-role grant.
+  if (!sameLocation)
+    await admin.query('grant execute on function public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb) to anon');
+  else {
+    const wrapper = 'public.book_minuta_same_location_route_v189(uuid,text,text,jsonb)';
+    for (const role of ['anon', 'authenticated', 'service_role']) {
+      assert.equal(await one(admin, 'select has_function_privilege($1,$2,\'execute\')', [role, wrapper]), role === 'service_role');
+      assert.equal(await one(admin, 'select has_function_privilege($1,$2,\'execute\')',
+        [role, 'public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb)']), false);
+    }
+  }
   const first = await connect('first'), second = await connect('second');
-  await first.query('set role anon');
-  await second.query('set role anon');
+  await first.query(sameLocation ? 'set role service_role' : 'set role anon');
+  await second.query(sameLocation ? 'set role service_role' : 'set role anon');
   const secondPid = await one(second, 'select pg_backend_pid()');
   const selectPair = async () => (await admin.query(`select first_slot.booking_date::text as visit_date,
     first_slot.booking_time::text start_a,second_slot.booking_time::text start_b
@@ -106,6 +119,19 @@ try {
   const pairA = await selectPair();
   assert.ok(pairA, 'two-performer calendar must offer a pair');
   const routeA = randomUUID(), itemsA = makeItems(pairA);
+  if (sameLocation) {
+    const refusedRoute = randomUUID();
+    const mixedLocations = [itemsA[0], { ...itemsA[1], location_id: randomUUID() }];
+    const refused = await pending(call(first, refusedRoute, mixedLocations));
+    assert.match(refused.error?.message || '', /same_location_route_scope_invalid/);
+    assert.equal(await one(admin, 'select count(*)::int from public.bookings where request_id=$1 or request_id=$2',
+      [itemsA[0].request_id, itemsA[1].request_id]), 0);
+    assert.equal(await one(admin, 'select count(*)::int from public.public_multi_resource_routes_v176 where request_id=$1', [refusedRoute]), 0);
+    await second.query('set role anon');
+    const denied = await pending(call(second, routeA, itemsA));
+    assert.equal(denied.error?.code, '42501');
+    await second.query('set role service_role');
+  }
   await first.query('begin');
   const created = (await call(first, routeA, itemsA)).rows[0].result;
   const duplicate = track(call(second, routeA, itemsA));
@@ -133,6 +159,23 @@ try {
   assert.equal(await one(admin, 'select count(*)::int from public.public_multi_resource_routes_v176 where request_id=$1', [routeC]), 0);
   assert.equal(await one(admin, 'select count(*)::int from public.bookings where request_id=$1 or request_id=$2',
     [itemsC[0].request_id, itemsC[1].request_id]), 0);
+  if (sameLocation) {
+    const counts = async () => (await admin.query(`select
+      (select count(*)::int from public.bookings) bookings,
+      (select count(*)::int from public.public_multi_resource_routes_v176) routes,
+      (select count(*)::int from public.public_multi_resource_route_items_v176) items`)).rows[0];
+    const beforeRollback = await counts();
+    await admin.query(readFileSync(new URL('../supabase-migration-v189-rollback.sql', import.meta.url), 'utf8'));
+    assert.deepEqual(await counts(), beforeRollback);
+    const disabled = await pending(call(first, routeA, itemsA));
+    assert.equal(disabled.error?.code, '42501');
+    await admin.query(readFileSync(new URL('../supabase-migration-v189.sql', import.meta.url), 'utf8'));
+    const afterReapply = (await call(first, routeA, itemsA)).rows[0].result;
+    assert.equal(afterReapply.idempotent, true);
+    assert.deepEqual(afterReapply.bookings, created.bookings);
+    assert.deepEqual(await counts(), beforeRollback);
+    console.log('PASS: v189 full-schema real service-role create, browser/cross-location denial, concurrent replay/calendar race, preserved rows after rollback/reapply');
+  }
   console.log('PASS: full-schema concurrent duplicate replay and competing calendar route; no partial booking');
 } catch (error) {
   console.error(JSON.stringify({ error: error.message, code: error.code }));

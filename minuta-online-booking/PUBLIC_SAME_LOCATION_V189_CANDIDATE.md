@@ -21,6 +21,15 @@ route with no rows, replays after a price change, revokes access without
 removing bookings or journals, and reapplies the grant. It does not prove a
 production booking or the client Worker integration.
 
+A separate full-schema PostgreSQL 17 job now reads only the schema of the
+guarded test project into a disposable localhost database. It checks v188/v189
+apply twice, original RPC definitions and grants, browser/cross-location denial,
+the real service-role wrapper through the existing booking function, concurrent
+duplicate and competing calendar requests, and rollback/reapply with committed
+bookings and journals preserved. The existing v153/v167 integration suites run
+with both migrations installed. Native execution of this added job is pending;
+it is not a production backup or restoration rehearsal.
+
 Before production SQL: recheck the migration number against fresh `main` and
 other release candidates; the sole Pro release owner must verify a fresh
 closed backup, isolated restoration, apply/rollback/reapply and existing
