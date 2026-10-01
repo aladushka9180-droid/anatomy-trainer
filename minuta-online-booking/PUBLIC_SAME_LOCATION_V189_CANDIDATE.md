@@ -27,8 +27,16 @@ apply twice, original RPC definitions and grants, browser/cross-location denial,
 the real service-role wrapper through the existing booking function, concurrent
 duplicate and competing calendar requests, and rollback/reapply with committed
 bookings and journals preserved. The existing v153/v167 integration suites run
-with both migrations installed. Native execution of this added job is pending;
-it is not a production backup or restoration rehearsal.
+with both migrations installed. Native execution passed on 2026-10-02 at
+`3bb6d45f` (Actions run `36921656346`); it is not a production backup or
+restoration rehearsal.
+
+The added client contract step pins client PR #35 to `43ad6cd` and runs its
+actual adapter against the disposable PostgreSQL v189 wrapper, including the
+existing single-booking RPC and native booking rows for two consecutive
+performers. Exact replay must return the same bookings. No request reaches
+a public API, and this step rolls its synthetic records back. Execution of
+this final cross-repository step is pending.
 
 Before production SQL: recheck the migration number against fresh `main` and
 other release candidates; the sole Pro release owner must verify a fresh
