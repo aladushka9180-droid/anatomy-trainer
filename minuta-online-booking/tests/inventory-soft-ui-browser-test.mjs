@@ -118,6 +118,12 @@ try {
     await capture(page, `catalog-filled-${width}.png`);
     await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
     await page.locator('#inventoryItemDialog').waitFor({ state:'visible' });
+    // Navigation hides a provider-view ancestor, not necessarily the panel itself.
+    await page.evaluate(() => { document.querySelector('main').hidden = true; });
+    await page.waitForFunction(() => !document.querySelector('#inventoryItemDialog').open);
+    await page.evaluate(() => { document.querySelector('main').hidden = false; });
+    await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
+    await page.locator('#inventoryItemDialog').waitFor({ state:'visible' });
     assert.equal(await page.locator('#inventoryItemSku').inputValue(), 'RS-012');
     assert.equal(await page.locator('#inventoryItemUnit').inputValue(), 'pack');
     assert.equal(await page.locator('#inventoryItemExtra').evaluate(node => node.open), true);

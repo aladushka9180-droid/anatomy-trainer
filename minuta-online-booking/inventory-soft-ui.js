@@ -67,10 +67,14 @@
     const name = iconName({ name:$('#inventoryItemName').value });
     preview.replaceChildren(icon(name, 'is-item-icon'), element('span', '', 'Иконка подбирается по названию'));
   }
+  function contextVisible() {
+    return panel && !panel.closest('[hidden]') && !$('#inventoryControls').hidden
+      && !panel.querySelector('[data-inventory-pane="catalog"]').hidden;
+  }
   function openEditor(kind, trigger) {
     init();
     const editor = editors.get(kind);
-    if (!editor || panel.hidden || $('#inventoryWorkspace').hidden || $('#inventoryControls').hidden) return;
+    if (!editor || !contextVisible() || $('#inventoryWorkspace').hidden) return;
     editor.trigger = trigger || document.activeElement;
     for (const [other] of editors) if (other !== kind) closeEditor(other, false);
     editor.creator.open = true;
@@ -170,11 +174,14 @@
     oldWarehouses.classList.add('is-warehouse-body');
     enhanceEditor('item');
     enhanceEditor('warehouse');
-    new MutationObserver(() => {
-      if (panel.hidden || $('#inventoryControls').hidden) {
+    const visibility = new MutationObserver(() => {
+      if (!contextVisible()) {
         for (const kind of editors.keys()) closeEditor(kind, false);
       }
-    }).observe(panel, { subtree:true, attributes:true, attributeFilter:['hidden'] });
+    });
+    visibility.observe(panel, { subtree:true, attributes:true, attributeFilter:['hidden'] });
+    for (let ancestor = panel.parentElement; ancestor; ancestor = ancestor.parentElement)
+      visibility.observe(ancestor, { attributes:true, attributeFilter:['hidden'] });
   }
   function sync(payload) {
     init();
