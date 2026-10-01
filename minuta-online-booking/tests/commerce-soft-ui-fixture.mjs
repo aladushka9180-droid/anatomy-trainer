@@ -22,7 +22,7 @@ body.provider-body {display:block;margin:0;background:#fff6f9;--theme-surface:#f
 @media(max-width:540px){.fixture-wrap{margin:16px auto;padding:0 12px}.fixture-wrap .organization-section{padding:16px}}
 </style><body class="provider-body" data-provider-theme="pink-porcelain" data-provider-layout="soft"><main class="fixture-wrap"><h2>Организация</h2><p class="fixture-note">Локальная проверка. Все позиции и клиенты вымышлены. Рабочая база не подключена.</p><nav class="fixture-tabs"><button type="button" data-fixture-view="commercePanel">Продажи</button><button type="button" data-fixture-view="benefitsPanel">Абонементы</button><button type="button" data-fixture-view="retentionPanel">Возврат клиентов</button><button type="button" id="fixtureEmpty">Пустые разделы</button><button type="button" id="fixtureRole">Роль: владелец</button><button type="button" id="fixtureTheme">Тёмная тема</button></nav>${panels}<p id="fixtureNotice" role="status"></p><output id="fixtureCalls" class="fixture-note">Запросы: 0</output></main>
 ${scripts.map(name => {
-  let script = read(name);
+  let script = read(name).replace(/\r\n/g, '\n');
   if (name === 'commerce-soft-ui.js') script = script.replace("quantity.closest('label')?.setAttribute('for', quantity.id);\n    quantity.setAttribute('aria-label', 'Количество');", "if (!new URLSearchParams(location.search).has('quantity-baseline')) { quantity.closest('label')?.setAttribute('for', quantity.id); quantity.setAttribute('aria-label', 'Количество'); }");
   return `<script>${safeScript(script)}</script>`;
 }).join('\n')}
