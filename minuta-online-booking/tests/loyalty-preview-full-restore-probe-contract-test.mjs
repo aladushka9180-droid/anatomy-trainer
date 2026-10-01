@@ -111,6 +111,20 @@ test('attested target and live PG17 identity fail closed before synthetic seed',
   assert.equal(queried.some(sql => sql.includes('pg_get_functiondef')), false);
 });
 
+test('server identity query removes inet netmasks before the exact loopback guard', () => {
+  const text = readFileSync(new URL('./loyalty-preview-full-restore-probe.mjs', import.meta.url), 'utf8');
+  const identitySql = /const identity = await one\(db, `([\s\S]*?)`\);/.exec(text)?.[1];
+  assert.ok(identitySql, 'O19 server identity query missing');
+  assert.match(identitySql, /pg_catalog\.host\(inet_server_addr\(\)\) as server_addr/);
+  assert.match(identitySql, /pg_catalog\.host\(inet_client_addr\(\)\) as client_addr/);
+  assert.doesNotMatch(identitySql, /inet_(?:server|client)_addr\(\)::text/);
+  assert.doesNotThrow(() => assertServerIdentity(identity, target));
+  assert.throws(() => assertServerIdentity({ ...identity, server_addr: '127.0.0.1/32' }, target),
+    /loopback TCP/);
+  assert.throws(() => assertServerIdentity({ ...identity, client_addr: '::1/128' }, target),
+    /loopback TCP/);
+});
+
 test('negative debt proof is scoped and discarded before the main rollback sequence', () => {
   const text = readFileSync(new URL('./loyalty-preview-full-restore-probe.mjs', import.meta.url), 'utf8');
   const start = text.indexOf("await db.query('savepoint o19_negative_debt')");

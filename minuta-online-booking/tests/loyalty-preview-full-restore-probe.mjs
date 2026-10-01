@@ -231,8 +231,8 @@ export async function probe(db, {
   let result;
   try {
     const identity = await one(db, `select current_setting('server_version_num')::integer as version,
-      current_database() as database, inet_server_addr()::text as server_addr,
-      inet_client_addr()::text as client_addr, inet_server_port()::integer as port,
+      current_database() as database, pg_catalog.host(inet_server_addr()) as server_addr,
+      pg_catalog.host(inet_client_addr()) as client_addr, inet_server_port()::integer as port,
       current_user=session_user as session_role, pg_is_in_recovery() as recovery,
       (select rolsuper from pg_roles where rolname=current_user) as superuser`);
     assertServerIdentity(identity, { expectedDatabase, expectedPort });
