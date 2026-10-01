@@ -35,7 +35,7 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
     document.querySelector('#organizationWorkspace').hidden = false;
     document.querySelector('#organizationLoading').hidden = true;
     localStorage.setItem('minuta-provider-subsection-v1:organization', selected);
-    Object.assign(window, { activeOrg:{ id:'org-a', current_role:role }, failed, deferred, loads:0, binds:0, sets:0, notices:[], selected });
+    Object.assign(window, { activeOrg:{ id:'org-a', current_role:role }, failed, deferred, loads:0, loadedScripts:[], binds:0, sets:0, notices:[], selected });
   }, { selected, visible, role, failed, deferred });
   await page.addScriptTag({ content:`
     const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -47,7 +47,7 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
     const db={},escapeHtml=x=>x,requireWrites=()=>true,applyWriteAvailability=()=>{},notify=x=>window.notices.push(x);
     const requestProviderConfirmation=async()=>false;
     const sessionIsCurrent=(id,generation)=>currentUser?.id===id&&sessionGeneration===generation;
-    async function loadProviderFeatureScript(){window.loads++;if(window.deferred)await new Promise(resolve=>window.release=resolve);if(window.failed)throw Error('fixture network');}
+    async function loadProviderFeatureScript(path){window.loads++;window.loadedScripts.push(path);if(window.deferred)await new Promise(resolve=>window.release=resolve);if(window.failed)throw Error('fixture network');}
     ${navigation}
     ${features}
     for (const [id, definition] of organizationFeatureDefinitions) {
@@ -68,7 +68,8 @@ try {
         await f.page.waitForFunction(() => window.sets === 1);
         assert.equal(await f.page.locator('#' + section).isVisible(), true);
         await f.page.evaluate(() => { for(let i=0;i<8;i++)refreshSectionNavigation(); });
-        assert.deepEqual(await f.page.evaluate(() => ({ loads, binds, sets, focus:document.activeElement.tagName, overflow:document.documentElement.scrollWidth>innerWidth+2 })), { loads:1, binds:1, sets:1, focus:'BODY', overflow:false });
+        assert.deepEqual(await f.page.evaluate(() => ({ loads, binds, sets, focus:document.activeElement.tagName, overflow:document.documentElement.scrollWidth>innerWidth+2 })), { loads:section === 'inventoryPanel' ? 2 : 1, binds:1, sets:1, focus:'BODY', overflow:false });
+        if (section === 'inventoryPanel') assert.deepEqual(await f.page.evaluate(() => loadedScripts), ['inventory-soft-ui.js','inventory-management.js']);
         f.check();
       } finally { await f.page.close(); }
     });
