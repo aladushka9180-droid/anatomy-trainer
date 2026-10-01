@@ -1,0 +1,23 @@
+name: Minuta organization overview regression
+on:
+  push:
+    paths: ['minuta-online-booking/organization-flow.*', 'minuta-online-booking/organization.js', 'minuta-online-booking/provider.html', 'minuta-online-booking/tests/organization-flow-*.mjs', '.github/workflows/minuta-organization-flow.yml']
+  pull_request:
+    paths: ['minuta-online-booking/organization-flow.*', 'minuta-online-booking/organization.js', 'minuta-online-booking/provider.html', 'minuta-online-booking/tests/organization-flow-*.mjs', '.github/workflows/minuta-organization-flow.yml']
+permissions:
+  contents: read
+jobs:
+  organization-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node --check minuta-online-booking/organization-flow.js
+      - run: node minuta-online-booking/tests/organization-flow-browser-test.mjs
+      - run: node minuta-online-booking/organization-controller-test.mjs
+      - run: node minuta-online-booking/client-url-redirect-test.mjs
