@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1050`;
-const CACHE_READY = './.precache-ready-v1050';
+const CACHE = `${CACHE_PREFIX}v1051`;
+const CACHE_READY = './.precache-ready-v1051';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1050',
+  './site-update.js?v=1051',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -63,7 +63,7 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1036',
-  './provider.js?v=1050',
+  './provider.js?v=1051',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
@@ -71,6 +71,8 @@ const ASSETS = [
 const OPTIONAL_ASSETS = [
   './payment-review.js?v=1044',
   './organization-overview.css?v=1044',
+  './organization-group-navigation.css?v=1051',
+  './organization-group-navigation.js?v=1051',
   './resource-management.js?v=1044',
   './shift-management.js?v=1044',
   './schedule-flat.css?v=1048',
