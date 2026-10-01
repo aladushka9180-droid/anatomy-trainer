@@ -18,6 +18,8 @@ try {
     assert.match(await page.locator('.of-booking-note').innerText(), /самостоятельное включение пока недоступно/); checks++;
     await page.locator('[data-org-action="select"][data-org-index="2"]').click();
     assert.equal(await page.locator('.of-step.is-active').getAttribute('data-org-step'), '2'); checks++;
+    await page.evaluate(() => flow.load());
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.orgIndex), '2'); checks++;
     await page.locator('[data-org-action="rename"]').click();
     assert.notEqual(await page.locator('#organizationForm button[type="submit"]').evaluate(node => getComputedStyle(node).backgroundColor), 'rgba(0, 0, 0, 0)'); checks++;
     await page.locator('#organizationName').fill('Новое название');

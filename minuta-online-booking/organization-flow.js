@@ -85,6 +85,8 @@
 
     function render() {
       if (!root?.dataset.orgFlow || !organization) return;
+      const focusedButton = document.activeElement?.closest('[data-org-index]');
+      const focusedIndex = focusedButton && root.contains(focusedButton) ? Number(focusedButton.dataset.orgIndex) : null;
       const snapshots = configuration(organization, payload, state, start, end);
       const completed = snapshots.filter(item => item.done === true).length;
       const allDone = completed === 4;
@@ -108,6 +110,10 @@
         const editLabel = index < 2 && !organization.can_manage ? 'Посмотреть' : done ? 'Изменить' : step.action;
         return `<li class="of-step ${done ? 'is-done' : ''} ${chosen ? 'is-active' : ''}" data-org-step="${index}" style="${!allDone || selected !== null ? chosen ? 'grid-column:1;grid-row:1 / span 3' : `grid-column:2;grid-row:${index < active ? index + 1 : index}` : ''}">${chosen ? `<div class="of-active-heading"><span class="of-step-number" aria-hidden="true">${done ? '✓' : index + 1}</span><h4>${done ? step.name : step.title}</h4></div><p class="of-active-desc">${escape(done ? item.detail : step.description)}</p><button class="of-primary of-step-action" type="button" data-org-action="open" data-org-index="${index}">${escape(editLabel)} <span aria-hidden="true">→</span></button>` : `<button class="of-step-open" type="button" data-org-action="select" data-org-index="${index}" aria-label="${escape(step.name)}: ${done ? 'заполнено' : item.done === null ? 'не проверено' : 'нужно настроить'}"><span class="of-step-number" aria-hidden="true">${done ? '✓' : index + 1}</span><span class="of-step-label"><span class="of-step-title">${step.name}</span><span class="of-step-desc">${escape(item.detail)}</span></span><span class="of-step-arrow" aria-hidden="true">›</span></button>`}</li>`;
       }).join('');
+      if (focusedIndex !== null && visible()) {
+        const replacement = find(`[data-org-index="${focusedIndex}"]`) || (allDone ? find('[data-org-action="manage"]') : null);
+        replacement?.focus({ preventScroll: true });
+      }
     }
 
     async function load() {
