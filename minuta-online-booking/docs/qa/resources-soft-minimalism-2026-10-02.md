@@ -24,6 +24,7 @@
 - client-url-redirect-test.mjs: PASS.
 - provider-ux-audit-test.mjs: PASS.
 - tests/resources-soft-minimalism-browser-test.mjs: 54 PASS; 6 комбинаций 390/760/1440 × Pink Porcelain/Noir.
+- tests/organization-overview-browser-test.mjs: PASS на 390/760/1440. Общий сценарий проверяет первые 12 ресурсов, раскрытие всех 21, обратное сворачивание, поиск за первой страницей и фильтры; fixture использует настоящий CSS ресурсов.
 - Реальные DOM-фильтры, создание и редактирование на вымышленных данных, read-only, первый запуск, ошибки duplicate/future bookings/network, требования и аудит.
 - Визуальный просмотр через браузер на 390, 760 и 1440.
 - Минимальный измеренный контраст выбранных текстов: 5.99:1; границы поля: 3.13:1.
