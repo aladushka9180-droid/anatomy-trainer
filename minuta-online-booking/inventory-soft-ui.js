@@ -67,6 +67,18 @@
     const name = iconName({ name:$('#inventoryItemName').value });
     preview.replaceChildren(icon(name, 'is-item-icon'), element('span', '', 'Иконка подбирается по названию'));
   }
+  function updateReadRecovery() {
+    const failed = !$('#inventoryUnavailable').hidden;
+    const loading = !$('#inventoryLoading').hidden;
+    for (const editor of editors.values()) {
+      if (!loading) editor.readFailed = failed;
+      const hidden = !editor.readFailed;
+      if (editor.recovery.hidden !== hidden) editor.recovery.hidden = hidden;
+      editor.retry.disabled = loading || $('#reloadInventory').disabled;
+      editor.recoveryNote.textContent = loading ? 'Загружаем склад. Введённые данные сохранены.'
+        : 'Не удалось обновить склад. Введённые данные сохранены.';
+    }
+  }
   function contextVisible() {
     return panel && !panel.closest('[hidden]') && !$('#inventoryControls').hidden
       && !panel.querySelector('[data-inventory-pane="catalog"]').hidden;
@@ -109,7 +121,24 @@
     // Reads hide the workspace, including on failure. Keep the editor outside it
     // so its draft/error and cancel action stay visible; delegated guards use the panel.
     panel.append(dialog);
-    const editor = { creator, form, dialog, title, trigger:null };
+    const recovery = element('div', 'is-editor-read-recovery');
+    recovery.hidden = true;
+    recovery.setAttribute('role', 'status');
+    const recoveryNote = element('p');
+    const retry = element('button', 'secondary-button');
+    retry.type = 'button';
+    retry.id = `inventory${suffix}ReadRetry`;
+    retry.textContent = 'Повторить загрузку склада';
+    retry.addEventListener('click', () => {
+      if (retry.disabled || !$('#inventoryLoading').hidden || $('#reloadInventory').disabled) return;
+      retry.disabled = true;
+      // Reuse the existing read-only action and its scope/session/writing guards.
+      // Never submit the form or repeat the failed write to recover a read.
+      $('#reloadInventory').click();
+    });
+    recovery.append(recoveryNote, retry);
+    form.querySelector('.inventory-form-actions').before(recovery);
+    const editor = { creator, form, dialog, title, trigger:null, recovery, recoveryNote, retry, readFailed:false };
     if (kind === 'item') {
       const firstRow = $('#inventoryItemName').closest('.form-row');
       const scan = $('#inventoryItemSku').closest('.scan-field');
@@ -179,10 +208,12 @@
       if (!contextVisible()) {
         for (const kind of editors.keys()) closeEditor(kind, false);
       }
+      updateReadRecovery();
     });
     visibility.observe(panel, { subtree:true, attributes:true, attributeFilter:['hidden'] });
     for (let ancestor = panel.parentElement; ancestor; ancestor = ancestor.parentElement)
       visibility.observe(ancestor, { attributes:true, attributeFilter:['hidden'] });
+    updateReadRecovery();
   }
   function sync(payload) {
     init();

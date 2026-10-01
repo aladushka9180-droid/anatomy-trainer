@@ -156,10 +156,23 @@ try {
     assert.equal(await page.locator('#inventoryItemDialog').evaluate(node => node.open), true);
     assert.equal(await page.locator('#inventoryItemUnit').inputValue(), 'piece');
     assert.equal(await page.locator('#inventoryWorkspace').isVisible(), false);
-    // Restoring only the read keeps the same error and edited unit visible.
-    await page.evaluate(() => { window.rejectRead = false; return window.controller.load(); });
+    assert.equal(await page.locator('#inventoryItemReadRetry').isEnabled(), true);
+    await capture(page, `editor-read-recovery-${width}.png`);
+    const draftBeforeRetry = await page.locator('#inventoryItemForm').evaluate(form => Object.fromEntries(new FormData(form)));
+    const callsBefore = await page.evaluate(() => ({ writes:window.rpcCalls.filter(call => call.name === 'upsert_minuta_inventory_item').length,
+      reads:window.rpcCalls.filter(call => call.name === 'get_minuta_inventory_workspace_v130').length }));
+    await page.evaluate(() => { window.rejectRead = false; });
+    // A real click inside the modal retries only the read, with the draft intact.
+    await page.locator('#inventoryItemReadRetry').click();
+    await page.locator('#inventoryWorkspace').waitFor({ state:'visible' });
+    const callsAfter = await page.evaluate(() => ({ writes:window.rpcCalls.filter(call => call.name === 'upsert_minuta_inventory_item').length,
+      reads:window.rpcCalls.filter(call => call.name === 'get_minuta_inventory_workspace_v130').length }));
+    assert.equal(callsAfter.writes, callsBefore.writes);
+    assert.equal(callsAfter.reads, callsBefore.reads + 1);
+    assert.deepEqual(await page.locator('#inventoryItemForm').evaluate(form => Object.fromEntries(new FormData(form))), draftBeforeRetry);
     assert.equal(await page.locator('#inventoryItemDialog').isVisible(), true);
     assert.equal(await page.locator('#inventoryItemUnit').inputValue(), 'piece');
+    assert.equal(await page.locator('#inventoryItemDialog .is-editor-read-recovery').isVisible(), false);
     await page.keyboard.press('Escape');
     await page.locator('#inventoryItemDialog').waitFor({ state:'hidden' });
 
