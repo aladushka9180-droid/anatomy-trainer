@@ -37,6 +37,16 @@ try {
       assert.equal(geometry.emptyStars, true);
       assert.ok(geometry.smallest >= 12);
       assert.ok(geometry.controls.every(e=>e.h >= 44 && e.w >= 44), `${width}/${theme}: ${JSON.stringify(geometry.controls.filter(e=>e.h<44||e.w<44))}`);
+      assert.equal(await view.locator('.portfolio-title-actions .primary').evaluate(e=>getComputedStyle(e).color===getComputedStyle(e.querySelector('span')).color), true, `${theme}: button label contrast`);
+      assert.equal(await view.locator('.provider-review-card').first().evaluate(e=>getComputedStyle(e).backgroundColor), 'rgba(0, 0, 0, 0)', `${theme}: separate review frame`);
+      await page.locator('#fixtureEmpty').click();
+      await view.locator('.provider-review-empty-state').waitFor();
+      await page.waitForFunction(()=>document.querySelector('[data-provider-panel="portfolio"]')?.classList.contains('portfolio-soft-empty'));
+      await page.waitForFunction(()=>getComputedStyle(document.querySelector('.portfolio-title-actions .primary')).backgroundColor===getComputedStyle(document.querySelector('#portfolioManageList>.portfolio-empty-state')).backgroundColor);
+      assert.equal(await view.locator('.portfolio-title-actions .primary').evaluate(e=>getComputedStyle(e).color===getComputedStyle(e.querySelector('span')).color), true, `${theme}: empty button label contrast`);
+      assert.notEqual(await view.locator('.portfolio-title-actions .primary').evaluate(e=>getComputedStyle(e).backgroundColor), await view.locator('.portfolio-empty-actions .primary').evaluate(e=>getComputedStyle(e).backgroundColor), `${theme}: one primary action`);
+      await page.locator('#fixtureFilled').click();
+      await view.locator('[data-portfolio-soft-card]').first().waitFor();
     }
     assert.equal(await view.locator('.portfolio-card-photos.is-pair').count(), 1);
     assert.equal(await view.locator('.portfolio-card-photos.is-single').count(), 2);
