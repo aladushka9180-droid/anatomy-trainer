@@ -37,6 +37,18 @@ try {
     check(dayMarks.every(content=>content==='none'||content==='normal'),'Selected weekdays have no decorative checkmarks');
     check(layout.fields.every(f=>f.height>=44&&f.width>=95),'Time fields are tappable and visible');
     check(layout.working!==layout.off&&layout.working!==layout.closed,'Calendar separates ordinary days and exceptions');
+    const calendar=await page.evaluate(()=>{
+      const legend=document.querySelector('.monthly-schedule-legend'),style=getComputedStyle(legend);
+      const grid=document.querySelector('#monthlyScheduleGrid').getBoundingClientRect();
+      const item=document.querySelector('#daysOffList .day-off-item').getBoundingClientRect();
+      return {font:parseFloat(style.fontSize),fg:style.color,
+        surface:getComputedStyle(legend.closest('.panel')).backgroundColor,gap:item.top-grid.bottom,
+        labels:[...legend.children].map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,scroll:e.scrollWidth};})};
+    });
+    check(calendar.font>=14&&calendar.labels.every(e=>Math.ceil(e.width)>=e.scroll&&e.left>=0&&e.right<=width),`${theme}/${width}: calendar labels are readable and contained ${JSON.stringify(calendar)}`);
+    check(contrast(calendar.fg,calendar.surface)>=4.5,`${theme}/${width}: calendar legend contrast`);
+    check(await page.locator('#daysOffList .day-off-item').count()===2&&calendar.gap>=12&&calendar.gap<=32,`${theme}/${width}: exception list stays visible with a compact gap ${calendar.gap}`);
+    check(!(await page.locator('#monthlyScheduleStatus').isVisible()),'Empty calendar status does not reserve space');
     const step=await page.locator('.booking-step-setting').evaluate(e=>{
       const text=e.firstElementChild.getBoundingClientRect(),control=e.lastElementChild.getBoundingClientRect();
       return {textWidth:text.width,textRight:text.right,controlLeft:control.left,parentWidth:e.getBoundingClientRect().width,
@@ -101,6 +113,14 @@ try {
     await page.locator('[data-monthly-schedule-shift="1"]').click();
     check(await page.locator('#monthlyScheduleMonth').inputValue()==='2026-11','Month navigation works');
     check(await page.locator('[data-hours-today]').count()===0,'Today marker is not copied into another month');
+    await page.evaluate(()=>{document.querySelector('#monthlyScheduleStatus').textContent='Сохраняем…';});
+    check(await page.locator('#monthlyScheduleStatus').isVisible(),'Calendar feedback remains visible when present');
+    await page.evaluate(()=>{document.querySelector('#monthlyScheduleStatus').textContent='';daysOff.splice(0);renderDaysOff();});
+    check(await page.locator('#daysOffList .days-off-empty').isVisible(),'Empty exceptions explanation remains available');
+    await page.evaluate(()=>{document.querySelector('#daysOffList').replaceChildren();});
+    check(!(await page.locator('.schedule-date-secondary').isVisible()),'Unpopulated exception area has no empty divider');
+    await page.evaluate(()=>{document.querySelector('#dayOffEditor').hidden=false;});
+    check(await page.locator('#dayOffForm').isVisible(),'Date editor remains visible without list entries');
     await page.addScriptTag({path:fileURLToPath(new URL('../work-hours-soft.js',import.meta.url))});
     check(await page.locator('.work-hours-soft .hours-icon').count()===5,'Enhancement is idempotent');
     check(errors.length===0,`Browser errors: ${errors.join(', ')}`);

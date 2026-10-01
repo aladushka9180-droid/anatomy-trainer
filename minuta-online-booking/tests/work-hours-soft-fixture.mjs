@@ -20,7 +20,7 @@ const functionNames = ['shortTime','defaultScheduleRows','comparableSchedule','n
   'scheduleRowsFromForm','scheduleDayRangeLabel','updateWeeklyScheduleSummary','updateScheduleSaveState','setScheduleDirty',
   'setScheduleSaveError','scheduleStateForDate','scheduleEmptyDayLabel','schedulePresetDays','schedulePresetForDays',
   'setScheduleQuickDays','syncScheduleQuickControls','syncScheduleDayCard','applyQuickSchedule','renderMonthlyScheduleDetails',
-  'renderMonthlySchedule','renderSchedule','saveSchedule','syncSlotIntervalOptions','escapeHtml','parseLocalIsoDate','localIsoDate'];
+  'renderMonthlySchedule','renderSchedule','renderDaysOff','uiIcon','saveSchedule','syncSlotIntervalOptions','escapeHtml','parseLocalIsoDate','localIsoDate'];
 const handlers = provider.slice(provider.indexOf("$$('[data-schedule-quick-preset]').forEach(button => button.addEventListener"),
   provider.indexOf("$('#monthlyScheduleDetails').addEventListener('click'"));
 if (!handlers.includes("$('#applyQuickSchedule').addEventListener('click', applyQuickSchedule)")) throw new Error('Actual schedule listeners missing');
@@ -52,8 +52,8 @@ const db = {from(table) {
 ${functionNames.map(realFunction).join('\n')}
 scheduleRows = defaultScheduleRows(currentUser.id);
 $('#dayOffDate').min = businessTodayIso();
-$('#dateExceptionsSummary').textContent = '2 изменения';
 renderSchedule();
+renderDaysOff();
 ${handlers}
 $('#slotInterval').addEventListener('change', event => { syncSlotIntervalOptions(event.target.value); setScheduleDirty(true); renderMonthlySchedule(); });
 $('#saveSchedule').addEventListener('click', saveSchedule);
@@ -79,6 +79,7 @@ export async function fixture(page, { theme='pink-porcelain', enhanced=true }={}
     const original=new DOMParser().parseFromString(markup,'text/html');
     const dashboard=document.createElement('section'); dashboard.id='dashboard'; dashboard.className='provider-app'; dashboard.dataset.activeView='schedule';
     const sidebar=document.importNode(original.querySelector('.provider-sidebar'),true);
+    sidebar.querySelectorAll('[data-provider-view]').forEach(button=>button.classList.toggle('active',button.dataset.providerView==='schedule'));
     const workspace=document.createElement('div'); workspace.className='provider-workspace';
     const section=document.importNode(original.querySelector('[data-provider-panel="schedule"]'),true); section.hidden=false;
     section.querySelector('#monthlyScheduleEditor').open=true;
@@ -106,6 +107,7 @@ export async function fixture(page, { theme='pink-porcelain', enhanced=true }={}
     document.body.style.setProperty('--porcelain-action-ink',palette.actionInk);
   });
   await page.addScriptTag({content:runtime});
+  await page.evaluate(()=>document.querySelectorAll('use[href^="ui-icons.svg"]').forEach(use=>use.setAttribute('href',`#${use.getAttribute('href').split('#')[1]}`)));
   await page.addScriptTag({content:readFileSync(path.join(root,'provider-selects.js'),'utf8')});
   if(enhanced) {
     await page.addStyleTag({content:readFileSync(path.join(root,'work-hours-soft.css'),'utf8')});
