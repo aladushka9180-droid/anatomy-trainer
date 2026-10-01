@@ -111,7 +111,7 @@ export async function probe(db, { attested=false, expectedDatabase='', expectedP
   assert.ok(Number.isInteger(expectedPort) && expectedPort>=20000 && expectedPort<=65535,
     'O24 requires an ephemeral listener port');
   const identity = await one(db, `select current_database() database,
-    inet_server_addr()::text server_address,inet_client_addr()::text client_address,inet_server_port() server_port,
+    pg_catalog.host(inet_server_addr()) server_address,pg_catalog.host(inet_client_addr()) client_address,inet_server_port() server_port,
     current_setting('server_version_num')::integer version,pg_is_in_recovery() recovery,
     exists(select 1 from pg_roles where rolname=current_user and rolsuper) privileged`);
   assert.equal(identity?.database, expectedDatabase, 'O24 database mismatch');

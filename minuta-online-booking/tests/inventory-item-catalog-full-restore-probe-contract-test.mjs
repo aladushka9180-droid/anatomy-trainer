@@ -27,7 +27,9 @@ test('probe has no connection, commit or production target access', async () => 
   assert.doesNotMatch(code,/db\.query\(['"`]commit\b/i);
   assert.match(code,/rollback to savepoint/);
   assert.match(code,/release savepoint/);
-  assert.match(code,/inet_server_addr\(\)/);
+  assert.match(code,/pg_catalog\.host\(inet_server_addr\(\)\) server_address/);
+  assert.match(code,/pg_catalog\.host\(inet_client_addr\(\)\) client_address/);
+  assert.doesNotMatch(code,/inet_(?:server|client)_addr\(\)::text/);
 });
 
 test('identity preflight rejects remote, socket NULL, wrong database and unprivileged callers before writes', async () => {
@@ -35,6 +37,7 @@ test('identity preflight rejects remote, socket NULL, wrong database and unprivi
     client_address:'127.0.0.1',server_port:25432,version:170011,recovery:false,privileged:true };
   for (const row of [
     { ...safe,server_address:'192.0.2.2' },{ ...safe,client_address:null },
+    { ...safe,server_address:'127.0.0.1/32' },
     { ...safe,database:'postgres' },{ ...safe,server_port:5432 },{ ...safe,version:160000 },
     { ...safe,recovery:true },{ ...safe,privileged:false }
   ]) {
@@ -43,4 +46,21 @@ test('identity preflight rejects remote, socket NULL, wrong database and unprivi
     await assert.rejects(probe(db,{attested:true,expectedDatabase:safe.database,expectedPort:25432}));
     assert.equal(calls,1,'identity failure must precede savepoint and fixture');
   }
+});
+
+test('host(inet) strips the PostgreSQL /32 mask before strict identity checks', async () => {
+  const safe = { database:'o24-inventory-full-restore',server_address:'127.0.0.1',
+    client_address:'127.0.0.1',server_port:25432,version:170011,recovery:false,privileged:true };
+  const stop = new Error('identity passed; stop before savepoint');
+  let calls = 0;
+  await assert.rejects(probe({query:async sql => {
+    calls += 1;
+    if (calls === 1) {
+      assert.match(sql,/pg_catalog\.host\(inet_server_addr\(\)\)/);
+      assert.match(sql,/pg_catalog\.host\(inet_client_addr\(\)\)/);
+      return { rows:[safe] };
+    }
+    throw stop;
+  }},{attested:true,expectedDatabase:safe.database,expectedPort:25432}), error => error === stop);
+  assert.equal(calls,2);
 });
