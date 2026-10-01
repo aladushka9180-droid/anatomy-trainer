@@ -20,6 +20,7 @@ const body = name => {
   return source.replace(/^begin;$/m, '').replace(/^commit;$/m, '');
 };
 const scalar = async (sql, params = []) => Object.values((await db.query(sql, params)).rows[0])[0];
+const sameLocation = process.env.MINUTA_V189_FULL_SCHEMA === '1';
 const legacy = async () => (await db.query(`select
   pg_get_functiondef('public.book_minuta_multi_service_route_v167(uuid,text,uuid,text,text,jsonb)'::regprocedure) route,
   pg_get_functiondef('public.book_minuta_appointment_v2(uuid,text,uuid,uuid,date,time without time zone,text,text,integer,integer)'::regprocedure) single,
@@ -57,6 +58,22 @@ try {
   const signature = 'public.book_minuta_multi_resource_route_v176(uuid,text,text,jsonb,jsonb)';
   for (const role of ['anon', 'authenticated', 'service_role'])
     assert.equal(await scalar('select has_function_privilege($1,$2,\'execute\')', [role, signature]), false);
+  if (sameLocation) {
+    const wrapper = 'public.book_minuta_same_location_route_v189(uuid,text,text,jsonb)';
+    await db.query(body('supabase-migration-v189.sql'));
+    await db.query(body('supabase-migration-v189.sql'));
+    assert.deepEqual(await legacy(), before);
+    for (const role of ['anon', 'authenticated', 'service_role']) {
+      assert.equal(await scalar('select has_function_privilege($1,$2,\'execute\')', [role, wrapper]), role === 'service_role');
+      assert.equal(await scalar('select has_function_privilege($1,$2,\'execute\')', [role, signature]), false);
+    }
+    await db.query(body('supabase-migration-v189-rollback.sql'));
+    assert.equal(await scalar('select has_function_privilege(\'service_role\',$1,\'execute\')', [wrapper]), false);
+    await db.query(body('supabase-migration-v189.sql'));
+    assert.equal(await scalar('select has_function_privilege(\'service_role\',$1,\'execute\')', [wrapper]), true);
+    assert.deepEqual(await legacy(), before);
+    console.log('PASS: v189 full-schema apply twice, service-role-only access, unchanged legacy paths, rollback/reapply');
+  }
   await db.query(body('supabase-migration-v188-rollback.sql'));
   assert.deepEqual(await legacy(), before);
   await db.query(body('supabase-migration-v188.sql'));
