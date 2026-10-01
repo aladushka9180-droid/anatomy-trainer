@@ -92,6 +92,8 @@
 .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm { grid-column:1/-1; }
 .provider-body #retentionPanel.commerce-soft-panel .retention-clients-list { grid-template-columns:1fr; }
 .provider-body #retentionPanel.commerce-soft-panel .retention-client-row { padding:14px 0!important; }
+.provider-body #retentionPanel.commerce-soft-panel :is(.retention-client-row,.retention-delivery-row) { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+.provider-body #retentionPanel.commerce-soft-panel :is(.retention-client-row,.retention-delivery-row) .organization-row-main :is(strong,small) { white-space:normal; overflow-wrap:anywhere; }
 .provider-body #retentionPanel.commerce-soft-panel .retention-row-actions { justify-content:flex-start; }
 .provider-body #benefitsPanel.commerce-soft-panel #benefitWorkflowStatus { margin:8px 0 12px; font-size:13px; line-height:1.6; color:var(--cs-muted); }
 .provider-body #benefitsPanel.commerce-soft-panel .ux-disclosure { margin:0 0 16px; }
