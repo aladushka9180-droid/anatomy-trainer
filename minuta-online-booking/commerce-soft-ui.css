@@ -28,7 +28,7 @@
 .provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .organization-create>form { padding:16px; gap:16px; }
 .provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(label,.benefit-service-fieldset legend) { font-size:13px; font-weight:500; }
 .provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(input,select,textarea) { font-family:inherit; font-size:14px; font-weight:400; color:var(--cs-ink); border-radius:12px; background:var(--cs-surface); }
-.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(input,select) { min-height:44px; }
+.provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(input:not([type="checkbox"]):not([type="radio"]),select) { min-height:44px; }
 .provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(button,.secondary-button) { font-size:13px; }
 .provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel :is(.settings-check,.retention-toggle) { padding:12px 0!important; border:0; border-bottom:1px solid var(--cs-line); border-radius:0; background:var(--cs-surface)!important; }
 .provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .settings-check span strong { font-size:13px; font-weight:600; }
@@ -61,7 +61,7 @@
 .cs-change-label { color:var(--cs-accent); font-size:12px; }
 .cs-item-icon { flex:0 0 38px; display:grid; place-items:center; width:38px; height:38px; border-radius:11px; color:var(--theme-accent,#235b40); background:color-mix(in srgb,var(--theme-accent-soft,#edf6f0) 62%,var(--theme-surface,#fff)); }
 .cs-item-icon svg { display:block; width:23px; height:23px; }
-.provider-body #commercePanel.commerce-soft-panel .commerce-sale-row { display:grid; grid-template-columns:38px minmax(0,1fr) auto; gap:12px; }
+.provider-body #commercePanel.commerce-soft-panel .commerce-sale-row:has(>.cs-item-icon) { display:grid; grid-template-columns:38px minmax(0,1fr) auto; gap:12px; }
 .provider-body #commercePanel.commerce-soft-panel .commerce-sale-row>div { min-width:0; }
 .provider-body #commercePanel.commerce-soft-panel .commerce-sale-row :is(span,small) { font-size:12px; line-height:1.5; }
 .provider-body #commercePanel.commerce-soft-panel .cs-quantity { display:flex; align-items:center; border:1px solid var(--cs-line); border-radius:12px; margin-top:7px; overflow:hidden; }
@@ -99,7 +99,7 @@
 .provider-body #benefitsPanel.commerce-soft-panel .benefit-guide li { font-size:13px; line-height:1.6; }
 .provider-body #benefitsPanel.commerce-soft-panel .benefits-management-grid { gap:28px; align-items:start; }
 .provider-body #benefitsPanel.commerce-soft-panel .benefit-redemptions { border-top:1px solid var(--cs-line); padding-top:20px; }
-.provider-body #benefitsPanel.commerce-soft-panel :is(#benefitProductsList,#benefitInstrumentsList) .organization-row { display:grid; grid-template-columns:38px minmax(0,1fr) auto; }
+.provider-body #benefitsPanel.commerce-soft-panel :is(#benefitProductsList,#benefitInstrumentsList) .organization-row:has(>.cs-item-icon) { display:grid; grid-template-columns:38px minmax(0,1fr) auto; }
 .provider-body #benefitsPanel.commerce-soft-panel .scan-field { display:flex; align-items:end; gap:10px; margin:12px 0; }
 .provider-body #benefitsPanel.commerce-soft-panel .scan-field label { flex:1; min-width:0; }
 .provider-body #benefitsPanel.commerce-soft-panel .scan-field button { flex:none; width:auto; min-height:44px; margin:0; display:flex; align-items:center; gap:7px; }
@@ -137,10 +137,10 @@
   .provider-body #commercePanel.commerce-soft-panel .commerce-sale-options-fields { grid-template-columns:1fr; }
   .provider-body #commercePanel.commerce-soft-panel .commerce-sale-options>summary small { max-width:100%; white-space:normal; text-align:left; }
   .provider-body #commercePanel.commerce-soft-panel .cs-change-label { font-size:12px; }
-  .provider-body #commercePanel.commerce-soft-panel .commerce-sale-row { grid-template-columns:38px minmax(0,1fr); }
-  .provider-body #commercePanel.commerce-soft-panel .commerce-sale-row>div:last-child { grid-column:2; display:flex; justify-content:space-between; width:100%; }
-  .provider-body #benefitsPanel.commerce-soft-panel :is(#benefitProductsList,#benefitInstrumentsList) .organization-row { grid-template-columns:38px minmax(0,1fr); }
-  .provider-body #benefitsPanel.commerce-soft-panel :is(#benefitProductsList,#benefitInstrumentsList) .organization-row>:last-child { grid-column:2; justify-self:start; }
+  .provider-body #commercePanel.commerce-soft-panel .commerce-sale-row:has(>.cs-item-icon) { grid-template-columns:38px minmax(0,1fr); }
+  .provider-body #commercePanel.commerce-soft-panel .commerce-sale-row:has(>.cs-item-icon)>div:last-child { grid-column:2; display:flex; justify-content:space-between; width:100%; }
+  .provider-body #benefitsPanel.commerce-soft-panel :is(#benefitProductsList,#benefitInstrumentsList) .organization-row:has(>.cs-item-icon) { grid-template-columns:38px minmax(0,1fr); }
+  .provider-body #benefitsPanel.commerce-soft-panel :is(#benefitProductsList,#benefitInstrumentsList) .organization-row:has(>.cs-item-icon)>:last-child { grid-column:2; justify-self:start; }
   .provider-body #benefitsPanel.commerce-soft-panel .scan-field { flex-wrap:wrap; }
   .provider-body :is(#commercePanel,#retentionPanel,#benefitsPanel).commerce-soft-panel .organization-create>form { padding:12px; }
 }
