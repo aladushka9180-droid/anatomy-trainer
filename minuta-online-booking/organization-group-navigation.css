@@ -1,0 +1,132 @@
+/* Only an initialized navigation replaces the existing mobile selector. */
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] .organization-section-selector {
+  display:none!important;
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] .organization-group-navigation {
+  position:sticky;
+  z-index:12;
+  top:10px;
+  min-width:0;
+  margin:16px 0 0;
+  background:var(--theme-bg,#fff5f8);
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] > :is(.provider-section-anchor,.organization-section,.organization-audit) {
+  scroll-margin-top:calc(var(--organization-navigation-height,112px) + 24px);
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace .organization-section-groups {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:3px;
+  margin:0;
+  padding:5px;
+  border:0;
+  border-radius:15px;
+  background:var(--theme-surface,#fff);
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace .organization-section-groups button {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-width:0;
+  min-height:44px;
+  margin:0;
+  padding:10px 13px;
+  border:0!important;
+  border-radius:12px;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:var(--theme-muted,#626068)!important;
+  font-family:inherit;
+  font-size:calc(14px + var(--provider-text-step,0px))!important;
+  font-weight:500!important;
+  line-height:1.35!important;
+  white-space:normal;
+  text-align:center;
+  cursor:pointer;
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace .organization-section-groups button[aria-pressed="true"] {
+  background:var(--theme-accent-soft,var(--theme-surface-alt,#ffe1eb))!important;
+  color:color-mix(in srgb,var(--theme-accent,#c43372) 75%,var(--theme-ink,#302c30))!important;
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] #organizationSectionNav {
+  position:static;
+  z-index:auto;
+  display:flex!important;
+  flex-wrap:wrap;
+  gap:6px 22px;
+  margin:0;
+  padding:13px 0 1px;
+  overflow:visible;
+  border:0!important;
+  border-bottom:1px solid var(--theme-line,#e9cbd6)!important;
+  border-radius:0;
+  background:transparent!important;
+  box-shadow:none!important;
+  backdrop-filter:none;
+  scroll-snap-type:none;
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] #organizationSectionNav button {
+  position:relative;
+  flex:0 1 auto;
+  min-width:0;
+  max-width:100%;
+  min-height:44px;
+  margin:0;
+  padding:10px 0;
+  border:0!important;
+  border-radius:0;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:var(--theme-muted,#626068)!important;
+  font-family:inherit;
+  font-size:calc(14px + var(--provider-text-step,0px))!important;
+  font-weight:500!important;
+  line-height:1.35!important;
+  white-space:normal;
+  text-align:left;
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] #organizationSectionNav button.active {
+  color:color-mix(in srgb,var(--theme-accent,#c43372) 75%,var(--theme-ink,#302c30))!important;
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] #organizationSectionNav button.active::after {
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:2px;
+  border-radius:2px;
+  background:currentColor;
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] #organizationSectionNav button[data-organization-group-inactive],
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace .organization-section-groups [hidden],
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace .organization-section-groups[hidden] {
+  display:none!important;
+}
+
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace :is(.organization-section-groups,#organizationSectionNav) button:focus-visible {
+  outline:2px solid var(--theme-accent,#c43372)!important;
+  outline-offset:3px;
+}
+
+@media(max-width:580px) {
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace .organization-section-groups {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:760px) {
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] .organization-group-navigation {
+    top:6px;
+  }
+}
