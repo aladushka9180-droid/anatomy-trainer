@@ -1,0 +1,117 @@
+/* Payroll presentation follows the selected provider theme. No global overrides. */
+.provider-body #payrollPanel[data-payroll-soft-mounted] {
+  --pay-surface: var(--theme-surface, #fff);
+  --pay-ink: var(--theme-ink, #302b31);
+  --pay-muted: var(--theme-muted, #776d76);
+  --pay-line: var(--theme-line, #eadde4);
+  --pay-accent: var(--theme-accent, #b63274);
+  display: grid; gap: 8px; padding: 22px 24px; color: var(--pay-ink);
+}
+.provider-body #payrollPanel[hidden], #payrollPanel[data-payroll-soft-mounted] [hidden] { display: none !important; }
+#payrollPanel[data-payroll-soft-mounted] *, #payrollPanel[data-payroll-soft-mounted] *::before { box-sizing: border-box; }
+#payrollPanel[data-payroll-soft-mounted] .panel-head { margin: 0; min-height: 0; padding: 0; }
+#payrollPanel[data-payroll-soft-mounted] .panel-head h3 { margin: 0; font-size: 24px; font-weight: 600; line-height: 1.25; }
+#payrollPanel[data-payroll-soft-mounted] > .organization-invite-help { margin: 0 0 10px; color: var(--pay-muted); font-size: 14px; line-height: 1.5; }
+#payrollPanel[data-payroll-soft-mounted] #payrollWorkspace { gap: 16px; min-width: 0; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-icon { width: 19px; height: 19px; flex: 0 0 19px; vertical-align: middle; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-toolbar { grid-template-columns: minmax(0, 1fr) minmax(250px, 1fr); align-items: start; gap: 24px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-dates label { display: grid; gap: 6px; margin: 0; min-width: 0; color: var(--pay-muted); font-size: 13px; font-weight: 400; }
+#payrollPanel[data-payroll-soft-mounted] :is(input:not([type=checkbox]), select, textarea) { width: 100%; min-width: 0; min-height: 44px; margin: 0; padding: 10px 12px; border: 1px solid var(--pay-line); border-radius: 12px; background: var(--pay-surface); color: var(--pay-ink); font-size: 16px; font-weight: 400; }
+#payrollPanel[data-payroll-soft-mounted] input[type=date] { font-variant-numeric: tabular-nums; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-enable-field { display: grid; grid-template-columns: 39px minmax(0, 1fr); grid-column: auto; align-items: start; gap: 10px; margin: 24px 0 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-enable-field > span { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; min-width: 0; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-enable-field strong { color: var(--pay-ink); font-size: 14px; font-weight: 500; line-height: 23px; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-status { color: var(--pay-muted); font-size: 13px; font-weight: 400; line-height: 23px; }
+#payrollPanel[data-payroll-soft-mounted] #payrollEnabledHint { flex: 0 0 100%; margin-top: 5px; color: var(--pay-muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
+#payrollPanel[data-payroll-soft-mounted] #payrollEnabled { appearance: none; position: relative; flex: none; width: 39px !important; height: 23px !important; min-height: 23px !important; margin: 0 !important; padding: 0; border: 1px solid var(--pay-line); border-radius: 20px; background: color-mix(in srgb, var(--pay-muted) 24%, var(--pay-surface)) !important; cursor: pointer; }
+#payrollPanel[data-payroll-soft-mounted] #payrollEnabled::before { content: ''; position: absolute; top: 3px; left: 3px; width: 15px; height: 15px; border-radius: 50%; background: var(--theme-accent-contrast, #fff); }
+#payrollPanel[data-payroll-soft-mounted] #payrollEnabled:checked { background: var(--pay-accent) !important; border-color: var(--pay-accent); }
+#payrollPanel[data-payroll-soft-mounted] #payrollEnabled:checked::before { left: 19px; }
+#payrollPanel[data-payroll-soft-mounted] #payrollEnabled:disabled { cursor: default; opacity: .65; }
+#payrollPanel[data-payroll-soft-mounted] :is(button, summary, input):focus-visible { outline: 2px solid var(--pay-accent); outline-offset: 3px; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; overflow: hidden; border: 1px solid var(--pay-line); border-radius: 18px; background: var(--pay-surface); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-summary article { padding: 15px 18px; gap: 6px; border: 0; border-radius: 0; background: transparent; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-summary article + article { border-left: 1px solid var(--pay-line); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-summary small { display: flex; align-items: start; gap: 7px; min-height: 34px; color: var(--pay-muted); font-size: 12px; font-weight: 400; line-height: 1.4; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-summary strong { color: var(--pay-ink); font-size: clamp(20px, 2.2vw, 26px); font-weight: 500; font-variant-numeric: tabular-nums; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-summary strong.payroll-soft-long-total { font-size: 16px; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-summary .is-debt strong { color: var(--pay-accent); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-setup { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 20px 24px; border: 1px solid var(--pay-line); border-radius: 18px; background: var(--pay-surface); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-tile { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--theme-accent-soft); color: var(--pay-accent); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-setup-copy strong { font-size: 16px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-setup-copy p { margin: 5px 0 0; color: var(--pay-muted); font-size: 13px; font-weight: 400; line-height: 1.5; }
+#payrollPanel[data-payroll-soft-mounted] :is(.primary, .primary-button, .secondary-button) { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: auto; min-height: 44px; margin: 0; padding: 9px 14px; border-radius: 12px; font-size: 14px; font-weight: 500; white-space: normal; }
+#payrollPanel[data-payroll-soft-mounted] :is(.primary, .primary-button) { border: 1px solid var(--pay-accent); background: var(--pay-accent); color: var(--theme-accent-contrast, #fff); }
+.provider-body #payrollPanel[data-payroll-soft-mounted] #payrollWorkspace .primary { background: var(--pay-accent) !important; border-color: var(--pay-accent) !important; color: var(--theme-accent-contrast, #fff) !important; }
+#payrollPanel[data-payroll-soft-mounted] .secondary-button { border: 1px solid var(--pay-line); background: var(--pay-surface); color: var(--pay-ink); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-periods { display: grid; gap: 14px; padding: 20px 24px; border: 1px solid var(--pay-line); border-radius: 18px; background: var(--pay-surface); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-periods > .resource-subhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: start; gap: 10px; margin: 0; padding: 0; border: 0; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-periods > .resource-subhead > div { flex: 1; min-width: 0; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-pay { justify-self: end; }
+#payrollPanel[data-payroll-soft-mounted] .resource-subhead strong { color: var(--pay-ink); font-size: 16px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] .panel-count { width: auto; min-width: 0; height: auto; padding: 0; border: 0; background: transparent; color: var(--pay-muted); font-size: 13px; font-weight: 400; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-proxy-target { margin: 0; padding: 0; border: 0; background: transparent; }
+#payrollPanel[data-payroll-soft-mounted] #payrollPeriodCreator > summary { display: none; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-proxy-target:not([open]) { display: none; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-folds { min-width: 0; overflow: hidden; border: 1px solid var(--pay-line); border-radius: 18px; background: var(--pay-surface); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold + .payroll-soft-fold { border-top: 1px solid var(--pay-line); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold > summary { display: flex; align-items: center; justify-content: start; gap: 10px; min-height: 52px; padding: 14px 24px; list-style: none; cursor: pointer; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold > summary::-webkit-details-marker { display: none; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold > summary::after { content: none; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold > summary > :is(svg, .panel-count) { color: var(--pay-muted); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold-label { flex: 1; color: var(--pay-ink); font-size: 14px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold > summary strong { margin: 0; padding: 0; border-radius: 0; background: transparent; color: var(--pay-ink); font-size: 14px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-chevron { margin-left: auto; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold[open] > summary > .payroll-soft-chevron { transform: rotate(180deg); }
+#payrollPanel[data-payroll-soft-mounted] :is(.payroll-soft-fold-content, .payroll-soft-fold > .organization-list) { padding: 0 24px 18px; border: 0; background: transparent; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-ledger-actions { gap: 0; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-action-grid { gap: 10px; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-action-card { border-color: var(--pay-line); background: var(--pay-surface); }
+#payrollPanel[data-payroll-soft-mounted] .payroll-action-card > summary strong { color: var(--pay-ink); font-size: 14px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-action-card > summary small { font-size: 12px; font-weight: 400; color: var(--pay-muted); }
+#payrollPanel[data-payroll-soft-mounted] :is(.organization-create form, .payroll-action-card form, .payroll-reverse form) { margin-top: 10px; padding: 14px 0 0; border: 0; border-top: 1px solid var(--pay-line); background: var(--pay-surface); }
+#payrollPanel[data-payroll-soft-mounted] :is(form label, #payrollPlanForm > label, .payroll-action-card form > label) { color: var(--pay-muted); font-size: 13px; font-weight: 400; }
+#payrollPanel[data-payroll-soft-mounted] .organization-create > summary { display: flex; align-items: center; justify-content: start; gap: 7px; min-height: 44px; margin: 0; padding: 10px 0; border: 0; background: transparent; color: var(--pay-accent); font-size: 14px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] .organization-create { margin-top: 8px; padding: 0; border: 0; background: transparent; }
+#payrollPanel[data-payroll-soft-mounted] .provider-empty { min-height: 0; padding: 12px 0; border: 0; border-radius: 0; background: transparent; text-align: left; }
+#payrollPanel[data-payroll-soft-mounted] .provider-empty strong { color: var(--pay-ink); font-size: 14px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] .provider-empty small { margin-top: 5px; color: var(--pay-muted); font-size: 13px; font-weight: 400; line-height: 1.5; }
+#payrollPanel[data-payroll-soft-mounted] :is(.organization-row, .payroll-history-row) { padding: 14px 0; border: 0; border-top: 1px solid var(--pay-line); border-radius: 0; background: transparent; }
+#payrollPanel[data-payroll-soft-mounted] .organization-row-main strong { color: var(--pay-ink); font-size: 16px; font-weight: 500; line-height: 1.5; }
+#payrollPanel[data-payroll-soft-mounted] .organization-row-main :is(strong, small) { white-space: normal; overflow-wrap: anywhere; }
+#payrollPanel[data-payroll-soft-mounted] :is(.organization-row-main small, .payroll-period-totals, .payroll-history-row small) { color: var(--pay-muted); font-size: 13px; font-weight: 400; line-height: 1.5; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-period-totals b { color: var(--pay-ink); font-size: 14px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] .organization-status { padding: 4px 8px; border: 0; border-radius: 7px; background: color-mix(in srgb, var(--pay-muted) 7%, var(--pay-surface)); color: var(--pay-muted); font-size: 12px; font-weight: 400; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-history-row strong { color: var(--pay-ink); font-size: 14px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] :is(.payroll-history-kind, .payroll-reverse > summary) { color: var(--pay-muted); font-size: 12px; font-weight: 500; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-reverse[open] { grid-column: 1 / -1; min-width: 0; }
+#payrollPanel[data-payroll-soft-mounted] .payroll-reverse form { grid-template-columns: minmax(0, 1fr) auto; min-width: 0; }
+@media (max-width: 1000px) {
+  #payrollPanel[data-payroll-soft-mounted] .payroll-toolbar { grid-template-columns: 1fr; gap: 14px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-enable-field { margin-top: 0; }
+}
+@media (max-width: 760px) {
+  #payrollPanel[data-payroll-soft-mounted] .payroll-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-summary article { padding: 13px 15px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-summary article:nth-child(3) { border-left: 0; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-summary article:nth-child(n+3) { border-top: 1px solid var(--pay-line); }
+}
+@media (max-width: 600px) {
+  .provider-body #payrollPanel[data-payroll-soft-mounted] { padding: 18px 16px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-summary small { min-height: 34px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-summary strong { font-size: 23px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-enable-field > span { column-gap: 6px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-soft-setup { grid-template-columns: 42px minmax(0, 1fr); gap: 12px; padding: 18px 16px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-soft-add-rule { grid-column: 1 / -1; width: 100%; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-soft-periods { padding: 18px 16px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-soft-prepare { width: 100%; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-soft-pay { width: 100%; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-soft-fold > summary { padding: 14px 16px; }
+  #payrollPanel[data-payroll-soft-mounted] :is(.payroll-soft-fold-content, .payroll-soft-fold > .organization-list) { padding: 0 16px 16px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-period-row { flex-wrap: wrap; gap: 10px; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-period-row .organization-tags { align-items: start; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-action-grid { grid-template-columns: 1fr; }
+  #payrollPanel[data-payroll-soft-mounted] .payroll-reverse form { grid-template-columns: 1fr; }
+}

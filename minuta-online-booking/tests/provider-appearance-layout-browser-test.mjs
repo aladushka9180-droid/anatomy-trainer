@@ -103,7 +103,10 @@ async function run(){
       assert.equal(positions.overflow,false,`${width}: page overflow`);
       assert.ok(positions.tops.every((y,i)=>!i||y>positions.tops[i-1]),`${width}: appearance order`);
       if(output)await page.screenshot({path:resolve(output,`appearance-${width}.png`),fullPage:false});
-      await form.locator('#providerThemeDisclosure>summary').click();
+      assert.equal(await form.locator('#providerThemeDisclosure').evaluate(el=>el.tagName),'SECTION');
+      assert.equal(await form.locator('#providerThemeDisclosure>summary').count(),0);
+      assert.equal(await form.locator('.provider-theme-filter').isVisible(),true);
+      assert.equal(await form.locator('.provider-theme-options').isVisible(),true);
       assert.deepEqual(await form.locator('[data-provider-theme-filter]').allTextContents(),['Все темы','Светлые','Тёмные']);
       for(const [filter,count] of [['all',41],['light',21],['dark',20],['all',41]]){
         await form.locator(`[data-provider-theme-filter="${filter}"]`).click();
@@ -111,7 +114,6 @@ async function run(){
         assert.deepEqual(await values(),initial,'Theme filter must preserve every saved choice');
         assert.equal(await page.evaluate(()=>window.fixtureSyncs||0),0,'Filtering must not autosave');
       }
-      await form.locator('#providerThemeDisclosure>summary').click();
       await form.locator('.provider-schedule-preferences>summary').click();
       await form.locator('label:has(input[name="scheduleFontStyle"][value="refined"])').click();
       assert.equal(await page.evaluate(()=>window.fixtureSaved.schedule_font_style),'refined');

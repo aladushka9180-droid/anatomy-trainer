@@ -126,7 +126,7 @@ try {
   await page.locator('#selectedDateTitle').click();
   assert.equal(await menu.getAttribute('open'), null, 'Click outside closes the menu');
 
-  for (const theme of ['carbon-crimson', 'pink-porcelain', 'sage']) for (const width of [360, 390, 760, 1440]) for (const scale of ['default', 'comfortable', 'large']) {
+  for (const theme of ['carbon-crimson', 'pink-porcelain', 'sage']) for (const width of [320, 360, 390, 760, 1440]) for (const scale of ['default', 'comfortable', 'large']) {
     await page.setViewportSize({ width, height:844 });
     await page.evaluate(({theme, scale}) => {
       document.body.dataset.providerTheme = theme;
@@ -141,6 +141,8 @@ try {
       const toggle = rect('#scheduleViewMenu');
       const summary = rect('#scheduleMobileSummary');
       const title = rect('#selectedDateTitle');
+      const todayLabel = document.createRange();
+      todayLabel.selectNodeContents(document.querySelector('.date-navigation>.date-today-button'));
       return {
         overflow: document.documentElement.scrollWidth > innerWidth + 2,
         today:{ x:today.x, y:today.y, h:today.height },
@@ -167,6 +169,10 @@ try {
         dateIcon:{ x:rect('.schedule-date-picker>.ui-icon').x, w:rect('.schedule-date-picker>.ui-icon').width },
         dateTextRight:rect('#scheduleDateDisplay').right,
         dateGroupCenter:(rect('#scheduleDateDisplay').left + rect('.schedule-date-picker>.ui-icon').right) / 2,
+        visibleGaps:{
+          left:rect('#scheduleDateDisplay').left - todayLabel.getBoundingClientRect().right,
+          right:rect('#scheduleViewLabel').left - rect('.schedule-date-picker>.ui-icon').right,
+        },
         dateText:document.querySelector('#scheduleDateDisplay').textContent,
         dateFits:rect('#scheduleDateDisplay').left >= today.right && rect('.schedule-date-picker>.ui-icon').right <= toggle.left,
         dateUnclipped:document.querySelector('#scheduleDateDisplay').scrollWidth <= document.querySelector('#scheduleDateDisplay').clientWidth,
@@ -196,7 +202,7 @@ try {
       assert.equal(state.oldToggle, 'none');
       assert.equal(state.today.h, 44, 'The mobile Today action has a comfortable touch target');
       assert.equal(state.toggle.h, 44);
-      assert.ok(state.rowHeight >= 48 && state.rowHeight <= 55, 'The simple action row stays compact');
+      assert.equal(state.rowHeight, 51, 'Equal spacing preserves the existing action row height');
       assert.ok(state.controlsFont.every(size => parseFloat(size) >= 12 && parseFloat(size) <= 14), 'Action labels stay legible on mobile');
       assert.deepEqual(state.controlsWeight, ['500','400']);
       for (const target of state.hitTargets) {
@@ -218,6 +224,8 @@ try {
       assert.ok(state.dateIcon.x >= state.dateTextRight - 1, `${width}: calendar icon is not after date`);
       assert.ok(state.dateIcon.x - state.dateTextRight <= 5, `${width}: calendar icon detached from date`);
       assert.ok(Math.abs(state.dateGroupCenter - state.controlsCenter) <= 1, `${width}: date/calendar group not centered`);
+      assert.ok(state.visibleGaps.left >= 3 && state.visibleGaps.right >= 3, `${theme}/${width}/${scale}: action labels crowd each other`);
+      assert.ok(Math.abs(state.visibleGaps.left - state.visibleGaps.right) <= 3, `${theme}/${width}/${scale}: unequal visible action gaps: ${JSON.stringify(state.visibleGaps)}`);
       assert.ok(state.dateOpacity.every(opacity => opacity === '1'), `${width}: visible dates are dimmed`);
       assert.ok(Math.abs(state.headingCenter - state.actionsCenter) <= 3, `${theme}/${width}: heading below topbar icons`);
       assert.ok(state.heading.x <= 18, `${width}: heading shifted right`);
