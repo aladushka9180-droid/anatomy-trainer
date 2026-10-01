@@ -46,6 +46,35 @@ const one = async (db, sql, params = []) => (await db.query(sql, params)).rows[0
 const same = (actual, expected, message) => {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(message);
 };
+const loopback = new Set(['127.0.0.1', '::1', 'localhost']);
+
+export function assertAttestedTarget(db, { attested, expectedDatabase, expectedPort }) {
+  if (attested !== true) throw new Error('O19 full restore attestation required');
+  if (typeof expectedDatabase !== 'string' ||
+      !/^[a-z][a-z0-9_-]{2,62}$/i.test(expectedDatabase) ||
+      ['postgres', 'template0', 'template1'].includes(expectedDatabase.toLowerCase())) {
+    throw new Error('O19 named restore database required');
+  }
+  if (!Number.isInteger(expectedPort) || expectedPort < 1 || expectedPort > 65535) {
+    throw new Error('O19 expected restore port required');
+  }
+  const connection = db?.connectionParameters;
+  if (!loopback.has(connection?.host) || connection.database !== expectedDatabase ||
+      Number(connection.port) !== expectedPort) {
+    throw new Error('O19 pg Client target does not match attested loopback restore');
+  }
+}
+
+export function assertServerIdentity(identity, { expectedDatabase, expectedPort }) {
+  assert.ok(identity?.version >= 170000 && identity.version < 180000, 'O19 probe requires PG17');
+  assert.equal(identity.database, expectedDatabase, 'O19 database identity mismatch');
+  assert.equal(identity.port, expectedPort, 'O19 server port mismatch');
+  assert.ok(loopback.has(identity.server_addr) && loopback.has(identity.client_addr),
+    'O19 server connection must be loopback TCP');
+  assert.equal(identity.session_role, true, 'O19 probe requires a privileged session role');
+  assert.equal(identity.superuser, true, 'O19 probe requires rolsuper');
+  assert.equal(identity.recovery, false, 'O19 probe requires a writable isolated restore');
+}
 
 async function functionSnapshot(db) {
   const { rows } = await db.query(`select requested.signature, p.oid::text as oid,
@@ -185,9 +214,11 @@ async function requireCandidateAcl(db) {
 
 export async function probe(db, {
   org, ownerActor, adminActor, specialistActor, clientAccount, seedSyntheticFixture,
+  attested, expectedDatabase, expectedPort,
 }) {
   assert.equal(typeof db?.query, 'function', 'O19 probe requires one pg Client');
   assert.equal(typeof seedSyntheticFixture, 'function', 'O19 probe requires a synthetic fixture callback');
+  assertAttestedTarget(db, { attested, expectedDatabase, expectedPort });
   const ids = Object.freeze({ org, ownerActor, adminActor, specialistActor, clientAccount });
   for (const [name, id] of Object.entries(ids)) assert.ok(uuid.test(id), `O19 ${name} must be UUID`);
   assert.equal(new Set(Object.values(ids).map(id => id.toLowerCase())).size, 5,
@@ -200,10 +231,11 @@ export async function probe(db, {
   let result;
   try {
     const identity = await one(db, `select current_setting('server_version_num')::integer as version,
-      current_user=session_user as session_role, pg_is_in_recovery() as recovery`);
-    assert.ok(identity.version >= 170000 && identity.version < 180000, 'O19 probe requires PG17');
-    assert.equal(identity.session_role, true, 'O19 probe requires a privileged session role');
-    assert.equal(identity.recovery, false, 'O19 probe requires a writable isolated restore');
+      current_database() as database, inet_server_addr()::text as server_addr,
+      inet_client_addr()::text as client_addr, inet_server_port()::integer as port,
+      current_user=session_user as session_role, pg_is_in_recovery() as recovery,
+      (select rolsuper from pg_roles where rolname=current_user) as superuser`);
+    assertServerIdentity(identity, { expectedDatabase, expectedPort });
     original = await functionSnapshot(db);
     assert.ok(original.slice(0, 3).every(entry => entry.oid !== null), 'O19 v166 prerequisite missing');
     assert.ok(original.slice(3).every(entry => entry.oid === null), 'O19 candidate already present');
@@ -284,6 +316,43 @@ export async function probe(db, {
     same([secondCycle.before, secondCycle.cycle_number, secondCycle.allowed], [0, 2, false],
       'O19 post-reward cycle mismatch');
 
+    // A redeemed reward whose source visit is later cancelled leaves -1 manual debt in v166.
+    // Reproduce only that persisted state on our own account, then discard the setup and proof.
+    const beforeDebt = await scopedDataHash(db, org);
+    await db.query('savepoint o19_negative_debt');
+    try {
+      const redeemed = await db.query(`update public.loyalty_program_rewards_v166
+        set status='redeemed',redeemed_at=now(),updated_at=now()
+        where id=$1 and organization_id=$2 and client_account_id=$3 and status='pending'
+        returning id`, [legacyResult.reward_id, org, clientAccount]);
+      assert.equal(redeemed.rowCount, 1, 'O19 synthetic reward not available for debt setup');
+      const indebted = await db.query(`update public.loyalty_program_accounts_v166
+        set manual_progress=-1,updated_at=now()
+        where organization_id=$1 and client_account_id=$2
+          and cycle_number=2 and manual_progress=0
+        returning id`, [org, clientAccount]);
+      assert.equal(indebted.rowCount, 1, 'O19 synthetic account not available for debt setup');
+      const debtPreview = await preview(ownerActor, 1);
+      same([debtPreview.before, debtPreview.after, debtPreview.allowed, debtPreview.reaches_goal],
+        [-1, 0, true, false], 'O19 negative debt compensation preview mismatch');
+      const underDebt = await preview(ownerActor, -1);
+      same([underDebt.before, underDebt.after, underDebt.allowed], [-1, -2, false],
+        'O19 negative result boundary mismatch');
+      await expectSqlState(() => confirm(ownerActor, -1, randomUUID(), underDebt),
+        '22023', 'invalid_loyalty_progress_result');
+      const compensated = await confirm(ownerActor, 1, randomUUID(), debtPreview);
+      same([compensated.progress, compensated.recovered], [0, false],
+        'O19 negative debt compensation mismatch');
+      const compensatedPreview = await preview(ownerActor, 1);
+      same([compensatedPreview.before, compensatedPreview.after], [0, 1],
+        'O19 compensated debt did not return to zero');
+    } finally {
+      await db.query('rollback to savepoint o19_negative_debt');
+      await db.query('release savepoint o19_negative_debt');
+    }
+    assert.equal(await scopedDataHash(db, org), beforeDebt,
+      'O19 debt proof changed the main synthetic sequence');
+
     const beforeRollback = await scopedDataHash(db, org);
     await db.query(rollbackSql);
     same(await functionSnapshot(db), original, 'O19 rollback changed original function bodies or ACL');
@@ -308,7 +377,7 @@ export async function probe(db, {
       'O19 second rollback changed synthetic data');
     result = {
       previewReadOnly: true, boundaries: true, roles: true, stale: true,
-      legacy: true, retry: true, rollback: true, reapply: true,
+      legacy: true, retry: true, negativeDebt: true, rollback: true, reapply: true,
     };
   } finally {
     await db.query(`rollback to savepoint ${savepoint}`);
