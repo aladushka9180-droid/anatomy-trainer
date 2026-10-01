@@ -145,7 +145,10 @@ try {
     await page.waitForFunction(() => pending.length === 1);
     await page.locator('.free-slots-extra > summary').click();
     await page.selectOption('#freeSlotsService', 'service-A-2');
-    await page.waitForFunction(() => document.querySelector('#freeSlotsText').value.includes('15:00'));
+    await page.waitForFunction(() =>
+      document.querySelector('#freeSlotsText').value.includes('15:00')
+      && document.querySelector('#freeSlotsBookingLink').getAttribute('href')?.includes('service=service-A-2')
+      && document.querySelector('#freeSlotsDialog').getAttribute('aria-busy') !== 'true');
     await page.evaluate(() => pending.shift()());
     await assertNoOutput(page);
     assert.match(await page.locator('#freeSlotsText').inputValue(), /15:00/);
