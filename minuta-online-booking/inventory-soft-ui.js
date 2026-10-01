@@ -106,8 +106,9 @@
     close.append(icon('close'));
     header.append(title, close);
     dialog.append(header, form);
-    // Keep forms inside the inventory panel: delegated write guards remain intact.
-    creator.append(dialog);
+    // Reads hide the workspace, including on failure. Keep the editor outside it
+    // so its draft/error and cancel action stay visible; delegated guards use the panel.
+    panel.append(dialog);
     const editor = { creator, form, dialog, title, trigger:null };
     if (kind === 'item') {
       const firstRow = $('#inventoryItemName').closest('.form-row');

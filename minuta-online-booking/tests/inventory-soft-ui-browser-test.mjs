@@ -68,6 +68,7 @@ try {
       window.testWrites = true;
       window.rpcCalls = [];
       window.rejectSave = false;
+      window.rejectRead = false;
       window.workspace = { organization_id:org, current_role:'owner', enabled:true, auto_deduct_completed_visits:true,
         transfer_version:130, transfers_enabled:false, transfers_initialized_at:null,
         locations:[{ id:org, name:'Основной филиал', active:true }], services:[],
@@ -78,7 +79,8 @@ try {
       window.controller = window.MinutaInventory.createController({
         db:{ rpc:async (name, parameters) => {
           window.rpcCalls.push({ name, parameters });
-          if (name === 'get_minuta_inventory_workspace_v130') return { data:structuredClone(window.workspace) };
+          if (name === 'get_minuta_inventory_workspace_v130') return window.rejectRead
+            ? { error:{ message:'read_timeout' } } : { data:structuredClone(window.workspace) };
           if (name === 'upsert_minuta_inventory_item') {
             if (window.rejectSave) return { error:{ message:'inventory_unit_locked_by_ledger' } };
             const item = window.workspace.items.find(row => row.id === parameters.p_item);
@@ -145,13 +147,18 @@ try {
 
     // Server rejection stays visible in the same editor, with the draft intact.
     await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
-    await page.evaluate(() => window.rejectSave = true);
+    await page.evaluate(() => { window.rejectSave = true; window.rejectRead = true; });
     await page.locator('#inventoryItemDialog .pro-select-trigger').click();
     await page.getByRole('option', { name:'шт.', exact:true }).click();
     assert.equal(await page.locator('#inventoryItemDialog').evaluate(node => node.open), true);
     await page.locator('#inventoryItemForm button[type="submit"]').click();
     await page.getByText('Нельзя изменить единицу материала после первой операции. Создайте новую позицию.', { exact:true }).waitFor({ state:'visible' });
     assert.equal(await page.locator('#inventoryItemDialog').evaluate(node => node.open), true);
+    assert.equal(await page.locator('#inventoryItemUnit').inputValue(), 'piece');
+    assert.equal(await page.locator('#inventoryWorkspace').isVisible(), false);
+    // Restoring only the read keeps the same error and edited unit visible.
+    await page.evaluate(() => { window.rejectRead = false; return window.controller.load(); });
+    assert.equal(await page.locator('#inventoryItemDialog').isVisible(), true);
     assert.equal(await page.locator('#inventoryItemUnit').inputValue(), 'piece');
     await page.keyboard.press('Escape');
     await page.locator('#inventoryItemDialog').waitFor({ state:'hidden' });
