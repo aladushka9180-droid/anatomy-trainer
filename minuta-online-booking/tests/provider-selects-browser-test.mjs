@@ -11,8 +11,9 @@ const output=process.env.MINUTA_VISUAL_OUTPUT?resolve(process.env.MINUTA_VISUAL_
 if(output)await mkdir(output,{recursive:true});
 const errors=[];
 const proxy=select=>select.locator('xpath=following-sibling::button[1]');
+let page;
 try {
-  const page=await browser.newPage({viewport:{width:390,height:844}});
+  page=await browser.newPage({viewport:{width:390,height:844}});
   page.on('pageerror',error=>errors.push(error.message));
   await page.goto(fixture.url,{waitUntil:'domcontentloaded'});
   await page.locator('body[data-provider-selects-ready]').waitFor();
@@ -29,6 +30,14 @@ try {
   assert.equal(await service.inputValue(),'service-2');
   assert.deepEqual(await page.evaluate(()=>fixtureEvents),['input','change']);
   assert.match(await trigger.innerText(),/Спортивный массаж/);
+  const reopened=await page.evaluate(async()=>{
+    const trigger=document.querySelector('[data-session-service]').nextElementSibling;
+    trigger.click();document.querySelector('.pro-select-close').click();trigger.click();
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    return document.querySelector('.pro-select-dialog').open;
+  });
+  assert.equal(reopened,true,'A queued close event from the previous menu must not close the reopened picker');
+  await dialog.getByRole('button',{name:'Закрыть выбор',exact:true}).click();
   await trigger.click();
   await page.keyboard.press('Home');await page.keyboard.press('ArrowDown');await page.keyboard.press('Escape');
   assert.equal(await page.evaluate(()=>fixtureSheetCloses),0,'Escape closes only the picker and preserves the booking editor');
@@ -151,4 +160,7 @@ try {
   await page.keyboard.press('Escape');
   assert.deepEqual(errors,[]);
   console.log(`PASS: ${fixture.inventoryCount} published fields, dynamic forms, keyboard, validation, reset, programmatic updates, disabled groups, nested dialogs; 18 theme/viewport combinations, ${screenshots} screenshots.`);
+} catch(error) {
+  console.error('Picker state at failure:',await page?.evaluate(()=>({sheetCloses:window.fixtureSheetCloses,sheetHidden:document.querySelector('#bookingSheet')?.hidden,dialogOpen:document.querySelector('.pro-select-dialog')?.open,focus:document.activeElement?.outerHTML.slice(0,400),dynamicHidden:document.querySelector('#dynamicFields')?.hidden})));
+  throw error;
 } finally {await browser.close();await new Promise(resolve=>fixture.server.close(resolve));}

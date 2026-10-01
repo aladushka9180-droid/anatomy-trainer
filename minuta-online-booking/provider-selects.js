@@ -191,7 +191,7 @@
 
     dialog.querySelector('.pro-select-close').addEventListener('click', close);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
-    dialog.addEventListener('close', () => { if (active) close(); });
+    dialog.addEventListener('close', () => { if (active && !dialog.open) close(); });
     dialog.addEventListener('click', event => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) close(); } });
     dialog.addEventListener('keydown', event => {
       if (event.key === 'Escape') event.stopPropagation();
