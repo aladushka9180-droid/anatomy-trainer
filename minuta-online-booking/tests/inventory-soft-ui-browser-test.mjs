@@ -119,8 +119,11 @@ try {
     await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
     await page.locator('#inventoryItemDialog').waitFor({ state:'visible' });
     // Navigation hides a provider-view ancestor, not necessarily the panel itself.
+    await page.locator('#inventoryItemDialog .pro-select-trigger').click();
+    await page.locator('.pro-select-dialog').waitFor({ state:'visible' });
     await page.evaluate(() => { document.querySelector('main').hidden = true; });
     await page.waitForFunction(() => !document.querySelector('#inventoryItemDialog').open);
+    await page.locator('.pro-select-dialog').waitFor({ state:'hidden' });
     await page.evaluate(() => { document.querySelector('main').hidden = false; });
     await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
     await page.locator('#inventoryItemDialog').waitFor({ state:'visible' });
