@@ -8,6 +8,9 @@ const html = await readFile(path.join(root, 'provider.html'), 'utf8');
 const source = (await readFile(path.join(root, 'provider.js'), 'utf8')).replaceAll('\r\n','\n');
 const styles = [...html.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"[^>]*>/g)].map(match => `<link rel="stylesheet" href="/${match[1]}">`).join('\n');
 const inventory = [...html.matchAll(/<select\b[^>]*>[\s\S]*?<\/select>/g)].map(match => match[0]).join('\n');
+const escapeStart = source.indexOf("document.addEventListener('keydown', event => {\n  if (trapPortfolioActionFocus(event)) return;");
+if (escapeStart < 0) throw new Error('Missing provider Escape handler');
+const providerEscapeHandler = source.slice(escapeStart, source.indexOf('\n});', escapeStart) + 4);
 function declaration(name) {
   const start = source.search(new RegExp(`^function ${name}\\(`, 'm'));
   if (start < 0) throw new Error(`Missing renderer ${name}`);
@@ -31,6 +34,11 @@ function script() {
   ${declaration('sessionComposerItemMarkup')}
   document.querySelector('#sessionItems').innerHTML=sessionComposerItemMarkup({kind:'primary',service_id:'service-8',title:ownServices[8].name,duration_minutes:60,price_rub:3000},0);
   window.fixtureEvents=[];window.fixtureSubmits=0;
+  window.fixtureSheetCloses=0;
+  var $=selector=>document.querySelector(selector)||{open:false}, $$=selector=>[...document.querySelectorAll(selector)];
+  var trapPortfolioActionFocus=()=>false, providerMobileMoreIsOpen=()=>false;
+  var closeBookingSheet=()=>{fixtureSheetCloses++;document.querySelector('#bookingSheet').hidden=true};
+  ${providerEscapeHandler}
   document.querySelector('[data-session-service]').addEventListener('input',()=>fixtureEvents.push('input'));
   document.querySelector('[data-session-service]').addEventListener('change',()=>fixtureEvents.push('change'));
   document.querySelectorAll('form').forEach(form=>form.addEventListener('submit',event=>{event.preventDefault();fixtureSubmits++}));

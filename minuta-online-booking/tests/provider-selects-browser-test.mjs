@@ -31,6 +31,7 @@ try {
   assert.match(await trigger.innerText(),/Спортивный массаж/);
   await trigger.click();
   await page.keyboard.press('Home');await page.keyboard.press('ArrowDown');await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(()=>fixtureSheetCloses),0,'Escape closes only the picker and preserves the booking editor');
   assert.equal(await service.inputValue(),'service-2','Moving focus and cancelling must not change selection');
   assert.equal(await trigger.evaluate(node=>document.activeElement===node),true);
   await trigger.press('ArrowDown');await page.keyboard.press('Home');await page.keyboard.press('Enter');
