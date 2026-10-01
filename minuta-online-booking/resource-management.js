@@ -22,6 +22,7 @@
     let resourceGroupId = '';
     let resourceStatus = '';
     let resourceLimit = 12;
+    let resourceMatchCount = 0;
     let groupsOpen = false;
     let writePending = false;
     let pendingOrganization;
@@ -242,6 +243,16 @@
       $('#resourceRequirementSubmit').disabled = !payload.can_manage || !groups.length;
     }
 
+    function renderPagination() {
+      const more = $('#resourceListMore');
+      if (more) {
+        more.hidden = resourceMatchCount <= resourceLimit;
+        more.textContent = `Показать ещё · ${Math.min(12, Math.max(0, resourceMatchCount - resourceLimit))}`;
+      }
+      if ($('#resourceListCollapse')) $('#resourceListCollapse').hidden = resourceLimit <= 12 || resourceMatchCount <= 12;
+      if ($('#resourceListPageCount')) $('#resourceListPageCount').textContent = resourceMatchCount > resourceLimit ? `Показано ${resourceLimit} из ${resourceMatchCount}` : '';
+    }
+
     function renderResourceList(canManage, keepEditors = false) {
       const list = $('#resourcesList');
       const normalized = resourceQuery.trim().toLocaleLowerCase('ru-RU');
@@ -250,22 +261,18 @@
         (!resourceGroupId || String(item.group_id) === resourceGroupId) &&
         (!resourceStatus || Boolean(item.active) === (resourceStatus === 'active')) &&
         (!normalized || String(item.name || '').toLocaleLowerCase('ru-RU').includes(normalized)));
+      resourceMatchCount = visible.length;
       const editors = keepEditors ? new Map([...list.querySelectorAll('[data-resource-card][open]')].map(node => [node.dataset.resourceCard, node])) : new Map();
       list.innerHTML = visible.length ? visible.slice(0, resourceLimit).map(item => resourceCard(item, canManage)).join('')
         : payload.resources.length ? empty('Ничего не найдено', 'Измените поиск или сбросьте фильтры.')
           : canManage ? '' : empty('Ресурсов пока нет', 'Администратор ещё не добавил ресурсы в филиалы.');
       list.querySelectorAll('[data-resource-card]').forEach(node => {
         const editor = editors.get(node.dataset.resourceCard);
-        if (editor) node.replaceWith(editor);
+        if (editor) { editor.hidden = false; node.replaceWith(editor); }
       });
       const count = $('#resourceListMatchCount');
       if (count) count.textContent = `Найдено: ${visible.length} из ${payload.resources.length}`;
-      const more = $('#resourceListMore');
-      if (more) {
-        more.hidden = visible.length <= resourceLimit;
-        more.textContent = `Показать ещё · ${Math.min(12, visible.length - resourceLimit)}`;
-      }
-      if ($('#resourceListPageCount')) $('#resourceListPageCount').textContent = visible.length > resourceLimit ? `Показано ${resourceLimit} из ${visible.length}` : '';
+      renderPagination();
       if ($('#resourceListReset')) $('#resourceListReset').hidden = !resourceQuery && !resourceLocationId && !resourceGroupId && !resourceStatus;
       if ($('#resourceFiltersToggle')) $('#resourceFiltersToggle').textContent = `Фильтры${[resourceLocationId, resourceGroupId, resourceStatus].filter(Boolean).length ? ' · ' + [resourceLocationId, resourceGroupId, resourceStatus].filter(Boolean).length : ''}`;
       if (writePending) setResourceWritesDisabled(true);
@@ -275,7 +282,7 @@
       const list = $('#resourcesList');
       if (!$('#resourceListFilters') && typeof list.insertAdjacentHTML === 'function') {
         list.insertAdjacentHTML('beforebegin', '<div class="resource-list-filters" id="resourceListFilters"><div class="resource-search-row"><label class="resource-search"><span class="resource-visually-hidden">Найти ресурс</span><svg aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg><input id="resourceListSearch" type="search" autocomplete="off" placeholder="Найти ресурс"></label><button class="secondary-button" id="resourceFiltersToggle" type="button" aria-controls="resourceExtraFilters" aria-expanded="false">Фильтры</button></div><div class="resource-extra-filters" id="resourceExtraFilters"><label><span class="resource-visually-hidden">Фильтр ресурсов по филиалу</span><select id="resourceListLocation" aria-label="Фильтр ресурсов по филиалу"></select></label><label><span class="resource-visually-hidden">Фильтр ресурсов по группе</span><select id="resourceListGroup" aria-label="Фильтр ресурсов по группе"></select></label><label><span class="resource-visually-hidden">Фильтр ресурсов по статусу</span><select id="resourceListStatus" aria-label="Фильтр ресурсов по статусу"><option value="">Все статусы</option><option value="active">Активные</option><option value="inactive">Отключённые</option></select></label></div><div class="resource-filter-result"><span id="resourceListMatchCount" role="status" aria-live="polite"></span><button class="resource-text-button" id="resourceListReset" type="button" hidden>Сбросить фильтры</button></div></div>');
-        list.insertAdjacentHTML('afterend', '<div class="resource-list-pagination"><span id="resourceListPageCount"></span><button class="secondary-button" id="resourceListMore" type="button" hidden>Показать ещё</button></div>');
+        list.insertAdjacentHTML('afterend', '<div class="resource-list-pagination"><span id="resourceListPageCount"></span><button class="secondary-button" id="resourceListMore" type="button" hidden>Показать ещё</button><button class="resource-text-button" id="resourceListCollapse" type="button" hidden>Свернуть список</button></div>');
       }
       const filters = $('#resourceListFilters');
       if (!filters) return;
@@ -502,6 +509,13 @@
       if (event.target.closest('#resourceListMore') && payload) {
         resourceLimit += 12;
         renderResourceList(Boolean(payload.can_manage), true);
+      }
+      if (event.target.closest('#resourceListCollapse') && payload) {
+        resourceLimit = 12;
+        // Keep hidden editors in the DOM so folding does not discard a draft.
+        $('#resourcesList').querySelectorAll('.resource-item').forEach((node, index) => { node.hidden = index >= resourceLimit; });
+        renderPagination();
+        $('#resourceListMore').focus();
       }
       if (event.target.closest('[data-resource-cancel]') && !writePending) cancelEditor(event.target);
     }

@@ -46,6 +46,13 @@ try {
   await card('res-1').locator('input[name=name]').fill('Черновик');
   await page.locator('#resourceListMore').click();
   check('Show more preserves an open editor and unsaved value',await count()===24 && await card('res-1').getAttribute('open')!==null && await card('res-1').locator('input[name=name]').inputValue()==='Черновик');
+  await card('res-20').locator('summary').click();
+  await card('res-20').locator('input[name=name]').fill('Черновик скрытого ресурса');
+  await page.locator('#resourceListCollapse').click();
+  check('Collapse returns to 12 visible resources',await page.locator('#resourcesList .resource-item:visible').count()===12 && !await page.locator('#resourceListCollapse').isVisible() && await page.locator('#resourceListMore').isVisible());
+  await page.locator('#resourceListMore').click();
+  check('Expanding again restores the hidden editor and its draft',await card('res-20').getAttribute('open')!==null && await card('res-20').locator('input[name=name]').inputValue()==='Черновик скрытого ресурса');
+  await card('res-20').getByRole('button',{name:'Отмена',exact:true}).click();
   await card('res-1').getByRole('button',{name:'Отмена',exact:true}).click();
   await card('res-1').locator('summary').click();
   check('Cancel restores the last server value',await card('res-1').locator('input[name=name]').inputValue()==='Кабинет 01 <тест>');
