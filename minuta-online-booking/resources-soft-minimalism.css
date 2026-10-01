@@ -25,7 +25,7 @@
 #resourcesPanel.resources-soft-minimalism .resource-search svg { position:absolute; top:14px; left:13px; color:var(--resource-muted); pointer-events:none; }
 #resourcesPanel.resources-soft-minimalism .resource-extra-filters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; min-width:0; }
 #resourcesPanel.resources-soft-minimalism .resource-extra-filters label { min-width:0; }
-#resourcesPanel.resources-soft-minimalism :is(input:not([type=checkbox]),select) { box-sizing:border-box; width:100%; min-width:0; min-height:48px; margin:0; padding:10px 12px; border:1px solid var(--resource-field-line); border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-ink,#342d33); font-size:14px; font-weight:400; line-height:1.4; }
+#resourcesPanel.resources-soft-minimalism :is(input:not([type=checkbox]),select,.pro-select-trigger) { box-sizing:border-box; width:100%; min-width:0; min-height:48px; margin:0; padding:10px 12px; border:1px solid var(--resource-field-line); border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-ink,#342d33); font-size:14px; font-weight:400; line-height:1.4; }
 #resourcesPanel.resources-soft-minimalism #resourceListSearch { padding-left:42px; }
 #resourcesPanel.resources-soft-minimalism input::placeholder { color:var(--resource-muted); opacity:1; }
 #resourcesPanel.resources-soft-minimalism :is(input,select,button,summary):focus-visible { outline:2px solid var(--theme-accent,#a23c65); outline-offset:3px; }
