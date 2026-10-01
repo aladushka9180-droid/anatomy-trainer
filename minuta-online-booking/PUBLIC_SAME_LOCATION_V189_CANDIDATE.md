@@ -38,7 +38,10 @@ against these captured responses and compares its emitted body to the body
 executed by PostgreSQL. Exact replay must return the same bookings. The
 artifact contains only disposable fixture data; client source and private
 schema are not uploaded. No request reaches a public API, and the capture
-transaction rolls back. Execution of this final contract check is pending.
+transaction rolls back. Native capture passed on `c667b7d0` in Actions run
+`36923410974`; the actual client adapter accepted that artifact, emitted the
+identical body, and accepted exact replay on 2026-10-02. This verifies the
+native JSON contract; production PostgREST and live booking remain gated.
 
 Before production SQL: recheck the migration number against fresh `main` and
 other release candidates; the sole Pro release owner must verify a fresh
