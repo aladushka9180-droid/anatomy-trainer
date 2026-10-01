@@ -176,6 +176,8 @@ try {
         'Unknown settings must not be shown as a verified test mode');
       assert.equal(await page.locator('#paymentSoftMode').isVisible(), false);
       assert.equal(await page.locator('#paymentSoftStatus').textContent(), 'Не проверено');
+      assert.equal(await page.locator('#paymentSoftStatus').getAttribute('aria-label'), 'Состояние предоплаты не проверено');
+      assert.equal(await page.locator('#paymentSoftStatus').getAttribute('data-enabled'), 'false');
       await page.evaluate(() => { reviewError = false; });
       await page.evaluate(async id => { reviewRole = 'admin'; await reviewController.setOrganization({ id, current_role:'admin' }); }, organizationId);
       assert.match(await page.locator('#paymentProviderReviewRights').textContent(), /администратор может просматривать/);

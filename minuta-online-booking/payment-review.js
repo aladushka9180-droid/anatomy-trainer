@@ -38,13 +38,14 @@
     const compact = document.createElement('span');
     compact.id = 'paymentSoftStatus';
     compact.className = 'payment-soft-badge';
-    compact.setAttribute('aria-hidden', 'true');
+    compact.setAttribute('role', 'status');
+    compact.setAttribute('aria-live', 'polite');
     const mode = document.createElement('span');
     mode.id = 'paymentSoftMode';
     mode.className = 'payment-soft-badge payment-soft-mode';
     badges.append(state, compact, mode);
     state.classList.add('payment-soft-visually-hidden');
-    state.setAttribute('role', 'status');
+    state.setAttribute('aria-hidden', 'true');
 
     const helpHost = panel.querySelector('[data-contextual-help]');
     const decorateHelp = () => {
@@ -135,11 +136,12 @@
     function render() {
       review.hidden = panel.hidden || workspace.hidden;
       soft.mode.hidden = review.hidden;
-      if (review.hidden) { soft.compact.textContent = 'Не проверено'; acknowledged.checked = false; notice.textContent = ''; production.hidden = true; return; }
+      if (review.hidden) { soft.compact.textContent = 'Не проверено'; soft.compact.dataset.enabled = 'false'; soft.compact.setAttribute('aria-label', 'Состояние предоплаты не проверено'); acknowledged.checked = false; notice.textContent = ''; production.hidden = true; return; }
       const savedMode = savedEnvironment === 'production' ? 'рабочий' : 'тестовый';
       mode.textContent = `${providerState.textContent.trim()}. Сохранённый режим: ${savedMode} магазин.`;
       const enabled = providerState.textContent.includes('Приём включён в настройках');
       soft.compact.textContent = enabled ? 'Включена в настройках' : 'Выключена';
+      soft.compact.setAttribute('aria-label', providerState.textContent.trim());
       soft.compact.dataset.enabled = String(enabled);
       soft.mode.textContent = savedEnvironment === 'production' ? 'Рабочий магазин' : 'Тестовый магазин';
       test.textContent = `Внутренний тест: ${sandboxState.textContent.trim().toLowerCase() || 'нет результата'}. Он не проверяет ЮKassa.`;
