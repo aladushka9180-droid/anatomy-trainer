@@ -93,6 +93,11 @@ try {
   await proxy(page.locator('#loading')).click();
   assert.equal(await dialog.getByText('Нет вариантов',{exact:true}).isVisible(),true);
   await page.keyboard.press('Escape');
+  await proxy(grouped).click();
+  await page.locator('#dynamicFields').evaluate(node=>{node.hidden=true});
+  await dialog.waitFor({state:'hidden',timeout:1500});
+  assert.equal(await grouped.inputValue(),'c','Hiding the owning section cancels selection without changing its value');
+  await page.locator('#dynamicFields').evaluate(node=>{node.hidden=false});
   await page.locator('#loading').evaluate(node=>{node.replaceChildren(new Option('Готово','ready'))});
   await page.getByRole('button',{name:'Загрузка: Готово',exact:true}).waitFor();
   await proxy(grouped).click();

@@ -233,6 +233,7 @@
         states.delete(select);
       }
       changed.forEach(refresh);
+      if (active && !active.trigger.getClientRects().length) close();
     }).observe(body, { subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['disabled','hidden','class','style','required','aria-label','aria-labelledby','aria-describedby','selected','label','value'] });
     scan(body);
   }
