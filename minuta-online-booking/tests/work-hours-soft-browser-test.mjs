@@ -33,6 +33,8 @@ try {
     check(layout.width===width&&layout.scroll<=width,`${theme}/${width}: page overflow`);
     check(layout.icons===5,`${theme}/${width}: five consistent decorative icons`);
     check(layout.checked.join(',')==='2,3,4,5,6,7','Initial work days preserved');
+    const dayMarks=await page.locator('.schedule-quick-days input:checked+span').evaluateAll(elements=>elements.map(e=>getComputedStyle(e,'::after').content));
+    check(dayMarks.every(content=>content==='none'||content==='normal'),'Selected weekdays have no decorative checkmarks');
     check(layout.fields.every(f=>f.height>=44&&f.width>=95),'Time fields are tappable and visible');
     check(layout.working!==layout.off&&layout.working!==layout.closed,'Calendar separates ordinary days and exceptions');
     const step=await page.locator('.booking-step-setting').evaluate(e=>{
@@ -48,7 +50,10 @@ try {
     check(contrast(readable.fg,readable.bg)>=4.5,`${theme}: selected day text contrast ${JSON.stringify(readable)}`);
     const action=await page.locator('#applyQuickSchedule').evaluate(e=>({fg:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor}));
     check(contrast(action.fg,action.bg)>=4.5,`${theme}: primary action text contrast`);
-    if(output&&theme==='pink-porcelain')await page.screenshot({path:path.join(output,`candidate-${width}.png`),fullPage:true});
+    if(output&&theme==='pink-porcelain') {
+      await page.screenshot({path:path.join(output,`candidate-${width}.png`),fullPage:true});
+      await page.locator('.schedule-quick-days').screenshot({path:path.join(output,`days-${width}.png`)});
+    }
     await page.getByRole('button',{name:'Будни',exact:true}).click();
     check(await page.locator('[data-schedule-quick-day]:checked').count()===5,'Weekdays preset');
     await page.locator('[data-schedule-quick-day="6"] + span').click();
