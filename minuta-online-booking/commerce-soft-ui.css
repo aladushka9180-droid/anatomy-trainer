@@ -133,7 +133,7 @@
   .provider-body #commercePanel.commerce-soft-panel .commerce-summary article { padding:4px 10px; }
   .provider-body #commercePanel.commerce-soft-panel .commerce-summary small { font-size:12px; }
   .provider-body #commercePanel.commerce-soft-panel #commerceSaleForm>.form-row { grid-template-columns:1fr; }
-  .provider-body #commercePanel.commerce-soft-panel #commerceSaleForm>.commerce-sale-amounts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .provider-body #commercePanel.commerce-soft-panel #commerceSaleForm>.commerce-sale-amounts { grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))!important; }
   .provider-body #commercePanel.commerce-soft-panel .commerce-sale-options-fields { grid-template-columns:1fr; }
   .provider-body #commercePanel.commerce-soft-panel .commerce-sale-options>summary small { max-width:100%; white-space:normal; text-align:left; }
   .provider-body #commercePanel.commerce-soft-panel .cs-change-label { font-size:12px; }
