@@ -194,6 +194,7 @@
     dialog.addEventListener('close', () => { if (active) close(); });
     dialog.addEventListener('click', event => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) close(); } });
     dialog.addEventListener('keydown', event => {
+      if (event.key === 'Escape') event.stopPropagation();
       const options = [...list.querySelectorAll('[role="option"]:not(:disabled)')];
       const index = options.indexOf(document.activeElement);
       if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
