@@ -15,6 +15,7 @@ try {
   await page.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
   await page.goto(url);await page.waitForFunction(()=>window.fixtureReady||window.fixtureError);
   assert.equal(await page.evaluate(()=>window.fixtureError),undefined);
+  await page.addScriptTag({content:readFileSync(new URL('../provider-selects.js',import.meta.url),'utf8')});
   await page.addScriptTag({content:readFileSync(new URL('../provider-porcelain-matrix.js',import.meta.url),'utf8')});
   await page.evaluate(t=>{
    document.body.dataset.providerTheme=t;
@@ -105,6 +106,7 @@ try {
  const page=await browser.newPage({viewport:{width:360,height:640},reducedMotion:'reduce'});
  await page.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
  await page.goto(url);await page.waitForFunction(()=>window.fixtureReady);
+ await page.addScriptTag({content:readFileSync(new URL('../provider-selects.js',import.meta.url),'utf8')});
  await page.evaluate(()=>fixtureSelect());
  await page.locator('#newBookingServiceOpen').click();await page.locator('[data-pick-new-booking-service="s3"]').click();
  await page.locator('#newBookingDuration').fill('75');await page.locator('#newBookingDuration').press('Tab');

@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1053`;
-const CACHE_READY = './.precache-ready-v1053';
+const CACHE = `${CACHE_PREFIX}v1054`;
+const CACHE_READY = './.precache-ready-v1054';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1053',
+  './site-update.js?v=1054',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -63,18 +63,23 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1036',
-  './provider.js?v=1053',
+  './provider.js?v=1054',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
 
 const OPTIONAL_ASSETS = [
+  './inventory-soft-ui.css?v=1054',
+  './inventory-soft-ui.js?v=1054',
+  './inventory-management.js?v=1054',
+  './provider-selects.css?v=1054',
+  './provider-selects.js?v=1054',
   './commerce-soft-ui.css?v=1053',
   './commerce-soft-ui.js?v=1053',
   './payroll-soft-minimalism.css?v=1053',
   './payroll-soft-minimalism.js?v=1053',
-  './benefit-management.js?v=1053',
-  './retention-management.js?v=1053',
+  './benefit-management.js?v=1054',
+  './retention-management.js?v=1054',
   './payment-review.js?v=1044',
   './organization-overview.css?v=1044',
   './organization-group-navigation.css?v=1051',

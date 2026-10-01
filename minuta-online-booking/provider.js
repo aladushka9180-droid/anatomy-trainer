@@ -17822,7 +17822,7 @@ const organizationFeatureDefinitions = new Map([
   ['commercePanel', { script:'commerce-management.js', api:() => window.MinutaCommerce, get:() => commerceController, set:value => { commerceController = value; }, admin:true }],
   ['benefitsPanel', { script:'benefit-management.js', api:() => window.MinutaBenefits, get:() => benefitController, set:value => { benefitController = value; }, admin:true }],
   ['loyaltyPanel', { script:'loyalty-program-v166.js', api:() => window.MinutaLoyalty, get:() => loyaltyController, set:value => { loyaltyController = value; }, admin:true }],
-  ['inventoryPanel', { script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true }],
+  ['inventoryPanel', { before:'inventory-soft-ui.js', script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true }],
   ['retentionPanel', { script:'retention-management.js', api:() => window.MinutaRetention, get:() => retentionController, set:value => { retentionController = value; }, admin:true }]
 ]);
 
@@ -17894,6 +17894,7 @@ async function ensureOrganizationFeature(sectionId) {
     || (definition.admin && !['owner', 'admin'].includes(organization.current_role))) return null;
   let controller = definition.get();
   if (!controller) {
+    if (definition.before) await loadProviderFeatureScript(definition.before);
     await loadProviderFeatureScript(definition.script);
     if (!sessionIsCurrent(userId, generation) || revision !== organizationFeatureContextRevision
       || organizationController.getActiveOrganization()?.id !== organization.id) return null;
