@@ -187,7 +187,9 @@
     const transferState = payload.transfers_suspended_at ? 'остановлены до сверки' : payload.transfers_enabled ? 'включены' : 'выключены';
     settingsStatus.textContent = `Учёт ${payload.enabled ? 'включён' : 'выключен'} · Автосписание ${payload.enabled && payload.auto_deduct_completed_visits ? 'включено' : 'выключено'}`
       + (Number(payload.transfer_version) === 130 ? ` · Перемещения ${transferState}` : '');
-    warehouseStatus.textContent = `${payload.warehouses.filter(row => row.active).length} активных · по филиалам`;
+    const activeCount = payload.warehouses.filter(row => row.active).length;
+    const activeLabel = activeCount % 10 === 1 && activeCount % 100 !== 11 ? 'активный' : 'активных';
+    warehouseStatus.textContent = `${activeCount} ${activeLabel} · по филиалам`;
     for (const row of $('#inventoryItemsList').querySelectorAll('.organization-row')) {
       const edit = row.querySelector('[data-inventory-edit-item]');
       const item = payload.items.find(entry => entry.id === edit?.dataset.inventoryEditItem);

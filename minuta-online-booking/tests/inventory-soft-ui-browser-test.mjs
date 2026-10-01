@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('provider.html', root), 'utf8');
-const head = html.split('</head>')[0].replace(/<template[\s\S]*?<\/template>/g, '');
+const head = html.replace(/<template[\s\S]*?<\/template>/g, '');
 const layers = [...head.matchAll(/<link[^>]+href="([^"?]+\.css)(?:\?[^\"]*)?"/g)]
   .map(match => readFileSync(new URL(match[1], root), 'utf8'));
 const controllerSource = readFileSync(new URL('inventory-management.js', root), 'utf8');
@@ -63,6 +63,7 @@ try {
     await page.addStyleTag({ content:uiCss });
     await page.addScriptTag({ content:uiSource });
     await page.addScriptTag({ content:controllerSource });
+    await page.addScriptTag({ content:readFileSync(new URL('provider-selects.js', root), 'utf8') });
     await page.evaluate(({ org, warehouse, samples }) => {
       window.testWrites = true;
       window.rpcCalls = [];
@@ -113,6 +114,7 @@ try {
     assert.match(await page.locator('#inventoryItemsList').textContent(), /Для услуг · расход по нормам/);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${width}px catalog overflow`);
     assert.equal(await page.locator('#inventoryWarehousesDetails').evaluate(node => node.open), width > 760);
+    assert.match(await page.locator('#inventoryWarehousesDetails>summary').textContent(), /1 активный/);
     await capture(page, `catalog-filled-${width}.png`);
     await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
     await page.locator('#inventoryItemDialog').waitFor({ state:'visible' });
@@ -135,7 +137,9 @@ try {
     // Server rejection stays visible in the same editor, with the draft intact.
     await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
     await page.evaluate(() => window.rejectSave = true);
-    await page.locator('#inventoryItemUnit').selectOption('piece');
+    await page.locator('#inventoryItemDialog .pro-select-trigger').click();
+    await page.getByRole('option', { name:'шт.', exact:true }).click();
+    assert.equal(await page.locator('#inventoryItemDialog').evaluate(node => node.open), true);
     await page.locator('#inventoryItemForm button[type="submit"]').click();
     await page.getByText('Нельзя изменить единицу материала после первой операции. Создайте новую позицию.', { exact:true }).waitFor({ state:'visible' });
     assert.equal(await page.locator('#inventoryItemDialog').evaluate(node => node.open), true);
@@ -153,6 +157,9 @@ try {
     await page.locator('[data-inventory-edit-warehouse]').click();
     await page.locator('#inventoryWarehouseDialog').waitFor({ state:'visible' });
     assert.equal(await page.locator('#inventoryWarehouseName').inputValue(), 'Склад — Центр');
+    await page.locator('#inventoryWarehouseDialog .pro-select-trigger').click();
+    await page.getByRole('option', { name:'Основной филиал', exact:true }).click();
+    assert.equal(await page.locator('#inventoryWarehouseDialog').evaluate(node => node.open), true);
     await page.keyboard.press('Escape');
 
     // Manual disclosure state survives reads; changing organizations clears editors.
