@@ -20,7 +20,7 @@
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-photo img { height:100%; min-height:0; }
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-photo>span { top:auto; bottom:10px; left:10px; padding:4px 8px; font-size:calc(12px + var(--provider-text-step,0px)); line-height:1.35; font-weight:500; border-radius:7px; background:var(--theme-surface,#fff); color:var(--theme-ink,var(--ink)); backdrop-filter:none; }
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-photo-empty { font-size:calc(12px + var(--provider-text-step,0px)); }
-.provider-body .provider-view[data-portfolio-soft-ui] .portfolio-soft-photo-trigger { position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:flex-end; width:100%; min-height:44px; margin:0; padding:10px; border:0; border-radius:0; background:transparent; color:var(--theme-ink,var(--ink)); cursor:pointer; }
+.provider-body .provider-view[data-portfolio-soft-ui] .portfolio-soft-photo-trigger { position:absolute; inset:0; display:flex; align-items:flex-start; justify-content:flex-end; width:100%; min-height:44px; margin:0; padding:10px; border:0; border-radius:0; background:transparent; color:var(--theme-ink,var(--ink)); cursor:pointer; }
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-soft-photo-trigger>span { display:grid; place-items:center; width:32px; height:32px; border-radius:8px; background:var(--theme-surface,#fff); }
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-soft-photo-trigger:focus-visible { outline:2px solid var(--theme-accent,var(--green)); outline-offset:-3px; }
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-card-body { padding:16px; }
