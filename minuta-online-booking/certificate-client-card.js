@@ -18,7 +18,7 @@
         const dates=document.createElement('span');dates.className='certificate-help';dates.textContent=`Выдан ${R.dateLabel(item.issued_on)} · действует по ${R.dateLabel(item.expires_on)}`;
         const balance=document.createElement('span');balance.className='certificate-help';
         balance.textContent=Number.isInteger(item.remaining_visits)?`Остаток абонемента: ${item.remaining_visits} из ${item.sessions} сеансов`:`Всего ${item.sessions} ${R.plural(item.sessions,'сеанс','сеанса','сеансов')} · учёт остатка не подключён`;
-        main.append(title,dates,balance);
+        main.append(title,dates); if(Number.isInteger(item.sessions))main.append(balance);
         if(item.benefit_status&&item.benefit_status!=='active'){const status=document.createElement('span');status.className='certificate-help';status.textContent='Абонемент: '+({frozen:'заморожен',exhausted:'использован',expired:'истёк',cancelled:'отменён'}[item.benefit_status]||'статус недоступен');main.append(status)}
         const state=R.status(item,today,item.remind_days),badge=document.createElement('span');badge.className='certificate-status certificate-status-'+state.code;
         badge.textContent={active:'Действует',expiring:'Скоро истечёт',expired:'Истёк'}[state.code];article.append(main,badge);

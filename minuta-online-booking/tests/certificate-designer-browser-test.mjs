@@ -123,9 +123,66 @@ try{
   await card.getByRole('button',{name:'Открыть сертификат',exact:true}).click();
   for(const width of [390,760,1440]){await linkedPage.setViewportSize({width,height:1000});assert.equal(await linkedPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await linkedPage.screenshot({path:output+`/client-card-${width}.png`,fullPage:true});checks++;}
   await linkedPage.evaluate(()=>window.certificateFixture.card.reset());assert.equal(await card.isVisible(),false);checks++;await linkedPage.close();
+  const customPage=await context.newPage();customPage.on('pageerror',e=>errors.push(e.message));
+  await customPage.goto(url+'/fixture.html?store=custom-'+Date.now());await customPage.locator('[data-canvas]').waitFor({state:'visible'});
+  const serviceCount=await customPage.locator('[data-service] option').count();
+  assert.ok(serviceCount>100);assert.equal(serviceCount,await customPage.evaluate(()=>window.certificateFixture.repository.workspace().then(w=>w.services.length)));checks++;
+  await customPage.locator('[data-service]').selectOption({label:'Генеральная уборка'});
+  await customPage.waitForFunction(()=>document.querySelector('[data-canvas]').getAttribute('aria-label').includes('Генеральная уборка (4 часа/1 сеанс)'));checks++;
+  await customPage.locator('[data-content-mode]').selectOption('custom');
+  assert.equal(await customPage.locator('[data-service]').isDisabled(),true);assert.equal(await customPage.locator('[data-sessions]').isVisible(),false);
+  assert.equal(await customPage.locator('[data-download]').isDisabled(),true);await customPage.locator('[data-issue]').click();assert.equal(await customPage.evaluate(()=>window.certificateFixture.getState().records.length),0);checks++;
+  const customText='Подарок для тебя\nЛюбая услуга на ваш выбор';
+  await customPage.locator('[data-custom-text]').fill(customText);await customPage.locator('[data-number]').fill('CUSTOM-1');await customPage.locator('[data-canvas]').waitFor({state:'visible'});
+  assert.ok((await customPage.locator('[data-canvas]').getAttribute('aria-label')).startsWith(customText+'.'));
+  const multiline=await customPage.evaluate(async()=>{const source=window.certificateFixture.getState().templates[0],canvas=document.createElement('canvas'),R=MinutaCertificateRenderer;return R.render(canvas,await R.loadImage(source.image_data),{procedure:document.querySelector('[data-custom-text]').value,number:'CUSTOM-1',issued_on:'2026-10-03',expires_on:'2027-04-03'},source.layout).procedure});
+  assert.equal(multiline.lines.length,2);assert.ok(multiline.size<=(await customPage.locator('[data-canvas]').evaluate(canvas=>canvas.height))*.0315*.65);checks++;
+  const lines=await customPage.evaluate(()=>{const canvas=document.querySelector('[data-canvas]'),ctx=canvas.getContext('2d');return {width:canvas.width,height:canvas.height,opaque:ctx.getImageData(0,0,1,1).data[3]}});checks++;
+  assert.equal(R.printSize({width:1748,height:2480},'a5').dpi,300);assert.equal(R.printSize({width:1748,height:2480},'a4').dpi,212);checks++;
+  const policy=readFileSync(new URL('../provider.html',import.meta.url),'utf8').match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
+  await customPage.evaluate(policy=>{const meta=document.createElement('meta');meta.httpEquiv='Content-Security-Policy';meta.content=policy;document.head.append(meta)},policy);
+  const popupPromise=customPage.waitForEvent('popup');await customPage.locator('[data-print]').click();const printPopup=await popupPromise;await printPopup.waitForLoadState();
+  await printPopup.locator('img').waitFor();assert.deepEqual(await printPopup.locator('img').evaluate(image=>[image.naturalWidth,image.naturalHeight]),[lines.width,lines.height]);
+  assert.equal(await printPopup.locator('style').textContent().then(text=>text.includes('size:148mm 210mm')),true);await printPopup.close();checks++;
+  await customPage.locator('[data-paper]').selectOption('a4');assert.ok((await customPage.locator('[data-print-quality]').textContent()).includes('A4'));await customPage.locator('[data-paper]').selectOption('a5');checks++;
+  for(const format of ['png','jpg','webp','pdf']){
+    await customPage.locator('[data-format]').selectOption(format);const promise=customPage.waitForEvent('download');await customPage.locator('[data-download]').click();
+    const download=await promise;assert.equal(download.suggestedFilename(),`certificate-CUSTOM-1.${format}`);const file=output+`/certificate-custom.${format}`;await download.saveAs(file);const bytes=readFileSync(file);
+    if(format==='png')assert.equal(bytes.subarray(1,4).toString(),'PNG');
+    if(format==='jpg')assert.deepEqual([...bytes.subarray(0,3)],[255,216,255]);
+    if(format==='webp'){assert.equal(bytes.subarray(0,4).toString(),'RIFF');assert.equal(bytes.subarray(8,12).toString(),'WEBP');}
+    if(format==='pdf'){
+      const text=bytes.toString('latin1');assert.ok(text.startsWith('%PDF-1.4'));assert.match(text,/\/Count 1/);
+      const xref=Number(/startxref\n(\d+)/.exec(text)[1]);assert.equal(bytes.subarray(xref,xref+4).toString(),'xref');
+      for(const offset of text.slice(xref).split('\n').filter(line=>/^\d{10} 00000 n/.test(line)).map(line=>Number(line.slice(0,10))))assert.match(bytes.subarray(offset,offset+15).toString(),/^\d 0 obj/);
+    }else{
+      const dimensions=await customPage.evaluate(async({format,buffer})=>{const blob=new Blob([Uint8Array.from(buffer)],{type:MinutaCertificateRenderer.exportFormats[format]}),image=await createImageBitmap(blob);return[image.width,image.height]}, {format,buffer:[...bytes]});assert.deepEqual(dimensions,[lines.width,lines.height]);
+    }checks++;
+  }
+  // Alpha must become white in JPG/PDF, while PNG/WebP retain the uploaded template's transparency.
+  const pixels=await customPage.evaluate(async()=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=2;const results={};for(const format of ['png','jpg','webp']){const image=await createImageBitmap(await MinutaCertificateRenderer.exportBlob(canvas,format)),out=document.createElement('canvas');out.width=out.height=2;const ctx=out.getContext('2d');ctx.drawImage(image,0,0);results[format]=[...ctx.getImageData(0,0,1,1).data]}return results});
+  assert.deepEqual(pixels.jpg,[255,255,255,255]);assert.equal(pixels.png[3],0);assert.equal(pixels.webp[3],0);checks++;
+  await customPage.evaluate(()=>{Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>true});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.sharedCertificate={name:data.files[0].name,type:data.files[0].type}}})});
+  await customPage.locator('[data-format]').selectOption('pdf');await customPage.locator('[data-share]').click();await customPage.waitForFunction(()=>window.sharedCertificate);
+  assert.deepEqual(await customPage.evaluate(()=>window.sharedCertificate),{name:'certificate-CUSTOM-1.pdf',type:'application/pdf'});checks++;
+  await customPage.locator('[data-client-settings] summary').click();await customPage.locator('[data-client-query]').fill('Анна');await customPage.locator('[data-client] option[value="79990000001"]').waitFor({state:'attached'});await customPage.locator('[data-client]').selectOption('79990000001');
+  assert.equal(await customPage.locator('[data-benefit-wrapper]').isVisible(),false);
+  for(const width of [390,760,1440]){await customPage.setViewportSize({width,height:1000});assert.equal(await customPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await customPage.screenshot({path:output+`/custom-${width}.png`,fullPage:true});checks++;}
+  await customPage.evaluate(()=>{const repo=window.certificateFixture.repository,issue=repo.issue;let once=true;repo.issue=async(...args)=>{const result=await issue(...args);if(once){once=false;throw new Error('unknown acknowledgement')}return result}});
+  await customPage.locator('[data-issue]').click();await customPage.getByRole('alert').waitFor();assert.equal(await customPage.locator('[data-custom-text]').isDisabled(),true);
+  await customPage.reload();await customPage.locator('[data-canvas]').waitFor({state:'visible'});assert.equal(await customPage.locator('[data-content-mode]').inputValue(),'custom');assert.equal(await customPage.locator('[data-custom-text]').inputValue(),customText);
+  await customPage.evaluate(()=>{const repo=window.certificateFixture.repository,workspace=repo.workspace;repo.workspace=async()=>({...await workspace(),services:[]})});
+  await customPage.locator('[data-issue]').click();await customPage.getByRole('status').filter({hasText:'CUSTOM-1'}).waitFor();const saved=await customPage.evaluate(()=>window.certificateFixture.getState().records[0]);
+  assert.equal(saved.procedure,customText);assert.equal(saved.content_mode,'custom');for(const key of ['sessions','service_id','service_name','duration_minutes','benefit_instrument_id'])assert.equal(saved[key],null);
+  assert.equal(await customPage.evaluate(()=>window.certificateFixture.getState().records.length),1);checks++;
+  await customPage.locator('[data-fixture-client]').selectOption('79990000001');const customCard=customPage.locator('#clientCertificateDesigns');await customCard.getByText(/CUSTOM-1/).waitFor();assert.equal(await customCard.getByText(/сеанс|Остаток/).count(),0);checks++;
+  await customCard.getByRole('button',{name:'Открыть сертификат'}).click();assert.equal(await customPage.locator('[data-custom-text]').isDisabled(),true);assert.equal(await customPage.locator('[data-format]').isDisabled(),false);
+  await customPage.locator('[data-similar]').click();assert.equal(await customPage.locator('[data-custom-text]').inputValue(),customText);assert.equal(await customPage.locator('[data-client]').inputValue(),'');assert.equal(await customPage.locator('[data-number]').inputValue(),'');
+  await customPage.locator('[data-number]').fill('CUSTOM-2');await customPage.locator('[data-issue]').click();await customPage.getByRole('status').filter({hasText:'CUSTOM-2'}).waitFor();
+  assert.equal(await customPage.evaluate(()=>window.certificateFixture.getState().records.find(r=>r.number==='CUSTOM-1').procedure),customText);checks++;await customPage.close();
   await page.evaluate(async()=>{await window.certificateFixture.controller.setOrganization(null)});assert.equal(await page.locator('#certificateDesignerPanel').isVisible(),false);checks++;
   assert.deepEqual(errors,[]);checks++;
-  writeFileSync(output+'/checks.json',JSON.stringify({checks,widths:[390,760,1440],pageErrors:errors,environment:'isolated fixture',fonts:'named font files not provided',nativeShare:'not exercised; PNG fallback exercised'},null,2));
+  writeFileSync(output+'/checks.json',JSON.stringify({checks,widths:[390,760,1440],pageErrors:errors,environment:'isolated fixture',fonts:'named font files not provided',nativeShare:'File MIME/name API contract tested with stub; OS share sheet not exercised',exports:['PNG','JPG','PDF','WebP']},null,2));
   console.log(`Certificate browser and renderer checks: ${checks} PASS; isolated fixture, not live acceptance.`);
 }catch(error){
   await page.screenshot({path:output+'/failure.png',fullPage:true});

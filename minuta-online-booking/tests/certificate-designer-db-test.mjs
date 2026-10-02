@@ -146,5 +146,21 @@ await db.exec(source);assert.equal((await actor(owner,()=>call('get_minuta_clien
 await db.query("update public.client_accounts set normalized_phone='79990000005' where id=$1",[ids[12]]);await db.query("update public.bookings set client_phone='79990000005' where client_account_id=$1",[ids[12]]);
 assert.equal((await actor(owner,()=>call('get_minuta_client_certificates',[org,'79990000005',null]))).records[0].number,'client-linked');checks++;
 await denied(owner,()=>db.query('delete from public.certificate_design_issues'),/permission denied/);
+// A complete service list remains organization/performer scoped, irrespective of profession.
+for(let index=24;index<30;index++)await db.query('insert into public.services values($1,$2,$3,60,true)',[ids[index],index===29?expert:owner,['Маникюр','Стрижка','Фотосессия','Йога','Генеральная уборка','Урок английского'][index-24]]);
+const allServices=(await actor(owner,()=>call('get_minuta_certificate_design_workspace',[org]))).services;
+assert.equal(allServices.length,7);assert.ok(allServices.some(s=>s.name==='Маникюр'));assert.ok(!allServices.some(s=>s.id===otherService));checks++;
+assert.deepEqual((await actor(expert,()=>call('get_minuta_certificate_design_workspace',[org]))).services.map(s=>s.id),[ids[29]]);checks++;
+const custom={...record,content_mode:'custom',service_id:null,service_name:null,duration_minutes:null,sessions:null,procedure:'Подарок для тебя\nЛюбая услуга на ваш выбор',number:'custom-1'};
+const customIssued=await actor(owner,()=>call('record_minuta_certificate_issue',[org,custom,ids[30]]));
+assert.equal(customIssued.record.procedure,custom.procedure);assert.equal(customIssued.record.sessions,null);checks++;
+const customReplay=await actor(owner,()=>call('record_minuta_certificate_issue',[org,custom,ids[30]]));assert.equal(customReplay.record.id,customIssued.record.id);checks++;
+for(const patch of [{procedure:' \t\r\n '},{procedure:'x'.repeat(261)},{content_mode:'unknown'}])await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,...patch,number:'bad-custom'},ids[31]]),/invalid_certificate/);
+for(const patch of [{service_id:service},{sessions:1},{duration_minutes:60},{service_name:'Услуга'}])await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,...patch,number:'bad-custom'},ids[31]]),/invalid_certificate_service/);
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,benefit_instrument_id:ids[18],number:'bad-custom'},ids[31]]),/invalid_certificate_benefit/);
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,procedure:'Другой текст'},ids[30]]),/certificate_request_conflict/);
+assert.equal((await actor(owner,()=>call('get_minuta_certificate_issue_history',[org,'Любая услуга','all',null]))).records[0].procedure,custom.procedure);checks++;
+await db.exec(readFileSync(new URL('../certificate-designer-rollback-candidate.sql',import.meta.url),'utf8'));await db.exec(source);
+assert.equal((await actor(owner,()=>call('get_minuta_certificate_issue_history',[org,'custom-1','all',null]))).records[0].content_mode,'custom');checks++;
 console.log(`Certificate ${native?'native PostgreSQL synthetic':'isolated PGlite'} database checks: ${checks} PASS. Full production-schema proof is separate.`);
 await db.close();

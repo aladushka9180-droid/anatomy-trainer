@@ -40,24 +40,31 @@
           <div class="certificate-pair"><label>По горизонтали, %<input type="number" min="3" max="97" step=".1" data-x></label><label>По вертикали, %<input type="number" min="3" max="97" step=".1" data-y></label></div>
           <div class="certificate-pair"><label>Ширина поля, %<input type="number" min="5" max="94" step=".1" data-width></label><label>Размер шрифта, % высоты<input type="number" min=".5" max="10" step=".1" data-size></label></div>
           <div class="certificate-buttons"><button type="button" data-save-template>Сохранить макет</button></div></div></details>
-        <label>Название массажа<select data-service required></select></label>
+        <label>Содержание сертификата<select data-content-mode><option value="catalog">Выбрать услугу</option><option value="custom">Свой текст</option></select></label>
+        <label data-service-wrapper>Услуга<select data-service required></select></label>
+        <label data-custom-wrapper hidden>Текст на сертификате<textarea data-custom-text rows="3" maxlength="260" placeholder="Например: Любая услуга на ваш выбор"></textarea><span class="certificate-help">До 260 символов. Текст появится на макете без добавления длительности и сеансов.</span></label>
         <details data-client-settings><summary data-client-summary>Связать с клиентом (необязательно)</summary><div class="certificate-form">
           <label>Найти клиента<input type="search" data-client-query maxlength="100" placeholder="Имя или телефон"></label>
           <label>Клиент<select data-client><option value="">Без привязки</option></select></label>
           <label data-benefit-wrapper hidden>Учёт сеансов<select data-benefit><option value="">Без учёта остатка</option></select></label>
           <p class="certificate-help">Привязка видна в карточке клиента. Имя и телефон не добавляются на изображение.</p></div></details>
-        <div class="certificate-pair"><label>Количество сеансов<input type="number" data-sessions min="1" max="1000" step="1" value="1" required></label><label>Шрифт<select data-font><option value="Times New Roman">Классический</option><option value="Gabriola">Gabriola</option><option value="History Pro 02">History Pro 02</option></select></label></div>
+        <div class="certificate-pair"><label data-sessions-wrapper>Количество сеансов<input type="number" data-sessions min="1" max="1000" step="1" value="1" required></label><label>Шрифт<select data-font><option value="Times New Roman">Классический</option><option value="Gabriola">Gabriola</option><option value="History Pro 02">History Pro 02</option></select></label></div>
         <label data-font-upload hidden>Файл выбранного шрифта<input type="file" accept=".ttf,.otf,.woff,.woff2" data-font-file></label>
         <div class="certificate-pair"><label>Дата выдачи<input type="date" data-date required></label><label>Номер сертификата<input type="text" data-number maxlength="40" required></label></div>
         <div class="certificate-pair"><label>Действует по<input type="date" data-expiry required></label><label>Напомнить за, дней<input type="number" min="0" max="365" step="1" value="7" data-remind required></label></div>
         <div class="certificate-buttons"><button type="submit" class="primary" data-issue>Сохранить выдачу</button><button type="button" data-new hidden>Новый сертификат</button><button type="button" data-similar hidden>Создать похожий</button></div>
-        <div class="certificate-buttons"><button type="button" data-download disabled>Скачать PNG</button><button type="button" data-share disabled>Поделиться</button></div>
+        <label>Формат файла<select data-format><option value="png">PNG</option><option value="jpg">JPG</option><option value="pdf">PDF</option><option value="webp">WebP</option></select></label>
+        <label>Размер для печати и PDF<select data-paper><option value="a5">A5 — 148 × 210 мм</option><option value="a4">A4 — 210 × 297 мм</option></select></label>
+        <p class="certificate-help" data-print-quality></p>
+        <div class="certificate-buttons"><button type="button" data-download disabled>Скачать PNG</button><button type="button" data-share disabled>Поделиться</button><button type="button" data-print disabled>Печать</button></div>
         </form><figure class="certificate-preview"><div class="certificate-preview-empty" data-empty>Загрузи макет, чтобы увидеть сертификат</div><canvas data-canvas hidden role="img" aria-label="Предпросмотр подарочного сертификата"></canvas></figure></div></div>
       <div data-panel="history" hidden><p class="certificate-reminder" role="status" data-reminders hidden></p>
-        <div class="certificate-history-controls"><input type="search" aria-label="Поиск сертификатов" placeholder="Номер или название массажа" data-search maxlength="180"><select aria-label="Срок действия" data-status><option value="all">Все сертификаты</option><option value="active">Действуют</option><option value="expiring">Скоро истекают</option><option value="expired">Истекли</option></select></div>
+        <div class="certificate-history-controls"><input type="search" aria-label="Поиск сертификатов" placeholder="Номер или текст сертификата" data-search maxlength="180"><select aria-label="Срок действия" data-status><option value="all">Все сертификаты</option><option value="active">Действуют</option><option value="expiring">Скоро истекают</option><option value="expired">Истекли</option></select></div>
         <div data-history></div><div class="certificate-buttons"><button type="button" data-more hidden>Показать ещё</button></div></div>`;
     const errorMessages = {
-      invalid_date:'Проверь дату.', invalid_procedure:'Выбери массаж и количество сеансов.', invalid_duration:'У выбранной услуги не указана длительность.',
+      invalid_date:'Проверь дату.', invalid_procedure:'Выбери услугу и количество сеансов.', invalid_custom_text:'Напиши текст сертификата: от 1 до 260 символов.', invalid_duration:'У выбранной услуги не указана длительность.',
+      unsupported_export_format:'Этот браузер не поддерживает выбранный формат. Выбери другой формат файла.',
+      print_window_blocked:'Разреши открытие окна печати для этого сайта и попробуй снова.',
       invalid_certificate:'Проверь номер и срок действия.', invalid_layout:'Проверь положение, ширину и размер поля.', invalid_image:'Выбери макет в PNG, JPEG или WebP размером до 8 МБ.',
       invalid_image_size:'Макет должен быть от 200 до 6000 пикселей по каждой стороне и не более 20 мегапикселей.', text_does_not_fit:'Текст не помещается. Увеличь ширину поля или уменьши шрифт.',
       certificate_number_exists:'Этот номер уже есть в истории. Выбери другой.', certificate_request_conflict:'Сохранённая выдача содержит другие данные. Проверь историю перед повтором.',
@@ -76,11 +83,29 @@
     function current(scope) { return scope.revision === revision && scope.org === organization?.id && (!options.sessionIsCurrent || options.sessionIsCurrent(scope.user, scope.generation)); }
     function capture() { return { revision, org:organization?.id, user:options.getCurrentUser?.()?.id, generation:options.getSessionGeneration?.() }; }
     function writesAllowed() { return Boolean(workspace && ['owner','admin','specialist'].includes(workspace.current_role) && (!options.requireWrites || options.requireWrites())); }
+    function contentMode() {
+      const custom = $('[data-content-mode]').value === 'custom', locked = busy || viewing || Boolean(intent);
+      $('[data-service-wrapper]').hidden = custom; $('[data-custom-wrapper]').hidden = !custom; $('[data-sessions-wrapper]').hidden = custom;
+      $('[data-service]').required = !custom; $('[data-sessions]').required = !custom; $('[data-custom-text]').required = custom;
+      $('[data-service]').disabled = locked || custom; $('[data-sessions]').disabled = locked || custom; $('[data-custom-text]').disabled = locked || !custom;
+    }
+    function restoreContent(item) {
+      const custom = item.content_mode === 'custom'; $('[data-content-mode]').value = custom ? 'custom' : 'catalog';
+      $('[data-custom-text]').value = custom ? item.procedure : ''; $('[data-sessions]').value = custom ? '1' : item.sessions;
+      if (!custom) {
+        const service = workspace.services.find(s => s.id === item.service_id);
+        selectOptions($('[data-service]'),service ? workspace.services : [{id:item.service_id,name:item.service_name}],s=>s.name);
+        $('[data-service]').value = item.service_id;
+      }
+      contentMode();
+    }
     function lock(value) {
       busy = value;
-      $('[data-form]').querySelectorAll('input,select,button').forEach(node => { node.disabled = value || viewing || Boolean(intent); });
+      $('[data-form]').querySelectorAll('input,select,textarea,button').forEach(node => { node.disabled = value || viewing || Boolean(intent); });
+      contentMode(); $('[data-format]').disabled = value; $('[data-paper]').disabled = value;
       $('[data-download]').disabled = value || !record;
       $('[data-share]').disabled = value || !record;
+      $('[data-print]').disabled = value || !record;
       $('[data-new]').disabled = value; $('[data-new]').hidden = !viewing; $('[data-issue]').hidden = viewing;
       $('[data-similar]').hidden = !viewing; $('[data-similar]').disabled = value || Boolean(intent);
       $('[data-issue]').disabled = value || viewing || !workspace || !template?.saved;
@@ -94,12 +119,14 @@
       const service = workspace?.services?.find(item => String(item.id) === $('[data-service]').value);
       const sessions = Number($('[data-sessions]').value), remind = Number($('[data-remind]').value);
       if (!Number.isInteger(remind) || remind < 0 || remind > 365) throw new Error('invalid_certificate');
-      if (!service) throw new Error('invalid_procedure');
-      const value = { service_id:service.id, service_name:service.name, duration_minutes:Number(service.duration_minutes), sessions,
-        procedure:R.procedureLabel(service.name, sessions, Number(service.duration_minutes)), issued_on:$('[data-date]').value,
+      const custom = $('[data-content-mode]').value === 'custom';
+      if (!custom && !service) throw new Error('invalid_procedure');
+      const value = { service_id:custom?null:service.id, service_name:custom?null:service.name, duration_minutes:custom?null:Number(service.duration_minutes), sessions:custom?null:sessions,
+        procedure:custom?R.customText($('[data-custom-text]').value):R.procedureLabel(service.name, sessions, Number(service.duration_minutes)), issued_on:$('[data-date]').value,
         expires_on:$('[data-expiry]').value, number:$('[data-number]').value.trim(), remind_days:remind,
         font_family:$('[data-font]').value, template_id:template?.id, layout:structuredClone(template?.layout || R.fields) };
-      if (selectedClient) Object.assign(value,{client_phone:selectedClient.phone,client_name:selectedClient.name,client_account_id:selectedClient.account_id || null,benefit_instrument_id:$('[data-benefit]').value || null});
+      if (custom) value.content_mode = 'custom';
+      if (selectedClient) Object.assign(value,{client_phone:selectedClient.phone,client_name:selectedClient.name,client_account_id:selectedClient.account_id || null,benefit_instrument_id:custom?null:$('[data-benefit]').value || null});
       return value;
     }
     function clientSelection(value) {
@@ -136,7 +163,7 @@
     }
     function benefitOptions() {
       const chosen=$('[data-benefit]').value,service=$('[data-service]').value,sessions=Number($('[data-sessions]').value);
-      const items=(selectedClient?.instruments||[]).filter(item=>item.visits_count===sessions&&(!item.services?.length||item.services.some(s=>s.service_id===service)));
+      const items=$('[data-content-mode]').value==='custom'?[]:(selectedClient?.instruments||[]).filter(item=>item.visits_count===sessions&&(!item.services?.length||item.services.some(s=>s.service_id===service)));
       $('[data-benefit]').replaceChildren(new Option('Без учёта остатка',''));
       for(const item of items)$('[data-benefit]').add(new Option(`${item.name} · осталось ${item.remaining_visits} из ${item.visits_count}`,item.id));
       $('[data-benefit]').value=items.some(item=>item.id===chosen)?chosen:'';$('[data-benefit-wrapper]').hidden=!items.length;
@@ -173,8 +200,12 @@
       return family === 'Times New Roman' || Boolean(file) || systemFontAvailable(family);
     }
     async function preview() {
-      const ticket = ++renderRevision; record = null; $('[data-download]').disabled = true; $('[data-share]').disabled = true;
+      const ticket = ++renderRevision; record = null; $('[data-download]').disabled = true; $('[data-share]').disabled = true; $('[data-print]').disabled = true;
+      $('[data-empty]').textContent=image?'Заполни данные, чтобы увидеть сертификат':'Загрузи макет, чтобы увидеть сертификат';
       if (!image || !workspace) return;
+      if (!intent && $('[data-content-mode]').value==='custom' && !$('[data-custom-text]').value.trim()) {
+        clearError(); $('[data-canvas]').hidden=true; $('[data-empty]').hidden=false; return;
+      }
       try {
         const value = readRecord();
         const available = await ensureFont(value.font_family);
@@ -186,6 +217,7 @@
         $('[data-canvas]').hidden = false; $('[data-empty]').hidden = true; record = incomplete?null:value;
         $('[data-canvas]').setAttribute('aria-label', `${value.procedure}. Дата ${R.dateLabel(value.issued_on)}. Номер ${value.number||'не указан'}.`);
         $('[data-download]').disabled = busy||incomplete; $('[data-share]').disabled = busy||incomplete;
+        $('[data-print]').disabled = busy||incomplete; printQuality();
       } catch (reason) { if (ticket === renderRevision) { fail(reason); $('[data-canvas]').hidden = true; $('[data-empty]').hidden = false; } }
     }
     function fieldInputs() {
@@ -225,8 +257,7 @@
         if (pending) {
           clientSelection(pending.client_phone?{phone:pending.client_phone,name:pending.client_name,account_id:pending.client_account_id}:null);
           if(pending.benefit_instrument_id){$('[data-benefit]').add(new Option('Сохранённая привязка',pending.benefit_instrument_id));$('[data-benefit]').value=pending.benefit_instrument_id;$('[data-benefit-wrapper]').hidden=false;}
-          selectOptions($('[data-service]'), [{ id:pending.service_id, name:pending.service_name }], s=>s.name);
-          $('[data-service]').value = pending.service_id; $('[data-sessions]').value = pending.sessions;
+          restoreContent(pending);
           $('[data-date]').value = pending.issued_on; $('[data-expiry]').value = pending.expires_on;
           $('[data-number]').value = pending.number; $('[data-remind]').value = pending.remind_days; $('[data-font]').value = pending.font_family;
           if (!data.templates.some(t=>t.id===pending.template_id)) {
@@ -321,19 +352,37 @@
       } }
       finally { if (current(scope)) lock(false); }
     }
-    function fileBlob() { return new Promise((resolve, reject) => $('[data-canvas]').toBlob(blob => blob ? resolve(blob) : reject(new Error('invalid_image')), 'image/png')); }
-    function filename() { return `certificate-${record.number.replace(/[^\p{L}\p{N}_-]/gu, '_')}.png`; }
+    function filename(format) { return `certificate-${record.number.replace(/[^\p{L}\p{N}_-]/gu, '_')}.${format}`; }
+    function saveFile(blob,name) {
+      const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; root.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+    function printQuality() {
+      if (!image) { $('[data-print-quality]').textContent=''; return; }
+      const size=R.printSize($('[data-canvas]'),$('[data-paper]').value);
+      $('[data-print-quality]').textContent=`Исходник: ${image.width} × ${image.height} пикселей · ${size.dpi} dpi на ${$('[data-paper]').value.toUpperCase()}. `+(size.dpi>=300?'Подходит для чёткой печати.':'Для чёткой печати желательно 300 dpi: выбери меньшую бумагу или загрузи макет большего разрешения.');
+    }
+    function printCertificate() {
+      if (!record || busy) return;
+      // Open within the user gesture; use a lossless full-resolution PNG rather than the on-screen thumbnail.
+      const popup=window.open('','_blank'); if(!popup)throw new Error('print_window_blocked');
+      try {
+        popup.opener=null;const canvas=$('[data-canvas]'),size=R.printSize(canvas,$('[data-paper]').value),doc=popup.document;
+        doc.title=`Сертификат № ${record.number}`;const style=doc.createElement('style');
+        style.textContent=`@page{size:${size.width}mm ${size.height}mm;margin:0}*{box-sizing:border-box}html,body{margin:0;background:#fff}body{display:flex;align-items:center;justify-content:center;width:${size.width}mm;height:${size.height}mm}img{display:block;width:${size.imageWidth}mm;height:${size.imageHeight}mm;max-width:100%;object-fit:contain}`;doc.head.append(style);
+        const picture=doc.createElement('img');picture.alt='Подарочный сертификат';picture.onload=()=>{popup.focus();popup.print()};picture.src=canvas.toDataURL('image/png');doc.body.append(picture);
+      } catch(reason) { popup.close();throw reason; }
+    }
     async function download() {
       if (!record || busy) return;
-      const scope = capture(), name = filename(); const blob = await fileBlob(); if (!current(scope)) return;
-      const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; root.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+      const scope = capture(), format = $('[data-format]').value, name = filename(format); const blob = await R.exportBlob($('[data-canvas]'),format,$('[data-paper]').value); if (!current(scope)) return;
+      saveFile(blob,name);
     }
     async function share() {
       if (!record || busy) return;
-      const scope = capture(), name = filename(); const blob = await fileBlob(); if (!current(scope)) return;
-      const file = new File([blob], name, {type:'image/png'});
+      const scope = capture(), format = $('[data-format]').value, name = filename(format); const blob = await R.exportBlob($('[data-canvas]'),format,$('[data-paper]').value); if (!current(scope)) return;
+      const file = new File([blob], name, {type:blob.type});
       if (navigator.canShare?.({files:[file]}) && navigator.share) { try { await navigator.share({files:[file], title:'Подарочный сертификат'}); } catch (reason) { if (reason?.name !== 'AbortError') fail(reason); } }
-      else { await download(); message('Сертификат скачан. Его можно приложить к сообщению.'); }
+      else { saveFile(blob,name); message('Сертификат скачан. Его можно приложить к сообщению.'); }
     }
     let historyRevision = 0, cursor = null;
     function row(item) {
@@ -358,15 +407,13 @@
         if (!current(scope)) return;
         template = nextTemplate; image = nextImage;
         R.render($('[data-canvas]'), image, item, item.layout, item.font_family); record = structuredClone(item); viewing = true;
-        const service = workspace.services.find(s=>s.id===item.service_id);
-        selectOptions($('[data-service]'), service ? workspace.services : [{id:item.service_id,name:item.service_name}], s=>s.name);
-        $('[data-service]').value=item.service_id; $('[data-sessions]').value=item.sessions; $('[data-date]').value=item.issued_on;
+        restoreContent(item); $('[data-date]').value=item.issued_on;
         $('[data-number]').value=item.number; $('[data-expiry]').value=item.expires_on; $('[data-remind]').value=item.remind_days; $('[data-font]').value=item.font_family;
         clientSelection(item.client_phone?{phone:item.client_phone,name:item.client_name,account_id:item.client_account_id}:null);
         if(item.benefit_instrument_id){$('[data-benefit]').add(new Option('Привязанный учёт сеансов',item.benefit_instrument_id));$('[data-benefit]').value=item.benefit_instrument_id;$('[data-benefit-wrapper]').hidden=false;}
         fieldInputs(); lock(false);
         tab('create'); $('[data-canvas]').hidden = false; $('[data-empty]').hidden = true;
-        $('[data-download]').disabled = false; $('[data-share]').disabled = false; message(`Просмотр выданного сертификата № ${item.number}.`);
+        $('[data-download]').disabled = false; $('[data-share]').disabled = false; $('[data-print]').disabled=false; printQuality(); message(`Просмотр выданного сертификата № ${item.number}.`);
         // An issued snapshot stays immutable. The explicit new action starts a separate issue.
       } catch (reason) { if (current(scope)) fail(reason); }
     }
@@ -408,7 +455,11 @@
       const y = Math.min(.97, Math.max(.03, (event.clientY - rect.top)/rect.height));
       draftTemplate(); template.layout[key] = R.normalizedField({ ...template.layout[key], x, y }); template.saved = false; $('[data-issue]').disabled = true; fieldInputs(); preview();
     });
-    for (const selector of ['[data-service]','[data-sessions]','[data-date]','[data-number]','[data-expiry]','[data-remind]','[data-font]']) $(selector).addEventListener('input', () => {
+    $('[data-content-mode]').addEventListener('change',()=>{contentMode();benefitOptions();preview();});
+    $('[data-format]').addEventListener('change',()=>{$('[data-download]').textContent='Скачать '+$('[data-format]').selectedOptions[0].textContent;});
+    $('[data-paper]').addEventListener('change',printQuality);
+    $('[data-print]').addEventListener('click',()=>{try{printCertificate()}catch(reason){fail(reason)}});
+    for (const selector of ['[data-custom-text]','[data-service]','[data-sessions]','[data-date]','[data-number]','[data-expiry]','[data-remind]','[data-font]']) $(selector).addEventListener('input', () => {
       if (busy) return;
       if (selector === '[data-font]') $('[data-font-file]').value = '';
       if(selector==='[data-service]'||selector==='[data-sessions]')benefitOptions();
@@ -430,7 +481,7 @@
     $('[data-form]').addEventListener('submit', issue); $('[data-download]').addEventListener('click', () => download().catch(fail)); $('[data-share]').addEventListener('click', () => share().catch(fail));
     $('[data-new]').addEventListener('click', async () => {
       if (busy || intent) return;
-      viewing=false; selectOptions($('[data-service]'),workspace.services,s=>s.name); $('[data-sessions]').value='1';
+      viewing=false; selectOptions($('[data-service]'),workspace.services,s=>s.name); $('[data-sessions]').value='1'; $('[data-content-mode]').value='catalog'; $('[data-custom-text]').value='';
       clientSelection(null);++clientRevision;copyValidity=null;
       $('[data-date]').value=workspace.today; $('[data-expiry]').value=R.addMonths(workspace.today,6); $('[data-number]').value='';
       message('Введи номер нового сертификата.'); lock(false); await preview();
@@ -446,9 +497,10 @@
       template.layout=structuredClone(source.layout);fieldInputs();
       selectOptions($('[data-service]'),workspace.services,s=>s.name);$('[data-service]').value=source.service_id;
       $('[data-sessions]').value=source.sessions;$('[data-font]').value=source.font_family;$('[data-remind]').value=source.remind_days;
+      $('[data-content-mode]').value=source.content_mode==='custom'?'custom':'catalog';$('[data-custom-text]').value=source.content_mode==='custom'?source.procedure:'';
       $('[data-date]').value=workspace.today;$('[data-number]').value='';
       copyValidity=validity(source.issued_on,source.expires_on);$('[data-expiry]').value=copiedExpiry(workspace.today,copyValidity);
-      message($('[data-service]').value?'Оформление и сеансы скопированы. Укажи новый номер и при необходимости выбери клиента.':'Услуга из старой выдачи недоступна. Выбери актуальную услугу и новый номер.');
+      message(source.content_mode==='custom'?'Оформление и текст скопированы. Укажи новый номер и при необходимости выбери клиента.':$('[data-service]').value?'Оформление и сеансы скопированы. Укажи новый номер и при необходимости выбери клиента.':'Услуга из старой выдачи недоступна. Выбери актуальную услугу и новый номер.');
       lock(false);await preview();$('[data-number]').focus();
     });
     let clientTimer;$('[data-client-query]').addEventListener('input',()=>{clearTimeout(clientTimer);clientTimer=setTimeout(searchClients,200)});
@@ -461,8 +513,8 @@
       ++revision; ++renderRevision; ++historyRevision; organization = value || null; workspace = null; template = null; image = null; record = null; intent = null;
       viewing=false; for (const face of loadedFonts.values()) document.fonts.delete(face); loadedFonts.clear(); loadingFonts.clear();
       ++clientRevision;clientChoices=[];clientSelection(null);copyValidity=null;clearTimeout(clientTimer);$('[data-client-settings]').open=false;
-      $('[data-history]').replaceChildren(); $('[data-canvas]').hidden = true; $('[data-empty]').hidden = false; $('[data-message]').textContent = ''; clearError();
-      $('[data-form]').reset(); root.hidden = !organization;
+      $('[data-history]').replaceChildren(); $('[data-canvas]').hidden = true; $('[data-empty]').hidden = false; $('[data-message]').textContent = ''; $('[data-print-quality]').textContent=''; clearError();
+      $('[data-form]').reset(); $('[data-download]').textContent='Скачать PNG'; root.hidden = !organization;
       if (!organization) { lock(false); return; }
       try { const stored = localStorage.getItem(intentKey()); if (stored) intent = JSON.parse(stored); } catch { fail(new Error('storage_failed')); return; }
       await loadWorkspace();

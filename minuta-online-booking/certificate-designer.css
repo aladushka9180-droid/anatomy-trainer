@@ -8,7 +8,8 @@
 .certificate-designer .certificate-layout { display: grid; grid-template-columns: minmax(240px, .85fr) minmax(0, 1.15fr); gap: 26px; align-items: start; }
 .certificate-designer .certificate-form { display: grid; gap: 14px; min-width: 0; }
 .certificate-designer label { display: grid; gap: 6px; min-width: 0; }
-.certificate-designer input,.certificate-designer select { box-sizing: border-box; width: 100%; min-height: 44px; border: 1px solid var(--theme-line, var(--line, #e8dce2)); border-radius: 10px; padding: 10px 12px; font: inherit; color: inherit; background: var(--theme-surface, #fff); }
+.certificate-designer input,.certificate-designer select,.certificate-designer textarea { box-sizing: border-box; width: 100%; min-height: 44px; border: 1px solid var(--theme-line, var(--line, #e8dce2)); border-radius: 10px; padding: 10px 12px; font: inherit; color: inherit; background: var(--theme-surface, #fff); }
+.certificate-designer textarea { resize: vertical; }
 .certificate-designer .certificate-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .certificate-designer .certificate-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
 .certificate-designer .certificate-buttons button,.certificate-designer .certificate-row button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--theme-line, var(--line, #e8dce2)); border-radius: 10px; color: inherit; background: var(--theme-surface, #fff); font: inherit; }

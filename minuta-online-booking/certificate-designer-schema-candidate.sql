@@ -164,7 +164,7 @@ create or replace function public.record_minuta_certificate_issue(p_organization
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare v_role text; v_existing public.certificate_design_issues%rowtype; v_template uuid; v_id uuid; v_service public.services%rowtype;
   v_sessions integer; v_issued date; v_expiry date; v_remind integer; v_number text;
-  v_phone text; v_account uuid; v_benefit uuid; v_constraint text;
+  v_phone text; v_account uuid; v_benefit uuid; v_constraint text; v_mode text;
 begin
   v_role:=public.minuta_certificate_role(p_organization);
   if p_request_id is null then raise exception using errcode='22023',message='certificate_request_required'; end if;
@@ -176,13 +176,17 @@ begin
     return jsonb_build_object('organization_id',p_organization,'record',v_existing.record||jsonb_build_object('id',v_existing.id));
   end if;
   if jsonb_typeof(p_record) is distinct from 'object' or octet_length(p_record::text)>16000
-    or coalesce(char_length(p_record->>'procedure'),0) not between 1 and 260
+    or jsonb_typeof(p_record->'procedure') is distinct from 'string'
+    or coalesce(char_length(btrim(p_record->>'procedure',E' \t\r\n')),0) not between 1 and 260
+    or char_length(p_record->>'procedure')>260
     or not public.minuta_certificate_valid_layout(p_record->'layout') then raise exception using errcode='22023',message='invalid_certificate'; end if;
   v_template:=(p_record->>'template_id')::uuid; v_sessions:=(p_record->>'sessions')::integer;
+  v_mode:=coalesce(p_record->>'content_mode','catalog');
+  if v_mode not in ('catalog','custom') then raise exception using errcode='22023',message='invalid_certificate'; end if;
   v_issued:=(p_record->>'issued_on')::date; v_expiry:=(p_record->>'expires_on')::date;
   v_remind:=(p_record->>'remind_days')::integer; v_number:=btrim(p_record->>'number');
   if v_issued is null or v_expiry is null or v_expiry<v_issued or v_expiry>v_issued+interval '10 years'
-    or v_sessions is null or v_sessions not between 1 and 1000 or v_remind is null or v_remind not between 0 and 365
+    or (v_mode='catalog' and (v_sessions is null or v_sessions not between 1 and 1000)) or v_remind is null or v_remind not between 0 and 365
     or coalesce(char_length(v_number),0) not between 1 and 40 or v_number<>p_record->>'number'
     or p_record->>'font_family' is null or p_record->>'font_family' not in ('Times New Roman','Gabriola','History Pro 02') then
     raise exception using errcode='22023',message='invalid_certificate';
@@ -192,12 +196,22 @@ begin
     and (p_record->>'font_family'='Times New Roman' or coalesce(t.body->'font_files'->>(p_record->>'font_family'),'')<>'')) then
     raise exception using errcode='42501',message='certificate_template_not_found';
   end if;
+  if v_mode='custom' then
+    if p_record->>'service_id' is not null or p_record->>'service_name' is not null
+      or p_record->>'duration_minutes' is not null or p_record->>'sessions' is not null then
+      raise exception using errcode='22023',message='invalid_certificate_service';
+    end if;
+    if nullif(p_record->>'benefit_instrument_id','') is not null then
+      raise exception using errcode='22023',message='invalid_certificate_benefit';
+    end if;
+  else
   select s.* into v_service from public.services s join public.organization_memberships m
     on m.organization_id=p_organization and m.user_id=s.performer_id and m.active and m.is_bookable
     where s.id=(p_record->>'service_id')::uuid and s.active and (v_role in ('owner','admin') or s.performer_id=auth.uid());
   if not found or v_service.name is distinct from p_record->>'service_name'
     or v_service.duration_minutes is distinct from (p_record->>'duration_minutes')::integer then
     raise exception using errcode='22023',message='invalid_certificate_service';
+  end if;
   end if;
   v_phone:=nullif(p_record->>'client_phone','');v_account:=nullif(p_record->>'client_account_id','')::uuid;
   v_benefit:=nullif(p_record->>'benefit_instrument_id','')::uuid;
