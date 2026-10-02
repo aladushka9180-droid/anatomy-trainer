@@ -38,7 +38,8 @@
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-empty-actions { grid-column:3; grid-row:1/3; margin:0; }
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-empty-actions .primary { min-height:44px; padding:10px 15px; font-size:calc(14px + var(--provider-text-step,0px)); font-weight:600; box-shadow:none!important; }
 .provider-body .provider-view[data-portfolio-soft-ui] .provider-review-empty-state { border:0; background:transparent!important; padding:14px 0 2px; }
-.provider-body .provider-view[data-portfolio-soft-ui].portfolio-soft-empty .portfolio-title-actions .primary { border:1px solid var(--theme-line,var(--line)); background:var(--theme-surface,#fff)!important; color:var(--theme-accent,var(--green))!important; }
+.provider-body #dashboard .provider-view[data-provider-panel="portfolio"][data-portfolio-soft-ui].portfolio-soft-empty .portfolio-view-title .portfolio-title-actions .primary { border:1px solid var(--theme-line,var(--line)); background:var(--theme-surface,#fff)!important; color:var(--theme-accent,var(--green))!important; }
+.provider-body #dashboard .provider-view[data-provider-panel="portfolio"][data-portfolio-soft-ui].portfolio-soft-empty .portfolio-view-title .portfolio-title-actions .primary :is(span,.ui-icon,svg) { color:inherit!important; }
 .provider-body .provider-view[data-portfolio-soft-ui] .provider-reviews-panel { margin-top:26px; padding:22px; border-radius:16px; background:var(--theme-surface,#fff)!important; box-shadow:none!important; }
 .provider-body .provider-view[data-portfolio-soft-ui] .provider-reviews-panel>.panel-head { align-items:center; flex-wrap:wrap; gap:8px 16px; margin-bottom:10px; }
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-soft-review-title { display:flex; align-items:center; flex-wrap:wrap; gap:10px; min-width:0; }
