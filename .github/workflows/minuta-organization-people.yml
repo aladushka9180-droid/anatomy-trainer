@@ -1,0 +1,52 @@
+name: Organization people UI
+on:
+  pull_request:
+    paths:
+      - 'minuta-online-booking/organization.js'
+      - 'minuta-online-booking/organization-people.*'
+      - 'minuta-online-booking/tests/organization-people-*'
+      - 'minuta-online-booking/provider.html'
+      - '.github/workflows/minuta-organization-people.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'minuta-online-booking/organization.js'
+      - 'minuta-online-booking/organization-people.*'
+      - 'minuta-online-booking/tests/organization-people-*'
+      - 'minuta-online-booking/provider.html'
+      - '.github/workflows/minuta-organization-people.yml'
+permissions:
+  contents: read
+jobs:
+  people:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Install isolated browser runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/people-browser" --no-save --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/people-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/people-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "MINUTA_SCREENSHOT_DIR=$RUNNER_TEMP/people-ui-qa" >> "$GITHUB_ENV"
+      - name: Check people UI and preserved organization behavior
+        run: |
+          node --check minuta-online-booking/organization-people.js
+          node --check minuta-online-booking/organization.js
+          node minuta-online-booking/organization-controller-test.mjs
+          node minuta-online-booking/tests/organization-people-browser-test.mjs
+          node minuta-online-booking/tests/organization-flow-provider-integration-test.mjs
+          node minuta-online-booking/tests/organization-location-timezone-summary-browser-test.mjs
+          node minuta-online-booking/client-url-redirect-test.mjs
+          node minuta-online-booking/provider-startup-performance-v565-test.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: people-ui-qa
+          path: ${{ runner.temp }}/people-ui-qa
+          retention-days: 5

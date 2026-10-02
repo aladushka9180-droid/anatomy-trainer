@@ -1,0 +1,190 @@
+/* Keep the provider shell and its themes; only People and its companions change. */
+body.provider-body #dashboard #organizationPeopleSection[data-people-ready] {
+  align-items: start;
+  gap: 20px;
+}
+body.provider-body #dashboard #organizationPeopleSection[data-people-ready] > .organization-section {
+  padding: 24px;
+  border: 1px solid var(--theme-line, #eadfe5);
+  border-radius: 24px;
+  background: var(--theme-surface, #fff);
+  box-shadow: none;
+  min-width: 0;
+}
+body.provider-body #dashboard #organizationPeopleSection .panel-head {
+  margin-bottom: 16px;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+body.provider-body #dashboard #organizationPeopleSection .people-panel-title {
+  display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; min-width: 0; flex: 1 1 auto;
+}
+body.provider-body #dashboard #organizationPeopleSection h3 {
+  display: flex; align-items: center; gap: 9px;
+  font-size: calc(20px + var(--provider-text-step, 0px)); line-height: 1.35;
+  white-space: nowrap; overflow-wrap: normal; word-break: normal;
+}
+body.provider-body #dashboard #organizationPeopleSection h3 .ui-icon {
+  width: 21px; height: 21px; color: var(--theme-muted, #736570);
+}
+body.provider-body #dashboard #organizationPeopleSection .panel-count {
+  width: auto; min-width: 26px; height: 26px; padding: 0 7px;
+  font-size: calc(13px + var(--provider-text-step, 0px));
+  color: var(--theme-ink, #342d32); background: var(--theme-surface-alt, #f7f3f5);
+}
+body.provider-body #dashboard #organizationPeopleSection .people-create-action {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  width: auto;
+  min-height: 44px; padding: 8px 13px; border-radius: 12px; flex-shrink: 0;
+  font-size: calc(14px + var(--provider-text-step, 0px)); font-weight: 650;
+  background: var(--theme-accent-soft, #fcebf2); color: var(--theme-accent, #ab326c);
+  border: 1px solid transparent;
+}
+body.provider-body #dashboard #organizationPeopleSection .organization-list { gap: 10px; }
+body.provider-body #dashboard #organizationPeopleSection .organization-row {
+  gap: 12px; padding: 14px; border: 1px solid var(--theme-line, #eadfe5);
+  border-radius: 16px; background: var(--theme-surface, #fff); box-shadow: none;
+}
+body.provider-body #dashboard #organizationPeopleSection .organization-editor { padding: 0; overflow: hidden; }
+body.provider-body #dashboard #organizationPeopleSection .organization-row.is-muted { opacity: 1; }
+body.provider-body #dashboard #organizationPeopleSection .organization-editor > summary {
+  min-height: 92px; padding: 14px; gap: 12px; flex-wrap: nowrap;
+  background: var(--theme-surface, #fff); align-items: center;
+}
+body.provider-body #dashboard #organizationPeopleSection .organization-editor > summary::after { display: none; }
+body.provider-body #dashboard #organizationPeopleSection .organization-editor > summary::-webkit-details-marker { display: none; }
+body.provider-body #dashboard #organizationPeopleSection .organization-row-main {
+  min-width: 0; flex: 1; display: grid; gap: 5px;
+}
+body.provider-body #dashboard #organizationPeopleSection .organization-row-main > strong {
+  font-size: calc(16px + var(--provider-text-step, 0px)); font-weight: 650; line-height: 1.4;
+  white-space: normal; overflow: visible; overflow-wrap: anywhere; text-overflow: clip;
+}
+body.provider-body #dashboard #organizationPeopleSection .organization-row-main > strong em {
+  font-size: calc(12px + var(--provider-text-step, 0px)); font-weight: 500;
+}
+body.provider-body #dashboard #organizationPeopleSection .organization-row-main > small {
+  font-size: calc(14px + var(--provider-text-step, 0px)); line-height: 1.5;
+  color: var(--theme-muted, #736570); white-space: normal; overflow-wrap: anywhere;
+}
+body.provider-body #dashboard #organizationPeopleSection .organization-row-main .organization-location-zone {
+  font-size: calc(13px + var(--provider-text-step, 0px));
+}
+body.provider-body #dashboard #organizationPeopleSection .member-avatar,
+body.provider-body #dashboard #organizationPeopleSection .organization-place-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 38px;
+  width: 38px; height: 38px; border-radius: 12px; font-size: 16px;
+  color: var(--theme-accent, #ab326c); background: var(--theme-accent-soft, #fcebf2);
+}
+body.provider-body #dashboard #organizationPeopleSection .organization-place-icon .ui-icon { width: 20px; height: 20px; }
+body.provider-body #dashboard #organizationPeopleSection .organization-status,
+body.provider-body #dashboard #organizationPeopleSection .organization-role {
+  padding: 5px 8px; border-radius: 8px; margin: 0; flex-shrink: 0;
+  font-size: calc(12px + var(--provider-text-step, 0px)); font-weight: 600;
+  color: var(--theme-ink, #342d32); background: var(--theme-surface-alt, #f7f3f5);
+}
+body.provider-body #dashboard #organizationPeopleSection .people-chevron { display: flex; flex: 0 0 16px; color: var(--theme-muted, #736570); }
+body.provider-body #dashboard #organizationPeopleSection .people-chevron .ui-icon { width: 16px; height: 16px; transition: transform .15s ease; }
+body.provider-body #dashboard #organizationPeopleSection details[open] > summary .people-chevron .ui-icon { transform: rotate(90deg); }
+body.provider-body #dashboard #organizationPeopleSection .organization-member-states {
+  display: flex; gap: 5px 10px; flex-wrap: wrap;
+  font-size: calc(12px + var(--provider-text-step, 0px)); line-height: 1.5;
+  color: var(--theme-muted, #736570);
+}
+body.provider-body #dashboard #organizationPeopleSection[data-people-ready] .organization-create {
+  border: 0; border-radius: 0; background: transparent; margin-top: 0;
+}
+body.provider-body #dashboard #organizationPeopleSection[data-people-ready] .organization-create > summary { display: none; }
+body.provider-body #dashboard #organizationPeopleSection[data-people-ready] .organization-create:not([open]) { display: none; }
+body.provider-body #dashboard #organizationPeopleSection form {
+  display: grid; gap: 14px; margin: 0; padding: 18px 14px; border: 0;
+  background: var(--theme-surface, #fff);
+}
+body.provider-body #dashboard #organizationPeopleSection .organization-create form {
+  margin-top: 16px; padding: 18px 0 0; border-top: 1px solid var(--theme-line, #eadfe5);
+}
+body.provider-body #dashboard #organizationPeopleSection label {
+  font-size: calc(14px + var(--provider-text-step, 0px)); font-weight: 600;
+  line-height: 1.5; gap: 6px; color: var(--theme-ink, #342d32);
+}
+body.provider-body #dashboard #organizationPeopleSection input:not([type="checkbox"]):not([type="hidden"]),
+body.provider-body #dashboard #organizationPeopleSection select,
+body.provider-body #dashboard #organizationPeopleSection .pro-select-trigger {
+  min-height: 46px; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--theme-muted, #736570) 72%, var(--theme-surface, #fff));
+  background: var(--theme-surface, #fff); color: var(--theme-ink, #342d32);
+  font-size: calc(15px + var(--provider-text-step, 0px)); font-weight: 400;
+}
+body.provider-body #dashboard #organizationPeopleSection .form-row { display: grid; grid-template-columns: 1fr; gap: 12px; }
+body.provider-body #dashboard #organizationPeopleSection .organization-checks { display: grid; gap: 8px; }
+body.provider-body #dashboard #organizationPeopleSection .organization-checks label,
+body.provider-body #dashboard #organizationPeopleSection .settings-check {
+  display: flex; align-items: flex-start; gap: 10px; min-height: 44px;
+  padding: 10px 0; border: 0; border-radius: 0; background: transparent;
+}
+body.provider-body #dashboard #organizationPeopleSection input[type="checkbox"] { width: 18px; height: 18px; margin-top: 3px; flex-shrink: 0; accent-color: var(--theme-accent, #c43372); }
+body.provider-body #dashboard #organizationPeopleSection .settings-hint,
+body.provider-body #dashboard #organizationPeopleSection .organization-invite-help,
+body.provider-body #dashboard #organizationPeopleSection label small {
+  font-size: calc(13px + var(--provider-text-step, 0px)); font-weight: 400; line-height: 1.55;
+  color: var(--theme-muted, #736570); margin: 0;
+}
+body.provider-body #dashboard #organizationPeopleSection .people-role-help { margin-top: -7px; }
+body.provider-body #dashboard #organizationPeopleSection form button {
+  min-height: 44px; font-size: calc(14px + var(--provider-text-step, 0px)); border-radius: 12px;
+}
+body.provider-body #dashboard #organizationPeopleSection form > button[type="submit"] {
+  background: var(--theme-accent, #c43372) !important; color: var(--theme-bg, #fff) !important;
+  border: 1px solid var(--theme-accent, #c43372); font-weight: 650;
+}
+body.provider-body #dashboard #organizationPeopleSection .people-cancel { background: transparent; color: var(--theme-muted, #736570); }
+body.provider-body #dashboard #organizationPeopleSection .form-error { font-size: 14px; line-height: 1.5; margin: 0; }
+body.provider-body #dashboard #organizationPeopleSection .people-workplace {
+  display: flex; align-items: flex-start; gap: 9px; padding-top: 12px;
+  border-top: 1px solid var(--theme-line, #eadfe5); color: var(--theme-muted, #736570);
+  font-size: calc(13px + var(--provider-text-step, 0px)); line-height: 1.55; font-weight: 400;
+}
+body.provider-body #dashboard #organizationPeopleSection .people-workplace > .ui-icon { width: 17px; height: 17px; flex-shrink: 0; margin-top: 2px; }
+body.provider-body #dashboard #organizationPeopleSection .people-workplace strong { font-size: inherit; font-weight: 550; }
+body.provider-body #dashboard #organizationPeopleSection .people-workplace p { margin: 4px 0 6px; }
+body.provider-body #dashboard #organizationPeopleSection .people-workplace button { min-height: 44px; padding: 6px 10px; font-size: 13px; background: transparent; }
+body.provider-body #dashboard .people-refresh { display: inline-flex; width: auto; gap: 7px; align-items: center; min-height: 44px; margin: 10px 0; font-size: 13px; font-weight: 500; background: transparent; border-color: transparent; }
+body.provider-body #dashboard #invitationsPanel {
+  padding: 20px 24px; border: 1px solid var(--theme-line, #eadfe5); border-radius: 24px;
+  background: var(--theme-surface, #fff); box-shadow: none;
+}
+body.provider-body #dashboard #invitationsPanel .organization-row {
+  padding: 14px; border: 1px solid var(--theme-line, #eadfe5); border-radius: 14px;
+  background: var(--theme-surface, #fff); gap: 12px;
+}
+body.provider-body #dashboard #invitationsPanel .organization-row-main { min-width: 0; }
+body.provider-body #dashboard #invitationsPanel .organization-row-main strong {
+  font-size: calc(14px + var(--provider-text-step, 0px)); white-space: normal; overflow-wrap: anywhere; line-height: 1.5;
+}
+body.provider-body #dashboard #invitationsPanel .organization-row-main small { font-size: calc(13px + var(--provider-text-step, 0px)); line-height: 1.5; }
+body.provider-body #dashboard #invitationsPanel .organization-cancel { min-height: 44px; width: auto; font-size: 13px; padding: 8px 12px; }
+body.provider-body #dashboard #organizationPeopleSection .people-live {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+body.provider-body #dashboard #organizationPeopleSection :is(button, summary, input, select):focus-visible {
+  outline: 2px solid var(--theme-accent, #ab326c); outline-offset: 3px;
+}
+@media (max-width: 1100px) {
+  body.provider-body #dashboard #organizationPeopleSection .organization-editor > summary { flex-wrap: wrap; }
+  body.provider-body #dashboard #organizationPeopleSection .organization-row-main { flex-basis: calc(100% - 60px); }
+  body.provider-body #dashboard #organizationPeopleSection summary > .organization-role,
+  body.provider-body #dashboard #organizationPeopleSection summary > .organization-status { margin-left: 50px; }
+  body.provider-body #dashboard #organizationPeopleSection .people-chevron { margin-left: auto; }
+}
+@media (max-width: 760px) {
+  body.provider-body #dashboard #organizationPeopleSection[data-people-ready] { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  body.provider-body #dashboard #organizationPeopleSection[data-people-ready] > .organization-section { padding: 18px 14px; border-radius: 20px; }
+  body.provider-body #dashboard #organizationPeopleSection h3 { font-size: calc(18px + var(--provider-text-step, 0px)); gap: 7px; }
+  body.provider-body #dashboard #organizationPeopleSection h3 .ui-icon { width: 18px; height: 18px; }
+  body.provider-body #dashboard #organizationPeopleSection .people-create-action { padding: 8px 9px; font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.provider-body #dashboard #organizationPeopleSection .people-chevron .ui-icon { transition: none; }
+}
