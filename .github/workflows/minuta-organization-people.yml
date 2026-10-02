@@ -8,7 +8,7 @@ on:
       - 'minuta-online-booking/provider.html'
       - '.github/workflows/minuta-organization-people.yml'
   push:
-    branches: [main, 'codex/pro-people-branches']
+    branches: [main]
     paths:
       - 'minuta-online-booking/organization.js'
       - 'minuta-online-booking/organization-people.*'

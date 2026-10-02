@@ -54,6 +54,7 @@ try {
         if(output)await page.screenshot({path:resolve(output,'people-'+theme+'-'+width+'.png'),fullPage:true});
         await page.locator('[data-member-card="u1"] summary').click();
         await page.locator('[data-member-card="u1"] [data-people-workplace]').waitFor({state:'visible'});
+        await page.locator('[data-member-card="u1"] [data-people-workplace]').scrollIntoViewIfNeeded();
         await page.waitForFunction(()=>document.querySelector('[data-member-card="u1"] [data-people-workplace]').textContent.includes('По графику'));
         eq(await page.locator('[data-member-card="u1"] select[name="role"]').isEnabled(),false,'last active owner cannot be downgraded');
         eq(await page.locator('[data-member-card="u1"] input[name="active"]').isEnabled(),false,'last active owner cannot be disabled');
@@ -169,6 +170,34 @@ try {
         ok((await page.locator('[data-people-member="u2"] [data-people-workplace]').innerText()).includes('недоступен'),'restricted read is not an empty team claim');
       }
       eq(await page.evaluate(()=>calls.filter(x=>!x.name.startsWith('get_')).length),0);
+      eq(f.errors,[]);eq(f.unexpected,[]);
+    }finally{await page.close();}
+  }
+  {
+    const page=await browser.newPage({viewport:{width:390,height:900},serviceWorkers:'block'});
+    const f=await fixture(page);
+    try{
+      await page.evaluate(()=>{orgData.public_booking_enabled=true;orgData.members[1].active=false;});
+      await page.locator('[data-people-reload]').click();
+      await page.locator('[data-member-card="u2"] summary').click();
+      await page.waitForFunction(()=>document.querySelector('[data-member-card="u2"] [data-people-workplace]').textContent.includes('Доступ отключён'));
+      ok((await page.locator('[data-member-card="u2"] .organization-member-states').textContent()).includes('Приём недоступен'),'inactive member cannot appear to accept clients');
+      await page.evaluate(()=>{orgData.members[1].active=true;orgData.members[1].is_bookable=false;shiftData.shifts[0].end_time='27:00';});
+      await page.locator('[data-people-reload]').click();
+      await page.locator('[data-member-card="u2"] summary').click();
+      await page.waitForFunction(()=>document.querySelector('[data-member-card="u2"] [data-people-workplace]').textContent.includes('Приём клиентов выключен'));
+      ok((await page.locator('[data-member-card="u1"] [data-people-workplace]').textContent()).includes('В графике нет смен'),'invalid shift hours are excluded');
+      await openCreator(page,'locationCreator');await page.locator('#locationName').fill('Запрос до выхода');
+      await page.evaluate(()=>{delayWrite=true;delete window.releaseWrite;});
+      await page.locator('#locationForm button[type="submit"]').click();
+      await page.waitForFunction(()=>Boolean(window.releaseWrite));
+      eq(await page.locator('#locationForm [data-people-cancel]').isEnabled(),false,'cannot discard an in-flight save');
+      const notices=await page.evaluate(()=>window.notices.length);
+      await page.evaluate(()=>{logout();delayWrite=false;releaseWrite();});
+      await page.waitForFunction(()=>calls.filter(x=>x.name==='create_minuta_location').length===1);
+      eq(await page.locator('#organizationWorkspace').isVisible(),false,'late write does not reopen another session');
+      eq(await page.evaluate(()=>window.notices.length),notices,'late write does not report a success in logged-out session');
+      eq(await page.evaluate(()=>Object.keys(sessionStorage).filter(k=>k.startsWith('minuta-people-drafts-v1:')).length),0);
       eq(f.errors,[]);eq(f.unexpected,[]);
     }finally{await page.close();}
   }

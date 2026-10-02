@@ -171,6 +171,7 @@
         const action = document.createElement('button');
         action.type = 'button'; action.className = 'secondary-button people-create-action';
         action.dataset.peopleOpen = creatorId; action.setAttribute('aria-controls', creatorId);
+        action.dataset.peopleLabel = label;
         action.setAttribute('aria-expanded', 'false');
         action.innerHTML = icon('plus') + '<span>' + label + '</span>'; head.append(action);
       }
@@ -240,7 +241,8 @@
           const locations = organization.locations.filter(item => item.active && validShifts.some(shift => shift.performer_id === memberId && shift.location_id === item.id));
           text = locations.length ? 'По графику: ' + locations.map(item => item.name).join(', ') : 'В графике нет смен в филиалах.';
           const services = schedule.services.some(service => service && service.performer_id === memberId && service.active !== false && String(service.name || '').trim() && Number(service.duration_minutes) > 0);
-          text += ' ' + (!organization.public_booking_enabled ? 'Онлайн-запись команды выключена.' : !services ? 'Для онлайн-записи нужна активная услуга.' : 'Онлайн-запись команды включена; свободное время проверяется в графике.');
+          const member = organization.members.find(item => item.user_id === memberId);
+          text += ' ' + (!member?.active ? 'Доступ отключён: онлайн-запись сотрудника недоступна.' : !member.is_bookable ? 'Приём клиентов выключен: онлайн-запись сотрудника недоступна.' : !organization.public_booking_enabled ? 'Онлайн-запись команды выключена.' : !services ? 'Для онлайн-записи нужна активная услуга.' : 'Онлайн-запись команды включена; свободное время проверяется в графике.');
         } else if (!canSeeTeam) text = 'Показаны доступные вам смены.';
         else {
           const members = organization.members.filter(item => item.active && validShifts.some(shift => shift.location_id === locationId && shift.performer_id === item.user_id));
@@ -293,14 +295,22 @@
         if (!details.matches('details')) return;
         if (details.open && matchMedia('(max-width: 760px)').matches) root.querySelectorAll('details[open]').forEach(node => { if (node !== details) node.open = false; });
         const action = root.querySelector('[data-people-open="' + details.id + '"]');
-        action?.setAttribute('aria-expanded', String(details.open)); capture();
+        if (action) {
+          action.setAttribute('aria-expanded', String(details.open));
+          action.innerHTML = icon(details.open ? 'close' : 'plus') + '<span>' + (details.open ? 'Свернуть' : action.dataset.peopleLabel) + '</span>';
+        }
+        capture();
       }, true);
       root.addEventListener('click', event => {
         const open = event.target.closest('[data-people-open]');
         if (open) {
           const creator = document.getElementById(open.dataset.peopleOpen);
           creator.open = !creator.open;
-          if (creator.open) creator.querySelector('input:not([type="hidden"])')?.focus();
+          if (creator.open) {
+            const field = creator.querySelector('input:not([type="hidden"])');
+            field?.focus({ preventScroll: true });
+            field?.scrollIntoView({ block: 'center' });
+          }
         }
         const cancel = event.target.closest('[data-people-cancel]');
         if (cancel) {
