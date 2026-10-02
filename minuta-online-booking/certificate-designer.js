@@ -9,7 +9,7 @@
     if (!repository) throw new Error('certificate_repository_required');
     let organization = null, revision = 0, busy = false, workspace = null;
     let template = null, image = null, record = null, intent = null, renderRevision = 0, viewing = false;
-    const loadedFonts = new Map();
+    const loadedFonts = new Map(), loadingFonts = new Map();
     const $ = selector => root.querySelector(selector);
     root.classList.add('certificate-designer');
     root.innerHTML = `<div class="certificate-heading"><h3>Подарочные сертификаты</h3><span data-certificate-demo hidden>Образец</span></div>
@@ -85,11 +85,23 @@
     }
     async function ensureFont(family, file = template?.font_files?.[family]) {
       const scope = capture();
-      if (file && !loadedFonts.has(file)) {
-        const binary=atob(file.slice(file.indexOf(',')+1)), bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
-        const face = new FontFace(family, bytes.buffer); await face.load();
-        if (!current(scope)) throw new Error('stale_session');
-        document.fonts.add(face); loadedFonts.set(file, face);
+      if (file) {
+        const key = family + '\u0000' + file;
+        let face = loadedFonts.get(key);
+        if (!face) {
+          let pending = loadingFonts.get(key);
+          if (!pending) {
+            const binary=atob(file.slice(file.indexOf(',')+1)), bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
+            pending = new FontFace(family, bytes.buffer).load(); loadingFonts.set(key, pending);
+          }
+          try { face = await pending; }
+          finally { if (loadingFonts.get(key) === pending) loadingFonts.delete(key); }
+          if (!current(scope)) throw new Error('stale_session');
+          loadedFonts.set(key, face);
+        }
+        // Only the selected version may participate in this family's glyph fallback.
+        for (const [source, other] of loadedFonts) if (source !== key && other.family === family) document.fonts.delete(other);
+        document.fonts.add(face);
       }
       // A portable template must carry an uploaded font; system-only fonts do not suffice for mobile export.
       return family === 'Times New Roman' || Boolean(file) || systemFontAvailable(family);
@@ -295,7 +307,9 @@
       draftTemplate(); template.layout[key] = R.normalizedField({ ...template.layout[key], x, y }); template.saved = false; $('[data-issue]').disabled = true; fieldInputs(); preview();
     });
     for (const selector of ['[data-service]','[data-sessions]','[data-date]','[data-number]','[data-expiry]','[data-remind]','[data-font]']) $(selector).addEventListener('input', () => {
-      if (busy) return; if (selector === '[data-date]' && $('[data-date]').value) { try { $('[data-expiry]').value = R.addMonths($('[data-date]').value, 6); } catch {} } preview();
+      if (busy) return;
+      if (selector === '[data-font]') $('[data-font-file]').value = '';
+      if (selector === '[data-date]' && $('[data-date]').value) { try { $('[data-expiry]').value = R.addMonths($('[data-date]').value, 6); } catch {} } preview();
     });
     $('[data-font-file]').addEventListener('change', async () => {
       if (!template || busy) return;
@@ -319,7 +333,7 @@
     $('[data-status]').addEventListener('change', () => history(false)); $('[data-more]').addEventListener('click', () => history(true));
     async function setOrganization(value) {
       ++revision; ++renderRevision; ++historyRevision; organization = value || null; workspace = null; template = null; image = null; record = null; intent = null;
-      viewing=false; for (const face of loadedFonts.values()) document.fonts.delete(face); loadedFonts.clear();
+      viewing=false; for (const face of loadedFonts.values()) document.fonts.delete(face); loadedFonts.clear(); loadingFonts.clear();
       $('[data-history]').replaceChildren(); $('[data-canvas]').hidden = true; $('[data-empty]').hidden = false; $('[data-message]').textContent = ''; clearError();
       $('[data-form]').reset(); root.hidden = !organization;
       if (!organization) { lock(false); return; }
