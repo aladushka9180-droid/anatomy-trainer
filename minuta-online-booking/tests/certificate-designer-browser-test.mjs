@@ -16,6 +16,7 @@ const output=process.env.MINUTA_CERTIFICATE_OUTPUT || fileURLToPath(new URL('../
 let checks=6;
 try{
   const store='check-'+Date.now();await page.goto(url+'/fixture.html?store='+store);await page.locator('[data-canvas]').waitFor({state:'visible'});
+  assert.equal(await page.locator('[data-open-library], [data-library], [data-preset]').count(),0);assert.equal((await page.request.get(url+'/certificate-template-library.js')).status(),404);checks++;
   assert.equal(await page.locator('[data-number]').inputValue(),'267');assert.equal(await page.locator('[data-date]').inputValue(),'2026-10-03');checks++;
   for(const width of [390,760,1440]){
     await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
@@ -217,7 +218,7 @@ try{
   });
   await queued.waitForFunction(()=>window.queuedDispatches.length===1);assert.equal(await queued.locator('[data-issue]').isDisabled(),true);assert.equal(await queued.locator('[data-number]').isDisabled(),true);checks++;
   await queued.evaluate(()=>document.querySelector('[data-form]').dispatchEvent(new Event('submit',{cancelable:true})));assert.equal(await queued.evaluate(()=>window.queuedDispatches.length),1);checks++;
-  await queued.evaluate(()=>window.rejectQueuedIssue());await queued.getByRole('alert').waitFor();assert.equal(await queued.locator('[data-issue]').isDisabled(),false);assert.equal(await queued.locator('[data-open-library]').isDisabled(),true);
+  await queued.evaluate(()=>window.rejectQueuedIssue());await queued.getByRole('alert').waitFor();assert.equal(await queued.locator('[data-issue]').isDisabled(),false);assert.equal(await queued.locator('[data-template]').isDisabled(),true);
   await queued.locator('[data-issue]').click();await queued.locator('[data-new]').waitFor({state:'visible'});
   const queuedCalls=await queued.evaluate(()=>window.queuedDispatches);assert.equal(queuedCalls.length,2);assert.deepEqual(queuedCalls[1],queuedCalls[0]);assert.equal(await queued.evaluate(()=>window.certificateFixture.getState().records.length),1);checks++;await queued.close();
   await page.evaluate(async()=>{await window.certificateFixture.controller.setOrganization(null)});assert.equal(await page.locator('#certificateDesignerPanel').isVisible(),false);checks++;

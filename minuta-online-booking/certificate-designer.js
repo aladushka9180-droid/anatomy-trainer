@@ -2,17 +2,6 @@
   'use strict';
   const sourceURL = document.currentScript?.src;
   let detectorLoad;
-  let libraryLoad;
-  function loadLibrary() {
-    if(window.MinutaCertificateTemplateLibrary)return Promise.resolve(window.MinutaCertificateTemplateLibrary);
-    if(!libraryLoad)libraryLoad=new Promise((resolve,reject)=>{
-      if(!sourceURL){reject(new Error('template_library_unavailable'));return;}
-      const script=document.createElement('script');script.src=new URL('certificate-template-library.js',sourceURL).href;
-      script.onload=()=>window.MinutaCertificateTemplateLibrary?resolve(window.MinutaCertificateTemplateLibrary):reject(new Error('template_library_unavailable'));
-      script.onerror=()=>{script.remove();reject(new Error('template_library_unavailable'))};document.head.append(script);
-    }).catch(reason=>{libraryLoad=null;throw reason});
-    return libraryLoad;
-  }
   function loadDetector() {
     if(window.MinutaCertificateLayoutDetector)return Promise.resolve(window.MinutaCertificateLayoutDetector);
     if(!detectorLoad)detectorLoad=new Promise((resolve,reject)=>{
@@ -34,7 +23,6 @@
     let template = null, image = null, record = null, intent = null, renderRevision = 0, viewing = false, selectedClient = null, clientRevision = 0, copyValidity = null;
     const loadedFonts = new Map(), loadingFonts = new Map();
     let detectionRevision=0, detectionJob=null, detecting=false;
-    let selectedPreset=null, libraryRevision=0;
     let activeDraft=null, draftIntent=null, draftsRevision=0, draftsCursor=null;
     const $ = selector => root.querySelector(selector);
     root.classList.add('certificate-designer');
@@ -43,7 +31,6 @@
       <p class="certificate-message" role="status" data-message></p><p class="certificate-error" role="alert" data-error hidden></p>
       <div data-panel="create"><div class="certificate-layout"><form class="certificate-form" data-form>
         <label>Макет<select data-template aria-label="Макет"></select></label>
-        <div class="certificate-buttons"><button type="button" data-open-library>3 новых макета</button><button type="button" data-save-preset hidden>Сохранить этот макет</button></div>
         <details data-template-settings><summary>Загрузить и настроить макет</summary><div class="certificate-form">
           <label>Изображение макета<input type="file" accept="image/png,image/jpeg,image/webp" data-image></label>
           <p class="certificate-help">Загрузи пустой макет. Места для процедуры, даты и номера определятся автоматически; проверь их перед сохранением.</p>
@@ -79,10 +66,8 @@
       <div data-panel="history" hidden><p class="certificate-reminder" role="status" data-reminders hidden></p>
         <div class="certificate-history-controls"><input type="search" aria-label="Поиск сертификатов" placeholder="Номер или текст сертификата" data-search maxlength="180"><select aria-label="Срок действия" data-status><option value="all">Все сертификаты</option><option value="active">Действуют</option><option value="expiring">Скоро истекают</option><option value="expired">Истекли</option></select></div>
         <div data-history></div><div class="certificate-buttons"><button type="button" data-more hidden>Показать ещё</button></div></div>
-      <div data-panel="drafts" hidden><p class="certificate-help">Твои сохранённые черновики. Номер назначается только при выдаче сертификата.</p><div data-drafts></div><div class="certificate-buttons"><button type="button" data-drafts-more hidden>Показать ещё</button></div></div>
-      <dialog class="certificate-library" data-library aria-labelledby="certificate-library-title"><div class="certificate-library-heading"><div><h3 id="certificate-library-title">Выбери оформление</h3><p class="certificate-help">3 новых оформления · A4 и A5</p></div><button type="button" data-close-library aria-label="Закрыть выбор макета">Закрыть</button></div><p role="status" data-library-status></p><div class="certificate-library-grid" data-library-grid></div></dialog>`;
+      <div data-panel="drafts" hidden><p class="certificate-help">Твои сохранённые черновики. Номер назначается только при выдаче сертификата.</p><div data-drafts></div><div class="certificate-buttons"><button type="button" data-drafts-more hidden>Показать ещё</button></div></div>`;
     const errorMessages = {
-      template_library_unavailable:'Не удалось загрузить готовые макеты. Попробуй открыть выбор снова.',
       invalid_date:'Проверь дату.', invalid_procedure:'Выбери услугу и количество сеансов.', invalid_custom_text:'Напиши текст сертификата: от 1 до 260 символов.', invalid_duration:'У выбранной услуги не указана длительность.',
       unsupported_export_format:'Этот браузер не поддерживает выбранный формат. Выбери другой формат файла.',
       print_window_blocked:'Разреши открытие окна печати для этого сайта и попробуй снова.',
@@ -142,10 +127,6 @@
       $('[data-issue]').textContent = intent ? 'Повторить сохранение' : 'Сохранить выдачу';
       $('[data-detect]').disabled=value||viewing||Boolean(intent)||Boolean(draftIntent)||!image;
       $('[data-cancel-detect]').disabled=false;
-      $('[data-open-library]').disabled=value||viewing||Boolean(intent)||Boolean(draftIntent)||!writesAllowed();
-      $('[data-save-preset]').hidden=!selectedPreset||Boolean(template?.saved)||viewing;
-      $('[data-save-preset]').disabled=value||viewing||Boolean(intent)||Boolean(draftIntent)||!writesAllowed();
-      $('[data-library-grid]').querySelectorAll('button').forEach(node=>{node.disabled=value||viewing||Boolean(intent)||Boolean(draftIntent)||!writesAllowed()});
       $('[data-save-draft]').hidden=viewing; $('[data-save-draft]').disabled=value||viewing||Boolean(intent)||!writesAllowed()||!repository.saveDraft;
       $('[data-save-draft]').textContent=draftIntent?'Повторить сохранение черновика':'Сохранить черновик';
       $('[data-fresh-draft]').hidden=viewing||!activeDraft; $('[data-fresh-draft]').disabled=value||Boolean(intent)||Boolean(draftIntent);
@@ -268,7 +249,6 @@
       if (template?.saved) template={...structuredClone(template),id:crypto.randomUUID(),saved:false};
     }
     async function selectTemplate(id) {
-      selectedPreset=null;
       cancelDetection(); $('[data-detection]').textContent='';
       const ticket = ++renderRevision, scope = capture();
       const selected = workspace.templates.find(item => String(item.id) === id);
@@ -285,39 +265,6 @@
     }
     function selectOptions(select, rows, label) {
       select.replaceChildren(); for (const item of rows) { const option = document.createElement('option'); option.value = String(item.id); option.textContent = label(item); select.append(option); }
-    }
-    async function openLibrary() {
-      if(busy||viewing||intent||!writesAllowed())return;
-      clearError();const scope=capture(),ticket=++libraryRevision,dialog=$('[data-library]');
-      $('[data-library-status]').textContent='Загружаем макеты…';dialog.showModal();
-      try {
-        const L=await loadLibrary();
-        if(!current(scope)||ticket!==libraryRevision||!dialog.open||busy||viewing||intent)return;
-        if(!$('[data-library-grid]').childElementCount)for(const item of L.items){
-          const button=document.createElement('button');button.type='button';button.dataset.preset=item.id;
-          button.setAttribute('aria-label',`Выбрать макет ${item.name}`);
-          const image=document.createElement('img');image.src=L.thumbnail(item.id);image.alt='';image.width=320;image.height=item.orientation==='portrait'?453:226;
-          const title=document.createElement('span');title.textContent=`${String(item.index+1).padStart(2,'0')} · ${item.name}`;
-          const direction=document.createElement('small');direction.textContent=item.orientation==='portrait'?'Вертикальный':'Горизонтальный';
-          button.append(image,title,direction);button.addEventListener('click',()=>choosePreset(item.id));$('[data-library-grid]').append(button);
-        }
-        $('[data-library-status]').textContent='';lock(false);
-      }catch(reason){if(current(scope)&&ticket===libraryRevision){$('[data-library-status]').textContent='Макеты не загрузились. Закрой окно и попробуй снова.';fail(reason)}}
-    }
-    async function choosePreset(id) {
-      if(busy||viewing||intent||!writesAllowed())return;
-      const scope=capture();$('[data-library]').close();cancelDetection();lock(true);clearError();
-      try {
-        const next=window.MinutaCertificateTemplateLibrary.create(id);next.font_files=structuredClone(template?.font_files||{});
-        const loaded=await R.loadImage(next.image_data);
-        if(!current(scope))return;
-        selectedPreset=id;template={...next,saved:false};image=loaded;record=null;
-        selectOptions($('[data-template]'),workspace.templates,t=>t.name);
-        const option=new Option(next.name+' (не сохранён)',next.id);option.disabled=true;$('[data-template]').add(option);$('[data-template]').value=next.id;
-        $('[data-template-settings]').open=false;$('[data-detection]').textContent='';fieldInputs();
-        message('Оформление выбрано. Сохрани макет перед выдачей.');await preview();
-      }catch(reason){if(current(scope))fail(reason)}
-      finally{if(current(scope))lock(false)}
     }
     async function loadWorkspace() {
       const scope = capture(); workspace = null; lock(true); message('Загружаем сертификаты…');
@@ -361,7 +308,7 @@
         const data = await readFile(file, 8 * 1024 * 1024, 'image_too_large'); const loaded = await R.loadImage(data);
         if (!current(scope)) return;
         template = { id:crypto.randomUUID(), name:file.name.replace(/\.[^.]+$/, '').slice(0, 100), image_data:data, layout:structuredClone(R.fields), font_files:{}, saved:false };
-        selectedPreset=null;image = loaded; fieldInputs();const draftOption=new Option(template.name+' (не сохранён)',template.id);draftOption.disabled=true;$('[data-template]').add(draftOption);$('[data-template]').value=template.id;
+        image = loaded; fieldInputs();const draftOption=new Option(template.name+' (не сохранён)',template.id);draftOption.disabled=true;$('[data-template]').add(draftOption);$('[data-template]').value=template.id;
         $('[data-issue]').disabled = true; message('Макет загружен. Проверь места для текста и сохрани настройки.'); await preview();uploaded=true;
       } catch (reason) { if (current(scope)) fail(reason); }
       finally{if(current(scope))lock(false);}
@@ -399,7 +346,7 @@
         if (data.organization_id !== scope.org) throw new Error('stale_session');
         if (!workspace.templates.some(t=>t.id===next.id)) workspace.templates.push({ ...next, saved:true });
         selectOptions($('[data-template]'), workspace.templates, t => t.name);
-        $('[data-template]').value = next.id; template = { ...next, saved:true }; selectedPreset=null;message('Макет сохранён.');
+        $('[data-template]').value = next.id; template = { ...next, saved:true }; message('Макет сохранён.');
       } catch (reason) { if (current(scope)) fail(reason); }
       finally { if (current(scope)) lock(false); }
     }
@@ -590,7 +537,7 @@
           catch(reason){if(!String(reason?.message||'').includes('invalid_certificate_client'))throw reason;client=null;unavailableClient=true;}
           if(!current(scope))return;
         }
-        template=nextTemplate;image=nextImage;viewing=false;record=null;selectedPreset=null;activeDraft={id:data.id,revision:data.revision};
+        template=nextTemplate;image=nextImage;viewing=false;record=null;activeDraft={id:data.id,revision:data.revision};
         selectOptions($('[data-service]'),workspace.services,s=>s.name);
         if(form.service&&!workspace.services.some(s=>s.id===form.service)){const option=new Option('Сохранённая услуга недоступна',form.service);option.disabled=true;$('[data-service]').add(option);}
         for(const key of draftFields)if(typeof form[key]==='string')$(`[data-${key}]`).value=form[key];
@@ -627,9 +574,6 @@
     $('[data-drafts-more]').addEventListener('click',()=>drafts(true));
     $('[data-fresh-draft]').addEventListener('click',()=>{if(busy||intent||draftIntent)return;activeDraft=null;message('Начат новый черновик с текущими данными. Предыдущий сохранён во вкладке «Черновики».');lock(false);});
     $('[data-number-mode]').addEventListener('change',async()=>{if(busy||intent||draftIntent||viewing)return;numbering();if(automaticNumber())$('[data-number]').value=workspace?.next_number||'1';else $('[data-number]').value='';await preview();});
-    $('[data-open-library]').addEventListener('click',openLibrary);$('[data-save-preset]').addEventListener('click',saveTemplate);
-    $('[data-close-library]').addEventListener('click',()=>$('[data-library]').close());
-    $('[data-library]').addEventListener('close',()=>{++libraryRevision});
     $('[data-detect]').addEventListener('click',detectLayout);
     $('[data-cancel-detect]').addEventListener('click',()=>{cancelDetection();$('[data-detection]').textContent='Выбери поле и нажми на макет или задай координаты вручную.';preview();});
     for (const selector of ['[data-x]','[data-y]','[data-width]','[data-size]']) $(selector).addEventListener('input', () => {
@@ -704,7 +648,6 @@
     $('[data-status]').addEventListener('change', () => history(false)); $('[data-more]').addEventListener('click', () => history(true));
     async function setOrganization(value) {
       cancelDetection();$('[data-detection]').textContent='';
-      ++libraryRevision;selectedPreset=null;if($('[data-library]').open)$('[data-library]').close();
       ++revision; ++renderRevision; ++historyRevision; ++draftsRevision; activeDraft=null;draftIntent=null;draftsCursor=null;$('[data-drafts]').replaceChildren();organization = value || null; workspace = null; template = null; image = null; record = null; intent = null;
       viewing=false; for (const face of loadedFonts.values()) document.fonts.delete(face); loadedFonts.clear(); loadingFonts.clear();
       ++clientRevision;clientChoices=[];clientSelection(null);copyValidity=null;clearTimeout(clientTimer);$('[data-client-settings]').open=false;
