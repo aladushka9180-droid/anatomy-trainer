@@ -1,26 +1,21 @@
 diff --git a/minuta-online-booking/provider.js b/minuta-online-booking/provider.js
 --- a/minuta-online-booking/provider.js
 +++ b/minuta-online-booking/provider.js
-@@ -4119,5 +4119,6 @@
- function reportPerformerName() {
+@@ -4120,3 +4120,4 @@
    if (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all') return reportCanViewTeam ? 'Вся команда' : 'Личная статистика';
 -  return reportTeamAnalyticsState.rows.find(row => String(row.performer_id || '') === reportPerformerFilter)?.performer_name || 'Сотрудник';
-+  const directory = window.MinutaStatisticsAuditProvider?.performerDirectory?.(reportTeamAnalyticsState) || reportTeamAnalyticsState.rows;
-+  return directory.find(row => String(row.performer_id || '') === reportPerformerFilter)?.performer_name || 'Выбранный сотрудник';
++  const s=reportTeamAnalyticsState,rows=window.MinutaStatisticsAuditProvider?.performerDirectory?.(s)||s.rows;
++  return rows.find(row=>String(row.performer_id||'')===reportPerformerFilter)?.performer_name||'Выбранный сотрудник';
  }
-
-@@ -4149,6 +4150,12 @@
-     try { reportPerformerFilter = localStorage.getItem(`minuta-report-performer:${reportOrganizationId()}`) || 'all'; } catch { reportPerformerFilter = 'all'; }
+@@ -4150,4 +4151,9 @@
    }
 -  if (reportPerformerFilter !== 'all' && !reportTeamAnalyticsState.rows.some(row => String(row.performer_id || '') === reportPerformerFilter)) reportPerformerFilter = 'all';
 -  select.innerHTML = `<option value="all">Вся команда</option>${reportTeamAnalyticsState.rows.map(row => `<option value="${escapeHtml(String(row.performer_id || ''))}">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;
-+  let directory = window.MinutaStatisticsAuditProvider?.performerDirectory?.(reportTeamAnalyticsState) || reportTeamAnalyticsState.rows;
-+  const directoryConfirmed = !reportTeamAnalyticsState.derived && !['loading','failed'].includes(reportTeamAnalyticsState.status);
-+  const selectedExists = directory.some(row => String(row.performer_id || '') === reportPerformerFilter);
-+  if (reportPerformerFilter !== 'all' && !selectedExists) {
-+    if (directoryConfirmed) reportPerformerFilter = 'all';
-+    else directory = [...directory, { performer_id:reportPerformerFilter, performer_name:'Выбранный сотрудник' }];
++  const s=reportTeamAnalyticsState;
++  let rows=window.MinutaStatisticsAuditProvider?.performerDirectory?.(s)||s.rows;
++  if(reportPerformerFilter!=='all'&&!rows.some(row=>String(row.performer_id||'')===reportPerformerFilter)){
++    if(!s.derived&&!['loading','failed'].includes(s.status))reportPerformerFilter='all';
++    else rows=[...rows,{performer_id:reportPerformerFilter,performer_name:'Выбранный сотрудник'}];
 +  }
-+  select.innerHTML = `<option value="all">Вся команда</option>${directory.map(row => `<option value="${escapeHtml(String(row.performer_id || ''))}">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;
++  select.innerHTML=`<option value="all">Вся команда</option>${rows.map(row=>`<option value="${escapeHtml(String(row.performer_id||''))}">${escapeHtml(row.performer_name||'Сотрудник')}</option>`).join('')}`;
    select.value = reportPerformerFilter;
-   updateReportFilterSummary();

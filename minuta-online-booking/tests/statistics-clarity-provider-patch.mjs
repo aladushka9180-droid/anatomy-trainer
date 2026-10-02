@@ -8,16 +8,16 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const changes=[
   [
     "  return reportTeamAnalyticsState.rows.find(row => String(row.performer_id || '') === reportPerformerFilter)?.performer_name || 'Сотрудник';",
-    "  const directory = window.MinutaStatisticsAuditProvider?.performerDirectory?.(reportTeamAnalyticsState) || reportTeamAnalyticsState.rows;\n  return directory.find(row => String(row.performer_id || '') === reportPerformerFilter)?.performer_name || 'Выбранный сотрудник';"
+    "  const s=reportTeamAnalyticsState,rows=window.MinutaStatisticsAuditProvider?.performerDirectory?.(s)||s.rows;\n  return rows.find(row=>String(row.performer_id||'')===reportPerformerFilter)?.performer_name||'Выбранный сотрудник';"
   ],
   [
     "  if (reportPerformerFilter !== 'all' && !reportTeamAnalyticsState.rows.some(row => String(row.performer_id || '') === reportPerformerFilter)) reportPerformerFilter = 'all';\n  select.innerHTML = `<option value=\"all\">Вся команда</option>${reportTeamAnalyticsState.rows.map(row => `<option value=\"${escapeHtml(String(row.performer_id || ''))}\">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;",
-    "  let directory = window.MinutaStatisticsAuditProvider?.performerDirectory?.(reportTeamAnalyticsState) || reportTeamAnalyticsState.rows;\n  const directoryConfirmed = !reportTeamAnalyticsState.derived && !['loading','failed'].includes(reportTeamAnalyticsState.status);\n  const selectedExists = directory.some(row => String(row.performer_id || '') === reportPerformerFilter);\n  if (reportPerformerFilter !== 'all' && !selectedExists) {\n    if (directoryConfirmed) reportPerformerFilter = 'all';\n    else directory = [...directory, { performer_id:reportPerformerFilter, performer_name:'Выбранный сотрудник' }];\n  }\n  select.innerHTML = `<option value=\"all\">Вся команда</option>${directory.map(row => `<option value=\"${escapeHtml(String(row.performer_id || ''))}\">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;"
+    "  const s=reportTeamAnalyticsState;\n  let rows=window.MinutaStatisticsAuditProvider?.performerDirectory?.(s)||s.rows;\n  if(reportPerformerFilter!=='all'&&!rows.some(row=>String(row.performer_id||'')===reportPerformerFilter)){\n    if(!s.derived&&!['loading','failed'].includes(s.status))reportPerformerFilter='all';\n    else rows=[...rows,{performer_id:reportPerformerFilter,performer_name:'Выбранный сотрудник'}];\n  }\n  select.innerHTML=`<option value=\"all\">Вся команда</option>${rows.map(row=>`<option value=\"${escapeHtml(String(row.performer_id||''))}\">${escapeHtml(row.performer_name||'Сотрудник')}</option>`).join('')}`;"
   ]
 ];
 export function candidateProvider(input){
   let source=input.replace(/\r\n/g,'\n');
-  if(source.includes('const directoryConfirmed = !reportTeamAnalyticsState.derived')){
+  if(source.includes(changes[0][1])){
     for(const [,after]of changes)assert.ok(source.includes(after),'both owner integration changes are required');
     return source;
   }
@@ -34,9 +34,9 @@ export function providerPatch(input){
   const hunks=changes.map(([before,after])=>{
     const index=source.indexOf(before),from=source.slice(0,index).split('\n').length-1;
     const lines=source.split('\n'),oldLines=before.split('\n'),newLines=after.split('\n');
-    const pre=lines.slice(from-2,from),post=lines.slice(from+oldLines.length,from+oldLines.length+2);
-    const hunk=`@@ -${from-1},${oldLines.length+4} +${from-1+offset},${newLines.length+4} @@\n`
-      +[...pre.map(line=>line?' '+line:''),...oldLines.map(line=>'-'+line),...newLines.map(line=>'+'+line),...post.map(line=>line?' '+line:'')].join('\n')+'\n';
+    const pre=lines.slice(from-1,from),post=lines.slice(from+oldLines.length,from+oldLines.length+1);
+    const hunk=`@@ -${from},${oldLines.length+2} +${from+offset},${newLines.length+2} @@\n`
+      +[...pre.map(line=>' '+line),...oldLines.map(line=>'-'+line),...newLines.map(line=>'+'+line),...post.map(line=>' '+line)].join('\n')+'\n';
     offset+=newLines.length-oldLines.length;
     return hunk;
   });
