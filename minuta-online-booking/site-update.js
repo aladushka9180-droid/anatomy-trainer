@@ -5,7 +5,7 @@
   if (new URLSearchParams(location.search).get('porcelain-preview') === '1') return;
 
   const scriptUrl = document.currentScript?.src || location.href;
-  const workerUrl = new URL('./sw.js?v=1061', scriptUrl).href;
+  const workerUrl = new URL('./sw.js?v=1064', scriptUrl).href;
   const pageVersion = Number(new URL(workerUrl).searchParams.get('v'));
   const CHECK_INTERVAL_MS = 15 * 60 * 1000;
   let registration = null;

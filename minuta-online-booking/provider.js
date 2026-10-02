@@ -3803,8 +3803,12 @@ function resetReportSessionState() {
   reportTeamMetric = 'revenue';
   $('#reportSmartActions')?.classList.remove('is-expanded');
   document.body.classList.remove('report-scope-loading');
+  const performerWrap = $('#reportPerformerFilterWrap');
+  if (performerWrap) performerWrap.hidden = true;
+  const teamPanel = $('#reportPerformers');
+  if (teamPanel) teamPanel.hidden = true;
   const select = $('#reportPerformerFilter');
-  if (select) select.disabled = false;
+  if (select) { select.disabled = false; select.innerHTML = ''; select.value = ''; }
 }
 
 function reportDateText(value, options = { day:'numeric', month:'short' }) {
@@ -4140,13 +4144,14 @@ function renderReportPerformerFilter(range) {
   const select = $('#reportPerformerFilter');
   if (!wrap || !select) return;
   wrap.hidden = !reportCanViewTeam;
-  if (!reportCanViewTeam) { reportPerformerFilter = String(currentUser?.id || ''); return; }
+  if (!reportCanViewTeam) { reportPerformerFilter = String(currentUser?.id || ''); updateReportFilterSummary(); return; }
   if (!reportPerformerFilter) {
     try { reportPerformerFilter = localStorage.getItem(`minuta-report-performer:${reportOrganizationId()}`) || 'all'; } catch { reportPerformerFilter = 'all'; }
   }
   if (reportPerformerFilter !== 'all' && !reportTeamAnalyticsState.rows.some(row => String(row.performer_id || '') === reportPerformerFilter)) reportPerformerFilter = 'all';
   select.innerHTML = `<option value="all">Вся команда</option>${reportTeamAnalyticsState.rows.map(row => `<option value="${escapeHtml(String(row.performer_id || ''))}">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;
   select.value = reportPerformerFilter;
+  updateReportFilterSummary();
   const previous = previousReportRange(range);
   loadReportScopedBookings({ start:previous?.start || range.start, end:reportForecastEnd(range) }, reportPerformerFilter);
   loadReportAvailability(range, reportPerformerFilter);
@@ -4368,32 +4373,32 @@ async function loadReportTeamAnalytics(range) {
     return;
   }
   const priorCanViewTeam = reportCanViewTeam;
-  if (reportRangeDays(range) > 3661 && priorCanViewTeam) {
-    reportTeamAnalyticsState = { key, status:'ready', rows:[], canViewTeam:true, derived:true };
-    renderReportTeamRows([]);
-    renderReportPerformerFilter(range);
-    setReportText('#reportTeamMetricNote', 'Вся доступная история рассчитана по загруженным записям. Начисления доступны в периодах до 10 лет.');
-    return;
-  }
+  const wideRange = reportRangeDays(range) > 3661;
+  const permissionRange = wideRange ? reportQueryWindows(range).at(-1) : range;
   reportTeamAnalyticsState = { key, status:'loading', rows:[], canViewTeam:false };
+  const requestState = reportTeamAnalyticsState;
   panel.hidden = true;
-  let response = await db.rpc('get_minuta_team_analytics', { p_organization:organizationId, p_start:range.start, p_end:range.end });
-  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState.key !== key) return;
+  let response = await db.rpc('get_minuta_team_analytics', { p_organization:organizationId, p_start:permissionRange.start, p_end:permissionRange.end });
+  let legacy = false;
+  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState !== requestState) return;
   if (response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_team_analytics|function .* does not exist/i.test(response.error.message || ''))) {
-    response = await db.rpc('get_minuta_team_analytics', { p_start:range.start, p_end:range.end });
+    legacy = true;
+    response = await db.rpc('get_minuta_team_analytics', { p_start:permissionRange.start, p_end:permissionRange.end });
   }
   const { data, error } = response;
-  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState.key !== key) return;
-  if (error) {
-    reportCanViewTeam = priorCanViewTeam;
-    reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:priorCanViewTeam };
-    if (priorCanViewTeam) {
+  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState !== requestState) return;
+  const foreignScope = legacy ? data?.organization_id !== organizationId : data?.organization_id && data.organization_id !== organizationId;
+  if (error || foreignScope) {
+    reportCanViewTeam = foreignScope ? false : priorCanViewTeam;
+    reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:reportCanViewTeam };
+    if (reportCanViewTeam) {
       renderReportTeamRows([]);
       renderReportPerformerFilter(range);
-    } else panel.hidden = true;
+    } else { panel.hidden = true; renderReportPerformerFilter(range); }
     return;
   }
-  const rows = Array.isArray(data) ? data : Array.isArray(data?.performers) ? data.performers : [];
+  let rows = Array.isArray(data) ? data : Array.isArray(data?.performers) ? data.performers : [];
+  if (wideRange) rows = rows.map(row => ({ ...row, payroll_rub:null }));
   reportCanViewTeam = Boolean(data?.can_view_team);
   reportTeamAnalyticsState = { key, status:'ready', rows, canViewTeam:reportCanViewTeam };
   renderReportTeamRows(rows);
@@ -18147,6 +18152,7 @@ const organizationController = window.MinutaOrganization.createController({
     applyDisplayPreferences();
     renderDisplayPreferencesForm();
     refreshSectionNavigation();
+    if ($('#dashboard')?.dataset.activeView === 'analytics') renderAnalytics();
   }
 });
 organizationController.bind();
