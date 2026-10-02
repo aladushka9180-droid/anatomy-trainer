@@ -51,6 +51,7 @@
     if (reviewDescription) reviewDescription.textContent = 'Отзывы о завершённых визитах. Вы решаете, какие показывать на сайте.';
 
     let previewTrigger = null;
+    const invalidatedCards = new WeakSet();
     const preview = document.createElement('dialog');
     preview.className = 'portfolio-soft-photo-dialog';
     preview.id = 'portfolioPhotoPreviewDialog';
@@ -69,6 +70,17 @@
     previewImages.className = 'portfolio-soft-photo-images';
     preview.append(previewHead, previewImages);
     view.append(preview);
+    window.addEventListener('minuta:provider-session-reset', () => {
+      for (const card of works.querySelectorAll('.portfolio-card')) {
+        invalidatedCards.add(card);
+        // Native dialog.close() must not restore focus to the old session.
+        card.querySelectorAll('[data-portfolio-photo-preview]').forEach(trigger => { trigger.disabled = true; });
+      }
+      previewTrigger = null;
+      previewImages.replaceChildren();
+      previewTitle.textContent = '';
+      if (preview.open) preview.close();
+    });
     close.addEventListener('click', () => preview.close());
     preview.addEventListener('click', event => { if (event.target === preview) preview.close(); });
     preview.addEventListener('close', () => {
@@ -80,6 +92,7 @@
       const trigger = event.target.closest('[data-portfolio-photo-preview]');
       if (!trigger || !view.contains(trigger)) return;
       const card = trigger.closest('.portfolio-card');
+      if (!card || invalidatedCards.has(card)) return;
       const photos = [...card.querySelectorAll('.portfolio-photo')].filter(photo => photo.querySelector('img'));
       if (!photos.length) return;
       previewTrigger = trigger;
