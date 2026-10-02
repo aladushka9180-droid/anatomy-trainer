@@ -2,6 +2,13 @@
 (function () {
   'use strict';
   const range = () => reportRange();
+  const visitOverviewPlacements = [];
+  function restoreVisitOverview() {
+    visitOverviewPlacements.splice(0).forEach(({ node, anchor }) => {
+      if (anchor.isConnected) anchor.replaceWith(node);
+    });
+    document.querySelector('#reportVisitOverview')?.remove();
+  }
   function mountReportClarity() {
     if (document.querySelector('#reportAverageCalculation')) return;
     document.querySelector(".report-secondary")?.insertAdjacentHTML("beforeend", "<details class=\"report-calculation\"><summary>Как считается средняя оплата</summary><p id=\"reportAverageCalculation\">Расчёт появится после загрузки данных.</p></details>");
@@ -46,6 +53,72 @@
     scope.textContent = `Эти цели сохраняются для ${target}. ${saved ? 'Здесь показаны сохранённые цели этой области.' : 'Пока используются общие значения; сохранение задаст цели только для этой области.'}`;
   }
 
+  const performerDirectoryState = { context:null, rows:[] };
+  function reportPerformerDirectory(state = reportTeamAnalyticsState) {
+    const context = JSON.stringify([sessionGeneration, currentUser?.id || '', reportOrganizationId(),
+      reportOrganization()?.current_role || '', reportDataSource]);
+    if (performerDirectoryState.context !== context || !reportCanViewTeam) {
+      performerDirectoryState.context = context; performerDirectoryState.rows = [];
+    }
+    if (!reportCanViewTeam) return [];
+    // Keep names only, never payroll or period totals. The long-history path
+    // intentionally has no team aggregate and is not a staff-removal proof.
+    if (state.status === 'ready' && !state.derived && state.canViewTeam === true)
+      performerDirectoryState.rows = (state.rows || []).map(row => ({
+        performer_id:String(row.performer_id || ''), performer_name:String(row.performer_name || 'Сотрудник')
+      })).filter(row => row.performer_id);
+    return state.derived || ['loading','failed'].includes(state.status)
+      ? performerDirectoryState.rows : state.rows || [];
+  }
+
+  // Same completed-visit population and price method as Overview.
+  // Cash receipts come exclusively from financial operations.
+  function reportVisitSnapshot({ bounds, organizationId, masterId = '', contextToken } = {}) {
+    if (reportDataSource === 'demo' || organizationId !== reportOrganizationId()) return null;
+    const selected = reportRange(), master = reportPerformerFilter === 'all' ? '' : reportPerformerFilter || '';
+    if (!bounds || bounds.start !== selected.start || bounds.end !== selected.end || masterId !== master) return null;
+    const snapshot = { known:false, source:'own', organizationId, masterId, bounds:{ ...bounds },
+      contextToken:financialContext(selected.end), performerName:reportPerformerName(), rows:[] };
+    if (contextToken && snapshot.contextToken !== contextToken) return null;
+    if (reportUsesScopedBookings()) {
+      const state = reportScopedBookingsState;
+      const prefix = reportSessionKey(organizationId, '');
+      const [start, end, performer] = state.key?.startsWith(prefix) ? state.key.slice(prefix.length).split(':') : [];
+      if (state.status !== 'ready' || !/^\d{4}-\d{2}-\d{2}$/.test(start || '')
+          || !/^\d{4}-\d{2}-\d{2}$/.test(end || '') || start > selected.start || end < selected.end
+          || performer !== (reportPerformerFilter || 'all')) return snapshot;
+    }
+    const rows = reportCompletedItems(reportBookings(selected)).map(item => {
+      const value = reportServiceValue(item), payment = reportReceivedAmount(item);
+      const outcome = bookingOutcome(item);
+      const session = item.is_report_export ? item.export_session_items
+        : typeof bookingSessionItems !== 'undefined' ? bookingSessionItems.get(item.id) : null;
+      const validPrice = price => price != null && Number.isFinite(Number(price)) && Number(price) >= 0;
+      const price = item.total_price_rub ?? item.original_price_rub ?? item.services?.price_rub;
+      const serviceKnown = session?.length ? session.every(entry => validPrice(entry.price_rub))
+        : validPrice(price) || typeof isPerMinuteBooking === 'function' && isPerMinuteBooking(item) && validPrice(outcome.calculated_amount_rub);
+      return { id:String(item.id), date:String(item.booking_date), time:String(item.booking_time || '').slice(0,5),
+        label:String(item.services?.name || 'Визит'), serviceMinor:Math.round(value * 100),
+        serviceKnown,
+        paymentMinor:Math.round(payment * 100),
+        paymentKnown:!MinutaReportReconciliation.paymentUnknown(item, outcome),
+        imported:Boolean(item.is_imported_history) };
+    });
+    if (rows.some(row => !Number.isSafeInteger(row.serviceMinor) || !Number.isSafeInteger(row.paymentMinor))) return snapshot;
+    return { ...snapshot, known:true, rows };
+  }
+
+  function openVisitJournal({ snapshot, unknownOnly = false } = {}) {
+    if (!snapshot?.known || snapshot.source !== 'own' || reportDataSource === 'demo'
+        || snapshot.organizationId !== reportOrganizationId()
+        || snapshot.contextToken !== financialContext(snapshot.bounds.end)) return false;
+    openReportBookings({ analytics:unknownOnly ? 'payment-unknown' : '', scope:{
+      start:snapshot.bounds.start, end:snapshot.bounds.end, organization:snapshot.organizationId,
+      performer:snapshot.masterId || 'all', source:'own'
+    } });
+    return true;
+  }
+
   function refreshFinancialOverview() {
     const panel = document.querySelector('#analyticsView');
     if (!panel || typeof reportRange !== 'function') return;
@@ -58,6 +131,7 @@
     financialState.source = reportDataSource;
     if (reportDataSource !== 'demo' && typeof financeController !== 'undefined') {
       const controller = financeController;
+      controller?.refreshVisits?.();
       void financeController?.load(selected, { shared:true, masterId:reportPerformerFilter, contextToken:context }).then(() => {
         if (revision !== financialState.revision || controller !== financeController || context !== financialContext(selected.end)) return;
         const bounds = controller.financialBounds?.({ period:selected.period, end:selected.end,
@@ -82,7 +156,15 @@
       const details = document.createElement('details'); details.id = 'reportVisitOverview';
       details.className = 'report-visit-overview'; details.dataset.reportSection = 'overview';
       const summary = document.createElement('summary'); summary.textContent = 'Визиты, загрузка и цели';
-      command.before(details); details.append(summary, command);
+      command.before(details); details.append(summary);
+      const selectors = ['#reportCommandCenter', '.report-period-details', '.report-summary',
+        '.report-secondary', '#reportReconciliation', '.report-trend', '.report-analytics-details'];
+      selectors.forEach(selector => {
+        const node = document.querySelector(`#analyticsView ${selector}`);
+        if (!node) return;
+        const anchor = document.createComment('visit-overview-original-position');
+        node.before(anchor); visitOverviewPlacements.push({ node, anchor }); details.append(node);
+      });
     }
     if (overview && reportDataSource !== 'demo') {
       setReportText('#analyticsView .report-head .view-description', 'Деньги, визиты и клиенты за выбранный период.');
@@ -343,7 +425,8 @@
   }
   document.querySelector('#reportTeamMetricNote')?.insertAdjacentHTML('afterend',
     '<p class="report-team-payment-warning">Есть визиты без отметки оплаты; они не входят в выручку.</p>');
-  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, financialBounds, refresh:() => { audit.refresh(); refreshReportMethodology(); queueMicrotask(refreshFinancialOverview); }, periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
+  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, financialBounds, performerDirectory:reportPerformerDirectory, visitSnapshot:reportVisitSnapshot, openVisitJournal, restoreVisitOverview:() => restoreVisitOverview(), refresh:() => { audit.refresh(); refreshReportMethodology(); queueMicrotask(refreshFinancialOverview); }, periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
   if (reportPeriod === 'custom') updateReportFilterSummary();
+  if (typeof reportTeamAnalyticsState !== 'undefined') reportPerformerDirectory(reportTeamAnalyticsState);
   if (document.querySelector('#dashboard')?.dataset.activeView === 'analytics') renderAnalytics();
 })();

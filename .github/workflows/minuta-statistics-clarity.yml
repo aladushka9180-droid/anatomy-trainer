@@ -1,0 +1,35 @@
+name: Minuta statistics clarity
+on:
+  push:
+    branches: [main]
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-clarity*', 'minuta-online-booking/tests/statistics-financial-*', '.github/workflows/minuta-statistics-clarity.yml']
+  pull_request:
+    branches: [main]
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-clarity*', 'minuta-online-booking/tests/statistics-financial-*', '.github/workflows/minuta-statistics-clarity.yml']
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  clarity:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2
+      - run: node minuta-online-booking/tests/statistics-financial-visit-snapshot-test.mjs
+      - run: node minuta-online-booking/tests/statistics-financial-stable-master-test.mjs
+      - run: node minuta-online-booking/tests/statistics-clarity-provider-patch.mjs --check
+      - run: node minuta-online-booking/tests/statistics-financial-clarity-browser-test.mjs
+        env:
+          MINUTA_VISUAL_OUTPUT: /tmp/statistics-clarity-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: statistics-clarity
+          path: /tmp/statistics-clarity-evidence
+          if-no-files-found: ignore

@@ -213,6 +213,8 @@
       : totalVisits - Math.min(totalVisits, Math.max(0, safeInteger(confidence.service_value_known_visits)));
     return {
       available:true,
+      organizationId:context.organizationId,
+      contextToken:context.contextToken || null,
       financeEnabled:raw.finance_enabled === true,
       resultReliable:confidence.result_reliable === true,
       timezone:String(raw.timezone || 'Europe/Samara'),
@@ -391,7 +393,7 @@
       assertContext();
       if (raw?.period?.start !== bounds.start || raw?.period?.end !== bounds.end || String(raw?.selected_performer_id || '') !== masterId)
         return { available:false, availabilityMessage:'Источник не подтвердил выбранные даты и сотрудника. Обновите данные.' };
-      const normalized = normalizeFinanceScreen(raw, { organizationId:organization.id, period, bounds });
+      let normalized = normalizeFinanceScreen(raw, { organizationId:organization.id, period, bounds, contextToken:selectedScope?.contextToken });
       if (['received_minor','expense_minor','services_minor','debt_minor'].some(key => raw.summary?.[key] == null || !Number.isSafeInteger(Number(raw.summary[key]))))
         return { available:false, availabilityMessage:'Источник не подтвердил точные суммы за выбранный период.' };
       lastDirectory = new Map((normalized.expenseDirectory || []).map(item => [item.id, item.name]));
@@ -485,31 +487,23 @@
         normalized.operations = cash.current.operations;
         normalized.nextCursor = '';
         normalized.comparison = null;
-        if (cash.previous?.classified && normalized.resultReliable && !normalized.completeness.partial) {
-          try {
-            assertContext();
-            const previous = await rpc('get_minuta_finance_screen_v163', {
-              p_organization:organization.id, p_start:previousBounds.start, p_end:previousBounds.end,
-              p_performer:masterId || null, p_limit:1, p_before_occurred_at:null, p_before_key:null
-            }, 'Прошлый период недоступен.');
-            if (previous?.schema === 'minuta-finance-screen-v1' && previous.ledger_version === 163 && previous.finance_enabled === true
-                && previous.organization_id === organization.id && previous.currency === 'RUB'
-                && previous.period?.start === previousBounds.start && previous.period?.end === previousBounds.end
-                && String(previous.selected_performer_id || '') === masterId
-                && previous.confidence?.is_complete === true && previous.confidence?.result_reliable === true)
-              normalized.comparison = { bounds:previousBounds, receivedMinor:cash.previous.receivedMinor, expenseMinor:cash.previous.expenseMinor };
-          } catch (_) { /* Known current sums stay visible without a comparison. */ }
-        }
+        // Both periods use the same complete ledger read. Visit-mark coverage
+        // belongs to another date basis and cannot disable a cash comparison.
+        if (cash.previous?.classified)
+          normalized.comparison = { bounds:previousBounds, receivedMinor:cash.previous.receivedMinor, expenseMinor:cash.previous.expenseMinor };
       } else if (cash) normalized.cashProjectionUnavailable = true;
       if (generation !== expectedGeneration || requestScope !== selectedScope) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
       assertContext();
       if (normalized.available && selectedScope?.period === 'all')
         effectiveScope = { generation, request, scope:selectedScope, organizationId:organization.id, role:organization.current_role, bounds:{ ...bounds } };
+      normalized = global.MinutaFinanceCenter.mergeVisitSnapshot?.(normalized,
+        global.MinutaStatisticsAuditProvider?.visitSnapshot?.({ bounds, organizationId:organization.id, masterId, contextToken:selectedScope?.contextToken })) || normalized;
       return normalized;
     }
 
     const adapter = {
       readDashboard:readScreen,
+      openVisitJournal:options => global.MinutaStatisticsAuditProvider?.openVisitJournal?.(options) === true,
       async readOperations({ period, masterId, cursor }) {
         const result = await readScreen({ period, masterId, cursor });
         return { operations:result.operations || [], nextCursor:result.nextCursor || '' };
@@ -610,7 +604,14 @@
     function invalidateBounds() {
       effectiveScope = null; rangeRequest += 1; boundsInvalidated = true;
     }
-    return { load, setOrganization, reset, financialBounds, invalidateBounds };
+    function refreshVisits() {
+      if (!isManager() || !selectedScope || !center) return;
+      const bounds = effectiveScope?.bounds || selectedScope.bounds;
+      center.refreshVisits?.(global.MinutaStatisticsAuditProvider?.visitSnapshot?.({
+        bounds, organizationId:organization.id, masterId:selectedScope.masterId, contextToken:selectedScope.contextToken
+      }));
+    }
+    return { load, setOrganization, reset, financialBounds, invalidateBounds, refreshVisits };
   }
 
   global.MinutaFinanceProvider = Object.freeze({ PERIODS, periodBounds, comparisonBounds, projectCashLedger, projectGoodsSales, normalizeFinanceScreen, createController });
