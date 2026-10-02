@@ -169,3 +169,13 @@ body.provider-body[data-provider-text-scale] #analyticsView :is(.report-data-sou
 #analyticsView .report-goals-scope { margin:10px 0 14px; }
 #analyticsView .report-goals-defaults { margin-top:12px; }
 @media(max-width:760px) { #analyticsView .report-index-method-list { grid-template-columns:minmax(0,1fr); } }
+
+#analyticsView .report-visit-overview{margin:14px 0;border-top:1px solid var(--theme-line)}
+#analyticsView .report-visit-overview>summary{min-height:48px;padding:14px 0;font-size:14px;font-weight:650;color:var(--theme-ink);cursor:pointer}
+#analyticsView .report-visit-overview #reportCommandCenter{margin-top:0}
+#analyticsView.report-no-completed-visits .report-trend .report-chart{height:auto;min-height:0;padding:8px 0}
+#analyticsView.report-no-completed-visits .report-trend .report-chart:before{display:none}
+#analyticsView.report-financial-first .report-visit-export-scope{display:none}
+#analyticsView.report-financial-first .report-period-label{font-size:13px;line-height:1.45}
+#analyticsView .report-visit-overview>summary:focus-visible{outline:2px solid var(--theme-accent);outline-offset:2px;border-radius:4px}
+#analyticsView.report-financial-first #reportFilterSummary{white-space:normal;line-height:1.4}

@@ -18,6 +18,7 @@ const periods = [{ value:'current_month', label:'Сентябрь 2026' }, { val
 const masters = [{ value:'', label:'Все мастера' }, { value:'master-a', label:'Александра с очень длинной фамилией' }];
 const fullFixture = {
   available:true, financeEnabled:true, resultReliable:true,
+  dateBasis:'operations',
   today:'2026-09-15',
   periodLabel:'1–15 сентября 2026', timezone:'Europe/Samara',
   summary:{ receivedMinor:128456700, expenseMinor:3642200, serviceMinor:139820000, debtMinor:8450000, totalVisits:43, paymentKnownVisits:11 },
@@ -86,7 +87,10 @@ try {
     assert.equal(await page.locator('[data-finance-net]').innerText(), '1\u00a0248\u00a0145\u00a0₽');
     assert.equal(await page.locator('[data-finance-received]').innerText(), '1\u00a0284\u00a0567\u00a0₽');
     assert.equal(await page.locator('[data-finance-expense]').innerText(), '36\u00a0422\u00a0₽');
-    assert.equal(await page.locator('[data-finance-completeness]').innerText(), 'Оплата указана в 11 из 43 визитов. Получено учитывает только подтверждённые деньги.');
+    assert.equal(await page.locator('[data-finance-profit]').innerText(), '—', 'cash result cannot masquerade as net profit');
+    await page.locator('[data-finance-detail="completeness"]').click();
+    assert.match(await page.locator('[data-finance-detail-body]').innerText(), /Оплата не указана у 32 из 43 визитов/);
+    await page.locator('[data-finance-detail-close]').click();
     assert.equal(await page.locator('[data-finance-chart] button').count(), 7);
     assert.equal(await page.locator('[data-finance-ring] [role="img"]').count(), 1);
     assert.ok((await page.locator('[data-finance-chart]').evaluate(node => node.compareDocumentPosition(document.querySelector('[data-finance-ring]')) & Node.DOCUMENT_POSITION_FOLLOWING)) > 0);
@@ -131,7 +135,7 @@ try {
     assert.ok(geometry.touch.every(height => height >= 44), `${scenario.width}: touch target below 44px`);
     assert.ok(geometry.pageBottom - geometry.operationsBottom >= 92, `${scenario.width}: bottom-nav clearance missing`);
     if (scenario.width <= 760) {
-      const financeLabels = await page.evaluate(() => ['.finance-center__net small','.finance-center__main-metrics small','.finance-center__trust-metrics small','.finance-center__section-head p','.finance-center__legend span','.finance-center__ring span','.finance-center__operation small']
+      const financeLabels = await page.evaluate(() => ['.finance-center__metric small','.finance-center__compact-metrics small','.finance-center__trust-metrics small','.finance-center__section-head p','.finance-center__legend span','.finance-center__ring span','.finance-center__operation small']
         .map(selector => ({ selector, font:parseFloat(getComputedStyle(document.querySelector(selector)).fontSize) })));
       assert.ok(financeLabels.every(label => label.font >= 12), `${scenario.width}: finance explanations ${JSON.stringify(financeLabels)}`);
     }
@@ -190,13 +194,13 @@ try {
       assert.equal(await page.locator('[data-finance-dialog]').getAttribute('open'), null);
 
       await page.evaluate(async () => { mode = 'empty'; await controller.reload(); });
-      assert.equal(await page.locator('[data-finance-empty]').isVisible(), true);
-      assert.equal(await page.locator('[data-finance-add]').getAttribute('hidden'), '');
-      assert.equal(await page.locator('[data-finance-empty-action]').isVisible(), true);
+      assert.equal(await page.locator('[data-finance-content]').isVisible(), true, 'zero sums stay visible');
+      assert.equal(await page.locator('[data-finance-received]').innerText(), '0\u00a0₽');
+      assert.equal(await page.locator('[data-finance-add]').isVisible(), true);
       assert.equal(await page.locator('.finance-center__empty .finance-center__primary').count(), 1);
 
       await page.evaluate(async () => { mode = 'unprepared'; prepared = false; await controller.reload(); });
-      await page.locator('[data-finance-empty-action]').click();
+      await page.locator('[data-finance-add]').click();
       await page.locator('[data-finance-dialog]').waitFor({ state:'visible' });
       assert.equal(await page.evaluate(() => prepareCalls), 1, 'preparation runs only from explicit add-expense action');
       await page.locator('[data-finance-close]').click();
@@ -211,7 +215,9 @@ try {
       assert.equal(await page.locator('[data-finance-net]').innerText(), '—');
       assert.equal(await page.locator('[data-finance-expense]').innerText(), '—');
       assert.equal(await page.locator('[data-finance-received]').innerText(), '36\u00a0600\u00a0₽');
-      assert.match(await page.locator('[data-finance-completeness]').innerText(), /Итог пока не рассчитан.*Финансовый журнал ещё не подключён: подтверждённые расходы недоступны/s);
+      await page.locator('[data-finance-detail="completeness"]').click();
+      assert.match(await page.locator('[data-finance-detail-body]').innerText(), /Финансовый журнал ещё не подключён/);
+      await page.locator('[data-finance-detail-close]').click();
       assert.match(await page.locator('[data-finance-ring]').innerText(), /после подключения финансового журнала/);
       assert.equal(await page.locator('[data-finance-add]').getAttribute('hidden'), '');
 
