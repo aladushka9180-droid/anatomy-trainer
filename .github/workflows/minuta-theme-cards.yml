@@ -140,6 +140,7 @@ jobs:
           echo "MINUTA_LAYOUT_OUTPUT=$RUNNER_TEMP/theme-regression/layouts" >> "$GITHUB_ENV"
           echo "MINUTA_ORG_FLOW_SCREENSHOTS=$RUNNER_TEMP/theme-regression/organization-flow" >> "$GITHUB_ENV"
           echo "MINUTA_HOURS_SCREENSHOTS=$RUNNER_TEMP/theme-regression/work-hours" >> "$GITHUB_ENV"
+          echo "MINUTA_HOURS_OVERFLOW_OUTPUT=$RUNNER_TEMP/theme-regression/work-hours-regressions" >> "$GITHUB_ENV"
           echo "RETENTION_SCREENSHOT_DIR=$RUNNER_TEMP/theme-regression/retention-delta" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
@@ -153,6 +154,8 @@ jobs:
       - run: node minuta-online-booking/tests/organization-flow-provider-integration-test.mjs
       - run: node minuta-online-booking/tests/work-hours-soft-browser-test.mjs
       - run: node minuta-online-booking/tests/retention-delta-browser-test.mjs
+      - run: node minuta-online-booking/tests/work-hours-weekly-overflow-browser-test.mjs
+      - run: node minuta-online-booking/tests/work-hours-save-hit-browser-test.mjs
       - name: Upload layout regression evidence
         if: failure()
         uses: actions/upload-artifact@v4
