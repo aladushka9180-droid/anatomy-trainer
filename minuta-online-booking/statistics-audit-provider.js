@@ -46,6 +46,49 @@
     scope.textContent = `Эти цели сохраняются для ${target}. ${saved ? 'Здесь показаны сохранённые цели этой области.' : 'Пока используются общие значения; сохранение задаст цели только для этой области.'}`;
   }
 
+  function refreshFinancialOverview() {
+    const panel = document.querySelector('#analyticsView');
+    if (!panel || typeof reportRange !== 'function') return;
+    const selected = reportRange();
+    if (reportDataSource !== 'demo' && typeof financeController !== 'undefined')
+      void financeController?.load(selected, { shared:true, masterId:reportPerformerFilter });
+    const completed = reportCompletedItems(reportBookings(selected));
+    panel.classList.toggle('report-no-completed-visits', !completed.length);
+    const items = reportBookings(selected);
+    if (!items.length && panel.dataset.reportLoadState === 'ready') {
+      setReportText('#reportDataQuality', 'Нет данных');
+      setReportText('#reportDataQualityNote', 'В выбранном периоде нет записей. Полноту данных пока нельзя оценить.');
+      setReportText('#reportZeroSummary strong', 'Нет записей');
+      setReportText('#reportZeroSummary small', 'Выберите другой период');
+    }
+    const overview = document.querySelector('#reportFinanceOverview');
+    const command = document.querySelector('#reportCommandCenter');
+    if (overview && command && !document.querySelector('#reportVisitOverview')) {
+      const details = document.createElement('details'); details.id = 'reportVisitOverview';
+      details.className = 'report-visit-overview'; details.dataset.reportSection = 'overview';
+      const summary = document.createElement('summary'); summary.textContent = 'Визиты, загрузка и цели';
+      command.before(details); details.append(summary, command);
+    }
+    if (overview && reportDataSource !== 'demo') {
+      setReportText('#analyticsView .report-head .view-description', 'Деньги, визиты и клиенты за выбранный период.');
+      const summary = document.querySelector('#reportFilterSummary');
+      if (summary) {
+        const from = reportDateText(selected.start, { day:'numeric', month:'short', ...(selected.start.slice(0,4) !== selected.end.slice(0,4) ? { year:'numeric' } : {}) });
+        const to = reportDateText(selected.end, { day:'numeric', month:'short', year:'numeric' });
+        summary.textContent = `${selected.period === 'all' ? 'За всё время' : selected.start === selected.end ? to : `${from} — ${to}`} · ${reportPerformerName()}`;
+      }
+      setReportText('#reportTrendTitle', 'Оплаты по датам визитов');
+    }
+    const visits = document.querySelector('#reportVisitOverview');
+    if (visits && visits.dataset.source !== reportDataSource) {
+      if (reportDataSource === 'demo') { visits.dataset.realOpen = String(visits.open); visits.open = true; }
+      else if (visits.dataset.source === 'demo') visits.open = visits.dataset.realOpen === 'true';
+      visits.dataset.source = reportDataSource;
+    }
+    const note = document.querySelector('#reportPeriodLabel');
+    if (note) note.dataset.dateBasis = 'visits';
+  }
+
   function refreshReportUtmPresentation() {
     const sources = document.querySelector('#reportUtmFunnelSources');
     if (!sources || typeof reportUtmFunnelState === 'undefined' || typeof reportUtmIsTestSource !== 'function') return;
@@ -270,7 +313,7 @@
   }
   document.querySelector('#reportTeamMetricNote')?.insertAdjacentHTML('afterend',
     '<p class="report-team-payment-warning">Есть визиты без отметки оплаты; они не входят в выручку.</p>');
-  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, refresh:() => { audit.refresh(); refreshReportMethodology(); }, periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
+  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, refresh:() => { audit.refresh(); refreshReportMethodology(); queueMicrotask(refreshFinancialOverview); }, periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
   if (reportPeriod === 'custom') updateReportFilterSummary();
   if (document.querySelector('#dashboard')?.dataset.activeView === 'analytics') renderAnalytics();
 })();
