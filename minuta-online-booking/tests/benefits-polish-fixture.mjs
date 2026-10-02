@@ -53,5 +53,14 @@ if(process.argv.includes('--preview')) {
   page=page.replace("show(new URLSearchParams(location.search).get('panel')||'commercePanel')","show('benefitsPanel')");
   page=page.replace('</style>',`.benefits-preview-head{display:flex;align-items:center;justify-content:space-between;gap:20px}.benefits-preview-head h1{margin:6px 0 0;font-size:28px;letter-spacing:-.6px}.benefits-preview-head :is(small,p){color:var(--theme-muted);font-size:12px}.fixture-tabs button{font:inherit;font-size:13px;border:1px solid var(--theme-line);border-radius:10px;background:var(--theme-surface);color:var(--theme-ink)}#fixtureCalls{display:none}@media(max-width:540px){.benefits-preview-head{display:block}.fixture-tabs{gap:8px}}\n</style>`);
 }
+if(process.argv.includes('--connection')) {
+  page=page.replace('const db={rpc:', `let connectionLinked=false;
+const connectionRow={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',organization_id:id,client_account_id:null,client_name:'ТЕСТ — подключение клиента',client_phone:'+70000000000',booking_date:'2026-09-22',booking_time:'12:00:00',status:'confirmed',payment_status:'not_required'};
+const db={from:name=>{if(name!=='bookings')throw Error('Unexpected fixture table');const filters=[];const q={select:()=>q,eq:(k,v)=>{filters.push([k,v]);return q;},is:()=>q,neq:()=>q,or:()=>q,order:()=>q,limit:async()=>({data:connectionLinked?[]:[connectionRow],error:null}),maybeSingle:async()=>({data:{...connectionRow,client_account_id:connectionLinked?client:null},error:null})};return q;},rpc:`);
+  page=page.replace(/if\(name==='get_minuta_benefit_workspace'\)return \{data:\{[\s\S]+?\},error:null\};/,
+    `if(name==='issue_client_identity_claim_grant_v155'){connectionLinked=true;return {data:[{claim_token:'SECRET-FIXTURE-DO-NOT-DISPLAY'}],error:null};}
+if(name==='get_minuta_benefit_workspace')return {data:{organization_id:id,current_role:role,enabled:!empty,services:[],clients:connectionLinked?[{id:client,client_name:connectionRow.client_name,client_phone:connectionRow.client_phone}]:[],bookings:[],products:[benefit,gift],instruments:[],redemptions:[],audit:[]},error:null};`);
+  page=page.replace('<script>\nwindow.fetch=',`<script>${readFileSync(resolve(root,'provider-selects.js'),'utf8').replace(/<\/script/gi,'<\\/script')}</script><script>\nwindow.fetch=`);
+}
 writeFileSync(resolve(out,'fixture.html'),page);
 console.log(resolve(out,'fixture.html'));

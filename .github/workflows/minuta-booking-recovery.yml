@@ -8,6 +8,8 @@ on:
       - 'minuta-online-booking/benefit-management.js'
       - 'minuta-online-booking/tests/group-bookings-recovery-test.mjs'
       - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
+      - 'minuta-online-booking/tests/benefit-client-connection-test.mjs'
+      - 'minuta-online-booking/tests/benefit-issue-recovery-test.mjs'
       - 'minuta-online-booking/benefit-management-controller-test.mjs'
       - 'minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs'
       - 'minuta-online-booking/tests/pwa-resource-update-browser-test.mjs'
@@ -30,6 +32,8 @@ on:
       - 'minuta-online-booking/benefit-management.js'
       - 'minuta-online-booking/tests/group-bookings-recovery-test.mjs'
       - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
+      - 'minuta-online-booking/tests/benefit-client-connection-test.mjs'
+      - 'minuta-online-booking/tests/benefit-issue-recovery-test.mjs'
       - 'minuta-online-booking/benefit-management-controller-test.mjs'
       - 'minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs'
       - 'minuta-online-booking/tests/pwa-resource-update-browser-test.mjs'
@@ -63,6 +67,8 @@ jobs:
       - run: node --check minuta-online-booking/benefit-management.js
       - run: node minuta-online-booking/tests/group-bookings-recovery-test.mjs
       - run: node minuta-online-booking/tests/benefit-expiry-boundary-test.mjs
+      - run: node minuta-online-booking/tests/benefit-client-connection-test.mjs
+      - run: node minuta-online-booking/tests/benefit-issue-recovery-test.mjs
       - run: node minuta-online-booking/benefit-management-controller-test.mjs
       - run: node minuta-online-booking/client-url-redirect-test.mjs
 
