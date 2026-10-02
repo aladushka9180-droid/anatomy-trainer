@@ -589,13 +589,14 @@
           const completeness = createElement('button', 'finance-center__more', 'Полнота остальных данных'); completeness.type = 'button';
           completeness.addEventListener('click', () => openDetail('completeness', state.detailTrigger)); body.append(completeness);
         }
-        const action = createElement('button', 'finance-center__more', data && !data.financeEnabled ? 'Открыть «Продажи»' : 'Обновить данные'); action.type = 'button';
+        const needsFinanceSetup = Boolean(data?.available && !data.financeEnabled);
+        const action = createElement('button', 'finance-center__more', needsFinanceSetup ? 'Открыть «Продажи»' : 'Обновить данные'); action.type = 'button';
         action.addEventListener('click', () => {
           closeDetail();
-          if (data && !data.financeEnabled) document.querySelector('[data-section-target="commercePanel"]')?.click();
+          if (needsFinanceSetup) document.querySelector('[data-section-target="commercePanel"]')?.click();
           else void load();
         });
-        if (!(data && !data.financeEnabled) || document.querySelector('[data-section-target="commercePanel"]')) body.append(action);
+        if (!needsFinanceSetup || document.querySelector('[data-section-target="commercePanel"]')) body.append(action);
       } else if (['visits','payment-unknown','service-unknown'].includes(kind)) {
         if (!data.visits?.known) body.append(createElement('p', 'finance-center__detail-note', 'Выборка визитов ещё не подтверждена. Обновите данные.'));
         else {
@@ -711,7 +712,7 @@
         if (state.destroyed || version !== state.loadVersion) return;
         const normalized = normalizeRead(raw);
         if (!Array.isArray(raw?.filters?.periods)) normalized.filters.periods = optionRows(options.periods, PERIOD_FALLBACK);
-        if (!Array.isArray(raw?.filters?.masters)) normalized.filters.masters = optionRows(options.masters, MASTER_FALLBACK);
+        if (!Array.isArray(raw?.filters?.masters) && !(raw?.available === false && state.sharedScope?.bounds)) normalized.filters.masters = optionRows(options.masters, MASTER_FALLBACK);
         normalized.filters.selectedPeriod = normalized.filters.selectedPeriod || state.period;
         normalized.filters.selectedMaster = normalized.filters.selectedMaster || state.master;
         render(normalized); setLoading(false);
