@@ -4373,33 +4373,32 @@ async function loadReportTeamAnalytics(range) {
     return;
   }
   const priorCanViewTeam = reportCanViewTeam;
-  if (reportRangeDays(range) > 3661 && priorCanViewTeam) {
-    reportTeamAnalyticsState = { key, status:'ready', rows:[], canViewTeam:true, derived:true };
-    renderReportTeamRows([]);
-    renderReportPerformerFilter(range);
-    setReportText('#reportTeamMetricNote', 'Вся доступная история рассчитана по загруженным записям. Начисления доступны в периодах до 10 лет.');
-    return;
-  }
+  const wideRange = reportRangeDays(range) > 3661;
+  const permissionRange = wideRange ? reportQueryWindows(range).at(-1) : range;
   reportTeamAnalyticsState = { key, status:'loading', rows:[], canViewTeam:false };
   const requestState = reportTeamAnalyticsState;
   panel.hidden = true;
-  let response = await db.rpc('get_minuta_team_analytics', { p_organization:organizationId, p_start:range.start, p_end:range.end });
+  let response = await db.rpc('get_minuta_team_analytics', { p_organization:organizationId, p_start:permissionRange.start, p_end:permissionRange.end });
+  let legacy = false;
   if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState !== requestState) return;
   if (response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_team_analytics|function .* does not exist/i.test(response.error.message || ''))) {
-    response = await db.rpc('get_minuta_team_analytics', { p_start:range.start, p_end:range.end });
+    legacy = true;
+    response = await db.rpc('get_minuta_team_analytics', { p_start:permissionRange.start, p_end:permissionRange.end });
   }
   const { data, error } = response;
   if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState !== requestState) return;
-  if (error) {
-    reportCanViewTeam = priorCanViewTeam;
-    reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:priorCanViewTeam };
-    if (priorCanViewTeam) {
+  const foreignScope = legacy ? data?.organization_id !== organizationId : data?.organization_id && data.organization_id !== organizationId;
+  if (error || foreignScope) {
+    reportCanViewTeam = foreignScope ? false : priorCanViewTeam;
+    reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:reportCanViewTeam };
+    if (reportCanViewTeam) {
       renderReportTeamRows([]);
       renderReportPerformerFilter(range);
-    } else panel.hidden = true;
+    } else { panel.hidden = true; renderReportPerformerFilter(range); }
     return;
   }
-  const rows = Array.isArray(data) ? data : Array.isArray(data?.performers) ? data.performers : [];
+  let rows = Array.isArray(data) ? data : Array.isArray(data?.performers) ? data.performers : [];
+  if (wideRange) rows = rows.map(row => ({ ...row, payroll_rub:null }));
   reportCanViewTeam = Boolean(data?.can_view_team);
   reportTeamAnalyticsState = { key, status:'ready', rows, canViewTeam:reportCanViewTeam };
   renderReportTeamRows(rows);
