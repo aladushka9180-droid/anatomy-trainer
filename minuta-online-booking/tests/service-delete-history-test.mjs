@@ -104,7 +104,7 @@ try {
   const conflict={code:'23503',message:'update or delete on table "services" violates foreign key constraint "synthetic" on table "booking_reviews"'};
   const foreign=await execute(after,conflict,other);
   assert.match(foreign.messages[0],/Не удалось удалить/);
-  for(const data of [null,{id:service,active:true},{id:other,active:false}]){
+  for(const data of [null,{id:service,active:true},{id:service},{id:other,active:false}]){
     const result=await execute(after,conflict,owner,{data});
     assert.match(result.messages[0],/Не удалось удалить/);
   }
