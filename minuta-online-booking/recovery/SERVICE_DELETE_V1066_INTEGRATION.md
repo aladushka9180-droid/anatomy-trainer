@@ -10,9 +10,11 @@ ROOT validation on the integrated tree:
 
 - Nine PGlite regression groups pass before and after integration, with actual FK definitions from migrations v61/v69/v73/v111. Six dependency cases retain the service, photo and referenced rows; owner, returned-row and failure guards pass.
 - Existing waitlist test, syntax and provider UX/connection/write-ownership regressions pass (28 tests); handoff static contract and five handoff target tests pass.
-- Final HTML provider and handoff references, provider precache and service-worker cache generation are 1066. Client URL redirect contract passes after the final version change.
+- Final HTML provider, handoff and site-update references, provider/site-update precache, service-worker cache and registration generation are 1066. Client URL redirect and smoke contracts pass after the final version change.
 - Startup/core gate passes: 63 files, 3,799,092 bytes within the unchanged 3,799,094 limit.
 
 An attempted extra check referenced a nonexistent `provider-write-failure-guard-test.mjs`; it was not executed, does not constitute a product failure and is not reported as a pass. The existing provider UX suite already exercises failed writes and session ownership. No assertions or budgets were relaxed.
+
+First integration head `821755d4` failed both smoke CI runs because site-update registration still requested SW1065 while cache/HTML provider references were1066. Registration and site-update resource references are now synchronized; the exact corrected head needs its own full CI.
 
 Still required: exact final-head CI, ROOT normal integration and Pages deployment, exact live resource verification, and separately permitted target-screen acceptance. Available ROOT Pro tabs require sign-in; the human has confirmed both entrances work, but ROOT has not yet accepted a freshly loaded Pro schedule. Do not log in with saved credentials, delete a real service, run production SQL or alter secrets to manufacture proof. SQL or schema changes are neither included nor required.
