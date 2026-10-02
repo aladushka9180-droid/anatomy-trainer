@@ -26,6 +26,7 @@ try {
       const nav=document.querySelector('.provider-mobile-nav');
       return {overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
         cardsBottom:cards.querySelector('[data-finance-detail="goods"]').getBoundingClientRect().bottom,
+        statusBottom:cards.querySelector('[data-finance-detail="completeness"]').getBoundingClientRect().bottom,
         navTop:getComputedStyle(nav).display==='none'?innerHeight:nav.getBoundingClientRect().top,
         tabTops:tabs.map(node=>Math.round(node.getBoundingClientRect().top)),
         icons:cards.querySelectorAll('.finance-center__metric-icon').length,
@@ -38,6 +39,7 @@ try {
     if(width<=390){
       assert.equal(new Set(geometry.tabTops).size,1,'four tabs in one row');
       assert.ok(geometry.cardsBottom<=geometry.navTop,`${width}: rent and goods must be above the fixed navigation`);
+      assert.ok(geometry.statusBottom<=geometry.navTop,`${width}: completeness action must stay above the fixed navigation`);
     }
     if(output)await page.screenshot({path:resolve(output,`statistics-soft-${width}.png`)});
     await page.locator('#reportFinanceOverview [data-finance-detail="completeness"]').click();

@@ -134,10 +134,10 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .fi
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView :is(.finance-center__metric,.finance-center__compact-metrics>button):hover {border-color:color-mix(in srgb,var(--finance-ink) 30%,transparent)}
 }
 @media(max-width:600px) {
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__metric {min-height:132px;padding:12px;gap:5px}
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__metric.is-profit {min-height:94px;padding:12px 14px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__metric {min-height:132px;padding:10px 12px;gap:4px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__metric.is-profit {min-height:94px;padding:10px 14px}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__metric:not(.is-profit)>.finance-center__metric-heading {min-height:38px}
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__compact-metrics>button {padding:11px 12px;gap:5px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__compact-metrics>button {padding:9px 12px;gap:3px}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__compact-metrics .finance-center__metric-heading {min-height:38px}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__metric>strong {font-size:calc(25px + var(--provider-text-step,0px));line-height:1.15}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .finance-center__compact-metrics strong {font-size:calc(21px + var(--provider-text-step,0px));line-height:1.2}
