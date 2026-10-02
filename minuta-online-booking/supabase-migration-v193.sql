@@ -474,6 +474,10 @@ begin
   select * into v_expense from public.financial_manual_expenses_v163
     where id=p_expense and organization_id=p_organization for update;
   if v_expense.id is null then raise exception using errcode='P0002',message='manual_expense_not_found'; end if;
+  -- Performer is immutable in this correction form, including an unassigned NULL.
+  if p_performer is distinct from v_expense.performer_id then
+    raise exception using errcode='22023',message='manual_expense_edit_performer_mismatch';
+  end if;
   select id into v_accrual from public.financial_transactions where organization_id=p_organization
     and operation_type='supplier_expense_accrual' and source_type='financial_expense_source'
     and source_id=v_expense.expense_source_id for update;
