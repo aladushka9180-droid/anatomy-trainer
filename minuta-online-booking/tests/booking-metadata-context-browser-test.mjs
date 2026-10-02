@@ -75,6 +75,7 @@ async function fixture(){
   await page.addScriptTag({content:`
     var ids=${JSON.stringify(ids)},currentUser={id:'actor-A'},sessionGeneration=7,activeClientOrganizationId='org-A';
     var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+    var organizationFlowController=null;
     var freeSlotsController={invalidateScope(){}},providerReadFetch={cancelPendingReads(){}};
     var gestureClickSuppressedUntil=0,writesAllowed=true,editingOfflineBookingId='',newBookingHistoricalMode=false;
     var trapPortfolioActionFocus=()=>false;

@@ -48,6 +48,7 @@ try {
   // Organization reloads emit the same ID on every background synchronization.
   // Execute the production callback prefix, not a reimplementation of its guard.
   await page.evaluate(`(() => {
+    const organizationFlowController=null;
     const freeSlotsController=window.controller;
     let activeClientOrganizationId='';
     let bookingSeriesCancellationRevision=0, bookingEditorRevision=0, bookingMetadataRevision=0, portfolioEditorRevision=0;
