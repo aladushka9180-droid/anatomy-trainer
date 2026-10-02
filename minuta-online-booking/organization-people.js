@@ -181,7 +181,7 @@
       const refresh = document.createElement('button');
       refresh.type = 'button'; refresh.className = 'secondary-button people-refresh';
       refresh.dataset.peopleReload = ''; refresh.innerHTML = icon('refresh') + '<span>Обновить списки</span>';
-      root.after(refresh);
+      root.append(refresh);
     }
     function visible() {
       return Boolean(organization && !root.closest('[hidden]') && root.getClientRects().length);
@@ -322,11 +322,16 @@
         }
         if (event.target.closest('[data-people-retry]')) { readState = 'idle'; void loadWorkplaces(); }
       });
-      new MutationObserver(() => {
+      const visibilityObserver = new MutationObserver(() => {
         const nowVisible = visible();
         if (nowVisible && !wasVisible && readState !== 'loading') { readState = 'idle'; void loadWorkplaces(); }
         wasVisible = nowVisible;
-      }).observe(root.closest('[data-provider-panel]') || root, { attributes: true, subtree: true, attributeFilter: ['hidden'] });
+      });
+      // Native section disclosure changes display; higher ancestors also own
+      // panel/session visibility. Observe that boundary, not editing children.
+      for (let node = root; node; node = node.parentElement) {
+        visibilityObserver.observe(node, { attributes: true, attributeFilter: ['hidden', 'style', 'class'] });
+      }
       window.addEventListener('pagehide', capture);
     }
     return { bind, setOrganization, capture, snapshot, saved, hasDraft, announce, reset, setBusy };
