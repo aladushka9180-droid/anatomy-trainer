@@ -64,11 +64,15 @@
   function projectCashLedger(transactions, { bounds, timezone, originals = [], expenses = [], debtSources = [], masterId = '', otherCategoryId = 'other', salaryCategoryId = 'salary' } = {}) {
     const bases = new Map([...originals, ...transactions].map(row => [row.id, row]));
     const expenseSources = new Map(expenses.map(row => [row.expense_source_id, row]));
+    const reversed = new Set(transactions.map(row => row.reversal_of).filter(Boolean));
     const settlements = new Map(debtSources.map(row => [row.id, row]));
     const movement = new Map(), categories = new Map(), operations = [];
     let receivedMinor = 0, expenseMinor = 0, classified = true;
     for (const row of transactions) {
-      const day = businessDate(row.occurred_at, timezone);
+      const manual = row.operation_type === 'supplier_expense_payment' ? expenseSources.get(row.source_id) : null;
+      // Manual expenses use the saved business date, matching the v163 report.
+      const occurredAt = manual?.occurred_at || row.occurred_at;
+      const day = businessDate(occurredAt, timezone);
       if (!day || day < bounds.start || day > bounds.end) continue;
       const postings = row.financial_postings || [];
       if (!postings.length) { classified = false; continue; }
@@ -120,10 +124,11 @@
         current.amountMinor -= cash; categories.set(categoryId, current);
       }
       movement.set(day, bucket);
-      operations.push({ id:row.id, occurredAt:row.occurred_at, type:row.operation_type === 'reversal' ? 'adjustment' : kind === 'commercial_refund' ? 'refund' : income ? 'income' : 'expense',
+      operations.push({ id:row.id, occurredAt, type:row.operation_type === 'reversal' ? 'adjustment' : kind === 'commercial_refund' ? 'refund' : income ? 'income' : 'expense',
         flow:income ? 'received' : 'expense', category:expense ? category : '', categoryId:expense ? categoryId : '',
         label:row.operation_type === 'reversal' ? 'Корректировка операции' : ({ visit_service:'Оплата визита', customer_debt_settlement:'Погашение долга', commercial_sale:'Продажа', commercial_refund:'Возврат', supplier_expense_payment:'Оплата расхода', payroll_payment:'Выплата зарплаты' })[kind],
-        actorName:'', amountMinor:income ? receipt : cash });
+        actorName:'', amountMinor:income ? receipt : cash,
+        manualExpenseId:manual && !reversed.has(row.id) ? String(manual.id || '') : '' });
     }
     operations.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.id.localeCompare(a.id));
     if (![receivedMinor, expenseMinor, receivedMinor - expenseMinor].every(Number.isSafeInteger)
@@ -266,7 +271,10 @@
       cash_or_bank_account_required:'Сначала добавьте кассу или банковский счёт в разделе «Продажи».',
       active_finance_category_not_found:'Выбранная категория расхода больше недоступна.',
       financial_manager_role_required:'Финансы доступны только владельцу и администратору.',
-      manual_expense_future_date:'Дата расхода не может быть в будущем.'
+      manual_expense_future_date:'Дата расхода не может быть в будущем.',
+      manual_expense_already_corrected:'Этот расход уже исправлен. Обновите операции и откройте актуальный расход.',
+      manual_expense_not_found:'Расход больше недоступен. Обновите операции.',
+      manual_expense_edit_idempotency_conflict:'Этот запрос уже использован с другими данными. Обновите операции.'
     };
     const result = new Error(known[message] || fallback);
     result.userMessage = result.message;
@@ -286,6 +294,7 @@
     let rangeRequest = 0;
     let pendingLoad = null;
     let boundsInvalidated = false;
+    let editCapability = null;
     const root = () => $('#financeCenterRoot');
     const analytics = () => root()?.closest('#analyticsView');
     const isManager = () => Boolean(organization?.id && ['owner', 'admin'].includes(organization.current_role));
@@ -299,8 +308,10 @@
 
     async function rpc(name, params, fallback) {
       const expectedOrganization = organization?.id;
+      const expectedGeneration = generation, expectedRole = organization?.current_role;
       const result = await db.rpc(name, params);
-      if (expectedOrganization !== organization?.id) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
+      if (expectedOrganization !== organization?.id || expectedGeneration !== generation || expectedRole !== organization?.current_role)
+        throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
       if (result.error) throw userError(result.error, fallback);
       return result.data;
     }
@@ -398,6 +409,14 @@
         return { available:false, availabilityMessage:'Источник не подтвердил точные суммы за выбранный период.' };
       lastDirectory = new Map((normalized.expenseDirectory || []).map(item => [item.id, item.name]));
       lastSelectedMaster = masterId || '';
+      if (editCapability === null && normalized.available && normalized.permissions.canAddExpense) {
+        try {
+          const status = await rpc('get_minuta_manual_expense_edit_status_v193', { p_organization:organization.id }, 'Редактирование расходов пока недоступно.');
+          assertContext();
+          editCapability = status?.schema === 'manual-expense-edit-v1' && status.version === 193;
+        } catch (error) { assertContext(); editCapability = false; }
+      }
+      normalized.permissions.canEditExpense = editCapability === true;
       if (cursor || !normalized.available) return normalized;
       const previousBounds = comparisonBounds(bounds, period);
       const expectedGeneration = requestGeneration;
@@ -424,12 +443,21 @@
             query.gte('occurred_at', `${isoDate(addDays(new Date(`${from}T12:00:00Z`), -1))}T00:00:00Z`)
               .lt('occurred_at', `${isoDate(addDays(new Date(`${bounds.end}T12:00:00Z`), 2))}T00:00:00Z`)
               .order('occurred_at', { ascending:false }).order('id', { ascending:false }));
+          const expenseColumns = 'id,expense_source_id,category_id,category_name_snapshot,performer_id,occurred_at,payment_transaction_id';
+          const byDate = await readPages('financial_manual_expenses_v163', expenseColumns, query =>
+            query.gte('occurred_at', `${isoDate(addDays(new Date(`${from}T12:00:00Z`), -1))}T00:00:00Z`)
+              .lt('occurred_at', `${isoDate(addDays(new Date(`${bounds.end}T12:00:00Z`), 2))}T00:00:00Z`).order('id'));
+          const seen = new Set(rows.map(row => row.id));
+          const missingPayments = byDate.map(row => row.payment_transaction_id).filter(id => id && !seen.has(id));
+          for (let offset = 0; offset < missingPayments.length; offset += 100) rows.push(...await readPages('financial_transactions',
+            'id,operation_type,source_type,source_id,reversal_of,occurred_at,financial_postings(side,amount_minor,financial_accounts(account_type,account_class))',
+            query => query.in('id', missingPayments.slice(offset, offset + 100)).order('id')));
           const reversalIds = [...new Set(rows.map(row => row.reversal_of).filter(Boolean))];
           const originals = [];
           for (let offset = 0; offset < reversalIds.length; offset += 100) originals.push(...await readPages('financial_transactions', 'id,operation_type,source_id', query => query.in('id', reversalIds.slice(offset, offset + 100)).order('id')));
           const sourceIds = [...new Set([...rows, ...originals].filter(row => row.operation_type === 'supplier_expense_payment').map(row => row.source_id))];
-          const expenses = [];
-          for (let offset = 0; offset < sourceIds.length; offset += 100) expenses.push(...await readPages('financial_manual_expenses_v163', 'expense_source_id,category_id,category_name_snapshot,performer_id', query => query.in('expense_source_id', sourceIds.slice(offset, offset + 100)).order('id')));
+          const expenses = [...byDate];
+          for (let offset = 0; offset < sourceIds.length; offset += 100) expenses.push(...await readPages('financial_manual_expenses_v163', expenseColumns, query => query.in('expense_source_id', sourceIds.slice(offset, offset + 100)).order('id')));
           const settlementIds = [...new Set([...rows, ...originals].filter(row => row.operation_type === 'customer_debt_settlement').map(row => row.source_id))];
           const settlements = [];
           for (let offset = 0; offset < settlementIds.length; offset += 100) settlements.push(...await readPages('financial_debt_settlement_sources', 'id,visit_transaction_id,gross_minor,commission_minor', query => query.in('id', settlementIds.slice(offset, offset + 100)).order('id')));
@@ -529,6 +557,31 @@
           p_performer:lastSelectedMaster || null,
           p_request_id:payload.requestId
         }, 'Не удалось добавить расход.');
+      },
+      async readExpense(expenseId) {
+        if (!isManager() || editCapability !== true || !UUID.test(String(expenseId))) throw new Error('expense_edit_unavailable');
+        const row = await rpc('get_minuta_manual_expense_for_edit_v193', { p_organization:organization.id, p_expense:expenseId }, 'Не удалось открыть расход.');
+        if (row?.id !== expenseId || !UUID.test(String(row.category_id)) || !UUID.test(String(row.payment_account_id))
+            || !Number.isSafeInteger(Number(row.amount_minor)) || Number(row.amount_minor) <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(String(row.occurred_on)))
+          throw new Error('expense_edit_context_invalid');
+        const sourceLabel = String(row.source_label || '');
+        const title = String(row.title || '');
+        return { id:row.id, categoryId:row.category_id, paymentAccountId:row.payment_account_id,
+          amountMinor:Number(row.amount_minor), occurredOn:row.occurred_on, performerId:row.performer_id || null,
+          sourceLabel, title, note:title === sourceLabel ? '' : title.startsWith(`${sourceLabel}: `) ? title.slice(sourceLabel.length + 2) : title };
+      },
+      async updateExpense(payload) {
+        if (!isManager() || editCapability !== true || !requireWrites?.()) throw userError({ message:'writes_disabled', code:'WRITE_DISABLED' }, 'Изменения сейчас недоступны.');
+        const categoryName = lastDirectory.get(payload.categoryId);
+        if (!categoryName || !UUID.test(String(payload.expenseId))) throw userError({ code:'INVALID_EXPENSE' }, 'Выбранный расход или категория больше недоступны.');
+        const note = String(payload.note || '').trim();
+        const title = payload.preserveTitle ? payload.originalTitle : (note ? `${categoryName}: ${note}` : categoryName).slice(0, 160);
+        return rpc('edit_minuta_manual_expense_v193', {
+          p_organization:organization.id, p_expense:payload.expenseId, p_category:payload.categoryId,
+          p_source_label:payload.preserveTitle ? payload.originalSourceLabel : categoryName.slice(0, 160), p_title:title,
+          p_amount_minor:payload.amountMinor, p_payment_account:payload.paymentAccountId,
+          p_occurred_on:payload.occurredOn, p_performer:payload.performerId || null, p_request_id:payload.requestId
+        }, 'Не удалось изменить расход. Данные сохранены в форме.');
       }
     };
 
@@ -539,6 +592,7 @@
       analytics()?.classList.remove('finance-center-mounted');
       lastDirectory = new Map();
       lastSelectedMaster = '';
+      editCapability = null;
       selectedScope = null;
       effectiveScope = null;
       rangeRequest += 1;
