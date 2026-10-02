@@ -91,6 +91,13 @@ try{
    await toggle.click();result.clickTargets.push(await page.evaluate(()=>hoursLastHit));result.clicks.push((await input.isChecked())!==before);
    await label.locator('span').click();assert.equal(await input.isChecked(),before,'Label roundtrip must restore local saved state');
    await input.focus();await page.keyboard.press('Shift+Tab');await page.keyboard.press('Tab');result.tabStops.push(await input.evaluate(e=>document.activeElement===e));
+   // Chromium can expose 0px while the real span outline transition starts,
+   // even under reduced motion. Wait for the native focus ring, not a sleep.
+   if(enhanced){
+    const handle=await input.elementHandle();
+    await page.waitForFunction(e=>{const s=getComputedStyle(e.nextElementSibling);return document.activeElement===e&&e.matches(':focus-visible')&&s.outlineStyle!=='none'&&parseFloat(s.outlineWidth)>=2;},handle,{timeout:1000,polling:'raf'});
+    await handle.dispose();
+   }
    result.focusRings.push(await input.evaluate(e=>{const s=getComputedStyle(e.nextElementSibling);return s.outlineStyle!=='none'&&parseFloat(s.outlineWidth)>=2;}));
    await page.keyboard.press('Space');result.keys.push((await input.isChecked())!==before);
    await page.keyboard.press('Space');assert.equal(await input.isChecked(),before,'Native Space roundtrip must restore local saved state');
