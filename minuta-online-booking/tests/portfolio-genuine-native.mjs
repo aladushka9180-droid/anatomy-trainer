@@ -98,8 +98,8 @@ try {
   const { chromium } = await import(pathToFileURL(resolve(process.env.MINUTA_ACCEPTANCE_DEPS, 'playwright/index.mjs')).href);
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
-  const blocked = [], auth = [], failures = [], rpcFailures = [];
-  report.network = { blocked, auth, failures, rpcFailures };
+  const blocked = [], auth = [], failures = [], rpcFailures = [], scriptErrors = [];
+  report.network = { blocked, auth, failures, rpcFailures, scriptErrors };
   await context.route('**/*', async route => {
     const req = route.request(), url = new URL(req.url());
     if (url.origin === origin) return route.continue();
@@ -113,6 +113,7 @@ try {
     return route.abort('blockedbyclient');
   });
   page = await context.newPage(); page.setDefaultTimeout(30_000);
+  page.on('pageerror', error => { if (scriptErrors.length < 10 && /^(\w+ is not defined|Cannot read properties of (?:null|undefined)|\w+(?:\.\w+)* is not a function)/.test(error.message)) scriptErrors.push(error.message.slice(0, 200)); });
   page.on('response', response => {
     const url = new URL(response.url());
     if (url.origin !== api) return;
@@ -137,9 +138,12 @@ try {
   const canvas = await context.newPage();
   await canvas.setContent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#f4dce4"/><text x="80" y="300" font-size="40">SYNTHETIC FIXTURE · NO CLIENT DATA</text></svg>');
   const neutral = await canvas.locator('svg').screenshot(); await canvas.close();
+  await page.bringToFront();
   phase = 'native-editor-write-readiness';
   report.writeReadiness = await page.locator('.portfolio-title-actions [data-open-portfolio-editor]').evaluate(button => ({ disabled: button.disabled, reliabilityDisabled: button.dataset.reliabilityDisabled === 'true', sync: document.querySelector('#syncState')?.textContent }));
+  await page.locator('#syncState.is-online').waitFor({ timeout: 90_000 });
   await page.locator('.portfolio-title-actions [data-open-portfolio-editor]').click({ timeout: 90_000 });
+  await page.locator('#portfolioEditorDialog').waitFor({ state: 'visible' });
   phase = 'native-editor-fields';
   await page.locator('#portfolioProcedure').fill(procedure);
   await page.locator('#portfolioDescription').fill('Нейтральные тестовые изображения. Отметка согласия проверяется только в изолированном тесте, реального клиента нет.');
@@ -226,6 +230,7 @@ try {
   if (page) report.finalReadiness = await page.locator('.portfolio-title-actions [data-open-portfolio-editor]').evaluate(button => ({ disabled: button.disabled, reliabilityDisabled: button.dataset.reliabilityDisabled === 'true', sync: document.querySelector('#syncState')?.textContent, formError: document.querySelector('#portfolioError')?.textContent })).catch(() => null);
   console.error(`Genuine native Portfolio stopped at ${phase}; sensitive details withheld`);
   if (page) await page.locator('[data-provider-panel="portfolio"]').screenshot({ path: resolve(out, 'native-failure.png') }).catch(() => {});
+  if (page) await page.screenshot({ path: resolve(out, 'native-failure-screen.png'), fullPage: false }).catch(() => {});
   process.exitCode = 1;
 } finally {
   await browser?.close().catch(() => {});
