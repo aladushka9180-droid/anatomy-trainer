@@ -601,7 +601,8 @@
         if(nextTemplate){if(!workspace.templates.some(t=>t.id===nextTemplate.id))$('[data-template]').add(new Option(nextTemplate.name,nextTemplate.id));$('[data-template]').value=nextTemplate.id;fieldInputs();}
         copyValidity=body.copy_validity||null;
         $('[data-download]').textContent='Скачать '+$('[data-format]').selectedOptions[0].textContent;
-        tab('create');lock(false);await preview();
+        tab('create');contentMode();numbering();await preview();
+        if(!current(scope))return;
         message(unavailableClient?'Черновик открыт. Клиент недоступен: выбери клиента заново.':'Черновик открыт. Изменения сохраняются кнопкой «Сохранить черновик».');
         if(!image){$('[data-canvas]').hidden=true;$('[data-empty]').hidden=false;}
       }catch(reason){if(current(scope))fail(reason);}finally{if(current(scope))lock(false);}
