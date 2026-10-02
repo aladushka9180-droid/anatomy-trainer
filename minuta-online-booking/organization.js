@@ -163,7 +163,6 @@
     }
 
     function render() {
-      people?.capture();
       if (availability === null) {
         $('#organizationLoading').hidden = false;
         $('#organizationLoading').setAttribute('aria-busy', 'true');
@@ -172,6 +171,7 @@
         $('#organizationWorkspace').hidden = true;
         return;
       }
+      people?.capture();
       $('#organizationLoading').hidden = true;
       $('#organizationLoading').removeAttribute('aria-busy');
       $('#organizationUnavailable').hidden = true;
