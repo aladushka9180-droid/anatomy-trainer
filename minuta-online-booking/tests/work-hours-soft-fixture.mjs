@@ -66,6 +66,8 @@ $('#weeklySchedule').addEventListener('change', event => {
 });
 `;
 
+export { runtime as scheduleRuntime };
+
 export async function fixture(page, { theme='pink-porcelain', enhanced=true }={}) {
   const blocked=[];
   await page.route('**/*', route => {blocked.push(route.request().url()); return route.abort();});
@@ -113,5 +115,12 @@ export async function fixture(page, { theme='pink-porcelain', enhanced=true }={}
     await page.addStyleTag({content:readFileSync(path.join(root,'work-hours-soft.css'),'utf8')});
     await page.addScriptTag({content:readFileSync(path.join(root,'work-hours-soft.js'),'utf8')});
   }
+  // Inspect final CSS values after the real enhancement, not an intermediate
+  // finite theme/font transition. Keep all original assertions unchanged.
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await Promise.allSettled(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished));
+  });
   return {blocked};
 }

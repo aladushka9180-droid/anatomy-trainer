@@ -55,6 +55,13 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .p
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .slot-step-control { flex:0 0 auto; width:140px!important; min-width:0; }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .slot-step-control :is(select,.pro-select-trigger) { min-height:46px!important; max-width:140px; border-color:var(--hours-line)!important; border-radius:12px!important; box-shadow:none!important; font-size:14px!important; }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .weekly-schedule-details { margin-top:4px; border-color:var(--hours-line)!important; border-radius:14px; }
+/* Keep native checkbox focus/label activation without viewport-sized hit boxes. */
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .day-toggle { position:relative; }
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .day-toggle input[data-schedule-enabled] {
+  width:1px!important; min-width:0!important; height:1px!important; min-height:0!important;
+  inset:0 auto auto 0; margin:0!important; padding:0!important; border:0; clip-path:inset(50%);
+}
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .day-toggle input[data-schedule-enabled]:focus-visible + span { outline:2px solid var(--theme-accent,var(--hours-ink)); outline-offset:3px; }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] :is(.weekly-schedule-details,.schedule-date-editor) > summary strong { font-size:15px; line-height:1.4; font-weight:650; }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] :is(.weekly-schedule-details,.schedule-date-editor) > summary small { font-size:12px; line-height:1.4; font-weight:400; color:var(--hours-muted)!important; }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .schedule-date-editor[open] > summary { border-bottom-color:var(--hours-line)!important; }
@@ -91,6 +98,7 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .p
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] :is(button,summary,input,select):focus-visible { outline:2px solid var(--theme-accent,#a63d6a)!important; outline-offset:3px; }
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .schedule-quick-days input:focus-visible + span { outline:2px solid var(--theme-accent,#a63d6a)!important; outline-offset:3px; }
 @media (max-width:760px) {
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] #saveSchedule { position:static!important; inset:auto!important; box-shadow:none!important; }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .schedule-quick-setup { padding-bottom:12px!important; }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] #scheduleQuickStatus:empty { display:none; }
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .provider-view.work-hours-soft[data-provider-panel="schedule"] .schedule-quick-presets { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; }
