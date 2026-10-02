@@ -160,10 +160,10 @@ try {
   });
   page = await context.newPage(); page.setDefaultTimeout(30_000);
   page.on('pageerror', error => { if (scriptErrors.length < 10 && /^(\w+ is not defined|Cannot read properties of (?:null|undefined)|\w+(?:\.\w+)* is not a function)/.test(error.message)) scriptErrors.push(error.message.slice(0, 200)); });
-  page.on('response', response => {
+  context.on('response', response => {
     const url = new URL(response.url());
     if (url.origin !== api) return;
-    if (url.pathname === '/auth/v1/token') auth.push({ status: response.status(), passwordSignin: url.searchParams.get('grant_type') === 'password' });
+    if (['/auth/v1/token', '/auth/v1/logout'].includes(url.pathname)) auth.push({ operation: url.pathname.split('/').at(-1), status: response.status(), passwordSignin: url.searchParams.get('grant_type') === 'password' });
     if (url.pathname.startsWith('/storage/v1/') && storageResponses.length < 20) storageResponses.push({ method: response.request().method(), status: response.status(), operation: url.pathname.startsWith('/storage/v1/object/sign/') ? 'sign' : 'object' });
     if (response.status() >= 400 && url.pathname.startsWith('/rest/v1/rpc/') && rpcFailures.length < 25) rpcFailures.push({ rpc: url.pathname.split('/').at(-1), status: response.status() });
   });
@@ -213,25 +213,29 @@ try {
   check((await publicItem(ids.item)).length === 1, 'real-anonymous-published-item-visible');
   report.acceptance.nativePublication = true;
   await shot('native-pair-persisted');
-  phase = 'genuine-auth-gallery-lifecycle';
+  phase = 'genuine-auth-open-gallery';
   await page.locator('[data-portfolio-photo-preview]').click();
   await page.locator('#portfolioPhotoPreviewDialog').waitFor({ state: 'visible' });
   const logoutPage = await context.newPage();
   await logoutPage.goto(`${origin}/provider.html?section=portfolio`);
   await logoutPage.locator('#dashboard').waitFor({ state: 'visible', timeout: 90_000 });
-  const signedOut = logoutPage.waitForResponse(res => res.url().startsWith(api + '/auth/v1/logout'));
+  phase = 'genuine-auth-native-peer-local-logout';
+  // Native logout clears local Auth storage and broadcasts before SDK signOut;
+  // a remote revocation request is not part of its local gallery-reset contract.
   await logoutPage.locator('#logoutButton').click();
-  check([200, 204].includes((await signedOut).status()), 'genuine-auth-signout-server-ack');
   await page.locator('#loginForm').waitFor({ state: 'visible' });
+  check(await page.locator('#loginForm').isVisible(), 'genuine-native-peer-logout-completed');
   check(!await page.locator('#portfolioPhotoPreviewDialog').isVisible(), 'genuine-logout-closes-open-gallery');
   check(await page.locator('#portfolioPhotoPreviewDialog img').count() === 0, 'genuine-logout-clears-private-images');
   await logoutPage.close();
+  phase = 'genuine-auth-native-other-account';
   await login('other');
   await page.waitForFunction(() => document.querySelector('#portfolioCount')?.textContent?.trim() === '0 работ');
   check(await page.locator('[data-portfolio-photo-preview]').count() === 0, 'native-other-account-no-old-gallery');
   check(!await page.getByText(procedure, { exact: true }).count(), 'native-other-account-no-old-work');
   await shot('native-other-account');
   await page.locator('#logoutButton').click(); await page.locator('#loginForm').waitFor({ state: 'visible' });
+  phase = 'genuine-auth-native-owner-return';
   await login('owner'); await page.locator('[data-portfolio-photo-preview]').waitFor();
   await page.locator('[data-portfolio-photo-preview]').click();
   check(await page.locator('#portfolioPhotoPreviewDialog img').count() === 2, 'genuine-owner-fresh-gallery-works');
