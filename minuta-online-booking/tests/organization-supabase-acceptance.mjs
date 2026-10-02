@@ -29,7 +29,12 @@ try {
   phase = 'test-database-connection';
   const { default: pg } = await import(pathToFileURL(resolve(process.env.MINUTA_ACCEPTANCE_DEPS, 'pg/lib/index.js')).href);
   if (identity.port === '6543') identity.port = '5432';
-  client = new pg.Client({ connectionString: identity.href, ssl: { rejectUnauthorized: true }, connectionTimeoutMillis: 20000, statement_timeout: 15000 });
+  const certificate = await fetch('https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt', { signal: AbortSignal.timeout(20000) });
+  check(certificate.ok, 'official-supabase-root-certificate');
+  const ca = await certificate.text();
+  check(ca.includes('-----BEGIN CERTIFICATE-----'), 'valid-root-certificate-format');
+  // Retain verification of the issuer chain and hostname, using the official CA.
+  client = new pg.Client({ connectionString: identity.href, ssl: { rejectUnauthorized: true, ca }, connectionTimeoutMillis: 20000, statement_timeout: 15000 });
   await client.connect();
   phase = 'schema-preflight';
   const tables = ['performer_profiles', 'services', 'organizations', 'locations', 'organization_memberships', 'organization_audit_log', 'organization_shift_settings', 'staff_location_shifts'];
