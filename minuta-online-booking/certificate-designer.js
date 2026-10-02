@@ -42,7 +42,7 @@
       <p class="certificate-message" role="status" data-message></p><p class="certificate-error" role="alert" data-error hidden></p>
       <div data-panel="create"><div class="certificate-layout"><form class="certificate-form" data-form>
         <label>Макет<select data-template aria-label="Макет"></select></label>
-        <div class="certificate-buttons"><button type="button" data-open-library>30 готовых макетов</button><button type="button" data-save-preset hidden>Сохранить этот макет</button></div>
+        <div class="certificate-buttons"><button type="button" data-open-library>3 новых макета</button><button type="button" data-save-preset hidden>Сохранить этот макет</button></div>
         <details data-template-settings><summary>Загрузить и настроить макет</summary><div class="certificate-form">
           <label>Изображение макета<input type="file" accept="image/png,image/jpeg,image/webp" data-image></label>
           <p class="certificate-help">Загрузи пустой макет. Места для процедуры, даты и номера определятся автоматически; проверь их перед сохранением.</p>
@@ -74,7 +74,7 @@
       <div data-panel="history" hidden><p class="certificate-reminder" role="status" data-reminders hidden></p>
         <div class="certificate-history-controls"><input type="search" aria-label="Поиск сертификатов" placeholder="Номер или текст сертификата" data-search maxlength="180"><select aria-label="Срок действия" data-status><option value="all">Все сертификаты</option><option value="active">Действуют</option><option value="expiring">Скоро истекают</option><option value="expired">Истекли</option></select></div>
         <div data-history></div><div class="certificate-buttons"><button type="button" data-more hidden>Показать ещё</button></div></div>
-      <dialog class="certificate-library" data-library aria-labelledby="certificate-library-title"><div class="certificate-library-heading"><div><h3 id="certificate-library-title">Выбери оформление</h3><p class="certificate-help">30 минималистичных макетов · A4 и A5</p></div><button type="button" data-close-library aria-label="Закрыть выбор макета">Закрыть</button></div><p role="status" data-library-status></p><div class="certificate-library-grid" data-library-grid></div></dialog>`;
+      <dialog class="certificate-library" data-library aria-labelledby="certificate-library-title"><div class="certificate-library-heading"><div><h3 id="certificate-library-title">Выбери оформление</h3><p class="certificate-help">3 новых оформления · A4 и A5</p></div><button type="button" data-close-library aria-label="Закрыть выбор макета">Закрыть</button></div><p role="status" data-library-status></p><div class="certificate-library-grid" data-library-grid></div></dialog>`;
     const errorMessages = {
       template_library_unavailable:'Не удалось загрузить готовые макеты. Попробуй открыть выбор снова.',
       invalid_date:'Проверь дату.', invalid_procedure:'Выбери услугу и количество сеансов.', invalid_custom_text:'Напиши текст сертификата: от 1 до 260 символов.', invalid_duration:'У выбранной услуги не указана длительность.',
