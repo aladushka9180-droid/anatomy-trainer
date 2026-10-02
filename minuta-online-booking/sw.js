@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1065`;
-const CACHE_READY = './.precache-ready-v1065';
+const CACHE = `${CACHE_PREFIX}v1066`;
+const CACHE_READY = './.precache-ready-v1066';
 
 const ASSETS = [
   './provider.html',
@@ -63,7 +63,7 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1036',
-  './provider.js?v=1065',
+  './provider.js?v=1066',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
