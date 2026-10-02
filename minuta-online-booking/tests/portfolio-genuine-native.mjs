@@ -228,6 +228,7 @@ try {
   console.log(`PASS: genuine isolated native Portfolio (${report.checks.length} checks); actual Auth, persisted pair and transport refusal/retry; canonical client acceptance still pending`);
 } catch (error) {
   report.status = 'failed'; report.failedPhase = phase;
+  if (/^HTTP_[0-9]{3}$/.test(error?.message || '')) report.failureCode = error.message;
   if (['28P01', '42501', '23502', '23503', '23514', '42883'].includes(error?.code)) report.failureCode = error.code;
   if (error?.name === 'TimeoutError') report.failureCode = 'native-timeout';
   const failedLocator = error?.message?.match(/waiting for locator\('([^']+)'\)/)?.[1];
