@@ -2,8 +2,9 @@
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PrimeTime Pro — образец сертификатов</title>
 <link rel="stylesheet" href="/certificate-designer.css"><style>
   *{box-sizing:border-box}body{margin:0;background:#fff5f9;color:#2c2330;font:16px/1.5 system-ui,sans-serif;--primary-color:#a33c70;--border-color:#e8dce2;--muted-text-color:#756a72}main{max-width:1120px;margin:auto;padding:24px}header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-bottom:22px;gap:10px}header p{margin:0;color:#756a72}header h1{margin:0;font-size:24px;font-weight:600}section{background:#fff;padding:24px;border-radius:18px}@media(max-width:760px){main{padding:16px}section{padding:18px}}@media(max-width:390px){main{padding:10px}section{padding:14px}}
-</style></head><body><main><header><h1>PrimeTime Pro</h1><p>Образец раздела «Сертификаты»</p></header><section id="certificateDesignerPanel"></section></main>
-<script src="/certificate-renderer.js"></script><script src="/certificate-designer.js"></script>
+  [data-fixture-client]{display:block;margin-top:6px;min-height:44px;max-width:100%;padding:10px 12px;border:1px solid #e8dce2;border-radius:10px;background:#fff;font:inherit;color:inherit}
+</style></head><body><main><header><h1>PrimeTime Pro</h1><p>Образец раздела «Сертификаты»</p></header><section id="certificateDesignerPanel"></section><section style="margin-top:24px"><h2 style="font-size:18px">Карточка клиента — образец</h2><label>Клиент <select data-fixture-client><option value="">Выбери клиента</option><option value="79990000001">Анна — тестовый клиент</option><option value="79990000002">Борис — тестовый клиент</option></select></label><div id="clientCertificateDesigns"></div></section></main>
+<script src="/certificate-renderer.js"></script><script src="/certificate-designer.js"></script><script src="/certificate-client-card.js"></script>
 <script>
 (async function(){
   const databaseName = 'minuta-certificate-demo-' + (new URLSearchParams(location.search).get('store') || 'preview');
@@ -18,9 +19,14 @@
   const org='00000000-0000-4000-8000-000000000004';
   const services=[{id:'00000000-0000-4000-8000-000000000007',name:'Массаж спины+швз — углубленный',duration_minutes:60},{id:'00000000-0000-4000-8000-000000000008',name:'Массаж спины',duration_minutes:30},{id:'00000000-0000-4000-8000-000000000006',name:'Общий расслабляющий массаж',duration_minutes:60}];
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Samara'}).format(new Date());
+  const clients=[{phone:'79990000001',name:'Анна',account_id:'00000000-0000-4000-8000-000000000021'},{phone:'79990000002',name:'Борис',account_id:'00000000-0000-4000-8000-000000000022'}];
+  const instrument={id:'00000000-0000-4000-8000-000000000023',name:'Массаж спины — 3 сеанса',visits_count:3,remaining_visits:2,services:[{service_id:services[0].id}]};
   let writeQueue=Promise.resolve();
   function mutate(fn){const result=writeQueue.then(async()=>{const result=fn();await write(state);return result});writeQueue=result.catch(()=>{});return result}
   const repository={demo:true,
+    clients:async(_,query)=>({organization_id:org,clients:clients.filter(c=>(c.name+' '+c.phone).toLocaleLowerCase('ru-RU').includes(query.toLocaleLowerCase('ru-RU')))}),
+    clientOptions:async(_,phone)=>({organization_id:org,client_phone:phone,client_account_id:clients.find(c=>c.phone===phone)?.account_id,instruments:phone===clients[0].phone&&!state.records.some(r=>r.benefit_instrument_id===instrument.id)?[instrument]:[]}),
+    clientRecords:async(_,phone,cursor)=>{const records=state.records.filter(r=>r.client_phone===phone).map(r=>({...r,remaining_visits:r.benefit_instrument_id===instrument.id?instrument.remaining_visits:null,benefit_status:r.benefit_instrument_id===instrument.id?'active':null}));const start=cursor||0;return{organization_id:org,client_phone:phone,today,records:records.slice(start,start+50),next_cursor:records.length>start+50?start+50:null}},
     workspace:async()=>({organization_id:org,current_role:'owner',today,templates:state.templates.map(t=>({id:t.id,name:t.name})),services}),
     template:async(_,id)=>({organization_id:org,template:state.templates.find(t=>t.id===id)}),
     saveTemplate:(_,value)=>mutate(()=>{state.templates.push(structuredClone(value));return {organization_id:org,id:value.id}}),
@@ -36,10 +42,12 @@
       return {organization_id:org,today,records:records.slice(start,start+50),next_cursor:records.length>start+50?start+50:null,expiring_count:state.records.filter(r=>MinutaCertificateRenderer.status(r,today,r.remind_days).code==='expiring').length};
     }
   };
-  const controller=MinutaCertificateDesigner.createController({root:document.getElementById('certificateDesignerPanel'),repository,defaultNumber:'267',defaultDate:'2026-10-03',getCurrentUser:()=>({id:'demo'}),requireWrites:()=>true});
+  const controller=MinutaCertificateDesigner.createController({root:document.getElementById('certificateDesignerPanel'),repository,defaultNumber:'267',defaultDate:'2026-10-03',getCurrentUser:()=>({id:'demo'}),requireWrites:()=>true,onIssued:()=>card.reload()});
   controller.bind();
   await controller.setOrganization({id:org});
+  const card=MinutaCertificateClientCard.createController({root:document.getElementById('clientCertificateDesigns'),repository,getCurrentUser:()=>({id:'demo'}),onOpen:async item=>{await controller.openIssued(item);document.getElementById('certificateDesignerPanel').scrollIntoView()}});
+  document.querySelector('[data-fixture-client]').addEventListener('change',event=>card.setClient(clients.find(c=>c.phone===event.target.value),{id:org}));
   // Test-only hooks belong to this fixture, never to the product controller.
-  window.certificateFixture={controller,repository,getState:()=>structuredClone(state)};
+  window.certificateFixture={controller,card,repository,getState:()=>structuredClone(state)};
 })();
 </script></body></html>

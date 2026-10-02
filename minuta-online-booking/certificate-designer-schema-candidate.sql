@@ -30,6 +30,11 @@ create table if not exists public.certificate_design_issues (
 );
 create index if not exists certificate_design_history_idx on public.certificate_design_issues(organization_id,created_at desc,id desc);
 create index if not exists certificate_design_expiry_idx on public.certificate_design_issues(organization_id,expires_on);
+alter table public.certificate_design_issues add column if not exists client_phone text check(client_phone ~ '^7[0-9]{10}$');
+alter table public.certificate_design_issues add column if not exists client_account_id uuid references public.client_accounts(id) on delete set null;
+alter table public.certificate_design_issues add column if not exists benefit_instrument_id uuid references public.client_benefit_instruments(id) on delete restrict;
+create index if not exists certificate_design_client_idx on public.certificate_design_issues(organization_id,client_phone,created_at desc,id desc);
+create unique index if not exists certificate_design_benefit_once_idx on public.certificate_design_issues(organization_id,benefit_instrument_id) where benefit_instrument_id is not null;
 alter table public.certificate_design_templates enable row level security;
 alter table public.certificate_design_templates force row level security;
 alter table public.certificate_design_issues enable row level security;
@@ -159,6 +164,7 @@ create or replace function public.record_minuta_certificate_issue(p_organization
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare v_role text; v_existing public.certificate_design_issues%rowtype; v_template uuid; v_id uuid; v_service public.services%rowtype;
   v_sessions integer; v_issued date; v_expiry date; v_remind integer; v_number text;
+  v_phone text; v_account uuid; v_benefit uuid; v_constraint text;
 begin
   v_role:=public.minuta_certificate_role(p_organization);
   if p_request_id is null then raise exception using errcode='22023',message='certificate_request_required'; end if;
@@ -193,11 +199,85 @@ begin
     or v_service.duration_minutes is distinct from (p_record->>'duration_minutes')::integer then
     raise exception using errcode='22023',message='invalid_certificate_service';
   end if;
+  v_phone:=nullif(p_record->>'client_phone','');v_account:=nullif(p_record->>'client_account_id','')::uuid;
+  v_benefit:=nullif(p_record->>'benefit_instrument_id','')::uuid;
+  if v_phone is not null then
+    if not public.can_access_minuta_client_record(p_organization,v_phone)
+      or coalesce(char_length(p_record->>'client_name'),0) not between 1 and 180
+      or (v_account is not null and not exists(select 1 from public.client_accounts c where c.id=v_account and c.normalized_phone=v_phone)) then
+      raise exception using errcode='42501',message='invalid_certificate_client';
+    end if;
+  elsif v_account is not null or v_benefit is not null or p_record->>'client_name' is not null then
+    raise exception using errcode='22023',message='invalid_certificate_client';
+  end if;
+  if v_benefit is not null and not exists(select 1 from public.client_benefit_instruments b
+    where b.id=v_benefit and b.organization_id=p_organization and b.client_account_id=v_account
+      and b.status='active' and b.expires_on>=public.minuta_certificate_today(p_organization) and b.remaining_visits>0
+      and b.product_snapshot->>'kind'='visit_pass' and (b.product_snapshot->>'visits_count')::integer=v_sessions
+      and (jsonb_array_length(coalesce(b.product_snapshot->'services','[]'::jsonb))=0 or exists(
+        select 1 from jsonb_array_elements(b.product_snapshot->'services') s where s->>'service_id'=v_service.id::text))) then
+    raise exception using errcode='22023',message='invalid_certificate_benefit';
+  end if;
   begin
-    insert into public.certificate_design_issues(organization_id,creator_id,template_id,request_id,certificate_number,record,issued_on,expires_on,remind_days)
-      values(p_organization,auth.uid(),v_template,p_request_id,v_number,p_record,v_issued,v_expiry,v_remind) returning id into v_id;
-  exception when unique_violation then raise exception using errcode='23505',message='certificate_number_exists'; end;
+    insert into public.certificate_design_issues(organization_id,creator_id,template_id,request_id,certificate_number,record,issued_on,expires_on,remind_days,client_phone,client_account_id,benefit_instrument_id)
+      values(p_organization,auth.uid(),v_template,p_request_id,v_number,p_record,v_issued,v_expiry,v_remind,v_phone,v_account,v_benefit) returning id into v_id;
+  exception when unique_violation then
+    get stacked diagnostics v_constraint=constraint_name;
+    if v_constraint='certificate_design_benefit_once_idx' then raise exception using errcode='23505',message='certificate_benefit_already_linked'; end if;
+    raise exception using errcode='23505',message='certificate_number_exists';
+  end;
   return jsonb_build_object('organization_id',p_organization,'record',p_record||jsonb_build_object('id',v_id));
+end $$;
+
+create or replace function public.get_minuta_certificate_clients(p_organization uuid,p_query text default '')
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare v_role text;v_clients jsonb;
+begin
+  v_role:=public.minuta_certificate_role(p_organization);
+  if p_query is null or char_length(p_query)>100 then raise exception using errcode='22023',message='invalid_certificate_search';end if;
+  with source as (
+    select public.normalize_client_phone(b.client_phone) phone,b.client_name name,b.client_account_id account_id,b.created_at stamp
+      from public.bookings b where b.organization_id=p_organization and (v_role in ('owner','admin') or b.performer_id=auth.uid())
+    union all select c.normalized_phone,c.client_name,null::uuid,c.updated_at from public.organization_imported_clients c
+      where c.organization_id=p_organization and v_role in ('owner','admin')
+  ), clients as (select distinct on(phone) phone,name,account_id from source where phone ~ '^7[0-9]{10}$' and coalesce(name,'')<>'' order by phone,stamp desc,account_id nulls last)
+  select coalesce(jsonb_agg(to_jsonb(c) order by c.name,c.phone),'[]'::jsonb) into v_clients from (
+    select * from clients where strpos(lower(name||' '||phone),lower(btrim(p_query)))>0 order by name,phone limit 25) c;
+  return jsonb_build_object('organization_id',p_organization,'clients',v_clients);
+end $$;
+
+create or replace function public.get_minuta_certificate_client_options(p_organization uuid,p_phone text)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare v_account uuid;v_rows jsonb;
+begin
+  perform public.minuta_certificate_role(p_organization);
+  if not public.can_access_minuta_client_record(p_organization,p_phone) then raise exception using errcode='42501',message='invalid_certificate_client';end if;
+  select id into v_account from public.client_accounts where normalized_phone=p_phone;
+  select coalesce(jsonb_agg(jsonb_build_object('id',b.id,'name',b.product_snapshot->>'name','visits_count',(b.product_snapshot->>'visits_count')::integer,
+    'remaining_visits',b.remaining_visits,'services',coalesce(b.product_snapshot->'services','[]'::jsonb)) order by b.issued_at desc,b.id),'[]'::jsonb)
+    into v_rows from public.client_benefit_instruments b where b.organization_id=p_organization and b.client_account_id=v_account
+      and b.status='active' and b.expires_on>=public.minuta_certificate_today(p_organization) and b.remaining_visits>0
+      and b.product_snapshot->>'kind'='visit_pass'
+      and not exists(select 1 from public.certificate_design_issues i where i.organization_id=p_organization and i.benefit_instrument_id=b.id);
+  return jsonb_build_object('organization_id',p_organization,'client_phone',p_phone,'client_account_id',v_account,'instruments',v_rows);
+end $$;
+
+create or replace function public.get_minuta_client_certificates(p_organization uuid,p_phone text,p_cursor jsonb default null)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare v_account uuid;v_rows jsonb;v_cursor jsonb;
+begin
+  perform public.minuta_certificate_role(p_organization);
+  if not public.can_access_minuta_client_record(p_organization,p_phone) then raise exception using errcode='42501',message='invalid_certificate_client';end if;
+  select id into v_account from public.client_accounts where normalized_phone=p_phone;
+  with source as (select i.*,b.remaining_visits,b.status benefit_status from public.certificate_design_issues i
+    left join public.client_benefit_instruments b on b.id=i.benefit_instrument_id and b.organization_id=i.organization_id and b.client_account_id=i.client_account_id
+    where i.organization_id=p_organization and (i.client_phone=p_phone or i.client_account_id=v_account)
+      and public.minuta_certificate_can_read(i.organization_id,i.creator_id)
+      and (p_cursor is null or (i.created_at,i.id)<((p_cursor->>'created_at')::timestamptz,(p_cursor->>'id')::uuid))
+    order by i.created_at desc,i.id desc limit 51), paged as(select * from source order by created_at desc,id desc limit 50)
+  select coalesce((select jsonb_agg(p.record||jsonb_build_object('id',p.id,'remaining_visits',p.remaining_visits,'benefit_status',p.benefit_status) order by p.created_at desc,p.id desc) from paged p),'[]'::jsonb),
+    case when(select count(*) from source)>50 then(select jsonb_build_object('created_at',created_at,'id',id) from paged order by created_at,id limit 1)end into v_rows,v_cursor;
+  return jsonb_build_object('organization_id',p_organization,'client_phone',p_phone,'today',public.minuta_certificate_today(p_organization),'records',v_rows,'next_cursor',v_cursor);
 end $$;
 
 create or replace function public.get_minuta_certificate_issue_history(p_organization uuid,p_query text default '',p_status text default 'all',p_cursor jsonb default null)
@@ -230,7 +310,9 @@ revoke all on function public.minuta_certificate_role(uuid),public.minuta_certif
 revoke all on function public.save_minuta_certificate_design(uuid,jsonb),public.get_minuta_certificate_design(uuid,uuid),
   public.get_minuta_certificate_design_workspace(uuid),public.record_minuta_certificate_issue(uuid,jsonb,uuid),
   public.get_minuta_certificate_issue_history(uuid,text,text,jsonb) from public,anon,authenticated,service_role;
+revoke all on function public.get_minuta_certificate_clients(uuid,text),public.get_minuta_certificate_client_options(uuid,text),public.get_minuta_client_certificates(uuid,text,jsonb) from public,anon,authenticated,service_role;
 grant execute on function public.save_minuta_certificate_design(uuid,jsonb),public.get_minuta_certificate_design(uuid,uuid),
   public.get_minuta_certificate_design_workspace(uuid),public.record_minuta_certificate_issue(uuid,jsonb,uuid),
   public.get_minuta_certificate_issue_history(uuid,text,text,jsonb) to authenticated;
+grant execute on function public.get_minuta_certificate_clients(uuid,text),public.get_minuta_certificate_client_options(uuid,text),public.get_minuta_client_certificates(uuid,text,jsonb) to authenticated;
 commit;

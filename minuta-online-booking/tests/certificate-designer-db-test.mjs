@@ -18,7 +18,7 @@ if(native){
   const {PGlite} = await import(process.env.MINUTA_PGLITE_MODULE ? pathToFileURL(process.env.MINUTA_PGLITE_MODULE).href : '@electric-sql/pglite');
   db=new PGlite();
 }
-const ids = Array.from({length:12},(_,i)=>`00000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`);
+const ids = Array.from({length:32},(_,i)=>`00000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`);
 const [owner,expert,outsider,org,otherOrg,location,service,otherService,templateId,requestId] = ids;
 let checks=0;
 async function actor(user,fn) {
@@ -40,12 +40,25 @@ create table public.organizations(id uuid primary key,status text not null);
 create table public.organization_memberships(organization_id uuid,user_id uuid,role text,active boolean,is_bookable boolean);
 create table public.locations(id uuid primary key,organization_id uuid,timezone text,active boolean,is_primary boolean);
 create table public.services(id uuid primary key,performer_id uuid,name text,duration_minutes integer,active boolean);
+create table public.client_accounts(id uuid primary key,normalized_phone text unique);
+create table public.bookings(id uuid primary key,organization_id uuid,performer_id uuid,client_phone text,client_name text,client_account_id uuid,created_at timestamptz default now());
+create table public.organization_imported_clients(organization_id uuid,normalized_phone text,client_name text,updated_at timestamptz default now());
+create table public.client_benefit_instruments(id uuid primary key,organization_id uuid,client_account_id uuid,status text,product_snapshot jsonb,remaining_visits integer,expires_on date,issued_at timestamptz default now());
+create function public.normalize_client_phone(value text) returns text language sql immutable as $$select regexp_replace(value,'[^0-9]','','g')$$;
+create function public.can_access_minuta_client_record(p_org uuid,p_phone text,p_booking uuid default null) returns boolean language sql stable security definer set search_path='' as $$
+select auth.uid() is not null and coalesce(p_phone ~ '^7[0-9]{10}$',false) and exists(select 1 from public.organization_memberships m join public.organizations o on o.id=m.organization_id and o.status='active'
+where m.organization_id=p_org and m.user_id=auth.uid() and m.active and (exists(select 1 from public.bookings b where b.organization_id=p_org and public.normalize_client_phone(b.client_phone)=p_phone and (p_booking is null or b.id=p_booking) and (m.role in ('owner','admin') or b.performer_id=auth.uid()))
+or (p_booking is null and m.role in ('owner','admin') and exists(select 1 from public.organization_imported_clients c where c.organization_id=p_org and c.normalized_phone=p_phone))))$$;
 `);
 await db.query('insert into auth.users values($1),($2),($3)',[owner,expert,outsider]);
 await db.query("insert into public.organizations values($1,'active'),($2,'active')",[org,otherOrg]);
 await db.query("insert into public.organization_memberships values($1,$2,'owner',true,true),($1,$3,'specialist',true,true),($4,$5,'owner',true,true)",[org,owner,expert,otherOrg,outsider]);
 await db.query("insert into public.locations values($1,$2,'Europe/Samara',true,true),($3,$4,'UTC',true,true)",[location,org,ids[10],otherOrg]);
 await db.query("insert into public.services values($1,$2,'Массаж спины+швз — углубленный',60,true),($3,$4,'Другая услуга',30,true)",[service,owner,otherService,outsider]);
+await db.query("insert into public.client_accounts values($1,'79990000001'),($2,'79990000002'),($3,'79990000003')",[ids[12],ids[13],ids[14]]);
+await db.query("insert into public.bookings(id,organization_id,performer_id,client_phone,client_name,client_account_id) values($1,$2,$3,'79990000001','Анна',$4),($5,$2,$6,'79990000002','Борис',$7),($8,$9,$10,'79990000003','Другой клиент',$11)",[ids[15],org,owner,ids[12],ids[16],expert,ids[13],ids[17],otherOrg,outsider,ids[14]]);
+await db.query("insert into public.organization_imported_clients(organization_id,normalized_phone,client_name) values($1,'79990000004','Импортированный клиент')",[org]);
+await db.query("insert into public.client_benefit_instruments(id,organization_id,client_account_id,status,product_snapshot,remaining_visits,expires_on) values($1,$2,$3,'active',$4,2,current_date+1000),($5,$6,$7,'active',$4,2,current_date+1000)",[ids[18],org,ids[12],{name:'Курс',kind:'visit_pass',visits_count:3,services:[{service_id:service}]},ids[19],otherOrg,ids[14]]);
 const source = readFileSync(new URL('../certificate-designer-schema-candidate.sql',import.meta.url),'utf8');
 await db.exec(source);
 const layout={procedure:{x:.5,y:.671,width:.83,size:.0315,italic:true},date:{x:.213,y:.755,width:.265,size:.023,italic:false},number:{x:.783,y:.755,width:.265,size:.023,italic:false}};
@@ -110,6 +123,28 @@ if(native){
     assert.equal(await value("select count(*)::integer value from public.certificate_design_issues where certificate_number='concurrent-1'"),1);checks++;
   }finally{await left.query('rollback');await right.query('rollback');await left.end();await right.end()}
 }
+const clients=await actor(owner,()=>call('get_minuta_certificate_clients',[org,'']));
+assert.equal(clients.clients.length,3);assert.ok(!clients.clients.some(c=>c.phone==='79990000003'));checks++;
+assert.deepEqual((await actor(expert,()=>call('get_minuta_certificate_clients',[org,'']))).clients.map(c=>c.phone),['79990000002']);checks++;
+await denied(expert,()=>call('get_minuta_certificate_client_options',[org,'79990000001']),/invalid_certificate_client/);
+await denied(owner,()=>call('get_minuta_client_certificates',[org,'79990000003',null]),/invalid_certificate_client/);
+const linked={...record,number:'client-linked',sessions:3,procedure:'Массаж спины+швз — углубленный (1 час/3 сеанса)',client_phone:'79990000001',client_name:'Анна',client_account_id:ids[12],benefit_instrument_id:ids[18]};
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...linked,client_phone:'79990000003',client_account_id:ids[14]},ids[20]]),/invalid_certificate_client/);
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...linked,benefit_instrument_id:ids[19]},ids[20]]),/invalid_certificate_benefit/);
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...linked,sessions:1},ids[20]]),/invalid_certificate_benefit/);
+const options=await actor(owner,()=>call('get_minuta_certificate_client_options',[org,'79990000001']));assert.equal(options.instruments[0].id,ids[18]);checks++;
+await actor(owner,()=>call('record_minuta_certificate_issue',[org,linked,ids[20]]));
+assert.equal(await value('select remaining_visits value from public.client_benefit_instruments where id=$1',[ids[18]]),2);checks++;
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...linked,number:'second-linked'},ids[21]]),/certificate_benefit_already_linked/);
+assert.equal((await actor(owner,()=>call('get_minuta_certificate_client_options',[org,'79990000001']))).instruments.length,0);checks++;
+await db.query('update public.client_benefit_instruments set remaining_visits=1 where id=$1',[ids[18]]);
+const card=await actor(owner,()=>call('get_minuta_client_certificates',[org,'79990000001',null]));assert.equal(card.records[0].remaining_visits,1);assert.equal(card.records[0].client_name,'Анна');checks++;
+assert.equal((await actor(expert,()=>call('get_minuta_client_certificates',[org,'79990000002',null]))).records.length,0);checks++;
+await db.exec(readFileSync(new URL('../certificate-designer-rollback-candidate.sql',import.meta.url),'utf8'));
+await denied(owner,()=>call('get_minuta_client_certificates',[org,'79990000001',null]),/permission denied/);
+await db.exec(source);assert.equal((await actor(owner,()=>call('get_minuta_client_certificates',[org,'79990000001',null]))).records[0].benefit_instrument_id,ids[18]);checks++;
+await db.query("update public.client_accounts set normalized_phone='79990000005' where id=$1",[ids[12]]);await db.query("update public.bookings set client_phone='79990000005' where client_account_id=$1",[ids[12]]);
+assert.equal((await actor(owner,()=>call('get_minuta_client_certificates',[org,'79990000005',null]))).records[0].number,'client-linked');checks++;
 await denied(owner,()=>db.query('delete from public.certificate_design_issues'),/permission denied/);
 console.log(`Certificate ${native?'native PostgreSQL synthetic':'isolated PGlite'} database checks: ${checks} PASS. Full production-schema proof is separate.`);
 await db.close();

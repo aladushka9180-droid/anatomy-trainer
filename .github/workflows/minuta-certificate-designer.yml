@@ -6,6 +6,7 @@ on:
       - 'minuta-online-booking/certificate-*.css'
       - 'minuta-online-booking/certificate-*-candidate.sql'
       - 'minuta-online-booking/tests/certificate-designer-*'
+      - 'minuta-online-booking/vendor/certificate-ocr/**'
       - '.github/workflows/minuta-certificate-designer.yml'
   push:
     branches: [codex/pro-certificate-designer-20261002]
@@ -56,6 +57,7 @@ jobs:
         run: |
           export MINUTA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/certificate-browser/node_modules/playwright"
           node minuta-online-booking/tests/certificate-designer-browser-test.mjs
+          node minuta-online-booking/tests/certificate-designer-ocr-test.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
