@@ -363,7 +363,9 @@
         const unavailable = sources.filter((_, index) => earliest[index].status !== 'fulfilled');
         if (unavailable.length)
           return { available:false, availabilityMessage:`За всё время: источник ${unavailable.map(source => source.label).join(', ')} не подтвердил начало истории. Суммы не показаны как полные.` };
-        bounds = { start:earliest.map(result => result.value).sort()[0], end:bounds.end };
+        // Earliest finance sources may extend the shared report interval, but
+        // must not exclude earlier imported/legacy visits already in that scope.
+        bounds = { start:[...(selectedScope ? [bounds.start] : []), ...earliest.map(result => result.value)].sort()[0], end:bounds.end };
         // v163 rejects longer requests. Never silently clip history to that cap.
         if ((new Date(`${bounds.end}T12:00:00Z`) - new Date(`${bounds.start}T12:00:00Z`)) / 86400000 > 3661)
           return { available:false, availabilityMessage:`За всё время: история ${bounds.start} — ${bounds.end} превышает ограничение финансового источника в 3661 день. Выберите более короткий период; история не обрезана.` };
@@ -537,11 +539,14 @@
       setManagerVisibility();
     }
 
-    async function load(range, { force = false, masterId, shared = false } = {}) {
+    async function load(range, { force = false, masterId } = {}) {
       setManagerVisibility();
       if (!isManager() || !root() || !global.MinutaFinanceCenter) return;
-      if (shared && range?.start && range?.end) {
-        const nextScope = { bounds:{ start:range.start, end:range.end }, period:range.period || 'custom', masterId:masterId === 'all' ? '' : masterId || '' };
+      if (range?.start && range?.end) {
+        // Native Money callers also pass the common report range. An omitted
+        // performer preserves the explicit scope supplied by the overview.
+        const nextMaster = masterId === undefined ? selectedScope?.masterId || '' : masterId === 'all' ? '' : masterId || '';
+        const nextScope = { bounds:{ start:range.start, end:range.end }, period:range.period || 'custom', masterId:nextMaster };
         // The UI does not reload an identical scope; keep its pending read valid.
         if (JSON.stringify(nextScope) !== JSON.stringify(selectedScope)) selectedScope = nextScope;
       }
