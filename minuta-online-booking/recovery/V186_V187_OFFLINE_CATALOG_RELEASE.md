@@ -32,7 +32,8 @@ protected source-facts `37012725934` на private main `dcd5b636` прошёл �
 `adapterAllCapabilitiesSupported=false`; это открытый барьер совместимости,
 а не ошибка пароля. `productionWritten=false`, `actualDatabaseRestore=false`,
 `authStorageDataCompared=false`, `storageObjectsCompared=false`,
-`embeddedDataClassified=false`. Новая копия и полный restore не начались.
+`embeddedDataClassified=false`. На этом историческом этапе новой копии ещё не было;
+полный restore по-прежнему не подтверждён.
 Повторять пароль и source-facts не нужно. Private PR №9 на frozen `0421274`
 прошёл 5/5 CI и принят в private main как `7bf5a47b`: образ закреплён по digest,
 добавлен отдельный metadata-контракт с фактическим non-superuser postgres.
@@ -51,6 +52,19 @@ non-public/sequence baseline, приватная классификация и m
 Synthetic native qualification не заменяет полный CURRENT restore.
 Пакет принят в private main как `c668ab0c` 02.10 в 15:08 UTC. Это не приёмка
 managed full baseline/classification/executor и не новый capture/restore.
+02.10 21:25 UTC выполнен protected CURRENT capture `37066726261`, attempt 1,
+exact private main `a6769380c7a34765013be8d04cd13dab3473e04f`; checks/capture
+SUCCESS. Приватный encrypted artifact `11252937700` создан, скачан и проверен.
+В job `111036438954` независимо сверён единственный bounded summary
+`current-download-decryption-summary-logical-v2`: downloadedDecryptCompared,
+archiveMembersCompared и logicalSequenceReadFromDownloadedDump true.
+freshCurrentArchiveProven/qualified/certified/independentApprovalProven/
+actualRestoreProven/nativeProof/authStorageProven/productBehaviourProven/
+productionWritten false. Это проверка encrypted кандидата после скачивания,
+не полное восстановление или разрешение SQL. Использовать существующую копию
+в едином полном стенде; дублирующий capture этой задачей не запускать.
+Native квалификация образа выше и nativeProof этого архива — разные доказательства.
+
 Прежде чем использовать полный стенд для каталога, нужны принятые image/bootstrap
 и сохранение действительных capabilities/owners/ACL/расширений/Auth/Storage,
 приватная классификация внешних вызовов и секретов, сеть none, полный baseline
