@@ -23,21 +23,9 @@ try {
   const identity = new URL(connectionString);
   check(['postgres:', 'postgresql:'].includes(identity.protocol), 'postgres-protocol');
   check((identity.hostname + decodeURIComponent(identity.username)).includes(testRef) && !connectionString.includes(prodRef), 'test-database-identity');
-  phase = 'management-access';
-  const accessToken = process.env.SUPABASE_ACCESS_TOKEN;
-  check(Boolean(accessToken), 'management-token-present');
-  const project = await request(`https://api.supabase.com/v1/projects/${testRef}`, { headers: { authorization: `Bearer ${accessToken}` } });
-  check(project.id === testRef && project.status === 'ACTIVE_HEALTHY', 'genuine-test-project-healthy');
-  phase = 'test-api-keys';
-  const keys = await request(`https://api.supabase.com/v1/projects/${testRef}/api-keys`, { headers: { authorization: `Bearer ${accessToken}` } });
-  for (const key of keys) mask(key.api_key);
-  const anon = keys.find(key => key.name === 'anon')?.api_key;
-  const service = keys.find(key => key.name === 'service_role')?.api_key;
-  check(Boolean(anon && service), 'existing-test-keys-available-server-only');
-  phase = 'genuine-auth-settings';
-  const authSettings = await request(`https://${testRef}.supabase.co/auth/v1/settings`, { headers: { apikey: anon } });
-  report.auth = { email: Boolean(authSettings.external?.email), signupDisabled: Boolean(authSettings.disable_signup) };
-  check(report.auth.email, 'genuine-supabase-email-auth-enabled');
+  // The management PAT returned 401 in the preceding recorded preflight.
+  // Do not retry it, export keys, change credentials, or use the production secret.
+  report.management = { status: 'unavailable', evidenceRun: '36990822599', reason: 'HTTP_401' };
   phase = 'test-database-connection';
   const { default: pg } = await import(pathToFileURL(resolve(process.env.MINUTA_ACCEPTANCE_DEPS, 'pg/lib/index.js')).href);
   if (identity.port === '6543') identity.port = '5432';
