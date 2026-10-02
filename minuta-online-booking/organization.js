@@ -20,6 +20,9 @@
     let activeOrganizationId = '';
     let availability = null;
     let requestRevision = 0;
+    let writePending = false;
+    let writeUnconfirmed = false;
+    const people = window.MinutaOrganizationPeople?.createController(options);
 
     function workingOrganizations() {
       return organizations.filter(item => item.public_slug !== DEMO_ORGANIZATION_SLUG);
@@ -81,6 +84,8 @@
 
     function reset() {
       requestRevision += 1;
+      writeUnconfirmed = false;
+      people?.reset();
       organizations = [];
       pendingInvitations = [];
       activeOrganizationId = '';
@@ -128,6 +133,7 @@
     }
 
     async function load() {
+      if (writePending) return { ok: false, optional: true, busy: true };
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
       const revision = ++requestRevision;
@@ -136,7 +142,11 @@
       $('#organizationLoading').setAttribute('aria-busy', 'true');
       $('#organizationUnavailable').hidden = true;
       if (availability !== 'ready') $('#organizationWorkspace').hidden = true;
-      const { data, error } = await db.rpc('get_minuta_workspace');
+      let response;
+      try { response = await db.rpc('get_minuta_workspace'); }
+      catch { response = { error: { code: 'NETWORK_ERROR' } }; }
+      const { data, error: transportError } = response || {};
+      const error = transportError || (!Array.isArray((data?.workspace || data)?.organizations) ? { code: 'INVALID_WORKSPACE' } : null);
       if (!sessionIsCurrent(userId, generation) || revision !== requestRevision) return { ok: false, optional: true, stale: true };
       if (error) {
         setUnavailable(
@@ -147,11 +157,13 @@
         );
         return { ok: false, optional: true, unsupported: isUnsupportedError(error) };
       }
+      writeUnconfirmed = false;
       applyPayload(data);
       return { ok: true, optional: true };
     }
 
     function render() {
+      people?.capture();
       if (availability === null) {
         $('#organizationLoading').hidden = false;
         $('#organizationLoading').setAttribute('aria-busy', 'true');
@@ -219,6 +231,7 @@
       $('#auditCount').textContent = String(audit.length);
       $('#organizationAuditList').innerHTML = audit.length ? audit.map(item => auditCard(item, members)).join('') : emptyState('Изменений пока нет', 'Здесь появится история действий с командой.');
       applyWriteAvailability();
+      people?.setOrganization(organization);
     }
 
     function emptyState(title, text) {
@@ -279,18 +292,34 @@
     }
 
     async function mutate(rpc, parameters, button, successMessage, errorSelector) {
+      if (writePending) return false;
+      if (writeUnconfirmed) {
+        notify('Сначала обновите список: результат предыдущего сохранения ещё не подтверждён.');
+        return false;
+      }
       if (!requireWrites()) return false;
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
       const revision = ++requestRevision;
       if (!userId) return false;
+      writePending = true;
+      people?.setBusy(true);
+      const form = button?.closest?.('form');
+      const submitted = people?.snapshot(form);
       if (errorSelector) clearError(errorSelector);
       const oldText = button?.textContent;
       if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
-      const { data, error } = await db.rpc(rpc, parameters);
+      let response;
+      try { response = await db.rpc(rpc, parameters); }
+      catch { response = { error: { code: 'UNCONFIRMED_WRITE' } }; }
+      const { data, error: transportError } = response || {};
+      const error = transportError || (!Array.isArray((data?.workspace || data)?.organizations) ? { code: 'UNCONFIRMED_WRITE' } : null);
+      writePending = false;
+      people?.setBusy(false);
       if (button) { button.disabled = false; button.textContent = oldText; }
       if (!sessionIsCurrent(userId, generation) || revision !== requestRevision) return false;
       if (error) {
+        writeUnconfirmed = error.code === 'UNCONFIRMED_WRITE' || /failed to fetch|network|abort|timeout|connection/i.test(error.message || '');
         const messages = {
           last_owner_must_remain: 'Нельзя отключить или понизить последнего владельца.',
           select_another_primary_first: 'Сначала назначьте другой основной филиал.',
@@ -299,13 +328,17 @@
           admin_can_manage_specialists_only: 'Администратор не может изменять владельцев и других администраторов.'
         };
         const key = Object.keys(messages).find(item => `${error.message || ''} ${error.details || ''}`.includes(item));
-        const message = messages[key] || 'Изменение не сохранено. Обновите данные и повторите.';
+        const message = messages[key] || (writeUnconfirmed
+          ? 'Не удалось подтвердить сохранение. Обновите список перед повтором — изменение могло сохраниться.'
+          : 'Изменение не сохранено. Проверьте данные и повторите.');
         if (errorSelector) showError(errorSelector, message); else notify(message);
-        await load();
+        people?.announce(message);
         return false;
       }
+      people?.saved(form, submitted);
       applyPayload(data);
       if (successMessage) notify(successMessage);
+      people?.announce(successMessage || 'Изменение сохранено');
       return data;
     }
 
@@ -319,7 +352,7 @@
       if (event.target.id === 'locationForm') {
         event.preventDefault();
         const saved = await mutate('create_minuta_location', { p_organization: organization.id, p_name: $('#locationName').value.trim(), p_address: $('#locationAddress').value.trim(), p_timezone: $('#locationTimezone').value }, event.submitter, 'Филиал добавлен', '#locationError');
-        if (saved) { event.target.reset(); $('#locationTimezone').value = 'Europe/Samara'; $('#locationCreator').open = false; }
+        if (saved && !people?.hasDraft(event.target)) { event.target.reset(); $('#locationTimezone').value = 'Europe/Samara'; $('#locationCreator').open = false; }
       }
       if (event.target.id === 'memberInviteForm') {
         event.preventDefault();
@@ -328,7 +361,7 @@
           notify(result.status === 'already_member' ? 'Этот сотрудник уже числится в организации' : 'Приглашение действует 14 дней');
           const share = $('#memberInviteShare');
           if (share) share.hidden = result.status !== 'pending';
-          event.target.reset(); $('#memberBookable').checked = true; $('#memberCreator').open = false;
+          if (!people?.hasDraft(event.target)) { event.target.reset(); $('#memberBookable').checked = true; $('#memberCreator').open = false; }
         }
       }
       const locationForm = event.target.closest('[data-location-form]');
@@ -348,6 +381,7 @@
     async function handleClick(event) {
       const retry = event.target.closest('#reloadOrganization');
       if (retry) await load();
+      if (event.target.closest('[data-people-reload]')) await load();
       const cancel = event.target.closest('[data-cancel-invitation]');
       if (cancel) await mutate('cancel_minuta_invitation', { p_invitation: cancel.dataset.cancelInvitation }, cancel, 'Приглашение отменено');
       const accept = event.target.closest('[data-accept-invitation]');
@@ -365,8 +399,10 @@
 
     function handleChange(event) {
       if (event.target.id !== 'organizationSwitcher') return;
+      if (writePending) { event.target.value = activeOrganizationId; return; }
       const next = workingOrganizations().find(item => item.id === event.target.value);
       if (!next) return;
+      people?.capture();
       requestRevision += 1;
       activeOrganizationId = next.id;
       render();
@@ -374,6 +410,7 @@
     }
 
     function bind() {
+      people?.bind();
       document.addEventListener('submit', handleSubmit);
       document.addEventListener('click', handleClick);
       document.addEventListener('change', handleChange);
