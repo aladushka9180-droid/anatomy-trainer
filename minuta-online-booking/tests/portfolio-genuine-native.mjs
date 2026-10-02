@@ -198,21 +198,23 @@ try {
   await page.locator('#portfolioBeforeFile').setInputFiles({ name: 'before.png', mimeType: 'image/png', buffer: neutral });
   await page.locator('#portfolioAfterFile').setInputFiles({ name: 'after.png', mimeType: 'image/png', buffer: neutral });
   check(await page.locator('#portfolioPublished').isDisabled(), 'native-no-consent-blocks-publication');
-  await page.locator('#portfolioConsent').check(); await page.locator('#portfolioPublished').check();
   phase = 'native-pair-server-save';
   const save = page.waitForResponse(res => res.url().includes('/rest/v1/rpc/save_provider_portfolio_item') && res.request().method() === 'POST');
   await page.locator('#portfolioForm button[type=submit]').click();
   check((await save).status() === 200, 'native-atomic-save-server-ack');
   await page.locator('#portfolioEditorDialog').waitFor({ state: 'hidden' });
   const item = (await db.query('select id,published,consent_confirmed_at from public.portfolio_items where performer_id=$1 and procedure_name=$2', [ids.owner, procedure])).rows;
-  check(item.length === 1 && item[0].published && item[0].consent_confirmed_at, 'native-test-publication-persisted');
+  check(item.length === 1 && !item[0].published && !item[0].consent_confirmed_at, 'native-private-unconsented-draft-persisted');
   ids.item = item[0].id;
   check((await db.query('select photo_type from public.portfolio_photos where portfolio_item_id=$1 and performer_id=$2', [ids.item, ids.owner])).rows.length === 2, 'native-both-storage-photos-persisted');
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('[data-portfolio-photo-preview]').waitFor();
-  check((await publicItem(ids.item)).length === 1, 'real-anonymous-published-item-visible');
-  report.acceptance.nativePublication = true;
-  await shot('native-pair-persisted');
+  await page.waitForFunction(() => {
+    const photos = [...document.querySelectorAll('.portfolio-card img')];
+    return photos.length === 2 && photos.every(photo => photo.complete && photo.naturalWidth > 0);
+  });
+  check((await publicItem(ids.item)).length === 0, 'real-anonymous-private-draft-denied');
+  await shot('native-private-pair-persisted');
   phase = 'genuine-auth-open-gallery';
   await page.locator('[data-portfolio-photo-preview]').click();
   await page.locator('#portfolioPhotoPreviewDialog').waitFor({ state: 'visible' });
@@ -229,7 +231,15 @@ try {
   check(await page.locator('#portfolioPhotoPreviewDialog img').count() === 0, 'genuine-logout-clears-private-images');
   await logoutPage.close();
   phase = 'genuine-auth-native-other-account';
+  const otherReads = ['portfolio_items', 'portfolio_photos'].map(table => page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.origin === api && url.pathname === `/rest/v1/${table}` && url.searchParams.get('performer_id') === `eq.${ids.other}`;
+  }));
   await login('other');
+  for (const response of await Promise.all(otherReads)) {
+    check(response.status() === 200 && (await response.json()).length === 0, `real-other-account-empty-${new URL(response.url()).pathname.split('/').at(-1)}`);
+  }
+  await page.locator('#syncState.is-online').waitFor({ timeout: 90_000 });
   await page.waitForFunction(() => document.querySelector('#portfolioCount')?.textContent?.trim() === '0 работ');
   check(await page.locator('[data-portfolio-photo-preview]').count() === 0, 'native-other-account-no-old-gallery');
   check(!await page.getByText(procedure, { exact: true }).count(), 'native-other-account-no-old-work');
@@ -241,6 +251,21 @@ try {
   check(await page.locator('#portfolioPhotoPreviewDialog img').count() === 2, 'genuine-owner-fresh-gallery-works');
   await page.keyboard.press('Escape');
   report.acceptance.auth = true;
+  phase = 'native-previous-draft-test-consent-and-publication';
+  await page.locator('#syncState.is-online').waitFor({ timeout: 90_000 });
+  await page.locator(`[data-portfolio-actions="${ids.item}"]`).click();
+  await page.locator(`[data-edit-portfolio="${ids.item}"]`).click();
+  await page.locator('#portfolioEditorDialog').waitFor({ state: 'visible' });
+  await page.locator('#portfolioConsent').check(); await page.locator('#portfolioPublished').check();
+  const publication = page.waitForResponse(response => response.url().includes('/rest/v1/rpc/save_provider_portfolio_item') && response.request().method() === 'POST');
+  await page.locator('#portfolioForm button[type=submit]').click();
+  check((await publication).status() === 200, 'native-test-consent-publication-server-ack');
+  await page.locator('#portfolioEditorDialog').waitFor({ state: 'hidden' });
+  const published = (await db.query('select published,consent_confirmed_at from public.portfolio_items where id=$1 and performer_id=$2', [ids.item, ids.owner])).rows[0];
+  check(published?.published && published.consent_confirmed_at, 'native-test-publication-persisted');
+  check((await publicItem(ids.item)).length === 1, 'real-anonymous-published-item-visible');
+  report.acceptance.nativePublication = true;
+  await shot('native-pair-persisted');
   phase = 'genuine-in-flight-transport-refusal';
   const visibility = page.locator(`[data-review-visibility="${ids.review}"]`);
   await visibility.waitFor();
