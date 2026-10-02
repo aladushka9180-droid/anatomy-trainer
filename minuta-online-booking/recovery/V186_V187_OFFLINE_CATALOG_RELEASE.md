@@ -65,6 +65,22 @@ productionWritten false. Это проверка encrypted кандидата п
 в едином полном стенде; дублирующий capture этой задачей не запускать.
 Native квалификация образа выше и nativeProof этого архива — разные доказательства.
 
+02.10 22:48 UTC существующий publisher проверил ту же копию в protected
+run `37074410706`, attempt 1, exact private main
+`0a5af1986706c6d4cab0dfef8d146cb438e955d9` после принятия private PR №14/№15.
+Checks/inspection SUCCESS; в job `111061016986` независимо сверён ровно один
+`expense-v193-archive-inspection-v1`. archiveMembersCompared и
+logicalSequenceReadFromDownloadedDump true; postgres.rolsuper false.
+Найдены 16/16 финансовых RPC и 12/12 отношений, но точное замыкание зависимостей
+этого финансового поднабора не доказано. Это не baseline каталога.
+Классы настроек ролей: searchPath=5, timeLimit=5, loggingDisabled=3, unknown=2,
+malformed=1; ordinaryConfigClassesProven=false. Приватные значения не опубликованы.
+qualified/certified/independentApprovalProven/actualRestoreProven/fullBaselineProven/
+authStorageProven/runtimeRoleCompatibilityProven/financialDependencyClosureProven/
+privateClassificationProven/sqlApplyAllowed/productionWritten false. Проверка
+архива не заменяет полную классификацию или same-job восстановление и не расширяет
+разрешение офлайн-каталога на SQL расходов.
+
 Прежде чем использовать полный стенд для каталога, нужны принятые image/bootstrap
 и сохранение действительных capabilities/owners/ACL/расширений/Auth/Storage,
 приватная классификация внешних вызовов и секретов, сеть none, полный baseline
@@ -74,6 +90,8 @@ Native квалификация образа выше и nativeProof этого 
 PR №6 на `ae9a8876a37746cd6dc8a0625d308c2df11c8b65` завершил 13/13 общих CI.
 Этот результат применим к неизменному SQL/renderer-коду; документационные
 контрольные точки после него не заменяют CI итогового интегрированного дерева.
+Точный docs-only `2127f7c01e08d261cce5c51c3d324d4391c77b33` независимо сверён:
+13/13 общих CI SUCCESS, pending=0; PR №6 OPEN/DRAFT. Это не выпуск.
 
 ## Проверка кандидата
 
