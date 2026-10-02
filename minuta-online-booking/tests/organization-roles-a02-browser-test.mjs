@@ -42,7 +42,10 @@ try {
       : statSync(absolute).size);
   }, 0);
   // Keep the approved 512-byte manual client-history reserve aligned with the startup budget.
-  assert.ok(precacheBytes <= 3.614 * 1024 * 1024 + 3012, `Core precache is too large: ${precacheBytes} bytes`);
+  // Exact v1048 total: closed-day rendering adds 825 bytes; no spare allowance.
+  // Keep this measured offline-shell cap aligned with the startup test.
+  // v1049 adds 417 measured CSS bytes for visible desktop closed-day labels; no reserve.
+  assert.ok(precacheBytes <= 3_799_094, `Core precache is too large: ${precacheBytes} bytes`);
   const roleArticle = help.split("makeArticle('roles-access-safety'")[1]?.split("makeArticle('service-resources'")[0] || '';
   assert.ok(roleArticle.includes('Доступа к организации') && roleArticle.includes('аккаунт сохраняется'), 'linked article must explain this organization and account preservation');
   assert.ok(!roleArticle.includes('«Доступ активен»'), 'stale A02 toggle label must be gone');

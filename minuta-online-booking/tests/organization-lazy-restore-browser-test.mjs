@@ -35,7 +35,7 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
     document.querySelector('#organizationWorkspace').hidden = false;
     document.querySelector('#organizationLoading').hidden = true;
     localStorage.setItem('minuta-provider-subsection-v1:organization', selected);
-    Object.assign(window, { activeOrg:{ id:'org-a', current_role:role }, failed, deferred, loads:0, binds:0, sets:0, notices:[], selected });
+    Object.assign(window, { activeOrg:{ id:'org-a', current_role:role }, failed, deferred, loads:0, loadedScripts:[], binds:0, sets:0, notices:[], selected });
   }, { selected, visible, role, failed, deferred });
   await page.addScriptTag({ content:`
     const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -47,7 +47,7 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
     const db={},escapeHtml=x=>x,requireWrites=()=>true,applyWriteAvailability=()=>{},notify=x=>window.notices.push(x);
     const requestProviderConfirmation=async()=>false;
     const sessionIsCurrent=(id,generation)=>currentUser?.id===id&&sessionGeneration===generation;
-    async function loadProviderFeatureScript(){window.loads++;if(window.deferred)await new Promise(resolve=>window.release=resolve);if(window.failed)throw Error('fixture network');}
+    async function loadProviderFeatureScript(path){window.loads++;window.loadedScripts.push(path);if(window.deferred)await new Promise(resolve=>window.release=resolve);if(window.failed)throw Error('fixture network');}
     ${navigation}
     ${features}
     for (const [id, definition] of organizationFeatureDefinitions) {
@@ -68,7 +68,8 @@ try {
         await f.page.waitForFunction(() => window.sets === 1);
         assert.equal(await f.page.locator('#' + section).isVisible(), true);
         await f.page.evaluate(() => { for(let i=0;i<8;i++)refreshSectionNavigation(); });
-        assert.deepEqual(await f.page.evaluate(() => ({ loads, binds, sets, focus:document.activeElement.tagName, overflow:document.documentElement.scrollWidth>innerWidth+2 })), { loads:1, binds:1, sets:1, focus:'BODY', overflow:false });
+        assert.deepEqual(await f.page.evaluate(() => ({ loads, binds, sets, focus:document.activeElement.tagName, overflow:document.documentElement.scrollWidth>innerWidth+2 })), { loads:section === 'inventoryPanel' ? 2 : 1, binds:1, sets:1, focus:'BODY', overflow:false });
+        if (section === 'inventoryPanel') assert.deepEqual(await f.page.evaluate(() => loadedScripts), ['inventory-soft-ui.js','inventory-management.js']);
         f.check();
       } finally { await f.page.close(); }
     });
@@ -135,13 +136,20 @@ try {
           $:selector => document.querySelector(selector), escapeHtml:value => String(value), notify() {}, requireWrites:() => true,
           getCurrentUser:() => ({ id:'user-a' }), getSessionGeneration:() => 1, sessionIsCurrent:() => true, applyWriteAvailability() {}
         });
+        controller.bind();
         await controller.setOrganization({ id:'org-a', can_manage:true });
       });
+      await f.page.addStyleTag({ path:resolve(root, 'resources-soft-minimalism.css') });
       const rows = f.page.locator('#resourcesList [data-resource-card]');
+      assert.equal(await rows.count(), 12);
+      assert.equal(await f.page.locator('#resourceListMatchCount').textContent(), 'Найдено: 21 из 21');
+      await f.page.locator('#resourceListMore').click();
       assert.equal(await rows.count(), 21);
       for (let index = 0; index < 21; index++) {
         assert.match(await rows.nth(index).locator('summary').innerText(), new RegExp(`Кабинет ${String(index + 1).padStart(2, '0')}[\\s\\S]*Филиал ${(index % 3) + 1} · Кабинеты`));
       }
+      await f.page.locator('#resourceListCollapse').click();
+      assert.equal(await f.page.locator('#resourcesList [data-resource-card]:visible').count(), 12);
       assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);
       if (process.env.MINUTA_SCREENSHOT_DIR) await f.page.locator('#resourceObjectsSection').screenshot({ path:resolve(process.env.MINUTA_SCREENSHOT_DIR, `o06-resources-${width}.png`) });
       f.check();

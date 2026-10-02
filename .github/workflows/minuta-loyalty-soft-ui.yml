@@ -1,0 +1,23 @@
+name: Minuta loyalty soft UI
+on:
+  pull_request:
+    paths: ['minuta-online-booking/**', '.github/workflows/minuta-loyalty-soft-ui.yml']
+  push:
+    paths: ['minuta-online-booking/**', '.github/workflows/minuta-loyalty-soft-ui.yml']
+permissions:
+  contents: read
+jobs:
+  loyalty-soft-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node minuta-online-booking/tests/loyalty-soft-ui-browser-test.mjs
+      - run: node minuta-online-booking/tests/loyalty-program-v166-browser-test.mjs
+      - run: node minuta-online-booking/loyalty-program-v166-static-test.mjs
+      - run: node minuta-online-booking/client-url-redirect-test.mjs

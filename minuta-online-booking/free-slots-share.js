@@ -511,6 +511,8 @@
     let activePublicationCheck = null;
     let publicationLinkSource = '';
     let publicationLinkUrl = '';
+    let lastConfirmedPreview = null;
+    let previewChecking = false;
     const formatPreferences = new Map();
     const textPreferences = new Map();
 
@@ -518,8 +520,10 @@
       const data = getData();
       return JSON.stringify([data.userId || '', data.organizationId || '', data.sessionGeneration ?? '', data.bookingUrl || '']);
     }
-    function invalidateScope() {
+    function invalidateScope({ keepPreview = false } = {}) {
       requestRevision += 1;
+      if (!keepPreview) lastConfirmedPreview = null;
+      previewChecking = false;
       confirmedPublication = null;
       activePublicationCheck = null;
       checkingPublication = false;
@@ -542,7 +546,7 @@
     }
     function publicationIsCurrent() {
       if (publicationScope && publicationScope !== scopeKey()) invalidateScope();
-      return publicationReady && dialog.open && publicationScope === scopeKey();
+      return publicationReady && !previewChecking && dialog.open && publicationScope === scopeKey();
     }
 
     function timeFormat() { return formatControls.find(control => control.checked)?.value === 'hourly' ? 'hourly' : 'intervals'; }
@@ -768,8 +772,58 @@
       };
     }
 
+    function previewKey() {
+      const { from, to } = currentRange();
+      return JSON.stringify([scopeKey(), locationSelect.value || '', generalMode() ? 'general' : 'service',
+        generalMode() ? '' : serviceSelect.value || '', from, to]);
+    }
+
+    function rememberPreview() {
+      if (!publicationReady || previewChecking || publicationScope !== scopeKey()) return;
+      const { from, to } = currentRange();
+      lastConfirmedPreview = {
+        scope:publicationScope, key:previewKey(), from, to, general:generalMode(),
+        serviceId:serviceSelect.value, locationId:locationSelect.value,
+        context:serverContext, slots:serverSlots.map(row => ({ ...row })), days:serverDays.map(day => ({ ...day })),
+        selectedTimes:[...selectedTimes], selectionContext, manualSelection,
+        generatedText, publicationText, manualTextDirty, linkSource:publicationLinkSource, linkUrl:publicationLinkUrl
+      };
+    }
+
+    function showCachedPreview(scope) {
+      const saved = lastConfirmedPreview;
+      if (!saved || saved.scope !== scope || saved.general !== generalMode()) return false;
+      const { from, to } = currentRange();
+      if (saved.from !== from || saved.to !== to) return false;
+      if (serviceSelect.options.length || locationSelect.options.length) {
+        if (locationSelect.value !== saved.locationId || (!generalMode() && serviceSelect.value !== saved.serviceId)) return false;
+      } else {
+        serverContext = saved.context;
+        configureTargets(saved.serviceId, saved.locationId);
+      }
+      if (previewKey() !== saved.key) return false;
+      serverSlots = currentRows(saved.slots.map(row => ({ ...row })));
+      serverDays = saved.days.map(day => ({ ...day }));
+      selectedTimes = new Set(saved.selectedTimes);
+      selectionContext = saved.selectionContext;
+      manualSelection = saved.manualSelection;
+      generatedText = saved.generatedText;
+      publicationText = saved.publicationText;
+      manualTextDirty = saved.manualTextDirty;
+      textArea.value = saved.publicationText;
+      updateTextEditorState();
+      publicationLinkSource = saved.linkSource;
+      publicationLinkUrl = saved.linkUrl;
+      publicationScope = scope;
+      publicationReady = true;
+      previewChecking = true;
+      if (!generalMode()) renderTimeChoices(`${serviceSelect.value}|${locationSelect.value}|${from}|${to}`);
+      renderPublication();
+      return true;
+    }
+
     function renderPublication() {
-      if (!publicationIsCurrent()) return;
+      if (!publicationReady || !dialog.open || publicationScope !== scopeKey()) return;
       const model = publicationModel();
       const chosenSlots = generalMode() ? serverSlots : serverSlots.filter(slot => selectedTimes.has(timeKey(slot)));
       const hasSelection = chosenSlots.length > 0;
@@ -815,10 +869,29 @@
       copyButton.disabled = !hasSelection;
       shareButton.disabled = copyButton.disabled;
       copyLinkButton.disabled = false;
+      if (previewChecking) {
+        status.textContent = 'Проверяем актуальность свободных окон…';
+        copyButton.disabled = true;
+        shareButton.disabled = true;
+        copyLinkButton.disabled = true;
+        clearSelectionButton.disabled = true;
+        if (autoSelectionButton) autoSelectionButton.disabled = true;
+        timeChoices.querySelectorAll('input').forEach(input => { input.disabled = true; });
+        bookingLink.removeAttribute('href');
+        qrCanvas.hidden = true;
+        downloadQrButton.hidden = true;
+      } else {
+        const hasChoices = !generalMode() && timeChoices.querySelectorAll('input').length > 0;
+        clearSelectionButton.disabled = !hasChoices;
+        if (autoSelectionButton) autoSelectionButton.disabled = !hasChoices;
+        timeChoices.querySelectorAll('input').forEach(input => { input.disabled = !hasChoices; });
+        rememberPreview();
+      }
     }
 
     function showUnavailable(message) {
       publicationReady = false;
+      previewChecking = false;
       serverSlots = [];
       serverDays = [];
       applyGeneratedText('Свободное время не опубликовано: сервер не подтвердил доступные слоты.');
@@ -846,28 +919,54 @@
       dialog.removeAttribute('aria-busy');
     }
 
-    async function refreshFromServer({ reloadContext = false } = {}) {
+    function showUnverifiedPreview(message) {
+      publicationReady = false;
+      previewChecking = true;
+      emptyPreview.hidden = false;
+      emptyPreview.querySelector('strong').textContent = 'Актуальность не подтверждена';
+      emptyPreview.querySelector('#freeSlotsEmptyPeriod').textContent = message;
+      dialog.querySelector('#freeSlotsChangeDates').textContent = 'Повторить проверку';
+      emptyPreview.dataset.action = 'retry';
+      status.textContent = message;
+      copyButton.disabled = true;
+      shareButton.disabled = true;
+      copyLinkButton.disabled = true;
+      clearSelectionButton.disabled = true;
+      if (autoSelectionButton) autoSelectionButton.disabled = true;
+      timeChoices.querySelectorAll('input').forEach(input => { input.disabled = true; });
+      bookingLink.removeAttribute('href');
+      qrCanvas.hidden = true;
+      qrWrap.hidden = true;
+      downloadQrButton.hidden = true;
+      dialog.removeAttribute('aria-busy');
+    }
+
+    async function refreshFromServer({ reloadContext = false, useCachedPreview = true } = {}) {
       const revision = ++requestRevision;
       const scope = scopeKey();
       if (publicationScope && publicationScope !== scope) serverContext = null;
       const isCurrent = () => revision === requestRevision && dialog.open && scope === scopeKey();
       configureMode();
-      publicationReady = false;
-      publicationLinkSource = '';
-      publicationLinkUrl = '';
-      emptyPreview.hidden = true;
-      textArea.closest('.free-slots-text-label').hidden = false;
-      previewHint.hidden = false;
-      copyButton.disabled = true;
-      shareButton.disabled = true;
-      copyLinkButton.disabled = true;
-      bookingLink.removeAttribute('href');
-      qrWrap.hidden = true;
-      clearSelectionButton.disabled = true;
-      if (autoSelectionButton) autoSelectionButton.disabled = true;
-      timeChoices.querySelectorAll('input').forEach(input => { input.disabled = true; });
-      status.textContent = 'Проверяем свободное время на сервере…';
-      if (!manualTextDirty) textArea.value = 'Проверяем свободное время…';
+      const cachedPreview = useCachedPreview && showCachedPreview(scope);
+      if (!cachedPreview) {
+        publicationReady = false;
+        previewChecking = false;
+        publicationLinkSource = '';
+        publicationLinkUrl = '';
+        emptyPreview.hidden = true;
+        textArea.closest('.free-slots-text-label').hidden = false;
+        previewHint.hidden = false;
+        copyButton.disabled = true;
+        shareButton.disabled = true;
+        copyLinkButton.disabled = true;
+        bookingLink.removeAttribute('href');
+        qrWrap.hidden = true;
+        clearSelectionButton.disabled = true;
+        if (autoSelectionButton) autoSelectionButton.disabled = true;
+        timeChoices.querySelectorAll('input').forEach(input => { input.disabled = true; });
+        status.textContent = 'Проверяем свободное время на сервере…';
+        if (!manualTextDirty) textArea.value = 'Проверяем свободное время…';
+      }
       dialog.setAttribute('aria-busy', 'true');
       try {
         const { from, to } = currentRange();
@@ -881,12 +980,14 @@
         if (!isCurrent()) return;
         const services = configureTargets(preferredService, preferredLocation);
         if (!services.length) {
+          lastConfirmedPreview = null;
           showUnavailable(serverContext?.mode === 'organization' && locationSelect.value
             ? 'В выбранном месте приёма нет доступных услуг.'
             : 'Нет активных услуг для публикации.');
           return;
         }
         if (serverContext?.mode === 'organization' && !(serverContext.locations || []).length) {
+          lastConfirmedPreview = null;
           showUnavailable('Для онлайн-записи не настроено место приёма.');
           return;
         }
@@ -908,23 +1009,31 @@
           serverDays = [];
           renderTimeChoices(`${serviceSelect.value}|${locationSelect.value}|${from}|${to}`);
         }
+        publicationLinkSource = '';
+        publicationLinkUrl = '';
+        publicationReady = true;
+        publicationScope = scope;
+        previewChecking = true;
+        renderPublication();
+        status.textContent = 'Окна проверены. Готовим ссылку…';
         const sourceUrl = publicationModel().sourceUrl;
         const resolvedUrl = await resolvePublicationLink(sourceUrl);
         if (!isCurrent()) return;
         publicationLinkSource = sourceUrl;
         publicationLinkUrl = resolvedUrl;
-        publicationReady = true;
-        publicationScope = scope;
+        previewChecking = false;
         dialog.removeAttribute('aria-busy');
         renderPublication();
         return true;
       } catch (error) {
         if (!isCurrent()) return;
-        showUnavailable(error?.message === 'own_services_unavailable'
+        const message = error?.message === 'own_services_unavailable'
           ? 'Для общей записи нужны ваши активные услуги в этом месте приёма. Для другого сотрудника выберите «Конкретная услуга».'
           : error?.message === 'schedule_not_configured' ? 'Сначала сохраните рабочий график в расписании.' : navigator.onLine
           ? 'Не удалось проверить свободное время. Повторите попытку позже.'
-          : 'Нет соединения. Для публикации нужна свежая проверка сервера.');
+          : 'Нет соединения. Для публикации нужна свежая проверка сервера.';
+        if (cachedPreview) showUnverifiedPreview(message);
+        else showUnavailable(message);
       }
     }
 
@@ -947,7 +1056,7 @@
       const previousGeneratedText = generatedText;
       const expectedRevision = requestRevision + 1;
       try {
-        const refreshed = await refreshFromServer({ reloadContext:true });
+        const refreshed = await refreshFromServer({ reloadContext:true, useCachedPreview:false });
         if (activePublicationCheck !== check || refreshed !== true || requestRevision !== expectedRevision || !publicationIsCurrent()) return false;
         const removed = previousSelection.filter(key => !selectedTimes.has(key));
         if (previousGeneratedText !== generatedText || removed.length) {
@@ -986,7 +1095,8 @@
     }
 
     const close = () => {
-      invalidateScope();
+      rememberPreview();
+      invalidateScope({ keepPreview:true });
       if (typeof dialog.close === 'function') dialog.close();
       else dialog.removeAttribute('open');
     };
@@ -1024,9 +1134,10 @@
       confirmedPublication = null;
       if (!manualTextDirty) manualNotice.hidden = true;
       updateTextEditorState();
+      rememberPreview();
     });
-    resetTextButton.addEventListener('click', () => useGeneratedText('Исходный текст восстановлен.'));
-    updateTextButton.addEventListener('click', () => useGeneratedText('Текст обновлён по актуальным параметрам.'));
+    resetTextButton.addEventListener('click', () => { useGeneratedText('Исходный текст восстановлен.'); rememberPreview(); });
+    updateTextButton.addEventListener('click', () => { useGeneratedText('Текст обновлён по актуальным параметрам.'); rememberPreview(); });
     keepTextButton.addEventListener('click', () => {
       manualNotice.hidden = true;
       confirmedPublication = null;
@@ -1049,7 +1160,7 @@
     });
     autoSelectionButton?.addEventListener('click', () => {
       manualSelection = false;
-      void refreshFromServer({ reloadContext:true });
+      void refreshFromServer({ reloadContext:true, useCachedPreview:false });
     });
     fromInput.addEventListener('change', () => { void refreshFromServer(); });
     dialog.querySelector('#freeSlotsChangeDates').addEventListener('click', () => {

@@ -125,5 +125,6 @@ jobs:
       - run: node minuta-online-booking/tests/metadata-offline-browser-test.mjs
       - run: node minuta-online-booking/tests/public-booking-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs
+      - run: node minuta-online-booking/tests/free-slots-preview-speed-browser-test.mjs
       - run: node minuta-online-booking/tests/series-cancellation-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/series-reschedule-recovery-browser-test.mjs

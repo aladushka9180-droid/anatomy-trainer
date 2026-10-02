@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(join(root, 'provider.js'), 'utf8');
+const source = readFileSync(join(root, 'provider.js'), 'utf8').replace('function notificationTaskKey(', readFileSync(join(root,'report-export-provider.js'),'utf8')+'\nfunction notificationTaskKey(');
 const statisticsSource = readFileSync(join(root, 'statistics-audit-provider.js'), 'utf8');
 const statisticsUiSource = readFileSync(join(root, 'statistics-audit-ui.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
@@ -16,7 +16,7 @@ assert.ok(version, 'Не удалось определить версию отч
 const workerVersion = source.match(/new Worker\('\.\/report-worker\.js\?v=(\d+)'\)/)?.[1];
 assert.ok(workerVersion, 'Не удалось определить версию worker отчёта');
 const start = source.indexOf('function reportXmlText');
-const end = source.indexOf('function exportBookingsXlsx');
+const end = source.indexOf('function reportExportScope');
 assert.ok(start >= 0 && end > start, 'Не найден генератор Excel-отчёта');
 
 const context = { Blob, TextEncoder };
@@ -41,7 +41,7 @@ for (const name of ['[Content_Types].xml', 'xl/workbook.xml', 'xl/styles.xml', '
 assert.ok(binaryText.includes('Аладушка &amp; партнёры'), 'Текст отчёта не экранирован для Excel');
 assert.match(source, /async function exportBookingsXlsxInBackground\(privacy='masked'\)/, 'Фоновый экспорт не принимает настройку приватности');
 assert.match(serviceWorkerSource, new RegExp(`report-worker\\.js\\?v=${workerVersion}`), 'Worker отчёта не включён в PWA-кэш с версией страницы');
-assert.match(providerHtml, /<template data-provider-feature="statistics"><script src="statistics-audit-ui\.js\?v=\d+"><\/script><script src="statistics-audit-provider\.js\?v=\d+"><\/script><\/template>/, 'Модуль статистики не подключён к странице');
+assert.match(providerHtml, /<template data-provider-feature="statistics"><script src="statistics-audit-ui\.js\?v=\d+"><\/script><script src="report-export-provider\.js\?v=\d+"><\/script><script src="statistics-audit-provider\.js\?v=\d+"><\/script><\/template>/, 'Модуль статистики не подключён к странице');
 assert.match(statisticsUiSource, /\$\('#exportBookings'\)\?\.addEventListener\('click'/, 'Кнопка отчёта не подключена к модулю статистики');
 assert.match(statisticsSource, /if \(format === 'xlsx'\) void exportBookingsXlsxInBackground\(privacy\)/, 'Кнопка отчёта не подключена к фоновому экспорту XLSX');
 assert.match(source, /exportBookingsXlsx\(privacy\)/, 'При недоступном worker нет безопасного синхронного экспорта');
@@ -76,5 +76,26 @@ await workerContext.self.onmessage({ data:{ sheets:[
 assert.equal(workerMessages.length, 1, 'Worker не завершил десятилетний экспорт');
 assert.ok(workerMessages[0].blob instanceof Blob, `Десятилетний экспорт завершился ошибкой: ${workerMessages[0].error || 'нет файла'}`);
 assert.ok(workerMessages[0].blob.size > 1_000_000, 'Десятилетний экспорт неожиданно потерял строки');
+
+// A captured all-locations scope must retain the existing change-history sheet
+// and reconciled payroll path, including older callers without a captured scope.
+const historyProof = [{id:'history-proof',occurred_at:'2026-09-03T10:00:00Z'}];
+let reconciledCalls=0,limitedCalls=0;
+Object.assign(context, {
+  reportRange:()=>({start:'2026-09-01',end:'2026-09-30'}), reportBookings:()=>[],
+  isScheduleBlock:()=>false, reportCompletedItems:items=>items, reportRevenue:()=>0,
+  reportClientMetrics:()=>({}), reportSourceMetrics:()=>({}), reportExportPerformers:()=>[],
+  reportExportClientMetrics:()=>({}), reportCanViewTeam:true,reportPerformerFilter:'all',
+  reportReconciledTeamRows:()=>{reconciledCalls++;return [];},
+  MinutaReportReconciliation:{teamRows:()=>{limitedCalls++;return [];}},
+  bookingOutcome:()=>({}),reportServiceValue:()=>0,reportClientIdentity:()=>'',
+  reportCurrentEventRows:()=>historyProof
+});
+for (const scope of [null,{start:'2026-09-01',end:'2026-09-30',segment:'all',locationId:'all'}]) {
+  const data=context.reportExportData('masked',[],scope);
+  assert.equal(data.events,historyProof,'All-clients export silently lost change history');
+}
+assert.equal(reconciledCalls,2,'Unrestricted exports lost the reconciled payroll path');
+assert.equal(limitedCalls,0);
 
 console.log('report xlsx test: ok');

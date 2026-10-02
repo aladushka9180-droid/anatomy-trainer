@@ -6,7 +6,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, '.tmp-provider-integrations-v144');
 mkdirSync(output, { recursive:true });
-const html = readFileSync(resolve(root, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+const html = readFileSync(resolve(root, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+  .replace('</head>', '<link rel="stylesheet" href="payment-soft-ui.css"></head>');
 const source = readFileSync(resolve(root, 'integration-management.js'), 'utf8');
 const playwright = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
@@ -64,6 +65,7 @@ try {
       document.querySelector('#providerIntegrationsDisclosure').open = true;
     });
     await page.addScriptTag({ content:source });
+    await page.addScriptTag({ content:readFileSync(resolve(root, 'payment-review.js'), 'utf8') });
     await page.evaluate(async () => {
       window.integrationCalls = [];
       const workspace = {

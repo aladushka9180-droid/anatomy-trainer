@@ -126,7 +126,7 @@ try {
   await page.locator('#selectedDateTitle').click();
   assert.equal(await menu.getAttribute('open'), null, 'Click outside closes the menu');
 
-  for (const theme of ['carbon-crimson', 'pink-porcelain', 'sage']) for (const width of [360, 390, 760, 1440]) for (const scale of ['default', 'comfortable', 'large']) {
+  for (const theme of ['carbon-crimson', 'pink-porcelain', 'sage']) for (const width of [320, 360, 390, 760, 1440]) for (const scale of ['default', 'comfortable', 'large']) {
     await page.setViewportSize({ width, height:844 });
     await page.evaluate(({theme, scale}) => {
       document.body.dataset.providerTheme = theme;
@@ -141,9 +141,23 @@ try {
       const toggle = rect('#scheduleViewMenu');
       const summary = rect('#scheduleMobileSummary');
       const title = rect('#selectedDateTitle');
+      const todayLabel = document.createRange();
+      todayLabel.selectNodeContents(document.querySelector('.date-navigation>.date-today-button'));
       return {
         overflow: document.documentElement.scrollWidth > innerWidth + 2,
         today:{ x:today.x, y:today.y, h:today.height },
+        rowHeight:rect('.date-navigation').height,
+        controlsFont:[style('.date-today-button').fontSize,style('#scheduleViewMenu>summary').fontSize],
+        controlsWeight:[style('.date-today-button').fontWeight,style('#scheduleViewMenu>summary').fontWeight],
+        hitTargets:[...document.querySelectorAll('.date-today-button,#scheduleViewMenu>summary')].map(el => {
+          const r=el.getBoundingClientRect(), after=getComputedStyle(el,'::after');
+          const points=[r.top-.5,r.bottom+.5].map(y => {
+            const target=document.elementFromPoint(r.left+r.width/2,y);
+            return target===el || el.contains(target);
+          });
+          return {height:parseFloat(after.height),points};
+        }),
+        chevron:{w:rect('#scheduleViewMenu>summary b').width,h:rect('#scheduleViewMenu>summary b').height},
         toggle:{ x:toggle.x, y:toggle.y, h:toggle.height },
         summary:{ x:summary.x, right:summary.right, y:summary.y, h:summary.height },
         title:{ right:title.right, y:title.y },
@@ -155,6 +169,10 @@ try {
         dateIcon:{ x:rect('.schedule-date-picker>.ui-icon').x, w:rect('.schedule-date-picker>.ui-icon').width },
         dateTextRight:rect('#scheduleDateDisplay').right,
         dateGroupCenter:(rect('#scheduleDateDisplay').left + rect('.schedule-date-picker>.ui-icon').right) / 2,
+        visibleGaps:{
+          left:rect('#scheduleDateDisplay').left - todayLabel.getBoundingClientRect().right,
+          right:rect('#scheduleViewLabel').left - rect('.schedule-date-picker>.ui-icon').right,
+        },
         dateText:document.querySelector('#scheduleDateDisplay').textContent,
         dateFits:rect('#scheduleDateDisplay').left >= today.right && rect('.schedule-date-picker>.ui-icon').right <= toggle.left,
         dateUnclipped:document.querySelector('#scheduleDateDisplay').scrollWidth <= document.querySelector('#scheduleDateDisplay').clientWidth,
@@ -182,15 +200,23 @@ try {
       assert.equal(listFits, true, `${theme}/${width}/${scale}: Day/List label clips`);
       assert.equal(state.topSummary, 'none');
       assert.equal(state.oldToggle, 'none');
-      assert.equal(state.today.h, 52);
-      assert.equal(state.toggle.h, 52);
+      assert.equal(state.today.h, 44, 'The mobile Today action has a comfortable touch target');
+      assert.equal(state.toggle.h, 44);
+      assert.equal(state.rowHeight, 51, 'Equal spacing preserves the existing action row height');
+      assert.ok(state.controlsFont.every(size => parseFloat(size) >= 12 && parseFloat(size) <= 14), 'Action labels stay legible on mobile');
+      assert.deepEqual(state.controlsWeight, ['500','400']);
+      for (const target of state.hitTargets) {
+        assert.ok(target.height >= 44, 'Actual generated pointer target is at least44px');
+        assert.deepEqual(target.points,[true,true], 'Both visual edges extend the clickable area');
+      }
+      assert.deepEqual(state.chevron, {w:8,h:5}, 'Small wide down chevron');
       assert.ok(Math.abs(state.today.y - state.toggle.y) <= 1, `${width}: controls not aligned`);
       assert.ok(state.summary.x > state.title.right, `${width}: summary overlaps weekday`);
       assert.ok(state.summary.right <= width - 8, `${width}: two-digit summary clips`);
       assert.equal(state.hourLine, 'solid');
       assert.equal(state.halfHourLine, 'dashed');
       assert.equal(state.extraArrows, false, `${width}: duplicate day arrows`);
-      assert.equal(state.dateIcon.w, 16);
+      assert.equal(state.dateIcon.w, 18);
       assert.equal(state.dateText, '29.09.2026');
       assert.ok(state.dateFits && state.dateUnclipped, `${theme}/${width}/${scale}: full date clips or overlaps a neighbour: ${JSON.stringify(state)}`);
       assert.equal(state.dateInputOpacity, '0', 'Native field internals must not clip the visible date');
@@ -198,6 +224,8 @@ try {
       assert.ok(state.dateIcon.x >= state.dateTextRight - 1, `${width}: calendar icon is not after date`);
       assert.ok(state.dateIcon.x - state.dateTextRight <= 5, `${width}: calendar icon detached from date`);
       assert.ok(Math.abs(state.dateGroupCenter - state.controlsCenter) <= 1, `${width}: date/calendar group not centered`);
+      assert.ok(state.visibleGaps.left >= 3 && state.visibleGaps.right >= 3, `${theme}/${width}/${scale}: action labels crowd each other`);
+      assert.ok(Math.abs(state.visibleGaps.left - state.visibleGaps.right) <= 3, `${theme}/${width}/${scale}: unequal visible action gaps: ${JSON.stringify(state.visibleGaps)}`);
       assert.ok(state.dateOpacity.every(opacity => opacity === '1'), `${width}: visible dates are dimmed`);
       assert.ok(Math.abs(state.headingCenter - state.actionsCenter) <= 3, `${theme}/${width}: heading below topbar icons`);
       assert.ok(state.heading.x <= 18, `${width}: heading shifted right`);
@@ -219,7 +247,7 @@ try {
       assert.equal(controlColors.todayBackground, controlColors.toggleBackground, `${width}: Today and switch surfaces differ`);
       assert.equal(controlColors.currentDay, controlColors.accent, `${width}: Today is not pink when selected`);
       assert.notEqual(controlColors.otherDay, controlColors.accent, `${width}: Today is pink on another day`);
-      if (theme === 'carbon-crimson') assert.equal(controlColors.toggleBackground, 'rgb(23, 35, 47)', `${width}: menu surface differs from Today`);
+      assert.equal(controlColors.toggleBackground, 'rgba(0, 0, 0, 0)', `${width}: navigation controls still have a filled surface`);
     } else {
       assert.equal(state.topSummary === 'none', false, 'desktop summary was hidden');
       assert.equal(state.toggle.h, 0, 'mobile toggle visible on desktop');

@@ -46,58 +46,36 @@ try {
     }, { raw:rawScreen(), organizationId });
     await page.evaluate(() => controller.ready);
 
-    const warning = page.locator('[data-finance-completeness]');
-    assert.match(await warning.innerText(), /^Итог пока не рассчитан/);
-    assert.doesNotMatch(await warning.innerText(), /подтверждённой оплаты|подтверждённые деньги/i);
+    const warning = page.locator('[data-finance-detail-body]');
+    await page.locator('[data-finance-detail="completeness"]').click();
     assert.equal(await page.locator('[data-finance-net]').innerText(), '—');
-    assert.deepEqual(await warning.locator('details summary').allTextContents(), [
-      'Визитов без отметки оплаты: 3 из 8.',
-      'Визитов с указанной оплатой без проводки в журнале: 2.',
-      'Визитов без стоимости услуг: 1.'
-    ]);
-    for (const [index, detail] of [
-      /Оплата отмечена у 5 из 8.*Список визитов без отметки.*недоступен/,
-      /Из 5 визитов.*2 ещё не проведены.*Операции.*только проведённые.*список этих визитов.*недоступен/,
-      /Стоимость известна у 7 из 8.*Список визитов без стоимости.*недоступен/
-    ].entries()) {
-      const disclosure = warning.locator('details').nth(index);
-      assert.equal(await disclosure.getAttribute('open'), null);
-      await disclosure.locator('summary').click();
-      assert.notEqual(await disclosure.getAttribute('open'), null);
-      assert.match(await disclosure.locator('p').innerText(), detail);
-    }
-    assert.match(await warning.locator('small').innerText(), /количества нельзя складывать/);
+    assert.match(await warning.innerText(), /Оплата не указана у 3 из 8/);
+    assert.match(await warning.innerText(), /не проведена в журнале у 2 визитов/);
+    assert.match(await warning.innerText(), /Стоимость не указана у 1 визитов/);
+    assert.match(await warning.innerText(), /Источник не передал|источник не передал/);
+    assert.match(await warning.innerText(), /количества нельзя складывать/);
     const geometry = await page.evaluate(() => ({
       overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      summaryHeights:[...document.querySelectorAll('[data-finance-completeness] summary')].map(item => item.getBoundingClientRect().height)
+      dialogOverflow:document.querySelector('[data-finance-detail-dialog]').scrollWidth-document.querySelector('[data-finance-detail-dialog]').clientWidth,
+      touch:document.querySelector('[data-finance-detail-close]').getBoundingClientRect().height
     }));
-    assert.ok(geometry.summaryHeights.every(height => height >= 44), `${width}: short disclosure target ${geometry.summaryHeights}`);
-    const overflow = geometry.overflow;
-    assert.ok(overflow <= 1, `${width}: horizontal overflow ${overflow}`);
-    if (output) await page.screenshot({ path:resolve(output, `n14-finance-warning-${width}.png`), fullPage:true });
-
+    assert.ok(geometry.overflow <= 1 && geometry.dialogOverflow <= 1, `${width}: dialog/page overflow`);
+    assert.ok(geometry.touch >= 44, `${width}: detail close target below 44px`);
+    if (output) await page.screenshot({ path:resolve(output, `n14-finance-warning-${width}.png`), fullPage:false });
+    await page.locator('[data-finance-detail-close]').click();
     await page.evaluate(async () => {
-      rawScreen.finance_enabled = false;
-      rawScreen.confidence.completed_visits = 0;
-      rawScreen.confidence.payment_marked_visits = 0;
-      rawScreen.confidence.unposted_payment_visits = 0;
-      rawScreen.confidence.service_value_known_visits = 0;
+      rawScreen.finance_enabled=false;
+      rawScreen.confidence.completed_visits=0; rawScreen.confidence.payment_marked_visits=0;
+      rawScreen.confidence.unposted_payment_visits=0; rawScreen.confidence.service_value_known_visits=0;
       await controller.reload();
     });
-    await page.locator('[data-finance-completeness] details summary').first().waitFor();
-    assert.match(await warning.locator('details summary').first().innerText(), /Число операций неизвестно/);
-    await warning.locator('summary').first().click();
-    assert.match(await warning.locator('details p').first().innerText(), /список операций.*недоступны/);
-
-    await page.evaluate(async () => {
-      rawScreen.finance_enabled = true;
-      rawScreen.confidence.result_reliable = false;
-      rawScreen.confidence.is_complete = true;
-      await controller.reload();
-    });
-    await page.waitForFunction(() => document.querySelector('[data-finance-completeness] details summary')?.textContent.includes('количество не указано'));
-    await warning.locator('summary').first().click();
-    assert.match(await warning.innerText(), /Расшифровка здесь недоступна/);
+    await page.locator('[data-finance-detail="completeness"]').click();
+    assert.match(await warning.innerText(), /журнал ещё не подключён.*расходы и операции недоступны/s);
+    await page.locator('[data-finance-detail-close]').click();
+    await page.evaluate(async () => { rawScreen.finance_enabled=true; rawScreen.confidence.result_reliable=false; rawScreen.confidence.is_complete=true; await controller.reload(); });
+    await page.locator('[data-finance-detail="completeness"]').click();
+    assert.match(await warning.innerText(), /не передал отдельную причину или список/);
+    await page.locator('[data-finance-detail-close]').click();
     await page.close();
   }
 } finally {
@@ -105,4 +83,4 @@ try {
 }
 
 assert.deepEqual(errors, []);
-console.log('N14 finance warning passed: 390, 760, 1440; three count disclosures and unavailable breakdowns.');
+console.log('N14 finance warning passed: 390, 760, 1440; compact status, three counted reasons and honest unavailable breakdowns.');

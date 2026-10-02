@@ -18,7 +18,7 @@ assert.ok(resetBinding, 'Actual provider session-reset wiring must be present');
 const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 let passed = 0;
 
-async function fixture(mode = 'service') {
+async function fixture(mode = 'service', { multiLocation = false } = {}) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -28,7 +28,7 @@ async function fixture(mode = 'service') {
   });
   await page.goto('https://scope.test/');
   await page.addScriptTag({ content:source });
-  await page.evaluate(async ({ mode, callbackBody, resetBinding }) => {
+  await page.evaluate(async ({ mode, callbackBody, resetBinding, multiLocation }) => {
     window.activeOrg = 'A'; window.sessionRevision = 1;
     window.calls = []; window.copied = []; window.shared = []; window.notices = [];
     window.holdNext = false; window.holdContext = false; window.pending = []; window.activation = true;
@@ -36,13 +36,14 @@ async function fixture(mode = 'service') {
     Object.defineProperty(navigator, 'share', { configurable:true, value:async data => shared.push(data.text) });
     Object.defineProperty(navigator, 'userActivation', { configurable:true, get:() => ({ isActive:activation }) });
     const context = () => ({ mode:'organization', organizationId:activeOrg, organizationSlug:activeOrg,
-      resourceScheduling:true, performerId:'master', locations:[{ id:`loc-${activeOrg}`, name:`Филиал ${activeOrg}` }],
+      resourceScheduling:true, performerId:'master', locations:[{ id:`loc-${activeOrg}`, name:`Филиал ${activeOrg}` },
+        ...(multiLocation ? [{ id:`loc2-${activeOrg}`, name:`Другой филиал ${activeOrg}` }] : [])],
       services:[1, 2].map(n => ({ id:`service-${activeOrg}-${n}`, name:`Услуга ${activeOrg}-${n}`,
-        duration_minutes:60, location_ids:[`loc-${activeOrg}`] })) });
+        duration_minutes:60, location_ids:[`loc-${activeOrg}`, ...(multiLocation ? [`loc2-${activeOrg}`] : [])] })) });
     const load = async (args, general) => {
       calls.push({ org:args.context.organizationId, service:args.serviceId, general });
       const result = { data:general ? [{ booking_date:args.from, start_time:'10:00', end_time:'12:00', duration_minutes:120 }]
-        : [{ booking_date:args.from, booking_time:args.serviceId.endsWith('2') ? '15:00' : '10:00' }] };
+        : [{ booking_date:args.from, booking_time:args.locationId?.startsWith('loc2-') ? '16:00' : args.serviceId.endsWith('2') ? '15:00' : '10:00' }] };
       if (holdNext) { holdNext = false; return new Promise(resolve => pending.push(() => resolve(result))); }
       return result;
     };
@@ -70,7 +71,7 @@ async function fixture(mode = 'service') {
     Function('freeSlotsController', resetBinding)(controller);
     document.querySelector(`[name="freeSlotsBookingMode"][value="${mode}"]`).checked = true;
     await controller.open();
-  }, { mode, callbackBody, resetBinding });
+  }, { mode, callbackBody, resetBinding, multiLocation });
   return { page, errors };
 }
 
@@ -144,7 +145,10 @@ try {
     await page.waitForFunction(() => pending.length === 1);
     await page.locator('.free-slots-extra > summary').click();
     await page.selectOption('#freeSlotsService', 'service-A-2');
-    await page.waitForFunction(() => document.querySelector('#freeSlotsText').value.includes('15:00'));
+    await page.waitForFunction(() =>
+      document.querySelector('#freeSlotsText').value.includes('15:00')
+      && document.querySelector('#freeSlotsBookingLink').getAttribute('href')?.includes('service=service-A-2')
+      && document.querySelector('#freeSlotsDialog').getAttribute('aria-busy') !== 'true');
     await page.evaluate(() => pending.shift()());
     await assertNoOutput(page);
     assert.match(await page.locator('#freeSlotsText').inputValue(), /15:00/);
@@ -179,6 +183,59 @@ try {
     assert.deepEqual(await page.evaluate(() => notices), [], 'Old completion cannot notify the new organization');
     await finish(f, `${native} rejection after organization change has no fallback or stale completion`);
   }
-  assert.equal(passed, 10);
-  console.log('PASS 10/10 free-slots scope browser regressions; no external writes');
+  {
+    const f = await fixture(), { page } = f;
+    await page.evaluate(() => {
+      document.querySelector('[data-close-free-slots]').click();
+      holdNext = true;
+      void controller.open();
+    });
+    await page.waitForFunction(() => pending.length === 1);
+    assert.match(await page.locator('#freeSlotsText').inputValue(), /10:00/, 'Same-scope cached preview appears during the fresh read');
+    assert.match(await page.locator('#freeSlotsShareStatus').innerText(), /Проверяем актуальность/);
+    assert.equal(await page.locator('#copyFreeSlots').isDisabled(), true);
+    await invalidateAndAssert(page);
+    await page.evaluate(() => pending.shift()());
+    await assertNoOutput(page);
+    assert.equal(await page.locator('#copyFreeSlots').isDisabled(), true);
+    await finish(f, 'cached preview remains locked and is discarded after an organization switch');
+  }
+  {
+    const f = await fixture('service', { multiLocation:true }), { page } = f;
+    await page.evaluate(() => {
+      document.querySelector('[data-close-free-slots]').click();
+      holdNext = true;
+      void controller.open();
+    });
+    await page.waitForFunction(() => pending.length === 1);
+    assert.match(await page.locator('#freeSlotsText').inputValue(), /10:00/);
+    await page.locator('.free-slots-extra > summary').click();
+    await page.selectOption('#freeSlotsLocation', 'loc2-A');
+    await page.waitForFunction(() => document.querySelector('#freeSlotsText').value.includes('16:00'));
+    await page.evaluate(() => pending.shift()());
+    assert.match(await page.locator('#freeSlotsText').inputValue(), /16:00/);
+    assert.doesNotMatch(await page.locator('#freeSlotsText').inputValue(), /10:00/);
+    await assertNoOutput(page);
+    await finish(f, 'a different location cannot reuse or restore the cached preview');
+  }
+  {
+    const f = await fixture('service'), { page } = f;
+    await page.evaluate(() => {
+      document.querySelector('[data-close-free-slots]').click();
+      holdNext = true;
+      void controller.open();
+    });
+    await page.waitForFunction(() => pending.length === 1);
+    assert.match(await page.locator('#freeSlotsText').inputValue(), /10:00/);
+    await page.locator('.free-slots-extra > summary').click();
+    await page.selectOption('#freeSlotsService', 'service-A-2');
+    await page.waitForFunction(() => document.querySelector('#freeSlotsText').value.includes('15:00'));
+    await page.evaluate(() => pending.shift()());
+    assert.match(await page.locator('#freeSlotsText').inputValue(), /15:00/);
+    assert.doesNotMatch(await page.locator('#freeSlotsText').inputValue(), /10:00/);
+    await assertNoOutput(page);
+    await finish(f, 'a different service cannot reuse or restore the cached preview');
+  }
+  assert.equal(passed, 13);
+  console.log('PASS 13/13 free-slots scope browser regressions; no external writes');
 } finally { await browser.close(); }

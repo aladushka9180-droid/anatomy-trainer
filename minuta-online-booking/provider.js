@@ -3095,7 +3095,7 @@ function compactBookingColorPicker(name, selected, bookingId) {
   return `<details class="booking-color-compact"><summary><span>Цвет записи</span><strong><i class="booking-color-dot color-${current}" aria-hidden="true"></i>${BOOKING_COLOR_LABELS[current]}</strong></summary>${bookingColorPicker(name, current, bookingId)}</details>`;
 }
 function bookingSession(item) {
-  const saved = bookingSessionItems.get(item.id);
+  const saved = item?.is_report_export ? item.export_session_items : bookingSessionItems.get(item.id);
   if (saved?.length) return saved.map(entry => ({
     kind:entry.item_kind || entry.kind,
     service_id:entry.service_id || '',
@@ -3398,6 +3398,7 @@ function outcomeRpcMissing(error) {
 }
 function bookingOutcome(item) {
   const embedded = item?.booking_outcomes;
+  if (item?.is_report_export && embedded?.visit_status) return embedded;
   return bookingOutcomes.get(item.id) || (embedded?.visit_status ? embedded : null) || { visit_status: 'scheduled', payment_method: 'unpaid', amount_rub: 0, actual_duration_minutes: 0, calculated_amount_rub: 0, completion_source: 'manual' };
 }
 function isPerMinuteBooking(item) { return Number(item?.services?.duration_minutes || 0) === 1; }
@@ -3834,6 +3835,11 @@ function reportRange(period = reportPeriod) {
         .map(item => item.booking_date)
         .sort();
       start = dates[0] || todayIso;
+      const financialRange = window.MinutaStatisticsAuditProvider?.financialBounds?.({
+        period, end, organizationId, performerId:reportPerformerFilter
+      });
+      if (financialRange?.end === end && /^\d{4}-\d{2}-\d{2}$/.test(financialRange.start)
+          && financialRange.start <= end) start = [start, financialRange.start].sort()[0];
     }
   }
   if (period === 'custom') {
@@ -3892,6 +3898,7 @@ function reportRevenue(items) {
 }
 
 function reportClientIdentity(item) {
+  if (item?.client_export_key) return String(item.client_export_key);
   const clientId = String(item?.client_account_id || item?.client_id || '').trim();
   if (clientId) return `id:${clientId}`;
   const phone = normalizePhone(item?.client_phone || '');
@@ -5538,10 +5545,11 @@ function reportExportCell(value, style = 5) { return { value, style }; }
 function reportExportDate(value) { return value ? new Intl.DateTimeFormat('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' }).format(parseLocalIsoDate(value)) : ''; }
 function reportExportPhone(value, privacy) {
   if (privacy === 'none') return '';
+  if (privacy !== 'full' && /^\+7 \*\*\* \*\*\*-\d{2}-\d{2}$/.test(String(value || ''))) return String(value);
   const digits = normalizePhone(value);
-  if (!digits) return String(value || '');
+  if (!digits) return '';
   const local = digits.startsWith('7') && digits.length === 11 ? digits.slice(1) : digits;
-  if (privacy === 'masked') return `+7 *** ***-${local.slice(-4,-2)}-${local.slice(-2)}`;
+  if (privacy !== 'full') return local.length >= 4 ? `+7 *** ***-${local.slice(-4,-2)}-${local.slice(-2)}` : '';
   return local.length === 10 ? `+7 (${local.slice(0,3)}) ${local.slice(3,6)}-${local.slice(6,8)}-${local.slice(8)}` : `+${digits}`;
 }
 function reportExportDuration(item) {
@@ -5587,9 +5595,20 @@ function reportExportCreator(item, performers) {
   if (item.created_by_user_id && performers.has(String(item.created_by_user_id))) return performers.get(String(item.created_by_user_id));
   return ['provider_manual','provider_repeat','provider_series'].includes(item.booking_source) ? 'Мастер' : item.booking_source === 'admin_manual' ? 'Администратор' : 'Не определено';
 }
-function reportExportData(privacy = 'masked') {
-  const range = reportRange();
-  const items = reportBookings(range).filter(item => !isScheduleBlock(item));
+function reportExportClientMetrics(completed) {
+  const firstVisits = new Map();
+  completed.forEach(item => {
+    const key = reportClientIdentity(item);
+    if (!key) return;
+    const when = `${item.booking_date || ''}T${String(item.booking_time || '00:00').slice(0,5)}`;
+    if (!firstVisits.has(key) || when < firstVisits.get(key).when) firstVisits.set(key, { when, prior:Boolean(item.client_had_previous) });
+  });
+  const returningClients = [...firstVisits.values()].filter(value => value.prior).length;
+  return { uniqueClients:firstVisits.size, newClients:firstVisits.size-returningClients, returningClients };
+}
+function reportExportData(privacy = 'masked', exportItems = null, scope = null) {
+  const range = scope ? { start:scope.start, end:scope.end } : reportRange();
+  const items = (exportItems || reportBookings(range)).filter(item => !isScheduleBlock(item));
   const completed = reportCompletedItems(items);
   const revenue = reportRevenue(completed);
   const completedValue = completed.reduce((sum,item) => sum + reportExportValue(item),0);
@@ -5599,7 +5618,7 @@ function reportExportData(privacy = 'masked') {
   const workedMinutes = completed.reduce((sum,item) => sum + reportExportDuration(item),0);
   const knownPaymentCount = completed.length - unknownPaymentCount;
   const average = knownPaymentCount ? Math.round(revenue/knownPaymentCount) : null;
-  const clients = reportClientMetrics(completed,range);
+  const clients = exportItems ? reportExportClientMetrics(completed) : reportClientMetrics(completed,range);
   const sources = reportSourceMetrics(items);
   const performers = reportExportPerformers();
   const headers = ['Дата','Начало','Окончание','Клиент','Телефон','Услуга','Мастер','Длительность, мин','Ставка, ₽/мин','Стоимость, ₽','Получено, ₽','Подтверждённый долг, ₽','Оплата','Результат визита','Источник','Кто создал','Комментарий'];
@@ -5609,7 +5628,12 @@ function reportExportData(privacy = 'masked') {
     const paymentLabel = unknownPayment ? 'Нет данных об оплате (история)' : paymentMethodLabel(outcome.payment_method,outcome.completion_source);
     return [reportExportDate(item.booking_date),String(item.booking_time || '').slice(0,5),reportExportEnd(item,duration),item.client_name || 'Без имени',reportExportPhone(item.client_phone,privacy),bookingSession(item).map(entry => serviceName(entry.title)).join(' + '),reportExportMaster(item,performers),duration,isPerMinuteBooking(item) ? bookingMinuteRate(item) : 0,value,unknownPayment ? null : reportReceivedAmount(item),unknownPayment ? null : reportDebtAmount(item),paymentLabel,reportExportVisit(item),reportExportSource(item),reportExportCreator(item,performers),bookingDisplayNote(item)];
   });
-  const team = reportReconciledTeamRows(completed, range)
+  const limitedScope = scope && (scope.segment !== 'all' || scope.locationId !== 'all');
+  const teamRows = limitedScope
+    ? globalThis.MinutaReportReconciliation.teamRows(completed, { outcomeFor:bookingOutcome, valueFor:reportServiceValue,
+      durationFor:reportExportDuration, clientIdentityFor:reportClientIdentity })
+    : reportReconciledTeamRows(completed, range);
+  const team = teamRows
     .filter(row => !reportCanViewTeam || reportPerformerFilter === 'all' || String(row.performer_id || '') === reportPerformerFilter)
     .map(row => [row.performer_name,row.completed_visits,row.unique_clients,row.worked_minutes,row.revenue_rub,row.payment_known_visits ? Math.round(row.revenue_rub/row.payment_known_visits) : null,row.payroll_rub === null ? 'Не рассчитано' : row.payroll_rub]);
   const groups = new Map();
@@ -5620,7 +5644,7 @@ function reportExportData(privacy = 'masked') {
     row.visits += 1; row.revenue += reportReceivedAmount(item); if (item.booking_date < row.first) row.first=item.booking_date; if (item.booking_date > row.last) row.last=item.booking_date; groups.set(key,row);
   });
   const clientRows = [...groups.values()].sort((a,b) => b.revenue-a.revenue).map(row => { const days=Math.max(0,Math.round((parseLocalIsoDate(range.end)-parseLocalIsoDate(row.last))/86400000)); return [row.name,reportExportPhone(row.phone,privacy),reportExportDate(row.first),reportExportDate(row.last),row.visits,row.revenue,row.knownVisits?Math.round(row.revenue/row.knownVisits):null,days,row.visits>=2?'Повторные визиты':'Один визит']; });
-  return { range,items,completed,revenue,completedValue,debt,importedValue,unknownPaymentCount,workedMinutes,average,clients,sources,headers,rows,team,clientRows,events:reportCurrentEventRows(range) };
+  return { range,items,completed,revenue,completedValue,debt,importedValue,unknownPaymentCount,workedMinutes,average,clients,sources,headers,rows,team,clientRows,events:limitedScope ? [] : reportCurrentEventRows(range) };
 }
 function reportExportSheet(rows, options) {
   const body = rows.map((row,rowIndex) => `<row r="${rowIndex+1}"${options.heights?.[rowIndex+1] ? ` ht="${options.heights[rowIndex+1]}" customHeight="1"` : ''}>${row.map((raw,columnIndex) => { if (raw === '' || raw === null || raw === undefined) return ''; const cell = raw && typeof raw === 'object' && 'value' in raw ? raw : reportExportCell(raw); const ref=`${reportColumnName(columnIndex)}${rowIndex+1}`; return typeof cell.value === 'number' && Number.isFinite(cell.value) ? `<c r="${ref}" s="${cell.style}"><v>${cell.value}</v></c>` : `<c r="${ref}" t="inlineStr" s="${cell.style}"><is><t xml:space="preserve">${reportXmlText(cell.value)}</t></is></c>`; }).join('')}</row>`).join('');
@@ -5661,49 +5685,6 @@ function reportExportSheets(data) {
 }
 function reportExportFilename(range,extension){return `Отчёт_Eldion_Pro_${reportExportDate(range.start).replaceAll('.','-')}_${reportExportDate(range.end).replaceAll('.','-')}.${extension}`;}
 function reportExportDownload(blob,filename){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=filename;link.hidden=true;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
-function exportBookingsXlsx(privacy='masked'){const data=reportExportData(privacy);reportExportDownload(reportProfessionalWorkbook(reportExportSheets(data)),reportExportFilename(data.range,'xlsx'));notify('Готовый отчёт Excel скачан');}
-function exportBookingsCsv(privacy='masked'){const data=reportExportData(privacy),quote=value=>`"${String(value??'').replaceAll('"','""')}"`,csv=[data.headers,...data.rows].map(row=>row.map(quote).join(';')).join('\r\n');reportExportDownload(new Blob([`\ufeff${csv}`],{type:'text/csv;charset=utf-8'}),reportExportFilename(data.range,'csv'));notify('Таблица CSV скачана');}
-function reportPdfText(ctx,text,x,y,maxWidth){let value=String(text??'');if(ctx.measureText(value).width<=maxWidth){ctx.fillText(value,x,y);return;}while(value.length&&ctx.measureText(`${value}…`).width>maxWidth)value=value.slice(0,-1);ctx.fillText(`${value}…`,x,y);}
-function reportPdfPage(title,subtitle){const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=1131;const ctx=canvas.getContext('2d');ctx.fillStyle='#f6f1ea';ctx.fillRect(0,0,1600,1131);ctx.fillStyle='#a9664c';ctx.fillRect(55,45,1490,105);ctx.fillStyle='#fff';ctx.font='700 34px Arial';ctx.fillText(title,85,92);ctx.font='20px Arial';ctx.fillText(subtitle,85,128);return {canvas,ctx};}
-function reportPdfImageBytes(canvas){const base64=canvas.toDataURL('image/jpeg',.92).split(',')[1],binary=atob(base64),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i+=1)bytes[i]=binary.charCodeAt(i);return bytes;}
-function reportPdfBlob(images){const encoder=new TextEncoder(),objects=[],pageIds=images.map((_,i)=>3+i*3);objects[0]=encoder.encode('<< /Type /Catalog /Pages 2 0 R >>');objects[1]=encoder.encode(`<< /Type /Pages /Kids [${pageIds.map(id=>`${id} 0 R`).join(' ')}] /Count ${images.length} >>`);images.forEach((image,index)=>{const pageId=pageIds[index],contentId=pageId+1,imageId=pageId+2,content=`q 842 0 0 595 0 0 cm /Im${index+1} Do Q`;objects[pageId-1]=encoder.encode(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /XObject << /Im${index+1} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`);objects[contentId-1]=encoder.encode(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);const head=encoder.encode(`<< /Type /XObject /Subtype /Image /Width 1600 /Height 1131 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.length} >>\nstream\n`),tail=encoder.encode('\nendstream');objects[imageId-1]=new Blob([head,image,tail]);});const chunks=[encoder.encode('%PDF-1.4\n%PDF\n')],offsets=[0];let offset=chunks[0].length;objects.forEach((object,index)=>{offsets[index+1]=offset;const head=encoder.encode(`${index+1} 0 obj\n`),tail=encoder.encode('\nendobj\n');chunks.push(head,object,tail);offset+=head.length+(object.size??object.length)+tail.length;});const xref=offset;let table=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;for(let i=1;i<=objects.length;i+=1)table+=`${String(offsets[i]).padStart(10,'0')} 00000 n \n`;chunks.push(encoder.encode(`${table}trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`));return new Blob(chunks,{type:'application/pdf'});}
-function exportBookingsPdf(privacy='masked'){
-  const data=reportExportData(privacy),period=`${reportExportDate(data.range.start)} — ${reportExportDate(data.range.end)}`,images=[];
-  let page=reportPdfPage('Отчёт Eldion Pro',`Период: ${period}`),ctx=page.ctx;const cards=[['Получено',money(data.revenue)],['Оказано на',money(data.completedValue)],['Визиты',data.completed.length],['Клиенты',data.clients.uniqueClients]];cards.forEach((card,index)=>{const x=55+index*378;ctx.fillStyle='#fffdfa';ctx.fillRect(x,180,352,125);ctx.fillStyle='#78695f';ctx.font='20px Arial';ctx.fillText(card[0],x+22,218);ctx.fillStyle='#332923';ctx.font='700 32px Arial';ctx.fillText(String(card[1]),x+22,270);});ctx.fillStyle='#78695f';ctx.font='16px Arial';ctx.fillText(data.unknownPaymentCount ? `Оплата не указана: ${money(data.importedValue)} · визитов: ${data.unknownPaymentCount} из ${data.completed.length}; это не подтверждённый долг.` : 'Отчёт по датам визитов. Получено — отмеченные оплаты, не банковская выписка.',55,334);ctx.fillStyle='#332923';ctx.font='700 26px Arial';ctx.fillText('Результаты мастеров',55,365);const teamHeaders=['Мастер','Визиты','Клиенты','Минуты','Выручка','Средний чек'];ctx.font='700 17px Arial';teamHeaders.forEach((value,index)=>ctx.fillText(value,65+[0,460,610,760,940,1170][index],410));ctx.font='17px Arial';data.team.slice(0,12).forEach((row,rowIndex)=>{const y=450+rowIndex*45;ctx.fillStyle=rowIndex%2?'#fffdfa':'#f2e6dd';ctx.fillRect(55,y-28,1490,40);ctx.fillStyle='#332923';row.slice(0,6).forEach((value,index)=>reportPdfText(ctx,index>=4&&typeof value==='number'?money(value):value,65+[0,460,610,760,940,1170][index],y,index===0?390:190));});images.push(reportPdfImageBytes(page.canvas));
-  const perPage=22;for(let start=0;start<data.rows.length;start+=perPage){page=reportPdfPage('Реестр записей',`${period} · строки ${start+1}–${Math.min(start+perPage,data.rows.length)}`);ctx=page.ctx;const columns=[['Дата',0,120],['Время',125,90],['Клиент',220,260],['Услуга',485,420],['Мастер',910,210],['Мин.',1125,80],['Получено',1210,155],['Результат',1370,170]];ctx.fillStyle='#332923';ctx.font='700 16px Arial';columns.forEach(column=>ctx.fillText(column[0],60+column[1],190));ctx.font='15px Arial';data.rows.slice(start,start+perPage).forEach((row,rowIndex)=>{const y=230+rowIndex*38;ctx.fillStyle=rowIndex%2?'#fffdfa':'#f2e6dd';ctx.fillRect(55,y-25,1490,34);ctx.fillStyle='#332923';const values=[row[0],row[1],row[3],row[5],row[6],row[7],row[10] === null ? 'Нет данных' : money(row[10]),row[13]];values.forEach((value,index)=>reportPdfText(ctx,value,60+columns[index][1],y,columns[index][2]-10));});images.push(reportPdfImageBytes(page.canvas));}
-  reportExportDownload(reportPdfBlob(images),reportExportFilename(data.range,'pdf'));notify('Готовый отчёт PDF скачан');
-}
-
-async function exportBookingsXlsxInBackground(privacy='masked') {
-  if (!window.Worker || !window.Blob || !window.URL) { exportBookingsXlsx(privacy); return; }
-  const button = $('[data-report-export="xlsx"]');
-  const originalText = button?.querySelector('strong')?.textContent || '';
-  if (button) button.disabled = true;
-  if (button?.querySelector('strong')) button.querySelector('strong').textContent = 'Готовим…';
-  let worker;
-  try {
-    const data = reportExportData(privacy);
-      worker = new Worker('./report-worker.js?v=811');
-    const result = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
-      worker.onmessage = event => {
-        clearTimeout(timeout);
-        if (event.data?.error || !event.data?.blob) reject(new Error(event.data?.error || 'report_worker_failed'));
-        else resolve(event.data.blob);
-      };
-      worker.onerror = event => { clearTimeout(timeout); reject(event.error || new Error('report_worker_failed')); };
-      worker.postMessage({ sheets:reportExportSheets(data) });
-    });
-    reportExportDownload(result, reportExportFilename(data.range, 'xlsx'));
-    notify('Готовый отчёт Excel скачан');
-  } catch {
-    exportBookingsXlsx(privacy);
-  } finally {
-    worker?.terminate();
-    if (button) button.disabled = false;
-    if (button?.querySelector('strong')) button.querySelector('strong').textContent = originalText;
-  }
-}
 function notificationTaskKey(item, type) { return `${item.id}|${type}|${item.booking_date}|${String(item.booking_time).slice(0, 5)}`; }
 function notificationMarks() { return { ...readNotificationStorage('marks', {}), ...serverNotificationMarks }; }
 async function setNotificationMark(key, status) {
@@ -9081,6 +9062,12 @@ function renderTimeline(sourceItems) {
   const operationalItems = sourceItems.filter(item => !item.is_imported_history);
   const items = [...sourceItems, ...automaticBookingBreaks(operationalItems)];
   const holder = $('#providerBookings');
+  const closedLabel = scheduleEmptyDayLabel(selectedDate, '');
+  if (closedLabel && !items.length) {
+    holder.className = 'provider-bookings timeline-view';
+    holder.innerHTML = `<div class="provider-empty schedule-empty"><strong>${escapeHtml(closedLabel)}</strong><small>Запись на этот день закрыта.</small></div>`;
+    return;
+  }
   const mobileTimeline = window.matchMedia('(max-width: 760px)').matches;
   const fullBounds = timelineBounds(items);
   let { start, end } = fullBounds;
@@ -9197,7 +9184,8 @@ function renderTimeline(sourceItems) {
   const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
   const emptyHintTop = timelineEmptyHintOffsetMinutes(start, end, mobileTimeline) / 60 * hourHeight;
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px;--timeline-empty-hint-top:${emptyHintTop}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group" tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись">${lines.join('')}${nowMarker}${scheduleCreateHintMarkup()}${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><small>Нажмите <i>нужное </i><b>на </b>время,<br> чтобы <i>записать клиента или поставить перерыв</i><b>добавить запись</b></small></div>`}</div></div>`;
+  const stageInteraction = closedLabel ? '' : `data-create-booking-at tabindex="0" aria-label="Выбор свободного времени. Выбрано ${timeFromMinutes(start)}. Стрелками измените время, Enter создаст запись"`;
+  holder.innerHTML = `${closedLabel ? `<div class="provider-empty compact-empty"><strong>${escapeHtml(closedLabel)}</strong><small>Запись на этот день закрыта.</small></div>` : ''}<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px;--timeline-empty-hint-top:${emptyHintTop}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" ${stageInteraction} data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="group">${lines.join('')}${nowMarker}${closedLabel ? '' : scheduleCreateHintMarkup()}${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><small>Нажмите <i>нужное </i><b>на </b>время,<br> чтобы <i>записать клиента или поставить перерыв</i><b>добавить запись</b></small></div>`}</div></div>`;
   if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
 }
 
@@ -12798,7 +12786,9 @@ function renderCalendarOverview(view) {
       const limit = view === 'month' ? 2 : items.length;
       const hiddenCount = Math.max(0, items.length - limit);
       const fullDate = date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-      const monthCount = items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : scheduleEmptyDayLabel(iso, 'Свободно');
+      const dayStatus = scheduleEmptyDayLabel(iso, '');
+      const bookingCount = items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : '';
+      const monthCount = [dayStatus, bookingCount].filter(Boolean).join(' · ') || 'Свободно';
       return `<article class="calendar-overview-day${iso === today ? ' is-today' : ''}${iso === selectedDate ? ' is-selected' : ''}" data-calendar-date="${iso}">
         <button class="calendar-overview-date" type="button" data-calendar-open-date="${iso}" ${iso === today ? 'aria-current="date"' : ''} aria-label="${escapeHtml(fullDate)}. ${view === 'month' ? `${escapeHtml(monthCount)}. ` : ''}Открыть день"><span>${view === 'week' ? escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', '')) : ''}</span><strong>${date.getDate()}</strong>${view === 'week' ? `<small>${escapeHtml(date.toLocaleDateString('ru-RU', { month:'short' }).replace('.', ''))}</small>` : `<small class="calendar-overview-count">${escapeHtml(monthCount)}</small>`}</button>
         <div class="calendar-overview-items">${items.slice(0, limit).map(item => calendarOverviewBookingMarkup(item, view === 'month')).join('')}${hiddenCount ? `<button class="calendar-overview-more" type="button" data-calendar-open-date="${iso}">+ ещё ${seriesBookingCountLabel(hiddenCount)}</button>` : ''}</div>
@@ -12848,7 +12838,7 @@ function renderBookings() {
   const blockCount = items.filter(isScheduleBlock).length + (currentFilter === 'day' ? automaticBookingBreaks(operationalItems).length : 0);
   const daySummary = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : '', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
   $('#selectedDateSummary').textContent = currentFilter === 'day'
-    ? (daySummary || scheduleEmptyDayLabel(selectedDate, 'Свободный день'))
+    ? ([scheduleEmptyDayLabel(selectedDate, ''), daySummary].filter(Boolean).join(' · ') || 'Свободный день')
     : `${currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей'}${bookingQueryIsActive() ? ` · найдено ${items.length}` : ''}`;
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
   else {
@@ -15872,6 +15862,7 @@ async function loadDaysOff() {
     if (cached?.data) {
       daysOff = cached.data;
       renderDaysOff();
+      renderBookings();
       return { ok: false, cached: true, savedAt: cached.savedAt, failure:providerCoreReadFailure(error) };
     }
     $('#daysOffList').innerHTML = '<div class="provider-empty compact-empty">Не удалось загрузить исключения.</div>';
@@ -15883,6 +15874,7 @@ async function loadDaysOff() {
   await saveProviderCache('days-off', daysOff, userId);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   renderDaysOff();
+  renderBookings();
   return { ok: true };
 }
 
@@ -17507,13 +17499,19 @@ document.addEventListener('click', async event => {
   }
   if ((toggle || remove || removeDayOff || booking || deleteBookingButton || waitlistStatus || reviewVisibility) && !requireWrites()) return;
   if (reviewVisibility) {
+    if (reviewVisibility.disabled) return;
     reviewVisibility.disabled = true;
     const publish = reviewVisibility.dataset.reviewPublished !== 'true';
-    const { error } = await db.rpc('set_booking_review_published', { p_review:reviewVisibility.dataset.reviewVisibility, p_published:publish });
-    reviewVisibility.disabled = false;
-    if (error) { notify('Не удалось изменить видимость отзыва'); return; }
-    notify(publish ? 'Отзыв опубликован на сайте' : 'Отзыв скрыт с сайта');
-    await loadProviderReviews();
+    try {
+      const { error } = await db.rpc('set_booking_review_published', { p_review:reviewVisibility.dataset.reviewVisibility, p_published:publish });
+      if (error) { notify('Не удалось изменить видимость отзыва'); return; }
+      notify(publish ? 'Отзыв опубликован на сайте' : 'Отзыв скрыт с сайта');
+      await loadProviderReviews();
+    } catch {
+      notify('Не удалось изменить видимость отзыва. Повторите попытку.');
+    } finally {
+      reviewVisibility.disabled = false;
+    }
   }
   if (toggle) {
     await toggleServiceVisibility(toggle);
@@ -17835,7 +17833,7 @@ const organizationFeatureDefinitions = new Map([
   ['commercePanel', { script:'commerce-management.js', api:() => window.MinutaCommerce, get:() => commerceController, set:value => { commerceController = value; }, admin:true }],
   ['benefitsPanel', { script:'benefit-management.js', api:() => window.MinutaBenefits, get:() => benefitController, set:value => { benefitController = value; }, admin:true }],
   ['loyaltyPanel', { script:'loyalty-program-v166.js', api:() => window.MinutaLoyalty, get:() => loyaltyController, set:value => { loyaltyController = value; }, admin:true }],
-  ['inventoryPanel', { script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true }],
+  ['inventoryPanel', { before:'inventory-soft-ui.js', script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true }],
   ['retentionPanel', { script:'retention-management.js', api:() => window.MinutaRetention, get:() => retentionController, set:value => { retentionController = value; }, admin:true }]
 ]);
 
@@ -17907,6 +17905,7 @@ async function ensureOrganizationFeature(sectionId) {
     || (definition.admin && !['owner', 'admin'].includes(organization.current_role))) return null;
   let controller = definition.get();
   if (!controller) {
+    if (definition.before) await loadProviderFeatureScript(definition.before);
     await loadProviderFeatureScript(definition.script);
     if (!sessionIsCurrent(userId, generation) || revision !== organizationFeatureContextRevision
       || organizationController.getActiveOrganization()?.id !== organization.id) return null;
@@ -18070,6 +18069,14 @@ const clientImportController = window.MinutaClientImport?.createController ? win
 clientImportController.bind();
 const dataGovernanceController = window.MinutaDataGovernance?.createController({ db, $, escapeHtml, notify }) || { bind() {}, setOrganization() {} };
 
+const organizationFlowController = window.MinutaOrganizationFlow?.createController({
+  db, notify, requireWrites,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent
+});
+organizationFlowController?.bind();
+
 const organizationController = window.MinutaOrganization.createController({
   db,
   $,
@@ -18082,6 +18089,7 @@ const organizationController = window.MinutaOrganization.createController({
   sessionIsCurrent,
   applyWriteAvailability,
   onActiveOrganizationChange: organization => {
+    organizationFlowController?.setOrganization(organization);
     const nextClientOrganizationId = organization?.id || '';
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
     if (clientOrganizationChanged && typeof resetProviderMessagesCenter === 'function') resetProviderMessagesCenter();

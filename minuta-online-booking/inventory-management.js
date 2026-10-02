@@ -70,10 +70,12 @@
       $('#inventoryTransferError').hidden = true; $('#inventoryTransferError').textContent = '';
       movementReadRecovery = null;
       $('#inventoryPanel').hidden = true; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
+      window.MinutaInventorySoftUI?.reset();
     }
 
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
+      window.MinutaInventorySoftUI?.setScope(normalized?.id || null);
       // Returning to A after queued B is a new choice, not a same-scope no-op.
       if (pendingOrganization === undefined && movementOperation && sessionIsCurrent(movementOperation.userId, movementOperation.generation)
         && normalized?.id === organization?.id && normalized?.current_role === organization?.current_role)
@@ -308,7 +310,7 @@
         $('#inventoryTransferDestination').innerHTML = optionRows(activeWarehouses, row => `${row.name} · ${location(row.location_id)?.name || 'Филиал'}`);
         updateTransferBalance();
       }
-      updateMovementKind(); setBusy(false); applyWriteAvailability();
+      updateMovementKind(); setBusy(false); window.MinutaInventorySoftUI?.sync(payload); applyWriteAvailability();
     }
 
     function messageFor(error) {
@@ -677,9 +679,9 @@
       }
       if (event.target.closest('#reloadInventory')) { await load(); return; }
       const editItem = event.target.closest('[data-inventory-edit-item]');
-      if (editItem) { const row = item(editItem.dataset.inventoryEditItem); if (!row) return; $('#inventoryItemId').value=row.id; $('#inventoryItemName').value=row.name; $('#inventoryItemSku').value=row.sku || ''; $('#inventoryItemUnit').value=row.unit; $('#inventoryItemLow').value=row.low_stock_threshold; $('#inventoryItemActive').checked=Boolean(row.active); $('#inventoryItemCreator').open=true; $('#inventoryItemName').focus(); return; }
+      if (editItem) { const row = item(editItem.dataset.inventoryEditItem); if (!row) return; $('#inventoryItemId').value=row.id; $('#inventoryItemName').value=row.name; $('#inventoryItemSku').value=row.sku || ''; $('#inventoryItemUnit').value=row.unit; $('#inventoryItemLow').value=row.low_stock_threshold; $('#inventoryItemActive').checked=Boolean(row.active); $('#inventoryItemCreator').open=true; $('#inventoryItemName').focus(); window.MinutaInventorySoftUI?.openEditor('item', editItem); return; }
       const editWarehouse = event.target.closest('[data-inventory-edit-warehouse]');
-      if (editWarehouse) { const row=warehouse(editWarehouse.dataset.inventoryEditWarehouse); if (!row) return; $('#inventoryWarehouseId').value=row.id; $('#inventoryWarehouseLocation').value=row.location_id; $('#inventoryWarehouseName').value=row.name; $('#inventoryWarehouseActive').checked=Boolean(row.active); $('#inventoryWarehouseCreator').open=true; $('#inventoryWarehouseName').focus(); return; }
+      if (editWarehouse) { const row=warehouse(editWarehouse.dataset.inventoryEditWarehouse); if (!row) return; $('#inventoryWarehouseId').value=row.id; $('#inventoryWarehouseLocation').value=row.location_id; $('#inventoryWarehouseName').value=row.name; $('#inventoryWarehouseActive').checked=Boolean(row.active); $('#inventoryWarehouseCreator').open=true; $('#inventoryWarehouseName').focus(); window.MinutaInventorySoftUI?.openEditor('warehouse', editWarehouse); return; }
       if (event.target.closest('[data-inventory-cancel-item]')) { clearItemForm(); return; }
       if (event.target.closest('[data-inventory-cancel-warehouse]')) { clearWarehouseForm(); return; }
       const remove = event.target.closest('[data-inventory-delete-usage]');

@@ -60,6 +60,7 @@ function fixture({ teamMode = false, sessionStorage = new Storage(), localStorag
   const initialState = { step:3, services:[structuredClone(service)], serviceId:service.id, date:'2099-09-05', time:'10:00',
     teamMode, locationId:teamMode ? 'location-a' : '', locations:teamMode ? [{ id:'location-a', name:'Филиал A' }] : [], moreDates:false };
   const calls = [], effects = [];
+  const managementReached = deferred();
   let reply = () => unknown;
   let management = () => ({ data:[{ booking_code:'TEST-BOOKING', status:'confirmed', service_name:'Тестовая услуга', performer_name:'Мастер A', booking_date:'2099-09-05', booking_time:'10:00:00', duration_minutes:60 }], error:null });
   const boundaries = {
@@ -76,7 +77,10 @@ function fixture({ teamMode = false, sessionStorage = new Storage(), localStorag
   const db = { rpc:async (name, args) => {
     calls.push({ name, args:structuredClone(args) });
     if (name === 'book_appointment' || name === 'book_minuta_appointment') return reply(name, args);
-    if (name === 'get_booking_management') return management();
+    if (name === 'get_booking_management') {
+      managementReached.resolve();
+      return management();
+    }
     return { data:null, error:null };
   } };
   const context = { initialState, boundaries, sessionStorage, localStorage, crypto:webcrypto, TextEncoder, URL, URLSearchParams,
@@ -102,6 +106,7 @@ function fixture({ teamMode = false, sessionStorage = new Storage(), localStorag
   return { $, state:context.api.state, calls, effects, context, sessionStorage, localStorage, api:context.api,
     reply:handler => { reply = handler; }, submit:() => $('#bookingForm').dispatch('submit'),
     managementReply:handler => { management = handler; },
+    waitForManagement:() => managementReached.promise,
     edit:(selector, value) => { $(selector).value = value; $(selector).dispatch('input'); },
     bookingCalls:() => calls.filter(call => ['book_appointment', 'book_minuta_appointment'].includes(call.name)) };
 }
@@ -245,10 +250,10 @@ test('idempotent replay of a cancelled booking never sends confirmation', async 
   assert.equal(f.effects.includes('confirmation'), false);
 });
 
-test('reset during management lookup prevents the old verified booking from replacing the new form', async () => {
+test('reset during management lookup prevents the old verified booking from replacing the new form', { timeout:10000 }, async () => {
   const f = fixture(), pending = deferred(); f.reply(() => success); f.managementReply(() => pending.promise);
   const request = f.submit();
-  for (let turn = 0; turn < 100 && !f.calls.some(call => call.name === 'get_booking_management'); turn++) await flush();
+  await f.waitForManagement();
   assert.ok(f.calls.some(call => call.name === 'get_booking_management'));
   assert.equal(f.$('#success').hidden, true, 'status lookup must precede success UI');
   f.api.resetFlow(); f.state.date = '2099-09-06'; f.state.time = '11:00';

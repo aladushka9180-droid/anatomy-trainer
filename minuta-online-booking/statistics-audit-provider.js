@@ -46,6 +46,79 @@
     scope.textContent = `Эти цели сохраняются для ${target}. ${saved ? 'Здесь показаны сохранённые цели этой области.' : 'Пока используются общие значения; сохранение задаст цели только для этой области.'}`;
   }
 
+  function refreshFinancialOverview() {
+    const panel = document.querySelector('#analyticsView');
+    if (!panel || typeof reportRange !== 'function') return;
+    const selected = reportRange();
+    const revision = ++financialState.revision;
+    const context = financialContext(selected.end);
+    if (financialState.context !== context) financialState.context = null;
+    if (reportDataSource === 'demo' && financialState.source !== 'demo' && typeof financeController !== 'undefined')
+      financeController?.invalidateBounds?.();
+    financialState.source = reportDataSource;
+    if (reportDataSource !== 'demo' && typeof financeController !== 'undefined') {
+      const controller = financeController;
+      void financeController?.load(selected, { shared:true, masterId:reportPerformerFilter, contextToken:context }).then(() => {
+        if (revision !== financialState.revision || controller !== financeController || context !== financialContext(selected.end)) return;
+        const bounds = controller.financialBounds?.({ period:selected.period, end:selected.end,
+          organizationId:reportOrganizationId(), performerId:reportPerformerFilter, contextToken:context });
+        financialState.context = bounds ? context : null;
+        const resolved = reportRange();
+        if ((resolved.start !== selected.start || resolved.end !== selected.end) && typeof renderAnalytics === 'function') renderAnalytics();
+      });
+    }
+    const completed = reportCompletedItems(reportBookings(selected));
+    panel.classList.toggle('report-no-completed-visits', !completed.length);
+    const items = reportBookings(selected);
+    if (!items.length && panel.dataset.reportLoadState === 'ready') {
+      setReportText('#reportDataQuality', 'Нет данных');
+      setReportText('#reportDataQualityNote', 'В выбранном периоде нет записей. Полноту данных пока нельзя оценить.');
+      setReportText('#reportZeroSummary strong', 'Нет записей');
+      setReportText('#reportZeroSummary small', 'Выберите другой период');
+    }
+    const overview = document.querySelector('#reportFinanceOverview');
+    const command = document.querySelector('#reportCommandCenter');
+    if (overview && command && !document.querySelector('#reportVisitOverview')) {
+      const details = document.createElement('details'); details.id = 'reportVisitOverview';
+      details.className = 'report-visit-overview'; details.dataset.reportSection = 'overview';
+      const summary = document.createElement('summary'); summary.textContent = 'Визиты, загрузка и цели';
+      command.before(details); details.append(summary, command);
+    }
+    if (overview && reportDataSource !== 'demo') {
+      setReportText('#analyticsView .report-head .view-description', 'Деньги, визиты и клиенты за выбранный период.');
+      const summary = document.querySelector('#reportFilterSummary');
+      if (summary) {
+        const from = reportDateText(selected.start, { day:'numeric', month:'short', ...(selected.start.slice(0,4) !== selected.end.slice(0,4) ? { year:'numeric' } : {}) });
+        const to = reportDateText(selected.end, { day:'numeric', month:'short', year:'numeric' });
+        summary.textContent = `${selected.period === 'all' ? 'За всё время' : selected.start === selected.end ? to : `${from} — ${to}`} · ${reportPerformerName()}`;
+      }
+      setReportText('#reportTrendTitle', 'Оплаты по датам визитов');
+    }
+    const visits = document.querySelector('#reportVisitOverview');
+    if (visits && visits.dataset.source !== reportDataSource) {
+      if (reportDataSource === 'demo') { visits.dataset.realOpen = String(visits.open); visits.open = true; }
+      else if (visits.dataset.source === 'demo') visits.open = visits.dataset.realOpen === 'true';
+      visits.dataset.source = reportDataSource;
+    }
+    const note = document.querySelector('#reportPeriodLabel');
+    if (note) note.dataset.dateBasis = 'visits';
+  }
+
+  // The reportRange hook may read only a confirmed current controller scope.
+  // Session/actor/source checks belong here, where the provider context exists.
+  const financialState = { context:null, revision:0, source:null };
+  function financialContext(end) {
+    return JSON.stringify([typeof sessionGeneration === 'undefined' ? null : sessionGeneration,
+      typeof currentUser === 'undefined' ? null : currentUser?.id || null,
+      reportOrganizationId(), reportPeriod, reportPerformerFilter, reportDataSource, end, reportTodayIso()]);
+  }
+  function financialBounds(scope) {
+    if (!scope || reportDataSource === 'demo' || reportPeriod !== 'all' || scope.period !== 'all'
+        || scope.organizationId !== reportOrganizationId() || scope.performerId !== reportPerformerFilter
+        || financialState.context !== financialContext(scope.end) || typeof financeController === 'undefined') return null;
+    return financeController?.financialBounds?.({ ...scope, contextToken:financialContext(scope.end) }) || null;
+  }
+
   function refreshReportUtmPresentation() {
     const sources = document.querySelector('#reportUtmFunnelSources');
     if (!sources || typeof reportUtmFunnelState === 'undefined' || typeof reportUtmIsTestSource !== 'function') return;
@@ -245,6 +318,8 @@
   const audit = MinutaStatisticsAuditUI.create({ document,
     getScope:() => ({ session:sessionGeneration, organization:reportOrganizationId(),
       organizationName:reportOrganization()?.display_name || reportOrganization()?.name || '',
+      role:reportOrganization()?.current_role || '',
+      locations:(reportOrganization()?.locations || []).map(item => ({ id:String(item.id || ''), name:String(item.name || '') })),
       source:reportDataSource, start:range().start, end:range().end,
       performer:reportPerformerFilter, performerName:reportPerformerName(),
       view:document.querySelector('#analyticsView')?.dataset.reportTab || 'overview',
@@ -268,7 +343,7 @@
   }
   document.querySelector('#reportTeamMetricNote')?.insertAdjacentHTML('afterend',
     '<p class="report-team-payment-warning">Есть визиты без отметки оплаты; они не входят в выручку.</p>');
-  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, refresh:() => { audit.refresh(); refreshReportMethodology(); }, periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
+  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, financialBounds, refresh:() => { audit.refresh(); refreshReportMethodology(); queueMicrotask(refreshFinancialOverview); }, periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
   if (reportPeriod === 'custom') updateReportFilterSummary();
   if (document.querySelector('#dashboard')?.dataset.activeView === 'analytics') renderAnalytics();
 })();
