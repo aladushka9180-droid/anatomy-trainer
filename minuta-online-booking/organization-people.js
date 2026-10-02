@@ -307,9 +307,10 @@
           const creator = document.getElementById(open.dataset.peopleOpen);
           creator.open = !creator.open;
           if (creator.open) {
+            if (matchMedia('(max-width: 760px)').matches) root.querySelectorAll('details[open]').forEach(node => { if (node !== creator) node.open = false; });
             const field = creator.querySelector('input:not([type="hidden"])');
             field?.focus({ preventScroll: true });
-            field?.scrollIntoView({ block: 'center' });
+            field?.scrollIntoView({ block: 'center', behavior: 'instant' });
           }
         }
         const cancel = event.target.closest('[data-people-cancel]');
