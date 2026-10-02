@@ -40,6 +40,21 @@ const db={rpc:async(name,args)=>{if(failWrite){failWrite=false;throw Error('synt
 const loadProviderReviews=async()=>renderProviderReviews();
 ${scriptText(productionFunctions)}
 const filled=()=>{portfolioItems=sampleWorks();providerReviews=sampleReviews();providerReviewsState='ready';portfolioRemoteAvailable=true;renderPortfolio();renderProviderReviews()};
+// Real provider lifecycle signal/order (handleSession, provider.js): reset is
+// emitted before dashboard/portfolio state changes; existing card DOM remains.
+window.portfolioFixtureSessionReset=kind=>{
+ window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
+ if(kind!=='actor-switch'){
+  $('#dashboard').hidden=true;
+  portfolioItems=[];providerReviews=[];providerReviewsState='idle';portfolioRemoteAvailable=false;
+ }
+};
+window.portfolioFixtureLoadActor=()=>{
+ portfolioItems=sampleWorks().map(item=>({...item,id:'actor-b-'+item.id,procedure_name:'Другой исполнитель — '+item.procedure_name}));
+ providerReviews=sampleReviews().map(item=>({...item,review_id:'actor-b-'+item.review_id,client_name:'Другой клиент'}));
+ providerReviewsState='ready';portfolioRemoteAvailable=true;$('#dashboard').hidden=false;
+ renderPortfolio();renderProviderReviews();
+};
 $('#fixtureFilled').addEventListener('click',filled);
 $('#fixtureEmpty').addEventListener('click',()=>{portfolioItems=[];providerReviews=[];providerReviewsState='ready';renderPortfolio();renderProviderReviews()});
 $('#fixtureError').addEventListener('click',()=>{portfolioRemoteAvailable=false;providerReviews=[];providerReviewsState='error';renderPortfolio();renderProviderReviews()});

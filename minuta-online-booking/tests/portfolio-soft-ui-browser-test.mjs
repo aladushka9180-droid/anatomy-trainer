@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { portfolioSoftFixture } from './portfolio-soft-ui-fixture.mjs';
 const module = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
@@ -92,6 +93,36 @@ try {
     await view.locator('.portfolio-soft-review-name').first().waitFor();
     assert.equal(await view.locator('.provider-review-card').count(), 2);
   }
+  const privacy=[];
+  for(const kind of ['logout','auth-expiry','actor-switch']){
+    await page.goto('about:blank');
+    await page.setContent(portfolioSoftFixture());
+    const trigger=page.locator('[data-portfolio-card="pair"] [data-portfolio-photo-preview]');
+    await trigger.click();
+    const dialog=page.locator('#portfolioPhotoPreviewDialog');
+    assert.equal(await dialog.evaluate(e=>e.open),true);
+    assert.equal(await dialog.locator('img').count(),2);
+    await trigger.evaluate(e=>window.portfolioFixtureOldTrigger=e);
+    await page.evaluate(kind=>window.portfolioFixtureSessionReset(kind),kind);
+    await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+    const result=await dialog.evaluate(e=>({kind:null,closed:!e.open,clones:e.querySelectorAll('img').length,staleFocus:document.activeElement===window.portfolioFixtureOldTrigger}));
+    result.kind=kind;
+    // Detached/stale actor DOM can dispatch clicks while a new snapshot loads.
+    await page.evaluate(()=>window.portfolioFixtureOldTrigger.click());
+    await page.evaluate(()=>new Promise(r=>requestAnimationFrame(r)));
+    result.staleReopen=await dialog.evaluate(e=>e.open);
+    await page.evaluate(()=>window.portfolioFixtureLoadActor());
+    const fresh=page.locator('[data-portfolio-card="actor-b-pair"] [data-portfolio-photo-preview]');
+    await fresh.click();
+    result.freshOpen=await dialog.evaluate(e=>e.open);
+    result.freshTitle=await dialog.locator('#portfolioPhotoPreviewTitle').textContent();
+    await page.keyboard.press('Escape');
+    await dialog.waitFor({state:'hidden'});
+    result.freshReturnFocus=await fresh.evaluate(e=>document.activeElement===e);
+    privacy.push(result);
+  }
+  if(process.env.MINUTA_PORTFOLIO_PRIVACY_OUTPUT)writeFileSync(process.env.MINUTA_PORTFOLIO_PRIVACY_OUTPUT,JSON.stringify({privacy,errors},null,2));
+  assert.deepEqual(privacy.filter(r=>!r.closed||r.clones!==0||r.staleFocus||r.staleReopen||!r.freshOpen||!r.freshTitle.includes('Другой исполнитель')||!r.freshReturnFocus),[],'Session reset must clear private gallery, reject stale nodes and preserve fresh gallery/keyboard behavior');
   assert.deepEqual(errors, []);
   console.log('Portfolio soft UI: PASS; 12 viewport/theme combinations, actual sidebar/workspace, 390/760/1180/1440, native menu/gallery, empty/error/retry. No production network.');
 } finally { await browser.close(); }
