@@ -14,6 +14,9 @@ on:
       - minuta-online-booking/supabase-migration-v187-rollback.sql
       - minuta-online-booking/tests/service-catalog-v187-postgres-test.mjs
       - minuta-online-booking/tests/service-catalog-v187-pglite-test.mjs
+      - minuta-online-booking/scripts/catalog-v186-v187-release-sql.mjs
+      - minuta-online-booking/tests/catalog-v186-v187-release-sql-test.mjs
+      - minuta-online-booking/tests/catalog-v186-v187-release-postgres-test.mjs
 
 permissions:
   contents: read
@@ -44,6 +47,10 @@ jobs:
       - run: npm install --no-save --no-package-lock --ignore-scripts pg@8.16.3
       - run: node --check minuta-online-booking/tests/inventory-catalog-v186-postgres-test.mjs
       - run: node minuta-online-booking/tests/inventory-catalog-v186-postgres-test.mjs
+        env:
+          MINUTA_V186_ISOLATED_DATABASE_URL: postgres://postgres:isolated-test-only@127.0.0.1:5432/isolated_v186
+      - run: node minuta-online-booking/tests/catalog-v186-v187-release-sql-test.mjs
+      - run: node minuta-online-booking/tests/catalog-v186-v187-release-postgres-test.mjs
         env:
           MINUTA_V186_ISOLATED_DATABASE_URL: postgres://postgres:isolated-test-only@127.0.0.1:5432/isolated_v186
 
