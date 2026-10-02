@@ -50,8 +50,23 @@
     const panel = document.querySelector('#analyticsView');
     if (!panel || typeof reportRange !== 'function') return;
     const selected = reportRange();
-    if (reportDataSource !== 'demo' && typeof financeController !== 'undefined')
-      void financeController?.load(selected, { shared:true, masterId:reportPerformerFilter });
+    const revision = ++financialState.revision;
+    const context = financialContext(selected.end);
+    if (financialState.context !== context) financialState.context = null;
+    if (reportDataSource === 'demo' && financialState.source !== 'demo' && typeof financeController !== 'undefined')
+      financeController?.invalidateBounds?.();
+    financialState.source = reportDataSource;
+    if (reportDataSource !== 'demo' && typeof financeController !== 'undefined') {
+      const controller = financeController;
+      void financeController?.load(selected, { shared:true, masterId:reportPerformerFilter, contextToken:context }).then(() => {
+        if (revision !== financialState.revision || controller !== financeController || context !== financialContext(selected.end)) return;
+        const bounds = controller.financialBounds?.({ period:selected.period, end:selected.end,
+          organizationId:reportOrganizationId(), performerId:reportPerformerFilter, contextToken:context });
+        financialState.context = bounds ? context : null;
+        const resolved = reportRange();
+        if ((resolved.start !== selected.start || resolved.end !== selected.end) && typeof renderAnalytics === 'function') renderAnalytics();
+      });
+    }
     const completed = reportCompletedItems(reportBookings(selected));
     panel.classList.toggle('report-no-completed-visits', !completed.length);
     const items = reportBookings(selected);
@@ -87,6 +102,21 @@
     }
     const note = document.querySelector('#reportPeriodLabel');
     if (note) note.dataset.dateBasis = 'visits';
+  }
+
+  // The reportRange hook may read only a confirmed current controller scope.
+  // Session/actor/source checks belong here, where the provider context exists.
+  const financialState = { context:null, revision:0, source:null };
+  function financialContext(end) {
+    return JSON.stringify([typeof sessionGeneration === 'undefined' ? null : sessionGeneration,
+      typeof currentUser === 'undefined' ? null : currentUser?.id || null,
+      reportOrganizationId(), reportPeriod, reportPerformerFilter, reportDataSource, end, reportTodayIso()]);
+  }
+  function financialBounds(scope) {
+    if (!scope || reportDataSource === 'demo' || reportPeriod !== 'all' || scope.period !== 'all'
+        || scope.organizationId !== reportOrganizationId() || scope.performerId !== reportPerformerFilter
+        || financialState.context !== financialContext(scope.end) || typeof financeController === 'undefined') return null;
+    return financeController?.financialBounds?.({ ...scope, contextToken:financialContext(scope.end) }) || null;
   }
 
   function refreshReportUtmPresentation() {
@@ -313,7 +343,7 @@
   }
   document.querySelector('#reportTeamMetricNote')?.insertAdjacentHTML('afterend',
     '<p class="report-team-payment-warning">Есть визиты без отметки оплаты; они не входят в выручку.</p>');
-  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, refresh:() => { audit.refresh(); refreshReportMethodology(); queueMicrotask(refreshFinancialOverview); }, periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
+  window.MinutaStatisticsAuditProvider = Object.freeze({ team:renderReportTeamRows, retention:renderReportRetention, calculations:renderReportCalculationDetails, freshnessLabel:reportFreshnessLabel, financialBounds, refresh:() => { audit.refresh(); refreshReportMethodology(); queueMicrotask(refreshFinancialOverview); }, periodName:() => reportPeriod === 'custom' ? customPeriodName() : reportPeriodName() });
   if (reportPeriod === 'custom') updateReportFilterSummary();
   if (document.querySelector('#dashboard')?.dataset.activeView === 'analytics') renderAnalytics();
 })();
