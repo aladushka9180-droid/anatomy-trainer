@@ -209,6 +209,17 @@ try{
     await storagePage.evaluate(()=>window.restoreCertificateStorage());await storagePage.locator('[data-issue]').click();await storagePage.getByRole('status').filter({hasText:'267'}).waitFor();
     const dispatches=await storagePage.evaluate(()=>window.certificateDispatches);assert.equal(dispatches.length,1);assert.equal(dispatches[0].marker.may_have_dispatched,true);assert.equal(dispatches[0].marker.id,dispatches[0].id);checks++;await storagePage.close();
   }
+  const queued=await context.newPage();queued.on('pageerror',e=>errors.push(e.message));await queued.goto(url+'/fixture.html?store=queued-'+crypto.randomUUID());await queued.locator('[data-canvas]').waitFor({state:'visible'});
+  await queued.evaluate(()=>{
+    const repo=window.certificateFixture.repository,original=repo.issue;window.queuedDispatches=[];
+    repo.issue=(...args)=>{window.queuedDispatches.push({id:args[2],snapshot:JSON.stringify(args[1])});if(window.queuedDispatches.length===1)return new Promise((resolve,reject)=>{window.rejectQueuedIssue=()=>reject(new Error('unknown response'))});return original(...args)};
+    const form=document.querySelector('[data-form]');form.dispatchEvent(new Event('submit',{cancelable:true}));form.dispatchEvent(new Event('submit',{cancelable:true}));
+  });
+  await queued.waitForFunction(()=>window.queuedDispatches.length===1);assert.equal(await queued.locator('[data-issue]').isDisabled(),true);assert.equal(await queued.locator('[data-number]').isDisabled(),true);checks++;
+  await queued.evaluate(()=>document.querySelector('[data-form]').dispatchEvent(new Event('submit',{cancelable:true})));assert.equal(await queued.evaluate(()=>window.queuedDispatches.length),1);checks++;
+  await queued.evaluate(()=>window.rejectQueuedIssue());await queued.getByRole('alert').waitFor();assert.equal(await queued.locator('[data-issue]').isDisabled(),false);assert.equal(await queued.locator('[data-open-library]').isDisabled(),true);
+  await queued.locator('[data-issue]').click();await queued.locator('[data-new]').waitFor({state:'visible'});
+  const queuedCalls=await queued.evaluate(()=>window.queuedDispatches);assert.equal(queuedCalls.length,2);assert.deepEqual(queuedCalls[1],queuedCalls[0]);assert.equal(await queued.evaluate(()=>window.certificateFixture.getState().records.length),1);checks++;await queued.close();
   await page.evaluate(async()=>{await window.certificateFixture.controller.setOrganization(null)});assert.equal(await page.locator('#certificateDesignerPanel').isVisible(),false);checks++;
   assert.deepEqual(errors,[]);checks++;
   writeFileSync(output+'/checks.json',JSON.stringify({checks,widths:[390,760,1440],pageErrors:errors,environment:'isolated fixture',fonts:'named font files not provided',nativeShare:'File MIME/name API contract tested with stub; OS share sheet not exercised',exports:['PNG','JPG','PDF','WebP']},null,2));

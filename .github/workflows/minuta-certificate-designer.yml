@@ -57,6 +57,7 @@ jobs:
         run: |
           export MINUTA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/certificate-browser/node_modules/playwright"
           node minuta-online-booking/tests/certificate-designer-browser-test.mjs
+          node minuta-online-booking/tests/certificate-designer-library-test.mjs
           node minuta-online-booking/tests/certificate-designer-ocr-test.mjs
       - uses: actions/upload-artifact@v4
         if: always()
