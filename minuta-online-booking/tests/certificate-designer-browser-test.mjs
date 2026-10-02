@@ -1,0 +1,70 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {writeFileSync,mkdirSync,readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {startServer} from './certificate-designer-fixture-server.mjs';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.MINUTA_PLAYWRIGHT_MODULE || 'playwright');
+const R=require('../certificate-renderer.js');
+assert.equal(R.procedureLabel('Массаж спины+швз — углубленный',1,60),'Массаж спины+швз — углубленный (1 час/1 сеанс)');
+assert.equal(R.addMonths('2026-08-31',6),'2027-02-28');assert.equal(R.addMonths('2023-08-31',6),'2024-02-29');
+assert.throws(()=>R.day('2026-02-30'),/invalid_date/);assert.equal(R.status({expires_on:'2026-10-02'},'2026-10-02').code,'expiring');
+assert.equal(R.status({expires_on:'2026-10-01'},'2026-10-02').code,'expired');
+const {server,url}=await startServer();const browser=await chromium.launch({headless:true});const context=await browser.newContext({acceptDownloads:true});
+const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const output=process.env.MINUTA_CERTIFICATE_OUTPUT || fileURLToPath(new URL('../../outputs/certificate-designer/',import.meta.url));mkdirSync(output,{recursive:true});
+let checks=6;
+try{
+  const store='check-'+Date.now();await page.goto(url+'/fixture.html?store='+store);await page.locator('[data-canvas]').waitFor({state:'visible'});
+  assert.equal(await page.locator('[data-number]').inputValue(),'267');assert.equal(await page.locator('[data-date]').inputValue(),'2026-10-03');checks++;
+  for(const width of [390,760,1440]){
+    await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await page.screenshot({path:output+`/create-${width}.png`,fullPage:true});checks++;
+  }
+  const downloadPromise=page.waitForEvent('download');await page.locator('[data-download]').click();const downloaded=await downloadPromise;await downloaded.saveAs(output+'/certificate-267.png');
+  const png=readFileSync(output+'/certificate-267.png');assert.equal(png.subarray(1,4).toString(),'PNG');assert.equal(downloaded.suggestedFilename(),'certificate-267.png');checks++;
+  const original=await page.locator('[data-canvas]').evaluate(canvas=>canvas.toDataURL());
+  await page.locator('[data-sessions]').fill('3');await page.waitForFunction(old=>document.querySelector('[data-canvas]').toDataURL()!==old,original);checks++;
+  await page.locator('[data-font]').selectOption('History Pro 02');await page.locator('[data-font-upload]').waitFor({state:'visible'});assert.equal(await page.locator('[data-download]').isDisabled(),true);checks++;
+  await page.locator('[data-font]').selectOption('Times New Roman');await page.locator('[data-download]').waitFor({state:'visible'});await page.locator('[data-sessions]').fill('1');
+  await page.locator('[data-issue]').click();await page.getByRole('status').filter({hasText:'267'}).waitFor();assert.equal(await page.locator('[data-new]').isVisible(),true);checks++;
+  await page.getByRole('tab',{name:'История',exact:true}).click();await page.locator('.certificate-row').waitFor();assert.equal(await page.locator('.certificate-row').count(),1);checks++;
+  await page.getByRole('searchbox').fill('спины+швз');assert.equal(await page.locator('.certificate-row').count(),1);
+  await page.getByRole('searchbox').fill('не найдено');await page.getByText('Сертификаты не найдены.',{exact:true}).waitFor();checks++;
+  await page.getByRole('searchbox').fill('267');await page.locator('.certificate-row').waitFor();await page.locator('[data-status]').selectOption('expired');await page.getByText('Сертификаты не найдены.',{exact:true}).waitFor();checks++;
+  await page.locator('[data-status]').selectOption('all');await page.locator('.certificate-row').waitFor();await page.getByRole('button',{name:'Открыть',exact:true}).click();
+  assert.equal(await page.locator('[data-number]').inputValue(),'267');assert.equal(await page.locator('[data-number]').isDisabled(),true);checks++;
+  await page.reload();await page.locator('[data-canvas]').waitFor({state:'visible'});await page.getByRole('tab',{name:'История',exact:true}).click();await page.locator('.certificate-row').waitFor();assert.equal(await page.locator('.certificate-row').count(),1);checks++;
+  await page.getByRole('button',{name:'Открыть',exact:true}).click();await page.locator('[data-new]').click();await page.locator('[data-number]').fill('267');await page.locator('[data-issue]').click();await page.getByRole('alert').filter({hasText:'уже есть'}).waitFor();assert.equal(await page.locator('[data-number]').isDisabled(),false);checks++;
+  await page.locator('[data-number]').fill('268');await page.locator('[data-date]').fill('2025-10-03');await page.locator('[data-expiry]').fill('2026-04-03');await page.locator('[data-issue]').click();await page.getByRole('status').filter({hasText:'268'}).waitFor();
+  await page.getByRole('tab',{name:'История',exact:true}).click();await page.locator('[data-status]').selectOption('expired');await page.locator('.certificate-status-expired').waitFor();assert.equal(await page.locator('.certificate-row').count(),1);checks++;
+  for(const width of [390,760,1440]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:output+`/history-${width}.png`,fullPage:true});checks++;}
+  await page.getByRole('tab',{name:'Создать',exact:true}).click();await page.locator('[data-new]').click();await page.locator('[data-number]').fill('269');
+  const today=await page.evaluate(()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Samara'}).format(new Date()));
+  await page.locator('[data-date]').fill(today);await page.locator('[data-expiry]').fill(today);await page.locator('[data-issue]').click();await page.getByRole('status').filter({hasText:'269'}).waitFor();
+  await page.getByRole('tab',{name:'История',exact:true}).click();await page.getByRole('searchbox').fill('');await page.locator('[data-status]').selectOption('expiring');await page.locator('.certificate-status-expiring').waitFor();
+  assert.equal(await page.locator('[data-reminders]').isVisible(),true);assert.equal(await page.locator('.certificate-row').count(),1);checks++;
+  await page.getByRole('tab',{name:'Создать',exact:true}).click();await page.locator('[data-new]').click();await page.locator('[data-number]').fill('270');
+  await page.getByText('Загрузить и настроить макет',{exact:true}).click();await page.locator('[data-field]').selectOption('date');await page.locator('[data-x]').fill('22');
+  assert.equal(await page.locator('[data-issue]').isDisabled(),true);await page.locator('[data-save-template]').click();await page.getByRole('status').filter({hasText:'Макет сохранён'}).waitFor();checks++;
+  await page.locator('[data-issue]').click();await page.getByRole('status').filter({hasText:'270'}).waitFor();
+  await page.getByRole('tab',{name:'История',exact:true}).click();await page.locator('[data-status]').selectOption('all');await page.getByRole('searchbox').fill('267');await page.locator('.certificate-row').filter({hasText:'267'}).getByRole('button',{name:'Открыть'}).click();
+  assert.equal(await page.locator('[data-canvas]').evaluate(canvas=>canvas.toDataURL()),original);checks++;
+  await page.locator('[data-new]').click();await page.locator('[data-number]').fill('271');
+  await page.evaluate(()=>{const repo=window.certificateFixture.repository,old=repo.issue;let once=true;repo.issue=async(...args)=>{const result=await old(...args);if(once){once=false;throw new Error('network timeout after accepted issue')}return result}});
+  await page.locator('[data-issue]').click();await page.getByRole('alert').waitFor();assert.equal(await page.locator('[data-number]').isDisabled(),true);checks++;
+  await page.reload();await page.locator('[data-canvas]').waitFor({state:'visible'});assert.equal(await page.locator('[data-number]').inputValue(),'271');
+  await page.evaluate(async()=>{const repo=window.certificateFixture.repository,original=repo.workspace;repo.workspace=async(...args)=>({...await original(...args),services:[]});await window.certificateFixture.controller.reload()});
+  await page.locator('[data-canvas]').waitFor({state:'visible'});assert.equal(await page.locator('[data-service]').inputValue(),'00000000-0000-4000-8000-000000000007');checks++;
+  await page.locator('[data-issue]').click();await page.getByRole('status').filter({hasText:'271'}).waitFor();
+  assert.equal(await page.evaluate(()=>window.certificateFixture.getState().records.filter(r=>r.number==='271').length),1);checks++;
+  await page.evaluate(async()=>{await window.certificateFixture.controller.setOrganization(null)});assert.equal(await page.locator('#certificateDesignerPanel').isVisible(),false);checks++;
+  assert.deepEqual(errors,[]);checks++;
+  writeFileSync(output+'/checks.json',JSON.stringify({checks,widths:[390,760,1440],pageErrors:errors,environment:'isolated fixture',fonts:'named font files not provided',nativeShare:'not exercised; PNG fallback exercised'},null,2));
+  console.log(`Certificate browser and renderer checks: ${checks} PASS; isolated fixture, not live acceptance.`);
+}catch(error){
+  await page.screenshot({path:output+'/failure.png',fullPage:true});
+  console.error(await page.locator('[data-error]').textContent());
+  console.error(await page.locator('input:invalid').evaluateAll(nodes=>nodes.map(n=>({field:n.outerHTML.slice(0,180),message:n.validationMessage}))));
+  throw error;
+}finally{await browser.close();server.close();}

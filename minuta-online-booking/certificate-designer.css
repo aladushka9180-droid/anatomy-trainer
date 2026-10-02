@@ -1,0 +1,33 @@
+.certificate-designer { color: var(--theme-ink, var(--ink, #2c2330)); }
+.certificate-designer [hidden] { display: none !important; }
+.certificate-designer .certificate-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.certificate-designer .certificate-heading h3 { margin: 0; }
+.certificate-designer .certificate-tabs { display: flex; gap: 20px; flex-wrap: wrap; border-bottom: 1px solid var(--theme-line, var(--line, #eadfe4)); margin-bottom: 20px; }
+.certificate-designer .certificate-tabs button { border: 0; background: none; padding: 10px 0; color: inherit; font: inherit; border-bottom: 2px solid transparent; }
+.certificate-designer .certificate-tabs button[aria-selected=true] { color: var(--theme-accent, #a33c70); border-bottom-color: currentColor; }
+.certificate-designer .certificate-layout { display: grid; grid-template-columns: minmax(240px, .85fr) minmax(0, 1.15fr); gap: 26px; align-items: start; }
+.certificate-designer .certificate-form { display: grid; gap: 14px; min-width: 0; }
+.certificate-designer label { display: grid; gap: 6px; min-width: 0; }
+.certificate-designer input,.certificate-designer select { box-sizing: border-box; width: 100%; min-height: 44px; border: 1px solid var(--theme-line, var(--line, #e8dce2)); border-radius: 10px; padding: 10px 12px; font: inherit; color: inherit; background: var(--theme-surface, #fff); }
+.certificate-designer .certificate-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.certificate-designer .certificate-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.certificate-designer .certificate-buttons button,.certificate-designer .certificate-row button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--theme-line, var(--line, #e8dce2)); border-radius: 10px; color: inherit; background: var(--theme-surface, #fff); font: inherit; }
+.certificate-designer .certificate-buttons .primary { color: #fff; background: var(--theme-accent, #a33c70); border-color: transparent; }
+.certificate-designer button:disabled { opacity: .5; }
+.certificate-designer .certificate-help { color: var(--theme-muted, var(--muted, #756a72)); margin: 0; font-size: .9em; }
+.certificate-designer .certificate-preview { margin: 0; min-width: 0; }
+.certificate-designer canvas { width: 100%; height: auto; display: block; background: #fff; }
+.certificate-designer .certificate-preview-empty { padding: 80px 16px; text-align: center; border: 1px dashed var(--theme-line, var(--line, #e8dce2)); }
+.certificate-designer .certificate-message { margin: 12px 0; }
+.certificate-designer .certificate-error { color: var(--error-color, #9c233d); }
+.certificate-designer details { padding-top: 8px; }
+.certificate-designer summary { min-height: 36px; cursor: pointer; }
+.certificate-designer .certificate-history-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; margin-bottom: 16px; }
+.certificate-designer .certificate-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--theme-line, var(--line, #e8dce2)); }
+.certificate-designer .certificate-row-main { display: grid; gap: 5px; min-width: 0; flex: 1 1 230px; overflow-wrap: anywhere; }
+.certificate-designer .certificate-status { display: inline-flex; padding: 5px 9px; border-radius: 8px; font-size: .9em; color: var(--theme-muted, var(--muted, #756a72)); background: color-mix(in srgb, var(--theme-line, #eadfe4) 30%, var(--theme-surface, #fff)); }
+.certificate-designer .certificate-status-expiring { color: var(--theme-accent, #87560f); background: color-mix(in srgb, var(--theme-accent, #87560f) 10%, var(--theme-surface, #fff)); }
+.certificate-designer .certificate-status-expired { color: var(--theme-muted, var(--muted, #756a72)); }
+.certificate-designer .certificate-reminder { padding: 12px 0; color: var(--theme-accent, #87560f); }
+@media(max-width:760px) { .certificate-designer .certificate-layout { grid-template-columns: minmax(0,1fr); } .certificate-designer .certificate-preview { max-width: 540px; margin-inline: auto; width: 100%; } }
+@media(max-width:390px) { .certificate-designer .certificate-pair,.certificate-designer .certificate-history-controls { grid-template-columns: minmax(0,1fr); } }

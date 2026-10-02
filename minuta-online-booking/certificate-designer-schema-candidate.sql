@@ -1,0 +1,236 @@
+-- Unnumbered, additive candidate. Release owner must allocate a migration number
+-- and complete backup / PostgreSQL / rollback gates before production execution.
+-- Private visual certificate registry; no payment, benefit, booking or redemption writes.
+begin;
+
+create table if not exists public.certificate_design_templates (
+  id uuid primary key,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
+  creator_id uuid not null references auth.users(id) on delete restrict,
+  name text not null check (char_length(name) between 1 and 100),
+  body jsonb not null check (octet_length(body::text) <= 18000000),
+  created_at timestamptz not null default clock_timestamp(),
+  unique(id,organization_id)
+);
+create table if not exists public.certificate_design_issues (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete restrict,
+  creator_id uuid not null references auth.users(id) on delete restrict,
+  template_id uuid not null,
+  request_id uuid not null,
+  certificate_number text not null check (char_length(certificate_number) between 1 and 40),
+  record jsonb not null check (octet_length(record::text) <= 16000),
+  issued_on date not null,
+  expires_on date not null check (expires_on >= issued_on),
+  remind_days integer not null check (remind_days between 0 and 365),
+  created_at timestamptz not null default clock_timestamp(),
+  foreign key(template_id,organization_id) references public.certificate_design_templates(id,organization_id) on delete restrict,
+  unique(organization_id,certificate_number),
+  unique(organization_id,creator_id,request_id)
+);
+create index if not exists certificate_design_history_idx on public.certificate_design_issues(organization_id,created_at desc,id desc);
+create index if not exists certificate_design_expiry_idx on public.certificate_design_issues(organization_id,expires_on);
+alter table public.certificate_design_templates enable row level security;
+alter table public.certificate_design_templates force row level security;
+alter table public.certificate_design_issues enable row level security;
+alter table public.certificate_design_issues force row level security;
+revoke all on public.certificate_design_templates,public.certificate_design_issues from public,anon,authenticated,service_role;
+grant select on public.certificate_design_templates,public.certificate_design_issues to authenticated;
+
+create or replace function public.minuta_certificate_can_read(p_organization uuid,p_creator uuid)
+returns boolean language sql stable security definer set search_path='' as $$
+  select exists(select 1 from public.organization_memberships m
+    join public.organizations o on o.id=m.organization_id and o.status='active'
+    where m.organization_id=p_organization and m.user_id=auth.uid() and m.active
+      and (m.role in ('owner','admin') or (m.role='specialist' and p_creator=auth.uid())));
+$$;
+revoke all on function public.minuta_certificate_can_read(uuid,uuid) from public,anon,authenticated,service_role;
+grant execute on function public.minuta_certificate_can_read(uuid,uuid) to authenticated;
+drop policy if exists certificate_design_template_read on public.certificate_design_templates;
+create policy certificate_design_template_read on public.certificate_design_templates for select to authenticated
+  using(public.minuta_certificate_can_read(organization_id,creator_id));
+drop policy if exists certificate_design_issue_read on public.certificate_design_issues;
+create policy certificate_design_issue_read on public.certificate_design_issues for select to authenticated
+  using(public.minuta_certificate_can_read(organization_id,creator_id));
+
+create or replace function public.minuta_certificate_role(p_organization uuid)
+returns text language plpgsql stable security definer set search_path='' as $$
+declare v_role text;
+begin
+  if auth.uid() is null then raise exception using errcode='42501',message='authentication_required'; end if;
+  select m.role into v_role from public.organization_memberships m
+    join public.organizations o on o.id=m.organization_id and o.status='active'
+    where m.organization_id=p_organization and m.user_id=auth.uid() and m.active;
+  if v_role is null or v_role not in ('owner','admin','specialist') then
+    raise exception using errcode='42501',message='certificate_access_denied';
+  end if;
+  return v_role;
+end $$;
+create or replace function public.minuta_certificate_today(p_organization uuid)
+returns date language plpgsql stable security definer set search_path='' as $$
+declare v_timezone text;
+begin
+  select l.timezone into v_timezone from public.locations l where l.organization_id=p_organization and l.active
+    order by l.is_primary desc,l.id limit 1;
+  if v_timezone is null or not exists(select 1 from pg_catalog.pg_timezone_names z where z.name=v_timezone) then
+    raise exception using errcode='22023',message='certificate_timezone_unavailable';
+  end if;
+  return (current_timestamp at time zone v_timezone)::date;
+end $$;
+create or replace function public.minuta_certificate_valid_layout(p_layout jsonb)
+returns boolean language plpgsql immutable set search_path='' as $$
+declare v_key text; v_field jsonb;
+begin
+  if jsonb_typeof(p_layout) is distinct from 'object' or octet_length(p_layout::text)>1200 then return false; end if;
+  foreach v_key in array array['procedure','date','number'] loop
+    v_field:=p_layout->v_key;
+    if jsonb_typeof(v_field) is distinct from 'object'
+      or jsonb_typeof(v_field->'x') is distinct from 'number' or jsonb_typeof(v_field->'y') is distinct from 'number'
+      or jsonb_typeof(v_field->'width') is distinct from 'number' or jsonb_typeof(v_field->'size') is distinct from 'number'
+      or jsonb_typeof(v_field->'italic') is distinct from 'boolean' then return false; end if;
+    if (v_field->>'x')::numeric not between .025 and .975 or (v_field->>'y')::numeric not between .025 and .975
+      or (v_field->>'width')::numeric not between .05 and 1 or (v_field->>'size')::numeric not between .005 and .1
+      or (v_field->>'width')::numeric > 2*(v_field->>'x')::numeric
+      or (v_field->>'width')::numeric > 2*(1-(v_field->>'x')::numeric) then return false; end if;
+  end loop;
+  return true;
+end $$;
+
+create or replace function public.save_minuta_certificate_design(p_organization uuid,p_template jsonb)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare v_role text; v_id uuid; v_existing public.certificate_design_templates%rowtype; v_font record;
+begin
+  v_role:=public.minuta_certificate_role(p_organization);
+  if jsonb_typeof(p_template) is distinct from 'object' or octet_length(p_template::text)>18000000
+    or coalesce(char_length(p_template->>'name'),0) not between 1 and 100
+    or coalesce(p_template->>'image_data','') !~ '^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$'
+    or char_length(p_template->>'image_data')>11200000
+    or not public.minuta_certificate_valid_layout(p_template->'layout')
+    or jsonb_typeof(p_template->'font_files') is distinct from 'object' then
+    raise exception using errcode='22023',message='invalid_certificate_template';
+  end if;
+  for v_font in select * from jsonb_each_text(p_template->'font_files') loop
+    if v_font.key not in ('Gabriola','History Pro 02') or char_length(v_font.value)>2800000
+      or v_font.value !~ '^data:(font/[A-Za-z0-9.+-]+|application/(octet-stream|font-woff|x-font-ttf|x-font-opentype|vnd.ms-opentype));base64,[A-Za-z0-9+/=]+$' then
+      raise exception using errcode='22023',message='invalid_certificate_font';
+    end if;
+  end loop;
+  v_id:=(p_template->>'id')::uuid;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_id::text,0));
+  select * into v_existing from public.certificate_design_templates where id=v_id;
+  if found then
+    if v_existing.organization_id<>p_organization or v_existing.creator_id<>auth.uid() or v_existing.body<>p_template then
+      raise exception using errcode='22023',message='certificate_request_conflict';
+    end if;
+  else
+    insert into public.certificate_design_templates(id,organization_id,creator_id,name,body)
+      values(v_id,p_organization,auth.uid(),p_template->>'name',p_template);
+  end if;
+  return jsonb_build_object('organization_id',p_organization,'id',v_id);
+end $$;
+
+create or replace function public.get_minuta_certificate_design(p_organization uuid,p_template uuid)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare v_role text; v_body jsonb;
+begin
+  v_role:=public.minuta_certificate_role(p_organization);
+  select t.body into v_body from public.certificate_design_templates t
+    where t.organization_id=p_organization and t.id=p_template and public.minuta_certificate_can_read(t.organization_id,t.creator_id);
+  if v_body is null then raise exception using errcode='42501',message='certificate_template_not_found'; end if;
+  return jsonb_build_object('organization_id',p_organization,'template',v_body);
+end $$;
+
+create or replace function public.get_minuta_certificate_design_workspace(p_organization uuid)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare v_role text;
+begin
+  v_role:=public.minuta_certificate_role(p_organization);
+  return jsonb_build_object('organization_id',p_organization,'current_role',v_role,'today',public.minuta_certificate_today(p_organization),
+    'templates',coalesce((select jsonb_agg(jsonb_build_object('id',t.id,'name',t.name) order by t.created_at desc)
+      from (select * from public.certificate_design_templates where organization_id=p_organization
+        and public.minuta_certificate_can_read(organization_id,creator_id) order by created_at desc limit 50) t),'[]'::jsonb),
+    'services',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'duration_minutes',s.duration_minutes) order by s.name,s.id)
+      from public.services s join public.organization_memberships m on m.organization_id=p_organization
+        and m.user_id=s.performer_id and m.active and m.is_bookable
+      where s.active and (v_role in ('owner','admin') or s.performer_id=auth.uid())),'[]'::jsonb));
+end $$;
+
+create or replace function public.record_minuta_certificate_issue(p_organization uuid,p_record jsonb,p_request_id uuid)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare v_role text; v_existing public.certificate_design_issues%rowtype; v_template uuid; v_id uuid; v_service public.services%rowtype;
+  v_sessions integer; v_issued date; v_expiry date; v_remind integer; v_number text;
+begin
+  v_role:=public.minuta_certificate_role(p_organization);
+  if p_request_id is null then raise exception using errcode='22023',message='certificate_request_required'; end if;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_organization::text||auth.uid()::text||p_request_id::text,0));
+  select * into v_existing from public.certificate_design_issues
+    where organization_id=p_organization and creator_id=auth.uid() and request_id=p_request_id;
+  if found then
+    if v_existing.record<>p_record then raise exception using errcode='22023',message='certificate_request_conflict'; end if;
+    return jsonb_build_object('organization_id',p_organization,'record',v_existing.record||jsonb_build_object('id',v_existing.id));
+  end if;
+  if jsonb_typeof(p_record) is distinct from 'object' or octet_length(p_record::text)>16000
+    or coalesce(char_length(p_record->>'procedure'),0) not between 1 and 260
+    or not public.minuta_certificate_valid_layout(p_record->'layout') then raise exception using errcode='22023',message='invalid_certificate'; end if;
+  v_template:=(p_record->>'template_id')::uuid; v_sessions:=(p_record->>'sessions')::integer;
+  v_issued:=(p_record->>'issued_on')::date; v_expiry:=(p_record->>'expires_on')::date;
+  v_remind:=(p_record->>'remind_days')::integer; v_number:=btrim(p_record->>'number');
+  if v_issued is null or v_expiry is null or v_expiry<v_issued or v_expiry>v_issued+interval '10 years'
+    or v_sessions is null or v_sessions not between 1 and 1000 or v_remind is null or v_remind not between 0 and 365
+    or coalesce(char_length(v_number),0) not between 1 and 40 or v_number<>p_record->>'number'
+    or p_record->>'font_family' is null or p_record->>'font_family' not in ('Times New Roman','Gabriola','History Pro 02') then
+    raise exception using errcode='22023',message='invalid_certificate';
+  end if;
+  if not exists(select 1 from public.certificate_design_templates t where t.id=v_template and t.organization_id=p_organization
+    and public.minuta_certificate_can_read(t.organization_id,t.creator_id)
+    and (p_record->>'font_family'='Times New Roman' or coalesce(t.body->'font_files'->>(p_record->>'font_family'),'')<>'')) then
+    raise exception using errcode='42501',message='certificate_template_not_found';
+  end if;
+  select s.* into v_service from public.services s join public.organization_memberships m
+    on m.organization_id=p_organization and m.user_id=s.performer_id and m.active and m.is_bookable
+    where s.id=(p_record->>'service_id')::uuid and s.active and (v_role in ('owner','admin') or s.performer_id=auth.uid());
+  if not found or v_service.name is distinct from p_record->>'service_name'
+    or v_service.duration_minutes is distinct from (p_record->>'duration_minutes')::integer then
+    raise exception using errcode='22023',message='invalid_certificate_service';
+  end if;
+  begin
+    insert into public.certificate_design_issues(organization_id,creator_id,template_id,request_id,certificate_number,record,issued_on,expires_on,remind_days)
+      values(p_organization,auth.uid(),v_template,p_request_id,v_number,p_record,v_issued,v_expiry,v_remind) returning id into v_id;
+  exception when unique_violation then raise exception using errcode='23505',message='certificate_number_exists'; end;
+  return jsonb_build_object('organization_id',p_organization,'record',p_record||jsonb_build_object('id',v_id));
+end $$;
+
+create or replace function public.get_minuta_certificate_issue_history(p_organization uuid,p_query text default '',p_status text default 'all',p_cursor jsonb default null)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare v_role text; v_today date; v_rows jsonb; v_cursor jsonb; v_count integer;
+begin
+  v_role:=public.minuta_certificate_role(p_organization); v_today:=public.minuta_certificate_today(p_organization);
+  if p_query is null or char_length(p_query)>180 or p_status is null or p_status not in ('all','active','expiring','expired') then
+    raise exception using errcode='22023',message='invalid_certificate_search';
+  end if;
+  with filtered as (
+    select i.* from public.certificate_design_issues i where i.organization_id=p_organization
+      and public.minuta_certificate_can_read(i.organization_id,i.creator_id)
+      and strpos(lower(i.certificate_number||' '||(i.record->>'procedure')),lower(btrim(p_query)))>0
+      and (p_status='all' or (p_status='expired' and i.expires_on<v_today)
+        or (p_status='expiring' and i.expires_on between v_today and v_today+i.remind_days)
+        or (p_status='active' and i.expires_on>v_today+i.remind_days))
+      and (p_cursor is null or (i.created_at,i.id)<((p_cursor->>'created_at')::timestamptz,(p_cursor->>'id')::uuid))
+    order by i.created_at desc,i.id desc limit 51
+  ), paged as (select * from filtered order by created_at desc,id desc limit 50)
+  select coalesce((select jsonb_agg(p.record||jsonb_build_object('id',p.id) order by p.created_at desc,p.id desc) from paged p),'[]'::jsonb),
+    case when (select count(*) from filtered)>50 then (select jsonb_build_object('created_at',created_at,'id',id) from paged order by created_at,id limit 1) else null end
+    into v_rows,v_cursor;
+  select count(*) into v_count from public.certificate_design_issues i where i.organization_id=p_organization
+    and public.minuta_certificate_can_read(i.organization_id,i.creator_id) and i.expires_on between v_today and v_today+i.remind_days;
+  return jsonb_build_object('organization_id',p_organization,'today',v_today,'records',v_rows,'next_cursor',v_cursor,'expiring_count',v_count);
+end $$;
+
+revoke all on function public.minuta_certificate_role(uuid),public.minuta_certificate_today(uuid),public.minuta_certificate_valid_layout(jsonb) from public,anon,authenticated,service_role;
+revoke all on function public.save_minuta_certificate_design(uuid,jsonb),public.get_minuta_certificate_design(uuid,uuid),
+  public.get_minuta_certificate_design_workspace(uuid),public.record_minuta_certificate_issue(uuid,jsonb,uuid),
+  public.get_minuta_certificate_issue_history(uuid,text,text,jsonb) from public,anon,authenticated,service_role;
+grant execute on function public.save_minuta_certificate_design(uuid,jsonb),public.get_minuta_certificate_design(uuid,uuid),
+  public.get_minuta_certificate_design_workspace(uuid),public.record_minuta_certificate_issue(uuid,jsonb,uuid),
+  public.get_minuta_certificate_issue_history(uuid,text,text,jsonb) to authenticated;
+commit;
