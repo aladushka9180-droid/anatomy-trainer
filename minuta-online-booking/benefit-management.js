@@ -40,8 +40,11 @@
         const raw=window.localStorage.getItem(key);if(!raw)return;
         const intent=JSON.parse(raw),id=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if(intent.actor_id!==getCurrentUser()?.id || intent.organization_id!==organization?.id
-          || !id.test(intent.booking_id||'') || !id.test(intent.request_id||''))throw Error('invalid_connection_intent');
-        connectionIntent=intent;
+          || !id.test(intent.booking_id||'') || !id.test(intent.request_id||'')
+          || !(intent.may_have_dispatched===undefined || typeof intent.may_have_dispatched==='boolean'))throw Error('invalid_connection_intent');
+        // Old records did not track dispatch. Treat them as unresolved rather
+        // than mistaking a reload for a provably never-sent operation.
+        connectionIntent={...intent,may_have_dispatched:intent.may_have_dispatched!==false};
       }catch{connectionStorageFailed=true;}
     }
     function renderClientConnection() {
@@ -108,7 +111,7 @@
         const id=$('#benefitClientConnectionBooking').value;
         if(!connectionRows.some(row=>row.id===id)){showFormError('#benefitClientConnectionError','Выберите подтверждённую запись клиента.');return;}
         try{
-          intent={actor_id:actor,organization_id:org,booking_id:id,request_id:uuid()};
+          intent={actor_id:actor,organization_id:org,booking_id:id,request_id:uuid(),may_have_dispatched:false};
           const encoded=JSON.stringify(intent),key=connectionKey();
           if(window.localStorage.getItem(key))throw Error('another_connection_intent');
           window.localStorage.setItem(key,encoded);
@@ -117,21 +120,31 @@
         }catch{showFormError('#benefitClientConnectionError','Не удалось сохранить защиту от повтора. Подключение не отправлено.');return;}
       }
       writing=true;setBusy(true);$('#benefitClientConnectionError').hidden=true;
-      let connected=false,rejected=false,problem='Не удалось подтвердить подключение. Повторите проверку этой же операции.';
+      let connected=false,problem='Не удалось подтвердить подключение. Повторите проверку этой же операции.';
       try {
         let row=await connectionBooking(intent.booking_id,org);
         if(!connectionIsCurrent(actor,generation,org,current))return;
         if(!row.client_account_id){
           if(row.status==='cancelled'||!(row.status==='confirmed'||row.payment_status==='paid')){
-            rejected=true;problem='Запись уже недоступна для подключения. Загрузите записи и выберите другую.';throw Error('client_claim_grant_denied');
+            problem='Запись уже недоступна для подключения. Результат сохранённой операции пока не подтверждён.';throw Error('client_claim_grant_denied');
           }
+          // Persist potential dispatch BEFORE crossing the network boundary.
+          // A crash/lost reply, later 42501 or missing RPC must retain this ID:
+          // those checks can fail before the original request's SQL lock.
+          const key=connectionKey(),stored=JSON.parse(window.localStorage.getItem(key)||'null');
+          if(stored?.request_id!==intent.request_id || stored.booking_id!==intent.booking_id
+            || stored.actor_id!==actor || stored.organization_id!==org)throw Error('connection_intent_changed');
+          intent={...intent,may_have_dispatched:true};
+          const encoded=JSON.stringify(intent);window.localStorage.setItem(key,encoded);
+          if(window.localStorage.getItem(key)!==encoded)throw Error('connection_dispatch_not_saved');
+          connectionIntent=intent;
           const {error}=await db.rpc('issue_client_identity_claim_grant_v155',{
             p_organization:org,p_booking:intent.booking_id,p_request_id:intent.request_id,p_expires_minutes:10
           });
           if(!connectionIsCurrent(actor,generation,org,current))return;
           if(error){
-            if(/PGRST202|42883/.test(error.code||'')||/function.*does not exist|schema cache/i.test(error.message||'')){problem='Сервер пока не поддерживает подключение клиента.';rejected=true;}
-            else if(/client_claim_grant_denied|permission|42501/i.test(`${error.code||''} ${error.message||''}`)){problem='Нет прав на подключение или запись уже недоступна.';rejected=true;}
+            if(/PGRST202|42883/.test(error.code||'')||/function.*does not exist|schema cache/i.test(error.message||''))problem='Сервер пока не поддерживает подключение клиента. Сохранена прежняя операция.';
+            else if(/client_claim_grant_denied|permission|42501/i.test(`${error.code||''} ${error.message||''}`))problem='Нет прав на подключение или запись уже недоступна. Сохранена прежняя операция.';
           }
           // A lost response must not produce a new request or expose a secret.
           row=await connectionBooking(intent.booking_id,org);
@@ -145,19 +158,8 @@
         connectionIntent=null;connectionRows=[];connected=true;
       }catch{
         if(connectionIsCurrent(actor,generation,org,current)){
-          if(rejected){
-            // Only a definite refusal plus a fresh scoped absence can unlock
-            // another booking. An unknown response remains on the original ID.
-            try{
-              const row=await connectionBooking(intent.booking_id,org);
-              if(connectionIsCurrent(actor,generation,org,current)&&!row.client_account_id){
-                const key=connectionKey();
-                if(JSON.parse(window.localStorage.getItem(key)||'null')?.request_id!==intent.request_id)throw Error('connection_intent_changed');
-                window.localStorage.removeItem(key);if(window.localStorage.getItem(key)!==null)throw Error('connection_clear_failed');
-                connectionIntent=null;
-              }
-            }catch{problem='Не удалось сверить отказ. Повторите проверку этой же операции.';}
-          }
+          // Absence is not terminal proof for an unresolved dispatch. Only the
+          // positive scoped account check above clears the recovery identity.
           if(connectionIsCurrent(actor,generation,org,current))showFormError('#benefitClientConnectionError',problem);
         }
       }
