@@ -179,3 +179,92 @@ body.provider-body[data-provider-text-scale] #analyticsView :is(.report-data-sou
 #analyticsView.report-financial-first .report-period-label{font-size:13px;line-height:1.45}
 #analyticsView .report-visit-overview>summary:focus-visible{outline:2px solid var(--theme-accent);outline-offset:2px;border-radius:4px}
 #analyticsView.report-financial-first #reportFilterSummary{white-space:normal;line-height:1.4}
+
+/* Keep the data source explicit without a second large filter panel. */
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource:not([hidden]) {
+  display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:0;
+  border:0;border-radius:0;background:transparent;box-shadow:none;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource>span {display:none}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource>div {
+  display:inline-flex;gap:2px;padding:2px;width:auto;border:1px solid color-mix(in srgb,var(--theme-ink) 13%,transparent);
+  border-radius:12px;background:var(--theme-surface);
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource button {
+  min-height:40px;width:auto;padding:8px 14px;border:0;border-radius:9px;background:transparent;box-shadow:none;
+  color:var(--theme-muted);font-size:calc(13px + var(--provider-text-step,0px));font-weight:500;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource button.active {
+  color:var(--theme-accent);background:color-mix(in srgb,var(--theme-accent) 7%,var(--theme-surface));font-weight:600;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource>small {
+  margin:0;color:var(--theme-muted);font-size:calc(13px + var(--provider-text-step,0px));
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filters {
+  border-color:color-mix(in srgb,var(--theme-ink) 13%,transparent);background:var(--theme-surface);box-shadow:none;border-radius:16px;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filter-toggle {
+  background:transparent;border:0;box-shadow:none;text-align:left;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filter-toggle>span>small {
+  color:var(--theme-muted);font-size:calc(13px + var(--provider-text-step,0px));letter-spacing:normal;text-transform:none;font-weight:500;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFilterSummary {font-weight:600;color:var(--theme-ink)}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs {
+  padding:3px;gap:2px;background:color-mix(in srgb,var(--theme-ink) 3%,var(--theme-surface));
+  border:1px solid color-mix(in srgb,var(--theme-ink) 10%,transparent);border-radius:12px;box-shadow:none;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs button {
+  min-height:44px;padding:9px 16px;border:0;border-radius:9px;background:transparent;box-shadow:none;color:var(--theme-muted);font-weight:500;
+}
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs button.active {
+  background:var(--theme-surface);color:var(--theme-ink);font-weight:650;box-shadow:0 1px 3px color-mix(in srgb,var(--theme-ink) 6%,transparent);
+}
+/* Theme-wide filled-control rules must not erase the quiet selected state here. */
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard #analyticsView :is(#reportDataSource button.active,.report-periods button.active) {
+  background:color-mix(in srgb,var(--theme-accent) 9%,var(--theme-surface))!important;
+  background-image:none!important;color:var(--theme-ink)!important;border-color:transparent!important;box-shadow:none!important;font-weight:650;
+}
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard #analyticsView .report-view-tabs button.active {
+  background:var(--theme-surface)!important;background-image:none!important;color:var(--theme-ink)!important;
+  border-color:transparent!important;box-shadow:0 1px 3px color-mix(in srgb,var(--theme-ink) 6%,transparent)!important;
+}
+#analyticsView .report-visit-overview>.report-period-details {margin-top:12px}
+@media(min-width:761px) {
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filters {padding:10px 12px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filter-content {gap:8px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-toolbar {align-items:center;gap:10px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-performer-filter {
+    display:flex;align-items:center;flex:0 1 258px;min-width:0;gap:8px;margin:0;
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-performer-filter>span {
+    color:var(--theme-muted);font-size:calc(13px + var(--provider-text-step,0px));font-weight:500;letter-spacing:normal;text-transform:none;
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-performer-filter select {
+    min-width:140px;min-height:44px;height:44px;margin:0;font-size:calc(13px + var(--provider-text-step,0px));font-weight:500;
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-periods {
+    gap:2px;background:color-mix(in srgb,var(--theme-ink) 3%,var(--theme-surface));
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-periods button {
+    min-height:44px;padding:0 12px;background:transparent;box-shadow:none;
+    font-size:calc(13px + var(--provider-text-step,0px));font-weight:500;
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-periods button.active {
+    background:color-mix(in srgb,var(--theme-accent) 7%,var(--theme-surface));color:var(--theme-accent);font-weight:600;
+  }
+}
+@media(max-width:600px) {
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head {margin-bottom:8px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head .view-description {display:none}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #exportBookings {margin-top:0}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource:not([hidden]) {margin-bottom:4px;gap:6px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filters {margin-bottom:0;padding:4px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs {margin:4px 0}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView:not([data-report-source="demo"]) #reportDataSource>small {display:none}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView[data-report-source="demo"] #reportDataSource {flex-wrap:wrap}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs {display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs button {
+    min-width:0;padding:9px 5px;font-size:calc(13px + var(--provider-text-step,0px));line-height:1.35;white-space:normal;
+  }
+}
