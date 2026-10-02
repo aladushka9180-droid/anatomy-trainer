@@ -302,19 +302,80 @@
     async function readScreen({ period = 'current_month', masterId = '', cursor = '' } = {}) {
       if (!isManager()) return { available:false, financeEnabled:false, resultReliable:false, availabilityMessage:'Финансы доступны только владельцу и администратору.' };
       const requestGeneration = generation;
-      const bounds = selectedScope?.bounds || periodBounds(period);
+      const requestScope = selectedScope;
+      const assertContext = () => {
+        if (requestGeneration !== generation || requestScope !== selectedScope)
+          throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
+      };
+      let bounds = selectedScope?.bounds || periodBounds(period);
       let parsedCursor = null;
       try { parsedCursor = cursor ? JSON.parse(cursor) : null; } catch (_) { parsedCursor = null; }
-      const raw = await rpc('get_minuta_finance_screen_v163', {
+      const readRaw = (bounds, includeCursor = true) => rpc('get_minuta_finance_screen_v163', {
         p_organization:organization.id,
         p_start:bounds.start,
         p_end:bounds.end,
         p_performer:masterId || null,
         p_limit:30,
-        p_before_occurred_at:parsedCursor?.occurred_at || null,
-        p_before_key:parsedCursor?.event_key || null
+        p_before_occurred_at:includeCursor ? parsedCursor?.occurred_at || null : null,
+        p_before_key:includeCursor ? parsedCursor?.event_key || null : null
       }, 'Не удалось загрузить финансовые данные.');
-      if (requestGeneration !== generation) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
+      let metadata = null;
+      if ((selectedScope?.period || period) === 'all') {
+        // Booking-derived reportRange is not the beginning of financial history.
+        // A safe one-day RPC confirms timezone/scope before organization-RLS reads.
+        try { metadata = await readRaw({ start:bounds.end, end:bounds.end }, false); }
+        catch (error) {
+          assertContext();
+          if (error?.name === 'AbortError') throw error;
+          return { available:false, availabilityMessage:'За всё время: финансовый источник не подтвердил область и часовой пояс. Обновите данные.' };
+        }
+        assertContext();
+        if (metadata?.schema !== 'minuta-finance-screen-v1' || metadata.ledger_version !== 163
+            || metadata.organization_id !== organization.id || metadata.currency !== 'RUB'
+            || metadata.period?.start !== bounds.end || metadata.period?.end !== bounds.end
+            || String(metadata.selected_performer_id || '') !== masterId)
+          return { available:false, availabilityMessage:'Источник не подтвердил финансовую область «За всё время». Обновите данные.' };
+        try {
+          if (typeof metadata.timezone !== 'string' || !metadata.timezone) throw new Error('missing_financial_timezone');
+          businessDate(`${bounds.end}T12:00:00Z`, metadata.timezone);
+        }
+        catch (_) { return { available:false, availabilityMessage:'Источник не подтвердил часовой пояс для периода «За всё время».' }; }
+        const sources = [
+          { table:'financial_transactions', column:'occurred_at', label:'журнала денежных операций' },
+          { table:'commercial_sales', column:'occurred_at', label:'продаж товаров и абонементов' },
+          { table:'bookings', column:'booking_date', label:'истории визитов' }
+        ];
+        if (typeof db.from !== 'function')
+          return { available:false, availabilityMessage:'Для периода «За всё время» недоступны источники ранних финансовых дат.' };
+        const earliest = await Promise.allSettled(sources.map(async source => {
+          let query = db.from(source.table).select(source.column).eq('organization_id', organization.id);
+          if (source.column === 'booking_date') query = query.lte(source.column, bounds.end);
+          const result = await query.order(source.column, { ascending:true }).limit(1);
+          assertContext();
+          if (result.error || !Array.isArray(result.data)) throw new Error('earliest_financial_date_unavailable');
+          if (!result.data.length) return bounds.end;
+          const value = result.data[0][source.column];
+          const day = source.column === 'booking_date' ? value : businessDate(value, metadata.timezone);
+          if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error('earliest_financial_date_unavailable');
+          return day > bounds.end ? bounds.end : day;
+        }));
+        assertContext();
+        const unavailable = sources.filter((_, index) => earliest[index].status !== 'fulfilled');
+        if (unavailable.length)
+          return { available:false, availabilityMessage:`За всё время: источник ${unavailable.map(source => source.label).join(', ')} не подтвердил начало истории. Суммы не показаны как полные.` };
+        bounds = { start:earliest.map(result => result.value).sort()[0], end:bounds.end };
+        // v163 rejects longer requests. Never silently clip history to that cap.
+        if ((new Date(`${bounds.end}T12:00:00Z`) - new Date(`${bounds.start}T12:00:00Z`)) / 86400000 > 3661)
+          return { available:false, availabilityMessage:`За всё время: история ${bounds.start} — ${bounds.end} превышает ограничение финансового источника в 3661 день. Выберите более короткий период; история не обрезана.` };
+      }
+      let raw;
+      try { raw = metadata && bounds.start === bounds.end && !cursor ? metadata : await readRaw(bounds); }
+      catch (error) {
+        assertContext();
+        if (!metadata || error?.name === 'AbortError') throw error;
+        return { available:false, availabilityMessage:`За всё время: финансовый источник не подтвердил суммы за ${bounds.start} — ${bounds.end}. Обновите данные.` };
+      }
+      assertContext();
       if (raw?.period?.start !== bounds.start || raw?.period?.end !== bounds.end || String(raw?.selected_performer_id || '') !== masterId)
         return { available:false, availabilityMessage:'Источник не подтвердил выбранные даты и сотрудника. Обновите данные.' };
       const normalized = normalizeFinanceScreen(raw, { organizationId:organization.id, period, bounds });
@@ -331,7 +392,7 @@
         for (let offset = 0; ; offset += 500) {
           const query = configure(db.from(table).select(columns).eq('organization_id', organization.id));
           const result = await query.range(offset, offset + 499);
-          if (generation !== expectedGeneration) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
+          if (generation !== expectedGeneration || requestScope !== selectedScope) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
           if (result.error || !Array.isArray(result.data)) throw new Error('finance_projection_unavailable');
           rows.push(...result.data);
           if (result.data.length < 500) return rows;
@@ -398,7 +459,7 @@
           return projectGoodsSales(sales, { bounds, timezone:normalized.timezone, masterId });
         })()
       ]);
-      if (generation !== expectedGeneration) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
+      if (generation !== expectedGeneration || requestScope !== selectedScope) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
       const cash = results[0].status === 'fulfilled' ? results[0].value : null;
       normalized.goods = results[1].status === 'fulfilled' ? results[1].value : { known:false, rows:[] };
       normalized.cashProjectionUnavailable = normalized.financeEnabled && !cash;
@@ -426,7 +487,7 @@
           } catch (_) { /* Known current sums stay visible without a comparison. */ }
         }
       } else if (cash) normalized.cashProjectionUnavailable = true;
-      if (generation !== expectedGeneration) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
+      if (generation !== expectedGeneration || requestScope !== selectedScope) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
       return normalized;
     }
 
@@ -479,7 +540,11 @@
     async function load(range, { force = false, masterId, shared = false } = {}) {
       setManagerVisibility();
       if (!isManager() || !root() || !global.MinutaFinanceCenter) return;
-      if (shared && range?.start && range?.end) selectedScope = { bounds:{ start:range.start, end:range.end }, period:range.period || 'custom', masterId:masterId === 'all' ? '' : masterId || '' };
+      if (shared && range?.start && range?.end) {
+        const nextScope = { bounds:{ start:range.start, end:range.end }, period:range.period || 'custom', masterId:masterId === 'all' ? '' : masterId || '' };
+        // The UI does not reload an identical scope; keep its pending read valid.
+        if (JSON.stringify(nextScope) !== JSON.stringify(selectedScope)) selectedScope = nextScope;
+      }
       if (center) {
         if (selectedScope) await center.setScope?.(selectedScope);
         if (force) await center.reload();

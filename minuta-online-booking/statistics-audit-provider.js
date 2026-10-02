@@ -75,7 +75,7 @@
       if (summary) {
         const from = reportDateText(selected.start, { day:'numeric', month:'short', ...(selected.start.slice(0,4) !== selected.end.slice(0,4) ? { year:'numeric' } : {}) });
         const to = reportDateText(selected.end, { day:'numeric', month:'short', year:'numeric' });
-        summary.textContent = `${selected.start === selected.end ? to : `${from} — ${to}`} · ${reportPerformerName()}`;
+        summary.textContent = `${selected.period === 'all' ? 'За всё время' : selected.start === selected.end ? to : `${from} — ${to}`} · ${reportPerformerName()}`;
       }
       setReportText('#reportTrendTitle', 'Оплаты по датам визитов');
     }
