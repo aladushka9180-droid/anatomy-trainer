@@ -20,6 +20,7 @@ try {
   const help = readFileSync(join(project, paths[2]), 'utf8');
   const css = readFileSync(join(project, 'minuta-online-booking/styles.css'), 'utf8');
   const uxCss = readFileSync(join(project, 'minuta-online-booking/provider-ux.css'), 'utf8');
+  const deltaCss = readFileSync(join(project, 'minuta-online-booking/retention-soft-ui.css'), 'utf8');
   const familyCss = readFileSync(join(project, 'minuta-online-booking/provider-theme-families.css'), 'utf8');
   const loftCss = readFileSync(join(project, 'minuta-online-booking/provider-theme-loft-modern.css'), 'utf8');
   const providerSource = readFileSync(join(project, 'minuta-online-booking/provider.js'), 'utf8');
@@ -58,6 +59,7 @@ try {
     }, html);
     await page.addStyleTag({ content:css });
     await page.addStyleTag({ content:uxCss });
+    await page.addStyleTag({ content:deltaCss });
     await page.addStyleTag({ content:familyCss });
     await page.addStyleTag({ content:loftCss });
     await page.addScriptTag({ content:`function $(selector) { return document.querySelector(selector); }\n${confirmationSource}` });
@@ -105,8 +107,8 @@ try {
       return { track, knob };
     });
     assert.notEqual(enabledAppearance.track, enabledAppearance.knob, `${width}: enabled switch must look selected`);
-    assert.match(await page.locator('#retentionPanel').innerText(), /Дней после последнего визита/);
-    assert.match(await page.locator('#retentionPanel').innerText(), /Повторное предложение — не раньше чем через/);
+    assert.match(await page.locator('#retentionPanel').innerText(), /После последнего завершённого визита/);
+    assert.match(await page.locator('#retentionPanel').innerText(), /От последней ручной отметки отправки, а не подготовки текста/);
     assert.match(await page.locator('#retentionPanel').innerText(), /Подготовленные сообщения/);
     assert.doesNotMatch(await page.locator('#retentionPanel').innerText(), /Возврат без спама|Контролируемая отправка/);
     assert.match(await page.locator('#retentionMessageTemplate').inputValue(), /Это \{организация\}\. Выбрать время/);
@@ -116,9 +118,9 @@ try {
     assert.doesNotMatch(await cards.nth(0).innerText(), /последний визит визитов пока нет|завершено 0/);
     assert.deepEqual(await cards.nth(0).locator('option').allTextContents(),
       ['Согласие не указано', 'Клиент согласен', 'Клиент отказался']);
-    assert.equal(await cards.nth(0).locator('[data-retention-prepare]').count(), 0);
-    assert.equal(await cards.nth(1).locator('[data-retention-prepare]').count(), 1);
-    assert.equal(await cards.nth(2).locator('[data-retention-prepare]').count(), 0);
+    assert.equal(await cards.nth(0).locator('[data-retention-select]').count(), 0);
+    assert.equal(await cards.nth(1).locator('[data-retention-select]').count(), 1);
+    assert.equal(await cards.nth(2).locator('[data-retention-select]').count(), 0);
     assert.match(await page.locator('#retentionDeliveriesList').innerText(), /Сообщения не отправляются автоматически/);
     assert.match(await page.locator('#retentionDeliveriesList').innerText(), /не подтверждает доставку/);
     const saveStatus = page.locator('#retentionSaveStatus');
