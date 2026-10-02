@@ -144,6 +144,11 @@ try {
       const s=getComputedStyle(e),r=e.getBoundingClientRect();
       return{bg:s.backgroundColor,color:s.color,visible:r.width>=44&&r.height>=44,label:getComputedStyle(e.querySelector('span')).color};
     });
+    const filledSurfaces=await page.locator('[data-provider-panel="portfolio"]').evaluate(root=>({
+      reviews:[...root.querySelectorAll('.provider-review-card')].map(e=>getComputedStyle(e).backgroundColor),
+      shadows:[...root.querySelectorAll('.portfolio-card,.provider-reviews-panel,.provider-review-card')].map(e=>getComputedStyle(e).boxShadow)
+    }));
+    if(filledSurfaces.reviews.some(bg=>bg!=='rgba(0, 0, 0, 0)')||filledSurfaces.shadows.some(shadow=>shadow!=='none'))fullCssFailures.push(`${width}/${theme}: filled cards regain frames or shadows from shared themes`);
     await page.locator('#fixtureEmpty').click();
     await page.waitForFunction(()=>document.querySelector('[data-provider-panel="portfolio"]').classList.contains('portfolio-soft-empty'));
     await settle();
@@ -151,7 +156,7 @@ try {
       const info=e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return{bg:s.backgroundColor,color:s.color,width:r.width,height:r.height,children:[...e.querySelectorAll('span,.ui-icon,svg')].map(n=>({tag:n.tagName,color:getComputedStyle(n).color}))};};
       return{header:info(document.querySelector('.portfolio-title-actions .primary')),primary:info(document.querySelector('.portfolio-empty-actions .primary')),surface:getComputedStyle(document.querySelector('#portfolioManageList>.portfolio-empty-state')).backgroundColor,attrs:{theme:document.body.dataset.providerTheme,layout:document.body.dataset.providerLayout,textScale:document.body.dataset.providerTextScale},overflow:document.documentElement.scrollWidth>innerWidth+1};
     });
-    Object.assign(result,{width,theme,filled});fullCss.push(result);
+    Object.assign(result,{width,theme,filled,filledSurfaces});fullCss.push(result);
     if(result.header.bg===result.primary.bg||result.header.bg!==result.surface)fullCssFailures.push(`${width}/${theme}: empty screen has two filled primary actions`);
     if(!filled.visible||filled.bg!==result.primary.bg||filled.color!==result.primary.color||filled.label!==filled.color)fullCssFailures.push(`${width}/${theme}: filled primary changed or lost contrast`);
     if([result.header,result.primary].some(button=>button.width<44||button.height<44||button.children.some(child=>child.color!==button.color)))fullCssFailures.push(`${width}/${theme}: label/icon contrast or target size`);
