@@ -37,8 +37,8 @@ try {
   const service = keys.find(key => key.name === 'service_role')?.api_key;
   check(Boolean(anon && service), 'existing-test-only-keys');
   phase = 'test-storage-preflight';
-  const bucketResponse = await fetch(`${api}/storage/v1/bucket/portfolio-images`, { headers: { apikey: service, authorization: `Bearer ${service}` }, signal: AbortSignal.timeout(20_000), redirect: 'error' });
-  const bucket = await bucketResponse.json();
+  let bucketResponse = await fetch(`${api}/storage/v1/bucket/portfolio-images`, { headers: { apikey: service, authorization: `Bearer ${service}` }, signal: AbortSignal.timeout(20_000), redirect: 'error' });
+  let bucket = await bucketResponse.json();
   report.storage = { httpStatus: bucketResponse.status, bucketExists: bucket.id === 'portfolio-images', private: bucket.public === false, webpAllowed: !bucket.allowed_mime_types || bucket.allowed_mime_types.includes('image/webp') };
   if (/bucket.*not.*found/i.test(bucket.message || bucket.error || '')) report.storage.errorClass = 'bucket-not-found';
   else if (!bucketResponse.ok) report.storage.errorClass = 'other-storage-refusal';
@@ -54,7 +54,41 @@ try {
   report.storage.databaseRowExists = Boolean(storageRow);
   report.storage.databasePrivate = storageRow?.public === false;
   report.storage.policyNames = (await db.query("select policyname from pg_policies where schemaname='storage' and tablename='objects' and policyname like 'portfolio_objects_%' order by policyname")).rows.map(row => row.policyname);
+  if (report.storage.errorClass === 'bucket-not-found' && !storageRow && report.storage.policyNames.length === 0) {
+    phase = 'only-missing-test-baseline-storage';
+    // Reuse only the missing Storage portion of the pinned published baseline.
+    // Never overwrite a bucket, policy, product table or function.
+    const baseline = await readFile(resolve(process.env.MINUTA_ACCEPTANCE_SOURCE, 'supabase-migration-v45.sql'), 'utf8');
+    const start = baseline.indexOf('insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)');
+    const end = baseline.indexOf('create or replace function public.reorder_portfolio_items', start);
+    check(start >= 0 && end > start, 'pinned-v45-storage-section');
+    const storageSql = baseline.slice(start, end)
+      .replace(/on conflict \(id\) do update set[\s\S]*?allowed_mime_types = excluded\.allowed_mime_types;/, ';')
+      .replace(/drop policy if exists portfolio_objects_(owner_select|owner_insert|owner_update|owner_delete|public_select) on storage\.objects;\s*/g, '');
+    check((storageSql.match(/create policy portfolio_objects_/g) || []).length === 5 && !/\b(drop|alter|truncate|grant|revoke|on conflict)\b/i.test(storageSql), 'only-new-private-bucket-and-five-baseline-policies');
+    const preservedStorage = async () => JSON.stringify((await db.query("select policyname,cmd,roles::text,permissive,qual,with_check from pg_policies where schemaname='storage' and tablename='objects' and policyname not like 'portfolio_objects_%' order by policyname")).rows);
+    const preservedBuckets = async () => JSON.stringify((await db.query("select id,name,public,file_size_limit,allowed_mime_types from storage.buckets where id <> 'portfolio-images' order by id")).rows);
+    const beforePolicies = await preservedStorage(), beforeBuckets = await preservedBuckets();
+    await db.query('begin');
+    try {
+      await db.query("select pg_advisory_xact_lock(hashtext('portfolio-test-baseline-storage'))");
+      check(!(await db.query("select 1 from storage.buckets where id='portfolio-images'")).rowCount && !(await db.query("select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname like 'portfolio_objects_%'")).rowCount, 'test-storage-still-absent-no-overwrite');
+      check((await db.query("select relrowsecurity from pg_class where oid='storage.objects'::regclass")).rows[0].relrowsecurity, 'test-storage-rls-already-enabled');
+      await db.query(storageSql);
+      check(beforePolicies === await preservedStorage() && beforeBuckets === await preservedBuckets(), 'foreign-test-storage-configuration-preserved');
+      await db.query('commit');
+    } catch (error) { await db.query('rollback'); throw error; }
+    report.storage.baselineFixtureCreated = true;
+    bucketResponse = await fetch(`${api}/storage/v1/bucket/portfolio-images`, { headers: { apikey: service, authorization: `Bearer ${service}` }, signal: AbortSignal.timeout(20_000), redirect: 'error' });
+    bucket = await bucketResponse.json();
+    report.storage.configuredHttpStatus = bucketResponse.status;
+    report.storage.bucketExists = bucket.id === 'portfolio-images';
+    report.storage.private = bucket.public === false;
+    report.storage.webpAllowed = bucket.allowed_mime_types?.length === 1 && bucket.allowed_mime_types[0] === 'image/webp';
+    report.storage.policyNames = (await db.query("select policyname from pg_policies where schemaname='storage' and tablename='objects' and policyname like 'portfolio_objects_%' order by policyname")).rows.map(row => row.policyname);
+  }
   check(bucketResponse.ok && report.storage.bucketExists && report.storage.private && report.storage.webpAllowed, 'existing-private-test-storage-ready');
+  check(report.storage.policyNames.length === 5 && Number(bucket.file_size_limit) === 8388608, 'baseline-test-storage-limits-and-policies');
   phase = 'schema-preflight';
   for (const table of ['portfolio_items', 'portfolio_photos', 'booking_reviews', 'booking_outcomes', 'client_accounts']) {
     check((await db.query('select to_regclass($1) as table', [`public.${table}`])).rows[0].table, `existing-table-${table}`);
