@@ -57,6 +57,8 @@
 .provider-body .provider-view[data-portfolio-soft-ui] .provider-reviews-list>.provider-empty:not(.provider-review-empty-state) small { margin:0; font-size:calc(14px + var(--provider-text-step,0px)); font-weight:400; }
 .provider-body .provider-view[data-portfolio-soft-ui] .provider-reviews-list [data-retry-provider-reviews] { min-height:44px; margin-top:6px; font-size:calc(14px + var(--provider-text-step,0px)); }
 .provider-body .provider-view[data-portfolio-soft-ui] .provider-review-card { display:block; padding:14px 0; margin:0; border:0; border-top:1px solid var(--theme-line,var(--line)); border-radius:0; background:transparent!important; box-shadow:none!important; opacity:1; }
+.provider-body #dashboard .provider-view[data-provider-panel="portfolio"][data-portfolio-soft-ui] :is(.portfolio-card,.provider-reviews-panel,.provider-review-card) { box-shadow:none!important; }
+.provider-body #dashboard .provider-view[data-provider-panel="portfolio"][data-portfolio-soft-ui] .provider-review-card { background:transparent!important; }
 .provider-body .provider-view[data-portfolio-soft-ui] .provider-review-card:last-child { padding-bottom:0; }
 .provider-body .provider-view[data-portfolio-soft-ui] .provider-review-head { display:block; }
 .provider-body .provider-view[data-portfolio-soft-ui] .portfolio-soft-review-name { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
