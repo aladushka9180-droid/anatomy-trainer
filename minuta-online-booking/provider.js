@@ -3835,6 +3835,11 @@ function reportRange(period = reportPeriod) {
         .map(item => item.booking_date)
         .sort();
       start = dates[0] || todayIso;
+      const financialRange = window.MinutaStatisticsAuditProvider?.financialBounds?.({
+        period, end, organizationId, performerId:reportPerformerFilter
+      });
+      if (financialRange?.end === end && /^\d{4}-\d{2}-\d{2}$/.test(financialRange.start)
+          && financialRange.start <= end) start = [start, financialRange.start].sort()[0];
     }
   }
   if (period === 'custom') {

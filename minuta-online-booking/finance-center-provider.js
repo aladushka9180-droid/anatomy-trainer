@@ -280,6 +280,10 @@
     let lastSelectedMaster = '';
     let generation = 0;
     let selectedScope = null;
+    let effectiveScope = null;
+    let rangeRequest = 0;
+    let pendingLoad = null;
+    let boundsInvalidated = false;
     const root = () => $('#financeCenterRoot');
     const analytics = () => root()?.closest('#analyticsView');
     const isManager = () => Boolean(organization?.id && ['owner', 'admin'].includes(organization.current_role));
@@ -303,22 +307,29 @@
       if (!isManager()) return { available:false, financeEnabled:false, resultReliable:false, availabilityMessage:'Финансы доступны только владельцу и администратору.' };
       const requestGeneration = generation;
       const requestScope = selectedScope;
+      const requestOrganization = organization.id, requestRole = organization.current_role;
+      const request = cursor ? rangeRequest : ++rangeRequest;
+      if (!cursor) effectiveScope = null;
       const assertContext = () => {
-        if (requestGeneration !== generation || requestScope !== selectedScope)
+        if (requestGeneration !== generation || requestScope !== selectedScope || request !== rangeRequest || !isManager()
+            || requestOrganization !== organization?.id || requestRole !== organization?.current_role)
           throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
       };
       let bounds = selectedScope?.bounds || periodBounds(period);
       let parsedCursor = null;
       try { parsedCursor = cursor ? JSON.parse(cursor) : null; } catch (_) { parsedCursor = null; }
-      const readRaw = (bounds, includeCursor = true) => rpc('get_minuta_finance_screen_v163', {
-        p_organization:organization.id,
-        p_start:bounds.start,
-        p_end:bounds.end,
-        p_performer:masterId || null,
-        p_limit:30,
-        p_before_occurred_at:includeCursor ? parsedCursor?.occurred_at || null : null,
-        p_before_key:includeCursor ? parsedCursor?.event_key || null : null
-      }, 'Не удалось загрузить финансовые данные.');
+      const readRaw = (bounds, includeCursor = true) => {
+        assertContext();
+        return rpc('get_minuta_finance_screen_v163', {
+          p_organization:organization.id,
+          p_start:bounds.start,
+          p_end:bounds.end,
+          p_performer:masterId || null,
+          p_limit:30,
+          p_before_occurred_at:includeCursor ? parsedCursor?.occurred_at || null : null,
+          p_before_key:includeCursor ? parsedCursor?.event_key || null : null
+        }, 'Не удалось загрузить финансовые данные.');
+      };
       let metadata = null;
       if ((selectedScope?.period || period) === 'all') {
         // Booking-derived reportRange is not the beginning of financial history.
@@ -363,7 +374,9 @@
         const unavailable = sources.filter((_, index) => earliest[index].status !== 'fulfilled');
         if (unavailable.length)
           return { available:false, availabilityMessage:`За всё время: источник ${unavailable.map(source => source.label).join(', ')} не подтвердил начало истории. Суммы не показаны как полные.` };
-        bounds = { start:earliest.map(result => result.value).sort()[0], end:bounds.end };
+        // Earliest finance sources may extend the shared report interval, but
+        // must not exclude earlier imported/legacy visits already in that scope.
+        bounds = { start:[...(selectedScope ? [bounds.start] : []), ...earliest.map(result => result.value)].sort()[0], end:bounds.end };
         // v163 rejects longer requests. Never silently clip history to that cap.
         if ((new Date(`${bounds.end}T12:00:00Z`) - new Date(`${bounds.start}T12:00:00Z`)) / 86400000 > 3661)
           return { available:false, availabilityMessage:`За всё время: история ${bounds.start} — ${bounds.end} превышает ограничение финансового источника в 3661 день. Выберите более короткий период; история не обрезана.` };
@@ -474,6 +487,7 @@
         normalized.comparison = null;
         if (cash.previous?.classified && normalized.resultReliable && !normalized.completeness.partial) {
           try {
+            assertContext();
             const previous = await rpc('get_minuta_finance_screen_v163', {
               p_organization:organization.id, p_start:previousBounds.start, p_end:previousBounds.end,
               p_performer:masterId || null, p_limit:1, p_before_occurred_at:null, p_before_key:null
@@ -488,6 +502,9 @@
         }
       } else if (cash) normalized.cashProjectionUnavailable = true;
       if (generation !== expectedGeneration || requestScope !== selectedScope) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
+      assertContext();
+      if (normalized.available && selectedScope?.period === 'all')
+        effectiveScope = { generation, request, scope:selectedScope, organizationId:organization.id, role:organization.current_role, bounds:{ ...bounds } };
       return normalized;
     }
 
@@ -529,6 +546,10 @@
       lastDirectory = new Map();
       lastSelectedMaster = '';
       selectedScope = null;
+      effectiveScope = null;
+      rangeRequest += 1;
+      pendingLoad = null;
+      boundsInvalidated = false;
     }
 
     function setOrganization(next) {
@@ -537,27 +558,59 @@
       setManagerVisibility();
     }
 
-    async function load(range, { force = false, masterId, shared = false } = {}) {
+    async function load(range, { force = false, masterId, contextToken } = {}) {
       setManagerVisibility();
       if (!isManager() || !root() || !global.MinutaFinanceCenter) return;
-      if (shared && range?.start && range?.end) {
-        const nextScope = { bounds:{ start:range.start, end:range.end }, period:range.period || 'custom', masterId:masterId === 'all' ? '' : masterId || '' };
+      let changed = false;
+      if (range?.start && range?.end) {
+        // Native Money callers also pass the common report range. An omitted
+        // performer preserves the explicit scope supplied by the overview.
+        const nextMaster = masterId === undefined ? selectedScope?.masterId || '' : masterId === 'all' ? '' : masterId || '';
+        const nextScope = { bounds:{ start:range.start, end:range.end }, period:range.period || 'custom', masterId:nextMaster,
+          contextToken:contextToken === undefined ? selectedScope?.contextToken || null : contextToken };
         // The UI does not reload an identical scope; keep its pending read valid.
-        if (JSON.stringify(nextScope) !== JSON.stringify(selectedScope)) selectedScope = nextScope;
+        const resolvedAlias = effectiveScope?.scope === selectedScope && effectiveScope.request === rangeRequest
+          && nextScope.period === 'all' && selectedScope?.period === 'all'
+          && nextScope.contextToken === selectedScope.contextToken
+          && nextScope.masterId === selectedScope.masterId && nextScope.bounds.end === selectedScope.bounds.end
+          && nextScope.bounds.start === effectiveScope.bounds.start;
+        if (!resolvedAlias && JSON.stringify(nextScope) !== JSON.stringify(selectedScope)) {
+          selectedScope = nextScope; effectiveScope = null; changed = true;
+        }
       }
+      const track = task => {
+        const pending = Promise.resolve(task).then(value => { if (pendingLoad === pending) pendingLoad = null; return value; },
+          error => { if (pendingLoad === pending) pendingLoad = null; throw error; });
+        pendingLoad = pending; return pending;
+      };
       if (center) {
-        if (selectedScope) await center.setScope?.(selectedScope);
-        if (force) await center.reload();
+        if (changed) { boundsInvalidated = false; return track(center.setScope?.(selectedScope)); }
+        if (pendingLoad && !boundsInvalidated) return pendingLoad;
+        if (force || boundsInvalidated) { boundsInvalidated = false; return track(center.reload()); }
         return center.ready;
       }
       const currentGeneration = generation;
+      boundsInvalidated = false;
       center = global.MinutaFinanceCenter.init({ root:root(), adapter, periods:PERIODS, initialScope:selectedScope, onNotice:message => notify?.(message) });
       analytics()?.classList.add('finance-center-mounted');
-      await center.ready;
+      await track(center.ready);
       if (currentGeneration !== generation) return;
     }
 
-    return { load, setOrganization, reset };
+    function financialBounds({ period, end, organizationId, performerId, contextToken } = {}) {
+      const master = performerId === 'all' ? '' : performerId || '';
+      if (!isManager() || pendingLoad || period !== 'all' || organizationId !== organization.id
+          || !effectiveScope || effectiveScope.generation !== generation || effectiveScope.request !== rangeRequest
+          || effectiveScope.organizationId !== organization.id
+          || effectiveScope.scope !== selectedScope || effectiveScope.role !== organization.current_role
+          || (contextToken || null) !== selectedScope?.contextToken
+          || selectedScope?.period !== 'all' || selectedScope.masterId !== master || effectiveScope.bounds.end !== end) return null;
+      return { ...effectiveScope.bounds };
+    }
+    function invalidateBounds() {
+      effectiveScope = null; rangeRequest += 1; boundsInvalidated = true;
+    }
+    return { load, setOrganization, reset, financialBounds, invalidateBounds };
   }
 
   global.MinutaFinanceProvider = Object.freeze({ PERIODS, periodBounds, comparisonBounds, projectCashLedger, projectGoodsSales, normalizeFinanceScreen, createController });
