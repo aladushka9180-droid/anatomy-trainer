@@ -81,6 +81,35 @@ privateClassificationProven/sqlApplyAllowed/productionWritten false. Прове�
 архива не заменяет полную классификацию или same-job восстановление и не расширяет
 разрешение офлайн-каталога на SQL расходов.
 
+Следующий private PR №17 принят в `642990769f13841e20a6d5e1954b672c1ba8edd7`;
+run `37076414921`, attempt 1, job `111067268780` SUCCESS. Независимо сверён
+один receipt того же формата: searchPath=6, timeLimit=5, loggingDisabled=3,
+transactionReadOnlyOn=1, unknown=0, malformed=0, unsafePreload=1.
+Неразобранный ключ — session_preload_libraries (одна запись); значение не опубликовано.
+ordinaryConfigClassesProven/fullBaselineProven/privateClassificationProven/
+actualRestoreProven/sqlApplyAllowed/productionWritten false. Private PR №18
+с безопасными счётчиками остаётся OPEN; publisher сообщил о двух автоматических
+отказах слияния и уже запросил отдельное решение. Не обходить этот отказ через
+каталог или повторный heartbeat и не дублировать вопрос.
+
+Private draft PR №19 на exact `b49899b83906d3e35c35cb825eb8917bc9f8434d`
+прошёл source-free native run `37079050642`, job `111075345161`.
+Единственный `expense-v193-native-components-v1` независимо сверён с run/HEAD:
+14/14 checks PASS, sourceFree/qualified/cleanupProven/cliCleanupProven true.
+Доказаны PG170006, non-superuser postgres и точные synthetic роли/членства,
+проверка session ABI, перенос полного synthetic dump в другую пустую базу,
+сверка строк и последовательностей, причинный отказ при drift и cleanup.
+actualRestoreProven/sourceArchiveRead/productionWritten/rolePasswordsRead/
+postgresPromoted false. Эти доказательства не удостоверяют реальные managed
+anchors/classification/Auth/Storage или восстановление CURRENT; PR №19 ещё draft.
+
+На сверке 23:52 UTC capture от 21:25 UTC уже вышел за лимит свежести
+принятого private инспектора: fresh() допускает не более 7 200 000 мс.
+Его прежний SUCCESS исторический; перед рабочим выпуском нужна актуальная
+проверка свежести, а не повторное использование старого допуска. Самостоятельный
+новый capture не запускать и freshness guard не ослаблять. Отдельные разрешения
+publisher на расходы не расширяют область этого офлайн-каталога.
+
 Прежде чем использовать полный стенд для каталога, нужны принятые image/bootstrap
 и сохранение действительных capabilities/owners/ACL/расширений/Auth/Storage,
 приватная классификация внешних вызовов и секретов, сеть none, полный baseline
@@ -90,7 +119,7 @@ privateClassificationProven/sqlApplyAllowed/productionWritten false. Прове�
 PR №6 на `ae9a8876a37746cd6dc8a0625d308c2df11c8b65` завершил 13/13 общих CI.
 Этот результат применим к неизменному SQL/renderer-коду; документационные
 контрольные точки после него не заменяют CI итогового интегрированного дерева.
-Точный docs-only `2127f7c01e08d261cce5c51c3d324d4391c77b33` независимо сверён:
+Точный docs-only `54396cd52ded56dde6caf7aad4ffb704e96688a2` независимо сверён:
 13/13 общих CI SUCCESS, pending=0; PR №6 OPEN/DRAFT. Это не выпуск.
 
 ## Проверка кандидата
