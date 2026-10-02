@@ -36,6 +36,10 @@ try {
   const anon = keys.find(key => key.name === 'anon')?.api_key;
   const service = keys.find(key => key.name === 'service_role')?.api_key;
   check(Boolean(anon && service), 'existing-test-only-keys');
+  phase = 'test-storage-preflight';
+  const bucket = await json(`${api}/storage/v1/bucket/portfolio-images`, { headers: { apikey: service, authorization: `Bearer ${service}` } });
+  report.storage = { bucketExists: bucket.id === 'portfolio-images', private: bucket.public === false, webpAllowed: !bucket.allowed_mime_types || bucket.allowed_mime_types.includes('image/webp') };
+  check(report.storage.bucketExists && report.storage.private && report.storage.webpAllowed, 'existing-private-test-storage-ready');
   const certificate = await fetch('https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt', { signal: AbortSignal.timeout(20_000) });
   check(certificate.ok, 'official-ca-read');
   const ca = await certificate.text();
@@ -98,8 +102,8 @@ try {
   const { chromium } = await import(pathToFileURL(resolve(process.env.MINUTA_ACCEPTANCE_DEPS, 'playwright/index.mjs')).href);
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
-  const blocked = [], auth = [], failures = [], rpcFailures = [], scriptErrors = [];
-  report.network = { blocked, auth, failures, rpcFailures, scriptErrors };
+  const blocked = [], auth = [], failures = [], rpcFailures = [], scriptErrors = [], storageResponses = [];
+  report.network = { blocked, auth, failures, rpcFailures, scriptErrors, storageResponses };
   await context.route('**/*', async route => {
     const req = route.request(), url = new URL(req.url());
     if (url.origin === origin) return route.continue();
@@ -118,6 +122,7 @@ try {
     const url = new URL(response.url());
     if (url.origin !== api) return;
     if (url.pathname === '/auth/v1/token') auth.push({ status: response.status(), passwordSignin: url.searchParams.get('grant_type') === 'password' });
+    if (url.pathname.startsWith('/storage/v1/') && storageResponses.length < 20) storageResponses.push({ method: response.request().method(), status: response.status(), operation: url.pathname.startsWith('/storage/v1/object/sign/') ? 'sign' : 'object' });
     if (response.status() >= 400 && url.pathname.startsWith('/rest/v1/rpc/') && rpcFailures.length < 25) rpcFailures.push({ rpc: url.pathname.split('/').at(-1), status: response.status() });
   });
   page.on('requestfailed', request => { if (new URL(request.url()).pathname === '/rest/v1/rpc/set_booking_review_published') failures.push({ rpc: 'set_booking_review_published', error: request.failure()?.errorText }); });
