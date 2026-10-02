@@ -5,7 +5,7 @@
 кандидата — `6592ecc2` (Pro v1064); он совмещён с ней без
 конфликтов. Четыре SQL-хеша/renderer, redirect и PWA core budget прошли;
 общие изменённые файлы совпадали с этой основой, номера v186/v187 там не заняты.
-На `970bcead` общие CI 13/13 прошли. Свежий public main `594a2fca` (v1065)
+На `211cff5c` общие CI 13/13 прошли. Свежий public main `594a2fca` (v1065)
 не меняет SQL после v1064; перед интеграцией совместить актуальные ресурсы и
 вновь сверить CI окончательного интегрированного дерева.
 Рабочая база, склад и опубликованный Pro не менялись. Номера v186/v187
@@ -36,16 +36,26 @@ protected source-facts `37012725934` на private main `dcd5b636` прошёл �
 Повторять пароль и source-facts не нужно. Private PR №9 на frozen `0421274`
 прошёл 5/5 CI и принят в private main как `7bf5a47b`: образ закреплён по digest,
 добавлен отдельный metadata-контракт с фактическим non-superuser postgres.
-Это предпосылки, не рабочий bootstrap/executor и не native/full restore.
-Source-free native image/bootstrap probe ведёт существующий владелец;
-следом остаются полный профиль и приватная классификация.
+Это metadata-предпосылки, не рабочий полный restore executor.
+Отдельный private draft PR №10, exact `56ee0c3e94b552bbcf398e67ff34be556e60a21f`,
+прошёл source-free native run `37022493149`, attempt 1, job `110888781487`.
+Единственный bounded receipt независимо сверён с run/HEAD: 30 checks PASS,
+`sourceFree/qualified/cleanupProven/cliCleanupProven=true`. В образе доказаны
+PG170006, восемь точных extension versions/namespaces, 11 preload ABI,
+non-superuser postgres, подавление cron/pg_net до synthetic rows и после
+restart, network-none и owned cleanup. `actualDatabaseRestore`,
+`authStorageDataCompared`, `privilegedAnchorsCompared`, `privateClassificationProven`,
+`restoreAllowed`, `calendarSqlAllowed`, `productionWritten` остаются false.
+Нужны реальные anchors/membership/owners/ACL, полный исходный Auth/Storage,
+non-public/sequence baseline, приватная классификация и managed same-job executor.
+Synthetic native qualification не заменяет полный CURRENT restore.
 Прежде чем использовать полный стенд для каталога, нужны принятые image/bootstrap
 и сохранение действительных capabilities/owners/ACL/расширений/Auth/Storage,
 приватная классификация внешних вызовов и секретов, сеть none, полный baseline
 данных и cleanup. Не повышать измеренную роль postgres до superuser и не
 подменять восстановленные данные synthetic fixture/bootstrap.
 
-PR №6 на `970bcead150bf18a9275480077235fe6c2b39fa5` завершил 13/13 общих CI.
+PR №6 на `211cff5ce99681ea6a00ff2af89b4bb796d7c290` завершил 13/13 общих CI.
 Этот результат применим к неизменному SQL/renderer-коду; документационные
 контрольные точки после него не заменяют CI итогового интегрированного дерева.
 
