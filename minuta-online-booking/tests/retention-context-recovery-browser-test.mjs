@@ -116,9 +116,10 @@ try {
 
   await runCase('logout during pending native action cannot restore PII or success notices', async page => {
     await page.evaluate(() => { testState.mode = 'hold'; });
-    await page.locator('[data-retention-prepare="client-org-a"]').click();
+    await page.locator('[data-retention-select="client-org-a"]').check();
+    await page.locator('[data-retention-prepare-selected]').click();
     await page.waitForFunction(() => typeof testState.release === 'function');
-    assert.equal(await page.locator('[data-retention-prepare]').isDisabled(), true);
+    assert.equal(await page.locator('[data-retention-prepare-selected]').isDisabled(), true);
     await page.evaluate(async () => {
       testState.user = null; testState.generation += 1;
       await controller.setOrganization(null);
@@ -138,7 +139,7 @@ try {
     await page.waitForFunction(() => document.querySelector('#retentionSaveStatus').textContent === 'Не удалось подтвердить результат — проверьте актуальные данные перед повтором');
     assert.equal(await page.locator('#retentionMessageTemplate').isEditable(), true);
     assert.equal(await page.locator('#retentionInactivityDays').isEditable(), true);
-    assert.equal(await page.locator('[data-retention-prepare]').isEnabled(), true);
+    assert.equal(await page.locator('[data-retention-select="client-org-a"]').isEnabled(), true);
     assert.deepEqual(await loads(page), ['org-a', 'org-a'], 'unknown write must refresh authoritative state');
     await page.evaluate(() => { testState.mode = 'success'; });
     const retryText = 'Исправленный шаблон после ошибки: {ссылка}';

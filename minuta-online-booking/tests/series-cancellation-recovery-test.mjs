@@ -62,6 +62,7 @@ function harness() {
     window:{ addEventListener:(name, callback) => hooks.set(name, [...(hooks.get(name) || []), callback]) },
     document:{ body:{ classList:{ add(){}, remove(){} } } },
     providerReadFetch:{ cancelPendingReads:() => effects.push(['cancelReads']) },
+    organizationFlowController:null,
     freeSlotsController:{ invalidateScope(){} },
     applyWriteAvailability(){}, applyClientHighlightClasses(){}, requireWrites:() => true,
     db:{ rpc:(name, params) => {

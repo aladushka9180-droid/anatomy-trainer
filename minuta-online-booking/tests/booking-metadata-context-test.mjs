@@ -55,6 +55,7 @@ function harness() {
   const state = {
     currentUser:{ id:ids.A }, sessionGeneration:1, activeClientOrganizationId:'org-A', writesAllowed:true,
     window:{ addEventListener:(name, listener) => { if (name === 'minuta:provider-session-reset') resetListeners.push(listener); } },
+    organizationFlowController:null,
     freeSlotsController:{ invalidateScope(){} }, providerReadFetch:{ cancelPendingReads(){} },
     bookingColors:new Map(), pendingBookingColors:new Set(), bookingNotes:new Map(), pendingBookingNotes:new Set(),
     allBookings:[{ id:booking }], clientNotes:new Map(), offlineBookingQueue:[],

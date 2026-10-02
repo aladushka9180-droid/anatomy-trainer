@@ -1,0 +1,44 @@
+/* Return-clients delta only. Load after commerce-soft-ui.css. */
+.provider-body #retentionPanel.commerce-soft-panel .retention-workspace { grid-template-columns:minmax(0,1fr); gap:24px; }
+.provider-body #retentionPanel.commerce-soft-panel [hidden] { display:none!important; }
+.provider-body #retentionPanel.commerce-soft-panel :is(.retention-settings-heading,.retention-list-section) { min-width:0; }
+.provider-body #retentionPanel.commerce-soft-panel .resource-subhead strong { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.provider-body #retentionPanel.commerce-soft-panel .resource-subhead .ui-icon { width:20px; height:20px; flex:none; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-settings-heading { grid-column:1/-1; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-number-field>span:first-child { display:grid; gap:5px; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-number-field small { color:var(--cs-muted); line-height:1.5; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-client-row { grid-template-columns:24px minmax(0,1fr); align-items:start; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-client-row>input[type="checkbox"] { width:20px; height:20px; margin:3px 0; accent-color:var(--cs-accent); }
+.provider-body #retentionPanel.commerce-soft-panel .retention-client-row :is(.retention-client-status,.retention-client-options) { grid-column:2; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-client-status { display:flex; gap:6px; align-items:center; font-size:13px; color:var(--cs-muted); }
+.provider-body #retentionPanel.commerce-soft-panel .retention-client-status .ui-icon { width:18px; height:18px; }
+.provider-body #retentionPanel.commerce-soft-panel :is(.retention-client-options,.retention-delivery-options) { min-width:0; color:var(--cs-muted); font-size:12px; }
+.provider-body #retentionPanel.commerce-soft-panel :is(.retention-client-options,.retention-delivery-options)>summary { cursor:pointer; min-height:32px; padding:6px 0; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-consent-field { margin:6px 0; max-width:100%; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-consent-field select { max-width:100%; width:100%; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-selection-toolbar { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; padding-top:16px; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-select-all { display:flex; gap:8px; align-items:center; min-height:36px; font-size:13px; color:var(--cs-muted); }
+.provider-body #retentionPanel.commerce-soft-panel .retention-select-all input { width:20px; height:20px; margin:0; accent-color:var(--cs-accent); }
+.provider-body #retentionPanel.commerce-soft-panel .retention-selected-count { font-size:13px; color:var(--cs-muted); }
+.provider-body #retentionPanel.commerce-soft-panel .retention-preparation-note { font-size:12px; color:var(--cs-muted); }
+.provider-body #retentionPanel.commerce-soft-panel .retention-message-snapshot { margin:0; min-width:0; white-space:pre-wrap; overflow-wrap:anywhere; font-size:14px; line-height:1.65; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-copy-actions { display:grid; gap:6px; min-width:0; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-copy { min-height:44px; margin:0; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-copy-status { line-height:1.5; font-size:12px; color:var(--cs-muted); overflow-wrap:anywhere; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-copy-status:empty { display:none; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-row-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.provider-body #retentionPanel.commerce-soft-panel .retention-fallback-note { font-size:13px; color:var(--cs-muted); line-height:1.5; }
+@media(min-width:1000px) {
+  .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open .retention-toggle { grid-column:1/-1; }
+  .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open .retention-thresholds { grid-column:1/-1; }
+  .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open .cs-message-preview { grid-column:2; grid-row:4/6; }
+  .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open .retention-save-status { grid-column:1/-1; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row { grid-template-columns:24px minmax(0,1.6fr) minmax(0,1fr) 110px; align-items:center; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row .retention-client-status { grid-column:3; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row .retention-client-options { grid-column:4; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-options[open] { grid-column:2/-1; grid-row:2; max-width:360px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-row { grid-template-columns:minmax(140px,.8fr) minmax(0,2fr) minmax(160px,.8fr); align-items:start; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-selection-toolbar { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-select-all { grid-column:1/-1; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-preparation-note { grid-column:2; text-align:right; }
+}

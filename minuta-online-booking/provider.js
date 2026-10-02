@@ -18058,6 +18058,14 @@ const clientImportController = window.MinutaClientImport?.createController ? win
 clientImportController.bind();
 const dataGovernanceController = window.MinutaDataGovernance?.createController({ db, $, escapeHtml, notify }) || { bind() {}, setOrganization() {} };
 
+const organizationFlowController = window.MinutaOrganizationFlow?.createController({
+  db, notify, requireWrites,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent
+});
+organizationFlowController?.bind();
+
 const organizationController = window.MinutaOrganization.createController({
   db,
   $,
@@ -18070,6 +18078,7 @@ const organizationController = window.MinutaOrganization.createController({
   sessionIsCurrent,
   applyWriteAvailability,
   onActiveOrganizationChange: organization => {
+    organizationFlowController?.setOrganization(organization);
     const nextClientOrganizationId = organization?.id || '';
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
     if (clientOrganizationChanged && typeof resetProviderMessagesCenter === 'function') resetProviderMessagesCenter();
