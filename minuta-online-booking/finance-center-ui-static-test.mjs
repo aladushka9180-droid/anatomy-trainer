@@ -52,16 +52,16 @@ assert.match(source, /requestId/);
 assert.match(source, /raw\.available === true/);
 assert.match(source, /raw\.financeEnabled === true/);
 assert.match(source, /raw\.resultReliable === true/);
-assert.match(source, /Итог пока не рассчитан/);
-assert.match(source, /Визитов без отметки оплаты/);
+assert.match(source, /Не рассчитано/);
+assert.match(source, /Оплата не указана у/);
 assert.match(source, /aria-live="polite"/);
 assert.match(source, /ArrowLeft/);
-assert.match(source, /Оплата указана в \$\{known\} из \$\{total\} визитов/);
+assert.match(source, /\$\{total - known\} из \$\{total\} визитов/);
 assert.match(source, /стоимость состоявшихся визитов/);
-assert.match(source, /фактическая отмеченная оплата/);
+assert.match(source, /Отметки оплаты · по визитам/);
 assert.match(source, /подтверждённая неоплата/);
 assert.match(source, /Исправление выполняется корректировкой/);
-assert.doesNotMatch(source, /Материалы|Аренда|Зарплата|Реклама|Налоги|Оборудование/, 'справочник категорий не зашит в интерфейс');
+assert.doesNotMatch(source, /expenseDirectory:\s*\[\s*\{/, 'справочник категорий приходит из источника, а не зашит в интерфейс');
 
 for (const marker of ['@media(max-width:760px)', '@media(max-width:520px)', 'env(safe-area-inset-bottom)', 'min-height:44px', 'white-space:nowrap', 'prefers-reduced-motion']) {
   assert.match(css, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));

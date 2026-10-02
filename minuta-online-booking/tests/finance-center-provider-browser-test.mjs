@@ -70,7 +70,7 @@ try {
       window.calls = [];
       const db = { rpc:async (name, args) => {
         calls.push({ name, args:structuredClone(args) });
-        if (name === 'get_minuta_finance_screen_v163') return { data:structuredClone(window.fixtureData), error:null };
+        if (name === 'get_minuta_finance_screen_v163') return { data:{ ...structuredClone(window.fixtureData), period:{ ...fixtureData.period, start:args.p_start, end:args.p_end }, selected_performer_id:args.p_performer }, error:null };
         return { data:null, error:{ code:'PGRST202', message:`unexpected rpc ${name}` } };
       }};
       window.controller = MinutaFinanceProvider.createController({ db, $:selector => document.querySelector(selector), notify:() => {}, requireWrites:() => true });
