@@ -98,8 +98,8 @@ try {
   const { chromium } = await import(pathToFileURL(resolve(process.env.MINUTA_ACCEPTANCE_DEPS, 'playwright/index.mjs')).href);
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
-  const blocked = [], auth = [], failures = [];
-  report.network = { blocked, auth, failures };
+  const blocked = [], auth = [], failures = [], rpcFailures = [];
+  report.network = { blocked, auth, failures, rpcFailures };
   await context.route('**/*', async route => {
     const req = route.request(), url = new URL(req.url());
     if (url.origin === origin) return route.continue();
@@ -113,7 +113,12 @@ try {
     return route.abort('blockedbyclient');
   });
   page = await context.newPage(); page.setDefaultTimeout(30_000);
-  page.on('response', response => { const url = new URL(response.url()); if (url.origin === api && url.pathname === '/auth/v1/token') auth.push({ status: response.status(), passwordSignin: url.searchParams.get('grant_type') === 'password' }); });
+  page.on('response', response => {
+    const url = new URL(response.url());
+    if (url.origin !== api) return;
+    if (url.pathname === '/auth/v1/token') auth.push({ status: response.status(), passwordSignin: url.searchParams.get('grant_type') === 'password' });
+    if (response.status() >= 400 && url.pathname.startsWith('/rest/v1/rpc/') && rpcFailures.length < 25) rpcFailures.push({ rpc: url.pathname.split('/').at(-1), status: response.status() });
+  });
   page.on('requestfailed', request => { if (new URL(request.url()).pathname === '/rest/v1/rpc/set_booking_review_published') failures.push({ rpc: 'set_booking_review_published', error: request.failure()?.errorText }); });
   async function login(role) {
     await page.goto(`${origin}/provider.html?section=portfolio`, { waitUntil: 'domcontentloaded' });
@@ -132,13 +137,18 @@ try {
   const canvas = await context.newPage();
   await canvas.setContent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#f4dce4"/><text x="80" y="300" font-size="40">SYNTHETIC FIXTURE · NO CLIENT DATA</text></svg>');
   const neutral = await canvas.locator('svg').screenshot(); await canvas.close();
-  await page.locator('.portfolio-title-actions [data-open-portfolio-editor]').click();
+  phase = 'native-editor-write-readiness';
+  report.writeReadiness = await page.locator('.portfolio-title-actions [data-open-portfolio-editor]').evaluate(button => ({ disabled: button.disabled, reliabilityDisabled: button.dataset.reliabilityDisabled === 'true', sync: document.querySelector('#syncState')?.textContent }));
+  await page.locator('.portfolio-title-actions [data-open-portfolio-editor]').click({ timeout: 90_000 });
+  phase = 'native-editor-fields';
   await page.locator('#portfolioProcedure').fill(procedure);
   await page.locator('#portfolioDescription').fill('Нейтральные тестовые изображения. Отметка согласия проверяется только в изолированном тесте, реального клиента нет.');
+  phase = 'native-pair-file-selection';
   await page.locator('#portfolioBeforeFile').setInputFiles({ name: 'before.png', mimeType: 'image/png', buffer: neutral });
   await page.locator('#portfolioAfterFile').setInputFiles({ name: 'after.png', mimeType: 'image/png', buffer: neutral });
   check(await page.locator('#portfolioPublished').isDisabled(), 'native-no-consent-blocks-publication');
   await page.locator('#portfolioConsent').check(); await page.locator('#portfolioPublished').check();
+  phase = 'native-pair-server-save';
   const save = page.waitForResponse(res => res.url().includes('/rest/v1/rpc/save_provider_portfolio_item') && res.request().method() === 'POST');
   await page.locator('#portfolioForm button[type=submit]').click();
   check((await save).status() === 200, 'native-atomic-save-server-ack');
@@ -211,6 +221,9 @@ try {
   report.status = 'failed'; report.failedPhase = phase;
   if (['28P01', '42501', '23502', '23503', '23514', '42883'].includes(error?.code)) report.failureCode = error.code;
   if (error?.name === 'TimeoutError') report.failureCode = 'native-timeout';
+  const failedLocator = error?.message?.match(/waiting for locator\('([^']+)'\)/)?.[1];
+  if (failedLocator && /^(#portfolio|\.portfolio)/.test(failedLocator)) report.failureLocator = failedLocator;
+  if (page) report.finalReadiness = await page.locator('.portfolio-title-actions [data-open-portfolio-editor]').evaluate(button => ({ disabled: button.disabled, reliabilityDisabled: button.dataset.reliabilityDisabled === 'true', sync: document.querySelector('#syncState')?.textContent, formError: document.querySelector('#portfolioError')?.textContent })).catch(() => null);
   console.error(`Genuine native Portfolio stopped at ${phase}; sensitive details withheld`);
   if (page) await page.locator('[data-provider-panel="portfolio"]').screenshot({ path: resolve(out, 'native-failure.png') }).catch(() => {});
   process.exitCode = 1;
