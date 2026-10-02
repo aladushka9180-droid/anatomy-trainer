@@ -1,23 +1,22 @@
-# Eldion Pro — общий период статистики v1061
+# Eldion Pro — подпись выбранного сотрудника v1062
 
 ## Цель
-Довести согласованный критерий общего периода статистики до живой приёмки: один диапазон для Обзора, Денег, остальных вкладок и детализаций, включая импортированные визиты и операции до первого визита. Основной аудит70/84, осталось14; исходные дополнительныеUI4/4. Статистика3/4, последний критерий пока открыт; новые UI не повышают основной счёт без его критериев.
+Довести последний согласованный критерий статистики: одинаковые общий период и выбранный сотрудник на мобильном фильтре, вкладках и детализациях. Основной70/84, осталось14; исходныеUI4/4; статистика3/4 до окончательной приёмки.
 
 ## Сделано
-На свежем main2474f254 (v1060) ROOT интегрировал67add75a+7e240ceb; общий provider hook принадлежит ROOT18549. Подтверждённые финансовые границы передаются общему reportRange; ранние импортированные визиты сохраняются. Контекст actor/session/source/org/role/master/end и pending/stale/reset защищён, неизвестная история не выдаётся за полную. Версии HTML/provider/precache/cache/site-update согласованы1061. Нет SQL, новых данных, платежей или сообщений.
+v1061/PR47 опубликован main d6ed13e4: общий/финансовый/chart/detail Allпериод теперь одинаковы. ROOT на свежемmain исправил только обновление summary после фактического renderReportPerformerFilter — как при подтверждении команды, так и при personalfallback. Две точки синхронизации подписи; права, выбранный scope, actor, RPC и данные сохраняются. Добавлены8причинныхregression и прежний CI сохранён; atomicHTML/provider/precache/SWcache/site-update1062.
 
 ## Проверено
-ROOT независимо прочитал runtime и причинные regression: propagation28/28 (прежнее дерево20FAIL), shared6/6, прежние allbounds20/20 и scenarios7/7. На итоговом дереве PASS finance static3, provider/UI browser, auditUI/loader browser, startup63files3795980bytes в прежнем budget3799094 и isolated realSW1060→1061/offline exactbytes. Browser overview390/760/1440 PASS после exactf7ae8caf fixture reportTodayIso, прежниеassertions сохранены; причинныйREDpageerror записан отдельно. Итог15scopedgates и syntax3/3/diffPASS.
+v1061 exactPR27/27, main20/20, PagesSUCCESS,34/34publicGitSHA, actualIAB1061. Общийдиапазон/All4вкладки/детализации/focus/nooverflow390/760/1440 PASS. Новый mastercaptionbug доказан live: selector«Вся команда»/wrapvisible противsummary«Личная статистика». v1062 master8/8GREEN (v1061 causalRED8/8), итог16scopedgatesPASS, startupв прежнемbudget, realisolatedSW1061→1062/offlinebytesPASS; syntax/diff/finalredirect требуются передpush.
 
 ## Текущий этап
-Own branch codex/statistics-v1061. ROOT единственный shared/versions/CI/main/Pro publisher/browser владелец. Кандидат пока не опубликован, live остаётся1060/statistics3/4. retention_delta Sol/high передал исправленный fixture и завершён. organization_review Sol/high передал read-only calendar restore recipe и завершён. Непроверенные prerequisites сохранены отдельными блокерами.
+Own branch codex/statistics-master-v1062, кандидат пока не опубликован. ROOT единственный provider/shared/версии/CI/main/Pro publisher/browser. Existing retention_delta/organization_review завершены, новых исполнителей не назначено. В других разрешённых существующих чатах ведутся «Люди и филиалы» и отдельный тестовый стенд смен; их результаты не готовы и не переносились.
 
 ## Следующие шаги
-ROOT fixture review/finalscopedPASS, freshmain, finalredirect передpush, exactPRCI/обычныйmerge/mainCI/Pages/точныеpublicbytes, затем индивидуальный live общийпериод390/760/1440 и детали/вкладки на существующих данных. Дополнительные role/physicalAndroid доказательства сохраняют ограничения.
+Финальные syntax/diff/redirect, freshmain/exactPRCI/обычныйmerge/mainCI/Pages/publicbytes, затем mobilecollapsed/opened caption↔selector и диапазон/детали390/760/1440. Только тогда последний критерий статистики закрывать; другие реальные роли и physicalAndroid отдельно.
 
 ## Зафиксированные решения
-ROOT Astra/xhigh; до2исполнителей в отдельныхcopies/nonoverlap. v1060 уже опубликован и принят: stats3/4, отдельный portfolioCSSfix1/1. Исходное portfolio3/6, Org/Hours/Retention5/11, payment/resources/benefits/loyalty2/4 сохраняются. Native CI и остальные gates не ослаблять; повторять только затронутое после изменений.
+ROOT Astra/xhigh; максимум2исполнителя, разныеcopies/nonoverlap. Не запускать дубликаты; новые согласованные готовые кандидаты группировать при доказанной совместимости. Ранее принятые исходноеportfolio3/6/newCSS1/1, OrgHoursRetention5/11, payment/resources/benefits/loyalty2/4 сохраняются. v191 не повторять.
 
 ## Ограничения и блокеры
-Calendar0/2 и client live0/2 требуют свежей закрытой копии и полного actual applicable SupabasePG17/AuthStorage/roles/ACL restore, rollback/cleanup/ROOT до двух условно разрешённых функций. Private logical-v2/bridge интегрированы, но actualrestore не выполнен. Exportv191 не повторять. Старые no-owner/auth-placeholders/frozenexportdrill не являются fullrestore. После authentication_failed неизменныйsecret не повторять. Реальные данные/платежи/сообщения/секреты/доступы/удаление/productionrestore отдельно gated. IsolatedPWA не physicalAndroid. Goal неcomplete, heartbeatACTIVE; чужие изменения/отказы обязательных проверок сохранять.
-
+Calendar0/2/client0/2: private logical-v2/bridge приняты, actualfullCURRENT/AuthStorage restore не выполнен. Нужны фактические PG17prerequisites/полныйextension/globalroles/ACL/AuthStorage baseline и privateclassification, затем exact reviewed bootstrap/handoff, freshclosedcopy/fullrestore/rollback/cleanup/ROOT до двух условноразрешённыхфункций. Oldno-owner/auth-placeholder не proof. Реальные записи/платежи/сообщения/секреты/доступы/удаление/productionrestore отдельно gated; authentication_failed неизменныйsecret не повторять. IsolatedPWA не physicalAndroid. Goalнеcomplete, heartbeatACTIVE.

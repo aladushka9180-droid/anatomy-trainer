@@ -4140,13 +4140,14 @@ function renderReportPerformerFilter(range) {
   const select = $('#reportPerformerFilter');
   if (!wrap || !select) return;
   wrap.hidden = !reportCanViewTeam;
-  if (!reportCanViewTeam) { reportPerformerFilter = String(currentUser?.id || ''); return; }
+  if (!reportCanViewTeam) { reportPerformerFilter = String(currentUser?.id || ''); updateReportFilterSummary(); return; }
   if (!reportPerformerFilter) {
     try { reportPerformerFilter = localStorage.getItem(`minuta-report-performer:${reportOrganizationId()}`) || 'all'; } catch { reportPerformerFilter = 'all'; }
   }
   if (reportPerformerFilter !== 'all' && !reportTeamAnalyticsState.rows.some(row => String(row.performer_id || '') === reportPerformerFilter)) reportPerformerFilter = 'all';
   select.innerHTML = `<option value="all">Вся команда</option>${reportTeamAnalyticsState.rows.map(row => `<option value="${escapeHtml(String(row.performer_id || ''))}">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;
   select.value = reportPerformerFilter;
+  updateReportFilterSummary();
   const previous = previousReportRange(range);
   loadReportScopedBookings({ start:previous?.start || range.start, end:reportForecastEnd(range) }, reportPerformerFilter);
   loadReportAvailability(range, reportPerformerFilter);
