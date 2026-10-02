@@ -19,7 +19,7 @@ async function textContrasts(page) {
     const rgba=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].map((v,i)=>i===3?v/255:v);};
     const blend=(top,under)=>top.slice(0,3).map((v,i)=>v*top[3]+under[i]*(1-top[3]));
     const lum=rgb=>rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
-    return [...document.querySelectorAll('#organizationPeopleSection .organization-row-main > strong,#organizationPeopleSection .organization-row-main > small,#organizationPeopleSection .organization-member-states > span,#organizationPeopleSection .settings-hint')].map(e=>{
+    return [...document.querySelectorAll('#organizationPeopleSection .organization-row-main > strong,#organizationPeopleSection .organization-row-main > small,#organizationPeopleSection .organization-member-states > span,#organizationPeopleSection .settings-hint,#organizationPeopleSection form > button[type="submit"]')].map(e=>{
       const chain=[];for(let n=e;n;n=n.parentElement)chain.unshift(n);
       const bg=chain.reduce((color,n)=>blend(rgba(getComputedStyle(n).backgroundColor),color),[255,255,255]);
       const ink=blend(rgba(getComputedStyle(e).color),bg),a=lum(ink),b=lum(bg);
