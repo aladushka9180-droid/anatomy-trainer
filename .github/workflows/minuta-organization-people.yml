@@ -40,6 +40,7 @@ jobs:
           node --check minuta-online-booking/organization.js
           node minuta-online-booking/organization-controller-test.mjs
           node minuta-online-booking/tests/organization-people-browser-test.mjs
+          node minuta-online-booking/tests/organization-people-activation-browser-test.mjs
           node minuta-online-booking/tests/organization-flow-provider-integration-test.mjs
           node minuta-online-booking/tests/organization-location-timezone-summary-browser-test.mjs
           node minuta-online-booking/client-url-redirect-test.mjs

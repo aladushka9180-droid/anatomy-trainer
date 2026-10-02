@@ -15,9 +15,9 @@ const hookStart=provider.indexOf('  onActiveOrganizationChange: organization => 
 const hookEnd=provider.indexOf('\n  }\n});\norganizationController.bind();',hookStart);
 assert.ok(hookStart>=0&&hookEnd>hookStart,'Actual complete organization callback');
 const hook=provider.slice(hookStart,hookEnd).replace('  onActiveOrganizationChange: organization => {','function emitOrganization(organization) {')+'\n}';
-const source=['resetReportSessionState','reportPerformerName','reportPeriodName','updateReportFilterSummary','renderReportPerformerFilter','loadReportTeamAnalytics'].map(declaration).join('\n')+'\n'+hook;
+const source=['localIsoDate','parseLocalIsoDate','reportDataQueryRange','reportRangeDays','reportQueryWindows','resetReportSessionState','reportPerformerName','reportPeriodName','updateReportFilterSummary','renderReportPerformerFilter','loadReportTeamAnalytics'].map(declaration).join('\n')+'\n'+hook;
 const noop=()=>{};
-function fixture({view='analytics',remembered='all',online=true}={}){
+function fixture({view='analytics',remembered='all',online=true,serverWindowGuard=false,range={start:'2026-08-04',end:'2026-10-02'}}={}){
  const events=[],requests=[],pending=[];
  const summary={textContent:'Всё время · Вся команда'},wrap={hidden:false};
  const select={value:'all',innerHTML:'<option value="all">Вся команда</option>',disabled:false};
@@ -35,8 +35,8 @@ function fixture({view='analytics',remembered='all',online=true}={}){
   organizationFlowController:null,freeSlotsController:null,resourceController:null,shiftController:null,payrollController:null,benefitController:null,loyaltyController:null,inventoryController:null,retentionController:null,
   financeController:{setOrganization:()=>events.push('finance-organization')},
   localStorage:{getItem:()=>remembered},escapeHtml:String,previousReportRange:()=>null,reportForecastEnd:r=>r.end,loadReportScopedBookings:noop,loadReportAvailability:noop,
-  reportDataQueryRange:r=>r,reportRangeDays:()=>60,setReportText:noop,
-  db:{rpc:async(name,args)=>{requests.push({name,args});return new Promise(resolve=>pending.push(resolve));}}
+  setReportText:noop,
+  db:{rpc:async(name,args)=>{requests.push({name,args});if(serverWindowGuard && (new Date(args.p_end)-new Date(args.p_start))/86400000>3660)return {error:{code:'22023',message:'invalid_analytics_range'},data:null};return new Promise(resolve=>pending.push(resolve));}}
  });
  controllers.forEach(name=>c[name]={setOrganization:noop});
  c.reportOrganizationId=()=>c.activeClientOrganizationId;
@@ -44,13 +44,57 @@ function fixture({view='analytics',remembered='all',online=true}={}){
  c.sessionIsCurrent=(actor,generation)=>c.currentUser?.id===actor&&c.sessionGeneration===generation;
  c.renderReportTeamRows=()=>{panel.hidden=!c.reportCanViewTeam;};
  const loads=[];
- c.renderAnalytics=()=>{events.push('analytics');c.updateReportFilterSummary();loads.push(c.loadReportTeamAnalytics({start:'2026-08-04',end:'2026-10-02'}));};
+ c.renderAnalytics=()=>{events.push('analytics');c.updateReportFilterSummary();loads.push(c.loadReportTeamAnalytics(range));};
  vm.runInContext(source,c);
  return {c,summary,wrap,select,panel,events,requests,pending,loads,
   refresh:(org='fixture-org')=>c.emitOrganization({id:org}),
-  resolve:async(index,canViewTeam=true)=>{pending[index]({data:{can_view_team:canViewTeam,performers:[{performer_id:'fixture-master',performer_name:'Тестовый сотрудник'}]},error:null});await Promise.resolve();await Promise.resolve();}};
+  resolve:async(index,canViewTeam=true,{organizationId,error}={})=>{pending[index]({data:error?null:{...(organizationId?{organization_id:organizationId}:{}),can_view_team:canViewTeam,performers:[{performer_id:'fixture-master',performer_name:'Тестовый сотрудник',payroll_rub:321}]},error:error||null});await new Promise(resolve=>setImmediate(resolve));}};
 }
 const cases=[
+ ['legacy rights response for a foreign organization is rejected',async()=>{
+  const f=fixture();f.refresh();await f.resolve(0,false,{error:{code:'PGRST202'}});
+  assert.equal(f.requests.length,2);assert.equal(f.requests[1].args.p_organization,undefined);
+  await f.resolve(1,true,{organizationId:'fixture-other-org'});await Promise.all(f.loads);
+  assert.equal(f.c.reportCanViewTeam,false);assert.equal(f.wrap.hidden,true);assert.equal(f.summary.textContent,'Всё время · Личная статистика');
+ }],
+ ['legacy rights response without an organization proof is rejected',async()=>{
+  const f=fixture();f.refresh();await f.resolve(0,false,{error:{code:'PGRST202'}});
+  await f.resolve(1,true);await Promise.all(f.loads);assert.equal(f.c.reportCanViewTeam,false);assert.equal(f.wrap.hidden,true);
+ }],
+ ['legacy rights response proved for the requested organization remains usable',async()=>{
+  const f=fixture();f.refresh();await f.resolve(0,false,{error:{code:'PGRST202'}});
+  await f.resolve(1,true,{organizationId:'fixture-org'});await Promise.all(f.loads);
+  assert.equal(f.c.reportCanViewTeam,true);assert.equal(f.select.value,'all');assert.equal(f.summary.textContent,'Всё время · Вся команда');
+ }],
+ ['all-time refresh uses fresh bounded server rights while retaining wide history query',async()=>{
+  const f=fixture({serverWindowGuard:true});f.refresh();await Promise.resolve();
+  assert.equal(f.pending.length,1,'Server must accept the bounded analytics request');
+  const args=f.requests[0].args;assert.equal(args.p_organization,'fixture-org');
+  assert.ok((new Date(args.p_end)-new Date(args.p_start))/86400000<=3660,'Actual server window limit');
+  assert.equal(f.c.reportDataQueryRange({start:'2026-08-04',end:'2026-10-02'}).start,'2000-01-01','History scope is preserved');
+  await f.resolve(0);await Promise.all(f.loads);
+  assert.equal(f.select.value,'all');assert.equal(f.summary.textContent,'Всё время · Вся команда');
+  assert.equal(f.c.reportTeamAnalyticsState.rows[0].payroll_rub,null,'Bounded payroll is never treated as full-history payroll');
+ }],
+ ['exact server maximum retains the entire range and its corresponding payroll',async()=>{
+  const end='2026-10-02',start=new Date(Date.parse(end)-3660*86400000).toISOString().slice(0,10);
+  const f=fixture({serverWindowGuard:true,range:{start,end}});f.c.reportPeriod='custom';f.refresh();await Promise.resolve();
+  assert.equal(f.pending.length,1);assert.equal(f.requests[0].args.p_start,start);assert.equal(f.requests[0].args.p_end,end);
+  await f.resolve(0);await Promise.all(f.loads);assert.equal(f.c.reportTeamAnalyticsState.rows[0].payroll_rub,321);
+ }],
+ ['wide all-time permission refusal never restores stale owner rights',async()=>{
+  const f=fixture({serverWindowGuard:true});f.refresh();await Promise.resolve();assert.equal(f.pending.length,1);
+  await f.resolve(0,false);await Promise.all(f.loads);
+  assert.equal(f.c.reportCanViewTeam,false);assert.equal(f.wrap.hidden,true);assert.equal(f.summary.textContent,'Всё время · Личная статистика');
+ }],
+ ['long custom period checks server rights on bounded window ending on requested historical date',async()=>{
+  const range={start:'2001-01-01',end:'2014-02-03'};
+  const f=fixture({serverWindowGuard:true,range});f.c.reportPeriod='custom';f.refresh();await Promise.resolve();
+  assert.equal(f.pending.length,1);assert.equal(f.requests[0].args.p_end,range.end);
+  assert.ok((new Date(f.requests[0].args.p_end)-new Date(f.requests[0].args.p_start))/86400000<=3660);
+  assert.equal(f.c.reportDataQueryRange(range).start,range.start);
+  await f.resolve(0);await Promise.all(f.loads);assert.equal(f.c.reportCanViewTeam,true);
+ }],
  ['same-organization refresh hides stale selector, reloads actual permissions after finance scope, restores all caption',async()=>{
   const f=fixture();f.refresh();
   assert.equal(f.wrap.hidden,true,'Old team selector must be hidden until fresh rights');
