@@ -183,11 +183,9 @@ try{
    from public.financial_transactions t left join public.financial_postings p on p.transaction_id=t.id left join public.financial_accounts a on a.id=p.account_id
    group by t.id order by t.id`)).rows.map(row=>({...row,occurred_at:row.occurred_at.toISOString()}));
   const expenses=(await q('select expense_source_id,category_id,category_name_snapshot,performer_id,occurred_at from public.financial_manual_expenses_v163')).rows.map(row=>({...row,occurred_at:row.occurred_at.toISOString()}));
-  const manual=new Map(expenses.map(e=>[e.expense_source_id,e]));
-  // Proposed ROOT adapter boundary, not a mutation of any shared module:
-  const corrected=rows.map(r=>r.operation_type==='supplier_expense_payment'&&manual.has(r.source_id)?{...r,occurred_at:manual.get(r.source_id).occurred_at}:r);
+  // Feed unchanged persisted rows into the actual integrated cash projector.
   for(const date of ['2020-01-11','2020-02-11','2020-05-11']){
-   const cashResult=project(corrected,{bounds:{start:date,end:date},timezone:'Europe/Samara',expenses});
+   const cashResult=project(rows,{bounds:{start:date,end:date},timezone:'Europe/Samara',expenses});
    assert.equal(cashResult.classified,true);assert.equal(cashResult.expenseMinor,(await screen(date)).summary.expense_minor);
   }
  });
@@ -197,6 +195,6 @@ try{
   await fail(()=>db.exec(read('supabase-migration-v193-rollback.sql')),'v193_rollback_preserve_expense_edit_history','55000');await db.exec('rollback');
   assert.deepEqual(await oldDefs(),baselineDefs);
  });
- console.log(`PASS ${proofs.length} synthetic v193 proof groups\n${proofs.join('\n')}\nLimits: no actual Supabase/restore; no two-connection native concurrency; ROOT cash adapter integration still required.`);
+ console.log(`PASS ${proofs.length} synthetic v193 proof groups\n${proofs.join('\n')}\nLimits: no actual Supabase/restore; two-connection native concurrency is a separate CI service test.`);
 }catch(e){console.error(`FAIL ${phase}: ${e.code||e.name} position=${e.position||''}: ${String(e.message).slice(0,500)}`);process.exitCode=1;}
 finally{await db.close();}
