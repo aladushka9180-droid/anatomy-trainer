@@ -7,7 +7,7 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const read=file=>readFileSync(resolve(root,file),'utf8');
 const provider=read('provider.js'),bindings=read('statistics-audit-provider.js'),ui=read('finance-center.js');
 const rangeSource=provider.slice(provider.indexOf('function reportRange('),provider.indexOf('\nfunction reportDataQueryRange'));
-const overviewSource=bindings.slice(bindings.indexOf('  function refreshFinancialOverview()'),bindings.indexOf('\n  function refreshReportUtmPresentation()'));
+const overviewSource=bindings.slice(bindings.indexOf('  const performerDirectoryState'),bindings.indexOf('\n  function refreshReportUtmPresentation()'));
 const old=read('tests/statistics-financial-all-bounds-test.mjs');
 const fixtureSource=old.slice(old.indexOf('function fixture('),old.indexOf('\nfunction checkScope(')).trim();
 const ORG='11111111-1111-4111-8111-111111111111',OTHER='22222222-2222-4222-8222-222222222222';
