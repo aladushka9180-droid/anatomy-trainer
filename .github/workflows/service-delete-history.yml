@@ -1,0 +1,35 @@
+name: Service deletion reference preservation
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/service-delete-history.yml'
+      - 'minuta-online-booking/recovery/service-delete-history.patch'
+      - 'minuta-online-booking/tests/service-delete-history-test.mjs'
+      - 'minuta-online-booking/tests/waitlist-service-delete-test.mjs'
+      - 'minuta-online-booking/provider.js'
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm install --prefix "$RUNNER_TEMP/service-delete-deps" --no-save --package-lock=false --ignore-scripts @electric-sql/pglite@0.3.13
+      - name: Verify candidate and resulting handler without production access
+        env:
+          MINUTA_PGLITE_PACKAGE: ${{ runner.temp }}/service-delete-deps/node_modules/@electric-sql/pglite
+        run: |
+          if git apply --check minuta-online-booking/recovery/service-delete-history.patch; then
+            node minuta-online-booking/tests/service-delete-history-test.mjs
+            git apply minuta-online-booking/recovery/service-delete-history.patch
+          else
+            git apply --reverse --check minuta-online-booking/recovery/service-delete-history.patch
+          fi
+          node minuta-online-booking/tests/service-delete-history-test.mjs --integrated
+          node minuta-online-booking/tests/waitlist-service-delete-test.mjs
+          node --check minuta-online-booking/provider.js
+          node minuta-online-booking/client-url-redirect-test.mjs
