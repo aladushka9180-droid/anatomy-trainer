@@ -25,6 +25,7 @@ jobs:
       - run: node minuta-online-booking/tests/statistics-financial-all-bounds-test.mjs
       - run: node minuta-online-booking/tests/statistics-financial-shared-period-test.mjs
       - run: node minuta-online-booking/tests/statistics-financial-period-propagation-test.mjs
+      - run: node minuta-online-booking/tests/statistics-financial-master-summary-test.mjs
       - run: node minuta-online-booking/tests/statistics-financial-overview-browser-test.mjs
         env:
           MINUTA_VISUAL_OUTPUT: /tmp/statistics-overview-evidence
