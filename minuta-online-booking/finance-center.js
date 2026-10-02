@@ -110,7 +110,7 @@
       operations,
       expenseDirectory:directory,
       paymentAccounts,
-      permissions:{ canAddExpense:Boolean(raw.permissions?.canAddExpense) },
+      permissions:{ canAddExpense:Boolean(raw.permissions?.canAddExpense), canEditExpense:raw.permissions?.canEditExpense === true },
       filters:{
         periods:optionRows(raw.filters?.periods, PERIOD_FALLBACK),
         masters:optionRows(raw.filters?.masters, MASTER_FALLBACK),
@@ -153,7 +153,7 @@
       category:text(item.category),
       actorName:text(item.actorName),
       categoryId:text(item.categoryId), flow:text(item.flow, item.type === 'expense' ? 'expense' : 'received'),
-      amountMinor
+      amountMinor, manualExpenseId:text(item.manualExpenseId)
     };
   }
 
@@ -319,7 +319,7 @@
         </dialog>
         <dialog class="finance-center__dialog" data-finance-dialog aria-labelledby="financeExpenseTitle">
           <form method="dialog" class="finance-center__dialog-card" data-finance-form>
-            <div class="finance-center__dialog-head"><div><p>Новая операция</p><h3 id="financeExpenseTitle">Добавить расход</h3></div><button type="button" data-finance-close aria-label="Закрыть">\u00d7</button></div>
+            <div class="finance-center__dialog-head"><div><p data-finance-form-caption>Новая операция</p><h3 id="financeExpenseTitle">Добавить расход</h3></div><button type="button" data-finance-close aria-label="Закрыть">\u00d7</button></div>
             <div class="finance-center__form-row">
               <label><span>Категория</span><select name="categoryId" required data-finance-category></select></label>
               <label><span>Списать с</span><select name="paymentAccountId" required data-finance-account></select></label>
@@ -348,12 +348,14 @@
     const onNotice = typeof options.onNotice === 'function' ? options.onNotice : function () {};
     const state = {
       destroyed:false, data:null, operations:[], nextCursor:'', requestId:'', loadVersion:0,
+      editing:null, saving:false, openingExpense:false, frozenEdit:null,
       period:text(options.initialScope?.period || options.initialPeriod, 'current_month'), master:text(options.initialScope?.masterId || options.initialMaster), abort:null,
       sharedScope:options.initialScope || null,
       scopeKey:options.initialScope ? JSON.stringify(options.initialScope) : '', detail:'', detailTrigger:null, visibleOperations:30
     };
-    let detailDialog = null;
-    const find = selector => root.querySelector(selector) || (detailDialog?.matches(selector) ? detailDialog : detailDialog?.querySelector(selector));
+    let detailDialog = null, expenseDialog = null;
+    const find = selector => root.querySelector(selector) || (detailDialog?.matches(selector) ? detailDialog : detailDialog?.querySelector(selector))
+      || (expenseDialog?.matches(selector) ? expenseDialog : expenseDialog?.querySelector(selector));
     const elements = {
       status:find('[data-finance-status]'), content:find('[data-finance-content]'), empty:find('[data-finance-empty]'),
       period:find('[data-finance-period]'), master:find('[data-finance-master]'), add:find('[data-finance-add]'), emptyAction:find('[data-finance-empty-action]'),
@@ -363,6 +365,8 @@
     detailDialog = find('[data-finance-detail-dialog]');
     // Keep the modal outside the tab-specific ancestor so Overview can open it.
     (root.closest('#analyticsView') || root).append(detailDialog);
+    expenseDialog = elements.dialog;
+    (root.closest('#analyticsView') || root).append(expenseDialog);
     const listeners = [];
     function listen(target, type, handler) { target?.addEventListener(type, handler); listeners.push(() => target?.removeEventListener(type, handler)); }
     let overview = null;
@@ -510,7 +514,7 @@
           const meta = [operationDate(operation.occurredAt, state.data.timezone), operation.category, operation.actorName ? `Внёс: ${operation.actorName}` : ''].filter(Boolean).join(' \u00b7 ');
           copy.append(createElement('strong', '', operation.label), createElement('small', '', meta));
           const amount = createElement('b', '', `${sign}${formatRubles(Math.abs(operation.amountMinor))}`); amount.setAttribute('aria-label', `${sign === '+' ? 'Поступление' : 'Списание'} ${formatRubles(Math.abs(operation.amountMinor))}`);
-          row.append(copy, amount); list.append(row);
+          row.append(copy, operationActions(operation, amount)); list.append(row);
         });
         elements.operations.append(list);
       }
@@ -665,7 +669,7 @@
         for (const row of rows.slice(0, state.visibleOperations)) {
           const item = createElement('article', 'finance-center__operation'), copy = createElement('div');
           copy.append(createElement('strong', '', row.label), createElement('small', '', operationDate(row.occurredAt, data.timezone)));
-          item.append(copy, createElement('b', '', `${row.amountMinor > 0 ? '+' : ''}${formatRubles(row.amountMinor)}`)); body.append(item);
+          item.append(copy, operationActions(row, createElement('b', '', `${row.amountMinor > 0 ? '+' : ''}${formatRubles(row.amountMinor)}`))); body.append(item);
         }
         if (!rows.length) body.append(createElement('p', 'finance-center__inline-empty', !data.financeEnabled ? 'Список проводок недоступен до подключения журнала.' : 'Подтверждённых операций этой категории за период нет.'));
         if (state.nextCursor || rows.length > state.visibleOperations) {
@@ -680,13 +684,16 @@
     }
 
     function fillExpenseChoices(rows, accounts) {
+      const previousCategory = elements.category.value, previousAccount = elements.account.value;
       elements.category.replaceChildren();
       const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = rows.length ? 'Выберите категорию' : 'Категории недоступны'; elements.category.append(placeholder);
       rows.forEach(item => { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; elements.category.append(option); });
       elements.account.replaceChildren();
       const accountPlaceholder = document.createElement('option'); accountPlaceholder.value = ''; accountPlaceholder.textContent = accounts.length ? 'Выберите счёт' : 'Счета недоступны'; elements.account.append(accountPlaceholder);
       accounts.forEach(item => { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; elements.account.append(option); });
-      if (accounts.length === 1) elements.account.value = accounts[0].id;
+      if (rows.some(row => row.id === previousCategory)) elements.category.value = previousCategory;
+      if (accounts.some(row => row.id === previousAccount)) elements.account.value = previousAccount;
+      else if (accounts.length === 1) elements.account.value = accounts[0].id;
       elements.submit.disabled = !rows.length || !accounts.length;
     }
 
@@ -726,6 +733,9 @@
     }
 
     async function openExpense() {
+      if (state.saving || state.openingExpense) return;
+      if (state.frozenEdit) { onNotice('Сначала подтвердите сохранение открытого расхода повтором того же запроса.'); return; }
+      state.editing = null; expenseMode();
       if (!state.data?.permissions.canAddExpense) return;
       const needsPreparation = !state.data.expenseDirectory.length || !state.data.paymentAccounts.length;
       if (needsPreparation && typeof adapter.prepareExpense === 'function') {
@@ -754,13 +764,65 @@
       elements.category.focus();
     }
 
-    function closeExpense() { if (elements.dialog.open && typeof elements.dialog.close === 'function') elements.dialog.close(); else elements.dialog.removeAttribute('open'); }
+    function closeExpense(force = false) {
+      if (force !== true && state.saving) return;
+      if (elements.dialog.open && typeof elements.dialog.close === 'function') elements.dialog.close(); else elements.dialog.removeAttribute('open');
+      if (!state.frozenEdit && !state.saving) {
+        if (state.editing) { elements.form.reset(); state.requestId = ''; }
+        state.editing = null; expenseMode();
+      }
+    }
+
+    function operationActions(operation, amount) {
+      if (!operation.manualExpenseId || operation.type !== 'expense' || !state.data?.permissions.canEditExpense
+          || typeof adapter.readExpense !== 'function' || typeof adapter.updateExpense !== 'function') return amount;
+      const actions = createElement('div', 'finance-center__operation-actions');
+      const edit = createElement('button', 'finance-center__edit', 'Редактировать'); edit.type = 'button';
+      edit.setAttribute('aria-label', `Редактировать расход: ${operation.label}`);
+      edit.addEventListener('click', () => void openExpenseEdit(operation.manualExpenseId, edit));
+      actions.append(amount, edit); return actions;
+    }
+
+    function expenseMode() {
+      find('#financeExpenseTitle').textContent = state.editing ? 'Редактировать расход' : 'Добавить расход';
+      find('[data-finance-form-caption]').textContent = state.editing ? 'Расход' : 'Новая операция';
+      elements.submit.textContent = state.frozenEdit ? 'Повторить безопасно' : state.editing ? 'Сохранить изменения' : 'Добавить расход';
+      for (const field of elements.form.querySelectorAll('input,select')) field.disabled = state.saving || Boolean(state.frozenEdit);
+      find('[data-finance-close]').disabled = state.saving; find('[data-finance-cancel]').disabled = state.saving;
+    }
+
+    async function openExpenseEdit(id, trigger) {
+      if (state.saving || state.openingExpense || !state.data?.permissions.canEditExpense) return;
+      if (state.frozenEdit && state.editing?.id !== id) { onNotice('Сначала подтвердите сохранение предыдущего расхода.'); return; }
+      state.openingExpense = true; trigger.disabled = true;
+      const version = state.loadVersion;
+      try {
+        if (!state.frozenEdit) {
+          const expense = await adapter.readExpense(id);
+          if (state.destroyed || version !== state.loadVersion || expense?.id !== id) return;
+          state.editing = expense; state.requestId = ''; elements.form.reset();
+          fillExpenseChoices(state.data.expenseDirectory, state.data.paymentAccounts);
+          elements.category.value = expense.categoryId; elements.account.value = expense.paymentAccountId;
+          elements.form.elements.amount.value = (expense.amountMinor / 100).toFixed(2).replace('.', ',');
+          elements.form.elements.occurredOn.value = expense.occurredOn; elements.form.elements.note.value = expense.note || '';
+          elements.formError.hidden = true; elements.formError.textContent = '';
+        }
+        closeDetail(); expenseMode();
+        if (!elements.dialog.open) elements.dialog.showModal();
+        elements.form.elements.amount.focus();
+      } catch (error) { if (!state.destroyed) onNotice(text(error?.userMessage, 'Не удалось открыть расход. Обновите операции.')); }
+      finally { state.openingExpense = false; trigger.disabled = false; }
+    }
 
     function expensePayload() {
+      if (state.frozenEdit) return state.frozenEdit;
       const fields = new FormData(elements.form); return {
         requestId:state.requestId || requestUuid(),
         categoryId:text(fields.get('categoryId')), paymentAccountId:text(fields.get('paymentAccountId')), amountMinor:parseRubles(fields.get('amount')),
-        occurredOn:text(fields.get('occurredOn')), note:text(fields.get('note'))
+        occurredOn:text(fields.get('occurredOn')), note:text(fields.get('note')),
+        ...(state.editing ? { expenseId:state.editing.id, performerId:state.editing.performerId,
+          originalTitle:state.editing.title, originalSourceLabel:state.editing.sourceLabel,
+          preserveTitle:text(fields.get('note')) === (state.editing.note || '') && text(fields.get('categoryId')) === state.editing.categoryId } : {})
       };
     }
 
@@ -768,30 +830,42 @@
 
     async function submitExpense(event) {
       event.preventDefault();
+      if (state.saving || state.openingExpense || state.destroyed) return;
       const payload = expensePayload(); state.requestId = payload.requestId;
       if (!payload.categoryId || !payload.paymentAccountId || !payload.amountMinor || !/^\d{4}-\d{2}-\d{2}$/.test(payload.occurredOn)) {
         elements.formError.textContent = 'Проверьте категорию, счёт списания, дату и сумму расхода.'; elements.formError.hidden = false; return;
       }
+      state.saving = true; expenseMode();
       elements.submit.disabled = true; elements.submit.textContent = 'Сохраняем\u2026'; elements.formError.hidden = true;
       try {
-        await adapter.createExpense(payload);
-        state.requestId = ''; elements.form.reset(); closeExpense(); onNotice('Расход добавлен'); await load({ quiet:true });
+        if (state.editing) await adapter.updateExpense(payload); else await adapter.createExpense(payload);
+        if (state.destroyed) return;
+        const edited = Boolean(state.editing);
+        state.requestId = ''; state.frozenEdit = null; state.editing = null; elements.form.reset(); closeExpense(true);
+        onNotice(edited ? 'Расход изменён' : 'Расход добавлен'); await load({ quiet:true });
       } catch (error) {
+        if (state.destroyed) return;
         if (ambiguous(error)) {
+          if (state.editing) state.frozenEdit = Object.freeze({ ...payload });
           let found = null;
-          if (typeof adapter.findExpenseByRequestId === 'function') {
+          if (!state.editing && typeof adapter.findExpenseByRequestId === 'function') {
             try { found = await adapter.findExpenseByRequestId(payload.requestId); } catch (_) { found = null; }
           }
           if (found) {
-            state.requestId = ''; elements.form.reset(); closeExpense(); onNotice('Расход уже сохранён'); await load({ quiet:true });
+            state.requestId = ''; elements.form.reset(); closeExpense(true); onNotice('Расход уже сохранён'); await load({ quiet:true });
           } else {
             elements.formError.textContent = 'Не удалось подтвердить результат. Повтор использует тот же номер запроса и не создаст дубль.'; elements.formError.hidden = false;
           }
         } else {
-          elements.formError.textContent = text(error?.userMessage, 'Не удалось добавить расход. Данные сохранены в форме.'); elements.formError.hidden = false;
+          if (state.editing) { state.frozenEdit = null; state.requestId = ''; }
+          elements.formError.textContent = text(error?.userMessage, 'Не удалось сохранить расход. Данные сохранены в форме.'); elements.formError.hidden = false;
         }
       } finally {
-        elements.submit.disabled = !state.data?.expenseDirectory.length || !state.data?.paymentAccounts.length; elements.submit.textContent = state.requestId ? 'Повторить безопасно' : 'Добавить расход';
+        state.saving = false;
+        if (!state.destroyed) {
+          expenseMode(); elements.submit.disabled = !state.data?.expenseDirectory.length || !state.data?.paymentAccounts.length;
+          if (state.requestId) elements.submit.textContent = 'Повторить безопасно';
+        }
       }
     }
 
@@ -823,6 +897,7 @@
     listen(find('[data-finance-close]'), 'click', closeExpense); listen(find('[data-finance-cancel]'), 'click', closeExpense);
     listen(elements.form, 'submit', event => void submitExpense(event)); listen(elements.more, 'click', () => void loadMore());
     listen(elements.dialog, 'click', event => { if (event.target === elements.dialog) closeExpense(); });
+    listen(elements.dialog, 'cancel', event => { event.preventDefault(); closeExpense(); });
 
     fillOptions(elements.period, optionRows(options.periods, PERIOD_FALLBACK), state.period);
     fillOptions(elements.master, optionRows(options.masters, MASTER_FALLBACK), state.master);
@@ -861,7 +936,7 @@
           visits.remove();
         }
         root.closest('#analyticsView')?.classList.remove('report-financial-first');
-        if (elements.dialog.open) closeExpense(); root.replaceChildren(); instances.delete(root);
+        if (elements.dialog.open) closeExpense(true); expenseDialog.remove(); root.replaceChildren(); instances.delete(root);
       }
     };
     instances.set(root, controller);

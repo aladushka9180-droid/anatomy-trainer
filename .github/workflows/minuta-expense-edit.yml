@@ -1,0 +1,77 @@
+name: Minuta expense editing
+on:
+  pull_request:
+    branches: [main]
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/supabase-migration-v193*', 'minuta-online-booking/tests/finance-expense-edit*', 'minuta-online-booking/tests/manual-expense-edit-v193*', '.github/workflows/minuta-expense-edit.yml']
+  push:
+    branches: [main, codex/pro-expense-edit-20261003]
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/supabase-migration-v193*', 'minuta-online-booking/tests/finance-expense-edit*', 'minuta-online-booking/tests/manual-expense-edit-v193*', '.github/workflows/minuta-expense-edit.yml']
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  native-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-fixture-only
+          POSTGRES_DB: minuta_expense_edit_test
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v5
+        with: {node-version: 22}
+      - name: Install isolated test driver
+        run: npm install --prefix "$RUNNER_TEMP/expense-pg" --no-package-lock --ignore-scripts --no-audit --no-fund pg@8.16.3
+      - name: Atomic corrections across separate PostgreSQL connections
+        env:
+          MINUTA_NATIVE_TEST_DATABASE_URL: postgresql://postgres:ephemeral-fixture-only@127.0.0.1:55432/minuta_expense_edit_test
+          MINUTA_NATIVE_TEST_CONFIRM: EMPTY_SYNTHETIC_DATABASE_ONLY
+        run: |
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/expense-pg/node_modules/pg/lib/index.js"
+          node minuta-online-booking/tests/manual-expense-edit-v193-native-test.mjs
+  isolated-editing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm install --prefix "$RUNNER_TEMP/expense-runtime" --no-package-lock --ignore-scripts --no-audit --no-fund playwright@1.58.2 @electric-sql/pglite@0.3.14
+      - name: Expense editing and preserved finance contracts
+        run: |
+          export MINUTA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/expense-runtime/node_modules/playwright/index.mjs"
+          export MINUTA_PGLITE_MODULE="$RUNNER_TEMP/expense-runtime/node_modules/@electric-sql/pglite/dist/index.js"
+          node minuta-online-booking/client-url-redirect-test.mjs
+          node minuta-online-booking/provider-startup-performance-v565-test.mjs
+          node minuta-online-booking/finance-center-v163-integration-static-test.mjs
+          node minuta-online-booking/finance-center-ui-static-test.mjs
+          node minuta-online-booking/finance-center-provider-static-test.mjs
+          node minuta-online-booking/tests/finance-expense-edit-provider-test.mjs
+          node minuta-online-booking/tests/finance-expense-edit-browser-test.mjs
+          node minuta-online-booking/tests/manual-expense-edit-v193-pglite-test.mjs
+          node minuta-online-booking/tests/finance-center-ui-browser-test.mjs
+          node minuta-online-booking/tests/finance-center-provider-browser-test.mjs
+          node minuta-online-booking/tests/statistics-financial-scenarios-test.mjs
+          node minuta-online-booking/tests/statistics-financial-all-bounds-test.mjs
+          node minuta-online-booking/tests/finance-report-scope-browser-test.mjs
+        env:
+          MINUTA_VISUAL_OUTPUT: /tmp/expense-edit-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expense-edit-evidence
+          path: /tmp/expense-edit-evidence
+          if-no-files-found: ignore
