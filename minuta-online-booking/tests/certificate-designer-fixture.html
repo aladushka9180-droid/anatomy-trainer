@@ -16,6 +16,7 @@
   if(initialImage.startsWith('__')){const canvas=document.createElement('canvas');canvas.width=700;canvas.height=990;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,700,990);ctx.strokeStyle='#ddd';ctx.strokeRect(10,10,680,970);initialImage=canvas.toDataURL('image/png')}
   const initialTemplate={id:'00000000-0000-4000-8000-000000000009',name:'Макет массажного сертификата',image_data:initialImage,layout:structuredClone(MinutaCertificateRenderer.fields),font_files:{}};
   let state=await read() || {templates:[initialTemplate],records:[]};
+  state.drafts ||= [];
   const org='00000000-0000-4000-8000-000000000004';
   const services=[{id:'00000000-0000-4000-8000-000000000007',name:'Массаж спины+швз — углубленный',duration_minutes:60},{id:'00000000-0000-4000-8000-000000000008',name:'Массаж спины',duration_minutes:30},{id:'00000000-0000-4000-8000-000000000006',name:'Общий расслабляющий массаж',duration_minutes:60}];
   // Public examples cover all professions. Product workspaces use only their authorized services RPC.
@@ -35,22 +36,35 @@
     clients:async(_,query)=>({organization_id:org,clients:clients.filter(c=>(c.name+' '+c.phone).toLocaleLowerCase('ru-RU').includes(query.toLocaleLowerCase('ru-RU')))}),
     clientOptions:async(_,phone)=>({organization_id:org,client_phone:phone,client_account_id:clients.find(c=>c.phone===phone)?.account_id,instruments:phone===clients[0].phone&&!state.records.some(r=>r.benefit_instrument_id===instrument.id)?[instrument]:[]}),
     clientRecords:async(_,phone,cursor)=>{const records=state.records.filter(r=>r.client_phone===phone).map(r=>({...r,remaining_visits:r.benefit_instrument_id===instrument.id?instrument.remaining_visits:null,benefit_status:r.benefit_instrument_id===instrument.id?'active':null}));const start=cursor||0;return{organization_id:org,client_phone:phone,today,records:records.slice(start,start+50),next_cursor:records.length>start+50?start+50:null}},
-    workspace:async()=>({organization_id:org,current_role:'owner',today,templates:state.templates.map(t=>({id:t.id,name:t.name})),services}),
+    workspace:async()=>({organization_id:org,current_role:'owner',today,next_number:nextNumber(),templates:state.templates.map(t=>({id:t.id,name:t.name})),services}),
     template:async(_,id)=>({organization_id:org,template:state.templates.find(t=>t.id===id)}),
     saveTemplate:(_,value)=>mutate(()=>{state.templates.push(structuredClone(value));return {organization_id:org,id:value.id}}),
     issue:(_,value,request)=>mutate(()=>{
       const previous=state.records.find(r=>r.request_id===request);
       if(previous){if(JSON.stringify(previous.source)!==JSON.stringify(value))throw new Error('certificate_request_conflict');return {organization_id:org,record:previous}}
-      if(state.records.some(r=>r.number===value.number))throw new Error('certificate_number_exists');
-      const record={...structuredClone(value),id:crypto.randomUUID(),request_id:request,source:structuredClone(value)};state.records.unshift(record);return {organization_id:org,record};
+      const number=value.number_mode==='auto'?nextNumber():value.number;
+      if(state.records.some(r=>r.number===number))throw new Error('certificate_number_exists');
+      const draft=value.draft_id?state.drafts.find(d=>d.id===value.draft_id&&d.revision===value.draft_revision&&!d.issued_id):null;
+      if(value.draft_id&&!draft)throw new Error('certificate_draft_conflict');
+      const record={...structuredClone(value),number,id:crypto.randomUUID(),request_id:request,source:structuredClone(value)};state.records.unshift(record);if(draft)draft.issued_id=record.id;return {organization_id:org,record};
     }),
+    saveDraft:(_,id,body,expected,revision)=>mutate(()=>{
+      let draft=state.drafts.find(d=>d.id===id);
+      if(draft?.issued_id)throw new Error('certificate_draft_unavailable');
+      if(draft?.revision===revision&&JSON.stringify(draft.body)===JSON.stringify(body))return {organization_id:org,id,revision};
+      if((draft?.revision||null)!==expected)throw new Error('certificate_draft_conflict');
+      if(!draft){draft={id};state.drafts.push(draft);}Object.assign(draft,{revision,body:structuredClone(body),updated_at:new Date().toISOString()});return {organization_id:org,id,revision};
+    }),
+    drafts:async(_,cursor)=>{const rows=state.drafts.filter(d=>!d.issued_id).slice().reverse(),start=cursor||0;return {organization_id:org,drafts:rows.slice(start,start+50).map(d=>({id:d.id,revision:d.revision,updated_at:d.updated_at,text:d.body.form['custom-text'],service_id:d.body.form.service,content_mode:d.body.form['content-mode'],template_name:d.body.template?.name})),next_cursor:rows.length>start+50?start+50:null}},
+    draft:async(_,id)=>{const d=state.drafts.find(d=>d.id===id&&!d.issued_id);if(!d)throw new Error('certificate_draft_unavailable');return {organization_id:org,...structuredClone(d)}},
     history:async(_,query,status,cursor)=>{
       const records=state.records.filter(r=>(r.number+' '+r.procedure).toLocaleLowerCase('ru-RU').includes(query.toLocaleLowerCase('ru-RU'))&&(status==='all'||MinutaCertificateRenderer.status(r,today,r.remind_days).code===status));
       const start=cursor||0;
       return {organization_id:org,today,records:records.slice(start,start+50),next_cursor:records.length>start+50?start+50:null,expiring_count:state.records.filter(r=>MinutaCertificateRenderer.status(r,today,r.remind_days).code==='expiring').length};
     }
   };
-  const controller=MinutaCertificateDesigner.createController({root:document.getElementById('certificateDesignerPanel'),repository,defaultNumber:'267',defaultDate:'2026-10-03',getCurrentUser:()=>({id:'demo'}),requireWrites:()=>true,onIssued:()=>card.reload()});
+  function nextNumber(){return (state.records.reduce((n,r)=>/^[0-9]+$/.test(r.number)&&BigInt(r.number)>n?BigInt(r.number):n,0n)+1n).toString()}
+  const controller=MinutaCertificateDesigner.createController({root:document.getElementById('certificateDesignerPanel'),repository,defaultNumber:new URLSearchParams(location.search).has('automatic')?undefined:'267',defaultDate:'2026-10-03',getCurrentUser:()=>({id:'demo'}),requireWrites:()=>true,onIssued:()=>card.reload()});
   controller.bind();
   await controller.setOrganization({id:org});
   const card=MinutaCertificateClientCard.createController({root:document.getElementById('clientCertificateDesigns'),repository,getCurrentUser:()=>({id:'demo'}),onOpen:async item=>{await controller.openIssued(item);document.getElementById('certificateDesignerPanel').scrollIntoView()}});

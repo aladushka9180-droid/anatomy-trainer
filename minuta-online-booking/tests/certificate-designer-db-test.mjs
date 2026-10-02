@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {createRequire} from 'node:module';
+import {randomUUID} from 'node:crypto';
 process.on('uncaughtException',error=>{ console.error(error.message); process.exit(1); });
 let db, newNativeClient;
 const native=Boolean(process.env.MINUTA_CERTIFICATE_TEST_DATABASE_URL);
@@ -162,5 +163,63 @@ await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,pr
 assert.equal((await actor(owner,()=>call('get_minuta_certificate_issue_history',[org,'Любая услуга','all',null]))).records[0].procedure,custom.procedure);checks++;
 await db.exec(readFileSync(new URL('../certificate-designer-rollback-candidate.sql',import.meta.url),'utf8'));await db.exec(source);
 assert.equal((await actor(owner,()=>call('get_minuta_certificate_issue_history',[org,'custom-1','all',null]))).records[0].content_mode,'custom');checks++;
+// Automatic numbers are organization wide; drafts do not reserve or consume one.
+const nextBefore=(await actor(owner,()=>call('get_minuta_certificate_design_workspace',[org]))).next_number;
+const draftId=randomUUID(),draftRevision=randomUUID(),draftBody={form:{'content-mode':'custom','custom-text':'Незавершённый подарок','number-mode':'auto',number:'',date:'',expiry:'',font:'History Pro 02'},template:{...template,font_files:{}},client:null};
+const saveDraft=(id,body,expected,revision)=>call('save_minuta_certificate_draft',[org,id,body,expected,revision]);
+const savedDraft=await actor(owner,()=>saveDraft(draftId,draftBody,null,draftRevision));
+assert.equal(savedDraft.revision,draftRevision);assert.deepEqual((await actor(owner,()=>call('get_minuta_certificate_draft',[org,draftId]))).body,draftBody);checks++;
+await actor(owner,()=>saveDraft(draftId,draftBody,null,draftRevision));assert.equal(await value('select count(*)::integer value from public.certificate_design_drafts'),1);checks++;
+assert.equal((await actor(owner,()=>call('get_minuta_certificate_design_workspace',[org]))).next_number,nextBefore);checks++;
+const draftList=await actor(owner,()=>call('get_minuta_certificate_drafts',[org,null]));assert.equal(draftList.drafts.length,1);assert.equal(draftList.drafts[0].body,undefined);assert.equal(draftList.drafts[0].image_data,undefined);checks++;
+assert.equal((await actor(expert,()=>call('get_minuta_certificate_drafts',[org,null]))).drafts.length,0);checks++;
+await denied(expert,()=>call('get_minuta_certificate_draft',[org,draftId]),/certificate_draft_unavailable/);
+await denied(expert,()=>saveDraft(draftId,draftBody,draftRevision,randomUUID()),/certificate_draft_unavailable/);
+await denied(outsider,()=>call('get_minuta_certificate_drafts',[org,null]),/certificate_access_denied/);
+await denied(owner,()=>db.query('select * from public.certificate_design_drafts'),/permission denied/);
+await denied(owner,()=>saveDraft(randomUUID(),{...draftBody,template:{...template,image_data:'https://example.com/remote.png'}},null,randomUUID()),/invalid_certificate_draft/);
+const newerRevision=randomUUID();await actor(owner,()=>saveDraft(draftId,{...draftBody,form:{...draftBody.form,'custom-text':'Обновлённый подарок'}},draftRevision,newerRevision));checks++;
+await denied(owner,()=>saveDraft(draftId,draftBody,draftRevision,randomUUID()),/certificate_draft_conflict/);
+await denied(owner,()=>saveDraft(draftId,draftBody,newerRevision,newerRevision),/certificate_draft_conflict/);
+const auto={...custom,number_mode:'auto',number:nextBefore,draft_id:draftId,draft_revision:newerRevision},autoRequest=randomUUID();
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...auto,draft_revision:draftRevision},randomUUID()]),/certificate_draft_conflict/);
+const autoIssued=await actor(owner,()=>call('record_minuta_certificate_issue',[org,auto,autoRequest]));assert.equal(autoIssued.record.number,nextBefore);checks++;
+assert.equal((await actor(owner,()=>call('get_minuta_certificate_drafts',[org,null]))).drafts.length,0);checks++;
+await denied(owner,()=>call('get_minuta_certificate_draft',[org,draftId]),/certificate_draft_unavailable/);
+await denied(owner,()=>saveDraft(draftId,draftBody,newerRevision,randomUUID()),/certificate_draft_unavailable/);
+const autoAgain=await actor(owner,()=>call('record_minuta_certificate_issue',[org,auto,autoRequest]));assert.equal(autoAgain.record.id,autoIssued.record.id);checks++;
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...auto,procedure:'Изменён'},autoRequest]),/certificate_request_conflict/);
+const autoSecond=await actor(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,number_mode:'auto',number:'1'},randomUUID()]));assert.equal(BigInt(autoSecond.record.number),BigInt(nextBefore)+1n);checks++;
+const nextAfter=(await actor(owner,()=>call('get_minuta_certificate_design_workspace',[org]))).next_number;
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,number_mode:'auto',procedure:' '},randomUUID()]),/invalid_certificate/);
+assert.equal((await actor(owner,()=>call('get_minuta_certificate_design_workspace',[org]))).next_number,nextAfter);checks++;
+// A high manual decimal number (including leading zeroes) advances the automatic sequence.
+await actor(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,number:'0009000'},randomUUID()]));
+assert.equal((await actor(owner,()=>call('get_minuta_certificate_design_workspace',[org]))).next_number,'9001');checks++;
+if(native){
+  const expertTemplate={...template,id:randomUUID()};await actor(expert,()=>call('save_minuta_certificate_design',[org,expertTemplate]));
+  for(const firstMode of ['auto','manual']){
+    const left=await newNativeClient(),right=await newNativeClient();
+    try{
+      for(const [connection,user] of [[left,owner],[right,expert]]){await connection.query('begin; set local role authenticated');await connection.query("select set_config('request.jwt.claim.sub',$1,true)",[user])}
+      const rightPid=(await right.query('select pg_backend_pid() pid')).rows[0].pid;
+      const suggestion=(await actor(owner,()=>call('get_minuta_certificate_design_workspace',[org]))).next_number;
+      const firstRecord={...custom,number:suggestion,...(firstMode==='auto'?{number_mode:'auto'}:{})};
+      const first=(await left.query('select public.record_minuta_certificate_issue($1,$2,$3) value',[org,firstRecord,randomUUID()])).rows[0].value;
+      const request=randomUUID(),submitted={...custom,template_id:expertTemplate.id,number:suggestion,number_mode:'auto'};
+      const pending=right.query('select public.record_minuta_certificate_issue($1,$2,$3) value',[org,submitted,request]);
+      let waiting=false;for(let attempt=0;attempt<30&&!waiting;attempt++){waiting=(await db.query("select coalesce(bool_or(wait_event='advisory'),false) waiting from pg_stat_activity where pid=$1",[rightPid])).rows[0].waiting;if(!waiting)await new Promise(resolve=>setTimeout(resolve,50));}
+      assert.equal(waiting,true);checks++;await left.query('commit');const second=(await pending).rows[0].value;await right.query('commit');
+      assert.equal(BigInt(second.record.number),BigInt(first.record.number)+1n);checks++;
+      assert.equal((await actor(expert,()=>call('record_minuta_certificate_issue',[org,submitted,request]))).record.number,second.record.number);checks++;
+    }finally{await left.query('rollback');await right.query('rollback');await left.end();await right.end()}
+  }
+}
+const retainedDraft=randomUUID(),retainedRevision=randomUUID();await actor(owner,()=>saveDraft(retainedDraft,draftBody,null,retainedRevision));
+await db.exec(readFileSync(new URL('../certificate-designer-rollback-candidate.sql',import.meta.url),'utf8'));
+await denied(owner,()=>call('get_minuta_certificate_drafts',[org,null]),/permission denied/);
+await db.exec(source);assert.deepEqual((await actor(owner,()=>call('get_minuta_certificate_draft',[org,retainedDraft]))).body,draftBody);checks++;
+await actor(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,number:'9'.repeat(40)},randomUUID()]));
+await denied(owner,()=>call('record_minuta_certificate_issue',[org,{...custom,number:'1',number_mode:'auto'},randomUUID()]),/certificate_number_exhausted/);
 console.log(`Certificate ${native?'native PostgreSQL synthetic':'isolated PGlite'} database checks: ${checks} PASS. Full production-schema proof is separate.`);
 await db.close();
