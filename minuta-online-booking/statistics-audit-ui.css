@@ -192,13 +192,13 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #re
 }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource button {
   min-height:40px;width:auto;padding:8px 14px;border:0;border-radius:9px;background:transparent;box-shadow:none;
-  color:var(--theme-muted);font-size:calc(13px + var(--provider-text-step,0px));font-weight:500;
+  color:var(--theme-muted);font-size:max(.875rem,calc(14px + var(--provider-text-step,0px)));font-weight:500;
 }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource button.active {
   color:var(--theme-accent);background:color-mix(in srgb,var(--theme-accent) 7%,var(--theme-surface));font-weight:600;
 }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource>small {
-  margin:0;color:var(--theme-muted);font-size:calc(13px + var(--provider-text-step,0px));
+  margin:0;color:var(--theme-muted);font-size:max(.8125rem,calc(13px + var(--provider-text-step,0px)));
 }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filters {
   border-color:color-mix(in srgb,var(--theme-ink) 13%,transparent);background:var(--theme-surface);box-shadow:none;border-radius:16px;
