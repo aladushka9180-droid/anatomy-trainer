@@ -35,6 +35,7 @@
     let pending = false;
     let pendingOrganization;
     let editingShiftId = null;
+    const presentation = () => window.MinutaTeamSchedule;
 
     function unsupported(error) {
       return /PGRST202|42883|get_minuta_shift_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -48,6 +49,7 @@
     }
 
     function reset() {
+      presentation()?.reset();
       revision += 1;
       organization = null;
       payload = null;
@@ -62,6 +64,8 @@
 
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
+      if (normalized?.id !== organization?.id) editingShiftId = null;
+      presentation()?.setContext(getCurrentUser()?.id, normalized?.id);
       if (pending) {
         pendingOrganization = normalized;
         revision += 1;
@@ -84,6 +88,7 @@
       const generation = getSessionGeneration();
       const organizationId = organization.id;
       const currentRevision = ++revision;
+      presentation()?.beforeLoad();
       const start = $('#shiftStartDate').value || isoToday();
       const days = Math.max(1, Math.min(62, Number($('#shiftPeriod').value || 14)));
       $('#shiftsPanel').hidden = false;
@@ -172,7 +177,7 @@
       $('#substitutionHint').textContent = payload.performers.length < 2
         ? 'Для замены нужен другой специалист. Запись и ссылка клиента сохранятся.'
         : 'Запись и ссылка клиента сохранятся. Замена возможна, если специалист и нужные ресурсы свободны.';
-      panel.querySelector('button').disabled = !booking || !alternatives.length;
+      panel.querySelector('button[type="submit"]').disabled = !booking || !alternatives.length;
     }
 
     function renderWeekOverview() {
@@ -252,6 +257,7 @@
       $('#shiftAuditPanel').hidden = !canManage;
       $('#shiftAuditCount').textContent = String(payload.audit.length);
       $('#shiftAuditList').innerHTML = payload.audit.length ? payload.audit.map(auditCard).join('') : empty('Изменений пока нет', 'Здесь появится история смен, отсутствий и замен.');
+      presentation()?.render(payload);
       setBusy(false);
       applyWriteAvailability();
     }
@@ -321,6 +327,30 @@
     }
 
     async function handleClick(event) {
+      const create = event.target.closest('[data-shift-new]');
+      if (create) {
+        if (!payload || pending || !organization?.id || !requireWrites() || $('#shiftCreator').hidden) return;
+        editingShiftId = null;
+        $('#shiftForm').reset();
+        clearError('#shiftError');
+        $('#shiftDate').value = create.dataset.shiftDate || [isoToday(), $('#shiftStartDate').value || isoToday()].sort().at(-1);
+        if (create.dataset.shiftPerformer) $('#shiftPerformer').value = create.dataset.shiftPerformer;
+        if (create.dataset.shiftLocation) $('#shiftLocation').value = create.dataset.shiftLocation;
+        $('#shiftBreakFields').hidden = true;
+        $('#shiftForm button[type="submit"]').textContent = 'Создать смену';
+        $('#shiftCreator').open = true;
+        return;
+      }
+      const createAbsence = event.target.closest('[data-absence-new]');
+      if (createAbsence) {
+        if (!payload || pending || !organization?.id || !requireWrites() || $('#absenceCreator').hidden) return;
+        $('#absenceForm').reset();
+        clearError('#absenceError');
+        $('#absenceStart').value = isoToday();
+        $('#absenceEnd').value = isoToday();
+        $('#absenceCreator').open = true;
+        return;
+      }
       const weekButton = event.target.closest('[data-shift-week]');
       if (weekButton) {
         $('#shiftStartDate').value = addDays($('#shiftStartDate').value || isoToday(), Number(weekButton.dataset.shiftWeek) * 7);

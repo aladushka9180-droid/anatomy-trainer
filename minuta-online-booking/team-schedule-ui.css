@@ -1,0 +1,165 @@
+/* Only the native team schedule changes; colors follow the selected Pro theme. */
+body.provider-body #dashboard #shiftsPanel[data-team-schedule-ready] {
+  padding: 24px; min-width: 0; gap: 18px;
+  color: var(--theme-ink, #342d32); background: var(--theme-surface, #fff);
+  border: 1px solid var(--theme-line, #eadfe5); border-radius: 24px; box-shadow: none;
+  --ts-font: calc(14px + var(--provider-text-step, 0px));
+}
+#shiftsPanel[data-team-schedule-ready] [hidden] { display: none !important; }
+#shiftsPanel[data-team-schedule-ready] .panel-head { gap: 16px; margin: 0; align-items: center; flex-wrap: wrap; }
+#shiftsPanel[data-team-schedule-ready] .panel-head h3 { font-size: calc(23px + var(--provider-text-step, 0px)); line-height: 1.35; }
+#shiftsPanel[data-team-schedule-ready] #shiftsCount,
+#shiftsPanel[data-team-schedule-ready] #shiftUtilization,
+#shiftsPanel[data-team-schedule-ready] #shiftWeekOverview { display: none; }
+#shiftsPanel[data-team-schedule-ready] > .organization-invite-help { margin: -8px 0 6px; font-size: var(--ts-font); color: var(--theme-muted, #746b73); }
+#shiftsPanel[data-team-schedule-ready] .shift-workspace { gap: 20px; min-width: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-icon { width: 20px; height: 20px; flex: 0 0 auto; }
+#shiftsPanel[data-team-schedule-ready] button { font-family: inherit; font-size: var(--ts-font); }
+#shiftsPanel[data-team-schedule-ready] .ts-actions { display: flex; gap: 10px; margin-left: auto; }
+#shiftsPanel[data-team-schedule-ready] :is(.ts-primary,.ts-secondary,.ts-icon-button,.ts-today,.ts-close) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; width: auto; margin: 0; padding: 10px 14px; border-radius: 12px;
+  color: var(--theme-ink, #342d32); border: 1px solid var(--theme-line, #eadfe5);
+  background: var(--theme-surface, #fff); font-weight: 600; cursor: pointer; box-shadow: none;
+}
+#shiftsPanel[data-team-schedule-ready] .ts-primary { background: var(--theme-accent, #ae3f75); color: var(--theme-accent-contrast, #fff); border-color: transparent; }
+#shiftsPanel[data-team-schedule-ready] .ts-icon-button { width: 44px; padding: 10px; flex-shrink: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-today { border-color: transparent; color: var(--theme-muted, #746b73); }
+#shiftsPanel[data-team-schedule-ready] button:disabled { cursor: default; opacity: .55; }
+#shiftsPanel[data-team-schedule-ready] :is(button,summary,input,select):focus-visible {
+  outline: 2px solid var(--theme-accent, #ae3f75); outline-offset: 3px;
+}
+#shiftsPanel[data-team-schedule-ready] .shift-toolbar {
+  display: grid; grid-template-columns: minmax(290px,1fr) 140px 160px; align-items: end; gap: 12px;
+  padding: 10px 0 18px; background: transparent; border: 0; border-bottom: 1px solid var(--theme-line, #eadfe5); border-radius: 0;
+}
+#shiftsPanel[data-team-schedule-ready] :is(.shift-toolbar,.ts-filter-fields) > label {
+  display: grid; gap: 6px; font-size: var(--ts-font); color: var(--theme-muted, #746b73);
+  text-transform: none; letter-spacing: 0; font-weight: 500; min-width: 0;
+}
+#shiftsPanel[data-team-schedule-ready] :is(.shift-toolbar,.ts-filter-fields) :is(select,input) {
+  min-height: 44px; width: 100%; min-width: 0; padding: 10px 12px; font: inherit;
+  color: var(--theme-ink, #342d32); background: var(--theme-surface, #fff);
+  border: 1px solid var(--theme-line, #eadfe5); border-radius: 12px;
+}
+#shiftsPanel[data-team-schedule-ready] .ts-navigation { display: flex; align-items: center; gap: 12px; }
+#shiftsPanel[data-team-schedule-ready] .ts-navigation > strong { min-width: 144px; text-align: center; font-size: calc(16px + var(--provider-text-step, 0px)); font-weight: 650; }
+#shiftsPanel[data-team-schedule-ready] .ts-filters { border: 0; background: transparent; padding: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-filters > summary { display: none; }
+#shiftsPanel[data-team-schedule-ready] .ts-filter-fields { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 12px; }
+#shiftsPanel[data-team-schedule-ready] .ts-filters:not([open]) > .ts-filter-fields { display: grid; }
+#shiftsPanel[data-team-schedule-ready] .ts-calendar { min-width: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-calendar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 20px; }
+#shiftsPanel[data-team-schedule-ready] h4 { font-size: calc(16px + var(--provider-text-step, 0px)); margin: 0; font-weight: 650; }
+#shiftsPanel[data-team-schedule-ready] .ts-calendar-head h4 { display: flex; align-items: center; gap: 8px; }
+#shiftsPanel[data-team-schedule-ready] :is(.ts-calendar-head,.ts-person) small { font-size: calc(12px + var(--provider-text-step, 0px)); color: var(--theme-muted, #746b73); line-height: 1.5; }
+#shiftsPanel[data-team-schedule-ready] .ts-desktop { overflow-x: auto; }
+#shiftsPanel[data-team-schedule-ready] table { border-collapse: collapse; width: 100%; table-layout: fixed; min-width: 880px; }
+#shiftsPanel[data-team-schedule-ready] table th { font-weight: 500; text-align: left; }
+#shiftsPanel[data-team-schedule-ready] thead th { width: auto; padding: 6px 6px 16px; color: var(--theme-muted, #746b73); font-size: calc(12px + var(--provider-text-step, 0px)); border-bottom: 1px solid var(--theme-line, #eadfe5); }
+#shiftsPanel[data-team-schedule-ready] thead th:first-child { width: 200px; padding-left: 0; }
+#shiftsPanel[data-team-schedule-ready] thead th:not(:first-child) { text-align: center; }
+#shiftsPanel[data-team-schedule-ready] thead th span { display: block; margin-bottom: 6px; }
+#shiftsPanel[data-team-schedule-ready] thead th strong { font-size: calc(16px + var(--provider-text-step, 0px)); color: var(--theme-ink, #342d32); }
+#shiftsPanel[data-team-schedule-ready] thead .ts-current strong { color: var(--theme-accent, #ae3f75); }
+#shiftsPanel[data-team-schedule-ready] tbody th { padding: 14px 14px 14px 0; }
+#shiftsPanel[data-team-schedule-ready] tbody td { padding: 12px 4px; vertical-align: top; }
+#shiftsPanel[data-team-schedule-ready] tbody tr + tr { border-top: 1px solid var(--theme-line, #eadfe5); }
+#shiftsPanel[data-team-schedule-ready] .ts-person { display: flex; align-items: flex-start; gap: 9px; min-width: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-person > div { display: grid; gap: 5px; min-width: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-person strong { font-size: var(--ts-font); font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+#shiftsPanel[data-team-schedule-ready] .ts-avatar { display: grid; place-items: center; border-radius: 50%; width: 32px; height: 32px; flex: 0 0 auto; font-size: 11px; color: var(--theme-muted, #746b73); background: var(--theme-surface-alt, #f7f3f5); }
+#shiftsPanel[data-team-schedule-ready] :is(.ts-shift,.ts-away,.ts-empty) {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  width: 100%; min-height: 64px; margin: 0 0 5px; padding: 10px 7px; border: 1px solid transparent; border-radius: 12px;
+  background: var(--theme-accent-soft, #fff0f6); color: var(--theme-accent, #a93a71); box-shadow: none;
+  font-size: calc(12px + var(--provider-text-step, 0px)); line-height: 1.4; text-align: center; overflow-wrap: anywhere;
+}
+#shiftsPanel[data-team-schedule-ready] .ts-shift strong { font-weight: 650; white-space: nowrap; font-size: inherit; }
+#shiftsPanel[data-team-schedule-ready] .ts-shift > span { color: var(--theme-muted, #746b73); }
+#shiftsPanel[data-team-schedule-ready] .ts-shift small { display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; font-size: calc(11px + var(--provider-text-step, 0px)); }
+#shiftsPanel[data-team-schedule-ready] .ts-shift small .ts-icon { width: 14px; height: 14px; }
+#shiftsPanel[data-team-schedule-ready] .ts-away { background: var(--theme-surface-alt, #f7f3f5); color: var(--theme-muted, #746b73); }
+#shiftsPanel[data-team-schedule-ready] .ts-empty { background: transparent; color: var(--theme-muted, #746b73); font-size: calc(11px + var(--provider-text-step, 0px)); }
+#shiftsPanel[data-team-schedule-ready] .ts-empty .ts-icon { width: 16px; height: 16px; }
+#shiftsPanel[data-team-schedule-ready] .ts-conflict { border: 1px solid var(--theme-accent, #ae3f75); }
+#shiftsPanel[data-team-schedule-ready] .ts-conflict em { font-style: normal; font-weight: 650; }
+#shiftsPanel[data-team-schedule-ready] .ts-mobile { display: none; }
+#shiftsPanel[data-team-schedule-ready] .ts-records { gap: 12px; }
+#shiftsPanel[data-team-schedule-ready] .ts-records > section { padding: 0; border: 0; border-radius: 0; background: transparent; }
+#shiftsPanel[data-team-schedule-ready] :is(.ts-record-list,.ts-substitution,#shiftAuditPanel) { padding: 0; border: 1px solid var(--theme-line, #eadfe5); border-radius: 14px; background: var(--theme-surface, #fff); overflow: hidden; }
+#shiftsPanel[data-team-schedule-ready] :is(.ts-record-list,.ts-substitution) > summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 13px 16px; font-size: var(--ts-font); cursor: pointer; list-style: none; font-weight: 600; }
+#shiftsPanel[data-team-schedule-ready] :is(.ts-record-list,.ts-substitution) > summary::after { content: '+'; margin-left: auto; color: var(--theme-muted, #746b73); }
+#shiftsPanel[data-team-schedule-ready] :is(.ts-record-list,.ts-substitution)[open] > summary::after { content: '−'; }
+#shiftsPanel[data-team-schedule-ready] .ts-record-list .organization-list { padding: 0 12px 12px; }
+#shiftsPanel[data-team-schedule-ready] #shiftSubstitutionPanel { border: 0; border-radius: 0; background: transparent; padding: 0 16px 16px; }
+#shiftsPanel[data-team-schedule-ready] #shiftSubstitutionPanel form { grid-template-columns: 1fr 1fr; }
+#shiftsPanel[data-team-schedule-ready] #shiftSubstitutionPanel form > button { grid-column: 1 / -1; justify-self: start; }
+#shiftsPanel[data-team-schedule-ready] #shiftSubstitutionPanel form > label { font-size: var(--ts-font); text-transform: none; letter-spacing: 0; font-weight: 500; }
+#shiftsPanel[data-team-schedule-ready] #shiftEnableField { margin: 0; padding: 14px 16px; border: 1px solid var(--theme-line, #eadfe5); background: var(--theme-surface-alt, #f7f3f5); border-radius: 14px; }
+#shiftsPanel[data-team-schedule-ready] #shiftEnableField strong { font-size: var(--ts-font); font-weight: 600; }
+#shiftsPanel[data-team-schedule-ready] .ts-drawer {
+  position: fixed; inset: 0 0 0 auto; height: 100dvh; max-height: 100dvh; width: min(480px,100%); max-width: 100%; margin: 0;
+  padding: 24px; overflow-y: auto; border: 0; border-left: 1px solid var(--theme-line, #eadfe5); border-radius: 20px 0 0 20px;
+  background: var(--theme-surface, #fff); color: var(--theme-ink, #342d32); box-sizing: border-box;
+}
+#shiftsPanel[data-team-schedule-ready] .ts-drawer::backdrop { background: rgb(25 20 24 / 28%); }
+#shiftsPanel[data-team-schedule-ready] .ts-drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+#shiftsPanel[data-team-schedule-ready] .ts-drawer-head h3 { font-size: calc(22px + var(--provider-text-step, 0px)); margin: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-close { padding: 10px; width: 44px; flex: 0 0 auto; }
+#shiftsPanel[data-team-schedule-ready] .ts-drawer .organization-create { border: 0; background: transparent; padding: 0; border-radius: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-drawer .organization-create > summary { display: none; }
+#shiftsPanel[data-team-schedule-ready] .ts-drawer form { padding: 0; gap: 20px; border: 0; background: transparent; }
+#shiftsPanel[data-team-schedule-ready] .ts-drawer form label { font-size: var(--ts-font); font-weight: 500; line-height: 1.4; }
+#shiftsPanel[data-team-schedule-ready] .ts-drawer :is(input:not([type=checkbox]),select) { width: 100%; min-width: 0; min-height: 46px; padding: 11px 12px; border: 1px solid var(--theme-line, #eadfe5); background: var(--theme-surface, #fff); color: var(--theme-ink, #342d32); border-radius: 12px; font: inherit; box-sizing: border-box; }
+#shiftsPanel[data-team-schedule-ready] .ts-drawer .settings-check { padding: 12px; background: var(--theme-surface-alt, #f7f3f5); border-color: var(--theme-line, #eadfe5); }
+body.provider-body #dashboard #shiftsPanel[data-team-schedule-ready] .ts-drawer .primary {
+  background: var(--theme-accent, #ae3f75) !important; color: var(--theme-accent-contrast, #fff) !important;
+  border-color: transparent !important; min-height: 46px; border-radius: 12px; margin: 0; box-shadow: none !important;
+}
+#shiftsPanel[data-team-schedule-ready] .ts-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-no-people { padding: 30px 16px; text-align: center; background: var(--theme-surface-alt, #f7f3f5); border-radius: 14px; }
+#shiftsPanel[data-team-schedule-ready] .ts-no-people p { font-size: var(--ts-font); color: var(--theme-muted, #746b73); }
+#shiftsPanel[data-team-schedule-ready] .ts-prerequisite { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px; margin-bottom: 18px; border-radius: 12px; background: var(--theme-surface-alt, #f7f3f5); font-size: var(--ts-font); }
+@media (max-width: 1000px) {
+  #shiftsPanel[data-team-schedule-ready] .shift-toolbar { grid-template-columns: 1fr 1fr; }
+  #shiftsPanel[data-team-schedule-ready] .ts-navigation { grid-column: 1 / -1; }
+  #shiftsPanel[data-team-schedule-ready] .ts-desktop { display: none; }
+  #shiftsPanel[data-team-schedule-ready] .ts-mobile { display: block; }
+  #shiftsPanel[data-team-schedule-ready] .ts-days { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 4px; }
+  #shiftsPanel[data-team-schedule-ready] .ts-days button { display: grid; gap: 4px; justify-items: center; width: 100%; margin: 0; min-height: 64px; padding: 8px 2px; border: 0; border-radius: 12px; color: var(--theme-muted, #746b73); background: transparent; }
+  #shiftsPanel[data-team-schedule-ready] .ts-days button[aria-pressed=true] { background: var(--theme-accent-soft, #fff0f6); color: var(--theme-accent, #ae3f75); }
+  #shiftsPanel[data-team-schedule-ready] .ts-days button span { font-size: calc(12px + var(--provider-text-step, 0px)); }
+  #shiftsPanel[data-team-schedule-ready] .ts-days button strong { font-size: calc(16px + var(--provider-text-step, 0px)); }
+  #shiftsPanel[data-team-schedule-ready] .ts-day-title { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 22px 0 6px; line-height: 1.5; }
+  #shiftsPanel[data-team-schedule-ready] .ts-day-title small { color: var(--theme-accent, #ae3f75); font-weight: 500; }
+  #shiftsPanel[data-team-schedule-ready] .ts-mobile-person { padding: 18px 0; display: grid; grid-template-columns: minmax(130px,.8fr) minmax(180px,1.2fr); gap: 14px; border-bottom: 1px solid var(--theme-line, #eadfe5); }
+  #shiftsPanel[data-team-schedule-ready] .ts-mobile-shifts .ts-shift { align-items: flex-start; padding: 12px; min-height: 70px; font-size: var(--ts-font); }
+  #shiftsPanel[data-team-schedule-ready] .ts-mobile-shifts .ts-shift small { font-size: calc(12px + var(--provider-text-step, 0px)); }
+}
+@media (max-width: 600px) {
+  body.provider-body #dashboard #shiftsPanel[data-team-schedule-ready] { padding: 16px; border-radius: 20px; gap: 16px; }
+  #shiftsPanel[data-team-schedule-ready] .panel-head h3 { font-size: calc(22px + var(--provider-text-step, 0px)); }
+  #shiftsPanel[data-team-schedule-ready] .ts-actions { width: 100%; display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; }
+  #shiftsPanel[data-team-schedule-ready] .ts-actions button { padding: 10px 8px; font-size: calc(13px + var(--provider-text-step, 0px)); }
+  #shiftsPanel[data-team-schedule-ready] > .organization-invite-help { margin: 0; }
+  #shiftsPanel[data-team-schedule-ready] .ts-navigation { justify-content: space-between; gap: 5px; }
+  #shiftsPanel[data-team-schedule-ready] .ts-navigation > strong { min-width: 0; font-size: calc(14px + var(--provider-text-step, 0px)); }
+  #shiftsPanel[data-team-schedule-ready] .ts-navigation .ts-today { padding: 10px 4px; font-size: calc(13px + var(--provider-text-step, 0px)); }
+  #shiftsPanel[data-team-schedule-ready] .ts-filters > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: var(--ts-font); list-style: none; }
+  #shiftsPanel[data-team-schedule-ready] .ts-filters > summary::after { content: '+'; margin-left: auto; }
+  #shiftsPanel[data-team-schedule-ready] .ts-filters[open] > summary::after { content: '−'; }
+  #shiftsPanel[data-team-schedule-ready] .ts-filter-fields { grid-template-columns: 1fr; padding: 12px 0; }
+  #shiftsPanel[data-team-schedule-ready] .ts-filters:not([open]) > .ts-filter-fields { display: none; }
+  #shiftsPanel[data-team-schedule-ready] .ts-calendar-head { align-items: flex-start; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  #shiftsPanel[data-team-schedule-ready] .ts-mobile-person { grid-template-columns: 1fr; gap: 12px; padding: 16px 0; }
+  #shiftsPanel[data-team-schedule-ready] .ts-person strong { overflow-wrap: normal; word-break: normal; }
+  #shiftsPanel[data-team-schedule-ready] .ts-mobile-shifts { padding-left: 41px; }
+  #shiftsPanel[data-team-schedule-ready] .ts-records { grid-template-columns: 1fr; }
+  #shiftsPanel[data-team-schedule-ready] #shiftSubstitutionPanel form { grid-template-columns: 1fr; }
+  #shiftsPanel[data-team-schedule-ready] .ts-drawer { padding: 20px 16px max(20px,env(safe-area-inset-bottom)); border-radius: 0; }
+  #shiftsPanel[data-team-schedule-ready] .ts-drawer .form-row { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #shiftsPanel[data-team-schedule-ready] * { scroll-behavior: auto !important; transition: none !important; }
+}
