@@ -85,7 +85,9 @@ try {
     assert.ok(geometry.overflow <= 1, `${width}: overflow`);
     assert.ok(geometry.cardBottom < geometry.commandTop, 'financial amounts precede visits and goals');
     assert.ok(geometry.cards.every(height=>height>=44), 'summary actions meet touch size');
-    await page.evaluate(() => window.scrollTo(0,100));
+    // Stop any smooth scrolling caused by opening the methodology below the
+    // first screen before recording the return position.
+    await page.evaluate(() => window.scrollTo({ top:100, behavior:'instant' }));
     const before = await page.evaluate(() => ({ scroll:scrollY, period:financeController ? document.querySelector('#reportPeriodLabel').textContent : '' }));
     await page.locator('#reportFinanceOverview [data-finance-detail="profit"]').click();
     await page.locator('[data-finance-detail-dialog]').waitFor({ state:'visible' });
@@ -106,7 +108,7 @@ try {
     assert.equal(await page.locator('.report-filters').isVisible(), true, 'one shared period is available in Money');
     assert.equal(await page.locator('.finance-center__filters').isVisible(), false, 'duplicate money filters hidden');
     await page.locator('#reportTabOverview').click();
-    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.evaluate(()=>window.scrollTo({ top:0, behavior:'instant' }));
     if (output) await page.screenshot({ path:resolve(output, `statistics-overview-${width}.png`), fullPage:false });
     await page.evaluate(()=>financeController.setOrganization({id:reportOrganizationId(),current_role:'specialist'}));
     assert.equal(await page.locator('#reportFinanceOverview').count(), 0, 'manager aggregates removed on role change');
