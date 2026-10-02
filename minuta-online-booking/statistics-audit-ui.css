@@ -222,13 +222,12 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .re
 }
 #analyticsView .report-visit-overview>.report-period-details {margin-top:12px}
 @media(max-width:600px) {
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource:not([hidden]) {margin-bottom:8px}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head {margin-bottom:8px}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head .view-description {display:none}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #exportBookings {margin-top:0}
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource:not([hidden]) {margin-bottom:8px;gap:6px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource:not([hidden]) {margin-bottom:4px;gap:6px}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filters {margin-bottom:0;padding:4px}
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs {margin:6px 0}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs {margin:4px 0}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView:not([data-report-source="demo"]) #reportDataSource>small {display:none}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView[data-report-source="demo"] #reportDataSource {flex-wrap:wrap}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs {display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
