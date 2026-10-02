@@ -14,7 +14,10 @@ const errors = [], unexpected = [];
 try {
   for (const width of [390, 760, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:940 }, serviceWorkers:'block', bypassCSP:true });
-    page.on('pageerror', e => errors.push(`${width}: ${e.message}`));
+    const pageError = new Promise(resolve => page.on('pageerror', e => {
+      errors.push(`${width}: ${e.message}`);
+      resolve({ ready:false, message:e.message });
+    }));
     await page.route('**/*', route => {
       const url = new URL(route.request().url());
       if (url.origin !== 'https://statistics.test' || route.request().method() !== 'GET') { unexpected.push(url.href); return route.abort(); }
@@ -31,6 +34,7 @@ try {
       let sessionGeneration=1, reportScopedBookingsState={status:'ready',rows:[]}, reportDataSource='own', reportPeriod='month';
       let reportPerformerFilter='all', importedBookingHistory=[], allBookings=[];
       let fixtureRows=[], fixtureMode='empty';
+      function reportTodayIso(){return '2026-10-02';}
       function reportRange(){return {start:'2026-10-01',end:'2026-10-02',period:reportPeriod};}
       function reportUsesScopedBookings(){return false;}
       function reportOrganizationId(){return '11111111-1111-4111-8111-111111111111';}
@@ -69,7 +73,11 @@ try {
       document.querySelectorAll('[data-report-view]').forEach(button=>button.addEventListener('click',()=>{document.querySelector('#analyticsView').dataset.reportTab=button.dataset.reportView;document.querySelectorAll('[data-report-view]').forEach(tab=>{tab.classList.toggle('active',tab===button);tab.toggleAttribute('aria-current',tab===button);});}));
     ` });
     await page.addScriptTag({ content:read('statistics-audit-provider.js') });
-    await page.waitForFunction(() => document.querySelector('#reportFinanceOverview [data-finance-received]')?.textContent === '0\u00a0₽');
+    const loaded = await Promise.race([
+      page.waitForFunction(() => document.querySelector('#reportFinanceOverview [data-finance-received]')?.textContent === '0\u00a0₽').then(() => ({ ready:true })),
+      pageError
+    ]);
+    assert.equal(loaded.ready, true, `${width}: financial overview fixture pageerror: ${loaded.message}`);
     assert.equal(await page.locator('#reportFinanceOverview [data-finance-expense]').innerText(), '—', 'unconnected expenses are not zero');
     assert.equal(await page.locator('#reportFinanceOverview [data-finance-goods]').innerText(), '0 шт.', 'complete empty goods read is zero');
     await page.getByText('Как считаются показатели и насколько полны данные', { exact:true }).click();
