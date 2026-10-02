@@ -5,7 +5,7 @@
 кандидата — `6592ecc2` (Pro v1064); он совмещён с ней без
 конфликтов. Четыре SQL-хеша/renderer, redirect и PWA core budget прошли;
 общие изменённые файлы совпадали с этой основой, номера v186/v187 там не заняты.
-На `211cff5c` общие CI 13/13 прошли. Свежий public main `594a2fca` (v1065)
+На `ae9a8876` общие CI 13/13 прошли. Свежий public main `594a2fca` (v1065)
 не меняет SQL после v1064; перед интеграцией совместить актуальные ресурсы и
 вновь сверить CI окончательного интегрированного дерева.
 Рабочая база, склад и опубликованный Pro не менялись. Номера v186/v187
@@ -37,7 +37,7 @@ protected source-facts `37012725934` на private main `dcd5b636` прошёл �
 прошёл 5/5 CI и принят в private main как `7bf5a47b`: образ закреплён по digest,
 добавлен отдельный metadata-контракт с фактическим non-superuser postgres.
 Это metadata-предпосылки, не рабочий полный restore executor.
-Отдельный private draft PR №10, exact `56ee0c3e94b552bbcf398e67ff34be556e60a21f`,
+Отдельный private PR №10, exact `56ee0c3e94b552bbcf398e67ff34be556e60a21f`,
 прошёл source-free native run `37022493149`, attempt 1, job `110888781487`.
 Единственный bounded receipt независимо сверён с run/HEAD: 30 checks PASS,
 `sourceFree/qualified/cleanupProven/cliCleanupProven=true`. В образе доказаны
@@ -49,13 +49,15 @@ restart, network-none и owned cleanup. `actualDatabaseRestore`,
 Нужны реальные anchors/membership/owners/ACL, полный исходный Auth/Storage,
 non-public/sequence baseline, приватная классификация и managed same-job executor.
 Synthetic native qualification не заменяет полный CURRENT restore.
+Пакет принят в private main как `c668ab0c` 02.10 в 15:08 UTC. Это не приёмка
+managed full baseline/classification/executor и не новый capture/restore.
 Прежде чем использовать полный стенд для каталога, нужны принятые image/bootstrap
 и сохранение действительных capabilities/owners/ACL/расширений/Auth/Storage,
 приватная классификация внешних вызовов и секретов, сеть none, полный baseline
 данных и cleanup. Не повышать измеренную роль postgres до superuser и не
 подменять восстановленные данные synthetic fixture/bootstrap.
 
-PR №6 на `211cff5ce99681ea6a00ff2af89b4bb796d7c290` завершил 13/13 общих CI.
+PR №6 на `ae9a8876a37746cd6dc8a0625d308c2df11c8b65` завершил 13/13 общих CI.
 Этот результат применим к неизменному SQL/renderer-коду; документационные
 контрольные точки после него не заменяют CI итогового интегрированного дерева.
 
