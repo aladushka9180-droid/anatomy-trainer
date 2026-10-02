@@ -21,6 +21,156 @@
     let issueStorageFailed = false;
     let issueStorageScope = '';
     let issueCreatorHome = null;
+    let connectionRows = [];
+    let connectionScope = '';
+    let connectionIntent = null;
+    let connectionStorageFailed = false;
+
+    function connectionKey() { return `minuta_benefit_client_connection_v1:${getCurrentUser()?.id}:${organization?.id}`; }
+    function connectionPhoneValid(value) {
+      let digits=String(value||'').replace(/\D/g,'');
+      if(digits.length===10)digits='7'+digits;
+      else if(digits.length===11&&digits[0]==='8')digits='7'+digits.slice(1);
+      return /^7[0-9]{10}$/.test(digits);
+    }
+    function restoreConnectionIntent() {
+      const key=connectionKey();if(connectionScope===key)return;
+      connectionScope=key;connectionRows=[];connectionIntent=null;connectionStorageFailed=false;
+      try {
+        const raw=window.localStorage.getItem(key);if(!raw)return;
+        const intent=JSON.parse(raw),id=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if(intent.actor_id!==getCurrentUser()?.id || intent.organization_id!==organization?.id
+          || !id.test(intent.booking_id||'') || !id.test(intent.request_id||''))throw Error('invalid_connection_intent');
+        connectionIntent=intent;
+      }catch{connectionStorageFailed=true;}
+    }
+    function renderClientConnection() {
+      // Keep this staff-only enrolment next to manual issuance. No claim token is
+      // displayed, stored or consumed: this connects the booking's account only.
+      if(!document.createElement || !$('#benefitIssueCreator')?.before)return;
+      if(!$('#benefitClientConnector')) {
+        const holder=document.createElement('details');holder.id='benefitClientConnector';holder.className='organization-create benefit-client-connector';
+        holder.innerHTML='<summary><span>Подключить клиента</span></summary><form id="benefitClientConnectionForm"><p>Выберите подтверждённую запись клиента. Подключение позволяет выдать ему абонемент или сертификат без продажи.</p><label>Запись клиента<select id="benefitClientConnectionBooking" required data-benefit-write><option value="">Сначала загрузите записи</option></select></label><button type="button" id="benefitClientConnectionRefresh" class="secondary-button" data-benefit-write>Загрузить записи</button><p id="benefitClientConnectionStatus" role="status"></p><p id="benefitClientConnectionError" class="form-error" role="alert" hidden></p><button type="submit" class="primary" data-benefit-write>Подключить клиента</button></form>';
+        $('#benefitIssueCreator').before(holder);
+      }
+      restoreConnectionIntent();
+      $('#benefitClientConnector').hidden=!payload?.enabled;
+      const field=$('#benefitClientConnectionBooking'),status=$('#benefitClientConnectionStatus');
+      const selected=field.value;
+      field.innerHTML='<option value="">Выберите запись</option>'+connectionRows.map(row=>`<option value="${escapeHtml(row.id)}">${escapeHtml([row.client_name,row.client_phone,dateLabel(row.booking_date),row.booking_time?.slice(0,5)].filter(Boolean).join(' · '))}</option>`).join('');
+      field.value=connectionRows.some(row=>row.id===selected)?selected:'';
+      if(connectionIntent){
+        if(!connectionRows.some(row=>row.id===connectionIntent.booking_id))field.innerHTML+=`<option value="${escapeHtml(connectionIntent.booking_id)}">Сохранённая запись</option>`;
+        field.value=connectionIntent.booking_id;field.disabled=true;
+      }else field.disabled=writing;
+      $('#benefitClientConnectionRefresh').disabled=writing||Boolean(connectionIntent)||connectionStorageFailed;
+      const submit=$('#benefitClientConnectionForm').querySelector('button[type="submit"]');
+      submit.disabled=writing||connectionStorageFailed;
+      submit.textContent=connectionIntent?'Проверить подключение':'Подключить клиента';
+      if(connectionStorageFailed)status.textContent='Не удалось прочитать сохранённую операцию. Подключение заблокировано.';
+      else if(connectionIntent)status.textContent='Сначала проверим результат прежнего подключения.';
+    }
+    function connectionIsCurrent(actor,generation,org,current) {
+      return sessionIsCurrent(actor,generation)&&organization?.id===org&&revision===current;
+    }
+    async function connectionBooking(id,org) {
+      const {data,error}=await db.from('bookings').select('id,organization_id,client_account_id,status,payment_status')
+        .eq('organization_id',org).eq('id',id).maybeSingle();
+      if(error || !scopeMatches(data,org) || data.id!==id)throw Error('connection_check_unavailable');
+      return data;
+    }
+    async function refreshConnectionBookings() {
+      if(writing||availability!=='ready'||!scopeMatches(payload,organization?.id)||!payload.enabled||connectionIntent||connectionStorageFailed)return;
+      const actor=getCurrentUser()?.id,generation=getSessionGeneration(),org=organization.id,current=revision;
+      const button=$('#benefitClientConnectionRefresh');button.disabled=true;
+      $('#benefitClientConnectionError').hidden=true;
+      try {
+        const {data,error}=await db.from('bookings').select('id,organization_id,client_name,client_phone,booking_date,booking_time,status,payment_status,client_account_id')
+          .eq('organization_id',org).is('client_account_id',null).neq('status','cancelled')
+          .or('status.eq.confirmed,payment_status.eq.paid').order('booking_date',{ascending:false}).limit(100);
+        if(!connectionIsCurrent(actor,generation,org,current))return;
+        if(error || !Array.isArray(data) || data.some(row=>!scopeMatches(row,org)))throw Error('connection_read_unavailable');
+        connectionRows=data.filter(row=>row.id&&!row.client_account_id&&row.status!=='cancelled'
+          &&(row.status==='confirmed'||row.payment_status==='paid')&&connectionPhoneValid(row.client_phone));
+        renderClientConnection();
+        $('#benefitClientConnectionStatus').textContent=connectionRows.length
+          ? 'Выберите запись и проверьте имя и телефон клиента.'
+          : 'Нет записей для подключения. Сначала создайте и подтвердите запись клиента.';
+      }catch{if(connectionIsCurrent(actor,generation,org,current))showFormError('#benefitClientConnectionError','Не удалось загрузить записи. Подключение не отправлено.');}
+      finally{if(connectionIsCurrent(actor,generation,org,current))button.disabled=false;}
+    }
+    async function connectClient(event) {
+      if(!requireWrites()||writing||availability!=='ready'||!scopeMatches(payload,organization?.id)||!payload.enabled||connectionStorageFailed)return;
+      const actor=getCurrentUser()?.id,generation=getSessionGeneration(),org=organization.id,current=++revision;
+      if(!actor||!['owner','admin'].includes(payload.current_role))return;
+      let intent=connectionIntent;
+      if(!intent){
+        const id=$('#benefitClientConnectionBooking').value;
+        if(!connectionRows.some(row=>row.id===id)){showFormError('#benefitClientConnectionError','Выберите подтверждённую запись клиента.');return;}
+        try{
+          intent={actor_id:actor,organization_id:org,booking_id:id,request_id:uuid()};
+          const encoded=JSON.stringify(intent),key=connectionKey();
+          if(window.localStorage.getItem(key))throw Error('another_connection_intent');
+          window.localStorage.setItem(key,encoded);
+          if(window.localStorage.getItem(key)!==encoded)throw Error('connection_intent_not_saved');
+          connectionIntent=intent;
+        }catch{showFormError('#benefitClientConnectionError','Не удалось сохранить защиту от повтора. Подключение не отправлено.');return;}
+      }
+      writing=true;setBusy(true);$('#benefitClientConnectionError').hidden=true;
+      let connected=false,rejected=false,problem='Не удалось подтвердить подключение. Повторите проверку этой же операции.';
+      try {
+        let row=await connectionBooking(intent.booking_id,org);
+        if(!connectionIsCurrent(actor,generation,org,current))return;
+        if(!row.client_account_id){
+          if(row.status==='cancelled'||!(row.status==='confirmed'||row.payment_status==='paid')){
+            rejected=true;problem='Запись уже недоступна для подключения. Загрузите записи и выберите другую.';throw Error('client_claim_grant_denied');
+          }
+          const {error}=await db.rpc('issue_client_identity_claim_grant_v155',{
+            p_organization:org,p_booking:intent.booking_id,p_request_id:intent.request_id,p_expires_minutes:10
+          });
+          if(!connectionIsCurrent(actor,generation,org,current))return;
+          if(error){
+            if(/PGRST202|42883/.test(error.code||'')||/function.*does not exist|schema cache/i.test(error.message||'')){problem='Сервер пока не поддерживает подключение клиента.';rejected=true;}
+            else if(/client_claim_grant_denied|permission|42501/i.test(`${error.code||''} ${error.message||''}`)){problem='Нет прав на подключение или запись уже недоступна.';rejected=true;}
+          }
+          // A lost response must not produce a new request or expose a secret.
+          row=await connectionBooking(intent.booking_id,org);
+          if(!connectionIsCurrent(actor,generation,org,current))return;
+        }
+        if(!row.client_account_id)throw Error('connection_not_confirmed');
+        const key=connectionKey();
+        if(JSON.parse(window.localStorage.getItem(key)||'null')?.request_id!==intent.request_id)throw Error('connection_intent_changed');
+        window.localStorage.removeItem(key);
+        if(window.localStorage.getItem(key)!==null)throw Error('connection_clear_failed');
+        connectionIntent=null;connectionRows=[];connected=true;
+      }catch{
+        if(connectionIsCurrent(actor,generation,org,current)){
+          if(rejected){
+            // Only a definite refusal plus a fresh scoped absence can unlock
+            // another booking. An unknown response remains on the original ID.
+            try{
+              const row=await connectionBooking(intent.booking_id,org);
+              if(connectionIsCurrent(actor,generation,org,current)&&!row.client_account_id){
+                const key=connectionKey();
+                if(JSON.parse(window.localStorage.getItem(key)||'null')?.request_id!==intent.request_id)throw Error('connection_intent_changed');
+                window.localStorage.removeItem(key);if(window.localStorage.getItem(key)!==null)throw Error('connection_clear_failed');
+                connectionIntent=null;
+              }
+            }catch{problem='Не удалось сверить отказ. Повторите проверку этой же операции.';}
+          }
+          if(connectionIsCurrent(actor,generation,org,current))showFormError('#benefitClientConnectionError',problem);
+        }
+      }
+      finally{
+        writing=false;
+        if(!connectionIsCurrent(actor,generation,org,current)){
+          const next=pendingOrganization;pendingOrganization=undefined;if(next!==undefined)await setOrganization(next);
+        }else{
+          if(connected){await load();if(sessionIsCurrent(actor,generation)&&organization?.id===org){$('#benefitClientConnectionStatus').textContent='Клиент подключён. Теперь выберите его в форме выдачи.';notify('Клиент подключён');}}
+          else{setBusy(false);renderClientConnection();}
+        }
+      }
+    }
 
     function issueKey() { return `minuta_benefit_issue_v1:${getCurrentUser()?.id}:${organization?.id}`; }
     function restoreIssueIntent() {
@@ -146,6 +296,7 @@
     function reset() {
       revision+=1; organization=null; payload=null; availability=null; writing=false; pendingOrganization=undefined;
       issueIntent=null;issueConfirmed=false;issueRejected=false;issueStorageFailed=false;issueStorageScope='';
+      connectionRows=[];connectionScope='';connectionIntent=null;connectionStorageFailed=false;
       $('#benefitsPanel').hidden=true; $('#benefitsLoading').hidden=true; $('#benefitsUnavailable').hidden=true; $('#benefitsWorkspace').hidden=true;
     }
     async function setOrganization(next) {
@@ -261,6 +412,7 @@
       const workflow=$('#benefitWorkflowStatus');
       if(workflow)workflow.textContent=!payload.enabled?'Абонементы выключены. Включить их может владелец организации.':!payload.products.length?'Абонементы включены. Создайте первый шаблон.':!payload.instruments.length?'Шаблоны готовы. Оформите продажу в разделе «Продажи». Для выдачи без продажи откройте форму ниже.':`Клиентам выдано: ${payload.instruments.length}.`;
       setBusy(false); applyWriteAvailability();renderIssueRecovery();
+      renderClientConnection();
     }
 
     function messageFor(error) {
@@ -346,6 +498,7 @@
     }
     async function submit(event) {
       if(!event.target.closest('#benefitsPanel'))return;
+      if(event.target.id==='benefitClientConnectionForm'){event.preventDefault();await connectClient(event);return;}
       if(event.target.id==='benefitProductForm'){
         event.preventDefault();const kind=$('#benefitProductKind').value,services=selectedServices();const visits=kind==='package'?services.reduce((sum,item)=>sum+item.units,0):Number($('#benefitProductVisits').value||0);
         if(kind==='package'&&!services.length){showFormError('#benefitProductError','Для пакета выберите хотя бы одну услугу и укажите количество посещений.');return;}
@@ -356,6 +509,7 @@
       if(event.target.id==='benefitApplyForm'){event.preventDefault();const ok=await applyBenefit({p_organization:organization.id,p_instrument:$('#benefitApplyInstrument').value,p_booking:$('#benefitApplyBooking').value,p_action:'reserve',p_amount_rub:$('#benefitApplyAmount').value?Math.round(Number($('#benefitApplyAmount').value)):null},event.submitter,'Баланс зарезервирован для записи. После завершения визита нажмите «Погасить».','#benefitApplyError');if(ok)$('#benefitApplyCreator').open=false;}
     }
     async function click(event) {
+      if(event.target.closest('#benefitClientConnectionRefresh')){await refreshConnectionBookings();return;}
       if(event.target.closest('#benefitIssueNew')){newIssue();return;}
       if(event.target.closest('#reloadBenefits')){await load();return;}
       const status=event.target.closest('[data-benefit-status]');if(status){const action=status.dataset.benefitStatus==='frozen'?'freeze':'unfreeze';let intent;try{intent=lifecycleIntent(status.dataset.benefitInstrument,action);}catch{notify('Не удалось сохранить защиту от повтора. Операция не отправлена.');return;}const ok=await mutate('set_minuta_benefit_lifecycle_v150',{p_organization:organization.id,p_instrument:status.dataset.benefitInstrument,p_action:action,p_reason:'',p_request_id:intent.requestId},status,action==='freeze'?'Продукт заморожен. Срок поставлен на паузу.':'Продукт разморожен. Срок продлён на дни заморозки.');if(ok)window.localStorage.removeItem(intent.key);}
@@ -369,10 +523,10 @@
     }
     function invalid(event){
       if(!event.target.closest('#benefitsPanel'))return;
-      const holders={benefitProductForm:'#benefitProductError',benefitIssueForm:'#benefitIssueError',benefitApplyForm:'#benefitApplyError'};
+      const holders={benefitClientConnectionForm:'#benefitClientConnectionError',benefitProductForm:'#benefitProductError',benefitIssueForm:'#benefitIssueError',benefitApplyForm:'#benefitApplyError'};
       const holder=holders[event.target.form?.id];if(!holder)return;
       const messages={benefitProductName:'Введите название шаблона.',benefitProductPrice:'Укажите цену продажи.',benefitProductValidity:'Укажите срок действия от 1 дня.',benefitProductVisits:'Укажите количество посещений.',benefitProductValue:'Укажите номинал сертификата.',benefitIssueProduct:'Сначала создайте шаблон.',benefitIssueClient:'Выберите клиента, у которого уже есть запись.',benefitIssueExpiry:'Выберите будущую дату или оставьте поле пустым.',benefitApplyInstrument:'Сначала выдайте абонемент или сертификат клиенту.',benefitApplyBooking:'Нет подходящих записей: нужна запись этого клиента на подходящую услугу в срок действия абонемента.',benefitApplyAmount:'Укажите положительную сумму сертификата или оставьте поле пустым для автоматического расчёта.'};
-      showFormError(holder,messages[event.target.id]||'Заполните обязательное поле и проверьте введённое значение.');
+      showFormError(holder,event.target.id==='benefitClientConnectionBooking'?'Выберите подтверждённую запись клиента.':messages[event.target.id]||'Заполните обязательное поле и проверьте введённое значение.');
     }
     function input(event){if(event.target.id==='benefitInstrumentSearch')filterInstruments();const holder=event.target.form?.querySelector('.form-error');if(holder&&!holder.hidden){holder.hidden=true;holder.textContent='';}}
     function bind(){document.addEventListener('submit',submit);document.addEventListener('click',click);document.addEventListener('change',change);document.addEventListener('invalid',invalid,true);document.addEventListener('input',input);}
