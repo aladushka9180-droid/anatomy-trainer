@@ -37,7 +37,12 @@ assert.equal(select.value,'master','unconfirmed directory does not silently broa
 context.reportTeamAnalyticsState={status:'ready',canViewTeam:true,rows:[{performer_id:'new-master',performer_name:'Новый'}]};render();
 assert.equal(select.value,'all','fresh confirmed membership removes an invalid previous employee');
 context.reportPerformerFilter='new-master';render();
-context.reportCanViewTeam=false;render();
+organization.current_role='staff';context.reportCanViewTeam=false;render();
 assert.equal(wrap.hidden,true);assert.equal(context.reportPerformerFilter,'actor');
+assert.equal(select.innerHTML,'','actual denied filter removes old team options');
+organization.current_role='owner';context.reportCanViewTeam=true;
+context.reportTeamAnalyticsState={status:'ready',canViewTeam:true,derived:true,rows:[]};render();
+assert.doesNotMatch(select.innerHTML,/>Новый</,'role restore cannot resurrect cached team names without a manual API reset');
+context.reportCanViewTeam=false;render();
 assert.deepEqual(JSON.parse(JSON.stringify(context.reportPerformerDirectory(context.reportTeamAnalyticsState))),[],'role downgrade clears cached team names');
 console.log('Master across month/all/failed directory, actual scope request, name-only cache, organization and role isolation passed (exact owner integration patch).');
