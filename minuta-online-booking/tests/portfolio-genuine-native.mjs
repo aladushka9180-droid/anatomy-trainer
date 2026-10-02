@@ -37,9 +37,11 @@ try {
   const service = keys.find(key => key.name === 'service_role')?.api_key;
   check(Boolean(anon && service), 'existing-test-only-keys');
   phase = 'test-storage-preflight';
-  const bucket = await json(`${api}/storage/v1/bucket/portfolio-images`, { headers: { apikey: service, authorization: `Bearer ${service}` } });
-  report.storage = { bucketExists: bucket.id === 'portfolio-images', private: bucket.public === false, webpAllowed: !bucket.allowed_mime_types || bucket.allowed_mime_types.includes('image/webp') };
-  check(report.storage.bucketExists && report.storage.private && report.storage.webpAllowed, 'existing-private-test-storage-ready');
+  const bucketResponse = await fetch(`${api}/storage/v1/bucket/portfolio-images`, { headers: { apikey: service, authorization: `Bearer ${service}` }, signal: AbortSignal.timeout(20_000), redirect: 'error' });
+  const bucket = await bucketResponse.json();
+  report.storage = { httpStatus: bucketResponse.status, bucketExists: bucket.id === 'portfolio-images', private: bucket.public === false, webpAllowed: !bucket.allowed_mime_types || bucket.allowed_mime_types.includes('image/webp') };
+  if (/bucket.*not.*found/i.test(bucket.message || bucket.error || '')) report.storage.errorClass = 'bucket-not-found';
+  else if (!bucketResponse.ok) report.storage.errorClass = 'other-storage-refusal';
   const certificate = await fetch('https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt', { signal: AbortSignal.timeout(20_000) });
   check(certificate.ok, 'official-ca-read');
   const ca = await certificate.text();
@@ -47,6 +49,12 @@ try {
   const { default: pg } = await import(pathToFileURL(resolve(process.env.MINUTA_ACCEPTANCE_DEPS, 'pg/lib/index.js')).href);
   db = new pg.Client({ connectionString: identity.href, ssl: { rejectUnauthorized: true, ca }, connectionTimeoutMillis: 20_000, statement_timeout: 15_000 });
   await db.connect();
+  phase = 'test-storage-read-only-diagnosis';
+  const storageRow = (await db.query("select public, file_size_limit, allowed_mime_types from storage.buckets where id='portfolio-images'")).rows[0];
+  report.storage.databaseRowExists = Boolean(storageRow);
+  report.storage.databasePrivate = storageRow?.public === false;
+  report.storage.policyNames = (await db.query("select policyname from pg_policies where schemaname='storage' and tablename='objects' and policyname like 'portfolio_objects_%' order by policyname")).rows.map(row => row.policyname);
+  check(bucketResponse.ok && report.storage.bucketExists && report.storage.private && report.storage.webpAllowed, 'existing-private-test-storage-ready');
   phase = 'schema-preflight';
   for (const table of ['portfolio_items', 'portfolio_photos', 'booking_reviews', 'booking_outcomes', 'client_accounts']) {
     check((await db.query('select to_regclass($1) as table', [`public.${table}`])).rows[0].table, `existing-table-${table}`);
