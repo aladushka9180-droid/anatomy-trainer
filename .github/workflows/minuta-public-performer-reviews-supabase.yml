@@ -1,0 +1,42 @@
+name: Public performer reviews genuine test qualification
+on:
+  push:
+    branches: [codex/pro-public-review-binding-20261002]
+    paths:
+      - '.github/workflows/minuta-public-performer-reviews-supabase.yml'
+      - 'minuta-online-booking/tests/public-performer-reviews-supabase.mjs'
+      - 'minuta-online-booking/supabase-public-performer-reviews*.sql'
+permissions:
+  contents: read
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+jobs:
+  test-only-rpc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: minuta-test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Install isolated PostgreSQL client
+        run: npm install --prefix "$RUNNER_TEMP/review-rpc-qualification" --no-save --ignore-scripts --no-audit --no-fund pg@8.16.3
+      - name: Qualify additive RPC and exact rollback in genuine test Supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+          MINUTA_ACCEPTANCE_DEPS: ${{ runner.temp }}/review-rpc-qualification/node_modules
+          MINUTA_ACCEPTANCE_OUT: review-rpc-qualification
+        run: node minuta-online-booking/tests/public-performer-reviews-supabase.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: public-performer-reviews-genuine-test
+          path: review-rpc-qualification
+          retention-days: 7
