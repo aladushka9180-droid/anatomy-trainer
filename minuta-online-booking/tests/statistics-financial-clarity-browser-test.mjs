@@ -31,11 +31,21 @@ try {
         navTop:getComputedStyle(nav).display==='none'?innerHeight:nav.getBoundingClientRect().top,
         tabTops:tabs.map(node=>Math.round(node.getBoundingClientRect().top)),
         icons:cards.querySelectorAll('.finance-center__metric-icon').length,
-        sourceHeight:document.querySelector('#reportDataSource').getBoundingClientRect().height};
+        sourceHeight:document.querySelector('#reportDataSource').getBoundingClientRect().height,
+        filterHeight:document.querySelector('.report-filters').getBoundingClientRect().height,
+        toolbarHeight:document.querySelector('.report-toolbar').getBoundingClientRect().height,
+        periodTouch:[...document.querySelectorAll('.report-periods button')].map(node=>node.getBoundingClientRect().height)};
     });
     assert.ok(geometry.overflow<=1,`${width}: horizontal overflow`);
     assert.equal(geometry.icons,5);
     assert.ok(geometry.sourceHeight<60,'compact source selector');
+    const sourcePaint=await page.locator('#reportDataSource button').evaluateAll(nodes=>nodes.map(node=>getComputedStyle(node).backgroundColor));
+    assert.notEqual(sourcePaint[0],sourcePaint[1],'the chosen data source remains visually distinct under theme overrides');
+    if(width===1440){
+      assert.ok(geometry.filterHeight<=110,`desktop filters should leave room for the financial result: ${JSON.stringify(geometry)}`);
+      assert.ok(geometry.toolbarHeight<=56,'period and employee share one compact row');
+      assert.ok(geometry.periodTouch.every(height=>height>=44),'compact periods keep accessible click targets');
+    }
     assert.equal(await page.locator('.report-summary').isVisible(),false,'visit metrics stay inside the closed disclosure');
     if(width<=390){
       assert.equal(new Set(geometry.tabTops).size,1,'four tabs in one row');

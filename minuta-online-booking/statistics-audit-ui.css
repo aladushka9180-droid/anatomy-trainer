@@ -220,7 +220,40 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .re
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-view-tabs button.active {
   background:var(--theme-surface);color:var(--theme-ink);font-weight:650;box-shadow:0 1px 3px color-mix(in srgb,var(--theme-ink) 6%,transparent);
 }
+/* Theme-wide filled-control rules must not erase the quiet selected state here. */
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard #analyticsView :is(#reportDataSource button.active,.report-periods button.active) {
+  background:color-mix(in srgb,var(--theme-accent) 9%,var(--theme-surface))!important;
+  background-image:none!important;color:var(--theme-ink)!important;border-color:transparent!important;box-shadow:none!important;font-weight:650;
+}
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard #analyticsView .report-view-tabs button.active {
+  background:var(--theme-surface)!important;background-image:none!important;color:var(--theme-ink)!important;
+  border-color:transparent!important;box-shadow:0 1px 3px color-mix(in srgb,var(--theme-ink) 6%,transparent)!important;
+}
 #analyticsView .report-visit-overview>.report-period-details {margin-top:12px}
+@media(min-width:761px) {
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filters {padding:10px 12px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-filter-content {gap:8px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-toolbar {align-items:center;gap:10px}
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-performer-filter {
+    display:flex;align-items:center;flex:0 1 258px;min-width:0;gap:8px;margin:0;
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-performer-filter>span {
+    color:var(--theme-muted);font-size:calc(13px + var(--provider-text-step,0px));font-weight:500;letter-spacing:normal;text-transform:none;
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-performer-filter select {
+    min-width:140px;min-height:44px;height:44px;margin:0;font-size:calc(13px + var(--provider-text-step,0px));font-weight:500;
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-periods {
+    gap:2px;background:color-mix(in srgb,var(--theme-ink) 3%,var(--theme-surface));
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-periods button {
+    min-height:44px;padding:0 12px;background:transparent;box-shadow:none;
+    font-size:calc(13px + var(--provider-text-step,0px));font-weight:500;
+  }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-periods button.active {
+    background:color-mix(in srgb,var(--theme-accent) 7%,var(--theme-surface));color:var(--theme-accent);font-weight:600;
+  }
+}
 @media(max-width:600px) {
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head {margin-bottom:8px}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head .view-description {display:none}

@@ -51,7 +51,7 @@ try {
     assert.equal(await page.locator('[data-finance-net]').innerText(), '—');
     assert.match(await warning.innerText(), /Оплата не указана у 3 из 8/);
     assert.match(await warning.innerText(), /не проведена в журнале у 2 визитов/);
-    assert.match(await warning.innerText(), /Стоимость не указана у 1 визитов/);
+    assert.match(await warning.innerText(), /Визиты без стоимости: 1\. Список этих визитов источник не передал\./);
     assert.match(await warning.innerText(), /Источник не передал|источник не передал/);
     assert.match(await warning.innerText(), /количества нельзя складывать/);
     const geometry = await page.evaluate(() => ({
