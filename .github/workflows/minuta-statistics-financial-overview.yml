@@ -2,10 +2,10 @@ name: Minuta statistics financial overview
 on:
   push:
     branches: [main]
-    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-financial-*', '.github/workflows/minuta-statistics-financial-overview.yml']
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-financial-*', 'minuta-online-booking/tests/statistics-organization-refresh-test.mjs', '.github/workflows/minuta-statistics-financial-overview.yml']
   pull_request:
     branches: [main]
-    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-financial-*', '.github/workflows/minuta-statistics-financial-overview.yml']
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-financial-*', 'minuta-online-booking/tests/statistics-organization-refresh-test.mjs', '.github/workflows/minuta-statistics-financial-overview.yml']
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -26,6 +26,7 @@ jobs:
       - run: node minuta-online-booking/tests/statistics-financial-shared-period-test.mjs
       - run: node minuta-online-booking/tests/statistics-financial-period-propagation-test.mjs
       - run: node minuta-online-booking/tests/statistics-financial-master-summary-test.mjs
+      - run: node minuta-online-booking/tests/statistics-organization-refresh-test.mjs
       - run: node minuta-online-booking/tests/statistics-financial-overview-browser-test.mjs
         env:
           MINUTA_VISUAL_OUTPUT: /tmp/statistics-overview-evidence

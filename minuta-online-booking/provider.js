@@ -3803,8 +3803,12 @@ function resetReportSessionState() {
   reportTeamMetric = 'revenue';
   $('#reportSmartActions')?.classList.remove('is-expanded');
   document.body.classList.remove('report-scope-loading');
+  const performerWrap = $('#reportPerformerFilterWrap');
+  if (performerWrap) performerWrap.hidden = true;
+  const teamPanel = $('#reportPerformers');
+  if (teamPanel) teamPanel.hidden = true;
   const select = $('#reportPerformerFilter');
-  if (select) select.disabled = false;
+  if (select) { select.disabled = false; select.innerHTML = ''; select.value = ''; }
 }
 
 function reportDateText(value, options = { day:'numeric', month:'short' }) {
@@ -4377,14 +4381,15 @@ async function loadReportTeamAnalytics(range) {
     return;
   }
   reportTeamAnalyticsState = { key, status:'loading', rows:[], canViewTeam:false };
+  const requestState = reportTeamAnalyticsState;
   panel.hidden = true;
   let response = await db.rpc('get_minuta_team_analytics', { p_organization:organizationId, p_start:range.start, p_end:range.end });
-  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState.key !== key) return;
+  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState !== requestState) return;
   if (response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_team_analytics|function .* does not exist/i.test(response.error.message || ''))) {
     response = await db.rpc('get_minuta_team_analytics', { p_start:range.start, p_end:range.end });
   }
   const { data, error } = response;
-  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState.key !== key) return;
+  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState !== requestState) return;
   if (error) {
     reportCanViewTeam = priorCanViewTeam;
     reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:priorCanViewTeam };
@@ -18148,6 +18153,7 @@ const organizationController = window.MinutaOrganization.createController({
     applyDisplayPreferences();
     renderDisplayPreferencesForm();
     refreshSectionNavigation();
+    if ($('#dashboard')?.dataset.activeView === 'analytics') renderAnalytics();
   }
 });
 organizationController.bind();
