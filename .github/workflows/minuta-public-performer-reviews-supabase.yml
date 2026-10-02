@@ -33,6 +33,7 @@ jobs:
           MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
           MINUTA_ACCEPTANCE_DEPS: ${{ runner.temp }}/review-rpc-qualification/node_modules
           MINUTA_ACCEPTANCE_OUT: review-rpc-qualification
+          MINUTA_REVIEW_NATIVE_FIXTURE_RUN: '37004147645-1'
         run: node minuta-online-booking/tests/public-performer-reviews-supabase.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

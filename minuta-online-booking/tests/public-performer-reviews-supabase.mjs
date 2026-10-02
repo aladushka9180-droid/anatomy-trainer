@@ -106,6 +106,32 @@ try {
   }
   await rpcVisible(anon, true);
   check(true, 'real-anonymous-postgrest-rpc-200');
+  phase = 'read-existing-native-synthetic-publication';
+  const nativeRun = process.env.MINUTA_REVIEW_NATIVE_FIXTURE_RUN;
+  check(/^\d+-\d+$/.test(nativeRun || ''), 'pinned-existing-native-fixture-run');
+  const nativeEmails = ['owner', 'other'].map(role => `portfolio-${nativeRun}-${role}@example.invalid`);
+  const nativeActors = (await db.query('select id,email from auth.users where email=any($1::text[])', [nativeEmails])).rows;
+  const owner = nativeActors.find(actor => actor.email === nativeEmails[0])?.id;
+  const other = nativeActors.find(actor => actor.email === nativeEmails[1])?.id;
+  check(Boolean(owner && other && owner !== other), 'only-existing-reserved-invalid-test-actors');
+  const expectedText = `Синтетический отзыв ${nativeRun}. Без реального клиента.`;
+  const fixture = (await db.query('select rating,published,review_text from public.booking_reviews where performer_id=$1 and review_text=$2', [owner, expectedText])).rows;
+  check(fixture.length === 1 && fixture[0].published && fixture[0].rating === 5, 'native-ui-published-synthetic-review-present');
+  async function publicRows(performerId) {
+    const response = await fetch(`${api}/rest/v1/rpc/get_public_performer_booking_reviews`, {
+      method: 'POST', headers: { apikey: anon, authorization: `Bearer ${anon}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ p_performer_id: performerId }), signal: AbortSignal.timeout(20_000), redirect: 'error',
+    });
+    check(response.status === 200, 'real-postgrest-synthetic-fixture-200');
+    return response.json();
+  }
+  const actualPublicRows = await publicRows(owner);
+  check(actualPublicRows.length === 1 && actualPublicRows[0].performer_id === owner && actualPublicRows[0].review_text === expectedText, 'real-published-native-review-returned-to-own-profile');
+  check(actualPublicRows[0].reviewer_name === 'Клиент' && ['client_name','client_id','client_account_id','phone','email'].every(key => !(key in actualPublicRows[0])), 'real-native-public-author-masked-no-private-fields');
+  check(Number(actualPublicRows[0].average_rating) === 5 && Number(actualPublicRows[0].total_reviews) === 1, 'real-native-public-rating-and-count');
+  check((await publicRows(other)).length === 0, 'real-other-native-profile-no-foreign-review');
+  report.nativeFixtureRun = nativeRun;
+  report.existingNativePublicationReadOnly = true;
   phase = 'test-only-rollback';
   await rollback();
   check((await db.query("select to_regprocedure('public.get_public_performer_booking_reviews(uuid)') as fn")).rows[0].fn === null, 'new-function-removed');
