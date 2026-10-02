@@ -180,6 +180,35 @@ try{
   await customPage.locator('[data-similar]').click();assert.equal(await customPage.locator('[data-custom-text]').inputValue(),customText);assert.equal(await customPage.locator('[data-client]').inputValue(),'');assert.equal(await customPage.locator('[data-number]').inputValue(),'');
   await customPage.locator('[data-number]').fill('CUSTOM-2');await customPage.locator('[data-issue]').click();await customPage.getByRole('status').filter({hasText:'CUSTOM-2'}).waitFor();
   assert.equal(await customPage.evaluate(()=>window.certificateFixture.getState().records.find(r=>r.number==='CUSTOM-1').procedure),customText);checks++;await customPage.close();
+  for(const scenario of [{mode:'catalog',error:'authentication_required'},{mode:'custom',error:'authentication_required'},{mode:'catalog',error:'certificate_access_denied'},{mode:'custom',error:'certificate_access_denied',legacy:true}]){
+    const recovery=await context.newPage();recovery.on('pageerror',e=>errors.push(e.message));await recovery.goto(url+'/fixture.html?store=recovery-'+crypto.randomUUID());await recovery.locator('[data-canvas]').waitFor({state:'visible'});
+    if(scenario.mode==='custom'){await recovery.locator('[data-content-mode]').selectOption('custom');await recovery.locator('[data-custom-text]').fill('Подарок — любая услуга');}
+    await recovery.evaluate(error=>{const repo=window.certificateFixture.repository,original=repo.issue;let count=0;repo.issue=async(...args)=>{count++;if(count===2)throw new Error(error);const result=await original(...args);if(count===1)throw new Error('unknown acknowledgement after commit');return result}},scenario.error);
+    await recovery.locator('[data-issue]').click();await recovery.getByRole('alert').waitFor();
+    const before=await recovery.evaluate(()=>{const key=Object.keys(localStorage).find(key=>key.startsWith('minuta_certificate_intent:'));return JSON.parse(localStorage.getItem(key))});assert.equal(before.may_have_dispatched,true);
+    if(scenario.legacy)await recovery.evaluate(()=>{const key=Object.keys(localStorage).find(key=>key.startsWith('minuta_certificate_intent:')),intent=JSON.parse(localStorage.getItem(key));delete intent.may_have_dispatched;localStorage.setItem(key,JSON.stringify(intent))});
+    await recovery.evaluate(async()=>{const controller=window.certificateFixture.controller;await controller.setOrganization(null);await controller.setOrganization({id:'00000000-0000-4000-8000-000000000004'})});await recovery.locator('[data-canvas]').waitFor({state:'visible'});
+    await recovery.locator('[data-issue]').click();await recovery.getByRole('alert').waitFor();
+    const deniedIntent=await recovery.evaluate(()=>{const key=Object.keys(localStorage).find(key=>key.startsWith('minuta_certificate_intent:'));return JSON.parse(localStorage.getItem(key))});
+    assert.equal(deniedIntent.id,before.id);assert.equal(deniedIntent.snapshot,before.snapshot);assert.equal(deniedIntent.may_have_dispatched,true);
+    assert.equal(await recovery.locator('[data-number]').isDisabled(),true);assert.equal(await recovery.locator('[data-content-mode]').isDisabled(),true);
+    await recovery.reload();await recovery.locator('[data-canvas]').waitFor({state:'visible'});
+    await recovery.evaluate(()=>{const repo=window.certificateFixture.repository,original=repo.issue;repo.issue=async(...args)=>{window.restoredRequest={record:args[1],id:args[2]};return original(...args)}});
+    await recovery.locator('[data-issue]').click();await recovery.getByRole('status').filter({hasText:'267'}).waitFor();
+    const restored=await recovery.evaluate(()=>window.restoredRequest);assert.equal(restored.id,before.id);assert.deepEqual(restored.record,JSON.parse(before.snapshot));
+    assert.equal(await recovery.evaluate(()=>window.certificateFixture.getState().records.length),1);assert.equal(await recovery.evaluate(()=>Object.keys(localStorage).some(key=>key.startsWith('minuta_certificate_intent:'))),false);checks++;await recovery.close();
+  }
+  for(const failure of ['write','read','mismatch']){
+    const storagePage=await context.newPage();storagePage.on('pageerror',e=>errors.push(e.message));await storagePage.goto(url+'/fixture.html?store=storage-'+crypto.randomUUID());await storagePage.locator('[data-canvas]').waitFor({state:'visible'});
+    await storagePage.evaluate(failure=>{const set=Storage.prototype.setItem,get=Storage.prototype.getItem;window.restoreCertificateStorage=()=>{Storage.prototype.setItem=set;Storage.prototype.getItem=get};
+      Storage.prototype.setItem=function(key,value){if(failure==='write'&&key.startsWith('minuta_certificate_intent:'))throw new Error('blocked storage');return set.call(this,key,value)};
+      Storage.prototype.getItem=function(key){if(key.startsWith('minuta_certificate_intent:')){if(failure==='read')throw new Error('unreadable storage');if(failure==='mismatch')return null}return get.call(this,key)};
+      const repo=window.certificateFixture.repository,original=repo.issue;window.certificateDispatches=[];repo.issue=async(...args)=>{const key=Object.keys(localStorage).find(key=>key.startsWith('minuta_certificate_intent:'));window.certificateDispatches.push({id:args[2],marker:JSON.parse(get.call(localStorage,key))});return original(...args)};
+    },failure);
+    await storagePage.locator('[data-issue]').click();await storagePage.getByRole('alert').filter({hasText:'защиту'}).waitFor();assert.equal(await storagePage.evaluate(()=>window.certificateDispatches.length),0);
+    await storagePage.evaluate(()=>window.restoreCertificateStorage());await storagePage.locator('[data-issue]').click();await storagePage.getByRole('status').filter({hasText:'267'}).waitFor();
+    const dispatches=await storagePage.evaluate(()=>window.certificateDispatches);assert.equal(dispatches.length,1);assert.equal(dispatches[0].marker.may_have_dispatched,true);assert.equal(dispatches[0].marker.id,dispatches[0].id);checks++;await storagePage.close();
+  }
   await page.evaluate(async()=>{await window.certificateFixture.controller.setOrganization(null)});assert.equal(await page.locator('#certificateDesignerPanel').isVisible(),false);checks++;
   assert.deepEqual(errors,[]);checks++;
   writeFileSync(output+'/checks.json',JSON.stringify({checks,widths:[390,760,1440],pageErrors:errors,environment:'isolated fixture',fonts:'named font files not provided',nativeShare:'File MIME/name API contract tested with stub; OS share sheet not exercised',exports:['PNG','JPG','PDF','WebP']},null,2));

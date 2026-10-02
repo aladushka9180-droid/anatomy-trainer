@@ -327,16 +327,28 @@
       finally { if (current(scope)) lock(false); }
     }
     const intentKey = () => `minuta_certificate_intent:${options.getCurrentUser?.()?.id || 'demo'}:${organization?.id}`;
-    async function issue(event) {
-      event.preventDefault(); if (busy || !writesAllowed()) return;
-      const scope = capture(); clearError();
+    function persistDispatchIntent() {
+      const next={...intent,may_have_dispatched:true},serialized=JSON.stringify(next);
       try {
-        await preview(); if (!current(scope) || !record) return;
+        localStorage.setItem(intentKey(),serialized);
+        if(localStorage.getItem(intentKey())!==serialized)throw new Error('storage_failed');
+      }catch{throw new Error('storage_failed')}
+      intent=next;
+    }
+    async function issue(event) {
+      event.preventDefault(); if (busy || viewing || !writesAllowed()) return;
+      const scope = capture(); clearError();
+      // Legacy pending requests may already have committed. An authorization denial cannot disprove that.
+      let previouslyDispatched=true;
+      try {
+        await preview(); if (!current(scope) || busy || viewing || !record) return;
         if (!template.saved) throw new Error('template_not_saved');
         if (record.font_family !== 'Times New Roman' && !template.font_files?.[record.font_family]) throw new Error('font_missing');
         const value = structuredClone(record), saved = JSON.stringify(value);
         if (intent && intent.snapshot !== saved) throw new Error('certificate_request_conflict');
-        if (!intent) { intent = { id:crypto.randomUUID(), snapshot:saved }; try { localStorage.setItem(intentKey(), JSON.stringify(intent)); } catch { intent = null; throw new Error('storage_failed'); } }
+        previouslyDispatched=Boolean(intent&&intent.may_have_dispatched!==false);
+        if (!intent) intent = { id:crypto.randomUUID(), snapshot:saved,may_have_dispatched:false };
+        persistDispatchIntent();
         lock(true); const data = await repository.issue(scope.org, value, intent.id);
         if (!current(scope)) return;
         if (data.organization_id !== scope.org || data.record?.number !== value.number) throw new Error('stale_session');
@@ -345,7 +357,8 @@
         if(current(scope)&&options.onIssued){try{await options.onIssued(data.record,organization)}catch{if(current(scope))message(`Сертификат № ${value.number} сохранён. Обнови карточку клиента, чтобы увидеть выдачу.`)}}
       } catch (reason) { if (current(scope)) {
         const detail=String(reason?.message||'');
-        if (/certificate_number_exists|certificate_benefit_already_linked|^invalid_certificate|certificate_template_not_found|certificate_access_denied|authentication_required/.test(detail)) {
+        // Only a definite rejection of a previously undispatched request permits a new editable issue.
+        if (!previouslyDispatched && /certificate_number_exists|certificate_benefit_already_linked|^invalid_certificate|certificate_template_not_found/.test(detail)) {
           intent=null; try { localStorage.removeItem(intentKey()); } catch {}
         }
         fail(reason);
