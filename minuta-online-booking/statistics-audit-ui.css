@@ -222,6 +222,7 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .re
 }
 #analyticsView .report-visit-overview>.report-period-details {margin-top:12px}
 @media(max-width:600px) {
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportDataSource:not([hidden]) {margin-bottom:8px}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head {margin-bottom:8px}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head .view-description {display:none}
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #exportBookings {margin-top:0}

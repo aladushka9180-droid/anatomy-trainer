@@ -20,6 +20,7 @@ try {
     });
     await page.goto(fixture.url);
     await page.waitForFunction(()=>document.querySelector('#reportFinanceOverview [data-finance-rent]')?.textContent==='18\u00a0000\u00a0₽');
+    await page.evaluate(async()=>{await document.fonts.ready;});
     const geometry=await page.evaluate(()=>{
       const cards=document.querySelector('#reportFinanceOverview');
       const tabs=[...document.querySelectorAll('.report-view-tabs button')];
@@ -39,7 +40,7 @@ try {
     if(width<=390){
       assert.equal(new Set(geometry.tabTops).size,1,'four tabs in one row');
       assert.ok(geometry.cardsBottom<=geometry.navTop,`${width}: rent and goods must be above the fixed navigation`);
-      assert.ok(geometry.statusBottom<=geometry.navTop,`${width}: completeness action must stay above the fixed navigation`);
+      assert.ok(geometry.statusBottom<=geometry.navTop,`${width}: completeness action must stay above the fixed navigation: ${JSON.stringify(geometry)}`);
     }
     if(output)await page.screenshot({path:resolve(output,`statistics-soft-${width}.png`)});
     await page.locator('#reportFinanceOverview [data-finance-detail="completeness"]').click();
