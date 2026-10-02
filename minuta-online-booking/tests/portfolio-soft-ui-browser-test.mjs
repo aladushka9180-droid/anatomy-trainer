@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { portfolioSoftFixture } from './portfolio-soft-ui-fixture.mjs';
+import { portfolioSoftFixture, portfolioFixtureCssLayers } from './portfolio-soft-ui-fixture.mjs';
 const module = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const { chromium } = module.default || module;
 const browser = await chromium.launch({ headless:true });
 try {
-  const page = await browser.newPage();
+  const page = await browser.newPage({serviceWorkers:'block'});
+  const requests=[];
+  await page.route('**/*',route=>{requests.push(route.request().url());return route.abort();});
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   for (const width of [390, 760, 1180, 1440]) {
@@ -123,6 +125,42 @@ try {
   }
   if(process.env.MINUTA_PORTFOLIO_PRIVACY_OUTPUT)writeFileSync(process.env.MINUTA_PORTFOLIO_PRIVACY_OUTPUT,JSON.stringify({privacy,errors},null,2));
   assert.deepEqual(privacy.filter(r=>!r.closed||r.clones!==0||r.staleFocus||r.staleReopen||!r.freshOpen||!r.freshTitle.includes('Другой исполнитель')||!r.freshReturnFocus),[],'Session reset must clear private gallery, reject stale nodes and preserve fresh gallery/keyboard behavior');
+  const fullCss=[],fullCssFailures=[];
+  const settle=()=>page.evaluate(async()=>{
+    await document.fonts.ready;
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    await Promise.allSettled(document.getAnimations().filter(a=>a.effect?.getComputedTiming().iterations!==Infinity).map(a=>a.finished));
+  });
+  for(const width of [390,760,1440])for(const theme of ['pink-porcelain','graphite','sage']){
+    await page.setViewportSize({width,height:1000});
+    await page.goto('about:blank');
+    await page.setContent(portfolioSoftFixture({fullCss:true}));
+    await page.locator('[data-portfolio-soft-card]').first().waitFor();
+    assert.ok(portfolioFixtureCssLayers.length>40,'Full regression must load actual eager CSS');
+    assert.deepEqual(await page.locator('style[data-provider-source-href]').evaluateAll(nodes=>nodes.map(e=>({href:e.dataset.providerSourceHref,media:e.media}))),portfolioFixtureCssLayers,'Actual CSS order/media must be preserved');
+    await page.locator('#fixtureTheme').selectOption(theme);
+    await settle();
+    const filled=await page.locator('.portfolio-title-actions .primary').evaluate(e=>{
+      const s=getComputedStyle(e),r=e.getBoundingClientRect();
+      return{bg:s.backgroundColor,color:s.color,visible:r.width>=44&&r.height>=44,label:getComputedStyle(e.querySelector('span')).color};
+    });
+    await page.locator('#fixtureEmpty').click();
+    await page.waitForFunction(()=>document.querySelector('[data-provider-panel="portfolio"]').classList.contains('portfolio-soft-empty'));
+    await settle();
+    const result=await page.evaluate(()=>{
+      const info=e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return{bg:s.backgroundColor,color:s.color,width:r.width,height:r.height,children:[...e.querySelectorAll('span,.ui-icon,svg')].map(n=>({tag:n.tagName,color:getComputedStyle(n).color}))};};
+      return{header:info(document.querySelector('.portfolio-title-actions .primary')),primary:info(document.querySelector('.portfolio-empty-actions .primary')),surface:getComputedStyle(document.querySelector('#portfolioManageList>.portfolio-empty-state')).backgroundColor,attrs:{theme:document.body.dataset.providerTheme,layout:document.body.dataset.providerLayout,textScale:document.body.dataset.providerTextScale},overflow:document.documentElement.scrollWidth>innerWidth+1};
+    });
+    Object.assign(result,{width,theme,filled});fullCss.push(result);
+    if(result.header.bg===result.primary.bg||result.header.bg!==result.surface)fullCssFailures.push(`${width}/${theme}: empty screen has two filled primary actions`);
+    if(!filled.visible||filled.bg!==result.primary.bg||filled.color!==result.primary.color||filled.label!==filled.color)fullCssFailures.push(`${width}/${theme}: filled primary changed or lost contrast`);
+    if([result.header,result.primary].some(button=>button.width<44||button.height<44||button.children.some(child=>child.color!==button.color)))fullCssFailures.push(`${width}/${theme}: label/icon contrast or target size`);
+    if(result.overflow)fullCssFailures.push(`${width}/${theme}: full-layer overflow`);
+    assert.deepEqual(result.attrs,{theme,layout:'soft',textScale:'default'});
+  }
+  if(process.env.MINUTA_PORTFOLIO_FULL_CSS_OUTPUT)writeFileSync(process.env.MINUTA_PORTFOLIO_FULL_CSS_OUTPUT,JSON.stringify({layers:portfolioFixtureCssLayers,results:fullCss,failures:fullCssFailures,requests,errors},null,2));
+  assert.deepEqual(fullCssFailures,[],'Actual full CSS must preserve one empty primary action, child colors and filled primary');
+  assert.deepEqual(requests,[],'Isolated fixture must not initiate network requests');
   assert.deepEqual(errors, []);
   console.log('Portfolio soft UI: PASS; 12 viewport/theme combinations, actual sidebar/workspace, 390/760/1180/1440, native menu/gallery, empty/error/retry. No production network.');
 } finally { await browser.close(); }
