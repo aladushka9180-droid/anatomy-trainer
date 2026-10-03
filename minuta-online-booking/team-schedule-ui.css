@@ -160,6 +160,28 @@ body.provider-body #dashboard #shiftsPanel[data-team-schedule-ready] .ts-drawer 
   #shiftsPanel[data-team-schedule-ready] .ts-drawer { padding: 20px 16px max(20px,env(safe-area-inset-bottom)); border-radius: 0; }
   #shiftsPanel[data-team-schedule-ready] .ts-drawer .form-row { grid-template-columns: 1fr; }
 }
+#shiftsPanel[data-team-schedule-ready] .ts-filter-bar { display: flex; gap: 16px; align-items: flex-start; min-width: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-filter-bar .ts-filters { flex: 1; min-width: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-action { flex: 0 0 auto; margin-top: 24px; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-form { display: grid; gap: 16px; min-width: 0; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-help { margin: 0; color: var(--theme-muted,#746b73); font-size: var(--ts-font); line-height: 1.6; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-scope { margin: 0; font-size: var(--ts-font); font-weight: 600; overflow-wrap: anywhere; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-dates { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-dates label { display: grid; gap: 8px; min-width: 0; font-size: var(--ts-font); }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-dates input { min-width: 0; width: 100%; box-sizing: border-box; }
+#shiftsPanel[data-team-schedule-ready] #shiftCopyPreview { display: grid; gap: 12px; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-summary { margin: 0; font-size: var(--ts-font); line-height: 1.5; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-list { margin: 0; padding: 0; list-style: none; display: grid; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-row { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--theme-line,#eadfe5); font-size: var(--ts-font); overflow-wrap: anywhere; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-row small { color: var(--theme-muted,#746b73); line-height: 1.5; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-footer { position: sticky; bottom: 0; padding-top: 12px; background: var(--theme-surface,#fff); }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-footer button { width: 100%; }
+#shiftsPanel[data-team-schedule-ready] .ts-copy-row[data-status]:not([data-status=ready]):not([data-status=existing]) { color: var(--theme-accent,#ae3f75); }
+@media (max-width: 600px) {
+  #shiftsPanel[data-team-schedule-ready] .ts-filter-bar { flex-wrap: wrap; gap: 8px; }
+  #shiftsPanel[data-team-schedule-ready] .ts-copy-action { margin-top: 0; min-height: 44px; max-width: 60%; padding: 10px; font-size: calc(13px + var(--provider-text-step,0px)); }
+  #shiftsPanel[data-team-schedule-ready] .ts-copy-dates { grid-template-columns: 1fr; }
+}
 @media (prefers-reduced-motion: reduce) {
   #shiftsPanel[data-team-schedule-ready] * { scroll-behavior: auto !important; transition: none !important; }
 }
