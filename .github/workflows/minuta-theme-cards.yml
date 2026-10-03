@@ -58,6 +58,8 @@ jobs:
       - run: node minuta-online-booking/tests/compact-mobile-schedule-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-appearance-layout-browser-test.mjs
       - run: node minuta-online-booking/tests/shift-load-timeout-browser-test.mjs
+      - run: node minuta-online-booking/tests/shift-presentation-controller-test.mjs
+      - run: node minuta-online-booking/tests/team-schedule-integration-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-master-profile-link-static-test.mjs
       - run: node minuta-online-booking/tests/provider-magnetic-schedule-browser-test.mjs
       - run: node minuta-online-booking/provider-services-organization-browser-test.cjs

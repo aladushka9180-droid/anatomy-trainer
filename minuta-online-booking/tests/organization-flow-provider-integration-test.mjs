@@ -24,21 +24,21 @@ async function fixture(width = 390, role = 'owner', visible = true) {
     if (url.origin !== 'https://org-integration.test') { unexpected.push(url.href); return route.abort(); }
     const file = resolve(root, '.' + decodeURIComponent(url.pathname));
     if (!file.startsWith(root)) return route.abort();
-    try { return route.fulfill({ body:file.endsWith('provider.html') ? html : readFileSync(file), contentType:({ '.html':'text/html', '.css':'text/css', '.svg':'image/svg+xml', '.woff2':'font/woff2' })[extname(file)] || 'application/octet-stream' }); }
+    try { return route.fulfill({ body:file.endsWith('provider.html') ? html : readFileSync(file), contentType:({ '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.woff2':'font/woff2' })[extname(file)] || 'application/octet-stream' }); }
     catch { return route.fulfill({ status:404, body:'' }); }
   });
   await page.goto('https://org-integration.test/provider.html');
   await page.addStyleTag({ content:read('organization-flow.css') });
-  await page.evaluate(({ role, visible, shiftSource }) => {
+  await page.evaluate(({ role, visible }) => {
     document.documentElement.classList.remove('provider-booting', 'requires-top-level');
     document.querySelector('#providerBoot')?.remove(); document.querySelector('#dashboard').hidden = false;
     Object.assign(document.body.dataset, { providerTheme:'pink-porcelain', providerLayout:'soft' });
     document.querySelectorAll('.provider-view').forEach(node => { node.hidden = node.dataset.providerPanel !== 'organization' || !visible; });
-    window.role = role; window.shiftSource = shiftSource;
+    window.role = role;
     window.orgData = { id:'org-a', name:'Синтетическая организация', public_slug:'synthetic-only', public_booking_enabled:false, current_role:role, can_manage:['owner','admin'].includes(role), locations:[{ id:'l1', name:'Центр', address:'Тестовый адрес', timezone:'Europe/Samara', active:true, is_primary:true }], members:[{ user_id:'u1', display_name:'Анна', active:true, is_bookable:true, role:'owner', is_current_user:true }], invitations:[], audit:[] };
     window.shiftData = { organization_id:'org-a', current_role:role, can_manage_team:['owner','admin'].includes(role), enabled:false, locations:orgData.locations, performers:[{ id:'u1', display_name:'Анна' }], services:[{ id:'s1', performer_id:'u1', name:'Массаж', duration_minutes:60, active:true }], shifts:[{ id:'sh1', performer_id:'u1', location_id:'l1', shift_date:'2026-10-02', start_time:'10:00', end_time:'18:00', active:true }], absences:[], bookings:[], utilization:[], audit:[] };
     window.calls = []; window.notices = []; window.loadedScripts = []; window.renameFailure = false; window.renamePending = false; window.shiftPending = false; window.readFailure=false;
-  }, { role, visible, shiftSource:read('shift-management.js') });
+  }, { role, visible });
   await page.addScriptTag({ content:read('organization.js') });
   await page.addScriptTag({ content:read('organization-flow.js') });
   await page.addScriptTag({ content:`
@@ -66,7 +66,14 @@ async function fixture(width = 390, role = 'owner', visible = true) {
       }
       throw Error('Unapproved RPC '+name);
     }};
-    async function loadProviderFeatureScript(path){loadedScripts.push(path);if(path!=='shift-management.js')throw Error('Unapproved module '+path);(0,eval)(window.shiftSource);}
+    async function loadProviderFeatureScript(path){
+      loadedScripts.push(path);
+      if(!['team-schedule-ui.js','shift-management.js'].includes(path))throw Error('Unapproved module '+path);
+      await new Promise((resolve,reject)=>{
+        const script=document.createElement('script');script.src=new URL(path,location.href).href;
+        script.onload=resolve;script.onerror=()=>reject(Error('Module failed '+path));document.head.append(script);
+      });
+    }
     ${navigation}
     ${features}
     window.flow=MinutaOrganizationFlow.createController({db,notify,requireWrites,getCurrentUser:()=>currentUser,getSessionGeneration:()=>sessionGeneration,sessionIsCurrent,now:()=>new Date('2026-10-01T20:30:00Z')});flow.bind();
@@ -119,13 +126,32 @@ try {
       await openStep(page,2);assert.equal(await page.locator('[data-provider-panel="services"]').isVisible(),true);checks++;
       await page.evaluate(()=>enterOverview());await page.waitForFunction(()=>document.querySelector('.of-count').textContent==='4 из 4');
       await openStep(page,3);await page.locator('#shiftWorkspace').waitFor({state:'visible'});
-      assert.deepEqual(await page.evaluate(()=>loadedScripts),['shift-management.js']);
+      assert.deepEqual(await page.evaluate(()=>loadedScripts),['team-schedule-ui.js','shift-management.js']);
+      assert.equal(await page.locator('link[data-team-schedule-style]').count(),1);checks++;
+      await page.locator('#teamScheduleActions [data-shift-new]').click();await page.locator('.ts-drawer[open]').waitFor({state:'visible'});
       assert.equal(await page.locator('#shiftPerformer').inputValue(),'u1');
       assert.equal(await page.locator('#shiftLocation').inputValue(),'l1');checks+=3;
+      await page.keyboard.press('Escape');await page.locator('.ts-drawer[open]').waitFor({state:'hidden'});
+      const filters=page.locator('#teamScheduleFilters');
+      if(await filters.getAttribute('open')===null)await filters.locator('summary').click();
+      const locationTrigger=page.locator('#teamScheduleLocation').locator('xpath=following-sibling::button[1]');
+      await locationTrigger.click();await page.locator('.pro-select-dialog').waitFor({state:'visible'});
+      await page.locator('.pro-select-dialog [data-option-index="1"]').click();
+      assert.equal(await page.locator('#teamScheduleLocation').inputValue(),'l1');checks++;
+      assert.equal(await page.locator('#shiftPeriod').inputValue(),'7');
+      const startBefore=await page.locator('#shiftStartDate').inputValue();
+      const dateAfter=days=>new Date(Date.parse(startBefore+'T00:00:00Z')+days*86400000).toISOString().slice(0,10);
+      const expectedStart=dateAfter(7),expectedEnd=dateAfter(13);
+      await page.locator('.ts-navigation [data-shift-week="1"]').click();
+      await page.waitForFunction(start=>calls.filter(call=>call.name==='get_minuta_shift_workspace').at(-1)?.params.p_start===start,expectedStart);
+      assert.deepEqual(await page.evaluate(()=>calls.filter(call=>call.name==='get_minuta_shift_workspace').at(-1).params),{p_organization:'org-a',p_start:expectedStart,p_end:expectedEnd});checks+=2;
       const periodTrigger=page.locator('#shiftPeriod').locator('xpath=following-sibling::button[1]');
       await periodTrigger.click();await page.locator('.pro-select-dialog').waitFor({state:'visible'});
-      await page.locator('.pro-select-dialog [data-option-index="1"]').click();
-      assert.equal(await page.locator('#shiftPeriod').inputValue(),'31');checks++;
+      await page.locator('.pro-select-dialog [data-option-index]').filter({hasText:/^31 день$/}).click();
+      assert.equal(await page.locator('#shiftPeriod').inputValue(),'31');
+      const monthEnd=dateAfter(37);
+      await page.waitForFunction(end=>calls.filter(call=>call.name==='get_minuta_shift_workspace').at(-1)?.params.p_end===end,monthEnd);
+      assert.deepEqual(await page.evaluate(()=>calls.filter(call=>call.name==='get_minuta_shift_workspace').at(-1).params),{p_organization:'org-a',p_start:expectedStart,p_end:monthEnd});checks+=2;
       await page.evaluate(()=>{shiftData.shifts=[];enterOverview();});await page.waitForFunction(()=>document.querySelector('.of-count').textContent==='3 из 4');checks++;
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true);checks++;
       await f.check();console.log('PASS full provider navigation/lazy/data/selects '+width);
