@@ -1,8 +1,9 @@
 // Real PostgreSQL in a newly initialized task-owned loopback cluster only.
 // No external database URL, credentials, production records or delivery worker.
 import assert from 'node:assert/strict';
-import { readFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, mkdirSync, mkdtempSync, existsSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -17,11 +18,14 @@ const output=resolve(root,'outputs','copy-week-postgres',randomUUID());
 assert.ok(output.startsWith(resolve(root,'outputs','copy-week-postgres')+sep)); mkdirSync(output,{recursive:true});
 const data=resolve(output,'pgdata');
 const binary=name=>resolve(bin,name+(process.platform==='win32'?'.exe':''));
-const run=(name,args)=>{const result=spawnSync(binary(name),args,{windowsHide:true,encoding:'utf8',timeout:30000});assert.equal(result.status,0,`${name}: ${result.stderr}`);};
+const run=(name,args)=>{const result=spawnSync(binary(name),args,{windowsHide:true,encoding:'utf8',timeout:30000});if(result.status!==0 && existsSync(resolve(output,'postgres.log')))console.error(readFileSync(resolve(output,'postgres.log'),'utf8'));assert.equal(result.status,0,`${name}: ${result.stderr}`);};
 const port=await new Promise(resolvePort=>{const socket=createServer();socket.listen(0,'127.0.0.1',()=>{const p=socket.address().port;socket.close(()=>resolvePort(p));});});
 run('initdb',['-D',data,'-U','copy_week_test','-A','trust','--no-locale','-E','UTF8']);
 assert.ok(existsSync(resolve(data,'PG_VERSION')));
-run('pg_ctl',['-D',data,'-l',resolve(output,'postgres.log'),'-o',`-p ${port} -h 127.0.0.1 -F`,'-w','start']);
+// Debian's default /var/run/postgresql belongs to the system service. A short,
+// private socket directory also stays below the Unix socket path-length limit.
+const socketOption=process.platform==='win32' ? '' : ` -k ${mkdtempSync(resolve(tmpdir(),'shift-copy-socket-'))}`;
+run('pg_ctl',['-D',data,'-l',resolve(output,'postgres.log'),'-o',`-p ${port} -h 127.0.0.1 -F${socketOption}`,'-w','start']);
 const connections=[];
 async function connect(){const c=new Client({host:'127.0.0.1',port,user:'copy_week_test',database:'postgres'});await c.connect();connections.push(c);await c.query("set statement_timeout='15s'; set lock_timeout='12s'");return c;}
 const read=name=>readFileSync(new URL(`../${name}`,import.meta.url),'utf8');
