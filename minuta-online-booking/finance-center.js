@@ -191,6 +191,7 @@
         <button type="button" data-finance-detail="goods">${metricHeading('goods','Продано товаров')}<strong data-finance-goods>—</strong><small data-finance-goods-note>Количество и сумма</small></button>
       </div>
       <button class="finance-center__data-state" type="button" data-finance-detail="completeness"><span data-finance-data-state>Не рассчитано</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6m0-9v1"/></svg></button>
+      ${overview ? '<div class="finance-center__status finance-center__overview-status" data-finance-read-status role="status" hidden><span data-finance-read-message></span><button type="button" data-finance-retry>Повторить</button></div>' : ''}
       <p class="finance-center__date-basis" data-finance-date-basis></p>
     </section>`;
   }
@@ -400,7 +401,7 @@
     const adapter = options.adapter;
     const onNotice = typeof options.onNotice === 'function' ? options.onNotice : function () {};
     const state = {
-      destroyed:false, data:null, operations:[], nextCursor:'', requestId:'', loadVersion:0,
+      destroyed:false, data:null, operations:[], nextCursor:'', requestId:'', loadVersion:0, readError:'',
       period:text(options.initialScope?.period || options.initialPeriod, 'current_month'), master:text(options.initialScope?.masterId || options.initialMaster), abort:null,
       sharedScope:options.initialScope || null,
       scopeKey:options.initialScope ? JSON.stringify(options.initialScope) : '', detail:'', detailTrigger:null, detailTriggerScope:'', detailScopeKey:'', visibleOperations:30, overviewSelection:null
@@ -433,6 +434,7 @@
         const button = event.target.closest('[data-finance-detail]');
         if (button) openDetail(button.dataset.financeDetail, button);
       });
+      listen(overview.querySelector('[data-finance-retry]'), 'click', () => void load());
     }
     if (options.initialScope) enableSharedScope();
     if (options.initialScope) root.querySelector('.finance-center__filters').hidden = true;
@@ -454,8 +456,10 @@
       const series = receiptSeries(data);
       overview.querySelector('#financeOverviewMovementTitle').textContent = `Поступления по ${series.grain === 'month' ? 'месяцам' : series.grain === 'week' ? 'неделям' : 'дням'}`;
       if (!series.known) dashboardNotice(chart,'Движение денег по датам операций пока не подтверждено.',true);
-      else if (!series.points.some(point=>point.receivedMinor)) dashboardNotice(chart,'Поступления после возвратов за этот период — 0 ₽.');
-      else renderReceiptChart(chart,series,data);
+      else {
+        renderReceiptChart(chart,series,data);
+        if (!series.points.some(point=>point.receivedMinor)) chart.append(createElement('p','finance-dashboard__chart-help','Поступления после возвратов за этот период — 0 ₽.'));
+      }
       const ledgerKnown = data.available && data.financeEnabled && data.dateBasis === 'operations' && !data.cashProjectionUnavailable;
       if (!ledgerKnown) {
         dashboardNotice(categories,'Категории оплаченных расходов пока не подтверждены.');
@@ -485,10 +489,10 @@
 
     function renderReceiptChart(target,series,data) {
       const points = series.points, values = points.map(point=>point.receivedMinor);
-      const low = Math.min(0,...values), high = Math.max(0,...values), ideal = (high-low)/2;
+      const low = Math.min(0,...values), high = Math.max(0,...values), flatZero = low === 0 && high === 0, ideal = flatZero ? 1 : (high-low)/2;
       const power = 10 ** Math.floor(Math.log10(ideal));
       const step = Math.max(1,[1,2,5,10].find(value=>value*power>=ideal)*power);
-      const bottom = Math.floor(low/step)*step, top = Math.ceil(high/step)*step, span = top-bottom;
+      const bottom = flatZero ? -step : Math.floor(low/step)*step, top = flatZero ? step : Math.ceil(high/step)*step, span = top-bottom;
       const plot = createElement('div','finance-dashboard__plot'), axis = createElement('div','finance-dashboard__axis');
       const surface = createElement('div','finance-dashboard__surface'); surface.tabIndex=0; surface.setAttribute('role','slider');
       surface.setAttribute('aria-label','Дата на графике поступлений'); surface.setAttribute('aria-valuemin','0'); surface.setAttribute('aria-valuemax',String(points.length-1));
@@ -498,6 +502,7 @@
       polyline.setAttribute('points',points.map((point,index)=>`${points.length===1 ? 500 : index/(points.length-1)*1000},${(top-point.receivedMinor)/span*200}`).join(' '));
       svg.append(polyline); surface.append(svg);
       for (let value=bottom; value<=top; value+=step) {
+        if (flatZero && value !== 0) continue;
         const position=(top-value)/span*100;
         const amount = Math.abs(value) < 1000000 ? formatRubles(value) : `${new Intl.NumberFormat('ru-RU',{notation:'compact',maximumFractionDigits:1}).format(value/100)} ₽`;
         const label=createElement('span','',amount); label.style.top=position+'%'; axis.append(label);
@@ -551,6 +556,13 @@
       elements.status.textContent = message;
       elements.status.hidden = !message;
       find('[data-finance-scope]').hidden = loading || Boolean(message) || !state.data?.available;
+      if (overview) {
+        overview.setAttribute('aria-busy', String(loading));
+        const status = overview.querySelector('[data-finance-read-status]');
+        status.hidden = !state.readError;
+        status.querySelector('[data-finance-read-message]').textContent = state.readError;
+        status.querySelector('[data-finance-retry]').disabled = loading;
+      }
     }
 
     function setMoney(selector, value, known = true) {
@@ -725,6 +737,7 @@
       find('#financeDetailTitle').textContent = categoryId && kind.startsWith('category:') ? category?.name || 'Категория расходов' : titles[kind] || 'Детализация';
       find('[data-finance-detail-scope]').textContent = `${data?.periodLabel || 'Выбранный период'} · ${data?.visits?.performerName || elements.master.selectedOptions[0]?.textContent || 'Вся команда'}`;
       body.replaceChildren();
+      if (state.readError) body.append(createElement('p', 'finance-center__detail-note', state.readError));
       if (state.master) body.append(createElement('p', 'finance-center__detail-note', 'Показаны операции выбранного сотрудника. Общие расходы организации без назначения сотруднику сюда не входят.'));
       if (!data?.available || ['profit', 'completeness'].includes(kind)) {
         const reasons = dataReasons(data);
@@ -897,9 +910,13 @@
         if (!Array.isArray(raw?.filters?.masters) && !(raw?.available === false && state.sharedScope?.bounds)) normalized.filters.masters = optionRows(options.masters, MASTER_FALLBACK);
         normalized.filters.selectedPeriod = normalized.filters.selectedPeriod || state.period;
         normalized.filters.selectedMaster = normalized.filters.selectedMaster || state.master;
+        state.readError = '';
         render(normalized); setLoading(false);
       } catch (error) {
         if (error?.name === 'AbortError' || state.destroyed || version !== state.loadVersion) return;
+        state.readError = state.data?.available
+          ? 'Не удалось обновить данные. Показаны последние подтверждённые суммы.'
+          : 'Не удалось загрузить данные за выбранные даты. Повторите попытку.';
         setLoading(false, 'Не удалось загрузить финансовые данные.');
         if (!state.data) {
           render(normalizeRead({ available:false, availabilityMessage:'Не удалось загрузить данные за выбранные даты. Обновите данные.' }));
@@ -1027,7 +1044,7 @@
         const key = JSON.stringify(scope);
         if (key === state.scopeKey) return Promise.resolve();
         state.scopeKey = key; state.sharedScope = scope; state.period = scope.period; state.master = scope.masterId || '';
-        state.data = null; state.operations = []; state.nextCursor = ''; elements.content.hidden = true;
+        state.data = null; state.operations = []; state.nextCursor = ''; state.readError = ''; elements.content.hidden = true;
         closeDetail(); enableSharedScope(); root.querySelector('.finance-center__filters').hidden = true;
         const unavailable = normalizeDashboard({ available:false });
         renderSummary(root, unavailable); renderSummary(overview, unavailable); renderOverview(unavailable);
