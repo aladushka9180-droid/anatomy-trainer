@@ -145,6 +145,13 @@ try {
       await page.locator('.ts-navigation [data-shift-week="1"]').click();
       await page.waitForFunction(start=>calls.filter(call=>call.name==='get_minuta_shift_workspace').at(-1)?.params.p_start===start,expectedStart);
       assert.deepEqual(await page.evaluate(()=>calls.filter(call=>call.name==='get_minuta_shift_workspace').at(-1).params),{p_organization:'org-a',p_start:expectedStart,p_end:expectedEnd});checks+=2;
+      const periodTrigger=page.locator('#shiftPeriod').locator('xpath=following-sibling::button[1]');
+      await periodTrigger.click();await page.locator('.pro-select-dialog').waitFor({state:'visible'});
+      await page.locator('.pro-select-dialog [data-option-index]').filter({hasText:/^31 день$/}).click();
+      assert.equal(await page.locator('#shiftPeriod').inputValue(),'31');
+      const monthEnd=dateAfter(37);
+      await page.waitForFunction(end=>calls.filter(call=>call.name==='get_minuta_shift_workspace').at(-1)?.params.p_end===end,monthEnd);
+      assert.deepEqual(await page.evaluate(()=>calls.filter(call=>call.name==='get_minuta_shift_workspace').at(-1).params),{p_organization:'org-a',p_start:expectedStart,p_end:monthEnd});checks+=2;
       await page.evaluate(()=>{shiftData.shifts=[];enterOverview();});await page.waitForFunction(()=>document.querySelector('.of-count').textContent==='3 из 4');checks++;
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true);checks++;
       await f.check();console.log('PASS full provider navigation/lazy/data/selects '+width);
