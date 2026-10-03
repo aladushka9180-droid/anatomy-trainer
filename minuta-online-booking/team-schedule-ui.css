@@ -179,6 +179,7 @@ body.provider-body #dashboard #shiftsPanel[data-team-schedule-ready] .ts-drawer 
 #shiftsPanel[data-team-schedule-ready] .ts-copy-row[data-status]:not([data-status=ready]):not([data-status=existing]) { color: var(--theme-accent,#ae3f75); }
 @media (max-width: 600px) {
   #shiftsPanel[data-team-schedule-ready] .ts-filter-bar { flex-wrap: wrap; gap: 8px; }
+  #shiftsPanel[data-team-schedule-ready] .ts-filter-bar .ts-filters[open] { flex: 1 0 100%; }
   #shiftsPanel[data-team-schedule-ready] .ts-copy-action { margin-top: 0; min-height: 44px; max-width: 60%; padding: 10px; font-size: calc(13px + var(--provider-text-step,0px)); }
   #shiftsPanel[data-team-schedule-ready] .ts-copy-dates { grid-template-columns: 1fr; }
 }
