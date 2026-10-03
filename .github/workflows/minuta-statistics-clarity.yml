@@ -2,10 +2,10 @@ name: Minuta statistics clarity
 on:
   push:
     branches: [main]
-    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-clarity*', 'minuta-online-booking/tests/statistics-financial-*', '.github/workflows/minuta-statistics-clarity.yml']
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-clarity*', 'minuta-online-booking/tests/statistics-financial-*', 'minuta-online-booking/tests/statistics-http-*', '.github/workflows/minuta-statistics-clarity.yml']
   pull_request:
     branches: [main]
-    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-clarity*', 'minuta-online-booking/tests/statistics-financial-*', '.github/workflows/minuta-statistics-clarity.yml']
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-clarity*', 'minuta-online-booking/tests/statistics-financial-*', 'minuta-online-booking/tests/statistics-http-*', '.github/workflows/minuta-statistics-clarity.yml']
 permissions:
   contents: read
 concurrency:
@@ -28,6 +28,9 @@ jobs:
       - run: node minuta-online-booking/tests/statistics-financial-dashboard-browser-test.mjs
         env:
           MINUTA_VISUAL_OUTPUT: /tmp/statistics-dashboard-evidence
+      - run: node minuta-online-booking/tests/statistics-http-fixture-browser-test.mjs
+        env:
+          MINUTA_VISUAL_OUTPUT: /tmp/statistics-http-evidence
       - run: node minuta-online-booking/tests/statistics-clarity-provider-patch.mjs --check
       - run: node minuta-online-booking/tests/statistics-financial-clarity-browser-test.mjs
         env:
@@ -39,4 +42,5 @@ jobs:
           path: |
             /tmp/statistics-clarity-evidence
             /tmp/statistics-dashboard-evidence
+            /tmp/statistics-http-evidence
           if-no-files-found: ignore
