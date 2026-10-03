@@ -21,6 +21,13 @@ await page.route('**/*',route=>{
 const overview=page.locator('#reportFinanceOverview'),dialog=page.locator('[data-finance-detail-dialog]');
 async function ready(value){await page.waitForFunction(expected=>document.querySelector('#reportFinanceOverview [data-finance-received]')?.textContent.replace(/\s/g,'')===expected,value);}
 async function period(name){if(await page.locator('#reportFilterToggle').getAttribute('aria-expanded')!=='true')await page.locator('#reportFilterToggle').click();await page.getByRole('button',{name,exact:true}).click();}
+async function openSelectedDay(){
+  const selected=overview.locator('.finance-dashboard__selected');
+  // Centre the control before a real pointer click: sticky tabs/nav must not cover it.
+  await selected.evaluate(button=>button.scrollIntoView({block:'center',behavior:'instant'}));
+  assert.ok(await selected.evaluate(button=>{const r=button.getBoundingClientRect();return button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'selected day is not covered by navigation');
+  await selected.click();
+}
 try{
   await page.goto(fixture.url,{waitUntil:'networkidle'});await ready('3500₽');
   await check('cross-month, partial payment, goods and refund',async()=>{
@@ -32,7 +39,7 @@ try{
     assert.match(compact(await overview.locator('.finance-dashboard__selected').innerText()),/−500₽/);
     const points=(await overview.locator('polyline').getAttribute('points')).split(' ').map(p=>p.split(',').map(Number));
     assert.equal(points.length,3);assert.ok(points[2][1]>points[0][1],'refund-only day must be below zero');
-    await overview.locator('.finance-dashboard__selected').click();
+    await openSelectedDay();
     assert.match(await dialog.innerText(),/Возврат/);assert.match(compact(await dialog.innerText()),/−500₽/);
     assert.equal(await dialog.locator('.finance-center__operation').count(),1);await dialog.locator('[data-finance-detail-close]').click();
     if(output)await page.screenshot({path:resolve(output,'http-cash-390.png'),fullPage:true});
@@ -42,7 +49,7 @@ try{
     assert.match(await overview.locator('#financeOverviewMovementTitle').innerText(),/недел/);
     await period('Свои даты');await ready('6500₽');
     assert.match(await overview.locator('#financeOverviewMovementTitle').innerText(),/месяц/);
-    const slider=overview.getByRole('slider');await slider.press('End');await overview.locator('.finance-dashboard__selected').click();
+    const slider=overview.getByRole('slider');await slider.press('End');await openSelectedDay();
     assert.match(await dialog.innerText(),/1–3 окт./);
     assert.match(await dialog.locator('[data-finance-detail-scope]').textContent(),/1 января 2024 г. — 3 октября 2026 г./);
     assert.match(compact(await dialog.innerText()),/3500₽/);await dialog.locator('[data-finance-detail-close]').click();
