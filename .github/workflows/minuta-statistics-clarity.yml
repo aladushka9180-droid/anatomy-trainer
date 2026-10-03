@@ -23,6 +23,11 @@ jobs:
       - run: npm install --no-save --ignore-scripts playwright@1.58.2
       - run: node minuta-online-booking/tests/statistics-financial-visit-snapshot-test.mjs
       - run: node minuta-online-booking/tests/statistics-financial-stable-master-test.mjs
+      - run: node minuta-online-booking/tests/statistics-financial-scenarios-test.mjs
+      - run: node minuta-online-booking/tests/statistics-financial-dashboard-series-test.mjs
+      - run: node minuta-online-booking/tests/statistics-financial-dashboard-browser-test.mjs
+        env:
+          MINUTA_VISUAL_OUTPUT: /tmp/statistics-dashboard-evidence
       - run: node minuta-online-booking/tests/statistics-clarity-provider-patch.mjs --check
       - run: node minuta-online-booking/tests/statistics-financial-clarity-browser-test.mjs
         env:
@@ -31,5 +36,7 @@ jobs:
         if: always()
         with:
           name: statistics-clarity
-          path: /tmp/statistics-clarity-evidence
+          path: |
+            /tmp/statistics-clarity-evidence
+            /tmp/statistics-dashboard-evidence
           if-no-files-found: ignore

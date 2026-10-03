@@ -79,10 +79,10 @@ const db={
     if(fixtureMode==='unavailable')return {error:{code:'fixture_unavailable'},data:null};
     return {error:null,data:{schema:'minuta-finance-screen-v1',ledger_version:163,organization_id:fixtureOrg,currency:'RUB',timezone:'Europe/Samara',finance_enabled:true,
       period:{start:args.p_start,end:args.p_end,bucket_grain:'day'},selected_performer_id:args.p_performer,
-      summary:{received_minor:0,expense_minor:0,services_minor:0,debt_minor:0},
+      summary:{received_minor:fixtureMode==='partial'?230000:0,expense_minor:fixtureMode==='partial'?1800000:0,services_minor:0,debt_minor:0},
       confidence:{completed_visits:37,payment_marked_visits:17,unposted_payment_visits:17,service_value_known_visits:36,is_complete:false,result_reliable:false},
       categories:[{id:'22222222-2222-4222-8222-222222222222',system_key:'rent',name:'Аренда',active:true}],
-      performers:[{id:fixtureMaster,name:'Сотрудник'}],accounts:[],expense_structure:[],series:[],operations:[]}};
+      performers:[{id:fixtureMaster,name:'Сотрудник'}],accounts:[],expense_structure:fixtureMode==='partial'?[{category_id:'22222222-2222-4222-8222-222222222222',name:'Аренда',amount_minor:1800000}]:[],series:[],operations:[]}};
   },
   from(table){
     const filters=[],orders=[];
@@ -93,6 +93,7 @@ const db={
       neq(key,value){filters.push(row=>row[key]!==value);return query;},in(key,values){filters.push(row=>values.includes(row[key]));return query;},
       order(key,options={}){orders.push([key,options.ascending!==false]);return query;},limit(value){limit=value;return query;},
       async range(start,end){
+        if(fixtureMode==='partial' && table==='financial_transactions')return {error:{code:'fixture_ledger_unavailable'},data:null};
         const operation=(id,day,type,amount,source_id=id)=>({id,organization_id:fixtureOrg,occurred_at:day,operation_type:type,source_id,financial_postings:[cash(amount)]});
         const scenario=[
           operation('advance','2026-09-20T10:00:00Z','visit_service',300000,'partial'),
@@ -102,12 +103,25 @@ const db={
           operation('materials','2026-10-02T09:00:00Z','supplier_expense_payment',-200000,'materials-source'),
           operation('goods','2026-10-02T09:00:00Z','commercial_sale',200000,'goods-sale')
         ];
-        let rows=fixtureMode==='empty'?[]:table==='financial_transactions'?(fixtureMode==='scenario'?scenario:[operation('rent','2026-09-22T01:12:00Z','supplier_expense_payment',-1800000,'rent-source')])
+        const dashboardDate=index=>new Date(Date.UTC(2026,8,3+index)).toISOString();
+        const dashboardGoods=Array.from({length:8},(_,index)=>({id:'dashboard-goods-'+index,seller_id:fixtureMaster,occurred_at:dashboardDate(index*3+1),commercial_sale_lines:[{item_kind:'inventory_item',item_name:'Товар',quantity:1,total_minor:150000}]}));
+        const dashboard=[
+          ...Array.from({length:30},(_,index)=>operation('dashboard-day-'+index,dashboardDate(index),'visit_service',120000+index%5*20000,'partial')),
+          ...dashboardGoods.map(sale=>operation(sale.id,sale.occurred_at,'commercial_sale',150000,sale.id)),
+          operation('dashboard-rent',dashboardDate(2),'supplier_expense_payment',-2000000,'rent-source'),
+          operation('dashboard-materials',dashboardDate(9),'supplier_expense_payment',-1200000,'materials-source'),
+          operation('dashboard-salary',dashboardDate(17),'payroll_payment',-600000),
+          operation('dashboard-other',dashboardDate(23),'supplier_expense_payment',-200000,'other-source'),
+          operation('dashboard-previous-receipt','2026-08-20T10:00:00Z','visit_service',5100000,'partial'),
+          operation('dashboard-previous-expense','2026-08-20T11:00:00Z','supplier_expense_payment',-3600000,'rent-source')
+        ];
+        let rows=fixtureMode==='empty'?[]:table==='financial_transactions'?(fixtureMode==='dashboard'?dashboard:fixtureMode==='scenario'?scenario:[operation('rent','2026-09-22T01:12:00Z','supplier_expense_payment',-1800000,'rent-source')])
           :table==='financial_manual_expenses_v163'?[
             {expense_source_id:'rent-source',category_id:'22222222-2222-4222-8222-222222222222',category_name_snapshot:'Аренда'},
-            {expense_source_id:'materials-source',category_id:'materials',category_name_snapshot:'Материалы'}
+            {expense_source_id:'materials-source',category_id:'materials',category_name_snapshot:'Материалы'},
+            {expense_source_id:'other-source',category_id:'other',category_name_snapshot:'Прочее'}
           ]:table==='bookings'?[fixtureVisit('partial','2026-10-02',5800,'card',2000)]
-          :table==='commercial_sales'&&fixtureMode==='scenario'?[{id:'goods-sale',seller_id:fixtureMaster,occurred_at:'2026-10-02T09:00:00Z',commercial_sale_lines:[{item_kind:'inventory_item',item_name:'Крем',quantity:2,total_minor:200000},{item_kind:'benefit_product',item_name:'Абонемент',quantity:1,total_minor:500000}]}]:[];
+          :table==='commercial_sales'?(fixtureMode==='dashboard'?dashboardGoods:fixtureMode==='scenario'?[{id:'goods-sale',seller_id:fixtureMaster,occurred_at:'2026-10-02T09:00:00Z',commercial_sale_lines:[{item_kind:'inventory_item',item_name:'Крем',quantity:2,total_minor:200000},{item_kind:'benefit_product',item_name:'Абонемент',quantity:1,total_minor:500000}]}]:[]):[];
         rows=rows.map(row=>({...row,organization_id:fixtureOrg})).filter(row=>filters.every(filter=>filter(row)));
         rows.sort((a,b)=>{for(const [key,ascending]of orders){const order=String(a[key]).localeCompare(String(b[key]));if(order)return ascending?order:-order;}return 0;});
         return {error:null,data:rows.slice(start,Math.min(end+1,limit))};
