@@ -6,7 +6,7 @@
     shift_created: 'Создана смена', shift_updated: 'Изменена смена', shift_cancelled: 'Смена отменена',
     absence_created: 'Добавлено отсутствие', absence_cancelled: 'Отсутствие отменено',
     schedule_enabled: 'Смены учитываются при онлайн-записи', schedule_disabled: 'Учёт смен при онлайн-записи выключен',
-    booking_substituted: 'Специалист в записи заменён'
+    booking_substituted: 'Специалист в записи заменён', shift_week_copied: 'Скопирована неделя смен'
   };
 
   function isoToday() {
@@ -35,7 +35,21 @@
     let pending = false;
     let pendingOrganization;
     let editingShiftId = null;
+    let copyPlan = null;
+    let copyRequestId = null;
+    let copyScope = null;
+    let copyRevision = 0;
+    let copyPending = false;
+    let copyUncertain = false;
     const presentation = () => window.MinutaTeamSchedule;
+
+    function clearCopy() {
+      copyRevision += 1; copyPlan = null; copyRequestId = null; copyScope = null; copyUncertain = false;
+      if ($('#shiftCopyPreview')) { $('#shiftCopyPreview').hidden = true; $('#shiftCopyPreview').innerHTML = ''; }
+      if ($('#shiftCopyConfirm')) { $('#shiftCopyConfirm').disabled = true; $('#shiftCopyConfirm').textContent = 'Скопировать смены'; }
+      if ($('#shiftCopyScope')) $('#shiftCopyScope').textContent = '';
+      $('#shiftCopyForm')?.querySelectorAll('input,button[type=submit]').forEach(field => { field.disabled = false; });
+    }
 
     function unsupported(error) {
       return /PGRST202|42883|get_minuta_shift_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -49,6 +63,7 @@
     }
 
     function reset() {
+      clearCopy();
       presentation()?.reset();
       revision += 1;
       organization = null;
@@ -64,7 +79,7 @@
 
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
-      if (normalized?.id !== organization?.id) editingShiftId = null;
+      if (normalized?.id !== organization?.id) { editingShiftId = null; clearCopy(); }
       presentation()?.setContext(getCurrentUser()?.id, normalized?.id);
       if (pending) {
         pendingOrganization = normalized;
@@ -266,7 +281,7 @@
     function clearError(selector) { const holder = $(selector); holder.textContent = ''; holder.hidden = true; }
 
     async function mutate(rpc, parameters, button, success, errorSelector) {
-      if (!requireWrites() || pending || !organization?.id || !payload) return false;
+      if (!requireWrites() || pending || copyPending || !organization?.id || !payload) return false;
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
       const organizationId = organization.id;
@@ -309,6 +324,7 @@
     }
 
     async function handleSubmit(event) {
+      if (event.target.id === 'shiftCopyForm') { event.preventDefault(); await copyWeek(false); return; }
       if (event.target.id === 'shiftForm') {
         event.preventDefault();
         const hasBreak = $('#shiftHasBreak').checked;
@@ -327,9 +343,25 @@
     }
 
     async function handleClick(event) {
+      const copyOpen = event.target.closest('[data-shift-copy-open]');
+      if (copyOpen) {
+        if (!payload || pending || copyPending || !organization?.id || !requireWrites()) return;
+        if (!copyUncertain) {
+          clearCopy(); clearError('#shiftCopyError');
+          copyScope = { performer: $('#teamSchedulePerson')?.value || null, location: $('#teamScheduleLocation')?.value || null };
+          $('#shiftCopySource').value = $('#shiftStartDate').value || isoToday();
+          $('#shiftCopyTarget').value = addDays($('#shiftCopySource').value, 7);
+          const person = copyScope.performer ? nameOf(payload.performers, copyScope.performer, 'Специалист') : payload.current_role === 'specialist' ? 'Только мои смены' : 'Все специалисты';
+          const location = copyScope.location ? nameOf(payload.locations, copyScope.location, 'Филиал') : 'Все филиалы';
+          $('#shiftCopyScope').textContent = `${person} · ${location}`;
+        }
+        $('#shiftCopyCreator').open = true;
+        return;
+      }
+      if (event.target.closest('[data-shift-copy-confirm]')) { await copyWeek(true); return; }
       const create = event.target.closest('[data-shift-new]');
       if (create) {
-        if (!payload || pending || !organization?.id || !requireWrites() || $('#shiftCreator').hidden) return;
+        if (!payload || pending || copyPending || !organization?.id || !requireWrites() || $('#shiftCreator').hidden) return;
         editingShiftId = null;
         $('#shiftForm').reset();
         clearError('#shiftError');
@@ -343,7 +375,7 @@
       }
       const createAbsence = event.target.closest('[data-absence-new]');
       if (createAbsence) {
-        if (!payload || pending || !organization?.id || !requireWrites() || $('#absenceCreator').hidden) return;
+        if (!payload || pending || copyPending || !organization?.id || !requireWrites() || $('#absenceCreator').hidden) return;
         $('#absenceForm').reset();
         clearError('#absenceError');
         $('#absenceStart').value = isoToday();
@@ -385,6 +417,10 @@
     }
 
     async function handleChange(event) {
+      if (['shiftCopySource','shiftCopyTarget'].includes(event.target.id)) {
+        if (!copyUncertain) { copyRevision += 1; copyPlan = null; copyRequestId = null; $('#shiftCopyPreview').hidden = true; $('#shiftCopyConfirm').disabled = true; clearError('#shiftCopyError'); }
+        return;
+      }
       if (event.target.id === 'shiftPeriod' || event.target.id === 'shiftStartDate') await load();
       if (event.target.id === 'shiftHasBreak') $('#shiftBreakFields').hidden = !event.target.checked;
       if (event.target.id === 'absenceStart' && (!$('#absenceEnd').value || $('#absenceEnd').value < event.target.value)) $('#absenceEnd').value = event.target.value;
@@ -394,6 +430,104 @@
         const ok = await mutate('set_minuta_branch_shifts_enabled', { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Смены учитываются при онлайн-записи' : 'Учёт смен при онлайн-записи выключен');
         if (!ok && payload) event.target.checked = Boolean(payload.enabled);
       }
+    }
+
+    function copyError(error) {
+      const source = `${error?.code || ''} ${error?.message || ''}`;
+      const messages = [
+        ['invalid_copy_week_dates','Выберите более позднюю неделю с тем же днём начала, в пределах года.'],
+        ['copy_preview_stale','Расписание изменилось. Обновите предварительный просмотр. Ничего не скопировано.'],
+        ['copy_week_not_ready','В неделе есть конфликты или нет новых смен для копирования. Ничего не сохранено.'],
+        ['copy_request_mismatch','Не удалось подтвердить этот запрос. Обновите предварительный просмотр.'],
+        ['foreign_','Нет доступа к выбранному специалисту или филиалу.'],
+        ['42501','Недостаточно прав для копирования смен.'],
+        ['copy_week_limit','В исходной неделе больше 500 смен. Выберите специалиста или филиал.'],
+        ['staff_location_shifts_no_performer_overlap','Появилась пересекающаяся смена. Обновите предварительный просмотр.'],
+        ['shift_overlaps_absence','Появилось отсутствие. Обновите предварительный просмотр.'],
+        ['PGRST202','Копирование недели пока недоступно на сервере.'],
+        ['42883','Копирование недели пока недоступно на сервере.']
+      ];
+      return messages.find(([key]) => source.includes(key))?.[1] || 'Копирование не сохранено. Повторите предварительный просмотр.';
+    }
+
+    function renderCopyPlan(plan) {
+      const reasons = { ready:'Будет добавлена', existing:'Уже есть — пропустим', overlap:'Пересекается со сменой', absence:'Специалист отсутствует', inactive_scope:'Специалист или филиал неактивен', past_date:'Дата уже прошла' };
+      const summary = !plan.source_count ? 'В исходной неделе нет смен. Выберите другую неделю.'
+        : plan.blocked_count ? `Конфликтов: ${plan.blocked_count}. Исправьте их перед копированием; весь пакет останется без изменений.`
+          : !plan.ready_count ? 'Все смены уже есть. Повторное копирование не требуется.'
+            : `Будет добавлено смен: ${plan.ready_count}. Уже есть: ${plan.existing_count}.`;
+      $('#shiftCopyPreview').innerHTML = `<p class="ts-copy-summary"><strong>${escapeHtml(summary)}</strong></p><ul class="ts-copy-list">${plan.rows.map(row => `<li class="ts-copy-row" data-status="${escapeHtml(row.status)}"><strong>${escapeHtml(row.performer_name)} · ${escapeHtml(dateLabel(row.target_date))}</strong><span>${escapeHtml(shortTime(row.start_time))}–${escapeHtml(shortTime(row.end_time))} · ${escapeHtml(row.location_name)}</span>${row.break_start ? `<small>Перерыв ${escapeHtml(shortTime(row.break_start))}–${escapeHtml(shortTime(row.break_end))}</small>` : ''}<small>${escapeHtml(reasons[row.status] || 'Проверьте смену')}</small></li>`).join('')}</ul>`;
+      $('#shiftCopyPreview').hidden = false;
+      $('#shiftCopyConfirm').disabled = !plan.can_copy;
+      $('#shiftCopyConfirm').textContent = plan.can_copy ? `Скопировать смены: ${plan.ready_count}` : 'Скопировать смены';
+    }
+
+    async function copyWeek(commit) {
+      if (pending || copyPending || !payload || !organization?.id || !getCurrentUser()?.id || !requireWrites()) return;
+      if (!copyScope || (commit && !copyPlan?.can_copy) || (!commit && copyUncertain)) return;
+      if (!$('#shiftCopyForm').reportValidity()) return;
+      const userId = getCurrentUser().id, generation = getSessionGeneration(), org = organization.id;
+      const params = { p_organization:org,p_source_start:$('#shiftCopySource').value,p_target_start:$('#shiftCopyTarget').value,p_performer:copyScope.performer,p_location:copyScope.location };
+      if (commit && (copyPlan.source_start!==params.p_source_start || copyPlan.target_start!==params.p_target_start)) return;
+      if (!commit) { copyPlan=null; copyRequestId=null; }
+      const token=++copyRevision;
+      copyPending=true; setBusy(true); clearError('#shiftCopyError');
+      $('#shiftCopyForm').querySelectorAll('input').forEach(field=>{field.disabled=true;});
+      $('#shiftCopyForm').dataset.shiftBusy='true';
+      const control = commit ? $('#shiftCopyConfirm') : $('#shiftCopyForm button[type=submit]');
+      control.textContent=commit ? 'Копируем…' : 'Проверяем смены…';
+      let timer;
+      let success=false;
+      try {
+        const result = await Promise.race([
+          db.rpc(commit ? 'copy_minuta_staff_shift_week' : 'preview_minuta_staff_shift_week_copy', commit ? { ...params,p_preview_token:copyPlan.preview_token,p_request_id:copyRequestId } : params),
+          new Promise(resolve=>{timer=setTimeout(()=>resolve({error:{code:'COPY_TIMEOUT'}}),loadTimeoutMs);})
+        ]);
+        if (token!==copyRevision || organization?.id!==org || !sessionIsCurrent(userId,generation)) return;
+        if (result?.error) {
+          const error=result.error;
+          if (commit && (!error.code || ['COPY_TIMEOUT','TypeError','AbortError'].includes(error.code))) {
+            copyUncertain=true;
+            showError('#shiftCopyError','Сервер ещё не подтвердил результат. Повторите подтверждение: тот же запрос не создаст дубликаты.');
+          } else {
+            copyUncertain=false; copyPlan=null; copyRequestId=null;
+            $('#shiftCopyPreview').hidden=true;
+            showError('#shiftCopyError',copyError(error));
+          }
+          return;
+        }
+        const plan=result?.data;
+        if (plan?.organization_id!==org || plan.source_start!==params.p_source_start || plan.target_start!==params.p_target_start
+          || (!commit && (!Array.isArray(plan.rows) || plan.rows.length>500 || typeof plan.preview_token!=='string'))) {
+          if (commit) copyUncertain=true;
+          showError('#shiftCopyError','Сервер не подтвердил выбранные недели. Проверьте результат перед повтором.'); return;
+        }
+        copyUncertain=false;
+        if (!commit) {
+          copyPlan=plan; copyRequestId=crypto.randomUUID(); renderCopyPlan(plan);
+        } else {
+          if (!Number.isInteger(plan.created_count) || !Array.isArray(plan.created_ids) || plan.request_id!==copyRequestId) {
+            copyUncertain=true; showError('#shiftCopyError','Сервер не подтвердил сохранение. Повторите подтверждение тем же запросом.'); return;
+          }
+          success=true; $('#shiftCopyCreator').open=false;
+          notify(`Добавлено смен: ${plan.created_count}. Существующие смены сохранены.`);
+          $('#shiftStartDate').value=params.p_target_start; $('#shiftPeriod').value='7'; clearCopy();
+        }
+      } catch (_) {
+        if (token===copyRevision && organization?.id===org && sessionIsCurrent(userId,generation)) {
+          copyUncertain=commit;
+          showError('#shiftCopyError',commit ? 'Результат пока неизвестен. Повторите подтверждение: дубликаты не появятся.' : 'Не удалось загрузить предварительный просмотр. Повторите проверку.');
+        }
+      } finally {
+        clearTimeout(timer); copyPending=false; delete $('#shiftCopyForm').dataset.shiftBusy;
+        setBusy(false);
+        $('#shiftCopyForm button[type=submit]').textContent='Показать предварительный просмотр';
+        $('#shiftCopyConfirm').disabled=!copyPlan?.can_copy;
+        $('#shiftCopyConfirm').textContent=copyUncertain ? 'Повторить подтверждение' : copyPlan?.can_copy ? `Скопировать смены: ${copyPlan.ready_count}` : 'Скопировать смены';
+        $('#shiftCopyForm').querySelectorAll('input,button[type=submit]').forEach(field=>{field.disabled=copyUncertain;});
+        applyWriteAvailability();
+      }
+      if (success) await load();
     }
 
     function bind() {

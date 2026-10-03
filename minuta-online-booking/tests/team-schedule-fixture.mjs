@@ -44,11 +44,32 @@ export function fixtureHtml({ ui = true, theme = 'pink-porcelain', role = 'owner
       d.absences=d.absences.filter(x=>x.starts_on<=p.p_end&&x.ends_on>=p.p_start);
       d.utilization=d.performers.map(x=>({performer_id:x.id,location_id:'l1',shift_minutes:d.shifts.filter(s=>s.active&&s.performer_id===x.id).length*420,booked_minutes:x.id==='u1'?60:0,percent:0}));return d;
     };
+    const copyReceipts={};
+    const copyPreview=p=>{
+      const offset=Math.round((Date.parse(p.p_target_start)-Date.parse(p.p_source_start))/86400000);
+      const rows=state.shifts.filter(s=>s.active&&s.shift_date>=p.p_source_start&&s.shift_date<=add(p.p_source_start,6)&&(!p.p_performer||s.performer_id===p.p_performer)&&(!p.p_location||s.location_id===p.p_location)&&(role!=='specialist'||s.performer_id===actor)).map(s=>{
+        const target=add(s.shift_date,offset),existing=state.shifts.filter(t=>t.active&&t.performer_id===s.performer_id&&t.shift_date===target);
+        const status=state.absences.some(a=>a.active&&a.performer_id===s.performer_id&&a.starts_on<=target&&a.ends_on>=target)?'absence':existing.some(t=>t.location_id===s.location_id&&t.start_time===s.start_time&&t.end_time===s.end_time&&t.break_start===s.break_start&&t.break_end===s.break_end)?'existing':existing.some(t=>t.start_time<s.end_time&&t.end_time>s.start_time)?'overlap':'ready';
+        return {source_id:s.id,performer_id:s.performer_id,performer_name:state.performers.find(x=>x.id===s.performer_id)?.display_name,location_id:s.location_id,location_name:state.locations.find(x=>x.id===s.location_id)?.name,source_date:s.shift_date,target_date:target,start_time:s.start_time,end_time:s.end_time,break_start:s.break_start,break_end:s.break_end,status};
+      });
+      const ready=rows.filter(x=>x.status==='ready').length,blocked=rows.filter(x=>!['ready','existing'].includes(x.status)).length;
+      return {organization_id:org,source_start:p.p_source_start,target_start:p.p_target_start,performer_id:p.p_performer,location_id:p.p_location,rows,source_count:rows.length,ready_count:ready,blocked_count:blocked,existing_count:rows.filter(x=>x.status==='existing').length,can_copy:ready>0&&!blocked,preview_token:JSON.stringify(rows)};
+    };
     const db={rpc:async(name,p)=>{
       calls.push({name,parameters:p});audit();
       if(name==='get_minuta_shift_workspace')return {data:payload(p)};
-      if(writeMode==='error')return {error:{message:'shift_overlaps_absence'}};
+      if(writeMode==='error')return {error:{code:'23P01',message:'shift_overlaps_absence'}};
       if(role==='specialist'&&p.p_performer&&p.p_performer!==actor)return {error:{message:'foreign_performer_denied'}};
+      if(name==='preview_minuta_staff_shift_week_copy')return {data:copyPreview(p)};
+      if(name==='copy_minuta_staff_shift_week'){
+        if(copyReceipts[p.p_request_id])return {data:{...copyReceipts[p.p_request_id],replayed:true}};
+        const plan=copyPreview(p);if(plan.preview_token!==p.p_preview_token)return {error:{code:'40001',message:'copy_preview_stale'}};
+        if(!plan.can_copy)return {error:{code:'23P01',message:'copy_week_not_ready'}};
+        const created=plan.rows.filter(x=>x.status==='ready').map((x,i)=>({id:'copied-'+p.p_request_id+'-'+i,performer_id:x.performer_id,location_id:x.location_id,shift_date:x.target_date,start_time:x.start_time,end_time:x.end_time,break_start:x.break_start,break_end:x.break_end,note:'',active:true}));
+        state.shifts.push(...created);state.audit.push({action:'shift_week_copied',created_at:new Date().toISOString()});persist();
+        const result={organization_id:org,request_id:p.p_request_id,source_start:p.p_source_start,target_start:p.p_target_start,created_count:created.length,created_ids:created.map(x=>x.id),existing_count:plan.existing_count,replayed:false};copyReceipts[p.p_request_id]=result;
+        if(writeMode==='unknown'){writeMode='ok';throw Error('Synthetic lost response');}return {data:result};
+      }
       if(name==='upsert_minuta_staff_shift'){
         const id=p.p_shift||'created-'+Date.now();const row={id,performer_id:p.p_performer,location_id:p.p_location,shift_date:p.p_date,start_time:p.p_start,end_time:p.p_end,break_start:p.p_break_start,break_end:p.p_break_end,note:p.p_note,active:true};
         const idx=state.shifts.findIndex(x=>x.id===id);if(idx>=0)state.shifts[idx]=row;else state.shifts.push(row);
