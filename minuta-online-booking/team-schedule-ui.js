@@ -17,6 +17,7 @@
     left: '<path d="m14 6-6 6 6 6"/>', right: '<path d="m10 6 6 6-6 6"/>',
     filter: '<path d="M3 6h18M3 12h18M3 18h18M8 3v6m8 0v6M8 15v6"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
+    copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
     cup: '<path d="M4 8h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zm12 1h2a3 3 0 1 1 0 6h-2M7 3v2m4-2v2M3 22h15"/>',
     swap: '<path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/>'
   };
@@ -104,11 +105,13 @@
     toolbar.prepend(navigator);
     const filters = document.createElement('details'); filters.className = 'ts-filters'; filters.id = 'teamScheduleFilters';
     filters.innerHTML = `<summary>${icon('filter')}<span>Фильтры</span><span id="teamScheduleFilterCount"></span></summary><div class="ts-filter-fields"><label>Специалист<select id="teamSchedulePerson"></select></label><label>Филиал<select id="teamScheduleLocation"></select></label><button type="button" class="ts-today" data-ts-clear>Сбросить</button></div>`;
-    toolbar.after(filters);
+    const filterBar = document.createElement('div'); filterBar.className = 'ts-filter-bar';
+    toolbar.after(filterBar); filterBar.append(filters);
+    filterBar.insertAdjacentHTML('beforeend', `<button type="button" class="ts-secondary ts-copy-action" data-shift-copy-open data-shift-write>${icon('copy')}<span>Копировать неделю</span></button>`);
     const wideFilters = matchMedia('(min-width: 601px)');
     filters.open = wideFilters.matches;
     wideFilters.addEventListener('change', event => { filters.open = event.matches; });
-    const calendar = document.createElement('section'); calendar.id = 'teamScheduleCalendar'; calendar.className = 'ts-calendar'; calendar.setAttribute('aria-label', 'Расписание команды'); filters.after(calendar);
+    const calendar = document.createElement('section'); calendar.id = 'teamScheduleCalendar'; calendar.className = 'ts-calendar'; calendar.setAttribute('aria-label', 'Расписание команды'); filterBar.after(calendar);
     root.querySelector('.shift-management-grid').classList.add('ts-records');
     for (const section of root.querySelectorAll('.shift-management-grid > section')) {
       const details = document.createElement('details'); details.className = 'ts-record-list';
@@ -117,6 +120,9 @@
       section.prepend(details); details.append(summary, list); heading.remove();
     }
     wrapForm('shiftCreator', 'Добавить смену'); wrapForm('absenceCreator', 'Добавить отсутствие');
+    const copy = document.createElement('details'); copy.id = 'shiftCopyCreator';
+    copy.innerHTML = `<summary hidden>Копирование недели</summary><form id="shiftCopyForm" class="ts-copy-form"><p class="ts-copy-help">Повторите смены на другой неделе. Существующие смены сохранятся; записи клиентов и отсутствия не копируются.</p><p id="shiftCopyScope" class="ts-copy-scope"></p><div class="ts-copy-dates"><label>Начало исходной недели<input id="shiftCopySource" type="date" required></label><label>Начало новой недели<input id="shiftCopyTarget" type="date" required></label></div><small class="ts-copy-help">Копируем 7 дней. Начала недель должны совпадать по дню недели.</small><button type="submit" class="ts-secondary" data-shift-write>Показать предварительный просмотр</button><p id="shiftCopyError" class="form-error" role="alert" hidden></p><section id="shiftCopyPreview" aria-label="Предварительный просмотр" aria-live="polite" hidden></section><div class="ts-copy-footer"><button id="shiftCopyConfirm" type="button" class="ts-primary" data-shift-copy-confirm data-shift-write disabled>Скопировать смены</button></div></form>`;
+    root.append(copy); wrapForm('shiftCopyCreator', 'Копировать неделю');
     for (const id of ['shiftError', 'absenceError', 'substitutionError']) $(id).setAttribute('role', 'alert');
     const substitution = $('shiftSubstitutionPanel');
     const disclosure = document.createElement('details'); disclosure.className = 'ts-substitution';
