@@ -133,7 +133,26 @@ try {
 
     await page.locator('#fixtureMode').selectOption('empty');
     await page.waitForFunction(()=>document.querySelector('#reportFinanceOverview [data-finance-received]')?.textContent.replace(/\s/g,'')==='0₽');
-    assert.equal(await overview.locator('polyline').count(),0);
+    assert.equal(await overview.locator('polyline').count(),1,'confirmed zero receipts retain the date chart');
+    const zeroPoints=(await overview.locator('polyline').getAttribute('points')).split(' ').map(pair=>pair.split(',').map(Number));
+    assert.equal(zeroPoints.length,2);assert.ok(zeroPoints.flat().every(Number.isFinite));
+    assert.ok(zeroPoints.every(point=>point[1]===zeroPoints[0][1]),'confirmed zero receipts form a horizontal line');
+    assert.equal(money(await overview.locator('.finance-dashboard__axis').innerText()),'0₽');
+    await overview.getByRole('slider').press('End');
+    assert.equal(await overview.getByRole('slider').getAttribute('aria-valuenow'),'1');
+    assert.match(await overview.getByRole('slider').getAttribute('aria-valuetext'),/2 окт.*0.*₽/);
+    await overview.locator('.finance-dashboard__selected').evaluate(button=>button.scrollIntoView({block:'center',behavior:'instant'}));
+    await overview.locator('.finance-dashboard__selected').click();
+    assert.match(await dialog.locator('[data-finance-detail-scope]').textContent(),/1 октября.*2 октября/);
+    assert.equal(await dialog.locator('.finance-center__operation').count(),0);
+    assert.match(await dialog.innerText(),/операций.*нет/);
+    await dialog.locator('[data-finance-detail-close]').click();
+    if(output)await page.screenshot({path:resolve(output,`dashboard-${width}-zero.png`),fullPage:true});
+    await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'zero chart fits with 200% text');
+    assert.equal(await overview.locator('polyline').count(),1);
+    if(output)await page.screenshot({path:resolve(output,`dashboard-${width}-zero-200.png`),fullPage:true});
+    await page.evaluate(()=>document.documentElement.style.fontSize='');
     assert.match(await overview.locator('[data-finance-overview-chart]').innerText(),/0 ₽/);
     assert.match(await overview.locator('[data-finance-overview-categories]').innerText(),/расходов.*нет/);
     assert.match(await overview.locator('[data-finance-overview-operations]').innerText(),/Операций.*нет/);
