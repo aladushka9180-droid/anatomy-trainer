@@ -28,6 +28,9 @@
 .provider-body #retentionPanel.commerce-soft-panel .retention-copy-status:empty { display:none; }
 .provider-body #retentionPanel.commerce-soft-panel .retention-row-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .provider-body #retentionPanel.commerce-soft-panel .retention-fallback-note { font-size:13px; color:var(--cs-muted); line-height:1.5; }
+@media(max-width:999px) {
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row { padding:10px 0!important; row-gap:6px; }
+}
 @media(min-width:1000px) {
   .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open .retention-toggle { grid-column:1/-1; }
   .provider-body #retentionPanel.commerce-soft-panel #retentionSettingsForm.cs-preview-open .retention-thresholds { grid-column:1/-1; }
