@@ -200,9 +200,62 @@
     const delta = current - previous;
     if (!Number.isSafeInteger(delta)) return '';
     const amount = `${delta > 0 ? '+' : ''}${formatRubles(delta)}`;
-    if (!previous) return `${amount} к прошлому периоду`;
-    const percent = Math.round(delta / Math.abs(previous) * 1000) / 10;
-    return `${percent > 0 ? '+' : ''}${percent.toLocaleString('ru-RU')}% · ${amount}`;
+    return `${amount} к прошлому периоду`;
+  }
+
+  // The overview uses the same complete cash projection as its headline amount.
+  // Missing days are zero only after that projection has been confirmed.
+  function receiptSeries(data) {
+    const unknown = { known:false, grain:'day', points:[] };
+    if (!data?.available || !data.financeEnabled || data.dateBasis !== 'operations' || data.cashProjectionUnavailable) return unknown;
+    const dateTime = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? Date.parse(value + 'T00:00:00Z') : NaN;
+    const start = dateTime(data.bounds?.start), end = dateTime(data.bounds?.end);
+    const dayMs = 86400000, days = (end - start) / dayMs + 1;
+    if (!Number.isInteger(days) || days < 1 || days > 36600) return unknown;
+    const iso = time => new Date(time).toISOString().slice(0,10);
+    if (iso(start) !== data.bounds.start || iso(end) !== data.bounds.end) return unknown;
+    const grain = days <= 93 ? 'day' : days <= 366 ? 'week' : 'month';
+    const points = [], groups = new Map();
+    const keyFor = day => grain === 'month' ? day.slice(0,7)
+      : String(Math.floor((dateTime(day) - start) / dayMs / (grain === 'week' ? 7 : 1)));
+    for (let cursor = start; cursor <= end;) {
+      const next = grain === 'month' ? Date.UTC(new Date(cursor).getUTCFullYear(), new Date(cursor).getUTCMonth()+1,1)
+        : cursor + dayMs * (grain === 'week' ? 7 : 1);
+      const point = { key:iso(cursor), start:iso(cursor), end:iso(Math.min(end,next-dayMs)), receivedMinor:0 };
+      points.push(point); groups.set(keyFor(point.start), point); cursor = next;
+    }
+    let total = 0;
+    for (const row of data.movement) {
+      const time = dateTime(row.key), point = groups.get(keyFor(row.key));
+      if (!Number.isFinite(time) || iso(time) !== row.key || time < start || time > end || !point || !Number.isSafeInteger(row.receivedMinor)) return unknown;
+      point.receivedMinor += row.receivedMinor; total += row.receivedMinor;
+      if (!Number.isSafeInteger(point.receivedMinor) || !Number.isSafeInteger(total)) return unknown;
+    }
+    if (total !== data.summary.receivedMinor) return unknown;
+    const label = date => new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'short',timeZone:'UTC',
+      ...(data.bounds.start.slice(0,4) !== data.bounds.end.slice(0,4) ? {year:'numeric'} : {})}).format(new Date(date + 'T12:00:00Z'));
+    return {known:true,grain,points:points.map(point => ({...point,label:grain === 'month'
+      ? new Intl.DateTimeFormat('ru-RU',{month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(point.start + 'T12:00:00Z'))
+      : point.start === point.end ? label(point.start) : `${label(point.start)} — ${label(point.end)}`}))};
+  }
+
+  function overviewShell() {
+    return `<div class="finance-dashboard" data-finance-dashboard>
+      <section class="finance-dashboard__panel finance-dashboard__movement" aria-labelledby="financeOverviewMovementTitle">
+        <div class="finance-dashboard__heading"><div><h3 id="financeOverviewMovementTitle">Поступления по дням</h3><p>По дате финансовой операции · После возвратов</p></div></div>
+        <div data-finance-overview-chart></div>
+      </section>
+      <div class="finance-dashboard__lower">
+        <section class="finance-dashboard__panel" aria-labelledby="financeOverviewExpenseTitle">
+          <div class="finance-dashboard__heading"><h3 id="financeOverviewExpenseTitle">На что потрачено</h3><button type="button" data-finance-detail="expense">Подробнее <span aria-hidden="true">→</span></button></div>
+          <div data-finance-overview-categories></div>
+        </section>
+        <section class="finance-dashboard__panel" aria-labelledby="financeOverviewOperationsTitle">
+          <div class="finance-dashboard__heading"><h3 id="financeOverviewOperationsTitle">Последние операции</h3><button type="button" data-finance-detail="operations">Все <span aria-hidden="true">→</span></button></div>
+          <div data-finance-overview-operations></div>
+        </section>
+      </div>
+    </div>`;
   }
 
   function dataReasons(data) {
@@ -350,7 +403,7 @@
       destroyed:false, data:null, operations:[], nextCursor:'', requestId:'', loadVersion:0,
       period:text(options.initialScope?.period || options.initialPeriod, 'current_month'), master:text(options.initialScope?.masterId || options.initialMaster), abort:null,
       sharedScope:options.initialScope || null,
-      scopeKey:options.initialScope ? JSON.stringify(options.initialScope) : '', detail:'', detailTrigger:null, visibleOperations:30
+      scopeKey:options.initialScope ? JSON.stringify(options.initialScope) : '', detail:'', detailTrigger:null, detailTriggerScope:'', detailScopeKey:'', visibleOperations:30, overviewSelection:null
     };
     let detailDialog = null;
     const find = selector => root.querySelector(selector) || (detailDialog?.matches(selector) ? detailDialog : detailDialog?.querySelector(selector));
@@ -373,7 +426,7 @@
       overview.className = 'finance-center finance-center--overview';
       overview.dataset.reportSection = 'overview';
       overview.setAttribute('aria-label', 'Финансы за выбранный период');
-      overview.innerHTML = summaryShell(true);
+      overview.innerHTML = summaryShell(true) + overviewShell();
       root.before(overview);
       root.closest('#analyticsView').classList.add('report-financial-first');
       listen(overview, 'click', event => {
@@ -383,6 +436,107 @@
     }
     if (options.initialScope) enableSharedScope();
     if (options.initialScope) root.querySelector('.finance-center__filters').hidden = true;
+
+    function dashboardNotice(target, message, incomplete = false) {
+      target.append(createElement('p','finance-dashboard__empty',message));
+      if (incomplete) {
+        const button = createElement('button','finance-dashboard__notice-action','Проверить данные'); button.type='button';
+        button.dataset.financeDetail='completeness'; target.append(button);
+      }
+    }
+
+    function renderOverview(data) {
+      if (!overview) return;
+      const chart = overview.querySelector('[data-finance-overview-chart]');
+      const categories = overview.querySelector('[data-finance-overview-categories]');
+      const operations = overview.querySelector('[data-finance-overview-operations]');
+      chart.replaceChildren(); categories.replaceChildren(); operations.replaceChildren();
+      const series = receiptSeries(data);
+      overview.querySelector('#financeOverviewMovementTitle').textContent = `Поступления по ${series.grain === 'month' ? 'месяцам' : series.grain === 'week' ? 'неделям' : 'дням'}`;
+      if (!series.known) dashboardNotice(chart,'Движение денег по датам операций пока не подтверждено.',true);
+      else if (!series.points.some(point=>point.receivedMinor)) dashboardNotice(chart,'Поступления после возвратов за этот период — 0 ₽.');
+      else renderReceiptChart(chart,series,data);
+      const ledgerKnown = data.available && data.financeEnabled && data.dateBasis === 'operations' && !data.cashProjectionUnavailable;
+      if (!ledgerKnown) {
+        dashboardNotice(categories,'Категории оплаченных расходов пока не подтверждены.');
+        dashboardNotice(operations,'Подтверждённые операции пока недоступны.');
+        return;
+      }
+      const rows = [...data.expenseCategories].sort((a,b)=>b.amountMinor-a.amountMinor || a.name.localeCompare(b.name));
+      if (!rows.length) dashboardNotice(categories,'Оплаченных расходов за этот период нет.');
+      for (const row of rows.slice(0,4)) {
+        const button = createElement('button','finance-dashboard__row'); button.type='button'; button.dataset.financeDetail=`category:${row.id}`;
+        const icon = createElement('span','finance-dashboard__icon'); icon.innerHTML=metricIcon(row.id === data.rentCategoryId ? 'rent' : 'expense');
+        button.append(icon,createElement('span','finance-dashboard__row-copy',row.name),createElement('strong','',formatRubles(row.amountMinor)),createElement('span','finance-dashboard__arrow','›'));
+        categories.append(button);
+      }
+      if (rows.length > 4) categories.append(createElement('p','finance-dashboard__list-note',`Показаны 4 из ${rows.length} категорий. Остальные — в детализации.`));
+      const recent = [...data.operations].sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt) || b.id.localeCompare(a.id)).slice(0,4);
+      if (!recent.length) dashboardNotice(operations,'Операций за этот период нет.');
+      for (const row of recent) {
+        const button = createElement('button','finance-dashboard__row'); button.type='button'; button.dataset.financeDetail=`operation:${row.id}`;
+        const icon = createElement('span','finance-dashboard__icon'); icon.innerHTML=metricIcon(row.flow === 'expense' ? 'expense' : 'received');
+        const copy = createElement('span','finance-dashboard__row-copy');
+        copy.append(createElement('span','',row.label),createElement('small','',operationDate(row.occurredAt,data.timezone)));
+        const amount = createElement('strong',row.amountMinor > 0 && row.flow === 'received' ? 'is-received' : '',`${row.amountMinor > 0 ? '+' : ''}${formatRubles(row.amountMinor)}`);
+        button.append(icon,copy,amount,createElement('span','finance-dashboard__arrow','›')); operations.append(button);
+      }
+    }
+
+    function renderReceiptChart(target,series,data) {
+      const points = series.points, values = points.map(point=>point.receivedMinor);
+      const low = Math.min(0,...values), high = Math.max(0,...values), ideal = (high-low)/2;
+      const power = 10 ** Math.floor(Math.log10(ideal));
+      const step = Math.max(1,[1,2,5,10].find(value=>value*power>=ideal)*power);
+      const bottom = Math.floor(low/step)*step, top = Math.ceil(high/step)*step, span = top-bottom;
+      const plot = createElement('div','finance-dashboard__plot'), axis = createElement('div','finance-dashboard__axis');
+      const surface = createElement('div','finance-dashboard__surface'); surface.tabIndex=0; surface.setAttribute('role','slider');
+      surface.setAttribute('aria-label','Дата на графике поступлений'); surface.setAttribute('aria-valuemin','0'); surface.setAttribute('aria-valuemax',String(points.length-1));
+      const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('viewBox','0 0 1000 200'); svg.setAttribute('preserveAspectRatio','none'); svg.setAttribute('aria-hidden','true');
+      const polyline = document.createElementNS(svg.namespaceURI,'polyline');
+      polyline.setAttribute('points',points.map((point,index)=>`${points.length===1 ? 500 : index/(points.length-1)*1000},${(top-point.receivedMinor)/span*200}`).join(' '));
+      svg.append(polyline); surface.append(svg);
+      for (let value=bottom; value<=top; value+=step) {
+        const position=(top-value)/span*100;
+        const amount = Math.abs(value) < 1000000 ? formatRubles(value) : `${new Intl.NumberFormat('ru-RU',{notation:'compact',maximumFractionDigits:1}).format(value/100)} ₽`;
+        const label=createElement('span','',amount); label.style.top=position+'%'; axis.append(label);
+        const grid=createElement('i',value===0 ? 'is-zero' : ''); grid.style.top=position+'%'; surface.append(grid);
+      }
+      const tooltip=createElement('span','finance-dashboard__tooltip'), dot=createElement('span','finance-dashboard__dot');
+      tooltip.setAttribute('aria-hidden','true'); dot.setAttribute('aria-hidden','true'); surface.append(tooltip,dot);
+      const dates=createElement('div','finance-dashboard__dates');
+      const indices=[...new Set([0,Math.round((points.length-1)/4),Math.round((points.length-1)/2),Math.round((points.length-1)*3/4),points.length-1])];
+      for(const index of indices) dates.append(createElement('span','',series.grain==='week' ? points[index].label.split(' — ')[0] : points[index].label));
+      plot.append(axis,surface,dates); target.append(plot);
+      const controls=createElement('div','finance-dashboard__chart-controls');
+      const previous=createElement('button','','‹'), selected=createElement('button','finance-dashboard__selected'), next=createElement('button','','›');
+      for(const button of [previous,selected,next])button.type='button';
+      previous.setAttribute('aria-label','Предыдущая дата на графике'); next.setAttribute('aria-label','Следующая дата на графике');
+      controls.append(previous,selected,next); target.append(controls);
+      const help=createElement('p','finance-dashboard__chart-help','Выберите дату на графике. Стрелки ← и → меняют дату.'); target.append(help);
+      if(low<0)target.append(createElement('p','finance-dashboard__chart-help','Ниже нуля — возвраты превысили поступления.'));
+      const scopeKey=JSON.stringify([data.organizationId,data.contextToken,data.bounds,data.filters.selectedMaster]);
+      let index=state.overviewSelection?.scopeKey===scopeKey ? Math.min(state.overviewSelection.index,points.length-1) : Math.max(0,points.findLastIndex(point=>point.receivedMinor));
+      function select(value) {
+        index=Math.max(0,Math.min(points.length-1,value)); const point=points[index]; state.overviewSelection={scopeKey,index};
+        const x=points.length===1 ? 50 : index/(points.length-1)*100, y=(top-point.receivedMinor)/span*100;
+        dot.style.left=x+'%'; dot.style.top=y+'%'; tooltip.style.left=`clamp(78px,${x}%,calc(100% - 78px))`;
+        tooltip.replaceChildren(createElement('small','',point.label),createElement('strong','',formatRubles(point.receivedMinor)));
+        surface.setAttribute('aria-valuenow',String(index)); surface.setAttribute('aria-valuetext',`${point.label}: ${formatRubles(point.receivedMinor)}`);
+        selected.textContent=`${point.label} · ${formatRubles(point.receivedMinor)} ›`;
+        selected.dataset.financeDetail=`received-range:${point.start}:${point.end}`;
+        previous.disabled=index===0; next.disabled=index===points.length-1;
+      }
+      const pointerIndex=event=>Math.round(Math.max(0,Math.min(1,(event.clientX-surface.getBoundingClientRect().left)/surface.getBoundingClientRect().width))*(points.length-1));
+      surface.addEventListener('pointermove',event=>{if(event.pointerType==='mouse')select(pointerIndex(event));});
+      surface.addEventListener('click',event=>select(pointerIndex(event)));
+      surface.addEventListener('keydown',event=>{
+        if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+        event.preventDefault(); select(event.key==='Home' ? 0 : event.key==='End' ? points.length-1 : index+(event.key==='ArrowLeft' ? -1 : 1));
+      });
+      previous.addEventListener('click',()=>select(index-1)); next.addEventListener('click',()=>select(index+1)); select(index);
+    }
 
     function fillOptions(select, rows, selected) {
       select.replaceChildren();
@@ -525,7 +679,7 @@
       scope.textContent = data.available ? 'Финансовые данные: ' + data.periodLabel + ' · ' + (elements.master.selectedOptions[0]?.textContent || 'Все мастера') : '';
       scope.hidden = !data.available;
       renderSummary(root, data);
-      if (overview) renderSummary(overview, data);
+      if (overview) { renderSummary(overview, data); renderOverview(data); }
       const unavailable = find('[data-finance-unavailable]');
       if (!data.available) {
         unavailable.hidden = false;
@@ -561,10 +715,13 @@
     function openDetail(kind, trigger) {
       const data = state.data;
       state.detail = kind; state.detailTrigger = trigger || null;
+      state.detailTriggerScope=overview?.contains(trigger) ? 'overview' : 'money'; state.detailScopeKey=state.scopeKey;
       const dialog = find('[data-finance-detail-dialog]'), body = find('[data-finance-detail-body]');
       const categoryId = kind.startsWith('category:') ? kind.slice(9) : kind === 'rent' ? data?.rentCategoryId : '';
       const category = data?.expenseCategories.find(item => item.id === categoryId);
-      const titles = { profit:'Чистая прибыль', received:'Получено', expense:'Общие расходы', rent:'Аренда', goods:'Продано товаров', completeness:'Полнота данных', visits:'Оказано услуг', 'payment-unknown':'Визиты без отметки оплаты', 'service-unknown':'Визиты без стоимости' };
+      const titles = { profit:'Чистая прибыль', received:'Получено', expense:'Общие расходы', rent:'Аренда', goods:'Продано товаров', completeness:'Полнота данных', visits:'Оказано услуг', 'payment-unknown':'Визиты без отметки оплаты', 'service-unknown':'Визиты без стоимости', operations:'Финансовые операции' };
+      const receiptRange = /^received-range:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/.exec(kind);
+      const operationId = kind.startsWith('operation:') ? kind.slice(10) : '';
       find('#financeDetailTitle').textContent = categoryId && kind.startsWith('category:') ? category?.name || 'Категория расходов' : titles[kind] || 'Детализация';
       find('[data-finance-detail-scope]').textContent = `${data?.periodLabel || 'Выбранный период'} · ${data?.visits?.performerName || elements.master.selectedOptions[0]?.textContent || 'Вся команда'}`;
       body.replaceChildren();
@@ -597,6 +754,31 @@
           else void load();
         });
         if (!needsFinanceSetup || document.querySelector('[data-section-target="commercePanel"]')) body.append(action);
+      } else if (receiptRange || operationId || kind === 'operations') {
+        const known=data.financeEnabled && data.dateBasis === 'operations' && !data.cashProjectionUnavailable;
+        const start=receiptRange?.[1], end=receiptRange?.[2];
+        const inBounds=!receiptRange || start>=data.bounds?.start && end<=data.bounds?.end && start<=end;
+        const rows=known && inBounds ? state.operations.filter(row=>{
+          if(operationId)return row.id===operationId;
+          if(!receiptRange)return true;
+          const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:data.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(row.occurredAt)).map(part=>[part.type,part.value]));
+          const day=`${parts.year}-${parts.month}-${parts.day}`;
+          return row.flow==='received' && day>=start && day<=end;
+        }) : [];
+        find('#financeDetailTitle').textContent=receiptRange ? 'Получено за выбранные даты' : operationId ? rows[0]?.label || 'Финансовая операция' : titles.operations;
+        if(receiptRange)body.append(createElement('p','finance-center__detail-note',comparisonPeriod({start,end})));
+        if(known && inBounds && (receiptRange || operationId))body.append(createElement('p','finance-center__detail-formula',formatRubles(rows.reduce((sum,row)=>sum+row.amountMinor,0))));
+        body.append(createElement('p','finance-center__detail-note',known ? 'По дате финансовой операции. Период и сотрудник сохранены.' : 'Журнал операций пока не подтверждён. Известные суммы остаются в карточках.'));
+        for(const row of rows.slice(0,state.visibleOperations)){
+          const item=createElement('article','finance-center__operation'), copy=createElement('div');
+          copy.append(createElement('strong','',row.label),createElement('small','',operationDate(row.occurredAt,data.timezone)),createElement('small','',row.category));
+          item.append(copy,createElement('b','',`${row.amountMinor>0 ? '+' : ''}${formatRubles(row.amountMinor)}`)); body.append(item);
+        }
+        if(!rows.length && known)body.append(createElement('p','finance-center__inline-empty','Подтверждённых операций в этой выборке нет.'));
+        if(rows.length>state.visibleOperations){
+          const more=createElement('button','finance-center__more','Показать ещё');more.type='button';
+          more.addEventListener('click',()=>{state.visibleOperations+=30;openDetail(kind,state.detailTrigger);});body.append(more);
+        }
       } else if (['visits','payment-unknown','service-unknown'].includes(kind)) {
         if (!data.visits?.known) body.append(createElement('p', 'finance-center__detail-note', 'Выборка визитов ещё не подтверждена. Обновите данные.'));
         else {
@@ -816,7 +998,13 @@
     });
     listen(find('[data-finance-detail-close]'), 'click', closeDetail);
     listen(detailDialog, 'click', event => { if (event.target === detailDialog) closeDetail(); });
-    listen(detailDialog, 'close', () => state.detailTrigger?.focus({ preventScroll:true }));
+    listen(detailDialog, 'close', () => {
+      if(state.detailScopeKey!==state.scopeKey)return;
+      const trigger=state.detailTrigger, container=state.detailTriggerScope==='overview' ? overview : root;
+      const current=trigger?.isConnected ? trigger : [...(container?.querySelectorAll('[data-finance-detail]') || [])]
+        .find(button=>button.dataset.financeDetail===trigger?.dataset.financeDetail);
+      if(current?.getClientRects().length)current.focus({preventScroll:true});
+    });
     listen(elements.period, 'change', () => { state.period = elements.period.value; void load(); });
     listen(elements.master, 'change', () => { state.master = elements.master.value; void load(); });
     listen(elements.add, 'click', () => void openExpense()); listen(elements.emptyAction, 'click', () => void openExpense());
@@ -842,7 +1030,7 @@
         state.data = null; state.operations = []; state.nextCursor = ''; elements.content.hidden = true;
         closeDetail(); enableSharedScope(); root.querySelector('.finance-center__filters').hidden = true;
         const unavailable = normalizeDashboard({ available:false });
-        renderSummary(root, unavailable); renderSummary(overview, unavailable);
+        renderSummary(root, unavailable); renderSummary(overview, unavailable); renderOverview(unavailable);
         return load();
       },
       openExpense,
@@ -873,5 +1061,5 @@
     else if (target instanceof Element) instances.get(target)?.destroy();
   }
 
-  global.MinutaFinanceCenter = Object.freeze({ init, destroy, formatRubles, parseRubles, changeLabel, normalizeDashboard, mergeVisitSnapshot });
+  global.MinutaFinanceCenter = Object.freeze({ init, destroy, formatRubles, parseRubles, changeLabel, normalizeDashboard, mergeVisitSnapshot, receiptSeries });
 })(globalThis);
