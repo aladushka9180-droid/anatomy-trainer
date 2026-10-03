@@ -139,7 +139,7 @@ test('cross-tab explicit logout revokes cached offline writes and removes device
     'timer-cleared', 'forgotten', 'removed:sb-fixture-auth-token', 'writes:false', 'booking:false',
     'session:null', 'cleared:provider-1', 'signout:local'
   ]);
-  assert.match(actual('logout'), /providerAuthStorage\.forget\(\);[\s\S]*providerAuthStorage\.removeItem\(providerAuthStorageKey\);[\s\S]*broadcastProviderLogout\(userId\)[\s\S]*await clearProviderDeviceData\(userId\)/);
+  assert.match(actual('logout'), /await db\.auth\.signOut\(\);[\s\S]*providerAuthStorage\.forget\(\);[\s\S]*providerAuthStorage\.removeItem\(providerAuthStorageKey\);[\s\S]*broadcastProviderLogout\(userId\)[\s\S]*await clearProviderDeviceData\(userId\)/);
   assert.match(source, /window\.addEventListener\('storage'[\s\S]*applyProviderLogoutSignal\(signal\.userId\)/);
 });
 
@@ -157,6 +157,7 @@ test('same-tab logout resets the local session even when remote sign-out fails',
     clientBenefitLifecycleController:{reset(){}},
     window:{ dispatchEvent(){} }, CustomEvent:class {}, clearTimeout() {},
     stopLiveUpdates() {}, stopReportDemoUpdates() {}, setWritesAllowed() {}, setBookingCreationReady() {},
+    $:() => ({ hidden:false }),
     clearProviderDeviceData:async () => calls.push('cleared'),
     handleSession:async session => { calls.push(`session:${session}`); box.currentUser = null; },
     db:{ auth:{ signOut:async () => { calls.push('remote-signout'); throw new TypeError('Failed to fetch'); } } }
@@ -164,8 +165,74 @@ test('same-tab logout resets the local session even when remote sign-out fails',
   vm.runInContext(actual('logout'), box);
   await box.logout();
   assert.equal(box.currentUser, null);
-  assert.deepEqual(calls, ['cleared', 'session:null', 'remote-signout']);
-  assert.match(actual('logout'), /await handleSession\(null\);[\s\S]*try \{ await db\.auth\.signOut\(\); \} catch \{\}/);
+  assert.deepEqual(calls, ['remote-signout', 'cleared', 'session:null']);
+  assert.match(actual('logout'), /try \{ await db\.auth\.signOut\(\); \} catch \{\}[\s\S]*finally[\s\S]*await handleSession\(null\)/);
+});
+
+test('explicit logout hides private UI before revocation and leaves the SDK session available until then', async () => {
+  const storage = storageFixture({ 'auth-key':validSession });
+  const helper = vm.createContext({ window:{}, Object, JSON, Number });
+  vm.runInContext([actual('parsePersistedProviderSession'), actual('createProviderAuthStorage')].join('\n'), helper);
+  const authStorage = helper.createProviderAuthStorage(storage, 'auth-key');
+  const dashboard = { hidden:false };
+  let releaseRevocation;
+  let revocations = 0;
+  let signals = 0;
+  const box = vm.createContext({
+    currentUser:{ id:'provider-1' }, offlineBookingQueue:[], sessionGeneration:1,
+    providerSessionTrust:'verified', offlineBookingInputsReady:true, offlineBookingAccessReady:true,
+    bookingsSnapshotSavedAt:'fresh', bookingsSnapshotFromCache:false,
+    displayPreferencesSaveTimer:null, displayPreferencesSaveRevision:0, synchronizationQueued:false,
+    synchronizationRetryTimer:null, cachedProviderVerificationRetryTimer:null,
+    readProviderBookingAttempt:() => null, confirm:() => true,
+    providerAuthStorage:authStorage, providerAuthStorageKey:'auth-key',
+    broadcastProviderLogout:() => { signals += 1; },
+    clientResultsController:{reset(){}}, clientRecordsController:{reset(){}}, clientBenefitLifecycleController:{reset(){}},
+    window:{dispatchEvent(){}}, CustomEvent:class {}, clearTimeout(){},
+    stopLiveUpdates(){}, stopReportDemoUpdates(){}, setWritesAllowed(){}, setBookingCreationReady(){},
+    $:() => dashboard, clearProviderDeviceData:async () => {},
+    handleSession:async () => { box.currentUser = null; },
+    db:{auth:{signOut:async () => {
+      assert.equal(dashboard.hidden, true);
+      assert.equal(storage.getItem('auth-key'), validSession);
+      revocations += 1;
+      await new Promise(resolve => { releaseRevocation = resolve; });
+    }}}
+  });
+  vm.runInContext(actual('logout'), box);
+  const pending = box.logout();
+  assert.equal(revocations, 1);
+  assert.equal(signals, 0, 'cross-tab cleanup must not race the SDK token lookup');
+  assert.equal(box.providerSessionTrust, 'none');
+  assert.equal(box.offlineBookingAccessReady, false);
+  releaseRevocation();
+  await pending;
+  assert.equal(signals, 1);
+  assert.equal(storage.getItem('auth-key'), null);
+  assert.equal(authStorage.cachedSession(), null);
+  assert.equal(box.currentUser, null);
+});
+
+test('device cleanup removes only the departing user pending color state', async () => {
+  const storage = {
+    'massage-booking-colors-v1:provider-1':'own-colors',
+    'massage-booking-colors-pending-v1:provider-1':'own-pending-booking-ids',
+    'massage-booking-colors-pending-v1:provider-2':'other-pending-booking-ids',
+    'unrelated-preference':'keep'
+  };
+  Object.defineProperty(storage, 'removeItem', { value:key => { delete storage[key]; } });
+  const box = vm.createContext({
+    currentUser:{id:'provider-1'}, localStorage:storage, reliability:{removePrefix:async () => {}},
+    offlineBookingSavePromise:Promise.resolve(), offlineBookingQueueKey:id => `offline:${id}`,
+    clearProviderBookingAttempt(){}, clearNewBookingDraft(){},
+    ...Object.fromEntries(['bookingNoteStorageKey', 'bookingNotePendingStorageKey', 'clientLabelStorageKey',
+      'clientLabelPendingStorageKey', 'pendingClientNoteStorageKey', 'sessionItemsStorageKey', 'connectionLogKey',
+      'serviceDurationDefaultsStorageKey', 'serviceScheduleNamesStorageKey', 'autoCompleteStorageKey']
+      .map(name => [name, id => `${name}:${id}`]))
+  });
+  vm.runInContext([actual('bookingColorStorageKey'), actual('bookingColorPendingStorageKey'), actual('clearProviderDeviceData')].join('\n'), box);
+  await box.clearProviderDeviceData('provider-1');
+  assert.deepEqual(Object.keys(storage), ['massage-booking-colors-pending-v1:provider-2', 'unrelated-preference']);
 });
 
 test('a failed background access probe keeps cached mode and schedules one retry', async () => {

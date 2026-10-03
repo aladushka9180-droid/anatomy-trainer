@@ -14607,6 +14607,7 @@ async function clearProviderDeviceData(userId, { preserveOfflineBookings = false
       if (key.startsWith(`massage-notifications-${userId}-`)
         || key === `massage-booking-outcomes-${userId}`
         || key === bookingColorStorageKey(userId)
+        || key === bookingColorPendingStorageKey(userId)
         || key === bookingNoteStorageKey(userId)
         || key === bookingNotePendingStorageKey(userId)
         || key === clientLabelStorageKey(userId)
@@ -14653,43 +14654,25 @@ async function applyProviderLogoutSignal(userId) {
 }
 
 async function logout() {
-  const userId = currentUser?.id;
-  const logoutWarnings = [];
-  if (offlineBookingQueue.length) logoutWarnings.push(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей.`);
-  if (readProviderBookingAttempt(userId)) logoutWarnings.push('Результат последнего создания записи ещё не подтверждён.');
-  if (logoutWarnings.length && !confirm(`${logoutWarnings.join('\n')} При выходе защитные данные будут удалены. Всё равно выйти?`)) return;
-  providerSessionTrust = 'none';
-  offlineBookingInputsReady = false;
-  offlineBookingAccessReady = false;
-  providerAuthStorage.forget();
-  providerAuthStorage.removeItem(providerAuthStorageKey);
-  broadcastProviderLogout(userId);
-  ++sessionGeneration;
-  clientResultsController.reset();
-  clientRecordsController.reset();
-  clientBenefitLifecycleController?.reset();
-  window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
-  bookingsSnapshotSavedAt = '';
-  bookingsSnapshotFromCache = false;
-  offlineBookingInputsReady = false;
-  offlineBookingAccessReady = false;
-  clearTimeout(displayPreferencesSaveTimer);
-  ++displayPreferencesSaveRevision;
-  synchronizationQueued = false;
-  clearTimeout(synchronizationRetryTimer);
-  synchronizationRetryTimer = null;
-  stopLiveUpdates();
-  stopReportDemoUpdates();
-  setWritesAllowed(false);
-  setBookingCreationReady(false);
-  await clearProviderDeviceData(userId);
-  clearTimeout(cachedProviderVerificationRetryTimer);
-  cachedProviderVerificationRetryTimer = null;
-  try {
-    await handleSession(null);
-  } finally {
-    try { await db.auth.signOut(); } catch {}
-  }
+const userId=currentUser?.id;
+const logoutWarnings=[];
+if (offlineBookingQueue.length) logoutWarnings.push(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей.`);
+if (readProviderBookingAttempt(userId)) logoutWarnings.push('Результат последнего создания записи ещё не подтверждён.');
+if (logoutWarnings.length && !confirm(`${logoutWarnings.join('\n')} При выходе защитные данные будут удалены. Всё равно выйти?`)) return;
+providerSessionTrust='none';offlineBookingInputsReady=false;offlineBookingAccessReady=false;
+++sessionGeneration;clientResultsController.reset();clientRecordsController.reset();clientBenefitLifecycleController?.reset();
+window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));bookingsSnapshotSavedAt='';bookingsSnapshotFromCache=false;offlineBookingInputsReady=false;offlineBookingAccessReady=false;clearTimeout(displayPreferencesSaveTimer);++displayPreferencesSaveRevision;synchronizationQueued=false;clearTimeout(synchronizationRetryTimer);synchronizationRetryTimer=null;
+stopLiveUpdates();stopReportDemoUpdates();
+setWritesAllowed(false);setBookingCreationReady(false);
+$('#dashboard').hidden=true;clearTimeout(cachedProviderVerificationRetryTimer);cachedProviderVerificationRetryTimer=null;
+try {
+// Revoke.
+try { await db.auth.signOut(); } catch {}
+} finally {
+providerAuthStorage.forget();providerAuthStorage.removeItem(providerAuthStorageKey);broadcastProviderLogout(userId);
+try { await clearProviderDeviceData(userId); }
+finally { await handleSession(null); }
+}
 }
 
 async function handleSession(session) {
