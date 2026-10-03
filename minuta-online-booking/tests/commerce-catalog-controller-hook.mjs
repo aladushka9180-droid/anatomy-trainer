@@ -33,7 +33,7 @@ if(process.argv.includes('--emit-patch')){
   const result=spawnSync('git',['diff','--no-index','--src-prefix=a/','--dst-prefix=b/',before,after],{encoding:'utf8'});
   if(result.status!==1)throw Error('Cannot generate integration diff');
   const target='minuta-online-booking/commerce-management.js';
-  const patch=result.stdout.replace(/^diff --git .*$/m,`diff --git a/${target} b/${target}`).replace(/^--- .*$/m,`--- a/${target}`).replace(/^\+\+\+ .*$/m,`+++ b/${target}`);
+  const patch=result.stdout.replace(/^diff --git .*$/m,`diff --git a/${target} b/${target}`).replace(/^--- .*$/m,`--- a/${target}`).replace(/^\+\+\+ .*$/m,`+++ b/${target}`).replace(/^ $/gm,'');
   writeFileSync(resolve(root,'docs','commerce-catalog-controller.patch'),patch);
   console.log('Prepared owner patch; core byte delta: '+(Buffer.byteLength(next)-Buffer.byteLength(source)));
 }

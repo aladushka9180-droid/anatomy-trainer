@@ -6,7 +6,7 @@ index 3db75493..e7e4784a 100644
  (() => {
    'use strict';
 +  const saleSource=document.currentScript.src;
- 
+
    const rubles = minor => `${new Intl.NumberFormat('ru-RU').format((Number(minor) || 0) / 100)} ₽`;
    const number = value => Number(String(value ?? '').replace(',', '.')) || 0;
 @@ -68,6 +69,9 @@
@@ -16,13 +16,13 @@ index 3db75493..e7e4784a 100644
 +let catalog,legacyGoods=false;
 +async function syncCatalog(action){legacyGoods=false;try{if(!catalog){const url=new URL('commerce-catalog-adapter.js',saleSource);url.search=new URL(saleSource).search;catalog=import(url.href).then(m=>m.createCatalogAdapter({...options,getContext:()=>({organization,state}),reload:load,onLegacyMode:value=>legacyGoods=value})).catch(e=>{catalog=null;throw e;});}await(await catalog).sync(action);}catch(e){notify(errorMessage(e));}}
 +function resetCatalog(){legacyGoods=false;catalog?.then(m=>m.destroy());}
- 
+
      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
- 
+
 @@ -577,51 +581,52 @@
        }).join('') : '<p class="report-empty-inline">Добавьте аренду или другой регулярный платёж.</p>';
      }
- 
+
 -    function render() {
 -      if (!state) return;
 -      $('#commerceWorkspace').hidden = false;
@@ -114,13 +114,13 @@ index 3db75493..e7e4784a 100644
 +$('#commerceLoading').hidden = true;
 +}
 +}
- 
+
      async function write(form, errorElement, scope, payload, rpc, params) {
        if (!requireWrites()) return;
 @@ -664,42 +669,44 @@
        }
      }
- 
+
 -    async function submitSale(event) {
 -      event.preventDefault();
 -      const form = event.currentTarget;
@@ -195,7 +195,7 @@ index 3db75493..e7e4784a 100644
 +if (claimTarget) await issueSaleClaim(claimTarget);
 +}
 +}
- 
+
      function selectRefundSale(saleId, { focusReason = false } = {}) {
        const sale = refundableSales().find(item => item.id === saleId);
 @@ -835,42 +842,45 @@
@@ -277,6 +277,6 @@ index 3db75493..e7e4784a 100644
 +}
 +};
 +}
- 
+
    function createFinanceController(options) {
      const { db, $, escapeHtml, notify } = options;
