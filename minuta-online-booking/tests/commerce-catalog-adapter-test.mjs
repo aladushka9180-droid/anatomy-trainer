@@ -3,7 +3,7 @@ import test from 'node:test';
 import {createCatalogRpcAdapter,attestReceipt,definiteRollback,resourceUrl} from '../commerce-catalog-adapter.js';
 const id = n => `11111111-1111-4111-8111-${String(n).padStart(12,'0')}`;
 const intent = {p_organization:id(1),p_booking:null,p_client_account:id(3),p_seller:id(2),p_payment_method:'cash',p_payment_account:id(5),p_request_id:id(8),p_lines:[{line_id:'first',inventory_item_id:id(4),warehouse_id:id(6),quantity:1,unit_price_minor:89900,metadata_version:1,discount_minor:0}]};
-const receipt = {found:true,id:id(9),organization_id:id(1),booking_id:null,client_account_id:id(3),seller_id:id(2),payment_method:'cash',payment_account_id:id(5),request_id:id(8),total_minor:89900,refunded_minor:0,lines:[{line_id:'first',sale_id:id(10),inventory_item_id:id(4),warehouse_id:id(6),sale_quantity:1,unit_price_minor:89900,metadata_version:1,discount_minor:0,total_minor:89900,bundle_id:null,bundle_version:null}]};
+const receipt = {found:true,id:id(9),organization_id:id(1),booking_id:null,client_account_id:id(3),seller_id:id(2),payment_method:'cash',payment_account_id:id(5),request_id:id(8),intent_lines:structuredClone(intent.p_lines),total_minor:89900,refunded_minor:0,lines:[{line_id:'first',sale_id:id(10),inventory_item_id:id(4),warehouse_id:id(6),sale_quantity:1,unit_price_minor:89900,metadata_version:1,discount_minor:0,total_minor:89900,bundle_id:null,bundle_version:null}]};
 const copy = x => structuredClone(x);
 function fixture() {
   let actor = id(2), generation = 1, writable = true;
@@ -21,6 +21,35 @@ test('receipt attests organization/client/request/seller/payment and immutable i
   for(const [field,value] of [['inventory_item_id',id(77)],['warehouse_id',id(77)],['line_id','other'],['sale_quantity',2],['unit_price_minor',90000],['metadata_version',2]]){
     const r=copy(receipt);r.lines[0][field]=value;assert.equal(attestReceipt(intent,r,id(2)),false,field);
   }
+});
+function bundleCase() {
+  const wanted={...copy(intent),p_lines:[{line_id:'kit',bundle_id:id(20),bundle_version:1,warehouse_id:id(6),quantity:1,
+    components:[{inventory_item_id:id(4),metadata_version:1,unit_price_minor:1000},{inventory_item_id:id(7),metadata_version:1,unit_price_minor:500}]}]};
+  const saved={...copy(receipt),intent_lines:copy(wanted.p_lines),total_minor:2000,lines:[
+    {line_id:'kit:1',sale_id:id(30),inventory_item_id:id(4),warehouse_id:id(6),sale_quantity:1,unit_price_minor:1000,metadata_version:1,discount_minor:0,total_minor:1000,bundle_id:id(20),bundle_version:1},
+    {line_id:'kit:2',sale_id:id(31),inventory_item_id:id(7),warehouse_id:id(6),sale_quantity:2,unit_price_minor:500,metadata_version:1,discount_minor:0,total_minor:1000,bundle_id:id(20),bundle_version:1}
+  ]};
+  return {wanted,saved};
+}
+test('bundle receipt binds the original count and component request snapshot',()=>{
+  const {wanted,saved}=bundleCase();assert.equal(attestReceipt(wanted,saved,id(2)),true);
+  const changed=copy(wanted);changed.p_lines[0].quantity=2;assert.equal(attestReceipt(changed,saved,id(2)),false,'Same request ID cannot confirm another bundle count');
+  const double=copy(saved);double.intent_lines=copy(changed.p_lines);double.lines[0].sale_quantity=2;double.lines[0].total_minor=2000;double.lines[1].sale_quantity=4;double.lines[1].total_minor=2000;double.total_minor=4000;
+  assert.equal(attestReceipt(changed,double,id(2)),true,'A matching two-bundle receipt still confirms');
+  const extra=copy(wanted);extra.p_lines[0].components[0].quantity=2;assert.equal(attestReceipt(extra,saved,id(2)),false,'Even an ignored extra component field changes the original request');
+});
+test('server JSON key order does not change receipt attestation; incomplete snapshots stay unknown',()=>{
+  const {wanted,saved}=bundleCase();
+  const reordered=value=>Array.isArray(value)?value.map(reordered):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([key,v])=>[key,reordered(v)])):value;
+  assert.equal(attestReceipt(wanted,{...saved,intent_lines:reordered(saved.intent_lines)},id(2)),true);
+  for(const snapshot of [undefined,null,{},[]])assert.equal(attestReceipt(wanted,{...saved,intent_lines:snapshot},id(2)),false);
+});
+test('mismatched bundled recovery stays pending and status sends no sale',async()=>{
+  const f=fixture(),{wanted,saved}=bundleCase(),changed=copy(wanted);changed.p_lines[0].quantity=2;f.respond(()=>({data:saved}));
+  const args={scope:f.scope(),kind:'sale',intent:changed,requestId:changed.p_request_id,mode:'status'};
+  const status=await f.api.onResolvePending(args);assert.equal(status.confirmed,false);assert.equal(status.receipt,undefined);assert.equal(status.error.message,'invalid_catalog_receipt');
+  assert.deepEqual(f.calls.map(x=>x.name),['get_minuta_sales_cart_candidate']);assert.equal((await f.api.onSubmit({scope:f.scope(),intent:changed})).confirmed,false);
+  assert.equal((await f.api.onResolvePending({...args,intent:wanted})).confirmed,true);
 });
 test('one cart RPC carries exact original intent; no legacy sale loop',async()=>{
   const f=fixture(),out=await f.api.onSubmit({scope:f.scope(),intent:copy(intent)});

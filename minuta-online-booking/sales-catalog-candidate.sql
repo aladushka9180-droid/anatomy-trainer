@@ -112,6 +112,9 @@ create table if not exists public.sales_carts_candidate (
   total_minor bigint not null check(total_minor>0),occurred_at timestamptz not null default now(),
   unique(id,organization_id),unique(organization_id,request_id)
 );
+-- Earlier candidate rows remain untouched and cannot attest an unknown intent.
+alter table public.sales_carts_candidate add column if not exists intent_lines jsonb
+  check(intent_lines is null or jsonb_typeof(intent_lines)='array');
 create table if not exists public.sales_cart_lines_candidate (
   organization_id uuid not null,cart_id uuid not null,line_index integer not null check(line_index>0),
   line_id text not null,sale_id uuid not null,inventory_item_id uuid not null,warehouse_id uuid not null,
@@ -198,7 +201,7 @@ begin
     and client_account_id is not distinct from p_client_account;
   if c.id is null then return jsonb_build_object('found',false,'organization_id',p_organization,'client_account_id',p_client_account);end if;
   return jsonb_build_object('found',true,'organization_id',p_organization,'id',c.id,'client_account_id',c.client_account_id,'seller_id',c.seller_id,
-    'booking_id',c.booking_id,'request_fingerprint',c.request_fingerprint,
+    'booking_id',c.booking_id,'request_fingerprint',c.request_fingerprint,'intent_lines',c.intent_lines,
     'payment_method',(select s.payment_method from public.sales_cart_lines_candidate l join public.commercial_sales s
       on (s.id,s.organization_id)=(l.sale_id,l.organization_id) where l.cart_id=c.id order by l.line_index limit 1),
     'payment_account_id',(select s.payment_account_id from public.sales_cart_lines_candidate l join public.commercial_sales s
@@ -304,8 +307,8 @@ begin
     values(p_organization,'Выручка от продаж','income','product_revenue','product_revenue',a) on conflict(organization_id,system_key) do nothing;
   select id into revenue from public.financial_accounts where organization_id=p_organization and system_key='product_revenue' and active for update;
   if revenue is null then raise exception using errcode='55000',message='catalog_revenue_account_inactive';end if;
-  insert into public.sales_carts_candidate(organization_id,client_account_id,booking_id,seller_id,request_id,request_fingerprint,total_minor)
-    values(p_organization,p_client_account,p_booking,seller,p_request_id,fp,total::bigint) returning * into c;
+  insert into public.sales_carts_candidate(organization_id,client_account_id,booking_id,seller_id,request_id,request_fingerprint,total_minor,intent_lines)
+    values(p_organization,p_client_account,p_booking,seller,p_request_id,fp,total::bigint,p_lines) returning * into c;
   idx:=0;
   for r in select value from jsonb_array_elements(validated) loop
     idx:=idx+1;

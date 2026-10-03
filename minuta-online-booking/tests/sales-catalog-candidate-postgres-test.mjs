@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 import {baseline,seed,read,ids,request,rpc,scalar,saveMetadata,importRows,lines,cartArgs} from './sales-catalog-candidate-harness.mjs';
+import {attestReceipt} from '../commerce-catalog-adapter.js';
 const pgModule=process.env.MINUTA_PG_MODULE;
 const pg=await import(pgModule ? pathToFileURL(pgModule).href : 'pg');
 const Client=pg.Client||pg.default?.Client;
@@ -41,7 +42,10 @@ try {
     'acl',proacl::text,'marker',obj_description(oid,'pg_proc')) from pg_proc where oid='${refundSignature}'::regprocedure`);
   const beforeSale=await scalar(db,`select prosrc from pg_proc where proname='sell_minuta_commercial_product_v151'`);
   await db.query(read('../sales-catalog-candidate.sql'));
+  // An earlier candidate schema has no receipt-intent column. Reapply expands it.
+  await db.query('alter table public.sales_carts_candidate drop column intent_lines');
   await db.query(read('../sales-catalog-candidate.sql'));
+  assert.equal(Number(await scalar(db,`select count(*) from pg_attribute where attrelid='public.sales_carts_candidate'::regclass and attname='intent_lines' and not attisdropped`)),1);
   check('forward reapply no drift');
   await db.query('grant execute on function public.require_minuta_sales_candidate(uuid,boolean) to authenticated');
   await expectError(()=>db.query(read('../sales-catalog-candidate.sql')),'sales_catalog_candidate_function_drift','55000');
@@ -155,6 +159,7 @@ try {
   assert.equal(cart.seller_id,ids.specialist);
   assert.equal(cart.payment_method,'cash');
   assert.equal(cart.payment_account_id,ids.cash);
+  assert.deepEqual(cart.intent_lines,lines());
   assert.match(cart.request_fingerprint,/^[a-f0-9]{64}$/);
   assert.equal(cart.lines[0].stock_quantity,500);assert.equal(cart.lines[0].sale_quantity,1);
   assert.equal(Number(await scalar(db,`select quantity from inventory_stock_balances where inventory_item_id=$1`,[ids.item])),4500);
@@ -201,6 +206,17 @@ try {
     components:[{inventory_item_id:ids.item,metadata_version:2,unit_price_minor:99000},{inventory_item_id:ids.item2,metadata_version:2,unit_price_minor:1200}]}];
   const bundleCart=await rpc(db,ids.owner,'sell_minuta_inventory_cart_candidate',cartArgs(bundleLine,61));
   assert.equal(bundleCart.total_minor,100200);assert.equal(bundleCart.lines.length,2);
+  assert.deepEqual(bundleCart.intent_lines,bundleLine);
+  const bundleIntent={p_organization:ids.org,p_booking:null,p_client_account:ids.client,p_seller:ids.specialist,
+    p_lines:structuredClone(bundleLine),p_payment_method:'cash',p_payment_account:ids.cash,p_request_id:request(61)};
+  assert.equal(attestReceipt(bundleIntent,bundleCart,ids.owner),true);
+  const bundleCounts=await counts();
+  const recoveredBundle=await rpc(db,ids.owner,'get_minuta_sales_cart_candidate',[ids.org,request(61),ids.client]);
+  const changedBundleIntent=structuredClone(bundleIntent);changedBundleIntent.p_lines[0].quantity=2;
+  assert.equal(attestReceipt(changedBundleIntent,recoveredBundle,ids.owner),false,'A real server receipt cannot confirm another bundle count');
+  assert.equal(attestReceipt(bundleIntent,recoveredBundle,ids.owner),true);
+  assert.deepEqual(await counts(),bundleCounts,'Status attestation performs no sale or stock write');
+  check('exact original bundle intent survives server status and rejects mismatched recovery');
   bundleLine[0].bundle_version=99;
   await expectError(()=>rpc(db,ids.owner,'sell_minuta_inventory_cart_candidate',cartArgs(bundleLine,62)),'catalog_bundle_changed','40001');
   check('physical bundles expand atomically with version check, personal favorites');

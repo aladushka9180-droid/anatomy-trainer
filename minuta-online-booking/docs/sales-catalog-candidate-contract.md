@@ -114,9 +114,13 @@ different intent returns 23505 catalog_request_conflict. Import/bundle retries
 also compare the complete intent before mutable-version checks.
 
 Successful cart receipts include booking_id, seller_id, payment_method,
-payment_account_id and request_fingerprint, as well as ordered immutable lines.
+payment_account_id, request_fingerprint and the original intent_lines, as well as
+ordered immutable lines. Forward adds the nullable intent_lines column for earlier
+candidate tables without rewriting their rows; every new cart stores its exact
+p_lines in the same transaction. A receipt missing that snapshot stays unknown.
 The UI adapter verifies organization/client/request/booking/seller/payment,
-line identifiers, item/warehouse/version/price/quantity and exact grouped total
+the entire original line/component payload (including bundle count, independent
+of JSON object key order), line identifiers, item/warehouse/version/price/quantity and exact grouped total
 before clearing recovery. An unmatched or incomplete receipt stays unknown.
 
 ## Refund, old readers and rollback

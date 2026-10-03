@@ -74,6 +74,10 @@ and stock preserves the user's current client and editable cart.
   `onFavoriteChange` and `onRepeat`: candidate server contracts in the SQL doc.
 
 Sale success returns `{confirmed:true,receipt}` only after receipt attestation.
+The server receipt must include its stored original `intent_lines`; the adapter
+compares that complete payload with the immutable request, including bundle count
+and component fields, while ignoring JSON object key order. Missing/NULL snapshots
+from earlier candidate rows remain unknown and are never silently backfilled.
 Metadata success includes matching request/org and verified item/version or
 bundle ID/version. A known first SQL rollback returns `{rolledBack:true,...}`.
 Lost replies, request conflicts, invalid receipts and all failed retries after

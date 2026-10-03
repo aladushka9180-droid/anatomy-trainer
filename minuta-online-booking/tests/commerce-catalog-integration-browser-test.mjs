@@ -26,7 +26,7 @@ window.actor=actor;window.generation=1;window.calls=[];window.notices=[];window.
 const product={active:true,catalog_ready:true,unit:'ml',base_unit:'ml',sale_unit:'pack',stock_per_sale_unit:500,sale_price_minor:89900,metadata_version:1,purpose:'both',category:'Домашний уход',icon:'jar',description:'Уход для дома.'};
 window.catalog={organization_id:org,capabilities:{catalog:true,atomic_cart:true,import_preview:true,bundles:true,writes_enabled:true},items:[{...product,id:cream,name:'Крем для тела',sku:'CARE-500',variant_label:'500 мл'},{...product,id:ball,name:'Массажный мяч',sku:'BALL-01',category:'Аксессуары',unit:'piece',base_unit:'piece',sale_unit:'piece',stock_per_sale_unit:1,sale_price_minor:65000,purpose:'retail',icon:'ball'}],warehouses:[{id:warehouse,name:'Основной склад',active:true}],balances:[{warehouse_id:warehouse,inventory_item_id:cream,quantity:5000},{warehouse_id:warehouse,inventory_item_id:ball,quantity:10}],bundles:[]};
 window.workspace={organization_id:org,finance_enabled:true,inventory_enabled:true,clients:[{id:client,name:'Клиент примера'},{id:otherClient,name:'Другой клиент'}],sellers:[{id:actor,name:'Владелец',role:'owner',active:true}],accounts:[{id:cash,name:'Основная касса',account_type:'cash',system_key:null,active:true}],warehouses:[{id:warehouse,name:'Основной склад',active:true}],inventory_items:window.catalog.items,benefit_products:[{id:benefit,name:'Абонемент 5 визитов',kind:'subscription',price_minor:100000}],bookings:[],sales:[],audit:[],recurring_expenses:[]};
-window.makeReceipt=p=>({found:true,id:crypto.randomUUID(),organization_id:p.p_organization,client_account_id:p.p_client_account,booking_id:p.p_booking,seller_id:p.p_seller,payment_method:p.p_payment_method,payment_account_id:p.p_payment_account,request_id:p.p_request_id,occurred_at:'2026-10-03T09:00:00Z',total_minor:p.p_lines.reduce((sum,l)=>sum+Math.round(l.quantity*l.unit_price_minor)-(l.discount_minor||0),0),refunded_minor:0,lines:p.p_lines.map(l=>({...l,sale_id:crypto.randomUUID(),item_name:window.catalog.items.find(x=>x.id===l.inventory_item_id).name,sale_quantity:l.quantity,sale_unit:window.catalog.items.find(x=>x.id===l.inventory_item_id).sale_unit,total_minor:Math.round(l.quantity*l.unit_price_minor)-(l.discount_minor||0),refunded_minor:0,refunded_quantity:0,bundle_id:null,bundle_version:null}))});
+window.makeReceipt=p=>({found:true,id:crypto.randomUUID(),organization_id:p.p_organization,client_account_id:p.p_client_account,booking_id:p.p_booking,seller_id:p.p_seller,payment_method:p.p_payment_method,payment_account_id:p.p_payment_account,request_id:p.p_request_id,intent_lines:structuredClone(p.p_lines),occurred_at:'2026-10-03T09:00:00Z',total_minor:p.p_lines.reduce((sum,l)=>sum+Math.round(l.quantity*l.unit_price_minor)-(l.discount_minor||0),0),refunded_minor:0,lines:p.p_lines.map(l=>({...l,sale_id:crypto.randomUUID(),item_name:window.catalog.items.find(x=>x.id===l.inventory_item_id).name,sale_quantity:l.quantity,sale_unit:window.catalog.items.find(x=>x.id===l.inventory_item_id).sale_unit,total_minor:Math.round(l.quantity*l.unit_price_minor)-(l.discount_minor||0),refunded_minor:0,refunded_quantity:0,bundle_id:null,bundle_version:null}))});
 window.keepReceipt=r=>{window.receipts.push(r);for(const line of r.lines)window.workspace.sales.push({id:line.sale_id,organization_id:r.organization_id,total_minor:line.total_minor,refunded_minor:0,status:'paid',occurred_at:r.occurred_at,client_name:'Клиент примера',seller_name:'Владелец',line:{...line,quantity:line.sale_quantity}});};
 const rpc=async(name,p)=>{window.calls.push({name,p:structuredClone(p)});const orgId=p.p_organization||org;
 if(name==='get_minuta_commerce_workspace_v151'){if(window.holdWorkspace)await new Promise(resolve=>window.releaseWorkspace=()=>{window.holdWorkspace=false;resolve();});return {data:{...structuredClone(window.workspace),organization_id:orgId}};}
@@ -74,6 +74,46 @@ for(const width of [390,760,1440]){
  catch(e) { console.log(await page.evaluate(()=>({calls:window.calls.map(x=>x.name),notices:window.notices,values:Object.fromEntries(['commerceClient','commerceSeller','commerceItemKind','commerceItem','commerceUnitPrice','commercePaymentAccount','commerceSaleError'].map(id=>[id,document.getElementById(id).value??document.getElementById(id).textContent]))}))); throw e; }
  assert.equal((await writeCalls(page)).filter(x=>x.name==='sell_minuta_commercial_product_v151').length,1,'Benefit remains on existing single-sale API');
  await page.close();
+}
+for(const width of [390,760,1440]){
+ const bundlePage=await pageFor(width);
+ await bundlePage.evaluate(()=>{
+  const bundle={id:'11111111-1111-4111-8111-000000000020',name:'Набор примера',version:1,active:true,
+    items:[{inventory_item_id:window.ids.cream,quantity:1},{inventory_item_id:window.ids.ball,quantity:2}]};
+  window.catalog.bundles=[bundle];const ordinaryReceipt=window.makeReceipt;
+  window.makeReceipt=p=>{
+   const parent=p.p_lines[0],expanded=parent.components.map((component,i)=>({...component,line_id:parent.line_id+':'+(i+1),
+     warehouse_id:parent.warehouse_id,quantity:parent.quantity*bundle.items[i].quantity,discount_minor:0}));
+   const saved=ordinaryReceipt({...p,p_lines:expanded});saved.intent_lines=structuredClone(p.p_lines);
+   saved.lines=saved.lines.map(line=>({...line,bundle_id:parent.bundle_id,bundle_version:parent.bundle_version}));return saved;
+  };
+  window.mode='unknown';return window.manager.load();
+ });
+ await open(bundlePage);await bundlePage.locator('.cc-bundles').getByRole('button',{name:'Добавить',exact:true}).click();
+ await bundlePage.getByRole('button',{name:'Провести продажу',exact:true}).click();await bundlePage.getByRole('button',{name:'Проверить продажу',exact:true}).waitFor();
+ const saved=await bundlePage.evaluate(()=>structuredClone(window.receipts[0]));assert.equal(saved.intent_lines[0].quantity,1);
+ await bundlePage.evaluate(()=>{
+  const key=Object.keys(localStorage).find(k=>k.startsWith('minuta.catalog.draft.v2:')),draft=JSON.parse(localStorage.getItem(key));
+  draft.pending.payload.p_lines[0].quantity=2;localStorage.setItem(key,JSON.stringify(draft));
+ });
+ await bundlePage.reload();await bundlePage.waitForFunction(()=>window.ready);await open(bundlePage);
+ await bundlePage.evaluate(saved=>window.keepReceipt(saved),saved);await bundlePage.getByRole('button',{name:'Проверить продажу',exact:true}).click();
+ await bundlePage.waitForFunction(()=>window.calls.some(x=>x.name==='get_minuta_sales_cart_candidate')&&Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='Проверить продажу'&&!b.disabled));
+ assert.equal(await bundlePage.locator('.cc-cart-row').count(),1,'Mismatched bundle recovery must not clear the cart');
+ assert.equal((await saleCalls(bundlePage)).length,0,'Status recovery performs no sale');
+ assert.equal(await bundlePage.evaluate(()=>window.calls.filter(x=>x.name==='issue_client_identity_sale_claim_v155').length),0,'Mismatched receipt cannot issue access');
+ assert.equal(await bundlePage.evaluate(()=>JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>k.startsWith('minuta.catalog.draft.v2:')))).pending.payload.p_lines[0].quantity),2,'The unresolved intent is preserved');
+ await bundlePage.screenshot({path:resolve(output,'integration-bundle-mismatch-'+width+'.png'),fullPage:true});
+ // Restore the original saved request in the isolated fixture; matching recovery remains available.
+ await bundlePage.evaluate(saved=>{
+  const key=Object.keys(localStorage).find(k=>k.startsWith('minuta.catalog.draft.v2:')),draft=JSON.parse(localStorage.getItem(key));
+  draft.pending.payload.p_lines=structuredClone(saved.intent_lines);localStorage.setItem(key,JSON.stringify(draft));
+ },saved);
+ await bundlePage.reload();await bundlePage.waitForFunction(()=>window.ready);await open(bundlePage);
+ await bundlePage.evaluate(saved=>window.keepReceipt(saved),saved);await bundlePage.getByRole('button',{name:'Проверить продажу',exact:true}).click();
+ await bundlePage.waitForFunction(()=>document.querySelectorAll('.cc-cart-row').length===0&&document.querySelector('#commerceLoading').hidden);
+ assert.equal((await saleCalls(bundlePage)).length,0,'Matching recovery never resells');await bundlePage.locator('#commerceClientAccessCode').waitFor({state:'visible'});
+ await bundlePage.close();
 }
 const page=await pageFor(390);await open(page);await add(page,'Массажный мяч');await page.evaluate(()=>window.mode='unknown');await page.getByRole('button',{name:'Провести продажу',exact:true}).click();
 await page.getByRole('button',{name:'Проверить продажу',exact:true}).waitFor();const first=(await writeCalls(page))[0].p;assert.equal(await page.getByRole('button',{name:'Добавить Массажный мяч',exact:true}).isDisabled(),true);

@@ -10,6 +10,9 @@ const manager = role => ['owner', 'admin'].includes(role);
 const scopeError = () => Object.assign(new Error('sales_catalog_scope_changed'), { code:'CATALOG_SCOPE_CHANGED' });
 const safeMinor = value => Number.isSafeInteger(value) && value >= 0;
 const validId = value => UUID.test(String(value || ''));
+// PostgreSQL JSONB can reorder object keys; array order and values stay exact.
+const orderedJson = value => Array.isArray(value) ? value.map(orderedJson)
+  : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, orderedJson(value[key])])) : value;
 
 // SQL errors below have rolled the transaction back. A conflicting request may
 // describe an earlier committed operation; it must remain unresolved.
@@ -27,7 +30,8 @@ export function attestReceipt(intent, receipt, actorId) {
     || receipt.seller_id !== (intent.p_seller || actorId)
     || receipt.payment_method !== intent.p_payment_method || receipt.payment_account_id !== intent.p_payment_account
     || !safeMinor(receipt.total_minor) || receipt.total_minor <= 0 || !safeMinor(receipt.refunded_minor)
-    || !Array.isArray(receipt.lines)) return false;
+    || !Array.isArray(receipt.lines) || !Array.isArray(receipt.intent_lines) || !Array.isArray(intent.p_lines)
+    || JSON.stringify(orderedJson(receipt.intent_lines)) !== JSON.stringify(orderedJson(intent.p_lines))) return false;
   const expected = (intent.p_lines || []).flatMap(line => line.bundle_id
     ? line.components.map((component, i) => ({ ...component, line_id:line.line_id + ':' + (i+1), warehouse_id:line.warehouse_id,
       bundle_id:line.bundle_id, bundle_version:line.bundle_version, discount_minor:0 }))
