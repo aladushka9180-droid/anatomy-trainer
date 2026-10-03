@@ -19,7 +19,15 @@ await db.connect();
 try {
   const guarded=(await db.query(`select current_database() db,host(inet_server_addr()) addr,inet_server_port() port,
     current_setting('server_version_num')::integer version,(select count(*) from pg_tables where schemaname not in('pg_catalog','information_schema')) tables`)).rows[0];
-  assert.deepEqual([guarded.db,guarded.addr,guarded.port],['eldion_sales_catalog_fixture','127.0.0.1',54851]);
+  assert.equal(db.connection.stream.remoteAddress,'127.0.0.1');
+  assert.equal(db.connection.stream.remotePort,54851);
+  if (process.argv.includes('--ci-owned-postgres-service')) {
+    assert.equal(process.env.GITHUB_ACTIONS,'true');
+    assert.equal(process.env.MINUTA_SALES_CATALOG_CI_CONFIRM,'OWN_EMPTY_POSTGRES17_SERVICE');
+    const serviceIp=process.env.MINUTA_CATALOG_CI_SERVICE_IP;
+    assert.match(serviceIp,/^172\.(?:1[6-9]|2[0-9]|3[01])\.\d{1,3}\.\d{1,3}$/);
+    assert.deepEqual([guarded.db,guarded.addr,guarded.port],['eldion_sales_catalog_fixture',serviceIp,5432]);
+  } else assert.deepEqual([guarded.db,guarded.addr,guarded.port],['eldion_sales_catalog_fixture','127.0.0.1',54851]);
   assert.ok(guarded.version>=170000 && guarded.version<180000);
   if (process.argv.includes('--reset-owned-synthetic-fixture')) {
     assert.equal(await scalar(db,`select marker from public.sales_catalog_synthetic_fixture_marker`),'sales-catalog-candidate-empty-synthetic');

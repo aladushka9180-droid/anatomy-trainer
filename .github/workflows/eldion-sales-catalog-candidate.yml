@@ -1,7 +1,5 @@
 name: Eldion sales catalog isolated candidate
 on:
-  push:
-    branches: [codex/pro-sales-catalog-20261002]
   pull_request:
     paths:
       - '.github/workflows/eldion-sales-catalog-candidate.yml'
@@ -37,9 +35,13 @@ jobs:
       - name: Install isolated test driver
         run: npm install --prefix "$RUNNER_TEMP/catalog-pg" --no-package-lock --ignore-scripts --no-audit --no-fund pg@8.16.3
       - name: Apply, concurrency, permissions, replay and rollback in empty fixture
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+          MINUTA_SALES_CATALOG_CI_CONFIRM: OWN_EMPTY_POSTGRES17_SERVICE
         run: |
           export MINUTA_PG_MODULE="$RUNNER_TEMP/catalog-pg/node_modules/pg/lib/index.js"
-          node minuta-online-booking/tests/sales-catalog-candidate-postgres-test.mjs
+          export MINUTA_CATALOG_CI_SERVICE_IP="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$PG_CONTAINER")"
+          node minuta-online-booking/tests/sales-catalog-candidate-postgres-test.mjs --ci-owned-postgres-service
       - run: node minuta-online-booking/tests/sales-catalog-candidate-static-test.mjs
       - run: node minuta-online-booking/tests/commerce-catalog-test.mjs
       - run: node minuta-online-booking/tests/commerce-catalog-adapter-test.mjs
