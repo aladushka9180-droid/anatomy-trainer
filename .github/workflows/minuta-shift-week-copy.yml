@@ -1,0 +1,56 @@
+name: Minuta shift week copy
+on:
+  pull_request:
+    paths:
+      - 'minuta-online-booking/shift-management.js'
+      - 'minuta-online-booking/team-schedule-ui.*'
+      - 'minuta-online-booking/supabase-migration-v195*.sql'
+      - 'minuta-online-booking/tests/shift-week-copy-*.mjs'
+      - 'minuta-online-booking/tests/team-schedule-fixture.mjs'
+      - '.github/workflows/minuta-shift-week-copy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'minuta-online-booking/shift-management.js'
+      - 'minuta-online-booking/team-schedule-ui.*'
+      - 'minuta-online-booking/supabase-migration-v195*.sql'
+      - 'minuta-online-booking/tests/shift-week-copy-*.mjs'
+      - 'minuta-online-booking/tests/team-schedule-fixture.mjs'
+      - '.github/workflows/minuta-shift-week-copy.yml'
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare isolated test runtime
+        run: |
+          if [ ! -x /usr/lib/postgresql/16/bin/initdb ]; then sudo apt-get update && sudo apt-get install --yes postgresql-16; fi
+          npm install --prefix "$RUNNER_TEMP/shift-copy-deps" --no-package-lock --ignore-scripts --no-audit --no-fund pg@8.16.3
+      - name: Prove atomic copy, concurrent repeats and rollback
+        env:
+          COPY_WEEK_PG_BIN: /usr/lib/postgresql/16/bin
+          MINUTA_PG_MODULE: ${{ runner.temp }}/shift-copy-deps/node_modules/pg/lib/index.js
+        run: node minuta-online-booking/tests/shift-week-copy-postgres-test.mjs
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare browser fixture runtime
+        run: npm install --prefix "$RUNNER_TEMP/shift-copy-browser" --no-package-lock --ignore-scripts --no-audit --no-fund playwright@1.58.2
+      - name: Prove preview, mobile layout and lost-response retry
+        env:
+          MINUTA_PLAYWRIGHT_MODULE: ${{ runner.temp }}/shift-copy-browser/node_modules/playwright/index.mjs
+        run: |
+          node minuta-online-booking/tests/shift-week-copy-browser-test.mjs
+          node minuta-online-booking/tests/shift-presentation-controller-test.mjs
+          node minuta-online-booking/multi-tenant-v71-static-test.mjs
+          node minuta-online-booking/client-url-redirect-test.mjs
