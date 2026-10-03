@@ -17839,7 +17839,7 @@ teamCalendarController.bind();
 
 const organizationFeatureDefinitions = new Map([
   ['resourcesPanel', { script:'resource-management.js', api:() => window.MinutaResources, get:() => resourceController, set:value => { resourceController = value; }, admin:false }],
-  ['shiftsPanel', { script:'shift-management.js', api:() => window.MinutaShifts, get:() => shiftController, set:value => { shiftController = value; }, admin:false }],
+['shiftsPanel',{before:'team-schedule-ui.js',script:'shift-management.js',api:()=>window.MinutaShifts,get:()=>shiftController,set:v=>{shiftController=v},admin:false}],
   ['payrollPanel', { script:'payroll-management.js', api:() => window.MinutaPayroll, get:() => payrollController, set:value => { payrollController = value; }, admin:false }],
   ['commercePanel', { script:'commerce-management.js', api:() => window.MinutaCommerce, get:() => commerceController, set:value => { commerceController = value; }, admin:true }],
   ['benefitsPanel', { script:'benefit-management.js', api:() => window.MinutaBenefits, get:() => benefitController, set:value => { benefitController = value; }, admin:true }],

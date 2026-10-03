@@ -1,5 +1,14 @@
 (function () {
   'use strict';
+  const source = document.currentScript?.src;
+  if (source && !document.querySelector('link[data-team-schedule-style]')) {
+    const styleUrl = new URL(source);
+    styleUrl.pathname = styleUrl.pathname.replace(/\.js$/, '.css');
+    const style = document.createElement('link');
+    style.rel = 'stylesheet'; style.href = styleUrl.href;
+    style.dataset.teamScheduleStyle = '';
+    document.head.append(style);
+  }
   const labels = { vacation: 'Отпуск', sick: 'Больничный', unavailable: 'Недоступен' };
   const paths = {
     plus: '<path d="M12 5v14M5 12h14"/>',
