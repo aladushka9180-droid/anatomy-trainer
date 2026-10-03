@@ -30,7 +30,7 @@ try {
         statusBottom:cards.querySelector('[data-finance-detail="completeness"]').getBoundingClientRect().bottom,
         navTop:getComputedStyle(nav).display==='none'?innerHeight:nav.getBoundingClientRect().top,
         tabTops:tabs.map(node=>Math.round(node.getBoundingClientRect().top)),
-        icons:cards.querySelectorAll('.finance-center__metric-icon').length,
+        icons:cards.querySelectorAll('.finance-center__summary .finance-center__metric-icon').length,
         sourceHeight:document.querySelector('#reportDataSource').getBoundingClientRect().height,
         filterHeight:document.querySelector('.report-filters').getBoundingClientRect().height,
         toolbarHeight:document.querySelector('.report-toolbar').getBoundingClientRect().height,
@@ -53,14 +53,14 @@ try {
       assert.ok(geometry.statusBottom<=geometry.navTop,`${width}: completeness action must stay above the fixed navigation: ${JSON.stringify(geometry)}`);
     }
     if(output)await page.screenshot({path:resolve(output,`statistics-soft-${width}.png`)});
-    await page.locator('#reportFinanceOverview [data-finance-detail="completeness"]').click();
+    await page.locator('#reportFinanceOverview .finance-center__summary [data-finance-detail="completeness"]').click();
     assert.match(await page.locator('[data-finance-detail-body]').innerText(),/у 1 из 36 визитов/);
     assert.doesNotMatch(await page.locator('[data-finance-detail-body]').innerText(),/20 из 37/,'old manual-only RPC qualification is not visit completeness');
     await page.getByRole('button',{name:'Визиты без отметки оплаты',exact:true}).click();
     assert.match(await page.locator('[data-finance-detail-body]').innerText(),/1 визит · 3\s000\s₽/);
     assert.equal(await page.locator('[data-finance-detail-body] .finance-center__operation').count(),1);
     await page.getByRole('button',{name:'Закрыть детализацию',exact:true}).click();
-    assert.equal(await page.locator('#reportFinanceOverview [data-finance-detail="completeness"]').evaluate(node=>node===document.activeElement),true);
+    assert.equal(await page.locator('#reportFinanceOverview .finance-center__summary [data-finance-detail="completeness"]').evaluate(node=>node===document.activeElement),true);
     const filter=page.locator('#reportFilterToggle');
     if(await filter.isVisible())await filter.click();
     await page.getByRole('button',{name:'Этот месяц',exact:true}).click();
@@ -109,7 +109,7 @@ try {
     if(await filter.isVisible())await filter.click();
     await page.locator('#fixtureMode').selectOption('unavailable');
     await page.waitForFunction(()=>document.querySelector('#reportFinanceOverview [data-finance-received]')?.textContent==='—');
-    await page.locator('#reportFinanceOverview [data-finance-detail="completeness"]').click();
+    await page.locator('#reportFinanceOverview .finance-center__summary [data-finance-detail="completeness"]').click();
     assert.match(await page.locator('[data-finance-detail-scope]').innerText(),/3 сент.*2 окт.*Сотрудник/,'unavailable detail keeps the selected dates and employee');
     assert.match(await page.locator('[data-finance-detail-body]').innerText(),/Не удалось загрузить данные за выбранные даты/);
     await page.getByRole('button',{name:'Закрыть детализацию',exact:true}).click();

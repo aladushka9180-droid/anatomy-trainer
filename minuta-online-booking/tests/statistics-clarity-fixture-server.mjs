@@ -13,7 +13,7 @@ export function fixtureHtml() {
   return html.replace('</head>','<link rel="stylesheet" href="statistics-audit-ui.css"></head>')
     .replace('</body>',`<aside style="margin:90px 20px 120px;padding:16px;border:1px solid #aaa;border-radius:12px">
       <strong>Изолированная проверка · тестовые данные</strong><br>
-      <label>Сценарий <select id="fixtureMode"><option value="audit">Как в аудите</option><option value="scenario">Предоплата, доплата, возврат, аренда, товары</option><option value="empty">Пустой период</option><option value="unavailable">Недоступный источник</option></select></label>
+      <label>Сценарий <select id="fixtureMode"><option value="audit">Как в аудите</option><option value="dashboard">Выбранный макет — условные данные</option><option value="scenario">Предоплата, доплата, возврат, аренда, товары</option><option value="partial">Известные суммы, журнал недоступен</option><option value="empty">Пустой период</option><option value="unavailable">Недоступный источник</option></select></label>
       <p id="fixtureJournalResult" hidden></p>
     </aside>
     <script src="report-reconciliation.js"></script><script src="finance-center.js"></script>
