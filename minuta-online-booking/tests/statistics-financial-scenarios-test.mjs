@@ -73,6 +73,7 @@ assert.equal(previous({ start:'2026-10-01', end:'2026-10-31' }, 'month'), null, 
 assert.equal(previous({ start:'2026-01-01', end:'2026-10-01' }, 'all'), null);
 assert.equal(rubles.changeLabel(200000, 0), '+2\u00a0000\u00a0₽ к прошлому периоду');
 assert.doesNotMatch(rubles.changeLabel(200000, 0), /%/);
-assert.match(rubles.changeLabel(200000, 100000), /^\+100%/);
+assert.equal(rubles.changeLabel(200000, 100000), '+1\u00a0000\u00a0₽ к прошлому периоду');
+assert.doesNotMatch(rubles.changeLabel(200000, 100000), /%/, 'selected overview compares absolute amounts without percentages');
 assert.equal(rubles.changeLabel(200000, null), '', 'missing comparison is not zero');
 console.log('Seven financial scenarios, exact operation dates, reversals, goods scope and comparable periods passed.');
