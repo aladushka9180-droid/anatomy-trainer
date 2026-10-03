@@ -8,6 +8,9 @@ on:
       - 'minuta-online-booking/commerce-soft-ui.*'
       - 'minuta-online-booking/sales-catalog-*.sql'
       - 'minuta-online-booking/tests/commerce-catalog*'
+      - 'minuta-online-booking/tests/commercial-finance-v147-browser-test.mjs'
+      - 'minuta-online-booking/tests/commercial-sales-v151-ui-browser-test.mjs'
+      - 'minuta-online-booking/tests/commercial-sale-client-access-v155-browser-test.mjs'
       - 'minuta-online-booking/tests/sales-catalog-*'
       - 'minuta-online-booking/docs/*catalog*'
   workflow_dispatch:
@@ -46,6 +49,7 @@ jobs:
       - run: node minuta-online-booking/tests/commerce-catalog-test.mjs
       - run: node minuta-online-booking/tests/commerce-catalog-adapter-test.mjs
       - run: node minuta-online-booking/tests/commerce-soft-ui-test.mjs
+      - run: node minuta-online-booking/tests/commercial-sales-v151-ui-static-test.mjs
       - run: node minuta-online-booking/client-url-redirect-test.mjs
   synthetic-browser:
     runs-on: ubuntu-24.04
@@ -65,3 +69,6 @@ jobs:
           echo "MINUTA_CATALOG_SCREENSHOTS=$RUNNER_TEMP/catalog-screenshots" >> "$GITHUB_ENV"
       - run: node minuta-online-booking/tests/commerce-catalog-browser-test.mjs
       - run: node minuta-online-booking/tests/commerce-catalog-integration-browser-test.mjs
+      - run: node minuta-online-booking/tests/commercial-finance-v147-browser-test.mjs --commerce-only
+      - run: node minuta-online-booking/tests/commercial-sales-v151-ui-browser-test.mjs
+      - run: node minuta-online-booking/tests/commercial-sale-client-access-v155-browser-test.mjs

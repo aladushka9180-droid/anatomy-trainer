@@ -189,8 +189,9 @@ function stylesheet() {
 
 export function createCatalogAdapter(options) {
   const { $, getContext, reload, onLegacyMode, getCurrentUser, getSessionGeneration } = options;
+  const [issueSaleClaim, clearSaleClaim] = options.claim || [];
   const rpc = createCatalogRpcAdapter(options, getContext);
-  let view = null, mount = null, scope = null, revision = 0, job = 0, grouped = null, legacy = false, uiState = null;
+  let view = null, mount = null, scope = null, revision = 0, job = 0, grouped = null, legacy = false, uiState = null, claimRevision = 0;
   const form = $('#commerceSaleForm'), creator = $('#commerceSaleCreator'), type = $('#commerceItemKind');
   const status = document.createElement('p'); status.className = 'report-empty-inline'; status.setAttribute('role','status');
   const accountPane = document.createElement('details'); accountPane.className = 'commerce-sale-options cc-account-options';
@@ -226,11 +227,33 @@ export function createCatalogAdapter(options) {
     }
   }, true);
   function destroy() {
-    job++; view?.destroy(); view = null; uiState = null; scope = null; grouped = null; mount?.remove(); mount = null;
+    job++; claimRevision++; view?.destroy(); view = null; uiState = null; scope = null; grouped = null; mount?.remove(); mount = null;
     restore(); status.hidden = true; legacy = false; onLegacyMode?.(false);
   }
   function current(s, ticket) {
     const now = rpc.scope(); return ticket === job && now.orgId === s.orgId && now.actorId === s.actorId && now.sessionKey === s.sessionKey;
+  }
+  function claimScopeCurrent(s) {
+    const now = rpc.scope(), ctx = getContext();
+    return Boolean(view && s && now.orgId === s.orgId && now.actorId === s.actorId && now.sessionKey === s.sessionKey
+      && options.sessionIsCurrent(s.actorId, getSessionGeneration()) && ctx?.state?.organization_id === s.orgId
+      && manager(ctx?.organization?.current_role));
+  }
+  function resetClaim() { claimRevision++; clearSaleClaim?.(); }
+  async function confirmed({scope:s, kind, outcome}) {
+    const ticket = ++claimRevision;
+    try {
+      try { await reload(); }
+      catch { if (claimScopeCurrent(s)) options.notify('Операция подтверждена, но список пока не обновился.'); }
+      const receipt = outcome?.receipt;
+      if (ticket !== claimRevision || !claimScopeCurrent(s) || kind !== 'sale' || !issueSaleClaim
+        || !receipt || receipt.organization_id !== s.orgId || !validId(receipt.client_account_id)
+        || !validId(receipt.lines?.[0]?.sale_id) || !['cash','manual'].includes(receipt.payment_method)) return;
+      // Reuse the existing v155 code issuance/retry path. The attested first
+      // sale links the selected client to this purchase; no second sale occurs.
+      await issueSaleClaim({ organizationId:s.orgId, saleId:receipt.lines[0].sale_id, clientId:receipt.client_account_id,
+        clientName:getContext().state.clients?.find(client => client.id === receipt.client_account_id)?.name || '' });
+    } catch { if (ticket === claimRevision && claimScopeCurrent(s)) options.notify('Продажа подтверждена. Код доступа пока не выдан; повторять продажу не нужно.'); }
   }
   function renderHistory(data, append = false) {
     grouped = append && grouped ? { ...data, purchases:[...grouped.purchases, ...data.purchases] } : data;
@@ -306,7 +329,10 @@ export function createCatalogAdapter(options) {
       canWrite:ctx.state.finance_enabled === true && ctx.state.inventory_enabled === true, context,
       options:{ clients:ctx.state.clients || [], bookings:(ctx.state.bookings || []).map(x=>({...x,name:`${x.booking_date} · ${x.client_name} · ${x.service_name}`})), sellers:ctx.state.sellers || [], paymentAccounts:(ctx.state.accounts || []).filter(x=>x.active !== false && !x.system_key && ['cash','bank'].includes(x.account_type)) } };
     uiState=next;
-    if (!view) view = attachCommerceCatalog(mount, { state:next, ...rpc, onConfirmed:() => void reload().catch(()=>options.notify('Операция подтверждена, но список пока не обновился.')), onError:() => {} });
+    if (!view) view = attachCommerceCatalog(mount, { state:next, ...rpc,
+      onSubmit:args => { if (!claimScopeCurrent(args.scope)) throw scopeError(); resetClaim(); return rpc.onSubmit(args); },
+      onContextChange:args => { if (claimScopeCurrent(args.scope)) resetClaim(); },
+      onConfirmed:confirmed, onError:() => {} });
     else view.update(next);
     setMode(false);
     try { const history = await rpc.history(s); if (current(s,ticket)) renderHistory(history); }

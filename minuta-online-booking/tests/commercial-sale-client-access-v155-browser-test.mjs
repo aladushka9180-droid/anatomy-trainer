@@ -7,14 +7,13 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = process.env.MINUTA_AUDIT_SCREENSHOTS ? resolve(process.env.MINUTA_AUDIT_SCREENSHOTS) : '';
 if (output) mkdirSync(output, { recursive:true });
 const html = readFileSync(resolve(root, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
-const source = readFileSync(resolve(root, 'commerce-management.js'), 'utf8');
 const playwright = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const chromium = playwright.chromium || playwright.default?.chromium;
 const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const errors = [];
 const unexpected = [];
-const mime = { '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
+const mime = { '.js':'application/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
 const ids = {
   organization:'11111111-1111-4111-8111-111111111155',
   owner:'22222222-2222-4222-8222-222222222155',
@@ -64,7 +63,7 @@ try {
       document.querySelector('#organizationWorkspace').style.display = 'block';
       document.querySelector('#commercePanel').style.display = 'block';
     });
-    await page.addScriptTag({ content:source });
+    await page.addScriptTag({ url:'https://claim.test/minuta-online-booking/commerce-management.js?v=fixture' });
     await page.evaluate(async ({ ids, claimToken }) => {
       window.saleClaimCalls = [];
       window.saleClaimNotices = [];
@@ -87,6 +86,7 @@ try {
       };
       const db = { rpc:async (name, args) => {
         saleClaimCalls.push({ name, args:structuredClone(args) });
+        if (name === 'get_minuta_sales_catalog_candidate') return { data:null, error:{ code:'PGRST202', message:'Catalog migration is absent in this legacy fixture' } };
         if (name === 'get_minuta_commerce_workspace_v151') return { data:structuredClone(workspace), error:null };
         if (name === 'sell_minuta_commercial_product_v151') {
           nextSaleNumber += 1;
@@ -132,7 +132,7 @@ try {
         sessionIsCurrent:() => true, applyWriteAvailability:() => {}
       });
       saleClaimController.bind();
-      await saleClaimController.setOrganization({ id:ids.organization });
+      await saleClaimController.setOrganization({ id:ids.organization, current_role:'owner' });
     }, { ids, claimToken });
 
     const prepareStandaloneSale = async ({ client = ids.client, booking = '' } = {}) => {
@@ -205,7 +205,7 @@ try {
 
       await page.evaluate(async ids => {
         claimMode = 'invalid';
-        await saleClaimController.setOrganization({ id:ids.organization });
+        await saleClaimController.setOrganization({ id:ids.organization, current_role:'owner' });
       }, ids);
       await prepareStandaloneSale();
       await page.locator('#commerceSaleSubmit').click();
@@ -216,7 +216,7 @@ try {
       for (const mode of ['legacyHex', 'lowercase', 'nonHex', 'tooLong', 'duplicate']) {
         await page.evaluate(async ({ ids, mode }) => {
           claimMode = mode;
-          await saleClaimController.setOrganization({ id:ids.organization });
+          await saleClaimController.setOrganization({ id:ids.organization, current_role:'owner' });
         }, { ids, mode });
         await prepareStandaloneSale();
         await page.locator('#commerceSaleSubmit').click();
@@ -228,7 +228,7 @@ try {
       for (const terminal of ['consumed', 'superseded']) {
         await page.evaluate(async ({ ids, terminal }) => {
           claimMode = terminal;
-          await saleClaimController.setOrganization({ id:ids.organization });
+          await saleClaimController.setOrganization({ id:ids.organization, current_role:'owner' });
         }, { ids, terminal });
         await prepareStandaloneSale();
         await page.locator('#commerceSaleSubmit').click();
@@ -255,7 +255,7 @@ try {
 
       await page.evaluate(async ids => {
         claimMode = 'shortLived';
-        await saleClaimController.setOrganization({ id:ids.organization });
+        await saleClaimController.setOrganization({ id:ids.organization, current_role:'owner' });
       }, ids);
       await prepareStandaloneSale();
       await page.locator('#commerceSaleSubmit').click();

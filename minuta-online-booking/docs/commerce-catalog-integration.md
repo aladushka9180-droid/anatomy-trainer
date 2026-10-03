@@ -11,11 +11,14 @@ keep their respective owners.
 
 ## Common controller ownership
 
-`commerce-catalog-controller.patch` is the proposed minimal hook for the sole
-owner of `commerce-management.js`. The branch does **not** modify that common
-file until ownership is assigned. `commerce-catalog-controller-hook.mjs` applies
-the same unique-anchor transformation in an isolated browser fixture. Source
-changes invalidate the transformation instead of guessing a replacement.
+The author of this sales task is the sole writer of the catalog hook in
+`commerce-management.js` on PR70's isolated branch; no other active controller
+writer was found. The reviewed `commerce-catalog-controller.patch` is now
+applied to that branch. It must not be applied a second time. The publisher
+still owns final common-file composition, main, PWA versions and release.
+`commerce-catalog-controller-hook.mjs` uses the actual integrated controller
+when present, or the unique-anchor transformation in the baseline fixture.
+Changed baseline anchors are reviewed instead of guessing a replacement.
 
 The hook loads the adapter on demand after an authorized v151 workspace read;
 context/reset/startSale operations invalidate the old scope. Modern inventory
@@ -26,7 +29,7 @@ sale-claim access, refund controls and account creation retain existing handlers
 
 The original controller startup budget is fully occupied. New modules remain
 lazy; their URLs inherit the controller's release query. The render/load/submit/
-lifecycle blocks lose only indentation, offsetting the hook (-3 UTF-8 bytes
+lifecycle blocks lose only indentation, offsetting the hook (-9 UTF-8 bytes
 against normalized LF baseline). No unrelated assets are packed, no budget is
 raised. Publisher must remeasure its final PWA tree and coordinate versioning.
 
@@ -49,6 +52,13 @@ The existing mobile focus mode hides bottom navigation while the sticky total
 is open. Grouped history uses authoritative count/totals, cursor paging and the
 old sale IDs for each refundable item. A failed read displays unknown totals
 rather than counting cart components as separate purchases.
+
+After an attested paid cart or confirmed receipt recovery, the bridge reuses
+the existing v155 client-access code handler, anchored to the first component
+sale. Only the same current actor/organization/session can issue it; a new
+client or operation invalidates delayed issuance. A code-only retry uses the
+original claim request and never repeats the cart sale. Unknown receipts
+cannot issue a code. Tokens are not stored in the cart draft or its intent.
 
 ## Write contracts
 
@@ -101,12 +111,21 @@ and optional HTTPS photos are supported.
   bundles/repeat, corruption/storage failure, roles, XSS and unknown-result retry.
 - Actual provider panel/controller/soft styles at390/760/1440: atomic two-item
   sale and grouped count, legacy benefits, refund readiness, account creation,
-  receipt recovery, context refresh, permission/missing-RPC fallback and reset.
+  receipt recovery, context refresh, client-access issuance/retry, unknown
+  receipt denial, permission/missing-RPC fallback and reset. Lazy-import failure
+  after reset causes no unhandled rejection or late mount.
   All RPCs are synthetic; external network and service workers are blocked.
-- Existing soft UI5 tests, current URL/version consistency and baseline startup.
+- Existing v151 sales and v155 client-access browser suites pass at390/760/1440.
+  The v147 legacy-commerce fixture also passes with `--commerce-only`; its
+  unrelated analytics block is excluded explicitly. That historical analytics
+  assertion fails on fetched main's unchanged controller as well. The original
+  full v147 command retains that assertion; it is not silently weakened.
+- Existing soft UI5 tests, current URL/version consistency and startup:
+  63 core files,3799085 bytes, within the unchanged3799094-byte cap.
 
 The added isolated CI workflow runs those candidate checks without production
 credentials or deployment actions. Remote results are separate from local PASS.
+All23 prior-head checks passed on7422ea64; they do not prove a later hook commit.
 
 ## Release owner gates
 
