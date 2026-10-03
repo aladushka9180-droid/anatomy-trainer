@@ -456,8 +456,10 @@
       const series = receiptSeries(data);
       overview.querySelector('#financeOverviewMovementTitle').textContent = `Поступления по ${series.grain === 'month' ? 'месяцам' : series.grain === 'week' ? 'неделям' : 'дням'}`;
       if (!series.known) dashboardNotice(chart,'Движение денег по датам операций пока не подтверждено.',true);
-      else if (!series.points.some(point=>point.receivedMinor)) dashboardNotice(chart,'Поступления после возвратов за этот период — 0 ₽.');
-      else renderReceiptChart(chart,series,data);
+      else {
+        renderReceiptChart(chart,series,data);
+        if (!series.points.some(point=>point.receivedMinor)) chart.append(createElement('p','finance-dashboard__chart-help','Поступления после возвратов за этот период — 0 ₽.'));
+      }
       const ledgerKnown = data.available && data.financeEnabled && data.dateBasis === 'operations' && !data.cashProjectionUnavailable;
       if (!ledgerKnown) {
         dashboardNotice(categories,'Категории оплаченных расходов пока не подтверждены.');
@@ -487,10 +489,10 @@
 
     function renderReceiptChart(target,series,data) {
       const points = series.points, values = points.map(point=>point.receivedMinor);
-      const low = Math.min(0,...values), high = Math.max(0,...values), ideal = (high-low)/2;
+      const low = Math.min(0,...values), high = Math.max(0,...values), flatZero = low === 0 && high === 0, ideal = flatZero ? 1 : (high-low)/2;
       const power = 10 ** Math.floor(Math.log10(ideal));
       const step = Math.max(1,[1,2,5,10].find(value=>value*power>=ideal)*power);
-      const bottom = Math.floor(low/step)*step, top = Math.ceil(high/step)*step, span = top-bottom;
+      const bottom = flatZero ? -step : Math.floor(low/step)*step, top = flatZero ? step : Math.ceil(high/step)*step, span = top-bottom;
       const plot = createElement('div','finance-dashboard__plot'), axis = createElement('div','finance-dashboard__axis');
       const surface = createElement('div','finance-dashboard__surface'); surface.tabIndex=0; surface.setAttribute('role','slider');
       surface.setAttribute('aria-label','Дата на графике поступлений'); surface.setAttribute('aria-valuemin','0'); surface.setAttribute('aria-valuemax',String(points.length-1));
@@ -500,6 +502,7 @@
       polyline.setAttribute('points',points.map((point,index)=>`${points.length===1 ? 500 : index/(points.length-1)*1000},${(top-point.receivedMinor)/span*200}`).join(' '));
       svg.append(polyline); surface.append(svg);
       for (let value=bottom; value<=top; value+=step) {
+        if (flatZero && value !== 0) continue;
         const position=(top-value)/span*100;
         const amount = Math.abs(value) < 1000000 ? formatRubles(value) : `${new Intl.NumberFormat('ru-RU',{notation:'compact',maximumFractionDigits:1}).format(value/100)} ₽`;
         const label=createElement('span','',amount); label.style.top=position+'%'; axis.append(label);
