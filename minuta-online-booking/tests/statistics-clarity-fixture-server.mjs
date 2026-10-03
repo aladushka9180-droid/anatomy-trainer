@@ -42,7 +42,7 @@ export async function serveFixture(port=0) {
   await new Promise(resolve=>server.listen(port,'127.0.0.1',resolve));
   return {server,url:`http://127.0.0.1:${server.address().port}/minuta-online-booking/provider.html`};
 }
-if(process.argv.includes('--serve')){
+if(process.argv.includes('--serve')&&resolve(process.argv[1]||'')===fileURLToPath(import.meta.url)){
   const fixture=await serveFixture(Number(process.env.MINUTA_FIXTURE_PORT)||4319);
   console.log(fixture.url);
 }
