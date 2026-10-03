@@ -26,7 +26,16 @@ async function preview(page){await page.getByRole('button',{name:'Показат
 async function chooseAnna(page){await page.locator('#teamSchedulePerson').selectOption('u1',{force:true});}
 try{
   for(const width of [390,760,1440]){
-    const {page,errors,external}=await fixture(width);await chooseAnna(page);
+    const {page,errors,external}=await fixture(width);
+    if(width===390){
+      await page.locator('#teamScheduleFilters > summary').click();
+      const filterWidth=await page.locator('.ts-filter-fields').evaluate(n=>n.getBoundingClientRect().width);
+      check(filterWidth>240,'expanded mobile filters retain full usable width');
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'expanded filter bar does not overflow');
+      if(output)await page.screenshot({path:resolve(output,'copy-expanded-filters-390.png')});
+      await page.locator('#teamScheduleFilters > summary').click();
+    }
+    await chooseAnna(page);
     await open(page);check((await page.locator('#shiftCopyScope').innerText()).includes('Анна'),'selected copy scope is explicit');
     check(!await page.locator('#shiftCopyConfirm').isEnabled(),'saving requires server preview');
     await preview(page);check(await page.locator('.ts-copy-row').count()===4,'preview lists selected staff shifts and breaks');

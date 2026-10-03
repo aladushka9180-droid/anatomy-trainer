@@ -28,7 +28,7 @@ Apply SQL before publishing the UI; otherwise missing RPC is explained in the dr
 ## Evidence
 
 - Real newly initialized task-owned PostgreSQL cluster:34 checks PASS; native v71 tables/constraints/writers,2 sessions, same and different concurrent requests, roles, absence/overlap, stale preview, later-insert rollback, migration rollback/reapply. Existing booking and absence retained; no production connection accepted.
-- Browser transport fixture:52 checks PASS at390/760/1440, selected scope, preview, date invalidation, duplicate explanation, refusal, unknown response retry with same UUID, Escape/focus, logout cleanup. This proves the UI contract, not production persistence.
+- Browser transport fixture:54 checks PASS at390/760/1440, selected scope, full-width expanded mobile filters, preview, date invalidation, duplicate explanation, refusal, unknown response retry with same UUID, Escape/focus, logout cleanup. This proves the UI contract, not production persistence.
 - Full current provider integration:103 assertions PASS at390/760/1440; existing forms, roles, refused writes, session/organization changes and31-day period preserved.
 - Native controller/v71 static, syntax, migration-safety guard, diff and redirect PASS. Mandatory branch/main CI and target live screen are release-owner gates.
 - Actual CUA click path on a local synthetic page: select Анна → open copy → preview4 shifts → confirm → calendar advances to copied week. No live records written. Screenshots are in task-owned outputs/copy-week-ui; review candidate visual quality9/10, live acceptance still pending.
