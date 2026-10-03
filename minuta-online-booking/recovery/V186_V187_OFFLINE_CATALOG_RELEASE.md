@@ -1,6 +1,6 @@
 # Черновики каталога v186/v187: кандидат и границы выпуска
 
-Статус 02.10.2026: SQL-кандидат находится в ветке
+Статус 03.10.2026: SQL-кандидат находится в ветке
 `codex/pro-catalog-sql-v186-v187`; выпуск ещё не выполнялся. База
 кандидата — `6592ecc2` (Pro v1064); он совмещён с ней без
 конфликтов. Четыре SQL-хеша/renderer, redirect и PWA core budget прошли;
@@ -103,6 +103,23 @@ actualRestoreProven/sourceArchiveRead/productionWritten/rolePasswordsRead/
 postgresPromoted false. Эти доказательства не удостоверяют реальные managed
 anchors/classification/Auth/Storage или восстановление CURRENT; PR №19 ещё draft.
 
+03.10 в том же draft PR №19 появился exact
+`0969a1969caa331131507ffb3affdc0809b06b0e`. Source-free native run
+`37113298327` от 09:30 UTC, job `111175235759` SUCCESS; единственный
+`expense-v193-native-components-v1` независимо сверён с точными run/HEAD.
+17/17 checks PASS: к прежним 14 добавлены native-extension-inventory-catalog,
+native-extension-column-drift-refused и native-extension-acl-drift-refused.
+sourceFree/qualified/cleanupProven/cliCleanupProven true;
+actualRestoreProven/sourceArchiveRead/productionWritten/rolePasswordsRead/
+postgresPromoted false. Это квалификация synthetic инструмента сравнения.
+Для полного original baseline ещё нужны реальные определения, колонки, владельцы
+и ACL extension-owned таблиц, полученные из того же source snapshot с доказанным
+происхождением. По отчёту publisher отдельные определения этих объектов не покрыты
+обычным дампом; фактическую полноту этой копии ещё нужно доказать.
+Рабочие extension-owned metadata, классификация и CURRENT restore не приняты.
+PR №18 остаётся OPEN после автоматического отказа; существующий publisher снова
+запросил точное решение о слиянии. Его вопрос не дублировать и отказ не обходить.
+
 На сверке 23:52 UTC capture от 21:25 UTC уже вышел за лимит свежести
 принятого private инспектора: fresh() допускает не более 7 200 000 мс.
 Его прежний SUCCESS исторический; перед рабочим выпуском нужна актуальная
@@ -119,7 +136,7 @@ publisher на расходы не расширяют область этого 
 PR №6 на `ae9a8876a37746cd6dc8a0625d308c2df11c8b65` завершил 13/13 общих CI.
 Этот результат применим к неизменному SQL/renderer-коду; документационные
 контрольные точки после него не заменяют CI итогового интегрированного дерева.
-Точный docs-only `54396cd52ded56dde6caf7aad4ffb704e96688a2` независимо сверён:
+Точный docs-only `39a230a814cea2d96e6804d1426f75585e33c177` независимо сверён:
 13/13 общих CI SUCCESS, pending=0; PR №6 OPEN/DRAFT. Это не выпуск.
 
 ## Проверка кандидата
