@@ -198,6 +198,11 @@ begin
     and client_account_id is not distinct from p_client_account;
   if c.id is null then return jsonb_build_object('found',false,'organization_id',p_organization,'client_account_id',p_client_account);end if;
   return jsonb_build_object('found',true,'organization_id',p_organization,'id',c.id,'client_account_id',c.client_account_id,'seller_id',c.seller_id,
+    'booking_id',c.booking_id,'request_fingerprint',c.request_fingerprint,
+    'payment_method',(select s.payment_method from public.sales_cart_lines_candidate l join public.commercial_sales s
+      on (s.id,s.organization_id)=(l.sale_id,l.organization_id) where l.cart_id=c.id order by l.line_index limit 1),
+    'payment_account_id',(select s.payment_account_id from public.sales_cart_lines_candidate l join public.commercial_sales s
+      on (s.id,s.organization_id)=(l.sale_id,l.organization_id) where l.cart_id=c.id order by l.line_index limit 1),
     'total_minor',c.total_minor,'occurred_at',c.occurred_at,'request_id',c.request_id,
     'refunded_minor',(select coalesce(sum(s.refunded_minor),0) from public.sales_cart_lines_candidate l
       join public.commercial_sales s on (s.id,s.organization_id)=(l.sale_id,l.organization_id) where l.cart_id=c.id),

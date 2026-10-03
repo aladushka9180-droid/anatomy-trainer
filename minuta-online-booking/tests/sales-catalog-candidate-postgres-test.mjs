@@ -143,6 +143,11 @@ try {
   const cart=await rpc(db,ids.owner,'sell_minuta_inventory_cart_candidate',cartArgs());
   assert.equal(cart.total_minor,92300);assert.equal(cart.lines.length,2);
   assert.equal(cart.organization_id,ids.org);
+  assert.equal(cart.booking_id,null);
+  assert.equal(cart.seller_id,ids.specialist);
+  assert.equal(cart.payment_method,'cash');
+  assert.equal(cart.payment_account_id,ids.cash);
+  assert.match(cart.request_fingerprint,/^[a-f0-9]{64}$/);
   assert.equal(cart.lines[0].stock_quantity,500);assert.equal(cart.lines[0].sale_quantity,1);
   assert.equal(Number(await scalar(db,`select quantity from inventory_stock_balances where inventory_item_id=$1`,[ids.item])),4500);
   assert.equal(Number(await scalar(db,`select sum(total_minor) from commercial_sales where id in(select sale_id from sales_cart_lines_candidate where cart_id=$1)`,[cart.id])),cart.total_minor);
@@ -151,6 +156,10 @@ try {
   const afterCart=await counts();
   const cartReplay=await rpc(db,ids.owner,'sell_minuta_inventory_cart_candidate',cartArgs());
   assert.equal(cartReplay.replayed,true);assert.equal(cartReplay.id,cart.id);assert.deepEqual(await counts(),afterCart);
+  const receipt=await rpc(db,ids.owner,'get_minuta_sales_cart_candidate',[ids.org,request(20),ids.client]);
+  assert.deepEqual(receipt.lines,cart.lines);
+  assert.equal(receipt.request_fingerprint,cart.request_fingerprint);
+  assert.equal(receipt.payment_account_id,ids.cash);
   const changed=lines();changed[0].quantity=2;
   await expectError(()=>rpc(db,ids.owner,'sell_minuta_inventory_cart_candidate',cartArgs(changed)),'catalog_request_conflict','23505');
   assert.equal((await rpc(db,ids.owner,'get_minuta_sales_cart_candidate',[ids.org,request(20),ids.otherClient])).found,false);

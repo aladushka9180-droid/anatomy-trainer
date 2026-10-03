@@ -113,6 +113,12 @@ full intent/request. Never create a replacement request UUID. Same request and
 different intent returns 23505 catalog_request_conflict. Import/bundle retries
 also compare the complete intent before mutable-version checks.
 
+Successful cart receipts include booking_id, seller_id, payment_method,
+payment_account_id and request_fingerprint, as well as ordered immutable lines.
+The UI adapter verifies organization/client/request/booking/seller/payment,
+line identifiers, item/warehouse/version/price/quantity and exact grouped total
+before clearing recovery. An unmatched or incomplete receipt stays unknown.
+
 ## Refund, old readers and rollback
 
 Forward requires the exact v148 refund source and saves its definition/comment/ACL.
