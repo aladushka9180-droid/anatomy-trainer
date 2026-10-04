@@ -93,9 +93,11 @@
       form.before(settings); settings.append(summary, form);
     }
     if (settings.hidden !== form.hidden) settings.hidden = form.hidden;
-    const days = Number(panel.querySelector('#retentionInactivityDays')?.value);
+    const inactivity = panel.querySelector('#retentionInactivityDays');
+    const days = Number(inactivity?.value);
     const enabled = panel.querySelector('#retentionEnabled')?.checked;
-    setText(settingsSummary, enabled && Number.isFinite(days) ? `Перерыв от ${days} дней` : 'Подбор выключен');
+    const valid = Boolean(inactivity?.value) && inactivity.validity.valid && Number.isFinite(days);
+    setText(settingsSummary, !enabled ? 'Подбор выключен' : valid ? `Перерыв от ${days} дней` : 'Проверьте срок');
   }
 
   function updateRows() {
