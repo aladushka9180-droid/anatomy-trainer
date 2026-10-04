@@ -271,7 +271,7 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard #a
 
 /* The approved light reference is scoped to the active statistics screen. */
 body.provider-body[data-provider-theme="pink-porcelain"]:not([data-provider-color-mode="dark"]):not([data-provider-resolved-color-mode="dark"]):has(#dashboard[data-active-view="analytics"]) {
-  --theme-ink:#14172f!important; --theme-muted:#68738d!important; --theme-line:#e8e8ef!important;
+  --theme-ink:#14172f!important; --theme-muted:#64708a!important; --theme-line:#e8e8ef!important;
   --theme-surface:#fff!important; --theme-surface-alt:#f7f7fa!important; --theme-bg:#fbfafc!important;
   --theme-accent:#de0063!important; --theme-accent-soft:#fff0f6!important; background:#fbfafc!important;
 }
