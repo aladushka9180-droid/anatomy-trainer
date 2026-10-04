@@ -129,4 +129,21 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [d
   html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] .organization-group-navigation {
     top:6px;
   }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] #organizationSectionNav[data-active-organization-group="sales"] {
+    flex-wrap:nowrap;
+    gap:20px;
+    padding:13px 4px 4px;
+    box-sizing:border-box;
+    max-width:100%;
+    overflow-x:auto;
+    overflow-y:hidden;
+    overscroll-behavior-x:contain;
+    scrollbar-width:none;
+  }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] #organizationSectionNav[data-active-organization-group="sales"]::-webkit-scrollbar { display:none; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace[data-organization-groups-ready] #organizationSectionNav[data-active-organization-group="sales"] button {
+    flex:0 0 auto;
+    max-width:none;
+    white-space:nowrap;
+  }
 }
