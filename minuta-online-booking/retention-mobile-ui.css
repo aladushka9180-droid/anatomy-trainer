@@ -39,11 +39,13 @@
   .provider-body #retentionPanel.commerce-soft-panel .resource-subhead .panel-count { min-width:28px; min-height:28px; padding:4px 8px; font-size:13px; }
   .provider-body #retentionPanel.commerce-soft-panel :is(#retentionClientsList,#retentionDeliveriesList) { padding:4px 10px; border:1px solid var(--cs-line); border-radius:16px; background:var(--cs-surface); }
   .provider-body #retentionPanel.commerce-soft-panel :is(.retention-client-row,.retention-delivery-row):last-child { border-bottom:0; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row { grid-template-columns:24px minmax(0,1fr) minmax(86px,.8fr); column-gap:8px; row-gap:4px; padding:12px 4px!important; }
+  /* Base commerce styles are lazy-loaded after this presentation layer. Keep
+     the mobile grid authoritative within the active return-clients screen. */
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel.commerce-soft-panel .retention-client-row { grid-template-columns:24px minmax(0,1fr) minmax(86px,.8fr); column-gap:8px; row-gap:4px; padding:12px 4px!important; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-client-row>.organization-row-main { grid-column:2; grid-row:1/3; gap:4px; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row>.retention-client-status { grid-column:3; grid-row:1; font-size:12px; line-height:1.4; align-self:start; overflow-wrap:anywhere; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row>.retention-client-options { grid-column:3; grid-row:2; align-self:start; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-client-options[open] { grid-column:2/-1; grid-row:3; }
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel.commerce-soft-panel .retention-client-row>.retention-client-status { grid-column:3; grid-row:1; font-size:12px; line-height:1.4; align-self:start; overflow-wrap:anywhere; }
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel.commerce-soft-panel .retention-client-row>.retention-client-options { grid-column:3; grid-row:2; align-self:start; }
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel.commerce-soft-panel .retention-client-options[open] { grid-column:2/-1; grid-row:3; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-client-row .organization-row-main strong { font-size:15px; line-height:1.45; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-client-row .organization-row-main small { line-height:1.45; }
   .retention-client-phone,.retention-client-visits { display:block; }
@@ -60,13 +62,13 @@
   .retention-consent-mobile .ui-icon { width:15px; height:15px; flex:none; }
   .retention-consent-mobile .ui-icon:last-child { width:12px; height:12px; }
   .retention-client-options[open] .retention-consent-mobile .ui-icon:last-child { transform:rotate(90deg); }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-selection-toolbar { grid-template-columns:minmax(0,1fr) auto; gap:10px 8px; padding-top:10px; }
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel.commerce-soft-panel .retention-selection-toolbar { grid-template-columns:minmax(0,1fr) auto; gap:10px 8px; padding-top:10px; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-select-all { min-height:44px; margin:0!important; font-size:12px; color:var(--cs-ink); }
   .provider-body #retentionPanel.commerce-soft-panel .retention-selected-count { align-self:center; text-align:right; max-width:115px; font-size:12px; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-selected-count:not(:empty) { line-height:1.4; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-selection-toolbar>.primary { grid-column:1/-1; width:100%; height:auto!important; min-height:48px!important; border-radius:16px; font-size:14px; box-shadow:none!important; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-preparation-note { grid-column:1/-1; text-align:center; line-height:1.5; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-row { grid-template-columns:minmax(0,1fr) auto; column-gap:8px; row-gap:6px; padding:14px 4px; }
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel.commerce-soft-panel .retention-delivery-row { grid-template-columns:minmax(0,1fr) auto; column-gap:8px; row-gap:6px; padding:14px 4px; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-row>.organization-row-main { grid-column:1; gap:3px; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-copy-actions { grid-column:2; grid-row:1/3; align-self:center; grid-template-columns:minmax(0,1fr) auto; gap:4px; max-width:156px; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-copy { min-height:44px; padding:8px 9px; font-size:12px; font-weight:500!important; line-height:1.35; border-radius:12px; }
