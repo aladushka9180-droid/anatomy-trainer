@@ -17828,7 +17828,7 @@ const organizationFeatureDefinitions = new Map([
   ['benefitsPanel', { script:'benefit-management.js', api:() => window.MinutaBenefits, get:() => benefitController, set:value => { benefitController = value; }, admin:true }],
   ['loyaltyPanel', { script:'loyalty-program-v166.js', api:() => window.MinutaLoyalty, get:() => loyaltyController, set:value => { loyaltyController = value; }, admin:true }],
   ['inventoryPanel', { before:'inventory-soft-ui.js', script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true }],
-  ['retentionPanel', { script:'retention-management.js', api:() => window.MinutaRetention, get:() => retentionController, set:value => { retentionController = value; }, admin:true }]
+['retentionPanel',{before:'retention-mobile-ui.js',script:'retention-management.js',api:()=>window.MinutaRetention,get:()=>retentionController,set:v=>{retentionController=v;},admin:true}]
 ]);
 
 function organizationFeatureOptions() {
