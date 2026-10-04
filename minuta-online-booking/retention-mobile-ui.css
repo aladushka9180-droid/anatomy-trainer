@@ -1,0 +1,98 @@
+.provider-body #retentionPanel[hidden] { display:none!important; }
+/* Mobile presentation is enabled only while Return clients is selected. */
+.retention-mobile-navigation,.retention-consent-mobile,.retention-visits-mobile,.retention-delivery-status-mobile { display:none; }
+.provider-body #retentionPanel .retention-settings-disclosure { display:contents; }
+.provider-body #retentionPanel .retention-settings-disclosure>summary { display:none; }
+.provider-body #retentionPanel .retention-message-disclosure { min-width:0; }
+.provider-body #retentionPanel .retention-message-disclosure>summary { display:none; }
+.provider-body #retentionPanel .retention-consent-desktop { display:inline; }
+@media(max-width:999px) {
+  .provider-body [data-provider-panel="organization"].retention-mobile-view>.view-title { display:none; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace.retention-mobile-active[data-organization-groups-ready] .organization-group-navigation { position:static; margin:0 0 18px; padding:0; background:transparent; }
+  html body.provider-body[data-provider-theme][data-provider-layout] #dashboard [data-provider-panel="organization"] #organizationWorkspace.retention-mobile-active[data-organization-groups-ready] :is(.organization-section-groups,#organizationSectionNav) { display:none!important; }
+  .provider-body #organizationWorkspace.retention-mobile-active .retention-mobile-navigation { display:grid; gap:14px; min-width:0; }
+  .retention-mobile-navigation-top { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:52px; padding:6px 8px 6px 12px; border-radius:18px; background:var(--theme-surface,#fff); }
+  .retention-mobile-organization { display:flex; align-items:center; gap:8px; min-width:0; color:var(--theme-ink,#302b31); font-size:15px; font-weight:500; }
+  .retention-mobile-organization .ui-icon { width:22px; height:22px; flex:none; }
+  .retention-mobile-group-field { min-width:0; width:42%; max-width:190px; margin:0!important; }
+  html body.provider-body #dashboard #organizationWorkspace .retention-mobile-group-field select { width:100%; min-height:44px; margin:0; padding:9px 28px 9px 12px; border:0!important; border-radius:13px; background-color:var(--theme-accent-soft,#fdebf3)!important; color:color-mix(in srgb,var(--theme-accent,#b83170) 75%,var(--theme-ink,#302b31))!important; font-size:15px; font-weight:500; }
+  .retention-mobile-section-field { display:block; min-width:0; margin:0!important; }
+  html body.provider-body #dashboard #organizationWorkspace .retention-mobile-section-field select { width:100%; min-height:44px; margin:0; padding:6px 30px 6px 0; border:0!important; border-radius:0; background-color:transparent!important; color:var(--theme-ink,#302b31)!important; font-size:22px!important; font-weight:650!important; line-height:1.3!important; }
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel.commerce-soft-panel { padding:0!important; margin:0!important; border:0!important; background:transparent!important; box-shadow:none!important; }
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel>.panel-head { display:none; }
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel>.organization-invite-help { margin:0 0 8px; font-size:12px; line-height:1.5; }
+  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel>[data-contextual-help] { margin:0 0 12px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-workspace { gap:22px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-settings-disclosure { display:block; margin:0; min-width:0; border:1px solid var(--cs-line); border-radius:16px; background:var(--cs-surface); }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-settings-disclosure>summary { display:flex; align-items:center; gap:8px; min-height:56px; padding:10px 12px; list-style:none; cursor:pointer; font-size:14px; color:var(--cs-ink); }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-settings-disclosure>summary::-webkit-details-marker { display:none; }
+  .retention-settings-disclosure>summary>.ui-icon { flex:none; width:22px; height:22px; }
+  .retention-settings-label { flex:1; min-width:0; font-weight:500; }
+  .retention-settings-summary { max-width:92px; text-align:right; color:var(--cs-muted); font-size:12px; line-height:1.4; }
+  .retention-settings-disclosure>summary>.ui-icon:last-child { width:16px; height:16px; color:var(--cs-muted); transition:transform .15s; }
+  .retention-settings-disclosure[open]>summary>.ui-icon:last-child { transform:rotate(90deg); }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-settings-disclosure #retentionSettingsForm { padding:0 12px 14px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-settings-heading { display:none; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-list-section { background:transparent; }
+  .provider-body #retentionPanel.commerce-soft-panel .resource-subhead { padding:0 0 12px; border:0; }
+  .provider-body #retentionPanel.commerce-soft-panel .resource-subhead strong { gap:8px; font-size:16px; }
+  .provider-body #retentionPanel.commerce-soft-panel .resource-subhead .panel-count { min-width:28px; min-height:28px; padding:4px 8px; font-size:13px; }
+  .provider-body #retentionPanel.commerce-soft-panel :is(#retentionClientsList,#retentionDeliveriesList) { padding:4px 10px; border:1px solid var(--cs-line); border-radius:16px; background:var(--cs-surface); }
+  .provider-body #retentionPanel.commerce-soft-panel :is(.retention-client-row,.retention-delivery-row):last-child { border-bottom:0; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row { grid-template-columns:24px minmax(0,1fr) minmax(86px,.8fr); column-gap:8px; row-gap:4px; padding:12px 4px!important; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row>.organization-row-main { grid-column:2; grid-row:1/3; gap:4px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row>.retention-client-status { grid-column:3; grid-row:1; font-size:12px; line-height:1.4; align-self:start; overflow-wrap:anywhere; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row>.retention-client-options { grid-column:3; grid-row:2; align-self:start; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-options[open] { grid-column:2/-1; grid-row:3; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row .organization-row-main strong { font-size:15px; line-height:1.45; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row .organization-row-main small { line-height:1.45; }
+  .retention-client-phone,.retention-client-visits { display:block; }
+  .retention-client-visits { font-size:11px; }
+  .retention-visits-desktop { display:none; }
+  .retention-visits-mobile { display:inline; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-list-section { gap:0; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-selected { background:color-mix(in srgb,var(--cs-soft) 65%,var(--cs-surface))!important; border-radius:12px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-selected>.retention-client-status { color:color-mix(in srgb,var(--cs-accent) 75%,var(--cs-ink)); }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-options>summary { display:flex; align-items:center; min-height:44px; padding:4px 0; list-style:none; }
+  .retention-client-options>summary::-webkit-details-marker { display:none; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-consent-desktop { display:none; }
+  .retention-consent-mobile { display:flex; align-items:center; gap:4px; min-width:0; font-size:11px; line-height:1.4; }
+  .retention-consent-mobile .ui-icon { width:15px; height:15px; flex:none; }
+  .retention-consent-mobile .ui-icon:last-child { width:12px; height:12px; }
+  .retention-client-options[open] .retention-consent-mobile .ui-icon:last-child { transform:rotate(90deg); }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-selection-toolbar { grid-template-columns:minmax(0,1fr) auto; gap:10px 8px; padding-top:10px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-select-all { min-height:44px; margin:0!important; font-size:12px; color:var(--cs-ink); }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-selected-count { align-self:center; text-align:right; max-width:115px; font-size:12px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-selected-count:not(:empty) { line-height:1.4; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-selection-toolbar>.primary { grid-column:1/-1; width:100%; height:auto!important; min-height:48px!important; border-radius:16px; font-size:14px; box-shadow:none!important; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-preparation-note { grid-column:1/-1; text-align:center; line-height:1.5; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-row { grid-template-columns:minmax(0,1fr) auto; column-gap:8px; row-gap:6px; padding:14px 4px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-row>.organization-row-main { grid-column:1; gap:3px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-copy-actions { grid-column:2; grid-row:1/3; align-self:center; grid-template-columns:minmax(0,1fr) auto; gap:4px; max-width:156px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-copy { min-height:44px; padding:8px 9px; font-size:12px; font-weight:500!important; line-height:1.35; border-radius:12px; }
+  .retention-delivery-status-desktop { display:none; }
+  .retention-delivery-status-mobile { display:inline; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-copy-status { grid-column:1/-1; max-width:156px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-options>summary { display:flex; align-items:center; justify-content:center; padding:4px; min-width:44px; min-height:44px; font-size:0; list-style:none; }
+  .retention-delivery-options>summary::-webkit-details-marker { display:none; }
+  .retention-delivery-options>summary::after { content:'\2022\2022\2022'; font-size:14px; letter-spacing:1px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-options[open] { grid-column:1/-1; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-options .retention-row-actions { display:grid; padding-top:6px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-message-disclosure { grid-column:1; grid-row:2; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-message-disclosure>summary { display:grid; gap:4px; min-height:44px; font-size:12px; line-height:1.5; color:var(--cs-muted); list-style:none; cursor:pointer; }
+  .retention-message-disclosure>summary::-webkit-details-marker { display:none; }
+  .retention-message-excerpt { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+  .retention-message-expand { font-size:11px; text-decoration:underline; text-underline-offset:3px; }
+  .retention-message-disclosure[open] .retention-message-excerpt { display:none; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-message-disclosure[open] { grid-column:1/-1; grid-row:auto; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-message-disclosure[open] .retention-message-snapshot { margin-top:6px; font-size:13px; }
+  .provider-body #retentionPanel.commerce-soft-panel summary:focus-visible { outline:2px solid var(--cs-accent); outline-offset:3px; border-radius:6px; }
+}
+@media(max-width:359px) {
+  .retention-mobile-organization { font-size:13px; gap:6px; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row { grid-template-columns:24px minmax(0,1fr); }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row>.organization-row-main { grid-row:1; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row>.retention-client-status { grid-column:2; grid-row:2; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-row>.retention-client-options { grid-column:2; grid-row:3; }
+  .provider-body #retentionPanel.commerce-soft-panel .retention-client-options[open] { grid-row:3; }
+}
