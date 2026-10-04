@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - 'minuta-online-booking/retention-management.js'
+      - 'minuta-online-booking/retention-mobile-ui.*'
+      - 'minuta-online-booking/retention-soft-ui.css'
+      - 'minuta-online-booking/tests/retention-mobile-cascade-browser-test.mjs'
       - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/retention-v83-static-test.mjs'
       - 'minuta-online-booking/tests/retention-context-recovery*.mjs'
@@ -11,6 +14,9 @@ on:
   pull_request:
     paths:
       - 'minuta-online-booking/retention-management.js'
+      - 'minuta-online-booking/retention-mobile-ui.*'
+      - 'minuta-online-booking/retention-soft-ui.css'
+      - 'minuta-online-booking/tests/retention-mobile-cascade-browser-test.mjs'
       - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/retention-v83-static-test.mjs'
       - 'minuta-online-booking/tests/retention-context-recovery*.mjs'
@@ -39,3 +45,4 @@ jobs:
           node "$RUNNER_TEMP/retention-browser/node_modules/playwright/cli.js" install --with-deps chromium
           echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/retention-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - run: node minuta-online-booking/tests/retention-context-recovery-browser-test.mjs
+      - run: node minuta-online-booking/tests/retention-mobile-cascade-browser-test.mjs
