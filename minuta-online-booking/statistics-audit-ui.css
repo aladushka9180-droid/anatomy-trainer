@@ -270,16 +270,17 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard #a
 }
 
 /* The approved light reference is scoped to the active statistics screen. */
-body.provider-body[data-provider-theme="pink-porcelain"][data-provider-color-mode="light"]:has(#analyticsView.active) {
-  --theme-ink:#14172f; --theme-muted:#68738d; --theme-line:#e8e8ef;
-  --theme-surface:#fff; --theme-surface-alt:#f7f7fa; --theme-bg:#fbfafc;
-  --theme-accent:#de0063; --theme-accent-soft:#fff0f6; background:#fbfafc!important;
+body.provider-body[data-provider-theme="pink-porcelain"]:not([data-provider-color-mode="dark"]):not([data-provider-resolved-color-mode="dark"]):has(#dashboard[data-active-view="analytics"]) {
+  --theme-ink:#14172f!important; --theme-muted:#68738d!important; --theme-line:#e8e8ef!important;
+  --theme-surface:#fff!important; --theme-surface-alt:#f7f7fa!important; --theme-bg:#fbfafc!important;
+  --theme-accent:#de0063!important; --theme-accent-soft:#fff0f6!important; background:#fbfafc!important;
 }
-body.provider-body[data-provider-theme="pink-porcelain"][data-provider-color-mode="light"]:has(#analyticsView.active) .provider-sidebar { border-color:var(--theme-line); border-radius:16px; box-shadow:none; }
+body.provider-body[data-provider-theme="pink-porcelain"]:not([data-provider-color-mode="dark"]):not([data-provider-resolved-color-mode="dark"]):has(#dashboard[data-active-view="analytics"]) .provider-sidebar { border-color:var(--theme-line); border-radius:16px; box-shadow:none; }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head { display:grid; grid-template-columns:minmax(160px,1fr) auto auto; align-items:start; gap:12px; margin-bottom:8px; }
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head>div:first-child { min-width:0; }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head h2 { font-size:calc(1.75rem + var(--provider-heading-step,0px)); line-height:1.2; }
-body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head .view-description { font-size:calc(.8125rem + var(--provider-text-step,0px)); line-height:1.5; }
-body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #exportBookings { min-height:44px; margin:0; padding:10px 14px; border:1px solid var(--theme-line); border-radius:8px; background:var(--theme-surface); color:var(--theme-ink); font-size:calc(.8125rem + var(--provider-text-step,0px)); font-weight:500; box-shadow:none; }
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head .view-description { max-width:100%; font-size:calc(.8125rem + var(--provider-text-step,0px)); line-height:1.5; white-space:normal; }
+body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #exportBookings { min-width:0; min-height:44px; margin:0; padding:10px 14px; border:1px solid var(--theme-line); border-radius:8px; background:var(--theme-surface); color:var(--theme-ink); font-size:calc(.8125rem + var(--provider-text-step,0px)); font-weight:500; box-shadow:none; }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head>.report-reference-controls { display:flex; align-items:start; gap:12px; min-width:0; max-width:100%; }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-reference-controls>.report-filters { position:relative; display:block!important; min-width:0; margin:0; padding:0; border:0; border-radius:0; background:transparent; }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFilterToggle { display:flex; align-items:center; gap:10px; min-height:44px; width:100%; padding:10px 12px; border:1px solid var(--theme-line); border-radius:8px; background:var(--theme-surface); color:var(--theme-ink); text-align:left; font-size:calc(.8125rem + var(--provider-text-step,0px)); font-weight:400; }
@@ -306,8 +307,8 @@ body.provider-body[data-provider-theme][data-provider-layout] #dashboard #analyt
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard #analyticsView .report-view-tabs>button[id].active { background:var(--theme-surface)!important; color:var(--theme-ink); font-weight:600; }
 body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-visit-overview>summary { min-height:44px; padding:12px 16px; border:1px solid var(--theme-line); border-radius:10px; background:var(--theme-surface); font-size:calc(.8125rem + var(--provider-text-step,0px)); font-weight:400; }
 @media(min-width:1000px) {
-  body.provider-body[data-provider-theme][data-provider-layout] #dashboard:has(#analyticsView.active) { grid-template-columns:200px minmax(0,1fr); column-gap:16px; }
-  body.provider-body[data-provider-theme][data-provider-layout] #dashboard:has(#analyticsView.active) .provider-workspace { padding-inline:20px; }
+  body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="analytics"] { grid-template-columns:200px minmax(0,1fr)!important; column-gap:16px!important; }
+  body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="analytics"] .provider-workspace { padding-inline:20px!important; }
 }
 @media(max-width:1199px) {
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-head { grid-template-columns:minmax(0,1fr) auto; }
