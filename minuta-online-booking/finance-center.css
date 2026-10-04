@@ -316,9 +316,11 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #re
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-center__metric.is-profit { flex-basis:100%; min-height:100px; }
 }
 @media(max-width:600px) {
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-center__metric:not(.is-profit) { min-height:120px; padding:14px 12px; }
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-center__metric.is-profit { padding:16px 14px 14px 56px; }
-  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-center__compact-metrics>button { min-height:94px; padding:14px 12px; }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview :is(.finance-center__hero,.finance-center__compact-metrics) { gap:8px; }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-center__compact-metrics { margin-top:8px; }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-center__metric:not(.is-profit) { min-height:120px; padding:6px 12px; }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-center__metric.is-profit { min-height:94px; padding:10px 14px 8px 56px; }
+  body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-center__compact-metrics>button { min-height:94px; padding:4px 12px; }
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview :is(.finance-center__metric:not(.is-profit),.finance-center__compact-metrics>button) .finance-center__metric-heading { grid-template-columns:24px minmax(0,1fr) 10px; gap:7px; min-height:24px; }
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview :is(.finance-center__metric:not(.is-profit),.finance-center__compact-metrics>button) .finance-center__metric-heading>.finance-center__metric-icon { position:static; width:24px; height:24px; }
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .is-profit .finance-center__metric-heading>.finance-center__metric-icon { left:16px; top:18px; width:26px; height:26px; }
