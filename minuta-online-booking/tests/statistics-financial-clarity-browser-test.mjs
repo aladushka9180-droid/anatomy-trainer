@@ -21,6 +21,7 @@ try {
     await page.goto(fixture.url);
     await page.waitForFunction(()=>document.querySelector('#reportFinanceOverview [data-finance-rent]')?.textContent==='18\u00a0000\u00a0₽');
     await page.evaluate(async()=>{await document.fonts.ready;});
+    if(width===1440)await page.locator('#reportFilterToggle').click();
     const geometry=await page.evaluate(()=>{
       const cards=document.querySelector('#reportFinanceOverview');
       const tabs=[...document.querySelectorAll('.report-view-tabs button')];
@@ -45,6 +46,7 @@ try {
       assert.ok(geometry.filterHeight<=110,`desktop filters should leave room for the financial result: ${JSON.stringify(geometry)}`);
       assert.ok(geometry.toolbarHeight<=56,'period and employee share one compact row');
       assert.ok(geometry.periodTouch.every(height=>height>=44),'compact periods keep accessible click targets');
+      await page.locator('#reportFilterToggle').click();
     }
     assert.equal(await page.locator('.report-summary').isVisible(),false,'visit metrics stay inside the closed disclosure');
     if(width<=390){
@@ -80,7 +82,7 @@ try {
     await page.locator('#reportPerformerFilter').selectOption('33333333-3333-4333-8333-333333333333');
     await page.getByRole('button',{name:'Всё время',exact:true}).click();
     assert.equal(await page.locator('#reportPerformerFilter').inputValue(),'33333333-3333-4333-8333-333333333333','all cannot reset the employee');
-    assert.match(await page.locator('#reportFilterSummary').innerText(),/Сотрудник/);
+    assert.match(await page.locator('#reportFilterToggle').getAttribute('aria-label'),/Сотрудник/,'period control keeps the selected employee in its accessible context');
     if(await filter.isVisible())await filter.click();
     await page.locator('#reportFinanceOverview [data-finance-detail="profit"]').click();
     assert.match(await page.locator('[data-finance-detail-body]').innerText(),/себестоимости, налогов/);

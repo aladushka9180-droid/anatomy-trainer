@@ -120,6 +120,7 @@ try {
     assert.equal((await overview.locator('[data-finance-goods]').textContent()).trim(),'2 шт.');
     assert.match(await overview.locator('[data-finance-goods-note]').textContent(),/2\s000/);
     await overview.getByRole('slider').press('End');
+    await overview.locator('.finance-dashboard__selected').evaluate(button=>button.scrollIntoView({block:'center',behavior:'instant'}));
     await overview.locator('.finance-dashboard__selected').click();
     assert.match(money(await dialog.innerText()),/3500₽/);assert.equal(await dialog.locator('.finance-center__operation').count(),3);
     assert.match(await dialog.innerText(),/Возврат/);

@@ -3,6 +3,44 @@
   'use strict';
   const range = () => reportRange();
   const visitOverviewPlacements = [];
+  let referenceHeaderScope = '';
+  let referenceHeaderDisplay = '';
+  let referenceHeaderMedia = null;
+  function refreshReferenceHeader(scope) {
+    const head = document.querySelector('#analyticsView .report-head');
+    const filters = document.querySelector('#analyticsView .report-filters');
+    const performer = document.querySelector('#reportPerformerFilterWrap');
+    const summary = document.querySelector('#reportFilterSummary');
+    const toggle = document.querySelector('#reportFilterToggle');
+    const exportButton = document.querySelector('#exportBookings');
+    if (!head || !filters || !performer || !summary || !toggle || !exportButton) return;
+    let controls = head.querySelector('.report-reference-controls');
+    if (!controls) {
+      controls = document.createElement('div');
+      controls.className = 'report-reference-controls';
+      exportButton.before(controls);
+      controls.append(filters);
+      toggle.insertAdjacentHTML('afterbegin', '<svg class="report-reference-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18"/></svg>');
+      performer.insertAdjacentHTML('afterbegin', '<svg class="report-reference-team" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 4v3"/></svg>');
+      referenceHeaderMedia = window.matchMedia?.('(min-width:1000px)') || null;
+      referenceHeaderMedia?.addEventListener('change', () => refreshReferenceHeader());
+      const observer = new MutationObserver(records => {
+        if (summary.textContent !== referenceHeaderDisplay) refreshReferenceHeader(summary.textContent);
+        else if (records.some(record => record.type === 'attributes')) refreshReferenceHeader();
+      });
+      observer.observe(summary, { childList:true, characterData:true, subtree:true });
+      observer.observe(performer, { attributes:true, attributeFilter:['hidden'] });
+    }
+    if (scope) referenceHeaderScope = scope;
+    if (!referenceHeaderScope) referenceHeaderScope = summary.textContent;
+    const desktop = referenceHeaderMedia?.matches === true;
+    const target = desktop ? controls : filters.querySelector('.report-toolbar');
+    if (target && performer.parentElement !== target) target.append(performer);
+    referenceHeaderDisplay = desktop && !performer.hidden ? referenceHeaderScope.split(' · ')[0] : referenceHeaderScope;
+    if (summary.textContent !== referenceHeaderDisplay) summary.textContent = referenceHeaderDisplay;
+    toggle.title = referenceHeaderScope;
+    toggle.setAttribute('aria-label', `Период статистики: ${referenceHeaderScope}`);
+  }
   function restoreVisitOverview() {
     visitOverviewPlacements.splice(0).forEach(({ node, anchor }) => {
       if (anchor.isConnected) anchor.replaceWith(node);
@@ -414,6 +452,7 @@
     }
   });
   audit.mount();
+  refreshReferenceHeader();
   mountReportClarity();
   mountReportMethodology();
   refreshReportMethodology();

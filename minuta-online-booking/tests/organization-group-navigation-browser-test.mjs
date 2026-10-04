@@ -162,6 +162,18 @@ try {
     const f=await fixture({width,theme,longPanels:true});try{
       for(const[group,sections]of Object.entries(grouping))for(const section of sections){
         await choose(f.page,group,section);
+        if(group==='sales'){
+          const strip=await f.page.evaluate(()=>{
+            const nav=document.querySelector('#organizationSectionNav'),bounds=nav.getBoundingClientRect();
+            const buttons=[...nav.querySelectorAll('button')].filter(button=>button.checkVisibility());
+            const active=nav.querySelector('.active').getBoundingClientRect();
+            return {overflowX:getComputedStyle(nav).overflowX,wrap:getComputedStyle(nav).flexWrap,
+              rows:new Set(buttons.map(button=>Math.round(button.getBoundingClientRect().top))).size,
+              pageOverflow:document.documentElement.scrollWidth>innerWidth+2,activeVisible:active.left>=bounds.left-1&&active.right<=bounds.right+1};
+          });
+          assert.equal(strip.pageOverflow,false,'Scrollable sales tabs cannot overflow the page');
+          if(width<=760){assert.equal(strip.wrap,'nowrap');assert.equal(strip.overflowX,'auto');assert.equal(strip.rows,1);assert.equal(strip.activeVisible,true,'Selected sales tab is revealed');}
+        }
         if(output&&theme==='pink-porcelain'&&[390,1440].includes(width)&&['inventoryPanel','retentionPanel','paymentProviderPanel'].includes(section)){
           await f.page.screenshot({path:resolve(output,`organization-groups-after-click-${section}-${width}.png`),animations:'disabled'});
         }
@@ -189,6 +201,17 @@ try {
     await page.locator('[data-organization-group="team"]').click();
     assert.equal(await page.locator('#organizationSectionSelect').inputValue(),'inventoryPanel','group must restore its last permitted section');
     await page.locator('[data-organization-group="sales"]').click();
+    await choose(page,'sales','retentionPanel');
+    await choose(page,'team','inventoryPanel');
+    await page.locator('[data-organization-group="sales"]').click();
+    assert.equal(await page.locator('#organizationSectionSelect').inputValue(),'retentionPanel');
+    const restoredTabVisible=await page.evaluate(()=>{
+      const nav=document.querySelector('#organizationSectionNav').getBoundingClientRect();
+      const selected=document.querySelector('#organizationSectionNav .active').getBoundingClientRect();
+      return selected.left>=nav.left-1&&selected.right<=nav.right+1;
+    });
+    assert.equal(restoredTabVisible,true,'Restoring a group reveals its last sales tab without changing focus');
+    await choose(page,'sales','loyaltyPanel');
     await page.evaluate(()=>{
       document.querySelector('#organizationSectionNav [data-section-target="inventoryPanel"]').disabled=true;
       document.querySelector('#organizationSectionNav [data-section-target="resourcesPanel"]').setAttribute('aria-disabled','true');

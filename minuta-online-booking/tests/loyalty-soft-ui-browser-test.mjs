@@ -82,10 +82,16 @@ try {
   await page.locator('#loyaltyProgramForm button[type="submit"]').click();
   await page.locator('#loyaltySavedSummary').waitFor({state:'visible'});
   assert.equal(await page.locator('#loyaltyProgramForm').isVisible(),false,'Confirmed save collapses setup');
-  assert.match(await page.locator('#loyaltySavedTitle').innerText(),/10 визитов.*10%/);
+  assert.equal(await page.locator('#loyaltySavedTitle').innerText(),'10% скидка');
+  assert.equal(await page.locator('#loyaltySavedGoal').innerText(),'За 10 завершённых визитов');
+  assert.equal(await page.locator('#loyaltySavedDetails').innerText(),'90 дней с выдачи');
+  assert.equal(await page.locator('#loyaltyWorkflowStatus').innerText(),'Включена');
+  assert.equal(await page.locator('#loyaltySavedStatus').count(),1,'One authoritative status survives both view modes');
+  assert.equal(await page.locator('#loyaltyCycleNote').isVisible(),false,'Cycle explanation stays with the editor');
   assert.equal(await page.evaluate(() => document.activeElement.id),'editLoyaltyProgram','Keyboard focus remains visible');
   checks.push('failed save preserves draft; confirmed save collapses and restores visible focus');
   await page.locator('#editLoyaltyProgram').press('Enter');
+  assert.match(await page.locator('#loyaltyCycleNote').innerText(),/Текущие циклы сохраняют прежние правила/);
   assert.equal(await page.locator('#loyaltyRewardTitle').inputValue(),'Спасибо за доверие');
   assert.equal(await page.locator('#loyaltyRewardTerms').inputValue(),'Одна услуга');
   await page.locator('#loyaltyRewardValue').fill('15');
@@ -156,7 +162,8 @@ try {
   assert.equal(await page.locator('#loyaltySavedStatus').innerText(),'Включена','Unsaved off keeps actual status');
   await page.locator('#loyaltyProgramForm button[type="submit"]').click();
   await page.locator('#loyaltySavedSummary').waitFor({state:'visible'});
-  assert.match(await page.locator('#loyaltySavedDetails').innerText(),/выключена/);
+  assert.equal(await page.locator('#loyaltySavedStatus').innerText(),'Выключена');
+  assert.equal(await page.locator('#loyaltySavedDetails').innerText(),'90 дней с выдачи','Turning off retains saved reward validity');
   assert.equal(await page.locator('[data-redeem-loyalty-reward]').count(),1,'Switching off retains issued rewards');
   checks.push('mobile disclosure validation; safe preview; all reward kinds; off preserves pending rewards');
   if (output) await writeFile(path.join(output,'verification.json'),JSON.stringify({checks,environment:'isolated fake RPC; production markup, controller and styles',widths},null,2));

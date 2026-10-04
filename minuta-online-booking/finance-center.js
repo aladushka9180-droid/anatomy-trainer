@@ -169,8 +169,8 @@
       profit:'<ellipse cx="9" cy="6" rx="6" ry="3"/><path d="M3 6v5c0 1.7 2.7 3 6 3m-6-3v5c0 1.7 2.7 3 6 3m6-13v4"/><circle cx="16" cy="16" r="5"/>',
       received:'<path d="M20 8V5a2 2 0 0 0-2-2H6a3 3 0 0 0 0 6h14v11H6a3 3 0 0 1-3-3V6"/><path d="M20 12h-5a2 2 0 0 0 0 4h5"/><path d="M16 14h.01"/>',
       expense:'<path d="M5 3l2 1 2-1 3 1 3-1 2 1 2-1v18l-2-1-2 1-3-1-3 1-2-1-2 1V3Z"/><path d="M9 8h6m-6 4h6m-6 4h4"/>',
-      rent:'<path d="M4 21V5l8-2v18m0-13h8v13M2 21h20M8 7h.01M8 11h.01M8 15h.01M16 12h.01M16 16h.01"/>',
-      goods:'<path d="m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4m-9 4v10M7.5 5l9 4"/>'
+      rent:'<path d="m3 10 9-8 9 8M5 8v13h5v-7h4v7h5V8"/>',
+      goods:'<path d="M5 7h14l2 14H3L5 7Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'
     };
     return `<svg class="finance-center__metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[kind]}</svg>`;
   }
