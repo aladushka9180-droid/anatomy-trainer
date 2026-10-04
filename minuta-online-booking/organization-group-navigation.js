@@ -63,6 +63,15 @@
       }
     };
 
+    const revealSelectedSection = (selected = null) => {
+      if (nav.dataset.activeOrganizationGroup !== 'sales' || !window.matchMedia('(max-width:760px)').matches) return;
+      const button = selected || sections().find(item => item.dataset.sectionTarget === nav.dataset.activeSectionTarget);
+      if (!button || !permitted(button)) return;
+      const bounds = button.getBoundingClientRect(), viewport = nav.getBoundingClientRect();
+      if (bounds.left < viewport.left + 4) nav.scrollLeft += bounds.left - viewport.left - 4;
+      else if (bounds.right > viewport.right - 4) nav.scrollLeft += bounds.right - viewport.right + 4;
+    };
+
     const refresh = (preferred = null) => {
       const buttons = sections();
       if (buttons.some(button => !sectionGroups.has(button.dataset.sectionTarget))) {
@@ -94,6 +103,7 @@
       else workspace.removeAttribute('data-organization-groups-ready');
       groups.hidden = !selected;
       updateScrollOffset();
+      revealSelectedSection(selected);
     };
 
     groups.addEventListener('click', event => {
@@ -131,7 +141,7 @@
       attributeFilter:['class', 'hidden', 'disabled', 'aria-disabled', 'aria-current', 'data-active-section-target']
     });
     if (typeof ResizeObserver === 'function') {
-      resizeObserver = new ResizeObserver(updateScrollOffset);
+      resizeObserver = new ResizeObserver(() => { updateScrollOffset(); revealSelectedSection(); });
       resizeObserver.observe(shell);
     }
     refresh();

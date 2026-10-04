@@ -11,7 +11,9 @@
       const url = new URL('loyalty-soft-ui.css', source); url.search = source.search; sheet.href = url.href;
       document.head.append(sheet);
     }
-    const icon = name => `<svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-${name}"></use></svg>`;
+    const icon = name => name === 'gift'
+      ? '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11h16v9H4zM3 7h18v4H3zM12 7v13"/><path d="M12 7H8.5A2.5 2.5 0 1 1 11 4.5L12 7Zm0 0h3.5A2.5 2.5 0 1 0 13 4.5L12 7Z"/></svg>'
+      : `<svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-${name}"></use></svg>`;
     const make = (tag, className, html = '') => {
       const node = document.createElement(tag); node.className = className; node.innerHTML = html; return node;
     };
@@ -20,9 +22,13 @@
       panel.querySelector('.panel-head h3')?.insertAdjacentHTML('afterbegin', icon('heart'));
       panel.querySelector('.panel-head small')?.remove();
       panel.querySelector('.organization-invite-help').textContent = 'Награждайте клиентов за завершённые визиты.';
-      const heading = make('div','ls-settings-head',`${icon('settings')}<strong>Настройки программы</strong><span id="loyaltySavedStatus" class="ls-status"></span>`);
-      form.prepend(heading);
-      const summary = make('section','ls-saved-summary',`<div>${icon('heart')}<span><strong id="loyaltySavedTitle"></strong><small id="loyaltySavedDetails"></small></span></div><button type="button" class="secondary-button" id="editLoyaltyProgram" aria-controls="loyaltyProgramForm" aria-expanded="false">${icon('edit')}Изменить</button>`);
+      const help = panel.querySelector('.organization-invite-help'), status = $('#loyaltyWorkflowStatus');
+      const intro = make('div','ls-intro-row'); help.before(intro); intro.append(help,status);
+      status.classList.add('ls-status'); status.innerHTML = '<span id="loyaltySavedStatus"></span>';
+      const heading = make('div','ls-settings-head',`${icon('settings')}<strong>Настройки программы</strong>`);
+      const cycleNote = make('p','ls-cycle-note'); cycleNote.id = 'loyaltyCycleNote';
+      form.prepend(heading,cycleNote);
+      const summary = make('section','ls-saved-summary',`<div>${icon('gift')}<span><strong id="loyaltySavedTitle"></strong><small id="loyaltySavedGoal"></small><small id="loyaltySavedDetails"></small></span></div><button type="button" class="secondary-button" id="editLoyaltyProgram" aria-controls="loyaltyProgramForm" aria-expanded="false">${icon('edit')}Изменить</button>`);
       summary.id = 'loyaltySavedSummary'; summary.hidden = true; form.before(summary);
       const sections = [...fields.children];
       const goalLabel = $('#loyaltyGoalPreset').closest('label'), validityLabel = $('#loyaltyValidity').closest('label');
@@ -61,11 +67,16 @@
         $('#editLoyaltyProgram').setAttribute('aria-expanded', String(open));
         if (focus) (open ? $('#loyaltyEnabled') : $('#editLoyaltyProgram')).focus();
       },
-      saved(data, ruleDescription) {
+      saved(data, rewardDescription, goalDescription) {
         $('#loyaltySavedStatus').textContent = data?.enabled ? 'Включена' : 'Выключена';
-        $('#loyaltySavedTitle').textContent = data?.rule?.id ? ruleDescription : 'Программа выключена';
+        $('#loyaltyWorkflowStatus').dataset.enabled = String(Boolean(data?.enabled));
+        $('#loyaltyCycleNote').textContent = data?.enabled
+          ? 'Текущие циклы сохраняют прежние правила. Изменения применяются к новым циклам.'
+          : 'История и выданные награды сохранены.';
+        $('#loyaltySavedTitle').textContent = data?.rule?.id ? rewardDescription : 'Программа ещё не настроена';
+        $('#loyaltySavedGoal').textContent = data?.rule?.id ? goalDescription : '';
         $('#loyaltySavedDetails').textContent = data?.rule?.id
-          ? `${data.rule.validity_days ? `${data.rule.validity_days} дней с выдачи` : 'Без срока'} · ${data.enabled ? 'Программа включена' : 'Программа выключена'}`
+          ? (data.rule.validity_days ? `${data.rule.validity_days} дней с выдачи` : 'Без срока')
           : 'Настройте цель, награду и срок.';
       },
       preview(title, terms) {
@@ -282,8 +293,8 @@
       const clients = payload?.clients || [];
       $('#loyaltyAdjustmentClient').innerHTML = `<option value="">Выберите клиента</option>${clients.map(client => `<option value="${escapeHtml(client.id)}">${escapeHtml(client.client_name || 'Клиент')}</option>`).join('')}`;
       renderClients(); renderRewards(); renderHistory(); updateForm(); renderCard();
-      $('#loyaltyWorkflowStatus').textContent = enabled ? 'Программа включена. Текущие циклы сохраняют правила, с которыми начались.' : 'Программа выключена. История и выданные награды сохранены.';
-      softView?.saved(payload, `${rule.goal_visits} ${visitWord(rule.goal_visits)} → ${rewardText(rule)}`);
+      if (!softView) $('#loyaltyWorkflowStatus').textContent = enabled ? 'Программа включена. Текущие циклы сохраняют правила, с которыми начались.' : 'Программа выключена. История и выданные награды сохранены.';
+      softView?.saved(payload, rewardText(rule), `За ${rule.goal_visits} ${visitWord(rule.goal_visits) === 'визит' ? 'завершённый' : 'завершённых'} ${visitWord(rule.goal_visits)}`);
       if (editing === null) editing = !rule.id;
       softView?.edit(editing);
       applyWriteAvailability?.();
