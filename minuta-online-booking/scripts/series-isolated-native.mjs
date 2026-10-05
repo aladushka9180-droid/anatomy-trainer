@@ -148,7 +148,7 @@ export async function executeStand({canary=false,schemaPath,schemaSha256,receipt
    const hashes=[];function walk(base,target){for(const entry of readdirSync(base,{withFileTypes:true})){const path=join(base,entry.name),remote=target+'/'+entry.name;assert.equal(entry.isSymbolicLink(),false,'payload symlink refused');if(entry.isDirectory())walk(path,remote);else hashes.push(`${sha(readFileSync(path))}  ${remote}`);}}
    walk(runtime,'/series/runtime');walk(payload,'/series/payload');
    stage='runtime-and-input-hashes';
-   await exec(['/usr/bin/sha256sum','--check'],{input:hashes.join('\n')+'\n',checksumDiagnostic:true});receipt.runtimeAndInputHashesVerified=true;
+   await exec(['/usr/bin/sha256sum','-c','-'],{input:hashes.join('\n')+'\n',checksumDiagnostic:true});receipt.runtimeAndInputHashesVerified=true;
    stage=canary?'native-node-pg-canary':'native-full-series';
    const result=await exec(['/usr/bin/env','-i','MINUTA_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/eldion-series-fixture',
     'MINUTA_SERIES_EPHEMERAL_CONFIRM=SCHEMA_ONLY_EMPTY_DATABASE','MINUTA_TEST_PROJECT_REF=eldion-series-fixture',
