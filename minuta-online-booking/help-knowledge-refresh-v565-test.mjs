@@ -27,7 +27,19 @@ const required = [
 for (const slug of required) {
   const article = articles.find(item => item.slug === slug);
   assert.ok(article, `Нет новой статьи ${slug}`);
-  assert.equal(article.reviewedAt, '7 сентября 2026', `${slug}: нет даты проверки`);
+  assert.equal(article.updatedAt, '5 октября 2026', `${slug}: нет даты редакции`);
+  assert.equal(article.reviewedAt, undefined, `${slug}: редакция не должна подменять живую проверку`);
+}
+
+const categorySlugs = new Set(context.window.MINUTA_HELP_CATEGORIES.map(category => category.slug));
+const articleSlugs = new Set(articles.map(article => article.slug));
+for (const article of articles) {
+  assert.ok(categorySlugs.has(article.categorySlug), `${article.slug}: неизвестный раздел`);
+  assert.ok(article.prerequisites?.length && article.prerequisites.every(item => typeof item === 'string' && item.trim()), `${article.slug}: не описаны условия начала`);
+  assert.ok(article.outcome?.trim(), `${article.slug}: не описана проверка результата`);
+  assert.ok(article.troubleshooting?.length && article.troubleshooting.every(item => item.title?.trim() && item.text?.trim()), `${article.slug}: нет решения проблем`);
+  assert.ok(article.related?.length && article.related.every(slug => articleSlugs.has(slug) && slug !== article.slug), `${article.slug}: неверные связанные инструкции`);
+  assert.ok(article.related.every(slug => articles.find(item => item.slug === slug)?.audience === article.audience), `${article.slug}: смешаны инструкции для разных пользователей`);
 }
 
 const helpData = read('help/help-data.js');

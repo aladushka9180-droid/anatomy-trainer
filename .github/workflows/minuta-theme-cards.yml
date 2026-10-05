@@ -121,8 +121,11 @@ jobs:
       - run: node minuta-online-booking/tests/provider-brand-signature-browser-test.mjs
       - run: node minuta-online-booking/tests/eldion-messages-brand-browser-test.mjs
       - run: node minuta-online-booking/tests/settings-search-navigation-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-sections-soft-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-help-workspace-browser-test.mjs
       - run: node minuta-online-booking/tests/contextual-help-labels-browser-test.mjs
+      - run: node minuta-online-booking/help/tools/verify-process-visuals.mjs
+      - run: node minuta-online-booking/tests/help-knowledge-rose-browser-test.mjs
       - name: Upload visual regression evidence
         if: failure()
         uses: actions/upload-artifact@v4

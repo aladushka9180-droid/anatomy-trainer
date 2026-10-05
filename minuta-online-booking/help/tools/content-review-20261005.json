@@ -1,0 +1,1433 @@
+{
+  "schemaVersion": 1,
+  "basisCommit": "c219d1a2d86cec1624fbe9ab7136df4950d4d3a3",
+  "reviewBasis": "Source-assisted editorial review. Not live UI, backend, delivery or payment acceptance.",
+  "originalArticles": 86,
+  "originalRetained": 86,
+  "articlesTotal": 97,
+  "addedArticles": 11,
+  "editorialGuides": 97,
+  "bodyRevised": 36,
+  "checks": {
+    "syntax": true,
+    "uniqueSlugs": true,
+    "oldAudiencePreserved": true,
+    "oldCategoryPreserved": true,
+    "metadataComplete": true,
+    "relatedExistsWithinAudience": true,
+    "internalArticleLinksResolve": true
+  },
+  "limitations": [
+    "Browser live check blocked by saved permission verification; not bypassed.",
+    "No production RPC/SQL/data/messages/payments invoked.",
+    "updatedAt means editorial update, not live verification.",
+    "Illustrations supplied by separate help-visuals.js manifest.",
+    "Legacy reviewedAt test now checks editorial date and article metadata."
+  ],
+  "articles": [
+    {
+      "slug": "first-booking",
+      "audience": "specialist",
+      "category": "getting-started",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "create-manual-booking",
+      "audience": "specialist",
+      "category": "bookings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "client-phone-autofill",
+      "audience": "specialist",
+      "category": "bookings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "block-time-in-schedule",
+      "audience": "specialist",
+      "category": "bookings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "create-recurring-booking-series",
+      "audience": "specialist",
+      "category": "bookings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "reschedule-provider-booking",
+      "audience": "specialist",
+      "category": "bookings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "confirm-or-delete-booking",
+      "audience": "specialist",
+      "category": "bookings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "record-visit-result-and-payment",
+      "audience": "specialist",
+      "category": "bookings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "find-and-filter-bookings",
+      "audience": "specialist",
+      "category": "bookings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "view-team-calendar",
+      "audience": "specialist",
+      "category": "schedule",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/work-hours-soft.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "set-regular-workweek",
+      "audience": "specialist",
+      "category": "schedule",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/work-hours-soft.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "customize-workdays-and-booking-step",
+      "audience": "specialist",
+      "category": "schedule",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/work-hours-soft.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "schedule-date-exceptions",
+      "audience": "specialist",
+      "category": "schedule",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/work-hours-soft.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "share-free-slots",
+      "audience": "specialist",
+      "category": "schedule",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/work-hours-soft.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "add-service",
+      "audience": "specialist",
+      "category": "services",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/provider-price-list.js",
+        "minuta-online-booking/booking-widgets.js"
+      ]
+    },
+    {
+      "slug": "client-card-notes-and-labels",
+      "audience": "specialist",
+      "category": "clients",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/client-profile-card.js",
+        "minuta-online-booking/client-directory.js",
+        "minuta-online-booking/client-import.js",
+        "minuta-online-booking/client-records.js",
+        "minuta-online-booking/client-results.js",
+        "minuta-online-booking/retention-management.js"
+      ]
+    },
+    {
+      "slug": "repeat-client-booking",
+      "audience": "specialist",
+      "category": "clients",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/client-profile-card.js",
+        "minuta-online-booking/client-directory.js",
+        "minuta-online-booking/client-import.js",
+        "minuta-online-booking/client-records.js",
+        "minuta-online-booking/client-results.js",
+        "minuta-online-booking/retention-management.js"
+      ]
+    },
+    {
+      "slug": "client-search-filters",
+      "audience": "specialist",
+      "category": "clients",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/client-profile-card.js",
+        "minuta-online-booking/client-directory.js",
+        "minuta-online-booking/client-import.js",
+        "minuta-online-booking/client-records.js",
+        "minuta-online-booking/client-results.js",
+        "minuta-online-booking/retention-management.js"
+      ]
+    },
+    {
+      "slug": "client-online-booking-block",
+      "audience": "specialist",
+      "category": "clients",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/client-profile-card.js",
+        "minuta-online-booking/client-directory.js",
+        "minuta-online-booking/client-import.js",
+        "minuta-online-booking/client-records.js",
+        "minuta-online-booking/client-results.js",
+        "minuta-online-booking/retention-management.js"
+      ]
+    },
+    {
+      "slug": "client-files-and-visit-notes",
+      "audience": "specialist",
+      "category": "clients",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/client-profile-card.js",
+        "minuta-online-booking/client-directory.js",
+        "minuta-online-booking/client-import.js",
+        "minuta-online-booking/client-records.js",
+        "minuta-online-booking/client-results.js",
+        "minuta-online-booking/retention-management.js"
+      ]
+    },
+    {
+      "slug": "client-private-results",
+      "audience": "specialist",
+      "category": "clients",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/client-profile-card.js",
+        "minuta-online-booking/client-directory.js",
+        "minuta-online-booking/client-import.js",
+        "minuta-online-booking/client-records.js",
+        "minuta-online-booking/client-results.js",
+        "minuta-online-booking/retention-management.js"
+      ]
+    },
+    {
+      "slug": "client-retention",
+      "audience": "specialist",
+      "category": "clients",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/client-profile-card.js",
+        "minuta-online-booking/client-directory.js",
+        "minuta-online-booking/client-import.js",
+        "minuta-online-booking/client-records.js",
+        "minuta-online-booking/client-results.js",
+        "minuta-online-booking/retention-management.js"
+      ]
+    },
+    {
+      "slug": "create-batch-bookings-for-client",
+      "audience": "specialist",
+      "category": "clients",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/client-profile-card.js",
+        "minuta-online-booking/client-directory.js",
+        "minuta-online-booking/client-import.js",
+        "minuta-online-booking/client-records.js",
+        "minuta-online-booking/client-results.js",
+        "minuta-online-booking/retention-management.js"
+      ]
+    },
+    {
+      "slug": "import-clients-and-booking-history",
+      "audience": "specialist",
+      "category": "clients",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/client-profile-card.js",
+        "minuta-online-booking/client-directory.js",
+        "minuta-online-booking/client-import.js",
+        "minuta-online-booking/client-records.js",
+        "minuta-online-booking/client-results.js",
+        "minuta-online-booking/retention-management.js"
+      ]
+    },
+    {
+      "slug": "organization-name",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "organization-structure",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "add-branch",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "branches-and-employees",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "invite-employee",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "employee-rights",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "roles-access-safety",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "service-resources",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "booking-visibility-diagnostics",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "add-staff-shift",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "add-staff-absence",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "substitute-booking-specialist",
+      "audience": "specialist",
+      "category": "team",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/team-schedule-ui.js"
+      ]
+    },
+    {
+      "slug": "payroll-plan",
+      "audience": "specialist",
+      "category": "finance",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/payroll-management.js",
+        "minuta-online-booking/payment-management.js",
+        "minuta-online-booking/commerce-management.js"
+      ]
+    },
+    {
+      "slug": "calculate-payroll",
+      "audience": "specialist",
+      "category": "finance",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/payroll-management.js",
+        "minuta-online-booking/payment-management.js",
+        "minuta-online-booking/commerce-management.js"
+      ]
+    },
+    {
+      "slug": "setup-yookassa",
+      "audience": "specialist",
+      "category": "finance",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/payroll-management.js",
+        "minuta-online-booking/payment-management.js",
+        "minuta-online-booking/commerce-management.js"
+      ]
+    },
+    {
+      "slug": "yookassa-refund",
+      "audience": "specialist",
+      "category": "finance",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/payroll-management.js",
+        "minuta-online-booking/payment-management.js",
+        "minuta-online-booking/commerce-management.js"
+      ]
+    },
+    {
+      "slug": "operation-result-uncertain",
+      "audience": "specialist",
+      "category": "finance",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/payroll-management.js",
+        "minuta-online-booking/payment-management.js",
+        "minuta-online-booking/commerce-management.js"
+      ]
+    },
+    {
+      "slug": "loyalty-rules",
+      "audience": "specialist",
+      "category": "loyalty",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/loyalty-program-v166.js",
+        "minuta-online-booking/benefit-management.js"
+      ]
+    },
+    {
+      "slug": "adjust-redeem-loyalty",
+      "audience": "specialist",
+      "category": "loyalty",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/loyalty-program-v166.js",
+        "minuta-online-booking/benefit-management.js"
+      ]
+    },
+    {
+      "slug": "create-benefit-product",
+      "audience": "specialist",
+      "category": "loyalty",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/loyalty-program-v166.js",
+        "minuta-online-booking/benefit-management.js"
+      ]
+    },
+    {
+      "slug": "issue-apply-benefit",
+      "audience": "specialist",
+      "category": "loyalty",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/loyalty-program-v166.js",
+        "minuta-online-booking/benefit-management.js"
+      ]
+    },
+    {
+      "slug": "create-apply-promo",
+      "audience": "specialist",
+      "category": "loyalty",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/loyalty-program-v166.js",
+        "minuta-online-booking/benefit-management.js"
+      ]
+    },
+    {
+      "slug": "inventory-setup",
+      "audience": "specialist",
+      "category": "inventory",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/inventory-management.js"
+      ]
+    },
+    {
+      "slug": "inventory-movement",
+      "audience": "specialist",
+      "category": "inventory",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/inventory-management.js"
+      ]
+    },
+    {
+      "slug": "inventory-receipt",
+      "audience": "specialist",
+      "category": "inventory",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/inventory-management.js"
+      ]
+    },
+    {
+      "slug": "inventory-expense-writeoff",
+      "audience": "specialist",
+      "category": "inventory",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/inventory-management.js"
+      ]
+    },
+    {
+      "slug": "inventory-transfer",
+      "audience": "specialist",
+      "category": "inventory",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/inventory-management.js"
+      ]
+    },
+    {
+      "slug": "inventory-count-adjustment",
+      "audience": "specialist",
+      "category": "inventory",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/inventory-management.js"
+      ]
+    },
+    {
+      "slug": "inventory-journal",
+      "audience": "specialist",
+      "category": "inventory",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/inventory-management.js"
+      ]
+    },
+    {
+      "slug": "inventory-auto-deduct",
+      "audience": "specialist",
+      "category": "inventory",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/inventory-management.js"
+      ]
+    },
+    {
+      "slug": "telegram",
+      "audience": "specialist",
+      "category": "notifications",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/client-messaging.js"
+      ]
+    },
+    {
+      "slug": "notification-queue",
+      "audience": "specialist",
+      "category": "notifications",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/client-messaging.js"
+      ]
+    },
+    {
+      "slug": "notification-templates",
+      "audience": "specialist",
+      "category": "notifications",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/client-messaging.js"
+      ]
+    },
+    {
+      "slug": "statistics-filters",
+      "audience": "specialist",
+      "category": "analytics",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/statistics-audit-provider.js",
+        "minuta-online-booking/report-export-provider.js"
+      ]
+    },
+    {
+      "slug": "statistics-overview",
+      "audience": "specialist",
+      "category": "analytics",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/statistics-audit-provider.js",
+        "minuta-online-booking/report-export-provider.js"
+      ]
+    },
+    {
+      "slug": "statistics-sections",
+      "audience": "specialist",
+      "category": "analytics",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/statistics-audit-provider.js",
+        "minuta-online-booking/report-export-provider.js"
+      ]
+    },
+    {
+      "slug": "export-report",
+      "audience": "specialist",
+      "category": "analytics",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/statistics-audit-provider.js",
+        "minuta-online-booking/report-export-provider.js"
+      ]
+    },
+    {
+      "slug": "business-goals",
+      "audience": "specialist",
+      "category": "analytics",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/statistics-audit-provider.js",
+        "minuta-online-booking/report-export-provider.js"
+      ]
+    },
+    {
+      "slug": "add-portfolio-work",
+      "audience": "specialist",
+      "category": "portfolio",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "manage-portfolio",
+      "audience": "specialist",
+      "category": "portfolio",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "publish-reviews",
+      "audience": "specialist",
+      "category": "portfolio",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "settings-quick-start",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "subscription-plans",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "booking-rules",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "organization-booking-rules",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "visitor-alerts",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "settings-batch-bookings",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "settings-group-sessions",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "data-governance",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "account-security",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "cabinet-layout-theme",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "client-page-appearance",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "booking-card-appearance",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "mobile-navigation",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "install-app",
+      "audience": "specialist",
+      "category": "settings",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/data-governance.js"
+      ]
+    },
+    {
+      "slug": "voice-assistant",
+      "audience": "specialist",
+      "category": "assistant",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/voice-assistant.js"
+      ]
+    },
+    {
+      "slug": "voice-assistant-actions",
+      "audience": "specialist",
+      "category": "assistant",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/voice-assistant.js"
+      ]
+    },
+    {
+      "slug": "book-online",
+      "audience": "client",
+      "category": "client-booking",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/index.html",
+        "minuta-online-booking/app.js",
+        "minuta-online-booking/client-offline-flexible.js"
+      ]
+    },
+    {
+      "slug": "reschedule",
+      "audience": "client",
+      "category": "client-booking",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/index.html",
+        "minuta-online-booking/app.js",
+        "minuta-online-booking/client-offline-flexible.js"
+      ]
+    },
+    {
+      "slug": "find-booking",
+      "audience": "client",
+      "category": "client-booking",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/index.html",
+        "minuta-online-booking/app.js",
+        "minuta-online-booking/client-offline-flexible.js"
+      ]
+    },
+    {
+      "slug": "join-booking-waitlist",
+      "audience": "client",
+      "category": "client-booking",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/index.html",
+        "minuta-online-booking/app.js",
+        "minuta-online-booking/client-offline-flexible.js"
+      ]
+    },
+    {
+      "slug": "connect-telegram",
+      "audience": "client",
+      "category": "client-notifications",
+      "origin": "existing",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": false,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/index.html",
+        "minuta-online-booking/app.js"
+      ]
+    },
+    {
+      "slug": "edit-service",
+      "audience": "specialist",
+      "category": "services",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/provider-price-list.js",
+        "minuta-online-booking/booking-widgets.js"
+      ]
+    },
+    {
+      "slug": "hide-or-delete-service",
+      "audience": "specialist",
+      "category": "services",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/provider-price-list.js",
+        "minuta-online-booking/booking-widgets.js"
+      ]
+    },
+    {
+      "slug": "share-price-list",
+      "audience": "specialist",
+      "category": "services",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/provider-price-list.js",
+        "minuta-online-booking/booking-widgets.js"
+      ]
+    },
+    {
+      "slug": "booking-widget",
+      "audience": "specialist",
+      "category": "services",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.js",
+        "minuta-online-booking/provider-price-list.js",
+        "minuta-online-booking/booking-widgets.js"
+      ]
+    },
+    {
+      "slug": "create-sale",
+      "audience": "specialist",
+      "category": "finance",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/payroll-management.js",
+        "minuta-online-booking/payment-management.js",
+        "minuta-online-booking/commerce-management.js"
+      ]
+    },
+    {
+      "slug": "refund-sale-accounting",
+      "audience": "specialist",
+      "category": "finance",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/payroll-management.js",
+        "minuta-online-booking/payment-management.js",
+        "minuta-online-booking/commerce-management.js"
+      ]
+    },
+    {
+      "slug": "payroll-advance-and-offset",
+      "audience": "specialist",
+      "category": "finance",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/payroll-management.js",
+        "minuta-online-booking/payment-management.js",
+        "minuta-online-booking/commerce-management.js"
+      ]
+    },
+    {
+      "slug": "provider-waitlist",
+      "audience": "specialist",
+      "category": "bookings",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/provider.html",
+        "minuta-online-booking/provider.js"
+      ]
+    },
+    {
+      "slug": "client-prepayment",
+      "audience": "client",
+      "category": "client-booking",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/index.html",
+        "minuta-online-booking/app.js",
+        "minuta-online-booking/client-offline-flexible.js"
+      ]
+    },
+    {
+      "slug": "client-booking-uncertain",
+      "audience": "client",
+      "category": "client-booking",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/index.html",
+        "minuta-online-booking/app.js",
+        "minuta-online-booking/client-offline-flexible.js"
+      ]
+    },
+    {
+      "slug": "client-offline-request",
+      "audience": "client",
+      "category": "client-booking",
+      "origin": "added",
+      "editorialDate": "5 октября 2026",
+      "bodyRevised": true,
+      "guideAdded": true,
+      "referenceFiles": [
+        "minuta-online-booking/index.html",
+        "minuta-online-booking/app.js",
+        "minuta-online-booking/client-offline-flexible.js"
+      ]
+    }
+  ],
+  "independentReview": {
+    "coverage": {
+      "articles": 97,
+      "categories": 16
+    },
+    "confirmedDefectGroups": 12,
+    "correctedArticles": [
+      "create-manual-booking",
+      "reschedule-provider-booking",
+      "confirm-or-delete-booking",
+      "record-visit-result-and-payment",
+      "schedule-date-exceptions",
+      "client-retention",
+      "branches-and-employees",
+      "employee-rights",
+      "booking-visibility-diagnostics",
+      "substitute-booking-specialist",
+      "inventory-auto-deduct",
+      "business-goals",
+      "manage-portfolio",
+      "data-governance"
+    ],
+    "correctedSchemeLabels": [
+      "adjust-redeem-loyalty",
+      "add-branch",
+      "payroll-plan",
+      "reschedule"
+    ],
+    "reviewBasis": "Static comparison with current source. Local viewport QA is separate from live acceptance."
+  }
+}
