@@ -50,7 +50,7 @@ begin
     booking.performer_id current_performer,settings.reminder_minutes_before,
     coalesce((to_jsonb(booking)->>'notification_schedule_revision')::bigint,0) current_revision
   into v_job from public.notification_outbox queue
-  join public.bookings booking on booking.id=queue.booking_id
+  join public.bookings booking on booking.id=queue.booking_id and booking.organization_id=queue.organization_id
   join public.organization_notification_settings settings on settings.organization_id=queue.organization_id
   where queue.id=p_outbox;
   if not found then return false; end if;
@@ -78,6 +78,10 @@ begin
     where booking.id=v_job.booking_id and booking.status='confirmed'
       and booking.booking_date+booking.booking_time>(clock_timestamp() at time zone 'Europe/Samara')
       and booking.booking_date=v_job.current_date and booking.booking_time=v_job.current_time
+      and booking.organization_id=v_job.organization_id
+      and (v_job.audience<>'client' or v_job.recipient_key=
+        regexp_replace(coalesce(booking.client_phone,''),'[^0-9]','','g'))
+      and (v_job.audience<>'provider' or booking.performer_id=v_job.performer_id)
       and coalesce((to_jsonb(booking)->>'notification_schedule_revision')::bigint,0)=v_job.current_revision)
   then return false; end if;
   return not exists(

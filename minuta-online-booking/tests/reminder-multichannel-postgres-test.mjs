@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
-import {isolatedNotificationSetup,organization,phone,addBooking,enqueue,clearBookings} from './reminder-delivery-db-fixture.mjs';
+import {isolatedNotificationSetup,organization,phone,bookingId,addBooking,enqueue,clearBookings} from './reminder-delivery-db-fixture.mjs';
 
 assert.equal(process.env.MINUTA_REMINDER_EPHEMERAL_CONFIRM,'EMPTY_LOOPBACK_POSTGRES_17');
 const dsn=new URL(process.env.MINUTA_REMINDER_EPHEMERAL_DATABASE_URL||'');
@@ -20,6 +20,7 @@ async function connect() {
 }
 async function waitForLock(admin,pid) {
   for(let i=0;i<120;i++) {
+    await admin.query('select pg_stat_clear_snapshot()');
     if((await admin.query("select wait_event_type='Lock' waiting from pg_stat_activity where pid=$1",[pid])).rows[0]?.waiting)return;
     await new Promise(resolve=>setTimeout(resolve,25));
   }
@@ -63,6 +64,21 @@ try {
     assert.equal((await admin.query("select count(*)::int n from public.notification_outbox where status='sending'")).rows[0].n,1);checks++;
     assert.equal((await admin.query("select count(*)::int n from public.notification_outbox where status='cancelled'")).rows[0].n,1);checks++;
   }
+  await clearBookings(fixture);await addBooking(fixture,4,30);await enqueue(fixture);
+  await admin.query('begin');
+  await admin.query(`select pg_advisory_xact_lock(hashtextextended(
+    id::text||':client:'||booking_date::text||':'||booking_time::text||':0',0))
+    from public.bookings where id=$1`,[bookingId(4)]);
+  await a.query('begin');
+  const waitingPid=(await a.query('select pg_backend_pid() pid')).rows[0].pid;
+  const changedRecipient=a.query("select * from public.claim_minuta_notification_outbox(array['sms'],1)")
+    .then(value=>({value}),error=>({error}));
+  await waitForLock(admin,waitingPid);checks++;
+  await admin.query('update public.bookings set client_phone=$1 where id=$2',['79990000002',bookingId(4)]);
+  await admin.query('commit');
+  const obsolete=await changedRecipient;if(obsolete.error)throw obsolete.error;
+  assert.equal(obsolete.value.rows.length,0,'Recipient must be rechecked after the concurrent lock wait');checks++;
+  await a.query('commit');
   const dataBefore=(await admin.query('select jsonb_agg(to_jsonb(q)) rows from public.notification_outbox q')).rows;
   await admin.query(read('scripts/reminder-single-catchup-rollback.sql'));
   assert.deepEqual(await definitions(admin),original);checks++;

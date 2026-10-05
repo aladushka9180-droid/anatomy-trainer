@@ -110,6 +110,11 @@ try {
   check((await claim(db,['sms','telegram'])).length,0,'Changed client phone cannot receive an old reminder');
 
   await fresh();await connect('client','sms');await connect('client','telegram');
+  await addBooking(db,14,30);await enqueue(db);
+  await db.query('update public.bookings set organization_id=$1 where id=$2',['00000000-0000-4000-8000-000000000004',bookingId(14)]);
+  check((await claim(db,['sms','telegram'])).length,0,'Moved booking cannot deliver from the previous organization');
+
+  await fresh();await connect('client','sms');await connect('client','telegram');
   await addBooking(db,10,30);await enqueue(db);
   await db.exec('alter table public.bookings add column notification_schedule_revision bigint not null default 0;');
   const old=(await claim(db,['sms']))[0];
