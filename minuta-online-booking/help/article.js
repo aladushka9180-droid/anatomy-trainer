@@ -62,6 +62,7 @@
     const figure = document.createElement('figure');
     figure.className = 'article-visual';
     if (visual.kind) figure.dataset.kind = visual.kind;
+    if (visual.width > visual.height * 4) figure.dataset.zoom = 'below';
     const button = document.createElement('button');
     button.type = 'button';
     button.setAttribute('aria-label', `Увеличить изображение: ${visual.alt}`);

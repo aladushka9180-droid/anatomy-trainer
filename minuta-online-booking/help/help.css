@@ -131,6 +131,7 @@ main { width: min(1060px, calc(100% - 48px)); margin: 0 auto; }
 .article-visual img { width: 100%; height: auto; display: block; }
 .article-visual button > span { position: absolute; right: 14px; bottom: 14px; min-height: 38px; padding: 0 13px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--accent-strong); font-size: .76rem; font-weight: 650; }
 .article-visual button > span svg { width: 15px; height: 15px; }
+.article-visual[data-zoom="below"] button > span { position: static; min-height: 44px; display: flex; justify-content: center; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
 .article-visual figcaption { margin-top: 11px; color: var(--muted); font-size: .875rem; line-height: 1.55; }
 .article-visual-dialog { width: min(1120px, calc(100% - 32px)); max-width: none; padding: 12px; border: 0; border-radius: 22px; background: #fff; color: var(--text); box-shadow: 0 28px 90px rgba(53, 43, 49, .3); }
 .article-visual-dialog::backdrop { background: rgba(53, 43, 49, .68); backdrop-filter: blur(4px); }

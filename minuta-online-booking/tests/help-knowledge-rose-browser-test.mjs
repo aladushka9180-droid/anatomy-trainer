@@ -155,6 +155,7 @@ try {
       verify(appearance.background === 'rgb(255, 247, 250)', `${width}/${article.slug}: нежно-розовое оформление статьи`);
       verify(!appearance.overflow, `${width}/${article.slug}: статья без переполнения`);
       if (screenshotRoot && article.slug === 'view-team-calendar') await capturePage(`schedule-${width}.png`);
+      if (screenshotRoot && article.slug === 'find-and-filter-bookings') await capturePage(`bookings-${width}.png`);
       if (screenshotRoot && ['book-online', 'reschedule'].includes(article.slug)) await capturePage(`client-article-${article.slug}-${width}.png`);
     }
     await page.goto(`${base}article.html?slug=book-online`);
@@ -173,9 +174,20 @@ try {
     await providerPhoto.scrollIntoViewIfNeeded();
     await page.waitForFunction(() => document.querySelector('.article-visual[data-kind="screenshot"] img')?.complete);
     const displayedProviderPhoto = await providerPhoto.evaluate(image => image.currentSrc);
-    verify(displayedProviderPhoto.endsWith(`team-calendar-${width}.webp`), `${width}: снимок кабинета соответствует размеру экрана`);
+    verify(displayedProviderPhoto.endsWith(`personal-calendar-${width}.webp`), `${width}: основной снимок показывает личное расписание в соответствующем размере`);
     await page.locator('.article-visual[data-kind="screenshot"] button').first().click();
     verify(await page.locator('#articleVisualFull').getAttribute('src') === displayedProviderPhoto, `${width}: увеличение снимка кабинета сохраняет выбранную версию`);
+    await page.keyboard.press('Escape');
+    const teamPhoto = page.locator('.article-visual[data-kind="screenshot"] img[src*="team-calendar-"]');
+    await teamPhoto.scrollIntoViewIfNeeded();
+    await teamPhoto.evaluate(image => image.decode());
+    const displayedTeamPhoto = await teamPhoto.evaluate(image => image.currentSrc);
+    verify(displayedTeamPhoto.endsWith(`team-calendar-${width}.webp`), `${width}: фильтры команды показаны отдельным адаптивным снимком`);
+    const teamImageBox = await teamPhoto.boundingBox();
+    const teamZoomBox = await page.locator('.article-visual:has(img[src*="team-calendar-"]) button > span').boundingBox();
+    verify(teamZoomBox.y >= teamImageBox.y + teamImageBox.height - 1, `${width}: кнопка увеличения не перекрывает фильтры на узком снимке`);
+    await page.locator('.article-visual[data-kind="screenshot"]:has(img[src*="team-calendar-"]) button').click();
+    verify(await page.locator('#articleVisualFull').getAttribute('src') === displayedTeamPhoto, `${width}: увеличение фильтров команды открывает их показанную версию`);
     await page.keyboard.press('Escape');
     await page.goto(`${origin}/minuta-online-booking/__help-host.html?section=organization`);
     await page.getByRole('link', { name:'База знаний', exact:true }).click();

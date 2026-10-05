@@ -16,7 +16,7 @@ const second = '22222222-2222-4222-8222-222222222222';
 const orgId = '33333333-3333-4333-8333-333333333333';
 const locationId = '44444444-4444-4444-8444-444444444444';
 const serviceId = '55555555-5555-4555-8555-555555555555';
-const preferences = { version:9, theme:'pink-porcelain', layout:'soft', text_scale:'default', team_calendar_enabled:true, updated_at:1791198000000 };
+const preferences = { version:9, theme:'pink-porcelain', layout:'soft', text_scale:'default', team_calendar_enabled:process.env.NATIVE_CAPTURE_TEAM_ENABLED!=='0', updated_at:1791198000000 };
 preferences.booking_card_density='custom'; // Persisted test state, shown by the original settings renderer.
 const user = { id:uid, aud:'authenticated', role:'authenticated', email:'example@native-fixture.invalid', email_confirmed_at:date+'T07:00:00Z', app_metadata:{provider:'email',providers:['email']}, user_metadata:{display_name:'Анна · пример',provider_display_preferences:preferences}, identities:[], created_at:'2026-01-01T00:00:00Z' };
 const token = [Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url'),Buffer.from(JSON.stringify({sub:uid,aud:'authenticated',role:'authenticated',exp:1924992000})).toString('base64url'),'local-fixture-not-a-credential'].join('.');

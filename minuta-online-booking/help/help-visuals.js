@@ -270,31 +270,59 @@
   "find-and-filter-bookings": {
     "images": [
       {
+        "src": "images/native-local/personal-calendar-1440.webp",
+        "alt": "Основной экран «Записи» — личное расписание",
+        "caption": "Основной экран «Записи» — личное расписание. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1086,
+        "height": 900,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/personal-calendar-1440.webp",
+            "width": 1086,
+            "height": 900
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/personal-calendar-760.webp",
+            "width": 721,
+            "height": 701
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/personal-calendar-390.webp",
+            "width": 351,
+            "height": 697
+          }
+        ]
+      },
+      {
         "src": "images/native-local/booking-list-filters-1440.webp",
         "alt": "Поиск и фильтры журнала",
         "caption": "Поиск и фильтры журнала. Учебные данные.",
         "kind": "screenshot",
         "width": 1086,
-        "height": 439,
+        "height": 366,
         "step": 1,
         "variants": [
           {
             "minWidth": 901,
             "src": "images/native-local/booking-list-filters-1440.webp",
             "width": 1086,
-            "height": 439
+            "height": 366
           },
           {
             "minWidth": 431,
             "src": "images/native-local/booking-list-filters-760.webp",
             "width": 721,
-            "height": 570
+            "height": 479
           },
           {
             "minWidth": 0,
             "src": "images/native-local/booking-list-filters-390.webp",
             "width": 351,
-            "height": 570
+            "height": 479
           }
         ]
       }
@@ -307,31 +335,59 @@
   "view-team-calendar": {
     "images": [
       {
-        "src": "images/native-local/team-calendar-1440.webp",
-        "alt": "Фильтры и расписание команды",
-        "caption": "Фильтры и расписание команды. Учебные данные.",
+        "src": "images/native-local/personal-calendar-1440.webp",
+        "alt": "Основной экран «Записи» — личное расписание",
+        "caption": "Основной экран «Записи» — личное расписание. Учебные данные.",
         "kind": "screenshot",
         "width": 1086,
         "height": 900,
-        "step": 2,
         "variants": [
           {
             "minWidth": 901,
-            "src": "images/native-local/team-calendar-1440.webp",
+            "src": "images/native-local/personal-calendar-1440.webp",
             "width": 1086,
             "height": 900
           },
           {
             "minWidth": 431,
+            "src": "images/native-local/personal-calendar-760.webp",
+            "width": 721,
+            "height": 701
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/personal-calendar-390.webp",
+            "width": 351,
+            "height": 697
+          }
+        ]
+      },
+      {
+        "src": "images/native-local/team-calendar-1440.webp",
+        "alt": "Дополнительный режим «Расписание команды»: фильтры филиала, специалиста и ресурса",
+        "caption": "Дополнительный режим «Расписание команды»: фильтры филиала, специалиста и ресурса. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1086,
+        "height": 137,
+        "step": 3,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/team-calendar-1440.webp",
+            "width": 1086,
+            "height": 137
+          },
+          {
+            "minWidth": 431,
             "src": "images/native-local/team-calendar-760.webp",
             "width": 721,
-            "height": 900
+            "height": 354
           },
           {
             "minWidth": 0,
             "src": "images/native-local/team-calendar-390.webp",
             "width": 351,
-            "height": 900
+            "height": 446
           }
         ]
       }
