@@ -50,6 +50,7 @@
   <template data-provider-feature="share"><link rel="stylesheet" href="free-slots-compact.css?v=931"></template>
   <link rel="stylesheet" href="client-records.css?v=811">
   <link rel="stylesheet" href="benefit-lifecycle.css?v=1036">
+  <template data-provider-feature="certificates"><link rel="stylesheet" href="certificate-designer.css?v=1077"></template>
   <link rel="stylesheet" href="provider-integrations.css?v=1008">
   <link rel="stylesheet" href="client-results.css?v=876">
   <template data-provider-feature="scanner"><link rel="stylesheet" href="code-scanner.css?v=811"></template>
@@ -412,6 +413,7 @@
                 <div class="client-profile-tabpanels">
                   <section class="client-profile-tabpanel" id="clientProfilePanelHistory" role="tabpanel" aria-labelledby="clientProfileTabHistory" data-client-profile-panel="history">
                     <section class="client-benefit-lifecycle" id="clientBenefitLifecycle" hidden><div class="resource-subhead"><div><small>Срок, остаток и все действия</small><strong id="clientBenefitLifecycleTitle">Абонементы и сертификаты</strong></div></div><div id="clientBenefitLifecycleList"></div></section>
+                    <section id="clientCertificateDesigns" hidden></section>
                     <section class="client-commerce-history" id="clientCommerceHistory" hidden><div class="resource-subhead"><div><small>Оплаченные позиции</small><strong id="clientCommerceHistoryTitle">Продажи клиента</strong></div></div><div id="clientCommerceHistoryList"></div></section>
                     <div id="clientRecords" hidden></div>
                   </section>
@@ -939,6 +941,7 @@
                 <option value="paymentProviderPanel">Оплата и интеграции</option>
                 <option value="commercePanel">Продажи</option>
                 <option value="benefitsPanel">Абонементы</option>
+                <option value="certificateDesignerPanel">Сертификаты</option>
                 <option value="loyaltyPanel">Лояльность</option>
                 <option value="retentionPanel">Возврат клиентов</option>
                 <option value="inventoryPanel">Склад</option>
@@ -953,10 +956,12 @@
               <button type="button" data-section-target="paymentProviderPanel">Оплата и интеграции</button>
               <button type="button" data-section-target="commercePanel">Продажи</button>
               <button type="button" data-section-target="benefitsPanel">Абонементы</button>
+              <button type="button" data-section-target="certificateDesignerPanel">Сертификаты</button>
               <button type="button" data-section-target="loyaltyPanel">Лояльность</button>
               <button type="button" data-section-target="retentionPanel">Возврат клиентов</button>
               <button type="button" data-section-target="inventoryPanel">Склад</button>
             </nav>
+            <section class="panel provider-section-anchor" id="certificateDesignerPanel" hidden><p class="loading-state">Загружаем редактор сертификатов…</p></section>
             <section class="panel organization-overview provider-section-anchor" id="organizationOverviewSection">
               <div class="organization-overview-copy"><span class="organization-avatar" id="organizationAvatar">М</span><div><small id="organizationPublicState">Онлайн-запись команды пока выключена</small><h3 id="organizationTitle">Организация</h3><details class="organization-system-details"><summary>Данные для поддержки</summary><span id="organizationSlug"></span></details></div></div>
               <form id="organizationForm" class="organization-name-form"><label>Название организации<input id="organizationName" maxlength="120" required></label><button class="primary compact-button" type="submit">Сохранить название</button></form>

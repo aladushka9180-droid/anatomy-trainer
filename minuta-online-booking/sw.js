@@ -69,6 +69,10 @@ const ASSETS = [
 ];
 
 const OPTIONAL_ASSETS = [
+  './certificate-designer.js?v=1077',
+  './certificate-designer.css?v=1077',
+  './certificate-renderer.js?v=1077',
+  './certificate-client-card.js?v=1077',
   './organization-people.js?v=1077',
   './organization-people.css?v=1077',
   './organization-flow.css?v=1077',
