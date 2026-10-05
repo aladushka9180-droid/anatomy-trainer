@@ -46,7 +46,7 @@ async function fixture(width = 390, role = 'owner', visible = true) {
     const providerSectionSelections=new Map(),providerSectionPresentation=new Map(),PROVIDER_SECTION_STORAGE_PREFIX='minuta-provider-subsection-v1';
     ${companions}
     let sectionNavigationFrame=0,currentUser={id:'u1'},sessionGeneration=1;
-    let resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
+    let certificateController=null,clientCertificateController=null,resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
     const organizationFeatureRequests=new Map();let organizationFeatureContext='',organizationFeatureContextRevision=0;
     const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const notify=value=>notices.push(value),requireWrites=()=>Boolean(currentUser&&['owner','admin'].includes(window.role)),applyWriteAvailability=()=>{},requestProviderConfirmation=async()=>false;

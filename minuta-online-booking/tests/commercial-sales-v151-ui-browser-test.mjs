@@ -145,7 +145,7 @@ try {
       const $=selector=>document.querySelector(selector), $$=selector=>[...document.querySelectorAll(selector)];
       const providerSectionSelections=new Map(), providerSectionPresentation=new Map(), PROVIDER_SECTION_STORAGE_PREFIX='minuta-provider-subsection-v1', PROVIDER_SECTION_COMPANIONS={};
       let sectionNavigationFrame=0, currentUser={id:${JSON.stringify(ids.owner)}}, sessionGeneration=1;
-      let resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
+      let certificateController=null,clientCertificateController=null,resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
       const organizationFeatureRequests=new Map(); let organizationFeatureContext='',organizationFeatureContextRevision=0;
       const activeOrganization={id:${JSON.stringify(ids.organization)},current_role:'owner'};
       const organizationController={getActiveOrganization:()=>activeOrganization};

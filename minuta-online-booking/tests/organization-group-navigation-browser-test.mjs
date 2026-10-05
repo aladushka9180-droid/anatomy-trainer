@@ -34,7 +34,7 @@ const grouping = {
   overview:['organizationOverviewSection'],
   team:['organizationPeopleSection','resourcesPanel','shiftsPanel','inventoryPanel'],
   finance:['payrollPanel','paymentProviderPanel'],
-  sales:['commercePanel','benefitsPanel','loyaltyPanel','retentionPanel']
+  sales:['commercePanel','benefitsPanel','certificateDesignerPanel','loyaltyPanel','retentionPanel']
 };
 
 async function fixture({ width=390, theme='pink-porcelain', selected='organizationOverviewSection', enhance=true, failed=false, deferred=false, longPanels=false } = {}) {
@@ -94,7 +94,7 @@ async function fixture({ width=390, theme='pink-porcelain', selected='organizati
     const providerSectionSelections=new Map(), providerSectionPresentation=new Map(), PROVIDER_SECTION_STORAGE_PREFIX='minuta-provider-subsection-v1';
     const PROVIDER_SECTION_COMPANIONS={organizationPeopleSection:['invitationsPanel','organizationAuditPanel']};
     let sectionNavigationFrame=0,currentUser={id:'test-user'},sessionGeneration=1;
-    let resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
+    let certificateController=null,clientCertificateController=null,resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
     const organizationFeatureRequests=new Map();let organizationFeatureContext='',organizationFeatureContextRevision=0;
     const organizationController={getActiveOrganization:()=>window.activeOrg};
     const db={},escapeHtml=x=>x,requireWrites=()=>true,applyWriteAvailability=()=>{},notify=x=>window.notices.push(x);
@@ -104,7 +104,7 @@ async function fixture({ width=390, theme='pink-porcelain', selected='organizati
     ${navigation}
     ${features}
     for(const[id,definition]of organizationFeatureDefinitions){
-      const apiName=({'resourcesPanel':'MinutaResources','shiftsPanel':'MinutaShifts','payrollPanel':'MinutaPayroll','commercePanel':'MinutaCommerce','benefitsPanel':'MinutaBenefits','loyaltyPanel':'MinutaLoyalty','inventoryPanel':'MinutaInventory','retentionPanel':'MinutaRetention'})[id];
+      const apiName=({'certificateDesignerPanel':'MinutaCertificateDesigner','resourcesPanel':'MinutaResources','shiftsPanel':'MinutaShifts','payrollPanel':'MinutaPayroll','commercePanel':'MinutaCommerce','benefitsPanel':'MinutaBenefits','loyaltyPanel':'MinutaLoyalty','inventoryPanel':'MinutaInventory','retentionPanel':'MinutaRetention'})[id];
       window[apiName]={createController:()=>({bind(){window.binds++;},async setOrganization(){window.sets++;const panel=document.getElementById(id);panel.hidden=false;panel.querySelector('.loading-state').hidden=true;const workspace=panel.querySelector('[id$="Workspace"]');if(workspace)workspace.hidden=false;}})};
     }
     document.addEventListener('click',event=>{const button=event.target.closest('[data-section-target]');if(button){event.preventDefault();window.visits.push(button.dataset.sectionTarget);scrollToProviderSection(button);}});
@@ -250,7 +250,9 @@ try {
       window.activeOrg.current_role='specialist';document.querySelector('#paymentProviderPanel').hidden=true;
       document.querySelector('#inventoryPanel').hidden=true;prepareOrganizationFeatures(window.activeOrg);refreshSectionNavigation();
     });
-    await page.waitForFunction(()=>document.querySelector('[data-organization-group="sales"]').hidden);
+    await page.waitForFunction(()=>!document.querySelector('[data-organization-group="sales"]').hidden);
+    await choose(page,'sales','certificateDesignerPanel');
+    assert.equal(await page.locator('#organizationSectionNav [data-section-target="commercePanel"]').isHidden(),true);
     await page.locator('[data-organization-group="team"]').click();
     assert.notEqual(await page.locator('#organizationSectionSelect').inputValue(),'inventoryPanel','revoked last section must not open');
     assert.equal(await page.locator('#organizationSectionNav [data-section-target="inventoryPanel"]').getAttribute('hidden'),'');

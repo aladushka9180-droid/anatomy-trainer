@@ -83,7 +83,7 @@ function harness(pendingStage = null) {
     localStorage:{setItem(){},getItem:()=>null},
     editingOfflineBookingId:'', newBookingHistoricalMode:false,
     window:{ addEventListener:(name, callback) => { if (name === 'minuta:provider-session-reset') resetListeners.push(callback); } },
-    organizationFlowController:null,
+    resetClientCertificates(){}, certificateController:null, organizationFlowController:null,
     freeSlotsController:{ invalidateScope(){} }, providerReadFetch:{ cancelPendingReads(){} },
     allBookings:['A', 'B'].map(label => ({ id:ids[label], series_id:seriesIds[label], service_id:serviceId,
       booking_date:'2026-09-15', booking_time:'10:00:00', duration_minutes:60,

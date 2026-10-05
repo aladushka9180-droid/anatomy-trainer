@@ -41,7 +41,7 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
     const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
     const providerSectionSelections=new Map(), providerSectionPresentation=new Map(), PROVIDER_SECTION_STORAGE_PREFIX='minuta-provider-subsection-v1', PROVIDER_SECTION_COMPANIONS={};
     let sectionNavigationFrame=0, currentUser={id:'user-a'}, sessionGeneration=1;
-    let resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
+    let certificateController=null,clientCertificateController=null,resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
     const organizationFeatureRequests=new Map(); let organizationFeatureContext='',organizationFeatureContextRevision=0;
     const organizationController={getActiveOrganization:()=>window.activeOrg};
     const db={},escapeHtml=x=>x,requireWrites=()=>true,applyWriteAvailability=()=>{},notify=x=>window.notices.push(x);
@@ -51,7 +51,7 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
     ${navigation}
     ${features}
     for (const [id, definition] of organizationFeatureDefinitions) {
-      const apiName=({'resourcesPanel':'MinutaResources','shiftsPanel':'MinutaShifts','payrollPanel':'MinutaPayroll','commercePanel':'MinutaCommerce','benefitsPanel':'MinutaBenefits','loyaltyPanel':'MinutaLoyalty','inventoryPanel':'MinutaInventory','retentionPanel':'MinutaRetention'})[id];
+      const apiName=({'certificateDesignerPanel':'MinutaCertificateDesigner','resourcesPanel':'MinutaResources','shiftsPanel':'MinutaShifts','payrollPanel':'MinutaPayroll','commercePanel':'MinutaCommerce','benefitsPanel':'MinutaBenefits','loyaltyPanel':'MinutaLoyalty','inventoryPanel':'MinutaInventory','retentionPanel':'MinutaRetention'})[id];
       window[apiName]={createController:()=>({bind(){window.binds++;},async setOrganization(org){window.sets++;const panel=document.getElementById(id);panel.hidden=false;panel.querySelector('.loading-state').hidden=true;const workspace=panel.querySelector('[id$="Workspace"]');if(workspace)workspace.hidden=false;}})};
     }
     prepareOrganizationFeatures(window.activeOrg);
@@ -62,13 +62,15 @@ async function fixture(width = 390, selected = 'loyaltyPanel', { visible = true,
 }
 async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`); }
 try {
-  for (const width of [390, 760, 1440]) for (const section of ['resourcesPanel','shiftsPanel','payrollPanel','benefitsPanel','loyaltyPanel','inventoryPanel','retentionPanel']) {
+  for (const width of [390, 760, 1440]) for (const section of ['certificateDesignerPanel','resourcesPanel','shiftsPanel','payrollPanel','benefitsPanel','loyaltyPanel','inventoryPanel','retentionPanel']) {
     await test(`${width}px remembered ${section} loads once without a second click or focus theft`, async () => {
       const f = await fixture(width, section); try {
         await f.page.waitForFunction(() => window.sets === 1);
         assert.equal(await f.page.locator('#' + section).isVisible(), true);
         await f.page.evaluate(() => { for(let i=0;i<8;i++)refreshSectionNavigation(); });
-        assert.deepEqual(await f.page.evaluate(() => ({ loads, binds, sets, focus:document.activeElement.tagName, overflow:document.documentElement.scrollWidth>innerWidth+2 })), { loads:section === 'inventoryPanel' ? 2 : 1, binds:1, sets:1, focus:'BODY', overflow:false });
+        const expectedLoads = await f.page.evaluate(id => organizationFeatureDefinitions.get(id).before ? 2 : 1, section);
+        assert.deepEqual(await f.page.evaluate(() => ({ loads, binds, sets, focus:document.activeElement.tagName, overflow:document.documentElement.scrollWidth>innerWidth+2 })), { loads:expectedLoads, binds:1, sets:1, focus:'BODY', overflow:false });
+        if (section === 'certificateDesignerPanel') assert.deepEqual(await f.page.evaluate(() => loadedScripts), ['certificate-renderer.js','certificate-designer.js']);
         if (section === 'inventoryPanel') assert.deepEqual(await f.page.evaluate(() => loadedScripts), ['inventory-soft-ui.js','inventory-management.js']);
         f.check();
       } finally { await f.page.close(); }

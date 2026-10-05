@@ -85,7 +85,7 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false, note 
     $:selector => nodes.get(selector),
     document:{ body:{ classList } }, requireBookingWrites:() => true,
     window:{ addEventListener:(name, callback) => { if (name === 'minuta:provider-session-reset') resetListeners.push(callback); } },
-    organizationFlowController:null,
+    resetClientCertificates(){}, certificateController:null, organizationFlowController:null,
     freeSlotsController:{ invalidateScope(){} }, providerReadFetch:{ cancelPendingReads(){} },
     normalizePhone:phone => String(phone).replace(/\D/g, ''),
     money:value => `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`,
