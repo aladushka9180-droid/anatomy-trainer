@@ -68,12 +68,12 @@ export async function ownedCleanup(docker,id,owner){
  return {removed:true};
 }
 
-function run(command,args,{input,env=process.env,binary=false,maxBytes=4*1024*1024}={}){
+function run(command,args,{input,env=process.env,binary=false,maxBytes=4*1024*1024,checksumDiagnostic=false}={}){
  return new Promise((done,fail)=>{
   const child=spawn(command,args,{env,stdio:['pipe','pipe','pipe']});const chunks=[];let bytes=0,stderr='',overflow=false;
   child.stdout.on('data',b=>{bytes+=b.length;if(bytes>maxBytes){overflow=true;child.kill();}else chunks.push(b);});
   child.stderr.on('data',b=>{stderr+=b;if(stderr.length>4*1024*1024)child.kill();});
-  child.once('error',fail);child.once('close',code=>{if(code===0&&!overflow){const output=Buffer.concat(chunks);done(binary?output:output.toString('utf8').trim());}else{const e=new Error(overflow?'isolated_output_limit':'isolated_command_failed');e.exitCode=code;e.sqlstate=stderr.match(/ERROR:\s+([0-9A-Z]{5})/)?.[1];e.missingObject=stderr.match(/No such (?:object|container):\s+([a-z0-9-]+)/i)?.[1];fail(e);}});
+  child.once('error',fail);child.once('close',code=>{if(code===0&&!overflow){const output=Buffer.concat(chunks);done(binary?output:output.toString('utf8').trim());}else{const e=new Error(overflow?'isolated_output_limit':'isolated_command_failed');e.exitCode=code;e.sqlstate=stderr.match(/ERROR:\s+([0-9A-Z]{5})/)?.[1];e.missingObject=stderr.match(/No such (?:object|container):\s+([a-z0-9-]+)/i)?.[1];if(checksumDiagnostic)e.checksumDiagnostic=(stderr+'\n'+Buffer.concat(chunks).toString('utf8').split('\n').filter(line=>!/ OK$/.test(line)).join('\n')).slice(0,2000);fail(e);}});
   child.stdin.on('error',()=>{});child.stdin.end(input);
  });
 }
@@ -148,7 +148,7 @@ export async function executeStand({canary=false,schemaPath,schemaSha256,receipt
    const hashes=[];function walk(base,target){for(const entry of readdirSync(base,{withFileTypes:true})){const path=join(base,entry.name),remote=target+'/'+entry.name;assert.equal(entry.isSymbolicLink(),false,'payload symlink refused');if(entry.isDirectory())walk(path,remote);else hashes.push(`${sha(readFileSync(path))}  ${remote}`);}}
    walk(runtime,'/series/runtime');walk(payload,'/series/payload');
    stage='runtime-and-input-hashes';
-   await exec(['/usr/bin/sha256sum','--check','--status'],{input:hashes.join('\n')+'\n'});receipt.runtimeAndInputHashesVerified=true;
+   await exec(['/usr/bin/sha256sum','--check'],{input:hashes.join('\n')+'\n',checksumDiagnostic:true});receipt.runtimeAndInputHashesVerified=true;
    stage=canary?'native-node-pg-canary':'native-full-series';
    const result=await exec(['/usr/bin/env','-i','MINUTA_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/eldion-series-fixture',
     'MINUTA_SERIES_EPHEMERAL_CONFIRM=SCHEMA_ONLY_EMPTY_DATABASE','MINUTA_TEST_PROJECT_REF=eldion-series-fixture',
@@ -157,10 +157,11 @@ export async function executeStand({canary=false,schemaPath,schemaSha256,receipt
    assert.ok(result.startsWith(canary?'Series Node/pg native transport: PASS':'Series full-schema PostgreSQL: PASS'));
    receipt.nativeNodePgTransportPassed=true;
    if(!canary)receipt.fullSeriesGatePassed=true;
- }catch(error){primaryError=error;receipt.failureStage=stage;receipt.failure={code:error.message,exitCode:error.exitCode??null,sqlstate:error.sqlstate||null};}
+ }catch(error){primaryError=error;receipt.failureStage=stage;receipt.failure={code:error.message,exitCode:error.exitCode??null,sqlstate:error.sqlstate||null};if(error.checksumDiagnostic)receipt.failure.checksumDiagnostic=error.checksumDiagnostic;}
  finally{
   try{if(!id){try{const info=JSON.parse(await docker(['inspect',name]))[0];assert.equal(info.Config.Labels['eldion.series.owner'],owner);id=info.Id;}catch(error){if(error.exitCode!==1||error.missingObject!==name)throw error;}}if(id){await ownedCleanup(docker,id,owner);assert.deepEqual(await ownedCleanup(docker,id,owner),{alreadyAbsent:true});}receipt.ownedCleanupProven=true;}catch(error){cleanupError=error;receipt.cleanupFailure=error.message;}
   try{rmSync(temp,{recursive:true,force:true});receipt.localTemporaryCleanupProven=!statExists(temp);}catch(error){cleanupError||=error;receipt.localTemporaryCleanupProven=false;}
+  if(primaryError||cleanupError)receipt.fullSeriesGatePassed=false;
   if(receiptPath)writeFileSync(receiptPath,JSON.stringify(receipt,null,2)+'\n');
  }
  if(primaryError)throw primaryError;if(cleanupError)throw cleanupError;return receipt;
