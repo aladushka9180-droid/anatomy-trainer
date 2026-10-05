@@ -79,6 +79,43 @@ try {
   const obsolete=await changedRecipient;if(obsolete.error)throw obsolete.error;
   assert.equal(obsolete.value.rows.length,0,'Recipient must be rechecked after the concurrent lock wait');checks++;
   await a.query('commit');
+  const revocations=[
+    ['endpoint inactive',"update public.notification_recipient_endpoints set active=false where channel='telegram'"],
+    ['destination changed',"update public.notification_recipient_endpoints set destination='{}'::jsonb where channel='telegram'"],
+    ['channel disabled',"update public.organization_notification_channels set enabled=false where channel='telegram'"],
+    ['organization disabled','update public.organization_notification_settings set enabled=false'],
+    ['reminder disabled','update public.organization_notification_settings set booking_reminder_enabled=false'],
+    ['quiet hours started',`update public.organization_notification_settings set quiet_hours_enabled=true,
+      quiet_hours_start=((now() at time zone 'Europe/Samara')-interval '5 minutes')::time,
+      quiet_hours_end=((now() at time zone 'Europe/Samara')+interval '5 minutes')::time`],
+    ['Telegram cutover removed','delete from public.notification_v114_organization_cutovers']
+  ];
+  let scenario=5;
+  for(const controlled of [false,true])for(const [label,mutation] of revocations) {
+    await clearBookings(fixture);
+    await admin.query("update public.organization_notification_settings set enabled=true,booking_reminder_enabled=true,quiet_hours_enabled=false;");
+    await admin.query("update public.organization_notification_channels set enabled=audience='client' and channel in('sms','telegram');");
+    await admin.query(`update public.notification_recipient_endpoints set active=true,
+      destination='{"chat_id":"synthetic-client","phone":"79990000001"}'::jsonb;`);
+    await admin.query('insert into public.notification_v114_organization_cutovers values($1) on conflict do nothing',[organization]);
+    await addBooking(fixture,scenario,30);await enqueue(fixture);
+    const event=(await admin.query("select event_key from public.notification_outbox where channel='telegram'")).rows[0].event_key;
+    await admin.query('begin');
+    await admin.query(`select pg_advisory_xact_lock(hashtextextended(
+      id::text||':client:'||booking_date::text||':'||booking_time::text||':0',0))
+      from public.bookings where id=$1`,[bookingId(scenario++)]);
+    await a.query('begin');
+    const pid=(await a.query('select pg_backend_pid() pid')).rows[0].pid;
+    const pending=(controlled
+      ?a.query('select * from public.claim_minuta_notification_test_outbox_v128($1,$2,$3)',[organization,event,'telegram'])
+      :a.query("select * from public.claim_minuta_notification_outbox(array['telegram'],1)"))
+      .then(value=>({value}),error=>({error}));
+    await waitForLock(admin,pid);checks++;
+    await admin.query(mutation);await admin.query('commit');
+    const revoked=await pending;if(revoked.error)throw revoked.error;
+    assert.equal(revoked.value.rows.length,0,`${controlled?'controlled':'general'} claim: ${label} while waiting must block the captured recipient`);checks++;
+    await a.query('commit');
+  }
   const dataBefore=(await admin.query('select jsonb_agg(to_jsonb(q)) rows from public.notification_outbox q')).rows;
   await admin.query(read('scripts/reminder-single-catchup-rollback.sql'));
   assert.deepEqual(await definitions(admin),original);checks++;

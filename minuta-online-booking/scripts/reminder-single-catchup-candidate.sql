@@ -5,9 +5,10 @@ begin;
 set local lock_timeout='5s';
 set local statement_timeout='2min';
 
--- Preserve the installed functions and their OIDs. Installation changes no data,
+-- Preserve the installed functions and their OIDs. Installation changes no business data,
 -- notification setting, endpoint, cron, channel or subscription.
 do $guard$
+declare v_fingerprint jsonb;
 begin
   if to_regprocedure('public.claim_minuta_notification_outbox(text[],integer)') is null
     or to_regprocedure('public.claim_minuta_notification_test_outbox_v128(uuid,text,text)') is null
@@ -20,28 +21,60 @@ begin
     raise exception 'single_catchup_partial_install';
   end if;
   if to_regprocedure('public.claim_minuta_notification_outbox_before_catchup_once(text[],integer)') is null then
+    if to_regclass('public.minuta_catchup_install_state') is not null
+      or to_regprocedure('public.minuta_allow_catchup_reminder_claim(uuid,uuid[],jsonb)') is not null
+      or to_regprocedure('public.minuta_cancel_catchup_reminder_claim(uuid,uuid)') is not null then
+      raise exception 'single_catchup_partial_install';
+    end if;
     if exists(select 1 from pg_proc procedure
       cross join lateral aclexplode(coalesce(procedure.proacl,acldefault('f',procedure.proowner))) privilege
       where procedure.oid in('public.claim_minuta_notification_outbox(text[],integer)'::regprocedure,
         'public.claim_minuta_notification_test_outbox_v128(uuid,text,text)'::regprocedure)
-        and privilege.privilege_type='EXECUTE'
-        and privilege.grantee not in(procedure.proowner,'service_role'::regrole::oid)) then
+        and (privilege.privilege_type<>'EXECUTE' or privilege.is_grantable
+          or privilege.grantor<>procedure.proowner
+          or privilege.grantee not in(procedure.proowner,'service_role'::regrole::oid)))
+      or exists(select 1 from pg_proc procedure
+        where procedure.oid in('public.claim_minuta_notification_outbox(text[],integer)'::regprocedure,
+          'public.claim_minuta_notification_test_outbox_v128(uuid,text,text)'::regprocedure)
+          and procedure.proacl is distinct from array[
+            makeaclitem(procedure.proowner,procedure.proowner,'EXECUTE',false),
+            makeaclitem('service_role'::regrole::oid,procedure.proowner,'EXECUTE',false)]) then
       raise exception 'single_catchup_unexpected_execute_acl';
     end if;
     alter function public.claim_minuta_notification_outbox(text[],integer)
       rename to claim_minuta_notification_outbox_before_catchup_once;
     alter function public.claim_minuta_notification_test_outbox_v128(uuid,text,text)
       rename to claim_minuta_notification_test_outbox_v128_before_catchup_once;
-  elsif position('minuta_allow_catchup_reminder_claim' in pg_get_functiondef(
-    'public.claim_minuta_notification_outbox(text[],integer)'::regprocedure))=0
-    or position('minuta_allow_catchup_reminder_claim' in pg_get_functiondef(
-    'public.claim_minuta_notification_test_outbox_v128(uuid,text,text)'::regprocedure))=0 then
-    raise exception 'single_catchup_wrapper_changed';
+    create table public.minuta_catchup_install_state(
+      installed boolean primary key check(installed),fingerprint jsonb not null);
+    revoke all on table public.minuta_catchup_install_state from public,anon,authenticated,service_role;
+  else
+    if to_regclass('public.minuta_catchup_install_state') is null then
+      raise exception 'single_catchup_wrapper_changed';
+    end if;
+    select jsonb_object_agg(procedure.oid::regprocedure::text,to_jsonb(procedure)) into v_fingerprint
+    from pg_proc procedure where procedure.oid in(
+      to_regprocedure('public.claim_minuta_notification_outbox(text[],integer)'),
+      to_regprocedure('public.claim_minuta_notification_test_outbox_v128(uuid,text,text)'),
+      to_regprocedure('public.claim_minuta_notification_outbox_before_catchup_once(text[],integer)'),
+      to_regprocedure('public.claim_minuta_notification_test_outbox_v128_before_catchup_once(uuid,text,text)'),
+      to_regprocedure('public.minuta_allow_catchup_reminder_claim(uuid,uuid[],jsonb)'),
+      to_regprocedure('public.minuta_cancel_catchup_reminder_claim(uuid,uuid)'));
+    if not exists(select 1 from public.minuta_catchup_install_state state
+      where state.installed and state.fingerprint=v_fingerprint) then
+      raise exception 'single_catchup_wrapper_changed';
+    end if;
+  end if;
+  if exists(select 1 from pg_class relation
+    cross join lateral aclexplode(coalesce(relation.relacl,acldefault('r',relation.relowner))) privilege
+    where relation.oid='public.minuta_catchup_install_state'::regclass
+      and privilege.grantee<>relation.relowner) then
+    raise exception 'single_catchup_manifest_acl';
   end if;
 end
 $guard$;
 
-create or replace function public.minuta_allow_catchup_reminder_claim(p_outbox uuid,p_batch uuid[])
+create or replace function public.minuta_allow_catchup_reminder_claim(p_outbox uuid,p_batch uuid[],p_destination jsonb)
 returns boolean language plpgsql security definer set search_path to '' as $$
 declare v_job record; v_now timestamp;
 begin
@@ -83,6 +116,24 @@ begin
         regexp_replace(coalesce(booking.client_phone,''),'[^0-9]','','g'))
       and (v_job.audience<>'provider' or booking.performer_id=v_job.performer_id)
       and coalesce((to_jsonb(booking)->>'notification_schedule_revision')::bigint,0)=v_job.current_revision)
+  then return false; end if;
+  if not exists(select 1 from public.organization_notification_settings settings
+    join public.organization_notification_channels channel_setting
+      on channel_setting.organization_id=settings.organization_id
+      and channel_setting.audience=v_job.audience and channel_setting.channel=v_job.channel
+      and channel_setting.enabled
+    where settings.organization_id=v_job.organization_id and settings.enabled
+      and settings.booking_reminder_enabled
+      and public.minuta_notification_next_allowed_at_v126(v_job.organization_id,
+        greatest(v_job.next_attempt_at,clock_timestamp()))<=clock_timestamp())
+    or (v_job.audience='client' and v_job.channel='telegram' and not exists(
+      select 1 from public.notification_v114_organization_cutovers cutover
+      where cutover.organization_id=v_job.organization_id))
+    or (select recipient.destination from public.notification_recipient_endpoints recipient
+      where recipient.organization_id=v_job.organization_id and recipient.audience=v_job.audience
+        and recipient.subject_key=v_job.recipient_key and recipient.channel=v_job.channel and recipient.active
+      order by recipient.updated_at desc limit 1) is distinct from p_destination
+    or (v_job.audience='client' and p_destination is null)
   then return false; end if;
   return not exists(
     select 1 from public.notification_outbox peer
@@ -130,7 +181,7 @@ begin
   loop
     if v_remaining is null then v_remaining:=v_job.batch_ids; end if;
     v_remaining:=array_remove(v_remaining,v_job.outbox_id);
-    if public.minuta_allow_catchup_reminder_claim(v_job.outbox_id,v_remaining) then
+    if public.minuta_allow_catchup_reminder_claim(v_job.outbox_id,v_remaining,v_job.destination) then
       return query select v_job.outbox_id,v_job.lock_token,v_job.event_key,v_job.organization_id,
         v_job.performer_id,v_job.booking_id,v_job.kind,v_job.channel,v_job.audience,
         v_job.attempt_no,v_job.destination,v_job.message_payload;
@@ -151,7 +202,7 @@ begin
   for v_job in select * from public.claim_minuta_notification_test_outbox_v128_before_catchup_once(
     p_organization,p_event_key,p_channel)
   loop
-    if public.minuta_allow_catchup_reminder_claim(v_job.outbox_id,array[]::uuid[]) then
+    if public.minuta_allow_catchup_reminder_claim(v_job.outbox_id,array[]::uuid[],v_job.destination) then
       return query select v_job.outbox_id,v_job.lock_token,v_job.event_key,v_job.organization_id,
         v_job.performer_id,v_job.booking_id,v_job.kind,v_job.channel,v_job.audience,
         v_job.attempt_no,v_job.destination,v_job.message_payload;
@@ -162,7 +213,7 @@ begin
 end
 $$;
 
-revoke all on function public.minuta_allow_catchup_reminder_claim(uuid,uuid[]) from public,anon,authenticated,service_role;
+revoke all on function public.minuta_allow_catchup_reminder_claim(uuid,uuid[],jsonb) from public,anon,authenticated,service_role;
 revoke all on function public.minuta_cancel_catchup_reminder_claim(uuid,uuid) from public,anon,authenticated,service_role;
 revoke all on function public.claim_minuta_notification_outbox_before_catchup_once(text[],integer) from public,anon,authenticated,service_role;
 revoke all on function public.claim_minuta_notification_test_outbox_v128_before_catchup_once(uuid,text,text) from public,anon,authenticated,service_role;
@@ -170,4 +221,14 @@ revoke all on function public.claim_minuta_notification_outbox(text[],integer) f
 revoke all on function public.claim_minuta_notification_test_outbox_v128(uuid,text,text) from public,anon,authenticated,service_role;
 grant execute on function public.claim_minuta_notification_outbox(text[],integer) to service_role;
 grant execute on function public.claim_minuta_notification_test_outbox_v128(uuid,text,text) to service_role;
+insert into public.minuta_catchup_install_state(installed,fingerprint)
+select true,jsonb_object_agg(procedure.oid::regprocedure::text,to_jsonb(procedure))
+from pg_proc procedure where procedure.oid in(
+  'public.claim_minuta_notification_outbox(text[],integer)'::regprocedure,
+  'public.claim_minuta_notification_test_outbox_v128(uuid,text,text)'::regprocedure,
+  'public.claim_minuta_notification_outbox_before_catchup_once(text[],integer)'::regprocedure,
+  'public.claim_minuta_notification_test_outbox_v128_before_catchup_once(uuid,text,text)'::regprocedure,
+  'public.minuta_allow_catchup_reminder_claim(uuid,uuid[],jsonb)'::regprocedure,
+  'public.minuta_cancel_catchup_reminder_claim(uuid,uuid)'::regprocedure)
+on conflict(installed) do update set fingerprint=excluded.fingerprint;
 commit;

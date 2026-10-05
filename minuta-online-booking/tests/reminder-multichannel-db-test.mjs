@@ -136,11 +136,37 @@ try {
   await db.exec('set role authenticated;');
   await assert.rejects(claim(db,['sms']),/permission denied/);passed++;
   await assert.rejects(db.query("select * from public.claim_minuta_notification_outbox_before_catchup_once(array['sms'],20)"),/permission denied/);passed++;
+  await assert.rejects(db.query('select * from public.minuta_catchup_install_state'),/permission denied/);passed++;
   await db.exec('reset role;');await applySql(db,rollback);
   await db.exec('create role synthetic_legacy_dispatcher;grant execute on function public.claim_minuta_notification_outbox(text[],integer) to synthetic_legacy_dispatcher;');
   const customAcl=await definitions();
   await assert.rejects(applySql(db,forward),/single_catchup_unexpected_execute_acl/);passed++;
   await db.exec('rollback;');
   check(await definitions(),customAcl,'Unknown ACL blocks installation without removing the grant');
+  await db.exec('revoke execute on function public.claim_minuta_notification_outbox(text[],integer) from synthetic_legacy_dispatcher;');
+  for(const change of [
+    'revoke execute on function public.claim_minuta_notification_outbox(text[],integer) from service_role;',
+    'grant execute on function public.claim_minuta_notification_outbox(text[],integer) to service_role with grant option;'
+  ]) {
+    await db.exec(change);const aclBefore=await definitions();
+    await assert.rejects(applySql(db,forward),/single_catchup_unexpected_execute_acl/);passed++;
+    await db.exec('rollback;');
+    check(await definitions(),aclBefore,'Unsupported service_role ACL refuses atomically');
+    await db.exec('revoke grant option for execute on function public.claim_minuta_notification_outbox(text[],integer) from service_role;grant execute on function public.claim_minuta_notification_outbox(text[],integer) to service_role;');
+  }
+  await applySql(db,forward);
+  for(const wrapper of await definitions())for(const metadataOnly of [false,true]) {
+    if(metadataOnly)await db.exec(`alter function ${wrapper.name} security invoker`);
+    else await db.exec(wrapper.definition.replace('begin\n','begin\n  -- newer definition retaining minuta_allow_catchup_reminder_claim\n'));
+    const drift=await definitions(),data=await state();
+    for(const script of [forward,rollback]) {
+      await assert.rejects(applySql(db,script),/single_catchup_wrapper_changed/);passed++;
+      await db.exec('rollback;');
+      check(await definitions(),drift,'Changed wrapper is never overwritten or dropped');
+      check(await state(),data,'Drift refusal preserves business data');
+    }
+    await db.exec(wrapper.definition);
+    await applySql(db,forward);
+  }
   console.log(`PASS: ${passed} single catch-up checks, consent/ambiguity/fallback/revision guards and exact rollback; no messages.`);
 } finally { await db.close(); }
