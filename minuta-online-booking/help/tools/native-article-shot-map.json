@@ -104,13 +104,23 @@
       "doNotExecute": []
     },
     {
+      "screenKey": "personal-calendar",
+      "route": "provider.html",
+      "target": "[data-provider-panel=bookings] / .day-timeline",
+      "nativeAction": "Записи → День → Лента; выбрать свободный день при выключенном расписании команды",
+      "articleSteps": {
+        "find-and-filter-bookings": [],
+        "view-team-calendar": []
+      },
+      "doNotExecute": []
+    },
+    {
       "screenKey": "team-calendar",
       "route": "provider.html",
-      "target": "#teamCalendarToolbar / #teamCalendarFilters / native calendar",
-      "nativeAction": "Записи → Расписание команды; выбрать учебный филиал",
+      "target": "#teamCalendarToolbar / #teamCalendarFilters",
+      "nativeAction": "Дополнительный режим: Записи → Расписание команды → Фильтры",
       "articleSteps": {
         "view-team-calendar": [
-          2,
           3
         ]
       },

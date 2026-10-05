@@ -5,6 +5,8 @@
   "rendererModified": false,
   "productionRequests": 0,
   "theme": "pink-porcelain",
+  "fixtureDate": "2026-10-06",
+  "capturedAt": "2026-10-05T22:30:01.853Z",
   "sources": {
     "provider.html": "48015897eccb43518b71c7c1b67e25efba23837689db4c466317856938459ba6",
     "provider.js": "0c76a5b92a52277e09d5b6f8e35ae860a133d5c512ed32e7ae1cccf4eebf4c3c",
@@ -3686,42 +3688,6 @@
       "sha256": "ae1a8972d435c7fc9c2776c401fe1bd9c2ec8b31a5eb4027a76459be5b71333c"
     },
     {
-      "id": "booking-list-filters",
-      "screenKey": "booking-list-filters",
-      "src": "images/native-local/booking-list-filters-390.webp",
-      "viewportWidth": 390,
-      "width": 351,
-      "height": 570,
-      "file": "booking-list-filters-390.webp",
-      "articleSlugs": [
-        "find-and-filter-bookings"
-      ],
-      "articleSteps": {
-        "find-and-filter-bookings": [
-          1,
-          2,
-          3
-        ]
-      },
-      "coverageExact": true,
-      "actions": [
-        "Записи → Список; выбрать период и раскрыть фильтр статуса"
-      ],
-      "horizontalOverflow": false,
-      "kind": "screenshot",
-      "environment": "isolated-local-native-fixture",
-      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
-      "domModified": false,
-      "rendererModified": false,
-      "liveVerified": false,
-      "productionRequests": 0,
-      "dimensions": {
-        "width": 351,
-        "height": 570
-      },
-      "sha256": "798e42b0f431d6475520662986bbd9f7f88673af1bb528a10b5b2220fea57ce5"
-    },
-    {
       "id": "free-slots-dialog",
       "screenKey": "free-slots-dialog",
       "src": "images/native-local/free-slots-dialog-390.webp",
@@ -4293,42 +4259,6 @@
         "height": 179
       },
       "sha256": "486b0b9aa16895f0f49291fbc9dfb23ba04fbd765cdd7ffe3d29fadda73c5035"
-    },
-    {
-      "id": "booking-list-filters",
-      "screenKey": "booking-list-filters",
-      "src": "images/native-local/booking-list-filters-760.webp",
-      "viewportWidth": 760,
-      "width": 721,
-      "height": 570,
-      "file": "booking-list-filters-760.webp",
-      "articleSlugs": [
-        "find-and-filter-bookings"
-      ],
-      "articleSteps": {
-        "find-and-filter-bookings": [
-          1,
-          2,
-          3
-        ]
-      },
-      "coverageExact": true,
-      "actions": [
-        "Записи → Список; выбрать период и раскрыть фильтр статуса"
-      ],
-      "horizontalOverflow": false,
-      "kind": "screenshot",
-      "environment": "isolated-local-native-fixture",
-      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
-      "domModified": false,
-      "rendererModified": false,
-      "liveVerified": false,
-      "productionRequests": 0,
-      "dimensions": {
-        "width": 721,
-        "height": 570
-      },
-      "sha256": "82858a8105806ea4be2cfca494e9c1a91d7d05440818d3622301fbb3b5911464"
     },
     {
       "id": "free-slots-dialog",
@@ -4904,42 +4834,6 @@
       "sha256": "62bc5a1aefb428d0f80dbebdc9e2c146288f3100e3fad47879d1aa17cf5c511a"
     },
     {
-      "id": "booking-list-filters",
-      "screenKey": "booking-list-filters",
-      "src": "images/native-local/booking-list-filters-1440.webp",
-      "viewportWidth": 1440,
-      "width": 1086,
-      "height": 439,
-      "file": "booking-list-filters-1440.webp",
-      "articleSlugs": [
-        "find-and-filter-bookings"
-      ],
-      "articleSteps": {
-        "find-and-filter-bookings": [
-          1,
-          2,
-          3
-        ]
-      },
-      "coverageExact": true,
-      "actions": [
-        "Записи → Список; выбрать период и раскрыть фильтр статуса"
-      ],
-      "horizontalOverflow": false,
-      "kind": "screenshot",
-      "environment": "isolated-local-native-fixture",
-      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
-      "domModified": false,
-      "rendererModified": false,
-      "liveVerified": false,
-      "productionRequests": 0,
-      "dimensions": {
-        "width": 1086,
-        "height": 439
-      },
-      "sha256": "241f1216e4b8c736cbbfa7080486c09ee2c57afa9f05576aaa509ceab9b027f5"
-    },
-    {
       "id": "free-slots-dialog",
       "screenKey": "free-slots-dialog",
       "src": "images/native-local/free-slots-dialog-1440.webp",
@@ -5445,43 +5339,6 @@
       "sha256": "11df367efd9566b8a65a26b5f86f5b80707de7f250874ce816a22d4749c9820e"
     },
     {
-      "id": "team-calendar",
-      "screenKey": "team-calendar",
-      "src": "images/native-local/team-calendar-390.webp",
-      "viewportWidth": 390,
-      "width": 351,
-      "height": 900,
-      "file": "team-calendar-390.webp",
-      "articleSlugs": [
-        "view-team-calendar"
-      ],
-      "articleSteps": {
-        "view-team-calendar": [
-          2,
-          3
-        ]
-      },
-      "coverageExact": true,
-      "actions": [
-        "Войти в локальный учебный аккаунт",
-        "Выбрать учебную дату 2026-10-06 через штатный календарь",
-        "Нажать «Расписание команды»"
-      ],
-      "horizontalOverflow": false,
-      "kind": "screenshot",
-      "environment": "isolated-local-native-fixture",
-      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
-      "domModified": false,
-      "rendererModified": false,
-      "liveVerified": false,
-      "productionRequests": 0,
-      "dimensions": {
-        "width": 351,
-        "height": 900
-      },
-      "sha256": "69cbd884e708e0e7a7bbbb7632ed886931a0171bf9044cdc0418129a66657b40"
-    },
-    {
       "id": "work-hours",
       "screenKey": "schedule-week",
       "src": "images/native-local/work-hours-390.webp",
@@ -5760,43 +5617,6 @@
         "height": 617
       },
       "sha256": "b0a69139201dd742f25a6b5a39d8bcc2936ca0031f3026f6ad0ae165d5025f7a"
-    },
-    {
-      "id": "team-calendar",
-      "screenKey": "team-calendar",
-      "src": "images/native-local/team-calendar-760.webp",
-      "viewportWidth": 760,
-      "width": 721,
-      "height": 900,
-      "file": "team-calendar-760.webp",
-      "articleSlugs": [
-        "view-team-calendar"
-      ],
-      "articleSteps": {
-        "view-team-calendar": [
-          2,
-          3
-        ]
-      },
-      "coverageExact": true,
-      "actions": [
-        "Войти в локальный учебный аккаунт",
-        "Выбрать учебную дату 2026-10-06 через штатный календарь",
-        "Нажать «Расписание команды»"
-      ],
-      "horizontalOverflow": false,
-      "kind": "screenshot",
-      "environment": "isolated-local-native-fixture",
-      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
-      "domModified": false,
-      "rendererModified": false,
-      "liveVerified": false,
-      "productionRequests": 0,
-      "dimensions": {
-        "width": 721,
-        "height": 900
-      },
-      "sha256": "63db89636f4387f5d60a507fc8ff9df78f7cafe70df0a5a9f07b0b386d5251b6"
     },
     {
       "id": "work-hours",
@@ -6079,43 +5899,6 @@
       "sha256": "bf9aae008b0dd70d5fe39d8e27dc071d495347822d0f1c8f082f560a607511da"
     },
     {
-      "id": "team-calendar",
-      "screenKey": "team-calendar",
-      "src": "images/native-local/team-calendar-1440.webp",
-      "viewportWidth": 1440,
-      "width": 1086,
-      "height": 900,
-      "file": "team-calendar-1440.webp",
-      "articleSlugs": [
-        "view-team-calendar"
-      ],
-      "articleSteps": {
-        "view-team-calendar": [
-          2,
-          3
-        ]
-      },
-      "coverageExact": true,
-      "actions": [
-        "Войти в локальный учебный аккаунт",
-        "Выбрать учебную дату 2026-10-06 через штатный календарь",
-        "Нажать «Расписание команды»"
-      ],
-      "horizontalOverflow": false,
-      "kind": "screenshot",
-      "environment": "isolated-local-native-fixture",
-      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
-      "domModified": false,
-      "rendererModified": false,
-      "liveVerified": false,
-      "productionRequests": 0,
-      "dimensions": {
-        "width": 1086,
-        "height": 900
-      },
-      "sha256": "cad9711396bbdddfa9a762bc7f09440b5078cdd6057360dd17368446faa73061"
-    },
-    {
       "id": "work-hours",
       "screenKey": "schedule-week",
       "src": "images/native-local/work-hours-1440.webp",
@@ -6394,6 +6177,425 @@
         "height": 421
       },
       "sha256": "064f6b68a8b22a6aaf31bfd4d46b62d279b7b7f9426776d7e89703b91c1a8fc7"
+    },
+    {
+      "id": "personal-calendar",
+      "screenKey": "personal-calendar",
+      "src": "images/native-local/personal-calendar-390.webp",
+      "viewportWidth": 390,
+      "width": 351,
+      "height": 697,
+      "file": "personal-calendar-390.webp",
+      "articleSlugs": [
+        "find-and-filter-bookings",
+        "view-team-calendar"
+      ],
+      "articleSteps": {
+        "find-and-filter-bookings": [],
+        "view-team-calendar": []
+      },
+      "coverageExact": true,
+      "actions": [
+        "Открыть «Записи» с выключенной учебной настройкой расписания команды",
+        "Выбрать свободный день 2026-10-07 через штатный календарь"
+      ],
+      "horizontalOverflow": false,
+      "calendarMode": "personal",
+      "teamCalendarEnabled": false,
+      "selectedDate": "2026-10-07",
+      "emptyDay": true,
+      "kind": "screenshot",
+      "environment": "isolated-local-native-fixture",
+      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "productionRequests": 0,
+      "dimensions": {
+        "width": 351,
+        "height": 697
+      },
+      "sha256": "49fdb1591a47044b33fdf40bd88f3fa242e2aa02d516bcfa1dbeea82299f8d03"
+    },
+    {
+      "id": "personal-calendar",
+      "screenKey": "personal-calendar",
+      "src": "images/native-local/personal-calendar-760.webp",
+      "viewportWidth": 760,
+      "width": 721,
+      "height": 701,
+      "file": "personal-calendar-760.webp",
+      "articleSlugs": [
+        "find-and-filter-bookings",
+        "view-team-calendar"
+      ],
+      "articleSteps": {
+        "find-and-filter-bookings": [],
+        "view-team-calendar": []
+      },
+      "coverageExact": true,
+      "actions": [
+        "Открыть «Записи» с выключенной учебной настройкой расписания команды",
+        "Выбрать свободный день 2026-10-07 через штатный календарь"
+      ],
+      "horizontalOverflow": false,
+      "calendarMode": "personal",
+      "teamCalendarEnabled": false,
+      "selectedDate": "2026-10-07",
+      "emptyDay": true,
+      "kind": "screenshot",
+      "environment": "isolated-local-native-fixture",
+      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "productionRequests": 0,
+      "dimensions": {
+        "width": 721,
+        "height": 701
+      },
+      "sha256": "80aa13b04a6361f8ade81ecdb12ea872fe05be2c60551a03c7f266de4c840696"
+    },
+    {
+      "id": "personal-calendar",
+      "screenKey": "personal-calendar",
+      "src": "images/native-local/personal-calendar-1440.webp",
+      "viewportWidth": 1440,
+      "width": 1086,
+      "height": 900,
+      "file": "personal-calendar-1440.webp",
+      "articleSlugs": [
+        "find-and-filter-bookings",
+        "view-team-calendar"
+      ],
+      "articleSteps": {
+        "find-and-filter-bookings": [],
+        "view-team-calendar": []
+      },
+      "coverageExact": true,
+      "actions": [
+        "Открыть «Записи» с выключенной учебной настройкой расписания команды",
+        "Выбрать свободный день 2026-10-07 через штатный календарь"
+      ],
+      "horizontalOverflow": false,
+      "calendarMode": "personal",
+      "teamCalendarEnabled": false,
+      "selectedDate": "2026-10-07",
+      "emptyDay": true,
+      "kind": "screenshot",
+      "environment": "isolated-local-native-fixture",
+      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "productionRequests": 0,
+      "dimensions": {
+        "width": 1086,
+        "height": 900
+      },
+      "sha256": "8ca24cb24d9254f032d111738ebbd3bf2cc64e72f22e51eefde02b283bdb19f4"
+    },
+    {
+      "id": "team-calendar",
+      "screenKey": "team-calendar",
+      "src": "images/native-local/team-calendar-390.webp",
+      "viewportWidth": 390,
+      "width": 351,
+      "height": 446,
+      "file": "team-calendar-390.webp",
+      "articleSlugs": [
+        "view-team-calendar"
+      ],
+      "articleSteps": {
+        "view-team-calendar": [
+          3
+        ]
+      },
+      "coverageExact": true,
+      "actions": [
+        "Войти в локальный учебный аккаунт",
+        "Выбрать учебную дату 2026-10-06 через штатный календарь",
+        "Нажать «Расписание команды»",
+        "Посмотреть штатные фильтры дополнительного режима"
+      ],
+      "horizontalOverflow": false,
+      "kind": "screenshot",
+      "environment": "isolated-local-native-fixture",
+      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "productionRequests": 0,
+      "dimensions": {
+        "width": 351,
+        "height": 446
+      },
+      "sha256": "f0930d859c3cc9d9fd8859de8f6c21eb1bdad182ed0942f1085de507616864a1"
+    },
+    {
+      "id": "team-calendar",
+      "screenKey": "team-calendar",
+      "src": "images/native-local/team-calendar-760.webp",
+      "viewportWidth": 760,
+      "width": 721,
+      "height": 354,
+      "file": "team-calendar-760.webp",
+      "articleSlugs": [
+        "view-team-calendar"
+      ],
+      "articleSteps": {
+        "view-team-calendar": [
+          3
+        ]
+      },
+      "coverageExact": true,
+      "actions": [
+        "Войти в локальный учебный аккаунт",
+        "Выбрать учебную дату 2026-10-06 через штатный календарь",
+        "Нажать «Расписание команды»",
+        "Посмотреть штатные фильтры дополнительного режима"
+      ],
+      "horizontalOverflow": false,
+      "kind": "screenshot",
+      "environment": "isolated-local-native-fixture",
+      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "productionRequests": 0,
+      "dimensions": {
+        "width": 721,
+        "height": 354
+      },
+      "sha256": "6b53283027d6c0a8203e40c484b4ff1b06a5a732f6f44caba61655925d7b2eab"
+    },
+    {
+      "id": "team-calendar",
+      "screenKey": "team-calendar",
+      "src": "images/native-local/team-calendar-1440.webp",
+      "viewportWidth": 1440,
+      "width": 1086,
+      "height": 137,
+      "file": "team-calendar-1440.webp",
+      "articleSlugs": [
+        "view-team-calendar"
+      ],
+      "articleSteps": {
+        "view-team-calendar": [
+          3
+        ]
+      },
+      "coverageExact": true,
+      "actions": [
+        "Войти в локальный учебный аккаунт",
+        "Выбрать учебную дату 2026-10-06 через штатный календарь",
+        "Нажать «Расписание команды»",
+        "Посмотреть штатные фильтры дополнительного режима"
+      ],
+      "horizontalOverflow": false,
+      "kind": "screenshot",
+      "environment": "isolated-local-native-fixture",
+      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "productionRequests": 0,
+      "dimensions": {
+        "width": 1086,
+        "height": 137
+      },
+      "sha256": "98ee5a7cb6d7a1f51a1fd09a4bab1f965f2d539c1119c6029f10e0478a497022"
+    },
+    {
+      "id": "booking-list-filters",
+      "screenKey": "booking-list-filters",
+      "src": "images/native-local/booking-list-filters-390.webp",
+      "viewportWidth": 390,
+      "width": 351,
+      "height": 479,
+      "file": "booking-list-filters-390.webp",
+      "articleSlugs": [
+        "find-and-filter-bookings"
+      ],
+      "articleSteps": {
+        "find-and-filter-bookings": [
+          1,
+          2,
+          3
+        ]
+      },
+      "coverageExact": true,
+      "actions": [
+        "Записи → Список; выбрать период и раскрыть фильтр статуса"
+      ],
+      "horizontalOverflow": false,
+      "calendarMode": "personal",
+      "teamCalendarEnabled": false,
+      "selectedDate": "2026-10-06",
+      "kind": "screenshot",
+      "environment": "isolated-local-native-fixture",
+      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "productionRequests": 0,
+      "dimensions": {
+        "width": 351,
+        "height": 479
+      },
+      "sha256": "9c7a26367734c36c401c623ad9225211735f2dc8fdf2975558f1b478953ef8e3"
+    },
+    {
+      "id": "booking-list-filters",
+      "screenKey": "booking-list-filters",
+      "src": "images/native-local/booking-list-filters-760.webp",
+      "viewportWidth": 760,
+      "width": 721,
+      "height": 479,
+      "file": "booking-list-filters-760.webp",
+      "articleSlugs": [
+        "find-and-filter-bookings"
+      ],
+      "articleSteps": {
+        "find-and-filter-bookings": [
+          1,
+          2,
+          3
+        ]
+      },
+      "coverageExact": true,
+      "actions": [
+        "Записи → Список; выбрать период и раскрыть фильтр статуса"
+      ],
+      "horizontalOverflow": false,
+      "calendarMode": "personal",
+      "teamCalendarEnabled": false,
+      "selectedDate": "2026-10-06",
+      "kind": "screenshot",
+      "environment": "isolated-local-native-fixture",
+      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "productionRequests": 0,
+      "dimensions": {
+        "width": 721,
+        "height": 479
+      },
+      "sha256": "1543af2d5724f3066deaa33d8b2f4cc39acaf88a83027bd304280567bf82409a"
+    },
+    {
+      "id": "booking-list-filters",
+      "screenKey": "booking-list-filters",
+      "src": "images/native-local/booking-list-filters-1440.webp",
+      "viewportWidth": 1440,
+      "width": 1086,
+      "height": 366,
+      "file": "booking-list-filters-1440.webp",
+      "articleSlugs": [
+        "find-and-filter-bookings"
+      ],
+      "articleSteps": {
+        "find-and-filter-bookings": [
+          1,
+          2,
+          3
+        ]
+      },
+      "coverageExact": true,
+      "actions": [
+        "Записи → Список; выбрать период и раскрыть фильтр статуса"
+      ],
+      "horizontalOverflow": false,
+      "calendarMode": "personal",
+      "teamCalendarEnabled": false,
+      "selectedDate": "2026-10-06",
+      "kind": "screenshot",
+      "environment": "isolated-local-native-fixture",
+      "caption": "Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.",
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "productionRequests": 0,
+      "dimensions": {
+        "width": 1086,
+        "height": 366
+      },
+      "sha256": "977c34efdebeed99b8d9c33656b58af696968385252c9aa176e2a6ed99610756"
+    }
+  ],
+  "capturePasses": [
+    {
+      "pass": "baseline",
+      "unsupportedReadCount": 6,
+      "deniedMutationCount": 0,
+      "transportFailures": 116,
+      "captureFailures": 9,
+      "productionRequests": 0
+    },
+    {
+      "pass": "repair",
+      "unsupportedReadCount": 4,
+      "deniedMutationCount": 0,
+      "transportFailures": 24,
+      "captureFailures": 0,
+      "productionRequests": 0
+    },
+    {
+      "pass": "validation",
+      "unsupportedReadCount": 0,
+      "deniedMutationCount": 0,
+      "transportFailures": 0,
+      "captureFailures": 0,
+      "productionRequests": 0
+    },
+    {
+      "capturedAt": "2026-10-05T22:08:29.999Z",
+      "unsupportedReadCount": 0,
+      "deniedMutationCount": 0,
+      "transportFailures": 0,
+      "captureFailures": 0,
+      "productionRequests": 0
+    },
+    {
+      "capturedAt": "2026-10-05T22:21:25.001Z",
+      "unsupportedReadCount": 0,
+      "deniedMutationCount": 0,
+      "transportFailures": 0,
+      "captureFailures": 0,
+      "productionRequests": 0
+    },
+    {
+      "capturedAt": "2026-10-05T22:22:01.913Z",
+      "unsupportedReadCount": 0,
+      "deniedMutationCount": 0,
+      "transportFailures": 0,
+      "captureFailures": 0,
+      "productionRequests": 0
+    },
+    {
+      "capturedAt": "2026-10-05T22:22:57.081Z",
+      "unsupportedReadCount": 0,
+      "deniedMutationCount": 0,
+      "transportFailures": 0,
+      "captureFailures": 0,
+      "productionRequests": 0
+    },
+    {
+      "capturedAt": "2026-10-05T22:23:52.244Z",
+      "unsupportedReadCount": 0,
+      "deniedMutationCount": 0,
+      "transportFailures": 0,
+      "captureFailures": 0,
+      "productionRequests": 0
+    },
+    {
+      "capturedAt": "2026-10-05T22:30:01.853Z",
+      "unsupportedReadCount": 0,
+      "deniedMutationCount": 0,
+      "transportFailures": 0,
+      "captureFailures": 0,
+      "productionRequests": 0
     }
   ],
   "configOnlyTransport": true,
@@ -6403,6 +6605,7 @@
   "unsupportedReadCount": 0,
   "deniedMutationCount": 0,
   "transportFailures": 0,
+  "diagnosticScope": "latest-capture-pass",
   "coveredArticles": [
     "block-time-in-schedule",
     "reschedule-provider-booking",
@@ -6438,7 +6641,6 @@
     "voice-assistant",
     "create-recurring-booking-series",
     "confirm-or-delete-booking",
-    "find-and-filter-bookings",
     "share-free-slots",
     "schedule-date-exceptions",
     "set-regular-workweek",
@@ -6456,42 +6658,14 @@
     "statistics-overview",
     "add-portfolio-work",
     "manage-portfolio",
-    "view-team-calendar",
     "add-service",
     "create-manual-booking",
     "repeat-client-booking",
     "cabinet-layout-theme",
-    "booking-card-appearance"
+    "booking-card-appearance",
+    "find-and-filter-bookings",
+    "view-team-calendar"
   ],
   "pendingArticles": [],
-  "completeStateCount": 59,
-  "fixtureDate": "2026-10-06",
-  "capturedAt": "2026-10-05T19:59:15.144Z",
-  "diagnosticScope": "latest-capture-pass",
-  "capturePasses": [
-    {
-      "pass": "baseline",
-      "unsupportedReadCount": 6,
-      "deniedMutationCount": 0,
-      "transportFailures": 116,
-      "captureFailures": 9,
-      "productionRequests": 0
-    },
-    {
-      "pass": "repair",
-      "unsupportedReadCount": 4,
-      "deniedMutationCount": 0,
-      "transportFailures": 24,
-      "captureFailures": 0,
-      "productionRequests": 0
-    },
-    {
-      "pass": "validation",
-      "unsupportedReadCount": 0,
-      "deniedMutationCount": 0,
-      "transportFailures": 0,
-      "captureFailures": 0,
-      "productionRequests": 0
-    }
-  ]
+  "completeStateCount": 60
 }

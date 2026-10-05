@@ -68,12 +68,22 @@ try {
    const horizontalOverflow=await target.evaluate(el=>el.scrollWidth>el.clientWidth+1);
    const rawFile=id+'-'+width+'.png',file=id+'-'+width+'.webp';
    await target.scrollIntoViewIfNeeded();
-   if(id==='team-calendar'){await page.locator('#dateStrip [data-booking-date="'+fixtureDate+'"]').scrollIntoViewIfNeeded();await page.waitForTimeout(300);assert.equal(await page.locator('#dateStrip [data-booking-date="'+fixtureDate+'"]').evaluate(el=>{const a=el.getBoundingClientRect(),b=el.parentElement.getBoundingClientRect();return a.left>=b.left&&a.right<=b.right;}),true,'Selected calendar date must be visible');}
    let box=await target.boundingBox();
    if(id==='booking-card-settings'){await target.evaluate(el=>el.scrollIntoView({block:'start',behavior:'instant'}));box=await target.boundingBox();box={x:Math.max(0,box.x),y:Math.max(0,box.y),width:box.width,height:Math.min(900,box.height)};await page.screenshot({path:resolve(rawOutput,rawFile),clip:box});}
    else if(id==='schedule-week'){const step=page.locator('.booking-step-setting');await step.evaluate(el=>el.scrollIntoView({block:'start',behavior:'instant'}));const a=await step.boundingBox(),b=await page.locator('[data-schedule-day="2"]').boundingBox();box={x:Math.max(0,box.x),y:Math.max(0,a.y),width:box.width,height:Math.min(900,b.y+b.height+12-Math.max(0,a.y))};await page.screenshot({path:resolve(rawOutput,rawFile),clip:box});}
    else if(id==='booking-detail-actions'){await page.locator('.booking-delete-zone').scrollIntoViewIfNeeded();const a=await page.locator('#bookingSheet [data-booking-status=confirmed]').boundingBox(),b=await page.locator('.booking-delete-zone').boundingBox();box={x:Math.max(0,box.x),y:Math.max(0,a.y-16),width:box.width,height:b.y+b.height+8-Math.max(0,a.y-16)};await page.screenshot({path:resolve(rawOutput,rawFile),clip:box});}
-   else if(id==='team-calendar'||id==='statistics-overview-filter'||(width<=760&&box.height>900)){if(id==='team-calendar')await page.locator('#teamCalendarFilters').scrollIntoViewIfNeeded();else await target.evaluate(el=>el.scrollIntoView({block:'start',behavior:'instant'}));box=await target.boundingBox();const navTarget=page.locator('.provider-mobile-nav:visible');const nav=await navTarget.count()?await navTarget.boundingBox():null;const bottom=nav?.y||950;const clip={x:Math.max(0,box.x),y:Math.max(0,box.y),width:box.width,height:Math.min(900,box.height,bottom-Math.max(0,box.y)-8)};await page.screenshot({path:resolve(rawOutput,rawFile),clip});box=clip;}
+   else if(id==='personal-calendar'){
+    await target.evaluate(el=>el.scrollIntoView({block:'start',behavior:'instant'}));
+    box=await target.boundingBox();
+    const navTarget=page.locator('.provider-mobile-nav:visible');
+    const nav=await navTarget.count()?await navTarget.boundingBox():null;
+    const schedule=await page.locator('.schedule-card').boundingBox();
+    box={x:Math.max(0,box.x),y:Math.max(0,box.y),width:box.width,height:Math.min(900,schedule.y+schedule.height-Math.max(0,box.y),(nav?.y||950)-Math.max(0,box.y)-8)};
+    const empty=await page.locator('.timeline-empty-state').boundingBox();
+    assert.ok(empty.y>=box.y&&empty.y+empty.height<=box.y+box.height,'Native empty-day action remains in the screenshot');
+    await page.screenshot({path:resolve(rawOutput,rawFile),clip:box});
+   }
+   else if(id==='statistics-overview-filter'||(width<=760&&box.height>900)){await target.evaluate(el=>el.scrollIntoView({block:'start',behavior:'instant'}));box=await target.boundingBox();const navTarget=page.locator('.provider-mobile-nav:visible');const nav=await navTarget.count()?await navTarget.boundingBox():null;const bottom=nav?.y||950;const clip={x:Math.max(0,box.x),y:Math.max(0,box.y),width:box.width,height:Math.min(900,box.height,bottom-Math.max(0,box.y)-8)};await page.screenshot({path:resolve(rawOutput,rawFile),clip});box=clip;}
    else if(await target.evaluate(el=>el.tagName==='DIALOG')&&await target.locator('form').count()){const formBox=await target.locator('form').last().boundingBox();if(formBox&&formBox.y+formBox.height+24<box.y+box.height){box={x:Math.max(0,box.x),y:Math.max(0,box.y),width:box.width,height:Math.min(box.height,formBox.y+formBox.height+24-box.y)};await page.screenshot({path:resolve(rawOutput,rawFile),clip:box});}else await target.screenshot({path:resolve(rawOutput,rawFile)});}
    else await target.screenshot({path:resolve(rawOutput,rawFile)});
    const png=readFileSync(resolve(rawOutput,rawFile));await sharp(png).webp({lossless:true}).toFile(resolve(output,file));
@@ -89,8 +99,39 @@ try {
    if(id==='booking-text-scale')articleSteps={'booking-card-appearance':[1]};
    articleSlugs=Object.keys(articleSteps);
    manifest.captures=manifest.captures.filter(capture=>capture.id!==id||capture.viewportWidth!==width);
-   manifest.captures.push({id,screenKey,src:'images/native-local/'+file,viewportWidth:width,width:Math.round(box.width),height:Math.round(box.height),file,articleSlugs,articleSteps,coverageExact:true,actions,horizontalOverflow,kind:'screenshot',environment:'isolated-local-native-fixture',caption:'Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.',domModified:false,rendererModified:false,liveVerified:false,productionRequests:0,dimensions:{width:Math.round(box.width),height:Math.round(box.height)},sha256:createHash('sha256').update(readFileSync(resolve(output,file))).digest('hex')});
+   manifest.captures.push({id,screenKey,src:'images/native-local/'+file,viewportWidth:width,width:Math.round(box.width),height:Math.round(box.height),file,articleSlugs,articleSteps,coverageExact:true,actions,horizontalOverflow,...(['personal-calendar','booking-list-filters'].includes(id)?{calendarMode:'personal',teamCalendarEnabled:process.env.NATIVE_CAPTURE_TEAM_ENABLED!=='0',selectedDate:await page.locator('#scheduleDatePicker').inputValue(),...(id==='personal-calendar'?{emptyDay:true}:{})}:{}),kind:'screenshot',environment:'isolated-local-native-fixture',caption:'Настоящий интерфейс Eldion Pro на изолированном локальном стенде с учебными данными. Тема «Розовый фарфор». Проверка живого сайта не выполнялась.',domModified:false,rendererModified:false,liveVerified:false,productionRequests:0,dimensions:{width:Math.round(box.width),height:Math.round(box.height)},sha256:createHash('sha256').update(readFileSync(resolve(output,file))).digest('hex')});
    console.log(JSON.stringify({captured:id,width,articles:Object.keys(articleSteps)}));
+  }
+  if(process.env.NATIVE_CAPTURE_KEYS==='personal-calendar'){
+   assert.equal(process.env.NATIVE_CAPTURE_TEAM_ENABLED,'0','Personal reference has the native team preference disabled');
+   const selectedDate=process.env.NATIVE_CAPTURE_SELECTED_DATE;
+   assert.ok(selectedDate&&selectedDate!==fixtureDate,'Personal reference uses a separate empty day');
+   await page.locator('#scheduleDatePicker').fill(selectedDate);
+   await page.locator('.timeline-empty-state').waitFor({state:'visible'});
+   await page.locator('#dateStrip [data-booking-date="'+selectedDate+'"]').click();
+   assert.equal(await page.locator('#teamCalendarToolbar').isVisible(),false,'Reference has no team mode toolbar');
+   assert.equal(await page.locator('#teamCalendarFilters').isVisible(),false,'Reference has no team filters');
+   assert.equal(await page.locator('.team-dispatcher-column').count(),0,'Reference has no staff columns');
+   assert.equal(await page.locator('.day-timeline').count(),1,'Reference has one personal timeline');
+   await shot('personal-calendar','[data-provider-panel=bookings]',['view-team-calendar','find-and-filter-bookings'],['Открыть «Записи» с выключенной учебной настройкой расписания команды','Выбрать свободный день '+selectedDate+' через штатный календарь']);
+   assert.deepEqual(errors,[],width+': original app has no uncaught JS errors');
+   assert.deepEqual(blocked,[],width+': no non-local requests attempted');
+   await context.close();continue;
+  }
+  if(process.env.NATIVE_CAPTURE_KEYS==='booking-list-filters'){
+   assert.equal(process.env.NATIVE_CAPTURE_TEAM_ENABLED,'0','The basic journal uses the same personal-calendar preference');
+   await page.goto(fixture.origin+'/minuta-online-booking/provider.html?view=bookings&records=all&date='+fixtureDate);
+   await page.locator('#dashboard').waitFor({state:'visible'});
+   await page.waitForFunction(()=>bookingCreationReady&&!synchronizationPromise);
+   await journal('list');
+   await page.locator('#bookingStatusFilter').selectOption('new');
+   assert.equal(await page.locator('#teamCalendarToolbar').isVisible(),false);
+   assert.equal(await page.locator('.team-dispatcher-column').count(),0);
+   const planned=plan.screens.find(s=>s.screenKey==='booking-list-filters');
+   await shot('booking-list-filters','.schedule-card',Object.keys(planned.articleSteps),[planned.nativeAction]);
+   assert.deepEqual(errors,[],width+': original app has no uncaught JS errors');
+   assert.deepEqual(blocked,[],width+': no non-local requests attempted');
+   await context.close();continue;
   }
   await page.locator('#scheduleDatePicker').fill(fixtureDate);
   await page.locator('[data-calendar-mode=team]').click();
@@ -98,7 +139,12 @@ try {
   await page.waitForTimeout(350);
   await page.locator('#dateStrip [data-booking-date="'+fixtureDate+'"]').scrollIntoViewIfNeeded();
   assert.equal(await page.locator('#dateStrip [data-booking-date="'+fixtureDate+'"]').getAttribute('aria-pressed'),'true');
-  await shot('team-calendar','.schedule-card',['view-team-calendar'],['Войти в локальный учебный аккаунт','Выбрать учебную дату '+fixtureDate+' через штатный календарь','Нажать «Расписание команды»']);
+  await shot('team-calendar','#teamCalendarToolbar',['view-team-calendar'],['Войти в локальный учебный аккаунт','Выбрать учебную дату '+fixtureDate+' через штатный календарь','Нажать «Расписание команды»','Посмотреть штатные фильтры дополнительного режима']);
+  if(process.env.NATIVE_CAPTURE_KEYS==='team-calendar'){
+   assert.deepEqual(errors,[],width+': original app has no uncaught JS errors');
+   assert.deepEqual(blocked,[],width+': no non-local requests attempted');
+   await context.close();continue;
+  }
   await navigate('schedule');
   await shot('work-hours','#scheduleWeekEditor',['set-regular-workweek'],['Открыть «Рабочие часы»','Открыть редактор обычной недели'],'schedule-week');
   await navigate('services');
