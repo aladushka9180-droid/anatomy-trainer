@@ -20,8 +20,6 @@ body.provider-help-open { overflow:hidden; }
   padding:calc(10px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 10px max(20px,env(safe-area-inset-left));
   border-bottom:1px solid #ead5df;
   background:#fff7fa;
-  box-shadow:0 10px 30px rgba(53,43,49,.06);
-  backdrop-filter:blur(18px);
 }
 .provider-help-workspace-back,.provider-help-workspace-external {
   display:inline-flex;
@@ -32,17 +30,17 @@ body.provider-help-open { overflow:hidden; }
   gap:9px;
   margin:0;
   padding:0 16px;
-  border:1px solid #ead5df;
-  border-radius:14px;
-  background:#ffffff;
-  color:#352b31;
+  border:1px solid transparent;
+  border-radius:12px;
+  background:transparent;
+  color:#853553;
   font:inherit;
   font-size:14px;
   font-weight:650;
   text-decoration:none;
   cursor:pointer;
 }
-.provider-help-workspace-back:hover,.provider-help-workspace-external:hover { border-color:#a3446c; color:#853553; }
+.provider-help-workspace-back:hover,.provider-help-workspace-external:hover { background:#fce7ef; }
 .provider-help-workspace-back:focus-visible,.provider-help-workspace-external:focus-visible { outline:3px solid #a3446c; outline-offset:2px; }
 .provider-help-workspace-back .ui-icon,.provider-help-workspace-external .ui-icon { width:17px; height:17px; }
 .provider-help-workspace-heading { text-align:center; }
@@ -52,7 +50,7 @@ body.provider-help-open { overflow:hidden; }
 .provider-help-workspace-external { justify-self:end; }
 .provider-help-workspace-stage { position:relative; min-height:0; background:#fff7fa; }
 .provider-help-workspace iframe { display:block; width:100%; height:100%; border:0; background:#fff7fa; }
-.provider-help-workspace-loading { position:absolute; z-index:1; inset:18px auto auto 50%; margin:0; padding:9px 13px; border-radius:999px; background:#fff; color:#73636d; box-shadow:0 8px 24px rgba(53,43,49,.08); font-size:14px; font-weight:650; transform:translateX(-50%); }
+.provider-help-workspace-loading { position:absolute; z-index:1; inset:18px auto auto 50%; margin:0; padding:9px 13px; border:1px solid #ead5df; border-radius:999px; background:#fff; color:#73636d; font-size:14px; font-weight:650; transform:translateX(-50%); }
 .provider-help-workspace-loading[hidden] { display:none; }
 
 @media (max-width:760px) {

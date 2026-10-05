@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -49,6 +50,8 @@ vm.runInNewContext(readFileSync(join(helpRoot, 'help-data.js'), 'utf8'), context
 const articles = context.window.MINUTA_HELP_ARTICLES;
 // Frozen source references from c219d1a2: retain the backlog while article copy evolves.
 const previousVisuals = JSON.parse(readFileSync(join(helpRoot, 'tools', 'previous-visuals.json'), 'utf8'));
+const approvedCapturePath = join(helpRoot, 'tools', 'native-article-visuals.json');
+const approvedCaptures = existsSync(approvedCapturePath) ? JSON.parse(readFileSync(approvedCapturePath, 'utf8')) : {};
 const output = join(helpRoot, 'images', 'process');
 mkdirSync(output, { recursive: true });
 
@@ -78,7 +81,35 @@ for (const article of articles) {
   const labels = phases[article.slug];
   const priorVisual = previousVisuals[article.slug];
   const images = [];
-  if (labels) {
+  const captures = approvedCaptures[article.slug] || [];
+  for (const capture of captures) {
+    const folder = article.audience === 'client' ? 'native-client' : 'native-local';
+    if (!new RegExp(`^images/${folder}/[a-z0-9-]+\\.(webp|png)$`).test(capture.src)
+      || capture.kind !== 'screenshot' || capture.coverageExact !== true
+      || capture.environment !== 'isolated-local-native-fixture'
+      || capture.domModified !== false || capture.rendererModified !== false || capture.liveVerified !== false
+      || typeof capture.alt !== 'string' || !capture.alt.trim()
+      || typeof capture.caption !== 'string' || !/учебные данные/i.test(capture.caption)
+      || !Number.isInteger(capture.width) || !Number.isInteger(capture.height)
+      || capture.width < 200 || capture.height < 100
+      || (capture.step && (!Number.isInteger(capture.step) || capture.step < 1 || capture.step > article.steps.length))) {
+      throw new Error(`Unapproved native capture: ${article.slug}`);
+    }
+    const digest = createHash('sha256').update(readFileSync(join(helpRoot, capture.src))).digest('hex');
+    if (digest !== capture.sha256) throw new Error(`Native image changed since review: ${capture.src}`);
+    const variants = (capture.variants || []).map(variant => {
+      if (!new RegExp(`^images/${folder}/[a-z0-9-]+\\.(webp|png)$`).test(variant.src)
+        || !Number.isInteger(variant.minWidth) || variant.minWidth < 0
+        || !Number.isInteger(variant.width) || !Number.isInteger(variant.height)
+        || createHash('sha256').update(readFileSync(join(helpRoot, variant.src))).digest('hex') !== variant.sha256) {
+        throw new Error(`Unapproved responsive capture: ${article.slug}`);
+      }
+      return { minWidth:variant.minWidth, src:variant.src, width:variant.width, height:variant.height };
+    });
+    if (variants.some((variant, index) => index && variants[index - 1].minWidth <= variant.minWidth)) throw new Error(`Unordered image variants: ${article.slug}`);
+    images.push({ src:capture.src, alt:capture.alt, caption:capture.caption, kind:'screenshot', width:capture.width, height:capture.height, ...(capture.step ? { step:capture.step } : {}), ...(variants.length ? { variants } : {}) });
+  }
+  if (labels && !captures.length) {
     writeFileSync(join(output, `${article.slug}.svg`), diagram(article, labels));
     images.push({
       src: `images/process/${article.slug}.svg`,
@@ -88,9 +119,10 @@ for (const article of articles) {
     });
   }
   const entry = { images };
-  if (priorVisual && !processOnly.has(article.slug)) entry.deferredCapture = {
+  if (captures.length) entry.capture = { status:'captured-local-native', liveVerified:false };
+  if (priorVisual && !processOnly.has(article.slug) && !captures.length) entry.deferredCapture = {
     status: 'pending',
-    reason: 'browser_permission_unverified',
+    reason: 'local_capture_pending',
     requirement: labels
       ? 'Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.'
       : 'Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.',
@@ -98,11 +130,12 @@ for (const article of articles) {
     targetArticle: article.title,
     widths: [390, 760, 1440]
   };
-  if (!priorVisual) entry.status = 'text-only';
+  if (!priorVisual && !captures.length) entry.status = 'text-only';
   manifest[article.slug] = entry;
 }
 for (const slug of Object.keys(phases)) if (!articles.some(article => article.slug === slug)) throw new Error(`Unknown article: ${slug}`);
+for (const slug of Object.keys(approvedCaptures)) if (!articles.some(article => article.slug === slug)) throw new Error(`Unknown captured article: ${slug}`);
 writeFileSync(join(helpRoot, 'tools', 'process-visuals-manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
-const browserManifest = `(function () {\n  'use strict';\n  // Generated by help/tools/build-process-visuals.mjs. Schemes never claim to be screenshots.\n  const manifest = ${JSON.stringify(manifest, null, 2)};\n  window.MINUTA_HELP_VISUAL_MANIFEST = manifest;\n  const articles = Array.isArray(window.MINUTA_HELP_ARTICLES) ? window.MINUTA_HELP_ARTICLES : [];\n  articles.forEach(article => {\n    const entry = manifest[article.slug];\n    if (!entry) return;\n    delete article.visual;\n    article.visuals = entry.images.map(image => ({ ...image }));\n    if (article.visuals.length) article.visual = article.visuals[0];\n    if (entry.deferredCapture) article.deferredCapture = { ...entry.deferredCapture };\n  });\n}());\n`;
+const browserManifest = `(function () {\n  'use strict';\n  // Generated by help/tools/build-process-visuals.mjs. Schemes never claim to be screenshots.\n  const manifest = ${JSON.stringify(manifest, null, 2)};\n  window.MINUTA_HELP_VISUAL_MANIFEST = manifest;\n  const articles = Array.isArray(window.MINUTA_HELP_ARTICLES) ? window.MINUTA_HELP_ARTICLES : [];\n  articles.forEach(article => {\n    const entry = manifest[article.slug];\n    if (!entry) return;\n    delete article.visual;\n    delete article.deferredCapture;\n    article.visuals = entry.images.map(image => ({ ...image }));\n    if (article.visuals.length) article.visual = article.visuals[0];\n    if (entry.deferredCapture) article.deferredCapture = { ...entry.deferredCapture };\n  });\n}());\n`;
 writeFileSync(join(helpRoot, 'help-visuals.js'), browserManifest);
-console.log(JSON.stringify({ articles: articles.length, diagrams: Object.keys(phases).length, pendingCaptures: Object.values(manifest).filter(entry => entry.deferredCapture).length, textOnly: Object.values(manifest).filter(entry => entry.status === 'text-only').length }));
+console.log(JSON.stringify({ articles: articles.length, diagrams: Object.values(manifest).reduce((count, entry) => count + entry.images.filter(image => image.kind === 'diagram').length, 0), pendingCaptures: Object.values(manifest).filter(entry => entry.deferredCapture).length, textOnly: Object.values(manifest).filter(entry => entry.status === 'text-only').length }));

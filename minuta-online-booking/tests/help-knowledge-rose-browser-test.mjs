@@ -50,6 +50,13 @@ try {
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   if (screenshotRoot) await mkdir(screenshotRoot, { recursive:true });
+  const capturePage = async name => {
+    // Full-page capture starts at the top after loading lazy article images.
+    await page.evaluate(() => { window.scrollTo({ top:0, left:0, behavior:'instant' }); });
+    await page.waitForFunction(() => window.scrollY === 0);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await page.screenshot({ path:path.join(screenshotRoot, name), fullPage:true });
+  };
   for (const width of [390, 760, 1440]) {
     await page.setViewportSize({ width, height:900 });
     await page.goto(`${base}index.html?audience=specialist`);
@@ -58,7 +65,7 @@ try {
     verify(await page.locator('.section-card').count() === 14, `${width}: все разделы специалиста`);
     verify(await page.locator('.quick-start-card').count() === 4, `${width}: быстрый старт`);
     verify(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${width}: главная без горизонтального переполнения`);
-    if (screenshotRoot) await page.screenshot({ path:path.join(screenshotRoot, `home-${width}.png`), fullPage:true });
+    if (screenshotRoot) await capturePage(`home-${width}.png`);
 
     const input = page.getByRole('searchbox', { name:'Поиск по базе знаний' });
     await input.fill('как изменить услугу');
@@ -73,6 +80,7 @@ try {
     await page.getByRole('button', { name:'Для клиента', exact:true }).click();
     verify(await page.locator('.section-card').count() === 2, `${width}: отдельные клиентские разделы`);
     verify(await page.locator('.section-card').allTextContents().then(texts => texts.every(text => !/зарплат|склад/i.test(text))), `${width}: Pro не смешан с клиентской помощью`);
+    if (screenshotRoot) await capturePage(`client-home-${width}.png`);
     await input.fill('неопределённый результат');
     verify(await page.locator('#searchResults a').count() > 0, `${width}: помощь при неопределённой записи`);
     await input.fill('zzzzzzzzzzz');
@@ -85,12 +93,12 @@ try {
     verify(await page.locator('#articleTroubleshooting').isVisible(), `${width}: решение проблем`);
     verify(await page.locator('#articleSteps .article-step').count() === await page.locator('#articleToc nav a').count(), `${width}: все шаги в содержании`);
     verify(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${width}: статья без горизонтального переполнения`);
-    if (screenshotRoot) await page.screenshot({ path:path.join(screenshotRoot, `article-${width}.png`), fullPage:true });
+    if (screenshotRoot) await capturePage(`article-${width}.png`);
     await page.locator('#articleToc summary').click();
     await page.locator('#articleToc nav a').first().click();
     verify(await page.url().includes('#step-1'), `${width}: переход к выбранному шагу`);
     const zoom = page.locator('.article-visual button').first();
-    verify(await zoom.count() > 0, `${width}: новая схема присутствует`);
+    verify(await zoom.count() > 0, `${width}: иллюстрация инструкции присутствует`);
     await zoom.click();
     verify(await page.locator('#articleVisualDialog').evaluate(element => element.open), `${width}: увеличение изображения`);
     await page.waitForFunction(() => { const image = document.querySelector('#articleVisualFull'); return image.complete && image.naturalWidth > 0; });
@@ -131,6 +139,7 @@ try {
       const appearance = await rosePage();
       verify(appearance.background === 'rgb(255, 247, 250)', `${width}/${category.slug}: нежно-розовое оформление раздела`);
       verify(!appearance.overflow, `${width}/${category.slug}: раздел без переполнения`);
+      if (screenshotRoot && category.slug === 'services') await capturePage(`category-services-${width}.png`);
     }
     for (const article of articles) {
       await page.goto(`${base}article.html?slug=${encodeURIComponent(article.slug)}`);
@@ -139,13 +148,35 @@ try {
       verify(await page.locator('#articleSteps .article-step').count() === article.steps, `${width}/${article.slug}: шаги не обрезаны`);
       verify(await page.locator('#articlePrerequisites').isVisible() && await page.locator('#articleOutcome').isVisible() && await page.locator('#articleTroubleshooting').isVisible(), `${width}/${article.slug}: полная структура`);
       verify(await page.locator('#articleMeta').innerText().then(text => text.includes('Обновлено') && !text.includes('Проверено')), `${width}/${article.slug}: честная дата редакции`);
+      for (const image of await page.locator('.article-visual img[loading="lazy"]').all()) await image.scrollIntoViewIfNeeded();
       await page.waitForFunction(() => [...document.querySelectorAll('.article-visual img')].every(image => image.complete && image.naturalWidth > 0), undefined, { timeout:5000 });
       verify(await page.locator('.article-visual img').evaluateAll(images => images.every(image => image.complete && image.naturalWidth > 0)), `${width}/${article.slug}: изображения загружены`);
       const appearance = await rosePage();
       verify(appearance.background === 'rgb(255, 247, 250)', `${width}/${article.slug}: нежно-розовое оформление статьи`);
       verify(!appearance.overflow, `${width}/${article.slug}: статья без переполнения`);
-      if (screenshotRoot && article.slug === 'view-team-calendar') await page.screenshot({ path:path.join(screenshotRoot, `schedule-${width}.png`), fullPage:true });
+      if (screenshotRoot && article.slug === 'view-team-calendar') await capturePage(`schedule-${width}.png`);
+      if (screenshotRoot && ['book-online', 'reschedule'].includes(article.slug)) await capturePage(`client-article-${article.slug}-${width}.png`);
     }
+    await page.goto(`${base}article.html?slug=book-online`);
+    const nativePhoto = page.locator('.article-visual[data-kind="screenshot"] img').first();
+    await nativePhoto.waitFor();
+    await nativePhoto.scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => document.querySelector('.article-visual[data-kind="screenshot"] img')?.complete);
+    const displayedPhoto = await nativePhoto.evaluate(image => image.currentSrc);
+    verify(displayedPhoto.endsWith(`client-service-picker-${width}.webp`), `${width}: снимок показывает соответствующий размер интерфейса`);
+    await page.locator('.article-visual[data-kind="screenshot"] button').first().click();
+    verify(await page.locator('#articleVisualFull').getAttribute('src') === displayedPhoto, `${width}: увеличение открывает показанный снимок`);
+    await page.keyboard.press('Escape');
+    await page.goto(`${base}article.html?slug=view-team-calendar`);
+    const providerPhoto = page.locator('.article-visual[data-kind="screenshot"] img').first();
+    await providerPhoto.waitFor();
+    await providerPhoto.scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => document.querySelector('.article-visual[data-kind="screenshot"] img')?.complete);
+    const displayedProviderPhoto = await providerPhoto.evaluate(image => image.currentSrc);
+    verify(displayedProviderPhoto.endsWith(`team-calendar-${width}.webp`), `${width}: снимок кабинета соответствует размеру экрана`);
+    await page.locator('.article-visual[data-kind="screenshot"] button').first().click();
+    verify(await page.locator('#articleVisualFull').getAttribute('src') === displayedProviderPhoto, `${width}: увеличение снимка кабинета сохраняет выбранную версию`);
+    await page.keyboard.press('Escape');
     await page.goto(`${origin}/minuta-online-booking/__help-host.html?section=organization`);
     await page.getByRole('link', { name:'База знаний', exact:true }).click();
     const frame = page.frameLocator('#providerHelpWorkspace iframe');
@@ -157,7 +188,7 @@ try {
     verify(await page.locator('.provider-help-workspace-bar').evaluate(element => getComputedStyle(element).backgroundColor) === 'rgb(255, 247, 250)', `${width}: розовая оболочка при тёмной теме кабинета`);
     verify(await frame.locator('body').evaluate(element => getComputedStyle(element).backgroundColor) === 'rgb(255, 247, 250)', `${width}: розовая база при тёмной теме кабинета`);
     await page.locator('body').evaluate(element => { element.dataset.providerTheme = 'sage'; });
-    if (screenshotRoot) await page.screenshot({ path:path.join(screenshotRoot, `embedded-${width}.png`), fullPage:true });
+    if (screenshotRoot) await capturePage(`embedded-${width}.png`);
     await page.getByRole('button', { name:'Назад в Eldion Pro', exact:true }).click();
     verify(await page.locator('#draft').inputValue() === 'Локальный черновик', `${width}: возврат сохраняет состояние кабинета`);
   }

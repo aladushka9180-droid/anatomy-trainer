@@ -1,0 +1,695 @@
+{
+  "kind": "local-native-public-client-ui-fixture",
+  "fixtureClock": "2026-10-05T07:00:00Z",
+  "liveVerified": false,
+  "domModified": false,
+  "cssModified": false,
+  "rendererModified": false,
+  "originalSupabaseSdk": true,
+  "productionRequests": 0,
+  "allowedPublicStaticSdk": {
+    "url": "https://telegram.org/js/telegram-widget.js?22",
+    "method": "GET",
+    "status": 200,
+    "contentType": "application/javascript",
+    "sha256": "3c8c27bf6f51a778ed94f452cf6b501f54703b67ef162551f677171916fbcd99",
+    "bytes": 20474,
+    "fetchedAt": "2026-10-05T18:38:52.465Z",
+    "requestsThisRun": 0,
+    "authorizationInvoked": false,
+    "unchangedBytesReusedAcrossContexts": true,
+    "localOriginalSdkCacheReused": true
+  },
+  "date": "2026-10-05",
+  "theme": "pink-porcelain",
+  "configOnlyTransport": true,
+  "fixtureCatalog": "Valid minimal catalog without optional public service detail cards",
+  "captures": [
+    {
+      "screenKey": "client-service-picker",
+      "src": "images/native-client/client-service-picker-1440.webp",
+      "width": 720,
+      "height": 313,
+      "viewportWidth": 1440,
+      "sha256": "2f519540f952af33d26ae7a42484829684ad3b78e37118cb3e18d926c1e97332",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-service-picker-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-waitlist-form",
+      "src": "images/native-client/client-waitlist-form-1440.webp",
+      "width": 560,
+      "height": 666,
+      "viewportWidth": 1440,
+      "sha256": "1d4197fef4b1fcb77183a27f0a29a84bafe4895307f286edeadccd38b00c7db8",
+      "articleSlugs": [
+        "join-booking-waitlist"
+      ],
+      "articleSteps": {
+        "join-booking-waitlist": [
+          2
+        ]
+      },
+      "step": 2,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-waitlist-form-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-contact-form",
+      "src": "images/native-client/client-contact-form-1440.webp",
+      "width": 720,
+      "height": 716,
+      "viewportWidth": 1440,
+      "sha256": "ceb606af97c147eb4105494b075c3e3aa3785bce349e77c66f17184bcf734989",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-contact-form-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-management",
+      "src": "images/native-client/client-management-1440.webp",
+      "width": 658,
+      "height": 735,
+      "viewportWidth": 1440,
+      "sha256": "01611e3d6a41ad16daa90fde5f292fd156bae166c1eadecbaa7106b47efd217c",
+      "articleSlugs": [
+        "reschedule",
+        "connect-telegram"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          1
+        ],
+        "connect-telegram": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-management-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": "Telegram button is ready inside its actual booking-management context. Original official static SDK loaded; authorization is not invoked."
+    },
+    {
+      "screenKey": "client-reschedule-form",
+      "src": "images/native-client/client-reschedule-form-1440.webp",
+      "width": 658,
+      "height": 444,
+      "viewportWidth": 1440,
+      "sha256": "333e9354e03fb3e104ce303adb672dc4cd62553c804f9f70939a413408bf102e",
+      "articleSlugs": [
+        "reschedule"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-reschedule-form-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-login",
+      "src": "images/native-client/client-login-1440.webp",
+      "width": 520,
+      "height": 876,
+      "viewportWidth": 1440,
+      "sha256": "065941802adc7200f3e1fc08b7fb8367e345acf97756e846455208ecdbcdeea6",
+      "articleSlugs": [
+        "find-booking"
+      ],
+      "articleSteps": {
+        "find-booking": [
+          4
+        ]
+      },
+      "step": 4,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-login-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-service-picker",
+      "src": "images/native-client/client-service-picker-390.webp",
+      "width": 370,
+      "height": 297,
+      "viewportWidth": 390,
+      "sha256": "c4dac3dc8003e6fafc39a0e6efa3e0aa41ad2dcf32f7b9339b9b0576feebc2c9",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-service-picker-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-waitlist-form",
+      "src": "images/native-client/client-waitlist-form-390.webp",
+      "width": 352,
+      "height": 702,
+      "viewportWidth": 390,
+      "sha256": "1040d732ec3d98e879c3a934ff256f1507a909b45a25f314ffbe05d034e2b2ec",
+      "articleSlugs": [
+        "join-booking-waitlist"
+      ],
+      "articleSteps": {
+        "join-booking-waitlist": [
+          2
+        ]
+      },
+      "step": 2,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-waitlist-form-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-contact-form",
+      "src": "images/native-client/client-contact-form-390.webp",
+      "width": 370,
+      "height": 759,
+      "viewportWidth": 390,
+      "sha256": "5fdc68122f9d2364bdf18524ed205a3a26c4d1511ef88001b861567cd3470184",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-contact-form-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-management",
+      "src": "images/native-client/client-management-390.webp",
+      "width": 340,
+      "height": 933,
+      "viewportWidth": 390,
+      "sha256": "1e7ed2056e553df1d4515d15f704abd22428e4e6c2405eba8356de7a9ef0a7b0",
+      "articleSlugs": [
+        "reschedule",
+        "connect-telegram"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          1
+        ],
+        "connect-telegram": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-management-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": "Telegram button is ready inside its actual booking-management context. Original official static SDK loaded; authorization is not invoked."
+    },
+    {
+      "screenKey": "client-reschedule-form",
+      "src": "images/native-client/client-reschedule-form-390.webp",
+      "width": 340,
+      "height": 369,
+      "viewportWidth": 390,
+      "sha256": "6bdc9f0d671d44b0a5549e2325d79e88b0d5ec656019817917da7cc9e6db31b4",
+      "articleSlugs": [
+        "reschedule"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-reschedule-form-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-login",
+      "src": "images/native-client/client-login-390.webp",
+      "width": 370,
+      "height": 851,
+      "viewportWidth": 390,
+      "sha256": "4087ce7109ceb4102c91e21465eb6a364d4dcd9343fda49ed4c8504a3c5b80c0",
+      "articleSlugs": [
+        "find-booking"
+      ],
+      "articleSteps": {
+        "find-booking": [
+          4
+        ]
+      },
+      "step": 4,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-login-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-service-picker",
+      "src": "images/native-client/client-service-picker-760.webp",
+      "width": 620,
+      "height": 301,
+      "viewportWidth": 760,
+      "sha256": "12148b2b780dae12f094136e698f5a9f390800e91a558791e6f53f4bedf266a3",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-service-picker-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-waitlist-form",
+      "src": "images/native-client/client-waitlist-form-760.webp",
+      "width": 560,
+      "height": 666,
+      "viewportWidth": 760,
+      "sha256": "e15bc35e87f036832ebd57e8e67580d074ccf7269a3b9ec430d66a81b715634b",
+      "articleSlugs": [
+        "join-booking-waitlist"
+      ],
+      "articleSteps": {
+        "join-booking-waitlist": [
+          2
+        ]
+      },
+      "step": 2,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-waitlist-form-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-contact-form",
+      "src": "images/native-client/client-contact-form-760.webp",
+      "width": 620,
+      "height": 718,
+      "viewportWidth": 760,
+      "sha256": "bce613e8708e6955517d34c56893b909672317a253413d6a6247e55e793fb047",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-contact-form-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-management",
+      "src": "images/native-client/client-management-760.webp",
+      "width": 702,
+      "height": 917,
+      "viewportWidth": 760,
+      "sha256": "baf1a297016a4c857f6b2188b4b49e84b0583b2764d36a55dff0cda33fb4ce65",
+      "articleSlugs": [
+        "reschedule",
+        "connect-telegram"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          1
+        ],
+        "connect-telegram": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-management-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": "Telegram button is ready inside its actual booking-management context. Original official static SDK loaded; authorization is not invoked."
+    },
+    {
+      "screenKey": "client-reschedule-form",
+      "src": "images/native-client/client-reschedule-form-760.webp",
+      "width": 702,
+      "height": 375,
+      "viewportWidth": 760,
+      "sha256": "77f7fba003b1252b74a792d449bda4335f72d287f8027a240a1bbda50fae9d74",
+      "articleSlugs": [
+        "reschedule"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-reschedule-form-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-login",
+      "src": "images/native-client/client-login-760.webp",
+      "width": 520,
+      "height": 860,
+      "viewportWidth": 760,
+      "sha256": "faa73b0952788b805693cf19e5bf7c7a94297a87ae0bc168b311a1c705dd1da5",
+      "articleSlugs": [
+        "find-booking"
+      ],
+      "articleSteps": {
+        "find-booking": [
+          4
+        ]
+      },
+      "step": 4,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/native-client/png/client-login-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    }
+  ],
+  "limitations": [
+    "SMS, booking creation, payment, Telegram authorization and delivery were not executed. Original official Telegram static SDK is the only authorized public dependency fetch."
+  ],
+  "sources": {
+    "index.html": "b6c544a014941741a68244ef93649f044195ebac6b714c914e936ba4cb45c076",
+    "app.js": "76b98814b8721ca4fe9c90f28c7609deac517818504f94160d1a74868cb7548d",
+    "booking.html": "a416525422ef2b31f1087e569da90ad4f2eb21bf394aa603d8bce028a7a90bd6",
+    "booking.js": "d6afc764ff1d8583b6026c8cff46609b1d9e2bb037510bf2db7880e5beb21636",
+    "my-bookings.html": "7f68263fb35601f7625e569c4ab421783d3eafa4e6612679e63c1f38e12dff02",
+    "my-bookings.js": "7d6744ad62a975a6635e8a655722ad26e0d88733c6de604a7a2fa28c00b4953f",
+    "telegram-auth.js": "94efbdfea2d5665d03de8b69f99a06a87e4432875936420936b4f8eb28b796f9",
+    "vendor/supabase-2.112.4.min.js": "9a8142ffedb319a3ac0d4a8a123c9c2f7ffdb0e1e86cd9553889911b647175f6",
+    "redirect.js": "aeefeb3e6e63b96c8af62c2f2a0e47d009b9be9471915fae6f8bd7fc87428d1d",
+    "styles.css": "7b91e2e90d3f35b3c2b4efabc4bbedd87a0a8885cabe92c63d568c8d5019ca1a",
+    "client-themes.css": "3d170015b413dca5de98e92d74d2569276f560877e41938b9dcfa5d58e722e3d",
+    "code-scanner.css": "7484c62bccb092681a0d26a1c79b65b0d03b6c2d44e998995674c6d318dfc30c",
+    "booking-widgets.js": "ac2d9f0150d355813c9c81380195a088b27916418054386cd3e58d221ac84eaa",
+    "ui-icons.svg": "4b503b4e04d6b8ae2d12ed5e690f4aedf070ec2e4073217060662cbd62258acc",
+    "theme-catalog.js": "c96c12851fbbb1d8ff04d3a956e75a4fe2629729a1bdc4807228a8a4238b2e11",
+    "site-update.js": "a8d0e7d17302b3f1a47dfa4f230160a4487a5a704c7b5b250213b8e0a21df5b2",
+    "reliability.js": "149b13b32fae04bbbe845ad3e1a4b0e5698b3ea42f4ea55041406194306ad16b",
+    "group-bookings.js": "55401c8b63c19b572278194c4242ad4a5fdb7431f92dd07468dea93bb241b156",
+    "code-scanner.js": "ffe79f0505312d83c06b28283cd9748cfbd9d806e84d65e40e9363e27f008116",
+    "client-offline-flexible.js": "d55363c24a0f490d96b6c2abdb366ff5a38cfe3099225ad2b8b47f57fae541a7",
+    "icon.svg": "5b8aa9ba2e6516905fb50778bfcbaf79eaef38722bbd31d7ce6b3a9d708b64f0",
+    "phone-auth.js": "b28d82e70af70890ed4ce7eba48973a80b79e1f1c134b965982f044351d612fd",
+    "social-auth.js": "9119abf5afbb1510f4da5fe05b6ed3372007d8a10446fd57d00dc5cdea1f5dd2"
+  },
+  "discardedTelemetry": [
+    "upsert_public_booking_presence",
+    "track_public_booking_funnel_event"
+  ],
+  "blockedExternalRequests": [],
+  "transportRequests": [
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/index.html",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/redirect.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/styles.css",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/client-themes.css",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/code-scanner.css",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/booking-widgets.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/ui-icons.svg",
+      "count": 21
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/vendor/supabase-2.112.4.min.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/config.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/theme-catalog.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/site-update.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/reliability.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/group-bookings.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/telegram-auth.js",
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/code-scanner.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/app.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/client-offline-flexible.js",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_public_minuta_catalog_v5",
+      "rpc": "get_public_minuta_catalog_v5",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/icon.svg",
+      "count": 9
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/upsert_public_booking_presence",
+      "rpc": "upsert_public_booking_presence",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/track_public_booking_funnel_event",
+      "rpc": "track_public_booking_funnel_event",
+      "count": 12
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_public_service_cards_v159",
+      "rpc": "get_public_service_cards_v159",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_public_minuta_group_events",
+      "rpc": "get_public_minuta_group_events",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_available_slots_v101",
+      "rpc": "get_available_slots_v101",
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/booking.html",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/booking.js",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_yookassa_payment_capability",
+      "rpc": "get_yookassa_payment_capability",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_booking_management_v2",
+      "rpc": "get_booking_management_v2",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/functions/v1/telegram-client-notify/auth-config",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_reschedule_slots_v101",
+      "rpc": "get_reschedule_slots_v101",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/my-bookings.html",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/phone-auth.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/social-auth.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/my-bookings.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/auth/v1/settings",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_minuta_phone_auth_capability",
+      "rpc": "get_minuta_phone_auth_capability",
+      "count": 3
+    }
+  ],
+  "unsupportedFixtureReads": [],
+  "blockedMutations": [],
+  "harnessSources": {
+    "help/tools/capture-native-client.mjs": "1e8bd2c735b0c8eeb107265acaed7009bc2004988553a8738c10d98ae27f9d38",
+    "help/tools/native-client-capture-fixture.mjs": "786615550ec6a9a05e5cc50dbaa0a1db0a0f69d1bff695204d4f61617870967a"
+  },
+  "coveredArticles": [
+    "book-online",
+    "join-booking-waitlist",
+    "reschedule",
+    "connect-telegram",
+    "find-booking"
+  ],
+  "captureCount": 18,
+  "coverageExact": true
+}

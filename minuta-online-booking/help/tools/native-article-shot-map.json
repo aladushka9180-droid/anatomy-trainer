@@ -1,0 +1,935 @@
+{
+  "kind": "native-ui-capture-plan",
+  "schemaVersion": 1,
+  "plannedArticles": 58,
+  "screens": [
+    {
+      "screenKey": "booking-new-client",
+      "route": "provider.html",
+      "target": "#bookingSheet / #newBookingForm",
+      "nativeAction": "Записи → Новая запись; выбрать учебного клиента, услугу, дату и свободное время",
+      "articleSteps": {
+        "create-manual-booking": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "repeat-client-booking": [
+          2,
+          3,
+          4
+        ]
+      },
+      "doNotExecute": [
+        "Создать запись"
+      ]
+    },
+    {
+      "screenKey": "booking-block-form",
+      "route": "provider.html",
+      "target": "#bookingSheet / #newBookingForm",
+      "nativeAction": "Записи → Новая запись → Занять время",
+      "articleSteps": {
+        "block-time-in-schedule": [
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Занять время"
+      ]
+    },
+    {
+      "screenKey": "booking-recurring-form",
+      "route": "provider.html",
+      "target": "#newBookingAdvanced / #newBookingRecurrence",
+      "nativeAction": "Новая запись → Дополнительно → Повторение; выбрать количество и периодичность",
+      "articleSteps": {
+        "create-recurring-booking-series": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Создать серию"
+      ]
+    },
+    {
+      "screenKey": "booking-reschedule-series",
+      "route": "provider.html",
+      "target": "#bookingSheet / #bookingEditForm",
+      "nativeAction": "Открыть учебную запись серии → Перенести; выбрать дату и интервал",
+      "articleSteps": {
+        "reschedule-provider-booking": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Перенести запись"
+      ]
+    },
+    {
+      "screenKey": "booking-detail-actions",
+      "route": "provider.html",
+      "target": "#bookingSheet",
+      "nativeAction": "Открыть будущую новую запись из учебной серии",
+      "articleSteps": {
+        "confirm-or-delete-booking": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Подтвердить",
+        "Отменить",
+        "Удалить запись"
+      ]
+    },
+    {
+      "screenKey": "booking-list-filters",
+      "route": "provider.html",
+      "target": "[data-provider-panel=\"bookings\"] / #bookingStatusFilter",
+      "nativeAction": "Записи → Список; выбрать период и раскрыть фильтр статуса",
+      "articleSteps": {
+        "find-and-filter-bookings": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": []
+    },
+    {
+      "screenKey": "team-calendar",
+      "route": "provider.html",
+      "target": "#teamCalendarToolbar / #teamCalendarFilters / native calendar",
+      "nativeAction": "Записи → Расписание команды; выбрать учебный филиал",
+      "articleSteps": {
+        "view-team-calendar": [
+          2,
+          3
+        ]
+      },
+      "doNotExecute": []
+    },
+    {
+      "screenKey": "schedule-week",
+      "route": "provider.html",
+      "target": "#scheduleWeekEditor / #weeklyScheduleDetails",
+      "nativeAction": "Рабочие часы → Изменить обычную неделю; раскрыть Настроить дни отдельно",
+      "articleSteps": {
+        "set-regular-workweek": [
+          1,
+          2,
+          3
+        ],
+        "customize-workdays-and-booking-step": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить"
+      ]
+    },
+    {
+      "screenKey": "schedule-date-exception",
+      "route": "provider.html",
+      "target": "#monthlyScheduleDetails",
+      "nativeAction": "Рабочие часы → Изменения по конкретным датам → выбрать рабочую дату",
+      "articleSteps": {
+        "schedule-date-exceptions": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Закрыть день",
+        "сохранить исключение"
+      ]
+    },
+    {
+      "screenKey": "free-slots-dialog",
+      "route": "provider.html",
+      "target": "#freeSlotsDialog",
+      "nativeAction": "Записи → Поделиться свободным временем; выбрать услугу, диапазон и формат",
+      "articleSteps": {
+        "share-free-slots": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "doNotExecute": [
+        "Поделиться",
+        "открыть внешний мессенджер"
+      ]
+    },
+    {
+      "screenKey": "service-create-form",
+      "route": "provider.html",
+      "target": "#serviceCreatorContent / #serviceForm",
+      "nativeAction": "Услуги → Добавить услугу",
+      "articleSteps": {
+        "add-service": [
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Создать услугу"
+      ]
+    },
+    {
+      "screenKey": "client-card-summary",
+      "route": "provider.html",
+      "target": "native client card / #clientProfilePanelNotes",
+      "nativeAction": "Клиенты → выбрать учебного клиента; раскрыть заметки",
+      "articleSteps": {
+        "client-card-notes-and-labels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "doNotExecute": [
+        "метки с автосохранением",
+        "Сохранить заметку"
+      ]
+    },
+    {
+      "screenKey": "client-batch-form",
+      "route": "provider.html",
+      "target": "#batchBookingComposer / #batchBookingForm",
+      "nativeAction": "Клиенты → учебная карточка → Несколько произвольных дат",
+      "articleSteps": {
+        "create-batch-bookings-for-client": [
+          1,
+          2,
+          3
+        ],
+        "settings-batch-bookings": [
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Создать весь пакет"
+      ]
+    },
+    {
+      "screenKey": "client-import-preview",
+      "route": "provider.html",
+      "target": "#clientImportPanel / #clientImportPreview",
+      "nativeAction": "Клиенты → Импорт → локальный учебный CSV; показать сопоставление и preview",
+      "articleSteps": {
+        "import-clients-and-booking-history": [
+          2,
+          3,
+          4
+        ]
+      },
+      "doNotExecute": [
+        "Импортировать",
+        "Импортировать историю"
+      ]
+    },
+    {
+      "screenKey": "organization-main",
+      "route": "provider.html",
+      "target": "#organizationForm",
+      "nativeAction": "Организация → Главное",
+      "articleSteps": {
+        "organization-name": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить"
+      ]
+    },
+    {
+      "screenKey": "branch-create-form",
+      "route": "provider.html",
+      "target": "#locationCreator / #locationForm",
+      "nativeAction": "Организация → Люди и филиалы → Добавить филиал",
+      "articleSteps": {
+        "add-branch": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Создать филиал"
+      ]
+    },
+    {
+      "screenKey": "employee-invite-form",
+      "route": "provider.html",
+      "target": "#memberCreator / #memberInviteForm",
+      "nativeAction": "Организация → Люди и филиалы → Пригласить сотрудника",
+      "articleSteps": {
+        "invite-employee": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Пригласить",
+        "передать ссылку"
+      ]
+    },
+    {
+      "screenKey": "employee-rights-form",
+      "route": "provider.html",
+      "target": "[data-member-card]",
+      "nativeAction": "Организация → Люди и филиалы → раскрыть учебного сотрудника",
+      "articleSteps": {
+        "employee-rights": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить права"
+      ]
+    },
+    {
+      "screenKey": "resources-workspace",
+      "route": "provider.html",
+      "target": "#resourcesPanel / #resourceRequirementsPanel",
+      "nativeAction": "Организация → Ресурсы; раскрыть группу, ресурс и требования выбранной услуги",
+      "articleSteps": {
+        "service-resources": [
+          2,
+          3,
+          4
+        ]
+      },
+      "doNotExecute": [
+        "создать/изменить группу или ресурс",
+        "Сохранить требования"
+      ]
+    },
+    {
+      "screenKey": "staff-shift-form",
+      "route": "provider.html",
+      "target": "#shiftsPanel / #shiftCreator / #shiftForm",
+      "nativeAction": "Организация → График команды → Добавить смену",
+      "articleSteps": {
+        "add-staff-shift": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Создать смену"
+      ]
+    },
+    {
+      "screenKey": "staff-absence-form",
+      "route": "provider.html",
+      "target": "#absenceCreator / #absenceForm",
+      "nativeAction": "Организация → График команды → Добавить отсутствие",
+      "articleSteps": {
+        "add-staff-absence": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Добавить отсутствие"
+      ]
+    },
+    {
+      "screenKey": "staff-substitution-form",
+      "route": "provider.html",
+      "target": "#shiftSubstitutionPanel / #substitutionForm",
+      "nativeAction": "Организация → График команды → Замена специалиста",
+      "articleSteps": {
+        "substitute-booking-specialist": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Заменить специалиста"
+      ]
+    },
+    {
+      "screenKey": "payroll-plan-form",
+      "route": "provider.html",
+      "target": "#payrollPlanCreator / #payrollPlanForm",
+      "nativeAction": "Организация → Зарплаты → Добавить правило",
+      "articleSteps": {
+        "payroll-plan": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "включить учёт",
+        "Сохранить правило"
+      ]
+    },
+    {
+      "screenKey": "payroll-draft-review",
+      "route": "provider.html",
+      "target": "#payrollPanel / native period card",
+      "nativeAction": "Организация → Зарплаты → раскрыть подготовленный учебный черновик",
+      "articleSteps": {
+        "calculate-payroll": [
+          1,
+          3,
+          4,
+          5
+        ]
+      },
+      "doNotExecute": [
+        "Подготовить расчёт",
+        "Утвердить и начислить",
+        "Записать выплату"
+      ]
+    },
+    {
+      "screenKey": "payment-settings",
+      "route": "provider.html",
+      "target": "#paymentProviderPanel / #paymentProviderSettingsForm",
+      "nativeAction": "Организация → Оплата и интеграции",
+      "articleSteps": {
+        "setup-yookassa": [
+          2,
+          3,
+          4
+        ]
+      },
+      "doNotExecute": [
+        "включить/сохранить оплату",
+        "проверить внешний магазин"
+      ]
+    },
+    {
+      "screenKey": "payment-refund-form",
+      "route": "provider.html",
+      "target": "#paymentRefundForm",
+      "nativeAction": "Организация → Оплата и интеграции → Оформить возврат; выбрать учебный успешный платёж",
+      "articleSteps": {
+        "yookassa-refund": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "doNotExecute": [
+        "Вернуть через ЮKassa"
+      ]
+    },
+    {
+      "screenKey": "loyalty-program",
+      "route": "provider.html",
+      "target": "#loyaltyPanel / #loyaltyProgramForm",
+      "nativeAction": "Организация → Лояльность; раскрыть сохранённую программу",
+      "articleSteps": {
+        "loyalty-rules": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "create-apply-promo": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить программу"
+      ]
+    },
+    {
+      "screenKey": "loyalty-progress-rewards",
+      "route": "provider.html",
+      "target": "#loyaltyPanel / #loyaltyAdjustmentForm",
+      "nativeAction": "Организация → Лояльность → Прогресс клиентов / награды; раскрыть корректировку",
+      "articleSteps": {
+        "adjust-redeem-loyalty": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить корректировку",
+        "Отметить использованной"
+      ]
+    },
+    {
+      "screenKey": "benefit-product-form",
+      "route": "provider.html",
+      "target": "#benefitProductCreator / #benefitProductForm",
+      "nativeAction": "Организация → Абонементы → Создать шаблон",
+      "articleSteps": {
+        "create-benefit-product": [
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Создать шаблон"
+      ]
+    },
+    {
+      "screenKey": "benefit-application-form",
+      "route": "provider.html",
+      "target": "#benefitApplyCreator / #benefitApplyForm",
+      "nativeAction": "Организация → Абонементы → Использование в записях → Применить к записи",
+      "articleSteps": {
+        "issue-apply-benefit": [
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "выдать продукт",
+        "Зарезервировать",
+        "Погасить",
+        "Вернуть"
+      ]
+    },
+    {
+      "screenKey": "inventory-catalog",
+      "route": "provider.html",
+      "target": "#inventoryPanel / #inventoryItemCreator / #inventoryWarehouseCreator",
+      "nativeAction": "Организация → Склад → каталог и склады; раскрыть Добавить позицию",
+      "articleSteps": {
+        "inventory-setup": [
+          2,
+          3,
+          4
+        ]
+      },
+      "doNotExecute": [
+        "включить учёт",
+        "сохранить позицию/склад",
+        "провести остаток"
+      ]
+    },
+    {
+      "screenKey": "inventory-movement-form",
+      "route": "provider.html",
+      "target": "#inventoryMovementForm",
+      "nativeAction": "Организация → Склад → Операции и нормы → Новая операция",
+      "articleSteps": {
+        "inventory-movement": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "doNotExecute": [
+        "Провести операцию"
+      ]
+    },
+    {
+      "screenKey": "inventory-usage-form",
+      "route": "provider.html",
+      "target": "#inventoryUsageForm / #inventoryAutoDeduct",
+      "nativeAction": "Организация → Склад → Операции и нормы → Расход на один визит",
+      "articleSteps": {
+        "inventory-auto-deduct": [
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить норму",
+        "изменить автосписание",
+        "завершить визит"
+      ]
+    },
+    {
+      "screenKey": "telegram-settings",
+      "route": "provider.html",
+      "target": "#telegramClientSettingsCard",
+      "nativeAction": "Настройки → Сообщения клиентам",
+      "articleSteps": {
+        "telegram": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить",
+        "открыть Telegram"
+      ]
+    },
+    {
+      "screenKey": "notification-queue-card",
+      "route": "provider.html",
+      "target": "native notification queue card",
+      "nativeAction": "Уведомления → К отправке → Посмотреть текст",
+      "articleSteps": {
+        "notification-queue": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Открыть WhatsApp",
+        "Отметить отправленным"
+      ]
+    },
+    {
+      "screenKey": "notification-templates-dialog",
+      "route": "provider.html",
+      "target": "#notificationTemplatesDialog / #notificationTemplatesForm",
+      "nativeAction": "Уведомления → Настроить сообщения",
+      "articleSteps": {
+        "notification-templates": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить"
+      ]
+    },
+    {
+      "screenKey": "statistics-overview-filter",
+      "route": "provider.html",
+      "target": "#reportFilterContent / #reportTabOverview / native overview",
+      "nativeAction": "Статистика → Обзор → Период и сотрудник",
+      "articleSteps": {
+        "statistics-filters": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "statistics-overview": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": []
+    },
+    {
+      "screenKey": "statistics-money",
+      "route": "provider.html",
+      "target": "[data-report-view=money] / native money content",
+      "nativeAction": "Статистика → Деньги",
+      "articleSteps": {
+        "statistics-sections": [
+          1
+        ]
+      },
+      "doNotExecute": []
+    },
+    {
+      "screenKey": "statistics-export-dialog",
+      "route": "provider.html",
+      "target": "#reportExportDialog",
+      "nativeAction": "Статистика → Экспорт",
+      "articleSteps": {
+        "export-report": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "скачать файл для снимка не требуется"
+      ]
+    },
+    {
+      "screenKey": "statistics-goals-dialog",
+      "route": "provider.html",
+      "target": "#reportGoalsDialog / #reportGoalsForm",
+      "nativeAction": "Статистика → Обзор → Цели",
+      "articleSteps": {
+        "business-goals": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить цели"
+      ]
+    },
+    {
+      "screenKey": "portfolio-editor",
+      "route": "provider.html",
+      "target": "#portfolioEditorDialog / #portfolioForm",
+      "nativeAction": "Портфолио → Добавить работу",
+      "articleSteps": {
+        "add-portfolio-work": [
+          1,
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить",
+        "Опубликовать"
+      ]
+    },
+    {
+      "screenKey": "portfolio-actions",
+      "route": "provider.html",
+      "target": "#portfolioActionDialog / native portfolio card",
+      "nativeAction": "Портфолио → меню учебной работы",
+      "articleSteps": {
+        "manage-portfolio": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "перетаскивание с сохранением",
+        "Переместить",
+        "Опубликовать",
+        "Удалить"
+      ]
+    },
+    {
+      "screenKey": "portfolio-reviews",
+      "route": "provider.html",
+      "target": "native Отзывы клиентов panel",
+      "nativeAction": "Портфолио → Отзывы клиентов",
+      "articleSteps": {
+        "publish-reviews": [
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Опубликовать на сайте",
+        "Скрыть с сайта"
+      ]
+    },
+    {
+      "screenKey": "booking-policy-settings",
+      "route": "provider.html",
+      "target": "#bookingRulesCard / #bookingPolicyForm",
+      "nativeAction": "Настройки → Правила онлайн-записи; раскрыть дополнительные настройки",
+      "articleSteps": {
+        "booking-rules": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "record-visit-result-and-payment": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Сохранить",
+        "включить оплату"
+      ]
+    },
+    {
+      "screenKey": "visitor-alert-settings",
+      "route": "provider.html",
+      "target": "#visitorAlertSettingsCard / #visitorNotificationForm",
+      "nativeAction": "Настройки → Уведомления",
+      "articleSteps": {
+        "visitor-alerts": [
+          1,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "запросить разрешение Notifications",
+        "Проверить уведомление и звук"
+      ]
+    },
+    {
+      "screenKey": "group-session-create-form",
+      "route": "provider.html",
+      "target": "#groupEventsPanel / #groupEventDialog / #groupEventForm",
+      "nativeAction": "Записи → управление групповыми событиями → открыть создание события",
+      "articleSteps": {
+        "settings-group-sessions": [
+          2,
+          3
+        ]
+      },
+      "doNotExecute": [
+        "Создать событие",
+        "Опубликовать"
+      ]
+    },
+    {
+      "screenKey": "account-security-settings",
+      "route": "provider.html",
+      "target": "#accountSettingsCard / #passwordForm / #providerPhoneLinkForm",
+      "nativeAction": "Настройки → Пароль и вход; раскрыть карточку",
+      "articleSteps": {
+        "account-security": [
+          2,
+          3,
+          5
+        ]
+      },
+      "doNotExecute": [
+        "сменить пароль",
+        "Получить SMS",
+        "отправить письмо восстановления",
+        "выйти из сессии"
+      ]
+    },
+    {
+      "screenKey": "appearance-settings",
+      "route": "provider.html",
+      "target": "#appearanceSettingsCard / #providerDisplayForm",
+      "nativeAction": "Настройки → Оформление; раскрыть настройки карточки",
+      "articleSteps": {
+        "cabinet-layout-theme": [
+          1,
+          2,
+          3
+        ],
+        "booking-card-appearance": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "изменить настройки с автосохранением"
+      ]
+    },
+    {
+      "screenKey": "mobile-navigation-settings",
+      "route": "provider.html",
+      "target": "#appNavigationSettingsCard / #providerNavigationForm",
+      "nativeAction": "Настройки → Приложение и навигация → Навигация на телефоне",
+      "articleSteps": {
+        "mobile-navigation": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "doNotExecute": [
+        "изменить автосохраняемую навигацию"
+      ]
+    },
+    {
+      "screenKey": "install-guides",
+      "route": "provider.html",
+      "target": "#installAppCard",
+      "nativeAction": "Настройки → Приложение и навигация → Установка приложения; раскрыть штатную инструкцию",
+      "articleSteps": {
+        "install-app": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "doNotExecute": [
+        "системная установка PWA"
+      ]
+    },
+    {
+      "screenKey": "assistant-dialog",
+      "route": "provider.html",
+      "target": "#voiceAssistantDialog / #voiceAssistantForm",
+      "nativeAction": "Верхняя панель → Помощник; открыть текстовый ввод",
+      "articleSteps": {
+        "voice-assistant": [
+          1,
+          2
+        ]
+      },
+      "doNotExecute": [
+        "Говорить",
+        "отправить облачный запрос"
+      ]
+    },
+    {
+      "screenKey": "booking-outcome-form",
+      "route": "provider.html",
+      "target": "#bookingSheet / #bookingOutcomeForm",
+      "nativeAction": "Открыть закончившийся учебный визит → Результат и оплата",
+      "articleSteps": {
+        "record-visit-result-and-payment": [
+          3,
+          4
+        ]
+      },
+      "doNotExecute": [
+        "Состоялся",
+        "Сохранить результат"
+      ]
+    },
+    {
+      "screenKey": "statistics-clients",
+      "route": "provider.html",
+      "target": "[data-report-view=clients] / native clients report",
+      "nativeAction": "Статистика → Клиенты",
+      "articleSteps": {
+        "statistics-sections": [
+          2
+        ]
+      },
+      "doNotExecute": []
+    },
+    {
+      "screenKey": "statistics-team",
+      "route": "provider.html",
+      "target": "[data-report-view=team] / native team report",
+      "nativeAction": "Статистика → Команда",
+      "articleSteps": {
+        "statistics-sections": [
+          3
+        ]
+      },
+      "doNotExecute": []
+    },
+    {
+      "screenKey": "batch-booking-settings",
+      "route": "provider.html",
+      "target": "#batchBookingSettingsCard / #batchBookingSettingsForm",
+      "nativeAction": "Настройки → дополнительные возможности → пакетные записи",
+      "articleSteps": {
+        "settings-batch-bookings": [
+          1
+        ]
+      },
+      "doNotExecute": [
+        "сохранить включение/лимит"
+      ]
+    }
+  ],
+  "widths": [
+    390,
+    760,
+    1440
+  ]
+}

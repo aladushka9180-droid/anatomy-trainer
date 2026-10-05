@@ -1,0 +1,2771 @@
+{
+  "book-online": [
+    {
+      "src": "images/native-client/client-service-picker-1440.webp",
+      "kind": "screenshot",
+      "alt": "Выбор услуги",
+      "caption": "Выбор услуги. Учебные данные.",
+      "width": 720,
+      "height": 313,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "2f519540f952af33d26ae7a42484829684ad3b78e37118cb3e18d926c1e97332",
+      "variants": [
+        {
+          "src": "images/native-client/client-service-picker-1440.webp",
+          "width": 720,
+          "height": 313,
+          "minWidth": 901,
+          "sha256": "2f519540f952af33d26ae7a42484829684ad3b78e37118cb3e18d926c1e97332"
+        },
+        {
+          "src": "images/native-client/client-service-picker-760.webp",
+          "width": 620,
+          "height": 301,
+          "minWidth": 431,
+          "sha256": "12148b2b780dae12f094136e698f5a9f390800e91a558791e6f53f4bedf266a3"
+        },
+        {
+          "src": "images/native-client/client-service-picker-390.webp",
+          "width": 370,
+          "height": 297,
+          "minWidth": 0,
+          "sha256": "c4dac3dc8003e6fafc39a0e6efa3e0aa41ad2dcf32f7b9339b9b0576feebc2c9"
+        }
+      ]
+    },
+    {
+      "src": "images/native-client/client-contact-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Контактные данные перед записью",
+      "caption": "Контактные данные перед записью. Учебные данные.",
+      "width": 720,
+      "height": 716,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "ceb606af97c147eb4105494b075c3e3aa3785bce349e77c66f17184bcf734989",
+      "variants": [
+        {
+          "src": "images/native-client/client-contact-form-1440.webp",
+          "width": 720,
+          "height": 716,
+          "minWidth": 901,
+          "sha256": "ceb606af97c147eb4105494b075c3e3aa3785bce349e77c66f17184bcf734989"
+        },
+        {
+          "src": "images/native-client/client-contact-form-760.webp",
+          "width": 620,
+          "height": 718,
+          "minWidth": 431,
+          "sha256": "bce613e8708e6955517d34c56893b909672317a253413d6a6247e55e793fb047"
+        },
+        {
+          "src": "images/native-client/client-contact-form-390.webp",
+          "width": 370,
+          "height": 759,
+          "minWidth": 0,
+          "sha256": "5fdc68122f9d2364bdf18524ed205a3a26c4d1511ef88001b861567cd3470184"
+        }
+      ]
+    }
+  ],
+  "join-booking-waitlist": [
+    {
+      "src": "images/native-client/client-waitlist-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Заявка в лист ожидания",
+      "caption": "Заявка в лист ожидания. Учебные данные.",
+      "width": 560,
+      "height": 666,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "1d4197fef4b1fcb77183a27f0a29a84bafe4895307f286edeadccd38b00c7db8",
+      "variants": [
+        {
+          "src": "images/native-client/client-waitlist-form-1440.webp",
+          "width": 560,
+          "height": 666,
+          "minWidth": 901,
+          "sha256": "1d4197fef4b1fcb77183a27f0a29a84bafe4895307f286edeadccd38b00c7db8"
+        },
+        {
+          "src": "images/native-client/client-waitlist-form-760.webp",
+          "width": 560,
+          "height": 666,
+          "minWidth": 431,
+          "sha256": "e15bc35e87f036832ebd57e8e67580d074ccf7269a3b9ec430d66a81b715634b"
+        },
+        {
+          "src": "images/native-client/client-waitlist-form-390.webp",
+          "width": 352,
+          "height": 702,
+          "minWidth": 0,
+          "sha256": "1040d732ec3d98e879c3a934ff256f1507a909b45a25f314ffbe05d034e2b2ec"
+        }
+      ]
+    }
+  ],
+  "reschedule": [
+    {
+      "src": "images/native-client/client-management-1440.webp",
+      "kind": "screenshot",
+      "alt": "Управление визитом и подключение Telegram",
+      "caption": "Управление визитом и подключение Telegram. Учебные данные.",
+      "width": 658,
+      "height": 735,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "01611e3d6a41ad16daa90fde5f292fd156bae166c1eadecbaa7106b47efd217c",
+      "variants": [
+        {
+          "src": "images/native-client/client-management-1440.webp",
+          "width": 658,
+          "height": 735,
+          "minWidth": 901,
+          "sha256": "01611e3d6a41ad16daa90fde5f292fd156bae166c1eadecbaa7106b47efd217c"
+        },
+        {
+          "src": "images/native-client/client-management-760.webp",
+          "width": 702,
+          "height": 917,
+          "minWidth": 431,
+          "sha256": "baf1a297016a4c857f6b2188b4b49e84b0583b2764d36a55dff0cda33fb4ce65"
+        },
+        {
+          "src": "images/native-client/client-management-390.webp",
+          "width": 340,
+          "height": 933,
+          "minWidth": 0,
+          "sha256": "1e7ed2056e553df1d4515d15f704abd22428e4e6c2405eba8356de7a9ef0a7b0"
+        }
+      ]
+    },
+    {
+      "src": "images/native-client/client-reschedule-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Выбор нового времени",
+      "caption": "Выбор нового времени. Учебные данные.",
+      "width": 658,
+      "height": 444,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "333e9354e03fb3e104ce303adb672dc4cd62553c804f9f70939a413408bf102e",
+      "variants": [
+        {
+          "src": "images/native-client/client-reschedule-form-1440.webp",
+          "width": 658,
+          "height": 444,
+          "minWidth": 901,
+          "sha256": "333e9354e03fb3e104ce303adb672dc4cd62553c804f9f70939a413408bf102e"
+        },
+        {
+          "src": "images/native-client/client-reschedule-form-760.webp",
+          "width": 702,
+          "height": 375,
+          "minWidth": 431,
+          "sha256": "77f7fba003b1252b74a792d449bda4335f72d287f8027a240a1bbda50fae9d74"
+        },
+        {
+          "src": "images/native-client/client-reschedule-form-390.webp",
+          "width": 340,
+          "height": 369,
+          "minWidth": 0,
+          "sha256": "6bdc9f0d671d44b0a5549e2325d79e88b0d5ec656019817917da7cc9e6db31b4"
+        }
+      ]
+    }
+  ],
+  "connect-telegram": [
+    {
+      "src": "images/native-client/client-management-1440.webp",
+      "kind": "screenshot",
+      "alt": "Управление визитом и подключение Telegram",
+      "caption": "Управление визитом и подключение Telegram. Учебные данные.",
+      "width": 658,
+      "height": 735,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "01611e3d6a41ad16daa90fde5f292fd156bae166c1eadecbaa7106b47efd217c",
+      "variants": [
+        {
+          "src": "images/native-client/client-management-1440.webp",
+          "width": 658,
+          "height": 735,
+          "minWidth": 901,
+          "sha256": "01611e3d6a41ad16daa90fde5f292fd156bae166c1eadecbaa7106b47efd217c"
+        },
+        {
+          "src": "images/native-client/client-management-760.webp",
+          "width": 702,
+          "height": 917,
+          "minWidth": 431,
+          "sha256": "baf1a297016a4c857f6b2188b4b49e84b0583b2764d36a55dff0cda33fb4ce65"
+        },
+        {
+          "src": "images/native-client/client-management-390.webp",
+          "width": 340,
+          "height": 933,
+          "minWidth": 0,
+          "sha256": "1e7ed2056e553df1d4515d15f704abd22428e4e6c2405eba8356de7a9ef0a7b0"
+        }
+      ]
+    }
+  ],
+  "find-booking": [
+    {
+      "src": "images/native-client/client-login-1440.webp",
+      "kind": "screenshot",
+      "alt": "Вход по телефону и личному коду",
+      "caption": "Вход по телефону и личному коду. Учебные данные.",
+      "width": 520,
+      "height": 876,
+      "step": 4,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "065941802adc7200f3e1fc08b7fb8367e345acf97756e846455208ecdbcdeea6",
+      "variants": [
+        {
+          "src": "images/native-client/client-login-1440.webp",
+          "width": 520,
+          "height": 876,
+          "minWidth": 901,
+          "sha256": "065941802adc7200f3e1fc08b7fb8367e345acf97756e846455208ecdbcdeea6"
+        },
+        {
+          "src": "images/native-client/client-login-760.webp",
+          "width": 520,
+          "height": 860,
+          "minWidth": 431,
+          "sha256": "faa73b0952788b805693cf19e5bf7c7a94297a87ae0bc168b311a1c705dd1da5"
+        },
+        {
+          "src": "images/native-client/client-login-390.webp",
+          "width": 370,
+          "height": 851,
+          "minWidth": 0,
+          "sha256": "4087ce7109ceb4102c91e21465eb6a364d4dcd9343fda49ed4c8504a3c5b80c0"
+        }
+      ]
+    }
+  ],
+  "block-time-in-schedule": [
+    {
+      "src": "images/native-local/booking-block-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Занятое время",
+      "caption": "Занятое время. Учебные данные.",
+      "width": 820,
+      "height": 484,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "f9d51326939ee37d52cde122ff23c387d5ddbac96327820d5f3625150acf4d9e",
+      "variants": [
+        {
+          "src": "images/native-local/booking-block-form-1440.webp",
+          "width": 820,
+          "height": 484,
+          "minWidth": 901,
+          "sha256": "f9d51326939ee37d52cde122ff23c387d5ddbac96327820d5f3625150acf4d9e"
+        },
+        {
+          "src": "images/native-local/booking-block-form-760.webp",
+          "width": 713,
+          "height": 662,
+          "minWidth": 431,
+          "sha256": "64a194a0d0c0ac9d95e11a015581410e7ef0dab50bdd128532826f6db25ccd07"
+        },
+        {
+          "src": "images/native-local/booking-block-form-390.webp",
+          "width": 343,
+          "height": 577,
+          "minWidth": 0,
+          "sha256": "0ac3827028e943b2a770b351d73adee7dfbd491e0fccc19f1bbb06a9f4d4a9e3"
+        }
+      ]
+    }
+  ],
+  "reschedule-provider-booking": [
+    {
+      "src": "images/native-local/booking-reschedule-series-1440.webp",
+      "kind": "screenshot",
+      "alt": "Перенос записи и область серии",
+      "caption": "Перенос записи и область серии. Учебные данные.",
+      "width": 620,
+      "height": 782,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "0a82f9f9416787402de39831da2bbeb52dea669f51b4cc55a59ca6b4e35ad7cf",
+      "variants": [
+        {
+          "src": "images/native-local/booking-reschedule-series-1440.webp",
+          "width": 620,
+          "height": 782,
+          "minWidth": 901,
+          "sha256": "0a82f9f9416787402de39831da2bbeb52dea669f51b4cc55a59ca6b4e35ad7cf"
+        },
+        {
+          "src": "images/native-local/booking-reschedule-series-760.webp",
+          "width": 641,
+          "height": 804,
+          "minWidth": 431,
+          "sha256": "6b4203e6942b5e2362375926b9080404937dfa227f67bdec138b9c02f8862a8b"
+        },
+        {
+          "src": "images/native-local/booking-reschedule-series-390.webp",
+          "width": 375,
+          "height": 894,
+          "minWidth": 0,
+          "sha256": "60320dab2074ea3dbecc632c820dcc7fdb5e6c13f9aba7173715785343cd8b31"
+        }
+      ]
+    }
+  ],
+  "client-card-notes-and-labels": [
+    {
+      "src": "images/native-local/client-card-summary-1440.webp",
+      "kind": "screenshot",
+      "alt": "Заметки и настройки клиента",
+      "caption": "Заметки и настройки клиента. Учебные данные.",
+      "width": 567,
+      "height": 431,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "f9fcf7a4af0b453928928379f6c126c46b32b7ace055af42dbd1aefc2ba6f2c9",
+      "variants": [
+        {
+          "src": "images/native-local/client-card-summary-1440.webp",
+          "width": 567,
+          "height": 431,
+          "minWidth": 901,
+          "sha256": "f9fcf7a4af0b453928928379f6c126c46b32b7ace055af42dbd1aefc2ba6f2c9"
+        },
+        {
+          "src": "images/native-local/client-card-summary-760.webp",
+          "width": 689,
+          "height": 459,
+          "minWidth": 431,
+          "sha256": "a6476eca83d1a5fcb83cea7cda5698ff70d9b6188d8082f6d089dd25206dbd18"
+        },
+        {
+          "src": "images/native-local/client-card-summary-390.webp",
+          "width": 319,
+          "height": 459,
+          "minWidth": 0,
+          "sha256": "68ba345fd53250c2b4e3ed21de9317bf23351d77aebe67495c1906fddf3e9ad3"
+        }
+      ]
+    }
+  ],
+  "organization-name": [
+    {
+      "src": "images/native-local/organization-main-1440.webp",
+      "kind": "screenshot",
+      "alt": "Название организации",
+      "caption": "Название организации. Учебные данные.",
+      "width": 960,
+      "height": 539,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "ccc302a36c56b6d409e5aaa8eb563681b941a7bfb1f3aa714f9945380fe3fd8f",
+      "variants": [
+        {
+          "src": "images/native-local/organization-main-1440.webp",
+          "width": 960,
+          "height": 539,
+          "minWidth": 901,
+          "sha256": "ccc302a36c56b6d409e5aaa8eb563681b941a7bfb1f3aa714f9945380fe3fd8f"
+        },
+        {
+          "src": "images/native-local/organization-main-760.webp",
+          "width": 721,
+          "height": 650,
+          "minWidth": 431,
+          "sha256": "6135eb30fdd549917879a264180414ea817d398e8f937760ea9a70a447f95633"
+        },
+        {
+          "src": "images/native-local/organization-main-390.webp",
+          "width": 351,
+          "height": 859,
+          "minWidth": 0,
+          "sha256": "ff1f48283d14495ee41d25497ab2ecf3e1004b09da58606a34c497b104efacff"
+        }
+      ]
+    }
+  ],
+  "add-branch": [
+    {
+      "src": "images/native-local/branch-create-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Новый филиал",
+      "caption": "Новый филиал. Учебные данные.",
+      "width": 421,
+      "height": 381,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "dc18acba2827ebb1e5ca051348cf09b7bb5957a95399e481d95d010c5fb5e1ae",
+      "variants": [
+        {
+          "src": "images/native-local/branch-create-form-1440.webp",
+          "width": 421,
+          "height": 381,
+          "minWidth": 901,
+          "sha256": "dc18acba2827ebb1e5ca051348cf09b7bb5957a95399e481d95d010c5fb5e1ae"
+        },
+        {
+          "src": "images/native-local/branch-create-form-760.webp",
+          "width": 691,
+          "height": 381,
+          "minWidth": 431,
+          "sha256": "35b33a337929c9009814e09218018ffafff74dff110e95857ec5fdc27c69626e"
+        },
+        {
+          "src": "images/native-local/branch-create-form-390.webp",
+          "width": 321,
+          "height": 401,
+          "minWidth": 0,
+          "sha256": "07c809bfcf8b26a7143ef05b67a06e46c42293bed71f5826800ed9842b9b5c46"
+        }
+      ]
+    }
+  ],
+  "invite-employee": [
+    {
+      "src": "images/native-local/employee-invite-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Приглашение сотрудника",
+      "caption": "Приглашение сотрудника. Учебные данные.",
+      "width": 420,
+      "height": 530,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "75791a14cdeeec7f4d7503b62c91ef3c46e850cfc75105c5ef1691bd1806a6ed",
+      "variants": [
+        {
+          "src": "images/native-local/employee-invite-form-1440.webp",
+          "width": 420,
+          "height": 530,
+          "minWidth": 901,
+          "sha256": "75791a14cdeeec7f4d7503b62c91ef3c46e850cfc75105c5ef1691bd1806a6ed"
+        },
+        {
+          "src": "images/native-local/employee-invite-form-760.webp",
+          "width": 691,
+          "height": 490,
+          "minWidth": 431,
+          "sha256": "0450d2e64f397363d5adef23ef183e897d7effa0114ad793ba1cf05c05fc4e44"
+        },
+        {
+          "src": "images/native-local/employee-invite-form-390.webp",
+          "width": 321,
+          "height": 550,
+          "minWidth": 0,
+          "sha256": "8b9c4ec2b62bbc90db990bfae9f3b5c019873b8a8a7a952692160e8d3c16029d"
+        }
+      ]
+    }
+  ],
+  "employee-rights": [
+    {
+      "src": "images/native-local/employee-rights-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Роль сотрудника и доступ",
+      "caption": "Роль сотрудника и доступ. Учебные данные.",
+      "width": 420,
+      "height": 752,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "fafa325c7212f4746d2cd4c0a81f223000d47af71edd72ef0d68898d424b0721",
+      "variants": [
+        {
+          "src": "images/native-local/employee-rights-form-1440.webp",
+          "width": 420,
+          "height": 752,
+          "minWidth": 901,
+          "sha256": "fafa325c7212f4746d2cd4c0a81f223000d47af71edd72ef0d68898d424b0721"
+        },
+        {
+          "src": "images/native-local/employee-rights-form-760.webp",
+          "width": 691,
+          "height": 754,
+          "minWidth": 431,
+          "sha256": "c7c7d890b569c33508d6c22c8ba04958a731c0156e0e519e78e847b1ab64e33c"
+        },
+        {
+          "src": "images/native-local/employee-rights-form-390.webp",
+          "width": 321,
+          "height": 875,
+          "minWidth": 0,
+          "sha256": "40df4bcf4dec413dde8afe76b92e667d3a958c363afd3382f0be0af7c9d6a312"
+        }
+      ]
+    }
+  ],
+  "service-resources": [
+    {
+      "src": "images/native-local/resources-workspace-1440.webp",
+      "kind": "screenshot",
+      "alt": "Ресурсы организации",
+      "caption": "Ресурсы организации. Учебные данные.",
+      "width": 960,
+      "height": 512,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "4ede5732f8dbb34c97f15aa1bdd42c194425dd366aea8b7666dcd71520dfd7ef",
+      "variants": [
+        {
+          "src": "images/native-local/resources-workspace-1440.webp",
+          "width": 960,
+          "height": 512,
+          "minWidth": 901,
+          "sha256": "4ede5732f8dbb34c97f15aa1bdd42c194425dd366aea8b7666dcd71520dfd7ef"
+        },
+        {
+          "src": "images/native-local/resources-workspace-760.webp",
+          "width": 721,
+          "height": 577,
+          "minWidth": 431,
+          "sha256": "76dbe8a2cfff71838aa7fa568fde8168fc16a172d0acdd2100f0c90f1823c0fc"
+        },
+        {
+          "src": "images/native-local/resources-workspace-390.webp",
+          "width": 351,
+          "height": 558,
+          "minWidth": 0,
+          "sha256": "62fa28659c495f4b53903b9431932828630094d3161fc46760cd13616a423e65"
+        }
+      ]
+    }
+  ],
+  "add-staff-shift": [
+    {
+      "src": "images/native-local/staff-shift-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Новая смена сотрудника",
+      "caption": "Новая смена сотрудника. Учебные данные.",
+      "width": 480,
+      "height": 595,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "c851961751c28eb50e57924518b2875000502e924c8a2eba20d5bb2afc571e8c",
+      "variants": [
+        {
+          "src": "images/native-local/staff-shift-form-1440.webp",
+          "width": 480,
+          "height": 595,
+          "minWidth": 901,
+          "sha256": "c851961751c28eb50e57924518b2875000502e924c8a2eba20d5bb2afc571e8c"
+        },
+        {
+          "src": "images/native-local/staff-shift-form-760.webp",
+          "width": 480,
+          "height": 793,
+          "minWidth": 431,
+          "sha256": "b95de5280af9845409976c6964f936934f87142e14d88b46fdc69ca9bf84c9b3"
+        },
+        {
+          "src": "images/native-local/staff-shift-form-390.webp",
+          "width": 375,
+          "height": 789,
+          "minWidth": 0,
+          "sha256": "9689c6cf488c286b8d5172d84ffd17c9870aacc1636d780cae62ab7fd4e1c2f3"
+        }
+      ]
+    }
+  ],
+  "add-staff-absence": [
+    {
+      "src": "images/native-local/staff-absence-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Отсутствие сотрудника",
+      "caption": "Отсутствие сотрудника. Учебные данные.",
+      "width": 480,
+      "height": 610,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "7464281e888344960045f292b87e1eaf379139be8105a966fe38f60ca5fe20d2",
+      "variants": [
+        {
+          "src": "images/native-local/staff-absence-form-1440.webp",
+          "width": 480,
+          "height": 610,
+          "minWidth": 901,
+          "sha256": "7464281e888344960045f292b87e1eaf379139be8105a966fe38f60ca5fe20d2"
+        },
+        {
+          "src": "images/native-local/staff-absence-form-760.webp",
+          "width": 480,
+          "height": 709,
+          "minWidth": 431,
+          "sha256": "2b2f8f6e0df68f37fc23f388678f8a648e9ce7a1313bf66d103938b6c6cd4ed4"
+        },
+        {
+          "src": "images/native-local/staff-absence-form-390.webp",
+          "width": 375,
+          "height": 705,
+          "minWidth": 0,
+          "sha256": "4b041245992d80ffb3f1bbe7424cdc302e3ed7d3c20898d5aeb8f52b909d7479"
+        }
+      ]
+    }
+  ],
+  "substitute-booking-specialist": [
+    {
+      "src": "images/native-local/staff-substitution-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Замена специалиста в записи",
+      "caption": "Замена специалиста в записи. Учебные данные.",
+      "width": 908,
+      "height": 193,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "1c5d951dc3f215360ad11f1529e5b654f848ae3302120418619fcb78b3380787",
+      "variants": [
+        {
+          "src": "images/native-local/staff-substitution-form-1440.webp",
+          "width": 908,
+          "height": 193,
+          "minWidth": 901,
+          "sha256": "1c5d951dc3f215360ad11f1529e5b654f848ae3302120418619fcb78b3380787"
+        },
+        {
+          "src": "images/native-local/staff-substitution-form-760.webp",
+          "width": 669,
+          "height": 214,
+          "minWidth": 431,
+          "sha256": "58698eaf16e4fbbf4826410ebf214f9d80d31784745296a46464fcf4acd2790e"
+        },
+        {
+          "src": "images/native-local/staff-substitution-form-390.webp",
+          "width": 315,
+          "height": 338,
+          "minWidth": 0,
+          "sha256": "533d637780e5ca30dbe99c880b68d07da608fadc2efd563c3e93d195b8dde3aa"
+        }
+      ]
+    }
+  ],
+  "payroll-plan": [
+    {
+      "src": "images/native-local/payroll-plan-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Правило расчёта зарплаты",
+      "caption": "Правило расчёта зарплаты. Учебные данные.",
+      "width": 860,
+      "height": 574,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "9afadeb272a871dca0ac96a7aab8a9a56142b03f29af03b8c04dd6f69c66d16c",
+      "variants": [
+        {
+          "src": "images/native-local/payroll-plan-form-1440.webp",
+          "width": 860,
+          "height": 574,
+          "minWidth": 901,
+          "sha256": "9afadeb272a871dca0ac96a7aab8a9a56142b03f29af03b8c04dd6f69c66d16c"
+        },
+        {
+          "src": "images/native-local/payroll-plan-form-760.webp",
+          "width": 621,
+          "height": 755,
+          "minWidth": 431,
+          "sha256": "3fdb0507cb27e00d9ad7cc7b57eff963fdafd80f37010749cdaa0d45dccb58f4"
+        },
+        {
+          "src": "images/native-local/payroll-plan-form-390.webp",
+          "width": 283,
+          "height": 755,
+          "minWidth": 0,
+          "sha256": "4db47521736410e1d1e4268205192a7c47b39c6b1e5aee8e2e6085305e9a3856"
+        }
+      ]
+    }
+  ],
+  "calculate-payroll": [
+    {
+      "src": "images/native-local/payroll-draft-review-1440.webp",
+      "kind": "screenshot",
+      "alt": "Черновик зарплатного периода",
+      "caption": "Черновик зарплатного периода. Учебные данные.",
+      "width": 860,
+      "height": 105,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "5bdefcaa0c51a173773dc75590a0a591004d05ebcdd56a06ebe3b95375e93df2",
+      "variants": [
+        {
+          "src": "images/native-local/payroll-draft-review-1440.webp",
+          "width": 860,
+          "height": 105,
+          "minWidth": 901,
+          "sha256": "5bdefcaa0c51a173773dc75590a0a591004d05ebcdd56a06ebe3b95375e93df2"
+        },
+        {
+          "src": "images/native-local/payroll-draft-review-760.webp",
+          "width": 621,
+          "height": 160,
+          "minWidth": 431,
+          "sha256": "bd21c12f3a4b5567e664cc54b5dad2488e45641a86f888e2765e0346f53d8849"
+        },
+        {
+          "src": "images/native-local/payroll-draft-review-390.webp",
+          "width": 283,
+          "height": 189,
+          "minWidth": 0,
+          "sha256": "0998fd1984f13315025546586ecea5c262186a7eda290a32ed0be7339c8f71a7"
+        }
+      ]
+    }
+  ],
+  "yookassa-refund": [
+    {
+      "src": "images/native-local/payment-refund-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Форма возврата через ЮKassa",
+      "caption": "Форма возврата через ЮKassa. Учебные данные.",
+      "width": 902,
+      "height": 474,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "f9c2eeb66e698c5f3e1fa14343aa2c9090eb551fb7ddb61e43737d5d0166f9ea",
+      "variants": [
+        {
+          "src": "images/native-local/payment-refund-form-1440.webp",
+          "width": 902,
+          "height": 474,
+          "minWidth": 901,
+          "sha256": "f9c2eeb66e698c5f3e1fa14343aa2c9090eb551fb7ddb61e43737d5d0166f9ea"
+        },
+        {
+          "src": "images/native-local/payment-refund-form-760.webp",
+          "width": 675,
+          "height": 474,
+          "minWidth": 431,
+          "sha256": "d0d871743bf8d5bfe5bab3407ac214da761ee476138b585e448fc84626a37267"
+        },
+        {
+          "src": "images/native-local/payment-refund-form-390.webp",
+          "width": 313,
+          "height": 474,
+          "minWidth": 0,
+          "sha256": "fcf2974657d6a9a724cae20c0bd48938cbbef22c2a2c4e17ebecf9d5c6133976"
+        }
+      ]
+    }
+  ],
+  "loyalty-rules": [
+    {
+      "src": "images/native-local/loyalty-program-1440.webp",
+      "kind": "screenshot",
+      "alt": "Настройки программы лояльности",
+      "caption": "Настройки программы лояльности. Учебные данные.",
+      "width": 918,
+      "height": 624,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "df2a0f7263d252d3694f55dbd559ac4d4d7ac2e90c68c9e815306683bfa458c5",
+      "variants": [
+        {
+          "src": "images/native-local/loyalty-program-1440.webp",
+          "width": 918,
+          "height": 624,
+          "minWidth": 901,
+          "sha256": "df2a0f7263d252d3694f55dbd559ac4d4d7ac2e90c68c9e815306683bfa458c5"
+        },
+        {
+          "src": "images/native-local/loyalty-program-760.webp",
+          "width": 689,
+          "height": 718,
+          "minWidth": 431,
+          "sha256": "8a59d7bd55bd3fa7018d9412625e562ce13abea7b8b5e4d3d67cd963a9bbdf8c"
+        },
+        {
+          "src": "images/native-local/loyalty-program-390.webp",
+          "width": 319,
+          "height": 841,
+          "minWidth": 0,
+          "sha256": "1c0242aaae2dca618067cd1d066b28a01366a4c41b9867f3d37fca91f4413212"
+        }
+      ]
+    }
+  ],
+  "create-apply-promo": [
+    {
+      "src": "images/native-local/loyalty-program-1440.webp",
+      "kind": "screenshot",
+      "alt": "Настройки программы лояльности",
+      "caption": "Настройки программы лояльности. Учебные данные.",
+      "width": 918,
+      "height": 624,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "df2a0f7263d252d3694f55dbd559ac4d4d7ac2e90c68c9e815306683bfa458c5",
+      "variants": [
+        {
+          "src": "images/native-local/loyalty-program-1440.webp",
+          "width": 918,
+          "height": 624,
+          "minWidth": 901,
+          "sha256": "df2a0f7263d252d3694f55dbd559ac4d4d7ac2e90c68c9e815306683bfa458c5"
+        },
+        {
+          "src": "images/native-local/loyalty-program-760.webp",
+          "width": 689,
+          "height": 718,
+          "minWidth": 431,
+          "sha256": "8a59d7bd55bd3fa7018d9412625e562ce13abea7b8b5e4d3d67cd963a9bbdf8c"
+        },
+        {
+          "src": "images/native-local/loyalty-program-390.webp",
+          "width": 319,
+          "height": 841,
+          "minWidth": 0,
+          "sha256": "1c0242aaae2dca618067cd1d066b28a01366a4c41b9867f3d37fca91f4413212"
+        }
+      ]
+    }
+  ],
+  "adjust-redeem-loyalty": [
+    {
+      "src": "images/native-local/loyalty-progress-rewards-1440.webp",
+      "kind": "screenshot",
+      "alt": "Корректировка прогресса клиента",
+      "caption": "Корректировка прогресса клиента. Учебные данные.",
+      "width": 916,
+      "height": 317,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "82036f5e19b8ba2cd8d4e2e34e8f4a54059ae740c1e8b9466b3bb298429ddc1e",
+      "variants": [
+        {
+          "src": "images/native-local/loyalty-progress-rewards-1440.webp",
+          "width": 916,
+          "height": 317,
+          "minWidth": 901,
+          "sha256": "82036f5e19b8ba2cd8d4e2e34e8f4a54059ae740c1e8b9466b3bb298429ddc1e"
+        },
+        {
+          "src": "images/native-local/loyalty-progress-rewards-760.webp",
+          "width": 687,
+          "height": 397,
+          "minWidth": 431,
+          "sha256": "74c147797beba0ac44d94d0b18ec24fa7d93b35706fbffbc8272cc78056d117b"
+        },
+        {
+          "src": "images/native-local/loyalty-progress-rewards-390.webp",
+          "width": 317,
+          "height": 418,
+          "minWidth": 0,
+          "sha256": "108b92939d74bdb466834fe877f7b260342d7506f7ac405e5e27536ff8f88da6"
+        }
+      ]
+    }
+  ],
+  "issue-apply-benefit": [
+    {
+      "src": "images/native-local/benefit-application-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Применение абонемента к визиту",
+      "caption": "Применение абонемента к визиту. Учебные данные.",
+      "width": 918,
+      "height": 479,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "28a3fa23582dbc172d09ac89ab9ea628cf7e2064b55fa0564ccc98828b505aef",
+      "variants": [
+        {
+          "src": "images/native-local/benefit-application-form-1440.webp",
+          "width": 918,
+          "height": 479,
+          "minWidth": 901,
+          "sha256": "28a3fa23582dbc172d09ac89ab9ea628cf7e2064b55fa0564ccc98828b505aef"
+        },
+        {
+          "src": "images/native-local/benefit-application-form-760.webp",
+          "width": 689,
+          "height": 565,
+          "minWidth": 431,
+          "sha256": "2bf3dd42890645445eebe56d7f9934b42ac43bf69fa987a9ac51f643ec84d199"
+        },
+        {
+          "src": "images/native-local/benefit-application-form-390.webp",
+          "width": 319,
+          "height": 654,
+          "minWidth": 0,
+          "sha256": "febad387c547f484cafe1056c1ca344ca1ada36544b7f4bf5977a172e812f53a"
+        }
+      ]
+    }
+  ],
+  "inventory-movement": [
+    {
+      "src": "images/native-local/inventory-movement-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Операция со складским остатком",
+      "caption": "Операция со складским остатком. Учебные данные.",
+      "width": 424,
+      "height": 515,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "d36f68347c8cd96a644217316856c03b30b2550d0122f63d6af4af91d09aaaff",
+      "variants": [
+        {
+          "src": "images/native-local/inventory-movement-form-1440.webp",
+          "width": 424,
+          "height": 515,
+          "minWidth": 901,
+          "sha256": "d36f68347c8cd96a644217316856c03b30b2550d0122f63d6af4af91d09aaaff"
+        },
+        {
+          "src": "images/native-local/inventory-movement-form-760.webp",
+          "width": 663,
+          "height": 508,
+          "minWidth": 431,
+          "sha256": "6d5cbcc67b5e9791824fad1ff4e8ad16c08b5005b6411798ecb9d2eda21d6a9c"
+        },
+        {
+          "src": "images/native-local/inventory-movement-form-390.webp",
+          "width": 293,
+          "height": 611,
+          "minWidth": 0,
+          "sha256": "e0155837857167ce03855e44853571eb6f7747f3890a4a60b9f54d5d39e0111a"
+        }
+      ]
+    }
+  ],
+  "inventory-auto-deduct": [
+    {
+      "src": "images/native-local/inventory-usage-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Норма расхода материала",
+      "caption": "Норма расхода материала. Учебные данные.",
+      "width": 423,
+      "height": 252,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "5f181a641ed66b30ca0535dbd6bfd772d358b74af30f47dde92f8e3362ff4702",
+      "variants": [
+        {
+          "src": "images/native-local/inventory-usage-form-1440.webp",
+          "width": 423,
+          "height": 252,
+          "minWidth": 901,
+          "sha256": "5f181a641ed66b30ca0535dbd6bfd772d358b74af30f47dde92f8e3362ff4702"
+        },
+        {
+          "src": "images/native-local/inventory-usage-form-760.webp",
+          "width": 663,
+          "height": 250,
+          "minWidth": 431,
+          "sha256": "15e664c21571d0c1afe24be8a6acc4dfa7a4d4682ad2def238d14d79d1c7d109"
+        },
+        {
+          "src": "images/native-local/inventory-usage-form-390.webp",
+          "width": 293,
+          "height": 343,
+          "minWidth": 0,
+          "sha256": "e0a3ad44e6e3d858bb14ac0e31a9c0376b7219763c3e9c3fc69314e13b49b2a3"
+        }
+      ]
+    }
+  ],
+  "visitor-alerts": [
+    {
+      "src": "images/native-local/visitor-alert-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Уведомления об открытии страницы",
+      "caption": "Уведомления об открытии страницы. Учебные данные.",
+      "width": 752,
+      "height": 374,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "e17259a2c93e2c33f7f205f887d756fc60240ab2d22dbb9921a0951023461930",
+      "variants": [
+        {
+          "src": "images/native-local/visitor-alert-settings-1440.webp",
+          "width": 752,
+          "height": 374,
+          "minWidth": 901,
+          "sha256": "e17259a2c93e2c33f7f205f887d756fc60240ab2d22dbb9921a0951023461930"
+        },
+        {
+          "src": "images/native-local/visitor-alert-settings-760.webp",
+          "width": 721,
+          "height": 450,
+          "minWidth": 431,
+          "sha256": "003d062c43e9aa01c412cda8001b3a87fc9fb5f8ddeb330e49c1f753f3979727"
+        },
+        {
+          "src": "images/native-local/visitor-alert-settings-390.webp",
+          "width": 351,
+          "height": 535,
+          "minWidth": 0,
+          "sha256": "166311a9564bdd6cce72b80b2d71f84f62a5881407b5c491f8b68a15e0d451ca"
+        }
+      ]
+    }
+  ],
+  "install-app": [
+    {
+      "src": "images/native-local/install-guides-1440.webp",
+      "kind": "screenshot",
+      "alt": "Установка приложения",
+      "caption": "Установка приложения. Учебные данные.",
+      "width": 752,
+      "height": 222,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "417d87386810b6f23c4466d3b92a639baf3ec7ab4f1083d00bf9f375b29d5714",
+      "variants": [
+        {
+          "src": "images/native-local/install-guides-1440.webp",
+          "width": 752,
+          "height": 222,
+          "minWidth": 901,
+          "sha256": "417d87386810b6f23c4466d3b92a639baf3ec7ab4f1083d00bf9f375b29d5714"
+        },
+        {
+          "src": "images/native-local/install-guides-760.webp",
+          "width": 721,
+          "height": 278,
+          "minWidth": 431,
+          "sha256": "6240f9886c18c982435b3e746a76eeb758f8d1ae5039ebb7ca014921582b7e4b"
+        },
+        {
+          "src": "images/native-local/install-guides-390.webp",
+          "width": 351,
+          "height": 314,
+          "minWidth": 0,
+          "sha256": "afbb205dc2c3f9f1facfca9a38ac4038131391f7d16718e473bb2783020f1c20"
+        }
+      ]
+    }
+  ],
+  "settings-batch-bookings": [
+    {
+      "src": "images/native-local/batch-booking-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Настройки пакетной записи",
+      "caption": "Настройки пакетной записи. Учебные данные.",
+      "width": 752,
+      "height": 309,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "eb7420bee6be9934daa61dda4f0be209ef6e540f455d285afdc5f76df6ce23b2",
+      "variants": [
+        {
+          "src": "images/native-local/batch-booking-settings-1440.webp",
+          "width": 752,
+          "height": 309,
+          "minWidth": 901,
+          "sha256": "eb7420bee6be9934daa61dda4f0be209ef6e540f455d285afdc5f76df6ce23b2"
+        },
+        {
+          "src": "images/native-local/batch-booking-settings-760.webp",
+          "width": 721,
+          "height": 371,
+          "minWidth": 431,
+          "sha256": "407443842e02e679390f34a6df1be2a861bb7029dc408ca8221ae6b33844cd2b"
+        },
+        {
+          "src": "images/native-local/batch-booking-settings-390.webp",
+          "width": 351,
+          "height": 407,
+          "minWidth": 0,
+          "sha256": "07172e03672c412cc32e974cb264c93ebaa5768821a1e49223203fd321e61101"
+        }
+      ]
+    },
+    {
+      "src": "images/native-local/client-batch-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Пакет записей для клиента",
+      "caption": "Пакет записей для клиента. Учебные данные.",
+      "width": 567,
+      "height": 708,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "fa8d2f4a561321b1e2ae9b662dfbd3aeeea3b35fd2d619e73a42cb35205263d8",
+      "variants": [
+        {
+          "src": "images/native-local/client-batch-form-1440.webp",
+          "width": 567,
+          "height": 708,
+          "minWidth": 901,
+          "sha256": "fa8d2f4a561321b1e2ae9b662dfbd3aeeea3b35fd2d619e73a42cb35205263d8"
+        },
+        {
+          "src": "images/native-local/client-batch-form-760.webp",
+          "width": 689,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "6f4518421809f2f813b7a6858247f1faa61db687211bcec5ae46a81ff6ae3eae"
+        },
+        {
+          "src": "images/native-local/client-batch-form-390.webp",
+          "width": 319,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "971c6c5054d4ec530f4737d5423991efd24b96600b611b44d019d5e4a19c3270"
+        }
+      ]
+    }
+  ],
+  "account-security": [
+    {
+      "src": "images/native-local/account-security-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Профиль и безопасность",
+      "caption": "Профиль и безопасность. Учебные данные.",
+      "width": 752,
+      "height": 659,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "f600875acee28c44ed6b8ed4da9f5132ee20cb9a3f1c73ea9360207ccfc5ec6f",
+      "variants": [
+        {
+          "src": "images/native-local/account-security-settings-1440.webp",
+          "width": 752,
+          "height": 659,
+          "minWidth": 901,
+          "sha256": "f600875acee28c44ed6b8ed4da9f5132ee20cb9a3f1c73ea9360207ccfc5ec6f"
+        },
+        {
+          "src": "images/native-local/account-security-settings-760.webp",
+          "width": 721,
+          "height": 654,
+          "minWidth": 431,
+          "sha256": "28af6c1f2fe91ef8241569ba7999dcc8c5cfa11b7beec6c19503fbf91a8059c0"
+        },
+        {
+          "src": "images/native-local/account-security-settings-390.webp",
+          "width": 351,
+          "height": 703,
+          "minWidth": 0,
+          "sha256": "b2f315cafada21b3659f8a5933e88efa01c91ff5cb933df1f5f1ed7fe6cadac7"
+        }
+      ]
+    }
+  ],
+  "statistics-sections": [
+    {
+      "src": "images/native-local/statistics-clients-1440.webp",
+      "kind": "screenshot",
+      "alt": "Статистика клиентов",
+      "caption": "Статистика клиентов. Учебные данные.",
+      "width": 1138,
+      "height": 180,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "669db7981d2c2727fdebd2980d144b2f33cb0f036876d4d24ee02dd49fd03895",
+      "variants": [
+        {
+          "src": "images/native-local/statistics-clients-1440.webp",
+          "width": 1138,
+          "height": 180,
+          "minWidth": 901,
+          "sha256": "669db7981d2c2727fdebd2980d144b2f33cb0f036876d4d24ee02dd49fd03895"
+        },
+        {
+          "src": "images/native-local/statistics-clients-760.webp",
+          "width": 721,
+          "height": 185,
+          "minWidth": 431,
+          "sha256": "2fb69b1c8b7638eb60605baddbbcf87b74a3840ee85739f33a202238d5588e0b"
+        },
+        {
+          "src": "images/native-local/statistics-clients-390.webp",
+          "width": 351,
+          "height": 206,
+          "minWidth": 0,
+          "sha256": "4422bbf1dd4f61e7615a8415746c78e39e2ec71ab314d38f1f23321449c48765"
+        }
+      ]
+    },
+    {
+      "src": "images/native-local/statistics-team-1440.webp",
+      "kind": "screenshot",
+      "alt": "Статистика команды",
+      "caption": "Статистика команды. Учебные данные.",
+      "width": 1148,
+      "height": 269,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "8505da6e0d159b21796ec8a988a95d01d7dff6f4dbdc8fe7698611208073e6d7",
+      "variants": [
+        {
+          "src": "images/native-local/statistics-team-1440.webp",
+          "width": 1148,
+          "height": 269,
+          "minWidth": 901,
+          "sha256": "8505da6e0d159b21796ec8a988a95d01d7dff6f4dbdc8fe7698611208073e6d7"
+        },
+        {
+          "src": "images/native-local/statistics-team-760.webp",
+          "width": 721,
+          "height": 441,
+          "minWidth": 431,
+          "sha256": "c713041fc4a5358546b14f767acbf4ea6d2a2a2f7f38d731e7b0f20ceff3d234"
+        },
+        {
+          "src": "images/native-local/statistics-team-390.webp",
+          "width": 351,
+          "height": 511,
+          "minWidth": 0,
+          "sha256": "317ae4681681445b8e39ca2c494c18725095653d0047cf52a75108eff183fc25"
+        }
+      ]
+    },
+    {
+      "src": "images/native-local/statistics-money-1440.webp",
+      "kind": "screenshot",
+      "alt": "Финансовый раздел статистики",
+      "caption": "Финансовый раздел статистики. Учебные данные.",
+      "width": 1148,
+      "height": 1134,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "141e7d7d5c5e9d4ba88d34dbd7204e2116b07bc6524acd2b57afa307e0510ab2",
+      "variants": [
+        {
+          "src": "images/native-local/statistics-money-1440.webp",
+          "width": 1148,
+          "height": 1134,
+          "minWidth": 901,
+          "sha256": "141e7d7d5c5e9d4ba88d34dbd7204e2116b07bc6524acd2b57afa307e0510ab2"
+        },
+        {
+          "src": "images/native-local/statistics-money-760.webp",
+          "width": 721,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "52fe9f8d9ebe37a43d1b4dce21d8b407916ca8650abd8650f47b3fadc4889d8b"
+        },
+        {
+          "src": "images/native-local/statistics-money-390.webp",
+          "width": 351,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "caab6d6ff75be7f790927e336379f217221b13de72d848434b52201b930bfca4"
+        }
+      ]
+    }
+  ],
+  "export-report": [
+    {
+      "src": "images/native-local/statistics-export-dialog-1440.webp",
+      "kind": "screenshot",
+      "alt": "Параметры экспорта отчёта",
+      "caption": "Параметры экспорта отчёта. Учебные данные.",
+      "width": 560,
+      "height": 720,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "f1e1c7a0ab36e029d8f0e039e3315a0186a7e1cf44a3016b21268e65de081729",
+      "variants": [
+        {
+          "src": "images/native-local/statistics-export-dialog-1440.webp",
+          "width": 560,
+          "height": 720,
+          "minWidth": 901,
+          "sha256": "f1e1c7a0ab36e029d8f0e039e3315a0186a7e1cf44a3016b21268e65de081729"
+        },
+        {
+          "src": "images/native-local/statistics-export-dialog-760.webp",
+          "width": 561,
+          "height": 720,
+          "minWidth": 431,
+          "sha256": "29cc76e15844eae4d87a8cd7d27d5b4c0076062d76fb2241417cd6be4abcef3f"
+        },
+        {
+          "src": "images/native-local/statistics-export-dialog-390.webp",
+          "width": 337,
+          "height": 720,
+          "minWidth": 0,
+          "sha256": "62b111a4b3d3cabc5110a58d39a04cbc664dd48c4186da8fe274e32687fa5f44"
+        }
+      ]
+    }
+  ],
+  "business-goals": [
+    {
+      "src": "images/native-local/statistics-goals-dialog-1440.webp",
+      "kind": "screenshot",
+      "alt": "Цели бизнеса",
+      "caption": "Цели бизнеса. Учебные данные.",
+      "width": 620,
+      "height": 574,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "3c7d4ff50b070bde24df40314eb939eeb9a6af1a2415a427575e74b382d3297e",
+      "variants": [
+        {
+          "src": "images/native-local/statistics-goals-dialog-1440.webp",
+          "width": 620,
+          "height": 574,
+          "minWidth": 901,
+          "sha256": "3c7d4ff50b070bde24df40314eb939eeb9a6af1a2415a427575e74b382d3297e"
+        },
+        {
+          "src": "images/native-local/statistics-goals-dialog-760.webp",
+          "width": 621,
+          "height": 720,
+          "minWidth": 431,
+          "sha256": "742c4a3d936320a5d7fce67c9b646676d72ee59ddc8c37e3cc672ad4c6cd55f8"
+        },
+        {
+          "src": "images/native-local/statistics-goals-dialog-390.webp",
+          "width": 337,
+          "height": 720,
+          "minWidth": 0,
+          "sha256": "742bd4d7b1023a90b35946dae9f21aadeff17294bb5e716e2c325c6c0e8f03d2"
+        }
+      ]
+    }
+  ],
+  "notification-templates": [
+    {
+      "src": "images/native-local/notification-templates-dialog-1440.webp",
+      "kind": "screenshot",
+      "alt": "Шаблоны уведомлений",
+      "caption": "Шаблоны уведомлений. Учебные данные.",
+      "width": 680,
+      "height": 690,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "369eb19c6bc4db179bdfcff2d6bd464a8a7064e613a93949aa91f4f753fb479a",
+      "variants": [
+        {
+          "src": "images/native-local/notification-templates-dialog-1440.webp",
+          "width": 680,
+          "height": 690,
+          "minWidth": 901,
+          "sha256": "369eb19c6bc4db179bdfcff2d6bd464a8a7064e613a93949aa91f4f753fb479a"
+        },
+        {
+          "src": "images/native-local/notification-templates-dialog-760.webp",
+          "width": 707,
+          "height": 736,
+          "minWidth": 431,
+          "sha256": "51e7baa69a3be2ce08a6dea2366e5fea618c7a7647c616bbae8dc166b869d265"
+        },
+        {
+          "src": "images/native-local/notification-templates-dialog-390.webp",
+          "width": 337,
+          "height": 760,
+          "minWidth": 0,
+          "sha256": "597f32b15dd3f1cbce93a5b9a8056fbd1bb8a4cae81d6074454db0650a24bc47"
+        }
+      ]
+    }
+  ],
+  "publish-reviews": [
+    {
+      "src": "images/native-local/portfolio-reviews-1440.webp",
+      "kind": "screenshot",
+      "alt": "Управление публикацией отзывов",
+      "caption": "Управление публикацией отзывов. Учебные данные.",
+      "width": 960,
+      "height": 276,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "89b0db793e368fcec27c51019be0097349b8f647adbc71193fe182f3db69ae96",
+      "variants": [
+        {
+          "src": "images/native-local/portfolio-reviews-1440.webp",
+          "width": 960,
+          "height": 276,
+          "minWidth": 901,
+          "sha256": "89b0db793e368fcec27c51019be0097349b8f647adbc71193fe182f3db69ae96"
+        },
+        {
+          "src": "images/native-local/portfolio-reviews-760.webp",
+          "width": 721,
+          "height": 276,
+          "minWidth": 431,
+          "sha256": "87a4ca0e608c352c9dde33d9a1b1ad59d839840ac1a4445a1eaa4324b605ed2c"
+        },
+        {
+          "src": "images/native-local/portfolio-reviews-390.webp",
+          "width": 351,
+          "height": 356,
+          "minWidth": 0,
+          "sha256": "19e544c45acb0a7155dbdee8d915a09bb4b24ac258dc9d9c35334017b75c1ea3"
+        }
+      ]
+    }
+  ],
+  "settings-group-sessions": [
+    {
+      "src": "images/native-local/group-session-create-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Новое групповое событие",
+      "caption": "Новое групповое событие. Учебные данные.",
+      "width": 620,
+      "height": 720,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "ad27e1ff54ae2cbf0d7fdca87ec623ee0a3ade2466080b71ddd810db1ea284ff",
+      "variants": [
+        {
+          "src": "images/native-local/group-session-create-form-1440.webp",
+          "width": 620,
+          "height": 720,
+          "minWidth": 901,
+          "sha256": "ad27e1ff54ae2cbf0d7fdca87ec623ee0a3ade2466080b71ddd810db1ea284ff"
+        },
+        {
+          "src": "images/native-local/group-session-create-form-760.webp",
+          "width": 621,
+          "height": 720,
+          "minWidth": 431,
+          "sha256": "4bd65b91bcce58f2d99a21dc6f6665d9b21e9091fcaa92ed3a6fdbe645005c6a"
+        },
+        {
+          "src": "images/native-local/group-session-create-form-390.webp",
+          "width": 337,
+          "height": 720,
+          "minWidth": 0,
+          "sha256": "cf69cd708020f2782ac8590589f8cd5c0ec207b707b811c009fa5d8f680a6ca6"
+        }
+      ]
+    }
+  ],
+  "notification-queue": [
+    {
+      "src": "images/native-local/notification-queue-card-1440.webp",
+      "kind": "screenshot",
+      "alt": "Карточка очереди уведомлений",
+      "caption": "Карточка очереди уведомлений. Учебные данные.",
+      "width": 922,
+      "height": 237,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "ee6cf366fb01c68d6cf6f4548e6a1ea197478a746c8452cfbad96775ffa3a6c7",
+      "variants": [
+        {
+          "src": "images/native-local/notification-queue-card-1440.webp",
+          "width": 922,
+          "height": 237,
+          "minWidth": 901,
+          "sha256": "ee6cf366fb01c68d6cf6f4548e6a1ea197478a746c8452cfbad96775ffa3a6c7"
+        },
+        {
+          "src": "images/native-local/notification-queue-card-760.webp",
+          "width": 683,
+          "height": 282,
+          "minWidth": 431,
+          "sha256": "4c57ac8cbe2733f9600e3c9fb108a3d61e68222fb203216dc018fd5e149eb4ee"
+        },
+        {
+          "src": "images/native-local/notification-queue-card-390.webp",
+          "width": 313,
+          "height": 368,
+          "minWidth": 0,
+          "sha256": "921a71691f0de7431ac676d5a49750b7d9c0c9c0fe48cd1433a4a18787106b99"
+        }
+      ]
+    }
+  ],
+  "voice-assistant": [
+    {
+      "src": "images/native-local/assistant-dialog-1440.webp",
+      "kind": "screenshot",
+      "alt": "Помощник Eldion Pro",
+      "caption": "Помощник Eldion Pro. Учебные данные.",
+      "width": 720,
+      "height": 500,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "1c9ef28510a53226574a51f1e16c8f0acf9b84c68cd8236efd04b1787f86a323",
+      "variants": [
+        {
+          "src": "images/native-local/assistant-dialog-1440.webp",
+          "width": 720,
+          "height": 500,
+          "minWidth": 901,
+          "sha256": "1c9ef28510a53226574a51f1e16c8f0acf9b84c68cd8236efd04b1787f86a323"
+        },
+        {
+          "src": "images/native-local/assistant-dialog-760.webp",
+          "width": 745,
+          "height": 485,
+          "minWidth": 431,
+          "sha256": "bf3560fc02393544182bb64112431250853d1a567233ae02b61478824cbdf04c"
+        },
+        {
+          "src": "images/native-local/assistant-dialog-390.webp",
+          "width": 375,
+          "height": 571,
+          "minWidth": 0,
+          "sha256": "3e24e1220416a876b1fe4557d787030c84f055c30b02652e0f3309d12454a165"
+        }
+      ]
+    }
+  ],
+  "create-recurring-booking-series": [
+    {
+      "src": "images/native-local/booking-recurring-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Настройки повторяющейся серии",
+      "caption": "Настройки повторяющейся серии. Учебные данные.",
+      "width": 580,
+      "height": 940,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "07cf8c7114734323412ee304a113c57a0e9c9ba17d6659976f32a16e97f90000",
+      "variants": [
+        {
+          "src": "images/native-local/booking-recurring-form-1440.webp",
+          "width": 580,
+          "height": 940,
+          "minWidth": 901,
+          "sha256": "07cf8c7114734323412ee304a113c57a0e9c9ba17d6659976f32a16e97f90000"
+        },
+        {
+          "src": "images/native-local/booking-recurring-form-760.webp",
+          "width": 745,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "846f942550a56358c41924ee2a8f838bda98a35e27044c8fd3ecf532d6c91d5d"
+        },
+        {
+          "src": "images/native-local/booking-recurring-form-390.webp",
+          "width": 375,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "a1efc0c1649a669bcf400fe8aed6089c83b0c808fd8a5f70ac0112877223853a"
+        }
+      ]
+    }
+  ],
+  "confirm-or-delete-booking": [
+    {
+      "src": "images/native-local/booking-detail-actions-1440.webp",
+      "kind": "screenshot",
+      "alt": "Действия с записью",
+      "caption": "Действия с записью. Учебные данные.",
+      "width": 572,
+      "height": 187,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "62bc5a1aefb428d0f80dbebdc9e2c146288f3100e3fad47879d1aa17cf5c511a",
+      "variants": [
+        {
+          "src": "images/native-local/booking-detail-actions-1440.webp",
+          "width": 572,
+          "height": 187,
+          "minWidth": 901,
+          "sha256": "62bc5a1aefb428d0f80dbebdc9e2c146288f3100e3fad47879d1aa17cf5c511a"
+        },
+        {
+          "src": "images/native-local/booking-detail-actions-760.webp",
+          "width": 592,
+          "height": 179,
+          "minWidth": 431,
+          "sha256": "486b0b9aa16895f0f49291fbc9dfb23ba04fbd765cdd7ffe3d29fadda73c5035"
+        },
+        {
+          "src": "images/native-local/booking-detail-actions-390.webp",
+          "width": 343,
+          "height": 231,
+          "minWidth": 0,
+          "sha256": "ae1a8972d435c7fc9c2776c401fe1bd9c2ec8b31a5eb4027a76459be5b71333c"
+        }
+      ]
+    }
+  ],
+  "find-and-filter-bookings": [
+    {
+      "src": "images/native-local/booking-list-filters-1440.webp",
+      "kind": "screenshot",
+      "alt": "Поиск и фильтры журнала",
+      "caption": "Поиск и фильтры журнала. Учебные данные.",
+      "width": 1086,
+      "height": 439,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "241f1216e4b8c736cbbfa7080486c09ee2c57afa9f05576aaa509ceab9b027f5",
+      "variants": [
+        {
+          "src": "images/native-local/booking-list-filters-1440.webp",
+          "width": 1086,
+          "height": 439,
+          "minWidth": 901,
+          "sha256": "241f1216e4b8c736cbbfa7080486c09ee2c57afa9f05576aaa509ceab9b027f5"
+        },
+        {
+          "src": "images/native-local/booking-list-filters-760.webp",
+          "width": 721,
+          "height": 570,
+          "minWidth": 431,
+          "sha256": "82858a8105806ea4be2cfca494e9c1a91d7d05440818d3622301fbb3b5911464"
+        },
+        {
+          "src": "images/native-local/booking-list-filters-390.webp",
+          "width": 351,
+          "height": 570,
+          "minWidth": 0,
+          "sha256": "798e42b0f431d6475520662986bbd9f7f88673af1bb528a10b5b2220fea57ce5"
+        }
+      ]
+    }
+  ],
+  "share-free-slots": [
+    {
+      "src": "images/native-local/free-slots-dialog-1440.webp",
+      "kind": "screenshot",
+      "alt": "Предпросмотр свободного времени",
+      "caption": "Предпросмотр свободного времени. Учебные данные.",
+      "width": 1050,
+      "height": 760,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "0c3f956a8e1c03f741c5a81bec5b56bb22ec2680dd95c7b884c1c26f1f25cd38",
+      "variants": [
+        {
+          "src": "images/native-local/free-slots-dialog-1440.webp",
+          "width": 1050,
+          "height": 760,
+          "minWidth": 901,
+          "sha256": "0c3f956a8e1c03f741c5a81bec5b56bb22ec2680dd95c7b884c1c26f1f25cd38"
+        },
+        {
+          "src": "images/native-local/free-slots-dialog-760.webp",
+          "width": 733,
+          "height": 748,
+          "minWidth": 431,
+          "sha256": "09f2b10e29b0df376e599bcdae35f289b0ee01c7750d6a41cf234c7cd0878249"
+        },
+        {
+          "src": "images/native-local/free-slots-dialog-390.webp",
+          "width": 374,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "deecf8cd69fa99f575fe0ca871662c31bff10dfb51f9a4cbe3f822dccd16a1d6"
+        }
+      ]
+    }
+  ],
+  "schedule-date-exceptions": [
+    {
+      "src": "images/native-local/schedule-date-exception-1440.webp",
+      "kind": "screenshot",
+      "alt": "Настройка выбранного дня",
+      "caption": "Настройка выбранного дня. Учебные данные.",
+      "width": 958,
+      "height": 938,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "25cbd611a2bf1774783181274fe5076f39cf463c90eb745129d41460111d0fbd",
+      "variants": [
+        {
+          "src": "images/native-local/schedule-date-exception-1440.webp",
+          "width": 958,
+          "height": 938,
+          "minWidth": 901,
+          "sha256": "25cbd611a2bf1774783181274fe5076f39cf463c90eb745129d41460111d0fbd"
+        },
+        {
+          "src": "images/native-local/schedule-date-exception-760.webp",
+          "width": 719,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "57a0a04b4c7a70a0c54a8dde92af194f6413feef6cb5570d3145c3005a33c80b"
+        },
+        {
+          "src": "images/native-local/schedule-date-exception-390.webp",
+          "width": 349,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "6fab0604e445b501afc2fe319b91be993c361db2bad011fb412675bc8cf0c0ae"
+        }
+      ]
+    }
+  ],
+  "customize-workdays-and-booking-step": [
+    {
+      "src": "images/native-local/schedule-week-1440.webp",
+      "kind": "screenshot",
+      "alt": "Рабочие часы по дням и шаг записи",
+      "caption": "Рабочие часы по дням и шаг записи. Учебные данные.",
+      "width": 921,
+      "height": 324,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "79e261163a5d5e216b9e9d4e5f47a3aaf84be97946078fe286a71d1526231791",
+      "variants": [
+        {
+          "src": "images/native-local/schedule-week-1440.webp",
+          "width": 921,
+          "height": 324,
+          "minWidth": 901,
+          "sha256": "79e261163a5d5e216b9e9d4e5f47a3aaf84be97946078fe286a71d1526231791"
+        },
+        {
+          "src": "images/native-local/schedule-week-760.webp",
+          "width": 683,
+          "height": 432,
+          "minWidth": 431,
+          "sha256": "41a8664c24d17f409d7406eae19a9f75d1376a104d390c239dedd8248a50ba08"
+        },
+        {
+          "src": "images/native-local/schedule-week-390.webp",
+          "width": 313,
+          "height": 506,
+          "minWidth": 0,
+          "sha256": "e143cd63b9a7fc03496a2caeb7507ccd400c1235362dd01a4a952905f5def154"
+        }
+      ]
+    }
+  ],
+  "create-batch-bookings-for-client": [
+    {
+      "src": "images/native-local/client-batch-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Пакет записей для клиента",
+      "caption": "Пакет записей для клиента. Учебные данные.",
+      "width": 567,
+      "height": 708,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "fa8d2f4a561321b1e2ae9b662dfbd3aeeea3b35fd2d619e73a42cb35205263d8",
+      "variants": [
+        {
+          "src": "images/native-local/client-batch-form-1440.webp",
+          "width": 567,
+          "height": 708,
+          "minWidth": 901,
+          "sha256": "fa8d2f4a561321b1e2ae9b662dfbd3aeeea3b35fd2d619e73a42cb35205263d8"
+        },
+        {
+          "src": "images/native-local/client-batch-form-760.webp",
+          "width": 689,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "6f4518421809f2f813b7a6858247f1faa61db687211bcec5ae46a81ff6ae3eae"
+        },
+        {
+          "src": "images/native-local/client-batch-form-390.webp",
+          "width": 319,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "971c6c5054d4ec530f4737d5423991efd24b96600b611b44d019d5e4a19c3270"
+        }
+      ]
+    }
+  ],
+  "import-clients-and-booking-history": [
+    {
+      "src": "images/native-local/client-import-preview-1440.webp",
+      "kind": "screenshot",
+      "alt": "Предпросмотр импорта клиентов",
+      "caption": "Предпросмотр импорта клиентов. Учебные данные.",
+      "width": 926,
+      "height": 801,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "630ff662bcb6e2094ecb1ad70c0fa93d3d4f1805b4adcc40f1da10b39104bd40",
+      "variants": [
+        {
+          "src": "images/native-local/client-import-preview-1440.webp",
+          "width": 926,
+          "height": 801,
+          "minWidth": 901,
+          "sha256": "630ff662bcb6e2094ecb1ad70c0fa93d3d4f1805b4adcc40f1da10b39104bd40"
+        },
+        {
+          "src": "images/native-local/client-import-preview-760.webp",
+          "width": 306,
+          "height": 729,
+          "minWidth": 431,
+          "sha256": "700329c26574e2131118b5832e5d5b1e83986ae6181f5cf1e0cfa06a7d22d2da"
+        },
+        {
+          "src": "images/native-local/client-import-preview-390.webp",
+          "width": 306,
+          "height": 708,
+          "minWidth": 0,
+          "sha256": "527301b3f26aa916644449ecd0a34d5fc922753d26ba07210f4d580a562ba73e"
+        }
+      ]
+    }
+  ],
+  "setup-yookassa": [
+    {
+      "src": "images/native-local/payment-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Настройки приёма онлайн-платежей",
+      "caption": "Настройки приёма онлайн-платежей. Учебные данные.",
+      "width": 960,
+      "height": 1487,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "8236549d5d23b4d41988228d1ef4a983193d7e8c5a6789e30215b0e7d635b2c2",
+      "variants": [
+        {
+          "src": "images/native-local/payment-settings-1440.webp",
+          "width": 960,
+          "height": 1487,
+          "minWidth": 901,
+          "sha256": "8236549d5d23b4d41988228d1ef4a983193d7e8c5a6789e30215b0e7d635b2c2"
+        },
+        {
+          "src": "images/native-local/payment-settings-760.webp",
+          "width": 721,
+          "height": 805,
+          "minWidth": 431,
+          "sha256": "c1d4ac1ea8938da8bbac18dce55fb5dc37779c96208f7b7b0b7cdf9ed6b0cf7d"
+        },
+        {
+          "src": "images/native-local/payment-settings-390.webp",
+          "width": 351,
+          "height": 758,
+          "minWidth": 0,
+          "sha256": "29c65a5b278550d49506179321e9fd757755a7eb6fa5f45d4111d51ca131aeb9"
+        }
+      ]
+    }
+  ],
+  "create-benefit-product": [
+    {
+      "src": "images/native-local/benefit-product-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Новый абонемент или сертификат",
+      "caption": "Новый абонемент или сертификат. Учебные данные.",
+      "width": 448,
+      "height": 872,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "62baca92736df9ce0016c21cd1bb115b641611f9300285d327ad875c4b852a8e",
+      "variants": [
+        {
+          "src": "images/native-local/benefit-product-form-1440.webp",
+          "width": 448,
+          "height": 872,
+          "minWidth": 901,
+          "sha256": "62baca92736df9ce0016c21cd1bb115b641611f9300285d327ad875c4b852a8e"
+        },
+        {
+          "src": "images/native-local/benefit-product-form-760.webp",
+          "width": 689,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "793c278234e850420640414ca126dfb42f791c44e7f69c4f4311719198c6331d"
+        },
+        {
+          "src": "images/native-local/benefit-product-form-390.webp",
+          "width": 319,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "96f697dec3076672641f91ee35b31fc1861df95f804b8aca2b4cf7d8b83e3f4d"
+        }
+      ]
+    }
+  ],
+  "inventory-setup": [
+    {
+      "src": "images/native-local/inventory-catalog-1440.webp",
+      "kind": "screenshot",
+      "alt": "Новый материал или товар",
+      "caption": "Новый материал или товар. Учебные данные.",
+      "width": 470,
+      "height": 480,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "6ef4f877dba4d676a331d9753a2329b4e87b85b3a2b4e4749348c26980e0c7cb",
+      "variants": [
+        {
+          "src": "images/native-local/inventory-catalog-1440.webp",
+          "width": 470,
+          "height": 480,
+          "minWidth": 901,
+          "sha256": "6ef4f877dba4d676a331d9753a2329b4e87b85b3a2b4e4749348c26980e0c7cb"
+        },
+        {
+          "src": "images/native-local/inventory-catalog-760.webp",
+          "width": 471,
+          "height": 482,
+          "minWidth": 431,
+          "sha256": "fd72e1d4583d27fc4f76a6283b5134cc2fb61c4e02fab5d807f291b5aafc6006"
+        },
+        {
+          "src": "images/native-local/inventory-catalog-390.webp",
+          "width": 351,
+          "height": 470,
+          "minWidth": 0,
+          "sha256": "ea047e909498b309fff8b9d070a98ad0934b7a15d86f66987901e41889a1533c"
+        }
+      ]
+    }
+  ],
+  "telegram": [
+    {
+      "src": "images/native-local/telegram-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Настройки Telegram",
+      "caption": "Настройки Telegram. Учебные данные.",
+      "width": 752,
+      "height": 704,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "1c553a13b9a6fb66415dfd548176e3736b82aace5d0573938618ad939c372dc6",
+      "variants": [
+        {
+          "src": "images/native-local/telegram-settings-1440.webp",
+          "width": 752,
+          "height": 704,
+          "minWidth": 901,
+          "sha256": "1c553a13b9a6fb66415dfd548176e3736b82aace5d0573938618ad939c372dc6"
+        },
+        {
+          "src": "images/native-local/telegram-settings-760.webp",
+          "width": 721,
+          "height": 879,
+          "minWidth": 431,
+          "sha256": "1570814ef633aff50e761db9b3b6f09bd3f6cbd838cc67a93e1a5ad92ceed873"
+        },
+        {
+          "src": "images/native-local/telegram-settings-390.webp",
+          "width": 351,
+          "height": 830,
+          "minWidth": 0,
+          "sha256": "a0de507e779d5a37fc98489ea0219fc327b3d701382c79c2742ea5e1633207b3"
+        }
+      ]
+    }
+  ],
+  "booking-rules": [
+    {
+      "src": "images/native-local/booking-policy-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Правила онлайн-записи",
+      "caption": "Правила онлайн-записи. Учебные данные.",
+      "width": 752,
+      "height": 1001,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "f30b08f2908644ab293a45a1011f90372edafbcb171796acbc9b4e9ed184bb24",
+      "variants": [
+        {
+          "src": "images/native-local/booking-policy-settings-1440.webp",
+          "width": 752,
+          "height": 1001,
+          "minWidth": 901,
+          "sha256": "f30b08f2908644ab293a45a1011f90372edafbcb171796acbc9b4e9ed184bb24"
+        },
+        {
+          "src": "images/native-local/booking-policy-settings-760.webp",
+          "width": 721,
+          "height": 830,
+          "minWidth": 431,
+          "sha256": "e38731998964d17bbbec42e298ac0d493c26603c43de07c21f7d973898558840"
+        },
+        {
+          "src": "images/native-local/booking-policy-settings-390.webp",
+          "width": 351,
+          "height": 830,
+          "minWidth": 0,
+          "sha256": "092bf22c9a0f7398762925785c0b93f048ded709647e508d6129c725f1cc7197"
+        }
+      ]
+    }
+  ],
+  "record-visit-result-and-payment": [
+    {
+      "src": "images/native-local/booking-policy-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Правила онлайн-записи",
+      "caption": "Правила онлайн-записи. Учебные данные.",
+      "width": 752,
+      "height": 1001,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "f30b08f2908644ab293a45a1011f90372edafbcb171796acbc9b4e9ed184bb24",
+      "variants": [
+        {
+          "src": "images/native-local/booking-policy-settings-1440.webp",
+          "width": 752,
+          "height": 1001,
+          "minWidth": 901,
+          "sha256": "f30b08f2908644ab293a45a1011f90372edafbcb171796acbc9b4e9ed184bb24"
+        },
+        {
+          "src": "images/native-local/booking-policy-settings-760.webp",
+          "width": 721,
+          "height": 830,
+          "minWidth": 431,
+          "sha256": "e38731998964d17bbbec42e298ac0d493c26603c43de07c21f7d973898558840"
+        },
+        {
+          "src": "images/native-local/booking-policy-settings-390.webp",
+          "width": 351,
+          "height": 830,
+          "minWidth": 0,
+          "sha256": "092bf22c9a0f7398762925785c0b93f048ded709647e508d6129c725f1cc7197"
+        }
+      ]
+    },
+    {
+      "src": "images/native-local/booking-outcome-form-1440.webp",
+      "kind": "screenshot",
+      "alt": "Результат визита и оплата",
+      "caption": "Результат визита и оплата. Учебные данные.",
+      "width": 572,
+      "height": 309,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "e698d82d63adae0080a563d83b8a690ebc81c7b574a8a0ff9f5de656e2ffafb5",
+      "variants": [
+        {
+          "src": "images/native-local/booking-outcome-form-1440.webp",
+          "width": 572,
+          "height": 309,
+          "minWidth": 901,
+          "sha256": "e698d82d63adae0080a563d83b8a690ebc81c7b574a8a0ff9f5de656e2ffafb5"
+        },
+        {
+          "src": "images/native-local/booking-outcome-form-760.webp",
+          "width": 593,
+          "height": 401,
+          "minWidth": 431,
+          "sha256": "4e06ff4f6338978a08e9af5ab9581ed339109897ab0bcc80888231ad7ad7549e"
+        },
+        {
+          "src": "images/native-local/booking-outcome-form-390.webp",
+          "width": 343,
+          "height": 421,
+          "minWidth": 0,
+          "sha256": "f9734fd1ff9ea343cc96a785804d5d82ec35bd5588a2e5d62888105ce0877d65"
+        }
+      ]
+    }
+  ],
+  "mobile-navigation": [
+    {
+      "src": "images/native-local/mobile-navigation-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Быстрые разделы на телефоне",
+      "caption": "Быстрые разделы на телефоне. Учебные данные.",
+      "width": 752,
+      "height": 721,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "cb491072fc150eca357a133e3692ec6698f1249eec067b2a0ce1fce362941604",
+      "variants": [
+        {
+          "src": "images/native-local/mobile-navigation-settings-1440.webp",
+          "width": 752,
+          "height": 721,
+          "minWidth": 901,
+          "sha256": "cb491072fc150eca357a133e3692ec6698f1249eec067b2a0ce1fce362941604"
+        },
+        {
+          "src": "images/native-local/mobile-navigation-settings-760.webp",
+          "width": 721,
+          "height": 716,
+          "minWidth": 431,
+          "sha256": "9f0e2481d7f2430aebd25f7de653bd12750e431c4de2eb55009a1f665b537bb8"
+        },
+        {
+          "src": "images/native-local/mobile-navigation-settings-390.webp",
+          "width": 351,
+          "height": 829,
+          "minWidth": 0,
+          "sha256": "b7d7d6b8f4a52ea9bb8c3a064926a09bb56e22ea05b1ba98452a8bdbbf492f7e"
+        }
+      ]
+    }
+  ],
+  "statistics-filters": [
+    {
+      "src": "images/native-local/statistics-overview-filter-1440.webp",
+      "kind": "screenshot",
+      "alt": "Период и фильтры статистики",
+      "caption": "Период и фильтры статистики. Учебные данные.",
+      "width": 1148,
+      "height": 900,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "84949d11a15106e5fd47e149081aa09d576a18bdc19d1a7d345deed722af7f35",
+      "variants": [
+        {
+          "src": "images/native-local/statistics-overview-filter-1440.webp",
+          "width": 1148,
+          "height": 900,
+          "minWidth": 901,
+          "sha256": "84949d11a15106e5fd47e149081aa09d576a18bdc19d1a7d345deed722af7f35"
+        },
+        {
+          "src": "images/native-local/statistics-overview-filter-760.webp",
+          "width": 721,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "8da1d4afa034255e28cbe8c1383a1686ba3b1177ad280380d4e867fe480956d4"
+        },
+        {
+          "src": "images/native-local/statistics-overview-filter-390.webp",
+          "width": 351,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "6871d4f74c2c2c925354a93dab82cc67c44b3673b2af3d9374b9f0cd7246049e"
+        }
+      ]
+    }
+  ],
+  "statistics-overview": [
+    {
+      "src": "images/native-local/statistics-overview-filter-1440.webp",
+      "kind": "screenshot",
+      "alt": "Период и фильтры статистики",
+      "caption": "Период и фильтры статистики. Учебные данные.",
+      "width": 1148,
+      "height": 900,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "84949d11a15106e5fd47e149081aa09d576a18bdc19d1a7d345deed722af7f35",
+      "variants": [
+        {
+          "src": "images/native-local/statistics-overview-filter-1440.webp",
+          "width": 1148,
+          "height": 900,
+          "minWidth": 901,
+          "sha256": "84949d11a15106e5fd47e149081aa09d576a18bdc19d1a7d345deed722af7f35"
+        },
+        {
+          "src": "images/native-local/statistics-overview-filter-760.webp",
+          "width": 721,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "8da1d4afa034255e28cbe8c1383a1686ba3b1177ad280380d4e867fe480956d4"
+        },
+        {
+          "src": "images/native-local/statistics-overview-filter-390.webp",
+          "width": 351,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "6871d4f74c2c2c925354a93dab82cc67c44b3673b2af3d9374b9f0cd7246049e"
+        }
+      ]
+    }
+  ],
+  "add-portfolio-work": [
+    {
+      "src": "images/native-local/portfolio-editor-1440.webp",
+      "kind": "screenshot",
+      "alt": "Новая работа в портфолио",
+      "caption": "Новая работа в портфолио. Учебные данные.",
+      "width": 720,
+      "height": 962,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "d561e4735dacdb75bca244649ff49ea19bb80d2e02fe748b018e4f043b40dbe3",
+      "variants": [
+        {
+          "src": "images/native-local/portfolio-editor-1440.webp",
+          "width": 720,
+          "height": 962,
+          "minWidth": 901,
+          "sha256": "d561e4735dacdb75bca244649ff49ea19bb80d2e02fe748b018e4f043b40dbe3"
+        },
+        {
+          "src": "images/native-local/portfolio-editor-760.webp",
+          "width": 707,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "f8046425f3f6ea2ef3691dad4fb25cda5052e72cb214c654906e4fb6c6772d23"
+        },
+        {
+          "src": "images/native-local/portfolio-editor-390.webp",
+          "width": 337,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "bd4c717b347320a89867cc6d73d02a19155db81398262fb35e65965e26c4e2e5"
+        }
+      ]
+    }
+  ],
+  "manage-portfolio": [
+    {
+      "src": "images/native-local/portfolio-actions-1440.webp",
+      "kind": "screenshot",
+      "alt": "Действия с работой в портфолио",
+      "caption": "Действия с работой в портфолио. Учебные данные.",
+      "width": 280,
+      "height": 196,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "11df367efd9566b8a65a26b5f86f5b80707de7f250874ce816a22d4749c9820e",
+      "variants": [
+        {
+          "src": "images/native-local/portfolio-actions-1440.webp",
+          "width": 280,
+          "height": 196,
+          "minWidth": 901,
+          "sha256": "11df367efd9566b8a65a26b5f86f5b80707de7f250874ce816a22d4749c9820e"
+        },
+        {
+          "src": "images/native-local/portfolio-actions-760.webp",
+          "width": 280,
+          "height": 196,
+          "minWidth": 431,
+          "sha256": "32094a21fedf33bcd4ca713653322756ff7eeadc97f07bbcae58b8c773a335c7"
+        },
+        {
+          "src": "images/native-local/portfolio-actions-390.webp",
+          "width": 375,
+          "height": 303,
+          "minWidth": 0,
+          "sha256": "129644e7cf8f4296d4f7bb05a9a9e0813a7ddd07158e7f4a82aa7043b370452d"
+        }
+      ]
+    }
+  ],
+  "view-team-calendar": [
+    {
+      "src": "images/native-local/team-calendar-1440.webp",
+      "kind": "screenshot",
+      "alt": "Фильтры и расписание команды",
+      "caption": "Фильтры и расписание команды. Учебные данные.",
+      "width": 1086,
+      "height": 900,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "cad9711396bbdddfa9a762bc7f09440b5078cdd6057360dd17368446faa73061",
+      "variants": [
+        {
+          "src": "images/native-local/team-calendar-1440.webp",
+          "width": 1086,
+          "height": 900,
+          "minWidth": 901,
+          "sha256": "cad9711396bbdddfa9a762bc7f09440b5078cdd6057360dd17368446faa73061"
+        },
+        {
+          "src": "images/native-local/team-calendar-760.webp",
+          "width": 721,
+          "height": 900,
+          "minWidth": 431,
+          "sha256": "63db89636f4387f5d60a507fc8ff9df78f7cafe70df0a5a9f07b0b386d5251b6"
+        },
+        {
+          "src": "images/native-local/team-calendar-390.webp",
+          "width": 351,
+          "height": 900,
+          "minWidth": 0,
+          "sha256": "69cbd884e708e0e7a7bbbb7632ed886931a0171bf9044cdc0418129a66657b40"
+        }
+      ]
+    }
+  ],
+  "set-regular-workweek": [
+    {
+      "src": "images/native-local/work-hours-1440.webp",
+      "kind": "screenshot",
+      "alt": "Редактор обычной рабочей недели",
+      "caption": "Редактор обычной рабочей недели. Учебные данные.",
+      "width": 922,
+      "height": 536,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "15d2e31ce71edfb06e3cd86b05f345b5fd9ee42db8bbd3741a6e336fe1557d2b",
+      "variants": [
+        {
+          "src": "images/native-local/work-hours-1440.webp",
+          "width": 922,
+          "height": 536,
+          "minWidth": 901,
+          "sha256": "15d2e31ce71edfb06e3cd86b05f345b5fd9ee42db8bbd3741a6e336fe1557d2b"
+        },
+        {
+          "src": "images/native-local/work-hours-760.webp",
+          "width": 683,
+          "height": 604,
+          "minWidth": 431,
+          "sha256": "6d603aa3b85f298c5898f7eb9ecf34cda906818b2f562656210449abbc9c7015"
+        },
+        {
+          "src": "images/native-local/work-hours-390.webp",
+          "width": 313,
+          "height": 621,
+          "minWidth": 0,
+          "sha256": "4535320b97190bc72b0d72e48ad1014721ae49dcb311fabf543d4eb27ad6cf63"
+        }
+      ]
+    }
+  ],
+  "add-service": [
+    {
+      "src": "images/native-local/services-1440.webp",
+      "kind": "screenshot",
+      "alt": "Новая услуга",
+      "caption": "Новая услуга. Учебные данные.",
+      "width": 854,
+      "height": 804,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "09e7bfce5626d508b803b62e6126cda55502e77e10f85e5bb8904ee4e7dc88a9",
+      "variants": [
+        {
+          "src": "images/native-local/services-1440.webp",
+          "width": 854,
+          "height": 804,
+          "minWidth": 901,
+          "sha256": "09e7bfce5626d508b803b62e6126cda55502e77e10f85e5bb8904ee4e7dc88a9"
+        },
+        {
+          "src": "images/native-local/services-760.webp",
+          "width": 671,
+          "height": 813,
+          "minWidth": 431,
+          "sha256": "d1dd06aa0e50556f4f0cd362450cfe650d206643d42fc9ec4a76b00f47c7394c"
+        },
+        {
+          "src": "images/native-local/services-390.webp",
+          "width": 301,
+          "height": 879,
+          "minWidth": 0,
+          "sha256": "1b6f6b8f8752f4710d527dcf71d7431692cfb65aae0dc0db035d2995e38939da"
+        }
+      ]
+    }
+  ],
+  "create-manual-booking": [
+    {
+      "src": "images/native-local/manual-booking-1440.webp",
+      "kind": "screenshot",
+      "alt": "Форма новой записи",
+      "caption": "Форма новой записи. Учебные данные.",
+      "width": 580,
+      "height": 924,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "a86c5f14dd43ac39ef28eb63327705cb9ea407ec80b8ecf4864923a0ddc9b620",
+      "variants": [
+        {
+          "src": "images/native-local/manual-booking-1440.webp",
+          "width": 580,
+          "height": 924,
+          "minWidth": 901,
+          "sha256": "a86c5f14dd43ac39ef28eb63327705cb9ea407ec80b8ecf4864923a0ddc9b620"
+        },
+        {
+          "src": "images/native-local/manual-booking-760.webp",
+          "width": 745,
+          "height": 885,
+          "minWidth": 431,
+          "sha256": "105325f87d3ba843ee543a3f6e03eb3f2ff4e0eec8d3591e9536e8f0c653af21"
+        },
+        {
+          "src": "images/native-local/manual-booking-390.webp",
+          "width": 375,
+          "height": 846,
+          "minWidth": 0,
+          "sha256": "47469686ebc2dc2ff666f7c337392d5243f1a50efd5955f5a7a8778283060671"
+        }
+      ]
+    }
+  ],
+  "repeat-client-booking": [
+    {
+      "src": "images/native-local/repeat-booking-1440.webp",
+      "kind": "screenshot",
+      "alt": "Повторная запись клиента",
+      "caption": "Повторная запись клиента. Учебные данные.",
+      "width": 580,
+      "height": 756,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "343eba1b0c211238d6f1444116b244db42a2dc979ce38a41339f2226c7d9e408",
+      "variants": [
+        {
+          "src": "images/native-local/repeat-booking-1440.webp",
+          "width": 580,
+          "height": 756,
+          "minWidth": 901,
+          "sha256": "343eba1b0c211238d6f1444116b244db42a2dc979ce38a41339f2226c7d9e408"
+        },
+        {
+          "src": "images/native-local/repeat-booking-760.webp",
+          "width": 745,
+          "height": 758,
+          "minWidth": 431,
+          "sha256": "c9e3aeaedd4dbd2bc4a12cbef7b44bf5f70904281af18fca002dd53ba092420a"
+        },
+        {
+          "src": "images/native-local/repeat-booking-390.webp",
+          "width": 375,
+          "height": 742,
+          "minWidth": 0,
+          "sha256": "3c2d1708b8f33f5d98c5aaf18c3819bf054556ff1174841fdf9074247733e922"
+        }
+      ]
+    }
+  ],
+  "cabinet-layout-theme": [
+    {
+      "src": "images/native-local/appearance-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Оформление кабинета и карточек",
+      "caption": "Оформление кабинета и карточек. Учебные данные.",
+      "width": 752,
+      "height": 3238,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "87958a68c34ec5c4bfd92aea5d1a0ea7363929e15ba663ecbb393e313d157bc3",
+      "variants": [
+        {
+          "src": "images/native-local/appearance-settings-1440.webp",
+          "width": 752,
+          "height": 3238,
+          "minWidth": 901,
+          "sha256": "87958a68c34ec5c4bfd92aea5d1a0ea7363929e15ba663ecbb393e313d157bc3"
+        },
+        {
+          "src": "images/native-local/appearance-settings-760.webp",
+          "width": 721,
+          "height": 830,
+          "minWidth": 431,
+          "sha256": "ad954307eafe3d879ec2f8892b9d852ef2fd8ac80bfb1b2cfa116d4529cd53cd"
+        },
+        {
+          "src": "images/native-local/appearance-settings-390.webp",
+          "width": 351,
+          "height": 830,
+          "minWidth": 0,
+          "sha256": "01f88908d8a71ed711d4e63d34bfdb1c8c2082d05229b830900cab7d9c837c83"
+        }
+      ]
+    }
+  ],
+  "booking-card-appearance": [
+    {
+      "src": "images/native-local/booking-text-scale-1440.webp",
+      "kind": "screenshot",
+      "alt": "Размер текста в кабинете",
+      "caption": "Размер текста в кабинете. Учебные данные.",
+      "width": 702,
+      "height": 143,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "13f8a0b9d55cd2074953f73ef98981d9585db0bd4d498483ad2f92d4755b26a2",
+      "variants": [
+        {
+          "src": "images/native-local/booking-text-scale-1440.webp",
+          "width": 702,
+          "height": 143,
+          "minWidth": 901,
+          "sha256": "13f8a0b9d55cd2074953f73ef98981d9585db0bd4d498483ad2f92d4755b26a2"
+        },
+        {
+          "src": "images/native-local/booking-text-scale-760.webp",
+          "width": 691,
+          "height": 287,
+          "minWidth": 431,
+          "sha256": "01228289bc3e9ab7849170b3b724f22e48943bc29a4cd29de0ab14d9856f8995"
+        },
+        {
+          "src": "images/native-local/booking-text-scale-390.webp",
+          "width": 321,
+          "height": 322,
+          "minWidth": 0,
+          "sha256": "1a95ab6957266a51f45d0ea4c010d0c20eb3e86917e7f67f54c02f8ca238d829"
+        }
+      ]
+    },
+    {
+      "src": "images/native-local/booking-card-settings-1440.webp",
+      "kind": "screenshot",
+      "alt": "Размер и данные карточек записи",
+      "caption": "Размер и данные карточек записи. Учебные данные.",
+      "width": 701,
+      "height": 421,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "064f6b68a8b22a6aaf31bfd4d46b62d279b7b7f9426776d7e89703b91c1a8fc7",
+      "variants": [
+        {
+          "src": "images/native-local/booking-card-settings-1440.webp",
+          "width": 701,
+          "height": 421,
+          "minWidth": 901,
+          "sha256": "064f6b68a8b22a6aaf31bfd4d46b62d279b7b7f9426776d7e89703b91c1a8fc7"
+        },
+        {
+          "src": "images/native-local/booking-card-settings-760.webp",
+          "width": 691,
+          "height": 605,
+          "minWidth": 431,
+          "sha256": "bf9aae008b0dd70d5fe39d8e27dc071d495347822d0f1c8f082f560a607511da"
+        },
+        {
+          "src": "images/native-local/booking-card-settings-390.webp",
+          "width": 321,
+          "height": 617,
+          "minWidth": 0,
+          "sha256": "b0a69139201dd742f25a6b5a39d8bcc2936ca0031f3026f6ad0ae165d5025f7a"
+        }
+      ]
+    }
+  ]
+}

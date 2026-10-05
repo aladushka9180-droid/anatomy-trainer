@@ -15,18 +15,40 @@
     ]
   },
   "create-manual-booking": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/manual-booking.webp",
-      "targetArticle": "Как создать запись вручную",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/manual-booking-1440.webp",
+        "alt": "Форма новой записи",
+        "caption": "Форма новой записи. Учебные данные.",
+        "kind": "screenshot",
+        "width": 580,
+        "height": 924,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/manual-booking-1440.webp",
+            "width": 580,
+            "height": 924
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/manual-booking-760.webp",
+            "width": 745,
+            "height": 885
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/manual-booking-390.webp",
+            "width": 375,
+            "height": 846
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "client-phone-autofill": {
@@ -36,283 +58,543 @@
   "block-time-in-schedule": {
     "images": [
       {
-        "src": "images/process/block-time-in-schedule.svg",
-        "alt": "Схема этапов: Тип занятого времени → Дата и интервал → Сохранение в графике.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/booking-block-form-1440.webp",
+        "alt": "Занятое время",
+        "caption": "Занятое время. Учебные данные.",
+        "kind": "screenshot",
+        "width": 820,
+        "height": 484,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-block-form-1440.webp",
+            "width": 820,
+            "height": 484
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-block-form-760.webp",
+            "width": 713,
+            "height": 662
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-block-form-390.webp",
+            "width": 343,
+            "height": 577
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/block-time-in-schedule.webp",
-      "targetArticle": "Как занять время для перерыва или личного дела",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "create-recurring-booking-series": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/recurring-series.webp",
-      "targetArticle": "Как создать курс или серию записей",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/booking-recurring-form-1440.webp",
+        "alt": "Настройки повторяющейся серии",
+        "caption": "Настройки повторяющейся серии. Учебные данные.",
+        "kind": "screenshot",
+        "width": 580,
+        "height": 940,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-recurring-form-1440.webp",
+            "width": 580,
+            "height": 940
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-recurring-form-760.webp",
+            "width": 745,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-recurring-form-390.webp",
+            "width": 375,
+            "height": 900
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "reschedule-provider-booking": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/reschedule-booking.webp",
-      "targetArticle": "Как перенести запись клиента",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/booking-reschedule-series-1440.webp",
+        "alt": "Перенос записи и область серии",
+        "caption": "Перенос записи и область серии. Учебные данные.",
+        "kind": "screenshot",
+        "width": 620,
+        "height": 782,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-reschedule-series-1440.webp",
+            "width": 620,
+            "height": 782
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-reschedule-series-760.webp",
+            "width": 641,
+            "height": 804
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-reschedule-series-390.webp",
+            "width": 375,
+            "height": 894
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "confirm-or-delete-booking": {
     "images": [
       {
-        "src": "images/process/confirm-or-delete-booking.svg",
-        "alt": "Схема этапов: Карточка визита → Действие и область серии → Подтверждение → Проверка расписания.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/booking-detail-actions-1440.webp",
+        "alt": "Действия с записью",
+        "caption": "Действия с записью. Учебные данные.",
+        "kind": "screenshot",
+        "width": 572,
+        "height": 187,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-detail-actions-1440.webp",
+            "width": 572,
+            "height": 187
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-detail-actions-760.webp",
+            "width": 592,
+            "height": 179
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-detail-actions-390.webp",
+            "width": 343,
+            "height": 231
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/confirm-or-delete-booking.webp",
-      "targetArticle": "Как подтвердить, отменить или удалить запись",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "record-visit-result-and-payment": {
     "images": [
       {
-        "src": "images/process/record-visit-result-and-payment.svg",
-        "alt": "Схема этапов: Правила автоучёта → Результат и оплата → Исключения → Описание и фотографии.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/booking-policy-settings-1440.webp",
+        "alt": "Правила онлайн-записи",
+        "caption": "Правила онлайн-записи. Учебные данные.",
+        "kind": "screenshot",
+        "width": 752,
+        "height": 1001,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-policy-settings-1440.webp",
+            "width": 752,
+            "height": 1001
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-policy-settings-760.webp",
+            "width": 721,
+            "height": 830
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-policy-settings-390.webp",
+            "width": 351,
+            "height": 830
+          }
+        ]
+      },
+      {
+        "src": "images/native-local/booking-outcome-form-1440.webp",
+        "alt": "Результат визита и оплата",
+        "caption": "Результат визита и оплата. Учебные данные.",
+        "kind": "screenshot",
+        "width": 572,
+        "height": 309,
+        "step": 3,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-outcome-form-1440.webp",
+            "width": 572,
+            "height": 309
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-outcome-form-760.webp",
+            "width": 593,
+            "height": 401
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-outcome-form-390.webp",
+            "width": 343,
+            "height": 421
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/record-visit-result-and-payment.webp",
-      "targetArticle": "Как отметить результат визита и оплату",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "find-and-filter-bookings": {
     "images": [
       {
-        "src": "images/process/find-and-filter-bookings.svg",
-        "alt": "Схема этапов: Период → Вид расписания → Поиск визита.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/booking-list-filters-1440.webp",
+        "alt": "Поиск и фильтры журнала",
+        "caption": "Поиск и фильтры журнала. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1086,
+        "height": 439,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-list-filters-1440.webp",
+            "width": 1086,
+            "height": 439
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-list-filters-760.webp",
+            "width": 721,
+            "height": 570
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-list-filters-390.webp",
+            "width": 351,
+            "height": 570
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/find-and-filter-bookings.webp",
-      "targetArticle": "Как найти нужную запись в журнале",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "view-team-calendar": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/team-calendar.webp",
-      "targetArticle": "Как открыть расписание команды",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/team-calendar-1440.webp",
+        "alt": "Фильтры и расписание команды",
+        "caption": "Фильтры и расписание команды. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1086,
+        "height": 900,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/team-calendar-1440.webp",
+            "width": 1086,
+            "height": 900
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/team-calendar-760.webp",
+            "width": 721,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/team-calendar-390.webp",
+            "width": 351,
+            "height": 900
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "set-regular-workweek": {
     "images": [
       {
-        "src": "images/process/set-regular-workweek.svg",
-        "alt": "Схема этапов: Шаблон недели → Дни и часы → Сохранение графика.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/work-hours-1440.webp",
+        "alt": "Редактор обычной рабочей недели",
+        "caption": "Редактор обычной рабочей недели. Учебные данные.",
+        "kind": "screenshot",
+        "width": 922,
+        "height": 536,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/work-hours-1440.webp",
+            "width": 922,
+            "height": 536
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/work-hours-760.webp",
+            "width": 683,
+            "height": 604
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/work-hours-390.webp",
+            "width": 313,
+            "height": 621
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/set-regular-workweek.webp",
-      "targetArticle": "Как настроить обычную рабочую неделю",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "customize-workdays-and-booking-step": {
     "images": [
       {
-        "src": "images/process/customize-workdays-and-booking-step.svg",
-        "alt": "Схема этапов: Рабочие дни → Часы работы → Шаг записи.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/schedule-week-1440.webp",
+        "alt": "Рабочие часы по дням и шаг записи",
+        "caption": "Рабочие часы по дням и шаг записи. Учебные данные.",
+        "kind": "screenshot",
+        "width": 921,
+        "height": 324,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/schedule-week-1440.webp",
+            "width": 921,
+            "height": 324
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/schedule-week-760.webp",
+            "width": 683,
+            "height": 432
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/schedule-week-390.webp",
+            "width": 313,
+            "height": 506
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/customize-workdays-and-booking-step.webp",
-      "targetArticle": "Как настроить разные часы по дням и шаг записи",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "schedule-date-exceptions": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/date-exceptions.webp",
-      "targetArticle": "Как сделать выходной или закрыть часть дня",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/schedule-date-exception-1440.webp",
+        "alt": "Настройка выбранного дня",
+        "caption": "Настройка выбранного дня. Учебные данные.",
+        "kind": "screenshot",
+        "width": 958,
+        "height": 938,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/schedule-date-exception-1440.webp",
+            "width": 958,
+            "height": 938
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/schedule-date-exception-760.webp",
+            "width": 719,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/schedule-date-exception-390.webp",
+            "width": 349,
+            "height": 900
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "share-free-slots": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/share-free-slots.webp",
-      "targetArticle": "Как поделиться свободным временем",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/free-slots-dialog-1440.webp",
+        "alt": "Предпросмотр свободного времени",
+        "caption": "Предпросмотр свободного времени. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1050,
+        "height": 760,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/free-slots-dialog-1440.webp",
+            "width": 1050,
+            "height": 760
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/free-slots-dialog-760.webp",
+            "width": 733,
+            "height": 748
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/free-slots-dialog-390.webp",
+            "width": 374,
+            "height": 900
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "add-service": {
     "images": [
       {
-        "src": "images/process/add-service.svg",
-        "alt": "Схема этапов: Название услуги → Цена и длительность → Сохранение.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/services-1440.webp",
+        "alt": "Новая услуга",
+        "caption": "Новая услуга. Учебные данные.",
+        "kind": "screenshot",
+        "width": 854,
+        "height": 804,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/services-1440.webp",
+            "width": 854,
+            "height": 804
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/services-760.webp",
+            "width": 671,
+            "height": 813
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/services-390.webp",
+            "width": 301,
+            "height": 879
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/add-service.webp",
-      "targetArticle": "Как добавить услугу",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "client-card-notes-and-labels": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/client-card.webp",
-      "targetArticle": "Как найти клиента и вести его карточку",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/client-card-summary-1440.webp",
+        "alt": "Заметки и настройки клиента",
+        "caption": "Заметки и настройки клиента. Учебные данные.",
+        "kind": "screenshot",
+        "width": 567,
+        "height": 431,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/client-card-summary-1440.webp",
+            "width": 567,
+            "height": 431
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/client-card-summary-760.webp",
+            "width": 689,
+            "height": 459
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/client-card-summary-390.webp",
+            "width": 319,
+            "height": 459
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "repeat-client-booking": {
     "images": [
       {
-        "src": "images/process/repeat-client-booking.svg",
-        "alt": "Схема этапов: Карточка клиента → Услуга → Дата и время → Сохранение визита.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/repeat-booking-1440.webp",
+        "alt": "Повторная запись клиента",
+        "caption": "Повторная запись клиента. Учебные данные.",
+        "kind": "screenshot",
+        "width": 580,
+        "height": 756,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/repeat-booking-1440.webp",
+            "width": 580,
+            "height": 756
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/repeat-booking-760.webp",
+            "width": 745,
+            "height": 758
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/repeat-booking-390.webp",
+            "width": 375,
+            "height": 742
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/repeat-client-booking.webp",
-      "targetArticle": "Как записать постоянного клиента снова",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "client-search-filters": {
@@ -336,57 +618,112 @@
     "status": "text-only"
   },
   "create-batch-bookings-for-client": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/batch-bookings.webp",
-      "targetArticle": "Как создать записи на несколько произвольных дат",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/client-batch-form-1440.webp",
+        "alt": "Пакет записей для клиента",
+        "caption": "Пакет записей для клиента. Учебные данные.",
+        "kind": "screenshot",
+        "width": 567,
+        "height": 708,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/client-batch-form-1440.webp",
+            "width": 567,
+            "height": 708
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/client-batch-form-760.webp",
+            "width": 689,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/client-batch-form-390.webp",
+            "width": 319,
+            "height": 900
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "import-clients-and-booking-history": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/client-import.webp",
-      "targetArticle": "Как импортировать клиентов или историю записей",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/client-import-preview-1440.webp",
+        "alt": "Предпросмотр импорта клиентов",
+        "caption": "Предпросмотр импорта клиентов. Учебные данные.",
+        "kind": "screenshot",
+        "width": 926,
+        "height": 801,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/client-import-preview-1440.webp",
+            "width": 926,
+            "height": 801
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/client-import-preview-760.webp",
+            "width": 306,
+            "height": 729
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/client-import-preview-390.webp",
+            "width": 306,
+            "height": 708
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "organization-name": {
     "images": [
       {
-        "src": "images/process/organization-name.svg",
-        "alt": "Схема этапов: Нужная организация → Название → Сохранение.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/organization-main-1440.webp",
+        "alt": "Название организации",
+        "caption": "Название организации. Учебные данные.",
+        "kind": "screenshot",
+        "width": 960,
+        "height": 539,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/organization-main-1440.webp",
+            "width": 960,
+            "height": 539
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/organization-main-760.webp",
+            "width": 721,
+            "height": 650
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/organization-main-390.webp",
+            "width": 351,
+            "height": 859
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/organization-name.webp",
-      "targetArticle": "Как изменить название организации",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "organization-structure": {
@@ -396,25 +733,38 @@
   "add-branch": {
     "images": [
       {
-        "src": "images/process/add-branch.svg",
-        "alt": "Схема этапов: Название и адрес → Проверка адреса → Сохранение → Клиентская страница.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/branch-create-form-1440.webp",
+        "alt": "Новый филиал",
+        "caption": "Новый филиал. Учебные данные.",
+        "kind": "screenshot",
+        "width": 421,
+        "height": 381,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/branch-create-form-1440.webp",
+            "width": 421,
+            "height": 381
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/branch-create-form-760.webp",
+            "width": 691,
+            "height": 381
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/branch-create-form-390.webp",
+            "width": 321,
+            "height": 401
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/add-branch.webp",
-      "targetArticle": "Как добавить и настроить филиал",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "branches-and-employees": {
@@ -422,42 +772,77 @@
     "status": "text-only"
   },
   "invite-employee": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/employee-access.webp",
-      "targetArticle": "Как пригласить сотрудника",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/employee-invite-form-1440.webp",
+        "alt": "Приглашение сотрудника",
+        "caption": "Приглашение сотрудника. Учебные данные.",
+        "kind": "screenshot",
+        "width": 420,
+        "height": 530,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/employee-invite-form-1440.webp",
+            "width": 420,
+            "height": 530
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/employee-invite-form-760.webp",
+            "width": 691,
+            "height": 490
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/employee-invite-form-390.webp",
+            "width": 321,
+            "height": 550
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "employee-rights": {
     "images": [
       {
-        "src": "images/process/employee-rights.svg",
-        "alt": "Схема этапов: Минимальная роль → Приём и доступ → Сохранение прав → Проверка входа.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/employee-rights-form-1440.webp",
+        "alt": "Роль сотрудника и доступ",
+        "caption": "Роль сотрудника и доступ. Учебные данные.",
+        "kind": "screenshot",
+        "width": 420,
+        "height": 752,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/employee-rights-form-1440.webp",
+            "width": 420,
+            "height": 752
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/employee-rights-form-760.webp",
+            "width": 691,
+            "height": 754
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/employee-rights-form-390.webp",
+            "width": 321,
+            "height": 875
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/employee-rights.webp",
-      "targetArticle": "Как изменить роль и доступ сотрудника",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "roles-access-safety": {
@@ -465,18 +850,40 @@
     "status": "text-only"
   },
   "service-resources": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/service-resources.webp",
-      "targetArticle": "Как настроить кабинеты и оборудование для услуг",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/resources-workspace-1440.webp",
+        "alt": "Ресурсы организации",
+        "caption": "Ресурсы организации. Учебные данные.",
+        "kind": "screenshot",
+        "width": 960,
+        "height": 512,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/resources-workspace-1440.webp",
+            "width": 960,
+            "height": 512
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/resources-workspace-760.webp",
+            "width": 721,
+            "height": 577
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/resources-workspace-390.webp",
+            "width": 351,
+            "height": 558
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "booking-visibility-diagnostics": {
@@ -486,133 +893,259 @@
   "add-staff-shift": {
     "images": [
       {
-        "src": "images/process/add-staff-shift.svg",
-        "alt": "Схема этапов: Сотрудник и филиал → Дата и рабочие часы → Создание смены.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/staff-shift-form-1440.webp",
+        "alt": "Новая смена сотрудника",
+        "caption": "Новая смена сотрудника. Учебные данные.",
+        "kind": "screenshot",
+        "width": 480,
+        "height": 595,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/staff-shift-form-1440.webp",
+            "width": 480,
+            "height": 595
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/staff-shift-form-760.webp",
+            "width": 480,
+            "height": 793
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/staff-shift-form-390.webp",
+            "width": 375,
+            "height": 789
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/add-staff-shift.webp",
-      "targetArticle": "Как добавить смену сотрудника",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "add-staff-absence": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/staff-absence.webp",
-      "targetArticle": "Как добавить отпуск, больничный или недоступность",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/staff-absence-form-1440.webp",
+        "alt": "Отсутствие сотрудника",
+        "caption": "Отсутствие сотрудника. Учебные данные.",
+        "kind": "screenshot",
+        "width": 480,
+        "height": 610,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/staff-absence-form-1440.webp",
+            "width": 480,
+            "height": 610
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/staff-absence-form-760.webp",
+            "width": 480,
+            "height": 709
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/staff-absence-form-390.webp",
+            "width": 375,
+            "height": 705
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "substitute-booking-specialist": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/staff-substitution.webp",
-      "targetArticle": "Как заменить специалиста в существующей записи",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/staff-substitution-form-1440.webp",
+        "alt": "Замена специалиста в записи",
+        "caption": "Замена специалиста в записи. Учебные данные.",
+        "kind": "screenshot",
+        "width": 908,
+        "height": 193,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/staff-substitution-form-1440.webp",
+            "width": 908,
+            "height": 193
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/staff-substitution-form-760.webp",
+            "width": 669,
+            "height": 214
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/staff-substitution-form-390.webp",
+            "width": 315,
+            "height": 338
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "payroll-plan": {
     "images": [
       {
-        "src": "images/process/payroll-plan.svg",
-        "alt": "Схема этапов: Сотрудник и план → Правила и ступени → Проверка правила.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/payroll-plan-form-1440.webp",
+        "alt": "Правило расчёта зарплаты",
+        "caption": "Правило расчёта зарплаты. Учебные данные.",
+        "kind": "screenshot",
+        "width": 860,
+        "height": 574,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/payroll-plan-form-1440.webp",
+            "width": 860,
+            "height": 574
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/payroll-plan-form-760.webp",
+            "width": 621,
+            "height": 755
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/payroll-plan-form-390.webp",
+            "width": 283,
+            "height": 755
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/payroll-plan.webp",
-      "targetArticle": "Как настроить правило начисления зарплаты",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "calculate-payroll": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/payroll.webp",
-      "targetArticle": "Как подготовить расчёт и начислить зарплату",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/payroll-draft-review-1440.webp",
+        "alt": "Черновик зарплатного периода",
+        "caption": "Черновик зарплатного периода. Учебные данные.",
+        "kind": "screenshot",
+        "width": 860,
+        "height": 105,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/payroll-draft-review-1440.webp",
+            "width": 860,
+            "height": 105
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/payroll-draft-review-760.webp",
+            "width": 621,
+            "height": 160
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/payroll-draft-review-390.webp",
+            "width": 283,
+            "height": 189
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "setup-yookassa": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/yookassa.webp",
-      "targetArticle": "Как подключить предоплату через ЮKassa",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/payment-settings-1440.webp",
+        "alt": "Настройки приёма онлайн-платежей",
+        "caption": "Настройки приёма онлайн-платежей. Учебные данные.",
+        "kind": "screenshot",
+        "width": 960,
+        "height": 1487,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/payment-settings-1440.webp",
+            "width": 960,
+            "height": 1487
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/payment-settings-760.webp",
+            "width": 721,
+            "height": 805
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/payment-settings-390.webp",
+            "width": 351,
+            "height": 758
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "yookassa-refund": {
     "images": [
       {
-        "src": "images/process/yookassa-refund.svg",
-        "alt": "Схема этапов: Платёж и сумма → Причина и подтверждение → Проверка статуса → При сбое — без повтора.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/payment-refund-form-1440.webp",
+        "alt": "Форма возврата через ЮKassa",
+        "caption": "Форма возврата через ЮKassa. Учебные данные.",
+        "kind": "screenshot",
+        "width": 902,
+        "height": 474,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/payment-refund-form-1440.webp",
+            "width": 902,
+            "height": 474
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/payment-refund-form-760.webp",
+            "width": 675,
+            "height": 474
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/payment-refund-form-390.webp",
+            "width": 313,
+            "height": 474
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/yookassa-refund.webp",
-      "targetArticle": "Как оформить возврат через ЮKassa",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "operation-result-uncertain": {
@@ -620,117 +1153,261 @@
     "status": "text-only"
   },
   "loyalty-rules": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/loyalty-rules.webp",
-      "targetArticle": "Как настроить награду за повторные визиты",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/loyalty-program-1440.webp",
+        "alt": "Настройки программы лояльности",
+        "caption": "Настройки программы лояльности. Учебные данные.",
+        "kind": "screenshot",
+        "width": 918,
+        "height": 624,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/loyalty-program-1440.webp",
+            "width": 918,
+            "height": 624
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/loyalty-program-760.webp",
+            "width": 689,
+            "height": 718
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/loyalty-program-390.webp",
+            "width": 319,
+            "height": 841
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "adjust-redeem-loyalty": {
     "images": [
       {
-        "src": "images/process/adjust-redeem-loyalty.svg",
-        "alt": "Схема этапов: Клиент и текущий цикл → Корректировка или награда → Действие и подтверждение → Проверка истории.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/loyalty-progress-rewards-1440.webp",
+        "alt": "Корректировка прогресса клиента",
+        "caption": "Корректировка прогресса клиента. Учебные данные.",
+        "kind": "screenshot",
+        "width": 916,
+        "height": 317,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/loyalty-progress-rewards-1440.webp",
+            "width": 916,
+            "height": 317
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/loyalty-progress-rewards-760.webp",
+            "width": 687,
+            "height": 397
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/loyalty-progress-rewards-390.webp",
+            "width": 317,
+            "height": 418
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/adjust-redeem-loyalty.webp",
-      "targetArticle": "Как исправить прогресс и использовать награду",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "create-benefit-product": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/benefit-product.webp",
-      "targetArticle": "Как создать шаблон абонемента, пакета или сертификата",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/benefit-product-form-1440.webp",
+        "alt": "Новый абонемент или сертификат",
+        "caption": "Новый абонемент или сертификат. Учебные данные.",
+        "kind": "screenshot",
+        "width": 448,
+        "height": 872,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/benefit-product-form-1440.webp",
+            "width": 448,
+            "height": 872
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/benefit-product-form-760.webp",
+            "width": 689,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/benefit-product-form-390.webp",
+            "width": 319,
+            "height": 900
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "issue-apply-benefit": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/benefit.webp",
-      "targetArticle": "Как выдать и применить абонемент или сертификат",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/benefit-application-form-1440.webp",
+        "alt": "Применение абонемента к визиту",
+        "caption": "Применение абонемента к визиту. Учебные данные.",
+        "kind": "screenshot",
+        "width": 918,
+        "height": 479,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/benefit-application-form-1440.webp",
+            "width": 918,
+            "height": 479
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/benefit-application-form-760.webp",
+            "width": 689,
+            "height": 565
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/benefit-application-form-390.webp",
+            "width": 319,
+            "height": 654
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "create-apply-promo": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/promo.webp",
-      "targetArticle": "Промокоды и текущая программа лояльности",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/loyalty-program-1440.webp",
+        "alt": "Настройки программы лояльности",
+        "caption": "Настройки программы лояльности. Учебные данные.",
+        "kind": "screenshot",
+        "width": 918,
+        "height": 624,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/loyalty-program-1440.webp",
+            "width": 918,
+            "height": 624
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/loyalty-program-760.webp",
+            "width": 689,
+            "height": 718
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/loyalty-program-390.webp",
+            "width": 319,
+            "height": 841
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "inventory-setup": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/inventory.webp",
-      "targetArticle": "Как создать склад и каталог материалов",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/inventory-catalog-1440.webp",
+        "alt": "Новый материал или товар",
+        "caption": "Новый материал или товар. Учебные данные.",
+        "kind": "screenshot",
+        "width": 470,
+        "height": 480,
+        "step": 3,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/inventory-catalog-1440.webp",
+            "width": 470,
+            "height": 480
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/inventory-catalog-760.webp",
+            "width": 471,
+            "height": 482
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/inventory-catalog-390.webp",
+            "width": 351,
+            "height": 470
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "inventory-movement": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/inventory-operations.webp",
-      "targetArticle": "Как оформить приход, списание или инвентаризацию",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/inventory-movement-form-1440.webp",
+        "alt": "Операция со складским остатком",
+        "caption": "Операция со складским остатком. Учебные данные.",
+        "kind": "screenshot",
+        "width": 424,
+        "height": 515,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/inventory-movement-form-1440.webp",
+            "width": 424,
+            "height": 515
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/inventory-movement-form-760.webp",
+            "width": 663,
+            "height": 508
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/inventory-movement-form-390.webp",
+            "width": 293,
+            "height": 611
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "inventory-receipt": {
@@ -754,237 +1431,501 @@
     "status": "text-only"
   },
   "inventory-auto-deduct": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/inventory-auto-deduct.webp",
-      "targetArticle": "Как настроить автоматическое списание материалов",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/inventory-usage-form-1440.webp",
+        "alt": "Норма расхода материала",
+        "caption": "Норма расхода материала. Учебные данные.",
+        "kind": "screenshot",
+        "width": 423,
+        "height": 252,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/inventory-usage-form-1440.webp",
+            "width": 423,
+            "height": 252
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/inventory-usage-form-760.webp",
+            "width": 663,
+            "height": 250
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/inventory-usage-form-390.webp",
+            "width": 293,
+            "height": 343
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "telegram": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/telegram-settings.webp",
-      "targetArticle": "Как настроить Telegram-уведомления клиентам",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/telegram-settings-1440.webp",
+        "alt": "Настройки Telegram",
+        "caption": "Настройки Telegram. Учебные данные.",
+        "kind": "screenshot",
+        "width": 752,
+        "height": 704,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/telegram-settings-1440.webp",
+            "width": 752,
+            "height": 704
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/telegram-settings-760.webp",
+            "width": 721,
+            "height": 879
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/telegram-settings-390.webp",
+            "width": 351,
+            "height": 830
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "notification-queue": {
     "images": [
       {
-        "src": "images/process/notification-queue.svg",
-        "alt": "Схема этапов: Сообщение и получатель → Отправка → Фактический результат → Проверка очереди.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/notification-queue-card-1440.webp",
+        "alt": "Карточка очереди уведомлений",
+        "caption": "Карточка очереди уведомлений. Учебные данные.",
+        "kind": "screenshot",
+        "width": 922,
+        "height": 237,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/notification-queue-card-1440.webp",
+            "width": 922,
+            "height": 237
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/notification-queue-card-760.webp",
+            "width": 683,
+            "height": 282
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/notification-queue-card-390.webp",
+            "width": 313,
+            "height": 368
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/notification-queue.webp",
-      "targetArticle": "Как отправить сообщение из очереди уведомлений",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "notification-templates": {
     "images": [
       {
-        "src": "images/process/notification-templates.svg",
-        "alt": "Схема этапов: Событие → Текст сообщения → Сохранение шаблона.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/notification-templates-dialog-1440.webp",
+        "alt": "Шаблоны уведомлений",
+        "caption": "Шаблоны уведомлений. Учебные данные.",
+        "kind": "screenshot",
+        "width": 680,
+        "height": 690,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/notification-templates-dialog-1440.webp",
+            "width": 680,
+            "height": 690
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/notification-templates-dialog-760.webp",
+            "width": 707,
+            "height": 736
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/notification-templates-dialog-390.webp",
+            "width": 337,
+            "height": 760
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/notification-templates.webp",
-      "targetArticle": "Как изменить шаблоны сообщений",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "statistics-filters": {
     "images": [
       {
-        "src": "images/process/statistics-filters.svg",
-        "alt": "Схема этапов: Период → Применение дат → Сотрудник.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/statistics-overview-filter-1440.webp",
+        "alt": "Период и фильтры статистики",
+        "caption": "Период и фильтры статистики. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1148,
+        "height": 900,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/statistics-overview-filter-1440.webp",
+            "width": 1148,
+            "height": 900
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/statistics-overview-filter-760.webp",
+            "width": 721,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/statistics-overview-filter-390.webp",
+            "width": 351,
+            "height": 900
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/statistics-filters.webp",
-      "targetArticle": "Как выбрать период и сотрудника в статистике",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "statistics-overview": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/statistics-report.webp",
-      "targetArticle": "Как читать обзор статистики",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/statistics-overview-filter-1440.webp",
+        "alt": "Период и фильтры статистики",
+        "caption": "Период и фильтры статистики. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1148,
+        "height": 900,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/statistics-overview-filter-1440.webp",
+            "width": 1148,
+            "height": 900
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/statistics-overview-filter-760.webp",
+            "width": 721,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/statistics-overview-filter-390.webp",
+            "width": 351,
+            "height": 900
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "statistics-sections": {
     "images": [
       {
-        "src": "images/process/statistics-sections.svg",
-        "alt": "Схема этапов: Деньги → Клиенты → Команда.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/statistics-clients-1440.webp",
+        "alt": "Статистика клиентов",
+        "caption": "Статистика клиентов. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1138,
+        "height": 180,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/statistics-clients-1440.webp",
+            "width": 1138,
+            "height": 180
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/statistics-clients-760.webp",
+            "width": 721,
+            "height": 185
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/statistics-clients-390.webp",
+            "width": 351,
+            "height": 206
+          }
+        ]
+      },
+      {
+        "src": "images/native-local/statistics-team-1440.webp",
+        "alt": "Статистика команды",
+        "caption": "Статистика команды. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1148,
+        "height": 269,
+        "step": 3,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/statistics-team-1440.webp",
+            "width": 1148,
+            "height": 269
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/statistics-team-760.webp",
+            "width": 721,
+            "height": 441
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/statistics-team-390.webp",
+            "width": 351,
+            "height": 511
+          }
+        ]
+      },
+      {
+        "src": "images/native-local/statistics-money-1440.webp",
+        "alt": "Финансовый раздел статистики",
+        "caption": "Финансовый раздел статистики. Учебные данные.",
+        "kind": "screenshot",
+        "width": 1148,
+        "height": 1134,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/statistics-money-1440.webp",
+            "width": 1148,
+            "height": 1134
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/statistics-money-760.webp",
+            "width": 721,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/statistics-money-390.webp",
+            "width": 351,
+            "height": 900
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/statistics-sections.webp",
-      "targetArticle": "Как анализировать деньги, клиентов и команду",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "export-report": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/export-report.webp",
-      "targetArticle": "Как скачать отчёт в Excel, CSV или PDF",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/statistics-export-dialog-1440.webp",
+        "alt": "Параметры экспорта отчёта",
+        "caption": "Параметры экспорта отчёта. Учебные данные.",
+        "kind": "screenshot",
+        "width": 560,
+        "height": 720,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/statistics-export-dialog-1440.webp",
+            "width": 560,
+            "height": 720
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/statistics-export-dialog-760.webp",
+            "width": 561,
+            "height": 720
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/statistics-export-dialog-390.webp",
+            "width": 337,
+            "height": 720
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "business-goals": {
     "images": [
       {
-        "src": "images/process/business-goals.svg",
-        "alt": "Схема этапов: Цели бизнеса → Ориентиры → Сохранение.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/statistics-goals-dialog-1440.webp",
+        "alt": "Цели бизнеса",
+        "caption": "Цели бизнеса. Учебные данные.",
+        "kind": "screenshot",
+        "width": 620,
+        "height": 574,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/statistics-goals-dialog-1440.webp",
+            "width": 620,
+            "height": 574
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/statistics-goals-dialog-760.webp",
+            "width": 621,
+            "height": 720
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/statistics-goals-dialog-390.webp",
+            "width": 337,
+            "height": 720
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/business-goals.webp",
-      "targetArticle": "Как настроить цели бизнеса",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "add-portfolio-work": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/portfolio.webp",
-      "targetArticle": "Как добавить работу в портфолио",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/portfolio-editor-1440.webp",
+        "alt": "Новая работа в портфолио",
+        "caption": "Новая работа в портфолио. Учебные данные.",
+        "kind": "screenshot",
+        "width": 720,
+        "height": 962,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/portfolio-editor-1440.webp",
+            "width": 720,
+            "height": 962
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/portfolio-editor-760.webp",
+            "width": 707,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/portfolio-editor-390.webp",
+            "width": 337,
+            "height": 900
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "manage-portfolio": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/portfolio-manage.webp",
-      "targetArticle": "Как изменить порядок и видимость работ",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/portfolio-actions-1440.webp",
+        "alt": "Действия с работой в портфолио",
+        "caption": "Действия с работой в портфолио. Учебные данные.",
+        "kind": "screenshot",
+        "width": 280,
+        "height": 196,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/portfolio-actions-1440.webp",
+            "width": 280,
+            "height": 196
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/portfolio-actions-760.webp",
+            "width": 280,
+            "height": 196
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/portfolio-actions-390.webp",
+            "width": 375,
+            "height": 303
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "publish-reviews": {
     "images": [
       {
-        "src": "images/process/publish-reviews.svg",
-        "alt": "Схема этапов: Отзыв клиента → Выбор отзыва → Видимость на странице.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/portfolio-reviews-1440.webp",
+        "alt": "Управление публикацией отзывов",
+        "caption": "Управление публикацией отзывов. Учебные данные.",
+        "kind": "screenshot",
+        "width": 960,
+        "height": 276,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/portfolio-reviews-1440.webp",
+            "width": 960,
+            "height": 276
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/portfolio-reviews-760.webp",
+            "width": 721,
+            "height": 276
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/portfolio-reviews-390.webp",
+            "width": 351,
+            "height": 356
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/publish-reviews.webp",
-      "targetArticle": "Как опубликовать или скрыть отзыв клиента",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "settings-quick-start": {
@@ -1006,25 +1947,37 @@
   "booking-rules": {
     "images": [
       {
-        "src": "images/process/booking-rules.svg",
-        "alt": "Схема этапов: Сроки и переносы → Предоплата и перерыв → Автоучёт → Проверка результата.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/booking-policy-settings-1440.webp",
+        "alt": "Правила онлайн-записи",
+        "caption": "Правила онлайн-записи. Учебные данные.",
+        "kind": "screenshot",
+        "width": 752,
+        "height": 1001,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-policy-settings-1440.webp",
+            "width": 752,
+            "height": 1001
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-policy-settings-760.webp",
+            "width": 721,
+            "height": 830
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-policy-settings-390.webp",
+            "width": 351,
+            "height": 830
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/booking-rules.webp",
-      "targetArticle": "Как настроить отмену, перенос, предоплату и автоучёт",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "organization-booking-rules": {
@@ -1034,73 +1987,140 @@
   "visitor-alerts": {
     "images": [
       {
-        "src": "images/process/visitor-alerts.svg",
-        "alt": "Схема этапов: Включение функции → Разрешение браузера → Проверка уведомления → Устранение блокировки.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/visitor-alert-settings-1440.webp",
+        "alt": "Уведомления об открытии страницы",
+        "caption": "Уведомления об открытии страницы. Учебные данные.",
+        "kind": "screenshot",
+        "width": 752,
+        "height": 374,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/visitor-alert-settings-1440.webp",
+            "width": 752,
+            "height": 374
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/visitor-alert-settings-760.webp",
+            "width": 721,
+            "height": 450
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/visitor-alert-settings-390.webp",
+            "width": 351,
+            "height": 535
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/visitor-alerts.webp",
-      "targetArticle": "Как включить уведомления о посетителях",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "settings-batch-bookings": {
     "images": [
       {
-        "src": "images/process/settings-batch-bookings.svg",
-        "alt": "Схема этапов: Включение функции → Клиент → Проверка всех дат → Создание пакета.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/batch-booking-settings-1440.webp",
+        "alt": "Настройки пакетной записи",
+        "caption": "Настройки пакетной записи. Учебные данные.",
+        "kind": "screenshot",
+        "width": 752,
+        "height": 309,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/batch-booking-settings-1440.webp",
+            "width": 752,
+            "height": 309
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/batch-booking-settings-760.webp",
+            "width": 721,
+            "height": 371
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/batch-booking-settings-390.webp",
+            "width": 351,
+            "height": 407
+          }
+        ]
+      },
+      {
+        "src": "images/native-local/client-batch-form-1440.webp",
+        "alt": "Пакет записей для клиента",
+        "caption": "Пакет записей для клиента. Учебные данные.",
+        "kind": "screenshot",
+        "width": 567,
+        "height": 708,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/client-batch-form-1440.webp",
+            "width": 567,
+            "height": 708
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/client-batch-form-760.webp",
+            "width": 689,
+            "height": 900
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/client-batch-form-390.webp",
+            "width": 319,
+            "height": 900
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/settings-batch-bookings.webp",
-      "targetArticle": "Как работают пакетные записи",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "settings-group-sessions": {
     "images": [
       {
-        "src": "images/process/settings-group-sessions.svg",
-        "alt": "Схема этапов: Включение функции → Событие и места → Публикация → Контроль вместимости.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/group-session-create-form-1440.webp",
+        "alt": "Новое групповое событие",
+        "caption": "Новое групповое событие. Учебные данные.",
+        "kind": "screenshot",
+        "width": 620,
+        "height": 720,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/group-session-create-form-1440.webp",
+            "width": 620,
+            "height": 720
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/group-session-create-form-760.webp",
+            "width": 621,
+            "height": 720
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/group-session-create-form-390.webp",
+            "width": 337,
+            "height": 720
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/settings-group-sessions.webp",
-      "targetArticle": "Как включить групповые сеансы",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "data-governance": {
@@ -1110,49 +2130,74 @@
   "account-security": {
     "images": [
       {
-        "src": "images/process/account-security.svg",
-        "alt": "Схема этапов: Личный аккаунт → Пароль и телефон → Проверка входа → Восстановление и защита.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/account-security-settings-1440.webp",
+        "alt": "Профиль и безопасность",
+        "caption": "Профиль и безопасность. Учебные данные.",
+        "kind": "screenshot",
+        "width": 752,
+        "height": 659,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/account-security-settings-1440.webp",
+            "width": 752,
+            "height": 659
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/account-security-settings-760.webp",
+            "width": 721,
+            "height": 654
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/account-security-settings-390.webp",
+            "width": 351,
+            "height": 703
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/account-security.webp",
-      "targetArticle": "Как защитить вход в кабинет",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "cabinet-layout-theme": {
     "images": [
       {
-        "src": "images/process/cabinet-layout-theme.svg",
-        "alt": "Схема этапов: Структура кабинета → Тема → Проверка отображения.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/appearance-settings-1440.webp",
+        "alt": "Оформление кабинета и карточек",
+        "caption": "Оформление кабинета и карточек. Учебные данные.",
+        "kind": "screenshot",
+        "width": 752,
+        "height": 3238,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/appearance-settings-1440.webp",
+            "width": 752,
+            "height": 3238
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/appearance-settings-760.webp",
+            "width": 721,
+            "height": 830
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/appearance-settings-390.webp",
+            "width": 351,
+            "height": 830
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/cabinet-layout-theme.webp",
-      "targetArticle": "Как выбрать компоновку и тему кабинета",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "client-page-appearance": {
@@ -1162,88 +2207,177 @@
   "booking-card-appearance": {
     "images": [
       {
-        "src": "images/process/booking-card-appearance.svg",
-        "alt": "Схема этапов: Размер карточки → Видимые данные → Проверка сохранения.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/booking-text-scale-1440.webp",
+        "alt": "Размер текста в кабинете",
+        "caption": "Размер текста в кабинете. Учебные данные.",
+        "kind": "screenshot",
+        "width": 702,
+        "height": 143,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-text-scale-1440.webp",
+            "width": 702,
+            "height": 143
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-text-scale-760.webp",
+            "width": 691,
+            "height": 287
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-text-scale-390.webp",
+            "width": 321,
+            "height": 322
+          }
+        ]
+      },
+      {
+        "src": "images/native-local/booking-card-settings-1440.webp",
+        "alt": "Размер и данные карточек записи",
+        "caption": "Размер и данные карточек записи. Учебные данные.",
+        "kind": "screenshot",
+        "width": 701,
+        "height": 421,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/booking-card-settings-1440.webp",
+            "width": 701,
+            "height": 421
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/booking-card-settings-760.webp",
+            "width": 691,
+            "height": 605
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/booking-card-settings-390.webp",
+            "width": 321,
+            "height": 617
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/booking-card-appearance.webp",
-      "targetArticle": "Как настроить текст и карточки записей",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "mobile-navigation": {
     "images": [
       {
-        "src": "images/process/mobile-navigation.svg",
-        "alt": "Схема этапов: Роль пользователя → Четыре быстрые вкладки → Остальные разделы → Проверка на телефоне.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-local/mobile-navigation-settings-1440.webp",
+        "alt": "Быстрые разделы на телефоне",
+        "caption": "Быстрые разделы на телефоне. Учебные данные.",
+        "kind": "screenshot",
+        "width": 752,
+        "height": 721,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/mobile-navigation-settings-1440.webp",
+            "width": 752,
+            "height": 721
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/mobile-navigation-settings-760.webp",
+            "width": 721,
+            "height": 716
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/mobile-navigation-settings-390.webp",
+            "width": 351,
+            "height": 829
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/mobile-navigation.webp",
-      "targetArticle": "Как настроить нижнюю панель на телефоне",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "install-app": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/install-app.webp",
-      "targetArticle": "Как установить Eldion Pro на компьютер или телефон",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-local/install-guides-1440.webp",
+        "alt": "Установка приложения",
+        "caption": "Установка приложения. Учебные данные.",
+        "kind": "screenshot",
+        "width": 752,
+        "height": 222,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/install-guides-1440.webp",
+            "width": 752,
+            "height": 222
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/install-guides-760.webp",
+            "width": 721,
+            "height": 278
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/install-guides-390.webp",
+            "width": 351,
+            "height": 314
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "voice-assistant": {
     "images": [
       {
-        "src": "images/process/voice-assistant.svg",
-        "alt": "Схема этапов: Вопрос помощнику → Текст или голос → Отправка вопроса.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 368
+        "src": "images/native-local/assistant-dialog-1440.webp",
+        "alt": "Помощник Eldion Pro",
+        "caption": "Помощник Eldion Pro. Учебные данные.",
+        "kind": "screenshot",
+        "width": 720,
+        "height": 500,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-local/assistant-dialog-1440.webp",
+            "width": 720,
+            "height": 500
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-local/assistant-dialog-760.webp",
+            "width": 745,
+            "height": 485
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-local/assistant-dialog-390.webp",
+            "width": 375,
+            "height": 571
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/voice-assistant.webp",
-      "targetArticle": "Как задать вопрос помощнику голосом или текстом",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "voice-assistant-actions": {
@@ -1259,87 +2393,246 @@
     ]
   },
   "book-online": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/online-booking.webp",
-      "targetArticle": "Как записаться онлайн",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-client/client-service-picker-1440.webp",
+        "alt": "Выбор услуги",
+        "caption": "Выбор услуги. Учебные данные.",
+        "kind": "screenshot",
+        "width": 720,
+        "height": 313,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-client/client-service-picker-1440.webp",
+            "width": 720,
+            "height": 313
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-client/client-service-picker-760.webp",
+            "width": 620,
+            "height": 301
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-client/client-service-picker-390.webp",
+            "width": 370,
+            "height": 297
+          }
+        ]
+      },
+      {
+        "src": "images/native-client/client-contact-form-1440.webp",
+        "alt": "Контактные данные перед записью",
+        "caption": "Контактные данные перед записью. Учебные данные.",
+        "kind": "screenshot",
+        "width": 720,
+        "height": 716,
+        "step": 3,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-client/client-contact-form-1440.webp",
+            "width": 720,
+            "height": 716
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-client/client-contact-form-760.webp",
+            "width": 620,
+            "height": 718
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-client/client-contact-form-390.webp",
+            "width": 370,
+            "height": 759
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "reschedule": {
     "images": [
       {
-        "src": "images/process/reschedule.svg",
-        "alt": "Схема этапов: Нужный визит → Подтверждение визита → Перенос или отмена → Проверка результата.",
-        "caption": "Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.",
-        "kind": "diagram",
-        "width": 560,
-        "height": 484
+        "src": "images/native-client/client-management-1440.webp",
+        "alt": "Управление визитом и подключение Telegram",
+        "caption": "Управление визитом и подключение Telegram. Учебные данные.",
+        "kind": "screenshot",
+        "width": 658,
+        "height": 735,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-client/client-management-1440.webp",
+            "width": 658,
+            "height": 735
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-client/client-management-760.webp",
+            "width": 702,
+            "height": 917
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-client/client-management-390.webp",
+            "width": 340,
+            "height": 933
+          }
+        ]
+      },
+      {
+        "src": "images/native-client/client-reschedule-form-1440.webp",
+        "alt": "Выбор нового времени",
+        "caption": "Выбор нового времени. Учебные данные.",
+        "kind": "screenshot",
+        "width": 658,
+        "height": 444,
+        "step": 3,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-client/client-reschedule-form-1440.webp",
+            "width": 658,
+            "height": 444
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-client/client-reschedule-form-760.webp",
+            "width": 702,
+            "height": 375
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-client/client-reschedule-form-390.webp",
+            "width": 340,
+            "height": 369
+          }
+        ]
       }
     ],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Схема объясняет этапы, но не расположение элементов.",
-      "sourceToReplace": "images/reschedule.webp",
-      "targetArticle": "Как подтвердить, перенести или отменить запись",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "find-booking": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/my-bookings.webp",
-      "targetArticle": "Как войти в раздел «Мои записи»",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-client/client-login-1440.webp",
+        "alt": "Вход по телефону и личному коду",
+        "caption": "Вход по телефону и личному коду. Учебные данные.",
+        "kind": "screenshot",
+        "width": 520,
+        "height": 876,
+        "step": 4,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-client/client-login-1440.webp",
+            "width": 520,
+            "height": 876
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-client/client-login-760.webp",
+            "width": 520,
+            "height": 860
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-client/client-login-390.webp",
+            "width": 370,
+            "height": 851
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "join-booking-waitlist": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/waitlist.webp",
-      "targetArticle": "Как встать в лист ожидания",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-client/client-waitlist-form-1440.webp",
+        "alt": "Заявка в лист ожидания",
+        "caption": "Заявка в лист ожидания. Учебные данные.",
+        "kind": "screenshot",
+        "width": 560,
+        "height": 666,
+        "step": 2,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-client/client-waitlist-form-1440.webp",
+            "width": 560,
+            "height": 666
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-client/client-waitlist-form-760.webp",
+            "width": 560,
+            "height": 666
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-client/client-waitlist-form-390.webp",
+            "width": 352,
+            "height": 702
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "connect-telegram": {
-    "images": [],
-    "deferredCapture": {
-      "status": "pending",
-      "reason": "browser_permission_unverified",
-      "requirement": "Нужен актуальный снимок текущего интерфейса с тестовыми данными. Прежний кадр с изменённым DOM не используется как актуальный.",
-      "sourceToReplace": "images/client-telegram.webp",
-      "targetArticle": "Как подключить уведомления в Telegram",
-      "widths": [
-        390,
-        760,
-        1440
-      ]
+    "images": [
+      {
+        "src": "images/native-client/client-management-1440.webp",
+        "alt": "Управление визитом и подключение Telegram",
+        "caption": "Управление визитом и подключение Telegram. Учебные данные.",
+        "kind": "screenshot",
+        "width": 658,
+        "height": 735,
+        "step": 1,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-client/client-management-1440.webp",
+            "width": 658,
+            "height": 735
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-client/client-management-760.webp",
+            "width": 702,
+            "height": 917
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-client/client-management-390.webp",
+            "width": 340,
+            "height": 933
+          }
+        ]
+      }
+    ],
+    "capture": {
+      "status": "captured-local-native",
+      "liveVerified": false
     }
   },
   "edit-service": {
@@ -1393,6 +2686,7 @@
     const entry = manifest[article.slug];
     if (!entry) return;
     delete article.visual;
+    delete article.deferredCapture;
     article.visuals = entry.images.map(image => ({ ...image }));
     if (article.visuals.length) article.visual = article.visuals[0];
     if (entry.deferredCapture) article.deferredCapture = { ...entry.deferredCapture };

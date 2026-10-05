@@ -71,6 +71,20 @@
     image.width = visual.width || 1200;
     image.height = visual.height || 675;
     image.loading = visual.step ? 'lazy' : 'eager';
+    let imageElement = image;
+    if (visual.variants?.length) {
+      const picture = document.createElement('picture');
+      for (const variant of visual.variants) {
+        const source = document.createElement('source');
+        source.media = `(min-width: ${variant.minWidth}px)`;
+        source.srcset = variant.src;
+        source.width = variant.width;
+        source.height = variant.height;
+        picture.append(source);
+      }
+      picture.append(image);
+      imageElement = picture;
+    }
     const zoom = document.createElement('span');
     const zoomIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     zoomIcon.setAttribute('aria-hidden', 'true');
@@ -78,17 +92,17 @@
     zoomUse.setAttribute('href', '../ui-icons.svg#icon-search');
     zoomIcon.append(zoomUse);
     zoom.append(zoomIcon, document.createTextNode('Увеличить'));
-    button.append(image, zoom);
+    button.append(imageElement, zoom);
     const caption = document.createElement('figcaption');
     caption.textContent = visual.caption;
     figure.append(button, caption);
     destination.append(figure);
     button.addEventListener('click', () => {
       if (!dialog || !fullImage || typeof dialog.showModal !== 'function') {
-        window.open(visual.src, '_blank', 'noopener');
+        window.open(image.currentSrc || visual.src, '_blank', 'noopener');
         return;
       }
-      fullImage.src = visual.src;
+      fullImage.src = image.currentSrc || visual.src;
       fullImage.alt = visual.alt;
       setText('#visualDialogTitle', visual.kind === 'diagram' ? 'Схема к инструкции' : 'Экран к инструкции');
       dialog.showModal();
