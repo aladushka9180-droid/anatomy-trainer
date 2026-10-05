@@ -68,12 +68,12 @@ export async function ownedCleanup(docker,id,owner){
  return {removed:true};
 }
 
-function run(command,args,{input,env=process.env}={}){
+function run(command,args,{input,env=process.env,binary=false,maxBytes=4*1024*1024}={}){
  return new Promise((done,fail)=>{
-  const child=spawn(command,args,{env,stdio:['pipe','pipe','pipe']});let stdout='',stderr='';
-  child.stdout.on('data',b=>{stdout+=b;if(stdout.length>4*1024*1024)child.kill();});
+  const child=spawn(command,args,{env,stdio:['pipe','pipe','pipe']});const chunks=[];let bytes=0,stderr='',overflow=false;
+  child.stdout.on('data',b=>{bytes+=b.length;if(bytes>maxBytes){overflow=true;child.kill();}else chunks.push(b);});
   child.stderr.on('data',b=>{stderr+=b;if(stderr.length>4*1024*1024)child.kill();});
-  child.once('error',fail);child.once('close',code=>{if(code===0)done(stdout.trim());else{const e=new Error('isolated_command_failed');e.exitCode=code;e.sqlstate=stderr.match(/ERROR:\s+([0-9A-Z]{5})/)?.[1];e.missingObject=stderr.match(/No such (?:object|container):\s+([a-z0-9-]+)/i)?.[1];fail(e);}});
+  child.once('error',fail);child.once('close',code=>{if(code===0&&!overflow){const output=Buffer.concat(chunks);done(binary?output:output.toString('utf8').trim());}else{const e=new Error(overflow?'isolated_output_limit':'isolated_command_failed');e.exitCode=code;e.sqlstate=stderr.match(/ERROR:\s+([0-9A-Z]{5})/)?.[1];e.missingObject=stderr.match(/No such (?:object|container):\s+([a-z0-9-]+)/i)?.[1];fail(e);}});
   child.stdin.on('error',()=>{});child.stdin.end(input);
  });
 }
@@ -87,25 +87,30 @@ export async function executeStand({canary=false,schemaPath,schemaSha256,receipt
   assert.ok(statSync(schemaPath).isFile());schema=readFileSync(realpathSync(schemaPath));source=verifySchema(schema,schemaSha256);
  }
  const owner=randomUUID(),name=`eldion-series-${owner}`,temp=mkdtempSync(join(tmpdir(),'eldion-series-'));
- const cli=join(temp,'docker');mkdirSync(cli);let id,primaryError,cleanupError;
+ const cli=join(temp,'docker');mkdirSync(cli);let id,primaryError,cleanupError,stage='image-pull';
  const docker=(args,opts)=>run('docker',['--config',cli,'--host','unix:///var/run/docker.sock',...args],opts);
  const receipt={format:'eldion-series-native-v1',mode:canary?'engine-canary':'supplied-full-schema',image:IMAGE,
   sourceSchema:source||null,fullSeriesGatePassed:false,engineCanaryPassed:false,ownedCleanupProven:false,
   sourceDataRead:false,productionWritten:false,actualProductionRestoreProven:false};
  try{
   await docker(['pull',IMAGE]);
+  stage='owned-container-create';
   id=await docker(containerArgs(name,owner));assert.match(id,/^[a-f0-9]{64}$/);
   const config=JSON.parse(await docker(['inspect',id]))[0];
   assert.equal(config.HostConfig.NetworkMode,'none');assert.equal(config.HostConfig.ReadonlyRootfs,true);
   assert.equal(config.HostConfig.CapDrop.includes('ALL'),true);assert.equal(config.HostConfig.PortBindings==null||Object.keys(config.HostConfig.PortBindings).length===0,true);
   assert.equal(config.Mounts.every(x=>x.Type==='tmpfs'&&x.Destination==='/series'),true,'host/volume mounts refused');assert.equal(config.Config.User,'postgres');
   const exec=(args,opts)=>docker(['exec','--interactive',id,...args],opts);
-  const pg='/usr/lib/postgresql/17/bin/';
-  await exec([pg+'initdb','-D','/series/data','--username=postgres','--auth=trust','--no-instructions']);
-  await exec([pg+'pg_ctl','-D','/series/data','-l','/series/server.log','-w','start','-o','-c listen_addresses=127.0.0.1 -c unix_socket_directories=/series -c log_statement=none -c port=5432']);
+  const pg='/usr/bin/';
+  stage='generated-cluster-init';
+  await exec([pg+'initdb','-D','/series/data','--username=postgres','--auth=trust','--no-instructions','--no-locale','--encoding=UTF8']);
+  stage='generated-cluster-start';
+  await exec([pg+'pg_ctl','-D','/series/data','-l','/series/server.log','-w','-t','25','start','-o','-c listen_addresses=127.0.0.1 -c unix_socket_directories=/series -c shared_preload_libraries= -c cron.launch_active_jobs=off -c pg_net.database_name=series_native_sink -c log_statement=none -c port=5432']);
   const psql=(sql,database='eldion-series-fixture')=>exec([pg+'psql','-X','--host=127.0.0.1','--username=postgres','--dbname='+database,'--set=ON_ERROR_STOP=1','--set=VERBOSITY=sqlstate','--tuples-only','--no-align'],{input:sql});
-  assert.equal(await psql('show server_version_num','postgres'),'170006');
+  stage='database-init';
+  receipt.serverVersion=await psql('show server_version_num','postgres');assert.equal(receipt.serverVersion,'170006');
   await psql('create database "eldion-series-fixture"','postgres');
+  stage=canary?'engine-sql-canary':'qualified-schema-restore';
   if(canary){
    await psql('create schema auth;create table auth.users(id uuid primary key);create table public.bookings(id uuid primary key);');
    await psql('begin;insert into public.bookings values(\'00000000-0000-4000-8000-000000000001\');rollback;');
@@ -123,6 +128,7 @@ export async function executeStand({canary=false,schemaPath,schemaSha256,receipt
    await psql("create schema if not exists minuta_migration_guard;create table if not exists minuta_migration_guard.target(project_ref text primary key,allow_migrations boolean not null);truncate minuta_migration_guard.target;insert into minuta_migration_guard.target values('eldion-series-fixture',true);");
   }
    // Both modes execute the same Node/pg transport inside the isolated image.
+   stage='node-runtime-prepare';
    const runtime=join(temp,'runtime');mkdirSync(join(runtime,'lib'),{recursive:true});
    cpSync(process.execPath,join(runtime,'node'));
    const dependencies=await run('ldd',[process.execPath]);
@@ -134,10 +140,16 @@ export async function executeStand({canary=false,schemaPath,schemaSha256,receipt
    for(const f of ['provider-series-plan-candidate.sql','provider-series-plan-rollback.sql'])cpSync(join(ROOT,'recovery',f),join(payload,'recovery',f));
    writeFileSync(join(payload,'tests','series-engine-driver.mjs'),`import assert from 'node:assert/strict';import pg from 'pg';const db=new pg.Client({connectionString:process.env.MINUTA_TEST_DATABASE_URL});try{await db.connect();assert.equal((await db.query('show server_version_num')).rows[0].server_version_num,'170006');await assert.rejects(db.query('select * from public.intentionally_missing_relation'),e=>e.code==='42P01');}finally{await db.end();}console.log('Series Node/pg native transport: PASS');`);
    cpSync(join(ROOT,'scripts','series-native-runtime','node_modules'),join(payload,'node_modules'),{recursive:true});
-   await docker(['cp',runtime,id+':/series/runtime']);await docker(['cp',payload,id+':/series/payload']);
+   // Docker archive-copy rejects writable tmpfs under a read-only rootfs.
+   // Stream the owned archive to tar as postgres; retain every isolation guard.
+   stage='node-runtime-transfer';
+   const archive=await run('tar',['--create','--file=-','--directory',temp,'runtime','payload'],{binary:true,maxBytes:256*1024*1024});
+   await exec(['/bin/tar','--extract','--file=-','--directory=/series','--no-same-owner','--no-same-permissions'],{input:archive});
    const hashes=[];function walk(base,target){for(const entry of readdirSync(base,{withFileTypes:true})){const path=join(base,entry.name),remote=target+'/'+entry.name;assert.equal(entry.isSymbolicLink(),false,'payload symlink refused');if(entry.isDirectory())walk(path,remote);else hashes.push(`${sha(readFileSync(path))}  ${remote}`);}}
    walk(runtime,'/series/runtime');walk(payload,'/series/payload');
+   stage='runtime-and-input-hashes';
    await exec(['/usr/bin/sha256sum','--check','--status'],{input:hashes.join('\n')+'\n'});receipt.runtimeAndInputHashesVerified=true;
+   stage=canary?'native-node-pg-canary':'native-full-series';
    const result=await exec(['/usr/bin/env','-i','MINUTA_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/eldion-series-fixture',
     'MINUTA_SERIES_EPHEMERAL_CONFIRM=SCHEMA_ONLY_EMPTY_DATABASE','MINUTA_TEST_PROJECT_REF=eldion-series-fixture',
     'MINUTA_PRODUCTION_PROJECT_REF=production-never-a-test-target','MINUTA_TEST_MIGRATION_CONFIRM=MIGRATE_ONLY_ISOLATED_TEST_DATABASE',
@@ -145,7 +157,7 @@ export async function executeStand({canary=false,schemaPath,schemaSha256,receipt
    assert.ok(result.startsWith(canary?'Series Node/pg native transport: PASS':'Series full-schema PostgreSQL: PASS'));
    receipt.nativeNodePgTransportPassed=true;
    if(!canary)receipt.fullSeriesGatePassed=true;
- }catch(error){primaryError=error;receipt.failure={code:error.message,sqlstate:error.sqlstate||null};}
+ }catch(error){primaryError=error;receipt.failureStage=stage;receipt.failure={code:error.message,exitCode:error.exitCode??null,sqlstate:error.sqlstate||null};}
  finally{
   try{if(!id){try{const info=JSON.parse(await docker(['inspect',name]))[0];assert.equal(info.Config.Labels['eldion.series.owner'],owner);id=info.Id;}catch(error){if(error.exitCode!==1||error.missingObject!==name)throw error;}}if(id){await ownedCleanup(docker,id,owner);assert.deepEqual(await ownedCleanup(docker,id,owner),{alreadyAbsent:true});}receipt.ownedCleanupProven=true;}catch(error){cleanupError=error;receipt.cleanupFailure=error.message;}
   try{rmSync(temp,{recursive:true,force:true});receipt.localTemporaryCleanupProven=!statExists(temp);}catch(error){cleanupError||=error;receipt.localTemporaryCleanupProven=false;}
