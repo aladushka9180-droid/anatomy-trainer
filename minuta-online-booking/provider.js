@@ -3134,7 +3134,7 @@ function captureBookingMetadataContext() {
   return () => Boolean(userId) && sessionIsCurrent(userId, generation)
     && activeClientOrganizationId === organizationId && bookingMetadataRevision === revision;
 }
-
+// Background replay waits for already dispatched writes. A new edit waits for
 
 const metadataWriteStates = new WeakMap();
 function runMetadataWrite(store, id, canSend, write, replay = false, rethrow = false, accepts = () => true) {
@@ -3211,7 +3211,7 @@ async function saveClientNoteValue(phone, note, { replay = false, isCurrent = ()
   if (!saved && !locallySaved && !replay) throw new Error('local_note_storage_unavailable');
   return saved;
 }
-
+// Local completion ownership only: this does not order concurrent server writes.
 
 const bookingColorOperations = new WeakMap();
 function beginBookingColorOperation(id) {

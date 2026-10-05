@@ -32,7 +32,7 @@ function fixture({view='analytics',remembered='all',online=true,serverWindowGuar
   importedClients:[],importedBookingHistory:[],importantNotificationState:{},selectedClientPhone:'',waitlistRequests:[],waitlistLoaded:false,
   stopReportDemoUpdates:noop,renderReportDataSourceControl:noop,loadClientAppearanceSettings:noop,loadBookingSettings:noop,renderWaitlist:noop,loadWaitlist:noop,
   prepareOrganizationFeatures:noop,applyDisplayPreferences:noop,renderDisplayPreferencesForm:noop,refreshSectionNavigation:noop,
-  organizationFlowController:null,freeSlotsController:null,resourceController:null,shiftController:null,payrollController:null,benefitController:null,loyaltyController:null,inventoryController:null,retentionController:null,
+  resetClientCertificates(){}, certificateController:null, organizationFlowController:null,freeSlotsController:null,resourceController:null,shiftController:null,payrollController:null,benefitController:null,loyaltyController:null,inventoryController:null,retentionController:null,
   financeController:{setOrganization:()=>events.push('finance-organization')},
   localStorage:{getItem:()=>remembered},escapeHtml:String,previousReportRange:()=>null,reportForecastEnd:r=>r.end,loadReportScopedBookings:noop,loadReportAvailability:noop,
   setReportText:noop,

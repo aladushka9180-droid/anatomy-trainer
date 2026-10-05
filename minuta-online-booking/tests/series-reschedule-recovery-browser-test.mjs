@@ -106,6 +106,7 @@ async function fixture(holdAt = '') {
     var bookingEditTime='', bookingEditSlots=[], bookingEditHour='', editingOfflineBookingId='', newBookingHistoricalMode=false;
     var gestureClickSuppressedUntil=0, writesAllowed=true, trapPortfolioActionFocus=()=>false;
     var organizationFlowController=null;
+    var resetClientCertificates=()=>{},certificateController=null;
     var freeSlotsController={invalidateScope(){}}, providerReadFetch={cancelPendingReads(){}};
     var SCHEDULE_BLOCK_PHONE='0000000000', bookingColors=new Map(), bookingNotes=new Map(), bookingOutcomes=new Map();
     var pendingBookingColors=new Set(), pendingBookingNotes=new Set(), pendingClientNotes=new Map();
