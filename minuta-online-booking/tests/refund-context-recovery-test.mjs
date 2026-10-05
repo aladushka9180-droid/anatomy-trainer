@@ -143,7 +143,7 @@ async function harness({ digestTicks = 0 } = {}) {
       ctx.bookingSessionItems = new Map([['current', { actor: ctx.currentUser.id }]]);
       ctx.writesAllowed = true;
     },
-    organizationFlowController: null,
+    resetClientCertificates(){}, certificateController:null, organizationFlowController: null,
     freeSlotsController: { invalidateScope() {} }, REPORT_DEMO_SLUG: 'fixture-demo',
   };
   ctx.localStorage = ctx.window.localStorage;

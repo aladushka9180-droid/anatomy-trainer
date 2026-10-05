@@ -11,7 +11,7 @@
     { key:'overview', label:'Обзор', sections:['organizationOverviewSection'] },
     { key:'team', label:'Команда', sections:['organizationPeopleSection', 'resourcesPanel', 'shiftsPanel', 'inventoryPanel'] },
     { key:'finance', label:'Финансы', sections:['payrollPanel', 'paymentProviderPanel'] },
-    { key:'sales', label:'Продажи', sections:['commercePanel', 'benefitsPanel', 'loyaltyPanel', 'retentionPanel'] }
+    { key:'sales', label:'Продажи', sections:['commercePanel', 'benefitsPanel', 'certificateDesignerPanel', 'loyaltyPanel', 'retentionPanel'] }
   ];
   const sectionGroups = new Map(definitions.flatMap(group => group.sections.map(id => [id, group.key])));
   const sections = () => [...nav.querySelectorAll('[data-section-target]')];

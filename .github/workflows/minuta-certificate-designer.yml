@@ -1,0 +1,73 @@
+name: Minuta certificate designer isolated checks
+on:
+  pull_request:
+    paths:
+      - 'minuta-online-booking/certificate-*.js'
+      - 'minuta-online-booking/certificate-*.css'
+      - 'minuta-online-booking/certificate-*-candidate.sql'
+      - 'minuta-online-booking/tests/certificate-designer-*'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/provider.js'
+      - 'minuta-online-booking/organization-group-navigation.js'
+      - 'minuta-online-booking/vendor/certificate-ocr/**'
+      - '.github/workflows/minuta-certificate-designer.yml'
+  push:
+    branches: [codex/pro-certificate-designer-20261002, codex/pro-certificate-wiring-20261005]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-fixture-only
+          POSTGRES_DB: minuta_certificate_test
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v5
+        with: {node-version: 22}
+      - name: Install isolated test driver
+        run: npm install --prefix "$RUNNER_TEMP/certificate-pg" --no-package-lock --ignore-scripts --no-audit --no-fund pg@8.16.3
+      - name: Apply, scope, replay, history, rollback and reapply
+        env:
+          MINUTA_CERTIFICATE_TEST_DATABASE_URL: postgresql://postgres:ephemeral-fixture-only@127.0.0.1:55432/minuta_certificate_test
+          MINUTA_CERTIFICATE_TEST_CONFIRM: EMPTY_SYNTHETIC_DATABASE_ONLY
+        run: |
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/certificate-pg/node_modules/pg/lib/index.js"
+          node minuta-online-booking/tests/certificate-designer-db-test.mjs
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v5
+        with: {node-version: 22}
+      - name: Install browser test runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/certificate-browser" --no-package-lock --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/certificate-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Renderer and responsive form
+        run: |
+          export MINUTA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/certificate-browser/node_modules/playwright/index.mjs"
+          node minuta-online-booking/tests/certificate-designer-browser-test.mjs
+          node minuta-online-booking/tests/certificate-designer-drafts-test.mjs
+          node minuta-online-booking/tests/certificate-designer-ocr-test.mjs
+          node minuta-online-booking/tests/certificate-designer-provider-integration-test.mjs
+          node minuta-online-booking/tests/organization-lazy-restore-browser-test.mjs
+          node minuta-online-booking/tests/organization-group-navigation-browser-test.mjs
+          node minuta-online-booking/provider-startup-performance-v565-test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: certificate-designer-browser
+          path: outputs/certificate-designer/
