@@ -18039,15 +18039,15 @@ async function loadClientCertificates(client){
   await clientCertificateController.setClient(client,organization);
 }
 async function openClientCertificate(item,organization){
-  const userId=currentUser?.id,generation=sessionGeneration;
-  const current=()=>sessionIsCurrent(userId,generation)&&organization?.id===organizationController?.getActiveOrganization?.()?.id;
+  const userId=currentUser?.id,generation=sessionGeneration,phone=selectedClientPhone;
+  const current=()=>selectedClientPhone===phone&&sessionIsCurrent(userId,generation)&&organization?.id===organizationController?.getActiveOrganization?.()?.id;
   try{
     if(!userId||!organization?.id||!current())return;
     await setProviderView('organization')?.updateCallbackDone;
     if(!current())return;
     scrollToProviderSection($('[data-section-target="certificateDesignerPanel"]'));
     await activateOrganizationSectionFeature($('#certificateDesignerPanel'),{retry:true});
-    if(current())await certificateController?.openIssued(item);
+    if(current())await certificateController?.openIssued(item,current);
   }catch{if(current())notify('Не удалось открыть сертификат. Попробуйте ещё раз.');}
 }
 

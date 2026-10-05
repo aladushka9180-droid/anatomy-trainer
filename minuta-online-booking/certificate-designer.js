@@ -438,17 +438,17 @@
       badge.textContent = state.code === 'expired' ? 'Истёк' : state.code === 'expiring' ? state.days === 0 ? 'Истекает сегодня' : `Осталось ${state.days} ${R.plural(state.days,'день','дня','дней')}` : 'Действует';
       const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Открыть'; button.addEventListener('click', () => openRecord(item)); article.append(main, badge, button); return article;
     }
-    async function openRecord(item) {
+    async function openRecord(item, accepts=()=>true) {
       if (busy) return;
-      const scope = capture(); clearError();
+      const scope = capture(), valid=()=>current(scope)&&accepts(); clearError();
       try {
         const data = await repository.template(scope.org, item.template_id);
-        if (!current(scope)) return;
+        if (!valid()) return;
         if (data.organization_id !== scope.org || !data.template) throw new Error('unavailable');
         const nextTemplate = { ...data.template, saved:true }, nextImage = await R.loadImage(nextTemplate.image_data);
-        if (!current(scope)) return;
+        if (!valid()) return;
         if (!await ensureFont(item.font_family, nextTemplate.font_files?.[item.font_family])) throw new Error('font_missing');
-        if (!current(scope)) return;
+        if (!valid()) return;
         template = nextTemplate; image = nextImage; activeDraft=null;
         R.render($('[data-canvas]'), image, item, item.layout, item.font_family); record = structuredClone(item); viewing = true;
         restoreContent(item); $('[data-date]').value=item.issued_on;
@@ -460,7 +460,7 @@
         tab('create'); $('[data-canvas]').hidden = false; $('[data-empty]').hidden = true;
         $('[data-download]').disabled = false; $('[data-share]').disabled = false; $('[data-print]').disabled=false; printQuality(); message(`Просмотр выданного сертификата № ${item.number}.`);
         // An issued snapshot stays immutable. The explicit new action starts a separate issue.
-      } catch (reason) { if (current(scope)) fail(reason); }
+      } catch (reason) { if (valid()) fail(reason); }
     }
     async function history(append) {
       if (!workspace) return;

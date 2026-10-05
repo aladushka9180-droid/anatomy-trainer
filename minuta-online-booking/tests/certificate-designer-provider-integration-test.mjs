@@ -39,13 +39,13 @@ async function fixture(width=390,{role='specialist',selected='organizationOvervi
     document.querySelectorAll('.provider-view').forEach(p=>p.hidden=p.dataset.providerPanel!=='organization');
     document.querySelector('#organizationWorkspace').hidden=false;document.querySelector('#organizationLoading').hidden=true;
     localStorage.setItem('minuta-provider-subsection-v1:organization',selected);
-    Object.assign(window,{activeOrg:{id:'org-a',current_role:role},calls:[],scripts:[],notices:[],fail:false,hold:false,templateImage:image});
+    Object.assign(window,{activeOrg:{id:'org-a',current_role:role},calls:[],scripts:[],notices:[],fail:false,hold:false,holdTemplateAt:0,templateImage:image});
   },{role,selected,image});
   await page.addScriptTag({path:resolve(app,'provider-feature-assets.js')});
   await page.addScriptTag({content:`
     const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
     const providerSectionSelections=new Map(),providerSectionPresentation=new Map(),PROVIDER_SECTION_STORAGE_PREFIX='minuta-provider-subsection-v1',PROVIDER_SECTION_COMPANIONS={};
-    let sectionNavigationFrame=0,currentUser={id:'user-a'},sessionGeneration=1;
+    let sectionNavigationFrame=0,currentUser={id:'user-a'},sessionGeneration=1,selectedClientPhone='';
     let certificateController=null,clientCertificateController=null,clientCertificateRevision=0,resourceController=null,shiftController=null,payrollController=null,commerceController=null,benefitController=null,loyaltyController=null,inventoryController=null,retentionController=null;
     const organizationFeatureRequests=new Map();let organizationFeatureContext='',organizationFeatureContextRevision=0;
     const organizationController={getActiveOrganization:()=>window.activeOrg};
@@ -55,6 +55,7 @@ async function fixture(width=390,{role='specialist',selected='organizationOvervi
       calls.push({name,p});const org=p.p_organization;
       if(name==='get_minuta_certificate_design_workspace')return{data:{organization_id:org,current_role:activeOrg.current_role,today:'2026-10-03',next_number:'267',templates:[{id:'template-a',name:'Мой макет'}],services:[{id:'service-a',name:'Массаж спины+швз — углубленный',duration_minutes:60},{id:'service-b',name:'Уход за лицом',duration_minutes:45}]}};
       if(name==='get_minuta_certificate_design'){
+        if(holdTemplateAt===calls.filter(c=>c.name==='get_minuta_certificate_design').length)await new Promise(r=>window.releaseTemplate=r);
         if(!templateImage){const c=document.createElement('canvas');c.width=700;c.height=990;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,700,990);templateImage=c.toDataURL();}
         return{data:{organization_id:org,template:{id:'template-a',name:'Мой макет',image_data:templateImage,layout:structuredClone(MinutaCertificateRenderer.fields),font_files:{}}}};
       }
@@ -124,17 +125,45 @@ try{
     }finally{await f.page.close();}
   }
   const c=await fixture();try{
-    await c.page.evaluate(async()=>{await setProviderView('clients');await loadClientCertificates({phone:'client-a'});});
+    await c.page.evaluate(async()=>{selectedClientPhone='client-a';await setProviderView('clients');await loadClientCertificates({phone:'client-a'});});
     await c.page.locator('#clientCertificateDesigns').getByRole('button',{name:'Открыть сертификат'}).click();
     await c.page.locator('[data-canvas]').waitFor({state:'visible'});
     assert.equal(await c.page.locator('[data-number]').inputValue(),'267');assert.equal(await c.page.locator('[data-number]').isDisabled(),true);checks+=2;
-    await c.page.evaluate(async()=>{await setProviderView('clients');await loadClientCertificates({phone:'client-b'});await organizationFeatureOptions().onIssued();});
+    await c.page.evaluate(async()=>{selectedClientPhone='client-b';await setProviderView('clients');await loadClientCertificates({phone:'client-b'});await organizationFeatureOptions().onIssued();});
     assert.equal(await c.page.locator('#clientCertificateDesigns').getByText(/Уход за лицом/).count(),1);
     assert.equal(await c.page.evaluate(()=>calls.filter(c=>c.name==='get_minuta_client_certificates').at(-1).p.p_phone),'client-b');checks+=2;
     await c.page.locator('#clientCertificateDesigns').getByRole('button',{name:'Открыть сертификат'}).click();await c.page.locator('[data-canvas]').waitFor({state:'visible'});checks++;
     await c.page.evaluate(async()=>{resetClientCertificates();await certificateController.setOrganization(null);});
     assert.equal(await c.page.locator('#clientCertificateDesigns').isHidden(),true);assert.equal(await c.page.locator('#certificateDesignerPanel').isHidden(),true);checks+=2;c.check();
   }finally{await c.page.close();}
+  for(const phase of['script','snapshot']){
+    const f=await fixture();try{
+      if(phase==='snapshot')await open(f.page);
+      await f.page.evaluate(async phase=>{
+        const originalOpen=openClientCertificate;
+        openClientCertificate=(...args)=>(window.pendingClientCertificateOpen=originalOpen(...args));
+        selectedClientPhone='client-a';await setProviderView('clients');await loadClientCertificates({phone:'client-a'});
+        if(phase==='script')hold=true;
+        else{
+          const originalSnapshot=certificateController.openIssued;
+          certificateController.openIssued=(...args)=>{
+            holdTemplateAt=calls.filter(c=>c.name==='get_minuta_certificate_design').length+1;
+            return originalSnapshot(...args);
+          };
+        }
+      },phase);
+      await f.page.locator('#clientCertificateDesigns').getByRole('button',{name:'Открыть сертификат'}).click();
+      await f.page.waitForFunction(phase=>typeof window[phase==='script'?'release':'releaseTemplate']==='function',phase);
+      await f.page.evaluate(phase=>{
+        selectedClientPhone='client-b';resetClientCertificates();hold=false;
+        window[phase==='script'?'release':'releaseTemplate']();
+      },phase);
+      await f.page.evaluate(()=>window.pendingClientCertificateOpen);
+      assert.equal(await f.page.locator('#certificateDesignerPanel [data-number]').isDisabled(),false,'Changing client during '+phase+' must not open the previous client snapshot');
+      assert.equal(await f.page.locator('#certificateDesignerPanel [data-message]').textContent().then(s=>s.includes('Просмотр выданного сертификата')),false);
+      checks+=2;f.check();
+    }finally{await f.page.close();}
+  }
   const stale=await fixture();try{
     await stale.page.evaluate(()=>{hold=true;window.cardLoad=loadClientCertificates({phone:'client-a'});});await stale.page.waitForFunction(()=>typeof release==='function');
     await stale.page.evaluate(async()=>{resetClientCertificates();hold=false;release();await cardLoad;});
