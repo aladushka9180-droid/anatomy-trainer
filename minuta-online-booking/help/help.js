@@ -6,6 +6,8 @@
   const sectionGrid = document.querySelector('#sectionGrid');
   const audienceButtons = [...document.querySelectorAll('[data-audience][type="button"]')];
   const popular = document.querySelector('#popularGuides');
+  const quickStart = document.querySelector('#quickStartGuides');
+  const navigate = value => window.MinutaHelpNavigation?.href(value) || value;
   const productLink = document.querySelector('#productLink');
   const footerProductLink = document.querySelector('#footerProductLink');
   let audience = new URLSearchParams(location.search).get('audience') === 'client' ? 'client' : 'specialist';
@@ -19,11 +21,11 @@
   }
 
   function articleUrl(article) {
-    return `article.html?slug=${encodeURIComponent(article.slug)}`;
+    return navigate(`article.html?slug=${encodeURIComponent(article.slug)}`);
   }
 
   function categoryUrl(category) {
-    return `category.html?category=${encodeURIComponent(category.slug)}`;
+    return navigate(`category.html?category=${encodeURIComponent(category.slug)}`);
   }
 
   function pluralize(count, forms) {
@@ -39,6 +41,29 @@
     if (!sectionGrid) return;
     sectionGrid.replaceChildren();
     const visibleCategories = categories.filter(category => category.audience === audience);
+    const groups = audience === 'client' ? [
+      ['Запись и уведомления', visibleCategories.map(category => category.slug)]
+    ] : [
+      ['Начало работы', ['getting-started']],
+      ['Ежедневная работа', ['bookings', 'schedule', 'services', 'clients']],
+      ['Управление бизнесом', ['team', 'finance', 'inventory', 'analytics']],
+      ['Продвижение и возвращение клиентов', ['loyalty', 'portfolio', 'notifications']],
+      ['Настройки и помощь', ['settings', 'assistant']]
+    ];
+    const categoryGrids = new Map();
+    groups.forEach(([title, slugs]) => {
+      const members = visibleCategories.filter(category => slugs.includes(category.slug));
+      if (!members.length) return;
+      const group = document.createElement('section');
+      group.className = 'help-topic-group';
+      const heading = document.createElement('h3');
+      heading.textContent = title;
+      const grid = document.createElement('div');
+      grid.className = 'section-grid';
+      group.append(heading, grid);
+      sectionGrid.append(group);
+      members.forEach(category => categoryGrids.set(category.slug, grid));
+    });
     visibleCategories.forEach(category => {
       const count = articles.filter(article => article.audience === audience && article.categorySlug === category.slug).length;
       if (!count) return;
@@ -73,7 +98,7 @@
       arrowUse.setAttribute('href', '../ui-icons.svg#icon-arrow-right');
       arrow.append(arrowUse);
       link.append(iconWrap, copy, arrow);
-      sectionGrid.append(link);
+      (categoryGrids.get(category.slug) || sectionGrid).append(link);
     });
     const count = document.querySelector('#sectionCount');
     if (count) count.textContent = `${visibleCategories.length} ${pluralize(visibleCategories.length, ['раздел', 'раздела', 'разделов'])}`;
@@ -81,6 +106,63 @@
 
   function normalize(value) {
     return String(value || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').trim();
+  }
+
+  const tokens = value => normalize(value).match(/[\p{L}\p{N}]+/gu) || [];
+  const stopWords = new Set(['как', 'что', 'где', 'и', 'в', 'на', 'для', 'по', 'с', 'не', 'ли', 'или', 'мне']);
+  const aliases = [
+    ['добав', 'созда', 'новая', 'новую', 'новый'],
+    ['измен', 'редак', 'исправ'],
+    ['скрыт', 'скрыть', 'выклю', 'отклю'],
+    ['удали', 'удале', 'убрат'],
+    ['зарпл', 'выпла', 'начис'],
+    ['баллы', 'бонус', 'лояль', 'награ'],
+    ['телег', 'telegram'],
+    ['предоп', 'аванс']
+  ];
+  const stem = value => value.length > 4 ? value.slice(0, 5) : value;
+  function termMatches(term, words) {
+    const prefix = stem(term);
+    const group = aliases.find(items => items.some(item => item.startsWith(prefix) || prefix.startsWith(item)));
+    const variants = group || [prefix];
+    return words.some(word => variants.some(variant => {
+      return variant.length < 4 ? word === variant : word.startsWith(variant);
+    }));
+  }
+  function searchScore(article, query) {
+    const terms = tokens(query).filter(term => !stopWords.has(term));
+    if (!terms.length) return 0;
+    const titleWords = tokens(article.title);
+    const words = tokens(`${article.title} ${article.excerpt} ${article.category} ${article.tags || ''} ${article.steps.map(step => `${step.title} ${step.text}`).join(' ')} ${article.note || ''}`);
+    if (!terms.every(term => termMatches(term, words))) return 0;
+    return (normalize(article.title).includes(query) ? 40 : 0)
+      + terms.filter(term => termMatches(term, titleWords)).length * 10 + 1;
+  }
+
+  function renderQuickStart() {
+    if (!quickStart) return;
+    quickStart.replaceChildren();
+    const slugs = audience === 'client'
+      ? ['book-online', 'reschedule', 'find-booking', 'connect-telegram']
+      : ['first-booking', 'add-service', 'set-regular-workweek', 'share-free-slots'];
+    const chosen = slugs.map(slug => articles.find(article => article.slug === slug && article.audience === audience)).filter(Boolean);
+    const fallback = articles.filter(article => article.audience === audience && !chosen.includes(article));
+    [...chosen, ...fallback].slice(0, 4).forEach((article, index) => {
+      const link = document.createElement('a');
+      link.className = 'quick-start-card';
+      link.href = articleUrl(article);
+      const number = document.createElement('span');
+      number.className = 'quick-start-number';
+      number.textContent = String(index + 1).padStart(2, '0');
+      const title = document.createElement('strong');
+      title.textContent = article.title;
+      const description = document.createElement('small');
+      description.textContent = article.excerpt;
+      link.append(number, title, description);
+      quickStart.append(link);
+    });
+    const heading = document.querySelector('#quickStartTitle');
+    if (heading) heading.textContent = audience === 'client' ? 'Записаться и управлять визитом' : 'Быстрый старт';
   }
 
   function renderPopular() {
@@ -119,11 +201,10 @@
       input.setAttribute('aria-expanded', 'false');
       return;
     }
-    const matches = articles.filter(article => {
-      if (article.audience !== audience) return false;
-      const stepText = article.steps.map(step => `${step.title} ${step.text}`).join(' ');
-      return normalize(`${article.title} ${article.excerpt} ${article.category} ${article.tags} ${stepText} ${article.note}`).includes(query);
-    });
+    const matches = articles.filter(article => article.audience === audience)
+      .map(article => ({ article, score: searchScore(article, query) }))
+      .filter(match => match.score > 0).sort((left, right) => right.score - left.score)
+      .map(match => match.article);
     results.replaceChildren();
     if (!matches.length) {
       const empty = document.createElement('div');
@@ -169,21 +250,22 @@
     });
     const intro = document.querySelector('#helpIntroCopy');
     if (intro) intro.textContent = audience === 'client'
-      ? 'Только ответы о записи, переносе, отмене и уведомлениях — без настроек кабинета.'
-      : 'Только инструкции для работы в кабинете — без клиентских материалов и лишних шагов.';
+      ? 'Запись, перенос, отмена и уведомления — понятные шаги для клиента.'
+      : 'Понятные инструкции по записям, расписанию и управлению кабинетом.';
     renderSections();
     if (productLink) {
-      productLink.href = audience === 'client' ? '../index.html' : '../provider.html';
+      productLink.href = navigate(audience === 'client' ? '../index.html' : '../provider.html');
       const label = productLink.querySelector('span');
       if (label) label.textContent = audience === 'client' ? 'К онлайн-записи' : 'Открыть Eldion Pro';
     }
     if (footerProductLink) {
-      footerProductLink.href = audience === 'client' ? '../index.html' : '../provider.html';
+      footerProductLink.href = navigate(audience === 'client' ? '../index.html' : '../provider.html');
       footerProductLink.textContent = audience === 'client' ? 'К онлайн-записи' : 'Вернуться в кабинет';
     }
     try { sessionStorage.setItem('minuta-help-audience', audience); } catch { /* Keep the switch available. */ }
     renderSearch();
     renderPopular();
+    renderQuickStart();
   }
 
   audienceButtons.forEach(button => button.addEventListener('click', () => applyAudience(button.dataset.audience)));

@@ -3,6 +3,7 @@
   const categories = Array.isArray(window.MINUTA_HELP_CATEGORIES) ? window.MINUTA_HELP_CATEGORIES : [];
   const slug = new URLSearchParams(location.search).get('category') || '';
   const category = categories.find(item => item.slug === slug);
+  const navigate = value => window.MinutaHelpNavigation?.href(value) || value;
 
   const pluralize = (count, forms) => {
     const remainder100 = count % 100;
@@ -42,16 +43,16 @@
   const isClient = category.audience === 'client';
   setText('#categoryAudience', isClient ? 'Помощь клиенту' : 'Помощь специалисту');
   const categoryBackLink = document.querySelector('#categoryBackLink');
-  if (categoryBackLink) categoryBackLink.href = `index.html?audience=${category.audience}#sections`;
+  if (categoryBackLink) categoryBackLink.href = navigate(`index.html?audience=${category.audience}#sections`);
   const brandLink = document.querySelector('.help-brand');
-  if (brandLink) brandLink.href = `index.html?audience=${category.audience}`;
+  if (brandLink) brandLink.href = navigate(`index.html?audience=${category.audience}`);
   if (productLink) {
-    productLink.href = isClient ? '../index.html' : '../provider.html';
+    productLink.href = navigate(isClient ? '../index.html' : '../provider.html');
     const label = productLink.querySelector('span');
     if (label) label.textContent = isClient ? 'К онлайн-записи' : 'Открыть Eldion Pro';
   }
   if (footerProductLink) {
-    footerProductLink.href = isClient ? '../index.html' : '../provider.html';
+    footerProductLink.href = navigate(isClient ? '../index.html' : '../provider.html');
     footerProductLink.textContent = isClient ? 'К онлайн-записи' : 'Вернуться в кабинет';
   }
   try { sessionStorage.setItem('minuta-help-audience', category.audience); } catch { /* Navigation still works. */ }
@@ -59,7 +60,7 @@
   const list = document.querySelector('#categoryList');
   categoryArticles.forEach((article, index) => {
     const link = document.createElement('a');
-    link.href = `article.html?slug=${encodeURIComponent(article.slug)}`;
+    link.href = navigate(`article.html?slug=${encodeURIComponent(article.slug)}`);
     const number = document.createElement('span');
     number.className = 'category-article-number';
     number.textContent = String(index + 1).padStart(2, '0');
