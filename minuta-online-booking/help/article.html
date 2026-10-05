@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f7f8f7">
+  <meta name="theme-color" content="#fff7fa">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
   <meta name="description" content="Инструкция Eldion Pro.">
   <title>Инструкция — Eldion Pro</title>
   <link rel="icon" href="../provider-icon.svg?v=1022" type="image/svg+xml">
-  <link rel="stylesheet" href="help.css?v=811">
+  <link rel="stylesheet" href="help.css?v=20261005">
 </head>
 <body class="article-page">
   <a class="skip-link" href="#helpArticle">Перейти к статье</a>
@@ -27,8 +27,7 @@
   <main class="article-shell" id="articleRoot">
     <aside class="article-sidebar" aria-label="Статьи раздела">
       <a class="back-link" id="articleBackLink" href="index.html"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-left"></use></svg>К базе знаний</a>
-      <p>В этом разделе</p>
-      <nav id="articleSectionNav"></nav>
+      <details class="article-section-menu"><summary>В этом разделе</summary><nav id="articleSectionNav"></nav></details>
     </aside>
 
     <article class="help-article" id="helpArticle">
@@ -38,18 +37,22 @@
         <h1 id="articleTitle">Загружаем инструкцию…</h1>
         <p class="article-intro" id="articleIntro"></p>
       </header>
+      <section class="article-context" id="articlePrerequisites" aria-labelledby="prerequisitesTitle" hidden><h2 id="prerequisitesTitle">Перед началом</h2><ul></ul></section>
+      <details class="article-toc" id="articleToc"><summary>В этой инструкции</summary><nav aria-label="Шаги инструкции"></nav></details>
       <div id="articleVisual"></div>
       <div class="article-steps" id="articleSteps"></div>
+      <section class="article-outcome" id="articleOutcome" aria-labelledby="outcomeTitle" hidden><h2 id="outcomeTitle">Как проверить результат</h2><p></p></section>
       <aside class="article-note" id="articleNote"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-info"></use></svg><div><strong>Важно</strong><p></p></div></aside>
+      <section class="article-troubleshooting" id="articleTroubleshooting" aria-labelledby="troubleshootingTitle" hidden><h2 id="troubleshootingTitle">Если не получилось</h2><div></div></section>
       <section class="related-articles" aria-labelledby="relatedTitle">
-        <p>Продолжить</p><h2 id="relatedTitle">Похожие инструкции</h2><div id="relatedList"></div>
+        <p>Продолжить</p><h2 id="relatedTitle">Следующие действия</h2><div id="relatedList"></div>
       </section>
     </article>
     <noscript><p class="article-script-note">Для просмотра пошаговой инструкции включите JavaScript.</p></noscript>
   </main>
 
   <dialog class="article-visual-dialog" id="articleVisualDialog" aria-labelledby="visualDialogTitle">
-    <div class="article-visual-dialog-head"><strong id="visualDialogTitle">Схема к инструкции</strong><button type="button" id="closeVisualDialog" aria-label="Закрыть увеличенное изображение"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-close"></use></svg></button></div>
+    <div class="article-visual-dialog-head"><strong id="visualDialogTitle">Изображение к инструкции</strong><button type="button" id="closeVisualDialog" aria-label="Закрыть увеличенное изображение"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-close"></use></svg></button></div>
     <img id="articleVisualFull" alt="">
   </dialog>
 
@@ -57,8 +60,10 @@
     <span>© Eldion Pro</span>
     <div><a href="../privacy.html">Конфиденциальность</a><a id="footerProductLink" href="../provider.html">Вернуться в кабинет</a></div>
   </footer>
-  <script src="help-data.js?v=1036"></script>
-  <script src="article.js?v=1022" defer></script>
+  <script src="help-data.js?v=20261005"></script>
+  <script src="help-visuals.js?v=20261005"></script>
+  <script src="help-navigation.js?v=20261005"></script>
+  <script src="article.js?v=20261005" defer></script>
   <script src="../site-update.js?v=1022" defer></script>
 </body>
 </html>

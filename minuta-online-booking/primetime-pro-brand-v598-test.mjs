@@ -37,6 +37,7 @@ const publicBrandFiles = [
   'free-slots-share.js', 'retention-management.js', 'voice-assistant.js', 'notify-health-failure.mjs', 'production-health-check.mjs',
   'help/index.html', 'help/category.html', 'help/article.html', 'help/help.js',
   'help/category.js', 'help/article.js', 'help/help-data.js',
+  'help/help-navigation.js', 'help/help-visuals.js', 'help/tools/build-process-visuals.mjs',
   'help/tools/capture-guide-screenshots.mjs',
   'supabase/functions/assistant-understand/index.ts',
   'supabase/functions/telegram-client-notify/index.ts',
@@ -53,7 +54,8 @@ for (const file of ['help/index.html', 'help/category.html', 'help/article.html'
   assert.match(source, /Eldion Pro/);
   assert.match(source, /help-brand-mark">E<\/span>/);
 }
-assert.match(read('help/help-data.js'), /Интерфейс Eldion Pro/);
+assert.match(read('help/help-data.js'), /Помощник Eldion Pro/);
+assert.match(read('help/help-visuals.js'), /не снимок интерфейса/, 'схемы не должны представляться снимками интерфейса');
 assert.match(read('help/tools/capture-guide-screenshots.mjs'), /Интерфейс Eldion Pro · учебные данные/);
 assert.match(read('help/tools/capture-guide-screenshots.mjs'), /Eldion Pro · наглядно по шагам/);
 assert.match(read('help/tools/capture-guide-screenshots.mjs'), /primetime-pro\.online\/book\/demo/);
