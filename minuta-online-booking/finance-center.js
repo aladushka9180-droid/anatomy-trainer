@@ -252,7 +252,7 @@
       </section>
       <div class="finance-dashboard__lower">
         <section class="finance-dashboard__panel" aria-labelledby="financeOverviewExpenseTitle">
-          <div class="finance-dashboard__heading"><h3 id="financeOverviewExpenseTitle">На что потрачено</h3><div class="finance-dashboard__expense-actions"><button type="button" data-finance-overview-add>Добавить расход</button><button type="button" data-finance-detail="expense">Подробнее <span aria-hidden="true">→</span></button></div></div>
+          <div class="finance-dashboard__heading"><h3 id="financeOverviewExpenseTitle">На что потрачено</h3><div class="finance-dashboard__expense-actions"><button type="button" data-finance-detail="expense">Подробнее <span aria-hidden="true">→</span></button></div></div>
           <div data-finance-overview-categories></div>
         </section>
         <section class="finance-dashboard__panel" aria-labelledby="financeOverviewOperationsTitle">
@@ -439,11 +439,11 @@
       root.before(overview);
       root.closest('#analyticsView').classList.add('report-financial-first');
       listen(overview, 'click', event => {
+        if (event.target.closest('[data-finance-overview-add]')) { void openExpense(); return; }
         const button = event.target.closest('[data-finance-detail]');
         if (button) openDetail(button.dataset.financeDetail, button);
       });
       listen(overview.querySelector('[data-finance-retry]'), 'click', () => void load());
-      listen(overview.querySelector('[data-finance-overview-add]'), 'click', () => void openExpense());
     }
     if (options.initialScope) enableSharedScope();
     if (options.initialScope) root.querySelector('.finance-center__filters').hidden = true;
@@ -458,7 +458,11 @@
 
     function renderOverview(data) {
       if (!overview) return;
-      overview.querySelector('[data-finance-overview-add]').hidden = !data.permissions.canAddExpense;
+      const add = overview.querySelector('[data-finance-overview-add]');
+      if (data.permissions.canAddExpense && !add) {
+        const button = createElement('button', '', 'Добавить расход'); button.type = 'button'; button.dataset.financeOverviewAdd = '';
+        overview.querySelector('.finance-dashboard__expense-actions').prepend(button);
+      } else if (!data.permissions.canAddExpense) add?.remove();
       const chart = overview.querySelector('[data-finance-overview-chart]');
       const categories = overview.querySelector('[data-finance-overview-categories]');
       const operations = overview.querySelector('[data-finance-overview-operations]');
