@@ -43,12 +43,14 @@ for (const article of articles) {
 }
 
 const helpData = read('help/help-data.js');
-assert.doesNotMatch(helpData, /пятый пункт «Разделы»/, 'Старое название пятой вкладки не удалено');
 assert.doesNotMatch(helpData, /скрыта в командном режиме/, 'Старое ограничение листа ожидания не удалено');
 assert.match(helpData, /Когда полный номер совпал с одним клиентом/, 'Нет точного описания автоподстановки клиента');
 assert.match(helpData, /Статус «отправлено» означает ручную отметку/, 'Нет объяснения статуса WhatsApp');
 
 const providerHtml = read('provider.html');
+const mobileMoreLabel = providerHtml.match(/data-provider-view="more"[\s\S]*?<span>([^<]+)<\/span>/)?.[1];
+assert.ok(mobileMoreLabel, 'Не найдено название мобильного меню');
+assert.ok(JSON.stringify(articles.find(article => article.slug === 'mobile-navigation')).includes(`«${mobileMoreLabel}»`), 'Инструкция должна использовать реальное название мобильного меню');
 const providerJs = read('provider.js');
 assert.doesNotMatch(providerJs, /client-phone-autofill/, 'Очевидная подсказка не должна перегружать форму записи');
 assert.match(providerJs, /client-private-results/, 'В результате визита нет ссылки на приватность');
