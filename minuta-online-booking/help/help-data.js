@@ -813,6 +813,11 @@
     'client-offline-request': ['Страница заранее подготовлена онлайн; доступно хранилище устройства.', 'Один запрос сохранён локально; время закреплено только после подтверждения сервера.', 'Офлайн-формы нет|Подключитесь к интернету и дождитесь подготовки страницы. При неподтверждённом запросе не отправляйте второй.', 'client-booking-uncertain,reschedule']
   };
 
+  const searchKeywords = {
+    'book-online': 'расписание график свободные окна',
+    'reschedule': 'расписание график перенос времени'
+  };
+
   window.MINUTA_HELP_ARTICLES.forEach(article => {
     const guide = contentGuides[article.slug];
     if (!guide) throw new Error(`Missing editorial guide: ${article.slug}`);
@@ -823,6 +828,6 @@
     article.troubleshooting = [{ title, text }];
     article.related = related.split(',');
     article.updatedAt = '5 октября 2026';
-    article.tags = [article.tags, prerequisite, outcome, title, text].join(' ');
+    article.tags = [article.tags, prerequisite, outcome, title, text, searchKeywords[article.slug] || ''].join(' ');
   });
 }());
