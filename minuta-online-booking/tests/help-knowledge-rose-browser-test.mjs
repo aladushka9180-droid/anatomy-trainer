@@ -90,6 +90,25 @@ try {
     verify(await page.evaluate(() => document.activeElement.closest('#searchResults') !== null), `${width}: переход с клавиатуры к ответам`);
     await page.locator('#searchResults a').first().press('Escape');
     verify(await input.evaluate(element => document.activeElement === element), `${width}: Escape возвращает фокус поиску`);
+    verify(!await page.locator('#searchResults').isVisible(), `${width}: Escape закрывает ответы, сохраняя запрос`);
+    verify(await input.inputValue() === 'как изменить услугу', `${width}: запрос сохраняется после закрытия ответов`);
+    await input.click();
+    verify(await page.locator('#searchResults').isVisible(), `${width}: повторный клик открывает ответы без изменения запроса`);
+    await page.locator('h1').click();
+    verify(!await page.locator('#searchResults').isVisible(), `${width}: клик снаружи закрывает ответы`);
+    await input.focus();
+    verify(await page.locator('#searchResults').isVisible(), `${width}: возврат фокуса открывает существующий запрос`);
+    await page.locator('h1').click();
+    await page.keyboard.press('Control+k');
+    verify(await page.locator('#searchResults').isVisible(), `${width}: Ctrl+K открывает существующий запрос`);
+    await input.press('ArrowDown');
+    await page.locator('#searchResults a').first().press('Escape');
+    await page.keyboard.press('Control+k');
+    verify(await page.locator('#searchResults').isVisible(), `${width}: Ctrl+K открывает ответы и при уже установленном фокусе`);
+    verify(await input.getAttribute('aria-expanded') === 'true', `${width}: открытые ответы обозначены для экранного диктора`);
+    await input.press('Escape');
+    verify(await input.inputValue() === '' && !await page.locator('#searchResults').isVisible(), `${width}: Escape в поле очищает запрос и закрывает ответы`);
+    verify(await input.getAttribute('aria-expanded') === 'false', `${width}: закрытые ответы обозначены для экранного диктора`);
     await input.fill('лояльность награда');
     verify(await page.locator('#searchResults a').count() > 0, `${width}: поиск новой программы лояльности`);
     for (const [query, expected] of [

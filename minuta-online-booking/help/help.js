@@ -280,6 +280,8 @@
 
   document.querySelector('#helpSearch')?.addEventListener('submit', event => event.preventDefault());
   input?.addEventListener('input', renderSearch);
+  input?.addEventListener('focus', renderSearch);
+  input?.addEventListener('click', renderSearch);
   input?.addEventListener('keydown', event => {
     if (event.key === 'ArrowDown' && !results.hidden) {
       const first = results.querySelector('a');
@@ -295,6 +297,7 @@
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
       input?.focus();
+      renderSearch();
     }
   });
   document.addEventListener('click', event => {
