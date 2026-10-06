@@ -3,8 +3,6 @@
 .retention-mobile-navigation,.retention-consent-mobile,.retention-visits-mobile,.retention-delivery-status-mobile { display:none; }
 .provider-body #retentionPanel .retention-settings-disclosure { display:contents; }
 .provider-body #retentionPanel .retention-settings-disclosure>summary { display:none; }
-.provider-body #retentionPanel .retention-message-disclosure { min-width:0; }
-.provider-body #retentionPanel .retention-message-disclosure>summary { display:none; }
 .provider-body #retentionPanel .retention-consent-desktop { display:inline; }
 @media(max-width:999px) {
   .provider-body [data-provider-panel="organization"].retention-mobile-view>.view-title { display:none; }
@@ -68,27 +66,47 @@
   .provider-body #retentionPanel.commerce-soft-panel .retention-selected-count:not(:empty) { line-height:1.4; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-selection-toolbar>.primary { grid-column:1/-1; width:100%; height:auto!important; min-height:48px!important; border-radius:16px; font-size:14px; box-shadow:none!important; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-preparation-note { grid-column:1/-1; text-align:center; line-height:1.5; }
-  .provider-body #organizationWorkspace.retention-mobile-active #retentionPanel.commerce-soft-panel .retention-delivery-row { grid-template-columns:minmax(0,1fr) auto; column-gap:8px; row-gap:6px; padding:14px 4px; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-row>.organization-row-main { grid-column:1; gap:3px; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-copy-actions { grid-column:2; grid-row:1/3; align-self:center; grid-template-columns:minmax(0,1fr) auto; gap:4px; max-width:156px; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-copy { min-height:44px; padding:8px 9px; font-size:12px; font-weight:500!important; line-height:1.35; border-radius:12px; }
   .retention-delivery-status-desktop { display:none; }
   .retention-delivery-status-mobile { display:inline; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-copy-status { grid-column:1/-1; max-width:156px; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-options>summary { display:flex; align-items:center; justify-content:center; padding:4px; min-width:44px; min-height:44px; font-size:0; list-style:none; }
-  .retention-delivery-options>summary::-webkit-details-marker { display:none; }
-  .retention-delivery-options>summary::after { content:'\2022\2022\2022'; font-size:14px; letter-spacing:1px; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-options[open] { grid-column:1/-1; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-delivery-options .retention-row-actions { display:grid; padding-top:6px; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-message-disclosure { grid-column:1; grid-row:2; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-message-disclosure>summary { display:grid; gap:4px; min-height:44px; font-size:12px; line-height:1.5; color:var(--cs-muted); list-style:none; cursor:pointer; }
-  .retention-message-disclosure>summary::-webkit-details-marker { display:none; }
-  .retention-message-excerpt { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
-  .retention-message-expand { font-size:11px; text-decoration:underline; text-underline-offset:3px; }
-  .retention-message-disclosure[open] .retention-message-excerpt { display:none; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-message-disclosure[open] { grid-column:1/-1; grid-row:auto; }
-  .provider-body #retentionPanel.commerce-soft-panel .retention-message-disclosure[open] .retention-message-snapshot { margin-top:6px; font-size:13px; }
   .provider-body #retentionPanel.commerce-soft-panel summary:focus-visible { outline:2px solid var(--cs-accent); outline-offset:3px; border-radius:6px; }
+}
+/* Prepared snapshots use the same calm cards at every width. The extra list
+   scope keeps this grid authoritative when commerce styles arrive later. */
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList { display:grid; gap:12px; padding:0; border:0; border-radius:0; background:transparent; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-delivery-row { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; padding:18px; border:1px solid var(--cs-line); border-radius:16px; background:var(--cs-surface); box-shadow:none; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .organization-row-main { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; min-width:0; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .organization-row-main>strong { flex-basis:100%; font-size:15px; font-weight:600; line-height:1.45; color:var(--cs-ink); }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .organization-row-main>small { margin:0; color:var(--cs-muted); font-size:12px; line-height:1.5; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .organization-row-main>small:first-of-type { padding:3px 8px; border-radius:7px; background:color-mix(in srgb,var(--cs-soft) 55%,var(--cs-surface)); color:color-mix(in srgb,var(--cs-ink) 80%,var(--cs-muted)); }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-delivery-cancelled .organization-row-main>small:first-of-type { background:color-mix(in srgb,var(--cs-muted) 8%,var(--cs-surface)); color:var(--cs-muted); }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-message-disclosure { min-width:0; grid-column:1; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-message-disclosure>summary { display:grid; justify-items:start; gap:2px; min-height:44px; list-style:none; cursor:pointer; color:var(--cs-ink); font-size:14px; line-height:1.6; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-message-excerpt { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; white-space:pre-wrap; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-message-expand { display:inline-flex; align-items:center; gap:6px; min-height:44px; color:color-mix(in srgb,var(--cs-accent) 75%,var(--cs-ink)); font-size:12px; font-weight:500; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-message-expand::after { content:''; width:5px; height:5px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg); margin:0 2px 3px; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-message-disclosure[open] .retention-message-excerpt { display:none; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-message-disclosure[open] .retention-message-expand::after { transform:rotate(225deg); margin-top:4px; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-message-snapshot { margin:0; padding:12px 14px; border-radius:10px; background:color-mix(in srgb,var(--cs-soft) 25%,var(--cs-surface)); color:var(--cs-ink); font-size:14px; line-height:1.65; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-copy-actions { display:grid; position:relative; grid-template-columns:minmax(0,max-content) minmax(60px,1fr); align-items:start; gap:8px 12px; min-width:0; max-width:none; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-copy { display:inline-flex; align-items:center; justify-content:center; gap:8px; grid-column:1; grid-row:1; width:auto; min-width:0; height:auto; min-height:44px; margin:0; padding:10px 14px; border:0; border-radius:10px; background:var(--cs-soft); color:color-mix(in srgb,var(--cs-accent) 75%,var(--cs-ink)); font-family:inherit; font-size:13px; font-weight:500; line-height:1.4; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-copy::before { content:''; flex:none; width:10px; height:12px; margin-right:3px; border:1.4px solid currentColor; border-radius:2px; box-shadow:3px -3px 0 -1px var(--cs-soft),3px -3px 0 0 currentColor; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-copy-status { grid-column:1/-1; grid-row:3; max-width:none; margin:0; color:var(--cs-muted); }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-delivery-options { grid-column:2; grid-row:1; min-width:0; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-delivery-options>summary { display:flex; justify-content:center; align-items:center; gap:6px; justify-self:end; width:max-content; min-width:60px; min-height:44px; margin-left:auto; padding:10px 8px; border-radius:10px; list-style:none; color:var(--cs-muted); font-size:13px; font-weight:500; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-delivery-options>summary::before { content:'\2022\2022\2022'; font-size:12px; letter-spacing:1px; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList :is(.retention-message-disclosure,.retention-delivery-options)>summary::-webkit-details-marker { display:none; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-delivery-options[open] { grid-column:1/-1; grid-row:2; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-delivery-options[open]>summary { position:absolute; top:0; right:0; background:color-mix(in srgb,var(--cs-muted) 6%,var(--cs-surface)); }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-row-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding-top:10px; border-top:1px solid var(--cs-line); }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-row-actions :is(button,a) { display:flex; align-items:center; justify-content:center; min-width:0; width:100%; height:auto; min-height:44px; margin:0; padding:10px 12px; border:1px solid var(--cs-line); border-radius:10px; background:var(--cs-surface); color:var(--cs-ink); font-family:inherit; font-size:13px; font-weight:500; line-height:1.5; text-align:center; text-decoration:none; overflow-wrap:anywhere; cursor:pointer; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-row-actions .danger-button { color:var(--cs-muted); border-color:transparent; }
+.provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList :is(button,a,summary):focus-visible { outline:2px solid var(--cs-accent); outline-offset:3px; }
+@media(hover:hover) {
+  .provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList :is(.retention-copy,.retention-delivery-options>summary,.retention-row-actions button,.retention-row-actions a):not(:disabled):hover { background:color-mix(in srgb,var(--cs-soft) 70%,var(--cs-surface)); }
+}
+@media(max-width:540px) {
+  .provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-delivery-row { padding:14px; gap:10px; border-radius:14px; }
+  .provider-body #retentionPanel.commerce-soft-panel #retentionDeliveriesList .retention-row-actions { grid-template-columns:minmax(0,1fr); }
 }
 @media(max-width:359px) {
   .retention-mobile-organization { font-size:13px; gap:6px; }

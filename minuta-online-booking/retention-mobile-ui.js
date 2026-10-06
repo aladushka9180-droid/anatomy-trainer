@@ -1,4 +1,4 @@
-/* Presentation for the approved return-clients mobile screen. Original controls
+/* Presentation for the approved return-clients screen. Original controls
    retain permissions, section activation, writes and confirmed clipboard state. */
 (() => {
   'use strict';
@@ -139,14 +139,21 @@
       if (snapshot.closest('.retention-message-disclosure')) return;
       const disclosure = node('details', 'retention-message-disclosure');
       const summary = node('summary');
-      summary.append(node('span', 'retention-message-excerpt', snapshot.textContent), node('span', 'retention-message-expand', 'Показать текст'));
-      disclosure.open = !mobile.matches;
+      const excerpt = node('span', 'retention-message-excerpt', snapshot.textContent);
+      excerpt.setAttribute('aria-hidden', 'true');
+      summary.append(excerpt, node('span', 'retention-message-expand', 'Показать текст'));
       snapshot.before(disclosure); disclosure.append(summary, snapshot);
       const expandLabel = summary.querySelector('.retention-message-expand');
-      const updateLabel = () => setText(expandLabel, disclosure.open ? 'Свернуть текст' : 'Показать текст');
+      const clientName = snapshot.closest('.retention-delivery-row')?.querySelector('.organization-row-main>strong')?.textContent || 'Клиент';
+      const updateLabel = () => {
+        const label = disclosure.open ? 'Свернуть текст' : 'Показать текст';
+        setText(expandLabel, label);
+        summary.setAttribute('aria-label', `${label}: ${clientName}`);
+      };
       disclosure.addEventListener('toggle', updateLabel); updateLabel();
     });
     panel.querySelectorAll('.retention-delivery-row>.organization-row-main>small:first-of-type').forEach(status => {
+      toggleClass(status.closest('.retention-delivery-row'), 'retention-delivery-cancelled', status.textContent === 'Отменено');
       if (status.textContent !== 'Подготовлено · не отправлено') return;
       status.replaceChildren(node('span', 'retention-delivery-status-desktop', status.textContent), node('span', 'retention-delivery-status-mobile', 'Не отправлено'));
     });
@@ -171,7 +178,6 @@
   panel.addEventListener('input', schedule); panel.addEventListener('change', schedule);
   const onResize = () => {
     if (settings) settings.open = !mobile.matches;
-    panel.querySelectorAll('.retention-message-disclosure').forEach(disclosure => { disclosure.open = !mobile.matches; });
     schedule();
   };
   mobile.addEventListener('change', onResize);
