@@ -34,6 +34,46 @@ try {
     }
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal page overflow');
     assert.equal(await page.evaluate(()=>retentionFixture.calls.filter(c=>c.name!=='get_minuta_retention_workspace').length),0,'layout/disclosure never writes');
+    // All records are synthetic: exercise snapshot disclosure/copy without
+    // visiting a cabinet, sending a message or changing an actual delivery.
+    const fullText=await page.evaluate(async()=>{
+      const message=retentionFixture.fullText('draft')+'\n'+('https://booking.synthetic.test/'+ 'long-path/'.repeat(45));
+      retentionFixture.deliveries[0].message_snapshot=message;
+      retentionFixture.deliveries.push({...retentionFixture.deliveries[0],id:'cancelled-history',status:'cancelled'});
+      await retentionController.load();
+      return message;
+    });
+    const delivery=page.locator('.retention-delivery-row').first();
+    const disclosure=delivery.locator('.retention-message-disclosure');
+    await disclosure.waitFor({state:'attached'});
+    assert.equal(await disclosure.evaluate(e=>e.open),false,'long snapshot starts collapsed at every width');
+    assert.equal(await delivery.locator('.retention-message-snapshot').textContent(),fullText,'original snapshot remains intact');
+    assert.equal(await page.locator('.retention-delivery-row').count(),2,'cancelled history remains visible');
+    assert.equal(await page.locator('#retentionPreparedCount').textContent(),'1','history does not inflate prepared count');
+    const excerpt=await delivery.locator('.retention-message-excerpt').evaluate(e=>({height:e.getBoundingClientRect().height,lineHeight:parseFloat(getComputedStyle(e).lineHeight)}));
+    assert.ok(excerpt.height<=2*excerpt.lineHeight+1,'long preview occupies at most two lines');
+    await disclosure.locator('summary').click();
+    assert.ok(await delivery.locator('.retention-message-snapshot').isVisible(),'complete text can be opened');
+    await page.setViewportSize({width:width<1000?1440:390,height:1000});
+    assert.equal(await disclosure.evaluate(e=>e.open),true,'resize preserves the user disclosure choice');
+    await page.setViewportSize({width,height:1000});
+    await disclosure.locator('summary').click();
+    await delivery.locator('[data-retention-copy]').click();
+    await page.waitForFunction(()=>retentionFixture.copied.length===1);
+    assert.equal(await page.evaluate(()=>retentionFixture.copied[0]),fullText,'copy uses the complete original snapshot');
+    await delivery.locator('.retention-delivery-options>summary').click();
+    const controls=await delivery.locator('.retention-row-actions').evaluate(e=>[...e.children].map(control=>{
+      const r=control.getBoundingClientRect();return {width:r.width,height:r.height,left:r.left,right:r.right,underlined:getComputedStyle(control).textDecorationLine};
+    }));
+    assert.equal(controls.length,3,'all manual actions remain available');
+    for(const control of controls){assert.ok(control.height>=44,'manual action has a 44px target');assert.ok(control.left>=0&&control.right<=width,'manual action fits viewport');assert.equal(control.underlined,'none','action link has the same button presentation');}
+    const toolbar=await delivery.evaluate(row=>{
+      const copy=row.querySelector('[data-retention-copy]').getBoundingClientRect(),more=row.querySelector('.retention-delivery-options>summary').getBoundingClientRect();
+      return {copyRight:copy.right,moreLeft:more.left};
+    });
+    assert.ok(toolbar.copyRight<=toolbar.moreLeft,'copy and menu controls do not overlap when expanded');
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'expanded delivery has no page overflow');
+    assert.equal(await page.evaluate(()=>retentionFixture.calls.filter(c=>c.name!=='get_minuta_retention_workspace').length),0,'disclosure and copy do not prepare, send or cancel');
     await page.close();
     console.log(`PASS retention cascade ${width}px, base CSS ${lateBase?'after':'before'} mobile CSS`);
   }
