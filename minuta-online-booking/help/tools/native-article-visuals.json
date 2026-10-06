@@ -243,7 +243,7 @@
       "caption": "Вход по телефону и личному коду. Учебные данные.",
       "width": 520,
       "height": 876,
-      "step": 4,
+      "step": 5,
       "environment": "isolated-local-native-fixture",
       "coverageExact": true,
       "domModified": false,
@@ -1229,7 +1229,8 @@
           "minWidth": 0,
           "sha256": "971c6c5054d4ec530f4737d5423991efd24b96600b611b44d019d5e4a19c3270"
         }
-      ]
+      ],
+      "step": 3
     }
   ],
   "account-security": [
@@ -1280,7 +1281,7 @@
       "caption": "Статистика клиентов. Учебные данные.",
       "width": 1138,
       "height": 180,
-      "step": 2,
+      "step": 4,
       "environment": "isolated-local-native-fixture",
       "coverageExact": true,
       "domModified": false,
@@ -1318,7 +1319,7 @@
       "caption": "Статистика команды. Учебные данные.",
       "width": 1148,
       "height": 269,
-      "step": 3,
+      "step": 5,
       "environment": "isolated-local-native-fixture",
       "coverageExact": true,
       "domModified": false,
@@ -1384,7 +1385,8 @@
           "minWidth": 0,
           "sha256": "caab6d6ff75be7f790927e336379f217221b13de72d848434b52201b930bfca4"
         }
-      ]
+      ],
+      "step": 2
     }
   ],
   "export-report": [
@@ -1555,7 +1557,7 @@
       "caption": "Новое групповое событие. Учебные данные.",
       "width": 620,
       "height": 720,
-      "step": 2,
+      "step": 3,
       "environment": "isolated-local-native-fixture",
       "coverageExact": true,
       "domModified": false,
@@ -2174,7 +2176,8 @@
           "minWidth": 0,
           "sha256": "092bf22c9a0f7398762925785c0b93f048ded709647e508d6129c725f1cc7197"
         }
-      ]
+      ],
+      "step": 4
     },
     {
       "src": "images/native-local/booking-outcome-form-1440.webp",
@@ -2183,7 +2186,7 @@
       "caption": "Результат визита и оплата. Учебные данные.",
       "width": 572,
       "height": 309,
-      "step": 3,
+      "step": 2,
       "environment": "isolated-local-native-fixture",
       "coverageExact": true,
       "domModified": false,

@@ -20,6 +20,8 @@ const helpPage = ({ type = 'index', value = '' } = {}) => `<!doctype html><meta 
       <a id="helpArticle" href="/help/article.html?slug=install-app">Установить приложение</a>
       <a id="helpCategory" href="/help/category.html?category=settings">Настройки</a>
       <a id="providerReturn" href="/provider.html">Открыть Eldion Pro</a>
+      <a id="providerServices" href="/provider.html?view=services">Открыть услуги</a>
+      <a id="providerSchedule" href="/provider.html?section=schedule">Открыть расписание</a>
       <a id="externalGuide" href="/external.html">Внешняя инструкция</a>
     </main>
     <footer class="help-footer">Внешний подвал помощи</footer>`;
@@ -40,9 +42,17 @@ async function startFixture() {
             <div class="spacer"></div><a class="mobile-help-shortcut" href="/help/index.html">База знаний в разделе</a><button id="sourceAction" type="button">Исходное действие</button>
           </section>
           <section id="login">Вход в кабинет</section>
-          <script>window.addEventListener('popstate', () => {
+          <script>window.setProviderView = (view, options) => {
+            const target = new URL(location.href);
+            target.searchParams.delete('view');
+            target.searchParams.set('section', view);
+            history[options.historyMode === 'replace' ? 'replaceState' : 'pushState']({ ...history.state, providerView:view }, '', target);
+            document.querySelector('#dashboard').dataset.activeView = view;
+            window.helpActionCalls = [...(window.helpActionCalls || []), { view, options }];
+          }; window.addEventListener('popstate', () => {
             if (window.MinutaProviderHelpWorkspace?.handlesCurrentHistory?.()) return;
             document.body.dataset.providerRenders = String(Number(document.body.dataset.providerRenders || 0) + 1);
+            document.querySelector('#dashboard').dataset.activeView = new URL(location.href).searchParams.get('section') || 'bookings';
             document.querySelector('#draft').value = '';
             window.scrollTo(0, 0);
           });</script>
@@ -73,7 +83,9 @@ const browser = await chromium.launch({
 });
 
 try {
-  const page = await browser.newPage({ viewport:{ width:390, height:844 } });
+  const context = await browser.newContext({ viewport:{ width:390, height:844 }, serviceWorkers:'block' });
+  await context.route('**/*', route => new URL(route.request().url()).origin === fixture.url ? route.continue() : route.abort());
+  const page = await context.newPage();
   await page.goto(`${fixture.url}/provider.html?section=settings&date=2026-09-15&range=day`);
   await page.locator('#draft').fill('Несохранённый текст');
   await page.evaluate(() => window.scrollTo(0, 540));
@@ -134,7 +146,8 @@ try {
   assert.equal(new URL(page.url()).searchParams.get('section'), 'settings');
   assert.equal(new URL(page.url()).searchParams.get('date'), '2026-09-15');
 
-  const direct = await browser.newPage({ viewport:{ width:760, height:900 } });
+  const direct = await context.newPage();
+  await direct.setViewportSize({ width:760, height:900 });
   await direct.goto(`${fixture.url}/provider.html?section=services&help=article&slug=install-app&access_token=secret#refresh_token=secret`);
   await direct.locator('#providerHelpWorkspace').waitFor({ state:'visible' });
   assert.equal(new URL(direct.url()).searchParams.has('access_token'), false, 'Токен нельзя переносить в адрес базы знаний');
@@ -145,13 +158,36 @@ try {
   await direct.waitForURL(url => !url.searchParams.has('help'));
   assert.equal(new URL(direct.url()).searchParams.get('section'), 'services', 'Прямая статья должна возвращать в разрешённый раздел кабинета');
 
-  const expired = await browser.newPage({ viewport:{ width:390, height:844 } });
+  const expired = await context.newPage();
   await expired.goto(`${fixture.url}/provider.html?section=settings&help=category&category=settings&auth=login`);
   assert.equal(await expired.locator('#providerHelpWorkspace').isHidden(), true, 'До действующей сессии база знаний не должна закрывать вход');
   await expired.locator('#dashboard').evaluate(element => { element.hidden = false; });
   await expired.locator('#providerHelpWorkspace').waitFor({ state:'visible' });
   assert.match(expired.url(), /help=category&category=settings/);
   assert.equal(await expired.frameLocator('#providerHelpWorkspace iframe').locator('h1').innerText(), 'Раздел settings');
+
+  for (const width of [390, 760, 1440]) {
+    for (const [linkId, expectedView] of [['providerServices', 'services'], ['providerSchedule', 'schedule']]) {
+      const actionPage = await context.newPage();
+      await actionPage.setViewportSize({ width, height:900 });
+      await actionPage.goto(`${fixture.url}/provider.html?section=bookings&date=2026-09-15&range=day`);
+      await actionPage.locator('#draft').fill('Черновик перед переходом');
+      await actionPage.locator('.provider-help-link').click();
+      await actionPage.frameLocator('#providerHelpWorkspace iframe').locator('#helpArticle').click();
+      await actionPage.frameLocator('#providerHelpWorkspace iframe').locator(`#${linkId}`).click();
+      await actionPage.waitForURL(url => !url.searchParams.has('help') && url.searchParams.get('section') === expectedView);
+      assert.equal(await actionPage.locator('#providerHelpWorkspace').isHidden(), true, `${width}: действие закрывает встроенную помощь`);
+      assert.equal(await actionPage.locator('#dashboard').getAttribute('data-active-view'), expectedView, `${width}: открывается нужный раздел`);
+      assert.equal(await actionPage.locator('#draft').inputValue(), 'Черновик перед переходом', `${width}: переход не перезагружает кабинет`);
+      assert.equal(new URL(actionPage.url()).searchParams.get('date'), '2026-09-15', `${width}: дата исходного календаря сохранена`);
+      assert.equal(await actionPage.evaluate(() => Object.keys(history.state).some(key => key.startsWith('providerHelp'))), false, `${width}: служебное состояние помощи очищено`);
+      await actionPage.goBack();
+      await actionPage.waitForURL(url => !url.searchParams.has('help') && url.searchParams.get('section') === 'bookings');
+      assert.equal(await actionPage.locator('#providerHelpWorkspace').isHidden(), true, `${width}: Back возвращает в исходный кабинет`);
+      assert.equal(await actionPage.locator('#dashboard').getAttribute('data-active-view'), 'bookings', `${width}: исходный экран соответствует адресу`);
+      await actionPage.close();
+    }
+  }
 
   console.log('Provider help workspace browser test: OK');
 } finally {

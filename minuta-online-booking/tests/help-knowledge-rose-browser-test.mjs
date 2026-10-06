@@ -64,10 +64,25 @@ try {
     verify(await page.locator('.help-topic-group').count() === 5, `${width}: все пять групп тем`);
     verify(await page.locator('.section-card').count() === 14, `${width}: все разделы специалиста`);
     verify(await page.locator('.quick-start-card').count() === 4, `${width}: быстрый старт`);
+    verify(await page.evaluate(() => {
+      const quick = new Set([...document.querySelectorAll('#quickStartGuides a')].map(link => new URL(link.href).searchParams.get('slug')));
+      return [...document.querySelectorAll('#popularGuides a')].every(link => !quick.has(new URL(link.href).searchParams.get('slug')));
+    }), `${width}: полезные действия не повторяют быстрый старт`);
     verify(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${width}: главная без горизонтального переполнения`);
     if (screenshotRoot) await capturePage(`home-${width}.png`);
 
     const input = page.getByRole('searchbox', { name:'Поиск по базе знаний' });
+    const titleResults = await page.evaluate(() => {
+      const input = document.querySelector('#helpSearchInput');
+      return window.MINUTA_HELP_ARTICLES.map(article => {
+        document.querySelector(`button[data-audience="${article.audience}"]`).click();
+        input.value = article.title;
+        input.dispatchEvent(new Event('input', { bubbles:true }));
+        return { slug:article.slug, found:new URL(document.querySelector('#searchResults a')?.href || location.href).searchParams.get('slug') };
+      });
+    });
+    titleResults.forEach(result => verify(result.found === result.slug, `${width}/${result.slug}: поиск по полному заголовку`));
+    await page.getByRole('button', { name:'Для специалиста', exact:true }).click();
     await input.fill('как изменить услугу');
     verify(await page.locator('#searchResults a').count() > 0, `${width}: поиск по словам и формам`);
     verify(await page.locator('#searchResults a').first().innerText().then(text => /услуг/i.test(text)), `${width}: релевантная услуга вверху`);
@@ -77,10 +92,32 @@ try {
     verify(await input.evaluate(element => document.activeElement === element), `${width}: Escape возвращает фокус поиску`);
     await input.fill('лояльность награда');
     verify(await page.locator('#searchResults a').count() > 0, `${width}: поиск новой программы лояльности`);
+    for (const [query, expected] of [
+      ['как посчитать прибыль', ['statistics-overview', 'statistics-sections']],
+      ['как сделать возврат', ['refund-sale-accounting', 'yookassa-refund']],
+      ['как отправить напоминание', ['notification-queue', 'telegram']],
+      ['как поменять цвет', ['cabinet-layout-theme', 'client-page-appearance']]
+    ]) {
+      await input.fill(query);
+      const firstSlug = await page.locator('#searchResults a').first().getAttribute('href');
+      verify(expected.includes(new URL(firstSlug, base).searchParams.get('slug')), `${width}: понятный запрос «${query}» находит нужную инструкцию`);
+    }
     await page.getByRole('button', { name:'Для клиента', exact:true }).click();
     verify(await page.locator('.section-card').count() === 2, `${width}: отдельные клиентские разделы`);
     verify(await page.locator('.section-card').allTextContents().then(texts => texts.every(text => !/зарплат|склад/i.test(text))), `${width}: Pro не смешан с клиентской помощью`);
+    verify(await page.evaluate(() => {
+      const quick = new Set([...document.querySelectorAll('#quickStartGuides a')].map(link => new URL(link.href).searchParams.get('slug')));
+      return [...document.querySelectorAll('#popularGuides a')].every(link => !quick.has(new URL(link.href).searchParams.get('slug')));
+    }), `${width}: клиентские полезные действия не повторяют быстрый старт`);
     if (screenshotRoot) await capturePage(`client-home-${width}.png`);
+    for (const [query, expected] of [
+      ['как получить напоминание', 'connect-telegram'],
+      ['что делать если нет времени', 'join-booking-waitlist']]
+    ) {
+      await input.fill(query);
+      const firstSlug = await page.locator('#searchResults a').first().getAttribute('href');
+      verify(new URL(firstSlug, base).searchParams.get('slug') === expected, `${width}: клиентский запрос «${query}» находит нужную инструкцию`);
+    }
     for (const query of ['расписание', 'график', 'свободные окна']) {
       await input.fill(query);
       const resultSlugs = await page.locator('#searchResults a').evaluateAll(links => links.map(link => new URL(link.href).searchParams.get('slug')));
@@ -109,9 +146,13 @@ try {
     verify(await page.url().includes('#step-1'), `${width}: переход к выбранному шагу`);
     const zoom = page.locator('.article-visual button').first();
     verify(await zoom.count() > 0, `${width}: иллюстрация инструкции присутствует`);
+    await zoom.locator('img').evaluate(image => image.decode());
+    verify(await zoom.locator('img').evaluate(image => image.getBoundingClientRect().width <= image.naturalWidth + 1), `${width}: снимок в статье не растягивается сверх исходного размера`);
     await zoom.click();
     verify(await page.locator('#articleVisualDialog').evaluate(element => element.open), `${width}: увеличение изображения`);
     await page.waitForFunction(() => { const image = document.querySelector('#articleVisualFull'); return image.complete && image.naturalWidth > 0; });
+    verify(await page.locator('#articleVisualFull').evaluate(image => image.getBoundingClientRect().width <= image.naturalWidth + 1), `${width}: увеличение не растягивает снимок сверх исходного размера`);
+    if (screenshotRoot) await capturePage(`zoom-${width}.png`);
     await page.keyboard.press('Escape');
     verify(!await page.locator('#articleVisualDialog').evaluate(element => element.open), `${width}: закрытие увеличения клавишей Escape`);
     await page.locator('#articleTroubleshooting details summary').first().click();
@@ -138,7 +179,7 @@ try {
   verify(!freshLink.searchParams.has('org') && !freshLink.searchParams.has('provider'), 'Повреждённый новый контекст не подставляет прежнюю организацию');
 
   await page.goto(`${base}index.html?audience=specialist`);
-  const articles = await page.evaluate(() => window.MINUTA_HELP_ARTICLES.map(article => ({ slug:article.slug, title:article.title, steps:article.steps.length, audience:article.audience })));
+  const articles = await page.evaluate(() => window.MINUTA_HELP_ARTICLES.map(article => ({ slug:article.slug, title:article.title, steps:article.steps.length, audience:article.audience, updatedAt:article.updatedAt })));
   const categories = await page.evaluate(() => window.MINUTA_HELP_CATEGORIES.map(category => ({ slug:category.slug, title:category.title })));
   const rosePage = () => page.evaluate(() => ({ background:getComputedStyle(document.body).backgroundColor, overflow:document.documentElement.scrollWidth > innerWidth }));
   for (const width of [390, 760, 1440]) {
@@ -149,6 +190,9 @@ try {
       const appearance = await rosePage();
       verify(appearance.background === 'rgb(255, 247, 250)', `${width}/${category.slug}: нежно-розовое оформление раздела`);
       verify(!appearance.overflow, `${width}/${category.slug}: раздел без переполнения`);
+      const shown = await page.locator('#categoryList a').evaluateAll(links => links.map(link => new URL(link.href).searchParams.get('slug')));
+      const expected = await page.evaluate(slug => window.MINUTA_HELP_ARTICLES.filter(article => article.categorySlug === slug).map(article => article.slug), category.slug);
+      verify(shown.length === expected.length && new Set(shown).size === expected.length && expected.every(slug => shown.includes(slug)), `${width}/${category.slug}: все статьи доступны ровно один раз`);
       if (screenshotRoot && category.slug === 'services') await capturePage(`category-services-${width}.png`);
     }
     for (const article of articles) {
@@ -164,9 +208,16 @@ try {
       const appearance = await rosePage();
       verify(appearance.background === 'rgb(255, 247, 250)', `${width}/${article.slug}: нежно-розовое оформление статьи`);
       verify(!appearance.overflow, `${width}/${article.slug}: статья без переполнения`);
+      const visualFooters = await page.locator('.article-visual > button').evaluateAll(buttons => buttons.every(button => {
+        const image = button.querySelector('img');
+        const caption = button.querySelector(':scope > span');
+        return !image || (caption && caption.getBoundingClientRect().top >= image.getBoundingClientRect().bottom - 1);
+      }));
+      verify(visualFooters, `${width}/${article.slug}: увеличение не перекрывает изображение`);
       if (screenshotRoot && article.slug === 'view-team-calendar') await capturePage(`schedule-${width}.png`);
       if (screenshotRoot && article.slug === 'find-and-filter-bookings') await capturePage(`bookings-${width}.png`);
       if (screenshotRoot && ['book-online', 'reschedule'].includes(article.slug)) await capturePage(`client-article-${article.slug}-${width}.png`);
+      if (screenshotRoot && article.updatedAt === '6 октября 2026') await capturePage(`revised-${article.slug}-${width}.png`);
     }
     await page.goto(`${base}article.html?slug=book-online`);
     const nativePhoto = page.locator('.article-visual[data-kind="screenshot"] img').first();

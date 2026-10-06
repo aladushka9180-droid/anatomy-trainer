@@ -211,6 +211,7 @@
         "kind": "screenshot",
         "width": 752,
         "height": 1001,
+        "step": 4,
         "variants": [
           {
             "minWidth": 901,
@@ -239,7 +240,7 @@
         "kind": "screenshot",
         "width": 572,
         "height": 309,
-        "step": 3,
+        "step": 2,
         "variants": [
           {
             "minWidth": 901,
@@ -1714,7 +1715,7 @@
         "kind": "screenshot",
         "width": 1138,
         "height": 180,
-        "step": 2,
+        "step": 4,
         "variants": [
           {
             "minWidth": 901,
@@ -1743,7 +1744,7 @@
         "kind": "screenshot",
         "width": 1148,
         "height": 269,
-        "step": 3,
+        "step": 5,
         "variants": [
           {
             "minWidth": 901,
@@ -1772,6 +1773,7 @@
         "kind": "screenshot",
         "width": 1148,
         "height": 1134,
+        "step": 2,
         "variants": [
           {
             "minWidth": 901,
@@ -2115,6 +2117,7 @@
         "kind": "screenshot",
         "width": 567,
         "height": 708,
+        "step": 3,
         "variants": [
           {
             "minWidth": 901,
@@ -2151,7 +2154,7 @@
         "kind": "screenshot",
         "width": 620,
         "height": 720,
-        "step": 2,
+        "step": 3,
         "variants": [
           {
             "minWidth": 901,
@@ -2589,7 +2592,7 @@
         "kind": "screenshot",
         "width": 520,
         "height": 876,
-        "step": 4,
+        "step": 5,
         "variants": [
           {
             "minWidth": 901,
