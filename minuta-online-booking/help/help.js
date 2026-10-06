@@ -212,7 +212,7 @@
       const strong = document.createElement('strong');
       strong.textContent = 'Ничего не нашли';
       const small = document.createElement('small');
-      small.textContent = 'Попробуйте написать короче: «расписание» или «Telegram».';
+      small.textContent = 'Попробуйте другое слово или откройте нужный раздел ниже.';
       empty.append(strong, small);
       results.append(empty);
     } else {

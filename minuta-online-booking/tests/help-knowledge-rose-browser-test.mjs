@@ -81,6 +81,16 @@ try {
     verify(await page.locator('.section-card').count() === 2, `${width}: отдельные клиентские разделы`);
     verify(await page.locator('.section-card').allTextContents().then(texts => texts.every(text => !/зарплат|склад/i.test(text))), `${width}: Pro не смешан с клиентской помощью`);
     if (screenshotRoot) await capturePage(`client-home-${width}.png`);
+    for (const query of ['расписание', 'график', 'свободные окна']) {
+      await input.fill(query);
+      const resultSlugs = await page.locator('#searchResults a').evaluateAll(links => links.map(link => new URL(link.href).searchParams.get('slug')));
+      verify(resultSlugs[0] === 'book-online', `${width}: клиент находит выбор времени по запросу «${query}»`);
+      verify(await page.evaluate(slugs => slugs.every(slug => window.MINUTA_HELP_ARTICLES.find(article => article.slug === slug)?.audience === 'client'), resultSlugs), `${width}: поиск «${query}» показывает только клиентские инструкции`);
+    }
+    if (screenshotRoot) {
+      await input.fill('расписание');
+      await capturePage(`client-search-schedule-${width}.png`);
+    }
     await input.fill('неопределённый результат');
     verify(await page.locator('#searchResults a').count() > 0, `${width}: помощь при неопределённой записи`);
     await input.fill('zzzzzzzzzzz');
