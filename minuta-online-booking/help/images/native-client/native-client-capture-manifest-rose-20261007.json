@@ -1,0 +1,1040 @@
+{
+  "kind": "local-native-public-client-ui-fixture",
+  "captureId": "rose-20261007",
+  "liveVerified": false,
+  "domModified": false,
+  "cssModified": false,
+  "rendererModified": false,
+  "originalSupabaseSdk": true,
+  "productionRequests": 0,
+  "allowedPublicStaticSdk": {
+    "url": "https://telegram.org/js/telegram-widget.js?22",
+    "method": "GET",
+    "status": 200,
+    "contentType": "application/javascript",
+    "sha256": "3c8c27bf6f51a778ed94f452cf6b501f54703b67ef162551f677171916fbcd99",
+    "bytes": 20474,
+    "fetchedAt": "2026-10-05T18:38:52.465Z",
+    "requestsThisRun": 0,
+    "authorizationInvoked": false,
+    "unchangedBytesReusedAcrossContexts": true,
+    "localOriginalSdkCacheReused": true
+  },
+  "date": "2026-10-05",
+  "fixtureClock": "2026-10-05T07:00:00Z",
+  "theme": "pink-porcelain",
+  "configOnlyTransport": true,
+  "fixtureCatalog": "Valid minimal catalog without optional public service detail cards",
+  "captures": [
+    {
+      "screenKey": "client-service-picker",
+      "selector": ".booking-card",
+      "src": "images/native-client/client-service-picker-rose-20261007-1440.webp",
+      "width": 720,
+      "height": 313,
+      "viewportWidth": 1440,
+      "sha256": "f60c1b1bdd86c74fece2bd69a39b1f3a7aa5c5a72d34a77bb47342476afa3c46",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-service-picker-rose-20261007-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-waitlist-form",
+      "selector": "#waitlistDialog",
+      "src": "images/native-client/client-waitlist-form-rose-20261007-1440.webp",
+      "width": 560,
+      "height": 666,
+      "viewportWidth": 1440,
+      "sha256": "dfefcdf0213e08b3e281b81d084d5542d0b7853b640ba729f2cf314c58b1bc8a",
+      "articleSlugs": [
+        "join-booking-waitlist"
+      ],
+      "articleSteps": {
+        "join-booking-waitlist": [
+          2
+        ]
+      },
+      "step": 2,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-waitlist-form-rose-20261007-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-contact-form",
+      "selector": ".booking-card",
+      "src": "images/native-client/client-contact-form-rose-20261007-1440.webp",
+      "width": 720,
+      "height": 716,
+      "viewportWidth": 1440,
+      "sha256": "e199513bfcda13544f5bfc1e2270f9ac25d29a38f5a3bf0389eac7302bd84e2f",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-contact-form-rose-20261007-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-management",
+      "selector": "#manageContent",
+      "src": "images/native-client/client-management-rose-20261007-1440.webp",
+      "width": 658,
+      "height": 735,
+      "viewportWidth": 1440,
+      "sha256": "1da81c64db445e7fd8d205d956b92fb198339eba7b602cf8fc04322cc994a79e",
+      "articleSlugs": [
+        "reschedule"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-management-rose-20261007-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-telegram-connect",
+      "selector": "#manageTelegramConnect",
+      "src": "images/native-client/client-telegram-connect-rose-20261007-1440.webp",
+      "width": 540,
+      "height": 61,
+      "viewportWidth": 1440,
+      "sha256": "08dfbbe8eb5a3be8ea2262116f8c62add5bd261c735a62096e848a424b8645b7",
+      "articleSlugs": [
+        "connect-telegram"
+      ],
+      "articleSteps": {
+        "connect-telegram": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-telegram-connect-rose-20261007-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": "Actual ready Telegram button within booking management. Original official SDK loaded; authorization is not invoked."
+    },
+    {
+      "screenKey": "client-reschedule-form",
+      "selector": "#reschedulePanel",
+      "src": "images/native-client/client-reschedule-form-rose-20261007-1440.webp",
+      "width": 658,
+      "height": 444,
+      "viewportWidth": 1440,
+      "sha256": "4b3b61b27083473913eb664b8593f526879ad8afbd78ece0905c04922448de02",
+      "articleSlugs": [
+        "reschedule"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-reschedule-form-rose-20261007-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-login",
+      "selector": "#legacyClientLogin",
+      "src": "images/native-client/client-login-rose-20261007-1440.webp",
+      "width": 458,
+      "height": 335,
+      "viewportWidth": 1440,
+      "sha256": "010a4499de9c8aed8ebc33c986868423999c3974df3c386300cb3994a27423b6",
+      "articleSlugs": [
+        "find-booking"
+      ],
+      "articleSteps": {
+        "find-booking": [
+          5
+        ]
+      },
+      "step": 5,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-login-rose-20261007-1440.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": "Only the native alternate-login section relevant to this instructional step."
+    },
+    {
+      "screenKey": "client-service-picker",
+      "selector": ".booking-card",
+      "src": "images/native-client/client-service-picker-rose-20261007-390.webp",
+      "width": 370,
+      "height": 297,
+      "viewportWidth": 390,
+      "sha256": "25c908fe9ef57d924e531961b1aa7e5bc330193a27bc740057c224b2790e53a5",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-service-picker-rose-20261007-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-waitlist-form",
+      "selector": "#waitlistDialog",
+      "src": "images/native-client/client-waitlist-form-rose-20261007-390.webp",
+      "width": 352,
+      "height": 702,
+      "viewportWidth": 390,
+      "sha256": "838dab92d10af46d03bea8edbada9b234dce8d1ea319d386cd7b85255d5add1b",
+      "articleSlugs": [
+        "join-booking-waitlist"
+      ],
+      "articleSteps": {
+        "join-booking-waitlist": [
+          2
+        ]
+      },
+      "step": 2,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-waitlist-form-rose-20261007-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-contact-form",
+      "selector": ".booking-card",
+      "src": "images/native-client/client-contact-form-rose-20261007-390.webp",
+      "width": 370,
+      "height": 759,
+      "viewportWidth": 390,
+      "sha256": "563f3bad870b29132de3e8a7efdd91442a701546323a2851e50899c14447542a",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-contact-form-rose-20261007-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-management",
+      "selector": "#manageContent",
+      "src": "images/native-client/client-management-rose-20261007-390.webp",
+      "width": 340,
+      "height": 933,
+      "viewportWidth": 390,
+      "sha256": "54969cb236b56cea68ca24cf3dc39860cd907bd3b078ecbf6261b22ed9bcc020",
+      "articleSlugs": [
+        "reschedule"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-management-rose-20261007-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-telegram-connect",
+      "selector": "#manageTelegramConnect",
+      "src": "images/native-client/client-telegram-connect-rose-20261007-390.webp",
+      "width": 340,
+      "height": 78,
+      "viewportWidth": 390,
+      "sha256": "c8d804991a95fa03c1e78e20414a9a10860fcfbb9cdab33e0134364e1555ff75",
+      "articleSlugs": [
+        "connect-telegram"
+      ],
+      "articleSteps": {
+        "connect-telegram": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-telegram-connect-rose-20261007-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": "Actual ready Telegram button within booking management. Original official SDK loaded; authorization is not invoked."
+    },
+    {
+      "screenKey": "client-reschedule-form",
+      "selector": "#reschedulePanel",
+      "src": "images/native-client/client-reschedule-form-rose-20261007-390.webp",
+      "width": 340,
+      "height": 369,
+      "viewportWidth": 390,
+      "sha256": "10887c2eb9a4f54419bd3dd005ebfa6a635316ebb8a5bbf5a0c8b5b4833ed461",
+      "articleSlugs": [
+        "reschedule"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-reschedule-form-rose-20261007-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-login",
+      "selector": "#legacyClientLogin",
+      "src": "images/native-client/client-login-rose-20261007-390.webp",
+      "width": 336,
+      "height": 329,
+      "viewportWidth": 390,
+      "sha256": "8ee612988fee4b0dd57f23dce5ec79f97308436168c0f29ba9df865c38d1ba8d",
+      "articleSlugs": [
+        "find-booking"
+      ],
+      "articleSteps": {
+        "find-booking": [
+          5
+        ]
+      },
+      "step": 5,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-login-rose-20261007-390.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": "Only the native alternate-login section relevant to this instructional step."
+    },
+    {
+      "screenKey": "client-service-picker",
+      "selector": ".booking-card",
+      "src": "images/native-client/client-service-picker-rose-20261007-760.webp",
+      "width": 620,
+      "height": 301,
+      "viewportWidth": 760,
+      "sha256": "2664cb628cf550073e2309817ce5cf69e5bd6fbae6ebb84c39711196dbe48a25",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-service-picker-rose-20261007-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-waitlist-form",
+      "selector": "#waitlistDialog",
+      "src": "images/native-client/client-waitlist-form-rose-20261007-760.webp",
+      "width": 560,
+      "height": 666,
+      "viewportWidth": 760,
+      "sha256": "fcc210b6f915d8033edf87783b821f13403a89cc1e7e0ee4c91f97dea10d9abe",
+      "articleSlugs": [
+        "join-booking-waitlist"
+      ],
+      "articleSteps": {
+        "join-booking-waitlist": [
+          2
+        ]
+      },
+      "step": 2,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-waitlist-form-rose-20261007-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-contact-form",
+      "selector": ".booking-card",
+      "src": "images/native-client/client-contact-form-rose-20261007-760.webp",
+      "width": 620,
+      "height": 718,
+      "viewportWidth": 760,
+      "sha256": "6ca339438ccda0542435aef24da9fac4a134097e9568931d595596b1ec8572cd",
+      "articleSlugs": [
+        "book-online"
+      ],
+      "articleSteps": {
+        "book-online": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-contact-form-rose-20261007-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-management",
+      "selector": "#manageContent",
+      "src": "images/native-client/client-management-rose-20261007-760.webp",
+      "width": 702,
+      "height": 917,
+      "viewportWidth": 760,
+      "sha256": "b0fb0f2e2679c94a94d871901b505eed43270c5cfa808750e7975bed341f4b8e",
+      "articleSlugs": [
+        "reschedule"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-management-rose-20261007-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-telegram-connect",
+      "selector": "#manageTelegramConnect",
+      "src": "images/native-client/client-telegram-connect-rose-20261007-760.webp",
+      "width": 540,
+      "height": 61,
+      "viewportWidth": 760,
+      "sha256": "08dfbbe8eb5a3be8ea2262116f8c62add5bd261c735a62096e848a424b8645b7",
+      "articleSlugs": [
+        "connect-telegram"
+      ],
+      "articleSteps": {
+        "connect-telegram": [
+          1
+        ]
+      },
+      "step": 1,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-telegram-connect-rose-20261007-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": "Actual ready Telegram button within booking management. Original official SDK loaded; authorization is not invoked."
+    },
+    {
+      "screenKey": "client-reschedule-form",
+      "selector": "#reschedulePanel",
+      "src": "images/native-client/client-reschedule-form-rose-20261007-760.webp",
+      "width": 702,
+      "height": 375,
+      "viewportWidth": 760,
+      "sha256": "bead551699b2a53f38b9c2b6695a7899430ec691521af8bf8c969ac2269ef21c",
+      "articleSlugs": [
+        "reschedule"
+      ],
+      "articleSteps": {
+        "reschedule": [
+          3
+        ]
+      },
+      "step": 3,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-reschedule-form-rose-20261007-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": ""
+    },
+    {
+      "screenKey": "client-login",
+      "selector": "#legacyClientLogin",
+      "src": "images/native-client/client-login-rose-20261007-760.webp",
+      "width": 486,
+      "height": 335,
+      "viewportWidth": 760,
+      "sha256": "08995a931c24d60c0cd84dc28dc908b52b7ed13d4f551644efb9c82c3e1882db",
+      "articleSlugs": [
+        "find-booking"
+      ],
+      "articleSteps": {
+        "find-booking": [
+          5
+        ]
+      },
+      "step": 5,
+      "coverageExact": true,
+      "pixelPreserving": true,
+      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-login-rose-20261007-760.png",
+      "kind": "screenshot",
+      "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
+      "note": "Only the native alternate-login section relevant to this instructional step."
+    }
+  ],
+  "paletteChecks": [
+    {
+      "viewportWidth": 1440,
+      "colors": [
+        {
+          "selector": "#waitlistDialog",
+          "background": "rgb(255, 255, 255)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": ".waitlist-context",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.315686 0.305098 0.33098)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#waitlistDialog .primary",
+          "background": "rgb(255, 225, 235)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 1440,
+      "colors": [
+        {
+          "selector": ".manage-appointment",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.315686 0.305098 0.33098)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": ".manage-status.status-confirmed",
+          "background": "rgb(255, 225, 235)",
+          "text": "color(srgb 0.524863 0.188471 0.338353)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": ".manage-policy",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.315686 0.305098 0.33098)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#cancelBooking",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.524863 0.188471 0.338353)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#openReschedule",
+          "background": "rgb(255, 225, 235)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#manageTelegramConnect",
+          "background": "rgb(255, 255, 255)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 1440,
+      "colors": [
+        {
+          "selector": "#closeReschedule",
+          "background": "rgb(255, 225, 235)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 1440,
+      "colors": [
+        {
+          "selector": "#clientLoginButton",
+          "background": "rgb(223, 210, 213)",
+          "text": "rgb(79, 75, 79)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 390,
+      "colors": [
+        {
+          "selector": "#waitlistDialog",
+          "background": "rgb(255, 255, 255)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": ".waitlist-context",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.315686 0.305098 0.33098)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#waitlistDialog .primary",
+          "background": "rgb(255, 225, 235)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 390,
+      "colors": [
+        {
+          "selector": ".manage-appointment",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.315686 0.305098 0.33098)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": ".manage-status.status-confirmed",
+          "background": "rgb(255, 225, 235)",
+          "text": "color(srgb 0.524863 0.188471 0.338353)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": ".manage-policy",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.315686 0.305098 0.33098)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#cancelBooking",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.524863 0.188471 0.338353)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#openReschedule",
+          "background": "rgb(255, 225, 235)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#manageTelegramConnect",
+          "background": "rgb(255, 255, 255)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 390,
+      "colors": [
+        {
+          "selector": "#closeReschedule",
+          "background": "rgb(255, 225, 235)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 390,
+      "colors": [
+        {
+          "selector": "#clientLoginButton",
+          "background": "rgb(223, 210, 213)",
+          "text": "rgb(79, 75, 79)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 760,
+      "colors": [
+        {
+          "selector": "#waitlistDialog",
+          "background": "rgb(255, 255, 255)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": ".waitlist-context",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.315686 0.305098 0.33098)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#waitlistDialog .primary",
+          "background": "rgb(255, 225, 235)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 760,
+      "colors": [
+        {
+          "selector": ".manage-appointment",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.315686 0.305098 0.33098)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": ".manage-status.status-confirmed",
+          "background": "rgb(255, 225, 235)",
+          "text": "color(srgb 0.524863 0.188471 0.338353)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": ".manage-policy",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.315686 0.305098 0.33098)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#cancelBooking",
+          "background": "rgb(255, 232, 240)",
+          "text": "color(srgb 0.524863 0.188471 0.338353)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#openReschedule",
+          "background": "rgb(255, 225, 235)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        },
+        {
+          "selector": "#manageTelegramConnect",
+          "background": "rgb(255, 255, 255)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 760,
+      "colors": [
+        {
+          "selector": "#closeReschedule",
+          "background": "rgb(255, 225, 235)",
+          "text": "rgb(48, 44, 48)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    },
+    {
+      "viewportWidth": 760,
+      "colors": [
+        {
+          "selector": "#clientLoginButton",
+          "background": "rgb(223, 210, 213)",
+          "text": "rgb(79, 75, 79)",
+          "theme": "pink-porcelain"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "SMS, booking creation, payment, Telegram authorization and delivery were not executed. Original official Telegram static SDK is the only authorized public dependency fetch."
+  ],
+  "sources": {
+    "index.html": "c2a20969651537436eeed3454f445d1594685192a50f2a68284daeb1bc817c7e",
+    "app.js": "76b98814b8721ca4fe9c90f28c7609deac517818504f94160d1a74868cb7548d",
+    "booking.html": "5a61ba94eee74f6bbe55aa121717bf229895e12e28155c7f726c86c4ea77fa50",
+    "booking.js": "d6afc764ff1d8583b6026c8cff46609b1d9e2bb037510bf2db7880e5beb21636",
+    "my-bookings.html": "be91438eb8f5eb8336730ac6b544c64730e5f27f2ed36d6805a17a5ca627014a",
+    "my-bookings.js": "7d6744ad62a975a6635e8a655722ad26e0d88733c6de604a7a2fa28c00b4953f",
+    "telegram-auth.js": "94efbdfea2d5665d03de8b69f99a06a87e4432875936420936b4f8eb28b796f9",
+    "vendor/supabase-2.112.4.min.js": "9a8142ffedb319a3ac0d4a8a123c9c2f7ffdb0e1e86cd9553889911b647175f6",
+    "redirect.js": "aeefeb3e6e63b96c8af62c2f2a0e47d009b9be9471915fae6f8bd7fc87428d1d",
+    "styles.css": "7b91e2e90d3f35b3c2b4efabc4bbedd87a0a8885cabe92c63d568c8d5019ca1a",
+    "client-themes.css": "15ed41953f0abdf15e995a203e36ddc49bb2cc12ad132f9227d06e696537ad50",
+    "client-rose-surfaces.css": "d604942061348440ef344bc043e99988f00b6ff351443e34321d0d8a030c9a18",
+    "code-scanner.css": "7484c62bccb092681a0d26a1c79b65b0d03b6c2d44e998995674c6d318dfc30c",
+    "booking-widgets.js": "ac2d9f0150d355813c9c81380195a088b27916418054386cd3e58d221ac84eaa",
+    "ui-icons.svg": "4b503b4e04d6b8ae2d12ed5e690f4aedf070ec2e4073217060662cbd62258acc",
+    "theme-catalog.js": "c96c12851fbbb1d8ff04d3a956e75a4fe2629729a1bdc4807228a8a4238b2e11",
+    "site-update.js": "e1321da9e9243b38560a9ab2afbe5af1c0564ae62b7aa9aeeab27f79b334246d",
+    "reliability.js": "149b13b32fae04bbbe845ad3e1a4b0e5698b3ea42f4ea55041406194306ad16b",
+    "group-bookings.js": "55401c8b63c19b572278194c4242ad4a5fdb7431f92dd07468dea93bb241b156",
+    "code-scanner.js": "ffe79f0505312d83c06b28283cd9748cfbd9d806e84d65e40e9363e27f008116",
+    "client-offline-flexible.js": "d55363c24a0f490d96b6c2abdb366ff5a38cfe3099225ad2b8b47f57fae541a7",
+    "icon.svg": "5b8aa9ba2e6516905fb50778bfcbaf79eaef38722bbd31d7ce6b3a9d708b64f0",
+    "phone-auth.js": "b28d82e70af70890ed4ce7eba48973a80b79e1f1c134b965982f044351d612fd",
+    "social-auth.js": "9119abf5afbb1510f4da5fe05b6ed3372007d8a10446fd57d00dc5cdea1f5dd2"
+  },
+  "discardedTelemetry": [
+    "upsert_public_booking_presence",
+    "track_public_booking_funnel_event"
+  ],
+  "blockedExternalRequests": [],
+  "transportRequests": [
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/index.html",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/redirect.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/styles.css",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/client-themes.css",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/client-rose-surfaces.css",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/code-scanner.css",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/booking-widgets.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/ui-icons.svg",
+      "count": 21
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/vendor/supabase-2.112.4.min.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/config.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/theme-catalog.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/site-update.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/reliability.js",
+      "count": 9
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/group-bookings.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/telegram-auth.js",
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/code-scanner.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/app.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/client-offline-flexible.js",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_public_minuta_catalog_v5",
+      "rpc": "get_public_minuta_catalog_v5",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/upsert_public_booking_presence",
+      "rpc": "upsert_public_booking_presence",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/track_public_booking_funnel_event",
+      "rpc": "track_public_booking_funnel_event",
+      "count": 12
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_public_service_cards_v159",
+      "rpc": "get_public_service_cards_v159",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_public_minuta_group_events",
+      "rpc": "get_public_minuta_group_events",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/icon.svg",
+      "count": 9
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_available_slots_v101",
+      "rpc": "get_available_slots_v101",
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/booking.html",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/booking.js",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_yookassa_payment_capability",
+      "rpc": "get_yookassa_payment_capability",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_booking_management_v2",
+      "rpc": "get_booking_management_v2",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/functions/v1/telegram-client-notify/auth-config",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_reschedule_slots_v101",
+      "rpc": "get_reschedule_slots_v101",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/my-bookings.html",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/phone-auth.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/social-auth.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/minuta-online-booking/my-bookings.js",
+      "count": 3
+    },
+    {
+      "method": "GET",
+      "path": "/auth/v1/settings",
+      "count": 3
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/rpc/get_minuta_phone_auth_capability",
+      "rpc": "get_minuta_phone_auth_capability",
+      "count": 3
+    }
+  ],
+  "unsupportedFixtureReads": [],
+  "blockedMutations": [],
+  "harnessSources": {
+    "help/tools/capture-native-client.mjs": "de21dcc29396842c2676ec6ccebc101be3653b32fc2e8a9b74b40637af7c50aa",
+    "help/tools/native-client-capture-fixture.mjs": "786615550ec6a9a05e5cc50dbaa0a1db0a0f69d1bff695204d4f61617870967a"
+  },
+  "coveredArticles": [
+    "book-online",
+    "join-booking-waitlist",
+    "reschedule",
+    "connect-telegram",
+    "find-booking"
+  ],
+  "captureCount": 21,
+  "coverageExact": true
+}

@@ -91,6 +91,7 @@ for (const article of articles) {
   const captures = approvedCaptures[article.slug] || [];
   for (const capture of captures) {
     const folder = article.audience === 'client' ? 'native-client' : 'native-local';
+    const minimumHeight = article.slug === 'connect-telegram' && capture.component === 'telegram-connect' ? 44 : 100;
     if (!new RegExp(`^images/${folder}/[a-z0-9-]+\\.(webp|png)$`).test(capture.src)
       || capture.kind !== 'screenshot' || capture.coverageExact !== true
       || capture.environment !== 'isolated-local-native-fixture'
@@ -98,7 +99,7 @@ for (const article of articles) {
       || typeof capture.alt !== 'string' || !capture.alt.trim()
       || typeof capture.caption !== 'string' || !/учебные данные/i.test(capture.caption)
       || !Number.isInteger(capture.width) || !Number.isInteger(capture.height)
-      || capture.width < 200 || capture.height < 100
+      || capture.width < 200 || capture.height < minimumHeight
       || (capture.step && (!Number.isInteger(capture.step) || capture.step < 1 || capture.step > article.steps.length))) {
       throw new Error(`Unapproved native capture: ${article.slug}`);
     }
@@ -108,6 +109,7 @@ for (const article of articles) {
       if (!new RegExp(`^images/${folder}/[a-z0-9-]+\\.(webp|png)$`).test(variant.src)
         || !Number.isInteger(variant.minWidth) || variant.minWidth < 0
         || !Number.isInteger(variant.width) || !Number.isInteger(variant.height)
+        || variant.width < 200 || variant.height < minimumHeight
         || createHash('sha256').update(readFileSync(join(helpRoot, variant.src))).digest('hex') !== variant.sha256) {
         throw new Error(`Unapproved responsive capture: ${article.slug}`);
       }

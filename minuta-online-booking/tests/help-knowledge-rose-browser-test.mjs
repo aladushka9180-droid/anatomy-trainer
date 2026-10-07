@@ -235,6 +235,21 @@ try {
         return !image || (caption && caption.getBoundingClientRect().top >= image.getBoundingClientRect().bottom - 1);
       }));
       verify(visualFooters, `${width}/${article.slug}: увеличение не перекрывает изображение`);
+      const spacing = await page.evaluate(() => {
+        const steps = [...document.querySelectorAll('.article-step')];
+        const figures = [...document.querySelectorAll('.article-visual')];
+        return steps.every(step => {
+          const heading = step.querySelector('h2'), number = step.querySelector('.article-step-number');
+          const range = document.createRange(); range.selectNodeContents(heading);
+          if (range.getBoundingClientRect().left < number.getBoundingClientRect().right + 6) return false;
+          const paragraph = step.querySelector('p');
+          return innerWidth > 600 || !paragraph || Math.abs(paragraph.getBoundingClientRect().left - step.getBoundingClientRect().left) < 1;
+        }) && figures.every(figure => {
+          const button = figure.querySelector(':scope > button'), caption = figure.querySelector('figcaption');
+          return !button || !caption || Math.abs(button.getBoundingClientRect().left - caption.getBoundingClientRect().left) < 1;
+        });
+      });
+      verify(spacing, `${width}/${article.slug}: номера не перекрывают заголовки, снимки и подписи выровнены`);
       if (screenshotRoot && article.slug === 'view-team-calendar') await capturePage(`schedule-${width}.png`);
       if (screenshotRoot && article.slug === 'find-and-filter-bookings') await capturePage(`bookings-${width}.png`);
       if (screenshotRoot && ['book-online', 'reschedule'].includes(article.slug)) await capturePage(`client-article-${article.slug}-${width}.png`);
@@ -269,7 +284,7 @@ try {
     await nativePhoto.scrollIntoViewIfNeeded();
     await page.waitForFunction(() => document.querySelector('.article-visual[data-kind="screenshot"] img')?.complete);
     const displayedPhoto = await nativePhoto.evaluate(image => image.currentSrc);
-    verify(displayedPhoto.endsWith(`client-service-picker-${width}.webp`), `${width}: снимок показывает соответствующий размер интерфейса`);
+    verify(displayedPhoto.endsWith(`client-service-picker-rose-20261007-${width}.webp`), `${width}: снимок показывает соответствующий размер интерфейса`);
     await page.locator('.article-visual[data-kind="screenshot"] button').first().click();
     verify(await page.locator('#articleVisualFull').getAttribute('src') === displayedPhoto, `${width}: увеличение открывает показанный снимок`);
     await page.keyboard.press('Escape');

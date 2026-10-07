@@ -23,25 +23,49 @@
         "kind": "screenshot",
         "width": 580,
         "height": 924,
+        "detail": {
+          "x": 0,
+          "y": 0,
+          "width": 580,
+          "height": 344
+        },
         "step": 2,
         "variants": [
           {
             "minWidth": 901,
             "src": "images/native-local/manual-booking-1440.webp",
             "width": 580,
-            "height": 924
+            "height": 924,
+            "detail": {
+              "x": 0,
+              "y": 0,
+              "width": 580,
+              "height": 344
+            }
           },
           {
             "minWidth": 431,
             "src": "images/native-local/manual-booking-760.webp",
             "width": 745,
-            "height": 885
+            "height": 885,
+            "detail": {
+              "x": 0,
+              "y": 0,
+              "width": 745,
+              "height": 340
+            }
           },
           {
             "minWidth": 0,
             "src": "images/native-local/manual-booking-390.webp",
             "width": 375,
-            "height": 846
+            "height": 846,
+            "detail": {
+              "x": 0,
+              "y": 0,
+              "width": 375,
+              "height": 328
+            }
           }
         ]
       }
@@ -2304,24 +2328,48 @@
         "kind": "screenshot",
         "width": 752,
         "height": 3238,
+        "detail": {
+          "x": 0,
+          "y": 0,
+          "width": 752,
+          "height": 650
+        },
         "variants": [
           {
             "minWidth": 901,
             "src": "images/native-local/appearance-settings-1440.webp",
             "width": 752,
-            "height": 3238
+            "height": 3238,
+            "detail": {
+              "x": 0,
+              "y": 0,
+              "width": 752,
+              "height": 650
+            }
           },
           {
             "minWidth": 431,
             "src": "images/native-local/appearance-settings-760.webp",
             "width": 721,
-            "height": 830
+            "height": 830,
+            "detail": {
+              "x": 0,
+              "y": 0,
+              "width": 721,
+              "height": 638
+            }
           },
           {
             "minWidth": 0,
             "src": "images/native-local/appearance-settings-390.webp",
             "width": 351,
-            "height": 830
+            "height": 830,
+            "detail": {
+              "x": 0,
+              "y": 0,
+              "width": 351,
+              "height": 739
+            }
           }
         ]
       }
@@ -2526,7 +2574,7 @@
   "book-online": {
     "images": [
       {
-        "src": "images/native-client/client-service-picker-1440.webp",
+        "src": "images/native-client/client-service-picker-rose-20261007-1440.webp",
         "alt": "Выбор услуги",
         "caption": "Выбор услуги. Учебные данные.",
         "kind": "screenshot",
@@ -2536,26 +2584,26 @@
         "variants": [
           {
             "minWidth": 901,
-            "src": "images/native-client/client-service-picker-1440.webp",
+            "src": "images/native-client/client-service-picker-rose-20261007-1440.webp",
             "width": 720,
             "height": 313
           },
           {
             "minWidth": 431,
-            "src": "images/native-client/client-service-picker-760.webp",
+            "src": "images/native-client/client-service-picker-rose-20261007-760.webp",
             "width": 620,
             "height": 301
           },
           {
             "minWidth": 0,
-            "src": "images/native-client/client-service-picker-390.webp",
+            "src": "images/native-client/client-service-picker-rose-20261007-390.webp",
             "width": 370,
             "height": 297
           }
         ]
       },
       {
-        "src": "images/native-client/client-contact-form-1440.webp",
+        "src": "images/native-client/client-contact-form-rose-20261007-1440.webp",
         "alt": "Контактные данные перед записью",
         "caption": "Контактные данные перед записью. Учебные данные.",
         "kind": "screenshot",
@@ -2565,19 +2613,19 @@
         "variants": [
           {
             "minWidth": 901,
-            "src": "images/native-client/client-contact-form-1440.webp",
+            "src": "images/native-client/client-contact-form-rose-20261007-1440.webp",
             "width": 720,
             "height": 716
           },
           {
             "minWidth": 431,
-            "src": "images/native-client/client-contact-form-760.webp",
+            "src": "images/native-client/client-contact-form-rose-20261007-760.webp",
             "width": 620,
             "height": 718
           },
           {
             "minWidth": 0,
-            "src": "images/native-client/client-contact-form-390.webp",
+            "src": "images/native-client/client-contact-form-rose-20261007-390.webp",
             "width": 370,
             "height": 759
           }
@@ -2592,7 +2640,7 @@
   "reschedule": {
     "images": [
       {
-        "src": "images/native-client/client-management-1440.webp",
+        "src": "images/native-client/client-management-rose-20261007-1440.webp",
         "alt": "Управление визитом и подключение Telegram",
         "caption": "Управление визитом и подключение Telegram. Учебные данные.",
         "kind": "screenshot",
@@ -2602,26 +2650,26 @@
         "variants": [
           {
             "minWidth": 901,
-            "src": "images/native-client/client-management-1440.webp",
+            "src": "images/native-client/client-management-rose-20261007-1440.webp",
             "width": 658,
             "height": 735
           },
           {
             "minWidth": 431,
-            "src": "images/native-client/client-management-760.webp",
+            "src": "images/native-client/client-management-rose-20261007-760.webp",
             "width": 702,
             "height": 917
           },
           {
             "minWidth": 0,
-            "src": "images/native-client/client-management-390.webp",
+            "src": "images/native-client/client-management-rose-20261007-390.webp",
             "width": 340,
             "height": 933
           }
         ]
       },
       {
-        "src": "images/native-client/client-reschedule-form-1440.webp",
+        "src": "images/native-client/client-reschedule-form-rose-20261007-1440.webp",
         "alt": "Выбор нового времени",
         "caption": "Выбор нового времени. Учебные данные.",
         "kind": "screenshot",
@@ -2631,19 +2679,19 @@
         "variants": [
           {
             "minWidth": 901,
-            "src": "images/native-client/client-reschedule-form-1440.webp",
+            "src": "images/native-client/client-reschedule-form-rose-20261007-1440.webp",
             "width": 658,
             "height": 444
           },
           {
             "minWidth": 431,
-            "src": "images/native-client/client-reschedule-form-760.webp",
+            "src": "images/native-client/client-reschedule-form-rose-20261007-760.webp",
             "width": 702,
             "height": 375
           },
           {
             "minWidth": 0,
-            "src": "images/native-client/client-reschedule-form-390.webp",
+            "src": "images/native-client/client-reschedule-form-rose-20261007-390.webp",
             "width": 340,
             "height": 369
           }
@@ -2658,31 +2706,31 @@
   "find-booking": {
     "images": [
       {
-        "src": "images/native-client/client-login-1440.webp",
+        "src": "images/native-client/client-login-rose-20261007-1440.webp",
         "alt": "Вход по телефону и личному коду",
         "caption": "Вход по телефону и личному коду. Учебные данные.",
         "kind": "screenshot",
-        "width": 520,
-        "height": 876,
+        "width": 458,
+        "height": 335,
         "step": 5,
         "variants": [
           {
             "minWidth": 901,
-            "src": "images/native-client/client-login-1440.webp",
-            "width": 520,
-            "height": 876
+            "src": "images/native-client/client-login-rose-20261007-1440.webp",
+            "width": 458,
+            "height": 335
           },
           {
             "minWidth": 431,
-            "src": "images/native-client/client-login-760.webp",
-            "width": 520,
-            "height": 860
+            "src": "images/native-client/client-login-rose-20261007-760.webp",
+            "width": 486,
+            "height": 335
           },
           {
             "minWidth": 0,
-            "src": "images/native-client/client-login-390.webp",
-            "width": 370,
-            "height": 851
+            "src": "images/native-client/client-login-rose-20261007-390.webp",
+            "width": 336,
+            "height": 329
           }
         ]
       }
@@ -2695,7 +2743,7 @@
   "join-booking-waitlist": {
     "images": [
       {
-        "src": "images/native-client/client-waitlist-form-1440.webp",
+        "src": "images/native-client/client-waitlist-form-rose-20261007-1440.webp",
         "alt": "Заявка в лист ожидания",
         "caption": "Заявка в лист ожидания. Учебные данные.",
         "kind": "screenshot",
@@ -2705,19 +2753,19 @@
         "variants": [
           {
             "minWidth": 901,
-            "src": "images/native-client/client-waitlist-form-1440.webp",
+            "src": "images/native-client/client-waitlist-form-rose-20261007-1440.webp",
             "width": 560,
             "height": 666
           },
           {
             "minWidth": 431,
-            "src": "images/native-client/client-waitlist-form-760.webp",
+            "src": "images/native-client/client-waitlist-form-rose-20261007-760.webp",
             "width": 560,
             "height": 666
           },
           {
             "minWidth": 0,
-            "src": "images/native-client/client-waitlist-form-390.webp",
+            "src": "images/native-client/client-waitlist-form-rose-20261007-390.webp",
             "width": 352,
             "height": 702
           }
@@ -2732,31 +2780,31 @@
   "connect-telegram": {
     "images": [
       {
-        "src": "images/native-client/client-management-1440.webp",
-        "alt": "Управление визитом и подключение Telegram",
-        "caption": "Управление визитом и подключение Telegram. Учебные данные.",
+        "src": "images/native-client/client-telegram-connect-rose-20261007-1440.webp",
+        "alt": "Кнопка подключения Telegram на странице записи",
+        "caption": "«Подключить Telegram» на странице записи. Учебные данные.",
         "kind": "screenshot",
-        "width": 658,
-        "height": 735,
+        "width": 540,
+        "height": 61,
         "step": 1,
         "variants": [
           {
             "minWidth": 901,
-            "src": "images/native-client/client-management-1440.webp",
-            "width": 658,
-            "height": 735
+            "src": "images/native-client/client-telegram-connect-rose-20261007-1440.webp",
+            "width": 540,
+            "height": 61
           },
           {
             "minWidth": 431,
-            "src": "images/native-client/client-management-760.webp",
-            "width": 702,
-            "height": 917
+            "src": "images/native-client/client-telegram-connect-rose-20261007-760.webp",
+            "width": 540,
+            "height": 61
           },
           {
             "minWidth": 0,
-            "src": "images/native-client/client-management-390.webp",
+            "src": "images/native-client/client-telegram-connect-rose-20261007-390.webp",
             "width": 340,
-            "height": 933
+            "height": 78
           }
         ]
       }
