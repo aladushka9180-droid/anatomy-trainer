@@ -9,10 +9,10 @@
 Модуль настроек Pro и lazy интеграция, две связанные additive SQL migrations, disable без удаления данных и клиентский пакет в отдельном репозитории. Передача: minuta-online-booking/SERVICE-OFFERS-RELEASE.md.
 
 ### Проверено
-Контракт/шесть браузерных состояний 390/760/1440 на fake RPC, loader и существующие сервисные/PWA checks; 39/39 последовательных SQL checks на PGlite. Три конкурентных native PostgreSQL сценария подготовлены; CI отделён от full-schema restore, статус проверяется на финальном SHA.
+Контракт/шесть браузерных состояний 390/760/1440 на fake RPC, loader и существующие сервисные/PWA checks; 39/39 PGlite checks. На коде 736c2865 native PostgreSQL CI прошёл 42/42, включая три конкурентных сценария. Это synthetic fixture, full-schema restore не доказан.
 
 ### Текущий этап
-SQL resource lifecycle исправлен. Подготовка commit/draft PR и native CI. Единственный владелец выпуска остаётся «КААРДИНАТОР»; принятие пакета им пока не подтверждено. Версия 1081 назначена только кандидату; перед интеграцией нужна новая сверка main.
+Draft PR #88 связан с клиентским #92. Native/Pro-specific CI прошли; общий CI обнаружил неполный bump optional PWA-ссылок, ссылки исправлены и проверяются повторно. Единственный владелец выпуска остаётся «КААРДИНАТОР»; принятие пакета им пока не подтверждено. Версия 1081 — только кандидат; перед интеграцией нужна сверка main.
 
 ### Следующие шаги
 CI → fresh backup/full restore/privileges/source guards → обе migrations/disable/reapply/preservation → владельцем интеграция и общий выпуск → live-приёмка.

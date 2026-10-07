@@ -5,6 +5,15 @@ const root = new URL('../', import.meta.url);
 const source = await readFile(new URL('provider.js', root), 'utf8');
 const html = await readFile(new URL('provider.html', root), 'utf8');
 const worker = await readFile(new URL('sw.js', root), 'utf8');
+const updates = await readFile(new URL('site-update.js', root), 'utf8');
+const cacheVersion = worker.match(/CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/)?.[1];
+assert.ok(cacheVersion);
+for (const asset of ['provider-ux.css', 'site-update.js', 'provider.js']) {
+  assert.ok(html.includes(`${asset}?v=${cacheVersion}`));
+  assert.ok(worker.includes(`${asset}?v=${cacheVersion}`));
+}
+for (const extension of ['css', 'js']) assert.ok(worker.includes(`team-schedule-ui.${extension}?v=${cacheVersion}`));
+assert.ok(updates.includes(`sw.js?v=${cacheVersion}`));
 const loader = source.match(/\$\('#openServiceOffers'\)\.addEventListener\('click', async event => \{[\s\S]*?\n\}\);/)?.[0];
 assert.ok(loader);
 assert.match(html, /id="openServiceOffers"/);
