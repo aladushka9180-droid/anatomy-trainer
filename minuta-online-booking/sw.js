@@ -69,8 +69,8 @@ const ASSETS = [
 ];
 
 const OPTIONAL_ASSETS = [
-  './provider-service-offers.css?v=1',
-  './provider-service-offers.js?v=1',
+  './provider-service-offers.css?v=2',
+  './provider-service-offers.js?v=2',
   './organization-people.js?v=1081',
   './organization-people.css?v=1081',
   './organization-flow.css?v=1081',

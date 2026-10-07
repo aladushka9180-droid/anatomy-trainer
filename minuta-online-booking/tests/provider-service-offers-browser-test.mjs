@@ -16,7 +16,7 @@ const setup = async (page, theme = 'pink-porcelain') => {
   await page.route('**/*', route => route.abort());
   await page.setContent(`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${styles}</style><body class="provider-body" data-provider-theme="${theme}" data-provider-layout="capsule"><main class="provider-workspace"><section class="provider-view" data-provider-panel="services"><div class="view-title"><div><span>Каталог</span><h2>Мои услуги</h2></div><div class="view-title-actions"><span class="panel-count">3</span><button class="secondary-button compact-button">Поделиться прайсом</button><button class="primary compact-button">Добавить услугу</button></div></div><section class="panel service-catalog"><div class="service-manage-list"><article class="managed-service"><div class="service-info"><strong>Массаж спины</strong><small>60 мин · 2 000 ₽</small></div></article><article class="managed-service"><div class="service-info"><strong>Массаж шеи</strong><small>30 мин · 500 ₽</small></div></article></div></section></section></main></body></html>`);
   await page.evaluate(ids => {
-    window.actor = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; window.generation = 1; window.rows = []; window.calls = []; window.messages = []; window.mode = 'ok'; window.writeAllowed = true;
+    window.actor = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; window.generation = 1; window.rows = []; window.calls = []; window.messages = []; window.mode = 'ok'; window.writeAllowed = true; window.rowNumber=0;
     window.catalog = ids.map((id,index) => ({ id, performer_id:window.actor, name:['Массаж спины','Массаж шеи','Поминутный массаж'][index], active:true, duration_minutes:[60,30,1][index], price_rub:[2000,500,20][index] }));
     window.fakeDb = { rpc:async (name,args) => {
       window.calls.push({ name,args });
@@ -26,8 +26,11 @@ const setup = async (page, theme = 'pink-porcelain') => {
       if (name === 'get_minuta_service_offers') return { data:{ offers:window.rows }, error:null };
       if (window.mode === 'conflict') return { error:{ code:'40001',message:'offer_revision_conflict' } };
       if (window.mode === 'partial') return { data:{ offer:{ id:'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' } } };
-      const row = { ...args.p_offer, id:args.p_offer.id || 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', revision:args.p_offer.revision + 1 };
-      window.rows = [...window.rows.filter(item => item.id !== row.id),row]; return { data:{ offer:row }, error:null };
+      const row = { ...args.p_offer, id:args.p_offer.id || `bbbbbbbb-bbbb-bbbb-bbbb-${String(++window.rowNumber).padStart(12,'0')}`, revision:args.p_offer.revision + 1 };
+      window.rows = [...window.rows.filter(item => item.id !== row.id),row];
+      if(window.mode==='droppedPrice'){const ack={...row};delete ack.addon_price_rub;return {data:{offer:ack}};}
+      if(window.mode==='changedPrice')return {data:{offer:{...row,addon_price_rub:row.addon_price_rub+1}}};
+      return { data:{ offer:row }, error:null };
     } };
     window.offerOptions = { db:window.fakeDb, escapeHtml:value => String(value).replace(/[&<>"']/g,c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]), notify:text => window.messages.push(text), requireWrites:() => window.writeAllowed, getCurrentUser:() => window.actor ? {id:window.actor} : null, getSessionGeneration:() => window.generation, sessionIsCurrent:(actor,generation) => actor === window.actor && generation === window.generation, getServices:() => window.catalog };
   }, ids);
@@ -35,7 +38,7 @@ const setup = async (page, theme = 'pink-porcelain') => {
 async function start(page) { await page.addScriptTag({ content:source }); await page.evaluate(() => { window.offers = window.MinutaServiceOffers.createController(window.offerOptions); }); await page.locator('[data-open-service-offers]').click(); await page.locator('[data-add-service-offer]').waitFor(); }
 async function fill(page) {
   await page.locator('[data-add-service-offer]').click();
-  assert.equal(await page.locator('[name=addon] option').count(),3, 'Per-minute service excluded');
+  assert.equal(await page.locator('[name=addon] option').count(),4, 'Per-minute addon available');
   await page.locator(`[name=primary][value="${ids[0]}"]`).check();
   await page.locator('[name=addon]').selectOption(ids[1]);
   assert.equal(await page.locator('[name=minutes]').inputValue(),'30');
@@ -45,6 +48,17 @@ async function fill(page) {
   await page.locator('[name=minutes]').fill('15');
   assert.match(await page.locator('#serviceOfferPreview').innerText(),/450 ₽/);
   assert.match(await page.locator('#serviceOfferPreview').innerText(),/\+15 мин/);
+  assert.equal(await page.locator('[data-addon-price]').isVisible(),false,'Fixed service retains catalog-price controls');
+}
+async function fillMinute(page){
+  await page.locator('[data-add-service-offer]').click();
+  assert.equal(await page.locator(`[name=primary][value="${ids[2]}"]`).count(),0,'Per-minute primary remains excluded');
+  await page.locator(`[name=primary][value="${ids[0]}"]`).check();
+  await page.locator('[name=addon]').selectOption(ids[2]);
+  assert.equal(await page.locator('[data-addon-price]').isVisible(),true);
+  assert.equal(await page.locator('[name=addonPrice]').inputValue(),'');
+  assert.equal(await page.locator('[name=minutes]').inputValue(),'');
+  await page.locator('[name=benefit]').fill('Дополнит основной массаж расслаблением шеи');
 }
 let runs = 0;
 try {
@@ -71,6 +85,33 @@ try {
     await page.locator('[name=enabled]').uncheck(); await page.locator('#serviceOfferForm [type=submit]').click(); await page.locator('#serviceOfferForm').waitFor({state:'hidden'});
     assert.equal(await page.evaluate(() => window.rows[0].enabled),false);
     assert.equal(await page.evaluate(() => window.calls.at(-1).args.p_offer.addon_service_id),ids[1],'Disable retains archived service and stored fields');
+    await fillMinute(page);
+    const writesBefore=await page.evaluate(()=>window.calls.filter(call=>call.name==='save_minuta_service_offer').length);
+    await page.locator('#serviceOfferForm [type=submit]').click();await page.locator('.service-offers-form-error').waitFor({state:'visible'});
+    assert.match(await page.locator('.service-offers-form-error').innerText(),/цену всего дополнения/);
+    assert.equal(await page.evaluate(()=>window.calls.filter(call=>call.name==='save_minuta_service_offer').length),writesBefore,'Blank price never becomes zero or a write');
+    assert.doesNotMatch(await page.locator('#serviceOfferPreview').innerText(),/20 ₽|0 ₽/,'Catalog minute tariff is never an addon total');
+    await page.locator('[name=addonPrice]').fill('600');await page.locator('[name=minutes]').fill('0');
+    assert.equal(await page.locator('.service-offers-form-error').isVisible(),false,'Corrected explicit price clears validation error');
+    await page.locator('[name=discount]').selectOption('percent');await page.locator('[name=discountValue]').fill('10');
+    assert.match(await page.locator('#serviceOfferPreview').innerText(),/540 ₽/);
+    assert.match(await page.locator('#serviceOfferPreview').innerText(),/\+0 мин/);
+    await page.locator('[name=addonPrice]').scrollIntoViewIfNeeded();await snapshot(page,`minute-form-${theme}-${width}.png`);
+    await page.locator('#serviceOffersDialog').evaluate(dialog=>{dialog.scrollTop=dialog.scrollHeight;});
+    assert.equal(await page.locator('.service-offers-preview').evaluate(preview=>{const r=preview.getBoundingClientRect(),footer=document.querySelector('.service-offers-footer').getBoundingClientRect();return r.top>=0&&r.bottom<=footer.top;}),true);
+    await snapshot(page,`minute-preview-${theme}-${width}.png`);
+    await page.locator('#serviceOfferForm [type=submit]').click();await page.locator('#serviceOfferForm').waitFor({state:'hidden'});
+    const minuteId=await page.evaluate(id=>window.rows.find(row=>row.addon_service_id===id).id,ids[2]);
+    await page.locator('[data-reload-service-offers]').click();await page.locator(`[data-edit-service-offer="${minuteId}"]`).click();
+    assert.equal(await page.locator('[name=addonPrice]').inputValue(),'600');assert.equal(await page.locator('[name=minutes]').inputValue(),'0');
+    await page.locator('[name=addonPrice]').fill('0');await page.locator('[name=discount]').selectOption('none');
+    assert.match(await page.locator('#serviceOfferPreview').innerText(),/0 ₽/);
+    await page.locator('#serviceOfferForm [type=submit]').click();await page.locator('#serviceOfferForm').waitFor({state:'hidden'});
+    await page.evaluate(()=>{window.catalog[2].active=false;window.offers.setServices();});
+    await page.locator(`[data-edit-service-offer="${minuteId}"]`).click();await page.locator('[name=enabled]').uncheck();
+    await page.locator('#serviceOfferForm [type=submit]').click();await page.locator('#serviceOfferForm').waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(id=>window.rows.find(row=>row.id===id).addon_price_rub,minuteId),0,'Archived disable preserves explicit zero price');
+    assert.equal(await page.evaluate(()=>window.catalog[2].price_rub),20);assert.equal(await page.evaluate(()=>window.catalog[2].duration_minutes),1);
     assert.deepEqual(errors,[]); await page.close(); ++runs;
   }
   const page = await browser.newPage({ viewport:{width:390,height:844} }); await setup(page); await start(page);
@@ -108,5 +149,20 @@ try {
   assert.equal(await savingPage.evaluate(() => window.messages.length),0,'Stale save cannot notify new account');
   assert.equal(await savingPage.locator('#serviceOffersDialog').isVisible(),false);
   await savingPage.close();
+  const pricePage=await browser.newPage({viewport:{width:390,height:844}});await setup(pricePage);
+  await pricePage.evaluate(ids=>{window.rows=[{id:'dddddddd-dddd-dddd-dddd-dddddddddddd',primary_service_ids:[ids[0]],addon_service_id:ids[1],benefit_text:'Старое предложение',discount_kind:'none',discount_value:0,additional_minutes:15,enabled:false,revision:1,priority:50}];},ids);
+  await start(pricePage);await pricePage.locator('[data-edit-service-offer]').click();
+  assert.equal(await pricePage.locator('[data-addon-price]').isVisible(),false,'Legacy fixed row without field loads and edits');
+  await pricePage.evaluate(()=>{window.catalog[1].price_rub=1000001;window.offers.setServices();});
+  assert.match((await pricePage.locator('#serviceOfferPreview').innerText()).replace(/\s/g,''),/1000001₽/,'Override bound does not change fixed catalog prices');
+  await pricePage.locator('[data-cancel-service-offer]').click();await fillMinute(pricePage);
+  await pricePage.locator('[name=addonPrice]').fill('600');await pricePage.locator('[name=minutes]').fill('0');
+  for(const mode of ['droppedPrice','changedPrice']){
+    await pricePage.evaluate(mode=>{window.mode=mode;},mode);await pricePage.locator('#serviceOfferForm [type=submit]').click();
+    await pricePage.locator('.service-offers-form-error').waitFor({state:'visible'});
+    assert.equal(await pricePage.locator('#serviceOfferForm').isVisible(),true,'Unconfirmed addon price cannot look saved');
+    assert.equal(await pricePage.evaluate(()=>window.messages.length),0);
+  }
+  await pricePage.close();
 } finally { await browser.close(); }
-console.log(`Pro service-offers browser: ${runs} theme/width states + authenticated save/reload/disable, missing backend, denial, conflict, partial ACK, stale load/save, write gate, duplicate submit PASS`);
+console.log(`Pro service-offers browser: ${runs} theme/width states fixed + per-minute addon; explicit price/zero/load/edit/archived-disable/catalog intact/price ACK, missing backend, denial, conflict, stale session, duplicate submit PASS`);

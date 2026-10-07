@@ -7,6 +7,7 @@ on:
       - .github/workflows/addon-offers-isolated.yml
       - supabase/migrations/20261007095040_service_booking_offers.sql
       - supabase/migrations/20261007104000_service_offer_resource_lifecycle.sql
+      - supabase/migrations/20261007170217_service_offer_minute_pricing.sql
       - minuta-online-booking/service-booking-offers-disable.sql
       - minuta-online-booking/tests/addon-offers-sql-*
       - minuta-online-booking/provider-service-offers.*

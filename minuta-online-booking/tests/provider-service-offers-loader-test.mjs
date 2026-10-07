@@ -17,7 +17,8 @@ assert.ok(updates.includes(`sw.js?v=${cacheVersion}`));
 const loader = source.match(/\$\('#openServiceOffers'\)\.addEventListener\('click', async event => \{[\s\S]*?\n\}\);/)?.[0];
 assert.ok(loader);
 assert.match(html, /id="openServiceOffers"/);
-assert.match(html, /<template data-provider-feature="service-offers">[\s\S]*?provider-service-offers\.js\?v=1[\s\S]*?<\/template>/);
+assert.match(html, /<template data-provider-feature="service-offers">[\s\S]*?provider-service-offers\.js\?v=2[\s\S]*?<\/template>/);
+for (const extension of ['css', 'js']) assert.ok(worker.includes(`provider-service-offers.${extension}?v=2`));
 assert.doesNotMatch(worker.match(/const ASSETS = \[([\s\S]*?)\];/)[1], /provider-service-offers/);
 assert.match(worker.match(/const OPTIONAL_ASSETS = \[([\s\S]*?)\];/)[1], /provider-service-offers/);
 function fixture() {

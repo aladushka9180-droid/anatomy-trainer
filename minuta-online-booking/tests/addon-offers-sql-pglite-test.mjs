@@ -18,7 +18,8 @@ else {
 const root = new URL('../',import.meta.url);
 const migration = await readFile(new URL('../supabase/migrations/20261007095040_service_booking_offers.sql',root),'utf8');
 const lifecycle = await readFile(new URL('../supabase/migrations/20261007104000_service_offer_resource_lifecycle.sql',root),'utf8');
-const applyBundle=async()=>{await db.exec(migration);await db.exec(lifecycle);};
+const minutePricing = await readFile(new URL('../supabase/migrations/20261007170217_service_offer_minute_pricing.sql',root),'utf8');
+const applyBundle=async()=>{await db.exec(migration);await db.exec(lifecycle);await db.exec(minutePricing);};
 const fixture = await readFile(new URL('addon-offers-sql-fixture.sql',import.meta.url),'utf8');
 const owner='10000000-0000-0000-0000-000000000001',other='10000000-0000-0000-0000-000000000002',loc='30000000-0000-0000-0000-000000000001';
 const primary='40000000-0000-0000-0000-000000000001',addon='40000000-0000-0000-0000-000000000002',minute='40000000-0000-0000-0000-000000000003',foreign='40000000-0000-0000-0000-000000000004';
@@ -147,6 +148,103 @@ try {
   await db.query('delete from public.booking_session_revisions where booking_id in(select id from public.bookings where request_id=$1)',[normal]);
   await db.query('delete from public.bookings where request_id=$1',[normal]);
  });
- console.log(JSON.stringify({layer:`isolated synthetic ${native?'native PostgreSQL including 3 multi-connection races':'PGlite serial only'}; not full-schema restore`,migrationSha256:createHash('sha256').update(migration).digest('hex'),lifecycleSha256:createHash('sha256').update(lifecycle).digest('hex'),passed:tests.filter(t=>t.status==='PASS').length,total:tests.length,tests,findings},null,2));
+ // Per-minute catalog rates remain ordinary rates. Only this optional addition
+ // gets a separately agreed whole price and independent incremental duration.
+ const publicOffers=()=>scalar('select public.get_public_minuta_service_offers($1,$2,$3)',['synthetic-offers',loc,primary]);
+ const minuteDraft={...offer,addon_service_id:minute,addon_price_rub:601,additional_minutes:0};
+ let minuteSaved,minuteReceipt;
+ const minuteRequest='70000000-0000-0000-0000-000000000010';
+ const minuteBook=(req=minuteRequest,time='09:00',price=2526,duration=60,row=minuteSaved)=>scalar(
+  "select public.book_minuta_service_offers($1,'synthetic-offers',$2,$3,$8::date,$4,'Тестовый клиент','79990001122',$5,$6,'',$7::jsonb)",
+  [req,loc,primary,time,price,duration,JSON.stringify([{id:row.id,revision:row.revision}]),fixtureDate]);
+ await check('minute extension preserves legacy row and function identities',async()=>{
+  assert.equal(await scalar('select addon_price_rub from public.service_booking_offers where id=$1',[saved.id]),null);
+  const identities=await db.query("select oid::text,proacl::text from pg_proc where oid in('public.save_minuta_service_offer(uuid,jsonb)'::regprocedure,'public.get_public_minuta_service_offers(text,uuid,uuid)'::regprocedure) order by oid");
+  await db.exec(minutePricing);
+  assert.deepEqual((await db.query("select oid::text,proacl::text from pg_proc where oid in('public.save_minuta_service_offer(uuid,jsonb)'::regprocedure,'public.get_public_minuta_service_offers(text,uuid,uuid)'::regprocedure) order by oid")).rows,identities.rows);
+ });
+ await db.exec(`select set_config('request.jwt.claim.sub','${owner}',false);set role authenticated;`);
+ await check('minute addon requires explicit bounded integer whole price',async()=>{
+  for(const value of [undefined,null,'601',-1,1.5,1000001]){
+   await reject('select public.save_minuta_service_offer($1,$2::jsonb)',[owner,JSON.stringify({...minuteDraft,addon_price_rub:value})],/fixed_price_required|fixed_price_invalid/);
+  }
+ });
+ await check('fixed catalog addon rejects a separate price override',()=>reject('select public.save_minuta_service_offer($1,$2::jsonb)',[owner,JSON.stringify({...offer,addon_service_id:'40000000-0000-0000-0000-000000000005',addon_price_rub:200})],/fixed_price_not_applicable/));
+ await check('minute ruble discount is bounded by configured price',()=>reject('select public.save_minuta_service_offer($1,$2::jsonb)',[owner,JSON.stringify({...minuteDraft,discount_kind:'rubles',discount_value:602})],/invalid/));
+ await check('minute price saves and public percent discount rounds whole rubles',async()=>{
+  minuteSaved=(await save(minuteDraft)).offer;
+  assert.equal(minuteSaved.addon_price_rub,601);
+  const quoted=(await publicOffers()).offers.find(row=>row.id===minuteSaved.id);
+  assert.equal(quoted.original_price_rub,601);assert.equal(quoted.price_rub,526);assert.equal(quoted.additional_minutes,0);
+ });
+ await db.exec('reset role;');
+ await db.query('insert into public.service_resource_requirements(organization_id,service_id,group_id,quantity,active) values($1,$2,$3,1,true)',['20000000-0000-0000-0000-000000000001',minute,'50000000-0000-0000-0000-000000000002']);
+ await db.exec('set role anon;');
+ await check('zero extra minutes still charge the fixed discounted addon',async()=>{
+  minuteReceipt=await minuteBook();assert.equal(minuteReceipt.total_price_rub,2526);assert.equal(minuteReceipt.duration_minutes,60);
+ });
+ await db.exec('reset role;');
+ await check('minute booking persists zero-time item and reserves both resources',async()=>{
+  assert.deepEqual((await db.query("select i.price_rub,i.duration_minutes from public.booking_session_items i join public.bookings b on b.id=i.booking_id where b.request_id=$1 and i.item_kind='addon'",[minuteRequest])).rows,[{price_rub:526,duration_minutes:0}]);
+  assert.equal(await scalar("select count(*)::integer from public.booking_resource_allocations a join public.bookings b on b.id=a.booking_id where b.request_id=$1 and a.ends_at-a.starts_at=interval '60 minutes'",[minuteRequest]),2);
+  assert.deepEqual((await db.query('select duration_minutes,price_rub from public.services where id=$1',[minute])).rows,[{duration_minutes:1,price_rub:20}]);
+ });
+ await db.exec('set role authenticated;');
+ const previousMinute=minuteSaved;
+ await check('minute addon changes require the current revision',async()=>{
+  minuteSaved=(await save({...minuteSaved,additional_minutes:15,discount_kind:'rubles',discount_value:100})).offer;
+  assert.equal(minuteSaved.revision,previousMinute.revision+1);assert.equal((await publicOffers()).offers[0].price_rub,501);
+  await reject('select public.save_minuta_service_offer($1,$2::jsonb)',[owner,JSON.stringify(previousMinute)],/revision_conflict/);
+ });
+ await db.exec('reset role;set role anon;');
+ await check('accepted minute receipt remains immutable after offer edits',async()=>{
+  const replay=await minuteBook(minuteRequest,'09:00',2526,60,previousMinute);
+  assert.equal(replay.idempotent,true);assert.equal(replay.manage_token,minuteReceipt.manage_token);assert.equal(replay.total_price_rub,2526);assert.equal(replay.duration_minutes,60);
+  await assert.rejects(()=>minuteBook('70000000-0000-0000-0000-000000000011','11:00',2526,60,previousMinute),/terms_changed/);
+ });
+ await check('positive extra minutes never multiply the configured price',async()=>{
+  const bookedMinute=await minuteBook('70000000-0000-0000-0000-000000000012','11:00',2501,75);
+  assert.equal(bookedMinute.total_price_rub,2501);assert.equal(bookedMinute.duration_minutes,75);
+ });
+ await db.exec('reset role;set role authenticated;');
+ await check('zero configured price is explicit and valid',async()=>{
+  minuteSaved=(await save({...minuteSaved,addon_price_rub:0,discount_kind:'none',discount_value:0})).offer;
+  assert.equal(minuteSaved.addon_price_rub,0);assert.equal((await publicOffers()).offers[0].price_rub,0);
+ });
+ await db.exec('reset role;');
+ await check('catalog pricing-mode changes hide stale offers until reviewed',async()=>{
+  try {
+   await db.query('update public.services set duration_minutes=30 where id=$1',[minute]);
+   assert.equal((await publicOffers()).offers.length,0);
+   await db.query('update public.services set duration_minutes=1 where id=$1',[minute]);
+   await db.query('update public.services set duration_minutes=1 where id=$1',[primary]);
+   assert.equal((await publicOffers()).offers.length,0);
+  } finally {await db.query('update public.services set duration_minutes=1 where id=$1',[minute]);await db.query('update public.services set duration_minutes=60 where id=$1',[primary]);}
+ });
+ await db.query('update public.services set active=false where id=$1',[minute]);
+ await db.exec('set role authenticated;');
+ await check('archived minute addon disables without erasing its agreed price',async()=>{
+  const disabled=(await save({...minuteSaved,enabled:false,addon_price_rub:999})).offer;
+  assert.equal(disabled.addon_price_rub,0);assert.equal(disabled.enabled,false);
+ });
+ await db.exec('reset role;');
+ await check('minute migration rejects ACL drift and rolls back atomically',async()=>{
+  await db.exec('grant execute on function public.save_minuta_service_offer(uuid,jsonb) to anon');
+  await assert.rejects(()=>db.exec(minutePricing),/privilege_drift/);
+  await db.exec('rollback;revoke execute on function public.save_minuta_service_offer(uuid,jsonb) from anon;');
+ });
+ await check('minute migration rejects source drift without overwriting it',async()=>{
+  const definition=await scalar("select pg_get_functiondef('public.get_public_minuta_service_offers(text,uuid,uuid)'::regprocedure)");
+  await db.exec("create or replace function public.get_public_minuta_service_offers(p_slug text,p_location uuid,p_service uuid) returns jsonb language plpgsql stable security definer set search_path='' as $$begin return '{}'::jsonb;end$$;");
+  await assert.rejects(()=>db.exec(minutePricing),/source_drift/);await db.exec('rollback;');await db.exec(definition);
+ });
+ await check('disable and reapply preserve minute receipts and saved terms',async()=>{
+  await db.exec(disable);await applyBundle();
+  assert.equal(await scalar('select addon_price_rub from public.service_booking_offers where id=$1',[minuteSaved.id]),0);
+  await db.exec('set role anon;');
+  const replay=await minuteBook(minuteRequest,'09:00',2526,60,previousMinute);
+  assert.equal(replay.idempotent,true);assert.equal(replay.manage_token,minuteReceipt.manage_token);assert.equal(replay.total_price_rub,2526);
+ });
+ console.log(JSON.stringify({layer:`isolated synthetic ${native?'native PostgreSQL including 3 multi-connection races':'PGlite serial only'}; not full-schema restore`,migrationSha256:createHash('sha256').update(migration).digest('hex'),lifecycleSha256:createHash('sha256').update(lifecycle).digest('hex'),minutePricingSha256:createHash('sha256').update(minutePricing).digest('hex'),passed:tests.filter(t=>t.status==='PASS').length,total:tests.length,tests,findings},null,2));
  if(tests.some(t=>t.status==='FAIL'))process.exitCode=1;
 } finally { await db.close(); }
