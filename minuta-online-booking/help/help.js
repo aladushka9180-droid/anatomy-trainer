@@ -40,11 +40,10 @@
   function renderSections() {
     if (!sectionGrid) return;
     sectionGrid.replaceChildren();
-    const visibleCategories = categories.filter(category => category.audience === audience);
+    const visibleCategories = categories.filter(category => category.audience === audience && category.slug !== 'getting-started');
     const groups = audience === 'client' ? [
       ['Запись и уведомления', visibleCategories.map(category => category.slug)]
     ] : [
-      ['Начало работы', ['getting-started']],
       ['Ежедневная работа', ['bookings', 'schedule', 'services', 'clients']],
       ['Управление бизнесом', ['team', 'finance', 'inventory', 'analytics']],
       ['Продвижение и возвращение клиентов', ['loyalty', 'portfolio', 'notifications']],

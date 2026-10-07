@@ -2316,23 +2316,47 @@
           "width": 1148,
           "height": 900,
           "minWidth": 901,
-          "sha256": "84949d11a15106e5fd47e149081aa09d576a18bdc19d1a7d345deed722af7f35"
+          "sha256": "84949d11a15106e5fd47e149081aa09d576a18bdc19d1a7d345deed722af7f35",
+          "detail": {
+            "x": 195,
+            "y": 94,
+            "width": 617,
+            "height": 108
+          }
         },
         {
           "src": "images/native-local/statistics-overview-filter-760.webp",
           "width": 721,
           "height": 900,
           "minWidth": 431,
-          "sha256": "8da1d4afa034255e28cbe8c1383a1686ba3b1177ad280380d4e867fe480956d4"
+          "sha256": "8da1d4afa034255e28cbe8c1383a1686ba3b1177ad280380d4e867fe480956d4",
+          "detail": {
+            "x": 0,
+            "y": 90,
+            "width": 721,
+            "height": 359
+          }
         },
         {
           "src": "images/native-local/statistics-overview-filter-390.webp",
           "width": 351,
           "height": 900,
           "minWidth": 0,
-          "sha256": "6871d4f74c2c2c925354a93dab82cc67c44b3673b2af3d9374b9f0cd7246049e"
+          "sha256": "6871d4f74c2c2c925354a93dab82cc67c44b3673b2af3d9374b9f0cd7246049e",
+          "detail": {
+            "x": 0,
+            "y": 72,
+            "width": 351,
+            "height": 379
+          }
         }
-      ]
+      ],
+      "detail": {
+        "x": 195,
+        "y": 94,
+        "width": 617,
+        "height": 108
+      }
     }
   ],
   "add-portfolio-work": [
@@ -2423,7 +2447,7 @@
       "caption": "Редактор обычной рабочей недели. Учебные данные.",
       "width": 922,
       "height": 536,
-      "step": 1,
+      "step": 2,
       "environment": "isolated-local-native-fixture",
       "coverageExact": true,
       "domModified": false,
@@ -2436,23 +2460,47 @@
           "width": 922,
           "height": 536,
           "minWidth": 901,
-          "sha256": "15d2e31ce71edfb06e3cd86b05f345b5fd9ee42db8bbd3741a6e336fe1557d2b"
+          "sha256": "15d2e31ce71edfb06e3cd86b05f345b5fd9ee42db8bbd3741a6e336fe1557d2b",
+          "detail": {
+            "x": 0,
+            "y": 58,
+            "width": 350,
+            "height": 95
+          }
         },
         {
           "src": "images/native-local/work-hours-760.webp",
           "width": 683,
           "height": 604,
           "minWidth": 431,
-          "sha256": "6d603aa3b85f298c5898f7eb9ecf34cda906818b2f562656210449abbc9c7015"
+          "sha256": "6d603aa3b85f298c5898f7eb9ecf34cda906818b2f562656210449abbc9c7015",
+          "detail": {
+            "x": 0,
+            "y": 58,
+            "width": 683,
+            "height": 120
+          }
         },
         {
           "src": "images/native-local/work-hours-390.webp",
           "width": 313,
           "height": 621,
           "minWidth": 0,
-          "sha256": "4535320b97190bc72b0d72e48ad1014721ae49dcb311fabf543d4eb27ad6cf63"
+          "sha256": "4535320b97190bc72b0d72e48ad1014721ae49dcb311fabf543d4eb27ad6cf63",
+          "detail": {
+            "x": 0,
+            "y": 58,
+            "width": 313,
+            "height": 120
+          }
         }
-      ]
+      ],
+      "detail": {
+        "x": 0,
+        "y": 58,
+        "width": 350,
+        "height": 95
+      }
     }
   ],
   "add-service": [
@@ -2826,23 +2874,47 @@
           "width": 1086,
           "height": 137,
           "minWidth": 901,
-          "sha256": "98ee5a7cb6d7a1f51a1fd09a4bab1f965f2d539c1119c6029f10e0478a497022"
+          "sha256": "98ee5a7cb6d7a1f51a1fd09a4bab1f965f2d539c1119c6029f10e0478a497022",
+          "detail": {
+            "x": 276,
+            "y": 23,
+            "width": 490,
+            "height": 77
+          }
         },
         {
           "src": "images/native-local/team-calendar-760.webp",
           "width": 721,
           "height": 354,
           "minWidth": 431,
-          "sha256": "6b53283027d6c0a8203e40c484b4ff1b06a5a732f6f44caba61655925d7b2eab"
+          "sha256": "6b53283027d6c0a8203e40c484b4ff1b06a5a732f6f44caba61655925d7b2eab",
+          "detail": {
+            "x": 10,
+            "y": 86,
+            "width": 700,
+            "height": 168
+          }
         },
         {
           "src": "images/native-local/team-calendar-390.webp",
           "width": 351,
           "height": 446,
           "minWidth": 0,
-          "sha256": "f0930d859c3cc9d9fd8859de8f6c21eb1bdad182ed0942f1085de507616864a1"
+          "sha256": "f0930d859c3cc9d9fd8859de8f6c21eb1bdad182ed0942f1085de507616864a1",
+          "detail": {
+            "x": 10,
+            "y": 86,
+            "width": 331,
+            "height": 260
+          }
         }
-      ]
+      ],
+      "detail": {
+        "x": 276,
+        "y": 23,
+        "width": 490,
+        "height": 77
+      }
     }
   ]
 }

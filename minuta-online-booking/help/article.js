@@ -61,6 +61,7 @@
     if (!visual?.src || !destination) return;
     const figure = document.createElement('figure');
     figure.className = 'article-visual';
+    if (visual.detail) figure.dataset.detail = 'true';
     if (visual.kind) figure.dataset.kind = visual.kind;
     if (visual.width > visual.height * 4) figure.dataset.zoom = 'below';
     const button = document.createElement('button');
@@ -86,16 +87,36 @@
       picture.append(image);
       imageElement = picture;
     }
+    if (visual.detail) {
+      const detail = document.createElement('div');
+      detail.className = 'article-image-detail';
+      function fitDetail() {
+        const selected = visual.variants?.find(variant => new URL(variant.src, document.baseURI).href === image.currentSrc)
+          || visual.variants?.find(variant => window.matchMedia(`(min-width: ${variant.minWidth}px)`).matches)
+          || visual;
+        const crop = selected.detail || visual.detail;
+        detail.style.aspectRatio = `${crop.width} / ${crop.height}`;
+        detail.style.setProperty('--detail-width', `${selected.width / crop.width * 100}%`);
+        detail.style.setProperty('--detail-left', `${-crop.x / crop.width * 100}%`);
+        detail.style.setProperty('--detail-top', `${-crop.y / crop.height * 100}%`);
+        button.style.width = `${crop.width}px`;
+      }
+      image.addEventListener('load', fitDetail);
+      fitDetail();
+      detail.append(imageElement);
+      imageElement = detail;
+      image.alt = `Фрагмент: ${visual.alt}`;
+    }
     const zoom = document.createElement('span');
     const zoomIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     zoomIcon.setAttribute('aria-hidden', 'true');
     const zoomUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
     zoomUse.setAttribute('href', '../ui-icons.svg#icon-search');
     zoomIcon.append(zoomUse);
-    zoom.append(zoomIcon, document.createTextNode('Увеличить'));
+    zoom.append(zoomIcon, document.createTextNode(visual.detail ? 'Полный снимок' : 'Увеличить'));
     button.append(imageElement, zoom);
     const caption = document.createElement('figcaption');
-    caption.textContent = visual.caption;
+    caption.textContent = visual.detail ? `Фрагмент экрана. ${visual.caption}` : visual.caption;
     figure.append(button, caption);
     destination.append(figure);
     button.addEventListener('click', () => {
@@ -105,7 +126,7 @@
       }
       fullImage.src = image.currentSrc || visual.src;
       fullImage.alt = visual.alt;
-      setText('#visualDialogTitle', visual.kind === 'diagram' ? 'Схема к инструкции' : 'Экран к инструкции');
+      setText('#visualDialogTitle', visual.detail ? 'Полный снимок экрана' : visual.kind === 'diagram' ? 'Схема к инструкции' : 'Экран к инструкции');
       dialog.showModal();
     });
   }
