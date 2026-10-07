@@ -61,8 +61,10 @@ try {
     await page.setViewportSize({ width, height:900 });
     await page.goto(`${base}index.html?audience=specialist`);
     await page.locator('.quick-start-card').first().waitFor();
-    verify(await page.locator('.help-topic-group').count() === 5, `${width}: все пять групп тем`);
-    verify(await page.locator('.section-card').count() === 14, `${width}: все разделы специалиста`);
+    verify(await page.locator('.help-topic-group').count() === 4, `${width}: четыре группы без повторного быстрого старта`);
+    verify(await page.locator('.section-card').count() === 13, `${width}: остальные разделы специалиста доступны`);
+    verify(await page.locator('#quickStartGuides a[href*="slug=first-booking"]').count() === 1
+      && await page.locator('#sectionGrid a[href*="slug=first-booking"]').count() === 0, `${width}: первая запись доступна в одном стартовом блоке`);
     verify(await page.locator('.quick-start-card').count() === 4, `${width}: быстрый старт`);
     verify(await page.evaluate(() => {
       const quick = new Set([...document.querySelectorAll('#quickStartGuides a')].map(link => new URL(link.href).searchParams.get('slug')));
@@ -228,7 +230,7 @@ try {
       verify(appearance.background === 'rgb(255, 247, 250)', `${width}/${article.slug}: нежно-розовое оформление статьи`);
       verify(!appearance.overflow, `${width}/${article.slug}: статья без переполнения`);
       const visualFooters = await page.locator('.article-visual > button').evaluateAll(buttons => buttons.every(button => {
-        const image = button.querySelector('img');
+        const image = button.querySelector('.article-image-detail') || button.querySelector('img');
         const caption = button.querySelector(':scope > span');
         return !image || (caption && caption.getBoundingClientRect().top >= image.getBoundingClientRect().bottom - 1);
       }));
@@ -237,6 +239,29 @@ try {
       if (screenshotRoot && article.slug === 'find-and-filter-bookings') await capturePage(`bookings-${width}.png`);
       if (screenshotRoot && ['book-online', 'reschedule'].includes(article.slug)) await capturePage(`client-article-${article.slug}-${width}.png`);
       if (screenshotRoot && article.updatedAt === '6 октября 2026') await capturePage(`revised-${article.slug}-${width}.png`);
+    }
+    for (const [slug, source] of [['set-regular-workweek','work-hours-'], ['statistics-overview','statistics-overview-filter-'], ['view-team-calendar','team-calendar-']]) {
+      await page.goto(`${base}article.html?slug=${slug}`);
+      const figure = page.locator(`.article-visual:has(img[src*="${source}"])`);
+      await figure.scrollIntoViewIfNeeded();
+      const photo = figure.locator('img');
+      await photo.evaluate(image => image.decode());
+      const original = await photo.evaluate(image => ({src:image.currentSrc, width:image.naturalWidth, height:image.naturalHeight}));
+      verify(await figure.locator('.article-image-detail').count() === 1 && await figure.locator('button > span').innerText() === 'Полный снимок', `${width}/${slug}: фрагмент обозначен и доступен полный снимок`);
+      verify(await figure.evaluate(element => {
+        const frame = element.querySelector('.article-image-detail').getBoundingClientRect();
+        const image = element.querySelector('img').getBoundingClientRect();
+        return frame.width > 0 && frame.height > 0 && frame.left >= image.left - 1 && frame.right <= image.right + 1 && frame.top >= image.top - 1 && frame.bottom <= image.bottom + 1;
+      }), `${width}/${slug}: фрагмент находится внутри настоящего кадра`);
+      verify(await photo.evaluate(image => image.getBoundingClientRect().width <= image.naturalWidth + 1), `${width}/${slug}: фрагмент не растягивает исходные пиксели`);
+      await figure.locator('button').click();
+      await page.waitForFunction(expected => {
+        const image = document.querySelector('#articleVisualFull');
+        return image.complete && image.currentSrc === expected.src && image.naturalWidth === expected.width && image.naturalHeight === expected.height;
+      }, original);
+      verify(await page.locator('#visualDialogTitle').innerText() === 'Полный снимок экрана', `${width}/${slug}: увеличение показывает исходный кадр целиком`);
+      await page.keyboard.press('Escape');
+      verify(await figure.locator('button').evaluate(button => document.activeElement === button), `${width}/${slug}: закрытие полного кадра возвращает фокус`);
     }
     await page.goto(`${base}article.html?slug=book-online`);
     const nativePhoto = page.locator('.article-visual[data-kind="screenshot"] img').first();
@@ -263,7 +288,7 @@ try {
     await teamPhoto.evaluate(image => image.decode());
     const displayedTeamPhoto = await teamPhoto.evaluate(image => image.currentSrc);
     verify(displayedTeamPhoto.endsWith(`team-calendar-${width}.webp`), `${width}: фильтры команды показаны отдельным адаптивным снимком`);
-    const teamImageBox = await teamPhoto.boundingBox();
+    const teamImageBox = await page.locator('.article-visual:has(img[src*="team-calendar-"]) .article-image-detail').boundingBox();
     const teamZoomBox = await page.locator('.article-visual:has(img[src*="team-calendar-"]) button > span').boundingBox();
     verify(teamZoomBox.y >= teamImageBox.y + teamImageBox.height - 1, `${width}: кнопка увеличения не перекрывает фильтры на узком снимке`);
     await page.locator('.article-visual[data-kind="screenshot"]:has(img[src*="team-calendar-"]) button').click();
@@ -284,6 +309,26 @@ try {
     await page.getByRole('button', { name:'Назад в Eldion Pro', exact:true }).click();
     verify(await page.locator('#draft').inputValue() === 'Локальный черновик', `${width}: возврат сохраняет состояние кабинета`);
   }
+  await page.goto(`${base}article.html?slug=set-regular-workweek`);
+  for (const width of [390, 760, 1440]) {
+    await page.setViewportSize({ width, height:900 });
+    const figure = page.locator('.article-visual:has(img[src*="work-hours-"])');
+    await figure.scrollIntoViewIfNeeded();
+    await page.waitForFunction(expected => {
+      const image = document.querySelector('.article-visual img[src*="work-hours-"]');
+      return image.complete && image.currentSrc.endsWith(`work-hours-${expected}.webp`);
+    }, width);
+    verify(await figure.evaluate(element => {
+      const image = element.querySelector('img'), frame = element.querySelector('.article-image-detail');
+      const guide = window.MINUTA_HELP_ARTICLES.find(article => article.slug === 'set-regular-workweek');
+      const visual = guide.visuals.find(image => image.detail), variant = visual.variants.find(variant => new URL(variant.src, document.baseURI).href === image.currentSrc);
+      const box = frame.getBoundingClientRect(), imageBox = image.getBoundingClientRect(), scale = imageBox.width / image.naturalWidth;
+      return Math.abs((box.left - imageBox.left) / scale - variant.detail.x) < 1
+        && Math.abs((box.top - imageBox.top) / scale - variant.detail.y) < 1
+        && Math.abs(box.width / box.height - variant.detail.width / variant.detail.height) < .01;
+    }), `${width}: изменение ширины сохраняет правильный фрагмент адаптивного снимка`);
+  }
+  verify(await page.locator('#step-2 .article-image-detail').count() === 1, 'Шаблон недели показан рядом с шагом выбора шаблона');
   await page.goto(`${base}category.html?category=services`);
   verify(await page.locator('#categoryList a').count() >= 5, 'Услуги: создание, изменение, скрытие/удаление, прайс и виджет');
   await page.goto(`${base}article.html?slug=does-not-exist`);
