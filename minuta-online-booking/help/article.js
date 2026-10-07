@@ -166,22 +166,49 @@
 
   const steps = document.querySelector('#articleSteps');
   article.steps.forEach((step, index) => {
+    if (step.alternative && !steps.querySelector('.article-choice-intro')) {
+      const prompt = document.createElement('div');
+      prompt.className = 'article-choice-intro';
+      const heading = document.createElement('h2');
+      heading.textContent = 'Что хотите сделать?';
+      const text = document.createElement('p');
+      text.textContent = article.chooseAction;
+      prompt.append(heading, text);
+      steps.append(prompt);
+    }
     const tocLink = document.createElement('a');
     tocLink.href = `#step-${index + 1}`;
-    tocLink.textContent = `${index + 1}. ${step.title}`;
+    tocLink.textContent = step.alternative ? step.title : `${index + 1}. ${step.title}`;
     document.querySelector('#articleToc nav')?.append(tocLink);
-    const section = document.createElement('section');
-    section.className = 'article-step';
+    const section = document.createElement(step.alternative ? 'details' : 'section');
+    section.className = step.alternative ? 'article-step article-action-choice' : 'article-step';
     section.id = `step-${index + 1}`;
     const number = document.createElement('span');
     number.className = 'article-step-number';
-    number.textContent = String(index + 1);
+    number.textContent = step.alternative ? '' : String(index + 1);
+    if (step.alternative) number.setAttribute('aria-hidden', 'true');
     const content = document.createElement('div');
     const title = document.createElement('h2');
     title.textContent = step.title;
     const body = document.createElement('p');
     body.textContent = step.text;
-    content.append(title, body);
+    if (step.alternative) {
+      section.setAttribute('name', 'booking-action');
+      const summary = document.createElement('summary');
+      summary.append(number, title);
+      section.append(summary);
+      content.className = 'article-choice-content';
+      content.append(body);
+      tocLink.addEventListener('click', () => {
+        section.open = true;
+        requestAnimationFrame(() => section.scrollIntoView({ block:'start' }));
+      });
+      section.addEventListener('toggle', () => {
+        if (section.open) steps.querySelectorAll('.article-action-choice').forEach(other => {
+          if (other !== section) other.open = false;
+        });
+      });
+    } else content.append(title, body);
     if (step.href && step.action) {
       const action = document.createElement('a');
       action.className = 'article-action';
@@ -196,9 +223,35 @@
       content.append(action);
     }
     visuals.filter(visual => visual.step === index + 1).forEach(visual => renderVisual(visual, content));
-    section.append(number, content);
+    if (step.explanation) {
+      const detail = document.createElement('details');
+      detail.className = 'article-step-explanation';
+      const summary = document.createElement('summary');
+      summary.textContent = step.explanation.title;
+      detail.append(summary);
+      step.explanation.paragraphs.forEach(text => {
+        const paragraph = document.createElement('p');
+        paragraph.textContent = text;
+        detail.append(paragraph);
+      });
+      content.append(detail);
+    }
+    if (step.alternative) section.append(content);
+    else section.append(number, content);
     steps.append(section);
   });
+  if (article.chooseAction) {
+    document.querySelector('#articleToc summary').textContent = 'Открыть запись и выбрать действие';
+    const openAnchoredChoice = () => {
+      const target = document.getElementById(location.hash.slice(1));
+      if (target?.classList.contains('article-action-choice')) {
+        target.open = true;
+        requestAnimationFrame(() => target.scrollIntoView({ block:'start' }));
+      }
+    };
+    window.addEventListener('hashchange', openAnchoredChoice);
+    openAnchoredChoice();
+  }
 
   const note = document.querySelector('#articleNote p');
   if (note) note.textContent = article.note;

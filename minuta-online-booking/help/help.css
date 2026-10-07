@@ -325,3 +325,25 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   .article-step .article-visual { margin-left: 0; width: 100%; }
   .article-visual figcaption { margin-top: 8px; }
 }
+
+.article-choice-intro { margin: 24px 0 12px; }
+.article-choice-intro h2 { margin: 0 0 8px; font-size: 1.25rem; line-height: 1.4; }
+.article-choice-intro p { margin: 0; color: var(--muted); line-height: 1.6; }
+.article-action-choice.article-step { display: block; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.article-action-choice + .article-action-choice { margin-top: 10px; }
+.article-action-choice > summary { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 60px; padding: 14px 16px; cursor: pointer; list-style: none; }
+.article-action-choice > summary::-webkit-details-marker { display: none; }
+.article-action-choice > summary h2 { display: block; min-height: 0; padding: 0; margin: 0; font-size: 1.125rem; line-height: 1.4; }
+.article-action-choice > summary .article-step-number { position: static; width: 28px; height: 28px; border-radius: 8px; font-size: 1.25rem; font-weight: 500; }
+.article-action-choice > summary .article-step-number::before { content: '+'; }
+.article-action-choice[open] > summary .article-step-number::before { content: '−'; }
+.article-action-choice[open] > summary { border-bottom: 1px solid var(--line); }
+.article-action-choice > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 13px; }
+.article-choice-content { padding: 16px; }
+.article-choice-content > p { margin: 0; line-height: 1.6; }
+.article-choice-content .article-visual { margin-top: 16px; }
+.article-step-explanation { margin-top: 16px; border-top: 1px solid var(--line); }
+.article-step-explanation summary { min-height: 44px; padding: 12px 0; cursor: pointer; color: var(--accent-strong); font-weight: 650; line-height: 1.45; }
+.article-step-explanation p { margin: 0 0 12px; color: var(--muted); line-height: 1.6; }
+.article-step-explanation p:last-child { margin-bottom: 0; }
+.article-step-explanation summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
