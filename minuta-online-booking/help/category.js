@@ -58,24 +58,65 @@
   try { sessionStorage.setItem('minuta-help-audience', category.audience); } catch { /* Navigation still works. */ }
 
   const list = document.querySelector('#categoryList');
-  categoryArticles.forEach((article, index) => {
-    const link = document.createElement('a');
-    link.href = navigate(`article.html?slug=${encodeURIComponent(article.slug)}`);
-    const number = document.createElement('span');
-    number.className = 'category-article-number';
-    number.textContent = String(index + 1).padStart(2, '0');
-    const copy = document.createElement('span');
-    const title = document.createElement('strong');
-    title.textContent = article.title;
-    const excerpt = document.createElement('small');
-    excerpt.textContent = article.excerpt;
-    copy.append(title, excerpt);
-    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    arrow.setAttribute('aria-hidden', 'true');
-    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    use.setAttribute('href', '../ui-icons.svg#icon-arrow-right');
-    arrow.append(use);
-    link.append(number, copy, arrow);
-    list?.append(link);
+  const topicGroups = {
+    settings: [
+      ['Начало работы', ['settings-quick-start', 'subscription-plans', 'install-app']],
+      ['Запись и правила', ['booking-rules', 'organization-booking-rules', 'visitor-alerts', 'settings-batch-bookings', 'settings-group-sessions']],
+      ['Данные и безопасность', ['data-governance', 'account-security']],
+      ['Оформление и навигация', ['cabinet-layout-theme', 'client-page-appearance', 'booking-card-appearance', 'mobile-navigation']]
+    ],
+    team: [
+      ['Организация и филиалы', ['organization-name', 'organization-structure', 'add-branch', 'branches-and-employees']],
+      ['Сотрудники и доступ', ['invite-employee', 'employee-rights', 'roles-access-safety']],
+      ['Расписание и ресурсы', ['service-resources', 'booking-visibility-diagnostics', 'add-staff-shift', 'add-staff-absence', 'substitute-booking-specialist']]
+    ],
+    finance: [
+      ['Оплата и возвраты', ['setup-yookassa', 'yookassa-refund']],
+      ['Продажи', ['create-sale', 'refund-sale-accounting']],
+      ['Зарплата', ['payroll-plan', 'calculate-payroll', 'payroll-advance-and-offset']],
+      ['Проверка операций', ['operation-result-uncertain']]
+    ]
+  };
+  const groups = category.audience === 'specialist' ? topicGroups[category.slug] : null;
+  const assigned = new Set();
+  const ordered = [];
+  groups?.forEach(([title, slugs]) => {
+    const members = slugs.map(articleSlug => categoryArticles.find(article => article.slug === articleSlug))
+      .filter(article => article && !assigned.has(article.slug));
+    if (!members.length) return;
+    members.forEach(article => assigned.add(article.slug));
+    ordered.push({ title, articles: members });
+  });
+  const remaining = categoryArticles.filter(article => !assigned.has(article.slug));
+  if (remaining.length) ordered.push({ title: groups ? 'Другие инструкции' : '', articles: remaining });
+  let index = 0;
+  ordered.forEach(group => {
+    if (group.title) {
+      const heading = document.createElement('h3');
+      heading.className = 'category-topic-heading';
+      heading.textContent = group.title;
+      list?.append(heading);
+    }
+    group.articles.forEach(article => {
+      index += 1;
+      const link = document.createElement('a');
+      link.href = navigate(`article.html?slug=${encodeURIComponent(article.slug)}`);
+      const number = document.createElement('span');
+      number.className = 'category-article-number';
+      number.textContent = String(index).padStart(2, '0');
+      const copy = document.createElement('span');
+      const title = document.createElement('strong');
+      title.textContent = article.title;
+      const excerpt = document.createElement('small');
+      excerpt.textContent = article.excerpt;
+      copy.append(title, excerpt);
+      const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      arrow.setAttribute('aria-hidden', 'true');
+      const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+      use.setAttribute('href', '../ui-icons.svg#icon-arrow-right');
+      arrow.append(use);
+      link.append(number, copy, arrow);
+      list?.append(link);
+    });
   });
 }());

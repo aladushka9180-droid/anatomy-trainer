@@ -77,6 +77,13 @@ function diagram(article, labels) {
 }
 
 const manifest = {};
+function detailFor(image) {
+  if (!image.detail) return {};
+  const { x, y, width, height } = image.detail;
+  if (![x, y, width, height].every(Number.isInteger) || x < 0 || y < 0 || width < 40 || height < 40
+    || x + width > image.width || y + height > image.height) throw new Error(`Invalid screenshot detail: ${image.src}`);
+  return { detail:{ x, y, width, height } };
+}
 for (const article of articles) {
   const labels = phases[article.slug];
   const priorVisual = previousVisuals[article.slug];
@@ -104,10 +111,11 @@ for (const article of articles) {
         || createHash('sha256').update(readFileSync(join(helpRoot, variant.src))).digest('hex') !== variant.sha256) {
         throw new Error(`Unapproved responsive capture: ${article.slug}`);
       }
-      return { minWidth:variant.minWidth, src:variant.src, width:variant.width, height:variant.height };
+      if (capture.detail && !variant.detail) throw new Error(`Missing responsive detail: ${variant.src}`);
+      return { minWidth:variant.minWidth, src:variant.src, width:variant.width, height:variant.height, ...detailFor(variant) };
     });
     if (variants.some((variant, index) => index && variants[index - 1].minWidth <= variant.minWidth)) throw new Error(`Unordered image variants: ${article.slug}`);
-    images.push({ src:capture.src, alt:capture.alt, caption:capture.caption, kind:'screenshot', width:capture.width, height:capture.height, ...(capture.step ? { step:capture.step } : {}), ...(variants.length ? { variants } : {}) });
+    images.push({ src:capture.src, alt:capture.alt, caption:capture.caption, kind:'screenshot', width:capture.width, height:capture.height, ...detailFor(capture), ...(capture.step ? { step:capture.step } : {}), ...(variants.length ? { variants } : {}) });
   }
   if (labels && !captures.length) {
     writeFileSync(join(output, `${article.slug}.svg`), diagram(article, labels));

@@ -33,6 +33,13 @@ function rasterDimensions(bytes) {
   assert.equal(kind, 'VP8 ');
   return { width:bytes.readUInt16LE(26) & 16383, height:bytes.readUInt16LE(28) & 16383 };
 }
+function verifyDetail(image, evidence) {
+  assert.equal(JSON.stringify(image.detail), JSON.stringify(evidence.detail), 'Detail must match the approved source region');
+  if (!image.detail) return;
+  const {x,y,width,height} = image.detail;
+  assert.ok([x,y,width,height].every(Number.isInteger) && x >= 0 && y >= 0 && width >= 40 && height >= 40
+    && x + width <= image.width && y + height <= image.height, 'Detail must stay inside the original screenshot');
+}
 for (const article of articles) {
   const entry = manifest[article.slug];
   assert.ok(entry, `Uninventoried article: ${article.slug}`);
@@ -46,12 +53,14 @@ for (const article of articles) {
       const bytes = readFileSync(join(root, image.src));
       assert.equal(createHash('sha256').update(bytes).digest('hex'), capture.sha256, 'Screenshot must match reviewed bytes');
       assert.deepEqual(rasterDimensions(bytes), { width:image.width, height:image.height }, 'Raster dimensions must match its displayed aspect ratio');
+      verifyDetail(image, capture);
       for (const variant of image.variants || []) {
         const evidence = capture.variants?.find(value => value.src === variant.src);
         assert.ok(evidence, 'Responsive image needs reviewed capture evidence');
         const variantBytes = readFileSync(join(root, variant.src));
         assert.equal(createHash('sha256').update(variantBytes).digest('hex'), evidence.sha256);
         assert.deepEqual(rasterDimensions(variantBytes), { width:variant.width, height:variant.height });
+        verifyDetail(variant, evidence);
       }
       assert.equal(entry.capture?.status, 'captured-local-native');
       assert.equal(entry.capture?.liveVerified, false);

@@ -153,14 +153,14 @@
     if (focus) requestAnimationFrame(() => backButton.focus({ preventScroll:true }));
   }
 
-  function hideWorkspace({ restoreFocus = true } = {}) {
+  function hideWorkspace({ restoreFocus = true, restoreScroll = true } = {}) {
     if (workspace.hidden) return;
     workspace.hidden = true;
     document.body.classList.remove('provider-help-open');
     dashboard.removeAttribute('aria-hidden');
     activeRoute = null;
     requestAnimationFrame(() => {
-      window.scrollTo({ top:originScrollY, left:0, behavior:'auto' });
+      if (restoreScroll) window.scrollTo({ top:originScrollY, left:0, behavior:'auto' });
       if (restoreFocus && returnFocus?.isConnected) returnFocus.focus({ preventScroll:true });
     });
   }
@@ -175,6 +175,22 @@
     const next = typeof state.providerHelpOriginUrl === 'string' ? state.providerHelpOriginUrl : cleanProviderUrl();
     window.history.replaceState(cleanHelpState(state), '', next);
     hideWorkspace();
+  }
+
+  function openProviderAction(url) {
+    const requestedView = url.searchParams.get('section') || url.searchParams.get('view');
+    if (!requestedView) {
+      returnToProvider();
+      return;
+    }
+    if (typeof window.setProviderView !== 'function') {
+      window.location.assign(cleanProviderUrl(url.href));
+      return;
+    }
+    const state = window.history.state || {};
+    window.history.replaceState(cleanHelpState(state), '', cleanProviderUrl(originUrl || window.location.href));
+    hideWorkspace({ restoreFocus:false, restoreScroll:false });
+    window.setProviderView(requestedView, { historyMode:'push', focusHeading:true });
   }
 
   function cleanHelpState(value = {}) {
@@ -214,7 +230,7 @@
       }
       if (url.origin === window.location.origin && /\/provider\.html$/.test(url.pathname)) {
         event.preventDefault();
-        returnToProvider();
+        openProviderAction(url);
         return;
       }
       if (['http:', 'https:'].includes(url.protocol)) {

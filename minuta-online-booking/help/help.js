@@ -40,11 +40,10 @@
   function renderSections() {
     if (!sectionGrid) return;
     sectionGrid.replaceChildren();
-    const visibleCategories = categories.filter(category => category.audience === audience);
+    const visibleCategories = categories.filter(category => category.audience === audience && category.slug !== 'getting-started');
     const groups = audience === 'client' ? [
       ['Запись и уведомления', visibleCategories.map(category => category.slug)]
     ] : [
-      ['Начало работы', ['getting-started']],
       ['Ежедневная работа', ['bookings', 'schedule', 'services', 'clients']],
       ['Управление бизнесом', ['team', 'finance', 'inventory', 'analytics']],
       ['Продвижение и возвращение клиентов', ['loyalty', 'portfolio', 'notifications']],
@@ -109,10 +108,10 @@
   }
 
   const tokens = value => normalize(value).match(/[\p{L}\p{N}]+/gu) || [];
-  const stopWords = new Set(['как', 'что', 'где', 'и', 'в', 'на', 'для', 'по', 'с', 'не', 'ли', 'или', 'мне']);
+  const stopWords = new Set(['как', 'что', 'где', 'и', 'в', 'на', 'для', 'по', 'с', 'не', 'ли', 'или', 'мне', 'за', 'из', 'о', 'об', 'от', 'к', 'ко', 'до', 'у', 'во', 'со', 'при', 'через']);
   const aliases = [
     ['добав', 'созда', 'новая', 'новую', 'новый'],
-    ['измен', 'редак', 'исправ'],
+    ['измен', 'редак', 'исправ', 'помен', 'смен'],
     ['скрыт', 'скрыть', 'выклю', 'отклю'],
     ['удали', 'удале', 'убрат'],
     ['зарпл', 'выпла', 'начис'],
@@ -123,11 +122,11 @@
   const stem = value => value.length > 4 ? value.slice(0, 5) : value;
   function termMatches(term, words) {
     const prefix = stem(term);
+    const matches = variant => words.some(word => variant.length < 4 ? word === variant : word.startsWith(variant));
+    if (matches(prefix)) return true;
+    if (prefix.length < 4) return false;
     const group = aliases.find(items => items.some(item => item.startsWith(prefix) || prefix.startsWith(item)));
-    const variants = group || [prefix];
-    return words.some(word => variants.some(variant => {
-      return variant.length < 4 ? word === variant : word.startsWith(variant);
-    }));
+    return Boolean(group?.some(matches));
   }
   function searchScore(article, query) {
     const terms = tokens(query).filter(term => !stopWords.has(term));
@@ -139,15 +138,19 @@
       + terms.filter(term => termMatches(term, titleWords)).length * 10 + 1;
   }
 
-  function renderQuickStart() {
-    if (!quickStart) return;
-    quickStart.replaceChildren();
+  function quickStartArticles() {
     const slugs = audience === 'client'
       ? ['book-online', 'reschedule', 'find-booking', 'connect-telegram']
       : ['first-booking', 'add-service', 'set-regular-workweek', 'share-free-slots'];
     const chosen = slugs.map(slug => articles.find(article => article.slug === slug && article.audience === audience)).filter(Boolean);
     const fallback = articles.filter(article => article.audience === audience && !chosen.includes(article));
-    [...chosen, ...fallback].slice(0, 4).forEach((article, index) => {
+    return [...chosen, ...fallback].slice(0, 4);
+  }
+
+  function renderQuickStart() {
+    if (!quickStart) return;
+    quickStart.replaceChildren();
+    quickStartArticles().forEach((article, index) => {
       const link = document.createElement('a');
       link.className = 'quick-start-card';
       link.href = articleUrl(article);
@@ -168,9 +171,10 @@
   function renderPopular() {
     if (!popular) return;
     popular.replaceChildren();
-    const audienceArticles = articles.filter(article => article.audience === audience);
+    const quickSlugs = new Set(quickStartArticles().map(article => article.slug));
+    const audienceArticles = articles.filter(article => article.audience === audience && !quickSlugs.has(article.slug));
     const featured = audienceArticles.filter(article => article.featured);
-    (featured.length ? featured : audienceArticles).slice(0, 6).forEach((article, index) => {
+    [...featured, ...audienceArticles.filter(article => !article.featured)].slice(0, 3).forEach((article, index) => {
       const link = document.createElement('a');
       link.href = articleUrl(article);
       link.className = 'guide-item';
@@ -212,7 +216,7 @@
       const strong = document.createElement('strong');
       strong.textContent = 'Ничего не нашли';
       const small = document.createElement('small');
-      small.textContent = 'Попробуйте написать короче: «расписание» или «Telegram».';
+      small.textContent = 'Попробуйте другое слово или откройте нужный раздел ниже.';
       empty.append(strong, small);
       results.append(empty);
     } else {
@@ -252,6 +256,9 @@
     if (intro) intro.textContent = audience === 'client'
       ? 'Запись, перенос, отмена и уведомления — понятные шаги для клиента.'
       : 'Понятные инструкции по записям, расписанию и управлению кабинетом.';
+    if (input) input.placeholder = audience === 'client'
+      ? 'Например, выбрать время или перенести запись'
+      : 'Например, настроить расписание';
     renderSections();
     if (productLink) {
       productLink.href = navigate(audience === 'client' ? '../index.html' : '../provider.html');
@@ -272,6 +279,8 @@
 
   document.querySelector('#helpSearch')?.addEventListener('submit', event => event.preventDefault());
   input?.addEventListener('input', renderSearch);
+  input?.addEventListener('focus', renderSearch);
+  input?.addEventListener('click', renderSearch);
   input?.addEventListener('keydown', event => {
     if (event.key === 'ArrowDown' && !results.hidden) {
       const first = results.querySelector('a');
@@ -287,6 +296,7 @@
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
       input?.focus();
+      renderSearch();
     }
   });
   document.addEventListener('click', event => {

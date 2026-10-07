@@ -211,6 +211,7 @@
         "kind": "screenshot",
         "width": 752,
         "height": 1001,
+        "step": 4,
         "variants": [
           {
             "minWidth": 901,
@@ -239,7 +240,7 @@
         "kind": "screenshot",
         "width": 572,
         "height": 309,
-        "step": 3,
+        "step": 2,
         "variants": [
           {
             "minWidth": 901,
@@ -369,25 +370,49 @@
         "kind": "screenshot",
         "width": 1086,
         "height": 137,
+        "detail": {
+          "x": 276,
+          "y": 23,
+          "width": 490,
+          "height": 77
+        },
         "step": 3,
         "variants": [
           {
             "minWidth": 901,
             "src": "images/native-local/team-calendar-1440.webp",
             "width": 1086,
-            "height": 137
+            "height": 137,
+            "detail": {
+              "x": 276,
+              "y": 23,
+              "width": 490,
+              "height": 77
+            }
           },
           {
             "minWidth": 431,
             "src": "images/native-local/team-calendar-760.webp",
             "width": 721,
-            "height": 354
+            "height": 354,
+            "detail": {
+              "x": 10,
+              "y": 86,
+              "width": 700,
+              "height": 168
+            }
           },
           {
             "minWidth": 0,
             "src": "images/native-local/team-calendar-390.webp",
             "width": 351,
-            "height": 446
+            "height": 446,
+            "detail": {
+              "x": 10,
+              "y": 86,
+              "width": 331,
+              "height": 260
+            }
           }
         ]
       }
@@ -406,25 +431,49 @@
         "kind": "screenshot",
         "width": 922,
         "height": 536,
-        "step": 1,
+        "detail": {
+          "x": 0,
+          "y": 58,
+          "width": 350,
+          "height": 95
+        },
+        "step": 2,
         "variants": [
           {
             "minWidth": 901,
             "src": "images/native-local/work-hours-1440.webp",
             "width": 922,
-            "height": 536
+            "height": 536,
+            "detail": {
+              "x": 0,
+              "y": 58,
+              "width": 350,
+              "height": 95
+            }
           },
           {
             "minWidth": 431,
             "src": "images/native-local/work-hours-760.webp",
             "width": 683,
-            "height": 604
+            "height": 604,
+            "detail": {
+              "x": 0,
+              "y": 58,
+              "width": 683,
+              "height": 120
+            }
           },
           {
             "minWidth": 0,
             "src": "images/native-local/work-hours-390.webp",
             "width": 313,
-            "height": 621
+            "height": 621,
+            "detail": {
+              "x": 0,
+              "y": 58,
+              "width": 313,
+              "height": 120
+            }
           }
         ]
       }
@@ -1678,24 +1727,48 @@
         "kind": "screenshot",
         "width": 1148,
         "height": 900,
+        "detail": {
+          "x": 195,
+          "y": 94,
+          "width": 617,
+          "height": 108
+        },
         "variants": [
           {
             "minWidth": 901,
             "src": "images/native-local/statistics-overview-filter-1440.webp",
             "width": 1148,
-            "height": 900
+            "height": 900,
+            "detail": {
+              "x": 195,
+              "y": 94,
+              "width": 617,
+              "height": 108
+            }
           },
           {
             "minWidth": 431,
             "src": "images/native-local/statistics-overview-filter-760.webp",
             "width": 721,
-            "height": 900
+            "height": 900,
+            "detail": {
+              "x": 0,
+              "y": 90,
+              "width": 721,
+              "height": 359
+            }
           },
           {
             "minWidth": 0,
             "src": "images/native-local/statistics-overview-filter-390.webp",
             "width": 351,
-            "height": 900
+            "height": 900,
+            "detail": {
+              "x": 0,
+              "y": 72,
+              "width": 351,
+              "height": 379
+            }
           }
         ]
       }
@@ -1714,7 +1787,7 @@
         "kind": "screenshot",
         "width": 1138,
         "height": 180,
-        "step": 2,
+        "step": 4,
         "variants": [
           {
             "minWidth": 901,
@@ -1743,7 +1816,7 @@
         "kind": "screenshot",
         "width": 1148,
         "height": 269,
-        "step": 3,
+        "step": 5,
         "variants": [
           {
             "minWidth": 901,
@@ -1772,6 +1845,7 @@
         "kind": "screenshot",
         "width": 1148,
         "height": 1134,
+        "step": 2,
         "variants": [
           {
             "minWidth": 901,
@@ -2115,6 +2189,7 @@
         "kind": "screenshot",
         "width": 567,
         "height": 708,
+        "step": 3,
         "variants": [
           {
             "minWidth": 901,
@@ -2151,7 +2226,7 @@
         "kind": "screenshot",
         "width": 620,
         "height": 720,
-        "step": 2,
+        "step": 3,
         "variants": [
           {
             "minWidth": 901,
@@ -2589,7 +2664,7 @@
         "kind": "screenshot",
         "width": 520,
         "height": 876,
-        "step": 4,
+        "step": 5,
         "variants": [
           {
             "minWidth": 901,
