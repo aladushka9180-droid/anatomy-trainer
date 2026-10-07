@@ -512,6 +512,7 @@ let offlineBookingAccessReady = false;
 let editingOfflineBookingId = '';
 let lastConnectionLogSignature = '';
 let teamCalendarController = null;
+let serviceOffersController = null;
 let batchBookingsController = null;
 let resourceController = null;
 let shiftController = null;
@@ -16477,6 +16478,7 @@ async function movePortfolioItem(id, direction) {
 }
 
 function renderOwnServices() {
+  serviceOffersController?.setServices();
   const list = $('#serviceManageList');
   refreshSettingsQuickStart();
   $('#servicesCount').textContent = String(ownServices.length);
@@ -17797,6 +17799,29 @@ $('#offlineBookingQueueList')?.addEventListener('click', async event => {
 });
 new MutationObserver(() => applyWriteAvailability()).observe($('#dashboard'), { childList: true, subtree: true });
 updateJournalModeButtons();
+
+$('#openServiceOffers').addEventListener('click', async event => {
+  const entry = event.currentTarget;
+  if (entry.disabled) return;
+  entry.disabled = true;
+  const actor = currentUser?.id, generation = sessionGeneration;
+  try {
+    await window.MinutaProviderFeatureAssets.ensure('service-offers');
+    if (!sessionIsCurrent(actor, generation)) return;
+    serviceOffersController ||= window.MinutaServiceOffers.createController({
+      db, $, escapeHtml, notify, requireWrites,
+      getCurrentUser: () => currentUser,
+      getSessionGeneration: () => sessionGeneration,
+      sessionIsCurrent,
+      getServices: () => ownServices.filter(item => item.name !== SCHEDULE_BLOCK_SERVICE_NAME),
+      getDefaultDuration: serviceDefaultDuration,
+    });
+    entry.remove();
+    await serviceOffersController.open();
+  } catch {
+    notify('Не удалось загрузить предложения. Проверьте подключение и повторите.');
+  } finally { entry.disabled = false; }
+});
 
 teamCalendarController = window.MinutaTeamCalendar.createController({
   db,

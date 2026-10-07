@@ -90,7 +90,9 @@ const precacheBytes = assets.reduce((total, asset) => {
 // v1048 X01 adds 825 measured bytes (0.022%) for closed-day rendering and late-load refresh.
 // These schedule rules must also work offline; no assets or unmeasured reserve are added.
 // v1049 adds 417 measured CSS bytes for visible desktop closed-day labels; no reserve.
-assert.ok(precacheBytes <= 3_799_094, `Core precache is too large: ${precacheBytes} bytes`);
+// Add-on offers keep their form/assets optional. The entry and lazy controller
+// add 1,419 measured shell bytes on v1080 (3,798,946 -> 3,800,365); no reserve.
+assert.ok(precacheBytes <= 3_800_365, `Core precache is too large: ${precacheBytes} bytes`);
 assert.match(worker, /event\.waitUntil\(update\.catch\(\(\) => \{\}\)\);\s*return cached;/,
   'Cached navigation must render while the network refresh continues in the background');
 assert.match(worker, /try \{ await caches\.delete\(CACHE\); \} catch \{\}/,

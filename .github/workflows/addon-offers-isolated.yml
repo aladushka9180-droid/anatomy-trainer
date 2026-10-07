@@ -1,0 +1,66 @@
+name: Addon offers isolated synthetic PostgreSQL
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/pro-addon-offers-20261007]
+    paths:
+      - .github/workflows/addon-offers-isolated.yml
+      - supabase/migrations/20261007095040_service_booking_offers.sql
+      - supabase/migrations/20261007104000_service_offer_resource_lifecycle.sql
+      - minuta-online-booking/service-booking-offers-disable.sql
+      - minuta-online-booking/tests/addon-offers-sql-*
+      - minuta-online-booking/provider-service-offers.*
+      - minuta-online-booking/tests/provider-service-offers-*
+      - minuta-online-booking/provider.html
+      - minuta-online-booking/provider.js
+      - minuta-online-booking/sw.js
+permissions:
+  contents: read
+jobs:
+  synthetic-contracts:
+    # Disposable synthetic schemas only. No production secrets or connections.
+    # Serial contracts plus explicit native multi-connection races. Not a full-schema restore.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: addon-offers-fixture
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-fixture-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d addon-offers-fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install pinned test adapter outside repository dependencies
+        run: npm install --prefix "$RUNNER_TEMP/addon-offers-deps" --ignore-scripts --no-audit --no-fund pg@8.23.1
+      - name: Run isolated synthetic PostgreSQL contracts
+        env:
+          MINUTA_SQL_ENGINE: postgres
+          MINUTA_PG_MODULE: ${{ runner.temp }}/addon-offers-deps/node_modules/pg/lib/index.js
+          ADDON_OFFERS_SQL_CONFIRM: LOCAL_SYNTHETIC_DB_ONLY
+          ADDON_OFFERS_SQL_DATABASE_URL: postgresql://postgres:synthetic-fixture-only@127.0.0.1:5432/addon-offers-fixture
+        run: node minuta-online-booking/tests/addon-offers-sql-pglite-test.mjs
+  pro-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm install --prefix "$RUNNER_TEMP/addon-offers-ui" --ignore-scripts --no-audit --no-fund playwright-core@1.62.1
+      - run: node --check minuta-online-booking/provider.js && node --check minuta-online-booking/provider-service-offers.js && node --check minuta-online-booking/sw.js
+      - run: node minuta-online-booking/client-url-redirect-test.mjs && node minuta-online-booking/provider-startup-performance-v565-test.mjs && node minuta-online-booking/provider-services-organization-contract-test.mjs
+      - run: node minuta-online-booking/tests/provider-service-offers-contract-test.mjs && node minuta-online-booking/tests/provider-service-offers-loader-test.mjs
+      - run: node minuta-online-booking/tests/provider-service-offers-browser-test.mjs
+        env:
+          MINUTA_PLAYWRIGHT_MODULE: ${{ runner.temp }}/addon-offers-ui/node_modules/playwright-core/index.mjs

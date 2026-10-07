@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1080`;
-const CACHE_READY = './.precache-ready-v1080';
+const CACHE = `${CACHE_PREFIX}v1081`;
+const CACHE_READY = './.precache-ready-v1081';
 
 const ASSETS = [
   './provider.html',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1080',
+  './site-update.js?v=1081',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -63,12 +63,14 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1036',
-  './provider.js?v=1080',
+  './provider.js?v=1081',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=908',
 ];
 
 const OPTIONAL_ASSETS = [
+  './provider-service-offers.css?v=1',
+  './provider-service-offers.js?v=1',
   './organization-people.js?v=1080',
   './organization-people.css?v=1080',
   './organization-flow.css?v=1080',
