@@ -21,8 +21,7 @@
         element.remove();
         reject(new Error('provider_feature_asset_unavailable'));
       }, { once:true });
-      // Keep styles at their original cascade position. Template contents stay
-      // inert until requested, including their scripts and stylesheet links.
+      // Preserve cascade order; templates stay inert until requested.
       template.before(element);
     });
   }
@@ -49,11 +48,12 @@
     if (button.matches('[data-code-scan-target]')) return 'scanner';
     if (button.id === 'openFreeSlots') return 'share';
     if (button.id === 'exportBookings') return 'statistics';
+    if (button.matches('[data-provider-view="notifications"]')) return 'notifications';
     return '';
   }
 
   document.addEventListener('click', event => {
-    const button = event.target.closest?.('[data-code-scan-target], #openFreeSlots, #exportBookings');
+    const button = event.target.closest?.('[data-code-scan-target], #openFreeSlots, #exportBookings, [data-provider-view="notifications"]');
     if (!button || button.disabled || replayingButtons.has(button)) return;
     const name = featureFor(button);
     if (features.get(name)?.ready) return;
@@ -68,7 +68,7 @@
       replayingButtons.add(button);
       try { button.click(); } finally { replayingButtons.delete(button); }
     }).catch(() => {
-      // Preserve a working retry and explain a cold offline cache miss.
+      // Explain a cold offline cache miss; allow retry.
       let notice = document.getElementById('providerFeatureAssetError');
       if (!notice) {
         notice = document.createElement('p');
@@ -92,8 +92,7 @@
       if (document.hidden || navigator.onLine === false) return;
       try { await ensure(name); } catch { /* An explicit click can retry. */ }
     }
-    // A click can load a feature before the first worker claims this page.
-    // The worker fills any missing optional cache entries after registration.
+    // Warm optional entries after the worker claims this page.
     if (navigator.serviceWorker) {
       void navigator.serviceWorker.ready.then(registration => {
         registration.active?.postMessage({ type:'warm-provider-features' });
@@ -111,6 +110,14 @@
   }
 
   window.MinutaProviderFeatureAssets = Object.freeze({ ensure });
+  const notifications = document.querySelector('[data-provider-panel="notifications"]');
+  if (notifications) {
+    const loadNotifications = () => {
+      if (!notifications.hidden) void ensure('notifications').catch(() => {});
+    };
+    new MutationObserver(loadNotifications).observe(notifications, { attributes:true, attributeFilter:['hidden'] });
+    loadNotifications();
+  }
   if (document.readyState === 'complete') scheduleWarm();
   else window.addEventListener('load', scheduleWarm, { once:true });
   window.addEventListener('online', scheduleWarm);
