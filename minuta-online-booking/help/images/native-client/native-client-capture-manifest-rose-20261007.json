@@ -45,7 +45,7 @@
       "step": 1,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-service-picker-rose-20261007-1440.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-service-picker-rose-20261007-1440.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -69,7 +69,7 @@
       "step": 2,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-waitlist-form-rose-20261007-1440.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-waitlist-form-rose-20261007-1440.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -93,7 +93,7 @@
       "step": 3,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-contact-form-rose-20261007-1440.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-contact-form-rose-20261007-1440.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -117,7 +117,7 @@
       "step": 1,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-management-rose-20261007-1440.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-management-rose-20261007-1440.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -141,7 +141,7 @@
       "step": 1,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-telegram-connect-rose-20261007-1440.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-telegram-connect-rose-20261007-1440.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": "Actual ready Telegram button within booking management. Original official SDK loaded; authorization is not invoked."
@@ -165,7 +165,7 @@
       "step": 3,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-reschedule-form-rose-20261007-1440.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-reschedule-form-rose-20261007-1440.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -189,7 +189,7 @@
       "step": 5,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-login-rose-20261007-1440.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-login-rose-20261007-1440.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": "Only the native alternate-login section relevant to this instructional step."
@@ -213,7 +213,7 @@
       "step": 1,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-service-picker-rose-20261007-390.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-service-picker-rose-20261007-390.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -225,7 +225,7 @@
       "width": 352,
       "height": 702,
       "viewportWidth": 390,
-      "sha256": "838dab92d10af46d03bea8edbada9b234dce8d1ea319d386cd7b85255d5add1b",
+      "sha256": "9c826dba4cb3f5697aedfaecc2289cf0b91b0dc345ebd3254ff3adda61ff50d1",
       "articleSlugs": [
         "join-booking-waitlist"
       ],
@@ -237,7 +237,7 @@
       "step": 2,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-waitlist-form-rose-20261007-390.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-waitlist-form-rose-20261007-390.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -261,7 +261,7 @@
       "step": 3,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-contact-form-rose-20261007-390.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-contact-form-rose-20261007-390.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -285,7 +285,7 @@
       "step": 1,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-management-rose-20261007-390.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-management-rose-20261007-390.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -309,7 +309,7 @@
       "step": 1,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-telegram-connect-rose-20261007-390.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-telegram-connect-rose-20261007-390.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": "Actual ready Telegram button within booking management. Original official SDK loaded; authorization is not invoked."
@@ -333,7 +333,7 @@
       "step": 3,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-reschedule-form-rose-20261007-390.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-reschedule-form-rose-20261007-390.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -357,7 +357,7 @@
       "step": 5,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-login-rose-20261007-390.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-login-rose-20261007-390.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": "Only the native alternate-login section relevant to this instructional step."
@@ -381,7 +381,7 @@
       "step": 1,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-service-picker-rose-20261007-760.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-service-picker-rose-20261007-760.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -405,7 +405,7 @@
       "step": 2,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-waitlist-form-rose-20261007-760.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-waitlist-form-rose-20261007-760.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -429,7 +429,7 @@
       "step": 3,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-contact-form-rose-20261007-760.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-contact-form-rose-20261007-760.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -453,7 +453,7 @@
       "step": 1,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-management-rose-20261007-760.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-management-rose-20261007-760.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -477,7 +477,7 @@
       "step": 1,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-telegram-connect-rose-20261007-760.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-telegram-connect-rose-20261007-760.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": "Actual ready Telegram button within booking management. Original official SDK loaded; authorization is not invoked."
@@ -501,7 +501,7 @@
       "step": 3,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-reschedule-form-rose-20261007-760.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-reschedule-form-rose-20261007-760.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": ""
@@ -525,7 +525,7 @@
       "step": 5,
       "coverageExact": true,
       "pixelPreserving": true,
-      "rawPng": "outputs/knowledge-images-rose-20261007/raw/client-login-rose-20261007-760.png",
+      "rawPng": "outputs/knowledge-images-rose-20261007/release1081/raw/client-login-rose-20261007-760.png",
       "kind": "screenshot",
       "caption": "Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.",
       "note": "Only the native alternate-login section relevant to this instructional step."
@@ -795,11 +795,11 @@
     "SMS, booking creation, payment, Telegram authorization and delivery were not executed. Original official Telegram static SDK is the only authorized public dependency fetch."
   ],
   "sources": {
-    "index.html": "c2a20969651537436eeed3454f445d1594685192a50f2a68284daeb1bc817c7e",
+    "index.html": "dbbfd0666b3b9ecd67cbede1abbb511cfbf253ee5098ff5999dbe924551673c8",
     "app.js": "76b98814b8721ca4fe9c90f28c7609deac517818504f94160d1a74868cb7548d",
-    "booking.html": "5a61ba94eee74f6bbe55aa121717bf229895e12e28155c7f726c86c4ea77fa50",
+    "booking.html": "940e6d71ef0e21876ed48f44c7cfba591938349fdad057910a4f744ba6412d90",
     "booking.js": "d6afc764ff1d8583b6026c8cff46609b1d9e2bb037510bf2db7880e5beb21636",
-    "my-bookings.html": "be91438eb8f5eb8336730ac6b544c64730e5f27f2ed36d6805a17a5ca627014a",
+    "my-bookings.html": "17d9ec5aa39831499579cac03cf7784d5bfe018911cfbd222ec1c5258ac830c9",
     "my-bookings.js": "7d6744ad62a975a6635e8a655722ad26e0d88733c6de604a7a2fa28c00b4953f",
     "telegram-auth.js": "94efbdfea2d5665d03de8b69f99a06a87e4432875936420936b4f8eb28b796f9",
     "vendor/supabase-2.112.4.min.js": "9a8142ffedb319a3ac0d4a8a123c9c2f7ffdb0e1e86cd9553889911b647175f6",
@@ -811,7 +811,7 @@
     "booking-widgets.js": "ac2d9f0150d355813c9c81380195a088b27916418054386cd3e58d221ac84eaa",
     "ui-icons.svg": "4b503b4e04d6b8ae2d12ed5e690f4aedf070ec2e4073217060662cbd62258acc",
     "theme-catalog.js": "c96c12851fbbb1d8ff04d3a956e75a4fe2629729a1bdc4807228a8a4238b2e11",
-    "site-update.js": "e1321da9e9243b38560a9ab2afbe5af1c0564ae62b7aa9aeeab27f79b334246d",
+    "site-update.js": "888198c7313907374bc3514fdabd0f11ed6e427cb741792a04ed052a4b943319",
     "reliability.js": "149b13b32fae04bbbe845ad3e1a4b0e5698b3ea42f4ea55041406194306ad16b",
     "group-bookings.js": "55401c8b63c19b572278194c4242ad4a5fdb7431f92dd07468dea93bb241b156",
     "code-scanner.js": "ffe79f0505312d83c06b28283cd9748cfbd9d806e84d65e40e9363e27f008116",
