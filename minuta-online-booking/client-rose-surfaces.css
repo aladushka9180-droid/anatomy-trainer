@@ -1,0 +1,62 @@
+/* Pink Porcelain must cover the older management and waitlist surfaces too. */
+.booking-client-page[data-client-theme="pink-porcelain"] :is(.manage-appointment,.manage-policy,.manage-danger,.waitlist-context) {
+  background:var(--client-surface-alt);
+  color:var(--client-readable-muted);
+  box-shadow:none;
+}
+.booking-client-page[data-client-theme="pink-porcelain"] .manage-status.status-confirmed {
+  background:var(--client-accent-soft);
+  color:var(--client-readable-accent);
+}
+.booking-client-page[data-client-theme="pink-porcelain"] :is(.manage-freshness,.progress-labels span,.waitlist-dialog form label,.waitlist-context span) {
+  color:var(--client-readable-muted);
+}
+.booking-client-page[data-client-theme="pink-porcelain"] :is(.legacy-client-login>summary,.consent-check) {
+  color:var(--client-readable-muted);
+  border-color:var(--client-line);
+}
+.booking-client-page[data-client-theme="pink-porcelain"] .consent-check { color:var(--client-readable-muted)!important; }
+.booking-client-page[data-client-theme="pink-porcelain"] .consent-check input { accent-color:var(--client-accent); }
+.booking-client-page[data-client-theme="pink-porcelain"] .input-hint { color:var(--client-readable-muted); }
+.booking-client-page[data-client-theme="pink-porcelain"] :is(input,select,textarea):focus {
+  border-color:var(--client-accent);
+  box-shadow:0 0 0 3px var(--client-accent-soft);
+}
+.booking-client-page[data-client-theme="pink-porcelain"] .progress-labels {
+  border-color:var(--client-line);
+}
+.booking-client-page[data-client-theme="pink-porcelain"] .booking-context-row .status:not(.status-error,.status-offline,.status-closed) i {
+  background:var(--client-accent);
+  box-shadow:none;
+}
+.booking-client-page[data-client-theme="pink-porcelain"] :is(.progress-labels span.active,.manage-danger) {
+  color:var(--client-readable-accent);
+}
+.booking-client-page[data-client-theme="pink-porcelain"] :is(.telegram-connect-button,.waitlist-dialog,.waitlist-dialog input,.waitlist-dialog select,.waitlist-dialog>.dialog-close) {
+  border-color:var(--client-line);
+  background:var(--client-surface);
+  color:var(--client-ink);
+  box-shadow:none;
+}
+.booking-client-page[data-client-theme="pink-porcelain"] :is(.telegram-connect-arrow,.waitlist-dialog small) {
+  color:var(--client-readable-accent);
+}
+.booking-client-page[data-client-theme="pink-porcelain"] .telegram-connect-button:not(:disabled):hover {
+  border-color:var(--client-accent);
+  background:var(--client-surface-alt);
+}
+.booking-client-page[data-client-theme="pink-porcelain"] .reschedule-head>button {
+  background:var(--client-accent-soft);
+  color:var(--client-ink);
+  box-shadow:none;
+}
+.booking-client-page[data-client-theme="pink-porcelain"] :is(.manage-actions,.reschedule-panel,.waitlist-dialog,.legacy-client-login) .primary {
+  border-color:var(--client-line);
+  background:var(--client-accent-soft);
+  color:var(--client-ink);
+  box-shadow:none;
+}
+.booking-client-page[data-client-theme="pink-porcelain"] :is(.manage-actions,.reschedule-panel,.waitlist-dialog,.legacy-client-login) .primary:not(:disabled):hover {
+  background:var(--client-surface-alt);
+  border-color:var(--client-accent);
+}

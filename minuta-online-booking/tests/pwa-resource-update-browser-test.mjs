@@ -54,6 +54,10 @@ const clientFlexibleAssetBlock = newRelease.files.get('sw.js').toString('utf8')
   .match(/const CLIENT_FLEXIBLE_ASSETS = \[([^\]]+)\];/)?.[1];
 assert.ok(clientFlexibleAssetBlock, 'Client flexible asset list must be present');
 const clientFlexibleAssets = [...clientFlexibleAssetBlock.matchAll(/'([^']+)'/g)].map(match => match[1]);
+for (const asset of clientFlexibleAssets) {
+  const file = asset.split('?')[0].replace(/^\.\//, '');
+  if (!newRelease.files.has(file)) newRelease.files.set(file, newFile(file));
+}
 const clientFlexibleRequest = clientFlexibleAssets.find(asset => asset.startsWith('./client-offline-flexible.js?v='));
 assert.ok(clientFlexibleRequest, 'Client flexible script must be listed for offline warming');
 const failedAsset = newRelease.assets.find(asset => {
@@ -284,6 +288,8 @@ try {
   });
   await page.reload();
   const offlineRequests = Object.fromEntries(offlineModules.map(module => [module, moduleRequest(newRelease, module)]));
+  const clientStylesheets = clientFlexibleAssets.filter(asset => asset.split('?')[0].endsWith('.css'));
+  for (const asset of clientStylesheets) offlineRequests[asset.split('?')[0].replace(/^\.\//, '')] = asset;
   const iconUrl = newFile('provider.html').toString('utf8').match(/href="(ui-icons\.svg\?v=\d+)#icon-org"/)?.[1];
   assert.ok(iconUrl, 'The organization icon uses a versioned sprite URL');
   const offlineIcons = ['ui-icons.svg', iconUrl];
@@ -300,6 +306,7 @@ try {
   }, { prefix, requests:offlineRequests });
   assert.deepEqual(offlineHashes, {
     ...expectedHashes(newRelease, offlineModules),
+    ...Object.fromEntries(clientStylesheets.map(asset => { const file = asset.split('?')[0].replace(/^\.\//, ''); return [file, sha(newRelease.files.get(file))]; })),
     ...Object.fromEntries(offlineIcons.map(icon => [icon, sha(newFile('ui-icons.svg'))]))
   }, 'Both legacy and versioned icon URLs must work offline with the released sprite');
   const clientFlexibleHash = await page.evaluate(async ({ prefix, request }) => {

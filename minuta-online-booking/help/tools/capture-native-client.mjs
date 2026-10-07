@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { serveNativeClientCaptureFixture, appRoot, ids, fixtureDate } from './native-client-capture-fixture.mjs';
@@ -9,7 +9,9 @@ const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.MINUTA_PLAYWRIGHT_PACKAGE||'playwright');
 const sharp=require(process.env.NATIVE_CLIENT_SHARP_PACKAGE||'sharp');
 const output=resolve(process.env.NATIVE_CLIENT_CAPTURE_OUTPUT||resolve(appRoot,'help/images/native-client'));
-const rawOutput=resolve(appRoot,'../outputs/native-client/png');
+const captureId=process.env.NATIVE_CLIENT_CAPTURE_ID||'';
+assert.match(captureId,/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/,'Capture identifier');
+const rawOutput=resolve(process.env.NATIVE_CLIENT_CAPTURE_RAW_OUTPUT||resolve(appRoot,'../outputs/native-client/png'));
 const widths=(process.env.NATIVE_CLIENT_WIDTHS||'1440,390,760').split(',').map(Number);
 mkdirSync(output,{recursive:true});
 mkdirSync(rawOutput,{recursive:true});
@@ -36,18 +38,25 @@ assert.ok(sdkBytes.length>1000,'Original SDK body');
 const fixture=await serveNativeClientCaptureFixture();
 const edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const browser=await chromium.launch({headless:true,...(existsSync(edge)?{executablePath:edge}:{})});
-const manifest={kind:'local-native-public-client-ui-fixture',liveVerified:false,domModified:false,cssModified:false,rendererModified:false,originalSupabaseSdk:true,productionRequests:0,allowedPublicStaticSdk:sdkProvenance,date:fixtureDate,fixtureClock:'2026-10-05T07:00:00Z',theme:'pink-porcelain',configOnlyTransport:true,fixtureCatalog:'Valid minimal catalog without optional public service detail cards',captures:[],limitations:[],sources:{},discardedTelemetry:[],blockedExternalRequests:[]};
+const manifest={kind:'local-native-public-client-ui-fixture',captureId,liveVerified:false,domModified:false,cssModified:false,rendererModified:false,originalSupabaseSdk:true,productionRequests:0,allowedPublicStaticSdk:sdkProvenance,date:fixtureDate,fixtureClock:'2026-10-05T07:00:00Z',theme:'pink-porcelain',configOnlyTransport:true,fixtureCatalog:'Valid minimal catalog without optional public service detail cards',captures:[],paletteChecks:[],limitations:[],sources:{},discardedTelemetry:[],blockedExternalRequests:[]};
 for(const f of ['index.html','app.js','booking.html','booking.js','my-bookings.html','my-bookings.js','telegram-auth.js','vendor/supabase-2.112.4.min.js'])manifest.sources[f]=createHash('sha256').update(readFileSync(resolve(appRoot,f))).digest('hex');
 async function capture(page,key,selector,articles,step,width,coverageExact=true,note='') {
  const element=page.locator(selector);await element.waitFor({state:'visible'});await element.scrollIntoViewIfNeeded();await page.waitForTimeout(180);
  assert.equal(await page.locator('body').evaluate(e=>e.scrollWidth<=innerWidth+1),true,'Document overflow '+key+' '+width);
- const rawImage=key+'-'+width+'.png',image=key+'-'+width+'.webp';
+ const name=key+(captureId?'-'+captureId:'')+'-'+width;
+ const rawImage=name+'.png',image=name+'.webp';
  const png=await element.screenshot({path:resolve(rawOutput,rawImage),animations:'disabled'});
  const webp=await sharp(png).webp({lossless:true,effort:6}).toBuffer();
  const before=await sharp(png).ensureAlpha().raw().toBuffer(),after=await sharp(webp).ensureAlpha().raw().toBuffer();
  assert.deepEqual(before,after,'Lossless WebP pixels '+key);
  writeFileSync(resolve(output,image),webp);
- const dimensions=await sharp(webp).metadata();manifest.captures.push({screenKey:key,src:'images/native-client/'+image,width:dimensions.width,height:dimensions.height,viewportWidth:width,sha256:createHash('sha256').update(webp).digest('hex'),articleSlugs:articles,articleSteps:Object.fromEntries(articles.map(slug=>[slug,[step]])),step,coverageExact,pixelPreserving:true,rawPng:'outputs/native-client/png/'+rawImage,kind:'screenshot',caption:'Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.',note});
+ const dimensions=await sharp(webp).metadata();manifest.captures.push({screenKey:key,selector,src:'images/native-client/'+image,width:dimensions.width,height:dimensions.height,viewportWidth:width,sha256:createHash('sha256').update(webp).digest('hex'),articleSlugs:articles,articleSteps:Object.fromEntries(articles.map(slug=>[slug,[step]])),step,coverageExact,pixelPreserving:true,rawPng:relative(resolve(appRoot,'..'),resolve(rawOutput,rawImage)).replaceAll('\\','/'),kind:'screenshot',caption:'Настоящий клиентский интерфейс на изолированных учебных данных; не рабочая запись.',note});
+}
+async function checkPalette(page,selectors,width) {
+ await page.waitForFunction(selectors=>selectors.every(selector=>{const rgb=getComputedStyle(document.querySelector(selector)).backgroundColor.match(/[\d.]+/g)?.map(Number);return rgb&&rgb[0]>=rgb[1]&&rgb[2]>=rgb[1];}),selectors,{timeout:5000});
+ const colors=await page.evaluate(selectors=>selectors.map(selector=>{const element=document.querySelector(selector),style=getComputedStyle(element);return {selector,background:style.backgroundColor,text:style.color,theme:document.body.dataset.clientTheme};}),selectors);
+ for(const color of colors){assert.equal(color.theme,'pink-porcelain');const rgb=color.background.match(/[\d.]+/g)?.map(Number);assert.ok(rgb&&rgb[0]>=rgb[1]&&rgb[2]>=rgb[1],`Old green surface: ${color.selector} ${color.background}`);}
+ manifest.paletteChecks.push({viewportWidth:width,colors});
 }
 try {
  for(const width of widths) {
@@ -63,6 +72,7 @@ try {
   await page.locator('#timeHours [data-time]').first().waitFor({state:'visible'});
   await page.locator('#openWaitlist').click();
   await page.locator('#waitlistName').fill('Клиент · пример');
+  await checkPalette(page,['#waitlistDialog','.waitlist-context','#waitlistDialog .primary'],width);
   await capture(page,'client-waitlist-form','#waitlistDialog',['join-booking-waitlist'],2,width);
   await page.locator('[data-close-waitlist]').click();
   await page.locator('#timeHours [data-time]').first().click();
@@ -72,9 +82,12 @@ try {
   await page.goto(fixture.origin+'/minuta-online-booking/booking.html?theme=pink-porcelain#token='+ids.token);
   await page.locator('#manageContent').waitFor({state:'visible'});
   await page.waitForFunction(()=>document.querySelector('#manageTelegramConnect')?.dataset.telegramAuthState==='ready');
-  await capture(page,'client-management','#manageContent',['reschedule','connect-telegram'],1,width,true,'Telegram button is ready inside its actual booking-management context. Original official static SDK loaded; authorization is not invoked.');
+  await checkPalette(page,['.manage-appointment','.manage-status.status-confirmed','.manage-policy','#cancelBooking','#openReschedule','#manageTelegramConnect'],width);
+  await capture(page,'client-management','#manageContent',['reschedule'],1,width);
+  await capture(page,'client-telegram-connect','#manageTelegramConnect',['connect-telegram'],1,width,true,'Actual ready Telegram button within booking management. Original official SDK loaded; authorization is not invoked.');
   await page.locator('#openReschedule').click();
   await page.locator('#manageTimes [data-manage-time]').first().waitFor({state:'visible'});
+  await checkPalette(page,['#closeReschedule'],width);
   await capture(page,'client-reschedule-form','#reschedulePanel',['reschedule'],3,width);
   await page.goto(fixture.origin+'/minuta-online-booking/my-bookings.html');
   await page.locator('#clientSmsButton').filter({hasText:'Получить код'}).waitFor({state:'visible'});
@@ -83,7 +96,8 @@ try {
   assert.equal(await page.locator('#personalThemeOptions input[value="pink-porcelain"]').isChecked(),true);
   await page.keyboard.press('Escape');
   await page.locator('#legacyClientLogin summary').click();
-  await capture(page,'client-login','#clientLoginCard',['find-booking'],4,width);
+  await checkPalette(page,['#clientLoginButton'],width);
+  await capture(page,'client-login','#legacyClientLogin',['find-booking'],5,width,true,'Only the native alternate-login section relevant to this instructional step.');
   assert.deepEqual(pageErrors,[],'Native client page errors');
   await context.close();
  }
@@ -97,7 +111,7 @@ try {
  manifest.harnessSources=Object.fromEntries(['help/tools/capture-native-client.mjs','help/tools/native-client-capture-fixture.mjs'].map(f=>[f,createHash('sha256').update(readFileSync(resolve(appRoot,f))).digest('hex')]));
  manifest.coveredArticles=[...new Set(manifest.captures.filter(x=>x.coverageExact).flatMap(x=>x.articleSlugs))];
  manifest.captureCount=manifest.captures.length;manifest.coverageExact=manifest.captures.every(x=>x.coverageExact);
- writeFileSync(resolve(output,'native-client-capture-manifest.json'),JSON.stringify(manifest,null,2)+'\n');
+ writeFileSync(resolve(output,'native-client-capture-manifest'+(captureId?'-'+captureId:'')+'.json'),JSON.stringify(manifest,null,2)+'\n');
  await browser.close();await new Promise(resolve=>fixture.server.close(resolve));
 }
 console.log(JSON.stringify({captureCount:manifest.captureCount,coveredArticles:manifest.coveredArticles,output,liveVerified:false}));

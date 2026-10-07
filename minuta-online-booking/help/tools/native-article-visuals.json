@@ -1,7 +1,7 @@
 {
   "book-online": [
     {
-      "src": "images/native-client/client-service-picker-1440.webp",
+      "src": "images/native-client/client-service-picker-rose-20261007-1440.webp",
       "kind": "screenshot",
       "alt": "Выбор услуги",
       "caption": "Выбор услуги. Учебные данные.",
@@ -13,33 +13,33 @@
       "domModified": false,
       "rendererModified": false,
       "liveVerified": false,
-      "sha256": "2f519540f952af33d26ae7a42484829684ad3b78e37118cb3e18d926c1e97332",
+      "sha256": "f60c1b1bdd86c74fece2bd69a39b1f3a7aa5c5a72d34a77bb47342476afa3c46",
       "variants": [
         {
-          "src": "images/native-client/client-service-picker-1440.webp",
+          "src": "images/native-client/client-service-picker-rose-20261007-1440.webp",
           "width": 720,
           "height": 313,
           "minWidth": 901,
-          "sha256": "2f519540f952af33d26ae7a42484829684ad3b78e37118cb3e18d926c1e97332"
+          "sha256": "f60c1b1bdd86c74fece2bd69a39b1f3a7aa5c5a72d34a77bb47342476afa3c46"
         },
         {
-          "src": "images/native-client/client-service-picker-760.webp",
+          "src": "images/native-client/client-service-picker-rose-20261007-760.webp",
           "width": 620,
           "height": 301,
           "minWidth": 431,
-          "sha256": "12148b2b780dae12f094136e698f5a9f390800e91a558791e6f53f4bedf266a3"
+          "sha256": "2664cb628cf550073e2309817ce5cf69e5bd6fbae6ebb84c39711196dbe48a25"
         },
         {
-          "src": "images/native-client/client-service-picker-390.webp",
+          "src": "images/native-client/client-service-picker-rose-20261007-390.webp",
           "width": 370,
           "height": 297,
           "minWidth": 0,
-          "sha256": "c4dac3dc8003e6fafc39a0e6efa3e0aa41ad2dcf32f7b9339b9b0576feebc2c9"
+          "sha256": "25c908fe9ef57d924e531961b1aa7e5bc330193a27bc740057c224b2790e53a5"
         }
       ]
     },
     {
-      "src": "images/native-client/client-contact-form-1440.webp",
+      "src": "images/native-client/client-contact-form-rose-20261007-1440.webp",
       "kind": "screenshot",
       "alt": "Контактные данные перед записью",
       "caption": "Контактные данные перед записью. Учебные данные.",
@@ -51,35 +51,35 @@
       "domModified": false,
       "rendererModified": false,
       "liveVerified": false,
-      "sha256": "ceb606af97c147eb4105494b075c3e3aa3785bce349e77c66f17184bcf734989",
+      "sha256": "e199513bfcda13544f5bfc1e2270f9ac25d29a38f5a3bf0389eac7302bd84e2f",
       "variants": [
         {
-          "src": "images/native-client/client-contact-form-1440.webp",
+          "src": "images/native-client/client-contact-form-rose-20261007-1440.webp",
           "width": 720,
           "height": 716,
           "minWidth": 901,
-          "sha256": "ceb606af97c147eb4105494b075c3e3aa3785bce349e77c66f17184bcf734989"
+          "sha256": "e199513bfcda13544f5bfc1e2270f9ac25d29a38f5a3bf0389eac7302bd84e2f"
         },
         {
-          "src": "images/native-client/client-contact-form-760.webp",
+          "src": "images/native-client/client-contact-form-rose-20261007-760.webp",
           "width": 620,
           "height": 718,
           "minWidth": 431,
-          "sha256": "bce613e8708e6955517d34c56893b909672317a253413d6a6247e55e793fb047"
+          "sha256": "6ca339438ccda0542435aef24da9fac4a134097e9568931d595596b1ec8572cd"
         },
         {
-          "src": "images/native-client/client-contact-form-390.webp",
+          "src": "images/native-client/client-contact-form-rose-20261007-390.webp",
           "width": 370,
           "height": 759,
           "minWidth": 0,
-          "sha256": "5fdc68122f9d2364bdf18524ed205a3a26c4d1511ef88001b861567cd3470184"
+          "sha256": "563f3bad870b29132de3e8a7efdd91442a701546323a2851e50899c14447542a"
         }
       ]
     }
   ],
   "join-booking-waitlist": [
     {
-      "src": "images/native-client/client-waitlist-form-1440.webp",
+      "src": "images/native-client/client-waitlist-form-rose-20261007-1440.webp",
       "kind": "screenshot",
       "alt": "Заявка в лист ожидания",
       "caption": "Заявка в лист ожидания. Учебные данные.",
@@ -91,35 +91,35 @@
       "domModified": false,
       "rendererModified": false,
       "liveVerified": false,
-      "sha256": "1d4197fef4b1fcb77183a27f0a29a84bafe4895307f286edeadccd38b00c7db8",
+      "sha256": "dfefcdf0213e08b3e281b81d084d5542d0b7853b640ba729f2cf314c58b1bc8a",
       "variants": [
         {
-          "src": "images/native-client/client-waitlist-form-1440.webp",
+          "src": "images/native-client/client-waitlist-form-rose-20261007-1440.webp",
           "width": 560,
           "height": 666,
           "minWidth": 901,
-          "sha256": "1d4197fef4b1fcb77183a27f0a29a84bafe4895307f286edeadccd38b00c7db8"
+          "sha256": "dfefcdf0213e08b3e281b81d084d5542d0b7853b640ba729f2cf314c58b1bc8a"
         },
         {
-          "src": "images/native-client/client-waitlist-form-760.webp",
+          "src": "images/native-client/client-waitlist-form-rose-20261007-760.webp",
           "width": 560,
           "height": 666,
           "minWidth": 431,
-          "sha256": "e15bc35e87f036832ebd57e8e67580d074ccf7269a3b9ec430d66a81b715634b"
+          "sha256": "fcc210b6f915d8033edf87783b821f13403a89cc1e7e0ee4c91f97dea10d9abe"
         },
         {
-          "src": "images/native-client/client-waitlist-form-390.webp",
+          "src": "images/native-client/client-waitlist-form-rose-20261007-390.webp",
           "width": 352,
           "height": 702,
           "minWidth": 0,
-          "sha256": "1040d732ec3d98e879c3a934ff256f1507a909b45a25f314ffbe05d034e2b2ec"
+          "sha256": "9c826dba4cb3f5697aedfaecc2289cf0b91b0dc345ebd3254ff3adda61ff50d1"
         }
       ]
     }
   ],
   "reschedule": [
     {
-      "src": "images/native-client/client-management-1440.webp",
+      "src": "images/native-client/client-management-rose-20261007-1440.webp",
       "kind": "screenshot",
       "alt": "Управление визитом и подключение Telegram",
       "caption": "Управление визитом и подключение Telegram. Учебные данные.",
@@ -131,33 +131,33 @@
       "domModified": false,
       "rendererModified": false,
       "liveVerified": false,
-      "sha256": "01611e3d6a41ad16daa90fde5f292fd156bae166c1eadecbaa7106b47efd217c",
+      "sha256": "1da81c64db445e7fd8d205d956b92fb198339eba7b602cf8fc04322cc994a79e",
       "variants": [
         {
-          "src": "images/native-client/client-management-1440.webp",
+          "src": "images/native-client/client-management-rose-20261007-1440.webp",
           "width": 658,
           "height": 735,
           "minWidth": 901,
-          "sha256": "01611e3d6a41ad16daa90fde5f292fd156bae166c1eadecbaa7106b47efd217c"
+          "sha256": "1da81c64db445e7fd8d205d956b92fb198339eba7b602cf8fc04322cc994a79e"
         },
         {
-          "src": "images/native-client/client-management-760.webp",
+          "src": "images/native-client/client-management-rose-20261007-760.webp",
           "width": 702,
           "height": 917,
           "minWidth": 431,
-          "sha256": "baf1a297016a4c857f6b2188b4b49e84b0583b2764d36a55dff0cda33fb4ce65"
+          "sha256": "b0fb0f2e2679c94a94d871901b505eed43270c5cfa808750e7975bed341f4b8e"
         },
         {
-          "src": "images/native-client/client-management-390.webp",
+          "src": "images/native-client/client-management-rose-20261007-390.webp",
           "width": 340,
           "height": 933,
           "minWidth": 0,
-          "sha256": "1e7ed2056e553df1d4515d15f704abd22428e4e6c2405eba8356de7a9ef0a7b0"
+          "sha256": "54969cb236b56cea68ca24cf3dc39860cd907bd3b078ecbf6261b22ed9bcc020"
         }
       ]
     },
     {
-      "src": "images/native-client/client-reschedule-form-1440.webp",
+      "src": "images/native-client/client-reschedule-form-rose-20261007-1440.webp",
       "kind": "screenshot",
       "alt": "Выбор нового времени",
       "caption": "Выбор нового времени. Учебные данные.",
@@ -169,108 +169,109 @@
       "domModified": false,
       "rendererModified": false,
       "liveVerified": false,
-      "sha256": "333e9354e03fb3e104ce303adb672dc4cd62553c804f9f70939a413408bf102e",
+      "sha256": "4b3b61b27083473913eb664b8593f526879ad8afbd78ece0905c04922448de02",
       "variants": [
         {
-          "src": "images/native-client/client-reschedule-form-1440.webp",
+          "src": "images/native-client/client-reschedule-form-rose-20261007-1440.webp",
           "width": 658,
           "height": 444,
           "minWidth": 901,
-          "sha256": "333e9354e03fb3e104ce303adb672dc4cd62553c804f9f70939a413408bf102e"
+          "sha256": "4b3b61b27083473913eb664b8593f526879ad8afbd78ece0905c04922448de02"
         },
         {
-          "src": "images/native-client/client-reschedule-form-760.webp",
+          "src": "images/native-client/client-reschedule-form-rose-20261007-760.webp",
           "width": 702,
           "height": 375,
           "minWidth": 431,
-          "sha256": "77f7fba003b1252b74a792d449bda4335f72d287f8027a240a1bbda50fae9d74"
+          "sha256": "bead551699b2a53f38b9c2b6695a7899430ec691521af8bf8c969ac2269ef21c"
         },
         {
-          "src": "images/native-client/client-reschedule-form-390.webp",
+          "src": "images/native-client/client-reschedule-form-rose-20261007-390.webp",
           "width": 340,
           "height": 369,
           "minWidth": 0,
-          "sha256": "6bdc9f0d671d44b0a5549e2325d79e88b0d5ec656019817917da7cc9e6db31b4"
+          "sha256": "10887c2eb9a4f54419bd3dd005ebfa6a635316ebb8a5bbf5a0c8b5b4833ed461"
         }
       ]
     }
   ],
   "connect-telegram": [
     {
-      "src": "images/native-client/client-management-1440.webp",
+      "src": "images/native-client/client-telegram-connect-rose-20261007-1440.webp",
       "kind": "screenshot",
-      "alt": "Управление визитом и подключение Telegram",
-      "caption": "Управление визитом и подключение Telegram. Учебные данные.",
-      "width": 658,
-      "height": 735,
+      "alt": "Кнопка подключения Telegram на странице записи",
+      "caption": "«Подключить Telegram» на странице записи. Учебные данные.",
+      "width": 540,
+      "height": 61,
       "step": 1,
       "environment": "isolated-local-native-fixture",
       "coverageExact": true,
       "domModified": false,
       "rendererModified": false,
       "liveVerified": false,
-      "sha256": "01611e3d6a41ad16daa90fde5f292fd156bae166c1eadecbaa7106b47efd217c",
+      "sha256": "08dfbbe8eb5a3be8ea2262116f8c62add5bd261c735a62096e848a424b8645b7",
       "variants": [
         {
-          "src": "images/native-client/client-management-1440.webp",
-          "width": 658,
-          "height": 735,
+          "src": "images/native-client/client-telegram-connect-rose-20261007-1440.webp",
+          "width": 540,
+          "height": 61,
           "minWidth": 901,
-          "sha256": "01611e3d6a41ad16daa90fde5f292fd156bae166c1eadecbaa7106b47efd217c"
+          "sha256": "08dfbbe8eb5a3be8ea2262116f8c62add5bd261c735a62096e848a424b8645b7"
         },
         {
-          "src": "images/native-client/client-management-760.webp",
-          "width": 702,
-          "height": 917,
+          "src": "images/native-client/client-telegram-connect-rose-20261007-760.webp",
+          "width": 540,
+          "height": 61,
           "minWidth": 431,
-          "sha256": "baf1a297016a4c857f6b2188b4b49e84b0583b2764d36a55dff0cda33fb4ce65"
+          "sha256": "08dfbbe8eb5a3be8ea2262116f8c62add5bd261c735a62096e848a424b8645b7"
         },
         {
-          "src": "images/native-client/client-management-390.webp",
+          "src": "images/native-client/client-telegram-connect-rose-20261007-390.webp",
           "width": 340,
-          "height": 933,
+          "height": 78,
           "minWidth": 0,
-          "sha256": "1e7ed2056e553df1d4515d15f704abd22428e4e6c2405eba8356de7a9ef0a7b0"
+          "sha256": "c8d804991a95fa03c1e78e20414a9a10860fcfbb9cdab33e0134364e1555ff75"
         }
-      ]
+      ],
+      "component": "telegram-connect"
     }
   ],
   "find-booking": [
     {
-      "src": "images/native-client/client-login-1440.webp",
+      "src": "images/native-client/client-login-rose-20261007-1440.webp",
       "kind": "screenshot",
       "alt": "Вход по телефону и личному коду",
       "caption": "Вход по телефону и личному коду. Учебные данные.",
-      "width": 520,
-      "height": 876,
+      "width": 458,
+      "height": 335,
       "step": 5,
       "environment": "isolated-local-native-fixture",
       "coverageExact": true,
       "domModified": false,
       "rendererModified": false,
       "liveVerified": false,
-      "sha256": "065941802adc7200f3e1fc08b7fb8367e345acf97756e846455208ecdbcdeea6",
+      "sha256": "010a4499de9c8aed8ebc33c986868423999c3974df3c386300cb3994a27423b6",
       "variants": [
         {
-          "src": "images/native-client/client-login-1440.webp",
-          "width": 520,
-          "height": 876,
+          "src": "images/native-client/client-login-rose-20261007-1440.webp",
+          "width": 458,
+          "height": 335,
           "minWidth": 901,
-          "sha256": "065941802adc7200f3e1fc08b7fb8367e345acf97756e846455208ecdbcdeea6"
+          "sha256": "010a4499de9c8aed8ebc33c986868423999c3974df3c386300cb3994a27423b6"
         },
         {
-          "src": "images/native-client/client-login-760.webp",
-          "width": 520,
-          "height": 860,
+          "src": "images/native-client/client-login-rose-20261007-760.webp",
+          "width": 486,
+          "height": 335,
           "minWidth": 431,
-          "sha256": "faa73b0952788b805693cf19e5bf7c7a94297a87ae0bc168b311a1c705dd1da5"
+          "sha256": "08995a931c24d60c0cd84dc28dc908b52b7ed13d4f551644efb9c82c3e1882db"
         },
         {
-          "src": "images/native-client/client-login-390.webp",
-          "width": 370,
-          "height": 851,
+          "src": "images/native-client/client-login-rose-20261007-390.webp",
+          "width": 336,
+          "height": 329,
           "minWidth": 0,
-          "sha256": "4087ce7109ceb4102c91e21465eb6a364d4dcd9343fda49ed4c8504a3c5b80c0"
+          "sha256": "8ee612988fee4b0dd57f23dce5ec79f97308436168c0f29ba9df865c38d1ba8d"
         }
       ]
     }
@@ -2563,23 +2564,47 @@
           "width": 580,
           "height": 924,
           "minWidth": 901,
-          "sha256": "a86c5f14dd43ac39ef28eb63327705cb9ea407ec80b8ecf4864923a0ddc9b620"
+          "sha256": "a86c5f14dd43ac39ef28eb63327705cb9ea407ec80b8ecf4864923a0ddc9b620",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 580,
+            "height": 344
+          }
         },
         {
           "src": "images/native-local/manual-booking-760.webp",
           "width": 745,
           "height": 885,
           "minWidth": 431,
-          "sha256": "105325f87d3ba843ee543a3f6e03eb3f2ff4e0eec8d3591e9536e8f0c653af21"
+          "sha256": "105325f87d3ba843ee543a3f6e03eb3f2ff4e0eec8d3591e9536e8f0c653af21",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 745,
+            "height": 340
+          }
         },
         {
           "src": "images/native-local/manual-booking-390.webp",
           "width": 375,
           "height": 846,
           "minWidth": 0,
-          "sha256": "47469686ebc2dc2ff666f7c337392d5243f1a50efd5955f5a7a8778283060671"
+          "sha256": "47469686ebc2dc2ff666f7c337392d5243f1a50efd5955f5a7a8778283060671",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 375,
+            "height": 328
+          }
         }
-      ]
+      ],
+      "detail": {
+        "x": 0,
+        "y": 0,
+        "width": 580,
+        "height": 344
+      }
     }
   ],
   "repeat-client-booking": [
@@ -2642,23 +2667,47 @@
           "width": 752,
           "height": 3238,
           "minWidth": 901,
-          "sha256": "87958a68c34ec5c4bfd92aea5d1a0ea7363929e15ba663ecbb393e313d157bc3"
+          "sha256": "87958a68c34ec5c4bfd92aea5d1a0ea7363929e15ba663ecbb393e313d157bc3",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 752,
+            "height": 650
+          }
         },
         {
           "src": "images/native-local/appearance-settings-760.webp",
           "width": 721,
           "height": 830,
           "minWidth": 431,
-          "sha256": "ad954307eafe3d879ec2f8892b9d852ef2fd8ac80bfb1b2cfa116d4529cd53cd"
+          "sha256": "ad954307eafe3d879ec2f8892b9d852ef2fd8ac80bfb1b2cfa116d4529cd53cd",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 721,
+            "height": 638
+          }
         },
         {
           "src": "images/native-local/appearance-settings-390.webp",
           "width": 351,
           "height": 830,
           "minWidth": 0,
-          "sha256": "01f88908d8a71ed711d4e63d34bfdb1c8c2082d05229b830900cab7d9c837c83"
+          "sha256": "01f88908d8a71ed711d4e63d34bfdb1c8c2082d05229b830900cab7d9c837c83",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 351,
+            "height": 739
+          }
         }
-      ]
+      ],
+      "detail": {
+        "x": 0,
+        "y": 0,
+        "width": 752,
+        "height": 650
+      }
     }
   ],
   "booking-card-appearance": [
