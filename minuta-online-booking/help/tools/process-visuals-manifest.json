@@ -1754,6 +1754,7 @@
           "width": 617,
           "height": 108
         },
+        "step": 1,
         "variants": [
           {
             "minWidth": 901,
@@ -1861,30 +1862,54 @@
       },
       {
         "src": "images/native-local/statistics-money-1440.webp",
-        "alt": "Финансовый раздел статистики",
-        "caption": "Финансовый раздел статистики. Учебные данные.",
+        "alt": "Карточки «Получено» и «Общие расходы»",
+        "caption": "Два показателя денежных операций. Учебные данные.",
         "kind": "screenshot",
         "width": 1148,
         "height": 1134,
+        "detail": {
+          "x": 390,
+          "y": 58,
+          "width": 744,
+          "height": 167
+        },
         "step": 2,
         "variants": [
           {
             "minWidth": 901,
             "src": "images/native-local/statistics-money-1440.webp",
             "width": 1148,
-            "height": 1134
+            "height": 1134,
+            "detail": {
+              "x": 390,
+              "y": 58,
+              "width": 744,
+              "height": 167
+            }
           },
           {
             "minWidth": 431,
             "src": "images/native-local/statistics-money-760.webp",
             "width": 721,
-            "height": 900
+            "height": 900,
+            "detail": {
+              "x": 243,
+              "y": 58,
+              "width": 478,
+              "height": 157
+            }
           },
           {
             "minWidth": 0,
             "src": "images/native-local/statistics-money-390.webp",
             "width": 351,
-            "height": 900
+            "height": 900,
+            "detail": {
+              "x": 0,
+              "y": 160,
+              "width": 351,
+              "height": 155
+            }
           }
         ]
       }
@@ -2639,29 +2664,106 @@
       {
         "src": "images/native-client/client-management-rose-20261007-1440.webp",
         "alt": "Управление визитом и подключение Telegram",
-        "caption": "Управление визитом и подключение Telegram. Учебные данные.",
+        "caption": "Услуга, дата и время выбранного визита. Учебные данные.",
         "kind": "screenshot",
         "width": 658,
         "height": 735,
+        "detail": {
+          "x": 0,
+          "y": 0,
+          "width": 658,
+          "height": 244
+        },
         "step": 1,
         "variants": [
           {
             "minWidth": 901,
             "src": "images/native-client/client-management-rose-20261007-1440.webp",
             "width": 658,
-            "height": 735
+            "height": 735,
+            "detail": {
+              "x": 0,
+              "y": 0,
+              "width": 658,
+              "height": 244
+            }
           },
           {
             "minWidth": 431,
             "src": "images/native-client/client-management-rose-20261007-760.webp",
             "width": 702,
-            "height": 917
+            "height": 917,
+            "detail": {
+              "x": 0,
+              "y": 0,
+              "width": 702,
+              "height": 278
+            }
           },
           {
             "minWidth": 0,
             "src": "images/native-client/client-management-rose-20261007-390.webp",
             "width": 340,
-            "height": 933
+            "height": 933,
+            "detail": {
+              "x": 0,
+              "y": 0,
+              "width": 340,
+              "height": 262
+            }
+          }
+        ]
+      },
+      {
+        "src": "images/native-client/client-management-rose-20261007-1440.webp",
+        "alt": "Кнопка «Перенести запись»",
+        "caption": "Начните перенос этой кнопкой. Учебные данные.",
+        "kind": "screenshot",
+        "width": 658,
+        "height": 735,
+        "detail": {
+          "x": 0,
+          "y": 402,
+          "width": 658,
+          "height": 52
+        },
+        "step": 3,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-client/client-management-rose-20261007-1440.webp",
+            "width": 658,
+            "height": 735,
+            "detail": {
+              "x": 0,
+              "y": 402,
+              "width": 658,
+              "height": 52
+            }
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-client/client-management-rose-20261007-760.webp",
+            "width": 702,
+            "height": 917,
+            "detail": {
+              "x": 0,
+              "y": 584,
+              "width": 702,
+              "height": 52
+            }
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-client/client-management-rose-20261007-390.webp",
+            "width": 340,
+            "height": 933,
+            "detail": {
+              "x": 0,
+              "y": 583,
+              "width": 340,
+              "height": 52
+            }
           }
         ]
       },
@@ -2691,6 +2793,59 @@
             "src": "images/native-client/client-reschedule-form-rose-20261007-390.webp",
             "width": 340,
             "height": 369
+          }
+        ]
+      },
+      {
+        "src": "images/native-client/client-management-rose-20261007-1440.webp",
+        "alt": "Кнопка «Отменить запись»",
+        "caption": "После нажатия потребуется подтверждение отмены. Учебные данные.",
+        "kind": "screenshot",
+        "width": 658,
+        "height": 735,
+        "detail": {
+          "x": 0,
+          "y": 486,
+          "width": 658,
+          "height": 52
+        },
+        "step": 4,
+        "variants": [
+          {
+            "minWidth": 901,
+            "src": "images/native-client/client-management-rose-20261007-1440.webp",
+            "width": 658,
+            "height": 735,
+            "detail": {
+              "x": 0,
+              "y": 486,
+              "width": 658,
+              "height": 52
+            }
+          },
+          {
+            "minWidth": 431,
+            "src": "images/native-client/client-management-rose-20261007-760.webp",
+            "width": 702,
+            "height": 917,
+            "detail": {
+              "x": 0,
+              "y": 668,
+              "width": 702,
+              "height": 52
+            }
+          },
+          {
+            "minWidth": 0,
+            "src": "images/native-client/client-management-rose-20261007-390.webp",
+            "width": 340,
+            "height": 933,
+            "detail": {
+              "x": 0,
+              "y": 667,
+              "width": 340,
+              "height": 52
+            }
           }
         ]
       }
