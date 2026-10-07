@@ -45,7 +45,9 @@ try {
   // Exact v1048 total: closed-day rendering adds 825 bytes; no spare allowance.
   // Keep this measured offline-shell cap aligned with the startup test.
   // v1049 adds 417 measured CSS bytes for visible desktop closed-day labels; no reserve.
-  assert.ok(precacheBytes <= 3_799_094, `Core precache is too large: ${precacheBytes} bytes`);
+  // Same measured cap as the startup test: the optional add-on form adds no assets
+  // to this shell; its entry/loader adds 1,419 bytes (3,798,946 -> 3,800,365), no reserve.
+  assert.ok(precacheBytes <= 3_800_365, `Core precache is too large: ${precacheBytes} bytes`);
   const roleArticle = help.split("makeArticle('roles-access-safety'")[1]?.split("makeArticle('service-resources'")[0] || '';
   assert.ok(roleArticle.includes('Доступа к организации') && roleArticle.includes('аккаунт сохраняется'), 'linked article must explain this organization and account preservation');
   assert.ok(!roleArticle.includes('«Доступ активен»'), 'stale A02 toggle label must be gone');
