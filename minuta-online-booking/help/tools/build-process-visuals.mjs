@@ -52,6 +52,7 @@ const articles = context.window.MINUTA_HELP_ARTICLES;
 const previousVisuals = JSON.parse(readFileSync(join(helpRoot, 'tools', 'previous-visuals.json'), 'utf8'));
 const approvedCapturePath = join(helpRoot, 'tools', 'native-article-visuals.json');
 const approvedCaptures = existsSync(approvedCapturePath) ? JSON.parse(readFileSync(approvedCapturePath, 'utf8')) : {};
+const additionalPlan = JSON.parse(readFileSync(join(helpRoot, 'tools', 'additional-visual-plan.json'), 'utf8'));
 const output = join(helpRoot, 'images', 'process');
 mkdirSync(output, { recursive: true });
 
@@ -66,14 +67,15 @@ function lines(label) {
   if (result.length > 2) throw new Error(`Diagram label needs simplification: ${label}`);
   return result;
 }
-function diagram(article, labels) {
-  const height = 48 + labels.length * 88 + (labels.length - 1) * 28;
+function diagram(article, labels, options) {
+  const gap = options ? 16 : 28, inset = options ? 18 : 24;
+  const height = inset * 2 + labels.length * 88 + (labels.length - 1) * gap;
   const nodes = labels.map((label, index) => {
-    const y = 24 + index * 116, text = lines(label), base = y + (text.length === 1 ? 54 : 37);
-    const next = index < labels.length - 1 ? `<path d="M280 ${y + 94}v16" stroke="#a3446c" stroke-width="3" marker-end="url(#arrow)"/>` : '';
-    return `<rect x="20" y="${y}" width="520" height="88" rx="16" fill="${index === labels.length - 1 ? '#fce7ef' : '#ffffff'}" stroke="#ead5df" stroke-width="2"/><text x="280" y="${base}" text-anchor="middle" fill="#352b31" font-size="30" font-weight="600">${text.map((part, n) => `<tspan x="280" dy="${n ? 36 : 0}">${escape(part)}</tspan>`).join('')}</text>${next}`;
+    const y = inset + index * (88 + gap), text = lines(label), base = y + (text.length === 1 ? 54 : 37);
+    const next = index < labels.length - 1 && !options?.parallel ? `<path d="M280 ${y + 94}v${gap - 12}" stroke="#a3446c" stroke-width="3" marker-end="url(#arrow)"/>` : '';
+    return `<rect x="20" y="${y}" width="520" height="88" rx="16" fill="${index === labels.length - 1 && !options?.parallel ? '#fce7ef' : '#ffffff'}" stroke="#ead5df" stroke-width="2"/><text x="280" y="${base}" text-anchor="middle" fill="#352b31" font-size="30" font-weight="600">${text.map((part, n) => `<tspan x="280" dy="${n ? 36 : 0}">${escape(part)}</tspan>`).join('')}</text>${next}`;
   }).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="${height}" viewBox="0 0 560 ${height}" role="img" aria-labelledby="title desc"><title id="title">${escape(article.title)} — схема процесса</title><desc id="desc">Схема этапов, не снимок интерфейса. ${escape(labels.join(' → '))}. Подробные действия описаны в статье.</desc><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10" fill="none" stroke="#a3446c" stroke-width="2"/></marker></defs><rect width="560" height="${height}" rx="20" fill="#fff7fa"/><g font-family="Arial, Segoe UI, sans-serif">${nodes}</g></svg>\n`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="${height}" viewBox="0 0 560 ${height}" role="img" aria-labelledby="title desc"><title id="title">${escape(article.title)} — схема процесса</title><desc id="desc">Схема этапов, не снимок интерфейса. ${escape(labels.join(options?.parallel ? '; ' : ' → '))}. Подробные действия описаны в статье.</desc><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10" fill="none" stroke="#a3446c" stroke-width="2"/></marker></defs><rect width="560" height="${height}" rx="20" fill="#fff7fa"/><g font-family="Arial, Segoe UI, sans-serif">${nodes}</g></svg>\n`;
 }
 
 const manifest = {};
@@ -85,7 +87,8 @@ function detailFor(image) {
   return { detail:{ x, y, width, height } };
 }
 for (const article of articles) {
-  const labels = phases[article.slug];
+  const additionalDiagram = additionalPlan.diagrams[article.slug];
+  const labels = phases[article.slug] || additionalDiagram?.labels;
   const priorVisual = previousVisuals[article.slug];
   const images = [];
   const captures = approvedCaptures[article.slug] || [];
@@ -120,12 +123,13 @@ for (const article of articles) {
     images.push({ src:capture.src, alt:capture.alt, caption:capture.caption, kind:'screenshot', width:capture.width, height:capture.height, ...detailFor(capture), ...(capture.step ? { step:capture.step } : {}), ...(variants.length ? { variants } : {}) });
   }
   if (labels && !captures.length) {
-    writeFileSync(join(output, `${article.slug}.svg`), diagram(article, labels));
+    writeFileSync(join(output, `${article.slug}.svg`), diagram(article, labels, additionalDiagram));
     images.push({
       src: `images/process/${article.slug}.svg`,
-      alt: `Схема этапов: ${labels.join(' → ')}.`,
-      caption: 'Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.',
-      kind: 'diagram', width: 560, height: 48 + labels.length * 88 + (labels.length - 1) * 28
+      alt: `Схема ${additionalDiagram?.parallel ? 'сравнения' : 'этапов'}: ${labels.join(additionalDiagram?.parallel ? '; ' : ' → ')}.`,
+      caption: additionalDiagram ? `Схема, не снимок интерфейса. ${additionalDiagram.caption}` : 'Схема процесса, не снимок интерфейса. Подробные действия — в инструкции.',
+      kind: 'diagram', width: 560, height: additionalDiagram ? 36 + labels.length * 88 + (labels.length - 1) * 16 : 48 + labels.length * 88 + (labels.length - 1) * 28,
+      ...(additionalDiagram ? { step:additionalDiagram.step } : {})
     });
   }
   const entry = { images };
@@ -140,7 +144,7 @@ for (const article of articles) {
     targetArticle: article.title,
     widths: [390, 760, 1440]
   };
-  if (!priorVisual && !captures.length) entry.status = 'text-only';
+  if (!priorVisual && !images.length) entry.status = 'text-only';
   manifest[article.slug] = entry;
 }
 for (const slug of Object.keys(phases)) if (!articles.some(article => article.slug === slug)) throw new Error(`Unknown article: ${slug}`);

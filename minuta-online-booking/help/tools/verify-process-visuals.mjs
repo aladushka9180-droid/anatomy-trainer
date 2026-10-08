@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
+import './validate-additional-native.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const context = { window: {} };
@@ -17,7 +18,7 @@ const approvedPath = join(root, 'tools', 'native-article-visuals.json');
 const approved = existsSync(approvedPath) ? JSON.parse(readFileSync(approvedPath, 'utf8')) : {};
 const processOnly = new Set(['first-booking', 'settings-quick-start', 'voice-assistant-actions']);
 const processSlugs = readdirSync(join(root, 'images', 'process')).filter(name => name.endsWith('.svg')).map(name => name.slice(0, -4));
-assert.equal(processSlugs.length, 34, 'The original process inventory remains available');
+assert.equal(processSlugs.length, 45, 'Original diagrams and eleven additional explanatory diagrams remain available');
 let diagramCount = 0, pending = 0, screenshotCount = 0, replacedArticles = 0;
 function rasterDimensions(bytes) {
   if (bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return { width:bytes.readUInt32BE(16), height:bytes.readUInt32BE(20) };
@@ -43,6 +44,7 @@ function verifyDetail(image, evidence) {
 for (const article of articles) {
   const entry = manifest[article.slug];
   assert.ok(entry, `Uninventoried article: ${article.slug}`);
+  assert.ok(article.visuals.length, `Every article needs an instructional visual: ${article.slug}`);
   if (article.visuals.some(image => image.kind === 'screenshot')) assert.ok(!article.visuals.some(image => image.kind === 'diagram'), 'A native screenshot replaces its temporary diagram');
   for (const image of article.visuals) {
     if (image.kind === 'screenshot') {

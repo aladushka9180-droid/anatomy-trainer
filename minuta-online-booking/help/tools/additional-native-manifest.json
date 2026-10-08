@@ -1,0 +1,2892 @@
+{
+  "schemaVersion": 1,
+  "environment": "isolated-local-native-fixture",
+  "capturedAt": "2026-10-08T03:31:22.960Z",
+  "fixtureDate": "2026-10-09",
+  "theme": "pink-porcelain",
+  "domModified": false,
+  "rendererModified": false,
+  "liveVerified": false,
+  "productionRequests": 0,
+  "captures": [
+    {
+      "id": "client-phone-lookup",
+      "viewportWidth": 390,
+      "src": "images/native-local/client-phone-lookup-20261008-390.webp",
+      "width": 325,
+      "height": 178,
+      "sha256": "e25fa90a2d26ee9e508daadd84599efb9fd23500d08bd435b9842349e94c80f6",
+      "articleSteps": {
+        "client-phone-autofill": 2
+      },
+      "caption": "Клиент найден по точному номеру телефона. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "К\n0\nКлиент примера А\n+7 (000) 000-00-01\nИзменить\nКарточка и история",
+      "fields": [
+        {
+          "id": "newBookingName",
+          "name": "",
+          "type": "text",
+          "value": "Клиент примера А"
+        },
+        {
+          "id": "newBookingPhone",
+          "name": "",
+          "type": "tel",
+          "value": "+7 (000) 000-00-01"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-record-files",
+      "viewportWidth": 390,
+      "src": "images/native-local/client-record-files-20261008-390.webp",
+      "width": 319,
+      "height": 357,
+      "sha256": "0c8fa419799ae5d2c3a9c832137ebb9142a02afe7ae036be85b12cf124d52ba8",
+      "articleSteps": {
+        "client-files-and-visit-notes": 3
+      },
+      "caption": "Файл и привязка к визиту в закрытом разделе клиента. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Добавить файл\nPDF или фото до 10 МБ\nВыбрать файл\nФотографии сохраняются без EXIF.\nК какому визиту\nБез привязки к визиту\n9 окт. 2026 г., 13:00 · Массаж спины\nБез привязки к визиту\nЗагрузить",
+      "fields": [
+        {
+          "id": "",
+          "name": "file",
+          "type": "file",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "file_booking",
+          "type": "select-one",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-private-result",
+      "viewportWidth": 390,
+      "src": "images/native-local/client-private-result-20261008-390.webp",
+      "width": 323,
+      "height": 514,
+      "sha256": "c2381985383a28ac70b39b37f3b60eafd0d3782c717acc2c85979253cbda53c5",
+      "articleSteps": {
+        "client-private-results": 3
+      },
+      "caption": "Четыре поля приватного описания сеанса. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Добавить описание\nНеобязательно\nДо сеанса\nЧто сделали\nПосле сеанса\nРекомендации",
+      "fields": [
+        {
+          "id": "",
+          "name": "client_result_before_session",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "client_result_work_done",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "client_result_after_session",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "client_result_recommendations",
+          "type": "textarea",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "service-price-list",
+      "viewportWidth": 390,
+      "src": "images/native-local/service-price-list-20261008-390.webp",
+      "width": 337,
+      "height": 572,
+      "sha256": "0544ca9fec95a418eb08551a9f7086964208d232b9a5cd08e205c7cdd676d7c4",
+      "articleSteps": {
+        "share-price-list": 3
+      },
+      "caption": "Прайс и выбор формата отправки. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Для клиента\nПрайс услуг\n×\n\nТолько услуги, доступные для онлайн-записи. Прайс составлен из текущих данных.\n\nМассаж спины\n2 500 ₽ · 60 мин\nКонсультация\n1 500 ₽ · 30 мин\nПерейти к онлайн-записи\nСкопировать ссылку\nПоделиться текстом\nПоделиться изображением\n\n2 услуг в прайсе",
+      "fields": [
+        {
+          "id": "priceListFallback",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "provider-waitlist",
+      "viewportWidth": 390,
+      "src": "images/native-local/provider-waitlist-20261008-390.webp",
+      "width": 351,
+      "height": 302,
+      "sha256": "45767dd5265e113a3585eb697e51e178fc4bdd228d3c2c01dbca35f03b181264",
+      "articleSteps": {
+        "provider-waitlist": 2
+      },
+      "caption": "Пожелания клиента и действия с заявкой. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "пт, 9 октября\nЛюбое время\nМассаж спины\nУчебный клиент ожидания\n+70000000004\nОжидает\nWhatsApp\nСвязались\nЗаписан\nЗакрыть",
+      "fields": [],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-phone-lookup",
+      "viewportWidth": 760,
+      "src": "images/native-local/client-phone-lookup-20261008-760.webp",
+      "width": 695,
+      "height": 178,
+      "sha256": "d2274aa9c7c027f2271ac2829fef1495e148ffdd4817eef5e994eb66e9d3cc54",
+      "articleSteps": {
+        "client-phone-autofill": 2
+      },
+      "caption": "Клиент найден по точному номеру телефона. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "К\n0\nКлиент примера А\n+7 (000) 000-00-01\nИзменить\nКарточка и история",
+      "fields": [
+        {
+          "id": "newBookingName",
+          "name": "",
+          "type": "text",
+          "value": "Клиент примера А"
+        },
+        {
+          "id": "newBookingPhone",
+          "name": "",
+          "type": "tel",
+          "value": "+7 (000) 000-00-01"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-record-files",
+      "viewportWidth": 760,
+      "src": "images/native-local/client-record-files-20261008-760.webp",
+      "width": 689,
+      "height": 357,
+      "sha256": "2e897c5e3d13464b3ba5a101ba623f886ac302ece423d355674423e462e8e4de",
+      "articleSteps": {
+        "client-files-and-visit-notes": 3
+      },
+      "caption": "Файл и привязка к визиту в закрытом разделе клиента. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Добавить файл\nPDF или фото до 10 МБ\nВыбрать файл\nФотографии сохраняются без EXIF.\nК какому визиту\nБез привязки к визиту\n9 окт. 2026 г., 13:00 · Массаж спины\nБез привязки к визиту\nЗагрузить",
+      "fields": [
+        {
+          "id": "",
+          "name": "file",
+          "type": "file",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "file_booking",
+          "type": "select-one",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-private-result",
+      "viewportWidth": 760,
+      "src": "images/native-local/client-private-result-20261008-760.webp",
+      "width": 572,
+      "height": 514,
+      "sha256": "134c2b415734a4535a78cbd4ace449d45fc289b2e63e5d7e1cc1de04958dad2d",
+      "articleSteps": {
+        "client-private-results": 3
+      },
+      "caption": "Четыре поля приватного описания сеанса. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Добавить описание\nНеобязательно\nДо сеанса\nЧто сделали\nПосле сеанса\nРекомендации",
+      "fields": [
+        {
+          "id": "",
+          "name": "client_result_before_session",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "client_result_work_done",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "client_result_after_session",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "client_result_recommendations",
+          "type": "textarea",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "service-price-list",
+      "viewportWidth": 760,
+      "src": "images/native-local/service-price-list-20261008-760.webp",
+      "width": 580,
+      "height": 520,
+      "sha256": "651a862eec7794d18fb0a45e47e9d70f310072a7bcf2e62a02796cdcdc234988",
+      "articleSteps": {
+        "share-price-list": 3
+      },
+      "caption": "Прайс и выбор формата отправки. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Для клиента\nПрайс услуг\n×\n\nТолько услуги, доступные для онлайн-записи. Прайс составлен из текущих данных.\n\nМассаж спины\n2 500 ₽ · 60 мин\nКонсультация\n1 500 ₽ · 30 мин\nПерейти к онлайн-записи\nСкопировать ссылку\nПоделиться текстом\nПоделиться изображением\n\n2 услуг в прайсе",
+      "fields": [
+        {
+          "id": "priceListFallback",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "provider-waitlist",
+      "viewportWidth": 760,
+      "src": "images/native-local/provider-waitlist-20261008-760.webp",
+      "width": 721,
+      "height": 369,
+      "sha256": "f8de91d1b5a034097a8e135530a1fc16e671776475015afb333fd47b1ddeda97",
+      "articleSteps": {
+        "provider-waitlist": 2
+      },
+      "caption": "Пожелания клиента и действия с заявкой. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "пт, 9 октября\nЛюбое время\nМассаж спины\nУчебный клиент ожидания\n+70000000004\nОжидает\nWhatsApp\nСвязались\nЗаписан\nЗакрыть",
+      "fields": [],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-phone-lookup",
+      "viewportWidth": 1440,
+      "src": "images/native-local/client-phone-lookup-20261008-1440.webp",
+      "width": 530,
+      "height": 178,
+      "sha256": "773bdd213cac99b6cb638d3c6eac33c23ca56c8c9936f9de1edfc56524fc73f5",
+      "articleSteps": {
+        "client-phone-autofill": 2
+      },
+      "caption": "Клиент найден по точному номеру телефона. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "К\n0\nКлиент примера А\n+7 (000) 000-00-01\nИзменить\nКарточка и история",
+      "fields": [
+        {
+          "id": "newBookingName",
+          "name": "",
+          "type": "text",
+          "value": "Клиент примера А"
+        },
+        {
+          "id": "newBookingPhone",
+          "name": "",
+          "type": "tel",
+          "value": "+7 (000) 000-00-01"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-record-files",
+      "viewportWidth": 1440,
+      "src": "images/native-local/client-record-files-20261008-1440.webp",
+      "width": 566,
+      "height": 356,
+      "sha256": "4a5469c25b780f91443f5f89fcaf44fb19ee4dc0612a2d16cfda15497732d40b",
+      "articleSteps": {
+        "client-files-and-visit-notes": 3
+      },
+      "caption": "Файл и привязка к визиту в закрытом разделе клиента. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Добавить файл\nPDF или фото до 10 МБ\nВыбрать файл\nФотографии сохраняются без EXIF.\nК какому визиту\nБез привязки к визиту\n9 окт. 2026 г., 13:00 · Массаж спины\nБез привязки к визиту\nЗагрузить",
+      "fields": [
+        {
+          "id": "",
+          "name": "file",
+          "type": "file",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "file_booking",
+          "type": "select-one",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-private-result",
+      "viewportWidth": 1440,
+      "src": "images/native-local/client-private-result-20261008-1440.webp",
+      "width": 552,
+      "height": 279,
+      "sha256": "758948b49d6fbca9738977ef8bbf63fbde8c875d3e1352a588bd31019f5ce7f1",
+      "articleSteps": {
+        "client-private-results": 3
+      },
+      "caption": "Четыре поля приватного описания сеанса. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Добавить описание\nНеобязательно\nДо сеанса\nЧто сделали\nПосле сеанса\nРекомендации",
+      "fields": [
+        {
+          "id": "",
+          "name": "client_result_before_session",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "client_result_work_done",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "client_result_after_session",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "client_result_recommendations",
+          "type": "textarea",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "service-price-list",
+      "viewportWidth": 1440,
+      "src": "images/native-local/service-price-list-20261008-1440.webp",
+      "width": 580,
+      "height": 430,
+      "sha256": "09490a235f35e91853ac45381fca8092c392c6ad8e4de787f95f817838b3b75f",
+      "articleSteps": {
+        "share-price-list": 3
+      },
+      "caption": "Прайс и выбор формата отправки. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Для клиента\nПрайс услуг\n×\n\nТолько услуги, доступные для онлайн-записи. Прайс составлен из текущих данных.\n\nМассаж спины\n2 500 ₽ · 60 мин\nКонсультация\n1 500 ₽ · 30 мин\nПерейти к онлайн-записи\nСкопировать ссылку\nПоделиться текстом\nПоделиться изображением\n\n2 услуг в прайсе",
+      "fields": [
+        {
+          "id": "priceListFallback",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "provider-waitlist",
+      "viewportWidth": 1440,
+      "src": "images/native-local/provider-waitlist-20261008-1440.webp",
+      "width": 959,
+      "height": 369,
+      "sha256": "85875d2ffb80d43d94786473a24e7b299edb06981b8ad38427d90ed6dacf7723",
+      "articleSteps": {
+        "provider-waitlist": 2
+      },
+      "caption": "Пожелания клиента и действия с заявкой. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "пт, 9 октября\nЛюбое время\nМассаж спины\nУчебный клиент ожидания\n+70000000004\nОжидает\nWhatsApp\nСвязались\nЗаписан\nЗакрыть",
+      "fields": [],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-retention-settings",
+      "viewportWidth": 390,
+      "src": "images/native-local/client-retention-settings-20261008-390.webp",
+      "width": 349,
+      "height": 590,
+      "sha256": "84a995bac703eca3ba5aedfa009f5a4eed99e32d0638efb2fba18edfc19af475",
+      "articleSteps": {
+        "client-retention": 1
+      },
+      "caption": "Сроки и текст возврата клиентов. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Подбирать клиентов после перерыва\nВключение подбора не отправляет сообщения\nПосле последнего завершённого визита\nМинимальный перерыв после завершённого визита.\nдней\nПовторное предложение одному клиенту\nОт последней ручной отметки отправки, а не подготовки текста.\nдней\nТекст сообщения\nПеременные подставятся в сообщение для клиента.\n{имя}\n{организация}\n{ссылка}\nПредпросмотр\nИзменения сохраняются автоматически",
+      "fields": [
+        {
+          "id": "retentionEnabled",
+          "name": "",
+          "type": "checkbox",
+          "value": "on"
+        },
+        {
+          "id": "retentionInactivityDays",
+          "name": "",
+          "type": "number",
+          "value": "45"
+        },
+        {
+          "id": "retentionCooldownDays",
+          "name": "",
+          "type": "number",
+          "value": "90"
+        },
+        {
+          "id": "retentionMessageTemplate",
+          "name": "",
+          "type": "textarea",
+          "value": "Учебное сообщение"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-receipt-form",
+      "viewportWidth": 390,
+      "src": "images/native-local/inventory-receipt-form-20261008-390.webp",
+      "width": 293,
+      "height": 609,
+      "sha256": "c09fd0599e433d1405c77a7912f134569ffbc6aee2457b2a6d86aa6eb97962f4",
+      "articleSteps": {
+        "inventory-receipt": 4
+      },
+      "caption": "Приход: склад, позиция и принятое количество. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nПриход\nКоличество\nПричина\nОформить приход",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "receipt"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": "100"
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-writeoff-form",
+      "viewportWidth": 390,
+      "src": "images/native-local/inventory-writeoff-form-20261008-390.webp",
+      "width": 293,
+      "height": 672,
+      "sha256": "46aeae9319eeeb46705398082958b682410ce042009906ad84b3448cbbc87360",
+      "articleSteps": {
+        "inventory-expense-writeoff": 4
+      },
+      "caption": "Списание: количество и причина. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nСписание\nКоличество\nПричина\nПо загруженным данным: Учебный склад, Учебный расходный материал: 1 000 → 990 мл. Перед проведением проверим доступный остаток.\nСписать материал",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "write_off"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": "10"
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-transfer-form",
+      "viewportWidth": 390,
+      "src": "images/native-local/inventory-transfer-form-20261008-390.webp",
+      "width": 293,
+      "height": 804,
+      "sha256": "ece63b785c7b8ccab106bdc4ed6f3fe138fbfcc6aed7208e57fce187d5e0504c",
+      "articleSteps": {
+        "inventory-transfer": 2
+      },
+      "caption": "Перемещение между двумя складами. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Со склада\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nПеремещение между складами\nНа склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад Север · Учебный филиал\nКоличество\nПричина\nПо загруженным данным: Учебный расходный материал, Учебный склад 1 000 → 950 мл; Учебный склад Север 0 → 50 мл. Перед проведением проверим доступный остаток.\nДоступно на исходном складе: 1 000 мл\nПереместить материал",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "transfer"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "15151515-1515-4515-8515-151515151515"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": "50"
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-count-form",
+      "viewportWidth": 390,
+      "src": "images/native-local/inventory-count-form-20261008-390.webp",
+      "width": 293,
+      "height": 672,
+      "sha256": "75e862c6438d9b742e7758d9be470b1838a7d07ea668f388a91f9a7857f38b13",
+      "articleSteps": {
+        "inventory-count-adjustment": 4
+      },
+      "caption": "Инвентаризация: полный фактический остаток. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nИнвентаризация\nФактический остаток\nПричина\nПо загруженным данным: Учебный склад, Учебный расходный материал: 1 000 → 990 мл. Перед проведением проверим доступный остаток.\nСохранить остаток",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "inventory"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": "990"
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-history",
+      "viewportWidth": 390,
+      "src": "images/native-local/inventory-history-20261008-390.webp",
+      "width": 319,
+      "height": 154,
+      "sha256": "d26fca5ffb8ef4914c3c326a83b3f946b8b44940adfad6a140b595ce0ce99ed7",
+      "articleSteps": {
+        "inventory-journal": 2
+      },
+      "caption": "Дельта и остаток после складской операции. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "История операций\n1\nПриход · Учебный расходный материал\nУчебный склад · +100 мл · остаток 1 000 · Учебный приход\n09 окт., 11:00",
+      "fields": [],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "commerce-sale",
+      "viewportWidth": 390,
+      "src": "images/native-local/commerce-sale-20261008-390.webp",
+      "width": 317,
+      "height": 814,
+      "sha256": "fcaf7d3957da959654271f3de52121d593df7a743b785591ec0a1235e31cea16",
+      "articleSteps": {
+        "create-sale": 3
+      },
+      "caption": "Позиция, количество и цена перед оформлением продажи. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Клиент\nБез клиента\nundefined\nБез клиента\nТип продажи\nТовар\nАбонемент, пакет или сертификат\nТовар\nТовар\nУчебный расходный материал · абонемент\nИзменить\nКоличество\n−\n+\nЦена за единицу, ₽\nДополнительные параметры\nУчебный склад · наличные · Учебная касса\nИтого к оплате\n2 500 ₽\nОформить продажу\n\nРучной учёт оплаты. Деньги с карты не списываются.",
+      "fields": [
+        {
+          "id": "commerceClient",
+          "name": "",
+          "type": "select-one",
+          "value": ""
+        },
+        {
+          "id": "commerceItemKind",
+          "name": "",
+          "type": "select-one",
+          "value": "inventory_item"
+        },
+        {
+          "id": "commerceItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "commerceQuantity",
+          "name": "",
+          "type": "number",
+          "value": "1"
+        },
+        {
+          "id": "commerceUnitPrice",
+          "name": "",
+          "type": "number",
+          "value": "2500"
+        },
+        {
+          "id": "commerceBooking",
+          "name": "",
+          "type": "select-one",
+          "value": ""
+        },
+        {
+          "id": "commerceWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "commerceSeller",
+          "name": "",
+          "type": "select-one",
+          "value": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "commercePaymentMethod",
+          "name": "",
+          "type": "select-one",
+          "value": "cash"
+        },
+        {
+          "id": "commercePaymentAccount",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "commerceDiscount",
+          "name": "",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "id": "commerceAccountName",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "commerceAccountType",
+          "name": "",
+          "type": "select-one",
+          "value": "cash"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "commerce-refund",
+      "viewportWidth": 390,
+      "src": "images/native-local/commerce-refund-20261008-390.webp",
+      "width": 319,
+      "height": 643,
+      "sha256": "29f8770f9a4edc5c5a7013a48f0474b35dcd838c879d339f9e9ec533d8ac176e",
+      "articleSteps": {
+        "refund-sale-accounting": 3
+      },
+      "caption": "Количество и рассчитанная сумма возврата. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Найти продажу для возврата\nПродажа\nВыберите продажу\n9 окт. 2026 г. · Продажа · Клиент примера А · осталось 4 500 ₽\n9 окт. 2026 г. · Продажа · Клиент примера А · осталось 4 500 ₽\nКоличество\nСумма возврата, ₽\nСумма рассчитывается автоматически пропорционально количеству и скидке.\nПричина\nВернуть",
+      "fields": [
+        {
+          "id": "commerceRefundSale",
+          "name": "",
+          "type": "select-one",
+          "value": "17171717-1717-4717-8717-171717171717"
+        },
+        {
+          "id": "commerceRefundQuantity",
+          "name": "",
+          "type": "number",
+          "value": "1"
+        },
+        {
+          "id": "commerceRefundAmount",
+          "name": "",
+          "type": "number",
+          "value": "2250"
+        },
+        {
+          "id": "commerceRefundReason",
+          "name": "",
+          "type": "text",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "payroll-advance",
+      "viewportWidth": 390,
+      "src": "images/native-local/payroll-advance-20261008-390.webp",
+      "width": 283,
+      "height": 523,
+      "sha256": "3d1c87fc05db580b6d761ef10afb846d802edb29a92c2efc4988a84bf3036e08",
+      "articleSteps": {
+        "payroll-advance-and-offset": 2
+      },
+      "caption": "Аванс: сотрудник, счёт, сумма и дата. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "До начисления зарплаты\nВыдать аванс\n＋\nСпециалист\nАнна · пример\nМария · пример\nАнна · пример\nСчёт выплаты\nУчебная касса\nУчебная касса\nСумма, ₽\nДата и время\nЗафиксировать аванс",
+      "fields": [
+        {
+          "id": "payrollAdvancePerformer",
+          "name": "",
+          "type": "select-one",
+          "value": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "payrollAdvanceAccount",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "payrollAdvanceAmount",
+          "name": "",
+          "type": "number",
+          "value": "1000"
+        },
+        {
+          "id": "payrollAdvancePaidAt",
+          "name": "",
+          "type": "datetime-local",
+          "value": "2026-10-08T07:18"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "payroll-offset",
+      "viewportWidth": 390,
+      "src": "images/native-local/payroll-offset-20261008-390.webp",
+      "width": 283,
+      "height": 436,
+      "sha256": "a082c401df925942dcf910245a65fe0fb1f4ebc1468b9b49126a858e6ec9a925",
+      "articleSteps": {
+        "payroll-advance-and-offset": 4
+      },
+      "caption": "Зачёт аванса в существующий долг. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Уменьшить долг на аванс\nЗачесть аванс\n＋\nАванс\nАнна · пример · остаток 1 000 ₽\nАнна · пример · остаток 1 000 ₽\nДолг сотрудника\nАнна · пример · Учебный черновик · долг 3 000 ₽\nАнна · пример · Учебный черновик · долг 3 000 ₽\nСумма, ₽\nЗачесть",
+      "fields": [
+        {
+          "id": "payrollOffsetAdvance",
+          "name": "",
+          "type": "select-one",
+          "value": "20202020-2020-4020-8020-202020202020"
+        },
+        {
+          "id": "payrollOffsetDebt",
+          "name": "",
+          "type": "select-one",
+          "value": "19191919-1919-4919-8919-191919191919|11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "payrollOffsetAmount",
+          "name": "",
+          "type": "number",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-retention-settings",
+      "viewportWidth": 760,
+      "src": "images/native-local/client-retention-settings-20261008-760.webp",
+      "width": 719,
+      "height": 497,
+      "sha256": "1722939d7f48e1b9899d2742146d773a9e0a0bcec92ff882cb7bc92a18af3d8b",
+      "articleSteps": {
+        "client-retention": 1
+      },
+      "caption": "Сроки и текст возврата клиентов. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Подбирать клиентов после перерыва\nВключение подбора не отправляет сообщения\nПосле последнего завершённого визита\nМинимальный перерыв после завершённого визита.\nдней\nПовторное предложение одному клиенту\nОт последней ручной отметки отправки, а не подготовки текста.\nдней\nТекст сообщения\nПеременные подставятся в сообщение для клиента.\n{имя}\n{организация}\n{ссылка}\nПредпросмотр\nИзменения сохраняются автоматически",
+      "fields": [
+        {
+          "id": "retentionEnabled",
+          "name": "",
+          "type": "checkbox",
+          "value": "on"
+        },
+        {
+          "id": "retentionInactivityDays",
+          "name": "",
+          "type": "number",
+          "value": "45"
+        },
+        {
+          "id": "retentionCooldownDays",
+          "name": "",
+          "type": "number",
+          "value": "90"
+        },
+        {
+          "id": "retentionMessageTemplate",
+          "name": "",
+          "type": "textarea",
+          "value": "Учебное сообщение"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-receipt-form",
+      "viewportWidth": 760,
+      "src": "images/native-local/inventory-receipt-form-20261008-760.webp",
+      "width": 663,
+      "height": 507,
+      "sha256": "8ddaedc9993720b1c4044f42d1a8b0dbfbeec4a2bc779e134f213605fc624ddf",
+      "articleSteps": {
+        "inventory-receipt": 4
+      },
+      "caption": "Приход: склад, позиция и принятое количество. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nПриход\nКоличество\nПричина\nОформить приход",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "receipt"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": "100"
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-writeoff-form",
+      "viewportWidth": 760,
+      "src": "images/native-local/inventory-writeoff-form-20261008-760.webp",
+      "width": 663,
+      "height": 551,
+      "sha256": "85ce3f1d68f5af0d68382481b823a4d8ad0f5c12ecd4e51e186c52565016017a",
+      "articleSteps": {
+        "inventory-expense-writeoff": 4
+      },
+      "caption": "Списание: количество и причина. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nСписание\nКоличество\nПричина\nПо загруженным данным: Учебный склад, Учебный расходный материал: 1 000 → 990 мл. Перед проведением проверим доступный остаток.\nСписать материал",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "write_off"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": "10"
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-transfer-form",
+      "viewportWidth": 760,
+      "src": "images/native-local/inventory-transfer-form-20261008-760.webp",
+      "width": 663,
+      "height": 666,
+      "sha256": "3fbeb527b1a67a613b2c24db34f5239f366c8c950c1f003e402f94b763843614",
+      "articleSteps": {
+        "inventory-transfer": 2
+      },
+      "caption": "Перемещение между двумя складами. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Со склада\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nПеремещение между складами\nНа склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад Север · Учебный филиал\nКоличество\nПричина\nПо загруженным данным: Учебный расходный материал, Учебный склад 1 000 → 950 мл; Учебный склад Север 0 → 50 мл. Перед проведением проверим доступный остаток.\nДоступно на исходном складе: 1 000 мл\nПереместить материал",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "transfer"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "15151515-1515-4515-8515-151515151515"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": "50"
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-count-form",
+      "viewportWidth": 760,
+      "src": "images/native-local/inventory-count-form-20261008-760.webp",
+      "width": 663,
+      "height": 551,
+      "sha256": "73e63693dc4a6e1f5a105af983d59dbc0377101f20461ffd435a72ce5107cd56",
+      "articleSteps": {
+        "inventory-count-adjustment": 4
+      },
+      "caption": "Инвентаризация: полный фактический остаток. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nИнвентаризация\nФактический остаток\nПричина\nПо загруженным данным: Учебный склад, Учебный расходный материал: 1 000 → 990 мл. Перед проведением проверим доступный остаток.\nСохранить остаток",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "inventory"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": "990"
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-history",
+      "viewportWidth": 760,
+      "src": "images/native-local/inventory-history-20261008-760.webp",
+      "width": 689,
+      "height": 154,
+      "sha256": "b98a9fb2d338cf10e848cd54ab1d2c1db9b9e52e1341a9195d3b12159baadd7b",
+      "articleSteps": {
+        "inventory-journal": 2
+      },
+      "caption": "Дельта и остаток после складской операции. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "История операций\n1\nПриход · Учебный расходный материал\nУчебный склад · +100 мл · остаток 1 000 · Учебный приход\n09 окт., 11:00",
+      "fields": [],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "commerce-sale",
+      "viewportWidth": 760,
+      "src": "images/native-local/commerce-sale-20261008-760.webp",
+      "width": 687,
+      "height": 692,
+      "sha256": "765efac945f5205eb12998a668e444d5dcb9b25307174ab8bc7b3737f87196f1",
+      "articleSteps": {
+        "create-sale": 3
+      },
+      "caption": "Позиция, количество и цена перед оформлением продажи. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Клиент\nБез клиента\nundefined\nБез клиента\nТип продажи\nТовар\nАбонемент, пакет или сертификат\nТовар\nТовар\nУчебный расходный материал · абонемент\nИзменить\nКоличество\n−\n+\nЦена за единицу, ₽\nДополнительные параметры\nУчебный склад · наличные · Учебная касса\nИтого к оплате\n2 500 ₽\nОформить продажу\n\nРучной учёт оплаты. Деньги с карты не списываются.",
+      "fields": [
+        {
+          "id": "commerceClient",
+          "name": "",
+          "type": "select-one",
+          "value": ""
+        },
+        {
+          "id": "commerceItemKind",
+          "name": "",
+          "type": "select-one",
+          "value": "inventory_item"
+        },
+        {
+          "id": "commerceItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "commerceQuantity",
+          "name": "",
+          "type": "number",
+          "value": "1"
+        },
+        {
+          "id": "commerceUnitPrice",
+          "name": "",
+          "type": "number",
+          "value": "2500"
+        },
+        {
+          "id": "commerceBooking",
+          "name": "",
+          "type": "select-one",
+          "value": ""
+        },
+        {
+          "id": "commerceWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "commerceSeller",
+          "name": "",
+          "type": "select-one",
+          "value": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "commercePaymentMethod",
+          "name": "",
+          "type": "select-one",
+          "value": "cash"
+        },
+        {
+          "id": "commercePaymentAccount",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "commerceDiscount",
+          "name": "",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "id": "commerceAccountName",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "commerceAccountType",
+          "name": "",
+          "type": "select-one",
+          "value": "cash"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "commerce-refund",
+      "viewportWidth": 760,
+      "src": "images/native-local/commerce-refund-20261008-760.webp",
+      "width": 689,
+      "height": 606,
+      "sha256": "0d8bde58169197c9e3f9b4c91655039208b6884abc7df31c092e8c9105c86cbb",
+      "articleSteps": {
+        "refund-sale-accounting": 3
+      },
+      "caption": "Количество и рассчитанная сумма возврата. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Найти продажу для возврата\nПродажа\nВыберите продажу\n9 окт. 2026 г. · Продажа · Клиент примера А · осталось 4 500 ₽\n9 окт. 2026 г. · Продажа · Клиент примера А · осталось 4 500 ₽\nКоличество\nСумма возврата, ₽\nСумма рассчитывается автоматически пропорционально количеству и скидке.\nПричина\nВернуть",
+      "fields": [
+        {
+          "id": "commerceRefundSale",
+          "name": "",
+          "type": "select-one",
+          "value": "17171717-1717-4717-8717-171717171717"
+        },
+        {
+          "id": "commerceRefundQuantity",
+          "name": "",
+          "type": "number",
+          "value": "1"
+        },
+        {
+          "id": "commerceRefundAmount",
+          "name": "",
+          "type": "number",
+          "value": "2250"
+        },
+        {
+          "id": "commerceRefundReason",
+          "name": "",
+          "type": "text",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "payroll-advance",
+      "viewportWidth": 760,
+      "src": "images/native-local/payroll-advance-20261008-760.webp",
+      "width": 621,
+      "height": 523,
+      "sha256": "9945f87e5d5cc1ef864ed79358967acd8469ffe0528d2e9e99021643ac812e32",
+      "articleSteps": {
+        "payroll-advance-and-offset": 2
+      },
+      "caption": "Аванс: сотрудник, счёт, сумма и дата. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "До начисления зарплаты\nВыдать аванс\n＋\nСпециалист\nАнна · пример\nМария · пример\nАнна · пример\nСчёт выплаты\nУчебная касса\nУчебная касса\nСумма, ₽\nДата и время\nЗафиксировать аванс",
+      "fields": [
+        {
+          "id": "payrollAdvancePerformer",
+          "name": "",
+          "type": "select-one",
+          "value": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "payrollAdvanceAccount",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "payrollAdvanceAmount",
+          "name": "",
+          "type": "number",
+          "value": "1000"
+        },
+        {
+          "id": "payrollAdvancePaidAt",
+          "name": "",
+          "type": "datetime-local",
+          "value": "2026-10-08T07:19"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "payroll-offset",
+      "viewportWidth": 760,
+      "src": "images/native-local/payroll-offset-20261008-760.webp",
+      "width": 621,
+      "height": 425,
+      "sha256": "9e6c62e5ca5bc3fa442286b9fd9b6950c301b31df3ca6f7302d0db2a62526ae7",
+      "articleSteps": {
+        "payroll-advance-and-offset": 4
+      },
+      "caption": "Зачёт аванса в существующий долг. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Уменьшить долг на аванс\nЗачесть аванс\n＋\nАванс\nАнна · пример · остаток 1 000 ₽\nАнна · пример · остаток 1 000 ₽\nДолг сотрудника\nАнна · пример · Учебный черновик · долг 3 000 ₽\nАнна · пример · Учебный черновик · долг 3 000 ₽\nСумма, ₽\nЗачесть",
+      "fields": [
+        {
+          "id": "payrollOffsetAdvance",
+          "name": "",
+          "type": "select-one",
+          "value": "20202020-2020-4020-8020-202020202020"
+        },
+        {
+          "id": "payrollOffsetDebt",
+          "name": "",
+          "type": "select-one",
+          "value": "19191919-1919-4919-8919-191919191919|11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "payrollOffsetAmount",
+          "name": "",
+          "type": "number",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-retention-settings",
+      "viewportWidth": 1440,
+      "src": "images/native-local/client-retention-settings-20261008-1440.webp",
+      "width": 917,
+      "height": 475,
+      "sha256": "670db99fda92b38498f88cbc525c2265eb8e04daa93a8ae40fcf28b424818668",
+      "articleSteps": {
+        "client-retention": 1
+      },
+      "caption": "Сроки и текст возврата клиентов. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Настройки подбора\nПодбирать клиентов после перерыва\nВключение подбора не отправляет сообщения\nПосле последнего завершённого визита\nМинимальный перерыв после завершённого визита.\nдней\nПовторное предложение одному клиенту\nОт последней ручной отметки отправки, а не подготовки текста.\nдней\nТекст сообщения\nПеременные подставятся в сообщение для клиента.\n{имя}\n{организация}\n{ссылка}\nПредпросмотр\nПредпросмотр сообщения\nПример подстановки · сообщение не отправлено\n\nУчебное сообщение\n\nИзменения сохраняются автоматически",
+      "fields": [
+        {
+          "id": "retentionEnabled",
+          "name": "",
+          "type": "checkbox",
+          "value": "on"
+        },
+        {
+          "id": "retentionInactivityDays",
+          "name": "",
+          "type": "number",
+          "value": "45"
+        },
+        {
+          "id": "retentionCooldownDays",
+          "name": "",
+          "type": "number",
+          "value": "90"
+        },
+        {
+          "id": "retentionMessageTemplate",
+          "name": "",
+          "type": "textarea",
+          "value": "Учебное сообщение"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-receipt-form",
+      "viewportWidth": 1440,
+      "src": "images/native-local/inventory-receipt-form-20261008-1440.webp",
+      "width": 422,
+      "height": 514,
+      "sha256": "65f006f442740d4b316a7ae5a8fbf35e103e19a4eee9fa5e9eccb3792f072fa1",
+      "articleSteps": {
+        "inventory-receipt": 4
+      },
+      "caption": "Приход: склад, позиция и принятое количество. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nПриход\nКоличество\nПричина\nОформить приход",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "receipt"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": "100"
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-writeoff-form",
+      "viewportWidth": 1440,
+      "src": "images/native-local/inventory-writeoff-form-20261008-1440.webp",
+      "width": 422,
+      "height": 559,
+      "sha256": "0435390b9841031e2231f4ef1eb4ba42ccc2db367d049e9ac769a0234d8cdfb7",
+      "articleSteps": {
+        "inventory-expense-writeoff": 4
+      },
+      "caption": "Списание: количество и причина. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nСписание\nКоличество\nПричина\nПо загруженным данным: Учебный склад, Учебный расходный материал: 1 000 → 990 мл. Перед проведением проверим доступный остаток.\nСписать материал",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "write_off"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": "10"
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-transfer-form",
+      "viewportWidth": 1440,
+      "src": "images/native-local/inventory-transfer-form-20261008-1440.webp",
+      "width": 422,
+      "height": 692,
+      "sha256": "7ec813deaa884c84bb10604abecf9c8303825d7ee01176f7ebfa5092aacfcf63",
+      "articleSteps": {
+        "inventory-transfer": 2
+      },
+      "caption": "Перемещение между двумя складами. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Со склада\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nПеремещение между складами\nНа склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад Север · Учебный филиал\nКоличество\nПричина\nПо загруженным данным: Учебный расходный материал, Учебный склад 1 000 → 950 мл; Учебный склад Север 0 → 50 мл. Перед проведением проверим доступный остаток.\nДоступно на исходном складе: 1 000 мл\nПереместить материал",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "transfer"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "15151515-1515-4515-8515-151515151515"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": "50"
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-count-form",
+      "viewportWidth": 1440,
+      "src": "images/native-local/inventory-count-form-20261008-1440.webp",
+      "width": 422,
+      "height": 559,
+      "sha256": "ec80af8754940988b20a31dee63f8210bb1941af581e26f0d50cfbcb4ede4b36",
+      "articleSteps": {
+        "inventory-count-adjustment": 4
+      },
+      "caption": "Инвентаризация: полный фактический остаток. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Склад\nУчебный склад · Учебный филиал\nУчебный склад Север · Учебный филиал\nУчебный склад · Учебный филиал\nПозиция\nУчебный расходный материал · мл · EXAMPLE-001\nУчебный расходный материал · мл · EXAMPLE-001\nСканировать товар\nОперация\nПриход\nСписание\nИнвентаризация\nПеремещение между складами\nИнвентаризация\nФактический остаток\nПричина\nПо загруженным данным: Учебный склад, Учебный расходный материал: 1 000 → 990 мл. Перед проведением проверим доступный остаток.\nСохранить остаток",
+      "fields": [
+        {
+          "id": "inventoryMovementWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "inventoryMovementKind",
+          "name": "",
+          "type": "select-one",
+          "value": "inventory"
+        },
+        {
+          "id": "inventoryTransferDestination",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "inventoryMovementQuantity",
+          "name": "",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "inventoryCountedQuantity",
+          "name": "",
+          "type": "number",
+          "value": "990"
+        },
+        {
+          "id": "inventoryMovementReason",
+          "name": "",
+          "type": "text",
+          "value": "Учебный пример, не проведён"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "inventory-history",
+      "viewportWidth": 1440,
+      "src": "images/native-local/inventory-history-20261008-1440.webp",
+      "width": 917,
+      "height": 134,
+      "sha256": "f3939f2001086d85d3ddd6ca57be74688401896d7ec37d8257baf498cfea3983",
+      "articleSteps": {
+        "inventory-journal": 2
+      },
+      "caption": "Дельта и остаток после складской операции. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "История операций\n1\nПриход · Учебный расходный материал\nУчебный склад · +100 мл · остаток 1 000 · Учебный приход\n09 окт., 11:00",
+      "fields": [],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "commerce-sale",
+      "viewportWidth": 1440,
+      "src": "images/native-local/commerce-sale-20261008-1440.webp",
+      "width": 915,
+      "height": 411,
+      "sha256": "97cd6a92663d0f6c1deed3253b90bf94d8390d3d7c0dfa315a1c6d3b00435fc6",
+      "articleSteps": {
+        "create-sale": 3
+      },
+      "caption": "Позиция, количество и цена перед оформлением продажи. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Клиент\nБез клиента\nundefined\nБез клиента\nТип продажи\nТовар\nАбонемент, пакет или сертификат\nТовар\nТовар\nУчебный расходный материал · абонемент\nИзменить\nКоличество\n−\n+\nЦена за единицу, ₽\nДополнительные параметры\nУчебный склад · наличные · Учебная касса\nИтого к оплате\n2 500 ₽\nОформить продажу\n\nРучной учёт оплаты. Деньги с карты не списываются.",
+      "fields": [
+        {
+          "id": "commerceClient",
+          "name": "",
+          "type": "select-one",
+          "value": ""
+        },
+        {
+          "id": "commerceItemKind",
+          "name": "",
+          "type": "select-one",
+          "value": "inventory_item"
+        },
+        {
+          "id": "commerceItem",
+          "name": "",
+          "type": "select-one",
+          "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        },
+        {
+          "id": "commerceQuantity",
+          "name": "",
+          "type": "number",
+          "value": "1"
+        },
+        {
+          "id": "commerceUnitPrice",
+          "name": "",
+          "type": "number",
+          "value": "2500"
+        },
+        {
+          "id": "commerceBooking",
+          "name": "",
+          "type": "select-one",
+          "value": ""
+        },
+        {
+          "id": "commerceWarehouse",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "commerceSeller",
+          "name": "",
+          "type": "select-one",
+          "value": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "commercePaymentMethod",
+          "name": "",
+          "type": "select-one",
+          "value": "cash"
+        },
+        {
+          "id": "commercePaymentAccount",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "commerceDiscount",
+          "name": "",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "id": "commerceAccountName",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "commerceAccountType",
+          "name": "",
+          "type": "select-one",
+          "value": "cash"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "commerce-refund",
+      "viewportWidth": 1440,
+      "src": "images/native-local/commerce-refund-20261008-1440.webp",
+      "width": 917,
+      "height": 517,
+      "sha256": "f9f01551b65509bea88b28867cb23e8a0c57700700e9a3a370ead700ac349be7",
+      "articleSteps": {
+        "refund-sale-accounting": 3
+      },
+      "caption": "Количество и рассчитанная сумма возврата. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Найти продажу для возврата\nПродажа\nВыберите продажу\n9 окт. 2026 г. · Продажа · Клиент примера А · осталось 4 500 ₽\n9 окт. 2026 г. · Продажа · Клиент примера А · осталось 4 500 ₽\nКоличество\nСумма возврата, ₽\nСумма рассчитывается автоматически пропорционально количеству и скидке.\nПричина\nВернуть",
+      "fields": [
+        {
+          "id": "commerceRefundSale",
+          "name": "",
+          "type": "select-one",
+          "value": "17171717-1717-4717-8717-171717171717"
+        },
+        {
+          "id": "commerceRefundQuantity",
+          "name": "",
+          "type": "number",
+          "value": "1"
+        },
+        {
+          "id": "commerceRefundAmount",
+          "name": "",
+          "type": "number",
+          "value": "2250"
+        },
+        {
+          "id": "commerceRefundReason",
+          "name": "",
+          "type": "text",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "payroll-advance",
+      "viewportWidth": 1440,
+      "src": "images/native-local/payroll-advance-20261008-1440.webp",
+      "width": 424,
+      "height": 328,
+      "sha256": "7117a6d2603739e6a2440c06085ebde93d007e81ffdd8aa115968fd9760bbda0",
+      "articleSteps": {
+        "payroll-advance-and-offset": 2
+      },
+      "caption": "Аванс: сотрудник, счёт, сумма и дата. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "До начисления зарплаты\nВыдать аванс\n＋\nСпециалист\nАнна · пример\nМария · пример\nАнна · пример\nСчёт выплаты\nУчебная касса\nУчебная касса\nСумма, ₽\nДата и время\nЗафиксировать аванс",
+      "fields": [
+        {
+          "id": "payrollAdvancePerformer",
+          "name": "",
+          "type": "select-one",
+          "value": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "payrollAdvanceAccount",
+          "name": "",
+          "type": "select-one",
+          "value": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        },
+        {
+          "id": "payrollAdvanceAmount",
+          "name": "",
+          "type": "number",
+          "value": "1000"
+        },
+        {
+          "id": "payrollAdvancePaidAt",
+          "name": "",
+          "type": "datetime-local",
+          "value": "2026-10-08T07:20"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "payroll-offset",
+      "viewportWidth": 1440,
+      "src": "images/native-local/payroll-offset-20261008-1440.webp",
+      "width": 424,
+      "height": 438,
+      "sha256": "97e977136b72f9f473506a8f34100f9676f93371415194fc2a2de60ee4e03a78",
+      "articleSteps": {
+        "payroll-advance-and-offset": 4
+      },
+      "caption": "Зачёт аванса в существующий долг. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Уменьшить долг на аванс\nЗачесть аванс\n＋\nАванс\nАнна · пример · остаток 1 000 ₽\nАнна · пример · остаток 1 000 ₽\nДолг сотрудника\nАнна · пример · Учебный черновик · долг 3 000 ₽\nАнна · пример · Учебный черновик · долг 3 000 ₽\nСумма, ₽\nЗачесть",
+      "fields": [
+        {
+          "id": "payrollOffsetAdvance",
+          "name": "",
+          "type": "select-one",
+          "value": "20202020-2020-4020-8020-202020202020"
+        },
+        {
+          "id": "payrollOffsetDebt",
+          "name": "",
+          "type": "select-one",
+          "value": "19191919-1919-4919-8919-191919191919|11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "payrollOffsetAmount",
+          "name": "",
+          "type": "number",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-directory-filters",
+      "viewportWidth": 390,
+      "src": "images/native-local/client-directory-filters-20261008-390.webp",
+      "width": 375,
+      "height": 873,
+      "sha256": "4f634dfce16ac16b7ed5ec711b50eb53ecd795046e91eb98e18f349ce6755d0b",
+      "articleSteps": {
+        "client-search-filters": 3
+      },
+      "caption": "Сортировка и фильтры клиентов. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Фильтры клиентов\n×\nСортировка\nНедавно посещали\nДавно не приходили\nБольше сеансов\nМеньше сеансов\nБлижайшая запись\nИмя: А–Я\nНедавно посещали\nПосещал услугу\nЛюбую\nМетки Все выбранные\nЛюбимый\nVIP\nВнимание\nСеансы\nОт\nДо\nСостоявшиеся, включая импорт.\nДата посещения\nС\nПо\nНе приходили, дней\nТолько клиенты с известной датой посещения.\nБудущая запись\nЛюбая\nЕсть\nНет\nЛюбая\nСбросить\nПоказать 2 клиента",
+      "fields": [
+        {
+          "id": "",
+          "name": "",
+          "type": "select-one",
+          "value": "recent"
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "search",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "labels",
+          "type": "checkbox",
+          "value": "favorite"
+        },
+        {
+          "id": "",
+          "name": "labels",
+          "type": "checkbox",
+          "value": "vip"
+        },
+        {
+          "id": "",
+          "name": "labels",
+          "type": "checkbox",
+          "value": "attention"
+        },
+        {
+          "id": "",
+          "name": "min",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "max",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "from",
+          "type": "date",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "to",
+          "type": "date",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "absent",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "upcoming",
+          "type": "select-one",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-online-block",
+      "viewportWidth": 390,
+      "src": "images/native-local/client-online-block-20261008-390.webp",
+      "width": 375,
+      "height": 360,
+      "sha256": "27d6c710b90663c344f6dcde82012b14ac5b24dc9ad514f4a363f9db7ea50e43",
+      "articleSteps": {
+        "client-online-booking-block": 3
+      },
+      "caption": "Проверка клиента перед блокировкой. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "ОНЛАЙН-ЗАПИСЬ\nЗаблокировать клиента?\n×\n\nКлиент не сможет самостоятельно записаться в эту организацию. История и данные сохранятся, а сотрудник сможет создать запись вручную.\n\nПричина\nнеобязательно\nОтмена\nЗаблокировать",
+      "fields": [
+        {
+          "id": "clientBlockReason",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "service-editor",
+      "viewportWidth": 390,
+      "src": "images/native-local/service-editor-20261008-390.webp",
+      "width": 337,
+      "height": 333,
+      "sha256": "8e16b32f433a5500bbb55a0e3503d95b1caabee72b2e5e16492821aae7a46020",
+      "articleSteps": {
+        "edit-service": 2
+      },
+      "caption": "Название, стоимость и длительность услуги. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Название услуги\nКороткое название в расписании\nПолное название сохранится в услуге и карточке записи.\nДлительность\n1 мин (цена за минуту)\n5 мин\n10 мин\n20 мин\n30 мин\n40 мин\n60 мин\n90 мин\n120 мин\n180 мин\n60 мин\nЦена, ₽\nКарточка для клиента\nПокажем «Подробнее» только когда здесь есть содержание.\nФото услуги\nОдно фото до 12 МБ. Перед загрузкой уменьшим и сохраним в WebP.\nКороткое описание\nДо трёх особенностей\nВажно — только если есть ограничения\nПоказывать в онлайн-записи\nКлиенты могут выбрать эту услугу\nОтмена\nСохранить изменения",
+      "fields": [
+        {
+          "id": "editServiceName",
+          "name": "",
+          "type": "text",
+          "value": "Массаж спины"
+        },
+        {
+          "id": "editServiceScheduleNameEnabled",
+          "name": "",
+          "type": "checkbox",
+          "value": "on"
+        },
+        {
+          "id": "editServiceScheduleName",
+          "name": "",
+          "type": "text",
+          "value": "Спина"
+        },
+        {
+          "id": "editServiceDuration",
+          "name": "",
+          "type": "select-one",
+          "value": "60"
+        },
+        {
+          "id": "editServicePrice",
+          "name": "",
+          "type": "number",
+          "value": "2500"
+        },
+        {
+          "id": "editServiceDefaultDuration",
+          "name": "",
+          "type": "number",
+          "value": "60"
+        },
+        {
+          "id": "editServicePhoto",
+          "name": "",
+          "type": "file",
+          "value": ""
+        },
+        {
+          "id": "editServiceShortDescription",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "editServiceImportantNote",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "editServiceActive",
+          "name": "",
+          "type": "checkbox",
+          "value": "on"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-directory-filters",
+      "viewportWidth": 760,
+      "src": "images/native-local/client-directory-filters-20261008-760.webp",
+      "width": 745,
+      "height": 873,
+      "sha256": "f86775b93627c521b7388e246f7e79e28b22df5057076a9999b380f243941df8",
+      "articleSteps": {
+        "client-search-filters": 3
+      },
+      "caption": "Сортировка и фильтры клиентов. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Фильтры клиентов\n×\nСортировка\nНедавно посещали\nДавно не приходили\nБольше сеансов\nМеньше сеансов\nБлижайшая запись\nИмя: А–Я\nНедавно посещали\nПосещал услугу\nЛюбую\nМетки Все выбранные\nЛюбимый\nVIP\nВнимание\nСеансы\nОт\nДо\nСостоявшиеся, включая импорт.\nДата посещения\nС\nПо\nНе приходили, дней\nТолько клиенты с известной датой посещения.\nБудущая запись\nЛюбая\nЕсть\nНет\nЛюбая\nСбросить\nПоказать 2 клиента",
+      "fields": [
+        {
+          "id": "",
+          "name": "",
+          "type": "select-one",
+          "value": "recent"
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "search",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "labels",
+          "type": "checkbox",
+          "value": "favorite"
+        },
+        {
+          "id": "",
+          "name": "labels",
+          "type": "checkbox",
+          "value": "vip"
+        },
+        {
+          "id": "",
+          "name": "labels",
+          "type": "checkbox",
+          "value": "attention"
+        },
+        {
+          "id": "",
+          "name": "min",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "max",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "from",
+          "type": "date",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "to",
+          "type": "date",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "absent",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "upcoming",
+          "type": "select-one",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-online-block",
+      "viewportWidth": 760,
+      "src": "images/native-local/client-online-block-20261008-760.webp",
+      "width": 745,
+      "height": 342,
+      "sha256": "c4769e5cfc11921207ebf068c17918a57183ad50493f1e00d9cb85138bae68fd",
+      "articleSteps": {
+        "client-online-booking-block": 3
+      },
+      "caption": "Проверка клиента перед блокировкой. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "ОНЛАЙН-ЗАПИСЬ\nЗаблокировать клиента?\n×\n\nКлиент не сможет самостоятельно записаться в эту организацию. История и данные сохранятся, а сотрудник сможет создать запись вручную.\n\nПричина\nнеобязательно\nОтмена\nЗаблокировать",
+      "fields": [
+        {
+          "id": "clientBlockReason",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "service-editor",
+      "viewportWidth": 760,
+      "src": "images/native-local/service-editor-20261008-760.webp",
+      "width": 504,
+      "height": 253,
+      "sha256": "880c5a2e17fb74c3ba45c37cb09661382f320cf32fb52bae4a42bba3d70cf28a",
+      "articleSteps": {
+        "edit-service": 2
+      },
+      "caption": "Название, стоимость и длительность услуги. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Название услуги\nКороткое название в расписании\nПолное название сохранится в услуге и карточке записи.\nДлительность\n1 мин (цена за минуту)\n5 мин\n10 мин\n20 мин\n30 мин\n40 мин\n60 мин\n90 мин\n120 мин\n180 мин\n60 мин\nЦена, ₽\nКарточка для клиента\nПокажем «Подробнее» только когда здесь есть содержание.\nФото услуги\nОдно фото до 12 МБ. Перед загрузкой уменьшим и сохраним в WebP.\nКороткое описание\nДо трёх особенностей\nВажно — только если есть ограничения\nПоказывать в онлайн-записи\nКлиенты могут выбрать эту услугу\nОтмена\nСохранить изменения",
+      "fields": [
+        {
+          "id": "editServiceName",
+          "name": "",
+          "type": "text",
+          "value": "Массаж спины"
+        },
+        {
+          "id": "editServiceScheduleNameEnabled",
+          "name": "",
+          "type": "checkbox",
+          "value": "on"
+        },
+        {
+          "id": "editServiceScheduleName",
+          "name": "",
+          "type": "text",
+          "value": "Спина"
+        },
+        {
+          "id": "editServiceDuration",
+          "name": "",
+          "type": "select-one",
+          "value": "60"
+        },
+        {
+          "id": "editServicePrice",
+          "name": "",
+          "type": "number",
+          "value": "2500"
+        },
+        {
+          "id": "editServiceDefaultDuration",
+          "name": "",
+          "type": "number",
+          "value": "60"
+        },
+        {
+          "id": "editServicePhoto",
+          "name": "",
+          "type": "file",
+          "value": ""
+        },
+        {
+          "id": "editServiceShortDescription",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "editServiceImportantNote",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "editServiceActive",
+          "name": "",
+          "type": "checkbox",
+          "value": "on"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-directory-filters",
+      "viewportWidth": 1440,
+      "src": "images/native-local/client-directory-filters-20261008-1440.webp",
+      "width": 520,
+      "height": 873,
+      "sha256": "0e24b90713cdc513e1d199c258ec99cb78bc3707ab641c8761d9e8d22215ceeb",
+      "articleSteps": {
+        "client-search-filters": 3
+      },
+      "caption": "Сортировка и фильтры клиентов. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Фильтры клиентов\n×\nСортировка\nНедавно посещали\nДавно не приходили\nБольше сеансов\nМеньше сеансов\nБлижайшая запись\nИмя: А–Я\nНедавно посещали\nПосещал услугу\nЛюбую\nМетки Все выбранные\nЛюбимый\nVIP\nВнимание\nСеансы\nОт\nДо\nСостоявшиеся, включая импорт.\nДата посещения\nС\nПо\nНе приходили, дней\nТолько клиенты с известной датой посещения.\nБудущая запись\nЛюбая\nЕсть\nНет\nЛюбая\nСбросить\nПоказать 2 клиента",
+      "fields": [
+        {
+          "id": "",
+          "name": "",
+          "type": "select-one",
+          "value": "recent"
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "search",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "labels",
+          "type": "checkbox",
+          "value": "favorite"
+        },
+        {
+          "id": "",
+          "name": "labels",
+          "type": "checkbox",
+          "value": "vip"
+        },
+        {
+          "id": "",
+          "name": "labels",
+          "type": "checkbox",
+          "value": "attention"
+        },
+        {
+          "id": "",
+          "name": "min",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "max",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "from",
+          "type": "date",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "to",
+          "type": "date",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "absent",
+          "type": "number",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "upcoming",
+          "type": "select-one",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-online-block",
+      "viewportWidth": 1440,
+      "src": "images/native-local/client-online-block-20261008-1440.webp",
+      "width": 390,
+      "height": 335,
+      "sha256": "4c40cef93ee9307cb2ad31dcd1438e4ca4d4c022d9aa36a8d20439f349e27f8a",
+      "articleSteps": {
+        "client-online-booking-block": 3
+      },
+      "caption": "Проверка клиента перед блокировкой. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "ОНЛАЙН-ЗАПИСЬ\nЗаблокировать клиента?\n×\n\nКлиент не сможет самостоятельно записаться в эту организацию. История и данные сохранятся, а сотрудник сможет создать запись вручную.\n\nПричина\nнеобязательно\nОтмена\nЗаблокировать",
+      "fields": [
+        {
+          "id": "clientBlockReason",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "service-editor",
+      "viewportWidth": 1440,
+      "src": "images/native-local/service-editor-20261008-1440.webp",
+      "width": 504,
+      "height": 253,
+      "sha256": "2c37abccd1f71c0b46668ceedc8713fa30be5cd1b8e15c3771d5ed10e05d584e",
+      "articleSteps": {
+        "edit-service": 2
+      },
+      "caption": "Название, стоимость и длительность услуги. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Название услуги\nКороткое название в расписании\nПолное название сохранится в услуге и карточке записи.\nДлительность\n1 мин (цена за минуту)\n5 мин\n10 мин\n20 мин\n30 мин\n40 мин\n60 мин\n90 мин\n120 мин\n180 мин\n60 мин\nЦена, ₽\nКарточка для клиента\nПокажем «Подробнее» только когда здесь есть содержание.\nФото услуги\nОдно фото до 12 МБ. Перед загрузкой уменьшим и сохраним в WebP.\nКороткое описание\nДо трёх особенностей\nВажно — только если есть ограничения\nПоказывать в онлайн-записи\nКлиенты могут выбрать эту услугу\nОтмена\nСохранить изменения",
+      "fields": [
+        {
+          "id": "editServiceName",
+          "name": "",
+          "type": "text",
+          "value": "Массаж спины"
+        },
+        {
+          "id": "editServiceScheduleNameEnabled",
+          "name": "",
+          "type": "checkbox",
+          "value": "on"
+        },
+        {
+          "id": "editServiceScheduleName",
+          "name": "",
+          "type": "text",
+          "value": "Спина"
+        },
+        {
+          "id": "editServiceDuration",
+          "name": "",
+          "type": "select-one",
+          "value": "60"
+        },
+        {
+          "id": "editServicePrice",
+          "name": "",
+          "type": "number",
+          "value": "2500"
+        },
+        {
+          "id": "editServiceDefaultDuration",
+          "name": "",
+          "type": "number",
+          "value": "60"
+        },
+        {
+          "id": "editServicePhoto",
+          "name": "",
+          "type": "file",
+          "value": ""
+        },
+        {
+          "id": "editServiceShortDescription",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "",
+          "name": "",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "id": "editServiceImportantNote",
+          "name": "",
+          "type": "textarea",
+          "value": ""
+        },
+        {
+          "id": "editServiceActive",
+          "name": "",
+          "type": "checkbox",
+          "value": "on"
+        }
+      ],
+      "horizontalOverflow": false
+    },
+    {
+      "id": "client-page-theme",
+      "viewportWidth": 390,
+      "src": "images/native-local/client-page-theme-20261008-390.webp",
+      "width": 295,
+      "height": 403,
+      "sha256": "2b748f84c6df4557eadb7cfeeee994c7d7de73febc8a351a7389d00e26da1f78",
+      "articleSteps": {
+        "client-page-appearance": 4
+      },
+      "caption": "Предпросмотр нежно-розовой клиентской страницы. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Eldion\nКЛИЕНТСКАЯ ОНЛАЙН-ЗАПИСЬ · ПРИМЕР\nМассаж в удобное время.\nНежность • забота • ваше время\nУслуга салона\n60 минут\nВыберите дату\nПн\n12\nВт\n13\nСр\n14\nЧт\n15\nСвободное время\n10:00\n11:00\n12:00\nЗаписаться",
+      "fields": [],
+      "overflowX": "hidden",
+      "horizontalOverflow": true
+    },
+    {
+      "id": "client-page-theme",
+      "viewportWidth": 760,
+      "src": "images/native-local/client-page-theme-20261008-760.webp",
+      "width": 665,
+      "height": 403,
+      "sha256": "926761b7eb4576b6c4fd146c6bd0ed34f7d5441b4b626b5c7c481ec2ed237612",
+      "articleSteps": {
+        "client-page-appearance": 4
+      },
+      "caption": "Предпросмотр нежно-розовой клиентской страницы. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Eldion\nКЛИЕНТСКАЯ ОНЛАЙН-ЗАПИСЬ · ПРИМЕР\nМассаж в удобное время.\nНежность • забота • ваше время\nУслуга салона\n60 минут\nВыберите дату\nПн\n12\nВт\n13\nСр\n14\nЧт\n15\nСвободное время\n10:00\n11:00\n12:00\nЗаписаться",
+      "fields": [],
+      "overflowX": "hidden",
+      "horizontalOverflow": true
+    },
+    {
+      "id": "client-page-theme",
+      "viewportWidth": 1440,
+      "src": "images/native-local/client-page-theme-20261008-1440.webp",
+      "width": 253,
+      "height": 497,
+      "sha256": "954255d655b6cb3295920812e802e9fb3e5f15d3d485d14ed243e34b7101142e",
+      "articleSteps": {
+        "client-page-appearance": 4
+      },
+      "caption": "Предпросмотр нежно-розовой клиентской страницы. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Eldion\nКЛИЕНТСКАЯ ОНЛАЙН-ЗАПИСЬ · ПРИМЕР\nМассаж в удобное время.\nНежность • забота • ваше время\nУслуга салона\n60 минут\nВыберите дату\nПн\n12\nВт\n13\nСр\n14\nЧт\n15\nСвободное время\n10:00\n11:00\n12:00\nЗаписаться",
+      "fields": [],
+      "overflowX": "hidden",
+      "horizontalOverflow": true
+    },
+    {
+      "id": "booking-widget-code",
+      "viewportWidth": 390,
+      "src": "images/native-local/booking-widget-code-20261008-390.webp",
+      "width": 305,
+      "height": 471,
+      "sha256": "0af8a181e66d425e8c37e6165b27e9b9fc9c2ad46b1bde101a52acb3bba53438",
+      "articleSteps": {
+        "booking-widget": 4
+      },
+      "caption": "Код выбранного виджета и кнопка копирования. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Что открыть\nОбщая запись\nУслуга\nСпециалист\nФилиал\nГруппа\nОбщая запись",
+      "fields": [
+        {
+          "id": "bookingWidgetTarget",
+          "name": "",
+          "type": "select-one",
+          "value": "general"
+        }
+      ],
+      "overflowX": "visible",
+      "horizontalOverflow": false
+    },
+    {
+      "id": "booking-widget-code",
+      "viewportWidth": 760,
+      "src": "images/native-local/booking-widget-code-20261008-760.webp",
+      "width": 675,
+      "height": 471,
+      "sha256": "993c47a1fb7de21ae2fba03312f5fa3f398898584a80f0a09cb1f018b3b09769",
+      "articleSteps": {
+        "booking-widget": 4
+      },
+      "caption": "Код выбранного виджета и кнопка копирования. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Что открыть\nОбщая запись\nУслуга\nСпециалист\nФилиал\nГруппа\nОбщая запись",
+      "fields": [
+        {
+          "id": "bookingWidgetTarget",
+          "name": "",
+          "type": "select-one",
+          "value": "general"
+        }
+      ],
+      "overflowX": "visible",
+      "horizontalOverflow": false
+    },
+    {
+      "id": "booking-widget-code",
+      "viewportWidth": 1440,
+      "src": "images/native-local/booking-widget-code-20261008-1440.webp",
+      "width": 467,
+      "height": 446,
+      "sha256": "857b4495770ad3e3215a6375c9ade0d834f795b5daf03df1c1d8067ebd8826b6",
+      "articleSteps": {
+        "booking-widget": 4
+      },
+      "caption": "Код выбранного виджета и кнопка копирования. Учебные данные.",
+      "coverageExact": true,
+      "visibleText": "Что открыть\nОбщая запись\nУслуга\nСпециалист\nФилиал\nГруппа\nОбщая запись",
+      "fields": [
+        {
+          "id": "bookingWidgetTarget",
+          "name": "",
+          "type": "select-one",
+          "value": "general"
+        }
+      ],
+      "overflowX": "visible",
+      "horizontalOverflow": false
+    },
+    {
+      "id": "service-actions",
+      "viewportWidth": 390,
+      "src": "images/native-local/service-actions-20261008-390.webp",
+      "width": 313,
+      "height": 135,
+      "sha256": "300e34998b2159f985b8df8a4af3e588a4ccab9999c4a9a90bd43d1e651d7afe",
+      "articleSteps": {
+        "hide-or-delete-service": 2
+      },
+      "caption": "Доступность и дополнительные действия услуги. Учебные данные.",
+      "coverageExact": true,
+      "detail": {
+        "x": 0,
+        "y": 0,
+        "width": 313,
+        "height": 135
+      },
+      "visibleText": "Массаж спины\n60 мин · 2 500 ₽\nДоступна\nКонсультация\n30 мин · 1 500 ₽\nДоступна",
+      "fields": [],
+      "overflowX": "visible",
+      "horizontalOverflow": false
+    },
+    {
+      "id": "service-actions",
+      "viewportWidth": 760,
+      "src": "images/native-local/service-actions-20261008-760.webp",
+      "width": 683,
+      "height": 135,
+      "sha256": "dc02040de30f55de0fb7bf9e2eabb740bdca6c33da23a343ca8f5b10f9bc748f",
+      "articleSteps": {
+        "hide-or-delete-service": 2
+      },
+      "caption": "Доступность и дополнительные действия услуги. Учебные данные.",
+      "coverageExact": true,
+      "detail": {
+        "x": 537,
+        "y": 3,
+        "width": 146,
+        "height": 60
+      },
+      "visibleText": "Массаж спины\n60 мин · 2 500 ₽\nДоступна\nКонсультация\n30 мин · 1 500 ₽\nДоступна",
+      "fields": [],
+      "overflowX": "visible",
+      "horizontalOverflow": false
+    },
+    {
+      "id": "service-actions",
+      "viewportWidth": 1440,
+      "src": "images/native-local/service-actions-20261008-1440.webp",
+      "width": 921,
+      "height": 135,
+      "sha256": "6dc2c87e7b6ef638330e9e265dfafa5583a5f5caaa8dc0b91bf47a99b6e9c5a8",
+      "articleSteps": {
+        "hide-or-delete-service": 2
+      },
+      "caption": "Доступность и дополнительные действия услуги. Учебные данные.",
+      "coverageExact": true,
+      "detail": {
+        "x": 785,
+        "y": 9,
+        "width": 136,
+        "height": 48
+      },
+      "visibleText": "Массаж спины\n60 мин · 2 500 ₽\nДоступна\nКонсультация\n30 мин · 1 500 ₽\nДоступна",
+      "fields": [],
+      "overflowX": "visible",
+      "horizontalOverflow": false
+    }
+  ],
+  "failures": [],
+  "sources": {
+    "provider.html": "6947539119bd645f5a40d70390746a37de7b6a87117ea85d320c85729fa5b638",
+    "pwa-install.js": "22c4caeec96420a897cbf9533d84fb32c4b6827943fa0b471e5711dd821b456a",
+    "styles.css": "7b91e2e90d3f35b3c2b4efabc4bbedd87a0a8885cabe92c63d568c8d5019ca1a",
+    "service-presets.css": "39d43263843ccc6abbd83a385094afcaef462879e8a74884e54b08dd1fa58f64",
+    "provider-connection-guidance.css": "5bf65ac47d093273696a03cebb6ddf6a490062822938e20493f7be82633eed06",
+    "messages-center.css": "0b98f574dea49359c41210ebf3d6007a666c9a2418b99d235fdf823399b6c566",
+    "finance-center.css": "c7643cc03de6a66ebc45db7ee588d96ac34beec29c1b59dc5f4ca5a4d9ec3a41",
+    "utm-funnel.css": "66240bcd1e90dc2afe2de2f905bae1c35f5b0c9865645a4a75a2e2838c226269",
+    "onboarding.css": "34db3b10467540b0e1e77af2457e8476c079466827731e135bd3642df3ddf765",
+    "visitor-presence.css": "8b3dccb3b7f0be97439d750dd0c19f8d214d8713441ab4567559b3d8eb69dc90",
+    "subscription-pricing.css": "bae4feed6a3866ac5f48acb10886f6ae19b9ec1fca9daf1a6300190794b4df2f",
+    "provider-theme-loft-modern.css": "482e74b163f5eb6ba15030ee1e31eefbc2b988d74781bf4b2d7c8295829b436f",
+    "provider-themes-signature.css": "edf50d2a8f6ebc3fb79f847dd5d3e834b5a09b44803f2ac54bed7404f98d2b3a",
+    "provider-themes-calm.css": "cc7476f88adc500c01011cc892a7240ff32bfae78cf6c2f7fe0d7742d34c9f17",
+    "provider-layout-responsive.css": "9a84971e2f78ce09ac5554c80624696b03c70feba90287155c41e3d72c516292",
+    "provider-ux.css": "e34c663b2b423ef91e3bdb67698d8e0bcd6b032a351f57338405cacb6c7e68a4",
+    "provider-service-actions.css": "b00536e259f4a496a39f86ab423c1e795613fa50f276f284385cf0bfb7392f59",
+    "provider-header.css": "18dfe8fe333d939a10f5e710919d0c65a0efc87301714cbe4b308b376e58bf4f",
+    "client-themes.css": "15ed41953f0abdf15e995a203e36ddc49bb2cc12ad132f9227d06e696537ad50",
+    "provider-themes-wildlife.css": "7248a598931b9db41e14230c326fbb1a3e77ee466f878a65225b49f83f97da3b",
+    "provider-porcelain-detail.css": "fcb87359ecbe1f0c250d80db74c9ee43589edf20ea3b721dad86061f18de07f9",
+    "settings-nav-scroll.css": "2caf65eb05b9814c5e442958506c98c2f0d9b3ffe23f5d2d6a545cf25e2deb2b",
+    "settings-smart-search.css": "54110b7662da8c3f0abd933353a2c63d9414a136b9550549e61e1ec920849fbd",
+    "provider-help-workspace.css": "070dd0aaee19ae6ceecacfe5f93f2be8fece72176a98adf9e0dffbbb6beeb310",
+    "contextual-help.css": "17485bc2cf72d2dc224ae30403f5afb5a392a67faf8f32e41685056cdcaf74d7",
+    "settings-mobile-minimalism.css": "c816105cf655d5dba8de485793fb94860f06295747eb7b3fbf8f8aa4f6adfeb3",
+    "client-records.css": "38b9268c064cafd1c57b98c7a08310bcaf74ea3eda5d6cfccdc6ef75c85e0393",
+    "benefit-lifecycle.css": "e9e87889a256f29f224f5472bd73f2f385cf10eb342680624d478d2f50675470",
+    "provider-integrations.css": "001603ed3bd86ce5971322ced6d06403d2f29cdde937c19850d3525a902bd8e5",
+    "client-results.css": "4b468386065bb55e238a719f6ded3ffcf80b73219b3382cf0ee60666ea94d192",
+    "provider-theme-noir-safari.css": "b474cbde678b20f5d1b197b9e0c12c37da0c11c1cff3b029333cadaab6c27cf9",
+    "provider-price-list.css": "51ada37428151c10d67eaa57fbcb5c0853e3c0818fabc12cc755313a781d3d58",
+    "provider-reference-screens.css": "4c1a86d1f62eaee67961e2e1e1246f7f389386e073e50283835b060713488097",
+    "booking-detail-card.css": "c940b9a47b662fd8a01d9a37b5cfbe3b3563ec74841d2267381b91c15f3416a2",
+    "vendor/supabase-2.112.4.min.js": "9a8142ffedb319a3ac0d4a8a123c9c2f7ffdb0e1e86cd9553889911b647175f6",
+    "ui-icons.svg": "4b503b4e04d6b8ae2d12ed5e690f4aedf070ec2e4073217060662cbd62258acc",
+    "provider-porcelain-preview-guard.js": "545c36f62725dd010ea684dbad7f75a114400e57a63197482840033a83812b8d",
+    "site-update.js": "6ed8ace9c0e43f1e9dc41b8fb6a87a4ca239a3bba4ba1d1c9b46ad7aa924df29",
+    "reliability.js": "149b13b32fae04bbbe845ad3e1a4b0e5698b3ea42f4ea55041406194306ad16b",
+    "phone-auth.js": "b28d82e70af70890ed4ce7eba48973a80b79e1f1c134b965982f044351d612fd",
+    "social-auth.js": "9119abf5afbb1510f4da5fe05b6ed3372007d8a10446fd57d00dc5cdea1f5dd2",
+    "organization-people.js": "a1141b7d80151b045768c5c156cbe31c193ac8eb7ceab6ba11c3dbada3de279a",
+    "organization.js": "7aa9c6cfcfbd56646187e60149ef7abec466145374368403d9872c899a90dff5",
+    "payment-management.js": "7472730bba1977fcc6e0182485ed2b93ef0f69be7ab3461a1865794e805d8ed4",
+    "payment-review.js": "8ab75406ddbd232abdda4fd0e163714da17f8ef9285165d6334501ab503ef014",
+    "commerce-soft-ui.js": "e069fe1d9b9e96c18164cfb3b14e88370c1aa69fcbfa8359871f26e7aa2b808a",
+    "commerce-management.js": "4073bb70a8d730329b46f4c83998d355728724d5996719772f4a4c23965ab6b3",
+    "integration-management.js": "135f23d3e274d4d292bc8f76cedeef25375c4ea56b85a9a2cff9eaa8010305a5",
+    "notification-center.js": "284c6e69af7287dfb6bfdb745b0edb5dfb5652cc9c87070fed8d9fda35e802a4",
+    "client-fields.js": "a4557369d498b789c54f2df4700983199287950387a3de2bd17634ce620e38f9",
+    "client-import.js": "2135e3c3ae286d55dfd3a45c31c87ad1d7917c131db9ccdb389e4ee72a9f87d0",
+    "provider-feedback.js": "7da428fdcdfeb3416b7ef0242a6e3bf4cbf43ea48e2626aa671491c810bf5d60",
+    "provider-feedback-inbox.js": "6885a1aac5f9b75e6837494fd5e5f4feb2a4f81717bf658985c6bb99c78a717d",
+    "client-directory.css": "fd9361c295353d9dd7d2d026326975b49666c02fb6685531afd71bd8c2cb7f4d",
+    "batch-bookings.js": "0d8a0669140dd5a1d619c2da1b841d598c62fa0d49c5e569896e01499b0f2023",
+    "booking-policy-management.js": "802e0f8ecb192d7234ac59fdddacad49f71adf006848390ca9d327e880fb1583",
+    "team-calendar.js": "cf2c4964cc61508a19a6f95948528301ac467511b64a1357b3dede8ad9881511",
+    "free-slots-share.js": "08186c7ab05996de40c69e0d8a113a93c564a47129c286c3eb7f8405516b366c",
+    "group-bookings.js": "55401c8b63c19b572278194c4242ad4a5fdb7431f92dd07468dea93bb241b156",
+    "service-presets-catalog.js": "4239154be96ba4ac13a3cbd9f289d9ee59ce0b121b6e8da72e99fef36135e2dd",
+    "provider-price-list.js": "7a3ddd20693df5233f4394cd78ba8eaac5e4d00f4629827da63b48dfcc7cae2a",
+    "onboarding.js": "9995b9db491bf879b4771912c04afb72619252393b336db2256a5c4135cbabc0",
+    "client-messaging.js": "c433c417bec8e724c9d8755ab4994f69eaa8d4d31ec6cd1544dcee10105662a3",
+    "provider-read-fetch.js": "4d2cea888899e0a6228682ea5035e318bfe1553f68f8ef3d087aa6b0bc9d68dd",
+    "data-governance.js": "a0b0bb78e5f4a039d8456f3a3f84fd9e1808828369af4d2a6442cbb5d23999da",
+    "report-reconciliation.js": "18a2615801b09d048ed4ca9f853ebf2bb27e47ca20a06d81ecaeca0a546dd9d1",
+    "report-demo-live.js": "05a0623dfa5e0f74cd308ea0047f5e09aaf5e03462a60e47160c02a3d809a007",
+    "provider-ui-refinements.css": "569de70d9df249601decd2a42658736978b7abd8a43f95d248d147a93d58c12e",
+    "provider-clients-premium.css": "075567f0eb9a5830666499e3c8fdbbd79e638c3f4af68eba3af3287b58f4f76f",
+    "client-loyalty-frames.css": "e624699bb671a69f5ddb3ed0da3cb2e75cecdd8997ec682fe74c140c6134fba8",
+    "provider-themes-distinct.css": "8bc2a892c3d10fb6963fc53609324cd1a985a727d215e73a86680a13fbd6a714",
+    "provider-theme-families.css": "452da45540a14af3acd59e31838454ed4873fe4ef3160c0fa86c6117e2bc6caf",
+    "provider-theme-backgrounds-tema1.css": "8dbb3eec94708d3f775898cb0f9db5b2659fb93a5076c5a5f89a4687dbce9181",
+    "provider-portfolio-responsive.css": "e786957604471c3f9c4fa1d2bdc4ce81ff47dd997e6cffa7c0dc16d920fa5d53",
+    "portfolio-soft-ui.css": "41503cd0fbdbe5b3cd6c036ee19929cce3778103ed684d8ac7b172792f940901",
+    "provider-schedule-minimal.css": "a67e3f12978ba816dcee4555ec6749d6128a4339e0fc935e12ceb617bab40795",
+    "provider-schedule-type.css": "1376a821f7a6e693fa4335a94dd4ebc9148f7be1f2468268915991bb6c9739ea",
+    "provider-schedule-desktop-reference.css": "ef7dca8746ab579a6140d86659c180defb38aab5c657fffce078c4d13f3e1263",
+    "client-profile-card.css": "d2af42207edd16b8a4288f2259a2e8f5342e579d4f7a72fd9be48973f0a6e90f",
+    "new-booking-card.css": "077516a3c6aefff4a379844007e3e1acf97c9f90376ebcdf4a2602b7751a5c1e",
+    "schedule-flat.css": "52ae63998c4b0cb036bc55f00886f5fb8c04d43b4c87e9097c0a8bc83313c51b",
+    "organization-overview.css": "e4645bf4710bd552cac971ac0abfd6da1acfbfaeb263fce89c9823de43326a7c",
+    "organization-group-navigation.css": "a6aec6bb41a7fb39e2298a86d0fb9aaa23e431ccaa431f979f62edbafec805a9",
+    "commerce-soft-ui.css": "58eb9ef6737e613a13cecd9520a1fa8d7d74e5bb21f1595d120fd2099f0417f4",
+    "benefits-soft-polish.css": "a239638544f574bbb5394e2adcdf1f274eeceaa9a473c244ed83e86678872cbc",
+    "payment-soft-ui.css": "5aa9b6d54b94995484f0bed654b4de08d9e15fb730324ee836c0256d87b25891",
+    "organization-flow.css": "2b539d1373cc4b3168d542e76c3b5a0da486cf65b73181bde565365a72bc3cf3",
+    "work-hours-soft.css": "2b2fe8e33f072672dc8deb71a648577c3d2114506eeb097f221343b1423689c1",
+    "retention-soft-ui.css": "6fdf2b7af37e4ac87d798707a227e688d42c6f01e85c2e298caf79e7733aa09f",
+    "payroll-soft-minimalism.css": "e44be6142d03b9c518fc8285a2eba997fc63d47e2134852676e6358624fae422",
+    "inventory-soft-ui.css": "c0ff4920279f57c75b9e610e381b9874fc6f15faba84339a551faa07b77c88e6",
+    "provider-selects.css": "d5311c0d5e18cdaee41d64f490923f14985d444b23216d5cfad679b95f5ee688",
+    "organization-people.css": "d68b233c685d69a542adea4f2dc25ce01e26fa5f93945647a5e5b195e6d8f31c",
+    "provider-selects.js": "a3787b0700265f5a1397bac559765a3a9728597930084af21bbda9a1162de325",
+    "theme-catalog.js": "c96c12851fbbb1d8ff04d3a956e75a4fe2629729a1bdc4807228a8a4238b2e11",
+    "provider-porcelain-matrix.js": "56187e740eea33fdb5d6a539216cf3aededa7fa1bcbb64363a12ee797dbd6c2a",
+    "provider-color-mode.js": "7f8907cbc626796d4689cc6a163ba935260fec513620dddf85edb5005d8022b9",
+    "client-directory.js": "eda1b4149f10864fe21de60b1dedb6d7b600af2527153d1ee4c0f323cd79f46f",
+    "client-results.js": "16e7d4df6ef76b3e47b33e9b835be1d680c8f1718943c90d6a943d47aaf4322e",
+    "client-relationship.js": "03c6302265fb8f03921456510f1ac08bd0e70718a0b7fb5b720e39f2ce85c3ec",
+    "client-loyalty-frames.js": "805a6a7c58f5523247122f5828dda41483cba1011a07686759197a14381356a2",
+    "client-profile-card.js": "2376263ef2d6e28488d606435939921a721b4029278ec3a24e7c069e17e72049",
+    "client-records.js": "b8da4584d7555f1f71c30b83b8e840de682cf3f63cebe3c9a3e01ff8253c8f52",
+    "benefit-lifecycle.js": "7d5a129b17908b7560f5c760ee34cba2f4c5610d097fb322145592c4360827a6",
+    "booking-widgets.js": "ac2d9f0150d355813c9c81380195a088b27916418054386cd3e58d221ac84eaa",
+    "provider-feature-assets.js": "871fa4a8b75ee9518ce602a4c56b03708b33b37fbf79a6f5887c76c2aa78b18e",
+    "portfolio-camera.js": "e797860fa13ece82915e2d5ffaf4adf7d8f6a23bd4d22f6ba85dc68dc6b6fbee",
+    "messages-core.js": "787b3512afb9ce92fcc09d396631462742b7536d6812e5f94aa57232686f190f",
+    "provider-messages-center.js": "67a0144eaadb22c686dbf2e338402ef2b3ea921d986eeed06e5e18fa0b5d2e24",
+    "finance-center.js": "1044cc5c802cf3e947aab25d64faa2f2309c221d482f6c83f39189ce3714099f",
+    "finance-center-provider.js": "9b0c8c5f0e5fbfbec800949e25100a28bb0255eb6092e3f4fe16ab49bb226b57",
+    "provider-service-actions.js": "395a88454475604956e0b17d96e1c4aefd54fd81359dec782cb45826b749f4b3",
+    "booking-detail-card.js": "e03db91a159e5bfc181fff99189ad53258346b1b711337a385c2cee7d2011dc3",
+    "new-booking-card.js": "91e383484f1dcca1f4302afa41c963442223ec546972b242a79633ba45b961fd",
+    "provider-connection-guidance.js": "4273dcfb4f0c308ec7d44679d511ef884825c7fe71e05d3d3da2c41bec1aba0b",
+    "schedule-break-icons.js": "2847073b1f3114c5ebb0025d22fc8a04c51fe706edeb82083b2e1c6c27632513",
+    "organization-flow.js": "db7d5b600253a32642c1803af8c4b4e5e8728d8833081efbd1bf872a847a83d5",
+    "provider.js": "0c76a5b92a52277e09d5b6f8e35ae860a133d5c512ed32e7ae1cccf4eebf4c3c",
+    "portfolio-soft-ui.js": "b0860993e84c28122f96c63cd5e6ec8fb64dead72703c9aa36a71383adb9d185",
+    "work-hours-soft.js": "4c2fec017370ea13db3959ccdba30432e6d5890c095fc2ffe9d9299c341a0c37",
+    "organization-group-navigation.js": "2235c84fe67c1f288d6809590e5c073c469aec6b8835f10e2f3e7f8ff21e2897",
+    "payroll-soft-minimalism.js": "dd2bbf9941e9fb757f136306a79112be34d0d3cf6bf9b01fd2d5caf7481a4de4",
+    "provider-porcelain-detail.js": "4e227382fdc44830697f83546677cbd1774647f66646bf0346e591e41725ba03",
+    "provider-help-workspace.js": "ac109e331c20e3367b881e4390559df13913b07710ab06cd09b152483f3f1e2e",
+    "service-presets.js": "692b2c4598a43ab74b722e7f66587342838bc4eaa31ac071309c279584bfa36c",
+    "primetime-handoff.js": "5c487b2792f648c9da4c40daf9d43b4b246c2279b2731ca14700b7ed8a9fd7ac",
+    "voice-wake.js": "3954a359635506e52c68c52704352c5c2633264ff2341facc84044c4a9c77e79",
+    "provider-icon.svg": "d5c073b803bc7dd4fd6dcf185929615df69e10b5b50f6bc636e3ebd67f734e6a",
+    "statistics-audit-ui.css": "980796f4b4194e2d05627be20e4c8801473f2e387b73133c83e89560e8476ac9",
+    "statistics-audit-ui.js": "213cb34a4fbf7b561d7e7120b819a3a44f48679f12f91eba39f2d95d133a6ac5",
+    "report-export-provider.js": "40a7efce38f58af406814d016188155bf5e7f248bb47fc0a4fe243995a7702f4",
+    "statistics-audit-provider.js": "8a31cd370e8719833756f8cadc22d64c13aed0c437f3899811f2738a4d157c7a",
+    "free-slots-compact.css": "189b68b85b007151b42a86dbc5428512385e04142744b2fd81c7a988d19dab01",
+    "vendor/qrcodegen.js": "8f8c9b7fe27a701da2c7c29be516f9480d62d04b671f4c47ea1c7402636287eb",
+    "code-scanner.css": "7484c62bccb092681a0d26a1c79b65b0d03b6c2d44e998995674c6d318dfc30c",
+    "code-scanner.js": "ffe79f0505312d83c06b28283cd9748cfbd9d806e84d65e40e9363e27f008116",
+    "assets/loyalty/frames-v1.png": "1bf1fdf6a11214ee6a437428f28015c1af568b59655f0e6f8bb8bed070081e99",
+    "help/help-data.js": "fcd09ccee563935a0507966d22eda91533697096194f6657eb79c372714a9643",
+    "contextual-help.js": "707f651e216462c8a09fdcf4eba9634fef5d9710d8da89d3464afccbd59dd544",
+    "settings-smart-search.js": "63b136e4e86980732c2e4ba27ecf251d630d28ad2226c5827f0009001558d980",
+    "loyalty-program-v166.js": "14ec5bc0e102740a059ad8c6feeea2b433a2fcd935d2a5cacba96f0969289539",
+    "loyalty-soft-ui.css": "931a9dbd9e6e3b9f979c213d5362c45c5d76f1bb4034d65527595d70f6d354ca",
+    "retention-mobile-ui.js": "436955673f6ad0b5d28292c851ba9df55f7a1dcf78f1a667db94e390a92cc2bd",
+    "retention-mobile-ui.css": "e550cf72c2fc7f7ba33b640047a80d282ec37b2d401b188c3e431f834a6592fb",
+    "retention-management.js": "b7d10c0ba9b6890c7c22c8e8d5fdbe21cc849af274c996f14b29098cebe97d79",
+    "inventory-soft-ui.js": "eb76dbed8386269d34757141b637f646931a792d65ce73666b2d21e94be3e8a7",
+    "inventory-management.js": "696b2204aa90bfa39333c6d1480353fd25a720245721325b40a6f9dd7aa9562f",
+    "settings-nav-scroll.js": "ed158ec8d167645d83ace0335c04524b380d36edf9b009b3da08db09f8dcf18b",
+    "payroll-management.js": "2bc7d7234628008bfe681e03677540a52c356d25a63c90037982a8cf49390fa1"
+  },
+  "unsupportedReads": [],
+  "deniedMutations": 0,
+  "transportFailures": 0
+}
