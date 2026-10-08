@@ -1,5 +1,7 @@
 # Native knowledge-base screenshots
 
+For the additional 31 article illustrations, see `additional-capture.md`. Its optional fixture flag preserves the earlier capture states and keeps all business writes unavailable.
+
 These screenshots show the original Eldion Pro HTML, scripts, styles and Supabase SDK on an isolated localhost transport with fictional test rows. They are not evidence of a deployed or authenticated live site. The normal Pink Porcelain theme comes from the application's persisted preferences and matches the theme selected in its ordinary settings UI.
 
 The fixture permits only explicit read RPCs, local authentication and read subscription acknowledgments. Data writes, notification sends, external HTTP and external WebSockets are unavailable. Browser service workers are blocked; CSP and the browser route allowlist prevent production access. The capture uses ordinary navigation, clicks, keyboard input, selects, local CSV file selection and scrolling. It does not modify the application's DOM, styles, renderers, clocks or source files. Only the local configuration selects the fixture transport. Lossless WebP is checked pixel-for-pixel against the raw PNG.

@@ -1,0 +1,7 @@
+# Additional article illustrations
+
+`additional-visual-plan.json` maps 20 practical articles to 21 original provider UI states and 11 reference articles to clearly labelled explanatory diagrams. Each screenshot state has 390, 760 and 1440 px originals. The original application owns the DOM, styling, permissions and renderers. Only fictional local rows and persisted preferences differ from production. No save, send, booking, payment, refund, upload or deletion is submitted.
+
+Set `NATIVE_CAPTURE_ADDITIONAL=1` and `MINUTA_BROWSER_EXECUTABLE` to the installed Chromium/Edge binary, then run `capture-additional-native.mjs`. The transport rejects external HTTP/WebSockets and all business mutations. The capture uses ordinary navigation, disclosures, field input and keyboard activation. Tall regions are cropped above fixed navigation; the zoom always displays the complete unmodified captured frame. Raw PNGs and diagnostics remain in ignored `outputs/knowledge-all-visuals-20261008`; lossless WebP pixels must match those PNGs.
+
+`NATIVE_ADDITIONAL_KEYS` and `NATIVE_ADDITIONAL_WIDTHS` restrict a repair pass. With `NATIVE_ADDITIONAL_MERGE=1`, existing captures are preserved only when their date and original source hashes match. Review all originals and then set `NATIVE_ADDITIONAL_REVIEWED=1` to run `approve-additional-native.mjs`; build the browser map with `build-process-visuals.mjs`. `verify-process-visuals.mjs` includes the additional coverage and provenance checks. Local fictional screenshots do not establish authenticated live acceptance.

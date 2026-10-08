@@ -10,6 +10,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 const root = path.resolve(fileURLToPath(new URL('../', import.meta.url)));
 const screenshotRoot = process.env.HELP_ROSE_SCREENSHOT_DIR;
+const addedVisualPlan = JSON.parse(await readFile(path.join(root, 'help/tools/additional-visual-plan.json'), 'utf8'));
+const addedVisualSteps = new Map([...addedVisualPlan.screens.flatMap(screen => Object.entries(screen.articles)), ...Object.entries(addedVisualPlan.diagrams).map(([slug, diagram]) => [slug, diagram.step])]);
 const providerHead = (await readFile(path.join(root, 'provider.html'), 'utf8')).split('</head>')[0].replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, '');
 const providerStyles = [...providerHead.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)].map(match => match[0]).join('\n');
 const mime = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.webp':'image/webp' };
@@ -233,6 +235,20 @@ try {
       }
       await page.waitForFunction(() => [...document.querySelectorAll('.article-visual img')].every(image => image.complete && image.naturalWidth > 0), undefined, { timeout:5000 });
       verify(await page.locator('.article-visual img').evaluateAll(images => images.every(image => image.complete && image.naturalWidth > 0)), `${width}/${article.slug}: изображения загружены`);
+      verify(await page.locator('.article-visual img').count() > 0, `${width}/${article.slug}: наглядная инструкция`);
+      if (addedVisualSteps.has(article.slug)) {
+        const figure = page.locator(`#step-${addedVisualSteps.get(article.slug)} .article-visual`).first();
+        verify(await figure.count() === 1, `${width}/${article.slug}: изображение у нужного действия`);
+        const button = figure.locator(':scope > button');
+        await button.focus(); await button.press('Enter');
+        await page.locator('#articleVisualFull').evaluate(image => image.decode());
+        verify(await page.locator('#articleVisualDialog').evaluate(dialog => dialog.open), `${width}/${article.slug}: увеличение доступно с клавиатуры`);
+        const original = await page.evaluate(() => { const image = document.querySelector('#articleVisualFull'); return image.currentSrc; });
+        verify(await figure.locator('img').evaluate((image, src) => image.currentSrc === src, original), `${width}/${article.slug}: увеличивается выбранный оригинал`);
+        await page.keyboard.press('Escape');
+        verify(!await page.locator('#articleVisualDialog').evaluate(dialog => dialog.open), `${width}/${article.slug}: возврат к инструкции`);
+        if (screenshotRoot) await figure.screenshot({path:path.join(screenshotRoot, `added-${article.slug}-${width}.png`)});
+      }
       const appearance = await rosePage();
       verify(appearance.background === 'rgb(255, 247, 250)', `${width}/${article.slug}: нежно-розовое оформление статьи`);
       verify(!appearance.overflow, `${width}/${article.slug}: статья без переполнения`);

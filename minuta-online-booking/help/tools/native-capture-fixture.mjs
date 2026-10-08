@@ -120,6 +120,30 @@ function selectRows(rows, params) {
   return true;
  }));
 }
+// Opt-in examples for the additional help illustrations. Earlier captures keep
+// their original fixtures; these rows exist only on the isolated local server.
+if (process.env.NATIVE_CAPTURE_ADDITIONAL === '1') {
+ organization.public_booking_enabled = true;
+ reads.get_minuta_client_page_settings_v177 = () => ({theme_key:'pink-porcelain',headline_key:'headline-1'});
+ reads.get_minuta_client_page_settings_v118 = reads.get_minuta_client_page_settings_v177;
+ reads.get_public_minuta_catalog_v5 = () => ({organization,locations,performers:members,services:services.map(s=>({...s,location_ids:[locationId]}))});
+ reads.get_public_minuta_catalog_v4 = reads.get_public_minuta_catalog_v5;
+ const result = () => ({enabled:true,can_enable:true,result:null,media:[]});
+ reads.get_minuta_client_result_v171 = result;
+ reads.get_minuta_client_result_v120 = result;
+ reads.get_minuta_client_results_v171 = () => ({organization_id:orgId,enabled:true,can_enable:true,results:[]});
+ const inventory = reads.get_minuta_inventory_workspace_v130;
+ reads.get_minuta_inventory_workspace_v130 = () => ({...inventory(),warehouses:[warehouse,{...warehouse,id:'15151515-1515-4515-8515-151515151515',name:'Учебный склад Север'}],movements:[{id:'16161616-1616-4616-8616-161616161616',warehouse_id:warehouseId,inventory_item_id:materialId,movement_type:'receipt',quantity_delta:100,quantity_after:1000,reason:'Учебный приход',created_at:date+'T07:00:00Z'}]});
+ const sale = {id:'17171717-1717-4717-8717-171717171717',status:'paid',occurred_at:date+'T07:00:00Z',total_minor:450000,refunded_minor:0,client_name:'Клиент примера А',line:{quantity:2,refunded_quantity:0,unit_price_minor:250000,discount_minor:50000,inventory_item_id:materialId,product_name:'Учебный товар',kind:'inventory'}};
+ const commerce = reads.get_minuta_commerce_workspace_v151;
+ reads.get_minuta_commerce_workspace_v151 = () => ({...commerce(),enabled:true,finance_enabled:true,settings:{enabled:true,finance_enabled:true},products:[{...material,kind:'product',price_minor:250000}],inventory_items:[{...material,kind:'product',price_minor:250000}],warehouses:[warehouse],balances:[{warehouse_id:warehouseId,inventory_item_id:materialId,quantity:1000}],sales:[sale],recent_sales:[sale],clients,accounts:[{id:warehouseId,name:'Учебная касса',active:true,account_type:'cash',system_key:null}]});
+ tables.waitlist_requests = [{id:'18181818-1818-4818-8818-181818181818',performer_id:uid,organization_id:orgId,service_id:serviceId,client_name:'Учебный клиент ожидания',client_phone:'70000000004',desired_date:date,date_from:date,date_to:date,time_from:'10:00',time_to:'18:00',status:'new',created_at:date+'T07:00:00Z',services:services[0]}];
+ tables.waitlist_requests[0].status='waiting';tables.waitlist_requests[0].time_period='any';tables.waitlist_requests[0].request_code='EXAMPLE-WAIT';
+ tables.booking_waitlist_requests = tables.waitlist_requests;
+ tables.organization_waitlist_requests = [];
+ const payroll = reads.get_minuta_payroll_ledger_workspace_v136;
+ reads.get_minuta_payroll_ledger_workspace_v136 = () => ({...payroll(),payment_accounts:[{id:warehouseId,name:'Учебная касса',account_type:'cash',active:true}],debts:[{accrual_source_id:'19191919-1919-4919-8919-191919191919',performer_id:uid,period_id:'example-period',debt_minor:300000}],advances:[{id:'20202020-2020-4020-8020-202020202020',performer_id:uid,amount_minor:100000,remaining_minor:100000,status:'open'}]});
+}
 export async function serveNativeCaptureFixture() {
  const requests=[],unsupported=[],mutations=[],sourceHashes={};
 const csp="default-src 'self'; script-src 'self'; connect-src 'self' ws://127.0.0.1:__PORT__; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'";
