@@ -5963,7 +5963,7 @@ function renderNotifications() {
   const marks = notificationMarks();
   const tasks = buildNotificationTasks().map(task => ({ ...task, mark: marks[task.key] || '', isDue: task.dueAt <= now }));
   const pending = tasks.filter(task => task.isDue && task.mark !== 'sent').length;
-  holder.dataset.pendingCount = String(pending);
+  holder.dataset.pendingCount=pending;
   const importantRows=importantNotificationRows(),importantUnread=importantNotificationUnreadRows().length;
   const importantToday=importantRows.filter(event=>localIsoDate(new Date(event.occurred_at))===businessTodayIso()).length;
   const failedDeliveries=notificationOutbox.filter(item=>item.status==='failed').length;

@@ -122,7 +122,7 @@
       "src": "images/native-client/client-management-rose-20261007-1440.webp",
       "kind": "screenshot",
       "alt": "Управление визитом и подключение Telegram",
-      "caption": "Управление визитом и подключение Telegram. Учебные данные.",
+      "caption": "Услуга, дата и время выбранного визита. Учебные данные.",
       "width": 658,
       "height": 735,
       "step": 1,
@@ -138,23 +138,109 @@
           "width": 658,
           "height": 735,
           "minWidth": 901,
-          "sha256": "1da81c64db445e7fd8d205d956b92fb198339eba7b602cf8fc04322cc994a79e"
+          "sha256": "1da81c64db445e7fd8d205d956b92fb198339eba7b602cf8fc04322cc994a79e",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 658,
+            "height": 244
+          }
         },
         {
           "src": "images/native-client/client-management-rose-20261007-760.webp",
           "width": 702,
           "height": 917,
           "minWidth": 431,
-          "sha256": "b0fb0f2e2679c94a94d871901b505eed43270c5cfa808750e7975bed341f4b8e"
+          "sha256": "b0fb0f2e2679c94a94d871901b505eed43270c5cfa808750e7975bed341f4b8e",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 702,
+            "height": 278
+          }
         },
         {
           "src": "images/native-client/client-management-rose-20261007-390.webp",
           "width": 340,
           "height": 933,
           "minWidth": 0,
-          "sha256": "54969cb236b56cea68ca24cf3dc39860cd907bd3b078ecbf6261b22ed9bcc020"
+          "sha256": "54969cb236b56cea68ca24cf3dc39860cd907bd3b078ecbf6261b22ed9bcc020",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 340,
+            "height": 262
+          }
         }
-      ]
+      ],
+      "detail": {
+        "x": 0,
+        "y": 0,
+        "width": 658,
+        "height": 244
+      }
+    },
+    {
+      "src": "images/native-client/client-management-rose-20261007-1440.webp",
+      "kind": "screenshot",
+      "alt": "Кнопка «Перенести запись»",
+      "caption": "Начните перенос этой кнопкой. Учебные данные.",
+      "width": 658,
+      "height": 735,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "1da81c64db445e7fd8d205d956b92fb198339eba7b602cf8fc04322cc994a79e",
+      "variants": [
+        {
+          "src": "images/native-client/client-management-rose-20261007-1440.webp",
+          "width": 658,
+          "height": 735,
+          "minWidth": 901,
+          "sha256": "1da81c64db445e7fd8d205d956b92fb198339eba7b602cf8fc04322cc994a79e",
+          "detail": {
+            "x": 0,
+            "y": 402,
+            "width": 658,
+            "height": 52
+          }
+        },
+        {
+          "src": "images/native-client/client-management-rose-20261007-760.webp",
+          "width": 702,
+          "height": 917,
+          "minWidth": 431,
+          "sha256": "b0fb0f2e2679c94a94d871901b505eed43270c5cfa808750e7975bed341f4b8e",
+          "detail": {
+            "x": 0,
+            "y": 584,
+            "width": 702,
+            "height": 52
+          }
+        },
+        {
+          "src": "images/native-client/client-management-rose-20261007-390.webp",
+          "width": 340,
+          "height": 933,
+          "minWidth": 0,
+          "sha256": "54969cb236b56cea68ca24cf3dc39860cd907bd3b078ecbf6261b22ed9bcc020",
+          "detail": {
+            "x": 0,
+            "y": 583,
+            "width": 340,
+            "height": 52
+          }
+        }
+      ],
+      "detail": {
+        "x": 0,
+        "y": 402,
+        "width": 658,
+        "height": 52
+      }
     },
     {
       "src": "images/native-client/client-reschedule-form-rose-20261007-1440.webp",
@@ -193,6 +279,68 @@
           "sha256": "10887c2eb9a4f54419bd3dd005ebfa6a635316ebb8a5bbf5a0c8b5b4833ed461"
         }
       ]
+    },
+    {
+      "src": "images/native-client/client-management-rose-20261007-1440.webp",
+      "kind": "screenshot",
+      "alt": "Кнопка «Отменить запись»",
+      "caption": "После нажатия потребуется подтверждение отмены. Учебные данные.",
+      "width": 658,
+      "height": 735,
+      "step": 4,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "1da81c64db445e7fd8d205d956b92fb198339eba7b602cf8fc04322cc994a79e",
+      "variants": [
+        {
+          "src": "images/native-client/client-management-rose-20261007-1440.webp",
+          "width": 658,
+          "height": 735,
+          "minWidth": 901,
+          "sha256": "1da81c64db445e7fd8d205d956b92fb198339eba7b602cf8fc04322cc994a79e",
+          "detail": {
+            "x": 0,
+            "y": 486,
+            "width": 658,
+            "height": 52
+          }
+        },
+        {
+          "src": "images/native-client/client-management-rose-20261007-760.webp",
+          "width": 702,
+          "height": 917,
+          "minWidth": 431,
+          "sha256": "b0fb0f2e2679c94a94d871901b505eed43270c5cfa808750e7975bed341f4b8e",
+          "detail": {
+            "x": 0,
+            "y": 668,
+            "width": 702,
+            "height": 52
+          }
+        },
+        {
+          "src": "images/native-client/client-management-rose-20261007-390.webp",
+          "width": 340,
+          "height": 933,
+          "minWidth": 0,
+          "sha256": "54969cb236b56cea68ca24cf3dc39860cd907bd3b078ecbf6261b22ed9bcc020",
+          "detail": {
+            "x": 0,
+            "y": 667,
+            "width": 340,
+            "height": 52
+          }
+        }
+      ],
+      "detail": {
+        "x": 0,
+        "y": 486,
+        "width": 658,
+        "height": 52
+      }
     }
   ],
   "connect-telegram": [
@@ -1354,8 +1502,8 @@
     {
       "src": "images/native-local/statistics-money-1440.webp",
       "kind": "screenshot",
-      "alt": "Финансовый раздел статистики",
-      "caption": "Финансовый раздел статистики. Учебные данные.",
+      "alt": "Карточки «Получено» и «Общие расходы»",
+      "caption": "Два показателя денежных операций. Учебные данные.",
       "width": 1148,
       "height": 1134,
       "environment": "isolated-local-native-fixture",
@@ -1370,24 +1518,48 @@
           "width": 1148,
           "height": 1134,
           "minWidth": 901,
-          "sha256": "141e7d7d5c5e9d4ba88d34dbd7204e2116b07bc6524acd2b57afa307e0510ab2"
+          "sha256": "141e7d7d5c5e9d4ba88d34dbd7204e2116b07bc6524acd2b57afa307e0510ab2",
+          "detail": {
+            "x": 390,
+            "y": 58,
+            "width": 744,
+            "height": 167
+          }
         },
         {
           "src": "images/native-local/statistics-money-760.webp",
           "width": 721,
           "height": 900,
           "minWidth": 431,
-          "sha256": "52fe9f8d9ebe37a43d1b4dce21d8b407916ca8650abd8650f47b3fadc4889d8b"
+          "sha256": "52fe9f8d9ebe37a43d1b4dce21d8b407916ca8650abd8650f47b3fadc4889d8b",
+          "detail": {
+            "x": 243,
+            "y": 58,
+            "width": 478,
+            "height": 157
+          }
         },
         {
           "src": "images/native-local/statistics-money-390.webp",
           "width": 351,
           "height": 900,
           "minWidth": 0,
-          "sha256": "caab6d6ff75be7f790927e336379f217221b13de72d848434b52201b930bfca4"
+          "sha256": "caab6d6ff75be7f790927e336379f217221b13de72d848434b52201b930bfca4",
+          "detail": {
+            "x": 0,
+            "y": 160,
+            "width": 351,
+            "height": 155
+          }
         }
       ],
-      "step": 2
+      "step": 2,
+      "detail": {
+        "x": 390,
+        "y": 58,
+        "width": 744,
+        "height": 167
+      }
     }
   ],
   "export-report": [
@@ -2357,7 +2529,8 @@
         "y": 94,
         "width": 617,
         "height": 108
-      }
+      },
+      "step": 1
     }
   ],
   "add-portfolio-work": [
@@ -2964,6 +3137,889 @@
         "width": 490,
         "height": 77
       }
+    }
+  ],
+  "client-phone-autofill": [
+    {
+      "src": "images/native-local/client-phone-lookup-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Клиент найден по точному номеру телефона",
+      "caption": "Клиент найден по точному номеру телефона. Учебные данные.",
+      "width": 530,
+      "height": 178,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "773bdd213cac99b6cb638d3c6eac33c23ca56c8c9936f9de1edfc56524fc73f5",
+      "variants": [
+        {
+          "src": "images/native-local/client-phone-lookup-20261008-1440.webp",
+          "width": 530,
+          "height": 178,
+          "minWidth": 901,
+          "sha256": "773bdd213cac99b6cb638d3c6eac33c23ca56c8c9936f9de1edfc56524fc73f5"
+        },
+        {
+          "src": "images/native-local/client-phone-lookup-20261008-760.webp",
+          "width": 695,
+          "height": 178,
+          "minWidth": 431,
+          "sha256": "d2274aa9c7c027f2271ac2829fef1495e148ffdd4817eef5e994eb66e9d3cc54"
+        },
+        {
+          "src": "images/native-local/client-phone-lookup-20261008-390.webp",
+          "width": 325,
+          "height": 178,
+          "minWidth": 0,
+          "sha256": "e25fa90a2d26ee9e508daadd84599efb9fd23500d08bd435b9842349e94c80f6"
+        }
+      ],
+      "provenanceCapture": "client-phone-lookup"
+    }
+  ],
+  "client-search-filters": [
+    {
+      "src": "images/native-local/client-directory-filters-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Сортировка и фильтры клиентов",
+      "caption": "Сортировка и фильтры клиентов. Учебные данные.",
+      "width": 520,
+      "height": 873,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "0e24b90713cdc513e1d199c258ec99cb78bc3707ab641c8761d9e8d22215ceeb",
+      "variants": [
+        {
+          "src": "images/native-local/client-directory-filters-20261008-1440.webp",
+          "width": 520,
+          "height": 873,
+          "minWidth": 901,
+          "sha256": "0e24b90713cdc513e1d199c258ec99cb78bc3707ab641c8761d9e8d22215ceeb"
+        },
+        {
+          "src": "images/native-local/client-directory-filters-20261008-760.webp",
+          "width": 745,
+          "height": 873,
+          "minWidth": 431,
+          "sha256": "f86775b93627c521b7388e246f7e79e28b22df5057076a9999b380f243941df8"
+        },
+        {
+          "src": "images/native-local/client-directory-filters-20261008-390.webp",
+          "width": 375,
+          "height": 873,
+          "minWidth": 0,
+          "sha256": "4f634dfce16ac16b7ed5ec711b50eb53ecd795046e91eb98e18f349ce6755d0b"
+        }
+      ],
+      "provenanceCapture": "client-directory-filters"
+    }
+  ],
+  "client-online-booking-block": [
+    {
+      "src": "images/native-local/client-online-block-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Проверка клиента перед блокировкой",
+      "caption": "Проверка клиента перед блокировкой. Учебные данные.",
+      "width": 390,
+      "height": 335,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "4c40cef93ee9307cb2ad31dcd1438e4ca4d4c022d9aa36a8d20439f349e27f8a",
+      "variants": [
+        {
+          "src": "images/native-local/client-online-block-20261008-1440.webp",
+          "width": 390,
+          "height": 335,
+          "minWidth": 901,
+          "sha256": "4c40cef93ee9307cb2ad31dcd1438e4ca4d4c022d9aa36a8d20439f349e27f8a"
+        },
+        {
+          "src": "images/native-local/client-online-block-20261008-760.webp",
+          "width": 745,
+          "height": 342,
+          "minWidth": 431,
+          "sha256": "c4769e5cfc11921207ebf068c17918a57183ad50493f1e00d9cb85138bae68fd"
+        },
+        {
+          "src": "images/native-local/client-online-block-20261008-390.webp",
+          "width": 375,
+          "height": 360,
+          "minWidth": 0,
+          "sha256": "27d6c710b90663c344f6dcde82012b14ac5b24dc9ad514f4a363f9db7ea50e43"
+        }
+      ],
+      "provenanceCapture": "client-online-block"
+    }
+  ],
+  "client-files-and-visit-notes": [
+    {
+      "src": "images/native-local/client-record-files-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Файл и привязка к визиту в закрытом разделе клиента",
+      "caption": "Файл и привязка к визиту в закрытом разделе клиента. Учебные данные.",
+      "width": 566,
+      "height": 356,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "4a5469c25b780f91443f5f89fcaf44fb19ee4dc0612a2d16cfda15497732d40b",
+      "variants": [
+        {
+          "src": "images/native-local/client-record-files-20261008-1440.webp",
+          "width": 566,
+          "height": 356,
+          "minWidth": 901,
+          "sha256": "4a5469c25b780f91443f5f89fcaf44fb19ee4dc0612a2d16cfda15497732d40b"
+        },
+        {
+          "src": "images/native-local/client-record-files-20261008-760.webp",
+          "width": 689,
+          "height": 357,
+          "minWidth": 431,
+          "sha256": "2e897c5e3d13464b3ba5a101ba623f886ac302ece423d355674423e462e8e4de"
+        },
+        {
+          "src": "images/native-local/client-record-files-20261008-390.webp",
+          "width": 319,
+          "height": 357,
+          "minWidth": 0,
+          "sha256": "0c8fa419799ae5d2c3a9c832137ebb9142a02afe7ae036be85b12cf124d52ba8"
+        }
+      ],
+      "provenanceCapture": "client-record-files"
+    }
+  ],
+  "client-private-results": [
+    {
+      "src": "images/native-local/client-private-result-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Четыре поля приватного описания сеанса",
+      "caption": "Четыре поля приватного описания сеанса. Учебные данные.",
+      "width": 552,
+      "height": 279,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "758948b49d6fbca9738977ef8bbf63fbde8c875d3e1352a588bd31019f5ce7f1",
+      "variants": [
+        {
+          "src": "images/native-local/client-private-result-20261008-1440.webp",
+          "width": 552,
+          "height": 279,
+          "minWidth": 901,
+          "sha256": "758948b49d6fbca9738977ef8bbf63fbde8c875d3e1352a588bd31019f5ce7f1"
+        },
+        {
+          "src": "images/native-local/client-private-result-20261008-760.webp",
+          "width": 572,
+          "height": 514,
+          "minWidth": 431,
+          "sha256": "134c2b415734a4535a78cbd4ace449d45fc289b2e63e5d7e1cc1de04958dad2d"
+        },
+        {
+          "src": "images/native-local/client-private-result-20261008-390.webp",
+          "width": 323,
+          "height": 514,
+          "minWidth": 0,
+          "sha256": "c2381985383a28ac70b39b37f3b60eafd0d3782c717acc2c85979253cbda53c5"
+        }
+      ],
+      "provenanceCapture": "client-private-result"
+    }
+  ],
+  "client-retention": [
+    {
+      "src": "images/native-local/client-retention-settings-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Сроки и текст возврата клиентов",
+      "caption": "Сроки и текст возврата клиентов. Учебные данные.",
+      "width": 917,
+      "height": 475,
+      "step": 1,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "670db99fda92b38498f88cbc525c2265eb8e04daa93a8ae40fcf28b424818668",
+      "variants": [
+        {
+          "src": "images/native-local/client-retention-settings-20261008-1440.webp",
+          "width": 917,
+          "height": 475,
+          "minWidth": 901,
+          "sha256": "670db99fda92b38498f88cbc525c2265eb8e04daa93a8ae40fcf28b424818668"
+        },
+        {
+          "src": "images/native-local/client-retention-settings-20261008-760.webp",
+          "width": 719,
+          "height": 497,
+          "minWidth": 431,
+          "sha256": "1722939d7f48e1b9899d2742146d773a9e0a0bcec92ff882cb7bc92a18af3d8b"
+        },
+        {
+          "src": "images/native-local/client-retention-settings-20261008-390.webp",
+          "width": 349,
+          "height": 590,
+          "minWidth": 0,
+          "sha256": "84a995bac703eca3ba5aedfa009f5a4eed99e32d0638efb2fba18edfc19af475"
+        }
+      ],
+      "provenanceCapture": "client-retention-settings"
+    }
+  ],
+  "inventory-receipt": [
+    {
+      "src": "images/native-local/inventory-receipt-form-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Приход: склад, позиция и принятое количество",
+      "caption": "Приход: склад, позиция и принятое количество. Учебные данные.",
+      "width": 422,
+      "height": 514,
+      "step": 4,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "65f006f442740d4b316a7ae5a8fbf35e103e19a4eee9fa5e9eccb3792f072fa1",
+      "variants": [
+        {
+          "src": "images/native-local/inventory-receipt-form-20261008-1440.webp",
+          "width": 422,
+          "height": 514,
+          "minWidth": 901,
+          "sha256": "65f006f442740d4b316a7ae5a8fbf35e103e19a4eee9fa5e9eccb3792f072fa1"
+        },
+        {
+          "src": "images/native-local/inventory-receipt-form-20261008-760.webp",
+          "width": 663,
+          "height": 507,
+          "minWidth": 431,
+          "sha256": "8ddaedc9993720b1c4044f42d1a8b0dbfbeec4a2bc779e134f213605fc624ddf"
+        },
+        {
+          "src": "images/native-local/inventory-receipt-form-20261008-390.webp",
+          "width": 293,
+          "height": 609,
+          "minWidth": 0,
+          "sha256": "c09fd0599e433d1405c77a7912f134569ffbc6aee2457b2a6d86aa6eb97962f4"
+        }
+      ],
+      "provenanceCapture": "inventory-receipt-form"
+    }
+  ],
+  "inventory-expense-writeoff": [
+    {
+      "src": "images/native-local/inventory-writeoff-form-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Списание: количество и причина",
+      "caption": "Списание: количество и причина. Учебные данные.",
+      "width": 422,
+      "height": 559,
+      "step": 4,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "0435390b9841031e2231f4ef1eb4ba42ccc2db367d049e9ac769a0234d8cdfb7",
+      "variants": [
+        {
+          "src": "images/native-local/inventory-writeoff-form-20261008-1440.webp",
+          "width": 422,
+          "height": 559,
+          "minWidth": 901,
+          "sha256": "0435390b9841031e2231f4ef1eb4ba42ccc2db367d049e9ac769a0234d8cdfb7"
+        },
+        {
+          "src": "images/native-local/inventory-writeoff-form-20261008-760.webp",
+          "width": 663,
+          "height": 551,
+          "minWidth": 431,
+          "sha256": "85ce3f1d68f5af0d68382481b823a4d8ad0f5c12ecd4e51e186c52565016017a"
+        },
+        {
+          "src": "images/native-local/inventory-writeoff-form-20261008-390.webp",
+          "width": 293,
+          "height": 672,
+          "minWidth": 0,
+          "sha256": "46aeae9319eeeb46705398082958b682410ce042009906ad84b3448cbbc87360"
+        }
+      ],
+      "provenanceCapture": "inventory-writeoff-form"
+    }
+  ],
+  "inventory-transfer": [
+    {
+      "src": "images/native-local/inventory-transfer-form-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Перемещение между двумя складами",
+      "caption": "Перемещение между двумя складами. Учебные данные.",
+      "width": 422,
+      "height": 692,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "7ec813deaa884c84bb10604abecf9c8303825d7ee01176f7ebfa5092aacfcf63",
+      "variants": [
+        {
+          "src": "images/native-local/inventory-transfer-form-20261008-1440.webp",
+          "width": 422,
+          "height": 692,
+          "minWidth": 901,
+          "sha256": "7ec813deaa884c84bb10604abecf9c8303825d7ee01176f7ebfa5092aacfcf63"
+        },
+        {
+          "src": "images/native-local/inventory-transfer-form-20261008-760.webp",
+          "width": 663,
+          "height": 666,
+          "minWidth": 431,
+          "sha256": "3fbeb527b1a67a613b2c24db34f5239f366c8c950c1f003e402f94b763843614"
+        },
+        {
+          "src": "images/native-local/inventory-transfer-form-20261008-390.webp",
+          "width": 293,
+          "height": 804,
+          "minWidth": 0,
+          "sha256": "ece63b785c7b8ccab106bdc4ed6f3fe138fbfcc6aed7208e57fce187d5e0504c"
+        }
+      ],
+      "provenanceCapture": "inventory-transfer-form"
+    }
+  ],
+  "inventory-count-adjustment": [
+    {
+      "src": "images/native-local/inventory-count-form-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Инвентаризация: полный фактический остаток",
+      "caption": "Инвентаризация: полный фактический остаток. Учебные данные.",
+      "width": 422,
+      "height": 559,
+      "step": 4,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "ec80af8754940988b20a31dee63f8210bb1941af581e26f0d50cfbcb4ede4b36",
+      "variants": [
+        {
+          "src": "images/native-local/inventory-count-form-20261008-1440.webp",
+          "width": 422,
+          "height": 559,
+          "minWidth": 901,
+          "sha256": "ec80af8754940988b20a31dee63f8210bb1941af581e26f0d50cfbcb4ede4b36"
+        },
+        {
+          "src": "images/native-local/inventory-count-form-20261008-760.webp",
+          "width": 663,
+          "height": 551,
+          "minWidth": 431,
+          "sha256": "73e63693dc4a6e1f5a105af983d59dbc0377101f20461ffd435a72ce5107cd56"
+        },
+        {
+          "src": "images/native-local/inventory-count-form-20261008-390.webp",
+          "width": 293,
+          "height": 672,
+          "minWidth": 0,
+          "sha256": "75e862c6438d9b742e7758d9be470b1838a7d07ea668f388a91f9a7857f38b13"
+        }
+      ],
+      "provenanceCapture": "inventory-count-form"
+    }
+  ],
+  "inventory-journal": [
+    {
+      "src": "images/native-local/inventory-history-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Дельта и остаток после складской операции",
+      "caption": "Дельта и остаток после складской операции. Учебные данные.",
+      "width": 917,
+      "height": 134,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "f3939f2001086d85d3ddd6ca57be74688401896d7ec37d8257baf498cfea3983",
+      "variants": [
+        {
+          "src": "images/native-local/inventory-history-20261008-1440.webp",
+          "width": 917,
+          "height": 134,
+          "minWidth": 901,
+          "sha256": "f3939f2001086d85d3ddd6ca57be74688401896d7ec37d8257baf498cfea3983"
+        },
+        {
+          "src": "images/native-local/inventory-history-20261008-760.webp",
+          "width": 689,
+          "height": 154,
+          "minWidth": 431,
+          "sha256": "b98a9fb2d338cf10e848cd54ab1d2c1db9b9e52e1341a9195d3b12159baadd7b"
+        },
+        {
+          "src": "images/native-local/inventory-history-20261008-390.webp",
+          "width": 319,
+          "height": 154,
+          "minWidth": 0,
+          "sha256": "d26fca5ffb8ef4914c3c326a83b3f946b8b44940adfad6a140b595ce0ce99ed7"
+        }
+      ],
+      "provenanceCapture": "inventory-history"
+    }
+  ],
+  "client-page-appearance": [
+    {
+      "src": "images/native-local/client-page-theme-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Предпросмотр нежно-розовой клиентской страницы",
+      "caption": "Предпросмотр нежно-розовой клиентской страницы. Учебные данные.",
+      "width": 253,
+      "height": 497,
+      "step": 4,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "954255d655b6cb3295920812e802e9fb3e5f15d3d485d14ed243e34b7101142e",
+      "variants": [
+        {
+          "src": "images/native-local/client-page-theme-20261008-1440.webp",
+          "width": 253,
+          "height": 497,
+          "minWidth": 901,
+          "sha256": "954255d655b6cb3295920812e802e9fb3e5f15d3d485d14ed243e34b7101142e"
+        },
+        {
+          "src": "images/native-local/client-page-theme-20261008-760.webp",
+          "width": 665,
+          "height": 403,
+          "minWidth": 431,
+          "sha256": "926761b7eb4576b6c4fd146c6bd0ed34f7d5441b4b626b5c7c481ec2ed237612"
+        },
+        {
+          "src": "images/native-local/client-page-theme-20261008-390.webp",
+          "width": 295,
+          "height": 403,
+          "minWidth": 0,
+          "sha256": "2b748f84c6df4557eadb7cfeeee994c7d7de73febc8a351a7389d00e26da1f78"
+        }
+      ],
+      "provenanceCapture": "client-page-theme"
+    }
+  ],
+  "edit-service": [
+    {
+      "src": "images/native-local/service-editor-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Название, стоимость и длительность услуги",
+      "caption": "Название, стоимость и длительность услуги. Учебные данные.",
+      "width": 504,
+      "height": 253,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "2c37abccd1f71c0b46668ceedc8713fa30be5cd1b8e15c3771d5ed10e05d584e",
+      "variants": [
+        {
+          "src": "images/native-local/service-editor-20261008-1440.webp",
+          "width": 504,
+          "height": 253,
+          "minWidth": 901,
+          "sha256": "2c37abccd1f71c0b46668ceedc8713fa30be5cd1b8e15c3771d5ed10e05d584e"
+        },
+        {
+          "src": "images/native-local/service-editor-20261008-760.webp",
+          "width": 504,
+          "height": 253,
+          "minWidth": 431,
+          "sha256": "880c5a2e17fb74c3ba45c37cb09661382f320cf32fb52bae4a42bba3d70cf28a"
+        },
+        {
+          "src": "images/native-local/service-editor-20261008-390.webp",
+          "width": 337,
+          "height": 333,
+          "minWidth": 0,
+          "sha256": "8e16b32f433a5500bbb55a0e3503d95b1caabee72b2e5e16492821aae7a46020"
+        }
+      ],
+      "provenanceCapture": "service-editor"
+    }
+  ],
+  "hide-or-delete-service": [
+    {
+      "src": "images/native-local/service-actions-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Доступность и дополнительные действия услуги",
+      "caption": "Доступность и дополнительные действия услуги. Учебные данные.",
+      "width": 921,
+      "height": 135,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "6dc2c87e7b6ef638330e9e265dfafa5583a5f5caaa8dc0b91bf47a99b6e9c5a8",
+      "variants": [
+        {
+          "src": "images/native-local/service-actions-20261008-1440.webp",
+          "width": 921,
+          "height": 135,
+          "minWidth": 901,
+          "sha256": "6dc2c87e7b6ef638330e9e265dfafa5583a5f5caaa8dc0b91bf47a99b6e9c5a8",
+          "detail": {
+            "x": 785,
+            "y": 9,
+            "width": 136,
+            "height": 48
+          }
+        },
+        {
+          "src": "images/native-local/service-actions-20261008-760.webp",
+          "width": 683,
+          "height": 135,
+          "minWidth": 431,
+          "sha256": "dc02040de30f55de0fb7bf9e2eabb740bdca6c33da23a343ca8f5b10f9bc748f",
+          "detail": {
+            "x": 537,
+            "y": 3,
+            "width": 146,
+            "height": 60
+          }
+        },
+        {
+          "src": "images/native-local/service-actions-20261008-390.webp",
+          "width": 313,
+          "height": 135,
+          "minWidth": 0,
+          "sha256": "300e34998b2159f985b8df8a4af3e588a4ccab9999c4a9a90bd43d1e651d7afe",
+          "detail": {
+            "x": 0,
+            "y": 0,
+            "width": 313,
+            "height": 135
+          }
+        }
+      ],
+      "provenanceCapture": "service-actions",
+      "detail": {
+        "x": 785,
+        "y": 9,
+        "width": 136,
+        "height": 48
+      }
+    }
+  ],
+  "share-price-list": [
+    {
+      "src": "images/native-local/service-price-list-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Прайс и выбор формата отправки",
+      "caption": "Прайс и выбор формата отправки. Учебные данные.",
+      "width": 580,
+      "height": 430,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "09490a235f35e91853ac45381fca8092c392c6ad8e4de787f95f817838b3b75f",
+      "variants": [
+        {
+          "src": "images/native-local/service-price-list-20261008-1440.webp",
+          "width": 580,
+          "height": 430,
+          "minWidth": 901,
+          "sha256": "09490a235f35e91853ac45381fca8092c392c6ad8e4de787f95f817838b3b75f"
+        },
+        {
+          "src": "images/native-local/service-price-list-20261008-760.webp",
+          "width": 580,
+          "height": 520,
+          "minWidth": 431,
+          "sha256": "651a862eec7794d18fb0a45e47e9d70f310072a7bcf2e62a02796cdcdc234988"
+        },
+        {
+          "src": "images/native-local/service-price-list-20261008-390.webp",
+          "width": 337,
+          "height": 572,
+          "minWidth": 0,
+          "sha256": "0544ca9fec95a418eb08551a9f7086964208d232b9a5cd08e205c7cdd676d7c4"
+        }
+      ],
+      "provenanceCapture": "service-price-list"
+    }
+  ],
+  "booking-widget": [
+    {
+      "src": "images/native-local/booking-widget-code-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Код выбранного виджета и кнопка копирования",
+      "caption": "Код выбранного виджета и кнопка копирования. Учебные данные.",
+      "width": 467,
+      "height": 446,
+      "step": 4,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "857b4495770ad3e3215a6375c9ade0d834f795b5daf03df1c1d8067ebd8826b6",
+      "variants": [
+        {
+          "src": "images/native-local/booking-widget-code-20261008-1440.webp",
+          "width": 467,
+          "height": 446,
+          "minWidth": 901,
+          "sha256": "857b4495770ad3e3215a6375c9ade0d834f795b5daf03df1c1d8067ebd8826b6"
+        },
+        {
+          "src": "images/native-local/booking-widget-code-20261008-760.webp",
+          "width": 675,
+          "height": 471,
+          "minWidth": 431,
+          "sha256": "993c47a1fb7de21ae2fba03312f5fa3f398898584a80f0a09cb1f018b3b09769"
+        },
+        {
+          "src": "images/native-local/booking-widget-code-20261008-390.webp",
+          "width": 305,
+          "height": 471,
+          "minWidth": 0,
+          "sha256": "0af8a181e66d425e8c37e6165b27e9b9fc9c2ad46b1bde101a52acb3bba53438"
+        }
+      ],
+      "provenanceCapture": "booking-widget-code"
+    }
+  ],
+  "create-sale": [
+    {
+      "src": "images/native-local/commerce-sale-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Позиция, количество и цена перед оформлением продажи",
+      "caption": "Позиция, количество и цена перед оформлением продажи. Учебные данные.",
+      "width": 915,
+      "height": 411,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "97cd6a92663d0f6c1deed3253b90bf94d8390d3d7c0dfa315a1c6d3b00435fc6",
+      "variants": [
+        {
+          "src": "images/native-local/commerce-sale-20261008-1440.webp",
+          "width": 915,
+          "height": 411,
+          "minWidth": 901,
+          "sha256": "97cd6a92663d0f6c1deed3253b90bf94d8390d3d7c0dfa315a1c6d3b00435fc6"
+        },
+        {
+          "src": "images/native-local/commerce-sale-20261008-760.webp",
+          "width": 687,
+          "height": 692,
+          "minWidth": 431,
+          "sha256": "765efac945f5205eb12998a668e444d5dcb9b25307174ab8bc7b3737f87196f1"
+        },
+        {
+          "src": "images/native-local/commerce-sale-20261008-390.webp",
+          "width": 317,
+          "height": 814,
+          "minWidth": 0,
+          "sha256": "fcaf7d3957da959654271f3de52121d593df7a743b785591ec0a1235e31cea16"
+        }
+      ],
+      "provenanceCapture": "commerce-sale"
+    }
+  ],
+  "refund-sale-accounting": [
+    {
+      "src": "images/native-local/commerce-refund-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Количество и рассчитанная сумма возврата",
+      "caption": "Количество и рассчитанная сумма возврата. Учебные данные.",
+      "width": 917,
+      "height": 517,
+      "step": 3,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "f9f01551b65509bea88b28867cb23e8a0c57700700e9a3a370ead700ac349be7",
+      "variants": [
+        {
+          "src": "images/native-local/commerce-refund-20261008-1440.webp",
+          "width": 917,
+          "height": 517,
+          "minWidth": 901,
+          "sha256": "f9f01551b65509bea88b28867cb23e8a0c57700700e9a3a370ead700ac349be7"
+        },
+        {
+          "src": "images/native-local/commerce-refund-20261008-760.webp",
+          "width": 689,
+          "height": 606,
+          "minWidth": 431,
+          "sha256": "0d8bde58169197c9e3f9b4c91655039208b6884abc7df31c092e8c9105c86cbb"
+        },
+        {
+          "src": "images/native-local/commerce-refund-20261008-390.webp",
+          "width": 319,
+          "height": 643,
+          "minWidth": 0,
+          "sha256": "29f8770f9a4edc5c5a7013a48f0474b35dcd838c879d339f9e9ec533d8ac176e"
+        }
+      ],
+      "provenanceCapture": "commerce-refund"
+    }
+  ],
+  "payroll-advance-and-offset": [
+    {
+      "src": "images/native-local/payroll-advance-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Аванс: сотрудник, счёт, сумма и дата",
+      "caption": "Аванс: сотрудник, счёт, сумма и дата. Учебные данные.",
+      "width": 424,
+      "height": 328,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "7117a6d2603739e6a2440c06085ebde93d007e81ffdd8aa115968fd9760bbda0",
+      "variants": [
+        {
+          "src": "images/native-local/payroll-advance-20261008-1440.webp",
+          "width": 424,
+          "height": 328,
+          "minWidth": 901,
+          "sha256": "7117a6d2603739e6a2440c06085ebde93d007e81ffdd8aa115968fd9760bbda0"
+        },
+        {
+          "src": "images/native-local/payroll-advance-20261008-760.webp",
+          "width": 621,
+          "height": 523,
+          "minWidth": 431,
+          "sha256": "9945f87e5d5cc1ef864ed79358967acd8469ffe0528d2e9e99021643ac812e32"
+        },
+        {
+          "src": "images/native-local/payroll-advance-20261008-390.webp",
+          "width": 283,
+          "height": 523,
+          "minWidth": 0,
+          "sha256": "3d1c87fc05db580b6d761ef10afb846d802edb29a92c2efc4988a84bf3036e08"
+        }
+      ],
+      "provenanceCapture": "payroll-advance"
+    },
+    {
+      "src": "images/native-local/payroll-offset-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Зачёт аванса в существующий долг",
+      "caption": "Зачёт аванса в существующий долг. Учебные данные.",
+      "width": 424,
+      "height": 438,
+      "step": 4,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "97e977136b72f9f473506a8f34100f9676f93371415194fc2a2de60ee4e03a78",
+      "variants": [
+        {
+          "src": "images/native-local/payroll-offset-20261008-1440.webp",
+          "width": 424,
+          "height": 438,
+          "minWidth": 901,
+          "sha256": "97e977136b72f9f473506a8f34100f9676f93371415194fc2a2de60ee4e03a78"
+        },
+        {
+          "src": "images/native-local/payroll-offset-20261008-760.webp",
+          "width": 621,
+          "height": 425,
+          "minWidth": 431,
+          "sha256": "9e6c62e5ca5bc3fa442286b9fd9b6950c301b31df3ca6f7302d0db2a62526ae7"
+        },
+        {
+          "src": "images/native-local/payroll-offset-20261008-390.webp",
+          "width": 283,
+          "height": 436,
+          "minWidth": 0,
+          "sha256": "a082c401df925942dcf910245a65fe0fb1f4ebc1468b9b49126a858e6ec9a925"
+        }
+      ],
+      "provenanceCapture": "payroll-offset"
+    }
+  ],
+  "provider-waitlist": [
+    {
+      "src": "images/native-local/provider-waitlist-20261008-1440.webp",
+      "kind": "screenshot",
+      "alt": "Пожелания клиента и действия с заявкой",
+      "caption": "Пожелания клиента и действия с заявкой. Учебные данные.",
+      "width": 959,
+      "height": 369,
+      "step": 2,
+      "environment": "isolated-local-native-fixture",
+      "coverageExact": true,
+      "domModified": false,
+      "rendererModified": false,
+      "liveVerified": false,
+      "sha256": "85875d2ffb80d43d94786473a24e7b299edb06981b8ad38427d90ed6dacf7723",
+      "variants": [
+        {
+          "src": "images/native-local/provider-waitlist-20261008-1440.webp",
+          "width": 959,
+          "height": 369,
+          "minWidth": 901,
+          "sha256": "85875d2ffb80d43d94786473a24e7b299edb06981b8ad38427d90ed6dacf7723"
+        },
+        {
+          "src": "images/native-local/provider-waitlist-20261008-760.webp",
+          "width": 721,
+          "height": 369,
+          "minWidth": 431,
+          "sha256": "f8de91d1b5a034097a8e135530a1fc16e671776475015afb333fd47b1ddeda97"
+        },
+        {
+          "src": "images/native-local/provider-waitlist-20261008-390.webp",
+          "width": 351,
+          "height": 302,
+          "minWidth": 0,
+          "sha256": "45767dd5265e113a3585eb697e51e178fc4bdd228d3c2c01dbca35f03b181264"
+        }
+      ],
+      "provenanceCapture": "provider-waitlist"
     }
   ]
 }

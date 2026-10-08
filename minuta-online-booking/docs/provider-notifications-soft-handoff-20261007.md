@@ -15,16 +15,17 @@
 - Новый `tests/provider-notifications-soft-browser-test.mjs`: реальные manual/automatic renderers и controller событий с искусственными данными, Telegram draft с точным текстом, отсутствие отправки/записи при выборе, перерисовка, фильтры, отметка и возврат, массовая отметка, повтор, сохранение настроек, все события, журнал, пустая очередь, отсутствие серверного центра, холодная навигация и клавиатура меню.
 - Пять тем на 390/760/1440: midnight, warm, cocoa-pearl, oled-mono, volt-graphite. Проверены геометрия, читаемость, плоские панели, полноценная ширина текста, доступность действий минимум 44px и крупный текст. Просмотрены итоговые midnight screenshots, включая ошибки на мобильном экране.
 - PASS: `client-url-redirect-test.mjs`, `provider-startup-performance-v565-test.mjs`, `notification-mobile-layout-test.mjs`, `notification-center-v88-static-test.mjs`, `client-messaging-test.mjs`, `tests/provider-important-notifications-test.mjs`, `tests/smart-delivery-ui-test.mjs`, `tests/notification-center-context-recovery-test.mjs`, `tests/provider-feature-assets-browser-test.mjs`, `tests/smart-delivery-browser-test.mjs`, syntax и diff checks.
-- Core precache: 63 файла, 3 799 495 bytes. Основа d655a433: 3 798 946; прирост 549 bytes (0.015%) — template, lazy hooks и count. CSS/JS остаются optional; бюджет ограничен измеренным итогом без запаса.
+- После обновления 8 октября core precache: 63 файла, 3 799 082 bytes. Прежний лимит 3 799 094 сохранён без повышения; CSS/JS остаются optional. Сокращены только добавленные hooks и комментарии загрузчика, сохранён точный pending count.
+- На обновлённом дереве PASS: новый notifications browser test (15 theme/width layouts), feature-assets browser test (включая real SW offline reload), organization-roles A02 browser test (9 role/width layouts, все внешние запросы блокируются), startup, redirect и syntax/diff. Причина прежних CI card-regressions/card-states — превышение общего лимита core precache — устранена без ослабления проверок.
 - Старый `tests/provider-important-notifications-browser-test.mjs` проходит блок уведомлений/шаблонов, затем падает в независимой части истории статистики: скрытый `#reportLastChange`. То же падение воспроизведено с исходным provider.html из d655a433. Эта часть не исправлялась и не заявлена успешной.
 - Новый browser test добавлен в существующий workflow `minuta-booking-recovery.yml`.
 
 ## Текущий этап
-Локальный кандидат готов к проверке CI и приёму единственным владельцем выпуска. Рабочая ветка `codex/pro-notifications-soft-20261007`, основа `d655a4333aabf3fc849e93920ef20d4b672129bc`. Выполнено 2 из 4 этапов: реализация и локальная проверка; остались опубликованный пакет и live-приёмка.
+8 октября кандидат обновлён merge свежего `origin/main` `2d8a97f439e8dea33f92161c08b4ccc23d8bcf54`; конфликт SW разрешён с сохранением новых ресурсов v1083 и optional notifications. Рабочая ветка `codex/pro-notifications-soft-20261007`. Выполнено 2 из 4 этапов: реализация и локальная проверка; остались опубликованный пакет и live-приёмка. Новая CI и приём владельцем требуются на обновлённом SHA.
 
 ## Следующие шаги
 1. Владелец выпуска сверяет свежий main и интегрирует кандидат, сохраняя собственные изменения общих файлов.
-2. Назначает новую общую версию: provider.js, SW CACHE/precache-ready, primetime-handoff и связанные текущие ресурсы. Не публиковать кандидат с прежним CACHE v1081.
+2. Назначает новую общую версию: provider.js, SW CACHE/precache-ready, primetime-handoff и связанные текущие ресурсы. Не публиковать кандидат с сохранённым из main CACHE v1083.
 3. Повторяет redirect, startup, новый browser test и применимые CI на итоговом дереве; публикует через единственного владельца.
 4. На `provider.html?section=notifications` проверяет загруженные байты/CACHE, текущую тему, 390/760/1440, выбор мессенджера, раскрытие событий и журнала. Live-проверка остаётся read-only: не отправлять клиентам сообщения, не отмечать их отправленными и не повторять реальную доставку ради проверки.
 

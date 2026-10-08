@@ -1,0 +1,292 @@
+{
+  "screens": [
+    {
+      "id": "client-phone-lookup",
+      "target": "#newBookingClientFields",
+      "articles": {
+        "client-phone-autofill": 2
+      },
+      "caption": "Клиент найден по точному номеру телефона"
+    },
+    {
+      "id": "client-directory-filters",
+      "target": ".client-directory-dialog",
+      "articles": {
+        "client-search-filters": 3
+      },
+      "caption": "Сортировка и фильтры клиентов"
+    },
+    {
+      "id": "client-online-block",
+      "target": "#clientBlockDialog",
+      "articles": {
+        "client-online-booking-block": 3
+      },
+      "caption": "Проверка клиента перед блокировкой"
+    },
+    {
+      "id": "client-record-files",
+      "target": "[data-cr-panel=upload]",
+      "articles": {
+        "client-files-and-visit-notes": 3
+      },
+      "caption": "Файл и привязка к визиту в закрытом разделе клиента"
+    },
+    {
+      "id": "client-private-result",
+      "target": ".booking-result-description",
+      "articles": {
+        "client-private-results": 3
+      },
+      "caption": "Четыре поля приватного описания сеанса"
+    },
+    {
+      "id": "client-retention-settings",
+      "target": "#retentionSettingsForm",
+      "articles": {
+        "client-retention": 1
+      },
+      "caption": "Сроки и текст возврата клиентов"
+    },
+    {
+      "id": "inventory-receipt-form",
+      "target": "#inventoryMovementForm",
+      "articles": {
+        "inventory-receipt": 4
+      },
+      "caption": "Приход: склад, позиция и принятое количество"
+    },
+    {
+      "id": "inventory-writeoff-form",
+      "target": "#inventoryMovementForm",
+      "articles": {
+        "inventory-expense-writeoff": 4
+      },
+      "caption": "Списание: количество и причина"
+    },
+    {
+      "id": "inventory-transfer-form",
+      "target": "#inventoryMovementForm",
+      "articles": {
+        "inventory-transfer": 2
+      },
+      "caption": "Перемещение между двумя складами"
+    },
+    {
+      "id": "inventory-count-form",
+      "target": "#inventoryMovementForm",
+      "articles": {
+        "inventory-count-adjustment": 4
+      },
+      "caption": "Инвентаризация: полный фактический остаток"
+    },
+    {
+      "id": "inventory-history",
+      "target": "#inventoryMovementsPanel",
+      "articles": {
+        "inventory-journal": 2
+      },
+      "caption": "Дельта и остаток после складской операции"
+    },
+    {
+      "id": "client-page-theme",
+      "target": "#clientAppearancePreview",
+      "articles": {
+        "client-page-appearance": 4
+      },
+      "caption": "Предпросмотр нежно-розовой клиентской страницы"
+    },
+    {
+      "id": "service-editor",
+      "target": "#serviceEditForm",
+      "articles": {
+        "edit-service": 2
+      },
+      "caption": "Название, стоимость и длительность услуги",
+      "endTarget": "#serviceEditForm .service-edit-row"
+    },
+    {
+      "id": "service-actions",
+      "target": "#serviceManageList",
+      "articles": {
+        "hide-or-delete-service": 2
+      },
+      "caption": "Доступность и дополнительные действия услуги",
+      "focusTarget": "#serviceManageList .managed-service:first-child .manage-actions"
+    },
+    {
+      "id": "service-price-list",
+      "target": "#priceListDialog",
+      "articles": {
+        "share-price-list": 3
+      },
+      "caption": "Прайс и выбор формата отправки"
+    },
+    {
+      "id": "booking-widget-code",
+      "target": ".booking-widget-controls > label:first-child",
+      "articles": {
+        "booking-widget": 4
+      },
+      "caption": "Код выбранного виджета и кнопка копирования",
+      "endTarget": "[data-booking-widget-copy=\"code\"]"
+    },
+    {
+      "id": "commerce-sale",
+      "target": "#commerceSaleForm",
+      "articles": {
+        "create-sale": 3
+      },
+      "caption": "Позиция, количество и цена перед оформлением продажи"
+    },
+    {
+      "id": "commerce-refund",
+      "target": "#commerceRefundCreator",
+      "articles": {
+        "refund-sale-accounting": 3
+      },
+      "caption": "Количество и рассчитанная сумма возврата"
+    },
+    {
+      "id": "payroll-advance",
+      "target": "#payrollAdvancePanel",
+      "articles": {
+        "payroll-advance-and-offset": 2
+      },
+      "caption": "Аванс: сотрудник, счёт, сумма и дата"
+    },
+    {
+      "id": "payroll-offset",
+      "target": "#payrollOffsetPanel",
+      "articles": {
+        "payroll-advance-and-offset": 4
+      },
+      "caption": "Зачёт аванса в существующий долг"
+    },
+    {
+      "id": "provider-waitlist",
+      "target": ".waitlist-provider-list",
+      "articles": {
+        "provider-waitlist": 2
+      },
+      "caption": "Пожелания клиента и действия с заявкой"
+    }
+  ],
+  "diagrams": {
+    "organization-structure": {
+      "step": 1,
+      "labels": [
+        "Организация",
+        "Филиал и часовой пояс",
+        "Сотрудник и услуга",
+        "Часы, смены и ресурсы",
+        "Свободное время"
+      ],
+      "caption": "Как настройки связаны со свободным временем."
+    },
+    "branches-and-employees": {
+      "step": 3,
+      "labels": [
+        "Приглашение принято",
+        "Доступ открыт",
+        "Принимает клиентов",
+        "Услуга и часы готовы"
+      ],
+      "caption": "Что нужно сотруднику для появления в онлайн-записи."
+    },
+    "roles-access-safety": {
+      "step": 2,
+      "labels": [
+        "Владелец: все роли",
+        "Администратор: команда",
+        "Специалист: свой приём"
+      ],
+      "caption": "Выбирайте роль по рабочим задачам сотрудника.",
+      "parallel": true
+    },
+    "booking-visibility-diagnostics": {
+      "step": 1,
+      "labels": [
+        "Организация и филиал",
+        "Сотрудник и услуга",
+        "Часы и смены",
+        "Правила и ресурсы",
+        "Проверка времени"
+      ],
+      "caption": "Порядок проверки, когда свободное время не видно."
+    },
+    "operation-result-uncertain": {
+      "step": 4,
+      "labels": [
+        "Не повторять действие",
+        "Восстановить связь",
+        "Проверить журнал",
+        "Неясно: нужна проверка"
+      ],
+      "caption": "При известном результате завершите проверку; при неясном обратитесь за помощью."
+    },
+    "subscription-plans": {
+      "step": 1,
+      "labels": [
+        "Принимающие специалисты",
+        "Активные филиалы",
+        "Месяц или год",
+        "Период и итоговая сумма"
+      ],
+      "caption": "Что сравнить перед выбором тарифа; текущий статус описан ниже.",
+      "parallel": true
+    },
+    "organization-booking-rules": {
+      "step": 1,
+      "labels": [
+        "Общее правило",
+        "Исключение филиала",
+        "Уточнение услуги",
+        "Включение модуля",
+        "Проверка условий"
+      ],
+      "caption": "От общего правила к условиям конкретной услуги."
+    },
+    "data-governance": {
+      "step": 3,
+      "labels": [
+        "Excel: записи за период",
+        "ZIP: данные организации",
+        "Полная копия: отдельно"
+      ],
+      "caption": "ZIP из кабинета не является полной резервной копией.",
+      "parallel": true
+    },
+    "client-prepayment": {
+      "step": 1,
+      "labels": [
+        "Запись сохранена",
+        "Условия и сумма",
+        "Оплата",
+        "Проверка статуса записи"
+      ],
+      "caption": "Запись и успешная предоплата подтверждаются отдельно."
+    },
+    "client-booking-uncertain": {
+      "step": 1,
+      "labels": [
+        "Результат не подтверждён",
+        "Сохранить исходные данные",
+        "Восстановить связь",
+        "Проверить результат",
+        "Нет кнопки: специалист"
+      ],
+      "caption": "До проверки первой попытки не создавайте новый визит."
+    },
+    "client-offline-request": {
+      "step": 3,
+      "labels": [
+        "Запрос на устройстве",
+        "Восстановление связи",
+        "Проверка сервером",
+        "Подтверждение или конфликт"
+      ],
+      "caption": "Локальный запрос ещё не закрепляет время."
+    }
+  }
+}

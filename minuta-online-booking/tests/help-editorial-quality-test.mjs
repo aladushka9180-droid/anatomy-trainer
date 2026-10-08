@@ -11,7 +11,9 @@ assert.equal(articles.length, 97);
 assert.equal(new Set(articles.map(item => item.slug)).size, 97);
 assert.equal(help.window.MINUTA_HELP_CATEGORIES.length, 16);
 const revised = articles.filter(item => item.updatedAt === '6 октября 2026');
-assert.equal(revised.length, 9, 'Only the nine revised instructions get a new editorial date');
+assert.equal(revised.length, 6, 'Unchanged instructions retain their 6 October editorial date');
+assert.deepEqual(Array.from(articles.filter(item => item.updatedAt === '8 октября 2026'), item => item.slug).sort(),
+  ['refund-sale-accounting', 'reschedule', 'statistics-overview', 'statistics-sections']);
 assert.ok(articles.every(item => item.reviewedAt === undefined), 'Editorial dates must not imply live acceptance');
 
 const mobileLabel = read('provider.html').match(/data-provider-view="more"[^>]*>[\s\S]*?<span>([^<]+)<\/span>/)?.[1];
@@ -84,11 +86,16 @@ assert.equal(refund.refundAmount(sale(3, 1), 1), 0, 'A partial share that rounds
 assert.equal(refund.refundAmount(sale(3, 1), 2), 0, 'A partial share equal to the entire cash remainder is unavailable');
 assert.equal(refund.refundAmount(sale(3, 1), 3), 1, 'Full remaining quantity returns the full remaining amount');
 
-const text = slug => [article(slug).intro, article(slug).note, ...article(slug).steps.map(step => step.text)].join(' ');
+const text = slug => [article(slug).intro, article(slug).note, ...article(slug).steps.flatMap(step => [step.text, ...(step.explanation?.paragraphs || [])])].join(' ');
 assert.match(text('statistics-overview'), /не рассчитано/i, 'Current UI does not establish net profit');
 assert.match(text('statistics-overview'), /не означает нулевую прибыль/i, 'Unavailable profit must not be interpreted as zero');
 assert.match(text('find-booking'), /после успешного входа/i, 'Code rotation is available after authentication');
 assert.doesNotMatch(text('find-booking'), /новая запись.*восстановит/i, 'Creating a booking must not be offered as access recovery');
+assert.ok(article('reschedule').chooseAction.includes('только нужное действие'));
+assert.equal(article('reschedule').steps.filter(step => step.alternative).length, 3);
+assert.match(article('reschedule').steps[2].text, /«Перенести запись».*«Сохранить новое время»/);
+assert.match(text('refund-sale-accounting'), /нулевой.*всему денежному остатку/);
+assert.match(article('refund-sale-accounting').steps[4].text, /Не оформляйте полный возврат вместо частичного/);
 vm.runInNewContext(read('help/help-visuals.js'), help);
 for (const [slug, screen, topic] of [
   ['record-visit-result-and-payment', 'booking-policy-settings', /автоматически/i],

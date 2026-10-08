@@ -21,7 +21,6 @@
         element.remove();
         reject(new Error('provider_feature_asset_unavailable'));
       }, { once:true });
-      // Preserve cascade order; templates stay inert until requested.
       template.before(element);
     });
   }
@@ -48,8 +47,7 @@
     if (button.matches('[data-code-scan-target]')) return 'scanner';
     if (button.id === 'openFreeSlots') return 'share';
     if (button.id === 'exportBookings') return 'statistics';
-    if (button.matches('[data-provider-view="notifications"]')) return 'notifications';
-    return '';
+    return button.dataset.providerView || '';
   }
 
   document.addEventListener('click', event => {
@@ -68,7 +66,6 @@
       replayingButtons.add(button);
       try { button.click(); } finally { replayingButtons.delete(button); }
     }).catch(() => {
-      // Explain a cold offline cache miss; allow retry.
       let notice = document.getElementById('providerFeatureAssetError');
       if (!notice) {
         notice = document.createElement('p');
@@ -92,7 +89,6 @@
       if (document.hidden || navigator.onLine === false) return;
       try { await ensure(name); } catch { /* An explicit click can retry. */ }
     }
-    // Warm optional entries after the worker claims this page.
     if (navigator.serviceWorker) {
       void navigator.serviceWorker.ready.then(registration => {
         registration.active?.postMessage({ type:'warm-provider-features' });
@@ -110,14 +106,8 @@
   }
 
   window.MinutaProviderFeatureAssets = Object.freeze({ ensure });
-  const notifications = document.querySelector('[data-provider-panel="notifications"]');
-  if (notifications) {
-    const loadNotifications = () => {
-      if (!notifications.hidden) void ensure('notifications').catch(() => {});
-    };
-    new MutationObserver(loadNotifications).observe(notifications, { attributes:true, attributeFilter:['hidden'] });
-    loadNotifications();
-  }
+  const n=document.querySelector('[data-provider-panel="notifications"]');
+  if(n){const l=()=>n.hidden||ensure('notifications').catch(()=>{});new MutationObserver(l).observe(n,{attributes:true,attributeFilter:['hidden']});l()}
   if (document.readyState === 'complete') scheduleWarm();
   else window.addEventListener('load', scheduleWarm, { once:true });
   window.addEventListener('online', scheduleWarm);

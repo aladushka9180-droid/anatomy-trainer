@@ -10,6 +10,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 const root = path.resolve(fileURLToPath(new URL('../', import.meta.url)));
 const screenshotRoot = process.env.HELP_ROSE_SCREENSHOT_DIR;
+const addedVisualPlan = JSON.parse(await readFile(path.join(root, 'help/tools/additional-visual-plan.json'), 'utf8'));
+const addedVisualSteps = new Map([...addedVisualPlan.screens.flatMap(screen => Object.entries(screen.articles)), ...Object.entries(addedVisualPlan.diagrams).map(([slug, diagram]) => [slug, diagram.step])]);
 const providerHead = (await readFile(path.join(root, 'provider.html'), 'utf8')).split('</head>')[0].replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, '');
 const providerStyles = [...providerHead.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)].map(match => match[0]).join('\n');
 const mime = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.webp':'image/webp' };
@@ -223,9 +225,30 @@ try {
       verify(await page.locator('#articleSteps .article-step').count() === article.steps, `${width}/${article.slug}: шаги не обрезаны`);
       verify(await page.locator('#articlePrerequisites').isVisible() && await page.locator('#articleOutcome').isVisible() && await page.locator('#articleTroubleshooting').isVisible(), `${width}/${article.slug}: полная структура`);
       verify(await page.locator('#articleMeta').innerText().then(text => text.includes('Обновлено') && !text.includes('Проверено')), `${width}/${article.slug}: честная дата редакции`);
-      for (const image of await page.locator('.article-visual img[loading="lazy"]').all()) await image.scrollIntoViewIfNeeded();
+      for (const image of await page.locator('.article-visual img[loading="lazy"]').all()) {
+        await image.evaluate(element => {
+          const choice = element.closest('.article-action-choice');
+          if (choice) choice.open = true;
+        });
+        await image.scrollIntoViewIfNeeded();
+        await image.evaluate(element => element.decode());
+      }
       await page.waitForFunction(() => [...document.querySelectorAll('.article-visual img')].every(image => image.complete && image.naturalWidth > 0), undefined, { timeout:5000 });
       verify(await page.locator('.article-visual img').evaluateAll(images => images.every(image => image.complete && image.naturalWidth > 0)), `${width}/${article.slug}: изображения загружены`);
+      verify(await page.locator('.article-visual img').count() > 0, `${width}/${article.slug}: наглядная инструкция`);
+      if (addedVisualSteps.has(article.slug)) {
+        const figure = page.locator(`#step-${addedVisualSteps.get(article.slug)} .article-visual`).first();
+        verify(await figure.count() === 1, `${width}/${article.slug}: изображение у нужного действия`);
+        const button = figure.locator(':scope > button');
+        await button.focus(); await button.press('Enter');
+        await page.locator('#articleVisualFull').evaluate(image => image.decode());
+        verify(await page.locator('#articleVisualDialog').evaluate(dialog => dialog.open), `${width}/${article.slug}: увеличение доступно с клавиатуры`);
+        const original = await page.evaluate(() => { const image = document.querySelector('#articleVisualFull'); return image.currentSrc; });
+        verify(await figure.locator('img').evaluate((image, src) => image.currentSrc === src, original), `${width}/${article.slug}: увеличивается выбранный оригинал`);
+        await page.keyboard.press('Escape');
+        verify(!await page.locator('#articleVisualDialog').evaluate(dialog => dialog.open), `${width}/${article.slug}: возврат к инструкции`);
+        if (screenshotRoot) await figure.screenshot({path:path.join(screenshotRoot, `added-${article.slug}-${width}.png`)});
+      }
       const appearance = await rosePage();
       verify(appearance.background === 'rgb(255, 247, 250)', `${width}/${article.slug}: нежно-розовое оформление статьи`);
       verify(!appearance.overflow, `${width}/${article.slug}: статья без переполнения`);
@@ -239,6 +262,11 @@ try {
         const steps = [...document.querySelectorAll('.article-step')];
         const figures = [...document.querySelectorAll('.article-visual')];
         return steps.every(step => {
+          if (step.classList.contains('article-action-choice')) {
+            const summary = step.querySelector(':scope > summary');
+            const heading = summary.querySelector('h2'), number = summary.querySelector('.article-step-number');
+            return heading.getBoundingClientRect().left >= number.getBoundingClientRect().right + 6;
+          }
           const heading = step.querySelector('h2'), number = step.querySelector('.article-step-number');
           const range = document.createRange(); range.selectNodeContents(heading);
           if (range.getBoundingClientRect().left < number.getBoundingClientRect().right + 6) return false;
@@ -253,7 +281,68 @@ try {
       if (screenshotRoot && article.slug === 'view-team-calendar') await capturePage(`schedule-${width}.png`);
       if (screenshotRoot && article.slug === 'find-and-filter-bookings') await capturePage(`bookings-${width}.png`);
       if (screenshotRoot && ['book-online', 'reschedule'].includes(article.slug)) await capturePage(`client-article-${article.slug}-${width}.png`);
-      if (screenshotRoot && article.updatedAt === '6 октября 2026') await capturePage(`revised-${article.slug}-${width}.png`);
+      if (screenshotRoot && ['6 октября 2026', '8 октября 2026'].includes(article.updatedAt)) await capturePage(`revised-${article.slug}-${width}.png`);
+    }
+
+    await page.goto(`${base}article.html?slug=reschedule`);
+    const choices = page.locator('.article-action-choice');
+    verify(await choices.count() === 3, `${width}: подтверждение, перенос и отмена — три отдельных варианта`);
+    verify(await choices.evaluateAll(items => items.every(item => !item.open)), `${width}: действие не выбрано за читателя`);
+    verify(await page.locator('.article-choice-intro').innerText().then(text => text.includes('только нужное действие')), `${width}: нужно выбрать одно действие`);
+    verify(await choices.locator('.article-step-number').allTextContents().then(items => items.every(text => !text.trim())), `${width}: варианты не пронумерованы как последовательность`);
+    if (screenshotRoot) await capturePage(`action-choice-closed-${width}.png`);
+    const expectedActions = ['Да, я приду', 'Сохранить новое время', 'подтвердите отмену'];
+    for (let index = 0; index < 3; index += 1) {
+      const choice = choices.nth(index);
+      await choice.locator(':scope > summary').click();
+      verify(await choices.evaluateAll(items => items.filter(item => item.open).length) === 1, `${width}: виден только выбранный вариант ${index}`);
+      verify(await choice.locator('.article-choice-content > p').innerText().then(text => text.includes(expectedActions[index])), `${width}: выбранный вариант содержит точное действие`);
+      verify(await choice.locator(':scope > summary').boundingBox().then(box => box.height >= 44), `${width}: вариант удобен для касания`);
+      for (const figure of await choice.locator('.article-visual').all()) {
+        const photo = figure.locator('img');
+        await photo.scrollIntoViewIfNeeded();
+        await photo.evaluate(image => image.decode());
+        if (await figure.locator('.article-image-detail').count()) {
+          verify(await figure.evaluate(element => {
+            const box = element.querySelector('.article-image-detail').getBoundingClientRect();
+            const image = element.querySelector('img').getBoundingClientRect();
+            return box.height >= 40 && box.top >= image.top - 1 && box.bottom <= image.bottom + 1;
+          }), `${width}: фрагмент выбранного действия находится в оригинале`);
+          const source = await photo.evaluate(image => ({src:image.currentSrc,width:image.naturalWidth,height:image.naturalHeight}));
+          await figure.locator('button').click();
+          await page.waitForFunction(expected => {
+            const image = document.querySelector('#articleVisualFull');
+            return image.complete && image.currentSrc === expected.src && image.naturalWidth === expected.width && image.naturalHeight === expected.height;
+          }, source);
+          verify(await page.locator('#visualDialogTitle').innerText() === 'Полный снимок экрана', `${width}: полный оригинал доступен для выбранного действия`);
+          await page.keyboard.press('Escape');
+        }
+      }
+      if (screenshotRoot) await capturePage(`action-${index}-${width}.png`);
+    }
+    await choices.first().locator(':scope > summary').focus();
+    await page.keyboard.press('Enter');
+    verify(await choices.first().evaluate(item => item.open), `${width}: вариант открывается с клавиатуры`);
+    await page.locator('#articleToc summary').click();
+    const transferLink = page.locator('#articleToc a[href="#step-3"]');
+    await transferLink.click();
+    verify(await page.locator('#step-3').evaluate(item => item.open), `${width}: содержание раскрывает нужное действие`);
+    await page.locator('#step-3 > summary').click();
+    await transferLink.click();
+    verify(await page.locator('#step-3').evaluate(item => item.open), `${width}: повторный переход к тому же действию снова раскрывает его`);
+    await page.goto(`${base}article.html?slug=reschedule#step-4`);
+    verify(await page.locator('#step-4').evaluate(item => item.open), `${width}: прямая ссылка раскрывает нужный вариант`);
+
+    for (const slug of ['statistics-overview', 'statistics-sections', 'refund-sale-accounting']) {
+      await page.goto(`${base}article.html?slug=${slug}`);
+      verify(await page.locator('.article-step > div > p').allTextContents().then(texts => texts.every(text => text.length <= 220)), `${width}/${slug}: основные шаги короткие`);
+      const explanation = page.locator('.article-step-explanation').first();
+      verify(await explanation.count() === 1 && !await explanation.evaluate(item => item.open), `${width}/${slug}: подробности доступны отдельно`);
+      await explanation.locator('summary').focus();
+      await page.keyboard.press('Enter');
+      verify(await explanation.locator('p').first().isVisible(), `${width}/${slug}: пояснение читается с клавиатуры`);
+      verify(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `${width}/${slug}: раскрытое пояснение без переполнения`);
+      if (screenshotRoot) await capturePage(`explanation-${slug}-${width}.png`);
     }
     for (const [slug, source] of [['set-regular-workweek','work-hours-'], ['statistics-overview','statistics-overview-filter-'], ['view-team-calendar','team-calendar-']]) {
       await page.goto(`${base}article.html?slug=${slug}`);
