@@ -14,6 +14,9 @@ on:
       - 'minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs'
       - 'minuta-online-booking/tests/pwa-resource-update-browser-test.mjs'
       - 'minuta-online-booking/tests/provider-feature-assets-browser-test.mjs'
+      - 'minuta-online-booking/tests/provider-notifications-soft-browser-test.mjs'
+      - 'minuta-online-booking/provider-notifications-soft.js'
+      - 'minuta-online-booking/provider-notifications-soft.css'
       - 'minuta-online-booking/tests/provider-offline-cold-start-browser-test.mjs'
       - 'minuta-online-booking/client-results.js'
       - 'minuta-online-booking/tests/client-results-browser-test.mjs'
@@ -38,6 +41,9 @@ on:
       - 'minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs'
       - 'minuta-online-booking/tests/pwa-resource-update-browser-test.mjs'
       - 'minuta-online-booking/tests/provider-feature-assets-browser-test.mjs'
+      - 'minuta-online-booking/tests/provider-notifications-soft-browser-test.mjs'
+      - 'minuta-online-booking/provider-notifications-soft.js'
+      - 'minuta-online-booking/provider-notifications-soft.css'
       - 'minuta-online-booking/tests/provider-offline-cold-start-browser-test.mjs'
       - 'minuta-online-booking/client-results.js'
       - 'minuta-online-booking/tests/client-results-browser-test.mjs'
@@ -90,6 +96,7 @@ jobs:
           echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/group-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - run: node minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-feature-assets-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-notifications-soft-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-offline-cold-start-browser-test.mjs
       - run: node minuta-online-booking/tests/client-results-browser-test.mjs
       - run: node minuta-online-booking/tests/historical-booking-context-browser-test.mjs

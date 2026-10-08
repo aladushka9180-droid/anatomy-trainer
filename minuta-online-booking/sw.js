@@ -65,10 +65,12 @@ const ASSETS = [
   './provider-connection-guidance.js?v=1036',
   './provider.js?v=1083',
   './voice-wake.js?v=811',
-  './provider-feature-assets.js?v=908',
+  './provider-feature-assets.js?v=909',
 ];
 
 const OPTIONAL_ASSETS = [
+  './provider-notifications-soft.css?v=1',
+  './provider-notifications-soft.js?v=1',
   './organization-people.js?v=1083',
   './organization-people.css?v=1083',
   './organization-flow.css?v=1083',

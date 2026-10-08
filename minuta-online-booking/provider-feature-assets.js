@@ -21,8 +21,6 @@
         element.remove();
         reject(new Error('provider_feature_asset_unavailable'));
       }, { once:true });
-      // Keep styles at their original cascade position. Template contents stay
-      // inert until requested, including their scripts and stylesheet links.
       template.before(element);
     });
   }
@@ -49,11 +47,11 @@
     if (button.matches('[data-code-scan-target]')) return 'scanner';
     if (button.id === 'openFreeSlots') return 'share';
     if (button.id === 'exportBookings') return 'statistics';
-    return '';
+    return button.dataset.providerView || '';
   }
 
   document.addEventListener('click', event => {
-    const button = event.target.closest?.('[data-code-scan-target], #openFreeSlots, #exportBookings');
+    const button = event.target.closest?.('[data-code-scan-target], #openFreeSlots, #exportBookings, [data-provider-view="notifications"]');
     if (!button || button.disabled || replayingButtons.has(button)) return;
     const name = featureFor(button);
     if (features.get(name)?.ready) return;
@@ -68,7 +66,6 @@
       replayingButtons.add(button);
       try { button.click(); } finally { replayingButtons.delete(button); }
     }).catch(() => {
-      // Preserve a working retry and explain a cold offline cache miss.
       let notice = document.getElementById('providerFeatureAssetError');
       if (!notice) {
         notice = document.createElement('p');
@@ -92,8 +89,6 @@
       if (document.hidden || navigator.onLine === false) return;
       try { await ensure(name); } catch { /* An explicit click can retry. */ }
     }
-    // A click can load a feature before the first worker claims this page.
-    // The worker fills any missing optional cache entries after registration.
     if (navigator.serviceWorker) {
       void navigator.serviceWorker.ready.then(registration => {
         registration.active?.postMessage({ type:'warm-provider-features' });
@@ -111,6 +106,8 @@
   }
 
   window.MinutaProviderFeatureAssets = Object.freeze({ ensure });
+  const n=document.querySelector('[data-provider-panel="notifications"]');
+  if(n){const l=()=>n.hidden||ensure('notifications').catch(()=>{});new MutationObserver(l).observe(n,{attributes:true,attributeFilter:['hidden']});l()}
   if (document.readyState === 'complete') scheduleWarm();
   else window.addEventListener('load', scheduleWarm, { once:true });
   window.addEventListener('online', scheduleWarm);
