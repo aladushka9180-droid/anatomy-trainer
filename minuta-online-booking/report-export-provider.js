@@ -35,6 +35,7 @@ async function reportExportAuthorized(scope, privacy, fullConsent) {
     const organization = Array.isArray(workspace.data?.organizations)
       ? workspace.data.organizations.find(item => String(item.id || '') === scope.organizationId) : null;
     return !workspace.error && organization?.status === 'active'
+      && (['owner','admin'].includes(organization.current_role) || scope.performer === scope.userId)
       && (scope.locationId === 'all' || Array.isArray(organization.locations)
         && organization.locations.some(item => String(item.id || '') === scope.locationId))
       && (privacy !== 'full' || organization.current_role === 'owner') && reportExportScopeCurrent(scope);
