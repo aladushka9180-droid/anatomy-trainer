@@ -423,7 +423,7 @@
     return `${shortDate(start, !sameYear)} — ${shortDate(end, true)}`;
   }
   function getRetentionSegments() {
-    if (reportDataSource !== 'own') return null;
+    if (reportDataSource !== 'own' || typeof retentionController === 'undefined') return null;
     const snapshot = retentionController?.readOnlySnapshot?.();
     const organization = reportOrganization();
     const scope = snapshot?.scope;
