@@ -1,0 +1,70 @@
+diff --git a/minuta-online-booking/provider.js b/minuta-online-booking/provider.js
+--- a/minuta-online-booking/provider.js
++++ b/minuta-online-booking/provider.js
+@@ -17521,25 +17521,25 @@
+   if (toggle) {
+     await toggleServiceVisibility(toggle);
+   }
+-  if (remove && confirm('Удалить услугу? Отменённые тестовые записи будут очищены.')) {
+-    const servicePhotoPath = servicePublicDetails.get(remove.dataset.deleteService)?.photo_storage_path || '';
+-    let { data, error } = await db.rpc('provider_delete_service', { p_service: remove.dataset.deleteService });
+-    if (error?.code === '23503' && /organization_waitlist_requests/.test(`${error.message || ''} ${error.details || ''}`)) {
+-      // Preserve scoped waitlist history instead of removing its service.
+-      const hidden = await db.from('services').update({active:false}).eq('id',remove.dataset.deleteService).select('id').maybeSingle();
+-      error = hidden.error || (hidden.data ? null : new Error('service_not_archived'));
+-      data = 'archived';
+-    }
+-    if (error) notify('Не удалось удалить услугу');
+-    else {
+-      if (data === 'deleted') {
+-        await saveServiceScheduleName(remove.dataset.deleteService, false, '');
+-        if (servicePhotoPath) await db.storage.from(SERVICE_IMAGE_BUCKET).remove([servicePhotoPath]);
+-      }
+-      notify(data === 'deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
+-    }
+-    await refreshAfterWrite();
+-  }
++  if (remove && confirm('Удалить услугу? Отменённые тестовые записи будут очищены.')) {
++    const id=remove.dataset.deleteService;
++    const photoPath=servicePublicDetails.get(id)?.photo_storage_path||'';
++    let {data,error}=await db.rpc('provider_delete_service',{p_service:id});
++    if (error?.code==='23503' && (/organization_waitlist_requests/.test(`${error.message || ''} ${error.details || ''}`) || /update or delete on table "services" violates foreign key constraint/i.test(error.message || ''))) {
++      const hidden=await db.from('services').update({active:false}).eq('id',id).eq('performer_id',currentUser.id).select('id,active').maybeSingle();
++      error=hidden.error || (hidden.data?.id===id && hidden.data.active===false ? null : new Error('service_not_archived'));
++      data='archived';
++    }
++    if (error) notify('Не удалось удалить услугу');
++    else {
++      if (data==='deleted') {
++        await saveServiceScheduleName(id,false,'');
++        if (photoPath) await db.storage.from(SERVICE_IMAGE_BUCKET).remove([photoPath]);
++      }
++      notify(data==='deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
++    }
++    await refreshAfterWrite();
++  }
+   if (removeDayOff) {
+     const { error } = await db.from('provider_days_off').delete().eq('id', removeDayOff.dataset.deleteDayOff);
+     if (error) notify('Не удалось удалить исключение');
+diff --git a/minuta-online-booking/tests/waitlist-service-delete-test.mjs b/minuta-online-booking/tests/waitlist-service-delete-test.mjs
+--- a/minuta-online-booking/tests/waitlist-service-delete-test.mjs
++++ b/minuta-online-booking/tests/waitlist-service-delete-test.mjs
+@@ -5,6 +5,6 @@
+ assert.ok(start>0);
+ const body=source.slice(start,source.indexOf('  if (removeDayOff)',start));
+-const run=new (Object.getPrototypeOf(async function(){}).constructor)('remove','confirm','db','notify','saveServiceScheduleName','refreshAfterWrite','servicePublicDetails','SERVICE_IMAGE_BUCKET',body);
++const run=new (Object.getPrototypeOf(async function(){}).constructor)('remove','confirm','db','notify','saveServiceScheduleName','refreshAfterWrite','servicePublicDetails','SERVICE_IMAGE_BUCKET','currentUser',body);
+ for (const kind of ['waitlist','other','success','denied']) {
+   const calls=[],messages=[];
+   const db={rpc:async()=>kind==='success'?{data:'deleted'}:{error:{code:'23503',message:kind==='other'?'other_relation':'organization_waitlist_requests_service_id_fkey'}},
+@@ -12,8 +12,8 @@
+     from:table=>{assert.equal(table,'services');return {update:values=>{assert.deepEqual(values,{active:false});calls.push('archive');return {
+-      eq:(column,id)=>{assert.equal(column,'id');assert.equal(id,'service-a');return {select:()=>({maybeSingle:async()=>kind==='denied'?{data:null}:{data:{id}}})};}
++      eq:(column,id)=>{assert.equal(column,'id');assert.equal(id,'service-a');return {eq:(ownerColumn,owner)=>{assert.equal(ownerColumn,'performer_id');assert.equal(owner,'owner-a');return {select:()=>({maybeSingle:async()=>kind==='denied'?{data:null}:{data:{id,active:false}}})};}};}
+     };}};}};
+   const details=new Map([['service-a',{photo_storage_path:'owner/services/service-a/photo.webp'}]]);
+-  await run({dataset:{deleteService:'service-a'}},()=>true,db,message=>messages.push(message),async(id,enabled)=>{calls.push(`short-name:${id}:${enabled}`);},async()=>calls.push('refresh'),details,'service-images');
++  await run({dataset:{deleteService:'service-a'}},()=>true,db,message=>messages.push(message),async(id,enabled)=>{calls.push(`short-name:${id}:${enabled}`);},async()=>calls.push('refresh'),details,'service-images',{id:'owner-a'});
+   assert.equal(calls.includes('archive'),['waitlist','denied'].includes(kind));
+   assert.equal(calls.includes('short-name:service-a:false'),kind==='success');
+   assert.equal(calls.includes('photo-removed'),kind==='success');

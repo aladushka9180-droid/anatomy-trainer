@@ -110,13 +110,14 @@
     const review = document.createElement('section');
     review.id = 'paymentProviderReview';
     review.className = 'payment-soft-review';
-    review.innerHTML = '<details class="ux-disclosure"><summary>Состояние подключения</summary><p id="paymentProviderReviewMode"></p><p id="paymentProviderReviewTest"></p><p id="paymentProviderReviewRights"></p></details><div id="paymentProviderProductionReview" hidden><strong>Перед включением рабочего магазина</strong><p>Внутренняя проверка не подтверждает подключение к ЮKassa. Проверьте тестовый магазин и настройки чеков; включение рабочего магазина требует отдельной проверки и решения ответственного.</p><label class="settings-check"><input id="paymentProviderProductionAcknowledged" type="checkbox"><span>Я ознакомился с режимом и результатом проверки.</span></label><p id="paymentProviderReviewNotice" role="status"></p></div>';
+    review.innerHTML = '<details class="ux-disclosure"><summary>Состояние подключения</summary><p id="paymentProviderReviewMode"></p><p id="paymentProviderReviewTest"></p><p id="paymentProviderReviewRights"></p></details><div id="paymentProviderProductionReview" hidden><strong>Перед включением рабочего магазина</strong><p>Проверьте оплату и чек в тестовом магазине ЮKassa с выбранными настройками. Внутренняя проверка Eldion не подтверждает подключение к ЮKassa.</p><label class="settings-check"><input id="paymentProviderExternalTestConfirmed" type="checkbox"><span>Я успешно проверил оплату и чек в тестовом магазине ЮKassa для этих настроек.</span></label><label class="settings-check"><input id="paymentProviderProductionAcknowledged" type="checkbox"><span>Я проверил настройки и подтверждаю включение рабочего магазина.</span></label><p id="paymentProviderReviewNotice" role="status"></p></div>';
     soft.sandbox.after(review);
     review.querySelector('summary').prepend(icon('info'));
     const mode = review.querySelector('#paymentProviderReviewMode');
     const test = review.querySelector('#paymentProviderReviewTest');
     const rights = review.querySelector('#paymentProviderReviewRights');
     const production = review.querySelector('#paymentProviderProductionReview');
+    const externalTest = review.querySelector('#paymentProviderExternalTestConfirmed');
     const acknowledged = review.querySelector('#paymentProviderProductionAcknowledged');
     const notice = review.querySelector('#paymentProviderReviewNotice');
     soft.footer.before(production);
@@ -127,6 +128,28 @@
       return field.type === 'checkbox' ? field.checked : field.value;
     });
     let savedValues = values();
+    let testedValues = null;
+    const fingerprint = () => JSON.stringify(values());
+    function clearConfirmation() {
+      testedValues = null;
+      externalTest.checked = false;
+      acknowledged.checked = false;
+    }
+    const externalTestCurrent = () => externalTest.checked && testedValues === fingerprint()
+      && !form.hidden && !workspace.hidden && !panel.hidden;
+    window.MinutaPaymentProductionReview = Object.freeze({ canEnable:() => externalTestCurrent() && acknowledged.checked });
+    externalTest.addEventListener('change', () => {
+      testedValues = externalTest.checked ? fingerprint() : null;
+      acknowledged.checked = false;
+      notice.textContent = '';
+    });
+    document.addEventListener('payment-settings-reset', clearConfirmation);
+    form.addEventListener('input', event => {
+      if (fields.includes(event.target.id)) clearConfirmation();
+    });
+    form.addEventListener('change', event => {
+      if (fields.includes(event.target.id)) clearConfirmation();
+    });
     function renderDraft() {
       const dirty = values().some((value, index) => value !== savedValues[index]);
       soft.hint.textContent = dirty ? 'Есть несохранённые изменения' : 'Изменений нет';
@@ -136,7 +159,7 @@
     function render() {
       review.hidden = panel.hidden || workspace.hidden;
       soft.mode.hidden = review.hidden;
-      if (review.hidden) { soft.compact.textContent = 'Не проверено'; soft.compact.dataset.enabled = 'false'; soft.compact.setAttribute('aria-label', 'Состояние предоплаты не проверено'); acknowledged.checked = false; notice.textContent = ''; production.hidden = true; return; }
+      if (review.hidden) { soft.compact.textContent = 'Не проверено'; soft.compact.dataset.enabled = 'false'; soft.compact.setAttribute('aria-label', 'Состояние предоплаты не проверено'); clearConfirmation(); notice.textContent = ''; production.hidden = true; return; }
       const savedMode = savedEnvironment === 'production' ? 'рабочий' : 'тестовый';
       mode.textContent = `${providerState.textContent.trim()}. Сохранённый режим: ${savedMode} магазин.`;
       const enabled = providerState.textContent.includes('Приём включён в настройках');
@@ -149,10 +172,10 @@
         ? 'Доступ: администратор может просматривать; изменить настройки может владелец.'
         : 'Доступ: владелец может изменить настройки.';
       production.hidden = form.hidden || environment.value !== 'production';
-      if (production.hidden) { acknowledged.checked = false; notice.textContent = ''; }
+      if (production.hidden) { clearConfirmation(); notice.textContent = ''; }
     }
 
-    new MutationObserver(() => { savedEnvironment = environment.value; savedValues = values(); acknowledged.checked = false; renderDraft(); render(); })
+    new MutationObserver(() => { savedEnvironment = environment.value; savedValues = values(); clearConfirmation(); renderDraft(); render(); })
       .observe(providerState, { childList:true, characterData:true, subtree:true });
     new MutationObserver(render).observe(sandboxState, { childList:true, characterData:true, subtree:true });
     new MutationObserver(render).observe(form, { attributes:true, attributeFilter:['hidden'] });
@@ -161,11 +184,19 @@
     environment.addEventListener('change', render);
     form.addEventListener('change', renderDraft);
     document.addEventListener('submit', event => {
-      if (event.target !== form || environment.value !== 'production' || acknowledged.checked) return;
+      if (event.target !== form || environment.value !== 'production' || !document.querySelector('#paymentProviderEnabled').checked) return;
+      const tested = externalTestCurrent();
+      if (tested && acknowledged.checked) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      notice.textContent = 'Перед сохранением рабочего режима прочитайте условия проверки и подтвердите ознакомление.';
-      acknowledged.focus();
+      if (!tested) {
+        clearConfirmation();
+        notice.textContent = 'Сначала подтвердите успешный тест оплаты и чека в тестовом магазине ЮKassa для этих настроек.';
+        externalTest.focus();
+      } else {
+        notice.textContent = 'Проверьте настройки и подтвердите включение рабочего магазина.';
+        acknowledged.focus();
+      }
     }, true);
     renderDraft();
     render();

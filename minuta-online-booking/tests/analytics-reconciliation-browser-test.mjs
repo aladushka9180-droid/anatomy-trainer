@@ -51,6 +51,11 @@ const script=`
   async function reportExportPreparedData(_scope,privacy){return reportExportData(privacy);}
   var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
   var currentUser={id:'master-A'},sessionGeneration=1,reportDataSource='own',reportPeriod='month',reportCanViewTeam=false,reportPerformerFilter='all';
+  var reportOrganization=()=>({id:'org-A',current_role:'owner',display_name:'Тестовая организация'});
+  ${declaration('getRetentionSegments',binding.replace(/^  /gm,''))}
+  var audit=MinutaStatisticsAuditUI.create({document,
+    getScope:()=>({source:reportDataSource,organization:reportOrganizationId(),session:sessionGeneration,role:reportOrganization().current_role}),
+    getSegments:()=>null,getRetentionSegments,download(){}});
   var bookingsSnapshotSavedAt='2026-09-30T08:15:00Z',bookingsSnapshotFromCache=false;
   window.MinutaStatisticsAuditProvider={freshnessLabel:reportFreshnessLabel,refresh(){},
     team:${declaration('renderReportTeamRows',binding.replace(/^  /gm,''))},
@@ -77,7 +82,8 @@ const script=`
   var reportForecastEnd=r=>r.end,retryCalls=[],loadReportScopedBookings=(query,performer)=>{retryCalls.push({query,performer});reportScopedBookingsState.status='loading';};
   var bookingIsCompleted=()=>true,loadReportTeamAnalytics=()=>{},renderReportUtmFunnel=()=>{},loadReportUtmFunnel=()=>{},loadReportEvents=()=>{};
   var availableMinutes=600,reportAvailableScheduleMinutes=()=>availableMinutes,reportAvailabilityState={status:'ready',total:1,configured:1};
-  var retentionController={availability:'ready',payload:{organization_id:'org-A',inactivity_days:45,cooldown_days:90,clients:[],deliveries:[]}};
+  var retentionController={availability:'ready',payload:{organization_id:'org-A',inactivity_days:45,cooldown_days:90,clients:[],deliveries:[]},
+    readOnlySnapshot(){return this.availability==='ready'?{scope:{organization:this.payload.organization_id,role:'owner',userId:currentUser.id,session:sessionGeneration,revision:1},clients:this.payload.clients}:null;}};
   var renderReportFunnel=()=>{},renderReportHeatmap=()=>{},renderReportCommandCenter=()=>{},providerPerformance={measure:()=>1,record(){}};
   var pendingNavigation=[],bookingStatusFilter='all',setJournalMode=v=>pendingNavigation.push(['mode',v]),setFilter=v=>pendingNavigation.push(['filter',v]),setProviderView=v=>pendingNavigation.push(['view',v]);
   document.addEventListener('click',event=>{const openPendingBookings=event.target.closest('[data-open-pending-bookings]');
@@ -109,6 +115,7 @@ try{
     await page.evaluate(html=>{const doc=new DOMParser().parseFromString(html,'text/html');const panel=doc.querySelector('[data-provider-panel="analytics"]');if(!panel)throw Error('Actual analytics panel missing');document.documentElement.className='provider-ready';document.body.className='provider-body';document.body.dataset.providerTheme='sage';document.body.dataset.providerLayout='soft';document.body.dataset.providerTextScale='default';document.body.append(panel.cloneNode(true));document.querySelectorAll('[hidden]').forEach(node=>{if(node.matches('[data-provider-panel]'))node.hidden=false;});},html);
     for(const [,href] of html.matchAll(/<link rel="stylesheet" href="([^\"]+)"/g)) await page.addStyleTag({content:readFileSync(new URL(`../${href.split('?')[0]}`,import.meta.url),'utf8')});
     await page.addScriptTag({content:readFileSync(new URL('../report-export-provider.js',import.meta.url),'utf8')});
+    await page.addScriptTag({content:readFileSync(new URL('../statistics-audit-ui.js',import.meta.url),'utf8')});
     await page.addScriptTag({content:script});
     await page.evaluate(()=>renderAnalytics());
     const number=async id=>Number((await page.locator(id).textContent()).replace(/[^0-9-]/g,''));

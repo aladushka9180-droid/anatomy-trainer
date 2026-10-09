@@ -213,6 +213,18 @@
       pruneSelection();
       availability = 'ready'; render(); return { ok: true, optional: true };
     }
+    // A read-only projection tied to the same actor/role/session as this workspace.
+    function readOnlySnapshot() {
+      if (availability !== 'ready' || !retainedScopeIsCurrent()) return null;
+      const current = scopeSnapshot();
+      if (!scopeMatches(payload, current.id) || payload.current_role !== current.role) return null;
+      return { scope:{ organization:current.id, role:current.role, userId:current.userId,
+        session:current.generation, revision }, clients:payload.clients.map(client => ({
+          client_account_id:client.client_account_id, client_name:client.client_name,
+          last_visit_on:client.last_visit_on, completed_visits:client.completed_visits,
+          eligible:client.eligible, consent_status:client.consent_status
+        })) };
+    }
     function clientById(id) { return payload?.clients.find(client => String(client.client_account_id) === String(id)); }
     function preparedFor(id) {
       return payload?.deliveries.some(row => row.status === 'prepared' && row.client_account_id === id)
@@ -591,7 +603,7 @@
         document.addEventListener('DOMContentLoaded', () => { if (availability === 'ready') { enhanceLayout(); renderClients(); } }, { once:true });
       }
     }
-    return { bind, load, reset, setOrganization, get availability() { return availability; }, get payload() { return payload; } };
+    return { bind, load, reset, setOrganization, readOnlySnapshot, get availability() { return availability; }, get payload() { return payload; } };
   }
 
   window.MinutaRetention = { createController };
