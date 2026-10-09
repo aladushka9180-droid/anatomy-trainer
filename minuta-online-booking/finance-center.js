@@ -110,7 +110,7 @@
       operations,
       expenseDirectory:directory,
       paymentAccounts,
-      permissions:{ canAddExpense:Boolean(raw.permissions?.canAddExpense) },
+      permissions:{ canAddExpense:Boolean(raw.permissions?.canAddExpense), canEditExpense:Boolean(raw.permissions?.canEditExpense) },
       filters:{
         periods:optionRows(raw.filters?.periods, PERIOD_FALLBACK),
         masters:optionRows(raw.filters?.masters, MASTER_FALLBACK),
@@ -153,7 +153,11 @@
       category:text(item.category),
       actorName:text(item.actorName),
       categoryId:text(item.categoryId), flow:text(item.flow, item.type === 'expense' ? 'expense' : 'received'),
-      amountMinor
+      amountMinor,
+      manualExpense:item.manualExpense?.id ? { id:text(item.manualExpense.id), categoryId:text(item.manualExpense.categoryId),
+        paymentAccountId:text(item.manualExpense.paymentAccountId), occurredOn:text(item.manualExpense.occurredOn),
+        note:text(item.manualExpense.note), amountMinor:integer(item.manualExpense.amountMinor),
+        performerId:text(item.manualExpense.performerId), organizationId:text(item.manualExpense.organizationId) } : null
     };
   }
 
@@ -248,7 +252,7 @@
       </section>
       <div class="finance-dashboard__lower">
         <section class="finance-dashboard__panel" aria-labelledby="financeOverviewExpenseTitle">
-          <div class="finance-dashboard__heading"><h3 id="financeOverviewExpenseTitle">На что потрачено</h3><button type="button" data-finance-detail="expense">Подробнее <span aria-hidden="true">→</span></button></div>
+          <div class="finance-dashboard__heading"><h3 id="financeOverviewExpenseTitle">На что потрачено</h3><div class="finance-dashboard__expense-actions"><button type="button" data-finance-detail="expense">Подробнее <span aria-hidden="true">→</span></button></div></div>
           <div data-finance-overview-categories></div>
         </section>
         <section class="finance-dashboard__panel" aria-labelledby="financeOverviewOperationsTitle">
@@ -373,7 +377,7 @@
         </dialog>
         <dialog class="finance-center__dialog" data-finance-dialog aria-labelledby="financeExpenseTitle">
           <form method="dialog" class="finance-center__dialog-card" data-finance-form>
-            <div class="finance-center__dialog-head"><div><p>Новая операция</p><h3 id="financeExpenseTitle">Добавить расход</h3></div><button type="button" data-finance-close aria-label="Закрыть">\u00d7</button></div>
+            <div class="finance-center__dialog-head"><div><p data-finance-expense-caption>Новая операция</p><h3 id="financeExpenseTitle">Добавить расход</h3></div><button type="button" data-finance-close aria-label="Закрыть">\u00d7</button></div>
             <div class="finance-center__form-row">
               <label><span>Категория</span><select name="categoryId" required data-finance-category></select></label>
               <label><span>Списать с</span><select name="paymentAccountId" required data-finance-account></select></label>
@@ -402,12 +406,14 @@
     const onNotice = typeof options.onNotice === 'function' ? options.onNotice : function () {};
     const state = {
       destroyed:false, data:null, operations:[], nextCursor:'', requestId:'', loadVersion:0, readError:'',
+      editExpense:null, expenseSaving:false, expenseAttempt:null, expenseReturn:null, expenseScopeKey:'',
       period:text(options.initialScope?.period || options.initialPeriod, 'current_month'), master:text(options.initialScope?.masterId || options.initialMaster), abort:null,
       sharedScope:options.initialScope || null,
       scopeKey:options.initialScope ? JSON.stringify(options.initialScope) : '', detail:'', detailTrigger:null, detailTriggerScope:'', detailScopeKey:'', visibleOperations:30, overviewSelection:null
     };
-    let detailDialog = null;
-    const find = selector => root.querySelector(selector) || (detailDialog?.matches(selector) ? detailDialog : detailDialog?.querySelector(selector));
+    let detailDialog = null, expenseDialog = null;
+    const find = selector => root.querySelector(selector) || (detailDialog?.matches(selector) ? detailDialog : detailDialog?.querySelector(selector))
+      || (expenseDialog?.matches(selector) ? expenseDialog : expenseDialog?.querySelector(selector));
     const elements = {
       status:find('[data-finance-status]'), content:find('[data-finance-content]'), empty:find('[data-finance-empty]'),
       period:find('[data-finance-period]'), master:find('[data-finance-master]'), add:find('[data-finance-add]'), emptyAction:find('[data-finance-empty-action]'),
@@ -415,8 +421,10 @@
       chart:find('[data-finance-chart]'), chartDetail:find('[data-finance-chart-detail]'), ring:find('[data-finance-ring]'), operations:find('[data-finance-operations]'), more:find('[data-finance-more]')
     };
     detailDialog = find('[data-finance-detail-dialog]');
+    expenseDialog = elements.dialog;
     // Keep the modal outside the tab-specific ancestor so Overview can open it.
     (root.closest('#analyticsView') || root).append(detailDialog);
+    (root.closest('#analyticsView') || root).append(expenseDialog);
     const listeners = [];
     function listen(target, type, handler) { target?.addEventListener(type, handler); listeners.push(() => target?.removeEventListener(type, handler)); }
     let overview = null;
@@ -431,6 +439,7 @@
       root.before(overview);
       root.closest('#analyticsView').classList.add('report-financial-first');
       listen(overview, 'click', event => {
+        if (event.target.closest('[data-finance-overview-add]')) { void openExpense(); return; }
         const button = event.target.closest('[data-finance-detail]');
         if (button) openDetail(button.dataset.financeDetail, button);
       });
@@ -449,6 +458,11 @@
 
     function renderOverview(data) {
       if (!overview) return;
+      const add = overview.querySelector('[data-finance-overview-add]');
+      if (data.permissions.canAddExpense && !add) {
+        const button = createElement('button', '', 'Добавить расход'); button.type = 'button'; button.dataset.financeOverviewAdd = '';
+        overview.querySelector('.finance-dashboard__expense-actions').prepend(button);
+      } else if (!data.permissions.canAddExpense) add?.remove();
       const chart = overview.querySelector('[data-finance-overview-chart]');
       const categories = overview.querySelector('[data-finance-overview-categories]');
       const operations = overview.querySelector('[data-finance-overview-operations]');
@@ -676,7 +690,7 @@
           const meta = [operationDate(operation.occurredAt, state.data.timezone), operation.category, operation.actorName ? `Внёс: ${operation.actorName}` : ''].filter(Boolean).join(' \u00b7 ');
           copy.append(createElement('strong', '', operation.label), createElement('small', '', meta));
           const amount = createElement('b', '', `${sign}${formatRubles(Math.abs(operation.amountMinor))}`); amount.setAttribute('aria-label', `${sign === '+' ? 'Поступление' : 'Списание'} ${formatRubles(Math.abs(operation.amountMinor))}`);
-          row.append(copy, amount); list.append(row);
+          row.append(copy, amount); addExpenseEditAction(row, operation); list.append(row);
         });
         elements.operations.append(list);
       }
@@ -722,6 +736,18 @@
     function closeDetail() {
       const dialog = find('[data-finance-detail-dialog]');
       if (dialog.open) dialog.close();
+    }
+
+    function addExpenseEditAction(container, operation) {
+      const expense = operation.manualExpense;
+      if (!state.data?.permissions.canEditExpense || typeof adapter.updateExpense !== 'function'
+        || operation.type !== 'expense' || !expense?.id
+        || expense.organizationId !== state.data.organizationId) return;
+      const button = createElement('button', 'finance-center__edit-expense', 'Изменить');
+      container.classList.add('has-edit-action');
+      button.type = 'button'; button.dataset.financeEditExpense = expense.id;
+      button.setAttribute('aria-label', `Изменить расход: ${operation.label}`);
+      button.addEventListener('click', () => void openExpense(operation)); container.append(button);
     }
 
     function openDetail(kind, trigger) {
@@ -860,7 +886,8 @@
         for (const row of rows.slice(0, state.visibleOperations)) {
           const item = createElement('article', 'finance-center__operation'), copy = createElement('div');
           copy.append(createElement('strong', '', row.label), createElement('small', '', operationDate(row.occurredAt, data.timezone)));
-          item.append(copy, createElement('b', '', `${row.amountMinor > 0 ? '+' : ''}${formatRubles(row.amountMinor)}`)); body.append(item);
+          item.append(copy, createElement('b', '', `${row.amountMinor > 0 ? '+' : ''}${formatRubles(row.amountMinor)}`));
+          addExpenseEditAction(item, row); body.append(item);
         }
         if (!rows.length) body.append(createElement('p', 'finance-center__inline-empty', !data.financeEnabled ? 'Список проводок недоступен до подключения журнала.' : 'Подтверждённых операций этой категории за период нет.'));
         if (state.nextCursor || rows.length > state.visibleOperations) {
@@ -924,8 +951,12 @@
       }
     }
 
-    async function openExpense() {
-      if (!state.data?.permissions.canAddExpense) return;
+    async function openExpense(operation = null) {
+      if (state.expenseSaving || state.expenseAttempt) return;
+      const editing = operation?.manualExpense || null;
+      if (editing ? !state.data?.permissions.canEditExpense || typeof adapter.updateExpense !== 'function'
+        || editing.organizationId !== state.data.organizationId : !state.data?.permissions.canAddExpense) return;
+      const expectedScope = state.scopeKey, expectedOrganization = state.data.organizationId;
       const needsPreparation = !state.data.expenseDirectory.length || !state.data.paymentAccounts.length;
       if (needsPreparation && typeof adapter.prepareExpense === 'function') {
         elements.add.disabled = true; elements.emptyAction.disabled = true;
@@ -943,23 +974,43 @@
         }
         elements.add.disabled = false; elements.emptyAction.disabled = false; setLoading(false);
       }
+      if (state.destroyed || state.scopeKey !== expectedScope || state.data?.organizationId !== expectedOrganization) return;
       if (!state.data?.expenseDirectory.length || !state.data?.paymentAccounts.length) {
         setLoading(false, 'Для добавления расхода нужны доступная категория и счёт списания.');
         return;
       }
       elements.formError.hidden = true; elements.formError.textContent = '';
+      state.editExpense = editing; state.expenseScopeKey = state.scopeKey; state.requestId = ''; elements.form.reset();
+      find('#financeExpenseTitle').textContent = editing ? 'Изменить расход' : 'Добавить расход';
+      find('[data-finance-expense-caption]').textContent = editing ? 'Исправление операции' : 'Новая операция';
+      elements.submit.textContent = editing ? 'Сохранить изменения' : 'Добавить расход';
+      if (editing) {
+        elements.category.value = editing.categoryId; elements.account.value = editing.paymentAccountId;
+        elements.form.elements.amount.value = (editing.amountMinor / 100).toFixed(2).replace('.', ',');
+        elements.form.elements.occurredOn.value = editing.occurredOn; elements.form.elements.note.value = editing.note;
+      } else if (state.data.paymentAccounts.length === 1) elements.account.value = state.data.paymentAccounts[0].id;
+      state.expenseReturn = detailDialog.open ? { kind:state.detail, trigger:state.detailTrigger, scope:state.scopeKey } : null;
+      if (detailDialog.open) closeDetail();
       if (!elements.form.elements.occurredOn.value) elements.form.elements.occurredOn.value = state.data.today || (typeof options.today === 'function' ? options.today() : todayInTimezone(state.data.timezone));
       if (typeof elements.dialog.showModal === 'function') elements.dialog.showModal(); else elements.dialog.setAttribute('open', '');
       elements.category.focus();
     }
 
-    function closeExpense() { if (elements.dialog.open && typeof elements.dialog.close === 'function') elements.dialog.close(); else elements.dialog.removeAttribute('open'); }
+    function closeExpense({ saved = false } = {}) {
+      if (state.expenseSaving || state.expenseAttempt) return;
+      if (elements.dialog.open && typeof elements.dialog.close === 'function') elements.dialog.close(); else elements.dialog.removeAttribute('open');
+      if (!state.expenseAttempt) { state.editExpense = null; state.requestId = ''; }
+      const back = state.expenseReturn; state.expenseReturn = null;
+      if (!saved && back && back.scope === state.scopeKey && !state.destroyed) openDetail(back.kind, back.trigger);
+    }
 
     function expensePayload() {
       const fields = new FormData(elements.form); return {
         requestId:state.requestId || requestUuid(),
         categoryId:text(fields.get('categoryId')), paymentAccountId:text(fields.get('paymentAccountId')), amountMinor:parseRubles(fields.get('amount')),
-        occurredOn:text(fields.get('occurredOn')), note:text(fields.get('note'))
+        occurredOn:text(fields.get('occurredOn')), note:text(fields.get('note')),
+        ...(state.editExpense ? { expenseId:state.editExpense.id, organizationId:state.editExpense.organizationId,
+          performerId:state.editExpense.performerId } : {})
       };
     }
 
@@ -967,30 +1018,55 @@
 
     async function submitExpense(event) {
       event.preventDefault();
+      if (state.expenseSaving) return;
+      if (state.expenseScopeKey !== state.scopeKey || state.editExpense && state.editExpense.organizationId !== state.data?.organizationId) {
+        elements.formError.textContent = 'Период или кабинет изменился. Откройте расход снова.'; elements.formError.hidden = false; return;
+      }
       const payload = expensePayload(); state.requestId = payload.requestId;
       if (!payload.categoryId || !payload.paymentAccountId || !payload.amountMinor || !/^\d{4}-\d{2}-\d{2}$/.test(payload.occurredOn)) {
         elements.formError.textContent = 'Проверьте категорию, счёт списания, дату и сумму расхода.'; elements.formError.hidden = false; return;
       }
+      if (state.expenseAttempt && JSON.stringify(state.expenseAttempt) !== JSON.stringify(payload)) {
+        elements.formError.textContent = 'Сначала повторите сохранение с прежними значениями: результат прошлого запроса ещё не подтверждён.';
+        elements.formError.hidden = false; return;
+      }
+      const editing = Boolean(state.editExpense), expectedScope = state.scopeKey;
+      state.expenseSaving = true;
+      find('[data-finance-close]').disabled = true; find('[data-finance-cancel]').disabled = true;
       elements.submit.disabled = true; elements.submit.textContent = 'Сохраняем\u2026'; elements.formError.hidden = true;
       try {
-        await adapter.createExpense(payload);
-        state.requestId = ''; elements.form.reset(); closeExpense(); onNotice('Расход добавлен'); await load({ quiet:true });
+        await (editing ? adapter.updateExpense(payload) : adapter.createExpense(payload));
+        state.expenseSaving = false; state.expenseAttempt = null; state.requestId = '';
+        const back = state.expenseReturn; state.expenseReturn = null; elements.form.reset(); closeExpense({ saved:true });
+        if (state.destroyed || expectedScope !== state.scopeKey) return;
+        onNotice(editing ? 'Расход изменён' : 'Расход добавлен'); await load({ quiet:true });
+        if (back && back.scope === state.scopeKey) openDetail(back.kind, back.trigger);
       } catch (error) {
         if (ambiguous(error)) {
+          state.expenseAttempt = { ...payload };
           let found = null;
-          if (typeof adapter.findExpenseByRequestId === 'function') {
-            try { found = await adapter.findExpenseByRequestId(payload.requestId); } catch (_) { found = null; }
+          const findRequest = editing ? adapter.findExpenseEditByRequestId : adapter.findExpenseByRequestId;
+          if (typeof findRequest === 'function') {
+            try { found = await findRequest(payload.requestId); } catch (_) { found = null; }
           }
           if (found) {
-            state.requestId = ''; elements.form.reset(); closeExpense(); onNotice('Расход уже сохранён'); await load({ quiet:true });
+            state.expenseSaving = false; state.expenseAttempt = null; state.requestId = ''; elements.form.reset();
+            const back = state.expenseReturn; state.expenseReturn = null; closeExpense({ saved:true });
+            if (state.destroyed || expectedScope !== state.scopeKey) return;
+            onNotice('Расход уже сохранён'); await load({ quiet:true });
+            if (back && back.scope === state.scopeKey) openDetail(back.kind, back.trigger);
           } else {
             elements.formError.textContent = 'Не удалось подтвердить результат. Повтор использует тот же номер запроса и не создаст дубль.'; elements.formError.hidden = false;
           }
         } else {
-          elements.formError.textContent = text(error?.userMessage, 'Не удалось добавить расход. Данные сохранены в форме.'); elements.formError.hidden = false;
+          state.expenseAttempt = null;
+          elements.formError.textContent = text(error?.userMessage, 'Не удалось сохранить расход. Данные сохранены в форме.'); elements.formError.hidden = false;
         }
       } finally {
-        elements.submit.disabled = !state.data?.expenseDirectory.length || !state.data?.paymentAccounts.length; elements.submit.textContent = state.requestId ? 'Повторить безопасно' : 'Добавить расход';
+        state.expenseSaving = false;
+        find('[data-finance-close]').disabled = Boolean(state.expenseAttempt); find('[data-finance-cancel]').disabled = Boolean(state.expenseAttempt);
+        elements.submit.disabled = !state.data?.expenseDirectory.length || !state.data?.paymentAccounts.length;
+        elements.submit.textContent = state.expenseAttempt ? 'Повторить безопасно' : editing ? 'Сохранить изменения' : 'Добавить расход';
       }
     }
 
@@ -1028,6 +1104,7 @@
     listen(find('[data-finance-close]'), 'click', closeExpense); listen(find('[data-finance-cancel]'), 'click', closeExpense);
     listen(elements.form, 'submit', event => void submitExpense(event)); listen(elements.more, 'click', () => void loadMore());
     listen(elements.dialog, 'click', event => { if (event.target === elements.dialog) closeExpense(); });
+    listen(elements.dialog, 'cancel', event => { event.preventDefault(); closeExpense(); });
 
     fillOptions(elements.period, optionRows(options.periods, PERIOD_FALLBACK), state.period);
     fillOptions(elements.master, optionRows(options.masters, MASTER_FALLBACK), state.master);
@@ -1044,6 +1121,7 @@
         const key = JSON.stringify(scope);
         if (key === state.scopeKey) return Promise.resolve();
         state.scopeKey = key; state.sharedScope = scope; state.period = scope.period; state.master = scope.masterId || '';
+        closeExpense({ saved:true });
         state.data = null; state.operations = []; state.nextCursor = ''; state.readError = ''; elements.content.hidden = true;
         closeDetail(); enableSharedScope(); root.querySelector('.finance-center__filters').hidden = true;
         const unavailable = normalizeDashboard({ available:false });
@@ -1055,7 +1133,7 @@
       destroy() {
         if (state.destroyed) return;
         state.destroyed = true; state.abort?.abort(); listeners.splice(0).forEach(remove => remove());
-        closeDetail(); detailDialog.remove(); overview?.remove();
+        closeDetail(); detailDialog.remove(); expenseDialog.remove(); overview?.remove();
         const visits = document.querySelector('#reportVisitOverview');
         if (typeof global.MinutaStatisticsAuditProvider?.restoreVisitOverview === 'function') {
           global.MinutaStatisticsAuditProvider.restoreVisitOverview();
