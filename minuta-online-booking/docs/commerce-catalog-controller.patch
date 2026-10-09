@@ -1,0 +1,282 @@
+diff --git a/minuta-online-booking/commerce-management.js b/minuta-online-booking/commerce-management.js
+index 3db75493..79866e8f 100644
+--- a/minuta-online-booking/commerce-management.js
++++ b/minuta-online-booking/commerce-management.js
+@@ -1,5 +1,6 @@
+ (() => {
+   'use strict';
++  const src=new URL(document.currentScript.src);
+
+   const rubles = minor => `${new Intl.NumberFormat('ru-RU').format((Number(minor) || 0) / 100)} ₽`;
+   const number = value => Number(String(value ?? '').replace(',', '.')) || 0;
+@@ -68,6 +69,9 @@
+     let saleClaimSecret = '';
+     let saleClaimExpiryTimer = 0;
+     const activeWrites = new Set();
++let catalog,legacy=false;
++async function syncCatalog(action){legacy=false;try{if(!catalog){const url=new URL('commerce-catalog-adapter.js'+src.search,src);catalog=import(url.href).then(m=>m.createCatalogAdapter({...options,getContext:()=>({organization,state}),reload:load,claim:[issueSaleClaim,clearSaleClaimResult],onLegacyMode:value=>legacy=value})).catch(e=>{catalog=null;throw e;});}await(await catalog).sync(action);}catch(e){notify(errorMessage(e));}}
++function resetCatalog(){legacy=false;catalog?.then(m=>m.destroy(),()=>{});}
+
+     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+@@ -577,51 +581,52 @@
+       }).join('') : '<p class="report-empty-inline">Добавьте аренду или другой регулярный платёж.</p>';
+     }
+
+-    function render() {
+-      if (!state) return;
+-      $('#commerceWorkspace').hidden = false;
+-      $('#commerceUnavailable').hidden = true;
+-      $('#commerceFinanceEnabled').checked = state.finance_enabled === true;
+-      $('#commerceClient').innerHTML = '<option value="">Без клиента</option>' + selectOptions(state.clients || [], item => `${item.name}${item.phone ? ` · ${item.phone}` : ''}`);
+-      const currentSeller = $('#commerceSeller')?.value || '';
+-      $('#commerceSeller').innerHTML = selectOptions(state.sellers || [], item => `${item.name}${item.role ? ` · ${item.role}` : ''}`, currentSeller);
+-      selectSaleSeller(currentSeller);
+-      $('#commerceWarehouse').innerHTML = selectOptions(state.warehouses || [], item => item.name);
+-      renderPaymentAccounts();
+-      $('#commerceRecurringAccount').innerHTML = accountOptions('', 'manual');
+-      renderItemControls();
+-      renderBookings();
+-      renderSales();
+-      renderAudit();
+-      renderRefundControls();
+-      renderRecurring();
+-      updateSaleValidity();
+-      applyWriteAvailability?.($('#commercePanel'));
+-    }
+-
+-    async function load() {
+-      if (!organization?.id || loading) return;
+-      const userId = getCurrentUser()?.id;
+-      const generation = getSessionGeneration();
+-      loading = true;
+-      $('#commerceLoading').hidden = false;
+-      $('#commerceUnavailable').hidden = true;
+-      try {
+-        const result = await db.rpc('get_minuta_commerce_workspace_v151', { p_organization:organization.id });
+-        if (result.error) throw result.error;
+-        if (!sessionIsCurrent(userId, generation) || organization?.id !== result.data?.organization_id) return;
+-        state = result.data;
+-        render();
+-      } catch (error) {
+-        $('#commerceWorkspace').hidden = true;
+-        $('#commerceUnavailable').hidden = false;
+-        $('#commerceUnavailableText').textContent = errorMessage(error);
+-        throw error;
+-      } finally {
+-        loading = false;
+-        $('#commerceLoading').hidden = true;
+-      }
+-    }
++function render() {
++if (!state) return;
++$('#commerceWorkspace').hidden = false;
++$('#commerceUnavailable').hidden = true;
++$('#commerceFinanceEnabled').checked = state.finance_enabled === true;
++$('#commerceClient').innerHTML = '<option value="">Без клиента</option>' + selectOptions(state.clients || [], item => `${item.name}${item.phone ? ` · ${item.phone}` : ''}`);
++const currentSeller = $('#commerceSeller')?.value || '';
++$('#commerceSeller').innerHTML = selectOptions(state.sellers || [], item => `${item.name}${item.role ? ` · ${item.role}` : ''}`, currentSeller);
++selectSaleSeller(currentSeller);
++$('#commerceWarehouse').innerHTML = selectOptions(state.warehouses || [], item => item.name);
++renderPaymentAccounts();
++$('#commerceRecurringAccount').innerHTML = accountOptions('', 'manual');
++renderItemControls();
++renderBookings();
++renderSales();
++renderAudit();
++renderRefundControls();
++renderRecurring();
++updateSaleValidity();
++applyWriteAvailability?.($('#commercePanel'));
++}
++
++async function load() {
++if (!organization?.id || loading) return;
++const userId = getCurrentUser()?.id;
++const generation = getSessionGeneration();
++loading = true;
++$('#commerceLoading').hidden = false;
++$('#commerceUnavailable').hidden = true;
++try {
++const result = await db.rpc('get_minuta_commerce_workspace_v151', { p_organization:organization.id });
++if (result.error) throw result.error;
++if (!sessionIsCurrent(userId, generation) || organization?.id !== result.data?.organization_id) return;
++state = result.data;
++render();
++await syncCatalog();
++} catch (error) {
++$('#commerceWorkspace').hidden = true;
++$('#commerceUnavailable').hidden = false;
++$('#commerceUnavailableText').textContent = errorMessage(error);
++throw error;
++} finally {
++loading = false;
++$('#commerceLoading').hidden = true;
++}
++}
+
+     async function write(form, errorElement, scope, payload, rpc, params) {
+       if (!requireWrites()) return;
+@@ -664,42 +669,44 @@
+       }
+     }
+
+-    async function submitSale(event) {
+-      event.preventDefault();
+-      const form = event.currentTarget;
+-      if (!updateSaleValidity()) return;
+-      const kind = $('#commerceItemKind').value;
+-      const quantity = kind === 'benefit_product' ? 1 : number($('#commerceQuantity').value);
+-      const payload = { kind, item:$('#commerceItem').value, client:$('#commerceClient').value || null, booking:$('#commerceBooking').value || null, seller:$('#commerceSeller').value, warehouse:kind === 'inventory_item' ? $('#commerceWarehouse').value : null, quantity, price:minor($('#commerceUnitPrice').value), discount:minor($('#commerceDiscount').value), method:$('#commercePaymentMethod').value, account:$('#commercePaymentAccount').value };
+-      const outcome = await write(form, $('#commerceSaleError'), 'sale', payload, 'sell_minuta_commercial_product_v151', {
+-        p_organization:organization.id, p_booking:payload.booking, p_client_account:payload.client, p_seller:payload.seller,
+-        p_item_kind:kind, p_benefit_product:kind === 'benefit_product' ? payload.item : null,
+-        p_inventory_item:kind === 'inventory_item' ? payload.item : null, p_warehouse:payload.warehouse,
+-        p_quantity:quantity, p_unit_price_minor:payload.price, p_discount_minor:payload.discount,
+-        p_payment_method:payload.method, p_payment_account:payload.account
+-      });
+-      if (outcome?.ok) {
+-        const paidSale = outcome.data?.status === 'paid'
+-          && outcome.data?.organization_id === organization.id
+-          && uuidPattern.test(String(outcome.data?.id || ''));
+-        const claimTarget = paidSale && payload.client && ['cash', 'manual'].includes(payload.method)
+-          ? {
+-              organizationId:organization.id,
+-              saleId:String(outcome.data?.id || ''),
+-              clientId:payload.client,
+-              clientName:(state?.clients || []).find(item => item.id === payload.client)?.name || ''
+-            }
+-          : null;
+-        form.reset();
+-        $('#commerceQuantity').value = '1';
+-        $('#commerceDiscount').value = '0';
+-        selectSaleSeller();
+-        $('#commerceSaleCreator').open = Boolean(claimTarget);
+-        syncSaleFocusMode();
+-        render();
+-        if (claimTarget) await issueSaleClaim(claimTarget);
+-      }
+-    }
++async function submitSale(event) {
++event.preventDefault();
++const form = event.currentTarget;
++if ($('#commerceItemKind').value==='inventory_item'&&!legacy) return;
++if (!updateSaleValidity()) return;
++const kind = $('#commerceItemKind').value;
++const quantity = kind === 'benefit_product' ? 1 : number($('#commerceQuantity').value);
++const payload = { kind, item:$('#commerceItem').value, client:$('#commerceClient').value || null, booking:$('#commerceBooking').value || null, seller:$('#commerceSeller').value, warehouse:kind === 'inventory_item' ? $('#commerceWarehouse').value : null, quantity, price:minor($('#commerceUnitPrice').value), discount:minor($('#commerceDiscount').value), method:$('#commercePaymentMethod').value, account:$('#commercePaymentAccount').value };
++const outcome = await write(form, $('#commerceSaleError'), 'sale', payload, 'sell_minuta_commercial_product_v151', {
++p_organization:organization.id, p_booking:payload.booking, p_client_account:payload.client, p_seller:payload.seller,
++p_item_kind:kind, p_benefit_product:kind === 'benefit_product' ? payload.item : null,
++p_inventory_item:kind === 'inventory_item' ? payload.item : null, p_warehouse:payload.warehouse,
++p_quantity:quantity, p_unit_price_minor:payload.price, p_discount_minor:payload.discount,
++p_payment_method:payload.method, p_payment_account:payload.account
++});
++if (outcome?.ok) {
++const paidSale = outcome.data?.status === 'paid'
++&& outcome.data?.organization_id === organization.id
++&& uuidPattern.test(String(outcome.data?.id || ''));
++const claimTarget = paidSale && payload.client && ['cash', 'manual'].includes(payload.method)
++? {
++organizationId:organization.id,
++saleId:String(outcome.data?.id || ''),
++clientId:payload.client,
++clientName:(state?.clients || []).find(item => item.id === payload.client)?.name || ''
++}
++: null;
++form.reset();
++$('#commerceQuantity').value = '1';
++$('#commerceDiscount').value = '0';
++selectSaleSeller();
++$('#commerceSaleCreator').open = Boolean(claimTarget);
++syncSaleFocusMode();
++render();
++await syncCatalog();
++if (claimTarget) await issueSaleClaim(claimTarget);
++}
++}
+
+     function selectRefundSale(saleId, { focusReason = false } = {}) {
+       const sale = refundableSales().find(item => item.id === saleId);
+@@ -835,42 +842,45 @@
+     return {
+       bind,
+       load,
+-      startSale({ bookingId = '', clientId = '' } = {}) {
+-        clearSaleClaimResult();
+-        $('#commerceSaleCreator').open = true;
+-        syncSaleFocusMode();
+-        if (clientId && [...$('#commerceClient').options].some(option => option.value === clientId)) $('#commerceClient').value = clientId;
+-        renderBookings();
+-        if (bookingId && [...$('#commerceBooking').options].some(option => option.value === bookingId)) {
+-          $('#commerceBooking').value = bookingId;
+-          selectSaleSeller((state?.bookings || []).find(item => item.id === bookingId)?.performer_id);
+-        } else selectSaleSeller();
+-        updateSaleValidity();
+-        if (window.MinutaCommerceSoftUI) window.MinutaCommerceSoftUI.focusItem();
+-        else $('#commerceItem').focus({ preventScroll:true });
+-      },
+-      async setOrganization(next) {
+-        if (organization?.id === next?.id && organization?.current_role === next?.current_role && state) return;
+-        clearSaleClaimResult();
+-        organization = next || null;
+-        state = null;
+-        window.MinutaCommerceSoftUI?.resetSale();
+-        $('#commerceWorkspace').hidden = true;
+-        if (organization?.id) await load();
+-      },
+-      reset() {
+-        clearSaleClaimResult();
+-        organization = null;
+-        state = null;
+-        window.MinutaCommerceSoftUI?.resetSale();
+-        $('#commerceWorkspace').hidden = true;
+-        $('#commerceSaleCreator').open = false;
+-        $('#commerceAccountSetup').hidden = true;
+-        setError($('#commerceAccountError'), '');
+-        syncSaleFocusMode();
+-      }
+-    };
+-  }
++startSale({ bookingId = '', clientId = '' } = {}) {
++clearSaleClaimResult();
++$('#commerceSaleCreator').open = true;
++syncSaleFocusMode();
++if (clientId && [...$('#commerceClient').options].some(option => option.value === clientId)) $('#commerceClient').value = clientId;
++renderBookings();
++if (bookingId && [...$('#commerceBooking').options].some(option => option.value === bookingId)) {
++$('#commerceBooking').value = bookingId;
++selectSaleSeller((state?.bookings || []).find(item => item.id === bookingId)?.performer_id);
++} else selectSaleSeller();
++updateSaleValidity();
++void syncCatalog({clientId:clientId||null,bookingId:bookingId||null,sellerId:$('#commerceSeller').value});
++if (window.MinutaCommerceSoftUI) window.MinutaCommerceSoftUI.focusItem();
++else $('#commerceItem').focus({ preventScroll:true });
++},
++async setOrganization(next) {
++if (organization?.id === next?.id && organization?.current_role === next?.current_role && state) return;
++clearSaleClaimResult();
++resetCatalog();
++organization = next || null;
++state = null;
++window.MinutaCommerceSoftUI?.resetSale();
++$('#commerceWorkspace').hidden = true;
++if (organization?.id) await load();
++},
++reset() {
++resetCatalog();
++clearSaleClaimResult();
++organization = null;
++state = null;
++window.MinutaCommerceSoftUI?.resetSale();
++$('#commerceWorkspace').hidden = true;
++$('#commerceSaleCreator').open = false;
++$('#commerceAccountSetup').hidden = true;
++setError($('#commerceAccountError'), '');
++syncSaleFocusMode();
++}
++};
++}
+
+   function createFinanceController(options) {
+     const { db, $, escapeHtml, notify } = options;

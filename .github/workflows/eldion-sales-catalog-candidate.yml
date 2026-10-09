@@ -1,0 +1,74 @@
+name: Eldion sales catalog isolated candidate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/eldion-sales-catalog-candidate.yml'
+      - 'minuta-online-booking/commerce-catalog*'
+      - 'minuta-online-booking/commerce-management.js'
+      - 'minuta-online-booking/commerce-soft-ui.*'
+      - 'minuta-online-booking/sales-catalog-*.sql'
+      - 'minuta-online-booking/tests/commerce-catalog*'
+      - 'minuta-online-booking/tests/commercial-finance-v147-browser-test.mjs'
+      - 'minuta-online-booking/tests/commercial-sales-v151-ui-browser-test.mjs'
+      - 'minuta-online-booking/tests/commercial-sale-client-access-v155-browser-test.mjs'
+      - 'minuta-online-booking/tests/sales-catalog-*'
+      - 'minuta-online-booking/docs/*catalog*'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: eldion_sales_catalog_fixture
+        ports: ['54851:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v5
+        with: {node-version: 22}
+      - name: Install isolated test driver
+        run: npm install --prefix "$RUNNER_TEMP/catalog-pg" --no-package-lock --ignore-scripts --no-audit --no-fund pg@8.16.3
+      - name: Apply, concurrency, permissions, replay and rollback in empty fixture
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+          MINUTA_SALES_CATALOG_CI_CONFIRM: OWN_EMPTY_POSTGRES17_SERVICE
+        run: |
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/catalog-pg/node_modules/pg/lib/index.js"
+          export MINUTA_CATALOG_CI_SERVICE_IP="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$PG_CONTAINER")"
+          node minuta-online-booking/tests/sales-catalog-candidate-postgres-test.mjs --ci-owned-postgres-service
+      - run: node minuta-online-booking/tests/sales-catalog-candidate-static-test.mjs
+      - run: node minuta-online-booking/tests/commerce-catalog-test.mjs
+      - run: node minuta-online-booking/tests/commerce-catalog-adapter-test.mjs
+      - run: node minuta-online-booking/tests/commerce-soft-ui-test.mjs
+      - run: node minuta-online-booking/tests/commercial-sales-v151-ui-static-test.mjs
+      - run: node minuta-online-booking/client-url-redirect-test.mjs
+  synthetic-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BROWSER_CHANNEL: chromium
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v5
+        with: {node-version: 22}
+      - name: Install isolated browser dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/catalog-browser" --no-package-lock --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/catalog-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/catalog-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "MINUTA_CATALOG_SCREENSHOTS=$RUNNER_TEMP/catalog-screenshots" >> "$GITHUB_ENV"
+      - run: node minuta-online-booking/tests/commerce-catalog-browser-test.mjs
+      - run: node minuta-online-booking/tests/commerce-catalog-integration-browser-test.mjs
+      - run: node minuta-online-booking/tests/commercial-finance-v147-browser-test.mjs --commerce-only
+      - run: node minuta-online-booking/tests/commercial-sales-v151-ui-browser-test.mjs
+      - run: node minuta-online-booking/tests/commercial-sale-client-access-v155-browser-test.mjs

@@ -7,7 +7,6 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = process.env.MINUTA_AUDIT_SCREENSHOTS ? resolve(process.env.MINUTA_AUDIT_SCREENSHOTS) : '';
 if (output) mkdirSync(output, { recursive:true });
 const html = readFileSync(resolve(root, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
-const source = readFileSync(resolve(root, 'commerce-management.js'), 'utf8');
 const providerSource = readFileSync(resolve(root, 'provider.js'), 'utf8');
 const navigation = providerSource.slice(providerSource.indexOf('function providerSectionViewKey('), providerSource.indexOf('function canUseIosTransitions('));
 const features = providerSource.slice(providerSource.indexOf('const organizationFeatureDefinitions ='), providerSource.indexOf('\nbatchBookingsController =', providerSource.indexOf('const organizationFeatureDefinitions =')));
@@ -18,7 +17,7 @@ const chromium = playwright.chromium || playwright.default?.chromium;
 const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const errors = [];
 const unexpected = [];
-const mime = { '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
+const mime = { '.js':'application/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
 const ids = {
   organization:'11111111-1111-4111-8111-111111111151',
   owner:'22222222-2222-4222-8222-222222222151',
@@ -67,7 +66,7 @@ try {
       document.querySelector('#organizationLoading').hidden = true;
       document.querySelector('#organizationRoleBadge').textContent = 'Владелец';
     });
-    await page.addScriptTag({ content:source });
+    await page.addScriptTag({ url:'https://sales.test/minuta-online-booking/commerce-management.js?v=fixture' });
     await page.evaluate(async ids => {
       window.salesCalls = [];
       window.salesNotices = [];
@@ -101,6 +100,7 @@ try {
       };
       const db = { rpc:async (name, args) => {
         salesCalls.push({ name, args:structuredClone(args) });
+        if (name === 'get_minuta_sales_catalog_candidate') return { data:null, error:{ code:'PGRST202', message:'Catalog migration is absent in this legacy fixture' } };
         if (name === 'get_minuta_commerce_workspace_v151') {
           if (failNextWorkspaceLoad) {
             failNextWorkspaceLoad = false;

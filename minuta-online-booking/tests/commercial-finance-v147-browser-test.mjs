@@ -4,17 +4,17 @@ import { dirname, extname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const commerceOnly = process.argv.includes('--commerce-only');
 const output = resolve(root, '.tmp-commerce-v147');
 mkdirSync(output, { recursive:true });
 const html = readFileSync(resolve(root, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
-const source = readFileSync(resolve(root, 'commerce-management.js'), 'utf8');
 const playwright = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
 const chromium = playwright.chromium || playwright.default?.chromium;
 const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const errors = [];
 const unexpected = [];
-const mime = { '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
+const mime = { '.js':'application/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2' };
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const clientId = '22222222-2222-4222-8222-222222222222';
 const productId = '33333333-3333-4333-8333-333333333333';
@@ -58,7 +58,7 @@ try {
       document.querySelectorAll('[data-provider-panel="organization"] .provider-section-anchor').forEach(panel => { panel.hidden = panel.id !== 'commercePanel'; });
       document.querySelector('#commercePanel').hidden = false;
     });
-    await page.addScriptTag({ content:source });
+    await page.addScriptTag({ url:'https://commerce.test/minuta-online-booking/commerce-management.js?v=fixture' });
     await page.evaluate(async ({ organizationId, clientId, productId, accountId, expenseId, ownerId }) => {
       window.commerceCalls = [];
       window.commerceNotices = [];
@@ -77,6 +77,7 @@ try {
       };
       const db = { rpc:async (name, args) => {
         commerceCalls.push({ name, args:structuredClone(args) });
+        if (name === 'get_minuta_sales_catalog_candidate') return { data:null, error:{ code:'PGRST202', message:'Catalog migration is absent in this legacy fixture' } };
         if (name === 'get_minuta_commerce_workspace_v151') return { data:structuredClone(workspace), error:null };
         if (name === 'sell_minuta_commercial_product_v151') {
           saleAttempts += 1;
@@ -203,6 +204,7 @@ try {
     assert.ok(layout.commerceWidth > 0, `${width}: commerce panel must be visible`);
     if (width <= 760) assert.ok(layout.buttonHeights.every(height => height >= 40), `${width}: commerce buttons must remain touchable`);
     await page.screenshot({ path:resolve(output, `${width}.png`), fullPage:true });
+    if (commerceOnly) { await page.close(); continue; }
     await page.evaluate(() => {
       document.querySelectorAll('[data-provider-panel]').forEach(panel => {
         panel.hidden = panel.dataset.providerPanel !== 'analytics';
@@ -222,4 +224,4 @@ try {
 
 assert.deepEqual(errors, []);
 assert.deepEqual(unexpected, []);
-console.log('PrimeTime Pro commercial finance browser checks passed at 390, 760 and 1440');
+console.log(`PrimeTime Pro ${commerceOnly ? 'legacy commerce (analytics excluded)' : 'commercial finance'} browser checks passed at 390, 760 and 1440`);
