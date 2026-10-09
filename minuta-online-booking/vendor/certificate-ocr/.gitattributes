@@ -1,0 +1,4 @@
+* -text
+manifest.json text eol=lf
+README.md text eol=lf
+LICENSE-core.txt whitespace=-blank-at-eof

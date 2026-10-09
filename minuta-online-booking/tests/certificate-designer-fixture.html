@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PrimeTime Pro — образец сертификатов</title>
+<link rel="stylesheet" href="/certificate-designer.css"><style>
+  *{box-sizing:border-box}body{margin:0;background:#fff5f9;color:#2c2330;font:16px/1.5 system-ui,sans-serif;--primary-color:#a33c70;--border-color:#e8dce2;--muted-text-color:#756a72}main{max-width:1120px;margin:auto;padding:24px}header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-bottom:22px;gap:10px}header p{margin:0;color:#756a72}header h1{margin:0;font-size:24px;font-weight:600}section{background:#fff;padding:24px;border-radius:18px}@media(max-width:760px){main{padding:16px}section{padding:18px}}@media(max-width:390px){main{padding:10px}section{padding:14px}}
+  [data-fixture-client]{display:block;margin-top:6px;min-height:44px;max-width:100%;padding:10px 12px;border:1px solid #e8dce2;border-radius:10px;background:#fff;font:inherit;color:inherit}
+</style></head><body><main><header><h1>PrimeTime Pro</h1><p>Образец раздела «Сертификаты»</p></header><section id="certificateDesignerPanel"></section><section style="margin-top:24px"><h2 style="font-size:18px">Карточка клиента — образец</h2><label>Клиент <select data-fixture-client><option value="">Выбери клиента</option><option value="79990000001">Анна — тестовый клиент</option><option value="79990000002">Борис — тестовый клиент</option></select></label><div id="clientCertificateDesigns"></div></section></main>
+<script src="/service-presets-catalog.js"></script><script src="/certificate-renderer.js"></script><script src="/certificate-designer.js"></script><script src="/certificate-client-card.js"></script>
+<script>
+(async function(){
+  const databaseName = 'minuta-certificate-demo-' + (new URLSearchParams(location.search).get('store') || 'preview');
+  const request=indexedDB.open(databaseName,1); request.onupgradeneeded=()=>request.result.createObjectStore('snapshot');
+  const database=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
+  function read(){return new Promise((resolve,reject)=>{const request=database.transaction('snapshot','readonly').objectStore('snapshot').get('state');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)})}
+  function write(value){return new Promise((resolve,reject)=>{const transaction=database.transaction('snapshot','readwrite');transaction.objectStore('snapshot').put(value,'state');transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error)})}
+  let initialImage='__CERTIFICATE_IMAGE__';
+  if(initialImage.startsWith('__')){const canvas=document.createElement('canvas');canvas.width=700;canvas.height=990;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,700,990);ctx.strokeStyle='#ddd';ctx.strokeRect(10,10,680,970);initialImage=canvas.toDataURL('image/png')}
+  const initialTemplate={id:'00000000-0000-4000-8000-000000000009',name:'Макет массажного сертификата',image_data:initialImage,layout:structuredClone(MinutaCertificateRenderer.fields),font_files:{}};
+  let state=await read() || {templates:[initialTemplate],records:[]};
+  state.drafts ||= [];
+  const org='00000000-0000-4000-8000-000000000004';
+  const services=[{id:'00000000-0000-4000-8000-000000000007',name:'Массаж спины+швз — углубленный',duration_minutes:60},{id:'00000000-0000-4000-8000-000000000008',name:'Массаж спины',duration_minutes:30},{id:'00000000-0000-4000-8000-000000000006',name:'Общий расслабляющий массаж',duration_minutes:60}];
+  // Public examples cover all professions. Product workspaces use only their authorized services RPC.
+  for(const preset of MinutaServicePresetCatalog.search('')) {
+    if(services.some(service=>service.name===preset.name))continue;
+    const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('certificate-demo:'+preset.id)));
+    bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+    const hex=Array.from(bytes.slice(0,16),n=>n.toString(16).padStart(2,'0')).join('');
+    services.push({id:`${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`,name:preset.name,duration_minutes:preset.defaultDuration});
+  }
+  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Samara'}).format(new Date());
+  const clients=[{phone:'79990000001',name:'Анна',account_id:'00000000-0000-4000-8000-000000000021'},{phone:'79990000002',name:'Борис',account_id:'00000000-0000-4000-8000-000000000022'}];
+  const instrument={id:'00000000-0000-4000-8000-000000000023',name:'Массаж спины — 3 сеанса',visits_count:3,remaining_visits:2,services:[{service_id:services[0].id}]};
+  let writeQueue=Promise.resolve();
+  function mutate(fn){const result=writeQueue.then(async()=>{const result=fn();await write(state);return result});writeQueue=result.catch(()=>{});return result}
+  const repository={demo:true,
+    clients:async(_,query)=>({organization_id:org,clients:clients.filter(c=>(c.name+' '+c.phone).toLocaleLowerCase('ru-RU').includes(query.toLocaleLowerCase('ru-RU')))}),
+    clientOptions:async(_,phone)=>({organization_id:org,client_phone:phone,client_account_id:clients.find(c=>c.phone===phone)?.account_id,instruments:phone===clients[0].phone&&!state.records.some(r=>r.benefit_instrument_id===instrument.id)?[instrument]:[]}),
+    clientRecords:async(_,phone,cursor)=>{const records=state.records.filter(r=>r.client_phone===phone).map(r=>({...r,remaining_visits:r.benefit_instrument_id===instrument.id?instrument.remaining_visits:null,benefit_status:r.benefit_instrument_id===instrument.id?'active':null}));const start=cursor||0;return{organization_id:org,client_phone:phone,today,records:records.slice(start,start+50),next_cursor:records.length>start+50?start+50:null}},
+    workspace:async()=>({organization_id:org,current_role:'owner',today,next_number:nextNumber(),templates:state.templates.map(t=>({id:t.id,name:t.name})),services}),
+    template:async(_,id)=>({organization_id:org,template:state.templates.find(t=>t.id===id)}),
+    saveTemplate:(_,value)=>mutate(()=>{state.templates.push(structuredClone(value));return {organization_id:org,id:value.id}}),
+    issue:(_,value,request)=>mutate(()=>{
+      const previous=state.records.find(r=>r.request_id===request);
+      if(previous){if(JSON.stringify(previous.source)!==JSON.stringify(value))throw new Error('certificate_request_conflict');return {organization_id:org,record:previous}}
+      const number=value.number_mode==='auto'?nextNumber():value.number;
+      if(state.records.some(r=>r.number===number))throw new Error('certificate_number_exists');
+      const draft=value.draft_id?state.drafts.find(d=>d.id===value.draft_id&&d.revision===value.draft_revision&&!d.issued_id):null;
+      if(value.draft_id&&!draft)throw new Error('certificate_draft_conflict');
+      const record={...structuredClone(value),number,id:crypto.randomUUID(),request_id:request,source:structuredClone(value)};state.records.unshift(record);if(draft)draft.issued_id=record.id;return {organization_id:org,record};
+    }),
+    saveDraft:(_,id,body,expected,revision)=>mutate(()=>{
+      let draft=state.drafts.find(d=>d.id===id);
+      if(draft?.issued_id)throw new Error('certificate_draft_unavailable');
+      if(draft?.revision===revision&&JSON.stringify(draft.body)===JSON.stringify(body))return {organization_id:org,id,revision};
+      if((draft?.revision||null)!==expected)throw new Error('certificate_draft_conflict');
+      if(!draft){draft={id};state.drafts.push(draft);}Object.assign(draft,{revision,body:structuredClone(body),updated_at:new Date().toISOString()});return {organization_id:org,id,revision};
+    }),
+    drafts:async(_,cursor)=>{const rows=state.drafts.filter(d=>!d.issued_id).slice().reverse(),start=cursor||0;return {organization_id:org,drafts:rows.slice(start,start+50).map(d=>({id:d.id,revision:d.revision,updated_at:d.updated_at,text:d.body.form['custom-text'],service_id:d.body.form.service,content_mode:d.body.form['content-mode'],template_name:d.body.template?.name})),next_cursor:rows.length>start+50?start+50:null}},
+    draft:async(_,id)=>{const d=state.drafts.find(d=>d.id===id&&!d.issued_id);if(!d)throw new Error('certificate_draft_unavailable');return {organization_id:org,...structuredClone(d)}},
+    history:async(_,query,status,cursor)=>{
+      const records=state.records.filter(r=>(r.number+' '+r.procedure).toLocaleLowerCase('ru-RU').includes(query.toLocaleLowerCase('ru-RU'))&&(status==='all'||MinutaCertificateRenderer.status(r,today,r.remind_days).code===status));
+      const start=cursor||0;
+      return {organization_id:org,today,records:records.slice(start,start+50),next_cursor:records.length>start+50?start+50:null,expiring_count:state.records.filter(r=>MinutaCertificateRenderer.status(r,today,r.remind_days).code==='expiring').length};
+    }
+  };
+  function nextNumber(){return (state.records.reduce((n,r)=>/^[0-9]+$/.test(r.number)&&BigInt(r.number)>n?BigInt(r.number):n,0n)+1n).toString()}
+  const controller=MinutaCertificateDesigner.createController({root:document.getElementById('certificateDesignerPanel'),repository,defaultNumber:new URLSearchParams(location.search).has('automatic')?undefined:'267',defaultDate:'2026-10-03',getCurrentUser:()=>({id:'demo'}),requireWrites:()=>true,onIssued:()=>card.reload()});
+  controller.bind();
+  await controller.setOrganization({id:org});
+  const card=MinutaCertificateClientCard.createController({root:document.getElementById('clientCertificateDesigns'),repository,getCurrentUser:()=>({id:'demo'}),onOpen:async item=>{await controller.openIssued(item);document.getElementById('certificateDesignerPanel').scrollIntoView()}});
+  document.querySelector('[data-fixture-client]').addEventListener('change',event=>card.setClient(clients.find(c=>c.phone===event.target.value),{id:org}));
+  // Test-only hooks belong to this fixture, never to the product controller.
+  window.certificateFixture={controller,card,repository,getState:()=>structuredClone(state)};
+})();
+</script></body></html>
