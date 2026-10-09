@@ -14,6 +14,8 @@ const revised = articles.filter(item => item.updatedAt === '6 октября 202
 assert.equal(revised.length, 6, 'Unchanged instructions retain their 6 October editorial date');
 assert.deepEqual(Array.from(articles.filter(item => item.updatedAt === '8 октября 2026'), item => item.slug).sort(),
   ['refund-sale-accounting', 'reschedule', 'statistics-overview', 'statistics-sections']);
+assert.deepEqual(Array.from(articles.filter(item => item.updatedAt === '9 октября 2026'), item => item.slug).sort(),
+  ['add-staff-shift', 'booking-widget', 'calculate-payroll', 'employee-rights', 'inventory-count-adjustment', 'inventory-setup', 'payroll-advance-and-offset', 'payroll-plan']);
 assert.ok(articles.every(item => item.reviewedAt === undefined), 'Editorial dates must not imply live acceptance');
 
 const mobileLabel = read('provider.html').match(/data-provider-view="more"[^>]*>[\s\S]*?<span>([^<]+)<\/span>/)?.[1];
