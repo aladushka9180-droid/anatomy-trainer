@@ -149,7 +149,12 @@ if ! jq -e '
   exit 1
 fi
 
-if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQL:-}" ]]; then
+if [[ "${MINUTA_RESTORE_CANDIDATE_VERSION:-}" == v186-v187 ]]; then
+  stage=candidate-v186-v187-guarded-rehearsal
+  bash "$script_dir/catalog-v186-v187-restore.sh" "$container" "$private_log" "$result" \
+    "${MINUTA_RESTORE_CATALOG_V186_SQL:?}" "${MINUTA_RESTORE_CATALOG_V187_SQL:?}" \
+    "${MINUTA_RESTORE_CATALOG_V187_ROLLBACK_SQL:?}" "${MINUTA_RESTORE_CATALOG_V186_ROLLBACK_SQL:?}"
+elif [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQL:-}" ]]; then
   test -f "${MINUTA_RESTORE_MIGRATION_SQL:?}"
   test -f "${MINUTA_RESTORE_ROLLBACK_SQL:?}"
   candidate_version="${MINUTA_RESTORE_CANDIDATE_VERSION:-v177}"
