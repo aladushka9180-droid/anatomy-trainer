@@ -368,13 +368,14 @@
     const availability = retentionController?.availability || 'idle';
     const payloadValue = retentionController?.payload;
     const payload = typeof payloadValue === 'function' ? payloadValue.call(retentionController) : payloadValue;
-    const payloadMatchesScope = String(payload?.organization_id || '') === String(reportOrganizationId() || '');
-    const scopeReady = reportDataSource !== 'demo' && availability === 'ready' && payloadMatchesScope;
+    const selection = getRetentionSegments();
+    const scopeReady = Boolean(selection);
+    audit.refreshRetentionSegments();
     const periods = scopeReady
       ? 'Учитываются перерыв после последнего завершённого визита и интервал после предыдущего обращения. Сроки задаются в настройках возврата клиентов. '
       : reportDataSource === 'demo' ? 'Для демо-данных сегмент возврата не рассчитывается. ' : 'Условия отбора станут доступны после загрузки сегмента. ';
     setReportText('#reportRetentionConditions', `${periods}Нужны согласие на обращение и отсутствие предстоящей записи. Сообщения не отправляются автоматически.`);
-    if (reportDataSource === 'demo' || availability !== 'ready' || !payloadMatchesScope) {
+    if (!scopeReady) {
       ['#reportRetentionEligible','#reportRetentionRegular','#reportRetentionPrepared','#reportRetentionSent','#reportRetentionUnknownConsent'].forEach(selector => setReportText(selector, '—'));
       panel?.classList.remove('is-empty');
       setEmptyText(reportDataSource === 'demo'
@@ -382,16 +383,16 @@
         : availability === 'loading' ? 'Загружаем сегмент клиентов…'
           : availability === 'error' ? 'Не удалось загрузить сегмент клиентов'
             : availability === 'unsupported' ? 'Сегмент возврата пока недоступен'
-              : 'Откройте вкладку «Клиенты», чтобы загрузить сегмент');
+              : availability === 'ready' ? 'Обновите сегмент для текущего аккаунта и роли'
+                : 'Откройте вкладку «Клиенты», чтобы загрузить сегмент');
       return;
     }
-    const clients = Array.isArray(payload?.clients) ? payload.clients : [];
     const deliveries = Array.isArray(payload?.deliveries) ? payload.deliveries : [];
-    const eligible = clients.filter(item => item.eligible === true).length;
-    const regular = clients.filter(item => item.eligible === true && Number(item.completed_visits || 0) >= 3).length;
+    const eligible = selection.segments.eligible.length;
+    const regular = selection.segments.regular.length;
     const prepared = deliveries.filter(item => ['prepared', 'draft'].includes(String(item.status || '').toLowerCase())).length;
     const sent = deliveries.filter(item => ['sent', 'delivered'].includes(String(item.status || '').toLowerCase())).length;
-    const unknownConsent = clients.filter(item => !item.consent_status || String(item.consent_status).toLowerCase() === 'unknown').length;
+    const unknownConsent = selection.segments.unknownConsent.length;
     setReportText('#reportRetentionEligible', eligible);
     setReportText('#reportRetentionRegular', regular);
     setReportText('#reportRetentionPrepared', prepared);
@@ -421,6 +422,16 @@
     if (sameMonth) return `${reportDateText(start, { day:'numeric' })}–${shortDate(end, true)}`;
     return `${shortDate(start, !sameYear)} — ${shortDate(end, true)}`;
   }
+  function getRetentionSegments() {
+    if (reportDataSource !== 'own') return null;
+    const snapshot = retentionController?.readOnlySnapshot?.();
+    const organization = reportOrganization();
+    const scope = snapshot?.scope;
+    if (!scope || scope.organization !== reportOrganizationId() || scope.role !== organization?.current_role
+      || scope.userId !== currentUser?.id || scope.session !== sessionGeneration) return null;
+    return { scope:{ ...scope, organizationName:organization?.display_name || organization?.name || '' },
+      segments:MinutaStatisticsAuditUI.buildRetentionSegments(snapshot.clients) };
+  }
   function getSegments() {
     const selected = range();
     // Keep the previous-visit population identical to reportClientMetrics.
@@ -445,6 +456,7 @@
       view:document.querySelector('#analyticsView')?.dataset.reportTab || 'overview',
       status:reportUsesScopedBookings() ? reportScopedBookingsState.status : 'ready' }),
     getSegments,
+    getRetentionSegments,
     download:(format, privacy) => {
       if (format === 'xlsx') void exportBookingsXlsxInBackground(privacy);
       else if (format === 'csv') exportBookingsCsv(privacy);

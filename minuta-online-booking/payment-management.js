@@ -331,6 +331,7 @@
       return () => revision === contextRevision && organization?.id === organizationId && currentRole() === role;
     }
     function invalidateContext() {
+      if(global.Event)global.document?.dispatchEvent?.(new global.Event('payment-settings-reset'));
       contextRevision += 1;
       loadRevision += 1;
       setBusy(false);
@@ -654,6 +655,7 @@
       refreshNavigation();
     }
     async function load() {
+      if(global.Event)global.document?.dispatchEvent?.(new global.Event('payment-settings-reset'));
       if (!organization) return { ok:false, optional:true };
       if (!manager()) { available = false; render(); return { ok:false, optional:true, denied:true }; }
       const organizationId = organization.id;
@@ -812,6 +814,7 @@
       if (event.target.id === 'paymentProviderSettingsForm') {
         event.preventDefault();
         if (!organization || !owner() || busy || !requireWrites()) return;
+        if($('#paymentProviderEnabled').checked && $('#paymentProviderEnvironment').value==='production' && !global.MinutaPaymentProductionReview?.canEnable?.()) { notify('Сначала подтвердите внешний тест ЮKassa'); return; }
         const isCurrent = beginOperation();
         const fiscal = $('#paymentFiscalizationEnabled').checked;
         const expected = {

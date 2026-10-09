@@ -3,6 +3,7 @@
   'use strict';
 
   const segmentTitles = Object.freeze({ all:'Посетило', new:'Новые', returning:'Приходили раньше' });
+  const retentionSegmentTitles = Object.freeze({ eligible:'Можно связаться', regular:'Постоянные после перерыва', unknownConsent:'Согласие не указано' });
   const exportSegmentTitles = Object.freeze({ all:'Все клиенты', new:'Новые', returning:'Приходили раньше' });
   const formats = Object.freeze({ xlsx:'Excel (.xlsx)', csv:'CSV (.csv)', pdf:'PDF (.pdf)' });
   const phoneModes = Object.freeze({ masked:'частично скрыты', none:'не включены', full:'полные телефоны клиентов' });
@@ -48,6 +49,16 @@
     return { all, new:all.filter(row => !row.returning), returning:all.filter(row => row.returning) };
   }
 
+  function buildRetentionSegments(clients = []) {
+    const rows = clients.filter(client => client && typeof client.client_account_id === 'string' && client.client_account_id)
+      .map(client => ({ key:client.client_account_id, name:String(client.client_name || 'Без имени'),
+        last:client.last_visit_on, visits:Math.max(0, Number(client.completed_visits) || 0),
+        eligible:client.eligible === true && client.consent_status === 'granted',
+        consent:['granted','revoked'].includes(client.consent_status) ? client.consent_status : 'unknown' }));
+    return { eligible:rows.filter(row => row.eligible), regular:rows.filter(row => row.eligible && row.visits >= 3),
+      unknownConsent:rows.filter(row => row.consent === 'unknown') };
+  }
+
   function scopeKey(scope) {
     if (!scope) return '';
     return JSON.stringify([scope.session, scope.organization, scope.organizationName, scope.source, scope.start, scope.end, scope.performer, scope.performerName, scope.view, scope.status, scope.role, scope.locations, scope.locationId, scope.segment]);
@@ -79,7 +90,7 @@
     return `${contents[format]}${history}`;
   }
 
-  function create({ document, getScope, getSegments, download }) {
+  function create({ document, getScope, getSegments, getRetentionSegments = () => null, download }) {
     if (!document || typeof getScope !== 'function' || typeof getSegments !== 'function' || typeof download !== 'function') throw new TypeError('statistics UI dependencies are required');
     const $ = selector => document.querySelector(selector);
     const report = $('#analyticsView');
@@ -87,6 +98,7 @@
     let segmentDialog;
     let reviewDialog;
     let capturedScope = null;
+    let capturedRetentionScope = null;
     let pendingFormat = '';
     let pendingPrivacy = '';
 
@@ -100,6 +112,8 @@
       return { ...scope, locationId, segment };
     }
     function invalidate() {
+      if (capturedRetentionScope && segmentDialog) segmentDialog.querySelector('.report-audit-list').replaceChildren();
+      capturedRetentionScope = null;
       capturedScope = null;
       pendingFormat = '';
       pendingPrivacy = '';
@@ -110,6 +124,7 @@
     function refresh() {
       renderVisitExportScope();
       if (capturedScope && scopeKey(readyScope()) !== scopeKey(capturedScope)) invalidate();
+      refreshRetentionSegments();
     }
 
     function syncExportControls(scope) {
@@ -148,9 +163,59 @@
       segmentDialog.setAttribute('aria-labelledby', 'reportSegmentTitle');
       segmentDialog.innerHTML = '<div class="report-audit-head"><div><small>Клиенты за период</small><h3 id="reportSegmentTitle"></h3></div><button type="button" class="secondary-button" data-audit-close>Закрыть</button></div><p class="report-audit-scope"></p><p class="report-audit-count"></p><div class="report-audit-list"></div>';
       segmentDialog.querySelector('[data-audit-close]').addEventListener('click', () => segmentDialog.close());
-      segmentDialog.addEventListener('close', () => { capturedScope = null; });
+      segmentDialog.addEventListener('close', () => {
+        capturedScope = null;
+        if (capturedRetentionScope) segmentDialog.querySelector('.report-audit-list').replaceChildren();
+        capturedRetentionScope = null;
+      });
       report.append(segmentDialog);
       return segmentDialog;
+    }
+    function retentionSnapshot() {
+      const snapshot = getRetentionSegments();
+      const current = getScope();
+      const scope = snapshot?.scope;
+      if (!scope || current?.source !== 'own' || !['owner','admin'].includes(scope.role)
+        || scope.organization !== current.organization || scope.session !== current.session || scope.role !== current.role) return null;
+      return snapshot;
+    }
+    function refreshRetentionSegments() {
+      const snapshot = retentionSnapshot();
+      report?.querySelectorAll('[data-report-retention-segment]').forEach(button => { button.disabled = !snapshot; });
+      if (capturedRetentionScope && JSON.stringify(snapshot?.scope || null) !== capturedRetentionScope) invalidate();
+    }
+    function openRetentionSegment(kind) {
+      if (!retentionSegmentTitles[kind]) return false;
+      const snapshot = retentionSnapshot();
+      const rows = snapshot?.segments?.[kind];
+      if (!Array.isArray(rows)) { refreshRetentionSegments(); return false; }
+      const dialog = ensureSegmentDialog();
+      capturedRetentionScope = JSON.stringify(snapshot.scope);
+      capturedScope = null;
+      const caption = dialog.querySelector('.report-audit-head small');
+      if (caption) caption.textContent = 'Возврат клиентов';
+      dialog.querySelector('#reportSegmentTitle').textContent = retentionSegmentTitles[kind];
+      dialog.querySelector('.report-audit-scope').textContent = `${snapshot.scope.organizationName || 'Организация'} · Все филиалы. Период и сотрудник статистики не применяются.`;
+      dialog.querySelector('.report-audit-count').textContent = `${clientCount(rows.length)} · только просмотр · сообщения не отправляются`;
+      const list = dialog.querySelector('.report-audit-list');
+      list.replaceChildren();
+      if (!rows.length) {
+        const empty = document.createElement('p'); empty.textContent = 'В этом сегменте пока нет клиентов.'; list.append(empty);
+      }
+      for (const row of rows) {
+        const item = document.createElement('article'), name = document.createElement('strong'), meta = document.createElement('small');
+        name.textContent = row.name;
+        const consent = row.consent === 'unknown' ? ' · согласие не указано' : '';
+        meta.textContent = `Последний завершённый визит: ${localDate(row.last)} · визитов ${row.visits}${consent}`;
+        item.append(name, meta); list.append(item);
+      }
+      dialog.showModal(); return true;
+    }
+    function mountRetentionSegments() {
+      report?.querySelectorAll('[data-report-retention-segment]').forEach(button => {
+        button.addEventListener('click', () => openRetentionSegment(button.dataset.reportRetentionSegment));
+      });
+      refreshRetentionSegments();
     }
     function openSegment(kind) {
       if (!segmentTitles[kind]) return false;
@@ -160,6 +225,8 @@
       const rows = segments?.[kind];
       if (!Array.isArray(rows)) return false;
       const dialog = ensureSegmentDialog();
+      const caption = dialog.querySelector('.report-audit-head small');
+      if (caption) caption.textContent = 'Клиенты за период';
       capturedScope = { ...scope };
       dialog.querySelector('#reportSegmentTitle').textContent = segmentTitles[kind];
       dialog.querySelector('.report-audit-scope').textContent = scopeText(scope);
@@ -376,9 +443,9 @@
         if (Math.abs(heatmap.scrollLeft) > 1) hint.hidden = true;
       }, { passive:true });
     }
-    function mount() { mountSegments(); mountExport(); mountDateValidation(); mountHeatmapHint(); }
-    return { mount, refresh, openSegment, openExport, chooseFormat, validateCustomDates, invalidate };
+    function mount() { mountSegments(); mountRetentionSegments(); mountExport(); mountDateValidation(); mountHeatmapHint(); }
+    return { mount, refresh, refreshRetentionSegments, openSegment, openRetentionSegment, openExport, chooseFormat, validateCustomDates, invalidate };
   }
 
-  root.MinutaStatisticsAuditUI = Object.freeze({ create, buildClientSegments, scopeKey, scopeText });
+  root.MinutaStatisticsAuditUI = Object.freeze({ create, buildClientSegments, buildRetentionSegments, scopeKey, scopeText });
 })(window);

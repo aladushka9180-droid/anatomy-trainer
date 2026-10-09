@@ -16,6 +16,7 @@ const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_C
 try {
   for (const width of [360, 390, 760, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:900 } });
+    await page.route('**/*', route => route.abort());
     await page.goto('about:blank');
     await page.evaluate(source => {
       const parsed = new DOMParser().parseFromString(source, 'text/html');
@@ -67,6 +68,13 @@ try {
       const firstAgain = { ...first, booking_date:'2026-09-10', booking_time:'12:00' };
       const second = { client_name:'Мария', client_phone:'79992222222', booking_date:'2026-09-03', booking_time:'10:00' };
       window.auditTest = { scope:{ session:1, organization:'org-1', source:'own', role:'owner', locations:[{id:'branch-a',name:'Первый филиал'}], start:'2026-09-01', end:'2026-09-30', performer:'all', performerName:'Вся команда', status:'ready' }, downloads:[] };
+      window.auditTest.retention = {scope:{organization:'org-1',role:'owner',session:1,revision:1,organizationName:'Учебная организация'},
+        segments:MinutaStatisticsAuditUI.buildRetentionSegments([
+          {client_account_id:'client-a',client_name:'Анна <script>',completed_visits:4,eligible:true,consent_status:'granted',last_visit_on:'2026-09-10'},
+          {client_account_id:'client-b',client_name:'Мария',completed_visits:1,eligible:true,consent_status:'granted',last_visit_on:'2026-09-11'},
+          {client_account_id:'client-c',client_name:'Ольга',completed_visits:3,eligible:false,consent_status:'unknown',last_visit_on:'2026-09-12'},
+          {client_account_id:'client-d',client_name:'Отказ от связи',completed_visits:5,eligible:true,consent_status:'revoked'}
+        ])};
       window.auditTest.legacyDownloads = 0;
       window.auditTest.legacyDateSubmits = 0;
       document.querySelector('#exportBookings').addEventListener('click', () => document.querySelector('#reportExportDialog').showModal());
@@ -75,6 +83,7 @@ try {
       window.auditController = window.MinutaStatisticsAuditUI.create({
         document,
         getScope:() => window.auditTest.scope,
+        getRetentionSegments:() => window.auditTest.retention,
         getSegments:() => window.MinutaStatisticsAuditUI.buildClientSegments({ completed:[first,firstAgain,second], history:[{ client_phone:'79992222222' }], identityFor:item => item.client_phone }),
         download:(format,privacy) => window.auditTest.downloads.push({ format,privacy,
           location:document.querySelector('#reportExportLocation').value,
@@ -82,6 +91,27 @@ try {
       });
       window.auditController.mount();
     });
+    for (const [kind,names] of [['eligible',['Анна <script>','Мария']],['regular',['Анна <script>']],['unknownConsent',['Ольга']]]) {
+      await page.locator(`[data-report-retention-segment="${kind}"]`).click();
+      const dialog=page.locator('.report-segment-dialog');
+      assert.deepEqual(await dialog.locator('.report-audit-list article strong').allTextContents(),names);
+      assert.equal(await dialog.locator('a,input,script').count(),0,'Read-only lists contain no contact or send actions');
+      assert.match(await dialog.locator('.report-audit-scope').textContent(),/Все филиалы.*не применяются/);
+      assert.match(await dialog.locator('.report-audit-count').textContent(),/только просмотр/);
+      if(process.env.MINUTA_SCREENSHOT_DIR) await dialog.screenshot({path:`${process.env.MINUTA_SCREENSHOT_DIR}/retention-${kind}-${width}.png`});
+      await dialog.locator('[data-audit-close]').click();
+    }
+    await page.locator('[data-report-retention-segment="eligible"]').click();
+    await page.evaluate(()=>{auditTest.scope.session=2;auditController.refresh();});
+    assert.equal(await page.locator('.report-segment-dialog').isVisible(),false,'Session change immediately closes the old list');
+    assert.equal(await page.locator('.report-segment-dialog .report-audit-list article').count(),0);
+    assert.equal(await page.locator('[data-report-retention-segment="eligible"]').isDisabled(),true);
+    await page.evaluate(()=>{auditTest.scope.session=1;auditController.refresh();});
+    const retentionLayout = await page.evaluate(() => ({
+      available:document.querySelector('.report-retention-list').getBoundingClientRect().width,
+      consent:document.querySelector('[data-report-retention-segment="unknownConsent"]').getBoundingClientRect().width
+    }));
+    assert.ok(retentionLayout.consent >= retentionLayout.available * .95, 'Unknown-consent card keeps its original full-row width');
     assert.equal(await page.locator('.report-segment-button').count(), 3);
     await page.locator('[data-report-segment="new"]').click();
     assert.match(await page.locator('.report-segment-dialog').innerText(), /1 клиент/);

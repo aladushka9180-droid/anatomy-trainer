@@ -87,14 +87,22 @@ try {
       window.reviewNotices = [];
       window.reviewRole = 'owner';
       window.reviewError = false;
+      window.reviewSettingsByOrg = {};
       const db = {
         rpc:async (name, args) => {
           reviewCalls.push({ name, args });
           if (reviewError) return { data:null, error:{ code:'temporary_error' } };
           if (name === 'get_minuta_payment_workspace') return { data:{
-            organization_id:args.p_organization, current_role:reviewRole, settings:{ enabled:false, environment:'test', fiscalization_enabled:false },
+            organization_id:args.p_organization, current_role:reviewRole, settings:reviewSettingsByOrg[args.p_organization] || { enabled:false, environment:'test', fiscalization_enabled:false },
             recent_attempts:[], recent_refunds:[], recent_reconciliations:[]
           }, error:null };
+          if (name === 'set_minuta_yookassa_settings') {
+            const settings = { enabled:args.p_enabled, environment:args.p_environment,
+              fiscalization_enabled:args.p_fiscalization_enabled, taxation:args.p_taxation,
+              vat_code:args.p_vat_code, payment_mode:args.p_payment_mode };
+            reviewSettingsByOrg[args.p_organization] = settings;
+            return { data:{organization_id:args.p_organization,settings},error:null };
+          }
           throw new Error(`Unexpected RPC: ${name}`);
         },
         from:() => { throw new Error('No payment-table access in review test'); },
@@ -120,7 +128,7 @@ try {
     await page.locator('#paymentProviderPanel .contextual-help__trigger').press('Escape');
     assert.equal(await page.locator('#paymentProviderPanel .contextual-help__panel').isVisible(), false);
     assert.equal(await page.evaluate(() => document.querySelector('#paymentProviderWorkspace').compareDocumentPosition(document.querySelector('#paymentSandboxDisclosure')) & Node.DOCUMENT_POSITION_FOLLOWING), 4);
-    assert.equal(await page.locator('#paymentProviderSettingsForm input[type=checkbox]').count(), 3);
+    assert.equal(await page.locator('#paymentProviderSettingsForm input[type=checkbox]').count(), 4);
     const controls = await page.evaluate(() => {
       const button = document.querySelector('#paymentProviderSettingsForm button[type=submit]');
       const style = getComputedStyle(button);
@@ -147,7 +155,7 @@ try {
     await page.locator('#paymentProviderEnabled').check();
     await page.locator('#paymentProviderSettingsForm button[type="submit"]').click();
     assert.equal(await page.evaluate(() => reviewCalls.some(call => call.name === 'set_minuta_yookassa_settings')), false);
-    assert.match(await page.locator('#paymentProviderReviewNotice').textContent(), /подтвердите ознакомление/);
+    assert.match(await page.locator('#paymentProviderReviewNotice').textContent(), /подтвердите ознакомление|подтвердите успешный тест/);
     assert.equal(await page.locator('#paymentProviderSettingsForm button[type="submit"]').isEnabled(), true);
     const layout = await page.evaluate(() => ({
       viewport:innerWidth, scrollWidth:document.documentElement.scrollWidth,
@@ -160,14 +168,55 @@ try {
     await page.evaluate(() => { document.activeElement?.blur(); scrollTo(0,0); });
     await page.screenshot({ path:resolve(output, `payment-review-${theme}-${width}.png`), fullPage:true });
     if (width === 390 && theme === 'pink-porcelain') {
+      // Acknowledgement alone must never enable the live store. The baseline
+      // reaches the mocked settings writer here, reproducing the original gap.
+      await page.locator('#paymentProviderProductionAcknowledged').check();
+      await page.locator('#paymentProviderSettingsForm button[type=submit]').click();
+      assert.equal(await page.evaluate(() => reviewCalls.filter(call => call.name === 'set_minuta_yookassa_settings').length), 0,
+        'Reading the warning is not confirmation of a successful external test');
+      const tested = page.locator('#paymentProviderExternalTestConfirmed');
+      await tested.check();
+      await page.locator('#paymentProviderProductionAcknowledged').check();
+      await page.locator('#paymentFiscalizationEnabled').check();
+      assert.equal(await tested.isChecked(), false, 'Receipt changes invalidate the external test');
+      assert.equal(await page.locator('#paymentProviderProductionAcknowledged').isChecked(), false);
+      await page.locator('#paymentFiscalizationEnabled').uncheck();
+      await tested.check();
+      await page.locator('#paymentProviderProductionAcknowledged').check();
+      // Even a silent programmatic field change must refuse the stale confirmation.
+      await page.evaluate(() => { document.querySelector('#paymentTaxation').value = 'osn'; });
+      await page.locator('#paymentProviderSettingsForm button[type=submit]').click();
+      assert.equal(await page.evaluate(() => reviewCalls.filter(call => call.name === 'set_minuta_yookassa_settings').length), 0);
+      await page.locator('#paymentTaxation').selectOption('usn_income', {force:true});
+      await tested.check();
+      await page.locator('#paymentProviderProductionAcknowledged').check();
+      await page.evaluate(() => { window.reviewGuard = MinutaPaymentProductionReview; delete window.MinutaPaymentProductionReview; });
+      await page.locator('#paymentProviderSettingsForm button[type=submit]').click();
+      assert.equal(await page.evaluate(() => reviewCalls.filter(call => call.name === 'set_minuta_yookassa_settings').length), 0,
+        'Missing review module must fail closed in the settings controller');
+      await page.evaluate(() => { window.MinutaPaymentProductionReview = reviewGuard; });
+      await page.locator('#paymentProviderSettingsForm button[type=submit]').click();
+      await page.waitForFunction(() => reviewCalls.some(call => call.name === 'set_minuta_yookassa_settings')
+        && document.querySelector('#paymentSoftMode').textContent === 'Рабочий магазин');
+      assert.equal(await page.evaluate(() => reviewCalls.filter(call => call.name === 'set_minuta_yookassa_settings').length), 1);
+      assert.equal(await tested.isChecked(), false, 'Reloading saved settings clears session confirmation');
+      // Stopping payment collection remains available without a new external test.
+      await page.locator('#paymentProviderEnabled').uncheck();
+      await page.locator('#paymentProviderSettingsForm button[type=submit]').click();
+      await page.waitForFunction(() => reviewCalls.filter(call => call.name === 'set_minuta_yookassa_settings').length === 2
+        && document.querySelector('#paymentSoftStatus').textContent === 'Выключена');
+      assert.equal(await page.evaluate(() => reviewSettingsByOrg['11111111-1111-4111-8111-111111111111'].enabled), false);
+      await tested.check();
       await page.locator('#paymentProviderProductionAcknowledged').check();
       const otherOrganization = '33333333-3333-4333-8333-333333333333';
       await page.evaluate(async id => { await reviewController.setOrganization({ id, current_role:'owner' }); }, otherOrganization);
+      assert.equal(await tested.isChecked(), false, 'External test must not transfer to another organization');
       assert.equal(await page.locator('#paymentProviderProductionAcknowledged').isChecked(), false,
         'Production acknowledgement must not transfer to another organization');
       await page.locator('#paymentProviderEnvironment').selectOption('production');
       await page.locator('#paymentProviderProductionAcknowledged').check();
       await page.evaluate(() => reviewController.reset());
+      assert.equal(await tested.isChecked(), false, 'External test must clear on session reset');
       assert.equal(await page.locator('#paymentProviderProductionAcknowledged').isChecked(), false,
         'Production acknowledgement must clear on session reset');
       assert.equal(await page.locator('#paymentProviderReview').isVisible(), false);
@@ -187,5 +236,5 @@ try {
   }
   assert.deepEqual(errors, []);
   assert.deepEqual(unexpected, []);
-  console.log('Payment soft UI + production review: PASS (6 themes x 390/760/1440 + 320; saved/draft state, receipts, keyboard disclosure, roles, unknown settings, production gate; no payment/settings write)');
+  console.log('Payment soft UI + production review: PASS (6 themes x 390/760/1440 + 320; saved/draft state, receipts, keyboard disclosure, roles, unknown settings, production gate; mock settings writes only, no external request/payment)');
 } finally { await browser.close(); }

@@ -5963,6 +5963,7 @@ function renderNotifications() {
   const marks = notificationMarks();
   const tasks = buildNotificationTasks().map(task => ({ ...task, mark: marks[task.key] || '', isDue: task.dueAt <= now }));
   const pending = tasks.filter(task => task.isDue && task.mark !== 'sent').length;
+  holder.dataset.pendingCount=pending;
   const importantRows=importantNotificationRows(),importantUnread=importantNotificationUnreadRows().length;
   const importantToday=importantRows.filter(event=>localIsoDate(new Date(event.occurred_at))===businessTodayIso()).length;
   const failedDeliveries=notificationOutbox.filter(item=>item.status==='failed').length;
@@ -17511,21 +17512,21 @@ document.addEventListener('click', async event => {
     await toggleServiceVisibility(toggle);
   }
   if (remove && confirm('Удалить услугу? Отменённые тестовые записи будут очищены.')) {
-    const servicePhotoPath = servicePublicDetails.get(remove.dataset.deleteService)?.photo_storage_path || '';
-    let { data, error } = await db.rpc('provider_delete_service', { p_service: remove.dataset.deleteService });
-    if (error?.code === '23503' && /organization_waitlist_requests/.test(`${error.message || ''} ${error.details || ''}`)) {
-      // Preserve scoped waitlist history instead of removing its service.
-      const hidden = await db.from('services').update({active:false}).eq('id',remove.dataset.deleteService).select('id').maybeSingle();
-      error = hidden.error || (hidden.data ? null : new Error('service_not_archived'));
-      data = 'archived';
+    const id=remove.dataset.deleteService;
+    const photoPath=servicePublicDetails.get(id)?.photo_storage_path||'';
+    let {data,error}=await db.rpc('provider_delete_service',{p_service:id});
+    if (error?.code==='23503' && (/organization_waitlist_requests/.test(`${error.message || ''} ${error.details || ''}`) || /update or delete on table "services" violates foreign key constraint/i.test(error.message || ''))) {
+      const hidden=await db.from('services').update({active:false}).eq('id',id).eq('performer_id',currentUser.id).select('id,active').maybeSingle();
+      error=hidden.error || (hidden.data?.id===id && hidden.data.active===false ? null : new Error('service_not_archived'));
+      data='archived';
     }
     if (error) notify('Не удалось удалить услугу');
     else {
-      if (data === 'deleted') {
-        await saveServiceScheduleName(remove.dataset.deleteService, false, '');
-        if (servicePhotoPath) await db.storage.from(SERVICE_IMAGE_BUCKET).remove([servicePhotoPath]);
+      if (data==='deleted') {
+        await saveServiceScheduleName(id,false,'');
+        if (photoPath) await db.storage.from(SERVICE_IMAGE_BUCKET).remove([photoPath]);
       }
-      notify(data === 'deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
+      notify(data==='deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
     }
     await refreshAfterWrite();
   }
