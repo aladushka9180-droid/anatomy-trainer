@@ -1,0 +1,48 @@
+name: Minuta isolated single catch-up reminder
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/pro-reminder-safety-20261005]
+    paths:
+      - '.github/workflows/minuta-reminder-single-catchup.yml'
+      - 'minuta-online-booking/scripts/reminder-single-catchup-*.sql'
+      - 'minuta-online-booking/tests/reminder-*'
+      - 'minuta-online-booking/tests/provider-reminder-safety-db-test.mjs'
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-reminder-only
+          POSTGRES_DB: minuta_reminder_fixture
+        ports: ['55437:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d minuta_reminder_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Synthetic database and dispatcher contracts
+        run: |
+          npm install --prefix "$RUNNER_TEMP/reminder-deps" --no-save --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.3.10 pg@8.16.3
+          export MINUTA_PGLITE_PACKAGE="$RUNNER_TEMP/reminder-deps/node_modules/@electric-sql/pglite"
+          node minuta-online-booking/tests/provider-reminder-safety-db-test.mjs
+          node minuta-online-booking/tests/reminder-multichannel-db-test.mjs
+          node minuta-online-booking/tests/notification-edge-integration-test.mjs
+          node minuta-online-booking/offline-booking-provider-notifications-test.mjs
+      - name: Native PostgreSQL concurrency and rollback
+        env:
+          MINUTA_REMINDER_EPHEMERAL_CONFIRM: EMPTY_LOOPBACK_POSTGRES_17
+          MINUTA_REMINDER_EPHEMERAL_DATABASE_URL: postgresql://postgres:ephemeral-reminder-only@127.0.0.1:55437/minuta_reminder_fixture
+        run: |
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/reminder-deps/node_modules/pg/lib/index.js"
+          node minuta-online-booking/tests/reminder-multichannel-postgres-test.mjs
