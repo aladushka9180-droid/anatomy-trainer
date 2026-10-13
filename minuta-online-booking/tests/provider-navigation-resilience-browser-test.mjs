@@ -73,7 +73,7 @@ try {
       await clickView('messages');
       await page.mouse.wheel(0, 700);
       await clickView('notifications');
-      await page.locator('[data-open-notification-templates]').click({ timeout:5000 });
+      await page.locator('[data-provider-panel="notifications"] .notification-settings-button').click({ timeout:5000 });
       await page.locator('#notificationTemplatesDialog[open]').waitFor({ state:'visible' });
       await page.locator('[data-close-notification-templates]').click({ timeout:5000 });
       await page.locator('#notificationTemplatesDialog').waitFor({ state:'hidden' });
