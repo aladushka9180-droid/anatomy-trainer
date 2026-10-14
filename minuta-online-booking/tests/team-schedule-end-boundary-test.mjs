@@ -59,8 +59,22 @@ try {
   assert.deepEqual((await metadata()).rows,beforeMetadata);
   assert.deepEqual((await db.query(`select pg_get_functiondef(oid) definition from pg_proc where proname in ('minuta_booking_fits_active_shift','set_minuta_branch_shifts_enabled') order by proname`)).rows,beforeDefinitions,'rollback restores exact function definitions');
   await db.exec(apply); assert.equal(await fits('22:30',120),false,'reapply restores the correction');
+  // O08 renames the original validator and keeps a new coverage wrapper above it.
+  // Preserve that wrapper rather than replace it with the old implementation.
+  await db.exec(`alter function public.set_minuta_branch_shifts_enabled(uuid,boolean) rename to set_minuta_branch_shifts_enabled_v71_core;
+    create function public.set_minuta_branch_shifts_enabled(p_organization uuid,p_enabled boolean) returns boolean language sql security definer set search_path to ''
+      as $$select public.set_minuta_branch_shifts_enabled_v71_core(p_organization,p_enabled)$$;`);
+  const wrapperBefore = await scalar(`select pg_get_functiondef('public.set_minuta_branch_shifts_enabled(uuid,boolean)'::regprocedure)`);
+  await db.exec(apply); await db.exec(rollback);
+  assert.equal(await fits('22:30',120),true);
+  await db.exec(apply);
+  assert.equal(await fits('22:30',120),false);
+  assert.equal(await scalar(`select pg_get_functiondef('public.set_minuta_branch_shifts_enabled(uuid,boolean)'::regprocedure)`),wrapperBefore);
+  await assert.rejects(db.query(`select public.set_minuta_branch_shifts_enabled('${org}',true)`),/existing_bookings_outside_shifts/);
   // Unknown source must fail closed rather than overwrite another owner's future function.
-  await db.exec(`create or replace function public.set_minuta_branch_shifts_enabled(p_organization uuid,p_enabled boolean) returns boolean language plpgsql security definer set search_path to '' as $$begin return p_enabled; end$$;`);
+  await db.exec(`create or replace function public.set_minuta_branch_shifts_enabled_v71_core(p_organization uuid,p_enabled boolean) returns boolean language plpgsql security definer set search_path to '' as $$begin return p_enabled; end$$;`);
+  await db.exec(functionSql('minuta_booking_fits_active_shift'));
   await assert.rejects(db.exec(apply),/team_schedule_end_boundary_source_mismatch/); await db.exec('rollback');
-  console.log('Shift end boundary: original repro, 8 time cases, strict preflight, data/ACL preservation, replay, rollback/reapply and source guard passed (disposable partial PGlite)');
+  assert.equal(await fits('22:30',120),true,'source mismatch rolls back the earlier function transformation too');
+  console.log('Shift end boundary: original repro, 8 time cases, strict preflight, data/ACL preservation, replay, rollback/reapply, O08 wrapper and atomic source guard passed (disposable partial PGlite)');
 } finally { await db.close(); }
