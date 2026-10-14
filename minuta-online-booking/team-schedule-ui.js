@@ -24,7 +24,7 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = id => document.getElementById(id);
   const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
-  const plusDays = (iso, n) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  const plusDays = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
   const dateText = (iso, options = { day: 'numeric', month: 'short' }) => new Date(`${iso}T12:00:00`).toLocaleDateString('ru-RU', options);
   const time = value => String(value || '').slice(0, 5);
   const hours = minutes => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(Number(minutes || 0) / 60);
