@@ -11486,27 +11486,26 @@ function restoreNewBookingClientLookupStatus() {
   refreshNewBookingCard();
 }
 
-function applyNewBookingClient(client, { automatic = false } = {}) {
-  if (!client) return;
-  const nameInput = $('#newBookingName');
-  const currentName = nameInput.value.trim();
-  const canReplaceName = !currentName || currentName === newBookingAutoFilledName;
-  if (automatic && !canReplaceName) return false;
-  nameInput.value = client.name;
-  $('#newBookingPhone').value = client.displayPhone;
-  nameInput.required = true;
-  $('#newBookingPhone').required = true;
-  newBookingAutoFilledPhone = client.phone;
-  newBookingAutoFilledName = client.name;
-  const note = $('#newBookingNote');
-  if (note && !note.value.trim() && client.note) note.value = client.note;
-  $('#newBookingSheetTitle').textContent = 'Повторная запись';
-  $('#newBookingSectionSubtitle').textContent = 'Клиент найден в базе';
-  $('#newBookingClientFields').dataset.clientLookupState = 'found';
-  hideNewBookingClientSuggestions();
-  refreshNewBookingCard();
-  saveNewBookingDraft();
-  return true;
+function applyNewBookingClient(client, {automatic=false}={}) {
+if (!client) return;
+const nameInput=$('#newBookingName'),currentName=nameInput.value.trim(),canReplaceName=!currentName||currentName===newBookingAutoFilledName;
+if (automatic && !canReplaceName) return false;
+nameInput.value = client.name;
+$('#newBookingPhone').value = client.displayPhone;
+nameInput.required = true;
+$('#newBookingPhone').required = true;
+newBookingAutoFilledPhone = client.phone;
+newBookingAutoFilledName = client.name;
+const note = $('#newBookingNote');
+if (note && !note.value.trim() && client.note) note.value = client.note;
+$('#newBookingSheetTitle').textContent = 'Повторная запись';
+$('#newBookingSectionSubtitle').textContent = 'Клиент найден в базе';
+$('#newBookingClientFields').dataset.clientLookupState = 'found';
+hideNewBookingClientSuggestions();
+globalThis.PrimeTimeNewBookingCard?.clearPhoneError?.(normalizePhone(client.displayPhone));
+refreshNewBookingCard();
+saveNewBookingDraft();
+return true;
 }
 
 function selectNewBookingClient(key) {
