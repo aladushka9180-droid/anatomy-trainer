@@ -34,13 +34,13 @@ async function fixture({ enabled = true } = {}) {
   await page.addStyleTag({ content:'svg{width:20px;height:20px}label{display:block;margin:8px}input,textarea,button,select{font:16px sans-serif}textarea{width:500px;height:90px}' });
   await page.addScriptTag({ content:source });
   await page.evaluate(async enabled => {
-    const state = window.testState = { user:'owner', generation:1, mode:'success', calls:[], notices:[], confirmations:[], settled:0 };
+    const state = window.testState = { user:'owner', generation:1, mode:'success', calls:[], notices:[], confirmations:[], settled:0, settingsByOrg:{} };
     const workspace = id => ({ organization_id:id, current_role:'owner', enabled, inactivity_days:45, cooldown_days:90,
       message_template:`Здравствуйте, клиент ${id}! Приглашаем снова: {ссылка}`,
       clients:[{ client_account_id:`client-${id}`, client_name:`Клиент ${id}`, client_phone:'+79990000000',
         last_visit_on:'2025-01-01', eligible:true, consent_status:'granted', completed_visits:1,
         performer_id:'performer-a', last_booking_id:'booking-a', last_sent_at:null }],
-      deliveries:[], audit:[{ id:41, action:'retention_settings_saved', subject_id:null, created_at:'2026-09-05T10:00:00Z' }] });
+      deliveries:[], audit:[{ id:41, action:'retention_settings_saved', subject_id:null, created_at:'2026-09-05T10:00:00Z' }], ...state.settingsByOrg[id] });
     const db = { rpc:async (name, args) => {
       state.calls.push({ name, args:structuredClone(args) });
       if (name === 'get_minuta_retention_workspace') return { data:workspace(args.p_organization), error:null };
@@ -50,7 +50,11 @@ async function fixture({ enabled = true } = {}) {
         });
         if (state.mode === 'throw') throw new Error('connection lost');
         const scope = { organization_id:args.p_organization };
-        if (name === 'save_minuta_retention_settings') return { data:{ ...scope, enabled:args.p_enabled }, error:null };
+        if (name === 'save_minuta_retention_settings') {
+          state.settingsByOrg[args.p_organization]={ enabled:args.p_enabled, inactivity_days:args.p_inactivity_days,
+            cooldown_days:args.p_cooldown_days, message_template:args.p_message_template };
+          return { data:{ ...scope, enabled:args.p_enabled }, error:null };
+        }
         if (name === 'prepare_minuta_retention_delivery') return { data:{ ...scope, id:'delivery-a', client_phone:'+79990000000', message:'Приглашаем клиента снова', status:'prepared' }, error:null };
         throw new Error(`Unexpected fixture RPC: ${name}`);
       } finally { state.settled += 1; }

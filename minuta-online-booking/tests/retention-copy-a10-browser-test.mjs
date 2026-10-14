@@ -66,6 +66,7 @@ try {
     await page.addScriptTag({ content:source });
     await page.evaluate(async () => {
       window.a10Calls = [];
+      const settings={ enabled:false, inactivity_days:45, cooldown_days:90, message_template:'' };
       const clients = [
         { client_account_id:'synthetic-no-visits', client_name:'Клиент А', client_phone:'', last_visit_on:null,
           completed_visits:0, consent_status:'unknown', eligible:false },
@@ -77,11 +78,12 @@ try {
       const db = { rpc:async (name, args) => {
         a10Calls.push({ name, args });
         if (name === 'save_minuta_retention_settings') {
+          Object.assign(settings,{ enabled:args.p_enabled, inactivity_days:args.p_inactivity_days,
+            cooldown_days:args.p_cooldown_days, message_template:args.p_message_template });
           return { data:{ organization_id:'synthetic-org', enabled:args.p_enabled }, error:null };
         }
         if (name !== 'get_minuta_retention_workspace') throw new Error(`Unexpected operation: ${name}`);
-        return { data:{ organization_id:'synthetic-org', current_role:'owner', enabled:false,
-          inactivity_days:45, cooldown_days:90, message_template:'', clients, deliveries:[], audit:[] }, error:null };
+        return { data:{ organization_id:'synthetic-org', current_role:'owner', ...settings, clients, deliveries:[], audit:[] }, error:null };
       } };
       const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g,
         char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
@@ -153,7 +155,7 @@ try {
     assert.equal(await saveStatus.innerText(), 'Ожидает сохранения…');
     await page.waitForFunction(() => document.querySelector('#retentionSaveStatus').textContent === 'Сохранено автоматически');
     const calls = await page.evaluate(() => a10Calls);
-    assert.deepEqual(calls.map(call => call.name), ['get_minuta_retention_workspace', 'save_minuta_retention_settings']);
+    assert.deepEqual(calls.map(call => call.name), ['get_minuta_retention_workspace', 'save_minuta_retention_settings', 'get_minuta_retention_workspace']);
     assert.equal(calls[1].args.p_enabled, false, 'editing text must not enable selection');
     assert.equal(calls[1].args.p_inactivity_days, 45);
     assert.equal(calls[1].args.p_cooldown_days, 90);

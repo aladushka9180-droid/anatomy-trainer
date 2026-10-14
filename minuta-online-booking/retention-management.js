@@ -2,6 +2,8 @@
   'use strict';
 
   const defaultTemplate = 'Здравствуйте, {имя}! Это {организация}. Выбрать время и записаться: {ссылка}';
+  const visitDateFormat = new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'short', year:'numeric' });
+  const deliveryDateFormat = new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
 
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
@@ -20,10 +22,21 @@
     let activeWrite = null;
     let pendingSession = null;
     let bound = false;
+    let clientPage = 0;
+    const clientPageSize = 50;
     const selectedClients = new Set();
     const acknowledged = new Map();
     let retainedScope = null;
     const copying = new Map();
+    const clientIndex = new Map();
+    const preparedClients = new Set();
+
+    function clearDataIndex() { clientIndex.clear(); preparedClients.clear(); }
+    function indexWorkspace() {
+      clearDataIndex();
+      for (const client of payload?.clients || []) clientIndex.set(String(client.client_account_id), client);
+      for (const delivery of payload?.deliveries || []) if (delivery.status === 'prepared') preparedClients.add(String(delivery.client_account_id));
+    }
 
     async function rpc(name, args) {
       try { return await db.rpc(name, args) || { error: new Error('empty_rpc_response') }; }
@@ -41,6 +54,8 @@
     function retainForScope(next = scopeSnapshot()) {
       if (!retainedScope || ['id', 'role', 'userId', 'generation'].some(key => retainedScope[key] !== next[key])) {
         selectedClients.clear(); acknowledged.clear(); copying.clear();
+        clientPage = 0;
+        clearDataIndex();
         for (const selector of ['#retentionClientsList', '#retentionDeliveriesList', '#retentionSelectionToolbar']) {
           const node = $(selector); if (node) node.innerHTML = '';
         }
@@ -53,6 +68,7 @@
     }
     function hideWorkspace() {
       payload = null; availability = null;
+      clearDataIndex();
       $('#retentionPanel').hidden = true;
       $('#retentionLoading').hidden = true;
       $('#retentionUnavailable').hidden = true;
@@ -131,12 +147,12 @@
     function formatDate(value) {
       if (!value) return 'визитов пока нет';
       const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
-      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+      return Number.isNaN(date.getTime()) ? String(value) : visitDateFormat.format(date);
     }
     function formatDateTime(value) {
       if (!value) return '';
       const date = new Date(value);
-      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      return Number.isNaN(date.getTime()) ? String(value) : deliveryDateFormat.format(date);
     }
     function phoneDigits(value) {
       let digits = String(value || '').replace(/\D/g, '');
@@ -147,13 +163,14 @@
     function empty(title, text) { return `<div class="provider-empty compact-empty"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(text)}</small></div>`; }
 
     function setBusy(value) {
-      $('#retentionPanel')?.querySelectorAll('[data-retention-write]').forEach(control => {
+      $('#retentionPanel')?.querySelectorAll('[data-retention-write], [data-retention-page]').forEach(control => {
         if (value && !control.disabled) { control.disabled = true; control.dataset.retentionBusy = 'true'; }
         else if (!value && control.dataset.retentionBusy === 'true') { control.disabled = false; delete control.dataset.retentionBusy; }
       });
     }
     function reset() {
       selectedClients.clear(); acknowledged.clear(); copying.clear(); retainedScope = null;
+      clientPage = 0;
       clearTimeout(settingsSaveTimer); settingsSaveTimer = null;
       reviewingEnable = false;
       revision += 1; scopeRevision += 1; organization = null; writing = false; activeWrite = null; pendingOrganization = undefined; pendingSession = null;
@@ -178,7 +195,7 @@
       retainForScope();
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization?.id, request = ++revision;
       if (!userId || !organizationId) { reset(); return { ok: false, optional: true }; }
-      availability = 'loading'; payload = null;
+      availability = 'loading'; payload = null; clearDataIndex();
       $('#retentionPanel').hidden = false; $('#retentionLoading').hidden = false; $('#retentionUnavailable').hidden = true; $('#retentionWorkspace').hidden = true;
       const { data, error } = await rpc('get_minuta_retention_workspace', { p_organization: organizationId });
       if (!sessionIsCurrent(userId, generation) || request !== revision || organization?.id !== organizationId) return { ok: false, optional: true, stale: true };
@@ -210,6 +227,7 @@
         organization.current_role = normalized.current_role; retainForScope();
       }
       acknowledged.clear();
+      indexWorkspace();
       pruneSelection();
       availability = 'ready'; render(); return { ok: true, optional: true };
     }
@@ -225,10 +243,9 @@
           eligible:client.eligible, consent_status:client.consent_status
         })) };
     }
-    function clientById(id) { return payload?.clients.find(client => String(client.client_account_id) === String(id)); }
+    function clientById(id) { return clientIndex.get(String(id)); }
     function preparedFor(id) {
-      return payload?.deliveries.some(row => row.status === 'prepared' && row.client_account_id === id)
-        || [...acknowledged.values()].some(row => row.client_account_id === id);
+      return preparedClients.has(String(id));
     }
     function selectableClients() { return payload?.clients.filter(client => client.eligible && !preparedFor(client.client_account_id)) || []; }
     function pruneSelection() {
@@ -267,7 +284,11 @@
     function deliveryCard(delivery, fallback = false) {
       const client = clientById(delivery.client_account_id) || delivery;
       const status = { prepared: 'Подготовлено · не отправлено', sent: 'Отмечено отправленным вручную', cancelled: 'Отменено', failed: 'Ошибка' }[delivery.status] || delivery.status;
-      const actions = !fallback && delivery.status === 'prepared' ? `<details class="retention-delivery-options"><summary>Ещё</summary><div class="retention-row-actions"><a class="secondary-button" href="${escapeHtml(whatsappUrl(client.client_phone, delivery.message_snapshot))}" target="_blank" rel="noopener noreferrer">Открыть WhatsApp и отправить</a><button class="secondary-button compact-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="sent" data-retention-write>Я отправил · отметить</button><button class="danger-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="cancelled" data-retention-write>Отменить</button></div></details>` : '';
+      const contactAllowed = client.consent_status === 'granted' && /^[1-9]\d{7,14}$/.test(phoneDigits(client.client_phone));
+      const contact = contactAllowed
+        ? `<a class="secondary-button" href="${escapeHtml(whatsappUrl(client.client_phone, delivery.message_snapshot))}" target="_blank" rel="noopener noreferrer">Открыть WhatsApp и отправить</a>`
+        : `<small class="retention-delivery-blocked">${client.consent_status !== 'granted' ? 'Отправка в WhatsApp недоступна: нет согласия клиента.' : 'Отправка в WhatsApp недоступна: проверьте номер телефона клиента.'}</small>`;
+      const actions = !fallback && delivery.status === 'prepared' ? `<details class="retention-delivery-options"><summary>Ещё</summary><div class="retention-row-actions">${contact}<button class="secondary-button compact-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="sent" data-retention-write>Я отправил · отметить</button><button class="danger-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="cancelled" data-retention-write>Отменить</button></div></details>` : '';
       const copy = text(delivery.message_snapshot) ? `<button class="secondary-button retention-copy" type="button" data-retention-copy="${escapeHtml(delivery.id)}">Скопировать текст</button><small class="retention-copy-status" role="status" aria-live="polite"></small>` : '';
       return `<article class="organization-row retention-delivery-row"><div class="organization-row-main"><strong>${escapeHtml(client.client_name || 'Клиент')}</strong><small>${escapeHtml(status)}</small>${delivery.prepared_at ? `<small>${escapeHtml(formatDateTime(delivery.prepared_at))}</small>` : ''}</div><p class="retention-message-snapshot">${escapeHtml(delivery.message_snapshot)}</p><div class="retention-copy-actions">${copy}${actions}</div></article>`;
     }
@@ -299,12 +320,28 @@
       enhanceLayout();
       renderClients();
     }
-    function renderClients() {
-      $('#retentionClientsList').innerHTML = payload.clients.length ? payload.clients.map(clientCard).join('') : empty('Клиентов пока нет', 'После завершённых визитов здесь появятся клиенты.');
+    function renderClients(selectionOnly = false) {
+      const pages = Math.max(1, Math.ceil(payload.clients.length / clientPageSize));
+      clientPage = Math.min(clientPage, pages - 1);
+      if (selectionOnly) {
+        $('#retentionClientsList').querySelectorAll('[data-retention-select]').forEach(control => {
+          control.checked = selectedClients.has(control.dataset.retentionSelect);
+          const status = control.closest('.retention-client-row')?.querySelector('.retention-client-status');
+          if (status) status.textContent = control.checked ? 'Выбран' : 'Можно выбрать';
+        });
+      } else {
+        const visible = payload.clients.slice(clientPage * clientPageSize, (clientPage + 1) * clientPageSize);
+        $('#retentionClientsList').innerHTML = visible.length ? visible.map(clientCard).join('') : empty('Клиентов пока нет', 'После завершённых визитов здесь появятся клиенты.');
+        const pagination = $('#retentionClientsPagination');
+        if (pagination) {
+          pagination.hidden = pages === 1;
+          pagination.innerHTML = pages === 1 ? '' : `<button class="secondary-button compact-button" type="button" data-retention-page="${clientPage - 1}" ${clientPage === 0 ? 'disabled' : ''}>Назад</button><span role="status" aria-live="polite">${clientPage * clientPageSize + 1}–${Math.min((clientPage + 1) * clientPageSize, payload.clients.length)} из ${payload.clients.length}</span><button class="secondary-button compact-button" type="button" data-retention-page="${clientPage + 1}" ${clientPage === pages - 1 ? 'disabled' : ''}>Далее</button>`;
+        }
+      }
       const available = selectableClients(), count = selectedClients.size;
       const toolbar = $('#retentionSelectionToolbar');
       if (toolbar) {
-        toolbar.innerHTML = `<label class="retention-select-all"><input type="checkbox" data-retention-select-all data-retention-write ${!available.length ? 'disabled' : ''} ${count && count === available.length ? 'checked' : ''}>Выбрать доступных</label><span class="retention-selected-count" role="status" aria-live="polite">${count ? `${plural(count, 'Выбран', 'Выбрано', 'Выбрано')} ${count} ${plural(count, 'клиент', 'клиента', 'клиентов')}` : available.length ? 'Выберите клиентов для подготовки' : 'Подходящих клиентов для подготовки пока нет'}</span><button type="button" class="primary" data-retention-prepare-selected data-retention-write ${!count ? 'disabled' : ''}>${count ? `Подготовить ${count} ${plural(count, 'сообщение', 'сообщения', 'сообщений')}` : 'Подготовить сообщения'}</button><small class="retention-preparation-note">Подготовка не отправляет сообщения.</small>`;
+        toolbar.innerHTML = `<label class="retention-select-all"><input type="checkbox" data-retention-select-all data-retention-write ${!available.length ? 'disabled' : ''} ${count && count === available.length ? 'checked' : ''}>${pages > 1 ? 'Выбрать доступных на всех страницах' : 'Выбрать доступных'}</label><span class="retention-selected-count" role="status" aria-live="polite">${count ? `${plural(count, 'Выбран', 'Выбрано', 'Выбрано')} ${count} ${plural(count, 'клиент', 'клиента', 'клиентов')}` : available.length ? 'Выберите клиентов для подготовки' : 'Подходящих клиентов для подготовки пока нет'}</span><button type="button" class="primary" data-retention-prepare-selected data-retention-write ${!count ? 'disabled' : ''}>${count ? `Подготовить ${count} ${plural(count, 'сообщение', 'сообщения', 'сообщений')}` : 'Подготовить сообщения'}</button><small class="retention-preparation-note">Подготовка не отправляет сообщения.${pages > 1 ? ' Выбор сохраняется между страницами.' : ''}</small>`;
         const all = toolbar.querySelector('[data-retention-select-all]');
         if (all) all.indeterminate = count > 0 && count < available.length;
       }
@@ -325,6 +362,7 @@
         }
       }
       if (!$('#retentionSelectionToolbar')) $('#retentionClientsList').insertAdjacentHTML('afterend', '<div class="retention-selection-toolbar" id="retentionSelectionToolbar"></div>');
+      if (!$('#retentionClientsPagination')) $('#retentionClientsList').insertAdjacentHTML('afterend', '<nav class="retention-pagination" id="retentionClientsPagination" aria-label="Страницы списка клиентов" hidden></nav>');
       const labels = form.querySelectorAll('.retention-number-field');
       for (const [index, label, hint] of [[0, 'После последнего завершённого визита', 'Минимальный перерыв после завершённого визита.'], [1, 'Повторное предложение одному клиенту', 'От последней ручной отметки отправки, а не подготовки текста.']]) {
         const field = labels[index];
@@ -362,6 +400,7 @@
         ['retention_cooldown_active', 'Повторное предложение доступно после заданного интервала.'],
         ['retention_already_prepared', 'Для клиента уже подготовлено сообщение.'],
         ['retention_disabled', 'Сначала включите подбор клиентов.'],
+        ['retention_message_too_long', 'После подстановки данных текст превышает 1000 символов. Укоротите шаблон — ссылка записи должна остаться целой.'],
         ['invalid_retention_settings', 'Проверьте сроки и оставьте в шаблоне переменную {ссылка}.']
       ];
       return rows.find(([key]) => text.includes(key))?.[1] || 'Не удалось подтвердить результат. Проверьте актуальные данные перед повтором.';
@@ -369,6 +408,15 @@
     async function runMutations(commands, control, success, silent = false, reloadAfter = true) {
       if (!requireWrites() || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return false;
       if (!retainedScopeIsCurrent()) { retainForScope(); hideWorkspace(); return false; }
+      if (commands.some(command => command.name !== 'save_minuta_retention_settings')) {
+        const beforeSave = scopeSnapshot();
+        if (reviewingEnable || ($('#retentionEnabled').checked && !payload.enabled)) return false;
+        if (otherSettingsChanged() || $('#retentionEnabled').checked !== payload.enabled) {
+          clearTimeout(settingsSaveTimer); settingsSaveTimer = null;
+          if (!await saveSettings() || !scopeIsCurrent(beforeSave) || availability !== 'ready') return false;
+        }
+      }
+      if (writing || availability !== 'ready' || !retainedScopeIsCurrent()) return false;
       const scope = scopeSnapshot(), organizationId = organization.id, request = ++revision, token = {};
       if (!scopeIsCurrent(scope) || payload.current_role !== scope.role || !commands.length) return false;
       const originallyDisabled = control?.disabled;
@@ -396,6 +444,7 @@
           const client = clientById(args.p_client_account);
           acknowledged.set(data.id, { id:data.id, client_account_id:args.p_client_account, status:data.status,
             message_snapshot:data.message, client_phone:data.client_phone, client_name:client?.client_name || '' });
+          preparedClients.add(String(args.p_client_account));
           selectedClients.delete(args.p_client_account);
         }
       }
@@ -426,6 +475,7 @@
     }
     async function saveSettings() {
       if (!organization?.id || writing || availability !== 'ready' || !scopeMatches(payload, organization.id)) return false;
+      clearTimeout(settingsSaveTimer); settingsSaveTimer = null;
       const scope = scopeSnapshot();
       const form = $('#retentionSettingsForm');
       const saveStatus = $('#retentionSaveStatus');
@@ -441,14 +491,16 @@
       };
       const saved = await mutate('save_minuta_retention_settings', parameters, null, 'Настройки возврата клиентов сохранены', true, false);
       if (!scopeIsCurrent(scope)) return false;
-      if (saved && payload) {
-        payload.enabled = parameters.p_enabled;
-        payload.inactivity_days = parameters.p_inactivity_days;
-        payload.cooldown_days = parameters.p_cooldown_days;
-        payload.message_template = parameters.p_message_template;
+      if (!saved && availability === 'ready') {
+        $('#retentionInactivityDays').value = parameters.p_inactivity_days;
+        $('#retentionCooldownDays').value = parameters.p_cooldown_days;
+        $('#retentionMessageTemplate').value = parameters.p_message_template;
       }
-      if (saveStatus) saveStatus.textContent = saved ? 'Сохранено автоматически' : 'Не удалось подтвердить результат — проверьте актуальные данные перед повтором';
-      return saved;
+      const refreshed = saved ? await load() : null;
+      if (!scopeIsCurrent(scope)) return false;
+      if (saveStatus) saveStatus.textContent = !saved ? 'Не удалось подтвердить результат — проверьте актуальные данные перед повтором'
+        : refreshed?.ok ? 'Сохранено автоматически' : 'Настройки сохранены, но список не обновлён. Повторите загрузку раздела.';
+      return saved && Boolean(refreshed?.ok);
     }
     function scheduleSettingsSave() {
       clearTimeout(settingsSaveTimer);
@@ -486,12 +538,12 @@
       if (!organization?.id || writing || availability !== 'ready') return;
       if (!scopeIsCurrent(scopeSnapshot()) || !retainedScopeIsCurrent()) return;
       if (event.target.dataset.retentionSelect !== undefined || event.target.dataset.retentionSelectAll !== undefined) {
-        const available = selectableClients().map(client => client.client_account_id);
-        const ids = event.target.dataset.retentionSelectAll !== undefined ? available : [event.target.dataset.retentionSelect];
-        for (const id of ids) if (available.includes(id)) {
+        const available = new Set(selectableClients().map(client => client.client_account_id));
+        const ids = event.target.dataset.retentionSelectAll !== undefined ? [...available] : [event.target.dataset.retentionSelect];
+        for (const id of ids) if (available.has(id)) {
           if (event.target.checked) selectedClients.add(id); else selectedClients.delete(id);
         }
-        renderClients();
+        renderClients(true);
         const controls = $('#retentionPanel').querySelectorAll('[data-retention-select], [data-retention-select-all]');
         [...controls].find(control => event.target.dataset.retentionSelectAll !== undefined
           ? control.dataset.retentionSelectAll !== undefined : control.dataset.retentionSelect === event.target.dataset.retentionSelect)?.focus();
@@ -546,6 +598,13 @@
     }
     async function handleClick(event) {
       if (event.target.closest('#reloadRetention')) { await load(); return; }
+      const page = event.target.closest('[data-retention-page]');
+      if (page) {
+        if (writing || availability !== 'ready' || !retainedScopeIsCurrent()) return;
+        const next = Number(page.dataset.retentionPage);
+        if (!Number.isInteger(next) || next < 0 || next >= Math.ceil(payload.clients.length / clientPageSize)) return;
+        clientPage = next; renderClients(); return;
+      }
       const copy = event.target.closest('[data-retention-copy]');
       if (copy) { await copySnapshot(copy); return; }
       if (!organization?.id || writing || availability !== 'ready') return;
