@@ -60,6 +60,7 @@
       pending?.restore?.();
       pending = false;
       setBusy(false);
+      $('#shiftsPanel').inert = false;
       pendingOrganization = undefined;
       editingShiftId = null;
       $('#shiftsPanel').hidden = true;
@@ -104,7 +105,7 @@
       $('#shiftsUnavailable').hidden = true;
       $('#shiftWorkspace').hidden = !keepWorkspace;
       payload = null;
-      setBusy(true);
+      $('#shiftsPanel').inert = true;
       let timeoutId;
       let response;
       try {
@@ -123,6 +124,7 @@
       if (error) {
         payload = null;
         $('#shiftWorkspace').hidden = true;
+        $('#shiftsPanel').inert = false;
         setBusy(false);
         applyWriteAvailability?.();
         if (unsupported(error)) { $('#shiftsPanel').hidden = true; return { ok: false, optional: true, unsupported: true }; }
@@ -135,6 +137,7 @@
       if (String(data?.organization_id || '') !== String(organizationId)) {
         payload = null;
         $('#shiftWorkspace').hidden = true;
+        $('#shiftsPanel').inert = false;
         setBusy(false);
         applyWriteAvailability?.();
         $('#shiftsUnavailable').hidden = false;
@@ -236,6 +239,8 @@
 
     function render() {
       if (!payload) return;
+      $('#shiftsPanel').inert = false;
+      setBusy(false);
       const canManage = Boolean(payload.can_manage_team);
       const isOwner = payload.current_role === 'owner';
       $('#shiftsPanel').hidden = false;
@@ -275,7 +280,6 @@
       $('#shiftAuditCount').textContent = String(payload.audit.length);
       $('#shiftAuditList').innerHTML = payload.audit.length ? payload.audit.map(auditCard).join('') : empty('Изменений пока нет', 'Здесь появится история смен, отсутствий и замен.');
       presentation()?.render(payload);
-      setBusy(false);
       applyWriteAvailability();
     }
 
