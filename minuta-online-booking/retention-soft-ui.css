@@ -45,3 +45,8 @@
   .provider-body #retentionPanel.commerce-soft-panel .retention-select-all { grid-column:1/-1; }
   .provider-body #retentionPanel.commerce-soft-panel .retention-preparation-note { grid-column:2; text-align:right; }
 }
+/* Only large client lists need page controls; selection remains workspace-wide. */
+.provider-body #retentionPanel .retention-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0;min-width:0}
+.provider-body #retentionPanel .retention-pagination[hidden]{display:none}
+.provider-body #retentionPanel .retention-pagination>span{min-width:0;text-align:center;color:var(--theme-muted);font-size:12px}
+.provider-body #retentionPanel.commerce-soft-panel .retention-pagination>button{flex:none;width:auto;min-width:44px;min-height:44px;padding:8px 12px}

@@ -51,15 +51,18 @@ try {
     await page.addScriptTag({ content:`function $(selector) { return document.querySelector(selector); }\n${confirmationSource}` });
     await page.addScriptTag({ content:retentionSource });
     await page.evaluate(async () => {
-      const state = window.visualState = { calls:[] };
+      const state = window.visualState = { calls:[], settings:{ enabled:false, inactivity_days:45, cooldown_days:90,
+        message_template:'Здравствуйте! Будем рады видеть снова: {ссылка}' } };
       const db = { rpc:async (name, args) => {
         state.calls.push({ name, args });
         if (name === 'get_minuta_retention_workspace') return { data:{
-          organization_id:'org-test', current_role:'owner', enabled:false,
-          inactivity_days:45, cooldown_days:90,
-          message_template:'Здравствуйте! Будем рады видеть снова: {ссылка}',
+          organization_id:'org-test', current_role:'owner', ...state.settings,
           clients:[], deliveries:[], audit:[] }, error:null };
-        if (name === 'save_minuta_retention_settings') return { data:{ organization_id:'org-test', enabled:args.p_enabled }, error:null };
+        if (name === 'save_minuta_retention_settings') {
+          state.settings={ enabled:args.p_enabled, inactivity_days:args.p_inactivity_days,
+            cooldown_days:args.p_cooldown_days, message_template:args.p_message_template };
+          return { data:{ organization_id:'org-test', enabled:args.p_enabled }, error:null };
+        }
         throw new Error(`Unexpected RPC: ${name}`);
       } };
       window.retention = window.MinutaRetention.createController({

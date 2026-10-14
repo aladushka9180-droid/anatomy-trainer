@@ -220,7 +220,13 @@ test('settings payload records the submitted snapshot rather than later DOM edit
   await f.controller.setOrganization(org('org-a'));
   f.elements.retentionMessageTemplate.value = 'Отправленный шаблон {ссылка}';
   f.elements.retentionInactivityDays.value = '50';
-  f.override(name => name === 'save_minuta_retention_settings' ? pending.promise : undefined);
+  let submitted;
+  f.override((name, args) => {
+    if (name === 'save_minuta_retention_settings') { submitted = { ...args }; return pending.promise; }
+    if (name === 'get_minuta_retention_workspace' && submitted) return { data:{ ...workspace(args.p_organization),
+      enabled:submitted.p_enabled, inactivity_days:submitted.p_inactivity_days,
+      cooldown_days:submitted.p_cooldown_days, message_template:submitted.p_message_template }, error:null };
+  });
   const request = save(f);
   f.elements.retentionMessageTemplate.value = 'Несохранённый шаблон {ссылка}';
   f.elements.retentionInactivityDays.value = '60';
