@@ -62,6 +62,7 @@ jobs:
       - run: node minuta-online-booking/tests/shift-mutation-recovery-test.mjs
       - run: node minuta-online-booking/tests/team-schedule-integration-browser-test.mjs
       - run: node minuta-online-booking/tests/team-schedule-refresh-browser-test.mjs
+      - run: node minuta-online-booking/tests/team-schedule-end-boundary-test.mjs
       - run: node minuta-online-booking/tests/provider-master-profile-link-static-test.mjs
       - run: node minuta-online-booking/tests/provider-magnetic-schedule-browser-test.mjs
       - run: node minuta-online-booking/provider-services-organization-browser-test.cjs
