@@ -33,6 +33,20 @@
       return typeof value === 'number' && Number.isFinite(value) && value >= 0
         && value <= 99999999999.999 && /^\d+(?:\.\d{1,3})?$/.test(String(value));
     }
+    function parseQuantity(value) {
+      const raw = String(value).trim();
+      const decimal = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?$/.exec(raw);
+      if (!decimal) return NaN;
+      const fraction = decimal[3] ?? decimal[4] ?? '';
+      const digits = (decimal[2] || '') + fraction;
+      if (/[1-9]/.test(digits)) {
+        const trailingZeroes = digits.length - digits.replace(/0+$/, '').length;
+        // Exact decimal scale, before binary64 can erase precision/underflow.
+        const scale = BigInt(fraction.length - trailingZeroes) - BigInt(decimal[5] || '0');
+        if (scale > 3n) return NaN;
+      }
+      return Number(raw);
+    }
     function validRecovery(record, scope) {
       const p = record?.parameters;
       if (record?.version !== 1 || record.scope !== scope || !p || Array.isArray(p)
@@ -295,11 +309,11 @@
       const before = balanceFor(sourceId, itemId);
       if (kind === 'inventory') {
         const counted = String($('#inventoryCountedQuantity').value).trim();
-        if (!/^\d+(?:\.\d{1,3})?$/.test(counted)) return null;
+        if (!/^\d+(?:\.\d{1,3}0*)?$/.test(counted)) return null;
         return `По загруженным данным: ${source.name}, ${selectedItem.name}: ${quantity(before)} → ${quantity(parameters.p_counted_quantity)} ${unit}.`;
       }
       const raw = String($('#inventoryMovementQuantity').value).trim();
-      if (!/^\d+(?:\.\d{1,3})?$/.test(raw) || parameters.p_quantity <= 0) return null;
+      if (!/^\d+(?:\.\d{1,3}0*)?$/.test(raw) || parameters.p_quantity <= 0) return null;
       if (kind === 'write_off') return parameters.p_quantity > before
         ? `По загруженным данным на складе ${source.name} недостаточно ${selectedItem.name}: ${quantity(before)} ${unit}.`
         : `По загруженным данным: ${source.name}, ${selectedItem.name}: ${quantity(before)} → ${quantity(before - parameters.p_quantity)} ${unit}.`;
@@ -446,8 +460,8 @@
       const kind = $('#inventoryMovementKind').value;
       return { p_organization:organization?.id, p_warehouse:$('#inventoryMovementWarehouse').value,
         p_item:$('#inventoryMovementItem').value, p_kind:kind,
-        p_quantity:kind === 'inventory' ? null : Number($('#inventoryMovementQuantity').value),
-        p_counted_quantity:kind === 'inventory' ? Number($('#inventoryCountedQuantity').value) : null,
+        p_quantity:kind === 'inventory' ? null : parseQuantity($('#inventoryMovementQuantity').value),
+        p_counted_quantity:kind === 'inventory' ? parseQuantity($('#inventoryCountedQuantity').value) : null,
         p_reason:$('#inventoryMovementReason').value.trim() };
     }
     function sameMovement(left, right) {
@@ -595,7 +609,7 @@
     function transferParameters() {
       return { p_organization:organization?.id, p_source_warehouse:$('#inventoryMovementWarehouse').value,
         p_destination_warehouse:$('#inventoryTransferDestination').value, p_item:$('#inventoryMovementItem').value,
-        p_quantity:Number($('#inventoryMovementQuantity').value), p_reason:$('#inventoryMovementReason').value.trim() };
+        p_quantity:parseQuantity($('#inventoryMovementQuantity').value), p_reason:$('#inventoryMovementReason').value.trim() };
     }
     function sameTransfer(left, right) {
       return Object.keys(left).every(key => key === 'p_request_id' || left[key] === right[key]);
@@ -641,7 +655,7 @@
       if (!parameters.p_source_warehouse || !parameters.p_destination_warehouse || parameters.p_source_warehouse === parameters.p_destination_warehouse) {
         transferError('Выберите два разных активных склада.', null); return;
       }
-      if (!parameters.p_item || !/^\d+(?:\.\d{1,3})?$/.test(rawQuantity) || parameters.p_quantity <= 0 || parameters.p_quantity > 99999999999.999) {
+      if (!parameters.p_item || !/^\d+(?:\.\d{1,3}0*)?$/.test(rawQuantity) || parameters.p_quantity <= 0 || parameters.p_quantity > 99999999999.999) {
         transferError('Укажите корректное количество: больше нуля и не более трёх знаков после запятой.', null); return;
       }
       if (parameters.p_reason.length < 2 || parameters.p_reason.length > 500) { transferError('Укажите основание перемещения от 2 до 500 символов.', null); return; }

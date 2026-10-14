@@ -248,6 +248,61 @@ test('unsupported movement precision is rejected before journal allocation or RP
   assert.match(h.node('inventoryMovementError').textContent,/трёх знаков/);
 });
 
+// F1 NoIO regressions: actual controller with explicit DOM/RPC/storage/lock
+// doubles only. Fractional controls use an ACK-only fixture, not the integral
+// v82 ledger above. Run --test-name-pattern='^F1:' to avoid repeating old bodies.
+function precisionAckFixture() {
+  const ledger = syntheticLedger();
+  return { ...ledger, apply:p => ({ data:{ organization_id:ids.org,id:1,
+    quantity_after:p.p_kind === 'inventory' ? p.p_counted_quantity : 10 }, error:null }) };
+}
+for (const raw of ['1.0000000000000001','0.10000000000000001','99999999999.99901','1001e-6','1.234e-1','0x10','1,23']) {
+  test(`F1: receipt rejects raw ${raw} before journal/RPC`, async () => {
+    const h = await harness({ deferFirstReply:false, ledger:precisionAckFixture() });
+    h.fill({ kind:'receipt', quantity:raw }); await h.submit();
+    assert.equal(h.calls.length,0); assert.equal(h.recovery.storage.entries.size,0);
+  });
+}
+for (const [kind,raw,expected] of [
+  ['receipt','1.234',1.234],['receipt','1.230000',1.23],['receipt','1.0000000000000000',1],
+  ['receipt','1e-3',0.001],['receipt','1000e-6',0.001],['receipt','.125',0.125],['write_off','1.23000',1.23],
+  ['inventory','0',0],['inventory','0.0000000000',0],['inventory','1.234000',1.234]
+]) test(`F1: ${kind} preserves representable raw ${raw}`, async () => {
+  const h = await harness({ deferFirstReply:false, ledger:precisionAckFixture() });
+  h.fill({ kind,quantity:raw }); if (kind === 'inventory') h.node('inventoryCountedQuantity').value = raw;
+  await h.submit(); assert.equal(h.calls.length,1);
+  assert.equal(h.calls[0].params[kind === 'inventory' ? 'p_counted_quantity' : 'p_quantity'],expected);
+  assert.equal(h.recovery.storage.entries.size,0);
+});
+test('F1: changed raw precision during confirmation cannot match rounded original payload', async () => {
+  const h = await harness({ deferFirstReply:false, onConfirm:node => { node('inventoryMovementQuantity').value = '2.0000000000000001'; } });
+  await h.submit(); assert.equal(h.calls.length,0); assert.equal(h.recovery.storage.entries.size,0);
+});
+test('F1: invalid raw pending write-off preserves frozen scope/RPC/payload; trailing-zero retry keeps its ID', async () => {
+  const h = await harness(); await h.loseFirstReply(); const before = [...h.recovery.storage.entries];
+  h.fill({ quantity:'2.0000000000000001' }); await h.submit();
+  assert.equal(h.calls.length,1); assert.deepEqual([...h.recovery.storage.entries],before);
+  h.fill({ quantity:'2.000000' }); await h.submit();
+  assert.equal(h.calls.length,2); assert.deepEqual(h.calls[1].params,h.calls[0].params);
+  assert.equal(h.ledger.rows.length,1); assert.equal(h.recovery.storage.entries.size,0);
+});
+for (const [count,raw] of [['1','1.0000000000000001'],['0','1e-1000']]) {
+  test(`F1: pending inventory count ${count} rejects precision-losing raw ${raw}`, async () => {
+    const h = await harness(); h.fill({ kind:'inventory' }); h.node('inventoryCountedQuantity').value = count;
+    const pending = h.submit(); await tick(); assert.equal(h.calls.length,1);
+    h.calls[0].resolve(lostReply()); await pending; const before = [...h.recovery.storage.entries];
+    h.node('inventoryCountedQuantity').value = raw; await h.submit();
+    assert.equal(h.calls.length,1); assert.deepEqual([...h.recovery.storage.entries],before);
+  });
+}
+for (const kind of ['receipt','inventory']) test(`F1: ${kind} validates only its active quantity field`, async () => {
+  const h = await harness({ deferFirstReply:false, ledger:precisionAckFixture() });
+  h.fill({ kind,quantity:kind === 'receipt' ? '1.234' : '1.0000000000000001' });
+  h.node('inventoryCountedQuantity').value = kind === 'inventory' ? '0' : '1.0000000000000001';
+  await h.submit(); assert.equal(h.calls.length,1);
+  assert.equal(h.calls[0].params[kind === 'inventory' ? 'p_quantity' : 'p_counted_quantity'],null);
+});
+
 test('O22 cancellation shows expected write-off balance without creating an intent or RPC', async () => {
   const h = await harness({ confirmResult:false });
   await h.event('change', 'inventoryMovementKind', 'write_off');
