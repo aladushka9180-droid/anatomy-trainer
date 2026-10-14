@@ -33,10 +33,12 @@ try {
         titleSize:getComputedStyle(document.querySelector('#bookingSheetTitle')).fontSize};
     });
     assert.equal(metrics.buttons.length,4,`${width}: four quick actions`);
-    assert.equal(metrics.buttons[0].left,metrics.buttons[2].left,`${width}: left column`);
-    assert.equal(metrics.buttons[0].right,metrics.buttons[2].right,`${width}: left column width`);
-    assert.equal(metrics.buttons[1].left,metrics.buttons[3].left,`${width}: right column`);
-    assert.ok(metrics.buttons[0].top<metrics.buttons[2].top,`${width}: two rows`);
+    assert.equal(metrics.buttons[0].left,metrics.buttons[1].left,`${width}: full-width repeat begins at the secondary row`);
+    assert.equal(metrics.buttons[0].right,metrics.buttons[3].right,`${width}: full-width repeat spans three actions`);
+    assert.equal(metrics.buttons[1].top,metrics.buttons[2].top,`${width}: secondary row aligned`);
+    assert.equal(metrics.buttons[2].top,metrics.buttons[3].top,`${width}: all three secondary controls aligned`);
+    assert.ok(Math.abs((metrics.buttons[1].right-metrics.buttons[1].left)-(metrics.buttons[3].right-metrics.buttons[3].left))<1,`${width}: secondary columns equal`);
+    assert.ok(metrics.buttons[0].top<metrics.buttons[1].top,`${width}: primary first`);
     assert.ok(metrics.buttons.every(button=>button.height>=44&&button.overflow<2),`${width}: tap targets and full labels`);
     assert.ok(metrics.panel.left>=0&&metrics.panel.right<=width+1&&metrics.overflow<=1,`${width}: no horizontal overflow`);
     assert.ok(metrics.services<metrics.outcome&&metrics.outcome<metrics.extra,`${width}: approved section order`);
@@ -58,7 +60,8 @@ try {
         const expected={surface:resolve(body.getPropertyValue('--theme-surface')),ink:resolve(body.getPropertyValue('--theme-ink')),
           accent:resolve(body.getPropertyValue('--theme-accent')),soft:resolve(body.getPropertyValue('--theme-accent-soft')),
           contrast:resolve(body.getPropertyValue('--theme-accent-contrast')),surfaceAlt:resolve(body.getPropertyValue('--theme-surface-alt')),
-          actionBg:resolve(body.getPropertyValue('--porcelain-action-bg')),actionInk:resolve(body.getPropertyValue('--porcelain-action-ink'))};
+          actionBg:resolve(body.getPropertyValue('--porcelain-action-bg')),actionInk:resolve(body.getPropertyValue('--porcelain-action-ink')),
+          quietClose:resolve(`color-mix(in srgb,${body.getPropertyValue('--theme-ink')} 4%,${body.getPropertyValue('--theme-surface')})`)};
         sample.remove();
         return {expected,panel:panel.backgroundColor,ink:panel.color,close:close.backgroundColor,closeInk:close.color,
           primary:primary.backgroundColor,primaryInk:primary.color,soft:soft.backgroundColor,softInk:soft.color,
@@ -66,11 +69,11 @@ try {
       });
       assert.equal(colors.panel,colors.expected.surface,`${theme}/${width}: panel follows theme surface`);
       assert.equal(colors.ink,colors.expected.ink,`${theme}/${width}: text follows theme ink`);
-      assert.equal(colors.close,colors.expected.surfaceAlt,`${theme}/${width}: close control follows theme surface`);
+      assert.equal(colors.close,theme==='pink-porcelain'?colors.expected.quietClose:colors.expected.surfaceAlt,`${theme}/${width}: quiet close control stays within the theme`);
       assert.equal(colors.closeInk,colors.expected.ink,`${theme}/${width}: close icon stays readable`);
       assert.equal(colors.primary,theme==='pink-porcelain'?colors.expected.actionBg:colors.expected.accent,`${theme}/${width}: primary action follows selected action palette`);
       assert.equal(colors.primaryInk,theme==='pink-porcelain'?colors.expected.actionInk:colors.expected.contrast,`${theme}/${width}: primary label follows selected action contrast`);
-      assert.equal(colors.soft,colors.expected.soft,`${theme}/${width}: secondary actions follow theme tint`);
+      assert.equal(colors.soft,colors.expected.surface,`${theme}/${width}: secondary actions use the sheet surface`);
       assert.equal(colors.softInk,colors.expected.accent,`${theme}/${width}: secondary labels follow theme accent`);
       assert.ok(colors.overflow<=1,`${theme}/${width}: no horizontal overflow`);
       if(process.env.MINUTA_CARD_SCREENSHOTS){await page.locator('.booking-sheet-panel').screenshot({path:`${process.env.MINUTA_CARD_SCREENSHOTS}/card-${theme}-${width}.png`});}
@@ -95,10 +98,22 @@ try {
   assert.ok(await page.evaluate(()=>fixtureEffects.includes('outcome')),'Original payment submit listener retained');
   // No real messages, calls, bookings, payments or deletes are performed.
   for(const selector of ['[data-open-client-profile]','[data-message-client]','[data-repeat-booking]','[data-commerce-booking-sale]','[data-edit-booking-session]'])await page.locator(selector).click();
-  assert.ok(await page.evaluate(()=>fixtureEffects.includes('openClientProfile')&&fixtureEffects.includes('repeatBooking')&&fixtureEffects.includes('editBookingSession')));
+  await page.locator('.detail-card-call').click();
+  assert.ok(await page.evaluate(()=>fixtureEffects.includes('openClientProfile')&&fixtureEffects.includes('repeatBooking')&&fixtureEffects.includes('messageClient')&&fixtureEffects.includes('commerceBookingSale')&&fixtureEffects.includes('editBookingSession')&&fixtureEffects.includes('call')));
   await page.evaluate(()=>renderFixture({outcome:{_sync_pending:false,completion_source:'manual',amount_rub:0,payment_method:'unpaid'}}));
   assert.equal(await page.locator('.detail-card-sync').count(),0,'No fictitious sync message');
   assert.match(await page.locator('.booking-outcome-disclosure>summary').textContent(),/Не оплачено/,'Zero payment is not replaced by service price');
+  await page.evaluate(()=>renderFixture({firstVisit:true,outcome:{visit_status:'scheduled',_sync_pending:false,completion_source:'manual'}}));
+  await page.setViewportSize({width:390,height:900});
+  assert.match(await page.locator('.booking-outcome-disclosure>summary').textContent(),/Запланирован/);
+  assert.match(await page.locator('.booking-detail-heading .booking-status').textContent(),/Подтверждена/);
+  assert.equal(await page.locator('.client-framed-count').textContent(),'0','Original first-visit gold frame level stays zero');
+  const avatarStyle=await page.locator('.client-avatar-picker').evaluate(a=>({background:getComputedStyle(a).backgroundColor,width:a.getBoundingClientRect().width,icon:getComputedStyle(document.querySelector('.detail-card-call .detail-card-icon')).width}));
+  assert.equal(avatarStyle.background,'rgba(0, 0, 0, 0)','Only the square avatar backing is cleared');
+  assert.equal(avatarStyle.icon,'16px','Secondary actions use the selected smaller icon size');
+  assert.equal(await page.locator('[data-message-client]').innerText(),'Написать');
+  assert.equal(await page.locator('[data-message-client]').getAttribute('aria-label'),'Написать клиенту','Full accessible action label retained');
+  if(process.env.MINUTA_CARD_SCREENSHOTS)await page.locator('.booking-sheet-panel').screenshot({path:`${process.env.MINUTA_CARD_SCREENSHOTS}/card-first-visit-390.png`});
   await page.evaluate(()=>renderFixture({item:{client_name:'Очень длинное имя клиента с длинной фамилией',client_phone:''},outcome:{visit_status:'scheduled'}}));
   await page.setViewportSize({width:390,height:900});
   assert.equal(await page.locator('.detail-card-call').count(),0,'No empty telephone link');

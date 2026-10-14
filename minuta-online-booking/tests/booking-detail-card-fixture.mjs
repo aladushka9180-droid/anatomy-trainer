@@ -26,7 +26,7 @@ function script(){return `
 var $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 var fixtureBooking={id:'11111111-1111-4111-8111-111111111111',booking_date:'2026-09-27',booking_time:'16:00:00',status:'confirmed',duration_minutes:120,client_name:'Сергей',client_phone:'+7 (900) 000-00-01',services:{name:'Комплексный массаж всего тела',duration_minutes:120,price_rub:5800},total_price_rub:5800};
 var fixtureOutcome={visit_status:'completed',payment_method:'transfer',amount_rub:5800,_sync_pending:true,completion_source:'auto'};
-var allBookings=[fixtureBooking],fixtureEffects=[],fixtureMode='normal',notificationAddress='Тестовый адрес';
+var allBookings=[fixtureBooking],fixtureEffects=[],fixtureMode='normal',fixtureFirstVisit=false,notificationAddress='Тестовый адрес';
 var bookingSourceItems=()=>allBookings,isScheduleBlock=item=>item.is_block===true;
 var escapeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 var normalizePhone=v=>String(v||'').replace(/\\D/g,'');
@@ -42,7 +42,7 @@ var autoCompleteSettingsActionMarkup=()=>'',automaticOutcomeHint=()=>fixtureOutc
 var outcomeVisitLabel=()=>bookingStatus(),quickVisitOutcomeMarkup=()=>'',bookingIsCompleted=()=>fixtureOutcome.visit_status!=='scheduled';
 var clientLabel=()=>({}),clientBadgeMarkup=()=>'',clientAvatarContent=()=>fixtureBooking.client_name.slice(0,1);
 var clientAvatar=()=>null,clientAvatarsRemoteAvailable=true;
-var buildClients=()=>[{phone:normalizePhone(fixtureBooking.client_phone),bookings:[fixtureBooking,{...fixtureBooking,id:'past',past:true,booking_date:'2026-09-20'}]}];
+var buildClients=()=>[{phone:normalizePhone(fixtureBooking.client_phone),bookings:fixtureFirstVisit?[fixtureBooking]:[fixtureBooking,{...fixtureBooking,id:'past',past:true,booking_date:'2026-09-20'}]}];
 var favoriteServiceNameKey=v=>String(v||''),clientFavoriteServiceFacts=()=>[];
 var BOOKING_COLOR_KEYS=['auto','sage','rose'],BOOKING_COLOR_LABELS={auto:'Авто',sage:'Шалфей',rose:'Розовый'},validBookingColor=v=>BOOKING_COLOR_KEYS.includes(v)?v:'auto',bookingColor=()=> 'auto';
 var applyClientHighlightClasses=()=>{},bookingUsesDemoData=()=>fixtureMode==='demo';
@@ -50,11 +50,13 @@ var clientResultsController={mount:()=>{}},saveBookingVisitResult=e=>{e.preventD
 ${functions.map(declaration).join('\n')}
 window.renderFixture=(changes={})=>{
   fixtureMode=changes.demo?'demo':'normal';
+  if('firstVisit' in changes)fixtureFirstVisit=changes.firstVisit;
   Object.assign(fixtureBooking,changes.item||{}); Object.assign(fixtureOutcome,changes.outcome||{});
   openBookingSheet(fixtureBooking.id);
 };
 document.querySelector('#bookingSheet').addEventListener('keydown',trapBookingSheetFocus);
 document.addEventListener('click',event=>{
+  if(event.target.closest('.detail-card-call')){event.preventDefault();fixtureEffects.push('call');}
   const action=event.target.closest('[data-open-client-profile],[data-repeat-booking],[data-message-client],[data-commerce-booking-sale],[data-edit-booking-session],[data-delete-booking]');
   if(action)fixtureEffects.push(Object.keys(action.dataset)[0]);
   if(event.target.closest('.booking-sheet-close,.booking-sheet-backdrop'))document.querySelector('#bookingSheet').hidden=true;
