@@ -123,6 +123,22 @@ try{
   assert.equal(await page.evaluate(()=>retentionFixture.prepareCount),0);
   assert.equal(await page.locator('#retentionMessageTemplate').inputValue(),'Новый несохранённый текст: {ссылка}');
  });
+ for(const action of ['revoke','cancel'])for(const fault of ['invalid-template','failed-save'])await check(action+' remains available with '+fault,async page=>{
+  await page.evaluate(fault=>{if(fault==='failed-save')retentionFixture.faults.save=true;},fault);
+  await page.locator('#retentionMessageTemplate').fill(fault==='invalid-template'?'Временно без переменной записи':'Правка перед действием {ссылка}');
+  if(action==='revoke'){
+   await page.locator('[data-retention-consent="draft"]').evaluate(n=>{n.closest('details').open=true;});
+   page.once('dialog',dialog=>dialog.accept());await page.locator('[data-retention-consent="draft"]').selectOption('revoked');
+   await page.waitForFunction(()=>retentionFixture.clients.find(c=>c.client_account_id==='draft').consent_status==='revoked');
+   await page.waitForFunction(()=>retentionController.availability==='ready'&&!document.querySelector('.retention-delivery-row a'));
+  }else{
+   await page.locator('.retention-delivery-options>summary').click();await page.locator('[data-retention-action="cancelled"]').click();
+   await page.waitForFunction(()=>retentionFixture.deliveries[0].status==='cancelled');
+   await page.locator('[data-retention-select="draft"]').waitFor();
+  }
+  assert.equal(await page.evaluate(()=>retentionFixture.calls.some(c=>c.name==='save_minuta_retention_settings')),false);
+  assert.equal(await page.evaluate(()=>retentionFixture.prepareCount),0);
+ });
  await check('confirmed save with failed refresh cannot continue preparation or announce fully saved',async page=>{
   await page.locator('[data-retention-select="a"]').check();await page.evaluate(()=>{retentionFixture.faults.readAfterSave=true;});
   await page.locator('#retentionMessageTemplate').fill('Настройки записаны, чтение упало: {ссылка}');await page.locator('[data-retention-prepare-selected]').click();
