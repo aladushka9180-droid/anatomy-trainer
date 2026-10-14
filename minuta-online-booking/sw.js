@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1085`;
-const CACHE_READY = './.precache-ready-v1085';
+const CACHE = `${CACHE_PREFIX}v1086`;
+const CACHE_READY = './.precache-ready-v1086';
 
 const ASSETS = [
   './provider.html',
@@ -15,7 +15,7 @@ const ASSETS = [
   './ui-icons.svg',
   './styles.css?v=1049',
   './provider-connection-guidance.css?v=1007',
-  './provider-reference-screens.css?v=1022',
+  './provider-reference-screens.css?v=1086',
   './onboarding.css?v=811',
   './visitor-presence.css?v=811',
   './provider-theme-loft-modern.css?v=811',
@@ -36,7 +36,7 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1085',
+  './site-update.js?v=1086',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
@@ -63,13 +63,13 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1020',
   './provider-connection-guidance.js?v=1036',
-  './provider.js?v=1085',
+  './provider.js?v=1086',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=1085',
 ];
 
 const OPTIONAL_ASSETS = [
-  './provider-notifications-soft.css?v=1085',
+  './provider-notifications-soft.css?v=1086',
   './provider-notifications-soft.js?v=1085',
   './organization-people.js?v=1085',
   './organization-people.css?v=1085',
@@ -105,14 +105,14 @@ const OPTIONAL_ASSETS = [
   './shift-management.js?v=1085',
   './team-schedule-ui.js?v=1085',
   './team-schedule-ui.css?v=1085',
-  './schedule-flat.css?v=1052',
-  './schedule-break-icons.js?v=1023',
+  './schedule-flat.css?v=1086',
+  './schedule-break-icons.js?v=1086',
   './client-loyalty-frames.css?v=3',
   './client-loyalty-frames.js?v=3',
   './client-profile-card.css?v=2',
   './client-profile-card.js?v=2',
-  './new-booking-card.css?v=1045',
-  './new-booking-card.js?v=1045',
+  './new-booking-card.css?v=1086',
+  './new-booking-card.js?v=1086',
   './assets/loyalty/frames-v1.png',
   './assets/loyalty/frame-100-v1.png',
   './booking-detail-card.css?v=2',
@@ -121,8 +121,8 @@ const OPTIONAL_ASSETS = [
   './subscription-pricing.css?v=811',
   './statistics-audit-ui.css?v=1085',
   './statistics-audit-ui.js?v=1085',
-  './report-export-provider.js?v=1085',
-  './statistics-audit-provider.js?v=1085',
+  './report-export-provider.js?v=1086',
+  './statistics-audit-provider.js?v=1086',
   './client-results.css?v=876',
   './provider-porcelain-detail.css?v=1048',
   './provider-schedule-type.css?v=933',
@@ -153,7 +153,7 @@ const OPTIONAL_ASSETS = [
   './provider-integrations.css?v=1008',
   './finance-center.css?v=1085',
   './finance-center.js?v=1085',
-  './finance-center-provider.js?v=1085',
+  './finance-center-provider.js?v=1086',
   './client-records.css?v=811',
   './client-records.js?v=811',
   './messages.html',
