@@ -11502,7 +11502,7 @@ $('#newBookingSheetTitle').textContent = 'Повторная запись';
 $('#newBookingSectionSubtitle').textContent = 'Клиент найден в базе';
 $('#newBookingClientFields').dataset.clientLookupState = 'found';
 hideNewBookingClientSuggestions();
-window.PrimeTimeNewBookingCard?.clearPhoneError?.(normalizePhone(client.displayPhone));
+globalThis.PrimeTimeNewBookingCard?.clearPhoneError?.(normalizePhone(client.displayPhone));
 refreshNewBookingCard();
 saveNewBookingDraft();
 return true;
