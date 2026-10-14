@@ -9083,8 +9083,7 @@ function renderTimeline(sourceItems) {
   const fullBounds = timelineBounds(items);
   let { start, end } = fullBounds;
   const currentClock = selectedDate === businessTodayIso() ? businessClock() : null;
-  // 40 min: 46px for three lines; desktop unchanged.
-  const hourHeight = mobileTimeline ? 75 : 76;
+  const hourHeight = window.PrimeTimeScheduleGrid?.height(items, mobileTimeline) || (mobileTimeline ? 75 : 76);
   const naturalTimelineHeight = ((end - start) / 60) * hourHeight;
   const timelineItems = items.map((item, index) => {
     const itemStart = minutesFromTime(item.booking_time);
@@ -9092,9 +9091,7 @@ function renderTimeline(sourceItems) {
     const top = ((itemStart - start) / 60) * hourHeight;
     const naturalHeight = (duration / 60) * hourHeight;
     const minuteOnly = duration <= 1;
-    // Реальная высота одной минуты слишком мала для текста. Оставляем точные
-    // время и длительность, но даём такой записи безопасную визуальную карточку.
-    const height = minuteOnly ? (mobileTimeline ? 44 : 40) : mobileTimeline && duration < 30 ? 24 : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
+    const height = minuteOnly ? (mobileTimeline ? 44 : 40) : mobileTimeline && duration < 30 ? Math.max(24, naturalHeight - 4) : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
     return { item, index, duration, top, visualTop:top, height, minuteOnly };
   });
   stackMinuteTimelineItems(timelineItems);
@@ -9119,8 +9116,9 @@ function renderTimeline(sourceItems) {
     const timeRangeMarkup = `${startTime}<span class="timeline-range-separator">–</span>${endTime}`;
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
-    const compactMobile = mobileTimeline && height < 54;
-    const compact = height < 54 ? ' compact' : '';
+    const layoutHeight = mobileTimeline ? duration / 60 * 75 - 4 : height;
+    const compactMobile = mobileTimeline && layoutHeight < 54;
+    const compact = layoutHeight < 54 ? ' compact' : '';
     const tightMobile = mobileTimeline && !minuteOnly && duration <= 60;
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
@@ -9184,7 +9182,7 @@ function renderTimeline(sourceItems) {
       <span class="timeline-booking-copy">${mobileBadgeMarkup}${block ? `<strong>${serviceTitleMarkup}</strong>${timelineClientRow}` : `${timelineClientRow}<strong>${serviceTitleMarkup}</strong>`}${desktopBadgeMarkup}${renderedNote}</span>
       ${renderedStatus}`;
     const dragHandle = movable ? '<span class="timeline-drag-handle" aria-hidden="true"></span>' : '';
-    const tight = tightMobile ? ' timeline-tight' : '';
+    const tight = (tightMobile ? ' timeline-tight' : '') + (mobileTimeline && !block && duration > 1 && duration <= 30 ? ' timeline-short-visit' : '');
     const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ` automatic-break${item.automatic_break_theme_color ? ' automatic-break-theme-color' : ''}` : ''}${imported ? ' is-imported-history' : ''}${notePresence ? ' has-note' : ''}${highlightClasses}${temporalClass}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
     const timelineStyle = `top:${visualTop + 2}px;height:${height}px${block && duration === 30 ? ';overflow:hidden!important' : tightMobile ? ';padding:5px 9px!important;overflow:hidden!important' : ''}`;
