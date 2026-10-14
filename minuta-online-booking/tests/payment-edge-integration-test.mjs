@@ -8,7 +8,7 @@ const paymentPrepared={mode:'yookassa',enabled:true,attempt_id:attempt,organizat
 const refundPrepared={refund_id:refund,organization_id:organization,attempt_id:attempt,request_id:request,amount_minor:1000,currency:'RUB',environment:'test',status:'creating',provider_payment_id:'payment-1'};
 const payment={id:'payment-1',status:'pending',amount:{value:'150.00',currency:'RUB'},test:true,confirmation:{confirmation_url:'https://pay.fixture.invalid'},metadata:{minuta_organization_id:organization,minuta_booking_id:booking,minuta_attempt_id:attempt,minuta_environment:'test'}};
 const refundResponse={id:'refund-1',status:'succeeded',payment_id:'payment-1',amount:{value:'10.00',currency:'RUB'},metadata:{minuta_refund_id:refund,minuta_attempt_id:attempt,minuta_organization_id:organization,minuta_environment:'test'}};
-function fixture(entry,{prepared=paymentPrepared,provider=payment,providerStatus=200,rpcFailure='',network=false,environment=env}={}){
+function fixture(entry,{prepared=paymentPrepared,provider=payment,providerStatus=200,rpcFailure='',network=false,environment=env,dispatch}={}){
   return edgeFixture(entry,{env:environment,fetch:async r=>{
     const url=new URL(r.url);
     if(url.hostname==='api.yookassa.ru'){if(network)throw new TypeError('fixture network interruption');return reply(provider,providerStatus);}
@@ -16,12 +16,32 @@ function fixture(entry,{prepared=paymentPrepared,provider=payment,providerStatus
     if(url.pathname==='/auth/v1/user')return reply({id:actor});
     const name=url.pathname.split('/').at(-1);
     if(name===rpcFailure)return reply({message:'fixture rejected'},503);
+    if(name==='claim_yookassa_refund_dispatch')return reply(dispatch ?? {refund_id:prepared.refund_id,request_id:prepared.request_id,allowed:true,expires_at:new Date(Date.now()+3600000).toISOString()});
     if(name.startsWith('prepare_yookassa_'))return reply(prepared);
     return reply({ok:true,accepted:true});
   }});
 }
 const rpcCalls=f=>f.requests.filter(r=>r.url.includes('/rpc/'));
 const providerCalls=f=>f.requests.filter(r=>r.url.includes('api.yookassa.ru'));
+
+for(const [label,dispatch] of [
+  ['expired',{refund_id:refund,request_id:request,allowed:false,expires_at:new Date(Date.now()-1000).toISOString()}],
+  ['missing contract',{}],
+  ['foreign identity',{refund_id:id(99),request_id:request,allowed:true,expires_at:new Date(Date.now()+3600000).toISOString()}],
+  ['malformed deadline',{refund_id:refund,request_id:request,allowed:true,expires_at:'unknown'}],
+  ['insufficient network margin',{refund_id:refund,request_id:request,allowed:true,expires_at:new Date(Date.now()+1000).toISOString()}],
+])test(`refund dispatch ${label} sends no provider POST and preserves uncertain reservation`,async()=>{
+  const f=fixture('yookassa-refund/index.ts',{prepared:{...refundPrepared,status:'dispatch_required'},provider:refundResponse,dispatch});
+  const response=await f.call({organization_id:organization,attempt_id:attempt,request_id:request,amount_minor:1000,reason:'Uncertain refund fixture'},{authorization:'Bearer fixture-token'});
+  assert.ok(response.status>=400);assert.equal(providerCalls(f).length,0);
+  assert.equal(rpcCalls(f).find(r=>r.url.endsWith('/fail_yookassa_refund')).body.p_definitive,false);
+});
+
+test('old SQL without dispatch RPC cannot send a refund through the new handler',async()=>{
+  const f=fixture('yookassa-refund/index.ts',{prepared:refundPrepared,rpcFailure:'claim_yookassa_refund_dispatch'});
+  assert.ok((await f.call({organization_id:organization,attempt_id:attempt,request_id:request,amount_minor:1000,reason:'Mixed version fixture'},{authorization:'Bearer fixture-token'})).status>=400);
+  assert.equal(providerCalls(f).length,0);
+});
 
 test('test-mode creation uses only test credentials and stable request id across retry',async()=>{
   const f=fixture('yookassa-create-payment/index.ts');

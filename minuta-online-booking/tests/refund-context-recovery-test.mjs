@@ -164,7 +164,8 @@ async function harness({ digestTicks = 0 } = {}) {
     assert.ok([orgA, orgB].includes(organization));
     return { organization_id: organization, current_role: 'owner', settings: { enabled: true, environment: 'test' },
       recent_attempts: [{ id: organization === orgA ? attemptA : attemptB, status: 'succeeded', amount_minor: 10000,
-        captured_amount_minor: 10000, refunded_amount_minor: 0, created_at: '2026-09-05T00:00:00Z' }] };
+        captured_amount_minor: 10000, refunded_amount_minor: 0, reserved_refund_amount_minor:0,
+        refundable_amount_minor:10000, refund_in_progress:false, created_at: '2026-09-05T00:00:00Z' }] };
   }
   ctx.db = {
     rpc: async (name, params) => {
@@ -391,6 +392,7 @@ test('same-org workspace loads accept only the latest response without invalidat
   const h = await harness(); await h.submit();
   const old = h.deferLoad(), oldLoad = h.load(), latest = h.deferLoad(), latestLoad = h.load();
   const latestPayload = h.payload(orgA); latestPayload.recent_attempts[0].captured_amount_minor = 9000;
+  latestPayload.recent_attempts[0].refundable_amount_minor = 9000;
   latest.resolve({ data: latestPayload, error: null }); await latestLoad;
   const before = h.ui(); old.resolve({ data: h.payload(orgA), error: null }); await oldLoad;
   assert.deepEqual(h.ui(), before); assert.ok(h.ui().controls.every(([, disabled]) => disabled));
