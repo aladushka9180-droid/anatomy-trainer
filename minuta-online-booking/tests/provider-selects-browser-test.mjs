@@ -114,6 +114,33 @@ try {
   await dialog.waitFor({state:'hidden'});
   assert.equal(await page.getByRole('button',{name:/Группа:/}).count(),0);
 
+  // Deferred CSS in closed details must be synchronized before the fields become usable.
+  await page.evaluate(()=>{
+    const details=document.createElement('details');details.id='deferredFields';
+    details.innerHTML='<summary>Настройки<select id="summarySelect" aria-label="Краткий выбор"><option>A</option><option>B</option></select></summary><label>Скрытое поле<select id="deferredSelect" style="display:none"><option>A</option><option>B</option></select></label><details id="nestedFields"><summary>Вложенный выбор<select id="nestedSelect"><option>A</option><option>B</option></select></summary></details>';
+    document.querySelector('#bookingSheetContent').append(details);
+  });
+  await proxy(page.locator('#summarySelect')).click();
+  assert.equal(await dialog.isVisible(),true,'A select inside summary stays usable while details are closed');
+  await page.keyboard.press('Escape');
+  await page.locator('#deferredFields').evaluate(node=>{node.open=true});
+  await proxy(page.locator('#deferredSelect')).waitFor({state:'hidden'});
+  await page.locator('#deferredSelect').evaluate(node=>{node.style.display='';node.disabled=true});
+  assert.equal(await proxy(page.locator('#deferredSelect')).isDisabled(),true);
+  await page.locator('#deferredFields').evaluate(node=>{node.open=false});
+  await page.locator('#deferredSelect').evaluate(node=>{node.disabled=false;node.style.display='none'});
+  await page.locator('#deferredFields').evaluate(node=>{node.open=true});
+  await proxy(page.locator('#deferredSelect')).waitFor({state:'hidden'});
+  await page.locator('#deferredFields').evaluate(node=>{node.open=false});
+  await page.locator('#deferredSelect').evaluate(node=>{node.style.display=''});
+  await page.locator('#deferredFields').evaluate(node=>{node.open=true});
+  await proxy(page.locator('#deferredSelect')).click();
+  await dialog.getByRole('option',{name:'B',exact:true}).click();
+  assert.equal(await page.locator('#deferredSelect').inputValue(),'B','Reopening uses current native visibility and value');
+  await proxy(page.locator('#nestedSelect')).click();
+  await page.keyboard.press('Escape');
+  await page.locator('#deferredFields').evaluate(node=>node.remove());
+
   // Nested dialogs are used by imports, exports, widgets and other existing forms.
   await page.evaluate(()=>{
     const parent=document.createElement('dialog');parent.id='parentDialog';

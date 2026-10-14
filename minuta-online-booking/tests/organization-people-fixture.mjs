@@ -34,6 +34,7 @@ export function fixtureHtml(theme = 'pink-porcelain', role = 'owner') {
         return {data:readMode==='foreign'?{...shiftData,organization_id:'other'}:structuredClone(shiftData)};
       }
       if(!['create_minuta_location','invite_minuta_member','update_minuta_location','update_minuta_member','cancel_minuta_invitation'].includes(name))throw Error('Unapproved RPC '+name);
+      if(window.heldWrites)return await new Promise((resolve,reject)=>heldWrites.push({name,p,resolve,reject}));
       if(delayWrite)await new Promise(resolve=>window.releaseWrite=resolve);
       if(writeMode==='throw')throw Error('Synthetic network failure');
       if(writeMode==='refuse')return {error:{code:'WRITE_REFUSED'}};

@@ -4,6 +4,7 @@ on:
     paths:
       - 'minuta-online-booking/organization.js'
       - 'minuta-online-booking/organization-people.*'
+      - 'minuta-online-booking/provider-selects.js'
       - 'minuta-online-booking/tests/organization-people-*'
       - 'minuta-online-booking/provider.html'
       - '.github/workflows/minuta-organization-people.yml'
@@ -12,6 +13,7 @@ on:
     paths:
       - 'minuta-online-booking/organization.js'
       - 'minuta-online-booking/organization-people.*'
+      - 'minuta-online-booking/provider-selects.js'
       - 'minuta-online-booking/tests/organization-people-*'
       - 'minuta-online-booking/provider.html'
       - '.github/workflows/minuta-organization-people.yml'
@@ -39,6 +41,9 @@ jobs:
           node --check minuta-online-booking/organization-people.js
           node --check minuta-online-booking/organization.js
           node minuta-online-booking/organization-controller-test.mjs
+          node minuta-online-booking/tests/organization-people-session-browser-test.mjs
+          node minuta-online-booking/tests/organization-people-render-browser-test.mjs
+          node minuta-online-booking/tests/provider-selects-browser-test.mjs
           node minuta-online-booking/tests/organization-people-browser-test.mjs
           node minuta-online-booking/tests/organization-people-activation-browser-test.mjs
           node minuta-online-booking/tests/organization-flow-provider-integration-test.mjs
