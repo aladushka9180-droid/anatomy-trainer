@@ -81,13 +81,23 @@ begin
   perform pg_advisory_xact_lock(hashtextextended(v_booking.organization_id::text||':'||p_idempotency_key::text,8702));
   select * into v_attempt from public.payment_provider_attempts attempt
   where attempt.organization_id=v_booking.organization_id and attempt.idempotency_key=p_idempotency_key for update;
-  if found then
+  if not found and v_booking.payment_status='paid' then
+    -- Concurrent browser keys can alias the same open attempt. After settlement
+    -- recover that exact booking/amount/environment rather than issuing a charge.
+    select * into v_attempt from public.payment_provider_attempts attempt
+    where attempt.organization_id=v_booking.organization_id and attempt.booking_id=v_booking.id
+      and attempt.amount_minor=v_amount and attempt.currency='RUB'
+      and attempt.environment=v_setting.environment and attempt.status='succeeded'
+      and attempt.provider_payment_id is not null and attempt.captured_amount_minor=v_amount
+    order by attempt.created_at desc,attempt.id desc limit 1 for update;
+  end if;
+  if v_attempt.id is not null then
     if v_attempt.booking_id is distinct from v_booking.id or v_attempt.amount_minor is distinct from v_amount
       or v_attempt.currency is distinct from 'RUB' or v_attempt.environment is distinct from v_setting.environment then
       raise exception using errcode='23505',message='payment_idempotency_conflict';
     end if;
     -- Recover this exact confirmed operation before rejecting a new payment.
-    -- A different key still follows the normal paid/expired/disabled guards.
+    -- No new provider operation is prepared for an already paid booking.
     if v_attempt.status='succeeded' and v_attempt.provider_payment_id is not null
       and v_attempt.captured_amount_minor=v_attempt.amount_minor then
   select service.name into v_service_name from public.services service where service.id=v_booking.service_id;

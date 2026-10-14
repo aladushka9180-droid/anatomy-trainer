@@ -113,13 +113,18 @@ try {
   const payment=[...objects.values()].find(o=>o.id.startsWith('payment'));payment.status='succeeded';
   await ok(await webhook.call({type:'notification',event:'payment.succeeded',object:payment}));
   await check('F05: exact retry after paid webhook recovers succeeded without provider POST',async()=>{
-    const before=providerCalls.length;const result=await ok(await create.call({manage_token:paidToken,request_id:request}));
-    assert.equal(result.status,'succeeded');assert.equal(result.attempt_id,attempt);assert.equal(providerCalls.length,before);
+    const before=providerCalls.length;
+    for(const requestId of [request,id(22),id(999)]) {
+      const result=await ok(await create.call({manage_token:paidToken,request_id:requestId}));
+      assert.equal(result.status,'succeeded');assert.equal(result.attempt_id,attempt);
+    }
+    assert.equal(providerCalls.length,before);
+    assert.equal((await client.query('select count(*)::int n from public.payment_provider_attempts where booking_id=$1',[paidBooking])).rows[0].n,1);
     assert.equal((await client.query('select payment_status from public.bookings where id=$1',[paidBooking])).rows[0].payment_status,'paid');
   });
-  await check('Paid booking still refuses a fresh key, foreign token, changed amount and environment',async()=>{
+  await check('Paid booking still refuses foreign token, changed amount and environment',async()=>{
     const before=providerCalls.length;
-    for(const body of [{manage_token:paidToken,request_id:id(999)},{manage_token:id(998),request_id:request}])assert.ok((await create.call(body)).status>=400);
+    assert.ok((await create.call({manage_token:id(998),request_id:request})).status>=400);
     await client.query('update public.bookings set deposit_amount_rub=101 where id=$1',[paidBooking]);assert.ok((await create.call({manage_token:paidToken,request_id:request})).status>=400);
     await client.query('update public.bookings set deposit_amount_rub=100 where id=$1',[paidBooking]);
     await client.query("update public.organization_payment_provider_settings set environment='production' where organization_id=$1",[org]);assert.ok((await create.call({manage_token:paidToken,request_id:request})).status>=400);
