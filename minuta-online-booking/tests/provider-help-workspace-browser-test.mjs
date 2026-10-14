@@ -117,6 +117,7 @@ try {
 
   await page.frameLocator('#providerHelpWorkspace iframe').locator('#helpArticle').click();
   await page.waitForURL(/help=article&slug=install-app/);
+  await page.frameLocator('#providerHelpWorkspace iframe').locator('h1').filter({ hasText:/install-app/ }).waitFor();
   assert.match(await page.frameLocator('#providerHelpWorkspace iframe').locator('h1').innerText(), /install-app/);
   await page.evaluate(() => window.history.back());
   await page.waitForURL(/help=index/);
