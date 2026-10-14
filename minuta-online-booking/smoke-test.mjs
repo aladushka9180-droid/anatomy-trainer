@@ -334,7 +334,7 @@ assert.match(provider, /const fullBounds = timelineBounds\(items\)/, 'Грани
 assert.doesNotMatch(provider, /timelineFullDay|data-expand-timeline/, 'В ленте вернулся отдельный переключатель пустого хвоста');
 assert.match(provider, /journalMode === 'timeline'/, 'Дублирующие фильтры не скрываются в режиме временной ленты');
 assert.doesNotMatch(providerHtml, /mobile-priority-shortcuts/, 'Быстрые ссылки дублируют нижнюю навигацию');
-assert.match(provider, /height < 54 \? ' compact'/, 'Записи до 45 минут снова получают переполняющийся обычный макет');
+assert.match(provider, /const layoutHeight = mobileTimeline \? duration \/ 60 \* 75 - 4 : height;[\s\S]*?layoutHeight < 54 \? ' compact'/, 'Zoom меняет утверждённую компактную типографику вместо всей сетки');
 assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
 assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
 assert.match(provider, /bookings-v3/, 'Полноценный кэш записей не отделён от старой обезличенной версии');
