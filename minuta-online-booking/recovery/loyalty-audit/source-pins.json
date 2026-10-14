@@ -1,0 +1,59 @@
+{
+  "migration": "supabase/migrations/20261014230135_loyalty_audit_hardening.sql",
+  "functions": [
+    {
+      "name": "get_minuta_loyalty_program_role_v166",
+      "baseline": "42b48830369886c68603cc55be240eeb",
+      "patched": "c11941f09afc6c10793c7c01c0c5d700"
+    },
+    {
+      "name": "set_minuta_loyalty_program_v166",
+      "baseline": "162844b1e10afece68d91ee9dae219a8",
+      "patched": "199d79c41afee0e95f6c8bcfaf34124b"
+    },
+    {
+      "name": "reconcile_minuta_loyalty_outcome_v166",
+      "baseline": "2de8023f9a116523d7a1c6170d013515",
+      "patched": "fbf9780aa91b2cdc018123cece767cc5"
+    },
+    {
+      "name": "reconcile_minuta_loyalty_booking_status_v166",
+      "baseline": "bc27ca579aba43630656c8d897f32a3f",
+      "patched": "e1c97a0d263fe6900e34040212056848"
+    },
+    {
+      "name": "get_minuta_loyalty_program_workspace_v166",
+      "baseline": "b27e6b19ee8f10e986349570bd9c9e3a",
+      "patched": "47eabf7e073997a097c2ce5cd690e124"
+    },
+    {
+      "name": "adjust_minuta_loyalty_progress_v166",
+      "baseline": "d44f105e7e2a07a180b8ce8e62963bc9",
+      "patched": "d44f105e7e2a07a180b8ce8e62963bc9"
+    },
+    {
+      "name": "redeem_minuta_loyalty_reward_v166",
+      "baseline": "d8d11b4ad3d10caf03a0d2ffad9ae1d4",
+      "patched": "d8d11b4ad3d10caf03a0d2ffad9ae1d4"
+    },
+    {
+      "name": "get_client_loyalty_program_v166",
+      "baseline": "bf217a5c8eb26b13b72e523406e2ac2b",
+      "patched": "bf217a5c8eb26b13b72e523406e2ac2b"
+    },
+    {
+      "name": "reconcile_minuta_loyalty_booking_v166",
+      "baseline": "fe00568960e80ff93669bcc2315cc87a",
+      "patched": "fe00568960e80ff93669bcc2315cc87a"
+    },
+    {
+      "name": "expire_minuta_loyalty_rewards_v166",
+      "baseline": "1c5f13232aa50c7f922a7f9f257232c6",
+      "patched": "1c5f13232aa50c7f922a7f9f257232c6"
+    }
+  ],
+  "immutableBaseline": "minuta-online-booking/supabase-migration-v166.sql",
+  "dataRewrites": false,
+  "defaultRollback": "operational-hold.sql",
+  "exactRollback": "isolated-exact-rollback.sql; isolated test marker required"
+}
