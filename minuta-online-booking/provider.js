@@ -7525,11 +7525,10 @@ function dateStripRangeHasRunway(dateStrip, value, runwayDays = 28) {
 }
 
 function syncScheduleDateDisplay() {
-  const picker = $('#scheduleDatePicker');
-  const display = $('#scheduleDateDisplay');
-  if (!picker || !display) return;
-  display.textContent = picker.value.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3.$2.$1');
-  picker.closest('.schedule-date-picker')?.classList.toggle('has-date-display', Boolean(picker.value));
+  const day=$('#scheduleDatePicker'),text=$('#scheduleDateDisplay');
+  if(!day||!text)return;
+  text.textContent=day.value?new Date(day.value+'T12:00').toLocaleDateString('ru',{month:'long',year:'numeric'}).slice(0,-3):'';
+  day.closest('.schedule-date-picker')?.classList.toggle('has-date-display',!!day.value);
 }
 
 function renderDateStrip({ forceCenter = false, instantCenter = false } = {}) {

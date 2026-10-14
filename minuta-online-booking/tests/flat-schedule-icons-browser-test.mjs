@@ -95,7 +95,7 @@ try {
   await page.waitForTimeout(250); const state=await page.evaluate(()=>{
    const online=document.querySelector('[data-open-booking="online"]'),manual=document.querySelector('[data-open-booking="manual"]'),auto=document.querySelector('[data-open-automatic-break]');
    const style=e=>getComputedStyle(e),rect=e=>e.getBoundingClientRect();
-   const time=auto.querySelector('.timeline-booking-client-row'),label=auto.querySelector('.timeline-booking-copy>strong');
+   const time=auto.querySelector('.timeline-booking-client-row'),label=auto.querySelector('.timeline-automatic-break-label');
    const forty=document.querySelector('[data-open-booking="forty"]'),row=forty.querySelector('.timeline-booking-client-row'),service=forty.querySelector('.timeline-booking-copy>strong'),fortyTime=forty.querySelector('.timeline-mobile-time'),fortyName=forty.querySelector('.timeline-client-name');
    const fortyThreeLines=innerWidth>760 || (rect(fortyTime).height>0 && rect(fortyName).height>0 && rect(fortyTime).bottom<=rect(fortyName).top+1 && rect(fortyName).bottom<=rect(service).top+1);
    const fifteen=document.querySelector('[data-open-booking="fifteen"]'),long=document.querySelector('[data-open-booking="long"]');
