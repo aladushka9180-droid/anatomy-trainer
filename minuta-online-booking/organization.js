@@ -20,7 +20,7 @@
     let activeOrganizationId = '';
     let availability = null;
     let requestRevision = 0;
-    let writePending = false;
+    let write = null;
     let writeUnconfirmed = false;
     const people = window.MinutaOrganizationPeople?.createController(options);
 
@@ -83,7 +83,8 @@
     }
 
     function reset() {
-      requestRevision += 1;
+      ++requestRevision;
+      write?.();
       writeUnconfirmed = false;
       people?.reset();
       organizations = [];
@@ -133,7 +134,7 @@
     }
 
     async function load() {
-      if (writePending) return { ok: false, optional: true, busy: true };
+      if (write) return { ok: false, optional: true, busy: true };
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
       const revision = ++requestRevision;
@@ -292,7 +293,7 @@
     }
 
     async function mutate(rpc, parameters, button, successMessage, errorSelector) {
-      if (writePending) return false;
+      if (write) return false;
       if (writeUnconfirmed) {
         notify('Сначала обновите список: результат предыдущего сохранения ещё не подтверждён.');
         return false;
@@ -300,24 +301,27 @@
       if (!requireWrites()) return false;
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
-      const revision = ++requestRevision;
+      ++requestRevision;
       if (!userId) return false;
-      writePending = true;
+      const text = button?.textContent;
+      const done = write = () => {
+        write = null;
+        people?.setBusy(false);
+        if (button) { button.disabled = false; button.textContent = text; }
+      };
       people?.setBusy(true);
       const form = button?.closest?.('form');
       const submitted = people?.snapshot(form);
       if (errorSelector) clearError(errorSelector);
-      const oldText = button?.textContent;
       if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
       let response;
       try { response = await db.rpc(rpc, parameters); }
       catch { response = { error: { code: 'UNCONFIRMED_WRITE' } }; }
       const { data, error: transportError } = response || {};
       const error = transportError || (!Array.isArray((data?.workspace || data)?.organizations) ? { code: 'UNCONFIRMED_WRITE' } : null);
-      writePending = false;
-      people?.setBusy(false);
-      if (button) { button.disabled = false; button.textContent = oldText; }
-      if (!sessionIsCurrent(userId, generation) || revision !== requestRevision) return false;
+      if (write !== done) return false;
+      done();
+      if (!sessionIsCurrent(userId, generation)) return false;
       if (error) {
         writeUnconfirmed = error.code === 'UNCONFIRMED_WRITE' || /failed to fetch|network|abort|timeout|connection/i.test(error.message || '');
         const messages = {
@@ -399,7 +403,7 @@
 
     function handleChange(event) {
       if (event.target.id !== 'organizationSwitcher') return;
-      if (writePending) { event.target.value = activeOrganizationId; return; }
+      if (write) { event.target.value = activeOrganizationId; return; }
       const next = workingOrganizations().find(item => item.id === event.target.value);
       if (!next) return;
       people?.capture();
