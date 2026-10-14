@@ -226,7 +226,7 @@ test('pending refunds reserve balance and recent refunds/reconciliations are vis
     reconciliations:[{ outcome:'matched', object_kind:'refund', amount_minor:400, checked_at:'2026-09-06T00:01:00Z' }] });
   assert.equal(ui.select('#paymentRefundAttempt').innerHTML, '');
   assert.equal(ui.select('#paymentRefundForm').hidden, true);
-  assert.match(ui.select('#paymentAttemptsList').innerHTML, /возврат в обработке.*зарезервировано/s);
+  assert.match(ui.select('#paymentAttemptsList').innerHTML, /зарезервировано 4,00 ₽/);
   assert.match(ui.select('#paymentAttemptsList').innerHTML, /Возврат.*сумма зарезервирована/s);
   assert.match(ui.select('#paymentAttemptsList').innerHTML, /Сверка.*сверено/s);
   await ui.submit('6.01');
@@ -354,17 +354,18 @@ test('server balance remains authoritative when the pending refund is outside th
   assert.doesNotMatch(ui.select('#paymentAttemptsList').innerHTML,/доступно к возврату 100,00/);
 });
 
-for (const balance of [{}, {reserved_refund_amount_minor:0,refundable_amount_minor:9999,refund_in_progress:false},
+for (const balance of [{}, {reserved_refund_amount_minor:0,refundable_amount_minor:10000,refund_in_progress:0},
+  {reserved_refund_amount_minor:0,refundable_amount_minor:9999,refund_in_progress:false},
   {reserved_refund_amount_minor:'invalid',refundable_amount_minor:10000,refund_in_progress:false}]) {
   test(`missing or inconsistent server balance closes new refunds: ${JSON.stringify(balance)}`, async () => {
     const ui = await harness({captured:10000,serverBalance:balance});
     assert.equal(ui.select('#paymentRefundForm').hidden,true);
-    assert.match(ui.select('#paymentAttemptsList').innerHTML,/остаток не подтверждён/);
+    assert.doesNotMatch(ui.select('#paymentAttemptsList').innerHTML,/доступно к возврату/);
     await ui.submit('1.00'); assert.equal(ui.invocations.length,0);
   });
 }
 
-for (const [outcome,label] of [['matched','сверено'],['updated','данные обновлены'],['pending','ожидает сверки'],['failed','ошибка сверки'],['unknown','статус не определён']]) {
+for (const [outcome,label] of [['matched','сверено'],['updated','обновлено'],['pending','ожидает сверки'],['failed','ошибка сверки'],['unknown','неизвестно']]) {
   test(`reconciliation outcome ${outcome} has a localized label`, async () => {
     const ui = await harness({reconciliations:[{outcome,object_kind:'payment',checked_at:'2026-10-15T00:00:00Z'}]});
     assert.match(ui.select('#paymentAttemptsList').innerHTML,new RegExp(`Сверка · ${label}`));

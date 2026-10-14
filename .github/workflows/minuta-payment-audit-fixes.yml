@@ -32,7 +32,6 @@ jobs:
     env:
       PAYMENT_AUDIT_ISOLATED_FIXTURE: 'true'
       PAYMENT_AUDIT_DATABASE_URL: postgresql://fixture_owner:isolated-fixture-only@127.0.0.1:5432/payment_audit_fixes
-      PAYMENT_AUDIT_OUTPUT_DIR: ${{ runner.temp }}/payment-audit-results
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -45,12 +44,14 @@ jobs:
           "$RUNNER_TEMP/payment-audit-runtime/node_modules/.bin/playwright" install --with-deps chromium
           echo "MINUTA_PG_MODULE=$RUNNER_TEMP/payment-audit-runtime/node_modules/pg/lib/index.js" >> "$GITHUB_ENV"
           echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/payment-audit-runtime/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "PAYMENT_AUDIT_OUTPUT_DIR=$RUNNER_TEMP/payment-audit-results" >> "$GITHUB_ENV"
       - name: Verify payment and recovery contracts
         run: |
           node --test minuta-online-booking/tests/payment-edge-integration-test.mjs minuta-online-booking/tests/refund-amount-ux-test.mjs minuta-online-booking/tests/refund-context-recovery-test.mjs
           node minuta-online-booking/yookassa-v87-static-test.mjs
           node minuta-online-booking/provider-integrations-v144-static-test.mjs
           node minuta-online-booking/client-url-redirect-test.mjs
+          node minuta-online-booking/provider-startup-performance-v565-test.mjs
           deno check supabase/functions/yookassa-refund/index.ts supabase/functions/yookassa-create-payment/index.ts supabase/functions/payment-webhook/index.ts
       - name: Verify actual SQL, Edge and DOM in the empty fixture database
         run: node minuta-online-booking/tests/payment-audit-native-test.mjs

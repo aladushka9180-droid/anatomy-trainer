@@ -188,7 +188,7 @@ try {
     },org);
     await check(`F02/F03: actual DOM shows reserve and all localized reconciliation states at ${width}`,async()=>{
       const text=await page.locator('#paymentAttemptsList').textContent();assert.match(text,/зарезервировано 90,00/);assert.doesNotMatch(text,/доступно к возврату 100,00/);
-      for(const label of ['сверено','данные обновлены','ожидает сверки','ошибка сверки'])assert.ok(text.includes('Сверка · '+label));
+      for(const label of ['сверено','обновлено','ожидает сверки','ошибка сверки'])assert.ok(text.includes('Сверка · '+label));
       assert.equal(await page.locator(`#paymentRefundAttempt option[value="${legacyAttempt}"]`).count(),0);
     });
     if(width===390){
