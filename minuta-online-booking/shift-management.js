@@ -16,14 +16,15 @@
   }
 
   function addDays(iso, count) {
-    const date = new Date(`${iso}T12:00:00`);
-    date.setDate(date.getDate() + count);
+    const date = new Date(`${iso}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + count);
     return date.toISOString().slice(0, 10);
   }
 
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, applyWriteAvailability } = options;
     const loadTimeoutMs = Number.isFinite(options.loadTimeoutMs) ? Math.max(1, options.loadTimeoutMs) : 15000;
+    const mutationTimeoutMs = Number.isFinite(options.mutationTimeoutMs) ? Math.max(1, options.mutationTimeoutMs) : 15000;
     const getCurrentUser = typeof options.getCurrentUser === 'function' ? options.getCurrentUser : () => null;
     const getSessionGeneration = typeof options.getSessionGeneration === 'function' ? options.getSessionGeneration : () => 0;
     const sessionIsCurrent = typeof options.sessionIsCurrent === 'function' ? options.sessionIsCurrent : () => false;
@@ -33,6 +34,7 @@
     let payload = null;
     let revision = 0;
     let pending = false;
+    let loadedContext = '';
     let pendingOrganization;
     let editingShiftId = null;
     const presentation = () => window.MinutaTeamSchedule;
@@ -53,7 +55,12 @@
       revision += 1;
       organization = null;
       payload = null;
+      loadedContext = '';
+      pending?.abort?.();
+      pending?.restore?.();
       pending = false;
+      setBusy(false);
+      $('#shiftsPanel').inert = false;
       pendingOrganization = undefined;
       editingShiftId = null;
       $('#shiftsPanel').hidden = true;
@@ -88,13 +95,17 @@
       const generation = getSessionGeneration();
       const organizationId = organization.id;
       const currentRevision = ++revision;
+      const currentContext = `${userId}:${generation}:${organizationId}`;
+      const keepWorkspace = loadedContext === currentContext && !$('#shiftWorkspace').hidden;
       presentation()?.beforeLoad();
       const start = $('#shiftStartDate').value || isoToday();
       const days = Math.max(1, Math.min(62, Number($('#shiftPeriod').value || 14)));
       $('#shiftsPanel').hidden = false;
-      $('#shiftsLoading').hidden = false;
+      $('#shiftsLoading').hidden = keepWorkspace;
       $('#shiftsUnavailable').hidden = true;
-      $('#shiftWorkspace').hidden = true;
+      $('#shiftWorkspace').hidden = !keepWorkspace;
+      payload = null;
+      $('#shiftsPanel').inert = true;
       let timeoutId;
       let response;
       try {
@@ -112,6 +123,10 @@
       $('#shiftsLoading').hidden = true;
       if (error) {
         payload = null;
+        $('#shiftWorkspace').hidden = true;
+        $('#shiftsPanel').inert = false;
+        setBusy(false);
+        applyWriteAvailability?.();
         if (unsupported(error)) { $('#shiftsPanel').hidden = true; return { ok: false, optional: true, unsupported: true }; }
         $('#shiftsUnavailable').hidden = false;
         $('#shiftsUnavailableText').textContent = error.code === 'SHIFT_LOAD_TIMEOUT'
@@ -121,11 +136,16 @@
       }
       if (String(data?.organization_id || '') !== String(organizationId)) {
         payload = null;
+        $('#shiftWorkspace').hidden = true;
+        $('#shiftsPanel').inert = false;
+        setBusy(false);
+        applyWriteAvailability?.();
         $('#shiftsUnavailable').hidden = false;
         $('#shiftsUnavailableText').textContent = 'Сервер вернул расписание другой организации. Изменения заблокированы.';
         return { ok: false, optional: true, scopeMismatch: true };
       }
       payload = data || {};
+      loadedContext = currentContext;
       for (const key of ['locations', 'performers', 'services', 'shifts', 'absences', 'bookings', 'utilization', 'audit']) if (!Array.isArray(payload[key])) payload[key] = [];
       render();
       return { ok: true, optional: true };
@@ -219,6 +239,8 @@
 
     function render() {
       if (!payload) return;
+      $('#shiftsPanel').inert = false;
+      setBusy(false);
       const canManage = Boolean(payload.can_manage_team);
       const isOwner = payload.current_role === 'owner';
       $('#shiftsPanel').hidden = false;
@@ -258,7 +280,6 @@
       $('#shiftAuditCount').textContent = String(payload.audit.length);
       $('#shiftAuditList').innerHTML = payload.audit.length ? payload.audit.map(auditCard).join('') : empty('Изменений пока нет', 'Здесь появится история смен, отсутствий и замен.');
       presentation()?.render(payload);
-      setBusy(false);
       applyWriteAvailability();
     }
 
@@ -271,22 +292,58 @@
       const generation = getSessionGeneration();
       const organizationId = organization.id;
       const currentRevision = ++revision;
-      pending = true;
+      const abort = typeof AbortController === 'function' ? new AbortController() : null;
+      const oldDisabled = button?.disabled;
+      const oldText = button?.textContent;
+      const operation = {
+        abort: () => abort?.abort(),
+        restore: () => { if (button) { button.textContent = oldText; button.disabled = oldDisabled; } }
+      };
+      pending = operation;
       setBusy(true);
       if (errorSelector) clearError(errorSelector);
-      const oldText = button?.textContent;
       if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
-      const { error } = await db.rpc(rpc, parameters);
-      if (button) button.textContent = oldText;
-      const stale = !sessionIsCurrent(userId, generation) || organization?.id !== organizationId || currentRevision !== revision;
-      pending = false;
-      if (stale) { const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return false; }
+      let response, timeoutId, ownsPending;
+      try {
+        let request = db.rpc(rpc, parameters);
+        if (abort && typeof request?.abortSignal === 'function') request = request.abortSignal(abort.signal);
+        response = await Promise.race([
+          request,
+          new Promise(resolve => { timeoutId = setTimeout(() => {
+            resolve({ error: { code: 'SHIFT_MUTATION_TIMEOUT' } });
+            operation.abort();
+          }, mutationTimeoutMs); })
+        ]);
+      } catch (error) {
+        response = { error };
+      } finally {
+        clearTimeout(timeoutId);
+        ownsPending = pending === operation;
+        if (ownsPending) {
+          pending = false;
+          operation.restore();
+          setBusy(false);
+          applyWriteAvailability();
+        }
+      }
+      const stale = !ownsPending || !sessionIsCurrent(userId, generation) || organization?.id !== organizationId || currentRevision !== revision;
+      let { data, error } = response || {};
+      if (!error && data == null) error = { code: 'SHIFT_MUTATION_RESULT_UNKNOWN' };
+      if (!error && ['cancel_minuta_staff_shift', 'cancel_minuta_staff_absence'].includes(rpc) && data === false) {
+        error = { code: 'SHIFT_NOT_CHANGED', message: 'shift_not_changed' };
+      }
+      if (stale) {
+        if (ownsPending) { const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); }
+        return false;
+      }
       if (error) {
         const source = `${error.message || ''} ${error.details || ''}`;
         const messages = [
           ['staff_location_shifts_no_performer_overlap', 'У специалиста уже есть пересекающаяся смена, возможно в другом филиале.'],
           ['shift_overlaps_absence', 'Смена пересекается с отпуском или больничным.'],
           ['shift_has_bookings', 'Нельзя отменить смену с действующими записями. Сначала переназначьте клиентов.'],
+          ['shift_change_conflicts_with_booking', 'Изменение смены оставит действующую запись вне рабочего времени или на перерыве. Сначала переназначьте запись либо сохраните подходящие часы смены.'],
+          ['shift_not_changed', 'Элемент графика уже отсутствует. Отмена не выполнена.'],
           ['absence_has_bookings', 'На этот период уже есть записи. Сначала замените специалиста.'],
           ['existing_bookings_outside_shifts', 'Не все будущие записи попадают в подготовленные смены. Строгий режим не включён.'],
           ['booking_outside_active_shift', 'Новый специалист не работает в этом филиале и в это время.'],
@@ -295,7 +352,10 @@
           ['foreign_service_denied', 'У другого специалиста нет активной услуги той же длительности.'],
           ['owner_required', 'Включить строгий режим может только владелец.']
         ];
-        const message = messages.find(([key]) => source.includes(key))?.[1] || 'Изменение не сохранено. Данные записей не затронуты.';
+        const message = messages.find(([key]) => source.includes(key))?.[1]
+          || (/^(?:[0-9A-Z]{5}|PGRST\d+)$/.test(error.code || '')
+            ? 'Сервер отклонил изменение. Проверьте данные и повторите сохранение.'
+            : 'Не удалось подтвердить результат. Проверьте обновлённый график перед повторным сохранением.');
         if (errorSelector) showError(errorSelector, message); else notify(message);
         await load();
         return false;
