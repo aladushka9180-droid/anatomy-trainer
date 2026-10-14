@@ -408,7 +408,9 @@
     async function runMutations(commands, control, success, silent = false, reloadAfter = true) {
       if (!requireWrites() || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return false;
       if (!retainedScopeIsCurrent()) { retainForScope(); hideWorkspace(); return false; }
-      if (commands.some(command => command.name !== 'save_minuta_retention_settings')) {
+      // Only preparation depends on the current template. Consent and draft
+      // status actions must remain available when settings cannot be saved.
+      if (commands.some(command => command.name === 'prepare_minuta_retention_delivery')) {
         const beforeSave = scopeSnapshot();
         if (reviewingEnable || ($('#retentionEnabled').checked && !payload.enabled)) return false;
         if (otherSettingsChanged() || $('#retentionEnabled').checked !== payload.enabled) {
