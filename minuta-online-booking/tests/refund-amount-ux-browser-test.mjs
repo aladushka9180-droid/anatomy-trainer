@@ -46,6 +46,9 @@ async function fixture(captured = 1000, refunded = 0, existingPage = null) {
       rpc:async name => {
         if (name !== 'get_minuta_payment_workspace') throw new Error('Unexpected RPC: ' + name);
         state.loads += 1;
+        for (const attempt of payload.recent_attempts) Object.assign(attempt, {
+          reserved_refund_amount_minor:0, refundable_amount_minor:attempt.captured_amount_minor-attempt.refunded_amount_minor, refund_in_progress:false
+        });
         return { data:structuredClone(payload), error:null };
       },
       functions:{ invoke:async (name, args) => {

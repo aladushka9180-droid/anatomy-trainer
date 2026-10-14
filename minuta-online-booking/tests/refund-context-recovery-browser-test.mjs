@@ -44,6 +44,7 @@ async function fixture() {
     } : handler, options);
     state.workspace = organization => ({organization_id:organization,current_role:'owner',settings:{enabled:false,environment:'test'},
       recent_attempts:[{id:`attempt-${organization}`,amount_minor:1000,captured_amount_minor:1000,refunded_amount_minor:0,
+        reserved_refund_amount_minor:0, refundable_amount_minor:1000, refund_in_progress:false,
         status:'succeeded',created_at:'2026-09-01T12:00:00Z'}]});
     const db = {
       rpc(name, args) {

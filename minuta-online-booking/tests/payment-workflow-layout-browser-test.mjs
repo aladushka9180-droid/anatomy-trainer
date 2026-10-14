@@ -40,7 +40,11 @@ async function fixture(width,code){
  await page.evaluate(async()=>{
   window.paymentState={calls:[],notices:[]};
   const db={rpc:async()=>({data:{organization_id:'org-a',current_role:'owner',settings:{enabled:false,environment:'test'},
-   recent_attempts:[{id:'attempt-a',amount_minor:10000,captured_amount_minor:10000,refunded_amount_minor:0,status:'succeeded',created_at:'2026-09-01T12:00:00Z'}]},error:null}),
+   recent_attempts:[{id:'attempt-a',amount_minor:10000,captured_amount_minor:10000,refunded_amount_minor:0,
+     reserved_refund_amount_minor:0,refundable_amount_minor:10000,refund_in_progress:false,status:'succeeded',created_at:'2026-09-01T12:00:00Z'},
+     {id:'attempt-old-reserve',amount_minor:10000,captured_amount_minor:10000,refunded_amount_minor:0,
+       reserved_refund_amount_minor:9000,refundable_amount_minor:1000,refund_in_progress:true,status:'succeeded',created_at:'2026-08-01T12:00:00Z'}],
+   recent_reconciliations:['matched','updated','pending','failed'].map(outcome=>({outcome,object_kind:'refund',checked_at:'2026-09-01T12:00:00Z'}))},error:null}),
    functions:{invoke:async(name,args)=>{paymentState.calls.push(args.body);return {data:null,error:{message:'lost response'}};}}};
   window.paymentController=MinutaPayments.createController({db,$:s=>document.querySelector(s),escapeHtml:v=>String(v??''),notify:v=>paymentState.notices.push(v),requireWrites:()=>true});
   paymentController.bind();await paymentController.setOrganization({id:'org-a',current_role:'owner'});
@@ -50,6 +54,8 @@ async function screenshot(page,label,width){
  await page.evaluate(()=>scrollTo(0,0));
  if(process.env.MINUTA_AUDIT_SCREENSHOT_DIR)await page.screenshot({path:resolve(process.env.MINUTA_AUDIT_SCREENSHOT_DIR,`payment-${label}-${width}.png`),fullPage:true});
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth)<=width);
+ const clipped = await page.locator('#paymentAttemptsList .payment-attempt-row > span').evaluateAll(nodes=>nodes.filter(node=>node.scrollWidth>node.clientWidth+1).map(node=>node.textContent));
+ assert.deepEqual(clipped,[],`${width}: operation balance must remain readable`);
 }
 try{
  for(const width of [390,760,1440]){

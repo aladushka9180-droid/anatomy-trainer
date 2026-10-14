@@ -158,7 +158,7 @@ Deno.serve(async (request: Request) => {
       });
       return json({ ok: true, refund_id: refundId, status: canonical.status, amount_minor: canonical.amountMinor });
     }
-    if (prepared.status !== "creating") throw new PayloadError("refund_not_retryable");
+    if (!["creating", "dispatch_required"].includes(prepared.status ?? "")) throw new PayloadError("refund_not_retryable");
 
     const providerBody: Record<string, unknown> = {
       payment_id: prepared.provider_payment_id,
@@ -173,9 +173,22 @@ Deno.serve(async (request: Request) => {
     };
     const fiscalReceipt = refundReceipt(prepared);
     if (fiscalReceipt) providerBody.receipt = fiscalReceipt;
+    const credentials = yookassaCredentials(prepared.organization_id, prepared.environment);
+    const dispatch = await serviceRpc<{
+      refund_id?: string; request_id?: string; allowed?: boolean; expires_at?: string;
+    }>("claim_yookassa_refund_dispatch", {
+      p_refund: refundId,
+      p_request_id: prepared.request_id,
+      p_actor: actorId,
+    });
+    const expiresAt = typeof dispatch.expires_at === "string" ? Date.parse(dispatch.expires_at) : NaN;
+    if (dispatch.refund_id !== refundId || dispatch.request_id !== prepared.request_id
+      || dispatch.allowed !== true || !Number.isFinite(expiresAt) || expiresAt <= Date.now() + 15000) {
+      throw new PayloadError("refund_reconciliation_required");
+    }
     const providerResponse = await yookassaRequest<YooKassaRefund>(
       "/refunds",
-      yookassaCredentials(prepared.organization_id, prepared.environment),
+      credentials,
       { method: "POST", idempotenceKey: prepared.request_id, body: providerBody },
     );
     const refund = validateRefund(providerResponse, prepared);

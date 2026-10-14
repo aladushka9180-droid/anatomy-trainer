@@ -1,0 +1,62 @@
+name: Minuta payment audit regressions
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/minuta-payment-audit-fixes.yml'
+      - 'minuta-online-booking/payment-management.js'
+      - 'minuta-online-booking/integration-management.js'
+      - 'minuta-online-booking/tests/payment-audit-native-test.mjs'
+      - 'minuta-online-booking/tests/payment-edge-*.mjs'
+      - 'supabase/functions/yookassa-*/**'
+      - 'supabase/functions/payment-webhook/**'
+      - 'supabase/migrations/*_payment_audit_fixes.sql'
+      - 'supabase/rollback/payment_audit_fixes.sql'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: fixture_owner
+          POSTGRES_PASSWORD: isolated-fixture-only
+          POSTGRES_DB: payment_audit_fixes
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      PAYMENT_AUDIT_ISOLATED_FIXTURE: 'true'
+      PAYMENT_AUDIT_DATABASE_URL: postgresql://fixture_owner:isolated-fixture-only@127.0.0.1:5432/payment_audit_fixes
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 24 }
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with: { deno-version: v2.9.6 }
+      - name: Prepare isolated test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/payment-audit-runtime" --save-exact pg@8.16.3 playwright@1.56.1
+          "$RUNNER_TEMP/payment-audit-runtime/node_modules/.bin/playwright" install --with-deps chromium
+          echo "MINUTA_PG_MODULE=$RUNNER_TEMP/payment-audit-runtime/node_modules/pg/lib/index.js" >> "$GITHUB_ENV"
+          echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/payment-audit-runtime/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "PAYMENT_AUDIT_OUTPUT_DIR=$RUNNER_TEMP/payment-audit-results" >> "$GITHUB_ENV"
+      - name: Verify payment and recovery contracts
+        run: |
+          node --test minuta-online-booking/tests/payment-edge-integration-test.mjs minuta-online-booking/tests/refund-amount-ux-test.mjs minuta-online-booking/tests/refund-context-recovery-test.mjs
+          node minuta-online-booking/yookassa-v87-static-test.mjs
+          node minuta-online-booking/provider-integrations-v144-static-test.mjs
+          node minuta-online-booking/client-url-redirect-test.mjs
+          node minuta-online-booking/provider-startup-performance-v565-test.mjs
+          deno check supabase/functions/yookassa-refund/index.ts supabase/functions/yookassa-create-payment/index.ts supabase/functions/payment-webhook/index.ts
+      - name: Verify actual SQL, Edge and DOM in the empty fixture database
+        run: node minuta-online-booking/tests/payment-audit-native-test.mjs
+      - name: Verify nearest browser regressions
+        run: |
+          node minuta-online-booking/tests/refund-amount-ux-browser-test.mjs
+          node minuta-online-booking/tests/refund-context-recovery-browser-test.mjs
+          node minuta-online-booking/tests/provider-integrations-v144-browser-test.mjs

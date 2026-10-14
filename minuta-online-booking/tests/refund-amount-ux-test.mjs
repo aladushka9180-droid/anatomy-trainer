@@ -9,7 +9,7 @@ const source = readFileSync(new URL('../payment-management.js', import.meta.url)
 // Actual controller, mocked DOM/transport only. No database or payment calls.
 async function harness({ captured = 1000, refunded = 0, pendingRefunds = [], reconciliations = [],
   attemptStatus = 'succeeded', confirmed = true, storage = new Map(), checkRow = null, checkError = null, possibleAlias = null,
-  response = null } = {}) {
+  response = null, serverBalance = undefined } = {}) {
   const elements = new Map();
   const listeners = new Map();
   const notifications = [];
@@ -56,7 +56,18 @@ async function harness({ captured = 1000, refunded = 0, pendingRefunds = [], rec
     requireWrites: () => true,
     db: {
       from: name => { assert.equal(name,'payment_provider_refunds'); const filters=[]; let alias=false; const query={select:()=>query,eq:(key,value)=>{filters.push([key,value]);return query;},in:()=>{alias=true;return query;},limit:()=>query,maybeSingle:async()=>{rpcCalls.push(['exact-refund',filters]);return {data:alias?possibleAlias:typeof checkRow==='function'?checkRow():checkRow,error:checkError};}};return query; },
-      rpc: async (...args) => { rpcCalls.push(args); return { data: payload }; },
+      rpc: async (...args) => {
+        rpcCalls.push(args);
+        for (const attempt of payload.recent_attempts) {
+          const active = pendingRefunds.filter(row => row.attempt_id === attempt.id && ['creating','pending'].includes(row.status));
+          const reserved = active.reduce((sum,row) => sum + row.amount_minor,0);
+          Object.assign(attempt, serverBalance === undefined ? {
+            reserved_refund_amount_minor:reserved, refundable_amount_minor:Number(attempt.captured_amount_minor)-Number(attempt.refunded_amount_minor)-reserved,
+            refund_in_progress:active.length>0
+          } : serverBalance);
+        }
+        return { data: payload };
+      },
       functions: { invoke: async (...args) => {
         assert.equal(JSON.parse(storage.get('minuta_refund_intent_v1:org-1')).request_id,args[1].body.request_id,'Identity must be durable before dispatch');
         invocations.push(args); return response?.data?.ok
@@ -213,12 +224,14 @@ test('after refunds of 3 and 5.50 RUB, only the full remaining 1.50 is offered',
 test('pending refunds reserve balance and recent refunds/reconciliations are visible', async () => {
   const ui = await harness({ pendingRefunds:[{ attempt_id:'attempt-1', amount_minor:400, status:'pending', reason:'Ожидает провайдера', created_at:'2026-09-06T00:00:00Z' }],
     reconciliations:[{ outcome:'matched', object_kind:'refund', amount_minor:400, checked_at:'2026-09-06T00:01:00Z' }] });
-  assert.match(ui.select('#paymentRefundAttempt').innerHTML, /data-remaining="600"/);
+  assert.equal(ui.select('#paymentRefundAttempt').innerHTML, '');
+  assert.equal(ui.select('#paymentRefundForm').hidden, true);
+  assert.match(ui.select('#paymentAttemptsList').innerHTML, /зарезервировано 4,00 ₽/);
   assert.match(ui.select('#paymentAttemptsList').innerHTML, /Возврат.*сумма зарезервирована/s);
   assert.match(ui.select('#paymentAttemptsList').innerHTML, /Сверка.*сверено/s);
   await ui.submit('6.01');
   assert.equal(ui.invocations.length, 0);
-  assert.match(ui.notifications.at(-1), /превышает доступные 6,00 ₽/);
+  assert.match(ui.notifications.at(-1), /Выберите платёж/);
 });
 
 test('refund requires a separate explicit confirmation', async () => {
@@ -287,6 +300,7 @@ test('a change/reload does not clamp a nonempty amount or send it', async () => 
   const ui = await harness();
   ui.select('#paymentRefundAmount').value = '9.50';
   ui.payload.recent_attempts[0].refunded_amount_minor = 500;
+  ui.payload.recent_attempts[0].refundable_amount_minor = 500;
   ui.changeAttempt();
   assert.equal(ui.select('#paymentRefundAmount').max, '5.00');
   assert.equal(ui.select('#paymentRefundAmount').value, '9.50');
@@ -330,6 +344,33 @@ async function selectSecondAttempt() {
   ui.select('#paymentRefundReason').value = 'Возврат для второго платежа';
   ui.changeAttempt();
   return ui;
+}
+
+test('server balance remains authoritative when the pending refund is outside the history page', async () => {
+  const ui = await harness({ captured:10000, serverBalance:{reserved_refund_amount_minor:9000,refundable_amount_minor:1000,refund_in_progress:true} });
+  assert.equal(ui.payload.recent_refunds.length,0);
+  assert.equal(ui.select('#paymentRefundForm').hidden,true);
+  assert.match(ui.select('#paymentAttemptsList').innerHTML,/зарезервировано 90,00 ₽/);
+  assert.doesNotMatch(ui.select('#paymentAttemptsList').innerHTML,/доступно к возврату 100,00/);
+});
+
+for (const balance of [{}, {reserved_refund_amount_minor:0,refundable_amount_minor:10000,refund_in_progress:0},
+  {reserved_refund_amount_minor:0,refundable_amount_minor:9999,refund_in_progress:false},
+  {reserved_refund_amount_minor:'invalid',refundable_amount_minor:10000,refund_in_progress:false}]) {
+  test(`missing or inconsistent server balance closes new refunds: ${JSON.stringify(balance)}`, async () => {
+    const ui = await harness({captured:10000,serverBalance:balance});
+    assert.equal(ui.select('#paymentRefundForm').hidden,true);
+    assert.doesNotMatch(ui.select('#paymentAttemptsList').innerHTML,/доступно к возврату/);
+    await ui.submit('1.00'); assert.equal(ui.invocations.length,0);
+  });
+}
+
+for (const [outcome,label] of [['matched','сверено'],['updated','обновлено'],['pending','ожидает сверки'],['failed','ошибка сверки'],['unknown','неизвестно']]) {
+  test(`reconciliation outcome ${outcome} has a localized label`, async () => {
+    const ui = await harness({reconciliations:[{outcome,object_kind:'payment',checked_at:'2026-10-15T00:00:00Z'}]});
+    assert.match(ui.select('#paymentAttemptsList').innerHTML,new RegExp(`Сверка · ${label}`));
+    if(outcome!=='matched')assert.doesNotMatch(ui.select('#paymentAttemptsList').innerHTML,new RegExp(`Сверка · ${outcome}`));
+  });
 }
 
 test('workspace reload preserves chosen payment B, amount and reason instead of defaulting to A', async () => {

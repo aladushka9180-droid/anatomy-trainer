@@ -371,16 +371,12 @@
     }
     function attemptRemaining(attempt) {
       if (!attempt || attempt.status !== 'succeeded') return null;
-      const captured = minorInteger(attempt.captured_amount_minor);
-      const refunded = minorInteger(attempt.refunded_amount_minor);
-      if (captured === null || refunded === null || refunded > captured) return null;
-      const pending = (Array.isArray(payload?.recent_refunds) ? payload.recent_refunds : [])
-        .filter(item => item.attempt_id === attempt.id && ['creating', 'pending'].includes(item.status))
-        .reduce((sum, item) => {
-          const amount = minorInteger(item.amount_minor);
-          return amount === null ? sum : sum + amount;
-        }, 0);
-      return Math.max(0, captured - refunded - pending);
+      const [captured,refunded,reserved,remaining] = ['captured_amount_minor','refunded_amount_minor',
+        'reserved_refund_amount_minor','refundable_amount_minor'].map(key => minorInteger(attempt[key]));
+      if ([captured,refunded,reserved,remaining].includes(null)
+        || attempt.refund_in_progress !== (reserved > 0)
+        || captured !== refunded + reserved + remaining) return null;
+      return remaining;
     }
     function minorInputValue(amount) {
       const digits = String(amount).padStart(3, '0');
@@ -705,11 +701,12 @@
       await load();
     }
     function statusLabel(value) {
-      return ({ creating:'создаётся', pending:'ожидает оплаты', succeeded:'оплачено', canceled:'отменено', failed:'ошибка', partially_refunded:'частично возвращено', refunded:'возвращено', matched:'сверено', mismatch:'расхождение' })[value] || value || '—';
+      return ({ creating:'создаётся', pending:'ожидает оплаты', succeeded:'оплачено', canceled:'отменено', failed:'ошибка', partially_refunded:'частично возвращено', refunded:'возвращено' })[value] || value || '—';
     }
     function refundStatusLabel(value) {
       return ({ creating:'создаётся', pending:'в обработке', succeeded:'выполнено', canceled:'отменено', failed:'ошибка' })[value] || value || '—';
     }
+    function reconcileLabel(v) { return ({matched:'сверено', updated:'обновлено', pending:'ожидает сверки', failed:'ошибка сверки'})[v] || 'неизвестно'; }
     function render(error = null) {
       const panel = $('#paymentProviderPanel');
       if (!panel) return;
@@ -750,13 +747,13 @@
       const operationRows = [
         ...attempts.map(item => {
           const remaining = attemptRemaining(item);
-          return `<article class="organization-row payment-attempt-row"><div><strong>Платёж · ${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(statusLabel(item.status))} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${remaining > 0 ? `доступно к возврату ${escapeHtml(moneyMinor(remaining))}` : ''}</span></article>`;
+          return `<article class="organization-row payment-attempt-row"><div><strong>Платёж · ${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(statusLabel(item.status))} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${remaining !== null && item.refund_in_progress ? `зарезервировано ${escapeHtml(moneyMinor(item.reserved_refund_amount_minor))}` : remaining > 0 ? `доступно к возврату ${escapeHtml(moneyMinor(remaining))}` : ''}</span></article>`;
         }),
         ...refunds.map(item => `<article class="organization-row payment-attempt-row"><div><strong>Возврат · ${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(refundStatusLabel(item.status))} · ${escapeHtml(item.reason || 'Без пояснения')} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${['creating','pending'].includes(item.status) ? 'сумма зарезервирована' : ''}</span></article>`),
-        ...reconciliations.map(item => `<article class="organization-row payment-attempt-row"><div><strong>Сверка · ${escapeHtml(statusLabel(item.outcome))}</strong><small>${escapeHtml(item.object_kind || 'операция')} · ${escapeHtml(new Date(item.checked_at).toLocaleString('ru-RU'))}</small></div><span>${item.amount_minor == null ? '' : escapeHtml(moneyMinor(item.amount_minor))}</span></article>`)
+        ...reconciliations.map(item => `<article class="organization-row payment-attempt-row"><div><strong>Сверка · ${escapeHtml(reconcileLabel(item.outcome))}</strong><small>${escapeHtml(item.object_kind || 'операция')} · ${escapeHtml(new Date(item.checked_at).toLocaleString('ru-RU'))}</small></div><span>${item.amount_minor == null ? '' : escapeHtml(moneyMinor(item.amount_minor))}</span></article>`)
       ];
       $('#paymentAttemptsList').innerHTML = operationRows.length ? operationRows.join('') : '<div class="provider-empty compact-empty"><strong>Недавних операций нет</strong><small>Здесь появятся платежи, возвраты и сверки ЮKassa.</small></div>';
-      const refundable = attempts.filter(item => item.status === 'succeeded' && Number.isSafeInteger(attemptRemaining(item)) && attemptRemaining(item) >= 100);
+      const refundable = attempts.filter(item => !item.refund_in_progress && attemptRemaining(item) >= 100);
       const previousAttempt = $('#paymentRefundAttempt').value;
       const maySelectInitial = !refundSelectionInitialized
         && !$('#paymentRefundAmount').value && !$('#paymentRefundReason').value;
