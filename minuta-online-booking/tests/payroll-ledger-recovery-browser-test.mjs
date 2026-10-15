@@ -132,6 +132,58 @@ for(const operation of ['payment','advance','offset'])cases.push([operation+': a
   assert.equal((await h.state()).rows.length,2);
 },operation]);
 
+for(const scenario of [
+  {operation:'accrue',label:'accepted accrual hides the accrue action',absent:'[data-payroll-accrue]'},
+  {operation:'payment',label:'fully paid debt hides payment',amount:10000,hidden:'#payrollPaymentPanel'},
+  {operation:'advance',label:'accepted advance appears in the refreshed workspace'},
+  {operation:'offset',label:'offset exhausts both sources',amount:10000,hidden:'#payrollOffsetPanel'},
+  {operation:'offset',label:'offset exhausts debt only',amount:10000,advanceMinor:2000000,hidden:'#payrollOffsetPanel'},
+  {operation:'offset',label:'offset exhausts advance only',amount:500,advanceMinor:50000,hidden:'#payrollOffsetPanel'},
+  {operation:'reverse',label:'reversed transaction hides its reversal form',absent:'[data-payroll-reversal-form][data-transaction="00000000-0000-4000-8000-000000000040"]'}
+])for(const mode of ['lost','empty'])cases.push([scenario.operation+': current workspace / '+scenario.label+' / '+mode,async h=>{
+  if(scenario.advanceMinor)await h.page.evaluate(async amount=>{testState.initialAdvanceMinor=amount;await ctl.load();},scenario.advanceMinor);
+  await h.fill(scenario.amount||500);await h.mode(mode);await h.submit();
+  const first=await h.state();assert.equal(first.rows.length,1);assert.equal(first.calls.length,1);
+  if(scenario.absent)assert.equal(await h.page.locator(scenario.absent).count(),0,'ordinary action must reflect the committed workspace');
+  if(scenario.hidden)assert.equal(await h.page.locator(scenario.hidden).isVisible(),false,'completed source must disappear from ordinary forms');
+  await h.reload();
+  assert.equal((await h.state()).calls.length,1,'load and reload cannot automatically replay a write');
+  assert.equal(await h.page.locator('[data-payroll-retry-financial]').count(),1,'an explicit immutable replay must remain available');
+  assert.equal(await h.page.locator('[data-payroll-retry-financial]').isVisible(),true);
+  await h.recover();const after=await h.state();
+  assert.equal(after.rows.length,1);assert.equal(after.calls.length,2);
+  assert.deepEqual(after.calls[1],after.calls[0],'recovery must resend only the complete original parameters');
+  assert.equal(after.history?.minutaPayrollFinancialIntents?.[JSON.stringify([ids.actor,ids.org])],undefined);
+  assert.equal(await h.page.locator('[data-payroll-retry-financial]').count(),0);
+},scenario.operation]);
+cases.push(['recovery is explicit, cancellable, and unlocks another operation only after acknowledgement',async h=>{
+  await h.fill(10000);await h.mode('lost');await h.submit();await h.reload();
+  assert.equal(await h.page.locator('[data-payroll-retry-financial]').count(),1);
+  await h.page.evaluate(()=>{testState.declineConfirmation=true;});await h.recover();
+  assert.equal((await h.state()).calls.length,1,'cancelled recovery must not send any request');
+  await h.page.evaluate(()=>{testState.declineConfirmation=false;});await h.recover();
+  await h.page.evaluate(()=>{document.querySelector('#payrollAdvanceAmount').value='500';const f=document.querySelector('#payrollAdvanceForm');f.requestSubmit(f.querySelector('button[type="submit"]'));});
+  await h.page.waitForFunction(()=>testState.rows.length===2&&ctl.availability==='ready');
+  const after=await h.state();assert.equal(after.calls.length,3);assert.notEqual(after.calls[2].p_request_id,after.calls[0].p_request_id);
+},'payment']);
+cases.push(['unknown recovery acknowledgement keeps the same recovery route and request',async h=>{
+  await h.fill(10000);await h.mode('lost');await h.submit();
+  assert.equal(await h.page.locator('[data-payroll-retry-financial]').count(),1);
+  await h.mode('empty');await h.recover();assert.equal(await h.page.locator('[data-payroll-retry-financial]').count(),1);
+  await h.recover();const after=await h.state();assert.equal(after.rows.length,1);assert.equal(after.calls.length,3);
+  assert.equal(new Set(after.calls.map(p=>p.p_request_id)).size,1);
+},'payment']);
+for(const scope of ['actor','organization'])cases.push(['recovery control belongs only to its original '+scope,async h=>{
+  await h.fill(10000);await h.mode('lost');await h.submit();
+  assert.equal(await h.page.locator('[data-payroll-retry-financial]').count(),1);
+  await h.page.evaluate(async scope=>{if(scope==='actor')testState.actor='00000000-0000-4000-8000-000000000202';else testState.org=otherOrg;ctl.reset();await ctl.setOrganization({id:testState.org});},scope);
+  assert.equal(await h.page.locator('[data-payroll-retry-financial]').count(),0);
+  assert.equal((await h.state()).calls.length,1);
+  await h.page.evaluate(async()=>{testState.actor=originalActor;testState.org=originalOrg;ctl.reset();await ctl.setOrganization({id:originalOrg});});
+  assert.equal(await h.page.locator('[data-payroll-retry-financial]').count(),1);await h.recover();
+  assert.equal((await h.state()).rows.length,1);
+},'payment']);
+
 let browser,failed=0;
 async function fixture(operation){
   const context=await browser.newContext({serviceWorkers:'block'}),page=await context.newPage(),errors=[],traffic=[];
@@ -146,18 +198,26 @@ async function fixture(operation){
   await page.evaluate(html=>{const doc=new DOMParser().parseFromString(html,'text/html');document.body.append(document.importNode(doc.querySelector('#payrollPanel'),true));},html);
   await page.addScriptTag({content:sdk});await page.addScriptTag({content:source});
   await page.evaluate(async({ids,definition,definitions,restored})=>{
-    window.originalOrg=ids.org;window.otherOrg='00000000-0000-4000-8000-000000000101';
+    window.originalOrg=ids.org;window.originalActor=ids.actor;window.otherOrg='00000000-0000-4000-8000-000000000101';
     window.testState={org:ids.org,calls:[],rows:[],notices:[],replies:[],...restored,mode:'ok',readFailure:false};
     window.replyGates=[];
     const accepted=new Map(testState.rows.map(row=>[row.params.p_organization+':'+row.params.p_request_id,row]));
-    function workspace(org){return {
+    function workspace(org){
+      const rows=testState.rows.filter(row=>row.params.p_organization===org),of=rpc=>rows.filter(row=>row.rpc===rpc);
+      const payments=of(definitions.payment.rpc).map(row=>({id:row.source_id,transaction_id:row.id,request_id:row.params.p_request_id,performer_id:row.params.p_performer,accrual_source_id:row.params.p_accrual_source,amount_minor:row.params.p_amount_minor}));
+      const offsets=of(definitions.offset.rpc).map(row=>({id:row.source_id,transaction_id:row.id,request_id:row.params.p_request_id,performer_id:ids.performer,accrual_source_id:row.params.p_accrual_source,advance_source_id:row.params.p_advance_source,amount_minor:row.params.p_amount_minor}));
+      const debt=1000000-payments.reduce((n,row)=>n+row.amount_minor,0)-offsets.reduce((n,row)=>n+row.amount_minor,0);
+      const advanceMinor=testState.initialAdvanceMinor||1000000;
+      const reversed=of(definitions.reverse.rpc).some(row=>row.params.p_transaction==='00000000-0000-4000-8000-000000000040');
+      const accruals=definition.rpc===definitions.accrue.rpc?of(definitions.accrue.rpc).map(row=>({id:row.id,transaction_id:row.source_id,request_id:row.params.p_request_id,period_id:row.params.p_period,amount_minor:1000000})):[{id:ids.accrual,transaction_id:'synthetic-accrual-tx',period_id:ids.period,amount_minor:1000000}];
+      return {
       organization_id:org,current_role:'owner',can_manage:true,ledger_enabled:true,
       members:[{id:ids.performer,display_name:'Synthetic worker',is_bookable:true}],
       locations:[],plans:[],periods:[{id:ids.period,name:'Synthetic September',starts_on:'2026-09-01',ends_on:'2026-09-30',status:'approved',total_payroll_rub:10000}],
       items:[{id:'synthetic-item',period_id:ids.period,performer_id:ids.performer,payroll_rub:10000}],
-      accruals:definition.rpc==='accrue_minuta_payroll_period_v136'?[]:[{id:ids.accrual,transaction_id:'synthetic-accrual-tx',period_id:ids.period,amount_minor:1000000}],
-      debts:[{accrual_source_id:ids.accrual,period_id:ids.period,performer_id:ids.performer,original_minor:1000000,debt_minor:1000000}],
-      advances:[{id:ids.advance,transaction_id:'00000000-0000-4000-8000-000000000040',performer_id:ids.performer,amount_minor:1000000,remaining_minor:1000000}],
+      accruals,payments,advance_offsets:offsets,
+      debts:accruals.map(row=>({accrual_source_id:row.id,period_id:ids.period,performer_id:ids.performer,original_minor:1000000,debt_minor:Math.max(0,debt)})),
+      advances:[{id:ids.advance,transaction_id:'00000000-0000-4000-8000-000000000040',performer_id:ids.performer,amount_minor:advanceMinor,remaining_minor:reversed?0:Math.max(0,advanceMinor-offsets.reduce((n,row)=>n+row.amount_minor,0)),reversed},...of(definitions.advance.rpc).map(row=>({id:row.source_id,transaction_id:row.id,request_id:row.params.p_request_id,performer_id:row.params.p_performer,amount_minor:row.params.p_amount_minor,remaining_minor:row.params.p_amount_minor}))],
       payment_accounts:[{id:ids.account,name:'Synthetic cash',account_type:'cash',active:true}]
     };}
     const client=supabase.createClient('https://synthetic-ledger-backend.test','synthetic-key',{
@@ -169,7 +229,7 @@ async function fixture(operation){
         testState.calls.push(structuredClone(p));
         if(testState.mode==='refuse'){testState.mode='ok';return new Response(JSON.stringify({code:'22023',message:'invalid_payroll_'+(name==='offset_minuta_payroll_advance_v136'?'advance_offset':name==='create_minuta_payroll_advance_v136'?'advance':'payment'),details:'',hint:''}),{status:400,headers:{'Content-Type':'application/json'}});}
         const key=p.p_organization+':'+p.p_request_id;let row=accepted.get(key),replayed=Boolean(row);
-        if(!row){row={id:crypto.randomUUID(),source_id:crypto.randomUUID(),params:structuredClone(p)};accepted.set(key,row);testState.rows.push(row);}
+        if(!row){row={id:crypto.randomUUID(),source_id:crypto.randomUUID(),rpc:name,params:structuredClone(p)};accepted.set(key,row);testState.rows.push(row);}
         const data={id:row.id,source_id:row.source_id,organization_id:p.p_organization,request_id:p.p_request_id,performer_id:p.p_performer||ids.performer,amount_minor:p.p_amount_minor,replayed};
         if(name==='pay_minuta_payroll_debt_v136')Object.assign(data,{accrual_source_id:p.p_accrual_source,debt_after_minor:950000});
         if(name==='create_minuta_payroll_advance_v136')data.remaining_minor=p.p_amount_minor;
@@ -186,15 +246,17 @@ async function fixture(operation){
     window.controllerOptions={db:{rpc:async(name,p)=>{
       if(name==='get_minuta_payroll_ledger_workspace_v136'&&testState.readFailure){testState.readFailure=false;throw Error('rejected workspace RPC');}
       const result=await client.rpc(name,p);if(name!=='get_minuta_payroll_ledger_workspace_v136')testState.replies.push(result);return result;
-    }},$:s=>document.querySelector(s),escapeHtml:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]),notify:m=>testState.notices.push(m),requireWrites:()=>true,getCurrentUser:()=>({id:testState.actor||ids.actor}),getSessionGeneration:()=>1,sessionIsCurrent:user=>user===(testState.actor||ids.actor),applyWriteAvailability:()=>{},confirmAction:()=>true};
+    }},$:s=>document.querySelector(s),escapeHtml:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]),notify:m=>testState.notices.push(m),requireWrites:()=>true,getCurrentUser:()=>({id:testState.actor||ids.actor}),getSessionGeneration:()=>1,sessionIsCurrent:user=>user===(testState.actor||ids.actor),applyWriteAvailability:()=>{},confirmAction:()=>!testState.declineConfirmation};
     window.ctl=MinutaPayroll.createController(controllerOptions);ctl.bind();
     document.querySelector('#payrollStartDate').value='2026-09-01';document.querySelector('#payrollEndDate').value='2026-09-30';
     await ctl.setOrganization({id:testState.org});
     window.definition=definition;
     window.nativeSubmit=async()=>{
-      if(definition.rpc==='accrue_minuta_payroll_period_v136')document.querySelector('[data-payroll-accrue]').click();
+      const recovery=document.querySelector('[data-payroll-retry-financial]');
+      if(recovery&&[definitions.accrue.rpc,definitions.reverse.rpc].includes(definition.rpc))recovery.click();
+      else if(definition.rpc==='accrue_minuta_payroll_period_v136')document.querySelector('[data-payroll-accrue]').click();
       else if(definition.rpc==='reverse_minuta_payroll_transaction_v136'){
-        const form=document.querySelector('[data-payroll-reversal-form]');form.querySelector('[name="reason"]').value='Synthetic reversal reason';form.requestSubmit(form.querySelector('button[type="submit"]'));
+        const form=document.querySelector('[data-payroll-reversal-form][data-transaction="00000000-0000-4000-8000-000000000040"]');form.querySelector('[name="reason"]').value='Synthetic reversal reason';form.requestSubmit(form.querySelector('button[type="submit"]'));
       }else {const form=document.getElementById(definition.form);form.requestSubmit(form.querySelector('button[type="submit"]'));}
       await new Promise(r=>setTimeout(r,30));
     };
@@ -206,6 +268,7 @@ async function fixture(operation){
   return {page,context,errors,traffic,definition:definitions[operation],fill,
     mode:mode=>page.evaluate(mode=>{testState.mode=mode;},mode),
     submit:async()=>{await page.evaluate(()=>nativeSubmit());await page.waitForFunction(()=>ctl.availability!=='loading',{timeout:3000});},
+    recover:async()=>{await page.locator('[data-payroll-retry-financial]').click();await page.waitForFunction(()=>ctl.availability==='ready'&&!document.querySelector('[data-payroll-retry-financial]')?.disabled);},
     state:()=>page.evaluate(()=>({...testState,availability:ctl.availability,history:history.state})),
     reload:async()=>{const restored=await page.evaluate(()=>testState);await page.reload();await initialize(restored);}};
 }

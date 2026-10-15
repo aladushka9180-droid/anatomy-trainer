@@ -109,6 +109,23 @@
       const selector = intent.rpc === RPC.payment ? '#payrollPaymentError' : intent.rpc === RPC.advance ? '#payrollAdvanceError' : intent.rpc === RPC.offset ? '#payrollOffsetError' : null;
       if (selector) showError(selector, 'Результат операции не подтверждён. Восстановлены прежние данные; повтор проверит тот же запрос.');
     }
+    function financialRecoveryDetails(intent) {
+      const p = intent.parameters, labels = { [RPC.payment]:'Выплата зарплаты', [RPC.advance]:'Аванс', [RPC.offset]:'Зачёт аванса', [RPC.accrue]:'Начисление зарплаты', [RPC.reverse]:'Отмена операции' };
+      return [labels[intent.rpc], p.p_performer && memberName(p.p_performer), p.p_period && periodName(p.p_period),
+        Number.isSafeInteger(p.p_amount_minor) && moneyMinor(p.p_amount_minor), p.p_reason].filter(Boolean).join(' · ');
+    }
+    function renderFinancialRecovery(canManage) {
+      const intent = financialIntent(getCurrentUser()?.id, organization?.id);
+      let holder = $('#payrollFinancialRecovery');
+      if (!intent || intent.invalid) { holder?.remove?.(); return; }
+      if (!holder) {
+        $('#payrollWorkspace').insertAdjacentHTML('afterbegin', '<div class="resource-inline-error" id="payrollFinancialRecovery" role="status"><div><strong>Результат операции не подтверждён</strong><small></small></div><button class="secondary-button" type="button" data-payroll-retry-financial data-payroll-write>Проверить и завершить</button></div>');
+        holder = $('#payrollFinancialRecovery');
+      }
+      holder.querySelector('small').textContent = financialRecoveryDetails(intent);
+      const button = holder.querySelector('[data-payroll-retry-financial]');
+      button.dataset.payrollRequestId = intent.requestId; button.disabled = !canManage;
+    }
     function financialReplyMatches(rpc, parameters, result) {
       const data = result?.data;
       if (result?.error !== null || !data || Array.isArray(data) || !validRequestId(data.id)
@@ -374,7 +391,7 @@
       $('#payrollAdvancePanel').hidden = !payload.payment_accounts.length; $('#payrollPaymentPanel').hidden = !debtRows.length || !payload.payment_accounts.length; $('#payrollOffsetPanel').hidden = !debtRows.length || !openAdvances.length; $('#payrollAuditPanel').hidden = !canManage;
       $('#payrollAuditCount').textContent = String(payload.transactions.length); $('#payrollAuditList').innerHTML = payload.transactions.length ? payload.transactions.map(item => transactionCard(item, canManage)).join('') : empty('Операций пока нет', 'Начисления, выплаты, авансы и отмены появятся здесь.');
       if (reconcile) reconcileIntent();
-      restoreFinancialForm(); setBusy(false); syncAdjustmentLock(); applyWriteAvailability(); syncAdjustmentLock();
+      restoreFinancialForm(); setBusy(false); renderFinancialRecovery(canManage); syncAdjustmentLock(); applyWriteAvailability(); syncAdjustmentLock();
     }
 
     function userError(error) {
@@ -554,6 +571,17 @@
       }
     }
     async function handleClick(event) {
+      const retry = event.target.closest('[data-payroll-retry-financial]');
+      if (retry) {
+        const userId = getCurrentUser()?.id, organizationId = organization?.id, generation = getSessionGeneration(), intent = financialIntent(userId, organizationId);
+        if (!intent || intent.invalid || retry.dataset.payrollRequestId !== intent.requestId || !payload?.can_manage || !['owner','admin'].includes(payload.current_role)) return;
+        const review = `Проверить и завершить исходную операцию?\n\n${financialRecoveryDetails(intent)}\n\nЕсли запись уже сохранена, она будет подтверждена. Если запись не была сохранена, будет выполнена исходная операция с прежними данными.`;
+        if (!confirmAction(review) || !sessionIsCurrent(userId, generation) || organization?.id !== organizationId
+          || financialIntent(userId, organizationId)?.requestId !== intent.requestId) return;
+        const success = { [RPC.payment]:'Выплата записана, долг обновлён', [RPC.advance]:'Аванс записан', [RPC.offset]:'Аванс зачтён, долг обновлён',
+          [RPC.accrue]:'Начисление записано. Теперь доступны частичные выплаты.', [RPC.reverse]:'Обратная операция добавлена в журнал' };
+        await mutate(intent.rpc, { ...intent.parameters }, retry, success[intent.rpc], null, true); return;
+      }
       if (event.target.closest('#reloadPayroll')) { await load(); return; }
       const edit = event.target.closest('[data-edit-payroll-plan]');
       if (edit) {
