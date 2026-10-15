@@ -143,7 +143,9 @@
       if (!select.isConnected) return;
       if (hidden === undefined) hidden = nativeHidden(state);
       const text = select.selectedOptions[0]?.label || 'Выберите вариант';
-      if (value.textContent !== text) value.textContent = text;
+      const display = select.form?.id === 'sessionComposerForm' && select.hasAttribute('data-session-service')
+        ? text.replace(/ · \d+ мин · [^·]*$/, '') : text;
+      if (value.textContent !== display) value.textContent = display;
       const disabled = select.matches(':disabled');
       if (trigger.disabled !== disabled) trigger.disabled = disabled;
       if (trigger.hidden !== hidden) trigger.hidden = hidden;
