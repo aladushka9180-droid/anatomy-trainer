@@ -146,6 +146,7 @@ try {
   assert.ok(clickStart >= 0 && clickEnd > clickStart);
   await page.addScriptTag({content:`
     let manualSynchronizationPromise = null, synchronizationPromise = null;
+    let resourceController = null;
     let sessionGeneration = 1, bookingCreationReady = false;
     let cachedProviderVerification = null, cachedProviderVerificationRetryTimer = null;
     let connectionGuidanceOutageObserved = false;

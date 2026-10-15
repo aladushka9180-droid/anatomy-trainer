@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'minuta-online-booking/resource-management.js'
+      - 'minuta-online-booking/provider.js'
       - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/provider-selects.js'
       - 'minuta-online-booking/tests/resource-management-reliability-test.mjs'
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - 'minuta-online-booking/resource-management.js'
+      - 'minuta-online-booking/provider.js'
       - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/provider-selects.js'
       - 'minuta-online-booking/tests/resource-management-reliability-test.mjs'

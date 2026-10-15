@@ -28,6 +28,7 @@
     let pendingOrganization;
     const drafts = new Map();
     let renderedScope = '';
+    let organizationScope = '';
 
     function scopeKey() {
       return `${getCurrentUser()?.id || ''}:${getSessionGeneration()}:${organization?.id || ''}`;
@@ -137,6 +138,7 @@
       requestRevision += 1;
       drafts.clear();
       renderedScope = '';
+      organizationScope = '';
       organization = null;
       payload = null;
       availability = null;
@@ -159,6 +161,14 @@
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
       const nextScope = `${getCurrentUser()?.id || ''}:${getSessionGeneration()}:${normalized?.id || ''}`;
+      const sameAccess = normalized?.current_role === organization?.current_role
+        && normalized?.can_manage === organization?.can_manage;
+      // Routine synchronization emits the same organization again. Keep the
+      // current DOM (including focus and scroll) until an explicit refresh.
+      if (normalized && nextScope === organizationScope && sameAccess) {
+        organization = normalized;
+        return { ok: availability === 'ready', optional: true, skipped: true };
+      }
       const contextChanged = !normalized || nextScope !== renderedScope;
       if (contextChanged) { drafts.clear(); renderedScope = ''; }
       else { rememberForms(resourceForms()); rememberForms(otherForms()); }
@@ -178,6 +188,7 @@
       if (!normalized) { reset(); return { ok: false, optional: true }; }
       pendingOrganization = undefined;
       organization = normalized;
+      organizationScope = nextScope;
       payload = null;
       availability = null;
       if (contextChanged) {
