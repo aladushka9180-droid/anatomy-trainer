@@ -356,7 +356,7 @@ for(const width of [390,760,1440])cases.push([`UI persisted inventory marker in 
   await page.evaluate(()=>{
     document.body.classList.add('booking-sheet-open');$('#bookingSheet').hidden=false;
     $('#bookingSheet').classList.add('booking-sheet-detail');
-    const item=JSON.parse('{"booking_policy_snapshot":{"historical_inventory_unconsumed":true}}');
+    const item=JSON.parse('{"booking_policy_snapshot":{"stock_skipped":true}}');
     $('#bookingSheetContent').innerHTML='<details class="booking-sheet-disclosure booking-outcome-disclosure" open>'+inventoryHeader(item,{visit_status:'completed'})+'</details>';
   });
   assert.match(await page.locator('.booking-outcome-disclosure summary').innerText(),/Материалы не списаны/);

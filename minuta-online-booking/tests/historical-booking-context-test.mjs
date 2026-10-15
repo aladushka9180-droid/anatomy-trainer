@@ -278,9 +278,26 @@ test('record detail renders the persisted inventory marker after a fresh JSON re
   const render=item=>vm.runInNewContext(actualHint+';automaticOutcomeHint(item)',{
     item:JSON.parse(JSON.stringify(item)),bookingOutcome:()=>({}),bookingWillCompleteAutomatically:()=>false
   });
-  assert.match(render({booking_policy_snapshot:{historical_inventory_unconsumed:true}}),/Материалы не списаны/);
-  for(const item of [{},{booking_policy_snapshot:{}},{booking_policy_snapshot:{historical_inventory_unconsumed:false}},{booking_policy_snapshot:{historical_inventory_unconsumed:'true'}}])assert.equal(render(item),'');
-  assert.equal(vm.runInNewContext(actualHint+';automaticOutcomeHint(item)',{item:{booking_policy_snapshot:{historical_inventory_unconsumed:true}},bookingOutcome:()=>({_sync_pending:true})}),'Ожидает синхронизации');
+  assert.match(render({booking_policy_snapshot:{stock_skipped:true}}),/Материалы не списаны/);
+  for(const item of [{},{booking_policy_snapshot:{}},{booking_policy_snapshot:{stock_skipped:false}},{booking_policy_snapshot:{stock_skipped:'true'}}])assert.equal(render(item),'');
+  assert.equal(vm.runInNewContext(actualHint+';automaticOutcomeHint(item)',{item:{booking_policy_snapshot:{stock_skipped:true}},bookingOutcome:()=>({_sync_pending:true})}),'Ожидает синхронизации');
+});
+
+test('both organization-aware network reads request the persisted stock snapshot', () => {
+  const loader=between('async function loadBookings(', 'function waitlistPeriodLabel(');
+  const selections=[...loader.matchAll(/queryAllProviderBookings\(userId, '([^']+)'\)/g)].map(match=>match[1]);
+  assert.equal(selections.length,4);
+  for(const selection of selections.slice(0,2))assert.ok(selection.split(',').includes('booking_policy_snapshot'));
+  // Keep the two old organization-less compatibility paths unchanged.
+  for(const selection of selections.slice(2))assert.ok(!selection.split(',').includes('organization_id'));
+});
+
+test('actual cache signature changes when only the persisted stock notice changes', () => {
+  const signature=between('function bookingDataSignature(', 'async function hydrateOfflineBookingInputs(');
+  const hash=marker=>vm.runInNewContext(signature+';bookingDataSignature(items)',{bookingColors:new Map(),items:[{id:createdId,booking_policy_snapshot:marker===undefined?{}:{stock_skipped:marker}}]});
+  assert.notEqual(hash(undefined),hash(true));
+  assert.notEqual(hash(true),hash(false));
+  assert.equal(hash(true),hash(true));
 });
 
 for (const account of [actorA, actorB]) {

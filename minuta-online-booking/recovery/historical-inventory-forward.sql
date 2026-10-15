@@ -28,14 +28,14 @@ exception when sqlstate '55000' then
          and v_booking.booking_date+v_booking.booking_time+make_interval(mins=>v_booking.duration_minutes)<=timezone(location.timezone,now())
      ) then raise; end if;
   update public.bookings set booking_policy_snapshot=coalesce(booking_policy_snapshot,'{}'::jsonb)
-    ||jsonb_build_object('historical_inventory_unconsumed',true) where id=p_booking;
+    ||jsonb_build_object('stock_skipped',true) where id=p_booking;
   perform public.write_minuta_inventory_audit(v_booking.organization_id,'inventory_historical_not_deducted',p_booking,
     jsonb_build_object('reason','insufficient_stock'));
 -- historical-inventory-v1:handler:end
 $handler$;
   v_clear text:=$clear$  -- historical-inventory-v1:clear:start
-  update public.bookings set booking_policy_snapshot=booking_policy_snapshot-'historical_inventory_unconsumed'
-    where id=p_booking and booking_policy_snapshot->'historical_inventory_unconsumed'='true'::jsonb;
+  update public.bookings set booking_policy_snapshot=booking_policy_snapshot-'stock_skipped'
+    where id=p_booking and booking_policy_snapshot->'stock_skipped'='true'::jsonb;
   -- historical-inventory-v1:clear:end
 $clear$;
 begin

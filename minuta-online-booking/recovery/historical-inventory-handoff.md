@@ -15,7 +15,7 @@ never create negative balances. No blanket bypass for ordinary/future visits.
   retaining the booking/payment and persisting the marker plus an inventory audit.
 - No table, account, role, grant or inventory balance migration. Existing ACL,
   owner and function configuration are retained. No negative or partial deduction.
-- Marker lives in booking_policy_snapshot.historical_inventory_unconsumed.
+- Marker lives in booking_policy_snapshot.stock_skipped.
   The existing outcome hint renders “Материалы не списаны” from the saved snapshot
   in record details after reloading; no new response field or toast contract.
 - A later successful consumption clears the marker; no automatic retry job or
@@ -34,12 +34,16 @@ never create negative balances. No blanket bypass for ordinary/future visits.
   multi-material rollback, preserved visit/payment, durable marker, ordinary/
   future/invalid-actor refusal, hard unrelated errors, normal success, no duplicate
   consumption, exact rollback/reapply, owner/ACL/config preservation and drift.
-- Actual createNewBooking VM tests (46/46) retain unknown-response latch, session/form
+- Actual createNewBooking VM tests (48/48) retain unknown-response latch, session/form
   ownership, existing error classification and stored outcome-hint rendering.
 - Native browser scenarios (48/48) are isolated, network-blocked, synthetic fixtures.
   The actual outcome-summary fragment and hint/label helpers are rendered with
   the saved marker at 390/760/1440 using existing sage styles. This isolated
   fragment is NOT the full live booking renderer, authenticated creation or Android.
+- Both organization-aware loader projections include booking_policy_snapshot;
+  the cache signature includes stock_skipped, so a marker-only network change
+  invalidates an older cached rendering. The two legacy organization-less read
+  fallbacks stay unchanged. Projection and actual signature are regression-tested.
 
 ## Release gates / ownership
 
@@ -50,7 +54,7 @@ Fresh protected full backup, isolated restore and exact same-copy apply/read/
 rollback/reapply remain mandatory BEFORE production SQL. Embedded fixtures do not
 satisfy those gates. No production SQL was applied by this task.
 
-The final startup core budget passes at 3799065/3799094 bytes (63 files).
+The final startup core budget passes at 3799093/3799094 bytes (63 files).
 The earlier failing revision added a redundant block/API response and legacy
 error mapping. These were removed in favor of the existing outcome hint; only
 its related comment was shortened. No cap increase or unrelated compression.
