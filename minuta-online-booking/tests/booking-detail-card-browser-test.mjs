@@ -26,7 +26,11 @@ try {
     await page.setViewportSize({width,height:900});
     const metrics=await page.evaluate(()=>{
       const rect=selector=>document.querySelector(selector).getBoundingClientRect();
-      const buttons=[...document.querySelectorAll('.booking-repeat-actions>:is(button,a)')].map(node=>{const r=node.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,height:r.height,overflow:node.scrollWidth-node.clientWidth};});
+      const buttons=[...document.querySelectorAll('.booking-repeat-actions>:is(button,a)')].map(node=>{
+        const r=node.getBoundingClientRect(), walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);let text,labelLines=0;
+        while(text=walker.nextNode())if(text.textContent.trim()){const range=document.createRange();range.selectNodeContents(text);labelLines=Math.max(labelLines,range.getClientRects().length);}
+        return {left:r.left,right:r.right,top:r.top,height:r.height,overflow:node.scrollWidth-node.clientWidth,labelLines};
+      });
       const panel=document.querySelector('.booking-sheet-panel');
       return {buttons,viewport:innerWidth,panel:rect('.booking-sheet-panel').toJSON(),overflow:panel.scrollWidth-panel.clientWidth,
         services:rect('.booking-session-summary').top,outcome:rect('.booking-outcome-disclosure').top,extra:rect('.detail-card-extras').top,
@@ -40,8 +44,10 @@ try {
     assert.ok(Math.abs((metrics.buttons[1].right-metrics.buttons[1].left)-(metrics.buttons[3].right-metrics.buttons[3].left))<1,`${width}: secondary columns equal`);
     assert.ok(metrics.buttons[0].top<metrics.buttons[1].top,`${width}: primary first`);
     assert.ok(metrics.buttons.every(button=>button.height>=44&&button.overflow<2),`${width}: tap targets and full labels`);
+    assert.ok(metrics.buttons.every(button=>button.labelLines===1),`${width}: no broken or wrapped quick-action label`);
     assert.ok(metrics.panel.left>=0&&metrics.panel.right<=width+1&&metrics.overflow<=1,`${width}: no horizontal overflow`);
     assert.ok(metrics.services<metrics.outcome&&metrics.outcome<metrics.extra,`${width}: approved section order`);
+    assert.equal(metrics.titleSize,'24px',`${width}: selected reference heading size, rather than the compact card`);
     if(process.env.MINUTA_CARD_SCREENSHOTS){mkdirSync(process.env.MINUTA_CARD_SCREENSHOTS,{recursive:true});await page.locator('.booking-sheet-panel').screenshot({path:`${process.env.MINUTA_CARD_SCREENSHOTS}/card-${width}.png`});}
   }
   for(const theme of ['pink-porcelain','sage','noir-rose','midnight']) {
@@ -61,9 +67,10 @@ try {
           accent:resolve(body.getPropertyValue('--theme-accent')),soft:resolve(body.getPropertyValue('--theme-accent-soft')),
           contrast:resolve(body.getPropertyValue('--theme-accent-contrast')),surfaceAlt:resolve(body.getPropertyValue('--theme-surface-alt')),
           actionBg:resolve(body.getPropertyValue('--porcelain-action-bg')),actionInk:resolve(body.getPropertyValue('--porcelain-action-ink')),
-          quietClose:resolve(`color-mix(in srgb,${body.getPropertyValue('--theme-ink')} 4%,${body.getPropertyValue('--theme-surface')})`)};
+          quietClose:resolve(`color-mix(in srgb,${body.getPropertyValue('--theme-ink')} 4%,${body.getPropertyValue('--theme-surface')})`),
+          referencePrimary:resolve('#fbe0eb'),referenceAccent:resolve('#bd1767')};
         sample.remove();
-        return {expected,panel:panel.backgroundColor,ink:panel.color,close:close.backgroundColor,closeInk:close.color,
+        return {expected,panel:panel.backgroundColor,ink:panel.color,close:close.backgroundColor,closeInk:close.color,primaryIcon:getComputedStyle(sheet.querySelector('.booking-repeat-actions>.primary svg')).color,primaryImage:primary.backgroundImage,
           primary:primary.backgroundColor,primaryInk:primary.color,soft:soft.backgroundColor,softInk:soft.color,
           overflow:sheet.querySelector('.booking-sheet-panel').scrollWidth-sheet.querySelector('.booking-sheet-panel').clientWidth};
       });
@@ -71,10 +78,12 @@ try {
       assert.equal(colors.ink,colors.expected.ink,`${theme}/${width}: text follows theme ink`);
       assert.equal(colors.close,theme==='pink-porcelain'?colors.expected.quietClose:colors.expected.surfaceAlt,`${theme}/${width}: quiet close control stays within the theme`);
       assert.equal(colors.closeInk,colors.expected.ink,`${theme}/${width}: close icon stays readable`);
-      assert.equal(colors.primary,theme==='pink-porcelain'?colors.expected.actionBg:colors.expected.accent,`${theme}/${width}: primary action follows selected action palette`);
-      assert.equal(colors.primaryInk,theme==='pink-porcelain'?colors.expected.actionInk:colors.expected.contrast,`${theme}/${width}: primary label follows selected action contrast`);
+      assert.equal(colors.primary,theme==='pink-porcelain'?colors.expected.referencePrimary:colors.expected.accent,`${theme}/${width}: repeat keeps the approved light fill despite the general action palette`);
+      assert.equal(colors.primaryInk,theme==='pink-porcelain'?colors.expected.referenceAccent:colors.expected.contrast,`${theme}/${width}: repeat label and icon use the reference accent`);
+      assert.equal(colors.primaryIcon,colors.primaryInk,`${theme}/${width}: the repeat icon is not recolored by the general palette`);
+      assert.equal(colors.primaryImage,'none',`${theme}/${width}: the repeat fill has no gradient`);
       assert.equal(colors.soft,colors.expected.surface,`${theme}/${width}: secondary actions use the sheet surface`);
-      assert.equal(colors.softInk,colors.expected.accent,`${theme}/${width}: secondary labels follow theme accent`);
+      assert.equal(colors.softInk,theme==='pink-porcelain'?colors.expected.referenceAccent:colors.expected.accent,`${theme}/${width}: secondary labels follow the card accent`);
       assert.ok(colors.overflow<=1,`${theme}/${width}: no horizontal overflow`);
       if(process.env.MINUTA_CARD_SCREENSHOTS){await page.locator('.booking-sheet-panel').screenshot({path:`${process.env.MINUTA_CARD_SCREENSHOTS}/card-${theme}-${width}.png`});}
     }
@@ -103,14 +112,14 @@ try {
   await page.evaluate(()=>renderFixture({outcome:{_sync_pending:false,completion_source:'manual',amount_rub:0,payment_method:'unpaid'}}));
   assert.equal(await page.locator('.detail-card-sync').count(),0,'No fictitious sync message');
   assert.match(await page.locator('.booking-outcome-disclosure>summary').textContent(),/Не оплачено/,'Zero payment is not replaced by service price');
-  await page.evaluate(()=>renderFixture({firstVisit:true,outcome:{visit_status:'scheduled',_sync_pending:false,completion_source:'manual'}}));
+  await page.evaluate(()=>renderFixture({firstVisit:true,item:{booking_date:'2026-10-16',booking_time:'12:00:00',duration_minutes:60,services:{name:'Массаж спины + ШВЗ — углублённый',duration_minutes:60,price_rub:3000},total_price_rub:3000},outcome:{visit_status:'scheduled',_sync_pending:false,completion_source:'manual'}}));
   await page.setViewportSize({width:390,height:900});
   assert.match(await page.locator('.booking-outcome-disclosure>summary').textContent(),/Запланирован/);
   assert.match(await page.locator('.booking-detail-heading .booking-status').textContent(),/Подтверждена/);
   assert.equal(await page.locator('.client-framed-count').textContent(),'0','Original first-visit gold frame level stays zero');
   const avatarStyle=await page.locator('.client-avatar-picker').evaluate(a=>({background:getComputedStyle(a).backgroundColor,width:a.getBoundingClientRect().width,icon:getComputedStyle(document.querySelector('.detail-card-call .detail-card-icon')).width}));
   assert.equal(avatarStyle.background,'rgba(0, 0, 0, 0)','Only the square avatar backing is cleared');
-  assert.equal(avatarStyle.icon,'16px','Secondary actions use the selected smaller icon size');
+  assert.equal(avatarStyle.icon,'20px','Secondary actions match the selected reference icon size');
   assert.equal(await page.locator('[data-message-client]').innerText(),'Написать');
   assert.equal(await page.locator('[data-message-client]').getAttribute('aria-label'),'Написать клиенту','Full accessible action label retained');
   if(process.env.MINUTA_CARD_SCREENSHOTS)await page.locator('.booking-sheet-panel').screenshot({path:`${process.env.MINUTA_CARD_SCREENSHOTS}/card-first-visit-390.png`});
