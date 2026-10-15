@@ -201,9 +201,14 @@ function controller(dom, rpc, overrides = {}) {
     debts:[{ accrual_source_id:'accrual-1', period_id:'period-1', performer_id:'org-payment-user', debt_minor:100000 }]
   });
   window.crypto = { randomUUID: () => 'c7a68018-a219-42a6-8898-88fcb81feb62' };
+  window.history = { state:{}, replaceState(next) { this.state = next; } };
   const instance = controller(dom, async (name, parameters) => {
     calls.push({ name, parameters });
-    return { data:name === 'get_minuta_payroll_ledger_workspace_v136' ? value : { organization_id:'org-payment' }, error:null };
+    return { data:name === 'get_minuta_payroll_ledger_workspace_v136' ? value : {
+      id:'d7a68018-a219-42a6-8898-88fcb81feb62', source_id:'e7a68018-a219-42a6-8898-88fcb81feb62',
+      organization_id:'org-payment', request_id:parameters.p_request_id,
+      performer_id:parameters.p_performer, accrual_source_id:parameters.p_accrual_source, amount_minor:parameters.p_amount_minor
+    }, error:null };
   }, { confirmAction: () => true });
   await instance.setOrganization({ id:'org-payment' });
   instance.bind();

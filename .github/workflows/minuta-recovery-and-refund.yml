@@ -25,6 +25,7 @@ on:
       - 'minuta-online-booking/tests/booking-color-revision*.mjs'
       - 'minuta-online-booking/tests/historical-booking-context*.mjs'
       - 'minuta-online-booking/tests/payroll-adjustment-recovery*.mjs'
+      - 'minuta-online-booking/tests/payroll-ledger-recovery*.mjs'
       - 'minuta-online-booking/tests/inventory-movement-retry*.mjs'
       - 'minuta-online-booking/tests/loyalty-adjustment-retry*.mjs'
       - 'minuta-online-booking/tests/loyalty-redemption-retry*.mjs'
@@ -55,6 +56,7 @@ on:
       - 'minuta-online-booking/tests/booking-color-revision*.mjs'
       - 'minuta-online-booking/tests/historical-booking-context*.mjs'
       - 'minuta-online-booking/tests/payroll-adjustment-recovery*.mjs'
+      - 'minuta-online-booking/tests/payroll-ledger-recovery*.mjs'
       - 'minuta-online-booking/tests/inventory-movement-retry*.mjs'
       - 'minuta-online-booking/tests/loyalty-adjustment-retry*.mjs'
       - 'minuta-online-booking/tests/loyalty-redemption-retry*.mjs'
@@ -118,6 +120,7 @@ jobs:
       - run: node minuta-online-booking/tests/booking-color-revision-browser-test.mjs
       - run: node minuta-online-booking/tests/historical-booking-context-browser-test.mjs
       - run: node minuta-online-booking/tests/payroll-adjustment-recovery-browser-test.mjs
+      - run: node minuta-online-booking/tests/payroll-ledger-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/inventory-movement-retry-browser-test.mjs
       - run: node minuta-online-booking/tests/loyalty-adjustment-retry-browser-test.mjs
       - run: node minuta-online-booking/tests/loyalty-redemption-retry-browser-test.mjs

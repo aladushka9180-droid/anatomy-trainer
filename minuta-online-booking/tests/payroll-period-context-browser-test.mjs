@@ -18,6 +18,7 @@ if (screenshotDir) mkdirSync(screenshotDir, { recursive:true });
 try {
   for (const width of [390, 760, 1440]) {
     const page = await browser.newPage({ bypassCSP:true, serviceWorkers:'block', viewport:{ width, height:900 } });
+    await page.clock.install({ time:new Date('2026-09-15T12:00:00Z') });
     page.on('pageerror', error => errors.push(`${width}: ${error.message}`));
     await page.route('**/*', route => {
       const url = new URL(route.request().url());

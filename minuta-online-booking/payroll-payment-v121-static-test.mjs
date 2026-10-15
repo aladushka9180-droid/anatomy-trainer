@@ -32,8 +32,8 @@ assert.doesNotMatch(rollback, /or (?:item|adjustment)\.performer_id=v_user\)\)\)
 assert.match(rollback, /grant execute on function public\.get_minuta_loyalty_workspace\(uuid\) to authenticated/);
 
 assert.match(payroll, /p_request_id:requestId/);
-assert.match(payroll, /minutaPayrollAdjustmentIntent/);
-assert.match(payroll, /payload\?\.adjustments\?\.some\(item => String\(item\.request_id/);
+assert.match(payroll, /minutaPayrollLedgerIntent/);
+assert.match(payroll, /payload\?\.transactions\.some\(item => transactionRequestId\(item\) === intent\.requestId/);
 assert.doesNotMatch(payroll, /localStorage|sessionStorage|indexedDB/);
 assert.match(payment, /scopeMatches\(result\.data, organizationId\)/);
 assert.match(payment, /\['creating', 'pending'\]\.includes\(item\.status\)/);
