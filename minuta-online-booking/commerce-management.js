@@ -1,11 +1,17 @@
 (() => {
   'use strict';
 
-  const rubles = minor => `${new Intl.NumberFormat('ru-RU').format((Number(minor) || 0) / 100)} ₽`;
+  const moneyFormat = new Intl.NumberFormat('ru-RU');
+  const rubles = minor => `${moneyFormat.format((Number(minor) || 0) / 100)} ₽`;
   const number = value => Number(String(value ?? '').replace(',', '.')) || 0;
   const minor = value => Math.round(number(value) * 100);
   const uuid = () => crypto.randomUUID();
-  const dateText = value => value ? new Date(value).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' }) : '—';
+  const dateFormat = new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'short', year:'numeric' });
+  const dateText = value => {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? date.toLocaleDateString('ru-RU') : dateFormat.format(date);
+  };
   const operationNames = {
     visit_service:'Визит', commercial_sale:'Продажа', commercial_refund:'Возврат',
     supplier_expense_accrual:'Расход', supplier_expense_payment:'Оплата расхода',
@@ -25,14 +31,19 @@
       if (saved?.fingerprint === fingerprint && saved?.requestId) return { key, requestId:saved.requestId };
       const requestId = uuid();
       localStorage.setItem(key, JSON.stringify({ fingerprint, requestId, createdAt:new Date().toISOString() }));
+      const stored = JSON.parse(localStorage.getItem(key) || 'null');
+      if (stored?.fingerprint !== fingerprint || stored?.requestId !== requestId) return { key, requestId:null };
       return { key, requestId };
     } catch {
-      return { key, requestId:uuid() };
+      return { key, requestId:null };
     }
   }
 
-  function clearIntent(key) {
-    try { localStorage.removeItem(key); } catch {}
+  function clearIntent(key, requestId) {
+    try {
+      if (requestId && JSON.parse(localStorage.getItem(key) || 'null')?.requestId !== requestId) return;
+      localStorage.removeItem(key);
+    } catch {}
   }
 
   function errorMessage(error) {
@@ -49,7 +60,7 @@
     if (source.includes('cash_or_bank_account_required')) return 'Выберите действующую кассу или счёт.';
     if (source.includes('seller_not_active_member')) return 'Выберите активного сотрудника-продавца.';
     if (source.includes('permission') || source.includes('42501')) return 'Недостаточно прав для финансовой операции.';
-    return 'Операция не выполнена. Данные не изменены; можно безопасно повторить.';
+    return 'Результат операции не подтверждён. Обновите список и проверьте, проведена ли она, прежде чем создавать новую.';
   }
 
   function setError(element, error) {
@@ -62,12 +73,34 @@
     const { db, $, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
     let organization = null;
     let state = null;
-    let loading = false;
+    let loading = null;
+    let contextRevision = 0;
     let bound = false;
     let pendingSaleClaim = null;
     let saleClaimSecret = '';
     let saleClaimExpiryTimer = 0;
     const activeWrites = new Set();
+    const writePresentation = new Map();
+
+    function currentContext() {
+      return { organizationId:organization?.id, userId:getCurrentUser()?.id, generation:getSessionGeneration(), revision:contextRevision };
+    }
+
+    function contextIsCurrent(context) {
+      return context.revision === contextRevision && organization?.id === context.organizationId
+        && sessionIsCurrent(context.userId, context.generation);
+    }
+
+    function invalidateContext() {
+      contextRevision += 1;
+      loading = null;
+      $('#commerceLoading').hidden = true;
+      $('#commerceUnavailable').hidden = true;
+      for (const [submit, label] of writePresentation) submit.textContent = label;
+      writePresentation.clear();
+    }
+
+    const intentUnavailable = 'Не удалось безопасно подготовить операцию. Разрешите хранение данных для сайта и повторите.';
 
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -197,6 +230,10 @@
       const intent = uuidPattern.test(String(target.requestId || ''))
         ? { key:String(target.intentKey || ''), requestId:target.requestId }
         : requestIntent(`${organization.id}:sale-claim`, { sale:target.saleId, client:target.clientId });
+      if (!intent.requestId) {
+        renderSaleClaimError(intentUnavailable);
+        return false;
+      }
       pendingSaleClaim = { ...target, intentKey:intent.key, requestId:intent.requestId };
       renderSaleClaimPending();
       try {
@@ -211,7 +248,7 @@
         if (result.error) throw result.error;
         const claim = normalizedSaleClaim(result.data);
         if (!claim) throw new Error('invalid_client_sale_claim_response');
-        clearIntent(intent.key);
+        clearIntent(intent.key, intent.requestId);
         pendingSaleClaim.intentKey = '';
         renderSaleClaimSuccess(claim);
         return true;
@@ -382,6 +419,7 @@
       if (activeWrites.has(writeKey)) return false;
       const payload = { name, accountType };
       const intent = requestIntent(`${organization.id}:financial-account`, payload);
+      if (!intent.requestId) { setError(errorElement, intentUnavailable); return false; }
       const button = $('#commerceAccountSubmit');
       const originalLabel = button.textContent;
       const organizationId = organization.id;
@@ -402,7 +440,7 @@
         const created = result.data;
         if (!created || !uuidPattern.test(String(created.id || '')) || created.organization_id !== organizationId
           || created.name !== name || created.account_type !== accountType) throw new Error('invalid_financial_account_response');
-        clearIntent(intent.key);
+        clearIntent(intent.key, intent.requestId);
         if (!sessionIsCurrent(userId, generation) || organization?.id !== organizationId) return true;
         try {
           await load();
@@ -449,7 +487,10 @@
       const quantity = benefit ? 1 : number($('#commerceQuantity')?.value);
       const price = minor($('#commerceUnitPrice')?.value);
       const discount = minor($('#commerceDiscount')?.value);
-      const subtotal = Math.round(quantity * price);
+      const units = Math.round(quantity * 1000);
+      const subtotal = Number.isSafeInteger(units) && Number.isSafeInteger(price)
+        && quantity > 0 && price > 0 && Math.abs(quantity * 1000 - units) < 1e-7
+        ? Number((BigInt(units) * BigInt(price) + 500n) / 1000n) : NaN;
       const result = subtotal - discount;
       const finiteNumbers = [quantity, price, discount, subtotal, result].every(Number.isFinite);
       const valid = Boolean(
@@ -476,7 +517,7 @@
         const remainingQuantity = number(sale.line?.quantity) - number(sale.line?.refunded_quantity);
         const status = sale.status === 'refunded' ? 'Возвращено' : sale.status === 'partially_refunded' ? 'Частичный возврат' : 'Оплачено';
         const itemIcon = window.MinutaCommerceSoftUI?.iconMarkup({name:sale.line?.item_name}) || '';
-        return `<article class="commerce-sale-row">${itemIcon}<div><small>${escapeHtml(dateText(sale.occurred_at))} · ${escapeHtml(status)}</small><strong>${escapeHtml(sale.line?.item_name || 'Продажа')}</strong><span>${sale.client_name ? `${escapeHtml(sale.client_name)} · ` : ''}${escapeHtml(String(sale.line?.quantity || 1))} × ${escapeHtml(rubles(sale.line?.unit_price_minor))}${sale.booking_id ? ' · внутри визита' : ' · отдельно'}</span><span>Продавец: ${escapeHtml(sale.seller_name || 'Сотрудник')}</span></div><div><strong>${escapeHtml(rubles(Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0)))}</strong>${remainingAmount > 0 && remainingQuantity > 0 ? `<button class="secondary-button compact-button" type="button" data-commerce-refund="${escapeHtml(sale.id)}">Возврат</button>` : ''}</div></article>`;
+        return `<article class="commerce-sale-row" style="content-visibility:auto;contain-intrinsic-size:auto 104px">${itemIcon}<div><small>${escapeHtml(dateText(sale.occurred_at))} · ${escapeHtml(status)}</small><strong>${escapeHtml(sale.line?.item_name || 'Продажа')}</strong><span>${sale.client_name ? `${escapeHtml(sale.client_name)} · ` : ''}${escapeHtml(String(sale.line?.quantity || 1))} × ${escapeHtml(rubles(sale.line?.unit_price_minor))}${sale.booking_id ? ' · внутри визита' : ' · отдельно'}</span><span>Продавец: ${escapeHtml(sale.seller_name || 'Сотрудник')}</span></div><div><strong>${escapeHtml(rubles(Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0)))}</strong>${remainingAmount > 0 && remainingQuantity > 0 ? `<button class="secondary-button compact-button" type="button" data-commerce-refund="${escapeHtml(sale.id)}">Возврат</button>` : ''}</div></article>`;
       }).join('') : '<p class="report-empty-inline">Продаж пока нет.</p>';
     }
 
@@ -573,7 +614,8 @@
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         const recorded = String(item.last_occurred_on || '').startsWith(currentMonth);
-        return `<article class="commerce-recurring-row"><div><small>Ежемесячно, ${escapeHtml(String(item.day_of_month))}-го числа</small><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.supplier_name)} · ${escapeHtml(rubles(item.amount_minor))}</span></div><button class="secondary-button compact-button" type="button" data-commerce-record-expense="${escapeHtml(item.id)}"${recorded ? ' disabled' : ''}>${recorded ? 'Расход учтён' : 'Учесть расход'}</button></article>`;
+        const inactive = item.active === false;
+        return `<article class="commerce-recurring-row"><div><small>Ежемесячно, ${escapeHtml(String(item.day_of_month))}-го числа</small><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.supplier_name)} · ${escapeHtml(rubles(item.amount_minor))}</span></div><button class="secondary-button compact-button" type="button" data-commerce-record-expense="${escapeHtml(item.id)}"${recorded || inactive ? ' disabled' : ''}>${inactive ? 'Неактивен' : recorded ? 'Расход учтён' : 'Учесть расход'}</button></article>`;
       }).join('') : '<p class="report-empty-inline">Добавьте аренду или другой регулярный платёж.</p>';
     }
 
@@ -599,39 +641,50 @@
       applyWriteAvailability?.($('#commercePanel'));
     }
 
-    async function load() {
-      if (!organization?.id || loading) return;
-      const userId = getCurrentUser()?.id;
-      const generation = getSessionGeneration();
-      loading = true;
+    async function load({ force = false } = {}) {
+      if (!organization?.id) return;
+      const context = currentContext();
+      if (!force && loading?.revision === context.revision) return loading.promise;
+      const request = { revision:context.revision, promise:null };
+      loading = request;
       $('#commerceLoading').hidden = false;
       $('#commerceUnavailable').hidden = true;
+      request.promise = (async () => {
       try {
-        const result = await db.rpc('get_minuta_commerce_workspace_v151', { p_organization:organization.id });
+        const result = await db.rpc('get_minuta_commerce_workspace_v151', { p_organization:context.organizationId });
+        if (loading !== request || !contextIsCurrent(context)) return;
         if (result.error) throw result.error;
-        if (!sessionIsCurrent(userId, generation) || organization?.id !== result.data?.organization_id) return;
+        if (context.organizationId !== result.data?.organization_id) return;
         state = result.data;
         render();
       } catch (error) {
+        if (loading !== request || !contextIsCurrent(context)) return;
         $('#commerceWorkspace').hidden = true;
         $('#commerceUnavailable').hidden = false;
         $('#commerceUnavailableText').textContent = errorMessage(error);
         throw error;
       } finally {
-        loading = false;
-        $('#commerceLoading').hidden = true;
+        if (loading === request) {
+          loading = null;
+          $('#commerceLoading').hidden = true;
+        }
       }
+      })();
+      return request.promise;
     }
 
     async function write(form, errorElement, scope, payload, rpc, params) {
-      if (!requireWrites()) return;
+      if (!organization?.id || !requireWrites()) return;
+      const context = currentContext();
       const writeKey = `${organization.id}:${scope}`;
       if (activeWrites.has(writeKey)) return false;
-      activeWrites.add(writeKey);
       const intent = requestIntent(`${organization.id}:${scope}`, payload);
+      if (!intent.requestId) { setError(errorElement, intentUnavailable); return false; }
+      activeWrites.add(writeKey);
       const submit = form.querySelector('[type="submit"]');
       submit.disabled = true;
       const originalLabel = submit.textContent;
+      writePresentation.set(submit, originalLabel);
       if (scope === 'sale') submit.textContent = 'Проводим…';
       setError(errorElement, '');
       try {
@@ -640,27 +693,33 @@
           result = await db.rpc(rpc, { ...params, p_request_id:intent.requestId });
           if (result.error) throw result.error;
         } catch (error) {
-          setError(errorElement, error);
+          if (contextIsCurrent(context)) setError(errorElement, error);
           return false;
         }
-        clearIntent(intent.key);
+        clearIntent(intent.key, intent.requestId);
+        if (!contextIsCurrent(context)) return false;
         try {
-          await load();
+          await load({ force:true });
         } catch {
+          if (!contextIsCurrent(context)) return false;
           notify(result.data?.replayed
             ? `${scope === 'sale' ? 'Продажа' : 'Операция'} уже была проведена — повтор не создан`
             : `${scope === 'sale' ? 'Продажа' : 'Операция'} проведена. Список обновится после восстановления связи`);
           return { ok:true, data:result.data };
         }
+        if (!contextIsCurrent(context)) return false;
         notify(result.data?.replayed
           ? `${scope === 'sale' ? 'Продажа' : 'Операция'} уже была проведена — повтор не создан`
           : `${scope === 'sale' ? 'Продажа' : 'Операция'} проведена`);
         return { ok:true, data:result.data };
       } finally {
         activeWrites.delete(writeKey);
-        submit.textContent = originalLabel;
-        submit.disabled = false;
-        if (scope === 'sale') updateSaleValidity();
+        if (contextIsCurrent(context)) {
+          writePresentation.delete(submit);
+          submit.textContent = originalLabel;
+          submit.disabled = false;
+          if (scope === 'sale') updateSaleValidity();
+        } else if (scope === 'sale' && organization?.id) updateSaleValidity();
       }
     }
 
@@ -668,6 +727,7 @@
       event.preventDefault();
       const form = event.currentTarget;
       if (!updateSaleValidity()) return;
+      const context = currentContext();
       const kind = $('#commerceItemKind').value;
       const quantity = kind === 'benefit_product' ? 1 : number($('#commerceQuantity').value);
       const payload = { kind, item:$('#commerceItem').value, client:$('#commerceClient').value || null, booking:$('#commerceBooking').value || null, seller:$('#commerceSeller').value, warehouse:kind === 'inventory_item' ? $('#commerceWarehouse').value : null, quantity, price:minor($('#commerceUnitPrice').value), discount:minor($('#commerceDiscount').value), method:$('#commercePaymentMethod').value, account:$('#commercePaymentAccount').value };
@@ -678,7 +738,7 @@
         p_quantity:quantity, p_unit_price_minor:payload.price, p_discount_minor:payload.discount,
         p_payment_method:payload.method, p_payment_account:payload.account
       });
-      if (outcome?.ok) {
+      if (outcome?.ok && contextIsCurrent(context)) {
         const paidSale = outcome.data?.status === 'paid'
           && outcome.data?.organization_id === organization.id
           && uuidPattern.test(String(outcome.data?.id || ''));
@@ -727,8 +787,10 @@
       event.preventDefault();
       const form = event.currentTarget;
       if (!updateRefundValidity()) return;
+      const context = currentContext();
       const payload = { sale:$('#commerceRefundSale').value, quantity:number($('#commerceRefundQuantity').value), amount:minor($('#commerceRefundAmount').value), reason:$('#commerceRefundReason').value.trim() };
       const ok = await write(form, $('#commerceRefundError'), 'refund', payload, 'refund_minuta_commercial_sale_v147', { p_organization:organization.id, p_sale:payload.sale, p_quantity:payload.quantity, p_amount_minor:payload.amount, p_reason:payload.reason });
+      if (!contextIsCurrent(context)) return;
       if (ok) { form.reset(); $('#commerceRefundCreator').open = false; }
       updateRefundValidity();
     }
@@ -743,19 +805,25 @@
     }
 
     async function recordExpense(ruleId, button) {
-      if (!requireWrites()) return;
+      if (!organization?.id || !requireWrites() || button.disabled
+        || !(state?.recurring_expenses || []).some(item => item.id === ruleId && item.active !== false)) return;
+      const context = currentContext();
       const today = new Date();
       const occurredOn = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       const payload = { ruleId, occurredOn };
       const intent = requestIntent(`${organization.id}:recurring-record`, payload);
+      if (!intent.requestId) { notify(intentUnavailable); return; }
       button.disabled = true;
       try {
         const result = await db.rpc('record_minuta_recurring_expense_v147', { p_organization:organization.id, p_rule:ruleId, p_occurred_on:occurredOn, p_request_id:intent.requestId });
         if (result.error) throw result.error;
-        clearIntent(intent.key);
-        await load();
+        clearIntent(intent.key, intent.requestId);
+        if (!contextIsCurrent(context)) return;
+        await load({ force:true });
+        if (!contextIsCurrent(context)) return;
         notify(result.data?.replayed ? 'Расход уже учтён в этом месяце' : 'Расход учтён в финансах');
       } catch (error) {
+        if (!contextIsCurrent(context)) return;
         notify(errorMessage(error));
         button.disabled = false;
       }
@@ -851,6 +919,7 @@
       },
       async setOrganization(next) {
         if (organization?.id === next?.id && organization?.current_role === next?.current_role && state) return;
+        invalidateContext();
         clearSaleClaimResult();
         organization = next || null;
         state = null;
@@ -859,6 +928,7 @@
         if (organization?.id) await load();
       },
       reset() {
+        invalidateContext();
         clearSaleClaimResult();
         organization = null;
         state = null;
