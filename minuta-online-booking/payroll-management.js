@@ -27,8 +27,13 @@
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
     const select = options.$;
     const confirmAction = typeof options.confirmAction === 'function' ? options.confirmAction : message => typeof window.confirm === 'function' && window.confirm(message);
+    const wholeMoneyFormat = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const fractionalMoneyFormat = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const numberFormat = new Intl.NumberFormat('ru-RU');
+    const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+    const dateTimeFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     function $(selector) { return select(selector); }
-    let organization = null, payload = null, availability = null, requestRevision = 0, writePending = false, pendingOrganization;
+    let organization = null, payload = null, availability = null, requestRevision = 0, writePending = false, pendingOrganization, restoredFinancialScope = null, activeFinancialWrite = null;
     const disclosureSelector = '#payrollPlanCreator, #payrollPeriodCreator, .payroll-action-card, .payroll-items, #payrollAuditPanel';
     let disclosureBaselines = new WeakMap();
     const adjustmentIntents = new Map();
@@ -54,6 +59,79 @@
       } catch {}
     }
     function adjustmentKey(userId = getCurrentUser()?.id, organizationId = organization?.id) { return JSON.stringify([userId || '', organizationId || '']); }
+    function financialIntent(userId, organizationId) {
+      try {
+        const state = window.history?.state;
+        const saved = state?.minutaPayrollFinancialIntents?.[adjustmentKey(userId, organizationId)]
+          || (state?.minutaPayrollLedgerIntent?.rpc !== RPC.adjustment ? state?.minutaPayrollLedgerIntent : null);
+        if (!saved || saved.userId !== userId || saved.organizationId !== organizationId) return null;
+        return validRequestId(saved.requestId) && [RPC.payment, RPC.advance, RPC.offset, RPC.accrue, RPC.reverse].includes(saved.rpc)
+          && saved.parameters && typeof saved.parameters === 'object' && !Array.isArray(saved.parameters)
+          && saved.parameters.p_request_id === saved.requestId && saved.parameters.p_organization === organizationId ? saved : { invalid:true };
+      } catch { return { invalid:true }; }
+    }
+    function saveFinancialIntent(value, userId, organizationId, requestId) {
+      try {
+        const history = window.history, state = history?.state && typeof history.state === 'object' ? history.state : {};
+        if (typeof history?.replaceState !== 'function') return false;
+        const next = { ...state }, intents = { ...state.minutaPayrollFinancialIntents }, key = adjustmentKey(userId, organizationId);
+        if (value) intents[key] = value;
+        else if (intents[key]?.requestId === requestId) delete intents[key];
+        if (Object.keys(intents).length) next.minutaPayrollFinancialIntents = intents; else delete next.minutaPayrollFinancialIntents;
+        const legacy = next.minutaPayrollLedgerIntent;
+        if (legacy?.rpc !== RPC.adjustment && legacy?.userId === userId && legacy?.organizationId === organizationId
+          && legacy?.requestId === requestId) delete next.minutaPayrollLedgerIntent;
+        history.replaceState(next, '');
+        return value ? financialIntent(userId, organizationId)?.requestId === requestId : !financialIntent(userId, organizationId);
+      } catch { return false; }
+    }
+    function sameFinancialRequest(rpc, previous, next) {
+      const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
+      return [...keys].every(key => key === 'p_request_id' || rpc === RPC.accrue && key === 'p_occurred_at' || previous[key] === next[key]);
+    }
+    function restoreFinancialForm() {
+      const userId = getCurrentUser()?.id, organizationId = organization?.id, key = adjustmentKey(userId, organizationId);
+      if (restoredFinancialScope === key) return;
+      restoredFinancialScope = key;
+      const intent = financialIntent(userId, organizationId);
+      if (!intent || intent.invalid) return;
+      const p = intent.parameters;
+      const fields = intent.rpc === RPC.payment ? {
+        payrollPaymentDebt:`${p.p_accrual_source}|${p.p_performer}`, payrollPaymentAccount:p.p_cash_or_bank_account, payrollPaymentAmount:p.p_amount_minor / 100
+      } : intent.rpc === RPC.advance ? {
+        payrollAdvancePerformer:p.p_performer, payrollAdvanceAccount:p.p_cash_or_bank_account, payrollAdvanceAmount:p.p_amount_minor / 100,
+        payrollAdvancePaidAt:Number.isNaN(new Date(p.p_occurred_at).getTime()) ? '' : localDateTime(new Date(p.p_occurred_at))
+      } : intent.rpc === RPC.offset ? {
+        payrollOffsetAdvance:p.p_advance_source, payrollOffsetDebt:`${p.p_accrual_source}|${payload.advances.find(item => String(item.id) === String(p.p_advance_source))?.performer_id || ''}`,
+        payrollOffsetAmount:p.p_amount_minor / 100
+      } : {};
+      for (const [id, value] of Object.entries(fields)) if ($(`#${id}`)) $(`#${id}`).value = value;
+      const selector = intent.rpc === RPC.payment ? '#payrollPaymentError' : intent.rpc === RPC.advance ? '#payrollAdvanceError' : intent.rpc === RPC.offset ? '#payrollOffsetError' : null;
+      if (selector) showError(selector, 'Результат операции не подтверждён. Восстановлены прежние данные; повтор проверит тот же запрос.');
+    }
+    function financialReplyMatches(rpc, parameters, result) {
+      const data = result?.data;
+      if (result?.error !== null || !data || Array.isArray(data) || !validRequestId(data.id)
+        || data.organization_id !== parameters.p_organization || data.request_id !== parameters.p_request_id) return false;
+      if (rpc === RPC.reverse) return data.reversal_of === parameters.p_transaction;
+      if (rpc === RPC.accrue) return validRequestId(data.transaction_id) && data.period_id === parameters.p_period
+        && Number.isSafeInteger(data.amount_minor) && data.amount_minor > 0;
+      if (!validRequestId(data.source_id) || data.amount_minor !== parameters.p_amount_minor) return false;
+      if (parameters.p_performer && data.performer_id !== parameters.p_performer) return false;
+      if (parameters.p_accrual_source && data.accrual_source_id !== parameters.p_accrual_source) return false;
+      if (parameters.p_advance_source && data.advance_source_id !== parameters.p_advance_source) return false;
+      return true;
+    }
+    function financialRefused(error) {
+      const refusals = {
+        '42501':['authentication_required','organization_access_denied','payroll_manager_role_required','owner_required'],
+        '22023':['invalid_payroll_payment','invalid_payroll_advance','invalid_payroll_advance_offset','invalid_payroll_accrual','invalid_payroll_reversal',
+          'payroll_payment_performer_mismatch','payroll_advance_performer_mismatch','payroll_payment_exceeds_debt','payroll_offset_exceeds_debt','payroll_offset_exceeds_advance','cash_or_bank_account_required'],
+        '23503':['payroll_performer_not_in_organization'],
+        '55000':['payroll_ledger_disabled','payroll_disabled','payroll_accrual_reversed','payroll_offset_source_reversed','payroll_settlements_must_be_reversed_first','payroll_advance_offsets_must_be_reversed_first']
+      };
+      return Boolean(refusals[String(error?.code || '')]?.includes(String(error?.message || '')));
+    }
     function syncAdjustmentLock() {
       const key = adjustmentKey(), intent = adjustmentIntents.get(key);
       if (adjustmentErrorKey && adjustmentErrorKey !== key) clearError('#payrollAdjustmentError');
@@ -102,8 +180,8 @@
       if (!disclosureBaselines.has(opened)) disclosureBaselines.set(opened, disclosureState(opened));
     }
     function reset() {
-      requestRevision += 1; organization = null; payload = null; availability = null; writePending = false; pendingOrganization = undefined; activeAdjustmentWrite = null;
-      disclosureBaselines = new WeakMap();
+      requestRevision += 1; organization = null; payload = null; availability = null; writePending = false; pendingOrganization = undefined; activeAdjustmentWrite = null; activeFinancialWrite = null;
+      disclosureBaselines = new WeakMap(); restoredFinancialScope = null;
       $('#payrollPanel').hidden = true; $('#payrollLoading').hidden = true; $('#payrollUnavailable').hidden = true; $('#payrollWorkspace').hidden = true;
     }
     async function setOrganization(next) {
@@ -175,7 +253,10 @@
         $('#payrollUnavailableText').textContent = 'Выберите период не более 366 дней.'; return { ok: false, optional: true, validation: true };
       }
       availability = 'loading'; payload = null; $('#payrollPanel').hidden = false; $('#payrollLoading').hidden = false; $('#payrollUnavailable').hidden = true; $('#payrollWorkspace').hidden = true;
-      const { data, error } = await db.rpc(RPC.workspace, { p_organization: organizationId, p_start: range.start, p_end: range.end });
+      let result;
+      try { result = await db.rpc(RPC.workspace, { p_organization: organizationId, p_start: range.start, p_end: range.end }); }
+      catch (error) { result = { data:null, error }; }
+      const { data, error } = result || {};
       if (!sessionIsCurrent(userId, generation) || revision !== requestRevision || organization?.id !== organizationId) return { ok: false, optional: true, stale: true };
       $('#payrollLoading').hidden = true;
       if (error) {
@@ -200,11 +281,11 @@
       return [...ids].map(memberName).join(', ');
     }
     function minor(item, ...keys) { for (const key of keys) { const value = Number(item?.[key]); if (Number.isFinite(value)) return Math.round(value); } return 0; }
-    function moneyMinor(value) { const amount = Number(value || 0) / 100; return `${new Intl.NumberFormat('ru-RU', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 }).format(amount)} ₽`; }
-    function rubles(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`; }
-    function percent(bps) { return `${(Number(bps || 0) / 100).toLocaleString('ru-RU')}%`; }
-    function dateLabel(value) { const date = new Date(value?.includes?.('T') ? value : `${value}T12:00:00`); return Number.isNaN(date.getTime()) ? String(value || '') : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }); }
-    function dateTimeLabel(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    function moneyMinor(value) { const amount = Number(value || 0) / 100; return `${(Number.isInteger(amount) ? wholeMoneyFormat : fractionalMoneyFormat).format(amount)} ₽`; }
+    function rubles(value) { return `${numberFormat.format(Number(value || 0))} ₽`; }
+    function percent(bps) { return `${numberFormat.format(Number(bps || 0) / 100)}%`; }
+    function dateLabel(value) { const date = new Date(value?.includes?.('T') ? value : `${value}T12:00:00`); return Number.isNaN(date.getTime()) ? String(value || '') : dateFormat.format(date); }
+    function dateTimeLabel(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : dateTimeFormat.format(date); }
     function optionList(items, selected, label) { return items.map(item => `<option value="${escapeHtml(item.id)}" ${String(item.id) === String(selected) ? 'selected' : ''}>${escapeHtml(label(item))}</option>`).join(''); }
     function empty(title, text) { return `<div class="provider-empty compact-empty"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(text)}</small></div>`; }
     function periodAmounts(period) {
@@ -293,7 +374,7 @@
       $('#payrollAdvancePanel').hidden = !payload.payment_accounts.length; $('#payrollPaymentPanel').hidden = !debtRows.length || !payload.payment_accounts.length; $('#payrollOffsetPanel').hidden = !debtRows.length || !openAdvances.length; $('#payrollAuditPanel').hidden = !canManage;
       $('#payrollAuditCount').textContent = String(payload.transactions.length); $('#payrollAuditList').innerHTML = payload.transactions.length ? payload.transactions.map(item => transactionCard(item, canManage)).join('') : empty('Операций пока нет', 'Начисления, выплаты, авансы и отмены появятся здесь.');
       if (reconcile) reconcileIntent();
-      setBusy(false); syncAdjustmentLock(); applyWriteAvailability(); syncAdjustmentLock();
+      restoreFinancialForm(); setBusy(false); syncAdjustmentLock(); applyWriteAvailability(); syncAdjustmentLock();
     }
 
     function userError(error) {
@@ -374,27 +455,48 @@
       if (!requireWrites() || writePending || availability !== 'ready' || !payload || !organization?.id || String(payload.organization_id) !== String(organization.id)) return false;
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
       if (!userId) return false;
+      const recovered = financialIntent(userId, organizationId);
+      if (recovered && (!withRequestId || recovered.invalid || recovered.rpc !== rpc || !sameFinancialRequest(rpc, recovered.parameters, parameters))) {
+        const message = 'Есть операция с неподтверждённым результатом. Сначала проверьте её повтором с прежними данными; новая операция пока заблокирована.';
+        if (errorSelector) showError(errorSelector, message); else notify(message); return false;
+      }
       if (withRequestId) {
-        const recovered = rememberedIntent();
-        if (recovered?.rpc === rpc && recovered.organizationId === organizationId && recovered.userId === userId) parameters = { ...recovered.parameters };
+        if (recovered) parameters = { ...recovered.parameters };
         else {
           let requestId; try { requestId = createRequestId(); } catch { showError(errorSelector, 'Безопасный идентификатор запроса недоступен. Обновите браузер и повторите.'); return false; }
-          parameters = { ...parameters, p_request_id: requestId }; rememberIntent({ rpc, requestId, organizationId, userId, parameters });
+          parameters = { ...parameters, p_request_id: requestId };
+          if (!saveFinancialIntent({ rpc, requestId, organizationId, userId, parameters }, userId, organizationId, requestId)) {
+            const message = 'Не удалось безопасно сохранить запрос. Операция не отправлена. Обновите браузер и повторите.';
+            if (errorSelector) showError(errorSelector, message); else notify(message); return false;
+          }
         }
       }
       const revision = ++requestRevision; writePending = true; setBusy(true); clearError(errorSelector);
       const oldText = button?.textContent; if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
+      const write = {}; activeFinancialWrite = write;
       let result; try { result = await db.rpc(rpc, parameters); } catch (error) { result = { data: null, error, transport: true }; }
+      if (activeFinancialWrite !== write) return false;
+      activeFinancialWrite = null;
       if (button) button.textContent = oldText;
       const stale = !sessionIsCurrent(userId, generation) || organization?.id !== organizationId || revision !== requestRevision; writePending = false;
       if (stale) { const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return false; }
       if (result?.error) {
-        if (!result.transport && withRequestId) rememberIntent(null);
-        const message = result.transport ? 'Ответ сервера не получен. Не повторяйте операцию: сначала обновите журнал для сверки.' : userError(result.error);
+        if (!withRequestId) {
+          const message = result.transport ? 'Ответ сервера не получен. Не повторяйте операцию: сначала обновите журнал для сверки.' : userError(result.error);
+          if (errorSelector) showError(errorSelector, message); else notify(message); await load(); return false;
+        }
+        const refused = !result.transport && financialRefused(result.error);
+        if (withRequestId && refused && !recovered) saveFinancialIntent(null, userId, organizationId, parameters.p_request_id);
+        const message = refused && !recovered ? userError(result.error)
+          : 'Результат операции не подтверждён. Повтор с прежними данными проверит тот же запрос и не создаст новую операцию.';
+        if (errorSelector) showError(errorSelector, message); else notify(message); await load(); return false;
+      }
+      if (withRequestId && !financialReplyMatches(rpc, parameters, result)) {
+        const message = 'Результат операции не подтверждён. Повтор с прежними данными проверит тот же запрос и не создаст новую операцию.';
         if (errorSelector) showError(errorSelector, message); else notify(message); await load(); return false;
       }
       if (responseScopeMismatch(result?.data, organizationId)) { notify('Ответ сервера относится к другой организации. Новая операция заблокирована.'); await load(); return false; }
-      if (withRequestId) rememberIntent(null); notify(success); await load();
+      if (withRequestId) saveFinancialIntent(null, userId, organizationId, parameters.p_request_id); notify(success); await load();
       const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return true;
     }
     function rublesToMinor(input, errorSelector) {
