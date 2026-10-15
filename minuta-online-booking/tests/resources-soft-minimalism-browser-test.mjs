@@ -119,9 +119,12 @@ try {
   await page.locator('#resourceError:visible').waitFor();
   check('Duplicate create reports an error without a new resource',(await page.locator('#resourceError').textContent()).includes('уже используется') && !await page.locator('#resourcesCount').isVisible());
   await page.locator('#fixtureFailure').selectOption('network');
+  const networkCallStart = await page.evaluate(()=>fixtureCalls.length);
   await page.locator('#resourceForm').getByRole('button',{name:'Создать ресурс',exact:true}).click();
   await page.locator('#resourceError:visible').waitFor();
-  check('Network failure keeps form visible and retry enabled',(await page.locator('#resourceError').textContent()).includes('не сохранено') && await page.locator('#resourceCreator').getAttribute('open')!==null && await page.locator('#resourceForm button[type=submit]').isEnabled());
+  const networkCalls = await page.evaluate(start=>fixtureCalls.slice(start).map(call=>call.name),networkCallStart);
+  check('Unconfirmed network failure retains the draft and asks to refresh before retry',(await page.locator('#resourceError').textContent()).includes('Не удалось подтвердить сохранение') && (await page.locator('#resourceError').textContent()).includes('обновите данные перед повтором') && await page.locator('#resourceCreator').getAttribute('open')!==null && await page.locator('#resourceName').inputValue()==='Повторное название' && await page.locator('#resourceForm button[type=submit]').isEnabled());
+  check('Network failure rereads authoritative state without repeating the write',networkCalls.length===2 && networkCalls[0]==='create_minuta_resource' && networkCalls[1]==='get_minuta_resource_workspace' && !await page.locator('#resourcesCount').isVisible());
   await open('?mode=no-location');
   check('Missing branch keeps the existing branch setup action',await page.locator('#resourceLocationLink').isVisible());
   const layouts=[];
