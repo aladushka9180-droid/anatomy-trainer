@@ -49,7 +49,9 @@
     let available = null;
     let busy = false;
     let revision = 0;
+    let contextRevision = 0;
     let bound = false;
+    const pendingSaves = new Map();
 
     function manager() {
       return ['owner', 'admin'].includes(String(payload?.currentRole || organization?.current_role || ''));
@@ -92,7 +94,7 @@
       const button = card.querySelector('button[type="submit"]');
       const history = card.querySelector('.provider-integration-history');
       const eventList = card.querySelector('[data-provider-integration-events]');
-      if (input && document.activeElement !== input) input.value = connection?.externalAccountId || '';
+      if (input && document.activeElement !== input) input.value = pendingSaves.get(provider)?.accountId || connection?.externalAccountId || '';
       if (state) state.textContent = connection ? (connection.enabled ? 'Тестовая настройка включена' : 'Черновик сохранён') : 'Черновика нет';
       if (button) button.textContent = 'Сохранить черновик';
       if (note) {
@@ -172,15 +174,19 @@
 
     async function setOrganization(next) {
       revision += 1;
+      contextRevision += 1;
       organization = next?.id ? next : null;
       payload = null; available = organization ? null : false; busy = false;
+      pendingSaves.clear();
       render();
       if (organization && manager()) await load();
     }
 
     function reset() {
       revision += 1;
+      contextRevision += 1;
       organization = null; payload = null; available = false; busy = false;
+      pendingSaves.clear();
       render();
     }
 
@@ -199,36 +205,42 @@
         return;
       }
       const connection = connectionFor(provider);
-      if (!connection && !global.crypto?.randomUUID) {
+      const pending = pendingSaves.get(provider);
+      if (connection?.externalAccountId !== accountId && pending?.accountId !== accountId
+        && !global.crypto?.randomUUID) {
         notify('Безопасный идентификатор недоступен. Обновите браузер.');
         return;
       }
       const organizationId = organization.id;
-      const operationRevision = revision;
+      const operationContext = contextRevision;
+      const isCurrent = () => operationContext === contextRevision && organization?.id === organizationId;
+      const connectionId = connection?.externalAccountId === accountId ? connection.connectionId
+        : pending?.accountId === accountId ? pending.connectionId : global.crypto.randomUUID();
+      pendingSaves.set(provider, { accountId, connectionId });
       setBusy(true);
-      let result;
       try {
-        result = await db.rpc('configure_minuta_integration_connection_v142', {
+        await db.rpc('configure_minuta_integration_connection_v142', {
           p_organization:organizationId,
-          p_connection:connection?.externalAccountId === accountId
-            ? connection.connectionId : global.crypto.randomUUID(),
+          p_connection:connectionId,
           p_provider:provider,
           p_environment:'testing',
           p_external_account_id:accountId,
           p_enabled:false
         });
       } catch {
-        result = { error:new Error('integration_save_failed') };
+        // The server may have committed before the response was lost.
       }
-      if (!current(operationRevision, organizationId)) return;
-      setBusy(false);
-      if (result.error || result.data?.ok !== true || result.data?.provider !== provider
-        || result.data?.environment !== 'testing' || result.data?.enabled !== false) {
-        notify('Не удалось сохранить черновик');
-        return;
-      }
-      notify(`Черновик ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'} сохранён`);
+      if (!isCurrent()) return;
       await load();
+      if (!isCurrent()) return;
+      setBusy(false);
+      const saved = available === true ? connectionFor(provider) : null;
+      if (saved?.externalAccountId === accountId && saved.enabled === false) {
+        pendingSaves.delete(provider);
+        notify(`Черновик ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'} сохранён`);
+      } else {
+        notify('Не удалось подтвердить сохранение черновика. Обновите статусы или повторите сохранение.');
+      }
     }
 
     function bind() {
