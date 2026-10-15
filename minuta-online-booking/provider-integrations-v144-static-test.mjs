@@ -12,7 +12,7 @@ const worker = readFileSync(new URL('sw.js', root), 'utf8');
 
 assert.match(html, /value="paymentProviderPanel">Оплата и интеграции</);
 assert.match(html, /data-section-target="paymentProviderPanel">Оплата и интеграции</);
-assert.match(html, /id="providerIntegrationsDisclosure"[\s\S]*DIKIDI и YCLIENTS/);
+assert.match(html, /id="providerIntegrationsDisclosure"[\s\S]*Внешние календари/);
 assert.match(html, /data-provider-integration-form="dikidi"/);
 assert.match(html, /data-provider-integration-form="yclients"/);
 assert.match(html, /Обмен данными не начинается/);

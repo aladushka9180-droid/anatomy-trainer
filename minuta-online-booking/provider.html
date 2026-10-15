@@ -1127,26 +1127,26 @@
                 <form id="paymentRefundForm" class="payment-refund-form" hidden><div class="resource-subhead"><div><small>Полный или частичный</small><strong>Оформить возврат</strong></div></div><label>Платёж<select id="paymentRefundAttempt" required></select></label><label>Сумма, ₽<input id="paymentRefundAmount" type="number" min="1" step="0.01" required></label><label>Причина<input id="paymentRefundReason" minlength="8" maxlength="500" required></label><button class="secondary-button" type="submit">Вернуть через ЮKassa</button></form>
               </div>
               <details class="ux-disclosure provider-integrations-disclosure" id="providerIntegrationsDisclosure">
-                <summary><span><small>Внешние записи</small><strong>DIKIDI и YCLIENTS</strong></span><span class="panel-count" id="providerIntegrationsState">Не настроены</span></summary>
+                <summary><span><small>Внешние записи</small><strong>Внешние календари</strong></span><span class="panel-count" id="providerIntegrationsState">Не настроены</span></summary>
                 <p class="organization-invite-help">Здесь сохраняется тестовый черновик. Обмен данными не начинается.</p>
                 <div class="resource-inline-error" id="providerIntegrationsUnavailable" role="status" aria-live="polite" hidden><div><strong>Статусы интеграций временно недоступны</strong><small id="providerIntegrationsUnavailableText">Оплата и записи продолжают работать независимо.</small></div><button class="secondary-button" id="reloadProviderIntegrations" type="button">Повторить</button></div>
                 <div class="provider-integrations-grid" id="providerIntegrationsWorkspace" hidden>
                   <article class="provider-integration-card" data-provider-integration="dikidi">
-                    <div class="resource-subhead"><div><small>Внешний календарь</small><strong>DIKIDI</strong></div><span class="panel-count" data-provider-integration-state>Не настроен</span></div>
+                    <div class="resource-subhead"><div><small>Внешний календарь</small><strong>Календарь 1</strong></div><span class="panel-count" data-provider-integration-state>Не настроен</span></div>
                     <form data-provider-integration-form="dikidi">
                       <label>Идентификатор филиала<input data-provider-integration-account autocomplete="off" maxlength="200" placeholder="Например, studio-1" required></label>
                       <button class="secondary-button" type="submit">Сохранить черновик</button>
                     </form>
-                    <small data-provider-integration-note>Укажите ID филиала из DIKIDI. Обмена данными не будет.</small>
+                    <small data-provider-integration-note>Укажите ID филиала. Обмена данными не будет.</small>
                     <details class="resource-audit provider-integration-history"><summary><span><small>Без имён и телефонов</small><strong>Последние события</strong></span></summary><div class="organization-audit-list" data-provider-integration-events></div></details>
                   </article>
                   <article class="provider-integration-card" data-provider-integration="yclients">
-                    <div class="resource-subhead"><div><small>Внешний календарь</small><strong>YCLIENTS</strong></div><span class="panel-count" data-provider-integration-state>Не настроен</span></div>
+                    <div class="resource-subhead"><div><small>Внешний календарь</small><strong>Календарь 2</strong></div><span class="panel-count" data-provider-integration-state>Не настроен</span></div>
                     <form data-provider-integration-form="yclients">
                       <label>Идентификатор филиала<input data-provider-integration-account autocomplete="off" maxlength="200" placeholder="Например, salon-42" required></label>
                       <button class="secondary-button" type="submit">Сохранить черновик</button>
                     </form>
-                    <small data-provider-integration-note>Укажите ID филиала из YCLIENTS. Обмена данными не будет.</small>
+                    <small data-provider-integration-note>Укажите ID филиала. Обмена данными не будет.</small>
                     <details class="resource-audit provider-integration-history"><summary><span><small>Без имён и телефонов</small><strong>Последние события</strong></span></summary><div class="organization-audit-list" data-provider-integration-events></div></details>
                   </article>
                 </div>
@@ -2214,7 +2214,7 @@
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=811"></script>
   <script src="provider-porcelain-preview-guard.js?v=893"></script>
-  <script src="site-update.js?v=1089" defer></script>
+  <script src="site-update.js?v=1090" defer></script>
   <script src="reliability.js?v=811"></script>
   <script src="phone-auth.js?v=811"></script>
   <script src="social-auth.js?v=811"></script>
@@ -2224,7 +2224,7 @@
   <script src="payment-review.js?v=1085" defer></script>
   <script src="commerce-soft-ui.js?v=1088" defer></script>
   <script src="commerce-management.js?v=1089" defer></script>
-  <script src="integration-management.js?v=1088" defer></script>
+  <script src="integration-management.js?v=1090" defer></script>
   <script src="notification-center.js?v=1005" defer></script>
   <script src="client-fields.js?v=811" defer></script>
   <script src="client-import.js?v=1009" defer></script>
@@ -2297,7 +2297,7 @@
   <script src="provider-connection-guidance.js?v=1036" defer></script>
   <script src="schedule-break-icons.js?v=1023" defer></script>
   <script src="organization-flow.js?v=1085" defer></script>
-  <script src="provider.js?v=1089" defer></script>
+  <script src="provider.js?v=1090" defer></script>
   <script src="portfolio-soft-ui.js?v=1085" defer></script>
   <script src="work-hours-soft.js?v=1085" defer></script>
   <script src="organization-group-navigation.js?v=1085" defer></script>
@@ -2305,7 +2305,7 @@
   <script src="provider-porcelain-detail.js?v=946" defer></script>
   <script src="provider-help-workspace.js?v=1085" defer></script>
   <script src="service-presets.js?v=1044" defer></script>
-  <script src="primetime-handoff.js?v=1089" defer></script>
+  <script src="primetime-handoff.js?v=1090" defer></script>
   <template data-provider-feature="scanner"><script src="code-scanner.js?v=1004"></script></template>
 </body>
 </html>
