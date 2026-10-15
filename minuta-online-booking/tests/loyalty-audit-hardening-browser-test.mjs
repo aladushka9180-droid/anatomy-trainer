@@ -45,6 +45,7 @@ async function setup(existingPage){
       }
       if(f.delay)await new Promise(r=>setTimeout(r,f.delay));
       if(name==='adjust_minuta_loyalty_progress_v166'){
+        if(f.adjustmentDenied)return {error:{code:'42501',message:'Synthetic membership denial before request replay lookup'}};
         if(!f.processed.includes(p.p_request_id)){f.processed.push(p.p_request_id);f.actualProgress+=p.p_delta;const account=f.state.accounts.find(a=>a.client_account_id===p.p_client_account);if(account)account.progress=f.actualProgress;}
         if(f.failFirstAdjustment&&!f.failedOnce){f.failedOnce=true;return {error:{code:'FETCH_FAILED'}};}
       }
@@ -89,6 +90,28 @@ try{
   await check('normal-retry-one-request',7,'При доступном хранилище потерянный ответ повторяется с прежним идентификатором',async page=>{
     await adjustment(page);await page.evaluate(()=>fixture.failFirstAdjustment=true);await page.locator('#loyaltyAdjustmentForm button').click();await page.locator('#loyaltyAdjustmentError').waitFor({state:'visible'});await page.locator('#loyaltyAdjustmentForm button').click();
     const value=await page.evaluate(()=>({progress:fixture.actualProgress,requests:fixture.calls.filter(c=>c.name==='adjust_minuta_loyalty_progress_v166').map(c=>c.parameters.p_request_id)}));assert.equal(value.progress,2);assert.equal(value.requests[0],value.requests[1]);return value;
+  });
+  await check('unknown-retry-membership-denial',7,'Временный отказ доступа после потерянного ответа сохраняет исходную операцию, включая перезагрузку',async page=>{
+    await adjustment(page);await page.evaluate(()=>fixture.failFirstAdjustment=true);
+    await page.locator('#loyaltyAdjustmentForm button').click();await page.locator('#loyaltyAdjustmentError').waitFor({state:'visible'});
+    await page.evaluate(()=>fixture.adjustmentDenied=true);await page.locator('#loyaltyAdjustmentForm button').click();
+    const deniedBeforeReload=await page.locator('#loyaltyAdjustmentError').innerText();
+    const previous=await page.evaluate(()=>({progress:fixture.actualProgress,processed:fixture.processed,accounts:fixture.state.accounts,ids:fixture.calls.filter(c=>c.name==='adjust_minuta_loyalty_progress_v166').map(c=>c.parameters.p_request_id)}));
+    await setup(page);await page.evaluate(async previous=>{fixture.actualProgress=previous.progress;fixture.processed=previous.processed;fixture.state.accounts=previous.accounts;await controller.load();fixture.adjustmentDenied=true;},previous);
+    await adjustment(page);await page.locator('#loyaltyAdjustmentForm button').click();
+    const deniedAfterReload=await page.locator('#loyaltyAdjustmentError').innerText();
+    await page.evaluate(()=>fixture.adjustmentDenied=false);await page.locator('#loyaltyAdjustmentForm button').click();
+    const replay=await page.evaluate(()=>({progress:fixture.actualProgress,ids:fixture.calls.filter(c=>c.name==='adjust_minuta_loyalty_progress_v166').map(c=>c.parameters.p_request_id)}));
+    const originalAttempts=[...previous.ids,...replay.ids];
+    assert.equal(replay.progress,2,`Lost-response operation was counted again: progress=${replay.progress}, ids=${JSON.stringify(originalAttempts)}`);
+    assert.equal(new Set(originalAttempts).size,1,'Every retry must retain the original request identity');
+    assert.match(deniedBeforeReload,/не удалось подтвердить результат/i);assert.match(deniedAfterReload,/не удалось подтвердить результат/i);
+    await page.locator('#loyaltyAdjustmentClient').selectOption('client-one');await page.locator('#loyaltyAdjustmentPoints').fill('2');await page.locator('#loyaltyAdjustmentReason').fill('Первоначальный подтверждённый отказ');
+    await page.evaluate(()=>fixture.adjustmentDenied=true);await page.locator('#loyaltyAdjustmentForm button').click();
+    assert.match(await page.locator('#loyaltyAdjustmentError').innerText(),/Действие отклонено/);
+    await page.evaluate(()=>fixture.adjustmentDenied=false);await page.locator('#loyaltyAdjustmentPoints').fill('3');await page.locator('#loyaltyAdjustmentReason').fill('Новое действие после подтверждённого отказа');await page.locator('#loyaltyAdjustmentForm button').click();
+    assert.equal(await page.evaluate(()=>fixture.actualProgress),5,'A first confirmed rejection must release its identity and permit a changed new action');
+    return {progressAfterReplay:replay.progress,originalAttempts,unknownResultSurvivedReload:true,initialConfirmedRejectionReleased:true,note:'Synthetic membership check precedes replay lookup; no real Auth, database or business RPC'};
   });
   await check('disable-with-invalid-draft',5,'Выключение программы не блокируется пустым полем награды в черновике',async page=>{
     await page.locator('#editLoyaltyProgram').click();await page.locator('#loyaltyClientText summary').click();await page.locator('#loyaltyRewardTitle').fill('');await page.locator('#loyaltyEnabled').uncheck();await page.locator('#loyaltyProgramForm button[type="submit"]').click();

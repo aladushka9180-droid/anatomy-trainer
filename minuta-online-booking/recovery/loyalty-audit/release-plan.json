@@ -21,7 +21,7 @@
   },
   "localProof": {
     "serverScenariosPassed": 44,
-    "browserScenariosPassed": 15,
+    "browserScenariosPassed": 16,
     "existingThemeWidthChecksPassed": 200,
     "existingSoftThemeWidthStateChecksPassed": 246,
     "existingSqlBusinessRegressionPassedAfterPatch": true,

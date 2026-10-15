@@ -121,14 +121,15 @@
       const key = intentKey(action), fingerprint = digest(parameters);
       const pending = pendingIntents.get(key);
       if (pending) return pending.fingerprint === fingerprint
-        ? { key, requestId:pending.requestId }
+        ? { key, requestId:pending.requestId, previouslyUnconfirmed:Boolean(pending.submitted) }
         : { error:'Сначала подтвердите результат предыдущего действия: обновите данные и повторите его с исходными значениями.' };
       try {
         const saved = JSON.parse(localStorage.getItem(key) || 'null');
         if (saved?.requestId) {
           if (saved.fingerprint !== fingerprint) return { error:'Сначала подтвердите результат предыдущего действия: обновите данные и повторите его с исходными значениями.' };
-          pendingIntents.set(key,saved);
-          return { key, requestId:saved.requestId };
+          // A durable intent recovered after reload may already have reached the server.
+          pendingIntents.set(key,{...saved,submitted:true});
+          return { key, requestId:saved.requestId, previouslyUnconfirmed:true };
         }
         const next = { fingerprint, requestId:uuid() };
         localStorage.setItem(key, JSON.stringify(next));
@@ -384,6 +385,8 @@
       if (writing || !organization?.id || !requireWrites()) return false;
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
       writing = true; if (button) button.disabled = true;
+      const prepared = pendingIntents.get(intent?.key);
+      if (prepared && prepared.requestId === intent?.requestId) prepared.submitted = true;
       try {
         const { error } = await db.rpc(rpc, parameters);
         if (error) throw error;
@@ -398,10 +401,11 @@
       } catch (error) {
         const code = String(error?.code || '');
         const known = code.startsWith('22') || code.startsWith('23') || code === '42501' || code === '55000' || code === 'P0002';
-        if (known) clearIntent(intent);
-        mutationIssue = known ? 'Действие отклонено. Проверьте права и допустимость введённых значений.'
+        const confirmedRejection = known && !intent?.previouslyUnconfirmed;
+        if (confirmedRejection) clearIntent(intent);
+        mutationIssue = confirmedRejection ? 'Действие отклонено. Проверьте права и допустимость введённых значений.'
           : 'Не удалось подтвердить результат. Действие могло быть выполнено; обновите данные и повторите только исходное действие.';
-        if (!known) notify(mutationIssue);
+        if (!confirmedRejection) notify(mutationIssue);
         return false;
       } finally { writing = false; if (button) button.disabled = false; }
     }
