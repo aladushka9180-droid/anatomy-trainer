@@ -1763,13 +1763,13 @@ async function manualSynchronizeProvider() {
     const generation = sessionGeneration;
     if (synchronizationPromise) await synchronizationPromise;
     if (!sessionIsCurrent(userId, generation)) return false;
-    const complete = await synchronizeProvider();
+    const synced=(await Promise.all([synchronizeProvider(),resourceController?.load()])).every(r=>r?.ok??r??true);
     if (!sessionIsCurrent(userId, generation)) return false;
     if (navigator.onLine && bookingCreationReady) await flushOfflineBookings();
     if (!sessionIsCurrent(userId, generation)) return false;
     const pending = pendingBookingColors.size + pendingBookingNotes.size + pendingClientLabels.size + pendingClientNotes.size;
-    notify(complete ? (pending ? 'Данные обновлены · есть изменения, ожидающие отправки' : 'Все данные обновлены') : bookingCreationReady ? 'Записи и расписание обновлены' : 'Не удалось обновить данные · повторим автоматически');
-    return complete;
+    notify(synced ? (pending ? 'Данные обновлены · есть изменения, ожидающие отправки' : 'Все данные обновлены') : bookingCreationReady ? 'Записи и расписание обновлены' : 'Не удалось обновить данные · повторим автоматически');
+    return synced;
   } catch {
     recordConnectionEvent('error', 'Ручное обновление завершилось ошибкой');
     notify('Не удалось обновить данные · повторим автоматически');

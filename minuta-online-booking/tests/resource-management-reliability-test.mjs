@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(process.env.MINUTA_JSDOM_PACKAGE || import.meta.url);
@@ -10,6 +11,9 @@ const { JSDOM } = require('jsdom');
 const html = readFileSync(join(root, 'provider.html'), 'utf8');
 const source = readFileSync(join(root, 'resource-management.js'), 'utf8');
 const selects = readFileSync(join(root, 'provider-selects.js'), 'utf8');
+const provider = readFileSync(join(root, 'provider.js'), 'utf8');
+const manualRefreshSource = provider.match(/^async function manualSynchronizeProvider\(\) \{[\s\S]*?^\}/m)?.[0];
+assert.ok(manualRefreshSource, 'manual refresh entry point exists');
 const marker = html.indexOf('id="resourcesPanel" hidden>');
 const start = html.lastIndexOf('<section class="panel organization-section', marker);
 const end = html.indexOf('<section class="panel organization-section', marker + 1);
@@ -36,6 +40,7 @@ async function harness(initial = seed()) {
   window.fetch = deny; window.XMLHttpRequest = deny; window.WebSocket = deny;
   window.eval(source);
   let state=clone(initial), readFailure=null, writeFailure=null, thrownWrite=null, loseResponse=false, holdWrite=null, readHook=null;
+  let fixtureOwner='fixture-owner', fixtureGeneration=1;
   const calls=[],notices=[];
   const rpc=async(name,args)=>{
     calls.push({name,args:clone(args)});
@@ -55,16 +60,21 @@ async function harness(initial = seed()) {
     if(holdWrite)await holdWrite.promise;
     return loseResponse?{data:null,error:{message:'Failed to fetch after unknown write outcome'}}:{data:clone(state),error:null};
   };
-  const controller=window.MinutaResources.createController({db:{rpc},$,escapeHtml,notify:m=>notices.push(m),requireWrites:()=>state.can_manage,getCurrentUser:()=>({id:'fixture-owner'}),getSessionGeneration:()=>1,sessionIsCurrent:()=>true,applyWriteAvailability(){}});
+  const controller=window.MinutaResources.createController({db:{rpc},$,escapeHtml,notify:m=>notices.push(m),requireWrites:()=>state.can_manage,getCurrentUser:()=>({id:fixtureOwner}),getSessionGeneration:()=>fixtureGeneration,sessionIsCurrent:(id,generation)=>id===fixtureOwner&&generation===fixtureGeneration,applyWriteAvailability(){}});
   controller.bind();await controller.setOrganization({id:state.organization_id});
   const submit=form=>{assert.ok(form.checkValidity(),'fixture submission must satisfy native form validity');return listeners.submit[0]({target:form,submitter:form.querySelector('button[type=submit]'),preventDefault(){}});};
   const click=selector=>listeners.click[0]({target:$(selector),preventDefault(){}});
   const input=value=>{$('#resourceListSearch').value=value;return listeners.input[0]({target:$('#resourceListSearch')});};
   const change=(selector,value)=>{$(selector).value=value;return listeners.change[0]({target:$(selector)});};
-  return {window,document,$,controller,submit,click,input,change,calls,notices,card:id=>$(`[data-resource-card="${id}"]`),state:()=>clone(state),setState:value=>{state=clone(value);},readError:value=>{readFailure=value;},writeError:value=>{writeFailure=value;},throwWrite:value=>{thrownWrite=value;},loseReply:()=>{loseResponse=true;},hold:()=>{holdWrite=pending();return holdWrite;},readHook:value=>{readHook=value;},writes:()=>calls.filter(c=>c.name!=='get_minuta_resource_workspace'),close:()=>window.close()};
+  return {window,document,$,controller,submit,click,input,change,calls,notices,card:id=>$(`[data-resource-card="${id}"]`),state:()=>clone(state),setState:value=>{state=clone(value);},switchSession:(id,generation)=>{fixtureOwner=id;fixtureGeneration=generation;},readError:value=>{readFailure=value;},writeError:value=>{writeFailure=value;},throwWrite:value=>{thrownWrite=value;},loseReply:()=>{loseResponse=true;},hold:()=>{holdWrite=pending();return holdWrite;},readHook:value=>{readHook=value;},writes:()=>calls.filter(c=>c.name!=='get_minuta_resource_workspace'),close:()=>window.close()};
 }
 let passed=0;
 async function check(title,run,initial){const h=await harness(initial);try{await run(h);passed++;}catch(error){throw new Error(title,{cause:error});}finally{h.close();}}
+async function manualRefresh(h) {
+ const button={disabled:false,classList:{add(){},remove(){}}};
+ const context={manualSynchronizationPromise:null,currentUser:{id:'fixture-owner'},navigator:{onLine:true},providerSessionTrust:'verified',sessionGeneration:1,synchronizationPromise:null,sessionIsCurrent:()=>true,recordConnectionEvent(){},$:selector=>selector==='#manualSyncButton'?button:h.$(selector),resourceController:h.controller,organizationController:{getActiveOrganization:()=>({id:h.state().organization_id})},synchronizeProvider:async()=>{await h.controller.setOrganization({id:h.state().organization_id});return true;},bookingCreationReady:false,pendingBookingColors:new Map(),pendingBookingNotes:new Map(),pendingClientLabels:new Set(),pendingClientNotes:new Map(),notify:message=>h.notices.push(message)};
+ return runInNewContext(`(${manualRefreshSource})()`,context);
+}
 await check('rejected read completes loading and can retry',async h=>{
  h.readError(new TypeError('synthetic read rejected'));await h.controller.load();assert.equal(h.controller.availability,'error');assert.equal(h.$('#resourcesLoading').hidden,true);h.readError(null);await h.controller.load();assert.equal(h.controller.availability,'ready');
 });
@@ -95,6 +105,35 @@ await check('context switch clears resource and creator drafts',async h=>{
 });
 await check('refreshing the same context retains drafts and filters',async h=>{
  h.card('res-1').open=true;h.card('res-1').querySelector('input[name=name]').value='Черновик при перечитывании';h.$('#resourceName').value='Новый ресурс';h.$('#resourceLocation').value='loc-2';h.input('Кабинет');await h.controller.setOrganization({id:'org'});assert.equal(h.$('#resourceListSearch').value,'Кабинет');assert.equal(h.card('res-1').querySelector('input[name=name]').value,'Черновик при перечитывании');assert.equal(h.$('#resourceName').value,'Новый ресурс');assert.equal(h.$('#resourceLocation').value,'loc-2');
+});
+await check('background organization refresh leaves the visible editor and focus untouched',async h=>{
+ const card=h.card('res-1');card.open=true;const name=card.querySelector('input[name=name]');name.value='Продолжаю ввод';name.focus();const reads=h.calls.length;const workspace=h.$('#resourceWorkspace');const observer=new h.window.MutationObserver(()=>{});observer.observe(workspace,{attributes:true,attributeFilter:['hidden']});
+ await h.controller.setOrganization({id:'org'});
+ assert.equal(h.calls.length,reads);assert.equal(h.card('res-1'),card);assert.equal(h.document.activeElement,name);assert.equal(name.value,'Продолжаю ввод');assert.equal(workspace.hidden,false);assert.equal(observer.takeRecords().length,0);observer.disconnect();
+});
+await check('background refresh does not invalidate a resource save in flight',async h=>{
+ const held=h.hold();h.card('res-1').open=true;h.card('res-1').querySelector('input[name=name]').value='Сохраняем один раз';const save=h.submit(h.card('res-1').querySelector('form'));const calls=h.calls.length;await h.controller.setOrganization({id:'org'});assert.equal(h.calls.length,calls);assert.equal(h.$('#resourceWorkspace').hidden,false);held.resolve();await save;assert.equal(h.writes().length,1);assert.equal(h.card('res-1').open,false);assert.equal(h.card('res-1').querySelector('input[name=name]').value,'Сохраняем один раз');
+});
+await check('explicit refresh reads current server state while keeping other drafts',async h=>{
+ h.card('res-1').open=true;h.card('res-1').querySelector('input[name=name]').value='Несохранённый текст';h.$('#resourceCreator').open=true;h.$('#resourceName').value='Новый черновик';h.$('#resourceGroup').value='grp-2';h.$('#resourceLocation').value='loc-2';const state=h.state();state.resources[1].name='Изменено на сервере';h.setState(state);const reads=h.calls.length;await h.controller.load();assert.equal(h.calls.length,reads+1);assert.equal(h.card('res-2').querySelector('summary strong').textContent,'Изменено на сервере');assert.equal(h.card('res-1').querySelector('input[name=name]').value,'Несохранённый текст');assert.equal(h.$('#resourceCreator').open,true);assert.equal(h.$('#resourceName').value,'Новый черновик');assert.equal(h.$('#resourceGroup').value,'grp-2');assert.equal(h.$('#resourceLocation').value,'loc-2');
+});
+await check('failed resource read waits for explicit retry instead of background refresh',async h=>{
+ h.readError(new TypeError('synthetic outage'));await h.controller.load();assert.equal(h.controller.availability,'error');const reads=h.calls.length;await h.controller.setOrganization({id:'org'});assert.equal(h.calls.length,reads);assert.equal(h.controller.availability,'error');h.readError(null);await h.controller.load();assert.equal(h.controller.availability,'ready');assert.equal(h.calls.length,reads+1);
+});
+for(const [name,id,generation] of [['another user','another-owner',1],['another session generation','fixture-owner',2]])await check(`${name} reloads the same organization and clears old drafts`,async h=>{
+ h.card('res-1').open=true;h.card('res-1').querySelector('input[name=name]').value='Старый пользователь';h.$('#resourceName').value='Старое создание';const reads=h.calls.length;h.switchSession(id,generation);await h.controller.setOrganization({id:'org'});assert.equal(h.calls.length,reads+1);assert.equal(h.card('res-1').querySelector('input[name=name]').value,'Кабинет 1');assert.equal(h.$('#resourceName').value,'');
+});
+await check('permission changes still reload and revoke resource management',async h=>{
+ const state=h.state();state.can_manage=false;h.setState(state);const reads=h.calls.length;await h.controller.setOrganization({id:'org',current_role:'viewer',can_manage:false});assert.equal(h.calls.length,reads+1);assert.equal(h.$('#resourceMainAction').hidden,true);assert.equal(h.$('#resourceCreator').hidden,true);
+});
+await check('removing organization access still hides resources immediately',async h=>{
+ const reads=h.calls.length;await h.controller.setOrganization(null);assert.equal(h.$('#resourcesPanel').hidden,true);assert.equal(h.$('#resourceWorkspace').hidden,true);assert.equal(h.calls.length,reads);await h.controller.setOrganization({id:'org'});assert.equal(h.calls.length,reads+1);assert.equal(h.controller.availability,'ready');
+});
+await check('cabinet manual refresh awaits current resources and preserves drafts',async h=>{
+ h.card('res-1').open=true;h.card('res-1').querySelector('input[name=name]').value='Мой черновик';const state=h.state();state.resources[1].name='Свежее состояние';h.setState(state);const reads=h.calls.length;assert.equal(await manualRefresh(h),true);assert.equal(h.calls.length,reads+1);assert.equal(h.card('res-2').querySelector('summary strong').textContent,'Свежее состояние');assert.equal(h.card('res-1').querySelector('input[name=name]').value,'Мой черновик');assert.equal(h.notices.at(-1),'Все данные обновлены');
+});
+await check('cabinet manual refresh does not claim success when resources fail',async h=>{
+ h.readError(new TypeError('synthetic manual outage'));assert.equal(await manualRefresh(h),false);assert.equal(h.controller.availability,'error');assert.ok(!h.notices.includes('Все данные обновлены'));
 });
 await check('lost update reply reconciles confirmed state',async h=>{
  h.loseReply();h.card('res-1').querySelector('input[name=name]').value='Подтверждено';await h.submit(h.card('res-1').querySelector('form'));assert.equal(h.state().resources[0].name,'Подтверждено');assert.ok(h.notices.some(m=>/подтверждено/i.test(m)));assert.equal(h.writes().length,1);
