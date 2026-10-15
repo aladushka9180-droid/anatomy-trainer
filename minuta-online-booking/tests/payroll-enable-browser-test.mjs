@@ -14,6 +14,7 @@ const rpc={read:'get_minuta_payroll_ledger_workspace_v136',ledger:'set_minuta_pa
 const org='00000000-0000-4000-8000-000000000001',actor='00000000-0000-4000-8000-000000000002';
 let browser,failed=0;
 const results=[];
+const sdkSettingProof=[];
 async function fixture(options={}){
   const context=await browser.newContext({viewport:{width:options.width||1440,height:1000},serviceWorkers:'block',reducedMotion:'reduce'}),page=await context.newPage();
   page.setDefaultTimeout(2500);
@@ -45,7 +46,7 @@ async function fixture(options={}){
   await page.addScriptTag({content:source});
   await page.addScriptTag({path:resolve(app,'payroll-soft-minimalism.js')});
   await page.evaluate(async({rpc,org,actor,options})=>{
-    window.test={actor,org,role:'owner',base:false,ledger:false,finance:true,calls:[],notices:[],plans:[],mode:'ok',hiddenCount:0,...options};
+    window.test={actor,org,role:'owner',base:false,ledger:false,finance:true,calls:[],replies:[],notices:[],plans:[],mode:'ok',hiddenCount:0,...options};
     window.replyGates=[];
     const workspace=organization_id=>({organization_id,current_role:test.role,can_manage:['owner','admin'].includes(test.role),enabled:test.base,ledger_enabled:test.ledger,
       members:[{id:'00000000-0000-4000-8000-000000000003',display_name:'Анна'},{id:'00000000-0000-4000-8000-000000000004',display_name:'Мария'}],locations:[],plans:test.plans,periods:[],items:[]});
@@ -80,7 +81,8 @@ async function fixture(options={}){
       }
       throw Error('Unexpected RPC '+name);
     }}});
-    window.ctl=MinutaPayroll.createController({db:client,$:s=>document.querySelector(s),escapeHtml:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]),notify:m=>test.notices.push(m),requireWrites:()=>test.writes!==false,getCurrentUser:()=>({id:test.actor}),getSessionGeneration:()=>1,sessionIsCurrent:user=>user===test.actor,applyWriteAvailability:()=>{}});
+    const db={rpc:async(name,p)=>{const result=await client.rpc(name,p);if(name!==rpc.read)test.replies.push({name,result:structuredClone(result)});return result;}};
+    window.ctl=MinutaPayroll.createController({db,$:s=>document.querySelector(s),escapeHtml:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]),notify:m=>test.notices.push(m),requireWrites:()=>test.writes!==false,getCurrentUser:()=>({id:test.actor}),getSessionGeneration:()=>1,sessionIsCurrent:user=>user===test.actor,applyWriteAvailability:()=>{}});
     ctl.bind();await ctl.setOrganization({id:org});MinutaPayrollPresentation.mount();
     new MutationObserver(records=>{for(const r of records)if(r.target.id==='payrollWorkspace'&&r.attributeName==='hidden'&&r.target.hidden)test.hiddenCount++;}).observe(document.querySelector('#payrollWorkspace'),{attributes:true});
     window.toggle=()=>{const input=document.querySelector('#payrollEnabled');input.checked=!input.checked;input.dispatchEvent(new Event('change',{bubbles:true}));};
@@ -92,6 +94,14 @@ async function fixture(options={}){
   };
 }
 const cases=[];
+function assertUnknownSdkSetting(state,name){
+  const reply=state.replies.find(reply=>reply.name===name&&reply.result.status===0)?.result;
+  sdkSettingProof.push({rpc:name,reply,base:state.base,ledger:state.ledger,uiError:state.error,writes:state.calls.filter(call=>call.name!==rpc.read),notices:state.notices});
+  assert.ok(reply,'actual SDK must resolve fetch failure as status 0');
+  assert.equal(reply.data,null);assert.equal(Object.hasOwn(reply,'transport'),false);assert.match(reply.error.message,/Failed to fetch/);
+  assert.match(state.error,/не подтвержд[её]н|не получен/,'unknown committed result must be reported honestly');
+  assert.doesNotMatch(state.error,/не записана|повторите/i,'cannot assert rollback or encourage retry after a lost acknowledgement');
+}
 for(const width of [390,760,1440])cases.push(['off → on and saving the existing draft at '+width,async h=>{
   await h.draft();await h.toggle();let s=await h.state();
   assert.equal(s.checked,true);assert.equal(s.base,true);assert.equal(s.ledger,true);
@@ -115,8 +125,14 @@ for(const width of [390,760,1440])cases.push(['finance prerequisite is explicit 
 for(const mode of ['base-refused','empty-base','foreign-base','wrong-base','lost-base'])cases.push([mode+' cannot proceed to ledger or report success',async h=>{
   await h.toggle();const s=await h.state();assert.equal(s.checked,false);assert.equal(s.ledger,false);assert.equal(s.notices.includes('Учёт зарплаты включён'),false);
   assert.deepEqual(s.calls.filter(c=>c.name!==rpc.read).map(c=>c.name),[rpc.ledger,rpc.base]);assert.ok(s.error);
+  if(mode==='lost-base'){assert.equal(s.base,true,'base setting committed before SDK lost its response');assertUnknownSdkSetting(s,rpc.base);}
 },{mode}]);
-for(const mode of ['empty-ledger','lost-ledger'])cases.push([mode+' cannot report success',async h=>{await h.toggle();const s=await h.state();assert.equal(s.notices.includes('Учёт зарплаты включён'),false);assert.ok(s.error);},{base:true,mode}]);
+for(const mode of ['empty-ledger','lost-ledger'])cases.push([mode+' cannot report success',async h=>{
+  await h.toggle();const s=await h.state();assert.equal(s.notices.includes('Учёт зарплаты включён'),false);assert.ok(s.error);
+  assert.equal(s.ledger,true,'ledger setting committed before its acknowledgement was lost');assert.equal(s.calls.filter(c=>c.name===rpc.ledger).length,1,'no automatic retry after unknown acknowledgement');
+  if(mode==='lost-ledger')assertUnknownSdkSetting(s,rpc.ledger);
+  else assert.match(s.error,/не подтвержд[её]н/);
+},{base:true,mode}]);
 cases.push(['partial base enable is recoverable by a separate explicit toggle',async h=>{
   await h.toggle();let s=await h.state();assert.equal(s.base,true);assert.equal(s.checked,false);assert.equal(s.ledger,false);
   await h.toggle();s=await h.state();assert.equal(s.checked,true);assert.equal(s.error,'');assert.equal(s.calls.filter(c=>c.name===rpc.base).length,1);assert.equal(s.notices.filter(m=>m==='Учёт зарплаты включён').length,1);
@@ -145,6 +161,6 @@ try{
   browser=await chromium.launch({headless:true});
   for(const [name,run,options]of cases){const h=await fixture(options);try{await run(h);assert.deepEqual(h.errors,[]);assert.deepEqual(h.traffic,[]);results.push({name,pass:true});console.log('PASS '+name);}catch(error){failed++;results.push({name,pass:false,error:error.message});console.error('FAIL '+name+'\n'+error.stack);}finally{await h.context.close();}}
 }finally{await browser?.close();}
-if(output)writeFileSync(resolve(output,'results.json'),JSON.stringify(results,null,2));
+if(output){writeFileSync(resolve(output,'results.json'),JSON.stringify(results,null,2));writeFileSync(resolve(output,'sdk-setting-proof.json'),JSON.stringify(sdkSettingProof,null,2));}
 console.log((cases.length-failed)+'/'+cases.length+' payroll enable cases; synthetic prerequisites, actual SDK/DOM, no external traffic or SQL');
 process.exitCode=failed?1:0;

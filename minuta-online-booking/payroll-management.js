@@ -407,7 +407,7 @@
       const source = `${error?.message || ''} ${error?.details || ''}`;
       if (source.includes('finance_disabled')) return 'Сначала включите единый финансовый учёт в разделе «Продажи», затем повторите включение зарплат.';
       if (source.includes('payroll_ledger_historical_reconciliation_required')) return 'Для включения нужна сверка ранее утверждённых расчётов. Обратитесь к владельцу организации.';
-      if (source.includes('payroll_setting_unconfirmed')) return 'Изменение настройки не подтверждено. Проверьте состояние переключателя после обновления данных.';
+      if (source.includes('payroll_setting_unconfirmed')) return 'Результат изменения настройки не подтверждён. Обновите данные и проверьте положение переключателя.';
       const messages = [['payroll_ledger_disabled','Сначала включите учёт зарплаты.'],['payroll_disabled','Сначала включите учёт зарплаты.'],['payroll_period_not_accrued','Сначала зафиксируйте начисление этого периода.'],['payroll_period_already_accrued','Этот период уже начислен. Повторная запись не создана.'],['payroll_debt_exceeded','Сумма выплаты больше текущего долга.'],['payroll_advance_exceeded','Сумма зачёта больше остатка аванса или долга.'],['payroll_adjustment_kind_invalid','Выберите премию или удержание.'],['payroll_amount_invalid','Введите положительную сумму в целых рублях.'],['payroll_transaction_not_reversible','Эту запись нельзя отменить. История не изменена.'],['payroll_period_overlap','Для этого филиала уже есть пересекающийся расчёт.'],['payroll_plan_overlap','У сотрудника уже действует правило начисления на этот период.'],['payroll_plan_missing_for_completed_booking','Для завершённого визита не найдено правило начисления.'],['payroll_requires_completed_bookings','В периоде нет завершённых записей для расчёта.'],['owner_required','Это действие доступно только владельцу.'],['organization_access_denied','Недостаточно прав для этой организации.']];
       return messages.find(([key]) => source.includes(key))?.[1] || 'Операция не записана. Проверьте данные и повторите.';
     }
@@ -527,9 +527,9 @@
       if (stale) { const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return false; }
       if (result?.error) {
         if (!withRequestId) {
-          const message = result.transport ? rpc === RPC.enabled
-            ? 'Ответ на изменение настройки не получен. Проверьте состояние переключателя после обновления данных.'
-            : 'Ответ сервера не получен. Не повторяйте операцию: сначала обновите журнал для сверки.' : userError(result.error);
+          const message = rpc === RPC.enabled && (result.transport || result.status === 0)
+            ? userError({ message:'payroll_setting_unconfirmed' })
+            : result.transport ? 'Ответ сервера не получен. Не повторяйте операцию: сначала обновите журнал для сверки.' : userError(result.error);
           if (errorSelector) showError(errorSelector, message); else notify(message); await refresh(); return false;
         }
         const refused = !result.transport && financialRefused(result.error);
