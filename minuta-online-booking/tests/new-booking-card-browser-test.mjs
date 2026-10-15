@@ -33,6 +33,9 @@ try {
   assert.ok(serviceTrigger.font>=14&&serviceTrigger.font<=16,JSON.stringify(serviceTrigger));
   assert.ok(serviceTrigger.height<=serviceTrigger.lineHeight+1&&serviceTrigger.overflow<=1,'the requested basic title stays on one line at each target width: '+JSON.stringify(serviceTrigger));
   assert.equal(serviceTrigger.arrow.width,18);assert.equal(serviceTrigger.arrow.height,18);assert.equal(serviceTrigger.arrow.font,'0px');assert.notEqual(serviceTrigger.arrow.mask,'none');
+  if(out)await page.screenshot({path:resolve(out,`service-trigger-${theme}-${width}.png`)});
+  // The added320/360 coverage targets the requested service trigger; preserve the original390/760/1440 functional/layout scope.
+  if(width<390){assert.deepEqual(errors,[]);await page.close();continue;}
   await page.locator('#newBookingName').fill('Ан');
   await page.evaluate(()=>{const e=document.querySelector('#newBookingError');e.textContent='Укажите полный номер телефона.';e.hidden=false;});
   assert.equal(await page.locator('[data-new-booking-client] .client-framed-avatar').getAttribute('data-session-tier'),'50');
