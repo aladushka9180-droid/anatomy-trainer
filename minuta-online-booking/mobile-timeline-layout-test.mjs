@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(join(root, 'styles.css'), 'utf8');
@@ -46,7 +47,17 @@ assert.match(css, /data-provider-theme="luxury"\]\[data-provider-layout="linear"
 
 assert.doesNotMatch(provider, /fitMobileTimelineCards|card\.style\.height = 'auto'|card\.scrollHeight/, 'Мобильная карточка не должна увеличиваться под текст и занимать чужое время');
 assert.match(provider, /const tightMobile = mobileTimeline && !minuteOnly && duration <= 60;/, 'Короткие мобильные записи не получают компактный режим содержимого');
-assert.match(provider, /const hourHeight = mobileTimeline \? 75 : 76;/, 'Мобильная шкала не вмещает три строки 40-минутной записи');
+assert.match(provider, /const hourHeight = window\.PrimeTimeScheduleGrid\?\.height\(items, mobileTimeline\) \|\| \(mobileTimeline \? 75 : 76\);/, 'Масштаб должен менять всю временную шкалу и сохранять desktop');
+const gridContext={window:{},document:{readyState:'loading',body:{},addEventListener(){}},getComputedStyle:()=>({getPropertyValue:()=> '0'}),isScheduleBlock:item=>!!item.is_block};
+vm.createContext(gridContext);
+vm.runInContext(readFileSync(join(root,'schedule-break-icons.js'),'utf8'),gridContext);
+const gridHeight=gridContext.window.PrimeTimeScheduleGrid.height;
+for(const [duration,expected] of [[10,204],[15,136],[20,102],[30,75],[40,75],[60,75]]) {
+  const items=[{duration_minutes:duration}];
+  assert.equal(gridHeight(items,true),expected,'Короткая запись должна помещаться через масштаб всей сетки');
+  assert.equal(gridHeight(items,false),76,'Настольная шкала сохраняется');
+}
+assert.equal(gridHeight([{duration_minutes:10,is_block:true}],true),75,'Центрирование перерыва не меняет плотность дня');
 assert.match(css, /В мобильной ленте высота записи всегда равна её реальной длительности[\s\S]*?timeline-booking\[data-mobile-timeline-top\] \.timeline-booking-note \{\s*display:none!important;/, 'Полная заметка снова может растянуть карточку по высоте');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]\.timeline-tight\.compact:not\(\.minute-only\) \.timeline-booking-client-row \{\s*display:none!important;/, 'В записи до часа вторичный текст снова вытесняет временную шкалу');
 assert.match(provider, /const renderedNote = mobileTimeline \? '' : bookingNotePresenceMarkup\(note, 'timeline-booking-note-presence'\)/, 'Мобильная лента снова выводит отдельный блок заметки поверх карточки');
