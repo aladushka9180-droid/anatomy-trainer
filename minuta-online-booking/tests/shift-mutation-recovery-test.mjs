@@ -4,9 +4,10 @@ import vm from 'node:vm';
 
 // No network, accounts or real records. Exercise the actual controller event handlers.
 const source = readFileSync(new URL('../shift-management.js', import.meta.url), 'utf8');
-function harness() {
+function harness({ mutationTimeoutMs = 40 } = {}) {
   const nodes = new Map(), handlers = {}, calls = [], notices = [];
   let actor = 'actor-a', generation = 1, writeImpl = async () => ({ data: true });
+  let readImpl = null;
   const submit = { disabled: false, textContent: 'Создать смену' };
   const node = id => {
     if (!nodes.has(id)) nodes.set(id, { id, value: '', hidden: true, checked: false, disabled: false, dataset: {}, textContent: '', innerHTML: '', open: false,
@@ -23,13 +24,14 @@ function harness() {
   node('shiftStart').value = '10:00'; node('shiftEnd').value = '18:00'; node('shiftLocation').value = 'l1'; node('shiftPerformer').value = 'p1';
   const controller = runtime.window.MinutaShifts.createController({
     db: { rpc(name, p) { calls.push({ name, p }); return name === 'get_minuta_shift_workspace'
-      ? Promise.resolve({ data: { ...payload, organization_id: p.p_organization } }) : writeImpl(name, p); } },
-    escapeHtml: String, notify: x => notices.push(x), requireWrites: () => true, applyWriteAvailability() {}, mutationTimeoutMs: 40,
+      ? (readImpl ? readImpl(name, p) : Promise.resolve({ data: { ...payload, organization_id: p.p_organization } })) : writeImpl(name, p); } },
+    escapeHtml: String, notify: x => notices.push(x), requireWrites: () => true, applyWriteAvailability() {}, mutationTimeoutMs,
     getCurrentUser: () => ({ id: actor }), getSessionGeneration: () => generation, sessionIsCurrent: (id, g) => id === actor && g === generation
   });
   controller.bind();
-  return { controller, node, submit, calls, notices, payload, write(fn) { writeImpl = fn; }, changeActor() { actor = 'actor-b'; generation++; },
-    save: () => handlers.submit({ target: { id: 'shiftForm' }, preventDefault() {}, submitter: submit }),
+  return { controller, node, submit, calls, notices, payload, read(fn) { readImpl = fn; }, write(fn) { writeImpl = fn; }, changeActor() { actor = 'actor-b'; generation++; }, renewSession() { generation++; },
+    save: (absence = false) => handlers.submit({ target: { id: absence ? 'absenceForm' : 'shiftForm' }, preventDefault() {}, submitter: submit }),
+    open: (absence = false) => handlers.click({ target: { closest: s => s === (absence ? '[data-absence-new]' : '[data-shift-new]') ? { dataset: {} } : null } }),
     cancel: (absence = false) => handlers.click({ target: { closest: s => s === (absence ? '[data-cancel-absence]' : '[data-cancel-shift]')
       ? { dataset: absence ? { cancelAbsence: 'missing' } : { cancelShift: 'missing' }, disabled: false, textContent: 'Отменить' } : null } }),
     disable: () => handlers.change({ target: { id: 'shiftSchedulingEnabled', checked: false } }) };
@@ -95,4 +97,59 @@ for (const absence of [false, true]) {
   assert.equal(writes(h).length, 2, 'old completion must not release the newer operation');
   finishNew({ data: 'new' }); await newer; assert.equal(h.submit.textContent, 'Создать смену');
 }
-console.log('Shift mutation recovery: rejection, timeout, lost response, false cancellation, conflict and session ownership passed');
+async function savedWithRefreshHeld(absence) {
+  const h = harness({ mutationTimeoutMs: 1000 });
+  await h.controller.setOrganization({ id: 'org-a' });
+  await h.open(absence);
+  const note = absence ? 'absenceNote' : 'shiftNote';
+  h.node(note).value = 'Исходный подтверждённый запрос';
+  let finishRead;
+  h.read(() => new Promise(resolve => { finishRead = resolve; }));
+  h.write(async () => ({ data: 'confirmed-old' }));
+  const save = h.save(absence);
+  for (let i = 0; i < 20 && !finishRead; i++) await Promise.resolve();
+  assert.ok(finishRead, 'post-write refresh began');
+  h.read(null);
+  return { h, save, note, creator: absence ? 'absenceCreator' : 'shiftCreator', finishRead: () => finishRead({ data: { ...h.payload, organization_id: 'org-a' } }) };
+}
+for (const absence of [false, true]) {
+  for (const change of ['actor', 'organization', 'session', 'same-context']) {
+    const { h, save, note, creator, finishRead } = await savedWithRefreshHeld(absence);
+    if (change === 'actor' || change === 'session') h.controller.reset();
+    if (change === 'actor') h.changeActor();
+    if (change === 'session') h.renewSession();
+    if (change === 'same-context') await h.controller.load();
+    else await h.controller.setOrganization({ id: change === 'session' ? 'org-a' : 'org-b' });
+    await h.open(absence);
+    h.node(note).value = 'Новый несохранённый черновик';
+    finishRead(); await save;
+    assert.equal(h.node(note).value, 'Новый несохранённый черновик', `${absence}/${change}: old refresh must not clear a new draft`);
+    assert.equal(h.node(creator).open, true, `${absence}/${change}: old refresh must not close a new form`);
+    assert.equal(writes(h).length, 1, 'no implicit second mutation');
+  }
+  {
+    const { h, save, note, creator, finishRead } = await savedWithRefreshHeld(absence);
+    await h.controller.load(); await h.open(absence);
+    h.node(note).value = 'Новый запрос ещё сохраняется';
+    let finishNewWrite;
+    h.write(() => new Promise(resolve => { finishNewWrite = resolve; }));
+    const newer = h.save(absence);
+    finishRead(); await save;
+    assert.equal(h.node(note).value, 'Новый запрос ещё сохраняется');
+    assert.equal(h.node(creator).open, true);
+    assert.equal(h.submit.textContent, 'Сохраняем…', 'old refresh must not relabel a newer write');
+    assert.equal(h.submit.disabled, true);
+    finishNewWrite({ data: 'confirmed-new' }); await newer;
+    assert.equal(writes(h).length, 2);
+    assert.equal(h.node(note).value, ''); assert.equal(h.node(creator).open, false);
+  }
+  {
+    const h = harness(); await h.controller.setOrganization({ id: 'org-a' }); await h.open(absence);
+    const note = absence ? 'absenceNote' : 'shiftNote'; h.node(note).value = 'Подтверждённый запрос';
+    h.write(async () => ({ data: 'confirmed' })); h.read(async () => ({ error: { message: 'refresh unavailable' } }));
+    await h.save(absence);
+    assert.equal(h.node(note).value, '', 'confirmed write still completes when its subsequent read fails');
+    assert.equal(h.node(absence ? 'absenceCreator' : 'shiftCreator').open, false);
+  }
+}
+console.log('Shift mutation recovery: rejection, timeout, lost response, false cancellation, conflict, session ownership and post-write draft ownership passed');

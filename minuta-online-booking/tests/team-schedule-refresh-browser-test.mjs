@@ -29,6 +29,45 @@ try {
     }
     assert.equal(errors.length, 0); results.push({ role, strictPermission: 'PASS' }); await page.close();
   }
+  for (const width of [390, 760, 1440]) for (const absence of [false, true]) {
+    const { page, errors } = await pageFor({ viewport: { width, height: 780 } });
+    const creator = absence ? 'absenceCreator' : 'shiftCreator';
+    const form = absence ? 'absenceForm' : 'shiftForm';
+    const note = absence ? 'absenceNote' : 'shiftNote';
+    const action = absence ? '[data-absence-new]' : '[data-shift-new]';
+    await page.locator(`#teamScheduleActions ${action}`).click();
+    await page.locator('dialog[open]').waitFor({ state: 'visible' });
+    await page.locator(`#${note}`).fill('Первое подтверждённое сохранение');
+    await page.evaluate(() => {
+      window.originalRpc = db.rpc;
+      let hold = true;
+      db.rpc = async (...args) => {
+        const response = await originalRpc(...args);
+        if (args[0] === 'get_minuta_shift_workspace' && hold) {
+          hold = false;
+          return new Promise(resolve => { window.finishOldRead = () => resolve(response); });
+        }
+        return response;
+      };
+    });
+    await page.locator(`#${form}`).evaluate(node => node.requestSubmit(node.querySelector('[type=submit]')));
+    await page.waitForFunction(() => typeof window.finishOldRead === 'function');
+    await page.evaluate(async () => {
+      db.rpc = originalRpc;
+      controller.reset(); actor = 'u2'; generation++; org = 'org-b';
+      await controller.setOrganization({ id: org });
+    });
+    await page.locator(`#teamScheduleActions ${action}`).click();
+    await page.locator('dialog[open]').waitFor({ state: 'visible' });
+    await page.locator(`#${note}`).fill('Новый черновик другого контекста');
+    await page.evaluate(async () => { finishOldRead(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    assert.equal(await page.locator(`#${note}`).inputValue(), 'Новый черновик другого контекста');
+    assert.equal(await page.locator(`#${creator}`).evaluate(node => node.open), true);
+    assert.equal(await page.locator('dialog[open]').isVisible(), true, 'old refresh must not close the new native dialog');
+    assert.equal(await page.evaluate(() => calls.filter(call => call.name !== 'get_minuta_shift_workspace').length), 1, 'only the first fictional request was submitted');
+    assert.equal(errors.length, 0, errors.join('\n'));
+    results.push({ width, form, postWriteContextDraft: 'PASS', externalTransport: false }); await page.close();
+  }
   for (const timezoneId of ['Pacific/Kiritimati', 'Etc/GMT+12', 'Europe/Samara']) {
     const { page, errors } = await pageFor({ timezoneId });
     await page.evaluate(async () => { document.querySelector('#shiftStartDate').value = '2099-10-15'; document.querySelector('#shiftPeriod').value = '7'; await controller.load(); });
