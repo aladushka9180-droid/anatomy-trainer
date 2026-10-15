@@ -82,7 +82,7 @@
     const setupTile = element('div', 'payroll-soft-tile');
     setupTile.append(icon('percent'));
     const setupCopy = element('div', 'payroll-soft-setup-copy');
-    setupCopy.append(element('strong', '', 'Начните с правила начисления'));
+    setupCopy.append(element('strong', '', 'Настройте учёт зарплаты'));
     const setupNote = element('p', '');
     setupCopy.append(setupNote);
     const addRule = element('button', 'primary-button payroll-soft-add-rule', 'Добавить правило');
@@ -162,7 +162,7 @@
       setHidden(periodsSection, firstSetup);
       setText(setupNote, enabled.checked
         ? 'Укажите процент для сотрудника. Затем подготовьте расчёт.'
-        : 'Укажите процент для сотрудника. Затем включите учёт и подготовьте расчёт.');
+        : 'Сначала включите учёт зарплаты. Затем добавьте правило начисления и подготовьте расчёт.');
       setHidden(prepare, periodCreator.hidden);
       prepare.setAttribute('aria-expanded', String(periodCreator.open));
       setHidden(recordPayment, ledger.hidden || payment.hidden);
