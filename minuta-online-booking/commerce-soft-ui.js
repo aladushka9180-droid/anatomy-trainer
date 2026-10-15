@@ -50,7 +50,8 @@
     node.type = 'button';
     return node;
   };
-  let saleItems = [], itemButton, itemDialog, itemList, itemSearch, quantityMinus, quantityPlus;
+  let itemButton, itemDialog, itemList, itemSearch, quantityMinus, quantityPlus;
+  let saleItemsById = new Map();
   let organizationName = '', previewBody, variableButtons = [];
 
   function renderPicker() {
@@ -58,10 +59,13 @@
     const query = itemSearch.value.trim().toLocaleLowerCase('ru-RU');
     const select = $('#commerceItem');
     itemList.replaceChildren();
+    const fragment = document.createDocumentFragment();
     const options = [...select.options].filter(option => option.value && !option.disabled && option.textContent.toLocaleLowerCase('ru-RU').includes(query));
     for (const option of options) {
-      const item = saleItems.find(row => row.id === option.value) || { name:option.textContent };
+      const item = saleItemsById.get(option.value) || { name:option.textContent };
       const row = button('', 'cs-picker-row');
+      row.style.contentVisibility = 'auto';
+      row.style.containIntrinsicSize = 'auto 56px';
       row.setAttribute('role', 'option');
       row.setAttribute('aria-selected', String(option.value === select.value));
       row.innerHTML = iconMarkup(item);
@@ -73,17 +77,18 @@
         select.dispatchEvent(new Event('change', { bubbles:true }));
         syncSale();
       });
-      itemList.append(row);
+      fragment.append(row);
     }
+    itemList.append(fragment);
     if (!options.length) itemList.append(element('p', 'cs-picker-empty', 'Подходящих позиций нет'));
   }
 
   function syncSale(items) {
-    if (items) saleItems = items;
+    if (items) saleItemsById = new Map(items.map(item => [item.id, item]));
     const select = $('#commerceItem');
     if (!select || !itemButton) return;
     const option = select.selectedOptions[0];
-    const item = saleItems.find(row => row.id === select.value) || { name:option?.textContent };
+    const item = saleItemsById.get(select.value) || { name:option?.textContent };
     itemButton.querySelector('.cs-item-icon').outerHTML = iconMarkup(item);
     itemButton.querySelector('strong').textContent = option?.textContent || 'Выберите позицию';
     itemButton.querySelector('small').textContent = $('#commerceItemKind')?.value === 'benefit_product' ? 'Абонемент, пакет или сертификат' : 'Товар';
@@ -100,7 +105,7 @@
     if (itemDialog?.open && (items || itemButton.disabled || $('#commercePanel')?.hidden)) itemDialog.close();
   }
   function resetSale() {
-    saleItems = [];
+    saleItemsById.clear();
     if (itemDialog?.open) itemDialog.close();
   }
   function focusItem() {

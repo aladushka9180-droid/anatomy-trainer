@@ -409,3 +409,4 @@ try {
 assert.deepEqual(errors, []);
 assert.deepEqual(unexpected, []);
 console.log('PrimeTime Pro commercial sales v151 browser checks passed at 390, 760 and 1440');
+await import('./commerce-recovery-regression-browser-test.mjs');
