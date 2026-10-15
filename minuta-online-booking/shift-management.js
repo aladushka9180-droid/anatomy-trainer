@@ -286,7 +286,7 @@
     function showError(selector, message) { const holder = $(selector); holder.textContent = message; holder.hidden = false; }
     function clearError(selector) { const holder = $(selector); holder.textContent = ''; holder.hidden = true; }
 
-    async function mutate(rpc, parameters, button, success, errorSelector) {
+    async function mutate(rpc, parameters, button, success, errorSelector, onConfirmed) {
       if (!requireWrites() || pending || !organization?.id || !payload) return false;
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
@@ -360,6 +360,8 @@
         await load();
         return false;
       }
+      // Finish this form before the refresh yields to another context or a new draft.
+      onConfirmed?.();
       notify(success);
       await load();
       const next = pendingOrganization;
@@ -372,13 +374,16 @@
       if (event.target.id === 'shiftForm') {
         event.preventDefault();
         const hasBreak = $('#shiftHasBreak').checked;
-        const saved = await mutate('upsert_minuta_staff_shift', { p_organization: organization.id, p_shift: editingShiftId, p_location: $('#shiftLocation').value, p_performer: $('#shiftPerformer').value, p_date: $('#shiftDate').value, p_start: $('#shiftStart').value, p_end: $('#shiftEnd').value, p_break_start: hasBreak ? $('#shiftBreakStart').value : null, p_break_end: hasBreak ? $('#shiftBreakEnd').value : null, p_note: $('#shiftNote').value.trim() }, event.submitter, editingShiftId ? 'Смена изменена' : 'Смена добавлена', '#shiftError');
-        if (saved) { editingShiftId = null; $('#shiftNote').value = ''; $('#shiftCreator').open = false; event.submitter.textContent = 'Создать смену'; }
+        await mutate('upsert_minuta_staff_shift', { p_organization: organization.id, p_shift: editingShiftId, p_location: $('#shiftLocation').value, p_performer: $('#shiftPerformer').value, p_date: $('#shiftDate').value, p_start: $('#shiftStart').value, p_end: $('#shiftEnd').value, p_break_start: hasBreak ? $('#shiftBreakStart').value : null, p_break_end: hasBreak ? $('#shiftBreakEnd').value : null, p_note: $('#shiftNote').value.trim() }, event.submitter, editingShiftId ? 'Смена изменена' : 'Смена добавлена', '#shiftError', () => {
+          editingShiftId = null; $('#shiftNote').value = ''; $('#shiftCreator').open = false;
+          if (event.submitter) event.submitter.textContent = 'Создать смену';
+        });
       }
       if (event.target.id === 'absenceForm') {
         event.preventDefault();
-        const saved = await mutate('create_minuta_staff_absence', { p_organization: organization.id, p_performer: $('#absencePerformer').value, p_start: $('#absenceStart').value, p_end: $('#absenceEnd').value, p_kind: $('#absenceKind').value, p_note: $('#absenceNote').value.trim() }, event.submitter, 'Отсутствие добавлено', '#absenceError');
-        if (saved) { $('#absenceNote').value = ''; $('#absenceCreator').open = false; }
+        await mutate('create_minuta_staff_absence', { p_organization: organization.id, p_performer: $('#absencePerformer').value, p_start: $('#absenceStart').value, p_end: $('#absenceEnd').value, p_kind: $('#absenceKind').value, p_note: $('#absenceNote').value.trim() }, event.submitter, 'Отсутствие добавлено', '#absenceError', () => {
+          $('#absenceNote').value = ''; $('#absenceCreator').open = false;
+        });
       }
       if (event.target.id === 'substitutionForm') {
         event.preventDefault();

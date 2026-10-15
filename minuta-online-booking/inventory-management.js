@@ -16,10 +16,97 @@
     let writing = false;
     let confirming = false;
     let pendingOrganization;
-    // Private, controller-lifetime recovery only; not durable across page reload.
-    // Keep unresolved scopes separate, including across reset/org round trips.
+    // Persist BEFORE sending. An unresolved request survives reload/close and
+    // stays isolated by backend, actor and organization. Web Locks serialize
+    // stock submissions across tabs; unavailable storage/locks fail closed.
     const movementIntents = new Map();
     const transferIntents = new Map();
+    const recoveryFaults = new Map();
+    let stockSubmission = null;
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const recoveryMessage = 'Не удалось прочитать или сохранить исходный запрос. Операция не отправлена. Восстановите доступ к хранилищу браузера; не очищайте незавершённые запросы.';
+    function recoveryStorage() { return options.recoveryStorage || window.localStorage; }
+    function recoveryKey(scope) {
+      return 'minuta.inventory.pending.v1:' + JSON.stringify([window.MINUTA_CONFIG?.supabaseUrl || window.location?.origin || 'fixture', scope]);
+    }
+    function validAmount(value) {
+      return typeof value === 'number' && Number.isFinite(value) && value >= 0
+        && value <= 99999999999.999 && /^\d+(?:\.\d{1,3})?$/.test(String(value));
+    }
+    function parseQuantity(value) {
+      const raw = String(value).trim();
+      const decimal = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?$/.exec(raw);
+      if (!decimal) return NaN;
+      const fraction = decimal[3] ?? decimal[4] ?? '';
+      const digits = (decimal[2] || '') + fraction;
+      if (/[1-9]/.test(digits)) {
+        const trailingZeroes = digits.length - digits.replace(/0+$/, '').length;
+        // Exact decimal scale, before binary64 can erase precision/underflow.
+        const scale = BigInt(fraction.length - trailingZeroes) - BigInt(decimal[5] || '0');
+        if (scale > 3n) return NaN;
+      }
+      return Number(raw);
+    }
+    function validRecovery(record, scope) {
+      const p = record?.parameters;
+      if (record?.version !== 1 || record.scope !== scope || !p || Array.isArray(p)
+        || p.p_organization !== JSON.parse(scope)[1] || !uuidPattern.test(p.p_request_id)
+        || !uuidPattern.test(p.p_item) || typeof p.p_reason !== 'string') return false;
+      const keys = record.kind === 'movement'
+        ? ['p_organization','p_warehouse','p_item','p_kind','p_quantity','p_counted_quantity','p_reason','p_request_id']
+        : ['p_organization','p_source_warehouse','p_destination_warehouse','p_item','p_quantity','p_reason','p_request_id'];
+      if (Object.keys(p).length !== keys.length || !keys.every(key => Object.hasOwn(p, key))) return false;
+      if (record.kind === 'movement') return ['apply_minuta_stock_movement', 'apply_minuta_stock_movement_v130'].includes(record.rpc)
+        && uuidPattern.test(p.p_warehouse) && ['receipt', 'write_off', 'inventory'].includes(p.p_kind)
+        && (p.p_kind === 'inventory' ? p.p_quantity === null && validAmount(p.p_counted_quantity)
+          : p.p_counted_quantity === null && validAmount(p.p_quantity) && p.p_quantity > 0);
+      return record.kind === 'transfer' && record.rpc === 'transfer_minuta_inventory_stock_v130'
+        && uuidPattern.test(p.p_source_warehouse) && uuidPattern.test(p.p_destination_warehouse)
+        && p.p_source_warehouse !== p.p_destination_warehouse && validAmount(p.p_quantity) && p.p_quantity > 0;
+    }
+    function readRecovery(scope) {
+      try {
+        const raw = recoveryStorage().getItem(recoveryKey(scope));
+        if (raw === null) {
+          if (movementIntents.has(scope) || transferIntents.has(scope)) throw new Error('pending_request_missing');
+        } else {
+          const record = JSON.parse(raw);
+          if (!validRecovery(record, scope)) throw new Error('pending_request_invalid');
+          const intents = record.kind === 'movement' ? movementIntents : transferIntents;
+          const other = record.kind === 'movement' ? transferIntents : movementIntents;
+          if (other.has(scope)) throw new Error('pending_request_conflict');
+          const existing = intents.get(scope);
+          if (existing && (existing.parameters.p_request_id !== record.parameters.p_request_id
+            || existing.rpc !== record.rpc || !sameMovement(existing.parameters, record.parameters))) throw new Error('pending_request_changed');
+          if (!existing) intents.set(scope, { parameters:Object.freeze(record.parameters), rpc:record.rpc, ambiguous:true,
+            itemName:item(record.parameters.p_item)?.name || record.parameters.p_item,
+            warehouseName:warehouse(record.parameters.p_warehouse)?.name || record.parameters.p_warehouse,
+            sourceName:warehouse(record.parameters.p_source_warehouse)?.name || record.parameters.p_source_warehouse,
+            destinationName:warehouse(record.parameters.p_destination_warehouse)?.name || record.parameters.p_destination_warehouse });
+        }
+        recoveryFaults.delete(scope); return true;
+      } catch { recoveryFaults.set(scope, recoveryMessage); return false; }
+    }
+    function persistRecovery(scope, kind, intent) {
+      const record = { version:1, scope, kind, rpc:intent.rpc, parameters:intent.parameters };
+      try {
+        if (!validRecovery(record, scope) || recoveryStorage().getItem(recoveryKey(scope)) !== null) throw new Error('pending_request_exists');
+        const raw = JSON.stringify(record);
+        recoveryStorage().setItem(recoveryKey(scope), raw);
+        if (recoveryStorage().getItem(recoveryKey(scope)) !== raw) throw new Error('pending_request_not_saved');
+        return true;
+      } catch { recoveryFaults.set(scope, recoveryMessage); return false; }
+    }
+    function clearRecovery(scope, intent, intents) {
+      try {
+        const record = JSON.parse(recoveryStorage().getItem(recoveryKey(scope)));
+        if (!validRecovery(record, scope) || record.parameters.p_request_id !== intent.parameters.p_request_id
+          || record.rpc !== intent.rpc || !sameMovement(intent.parameters, record.parameters)) throw new Error('pending_request_changed');
+        recoveryStorage().removeItem(recoveryKey(scope));
+        if (recoveryStorage().getItem(recoveryKey(scope)) !== null) throw new Error('pending_request_not_removed');
+        intents.delete(scope); return true;
+      } catch { intent.ambiguous = true; recoveryFaults.set(scope, recoveryMessage); return false; }
+    }
     let movementOperation = null;
     let movementErrorScope = null;
     let movementReadRecovery = null;
@@ -64,6 +151,7 @@
     }
 
     function reset() {
+      stockSubmission = null;
       rememberMovementDraft(); movementFormScope = null;
       revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined; movementOperation = null;
       movementErrorScope = null; $('#inventoryMovementError').hidden = true; $('#inventoryMovementError').textContent = '';
@@ -91,6 +179,7 @@
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization?.id, current = ++revision;
       if (!userId || !organizationId) { reset(); return { ok:false, optional:true }; }
       const scope = movementScope();
+      readRecovery(scope);
       if (movementFormScope !== scope) rememberMovementDraft();
       if (movementReadRecovery?.scope !== scope) movementReadRecovery = null;
       if (movementRecovery) movementReadRecovery = { ...movementRecovery, scope };
@@ -135,6 +224,7 @@
       // Read reconciliation must not change the pending intent or overwrite
       // edits made while this read was in flight. Capture immediately at render.
       const sameFormScope = movementFormScope === scope;
+      if (!sameFormScope) { $('#inventoryTransferError').hidden = true; $('#inventoryTransferError').textContent = ''; }
       const intent = movementIntents.get(scope);
       const original = intent?.parameters;
       const draft = recovery?.preserve && sameFormScope ? movementDraft()
@@ -151,8 +241,11 @@
           ['inventoryCountedQuantity', ''], ['inventoryMovementReason', '']]);
       }
       movementFormScope = scope;
+      const pendingTransfer = transferIntents.get(scope);
+      if (pendingTransfer) { restoreTransfer(pendingTransfer); transferError('Результат исходного перемещения ещё не подтверждён. Повтор использует тот же запрос.', pendingTransfer); }
       if (intent && (!sameFormScope || $('#inventoryMovementError').hidden))
         movementError('Результат исходной операции ещё не подтверждён. Проверьте журнал или восстановите исходные поля для проверки тем же запросом.', intent);
+      if (recoveryFaults.has(scope)) movementError(recoveryFaults.get(scope), null);
       movementReadRecovery = null;
       return { ok:true, optional:true };
     }
@@ -216,11 +309,11 @@
       const before = balanceFor(sourceId, itemId);
       if (kind === 'inventory') {
         const counted = String($('#inventoryCountedQuantity').value).trim();
-        if (!/^\d+(?:\.\d{1,3})?$/.test(counted)) return null;
+        if (!/^\d+(?:\.\d{1,3}0*)?$/.test(counted)) return null;
         return `По загруженным данным: ${source.name}, ${selectedItem.name}: ${quantity(before)} → ${quantity(parameters.p_counted_quantity)} ${unit}.`;
       }
       const raw = String($('#inventoryMovementQuantity').value).trim();
-      if (!/^\d+(?:\.\d{1,3})?$/.test(raw) || parameters.p_quantity <= 0) return null;
+      if (!/^\d+(?:\.\d{1,3}0*)?$/.test(raw) || parameters.p_quantity <= 0) return null;
       if (kind === 'write_off') return parameters.p_quantity > before
         ? `По загруженным данным на складе ${source.name} недостаточно ${selectedItem.name}: ${quantity(before)} ${unit}.`
         : `По загруженным данным: ${source.name}, ${selectedItem.name}: ${quantity(before)} → ${quantity(before - parameters.p_quantity)} ${unit}.`;
@@ -367,8 +460,8 @@
       const kind = $('#inventoryMovementKind').value;
       return { p_organization:organization?.id, p_warehouse:$('#inventoryMovementWarehouse').value,
         p_item:$('#inventoryMovementItem').value, p_kind:kind,
-        p_quantity:kind === 'inventory' ? null : Number($('#inventoryMovementQuantity').value),
-        p_counted_quantity:kind === 'inventory' ? Number($('#inventoryCountedQuantity').value) : null,
+        p_quantity:kind === 'inventory' ? null : parseQuantity($('#inventoryMovementQuantity').value),
+        p_counted_quantity:kind === 'inventory' ? parseQuantity($('#inventoryCountedQuantity').value) : null,
         p_reason:$('#inventoryMovementReason').value.trim() };
     }
     function sameMovement(left, right) {
@@ -405,6 +498,10 @@
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
       if (!userId) return;
       const scope = movementScope(), parameters = movementParameters();
+      if (!['receipt','write_off','inventory'].includes(parameters.p_kind)
+        || !(parameters.p_kind === 'inventory' ? validAmount(parameters.p_counted_quantity) : validAmount(parameters.p_quantity) && parameters.p_quantity > 0)) {
+        movementError('Укажите корректное количество: не более трёх знаков после запятой. Для прихода и списания количество должно быть больше нуля.', null); return;
+      }
       let intent = movementIntents.get(scope);
       if (intent && !sameMovement(intent.parameters, parameters)) {
         movementError('Результат исходной операции ещё не подтверждён. Изменённые данные не отправлены. Восстановите поля для проверки тем же запросом.', intent);
@@ -429,8 +526,10 @@
       }
       if (!intent) {
         intent = { parameters:Object.freeze({ ...parameters, p_request_id:requestId() }), ambiguous:false,
+          rpc:Number(payload?.transfer_version) === 130 && Boolean(payload?.transfers_initialized_at) ? 'apply_minuta_stock_movement_v130' : 'apply_minuta_stock_movement',
           itemName:item(parameters.p_item)?.name || parameters.p_item,
           warehouseName:warehouse(parameters.p_warehouse)?.name || parameters.p_warehouse };
+        if (!persistRecovery(scope, 'movement', intent)) { movementError(recoveryMessage, null); return; }
         movementIntents.set(scope, intent);
       }
       const current = ++revision, token = { userId, generation };
@@ -442,16 +541,16 @@
         && organization?.id === organizationId && revision === current && movementIntents.get(scope) === intent;
       let acknowledged = false;
       try {
-        const useCostLedger = Number(payload?.transfer_version) === 130 && Boolean(payload?.transfers_initialized_at);
-        const result = await db.rpc(useCostLedger ? 'apply_minuta_stock_movement_v130' : 'apply_minuta_stock_movement',
+        const useCostLedger = intent.rpc === 'apply_minuta_stock_movement_v130';
+        const result = await db.rpc(intent.rpc,
           useCostLedger ? { ...intent.parameters, p_purchase_total_cost_kopecks:null } : { ...intent.parameters });
         if (!isCurrent()) { intent.ambiguous = true; return; }
         if (result?.error) {
           // A refusal of a replay cannot disprove an earlier unknown commit:
           // v82 enabled/target checks run BEFORE its request-key lookup.
           if (!intent.ambiguous && definiteMovementRefusal(result.error)) {
-            movementIntents.delete(scope);
-            movementError('Сервер отклонил эту операцию. ' + messageFor(result.error));
+            const cleared = clearRecovery(scope, intent, movementIntents);
+            movementError(cleared ? 'Сервер отклонил эту операцию. ' + messageFor(result.error) : recoveryMessage);
           } else {
             intent.ambiguous = true;
             movementError('Не удалось подтвердить движение. Остаток мог измениться. Проверьте журнал; повтор исходных данных использует тот же запрос.');
@@ -464,7 +563,9 @@
           return;
         }
         acknowledged = true;
-        movementIntents.delete(scope);
+        if (!clearRecovery(scope, intent, movementIntents)) {
+          movementError('Движение подтверждено, но локальный запрос не очищен. Повтор проверит тот же запрос.', intent); return;
+        }
         event.target.reset(); updateMovementKind();
         notify(movementLabels[intent.parameters.p_kind] + ' сохранён');
       } catch {
@@ -508,7 +609,7 @@
     function transferParameters() {
       return { p_organization:organization?.id, p_source_warehouse:$('#inventoryMovementWarehouse').value,
         p_destination_warehouse:$('#inventoryTransferDestination').value, p_item:$('#inventoryMovementItem').value,
-        p_quantity:Number($('#inventoryMovementQuantity').value), p_reason:$('#inventoryMovementReason').value.trim() };
+        p_quantity:parseQuantity($('#inventoryMovementQuantity').value), p_reason:$('#inventoryMovementReason').value.trim() };
     }
     function sameTransfer(left, right) {
       return Object.keys(left).every(key => key === 'p_request_id' || left[key] === right[key]);
@@ -521,7 +622,8 @@
     }
     function validTransferAcknowledgement(data, organizationId) {
       return data && !Array.isArray(data) && typeof data === 'object' && data.organization_id === organizationId
-        && ['document_id','source_movement_id','destination_movement_id'].every(key => Number.isSafeInteger(data[key]) && data[key] > 0)
+        && typeof data.document_id === 'string' && uuidPattern.test(data.document_id)
+        && ['source_movement_id','destination_movement_id'].every(key => Number.isSafeInteger(data[key]) && data[key] > 0)
         && ['source_quantity_after','destination_quantity_after'].every(key => typeof data[key] === 'number' && Number.isFinite(data[key]) && data[key] >= 0);
     }
     function definiteTransferRefusal(error) {
@@ -553,16 +655,16 @@
       if (!parameters.p_source_warehouse || !parameters.p_destination_warehouse || parameters.p_source_warehouse === parameters.p_destination_warehouse) {
         transferError('Выберите два разных активных склада.', null); return;
       }
-      if (!parameters.p_item || !/^\d+(?:\.\d{1,3})?$/.test(rawQuantity) || parameters.p_quantity <= 0 || parameters.p_quantity > 99999999999.999) {
+      if (!parameters.p_item || !/^\d+(?:\.\d{1,3}0*)?$/.test(rawQuantity) || parameters.p_quantity <= 0 || parameters.p_quantity > 99999999999.999) {
         transferError('Укажите корректное количество: больше нуля и не более трёх знаков после запятой.', null); return;
       }
       if (parameters.p_reason.length < 2 || parameters.p_reason.length > 500) { transferError('Укажите основание перемещения от 2 до 500 символов.', null); return; }
-      if (parameters.p_quantity > balanceFor(parameters.p_source_warehouse, parameters.p_item)) { transferError('На исходном складе недостаточно остатка.', null); return; }
       let intent = transferIntents.get(scope);
       if (intent && !sameTransfer(intent.parameters, parameters)) {
         transferError('Результат исходного перемещения ещё не подтверждён. Изменённые данные не отправлены.', intent); return;
       }
       if (!intent) {
+        if (parameters.p_quantity > balanceFor(parameters.p_source_warehouse, parameters.p_item)) { transferError('На исходном складе недостаточно остатка.', null); return; }
         const snapshot = payload, before = revision, impact = movementImpact('transfer', parameters);
         confirming = true;
         let confirmed = false;
@@ -578,16 +680,18 @@
       }
       if (!intent) {
         intent = { parameters:Object.freeze({ ...parameters, p_request_id:requestId() }), ambiguous:false,
+          rpc:'transfer_minuta_inventory_stock_v130',
           itemName:item(parameters.p_item)?.name || parameters.p_item,
           sourceName:warehouse(parameters.p_source_warehouse)?.name || parameters.p_source_warehouse,
           destinationName:warehouse(parameters.p_destination_warehouse)?.name || parameters.p_destination_warehouse };
+        if (!persistRecovery(scope, 'transfer', intent)) { transferError(recoveryMessage, null); return; }
         transferIntents.set(scope, intent);
       }
-      const current = ++revision;
-      writing = true; setBusy(true); $('#inventoryTransferError').hidden = true; $('#inventoryTransferError').textContent = '';
+      const current = ++revision, token = { userId, generation };
+      movementOperation = token; writing = true; setBusy(true); $('#inventoryTransferError').hidden = true; $('#inventoryTransferError').textContent = '';
       const button = event.submitter, oldText = button?.textContent;
       if (button) { button.disabled = true; button.textContent = 'Перемещаем…'; }
-      const isCurrent = () => sessionIsCurrent(userId, generation) && organization?.id === organizationId
+      const isCurrent = () => movementOperation === token && sessionIsCurrent(userId, generation) && organization?.id === organizationId
         && revision === current && transferIntents.get(scope) === intent;
       let acknowledged = false;
       try {
@@ -595,7 +699,8 @@
         if (!isCurrent()) { intent.ambiguous = true; return; }
         if (result?.error) {
           if (!intent.ambiguous && definiteTransferRefusal(result.error)) {
-            transferIntents.delete(scope); transferError(messageFor(result.error), null);
+            const cleared = clearRecovery(scope, intent, transferIntents);
+            transferError(cleared ? messageFor(result.error) : recoveryMessage, cleared ? null : intent);
           } else {
             intent.ambiguous = true; transferError('Не удалось подтвердить перемещение. Повтор исходных данных использует тот же запрос.', intent);
           }
@@ -604,20 +709,30 @@
         if (!result || result.error !== null || !validTransferAcknowledgement(result.data, organizationId)) {
           intent.ambiguous = true; transferError('Сервер не вернул подтверждение обеих проводок. Повтор исходных данных использует тот же запрос.', intent); return;
         }
-        acknowledged = true; transferIntents.delete(scope); event.target.reset(); updateMovementKind();
+        acknowledged = true;
+        if (!clearRecovery(scope, intent, transferIntents)) {
+          transferError('Перемещение подтверждено, но локальный запрос не очищен. Повтор проверит тот же запрос.', intent); return;
+        }
+        event.target.reset(); updateMovementKind();
         notify(result.data.cost_complete === false ? 'Перемещение сохранено. Себестоимость требует сверки.' : 'Перемещение сохранено');
       } catch {
-        if (isCurrent()) { intent.ambiguous = true; transferError('Не удалось подтвердить перемещение. Повтор исходных данных использует тот же запрос.', intent); }
+        intent.ambiguous = true;
+        if (isCurrent()) transferError('Не удалось подтвердить перемещение. Повтор исходных данных использует тот же запрос.', intent);
       } finally {
-        writing = false;
-        if (button) button.textContent = oldText;
-        const next = pendingOrganization; pendingOrganization = undefined;
-        if (next !== undefined) await setOrganization(next);
-        else if (sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === current) {
-          try { await load(); }
-          catch { $('#inventoryUnavailable').hidden = false; $('#inventoryUnavailableText').textContent = acknowledged ? 'Перемещение сохранено, но журнал не обновился. Нажмите «Повторить».' : 'Не удалось обновить журнал. Повторите только чтение склада.'; }
-          const pending = transferIntents.get(scope);
-          if (pending && organization?.id === organizationId) { restoreTransfer(pending); transferError('Результат исходного перемещения ещё не подтверждён. Проверьте журнал перед повтором.', pending); }
+        if (movementOperation === token) {
+          movementOperation = null; writing = false;
+          if (sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === current) {
+            if (button) button.textContent = oldText;
+            setBusy(false); applyWriteAvailability();
+          }
+          const next = pendingOrganization; pendingOrganization = undefined;
+          if (next !== undefined) await setOrganization(next);
+          else if (sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === current) {
+            try { await load(); }
+            catch { $('#inventoryUnavailable').hidden = false; $('#inventoryUnavailableText').textContent = acknowledged ? 'Перемещение сохранено, но журнал не обновился. Нажмите «Повторить».' : 'Не удалось обновить журнал. Повторите только чтение склада.'; }
+            const pending = transferIntents.get(scope);
+            if (pending && organization?.id === organizationId) { restoreTransfer(pending); transferError('Результат исходного перемещения ещё не подтверждён. Проверьте журнал перед повтором.', pending); }
+          }
         }
       }
     }
@@ -632,12 +747,25 @@
       }
       if (event.target.id === 'inventoryMovementForm') {
         event.preventDefault();
-        const transfer = $('#inventoryMovementKind').value === 'transfer', scope = movementScope();
-        if (transfer && movementIntents.has(scope)) {
-          movementError('Сначала подтвердите исходную складскую операцию. Новое перемещение не отправлено.', movementIntents.get(scope));
-        } else if (!transfer && transferIntents.has(scope)) {
-          transferError('Сначала подтвердите исходное перемещение. Новая операция не отправлена.', transferIntents.get(scope));
-        } else if (transfer) await submitTransfer(event); else await submitMovement(event);
+        if (stockSubmission || writing || confirming || availability !== 'ready' || !requireWrites()) return;
+        const userId = getCurrentUser()?.id, generation = getSessionGeneration(), scope = movementScope();
+        const locks = options.recoveryLocks || window.navigator?.locks;
+        if (!locks?.request) { movementError('Безопасная запись недоступна: браузер не поддерживает блокировку складских запросов. Используйте актуальный браузер.', null); return; }
+        const submission = {}; stockSubmission = submission;
+        try {
+          await locks.request(recoveryKey(scope), { ifAvailable:true }, async lock => {
+            if (!sessionIsCurrent(userId, generation) || movementScope() !== scope) return;
+            if (!lock) { movementError('В другой вкладке уже выполняется складская операция. Дождитесь результата и обновите склад.', null); return; }
+            if (!readRecovery(scope)) { movementError(recoveryMessage, null); return; }
+            const transfer = $('#inventoryMovementKind').value === 'transfer';
+            if (transfer && movementIntents.has(scope)) {
+              movementError('Сначала подтвердите исходную складскую операцию. Новое перемещение не отправлено.', movementIntents.get(scope));
+            } else if (!transfer && transferIntents.has(scope)) {
+              transferError('Сначала подтвердите исходное перемещение. Новая операция не отправлена.', transferIntents.get(scope));
+            } else if (transfer) await submitTransfer(event); else await submitMovement(event);
+          });
+        } catch { if (stockSubmission === submission && movementScope() === scope) movementError(recoveryMessage, null); }
+        finally { if (stockSubmission === submission) stockSubmission = null; }
         return;
       }
       if (event.target.id === 'inventoryUsageForm') {

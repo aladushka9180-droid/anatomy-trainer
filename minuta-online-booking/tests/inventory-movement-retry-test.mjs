@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
+import { recoveryFixture } from './inventory-recovery-fixture.mjs';
 
 // Actual complete inventory controller, including bind/submit/input/change,
 // reload/render and request ID generation. DOM and RPC are explicit VM fixtures.
@@ -71,13 +72,14 @@ function syntheticLedger(fixture = ids) {
   return { apply, workspace, rows, get balance() { return balance; } };
 }
 
-async function harness({ deferFirstReply = true, deferAllReplies = false, firstRefusal = null, confirmResult = true, onConfirm = null } = {}) {
-  const ledger = syntheticLedger(), otherLedger = syntheticLedger(otherIds), calls = [], effects = [], listeners = new Map(), nodes = new Map(), prompts = [];
+async function harness({ deferFirstReply = true, deferAllReplies = false, firstRefusal = null, confirmResult = true, onConfirm = null,
+  ledger = syntheticLedger(), recovery = recoveryFixture(), nonceStart = 0 } = {}) {
+  const otherLedger = syntheticLedger(otherIds), calls = [], effects = [], listeners = new Map(), nodes = new Map(), prompts = [];
   const thirdLedger = syntheticLedger(thirdIds);
   const ledgerFor = org => org === ids.org ? ledger : org === otherIds.org ? otherLedger : thirdLedger;
   const readResponses = [];
   const auth = { actor:ids.actor, generation:1 };
-  let nonce = 0, releaseFirstReply, rejectFirstReply;
+  let nonce = nonceStart, releaseFirstReply, rejectFirstReply;
   const firstReply = new Promise((resolve, reject) => { releaseFirstReply = resolve; rejectFirstReply = reject; });
   const movementFields = ['inventoryMovementWarehouse', 'inventoryMovementItem', 'inventoryMovementKind',
     'inventoryMovementQuantity', 'inventoryCountedQuantity', 'inventoryMovementReason'];
@@ -125,6 +127,7 @@ async function harness({ deferFirstReply = true, deferAllReplies = false, firstR
   } }, crypto:{ randomUUID:() => `aaaaaaaa-aaaa-4aaa-8aaa-${String(++nonce).padStart(12, '0')}` }, Intl, Date });
   vm.runInContext(source, context, { filename:'actual-inventory-management.js' });
   const controller = context.window.MinutaInventory.createController({
+    recoveryStorage:recovery.storage, recoveryLocks:recovery.locks,
     $:selector => { assert.match(selector, /^#[A-Za-z]+$/); return node(selector.slice(1)); },
     escapeHtml:value => String(value ?? ''), notify:message => effects.push(['notify', message]),
     requireWrites:() => true, getCurrentUser:() => ({ id:auth.actor }), getSessionGeneration:() => auth.generation,
@@ -175,9 +178,130 @@ async function harness({ deferFirstReply = true, deferAllReplies = false, firstR
   }
   const restore = () => listeners.get('click')({ target:{ closest:selector => selector === '[data-inventory-restore-movement]' ? {} : null } });
   const reload = () => listeners.get('click')({ target:{ closest:selector => selector === '#reloadInventory' ? {} : null } });
-  return { ledger, otherLedger, thirdLedger, readResponses, calls, effects, prompts, controller, node, fill, submit, event, loseFirstReply, auth, restore, reload,
+  return { ledger, recovery, otherLedger, thirdLedger, readResponses, calls, effects, prompts, controller, node, fill, submit, event, loseFirstReply, auth, restore, reload,
     acknowledgeFirst:() => releaseFirstReply(calls[0].committedReply) };
 }
+
+test('new controller after lost committed reply restores durable original request; a later intentional operation gets a new ID', async () => {
+  const h = await harness(); await h.loseFirstReply();
+  const stored = JSON.parse([...h.recovery.storage.entries.values()][0]);
+  assert.equal(stored.parameters.p_request_id, h.calls[0].params.p_request_id);
+  const restarted = await harness({ ledger:h.ledger, recovery:h.recovery, deferFirstReply:false, nonceStart:100 });
+  await restarted.submit();
+  assert.equal(restarted.calls[0].params.p_request_id, h.calls[0].params.p_request_id);
+  assert.equal(h.ledger.balance, 8); assert.equal(h.ledger.rows.length, 1);
+  assert.equal(h.recovery.storage.entries.size, 0);
+  restarted.fill(); await restarted.submit();
+  assert.notEqual(restarted.calls[1].params.p_request_id, h.calls[0].params.p_request_id);
+  assert.equal(h.ledger.balance, 6); assert.equal(h.ledger.rows.length, 2);
+});
+
+test('restored ambiguous request survives a definite replay refusal', async () => {
+  const h = await harness(); await h.loseFirstReply();
+  const restarted = await harness({ ledger:h.ledger, recovery:h.recovery, deferFirstReply:false,
+    firstRefusal:{ code:'55000', message:'inventory_target_inactive' }, nonceStart:100 });
+  await restarted.submit(); restarted.fill({ quantity:'3' }); await restarted.submit();
+  assert.equal(restarted.calls.length, 1); assert.equal(h.recovery.storage.entries.size, 1);
+  assert.equal(h.ledger.rows.length, 1);
+});
+
+for (const fault of ['denyRead', 'denyWrite']) test(`storage ${fault} blocks before any stock RPC`, async () => {
+  const recovery = recoveryFixture(); recovery.storage[fault] = true;
+  const h = await harness({ recovery, deferFirstReply:false }); await h.submit();
+  assert.equal(h.calls.length, 0); assert.equal(h.ledger.balance, 10);
+  assert.match(h.node('inventoryMovementError').textContent, /Операция не отправлена/);
+});
+
+for (const corrupt of ['{broken', JSON.stringify({ version:99 }), 'null']) test(`corrupt durable journal ${corrupt} fails closed`, async () => {
+  const h = await harness(); await h.loseFirstReply();
+  const key = [...h.recovery.storage.entries.keys()][0]; h.recovery.storage.entries.set(key, corrupt);
+  const restarted = await harness({ ledger:h.ledger, recovery:h.recovery, deferFirstReply:false, nonceStart:100 });
+  await restarted.submit(); assert.equal(restarted.calls.length, 0); assert.equal(h.ledger.rows.length, 1);
+  assert.equal(h.recovery.storage.entries.get(key), corrupt, 'corrupt evidence is retained');
+});
+
+test('ACK cleanup failure retains original identity until storage recovers', async () => {
+  const h = await harness({ deferFirstReply:false }); h.recovery.storage.denyRemove = true;
+  await h.submit(); assert.equal(h.ledger.rows.length, 1); assert.equal(h.recovery.storage.entries.size, 1);
+  h.recovery.storage.denyRemove = false; await h.submit();
+  assert.equal(h.calls[1].params.p_request_id, h.calls[0].params.p_request_id);
+  assert.equal(h.ledger.rows.length, 1); assert.equal(h.recovery.storage.entries.size, 0);
+});
+
+test('two controllers sharing one browser lock cannot submit overlapping mutations', async () => {
+  const h = await harness(); const pending = h.submit(); await tick();
+  const second = await harness({ ledger:h.ledger, recovery:h.recovery, deferFirstReply:false, nonceStart:100 });
+  await second.submit(); assert.equal(second.calls.length, 0); assert.equal(h.ledger.rows.length, 1);
+  assert.match(second.node('inventoryMovementError').textContent, /другой вкладке/);
+  h.acknowledgeFirst(); await pending;
+});
+
+test('missing browser lock support blocks unsafe stock mutation', async () => {
+  const recovery = recoveryFixture(); recovery.locks = {};
+  const h = await harness({ recovery, deferFirstReply:false }); await h.submit();
+  assert.equal(h.calls.length, 0); assert.match(h.node('inventoryMovementError').textContent, /блокировку/);
+});
+
+test('unsupported movement precision is rejected before journal allocation or RPC', async () => {
+  const h = await harness({ deferFirstReply:false }); h.fill({ quantity:'0.1234', kind:'receipt' }); await h.submit();
+  assert.equal(h.calls.length,0); assert.equal(h.recovery.storage.entries.size,0);
+  assert.match(h.node('inventoryMovementError').textContent,/трёх знаков/);
+});
+
+// F1 NoIO regressions: actual controller with explicit DOM/RPC/storage/lock
+// doubles only. Fractional controls use an ACK-only fixture, not the integral
+// v82 ledger above. Run --test-name-pattern='^F1:' to avoid repeating old bodies.
+function precisionAckFixture() {
+  const ledger = syntheticLedger();
+  return { ...ledger, apply:p => ({ data:{ organization_id:ids.org,id:1,
+    quantity_after:p.p_kind === 'inventory' ? p.p_counted_quantity : 10 }, error:null }) };
+}
+for (const raw of ['1.0000000000000001','0.10000000000000001','99999999999.99901','1001e-6','1.234e-1','0x10','1,23']) {
+  test(`F1: receipt rejects raw ${raw} before journal/RPC`, async () => {
+    const h = await harness({ deferFirstReply:false, ledger:precisionAckFixture() });
+    h.fill({ kind:'receipt', quantity:raw }); await h.submit();
+    assert.equal(h.calls.length,0); assert.equal(h.recovery.storage.entries.size,0);
+  });
+}
+for (const [kind,raw,expected] of [
+  ['receipt','1.234',1.234],['receipt','1.230000',1.23],['receipt','1.0000000000000000',1],
+  ['receipt','1e-3',0.001],['receipt','1000e-6',0.001],['receipt','.125',0.125],['write_off','1.23000',1.23],
+  ['inventory','0',0],['inventory','0.0000000000',0],['inventory','1.234000',1.234]
+]) test(`F1: ${kind} preserves representable raw ${raw}`, async () => {
+  const h = await harness({ deferFirstReply:false, ledger:precisionAckFixture() });
+  h.fill({ kind,quantity:raw }); if (kind === 'inventory') h.node('inventoryCountedQuantity').value = raw;
+  await h.submit(); assert.equal(h.calls.length,1);
+  assert.equal(h.calls[0].params[kind === 'inventory' ? 'p_counted_quantity' : 'p_quantity'],expected);
+  assert.equal(h.recovery.storage.entries.size,0);
+});
+test('F1: changed raw precision during confirmation cannot match rounded original payload', async () => {
+  const h = await harness({ deferFirstReply:false, onConfirm:node => { node('inventoryMovementQuantity').value = '2.0000000000000001'; } });
+  await h.submit(); assert.equal(h.calls.length,0); assert.equal(h.recovery.storage.entries.size,0);
+});
+test('F1: invalid raw pending write-off preserves frozen scope/RPC/payload; trailing-zero retry keeps its ID', async () => {
+  const h = await harness(); await h.loseFirstReply(); const before = [...h.recovery.storage.entries];
+  h.fill({ quantity:'2.0000000000000001' }); await h.submit();
+  assert.equal(h.calls.length,1); assert.deepEqual([...h.recovery.storage.entries],before);
+  h.fill({ quantity:'2.000000' }); await h.submit();
+  assert.equal(h.calls.length,2); assert.deepEqual(h.calls[1].params,h.calls[0].params);
+  assert.equal(h.ledger.rows.length,1); assert.equal(h.recovery.storage.entries.size,0);
+});
+for (const [count,raw] of [['1','1.0000000000000001'],['0','1e-1000']]) {
+  test(`F1: pending inventory count ${count} rejects precision-losing raw ${raw}`, async () => {
+    const h = await harness(); h.fill({ kind:'inventory' }); h.node('inventoryCountedQuantity').value = count;
+    const pending = h.submit(); await tick(); assert.equal(h.calls.length,1);
+    h.calls[0].resolve(lostReply()); await pending; const before = [...h.recovery.storage.entries];
+    h.node('inventoryCountedQuantity').value = raw; await h.submit();
+    assert.equal(h.calls.length,1); assert.deepEqual([...h.recovery.storage.entries],before);
+  });
+}
+for (const kind of ['receipt','inventory']) test(`F1: ${kind} validates only its active quantity field`, async () => {
+  const h = await harness({ deferFirstReply:false, ledger:precisionAckFixture() });
+  h.fill({ kind,quantity:kind === 'receipt' ? '1.234' : '1.0000000000000001' });
+  h.node('inventoryCountedQuantity').value = kind === 'inventory' ? '0' : '1.0000000000000001';
+  await h.submit(); assert.equal(h.calls.length,1);
+  assert.equal(h.calls[0].params[kind === 'inventory' ? 'p_quantity' : 'p_counted_quantity'],null);
+});
 
 test('O22 cancellation shows expected write-off balance without creating an intent or RPC', async () => {
   const h = await harness({ confirmResult:false });
