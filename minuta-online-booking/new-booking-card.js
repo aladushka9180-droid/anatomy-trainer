@@ -18,12 +18,11 @@
     if (!$('#newBookingSelectedClient')) {
       const selected = document.createElement('div');
       selected.id = 'newBookingSelectedClient';
-      selected.innerHTML = '<span class="new-booking-selected-avatar"></span><span class="new-booking-selected-copy"><strong></strong><small></small></span><span class="new-booking-selected-actions"><button type="button">Изменить</button><button type="button" data-open-selected-client>Карточка и история</button></span>';
+      selected.innerHTML = '<span class="new-booking-selected-avatar"></span><span class="new-booking-selected-copy"><strong></strong><small></small></span><button type="button">Изменить</button><button type="button" data-open-selected-client>Карточка и история</button>';
       $('#newBookingClientEntry').before(selected);
       selected.querySelector('button').addEventListener('click', () => {
         delete $('#newBookingClientFields').dataset.clientLookupState;
         selected.hidden = true;
-        $('#bookingSheet').classList.remove('compact-selected-booking');
         $('#newBookingClientEntry').hidden = false;
         $('#newBookingName').focus();
         $('#newBookingName').select();
@@ -40,7 +39,7 @@
       when.type = 'button'; when.id = 'newBookingWhen';
       when.setAttribute('aria-controls', 'newBookingDateTimeEditor');
       when.innerHTML = '<span><small></small><span></span></span><em>Изменить</em>';
-      $('#newBookingAdvanced').before(when);
+      $('#newBookingDateTimeEditor').before(when);
       when.addEventListener('click', () => {
         const plan = window.PrimeTimeRepeatSeries?.current(form);
         if (Number($('#newBookingOccurrences')?.value || 1) > 1 && plan?.plan().length) {
@@ -108,11 +107,10 @@
     const open = specialMode || !compact || !options.time || form.dataset.whenExpanded === 'true';
     $('#newBookingDateTimeEditor').hidden = !open;
     whenButton.setAttribute('aria-expanded', String(open));
-    text(whenButton.querySelector('small'), count > 1 ? 'Первый визит' : 'Дата и время');
+    text(whenButton.querySelector('small'), count > 1 ? 'Первый визит' : 'Когда');
     text(whenButton.querySelector('span>span'), when);
     text(whenButton.querySelector('em'), open ? 'Готово' : 'Изменить');
     summary.querySelector('span').hidden = compact && Boolean(options.time) && !specialMode;
-    summary.hidden = true;
     const extra = $('#newBookingAdvancedSummary');
     if (extra) {
       extra.classList.remove('sr-only');
@@ -122,9 +120,5 @@
       text(extra, `${note}${visits} · ${!color || color === 'auto' ? 'цвет авто' : 'цвет выбран'}`);
     }
   }
-  function clearPhoneError(phone) {
-    const error = $('#newBookingError');
-    if (phone && error?.textContent === 'Укажите полный номер телефона.') error.hidden = true;
-  }
-  window.PrimeTimeNewBookingCard = Object.freeze({ render, clearPhoneError });
+  window.PrimeTimeNewBookingCard = Object.freeze({ render });
 })();

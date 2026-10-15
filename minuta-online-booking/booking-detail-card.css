@@ -77,12 +77,6 @@
 }
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-repeat-actions>.primary { background:var(--detail-primary)!important; color:var(--detail-primary-ink)!important; }
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-repeat-actions :is(.ui-icon,.detail-card-icon) { flex:0 0 23px; width:23px; height:23px; color:inherit!important; }
-#bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-repeat-actions.detail-card-quick-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
-#bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .detail-card-quick-actions>.primary { grid-column:1/-1!important; min-height:52px!important; font-size:16px; font-weight:500; background-image:none!important; }
-#bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .detail-card-quick-actions>:is(button,a):not(.primary) { padding:8px 6px!important; gap:6px; border:1px solid var(--detail-line)!important; background:var(--detail-surface)!important; background-image:none!important; font-size:12px; }
-#bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .detail-card-quick-actions>:not(.primary) :is(.ui-icon,.detail-card-icon) { flex:0 0 16px; width:16px; height:16px; }
-#bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) :is(.booking-sheet-client-avatar,.client-avatar-picker):has(.client-framed-avatar) { background:transparent!important; }
-body.provider-body[data-provider-theme="pink-porcelain"] #bookingSheet.booking-sheet-reference:has(.detail-card-quick-actions) .booking-sheet-close { background:color-mix(in srgb,var(--detail-ink) 4%,var(--detail-surface))!important; }
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) .booking-sheet-secondary { display:block; margin:0; }
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) :is(.detail-card-services,.detail-card-row) { margin:0; padding:0; border:0!important; border-top:1px solid var(--detail-line)!important; border-radius:0; background:none!important; box-shadow:none!important; }
 #bookingSheet.booking-sheet-reference:has(.booking-repeat-actions) :is(.booking-session-heading,.detail-card-row>summary) { display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:14px; min-height:67px; margin:0; padding:13px 0; color:var(--detail-ink)!important; }

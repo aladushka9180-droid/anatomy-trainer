@@ -47,7 +47,7 @@
 .provider-body #dashboard .notification-soft .notification-mark-all { width:auto; }
 .provider-body #dashboard .notification-soft .notification-filters { display:flex; order:-1; flex:1; min-width:0; border:0!important; border-radius:0; background:transparent!important; gap:16px; }
 .provider-body #dashboard .notification-soft .notification-filters button { min-height:44px; min-width:44px; flex:none; padding:0 2px; border:0!important; border-bottom:2px solid transparent!important; border-radius:0; font-size:calc(14px + var(--provider-text-step,0px)); font-weight:500; background:transparent!important; color:var(--notification-muted)!important; }
-html body.provider-body[data-provider-theme][data-provider-layout] #dashboard .notification-soft[data-provider-panel="notifications"] .notification-filters button.active { background:transparent!important; background-image:none!important; border-bottom-color:var(--theme-accent)!important; color:var(--theme-accent)!important; box-shadow:none!important; }
+.provider-body #dashboard .notification-soft .notification-filters button.active { border-bottom-color:var(--theme-accent)!important; color:var(--theme-accent)!important; }
 .provider-body #dashboard .notification-soft .notification-card { display:grid; grid-template-columns:20px minmax(0,1fr); align-items:start; gap:5px 12px; padding:14px 0; opacity:1; content-visibility:visible; contain-intrinsic-size:none; }
 .provider-body #dashboard .notification-soft .notification-card-main { grid-column:2; grid-row:1; min-width:0; }
 .provider-body #dashboard .notification-soft .notification-card-icon { grid-column:1; grid-row:1; }

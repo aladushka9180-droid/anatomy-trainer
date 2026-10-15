@@ -88,14 +88,6 @@
     if (repeat && !find('[data-booking-status="confirmed"]')) {
       repeat.classList.remove('secondary-button');
       repeat.classList.add('primary');
-      if (message && find('[data-commerce-booking-sale]')) {
-        actions.classList.add('detail-card-quick-actions');
-        actions.prepend(repeat);
-        message.setAttribute('aria-label', 'Написать клиенту');
-        for (const node of message.childNodes) {
-          if (node.nodeType === 3 && node.textContent.trim() === 'Написать клиенту') node.textContent = 'Написать';
-        }
-      }
     }
     const secondary = find('.booking-sheet-secondary');
     const services = find('.booking-session-summary');

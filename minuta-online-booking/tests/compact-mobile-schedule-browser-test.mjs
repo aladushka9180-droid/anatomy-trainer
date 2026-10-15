@@ -85,9 +85,9 @@ try {
     updateCalendarViewControls();
   ` });
   await page.getByLabel('Выбрать дату в календаре').fill('2026-12-31');
-  assert.equal(await page.locator('#scheduleDateDisplay').textContent(), 'декабрь 2026', 'Visible month follows native input edits');
+  assert.equal(await page.locator('#scheduleDateDisplay').textContent(), '31.12.2026', 'Visible date follows native input edits');
   await page.evaluate(() => { $('#scheduleDatePicker').value = '2026-09-29'; syncScheduleDateDisplay(); });
-  assert.equal(await page.locator('#scheduleDateDisplay').textContent(), 'сентябрь 2026', 'Date-strip selection updates the visible month');
+  assert.equal(await page.locator('#scheduleDateDisplay').textContent(), '29.09.2026', 'Date-strip selection updates the full date');
   await page.locator('#scheduleDatePicker').click();
   assert.equal(await page.locator('#scheduleDatePicker').evaluate(input => input.matches(':open')), true, 'The visible date opens the native calendar');
   await page.keyboard.press('Escape');
@@ -167,15 +167,14 @@ try {
         hourLine:style('.timeline-grid-line').borderTopStyle,
         halfHourLine:getComputedStyle(document.querySelector('.timeline-grid-line'), '::after').borderTopStyle,
         dateIcon:{ x:rect('.schedule-date-picker>.ui-icon').x, w:rect('.schedule-date-picker>.ui-icon').width },
-        dateTextLeft:rect('#scheduleDateDisplay').left,
         dateTextRight:rect('#scheduleDateDisplay').right,
-        dateGroupCenter:(rect('.schedule-date-picker>.ui-icon').left + rect('#scheduleDateDisplay').right) / 2,
+        dateGroupCenter:(rect('#scheduleDateDisplay').left + rect('.schedule-date-picker>.ui-icon').right) / 2,
         visibleGaps:{
-          left:rect('.schedule-date-picker>.ui-icon').left - todayLabel.getBoundingClientRect().right,
-          right:rect('#scheduleViewLabel').left - rect('#scheduleDateDisplay').right,
+          left:rect('#scheduleDateDisplay').left - todayLabel.getBoundingClientRect().right,
+          right:rect('#scheduleViewLabel').left - rect('.schedule-date-picker>.ui-icon').right,
         },
         dateText:document.querySelector('#scheduleDateDisplay').textContent,
-        dateFits:rect('.schedule-date-picker>.ui-icon').left >= today.right && rect('#scheduleDateDisplay').right <= toggle.left,
+        dateFits:rect('#scheduleDateDisplay').left >= today.right && rect('.schedule-date-picker>.ui-icon').right <= toggle.left,
         dateUnclipped:document.querySelector('#scheduleDateDisplay').scrollWidth <= document.querySelector('#scheduleDateDisplay').clientWidth,
         dateInputOpacity:style('#scheduleDatePicker').opacity,
         dateIconMask:style('.schedule-date-picker>.ui-icon').maskImage,
@@ -218,12 +217,12 @@ try {
       assert.equal(state.halfHourLine, 'dashed');
       assert.equal(state.extraArrows, false, `${width}: duplicate day arrows`);
       assert.equal(state.dateIcon.w, 18);
-      assert.equal(state.dateText, 'сентябрь 2026');
+      assert.equal(state.dateText, '29.09.2026');
       assert.ok(state.dateFits && state.dateUnclipped, `${theme}/${width}/${scale}: full date clips or overlaps a neighbour: ${JSON.stringify(state)}`);
       assert.equal(state.dateInputOpacity, '0', 'Native field internals must not clip the visible date');
       assert.equal((decodeURIComponent(state.dateIconMask).match(/<circle /g) || []).length, 6, 'Calendar has six date dots');
-      assert.ok(state.dateIcon.x + state.dateIcon.w <= state.dateTextLeft + 1, `${width}: calendar icon is not before month`);
-      assert.ok(state.dateTextLeft - state.dateIcon.x - state.dateIcon.w <= 5, `${width}: calendar icon detached from month`);
+      assert.ok(state.dateIcon.x >= state.dateTextRight - 1, `${width}: calendar icon is not after date`);
+      assert.ok(state.dateIcon.x - state.dateTextRight <= 5, `${width}: calendar icon detached from date`);
       assert.ok(Math.abs(state.dateGroupCenter - state.controlsCenter) <= 1, `${width}: date/calendar group not centered`);
       assert.ok(state.visibleGaps.left >= 3 && state.visibleGaps.right >= 3, `${theme}/${width}/${scale}: action labels crowd each other`);
       assert.ok(Math.abs(state.visibleGaps.left - state.visibleGaps.right) <= 3, `${theme}/${width}/${scale}: unequal visible action gaps: ${JSON.stringify(state.visibleGaps)}`);

@@ -334,7 +334,7 @@ assert.match(provider, /const fullBounds = timelineBounds\(items\)/, 'Грани
 assert.doesNotMatch(provider, /timelineFullDay|data-expand-timeline/, 'В ленте вернулся отдельный переключатель пустого хвоста');
 assert.match(provider, /journalMode === 'timeline'/, 'Дублирующие фильтры не скрываются в режиме временной ленты');
 assert.doesNotMatch(providerHtml, /mobile-priority-shortcuts/, 'Быстрые ссылки дублируют нижнюю навигацию');
-assert.match(provider, /const layoutHeight = mobileTimeline \? duration \/ 60 \* 75 - 4 : height;[\s\S]*?layoutHeight < 54 \? ' compact'/, 'Zoom меняет утверждённую компактную типографику вместо всей сетки');
+assert.match(provider, /height < 54 \? ' compact'/, 'Записи до 45 минут снова получают переполняющийся обычный макет');
 assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
 assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
 assert.match(provider, /bookings-v3/, 'Полноценный кэш записей не отделён от старой обезличенной версии');
@@ -739,8 +739,8 @@ assert.match(styles, /timeline-booking-status\.timeline-booking-status-icon \{ d
 assert.match(styles, /provider-body \.schedule-date-picker input \{ height:25px; margin:0;/, 'Поле календаря не выровнено с подписью и иконкой');
 assert.match(styles, /timeline-booking\.status-needs-result \{ border-color:#c8d8ed; background:#eef4fb;/, 'Записи, ожидающие результата, не выделены цветом');
 assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:14px;/, 'Название записи осталось слишком мелким');
-assert.match(provider, /const mobileTimeline = window\.matchMedia\('\(max-width: 760px\)'\)\.matches;[\s\S]*?hourHeight = window\.PrimeTimeScheduleGrid\?\.height\(items, mobileTimeline\) \|\| \(mobileTimeline \? 75 : 76\)/, 'Масштаб не подключён ко всей временной шкале');
-assert.match(provider, /mobileTimeline && duration < 30 \? Math\.max\(24, naturalHeight - 4\)/, 'Короткие записи не сохраняют реальную высоту выбранного масштаба');
+assert.match(provider, /const mobileTimeline = window\.matchMedia\('\(max-width: 760px\)'\)\.matches;[\s\S]*?hourHeight = mobileTimeline \? 75 : 76/, 'Высота часового интервала не вмещает три строки 40-минутной записи');
+assert.match(provider, /mobileTimeline && duration < 30 \? 24/, 'Короткие записи снова получают высоту, вызывающую наложение текста');
 assert.match(provider, /minuteOnly \? \(mobileTimeline \? 44 : 40\)/, 'Одноминутная запись снова получает слишком низкую карточку');
 assert.match(styles, /timeline-booking-time \{ display:flex; align-self:center; align-items:baseline;/, 'Интервал записи не выровнен по центру карточки');
 assert.match(styles, /timeline-booking-time small \{[^}]*font:inherit; font-weight:950;[^}]*opacity:1;/, 'Время окончания визуально отличается от времени начала');

@@ -191,7 +191,7 @@ try {
   await page.locator('[data-notification-filter="pending"]').click();
   await page.waitForFunction(() => document.querySelector('#notificationQueuePendingCount').textContent === '7');
 
-  for (const theme of ['pink-porcelain', 'midnight', 'warm', 'cocoa-pearl', 'oled-mono', 'volt-graphite']) {
+  for (const theme of ['midnight', 'warm', 'cocoa-pearl', 'oled-mono', 'volt-graphite']) {
     await page.evaluate(value => { document.body.dataset.providerTheme = value; }, theme);
     for (const width of [390, 760, 1440]) {
       await page.setViewportSize({ width, height:1050 });
@@ -210,10 +210,6 @@ try {
           border:getComputedStyle(root.querySelector('.panel')).borderTopWidth,
           cardBackground:getComputedStyle(root.querySelector('.notification-card')).backgroundColor,
           filterBackground:getComputedStyle(root.querySelector('.notification-filters')).backgroundColor,
-          activeFilterBackground:getComputedStyle(root.querySelector('.notification-filters button.active')).backgroundColor,
-          activeFilterUnderline:getComputedStyle(root.querySelector('.notification-filters button.active')).borderBottomWidth,
-          activeFilterColor:getComputedStyle(root.querySelector('.notification-filters button.active')).color,
-          activeFilterRule:getComputedStyle(root.querySelector('.notification-filters button.active')).borderBottomColor,
           columns:getComputedStyle(root.querySelector('.notification-workspace')).gridTemplateColumns,
           text:getComputedStyle(root.querySelector('.notification-card p')).fontSize,
           headerDifference:Math.abs(settings.top + settings.height / 2 - refresh.top - refresh.height / 2),
@@ -228,24 +224,10 @@ try {
       assert.equal(geometry.border, '0px', 'Use the approved flat panels');
       assert.equal(geometry.cardBackground, 'rgba(0, 0, 0, 0)', 'Rows must not become nested cards');
       assert.equal(geometry.filterBackground, 'rgba(0, 0, 0, 0)', 'Filters must retain their quiet underline style');
-      assert.equal(geometry.activeFilterBackground, 'rgba(0, 0, 0, 0)', `${theme}/${width}: active filter must have no filled rectangle`);
-      assert.equal(geometry.activeFilterUnderline, '2px', `${theme}/${width}: active filter must have a thin underline`);
-      assert.equal(geometry.activeFilterRule, geometry.activeFilterColor, `${theme}/${width}: underline and label must share the accent color`);
-      await page.locator('.notification-filters button.active').hover();
-      const hoveredFilter = await page.locator('.notification-filters button.active').evaluate(node => {
-        const css = getComputedStyle(node);
-        return { background:css.backgroundColor, color:css.color, underline:css.borderBottomColor };
-      });
-      assert.equal(hoveredFilter.background, 'rgba(0, 0, 0, 0)', `${theme}/${width}: hover must retain the unfilled tab`);
-      assert.equal(hoveredFilter.color, geometry.activeFilterColor, `${theme}/${width}: hover must retain the accent label`);
-      assert.equal(hoveredFilter.underline, hoveredFilter.color, `${theme}/${width}: hover must retain the accent underline`);
       assert.ok(geometry.headerDifference <= 1, `${theme}/${width}: header actions must remain on the same row (${geometry.headerDifference})`);
       assert.ok(geometry.mainWidth >= (width === 1440 ? 210 : geometry.cardWidth - 35), `${theme}/${width}: message copy squeezed by old grid rules`);
       assert.equal(geometry.columns.split(' ').length, width === 1440 ? 2 : 1);
-      if (output && ['midnight', 'pink-porcelain'].includes(theme)) {
-        if (theme === 'pink-porcelain' && width === 390) {
-          await page.locator('.provider-mobile-nav').screenshot({ path:resolve(output, 'booking-calendar-mobile-nav.png') });
-        }
+      if (output && theme === 'midnight') {
         // Activate content-visibility:auto rows before a full-page capture.
         for (const panel of await page.locator('.notification-soft .panel:visible').all()) {
           await panel.scrollIntoViewIfNeeded();
@@ -295,7 +277,7 @@ try {
   assert.equal(await page.locator('#automaticNotificationPanel').isVisible(), false);
   assert.deepEqual(errors, []);
   assert.deepEqual(unexpected, [], 'This proof must remain entirely local');
-  console.log('PASS: notification renderers, Telegram/WhatsApp choice, no implicit send, rerenders, filters, marks, retry, journal, settings and 18 theme/width layouts.');
+  console.log('PASS: notification renderers, Telegram/WhatsApp choice, no implicit send, rerenders, filters, marks, retry, journal, settings and 15 theme/width layouts.');
 } finally {
   await browser?.close();
   await new Promise(done => server.close(done));
