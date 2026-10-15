@@ -15,12 +15,13 @@ function deferred() {
   const promise = new Promise(done => { resolve = done; });
   return { promise, resolve };
 }
-function fixture({ auth, access, sync, trust = 'cached', online = true } = {}) {
+function fixture({ auth, access, sync, resources, trust = 'cached', online = true } = {}) {
   const calls = [], messages = [];
   const button = { disabled:false, classList:{add() {}, remove() {}} };
   const box = vm.createContext({
     currentUser:{id:'provider-1'}, sessionGeneration:1, providerSessionTrust:trust,
     navigator:{onLine:online}, manualSynchronizationPromise:null, synchronizationPromise:null,
+    resourceController:resources ? {async load() {calls.push('resources'); return resources(box);}} : null,
     cachedProviderVerification:null, cachedProviderVerificationRetryTimer:null,
     connectionGuidanceOutageObserved:false, bookingCreationReady:false,
     offlineBookingAccessReady:false, offlineBookingInputsReady:false,
@@ -52,6 +53,33 @@ test('manual recovery confirms cached session and access before refreshing sched
   assert.equal(box.providerSessionTrust, 'verified');
   assert.equal(messages.at(-1), 'Все данные обновлены');
   assert.equal(button.disabled, false);
+});
+
+test('manual refresh awaits an already loaded resources controller', async () => {
+  const read = deferred();
+  const {box, calls, messages} = fixture({trust:'verified', resources:() => read.promise});
+  let completed = false;
+  const result = box.manualSynchronizeProvider().then(value => {completed = true; return value;});
+  await Promise.resolve();
+  assert.equal(completed, false);
+  assert.deepEqual(calls, ['sync', 'resources']);
+  assert.deepEqual(messages, []);
+  read.resolve({ok:true});
+  assert.equal(await result, true);
+  assert.equal(messages.at(-1), 'Все данные обновлены');
+});
+
+test('failed resources read cannot report a complete manual refresh', async () => {
+  const {box, calls, messages} = fixture({trust:'verified', resources:async () => ({ok:false})});
+  assert.equal(await box.manualSynchronizeProvider(), false);
+  assert.deepEqual(calls, ['sync', 'resources']);
+  assert.ok(!messages.includes('Все данные обновлены'));
+});
+
+test('unverified cached access never starts a manual resources read', async () => {
+  const {box, calls} = fixture({access:async () => null, resources:async () => ({ok:true})});
+  assert.equal(await box.manualSynchronizeProvider(), false);
+  assert.equal(calls.includes('resources'), false);
 });
 
 test('manual cached retry shares the in-flight verification and double clicks', async () => {
