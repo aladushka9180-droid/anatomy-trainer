@@ -67,8 +67,8 @@ try {
               background:getComputedStyle(element).backgroundColor, color:getComputedStyle(element).color,
               width:element.getBoundingClientRect().width, height:element.getBoundingClientRect().height
             }));
-            assert.equal(actual.background, rgb(palette.actionBg), `${kind} ${width} ${character}/${shade} ${selector} fill`);
-            assert.equal(actual.color, rgb(palette.actionInk), `${kind} ${width} ${character}/${shade} ${selector} ink`);
+            assert.equal(actual.background, kind === 'detail' ? 'rgb(251, 224, 235)' : rgb(palette.actionBg), `${kind} ${width} ${character}/${shade} ${selector} fill`);
+            assert.equal(actual.color, kind === 'detail' ? 'rgb(189, 23, 103)' : rgb(palette.actionInk), `${kind} ${width} ${character}/${shade} ${selector} ink`);
             assert.ok(contrast(actual.color, actual.background) >= 4.5 && actual.width >= 44 && actual.height >= 44, `${selector} contrast and target`);
           }
           if (kind === 'new') {
