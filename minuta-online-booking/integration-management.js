@@ -103,7 +103,7 @@
           ? connection.enabled
             ? `Тестовая настройка включена. Подключение к провайдеру здесь не проверяется${last ? ` · последнее событие ${last}` : ''}.`
             : `Черновик сохранён. Для этой тестовой настройки обмен выключен${last ? ` · последнее событие ${last}` : ''}.`
-          : `Укажите ID филиала в ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'}. Сохранение черновика не включает обмен данными.`;
+          : `Укажите ID филиала в ${provider === 'dikidi' ? 'календаре 1' : 'календаре 2'}. Сохранение черновика не включает обмен данными.`;
       }
       if (history) history.hidden = events.length === 0;
       if (eventList) eventList.innerHTML = events.map(item => {
@@ -237,7 +237,7 @@
       const saved = available === true ? connectionFor(provider) : null;
       if (saved?.externalAccountId === accountId && saved.enabled === false) {
         pendingSaves.delete(provider);
-        notify(`Черновик ${provider === 'dikidi' ? 'DIKIDI' : 'YCLIENTS'} сохранён`);
+        notify(`Черновик ${provider === 'dikidi' ? 'календаря 1' : 'календаря 2'} сохранён`);
       } else {
         notify('Не удалось подтвердить сохранение черновика. Обновите статусы или повторите сохранение.');
       }
