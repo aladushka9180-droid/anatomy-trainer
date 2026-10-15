@@ -255,7 +255,8 @@ try {
       assert.equal(call.args.p_unit_price_minor, 50000);
       assert.equal(call.args.p_discount_minor, 10000);
       assert.equal(call.args.p_payment_method, 'cash');
-      await page.waitForFunction(() => document.querySelector('#commerceSalesList')?.textContent.includes('Продавец: Ирина Мастер'));
+      await page.locator('#commerceSalesList .commerce-sale-row').first().scrollIntoViewIfNeeded();
+      await page.waitForFunction(() => document.querySelector('#commerceSalesList')?.innerText.includes('Продавец: Ирина Мастер'));
       assert.match(await page.locator('#commerceSalesList').innerText(), /Продавец: Ирина Мастер/);
       await page.locator('.commerce-audit summary').click();
       assert.match(await page.locator('#commerceAuditList').innerText(), /Продажа проведена[\s\S]*Продавец: Ирина Мастер[\s\S]*900 ₽/);
