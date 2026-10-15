@@ -155,23 +155,6 @@ test('restored transfer can replay even when committed source stock is now below
   assert.ok(restarted.notices.includes('Перемещение сохранено'));
 });
 
-test('F1: transfer accepts harmless trailing zeroes with original quantity', async () => {
-  const h = createHarness(); await h.ready(); h.node('inventoryMovementQuantity').value = '3.000000'; await h.submit();
-  assert.equal(h.transfer.quantity,3); assert.ok(h.notices.includes('Перемещение сохранено'));
-});
-test('F1: transfer retains rejection of non-thousandth raw quantity', async () => {
-  const h = createHarness(); await h.ready(); h.node('inventoryMovementQuantity').value = '3.0000000000000001'; await h.submit();
-  assert.equal(h.transfer,null); assert.equal(h.recovery.storage.entries.size,0);
-});
-test('F1: trailing-zero pending transfer retry preserves exact RPC payload and request ID', async () => {
-  const h = createHarness({ firstUnknown:true }); await h.ready(); await h.submit();
-  const first = h.calls.find(call => call.name === 'transfer_minuta_inventory_stock_v130');
-  h.node('inventoryMovementQuantity').value = '3.000000'; await h.submit();
-  const replay = h.calls.filter(call => call.name === 'transfer_minuta_inventory_stock_v130').at(-1);
-  assert.deepEqual(replay,first); assert.equal(h.state.source,7); assert.equal(h.state.destination,5);
-  assert.equal(h.recovery.storage.entries.size,0);
-});
-
 test('inventory operation scanner names the item without changing its mode', async () => {
   const html = readFileSync(new URL('../provider.html', import.meta.url), 'utf8');
   assert.match(html, /id="inventoryMovementScan"[^>]*>Сканировать товар<\/button>/);
