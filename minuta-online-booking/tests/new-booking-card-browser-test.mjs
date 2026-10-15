@@ -9,7 +9,7 @@ const browser=await chromium.launch();
 const out=process.env.MINUTA_SCREENSHOT_DIR;
 if(out)mkdirSync(out,{recursive:true});
 try {
- for(const theme of ['pink-porcelain','noir-rose','midnight','sage'])for(const width of [390,760,1440]){
+ for(const theme of ['pink-porcelain','noir-rose','midnight','sage'])for(const width of [320,360,390,760,1440]){
   const page=await browser.newPage({viewport:{width,height:950},reducedMotion:'reduce'});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
@@ -23,11 +23,26 @@ try {
    document.body.style.setProperty('--porcelain-action-bg',palette.actionBg);
    document.body.style.setProperty('--porcelain-action-ink',palette.actionInk);
   },theme);
+  const serviceTrigger=await page.locator('#newBookingServiceOpen').evaluate(button=>{
+   const title=button.querySelector('strong'),arrow=button.lastElementChild;
+   const titleStyle=getComputedStyle(title),arrowStyle=getComputedStyle(arrow),mask=getComputedStyle(arrow,'::before');
+   return {title:title.textContent,font:parseFloat(titleStyle.fontSize),height:title.getBoundingClientRect().height,lineHeight:parseFloat(titleStyle.lineHeight),overflow:title.scrollWidth-title.clientWidth,
+    arrow:{width:arrow.getBoundingClientRect().width,height:arrow.getBoundingClientRect().height,font:arrowStyle.fontSize,mask:mask.maskImage||mask.webkitMaskImage}};
+  });
+  assert.equal(serviceTrigger.title,'Массаж спины + ШВЗ — базовый');
+  assert.ok(serviceTrigger.font>=14&&serviceTrigger.font<=16,JSON.stringify(serviceTrigger));
+  assert.ok(serviceTrigger.height<=serviceTrigger.lineHeight+1&&serviceTrigger.overflow<=1,'the requested basic title stays on one line at each target width: '+JSON.stringify(serviceTrigger));
+  assert.equal(serviceTrigger.arrow.width,18);assert.equal(serviceTrigger.arrow.height,18);assert.equal(serviceTrigger.arrow.font,'0px');assert.notEqual(serviceTrigger.arrow.mask,'none');
   await page.locator('#newBookingName').fill('Ан');
+  await page.evaluate(()=>{const e=document.querySelector('#newBookingError');e.textContent='Укажите полный номер телефона.';e.hidden=false;});
   assert.equal(await page.locator('[data-new-booking-client] .client-framed-avatar').getAttribute('data-session-tier'),'50');
   await page.locator('[data-new-booking-client]').click();
   assert.equal(await page.locator('#newBookingSelectedClient').isVisible(),true);
   assert.equal(await page.locator('#newBookingClientEntry').isVisible(),false);
+  assert.equal(await page.locator('#newBookingError').isVisible(),false,'valid selection clears only the stale phone error');
+  assert.equal(await page.locator('#newBookingSectionTitle').isVisible(),false,'selected client needs no duplicate heading');
+  const actionRows=await page.locator('.new-booking-selected-actions button').evaluateAll(buttons=>buttons.map(b=>b.getBoundingClientRect().top));
+  assert.equal(actionRows[0],actionRows[1],'client actions share one row at all target widths');
   assert.equal(await page.locator('#newBookingSelectedClient .client-framed-count').textContent(),'50');
   assert.equal(await page.getByRole('button',{name:'Карточка и история'}).isVisible(),true);
   await page.locator('[data-new-booking-time="10:30"]').click();
@@ -37,6 +52,13 @@ try {
   await page.locator('#newBookingWhen').click();
   await page.locator('[data-new-booking-time="11:00"]').click();
   assert.match(await page.locator('#newBookingWhen').innerText(),/11:00–12:30/);
+  assert.match(await page.locator('#newBookingWhen').innerText(),/Дата и время/);
+  assert.equal(await page.locator('#newBookingSelectionSummary').isVisible(),false,'footer does not repeat service price and duration');
+  if(theme==='pink-porcelain'){
+   const button=await page.locator('#newBookingSubmit').evaluate(b=>({ink:getComputedStyle(b).color,fill:getComputedStyle(b).backgroundImage,radius:getComputedStyle(b).borderRadius}));
+   assert.equal(button.ink,'rgb(56, 37, 50)','dark ink on the selected pastel action');
+   assert.equal(button.fill,'none','flat action with no gradient');assert.equal(button.radius,'24px');
+  }
   assert.match(await page.locator('#newBookingServiceMeta').innerText(),/90 мин/);
   const layout=await page.evaluate(()=>{
    const panel=document.querySelector('.booking-sheet-panel');
@@ -50,6 +72,7 @@ try {
   if(out&&width===390)await page.screenshot({path:resolve(out,`new-booking-${theme}.png`)});
   await page.locator('#newBookingSelectedClient').getByRole('button',{name:'Изменить',exact:true}).click();
   assert.equal(await page.locator('#newBookingName').isVisible(),true);
+  assert.equal(await page.locator('#newBookingSectionTitle').isVisible(),true,'change client restores entry heading');
   await page.locator('#newBookingName').fill('Ан');await page.locator('[data-new-booking-client]').click();
   await page.locator('[data-new-booking-mode="block"]').click();
   assert.equal(await page.locator('#bookingSheet').evaluate(e=>e.classList.contains('new-booking-card')),false);
@@ -91,7 +114,7 @@ try {
   await page.locator('#compactRepeatDetails>summary').click();
   assert.equal(await page.locator('#repeatVisitTotalPrice').inputValue(),'3700','price survives date/time redraw');
   assert.equal(await page.locator('#repeatVisitComment').inputValue(),'Пожелание для повтора','comment survives redraw');
-  assert.ok(await page.locator('#newBookingForm').evaluate(form=>form.querySelector('.new-booking-advanced').compareDocumentPosition(form.querySelector('#newBookingWhen'))&Node.DOCUMENT_POSITION_FOLLOWING),'extras before date/time');
+  assert.ok(await page.locator('#newBookingForm').evaluate(form=>form.querySelector('#newBookingWhen').compareDocumentPosition(form.querySelector('.new-booking-advanced'))&Node.DOCUMENT_POSITION_FOLLOWING),'explicit date/time before extras, matching the selected mock');
   assert.ok(await page.locator('.booking-sheet-panel').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'repeat no overflow');
   await page.locator('#compactRepeatDetails>summary').click();
   if(out&&theme==='pink-porcelain')await page.screenshot({path:resolve(out,`repeat-compact-${width}.png`)});
@@ -116,5 +139,34 @@ try {
  await page.locator('#newBookingSubmit').click();assert.equal(await page.evaluate(()=>fixtureSubmitted.service),'s3');
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.close();
+ const phonePage=await browser.newPage({viewport:{width:390,height:950}});
+ await phonePage.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
+ await phonePage.goto(url);await phonePage.waitForFunction(()=>window.fixtureReady);
+ const preserved=await phonePage.evaluate(()=>{
+  const error=document.querySelector('#newBookingError'),client={...fixtureClient};
+  const rows=[];
+  const cleared=[];
+  for(const phone of ['+7 (900) 000-00-00','8 (900) 000-00-00','9000000000']){
+   fixtureClient.displayPhone=phone;error.textContent='Укажите полный номер телефона.';error.hidden=false;
+   fixtureSelect();cleared.push(error.hidden);
+  }
+  for(const phone of ['9000','0079000000000','01234567890','7900000000000000']){
+   fixtureClient.phone=phone;fixtureClient.displayPhone=phone;
+   error.textContent='Укажите полный номер телефона.';error.hidden=false;fixtureSelect();
+   rows.push({phone,hidden:error.hidden});
+  }
+  Object.assign(fixtureClient,client);
+  for(const message of ['Укажите свободное время.','Не удалось сохранить запись.']){
+   error.textContent=message;error.hidden=false;fixtureSelect();rows.push({message,hidden:error.hidden});
+  }
+  document.querySelector('#newBookingName').value='Другое имя';
+  error.textContent='Укажите полный номер телефона.';error.hidden=false;
+  const refused=fixtureSelect({automatic:true});
+  return {rows,cleared,refused,hidden:error.hidden};
+ });
+ assert.ok(preserved.rows.every(row=>!row.hidden),'invalid phones and unrelated errors remain visible: '+JSON.stringify(preserved));
+ assert.ok(preserved.cleared.every(Boolean),'accepted full Russian phone formats clear the stale error');
+ assert.equal(preserved.refused,false);assert.equal(preserved.hidden,false,'refused automatic selection keeps validation');
+ await phonePage.close();
  console.log('PASS: new booking real renderer, client search/framed selection/edit, service/time/summary, mode roundtrip and synthetic submit; 4 themes × 3 widths.');
 }finally{await browser.close();server.close();}
