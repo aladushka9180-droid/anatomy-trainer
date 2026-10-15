@@ -1,0 +1,24 @@
+-- Synthetic prerequisites only; never production data.
+do $$ begin if not exists(select 1 from pg_roles where rolname='anon') then create role anon; end if; if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if; if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role bypassrls;end if;end $$;
+create schema auth; create schema extensions; create extension pgcrypto with schema extensions;
+create table auth.users(id uuid primary key);
+create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+grant usage on schema public,auth to anon,authenticated,service_role;
+create table public.organizations(id uuid primary key,name text,public_slug text,status text default 'active',public_booking_enabled boolean default true,created_by uuid);
+create table public.organization_memberships(organization_id uuid,user_id uuid,role text,active boolean default true,is_bookable boolean default true,created_by uuid,primary key(organization_id,user_id));
+create table public.performer_profiles(id uuid primary key,display_name text);
+create table public.locations(id uuid primary key,organization_id uuid,name text,address text,timezone text,active boolean default true,is_primary boolean default true);
+create table public.services(id uuid primary key,performer_id uuid,name text,duration_minutes integer default 60,price_rub integer default 300,active boolean default true);
+create table public.client_accounts(id uuid primary key,normalized_phone text,access_code_hash text);
+create table public.bookings(id uuid primary key,organization_id uuid,location_id uuid,performer_id uuid,service_id uuid,client_account_id uuid,client_name text,client_phone text,booking_code text,manage_token uuid,booking_date date default current_date,booking_time time default '12:00',duration_minutes integer default 60,original_price_rub integer default 300,total_price_rub integer default 300,status text default 'confirmed',deposit_amount_rub integer default 0,payment_status text default 'not_required',payment_url text,provider_note text,booking_policy_snapshot jsonb default '{}',request_id uuid,created_at timestamptz default now(),updated_at timestamptz default now());
+create table public.booking_outcomes(booking_id uuid primary key,visit_status text);
+create table public.organization_payroll_settings(organization_id uuid);
+create function public.get_minuta_payroll_workspace(uuid,date,date) returns jsonb language sql as $$ select '{}'::jsonb $$;
+create function public.get_minuta_client_commerce_v147(uuid,uuid) returns jsonb language sql as $$ select '{}'::jsonb $$;
+create function public.touch_minuta_organization_updated_at() returns trigger language plpgsql as $$begin new.updated_at=now();return new;end $$;
+create table public.commercial_sale_lines(id uuid default gen_random_uuid(),organization_id uuid,sale_id uuid,benefit_instrument_id uuid);
+create table public.financial_transactions(id uuid primary key default gen_random_uuid(),organization_id uuid,source_type text,source_id uuid,created_at timestamptz default now());
+create table public.loyalty_redemptions(id uuid default gen_random_uuid(),organization_id uuid,booking_id uuid);
+create table public.loyalty_promo_redemptions(id uuid default gen_random_uuid(),organization_id uuid,booking_id uuid);
+create function public.redeem_minuta_loyalty(uuid,uuid,integer,uuid) returns jsonb language sql as $$select '{}'::jsonb $$;
+create function public.redeem_minuta_promotion(uuid,text,uuid,uuid) returns jsonb language sql as $$select '{}'::jsonb $$;

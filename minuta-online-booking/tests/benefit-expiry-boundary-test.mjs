@@ -5,10 +5,9 @@ import { runInNewContext } from 'node:vm';
 
 const source = readFileSync(new URL('../benefit-management.js', import.meta.url), 'utf8');
 
-// Exercise the real controller renderer with a fixed clock. The SQL RPC still
-// uses current_date; these tests verify the existing client business timezone,
-// not the timezone of a deployed database connection.
-async function renderInstrument(instant, status = 'active') {
+// Exercise the real controller renderer with a fixed clock and optional server
+// calendar metadata. SQL behavior is covered by benefit-correctness-postgres-test.
+async function renderInstrument(instant, status = 'active', calendar = {}) {
   class FixedDate extends Date {
     constructor(...args) { super(...(args.length ? args : [instant])); }
     static now() { return new Date(instant).getTime(); }
@@ -25,6 +24,7 @@ async function renderInstrument(instant, status = 'active') {
   runInNewContext(source, context, { filename: 'benefit-management.js' });
   const payload = {
     organization_id: 'org', current_role: 'owner', enabled: true,
+    ...calendar,
     services: [], clients: [], bookings: [], products: [], redemptions: [], audit: [],
     instruments: [{
       id: 'boundary-certificate', status, expires_on: '2026-09-05',
@@ -44,6 +44,25 @@ async function renderInstrument(instant, status = 'active') {
     options: select('#benefitApplyInstrument').innerHTML,
     minimumExpiry: select('#benefitIssueExpiry').min,
   };
+}
+
+for (const [timezone, business_date, expired] of [
+  ['Europe/Moscow', '2026-09-05', false],
+  ['Asia/Vladivostok', '2026-09-06', true],
+]) {
+  test(`server calendar wins over a wrong browser clock: ${timezone}`, async () => {
+    const rendered = await renderInstrument('2026-01-01T00:00:00Z', 'active', {timezone, business_date});
+    assert.equal(rendered.minimumExpiry, business_date);
+    assert.match(rendered.card, expired ? />Истёк</ : />Активен</);
+    assert.equal(rendered.options.includes('value="boundary-certificate"'), !expired);
+  });
+}
+
+for (const [timezone, day] of [['Europe/Moscow', '2026-09-05'], ['Asia/Vladivostok', '2026-09-06'], ['Invalid/Zone', '2026-09-06']]) {
+  test(`timezone-only server and legacy fallback: ${timezone}`, async () => {
+    const rendered = await renderInstrument('2026-09-05T20:30:00Z', 'active', {timezone});
+    assert.equal(rendered.minimumExpiry, day);
+  });
 }
 
 const boundaries = [

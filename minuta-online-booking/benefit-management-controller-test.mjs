@@ -17,7 +17,7 @@ const ids = [
   'benefitsPanel','benefitsLoading','benefitsUnavailable','benefitsUnavailableText','benefitsWorkspace','benefitsEnabled',
   'benefitProductsCount','benefitInstrumentsCount','benefitProductsList','benefitInstrumentsList','benefitRedemptionsList',
   'benefitProductCreator','benefitIssueCreator','benefitApplyCreator','benefitIssueProduct','benefitIssueClient',
-  'benefitApplyInstrument','benefitApplyBooking','benefitApplyAmount','benefitApplyAmountHint','benefitProductServices','benefitProductKind'
+  'benefitApplyInstrument','benefitApplyBooking','benefitApplyAmount','benefitApplyAmountHint','benefitApplyError','benefitProductServices','benefitProductKind'
 ];
 function makeDom() {
   const elements=Object.fromEntries(ids.map(id=>[id,new MockElement(id)]));
@@ -121,6 +121,22 @@ function controller(dom,rpc,overrides={}) {
   const application=calls.find(call=>call.name==='apply_minuta_benefit_v149');
   assert.equal(application.args.p_booking,'booking-good');
   assert.match(application.args.p_request_id,/^[0-9a-f-]{36}$/i);
+}
+
+{
+  const dom=makeDom(),notices=[];
+  const data=workspace('org-ceiling',{enabled:true,business_date:'2026-10-15',timezone:'Europe/Samara',
+    instruments:[{id:'certificate',client_account_id:'client',status:'active',expires_on:'2026-10-15',remaining_amount_rub:1000,product_snapshot:{kind:'certificate',name:'Сертификат'}}],
+    bookings:[{id:'booking',client_account_id:'client',service_id:'service',booking_date:'2026-10-15',status:'confirmed'}]});
+  const instance=controller(dom,async name=>name==='get_minuta_benefit_workspace'
+    ? {data,error:null}
+    : {data:null,error:{code:'22023',message:'certificate_amount_exceeds_booking_price'}},{notify:text=>notices.push(text)});
+  instance.bind();await instance.setOrganization({id:'org-ceiling',current_role:'owner'});
+  dom.elements.benefitApplyInstrument.value='certificate';dom.elements.benefitApplyBooking.value='booking';dom.elements.benefitApplyAmount.value='800';
+  await listeners.submit.at(-1)({target:new MockElement('benefitApplyForm'),submitter:new MockElement('apply'),preventDefault(){}});
+  assert.match(dom.elements.benefitApplyError.textContent,/Сумма сертификата не может превышать стоимость записи/);
+  assert.equal(dom.elements.benefitApplyError.hidden,false);
+  assert.equal(notices.length,0,'A rejected amount must not report successful reservation');
 }
 
 for (const rpc of ['get_minuta_benefit_workspace','set_minuta_benefits_enabled','upsert_minuta_benefit_product','issue_minuta_benefit','set_minuta_benefit_lifecycle_v150','apply_minuta_benefit_v149']) assert.match(source,new RegExp(rpc));

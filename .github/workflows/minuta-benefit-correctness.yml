@@ -1,0 +1,59 @@
+name: Minuta benefit correctness
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261015000127_benefit_correctness.sql'
+      - 'minuta-online-booking/recovery/rollback-benefit-correctness.sql'
+      - 'minuta-online-booking/benefit-management.js'
+      - 'minuta-online-booking/benefit-management-controller-test.mjs'
+      - 'minuta-online-booking/tests/benefit-*'
+      - 'minuta-online-booking/tests/helpers/benefit-correctness-db.mjs'
+      - 'minuta-online-booking/tests/fixtures/benefit-correctness/**'
+      - '.github/workflows/minuta-benefit-correctness.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261015000127_benefit_correctness.sql'
+      - 'minuta-online-booking/recovery/rollback-benefit-correctness.sql'
+      - 'minuta-online-booking/benefit-management.js'
+      - 'minuta-online-booking/benefit-management-controller-test.mjs'
+      - 'minuta-online-booking/tests/benefit-*'
+      - 'minuta-online-booking/tests/helpers/benefit-correctness-db.mjs'
+      - 'minuta-online-booking/tests/fixtures/benefit-correctness/**'
+      - '.github/workflows/minuta-benefit-correctness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_PASSWORD: synthetic-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --prefix "$RUNNER_TEMP/benefit-pg" --no-package-lock --ignore-scripts pg@8.16.3
+      - run: node minuta-online-booking/tests/benefit-correctness-postgres-test.mjs
+        env:
+          BENEFIT_TEST_LOCAL_POSTGRES: '1'
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: synthetic-test-only
+          MINUTA_PG_MODULE: ${{ runner.temp }}/benefit-pg/node_modules/pg/lib/index.js
+      - run: node --test minuta-online-booking/tests/benefit-expiry-boundary-test.mjs minuta-online-booking/tests/benefit-issue-recovery-test.mjs minuta-online-booking/tests/benefit-client-connection-test.mjs
+      - run: node minuta-online-booking/benefit-management-controller-test.mjs
+      - run: node minuta-online-booking/client-url-redirect-test.mjs
