@@ -169,6 +169,7 @@
     function unsupported(error) { return /PGRST202|42883|get_minuta_payroll_ledger_workspace_v136|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`); }
     function scopeMatches(data, organizationId) { return Boolean(data && typeof data === 'object' && String(data.organization_id || '') === String(organizationId)); }
     function responseScopeMismatch(data, organizationId) { return Boolean(data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'organization_id') && String(data.organization_id || '') !== String(organizationId)); }
+    function settingReplyMatches(result, organizationId, enabled) { return result?.error === null && scopeMatches(result.data, organizationId) && result.data.enabled === enabled; }
     function setBusy(value) {
       $('#payrollPanel')?.querySelectorAll('[data-payroll-write]').forEach(control => {
         if (value && !control.disabled) { control.disabled = true; control.dataset.payrollBusy = 'true'; }
@@ -199,6 +200,7 @@
     function reset() {
       requestRevision += 1; organization = null; payload = null; availability = null; writePending = false; pendingOrganization = undefined; activeAdjustmentWrite = null; activeFinancialWrite = null;
       disclosureBaselines = new WeakMap(); restoredFinancialScope = null;
+      clearError('#payrollEnabledError');
       $('#payrollPanel').hidden = true; $('#payrollLoading').hidden = true; $('#payrollUnavailable').hidden = true; $('#payrollWorkspace').hidden = true;
     }
     async function setOrganization(next) {
@@ -209,7 +211,7 @@
         return { ok: false, optional: true, pending: true };
       }
       if (!normalized) { reset(); return { ok: false, optional: true }; }
-      if (organization?.id !== normalized.id) disclosureBaselines = new WeakMap();
+      if (organization?.id !== normalized.id) { disclosureBaselines = new WeakMap(); clearError('#payrollEnabledError'); }
       organization = normalized; pendingOrganization = undefined;
       const bounds = monthBounds();
       if (!$('#payrollStartDate').value) $('#payrollStartDate').value = bounds.start;
@@ -261,7 +263,7 @@
       if (!payload?.transactions.some(item => transactionRequestId(item) === intent.requestId)) return false;
       rememberIntent(null); clearError('#payrollAdjustmentError'); notify('Корректировка подтверждена по журналу зарплат'); return true;
     }
-    async function load({ reconcile = true } = {}) {
+    async function load({ reconcile = true, preserveWorkspace = false } = {}) {
       if (writePending) return { ok: false, optional: true, pending: true };
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization?.id, range = validRange(), revision = ++requestRevision;
       if (!userId || !organizationId) { reset(); return { ok: false, optional: true }; }
@@ -269,7 +271,10 @@
         availability = 'error'; $('#payrollPanel').hidden = false; $('#payrollWorkspace').hidden = true; $('#payrollUnavailable').hidden = false;
         $('#payrollUnavailableText').textContent = 'Выберите период не более 366 дней.'; return { ok: false, optional: true, validation: true };
       }
-      availability = 'loading'; payload = null; $('#payrollPanel').hidden = false; $('#payrollLoading').hidden = false; $('#payrollUnavailable').hidden = true; $('#payrollWorkspace').hidden = true;
+      const keepWorkspace = preserveWorkspace && availability === 'ready' && scopeMatches(payload, organizationId);
+      const planPerformer = keepWorkspace ? $('#payrollPlanPerformer').value : null;
+      availability = 'loading'; payload = null; $('#payrollPanel').hidden = false; $('#payrollLoading').hidden = keepWorkspace; $('#payrollUnavailable').hidden = true; $('#payrollWorkspace').hidden = !keepWorkspace;
+      if (keepWorkspace) setBusy(true);
       let result;
       try { result = await db.rpc(RPC.workspace, { p_organization: organizationId, p_start: range.start, p_end: range.end }); }
       catch (error) { result = { data:null, error }; }
@@ -277,15 +282,19 @@
       if (!sessionIsCurrent(userId, generation) || revision !== requestRevision || organization?.id !== organizationId) return { ok: false, optional: true, stale: true };
       $('#payrollLoading').hidden = true;
       if (error) {
+        $('#payrollWorkspace').hidden = true;
         availability = unsupported(error) ? 'unsupported' : 'error';
         if (availability === 'unsupported') { $('#payrollPanel').hidden = true; return { ok: false, optional: true, unsupported: true }; }
         $('#payrollUnavailable').hidden = false; $('#payrollUnavailableText').textContent = 'Команда и записи продолжают работать. Не удалось загрузить только зарплаты.'; return { ok: false, optional: true };
       }
       if (!scopeMatches(data, organizationId)) {
+        $('#payrollWorkspace').hidden = true;
         availability = 'error'; $('#payrollUnavailable').hidden = false; $('#payrollUnavailableText').textContent = 'Сервер вернул расчёты другой организации. Изменения заблокированы.';
         return { ok: false, optional: true, scopeMismatch: true };
       }
-      payload = normalize(data); availability = 'ready'; render(reconcile); return { ok: true, optional: true };
+      payload = normalize(data); availability = 'ready'; render(reconcile);
+      if (planPerformer !== null && payload.members.some(member => String(member.id) === planPerformer)) $('#payrollPlanPerformer').value = planPerformer;
+      return { ok: true, optional: true };
     }
 
     function memberName(id) { return payload.members.find(item => String(item.id) === String(id))?.display_name || 'Специалист'; }
@@ -396,6 +405,9 @@
 
     function userError(error) {
       const source = `${error?.message || ''} ${error?.details || ''}`;
+      if (source.includes('finance_disabled')) return 'Сначала включите единый финансовый учёт в разделе «Продажи», затем повторите включение зарплат.';
+      if (source.includes('payroll_ledger_historical_reconciliation_required')) return 'Для включения нужна сверка ранее утверждённых расчётов. Обратитесь к владельцу организации.';
+      if (source.includes('payroll_setting_unconfirmed')) return 'Изменение настройки не подтверждено. Проверьте состояние переключателя после обновления данных.';
       const messages = [['payroll_ledger_disabled','Сначала включите учёт зарплаты.'],['payroll_disabled','Сначала включите учёт зарплаты.'],['payroll_period_not_accrued','Сначала зафиксируйте начисление этого периода.'],['payroll_period_already_accrued','Этот период уже начислен. Повторная запись не создана.'],['payroll_debt_exceeded','Сумма выплаты больше текущего долга.'],['payroll_advance_exceeded','Сумма зачёта больше остатка аванса или долга.'],['payroll_adjustment_kind_invalid','Выберите премию или удержание.'],['payroll_amount_invalid','Введите положительную сумму в целых рублях.'],['payroll_transaction_not_reversible','Эту запись нельзя отменить. История не изменена.'],['payroll_period_overlap','Для этого филиала уже есть пересекающийся расчёт.'],['payroll_plan_overlap','У сотрудника уже действует правило начисления на этот период.'],['payroll_plan_missing_for_completed_booking','Для завершённого визита не найдено правило начисления.'],['payroll_requires_completed_bookings','В периоде нет завершённых записей для расчёта.'],['owner_required','Это действие доступно только владельцу.'],['organization_access_denied','Недостаточно прав для этой организации.']];
       return messages.find(([key]) => source.includes(key))?.[1] || 'Операция не записана. Проверьте данные и повторите.';
     }
@@ -470,6 +482,7 @@
     async function mutate(rpc, parameters, button, success, errorSelector, withRequestId = false) {
       if (rpc === RPC.adjustment) return mutateAdjustment(parameters, button, errorSelector);
       if (!requireWrites() || writePending || availability !== 'ready' || !payload || !organization?.id || String(payload.organization_id) !== String(organization.id)) return false;
+      if (rpc === RPC.enabled && payload.current_role !== 'owner') return false;
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
       if (!userId) return false;
       const recovered = financialIntent(userId, organizationId);
@@ -489,9 +502,24 @@
         }
       }
       const revision = ++requestRevision; writePending = true; setBusy(true); clearError(errorSelector);
+      const refresh = () => load({ preserveWorkspace: rpc === RPC.enabled || rpc === 'upsert_minuta_payroll_plan' });
       const oldText = button?.textContent; if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
       const write = {}; activeFinancialWrite = write;
-      let result; try { result = await db.rpc(rpc, parameters); } catch (error) { result = { data: null, error, transport: true }; }
+      let result;
+      try {
+        result = await db.rpc(rpc, parameters);
+        // v136 checks finance readiness before the separate v72 payroll setting.
+        // Complete only this owner's requested enable, never enable finance implicitly.
+        if (rpc === RPC.enabled && parameters.p_enabled === true && result?.error?.code === '55000' && result.error.message === 'payroll_disabled'
+          && activeFinancialWrite === write && sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === requestRevision && requireWrites()) {
+          result = await db.rpc('set_minuta_payroll_enabled', parameters);
+          if (!result?.error) {
+            if (!settingReplyMatches(result, organizationId, true)) result = { data:null, error:{ message:'payroll_setting_unconfirmed' } };
+            else if (activeFinancialWrite === write && sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === requestRevision && requireWrites()) result = await db.rpc(rpc, parameters);
+            else result = { data:null, error:{ message:'payroll_setting_unconfirmed' } };
+          }
+        }
+      } catch (error) { result = { data: null, error, transport: true }; }
       if (activeFinancialWrite !== write) return false;
       activeFinancialWrite = null;
       if (button) button.textContent = oldText;
@@ -499,21 +527,24 @@
       if (stale) { const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return false; }
       if (result?.error) {
         if (!withRequestId) {
-          const message = result.transport ? 'Ответ сервера не получен. Не повторяйте операцию: сначала обновите журнал для сверки.' : userError(result.error);
-          if (errorSelector) showError(errorSelector, message); else notify(message); await load(); return false;
+          const message = result.transport ? rpc === RPC.enabled
+            ? 'Ответ на изменение настройки не получен. Проверьте состояние переключателя после обновления данных.'
+            : 'Ответ сервера не получен. Не повторяйте операцию: сначала обновите журнал для сверки.' : userError(result.error);
+          if (errorSelector) showError(errorSelector, message); else notify(message); await refresh(); return false;
         }
         const refused = !result.transport && financialRefused(result.error);
         if (withRequestId && refused && !recovered) saveFinancialIntent(null, userId, organizationId, parameters.p_request_id);
         const message = refused && !recovered ? userError(result.error)
           : 'Результат операции не подтверждён. Повтор с прежними данными проверит тот же запрос и не создаст новую операцию.';
-        if (errorSelector) showError(errorSelector, message); else notify(message); await load(); return false;
+        if (errorSelector) showError(errorSelector, message); else notify(message); await refresh(); return false;
       }
       if (withRequestId && !financialReplyMatches(rpc, parameters, result)) {
         const message = 'Результат операции не подтверждён. Повтор с прежними данными проверит тот же запрос и не создаст новую операцию.';
-        if (errorSelector) showError(errorSelector, message); else notify(message); await load(); return false;
+        if (errorSelector) showError(errorSelector, message); else notify(message); await refresh(); return false;
       }
-      if (responseScopeMismatch(result?.data, organizationId)) { notify('Ответ сервера относится к другой организации. Новая операция заблокирована.'); await load(); return false; }
-      if (withRequestId) saveFinancialIntent(null, userId, organizationId, parameters.p_request_id); notify(success); await load();
+      if (rpc === RPC.enabled && !settingReplyMatches(result, organizationId, parameters.p_enabled)) { showError(errorSelector, userError({ message:'payroll_setting_unconfirmed' })); await refresh(); return false; }
+      if (responseScopeMismatch(result?.data, organizationId)) { notify('Ответ сервера относится к другой организации. Новая операция заблокирована.'); await refresh(); return false; }
+      if (withRequestId) saveFinancialIntent(null, userId, organizationId, parameters.p_request_id); notify(success); await refresh();
       const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return true;
     }
     function rublesToMinor(input, errorSelector) {
@@ -607,7 +638,14 @@
     }
     async function handleChange(event) {
       if (event.target.id === 'payrollStartDate' || event.target.id === 'payrollEndDate') await load();
-      if (event.target.id === 'payrollEnabled') { const desired = event.target.checked, ok = await mutate(RPC.enabled, { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Учёт зарплаты включён' : 'Учёт зарплаты выключен'); if (!ok && payload) event.target.checked = Boolean(payload.enabled); }
+      if (event.target.id === 'payrollEnabled') {
+        if (!$('#payrollEnabledError')) {
+          const error = document.createElement('small'); error.id = 'payrollEnabledError'; error.className = 'form-error'; error.hidden = true; error.setAttribute('role', 'status');
+          $('#payrollEnabledField').querySelector('span').append(error);
+        }
+        const desired = event.target.checked, ok = await mutate(RPC.enabled, { p_organization: organization?.id, p_enabled: desired }, event.target, desired ? 'Учёт зарплаты включён' : 'Учёт зарплаты выключен', '#payrollEnabledError');
+        if (!ok && payload) event.target.checked = Boolean(payload.enabled);
+      }
     }
     function bind() { document.addEventListener('submit', handleSubmit); document.addEventListener('click', handleClick); document.addEventListener('change', handleChange); document.addEventListener('toggle', handleDisclosureToggle, true); }
     return { bind, load, reset, setOrganization, get availability() { return availability; }, get payload() { return payload; } };
