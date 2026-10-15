@@ -26,9 +26,99 @@
     let groupsOpen = false;
     let writePending = false;
     let pendingOrganization;
+    const drafts = new Map();
+    let renderedScope = '';
+
+    function scopeKey() {
+      return `${getCurrentUser()?.id || ''}:${getSessionGeneration()}:${organization?.id || ''}`;
+    }
+
+    function formKey(form) {
+      if (form?.id === 'resourceGroupForm') return 'create-group';
+      if (form?.id === 'resourceForm') return 'create-resource';
+      if (form?.id === 'resourceRequirementForm') return `requirements:${$('#resourceRequirementService')?.value || selectedServiceId}`;
+      if (form?.dataset?.resourceForm) return `resource:${form.dataset.resourceForm}`;
+      if (form?.dataset?.resourceGroupForm) return `group:${form.dataset.resourceGroupForm}`;
+      return '';
+    }
+
+    function formFields(form) {
+      return [...(form?.querySelectorAll?.('input, select, textarea') || [])].map(field => ({
+        key: field.name || field.id || `requirement:${field.dataset.requirementGroup}`,
+        value: field.value, checked: field.type === 'checkbox' ? field.checked : null
+      }));
+    }
+
+    function formIsDirty(form) {
+      return [...(form?.querySelectorAll?.('input, select, textarea') || [])].some(field => {
+        if (field.type === 'checkbox') return field.checked !== field.defaultChecked;
+        if (field.tagName === 'SELECT') {
+          const original = [...field.options].find(option => option.defaultSelected) || field.options[0];
+          return field.value !== (original?.value || '');
+        }
+        return field.value !== field.defaultValue;
+      });
+    }
+
+    function rememberForms(forms) {
+      if (renderedScope !== scopeKey()) return;
+      for (const form of forms) {
+        const key = formKey(form);
+        if (!key) continue;
+        const dirty = formIsDirty(form);
+        const open = Boolean(form.closest?.('details')?.open);
+        if (dirty || open) drafts.set(key, { fields: formFields(form), dirty, open });
+        else drafts.delete(key);
+      }
+    }
+
+    function restoreForms(forms) {
+      for (const form of forms) {
+        const draft = drafts.get(formKey(form));
+        if (!draft) continue;
+        const editor = form.closest?.('details');
+        if (editor) editor.open = draft.open;
+        if (!draft.dirty) continue;
+        for (const field of form.querySelectorAll('input, select, textarea')) {
+          const key = field.name || field.id || `requirement:${field.dataset.requirementGroup}`;
+          const saved = draft.fields.find(item => item.key === key);
+          if (!saved) continue;
+          field.value = saved.value;
+          if (saved.checked !== null) field.checked = saved.checked;
+        }
+      }
+    }
+
+    function resourceForms() {
+      return [...$('#resourcesList').querySelectorAll('[data-resource-form]')];
+    }
+
+    function otherForms() {
+      return [...$('#resourceGroupsList').querySelectorAll('[data-resource-group-form]'),
+        $('#resourceGroupForm'), $('#resourceForm'), $('#resourceRequirementForm')].filter(Boolean);
+    }
+
+    function currentForm(key) {
+      if (key === 'create-group') return $('#resourceGroupForm');
+      if (key === 'create-resource') return $('#resourceForm');
+      if (key === `requirements:${selectedServiceId}`) return $('#resourceRequirementForm');
+      return [...resourceForms(), ...$('#resourceGroupsList').querySelectorAll('[data-resource-group-form]')]
+        .find(form => formKey(form) === key);
+    }
+
+    function finishSavedForm(key, submitted) {
+      const form = currentForm(key);
+      const latest = form ? formFields(form) : drafts.get(key)?.fields;
+      if (!latest || JSON.stringify(latest) !== JSON.stringify(submitted)) return;
+      drafts.delete(key);
+      form?.reset?.();
+      const editor = form?.closest?.('details');
+      if (editor && !key.startsWith('requirements:')) editor.open = false;
+    }
 
     function isUnsupported(error) {
-      return /PGRST202|42883|get_minuta_resource_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
+      return ['PGRST202', '42883'].includes(error?.code)
+        || /function\s+[^\n]*does not exist/i.test(`${error?.message || ''} ${error?.details || ''}`);
     }
 
     function setResourceWritesDisabled(disabled) {
@@ -45,6 +135,8 @@
 
     function reset() {
       requestRevision += 1;
+      drafts.clear();
+      renderedScope = '';
       organization = null;
       payload = null;
       availability = null;
@@ -66,12 +158,16 @@
 
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
+      const nextScope = `${getCurrentUser()?.id || ''}:${getSessionGeneration()}:${normalized?.id || ''}`;
+      const contextChanged = !normalized || nextScope !== renderedScope;
+      if (contextChanged) { drafts.clear(); renderedScope = ''; }
+      else { rememberForms(resourceForms()); rememberForms(otherForms()); }
       if (writePending) {
         pendingOrganization = normalized;
         requestRevision += 1;
         payload = null;
         availability = normalized ? 'loading' : null;
-        selectedServiceId = '';
+        if (contextChanged) selectedServiceId = '';
         $('#resourceWorkspace').hidden = true;
         $('#resourcesUnavailable').hidden = true;
         $('#resourcesPanel').hidden = !normalized;
@@ -84,17 +180,19 @@
       organization = normalized;
       payload = null;
       availability = null;
-      selectedServiceId = '';
-      resourceQuery = '';
-      resourceLocationId = '';
-      resourceGroupId = '';
-      resourceStatus = '';
-      resourceLimit = 12;
-      groupsOpen = false;
-      for (const selector of ['#resourceCreator', '#resourceGroupCreator']) {
-        const creator = $(selector);
-        creator.open = false;
-        creator.querySelector('form')?.reset?.();
+      if (contextChanged) {
+        selectedServiceId = '';
+        resourceQuery = '';
+        resourceLocationId = '';
+        resourceGroupId = '';
+        resourceStatus = '';
+        resourceLimit = 12;
+        groupsOpen = false;
+        for (const selector of ['#resourceCreator', '#resourceGroupCreator']) {
+          const creator = $(selector);
+          creator.open = false;
+          creator.querySelector('form')?.reset?.();
+        }
       }
       return load();
     }
@@ -113,7 +211,13 @@
       $('#resourcesUnavailable').hidden = true;
       $('#resourceWorkspace').hidden = true;
       if ($('#resourceHeaderActions')) $('#resourceHeaderActions').hidden = true;
-      const { data, error } = await db.rpc('get_minuta_resource_workspace', { p_organization: organizationId });
+      let data = null;
+      let error = null;
+      try {
+        ({ data, error } = await db.rpc('get_minuta_resource_workspace', { p_organization: organizationId }));
+      } catch (reason) {
+        error = reason && typeof reason === 'object' ? reason : { message: String(reason || '') };
+      }
       if (!sessionIsCurrent(userId, generation) || revision !== requestRevision || organization?.id !== organizationId) return { ok: false, optional: true, stale: true };
       $('#resourcesLoading').hidden = true;
       if (error) {
@@ -255,6 +359,7 @@
 
     function renderResourceList(canManage, keepEditors = false) {
       const list = $('#resourcesList');
+      rememberForms(resourceForms());
       const normalized = resourceQuery.trim().toLocaleLowerCase('ru-RU');
       const visible = payload.resources.filter(item =>
         (!resourceLocationId || String(item.location_id) === resourceLocationId) &&
@@ -270,6 +375,7 @@
         const editor = editors.get(node.dataset.resourceCard);
         if (editor) { editor.hidden = false; node.replaceWith(editor); }
       });
+      restoreForms(resourceForms());
       const count = $('#resourceListMatchCount');
       if (count) count.textContent = `Найдено: ${visible.length} из ${payload.resources.length}`;
       renderPagination();
@@ -303,6 +409,7 @@
 
     function render() {
       if (availability !== 'ready' || !payload) return;
+      rememberForms(otherForms());
       installLayout();
       const canManage = Boolean(payload.can_manage);
       setResourceWritesDisabled(false);
@@ -339,7 +446,8 @@
            ? 'Сначала создайте группу взаимозаменяемых ресурсов. Затем добавьте конкретный кабинет или оборудование в филиал.'
            : 'Добавьте конкретный кабинет или оборудование в филиал. Затем укажите, каким услугам нужны ресурсы этой группы.';
        $('#resourceLocationLink').hidden = !canManage || activeLocations.length > 0;
-       $('#resourceRequirementsPanel').hidden = !canManage || !activeGroups.length || !activeResourceCount;
+       const hasRequirements = payload.requirements.some(item => item.active);
+       $('#resourceRequirementsPanel').hidden = !canManage || (!hasRequirements && (!activeGroups.length || !activeResourceCount));
       $('#resourceLocation').innerHTML = optionList(activeLocations, '', item => item.name);
       $('#resourceGroup').innerHTML = optionList(activeGroups, '', item => `${item.name} · ${kindLabels[item.kind] || 'Другое'}`);
       $('#resourceForm button[type="submit"]').disabled = !activeLocations.length || !activeGroups.length;
@@ -351,6 +459,8 @@
       $('#resourceAuditCount').hidden = payload.audit.length === 0;
       $('#resourceAuditList').innerHTML = payload.audit.length ? payload.audit.map(auditCard).join('') : empty('Изменений пока нет', 'Здесь появятся действия с группами, ресурсами и требованиями услуг.');
       renderHeader(canManage, hasGroups, activeLocations, activeGroups);
+      restoreForms(otherForms());
+      renderedScope = scopeKey();
       applyWriteAvailability();
     }
 
@@ -373,11 +483,36 @@
       }
     }
 
-    async function mutate(rpc, parameters, button, success, errorSelector) {
+    function mutationVisible(rpc, parameters, before) {
+      const same = (row, values) => row && Object.entries(values).every(([key, value]) => (row[key] ?? '') === value);
+      if (rpc === 'update_minuta_resource_group') return same(payload.groups.find(row => row.id === parameters.p_group), {
+        name: parameters.p_name, kind: parameters.p_kind, description: parameters.p_description, active: parameters.p_active
+      });
+      if (rpc === 'update_minuta_resource') return same(payload.resources.find(row => row.id === parameters.p_resource), {
+        name: parameters.p_name, location_id: parameters.p_location, group_id: parameters.p_group, active: parameters.p_active
+      });
+      if (rpc === 'create_minuta_resource_group') return payload.groups.some(row => !before.groups.some(old => old.id === row.id) && same(row, {
+        name: parameters.p_name, kind: parameters.p_kind, description: parameters.p_description
+      }));
+      if (rpc === 'create_minuta_resource') return payload.resources.some(row => !before.resources.some(old => old.id === row.id) && same(row, {
+        name: parameters.p_name, location_id: parameters.p_location, group_id: parameters.p_group
+      }));
+      if (rpc === 'replace_minuta_service_resource_requirements') {
+        const normalized = rows => rows.map(row => [row.group_id, Number(row.quantity)]).sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+        return JSON.stringify(normalized(payload.requirements.filter(row => row.service_id === parameters.p_service && row.active)))
+          === JSON.stringify(normalized(parameters.p_requirements));
+      }
+      return false;
+    }
+
+    async function mutate(rpc, parameters, button, success, errorSelector, form) {
       if (!requireWrites() || !organization?.id || availability !== 'ready' || !payload || payload.organization_id !== organization.id || writePending) return false;
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
       const organizationId = organization.id;
+      const before = payload;
+      const submittedKey = formKey(form);
+      const submittedFields = formFields(form);
       const revision = ++requestRevision;
       writePending = true;
       setResourceWritesDisabled(true);
@@ -389,7 +524,7 @@
       try {
         ({ data, error } = await db.rpc(rpc, parameters));
       } catch (reason) {
-        error = reason instanceof Error ? reason : { message: String(reason || '') };
+        error = reason && typeof reason === 'object' ? reason : { message: String(reason || '') };
       }
       if (button) button.textContent = oldText;
       const stale = !sessionIsCurrent(userId, generation) || organization?.id !== organizationId || revision !== requestRevision;
@@ -402,15 +537,30 @@
       }
       if (error) {
         const text = `${error.message || ''} ${error.details || ''}`;
+        const unknownCompletion = /^08/.test(error.code || '') || error.code === '40003';
+        const rejected = !unknownCompletion && (/^[0-9A-Z]{5}$/.test(error.code || '') || /^PGRST\d+$/.test(error.code || '')
+          || /resource_(?:has_future_bookings|unavailable|group_is_required|scope_is_immutable_after_use)|duplicate key|denied|invalid_resource|not_found/i.test(text));
         const subject = /resource_group/.test(rpc) ? 'группы' : 'ресурса';
         const message = /resource_has_future_bookings/i.test(text)
           ? `Сначала перенесите или отмените будущие записи, связанные с настройками ${subject}.`
+          : /resource_group_is_required/i.test(text)
+            ? 'Сначала снимите требование этой группы у услуг, затем отключите группу.'
+          : /resource_scope_is_immutable_after_use/i.test(text)
+            ? 'Нельзя сменить филиал или группу ресурса после использования в записях. Создайте отдельный ресурс для нового места.'
           : /resource_unavailable/i.test(text)
             ? 'Не всем будущим записям хватает свободных ресурсов. Настройки не изменены.'
             : /duplicate key/i.test(text)
               ? `Такое название ${subject} уже используется.`
-              : 'Изменение не сохранено. Проверьте данные и повторите.';
+              : rejected ? 'Изменение не сохранено. Проверьте данные и повторите.'
+                : 'Не удалось подтвердить сохранение. Проверьте соединение и обновите данные перед повтором.';
         const refreshed = await load();
+        if (!sessionIsCurrent(userId, generation) || organization?.id !== organizationId || refreshed?.stale) return false;
+        if (!rejected && refreshed?.ok && mutationVisible(rpc, parameters, before)) {
+          finishSavedForm(submittedKey, submittedFields);
+          render();
+          notify('Изменение подтверждено после проверки данных.');
+          return true;
+        }
         if (refreshed?.ok && errorSelector) showError(errorSelector, message); else notify(message);
         return false;
       }
@@ -422,6 +572,7 @@
       payload = data;
       for (const key of ['services', 'groups', 'resources', 'requirements', 'locations', 'audit']) if (!Array.isArray(payload[key])) payload[key] = [];
       availability = 'ready';
+      finishSavedForm(submittedKey, submittedFields);
       render();
       notify(success);
       return true;
@@ -432,30 +583,28 @@
       event.preventDefault();
       if (!organization?.id || availability !== 'ready' || !payload || payload.organization_id !== organization.id || writePending) return;
       if (event.target.id === 'resourceGroupForm') {
-        const saved = await mutate('create_minuta_resource_group', { p_organization: organization.id, p_name: $('#resourceGroupName').value.trim(), p_kind: $('#resourceGroupKind').value, p_description: $('#resourceGroupDescription').value.trim() }, event.submitter, 'Группа ресурсов создана', '#resourceGroupError');
-        if (saved) { event.target.reset(); $('#resourceGroupCreator').open = false; }
+        await mutate('create_minuta_resource_group', { p_organization: organization.id, p_name: $('#resourceGroupName').value.trim(), p_kind: $('#resourceGroupKind').value, p_description: $('#resourceGroupDescription').value.trim() }, event.submitter, 'Группа ресурсов создана', '#resourceGroupError', event.target);
         return;
       }
       if (event.target.id === 'resourceForm') {
-        const saved = await mutate('create_minuta_resource', { p_organization: organization.id, p_location: $('#resourceLocation').value, p_group: $('#resourceGroup').value, p_name: $('#resourceName').value.trim() }, event.submitter, 'Ресурс создан', '#resourceError');
-        if (saved) { event.target.reset(); $('#resourceCreator').open = false; }
+        await mutate('create_minuta_resource', { p_organization: organization.id, p_location: $('#resourceLocation').value, p_group: $('#resourceGroup').value, p_name: $('#resourceName').value.trim() }, event.submitter, 'Ресурс создан', '#resourceError', event.target);
         return;
       }
       if (event.target.id === 'resourceRequirementForm') {
         const requirements = [...event.target.querySelectorAll('[data-requirement-group]')].map(input => ({ group_id: input.dataset.requirementGroup, quantity: Number(input.value) })).filter(item => Number.isInteger(item.quantity) && item.quantity > 0);
-        await mutate('replace_minuta_service_resource_requirements', { p_organization: organization.id, p_service: selectedServiceId, p_requirements: requirements }, event.submitter, 'Требования услуги сохранены', '#resourceRequirementError');
+        await mutate('replace_minuta_service_resource_requirements', { p_organization: organization.id, p_service: selectedServiceId, p_requirements: requirements }, event.submitter, 'Требования услуги сохранены', '#resourceRequirementError', event.target);
         return;
       }
       const groupForm = event.target.closest('[data-resource-group-form]');
       if (groupForm) {
         const id = groupForm.dataset.resourceGroupForm;
-        await mutate('update_minuta_resource_group', { p_group: id, p_name: groupForm.elements.name.value.trim(), p_kind: groupForm.elements.kind.value, p_description: groupForm.elements.description.value.trim(), p_active: groupForm.elements.active.checked }, event.submitter, 'Группа сохранена', `[data-resource-group-card="${id}"] [data-resource-group-error]`);
+        await mutate('update_minuta_resource_group', { p_group: id, p_name: groupForm.elements.name.value.trim(), p_kind: groupForm.elements.kind.value, p_description: groupForm.elements.description.value.trim(), p_active: groupForm.elements.active.checked }, event.submitter, 'Группа сохранена', `[data-resource-group-card="${id}"] [data-resource-group-error]`, groupForm);
         return;
       }
       const resourceForm = event.target.closest('[data-resource-form]');
       if (resourceForm) {
         const id = resourceForm.dataset.resourceForm;
-        await mutate('update_minuta_resource', { p_resource: id, p_location: resourceForm.elements.location.value, p_group: resourceForm.elements.group.value, p_name: resourceForm.elements.name.value.trim(), p_active: resourceForm.elements.active.checked }, event.submitter, 'Ресурс сохранён', `[data-resource-card="${id}"] [data-resource-error]`);
+        await mutate('update_minuta_resource', { p_resource: id, p_location: resourceForm.elements.location.value, p_group: resourceForm.elements.group.value, p_name: resourceForm.elements.name.value.trim(), p_active: resourceForm.elements.active.checked }, event.submitter, 'Ресурс сохранён', `[data-resource-card="${id}"] [data-resource-error]`, resourceForm);
       }
     }
 
@@ -523,11 +672,14 @@
     function cancelEditor(target) {
       const editor = target.closest('details');
       if (!editor) return;
+      drafts.delete(formKey(editor.querySelector('form')));
       editor.querySelector('form')?.reset();
       editor.querySelectorAll('.form-error').forEach(error => { error.hidden = true; });
       editor.open = false;
       const create = editor.id === 'resourceCreator' || editor.id === 'resourceGroupCreator';
-      (create ? $('#resourceMainAction') : editor.querySelector('summary'))?.focus();
+      const focusTarget = create ? $('#resourceMainAction') : editor.querySelector('summary');
+      focusTarget?.focus?.({ preventScroll: true });
+      focusTarget?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
     }
 
     function bind() {
