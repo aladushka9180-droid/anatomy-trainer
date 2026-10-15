@@ -118,6 +118,7 @@ cases.push(['already enabled base needs only one ledger write',async h=>{await h
 cases.push(['disable leaves base payroll and finance intact',async h=>{await h.toggle();const s=await h.state();assert.equal(s.checked,false);assert.equal(s.base,true);assert.equal(s.finance,true);assert.deepEqual(s.calls.filter(c=>c.name!==rpc.read).map(c=>c.name),[rpc.ledger]);},{base:true,ledger:true}]);
 for(const width of [390,760,1440])cases.push(['finance prerequisite is explicit and draft stays open at '+width,async h=>{
   await h.draft();await h.toggle();const s=await h.state();assert.equal(s.checked,false);assert.equal(s.base,false);assert.match(s.error,/финансовый учёт.*Продажи/);assert.equal(s.hiddenCount,0);
+  assert.match(await h.page.locator('#payrollPeriodsList').textContent(),/Сначала включите.+затем добавьте правило/,'disabled setup must explain enable before adding a rule');
   assert.deepEqual(s.calls.filter(c=>c.name!==rpc.read).map(c=>c.name),[rpc.ledger]);assert.equal(await h.page.locator('#payrollPlanCreator').evaluate(n=>n.open),true);
   const overflow=await h.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);assert.equal(overflow,false);
   if(output)await h.page.screenshot({path:resolve(output,'finance-error-'+width+'.png'),fullPage:true});

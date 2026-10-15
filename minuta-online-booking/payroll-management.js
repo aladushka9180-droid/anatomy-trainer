@@ -384,7 +384,7 @@
       const emptyPeriodHint = !enabled
         ? payload.plans.length
           ? 'Учёт зарплаты выключен. Включите его выше, затем подготовьте расчёт.'
-          : 'Учёт зарплаты выключен. Добавьте правило начисления для сотрудника, затем включите учёт.'
+          : 'Учёт зарплаты выключен. Сначала включите его выше, затем добавьте правило начисления для сотрудника и подготовьте расчёт.'
         : 'Выберите даты выше и подготовьте расчёт. Начисление и выплата — отдельные действия.';
       $('#payrollPeriodsList').innerHTML = payload.periods.length ? payload.periods.map(item => periodCard(item, canManage, enabled)).join('') : empty('Расчётов пока нет', emptyPeriodHint);
       $('#payrollItemsList').innerHTML = payload.items.length ? payload.items.map(itemCard).join('') : empty('Начислений по визитам нет', 'Детализация появится после подготовки расчёта.');
