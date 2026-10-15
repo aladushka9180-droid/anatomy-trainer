@@ -25,9 +25,12 @@ never create negative balances. No blanket bypass for ordinary/future visits.
 
 ## Verification
 
-- Causal baseline: the new UI regression fails on main (unknown state instead of
-  an editable stock refusal); actual historical function chain and stock error
-  were observed read-only in production logs. No booking was created by testing.
+- Causal baseline: the original PostgreSQL chain rolls the entire historical
+  booking/payment back on insufficient stock. The new persisted-marker checks
+  fail against the original hint/cache/reader, which have no marker support.
+  The same function chain and stock error were observed read-only in production
+  logs. No real booking was created by testing; the old unknown-result UI latch
+  is deliberately unchanged, including when connected to the old server.
 - Embedded PostgreSQL executes the actual v164 consumer and v145 wrapper with
   the actual outcome trigger and explicit synthetic legacy-create/outcome/audit
   dependencies: 16/16 checks. It tests full
@@ -54,11 +57,17 @@ Fresh protected full backup, isolated restore and exact same-copy apply/read/
 rollback/reapply remain mandatory BEFORE production SQL. Embedded fixtures do not
 satisfy those gates. No production SQL was applied by this task.
 
-The final startup core budget passes at 3799093/3799094 bytes (63 files).
-The earlier failing revision added a redundant block/API response and legacy
-error mapping. These were removed in favor of the existing outcome hint; only
-its related comment was shortened. No cap increase or unrelated compression.
-Recheck the budget in the owner's final combined tree.
+The candidate at e3ccf44f passes its local startup core budget at
+3799093/3799094 bytes (63 files), based on a5a842a5. CI checks the merge with
+new main 1929921f, which alone uses all 3799094 bytes: the combined tree is
+3799139 bytes, an exact 45-byte overrun. This is a real shared-budget HOLD,
+not an EOL discrepancy. The owner must qualify this exact measured increment
+or a compatible in-scope reduction; no cap increase is hidden in this candidate.
+The earlier redundant block/API response and legacy error mapping are removed.
+PG CI on e3ccf44f passed; shared smoke and service-delete jobs fail at this
+same CORE gate (their actual service tests pass). A separate card CI stopped
+while installing Chrome, before running its browser tests. Those failures are
+not waived. Recheck the owner's final combined tree and its CI.
 Run combined CI, publish SQL then compatible UI, verify actual bytes/cache and
 the allowed test-account past visit, payment, persisted marker after reload,
 unchanged stock and ordinary/future refusal. Browser access stopped on Windows
