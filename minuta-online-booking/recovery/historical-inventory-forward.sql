@@ -38,29 +38,20 @@ $handler$;
     where id=p_booking and booking_policy_snapshot->'historical_inventory_unconsumed'='true'::jsonb;
   -- historical-inventory-v1:clear:end
 $clear$;
-  v_ack text:=$ack$
-    /*historical-inventory-v1:ack*/ , 'materials_not_deducted',coalesce((select booking_policy_snapshot->'historical_inventory_unconsumed'='true'::jsonb from public.bookings where id=v_booking),false) /*historical-inventory-v1:ack:end*/$ack$;
-  v_anchor text:='''calculated_amount_rub'',(v_outcome->>''calculated_amount_rub'')::integer';
 begin
   perform pg_advisory_xact_lock(98014516);
   for r in select * from (values
-    ('public.consume_minuta_inventory_for_booking(uuid)','4ce8a73e07e108bcd45db5a4f7b993b3'),
-    ('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer,text,integer)','1dd789f8679b772cc5df5c2049eab05e')
+    ('public.consume_minuta_inventory_for_booking(uuid)','4ce8a73e07e108bcd45db5a4f7b993b3')
   ) as expected(signature,body_md5) loop
     v_oid:=to_regprocedure(r.signature)::oid;
     if v_oid is null then raise exception 'historical_inventory_prerequisite_missing'; end if;
     select prosrc,pg_get_functiondef(oid) into v_body,v_definition from pg_catalog.pg_proc where oid=v_oid;
     v_original:=regexp_replace(v_body,'(?s)\n-- historical-inventory-v1:handler:start\n.*?-- historical-inventory-v1:handler:end\n',E'\n');
     v_original:=regexp_replace(v_original,'(?s)  -- historical-inventory-v1:clear:start\n.*?  -- historical-inventory-v1:clear:end\n','');
-    v_original:=regexp_replace(v_original,'(?s)\n    /\*historical-inventory-v1:ack\*/.*?/\*historical-inventory-v1:ack:end\*/','');
     if md5(v_original)<>r.body_md5 then raise exception 'historical_inventory_unknown_definition'; end if;
-    if r.signature like '%consume_minuta_inventory%' then
-      v_new:=regexp_replace(v_original,E'\nend[[:space:]]*$',v_handler||E'end ');
-      v_new:=replace(v_new,'  perform public.write_minuta_inventory_audit(v_booking.organization_id,''inventory_booking_consumed'',p_booking,',
-        v_clear||'  perform public.write_minuta_inventory_audit(v_booking.organization_id,''inventory_booking_consumed'',p_booking,');
-    else
-      v_new:=replace(v_original,v_anchor,v_anchor||v_ack);
-    end if;
+    v_new:=regexp_replace(v_original,E'\nend[[:space:]]*$',v_handler||E'end ');
+    v_new:=replace(v_new,'  perform public.write_minuta_inventory_audit(v_booking.organization_id,''inventory_booking_consumed'',p_booking,',
+      v_clear||'  perform public.write_minuta_inventory_audit(v_booking.organization_id,''inventory_booking_consumed'',p_booking,');
     if v_new=v_original then raise exception 'historical_inventory_patch_not_applied'; end if;
     if v_body=v_new then continue; end if;
     if v_body<>v_original then raise exception 'historical_inventory_partial_patch'; end if;

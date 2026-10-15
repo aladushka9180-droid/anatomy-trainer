@@ -79,12 +79,13 @@ try{
  });
  await db.exec(forward);
  const patched=await bodies();assert.notDeepEqual(patched,baseline);
+ assert.equal(patched.hashes.create_minuta_historical_booking,baseline.hashes.create_minuta_historical_booking,'No historical RPC body or response-contract change');
  await check('forward is idempotent and retains both original signatures',async()=>{await db.exec(forward);assert.deepEqual(await bodies(),patched);});
  await check('owner ACL security-definer and empty search-path are unchanged',async()=>{assert.deepEqual(await metadata(),originalMetadata);});
  let result;
  await check('past visit and payment survive shortage with durable notice and no partial deduction',async()=>{
    const before=await state();result=(await one(create)).result;const after=await state();
-   assert.equal(result.materials_not_deducted,true);assert.equal(result.amount_rub,2500);assert.equal(result.visit_status,'completed');
+   assert.equal(result.amount_rub,2500);assert.equal(result.visit_status,'completed');
    assert.deepEqual(after.stocks,before.stocks);assert.equal(after.movements,before.movements);
    assert.equal(after.bookings,before.bookings+1);assert.equal(after.outcomes,before.outcomes+1);
    assert.equal((await one(`select booking_policy_snapshot->'historical_inventory_unconsumed' flag from bookings where id='${result.booking_id}'`)).flag,true);
@@ -117,10 +118,10 @@ try{
    assert.equal((await one(`select booking_policy_snapshot?'historical_inventory_unconsumed' flag from bookings where id='${result.booking_id}'`)).flag,false);
    const before=await state();await db.exec(`select consume_minuta_inventory_for_booking('${result.booking_id}')`);assert.deepEqual(await state(),before);
  });
- await check('normal historical success returns false, not a spurious pending notice',async()=>{const ack=(await one(create)).result;assert.equal(ack.materials_not_deducted,false);});
+ await check('normal historical success stores no spurious pending notice',async()=>{const ack=(await one(create)).result;assert.equal((await one(`select booking_policy_snapshot?'historical_inventory_unconsumed' flag from bookings where id='${ack.booking_id}'`)).flag,false);});
  await check('rollback/reapply preserve data and restore exact original function bodies',async()=>{
    await db.exec(`update inventory_stock_balances set quantity=0 where inventory_item_id='${item2}'`);
-   const pending=(await one(create)).result;assert.equal(pending.materials_not_deducted,true);
+   const pending=(await one(create)).result;assert.equal((await one(`select booking_policy_snapshot->'historical_inventory_unconsumed' flag from bookings where id='${pending.booking_id}'`)).flag,true);
    const before=await state();await db.exec(rollback);assert.deepEqual(await bodies(),baseline);assert.deepEqual(await state(),before);
    await db.exec(rollback);await db.exec(forward);assert.deepEqual(await bodies(),patched);await db.exec(rollback);assert.deepEqual(await bodies(),baseline);assert.deepEqual(await state(),before);
  });

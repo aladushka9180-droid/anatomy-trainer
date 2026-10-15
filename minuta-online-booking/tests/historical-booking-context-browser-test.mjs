@@ -27,6 +27,8 @@ const functions=['normalizeRepeatVisitPreview','repeatVisitPreviewMarkup','openN
   'saveBookingColor','persistBookingColors','bookingColorStorageKey','bookingColorPendingStorageKey','requireBookingWrites','sessionIsCurrent','captureBookingMetadataContext',
   'showFormError','clearFormError','resetServicePublicCardPhotoPreview','clientFramedAvatarMarkup','clientAvatarContent'];
 const constants=source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];assert.ok(constants);
+functions.push('automaticOutcomeHint','outcomeVisitLabel');
+const inventoryHeaderSource=source.match(/<summary><div><small>После визита<\/small>.*?\$\{automaticOutcomeHint\(item\) \|\| outcomeVisitLabel\(outcome\)\}<\/span><\/summary>/)?.[0];assert.ok(inventoryHeaderSource);
 const bookingGridConstant=source.match(/^const NEW_BOOKING_GRID_MINUTES = [^\n]+/m)?.[0];assert.ok(bookingGridConstant);
 const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision','portfolioEditorRevision'].map(name=>{
   const value=source.match(new RegExp(`^let ${name} = .*;$`,'m'))?.[0];assert.ok(value,`Actual ${name}`);return value;
@@ -135,6 +137,7 @@ async function fixture(){
     var refreshAfterWrite=async()=>{effects.push({kind:'refresh'});if(refreshOutcome==='throw')throw Error('refresh_failed');return refreshOutcome!=='error';};
     var focusCreatedBooking=id=>effects.push({kind:'focus-created',id});
     var bookingPolicy={auto_complete_payment_method:'cash'};
+    var bookingOutcome=()=>({visit_status:'completed'}),bookingWillCompleteAutomatically=()=>false;
     var historicalAck={booking_id:ids.booking,booking_code:'MIN-A1B2C3D4E5',duration_minutes:60,unit_price_rub:1000,
       total_price_rub:1000,payment_required:false,notifications_suppressed:true,visit_status:'completed',payment_method:'cash',amount_rub:1000,calculated_amount_rub:1000};
     var transport=(kind,value)=>hold===kind?new Promise((resolve,reject)=>gates.push({kind,resolve,reject,value})):Promise.resolve(value);
@@ -162,8 +165,7 @@ async function openAndFill(page,label){
   await page.evaluate(()=>{const time=$('#newBookingHistoricalTime');time.value='10:15';time.dispatchEvent(new Event('input',{bubbles:true}));time.dispatchEvent(new Event('change',{bubbles:true}));});
   await page.locator('#newBookingAdvanced > summary').click();
   await page.locator('.booking-color-compact > summary').click();
-  const color=page.locator(`[name="newBookingColor"][value="${label==='A'?'mint':'rose'}"]`);
-  await color.locator('..').click();assert.equal(await color.isChecked(),true);
+  await page.locator(`[name="newBookingColor"][value="${label==='A'?'mint':'rose'}"]`).check();
   assert.equal(await page.evaluate(()=>newBookingHistoricalMode),true);
   assert.equal(await page.locator('#newBookingHistoricalPayment').isVisible(),true);
   assert.equal(await page.locator('#newBookingHistoricalPaymentMethod').inputValue(),'cash');
@@ -320,7 +322,7 @@ cases.push(['SAFETY pending CREATE survives input/change caption refresh and dup
   assert.equal(disabled,true,'A caption refresh must not unlock an in-flight non-idempotent CREATE');
   assert.equal(calls,1,'Exactly one CREATE while the first result is pending');
 }]);
-for(const kind of ['null','partial','network-name','wrong-pair','throw','inventory-network'])cases.push([
+for(const kind of ['null','partial','network-name','wrong-pair','throw','inventory-network','inventory'])cases.push([
   `SAFETY unknown historical ${kind} keeps CREATE latched with no retry`,async page=>{
     await startCreate(page);await answerCreate(page,kind);await exerciseCaption(page);
     const disabled=await page.locator('#newBookingSubmit').isDisabled();await attemptResubmit(page);
@@ -343,35 +345,28 @@ cases.push(['CONTROL exact v98 SQL refusal unlocks editing and a new explicit at
   assert.equal(await page.evaluate(()=>effects.filter(e=>e.name==='create_minuta_historical_booking').length),2);
   await answerCreate(page,'refusal');
 }]);
-for(const width of [390,760,1440])cases.push([`UI inventory rollback keeps the historical form editable ${width}`,async page=>{
+for(const width of [390,760,1440])cases.push([`UI persisted inventory marker in the actual outcome header ${width}`,async page=>{
   await page.setViewportSize({width,height:850});
   await page.evaluate(()=>{document.body.className='provider-body';document.body.dataset.providerTheme='sage';document.body.dataset.providerLayout='linear';});
   for(const match of html.matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^" ]*)?"/g)){
     await page.addStyleTag({content:readFileSync(new URL(`../${match[1]}`,import.meta.url),'utf8').replace(/url\([^)]*\)/g,'none')});
   }
-  await page.evaluate(()=>{hold='create';});await openAndFill(page,'A');
-  await page.locator('#newBookingHistoricalPaymentMethod').selectOption('transfer');
-  await page.locator('#newBookingHistoricalAmount').fill('2500');
-  await page.locator('#newBookingSubmit').click();await page.waitForFunction(()=>gates.length===1);
-  await answerCreate(page,'inventory');
-  assert.equal(await page.locator('#newBookingSubmit').isEnabled(),true);
-  assert.match(await page.locator('#newBookingError').innerText(),/Недостаточно материалов на складе/);
-  assert.match(await page.locator('#newBookingError').innerText(),/Запись не создана/);
-  assert.equal(await page.locator('#newBookingHistoricalPaymentMethod').inputValue(),'transfer');
-  assert.equal(await page.locator('#newBookingHistoricalAmount').inputValue(),'2500');
-  assert.equal(await page.locator('#newBookingHistoricalTime').inputValue(),'10:15');
-  assert.equal(await page.evaluate(()=>effects.length),1,'A refused CREATE must not retry or start secondary writes');
-  await page.locator('#newBookingError').scrollIntoViewIfNeeded();
+  // Exact summary fragment + actual hint/label helpers, not full live rendering.
+  await page.addScriptTag({content:'globalThis.inventoryHeader=(item,outcome)=>`'+inventoryHeaderSource+'`;'});
+  await page.evaluate(()=>{
+    document.body.classList.add('booking-sheet-open');$('#bookingSheet').hidden=false;
+    $('#bookingSheet').classList.add('booking-sheet-detail');
+    const item=JSON.parse('{"booking_policy_snapshot":{"historical_inventory_unconsumed":true}}');
+    $('#bookingSheetContent').innerHTML='<details class="booking-sheet-disclosure booking-outcome-disclosure" open>'+inventoryHeader(item,{visit_status:'completed'})+'</details>';
+  });
+  assert.match(await page.locator('.booking-outcome-disclosure summary').innerText(),/Материалы не списаны/);
+  await page.waitForTimeout(450); // Let the existing sheet appearance animation finish.
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  assert.ok(await page.locator('#newBookingError').evaluate(el=>el.scrollWidth<=el.clientWidth));
-  if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-inventory-error-${width}.png`});
-}]);
-cases.push(['CONTROL historical inventory notice is shown only after a confirmed CREATE',async page=>{
-  await page.evaluate(()=>{historicalAck.materials_not_deducted=true;});
-  await start(page);await release(page);
-  const state=await snapshot(page);assert.equal(state.visible,false);
-  assert.match(state.effects.at(-1).text,/Материалы не списаны/);
-  assert.equal(state.effects.filter(e=>e.name==='create_minuta_historical_booking').length,1);
+  assert.ok(await page.locator('.booking-outcome-disclosure summary').evaluate(el=>el.scrollWidth<=el.clientWidth));
+  assert.equal(await page.evaluate(()=>effects.length),0);
+  if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-inventory-marker-${width}.png`});
+  await page.evaluate(()=>{$('#bookingSheetContent').innerHTML=inventoryHeader({booking_policy_snapshot:{}},{visit_status:'completed'});});
+  assert.doesNotMatch(await page.locator('#bookingSheetContent').innerText(),/Материалы не списаны/);
 }]);
 for(const phase of ['color','refresh'])for(const outcome of ['error','throw'])cases.push([
   `SAFETY confirmed CREATE then ${phase} ${outcome} remains created without another CREATE`,async page=>{

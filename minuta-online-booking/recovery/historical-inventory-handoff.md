@@ -5,10 +5,10 @@ never create negative balances. No blanket bypass for ordinary/future visits.
 
 ## Candidate and boundaries
 
-- Guarded forward/rollback payloads change only two existing function bodies.
+- Guarded forward/rollback payloads change only the existing inventory consumer.
   Expected source MD5 values were verified read-only against the current target:
-  consumer `4ce8a73e07e108bcd45db5a4f7b993b3`, nine-argument historical RPC
-  `1dd789f8679b772cc5df5c2049eab05e`. Unknown definitions refuse modification.
+  consumer `4ce8a73e07e108bcd45db5a4f7b993b3`. The existing historical RPC
+  and its response contract are unchanged. Unknown definitions refuse modification.
 - Only exact SQLSTATE 55000 / insufficient_inventory_stock_for_completed_visit
   in an authenticated authorized historical completed visit enters the exception.
   PostgreSQL rolls back the entire attempted consumption subtransaction before
@@ -16,8 +16,8 @@ never create negative balances. No blanket bypass for ordinary/future visits.
 - No table, account, role, grant or inventory balance migration. Existing ACL,
   owner and function configuration are retained. No negative or partial deduction.
 - Marker lives in booking_policy_snapshot.historical_inventory_unconsumed.
-  The historical RPC returns materials_not_deducted, and the provider shows it
-  after confirmed creation and in the record detail from the persisted snapshot.
+  The existing outcome hint renders “Материалы не списаны” from the saved snapshot
+  in record details after reloading; no new response field or toast contract.
 - A later successful consumption clears the marker; no automatic retry job or
   new “deduct later” control is introduced. Existing idempotency remains.
 - Rollback restores exact original bodies, not stock or business rows; truthful
@@ -34,11 +34,12 @@ never create negative balances. No blanket bypass for ordinary/future visits.
   multi-material rollback, preserved visit/payment, durable marker, ordinary/
   future/invalid-actor refusal, hard unrelated errors, normal success, no duplicate
   consumption, exact rollback/reapply, owner/ACL/config preservation and drift.
-- Actual createNewBooking VM tests (48/48) retain unknown-response latch, session/form
-  ownership, draft/field preservation, exact-error classification and notice.
+- Actual createNewBooking VM tests (46/46) retain unknown-response latch, session/form
+  ownership, existing error classification and stored outcome-hint rendering.
 - Native browser scenarios (48/48) are isolated, network-blocked, synthetic fixtures.
-  The stock error was visually inspected at 390/760/1440 with the existing sage
-  styles. This is NOT a live authenticated creation or a physical Android test.
+  The actual outcome-summary fragment and hint/label helpers are rendered with
+  the saved marker at 390/760/1440 using existing sage styles. This isolated
+  fragment is NOT the full live booking renderer, authenticated creation or Android.
 
 ## Release gates / ownership
 
@@ -49,8 +50,11 @@ Fresh protected full backup, isolated restore and exact same-copy apply/read/
 rollback/reapply remain mandatory BEFORE production SQL. Embedded fixtures do not
 satisfy those gates. No production SQL was applied by this task.
 
-Check the final startup core budget; this candidate adds provider text and does
-not raise the budget or change unrelated code to conceal the increase.
+The final startup core budget passes at 3799065/3799094 bytes (63 files).
+The earlier failing revision added a redundant block/API response and legacy
+error mapping. These were removed in favor of the existing outcome hint; only
+its related comment was shortened. No cap increase or unrelated compression.
+Recheck the budget in the owner's final combined tree.
 Run combined CI, publish SQL then compatible UI, verify actual bytes/cache and
 the allowed test-account past visit, payment, persisted marker after reload,
 unchanged stock and ordinary/future refusal. Browser access stopped on Windows
