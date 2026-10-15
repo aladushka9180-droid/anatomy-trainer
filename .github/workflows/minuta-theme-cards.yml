@@ -101,6 +101,7 @@ jobs:
       - run: node minuta-online-booking/tests/statistics-heatmap-scroll-hint-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-heatmap-drilldown-browser-test.mjs --project-root .
       - run: node minuta-online-booking/tests/retention-copy-a10-browser-test.mjs
+      - run: node minuta-online-booking/tests/retention-audit-fixes-browser-test.mjs
       - run: node minuta-online-booking/tests/organization-roles-a02-browser-test.mjs
       - run: node minuta-online-booking/tests/organization-overview-browser-test.mjs
       - name: Verify organization groups, roles and sticky navigation
