@@ -5,6 +5,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, extname, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { runInNewContext } from 'node:vm';
 
 // Isolated real service-worker update test, not installed-application or production E2E.
 // MINUTA_BASELINE_REF (or first CLI argument) must identify the exact old release.
@@ -49,6 +50,19 @@ const oldRelease = snapshot(oldFile, ['group-bookings.js', 'provider.js']);
 const newCoreModules = ['group-bookings.js', 'provider.js', 'report-reconciliation.js'];
 const offlineModules = [...new Set([...newCoreModules, ...executableModules])];
 const newRelease = snapshot(newFile, newCoreModules);
+const organizationRequests = providerOrganizationRequests(newRelease);
+const organizationModules = Object.keys(organizationRequests);
+// Serve existing optional bytes for the real worker's warmup only. This list
+// never chooses the request keys asserted by the regression below.
+const providerOptionalBlock = newRelease.files.get('sw.js').toString('utf8')
+  .match(/const OPTIONAL_ASSETS = \[([\s\S]*?)\];/)?.[1];
+assert.ok(providerOptionalBlock, 'Provider optional warmup list must be present');
+const providerOptionalAssets = [...providerOptionalBlock.matchAll(/'([^']+)'/g)].map(match => match[1]);
+for (const asset of providerOptionalAssets) {
+  const file = asset.split('?')[0].replace(/^\.\//, '');
+  assert.ok(!file.split('/').includes('..') && !file.includes('\\'), 'Unexpected optional manifest traversal');
+  if (!newRelease.files.has(file)) newRelease.files.set(file, newFile(file));
+}
 newRelease.files.set('client-offline-flexible.js', newFile('client-offline-flexible.js'));
 const clientFlexibleAssetBlock = newRelease.files.get('sw.js').toString('utf8')
   .match(/const CLIENT_FLEXIBLE_ASSETS = \[([^\]]+)\];/)?.[1];
@@ -75,6 +89,53 @@ assert.notEqual(newRelease.version, oldRelease.version, 'The candidate must have
 
 const moduleRequest = (release, module) => release.assets.find(asset => asset.split('?')[0] === `./${module}`)
   || `./${module}?v=${release.version}`;
+
+// Derive request keys from real provider SOURCE, never from the worker manifest.
+// Only the version initializer, loader URL expression and three URL-only CSS
+// snippets run in a VM. No provider body, controller, Auth or SDK is evaluated.
+function providerOrganizationRequests(release) {
+  const base = new URL(`https://pwa-source.invalid${prefix}`);
+  const provider = release.files.get('provider.js').toString('utf8');
+  const html = release.files.get('provider.html').toString('utf8');
+  const providerRequest = html.match(/<script\b[^>]*\bsrc="(provider\.js\?[^"]+)"/)?.[1];
+  const versionExpression = provider.match(/const providerAssetVersion = (\(\(\) => \{[\s\S]*?\}\)\(\));/)?.[1];
+  const loaderExpression = provider.match(/function loadProviderFeatureScript\(path\) \{[\s\S]*?\n  const source = ([^\n]+);/)?.[1];
+  const definitions = provider.match(/const organizationFeatureDefinitions = new Map\(\[([\s\S]*?)\n\]\);/)?.[1];
+  assert.ok(providerRequest && versionExpression && loaderExpression && definitions, 'Real provider lazy URL SOURCE must be identifiable');
+  const currentScript = new URL(providerRequest, base).href;
+  const providerAssetVersion = runInNewContext(versionExpression, { URL, document:{ currentScript:{ src:currentScript } }, location:{ href:currentScript } });
+  assert.ok(providerAssetVersion, 'Provider header must supply the lazy asset version');
+  const paths = [...definitions.matchAll(/\b(?:before|script)\s*:\s*'([^']+)'/g)].map(match => match[1]);
+  assert.equal(paths.length, 11, 'The agreed organization feature scope is eleven script/before paths');
+  assert.equal(new Set(paths).size, 11, 'Organization feature paths must be unique');
+  assert.ok(paths.every(path => /^[a-z0-9][a-z0-9/-]*\.js$/.test(path)), 'Unexpected organization feature path');
+  const requests = Object.fromEntries(paths.map(path => [path, `./${runInNewContext(loaderExpression, { path, providerAssetVersion, encodeURIComponent })}`]));
+  for (const path of paths) if (!release.files.has(path)) release.files.set(path, newFile(path));
+  const team = release.files.get('team-schedule-ui.js').toString('utf8');
+  const retention = release.files.get('retention-mobile-ui.js').toString('utf8');
+  const loyalty = release.files.get('loyalty-program-v166.js').toString('utf8');
+  const teamUrl = team.match(/const styleUrl = new URL\(source\);[\s\S]*?styleUrl\.pathname = [^\n;]+;/)?.[0];
+  const retentionUrl = retention.match(/stylesheet\.href = ([^\n;]+);/)?.[1];
+  const loyaltyUrl = loyalty.match(/const source = new URL\(moduleUrl[\s\S]*?sheet\.href = url\.href;/)?.[0];
+  assert.ok(teamUrl && retentionUrl && loyaltyUrl, 'Real inherited stylesheet URL SOURCE must be identifiable');
+  const styles = [
+    ['team-schedule-ui.js', `${teamUrl}\nstyleUrl.href`, source => ({ source })],
+    ['retention-mobile-ui.js', retentionUrl, scriptUrl => ({ scriptUrl })],
+    ['loyalty-program-v166.js', `${loyaltyUrl}\nsheet.href`, moduleUrl => ({ moduleUrl, document:{ baseURI:base.href }, sheet:{} })]
+  ];
+  const stylePaths = [];
+  for (const [module, expression, scope] of styles) {
+    const parent = new URL(requests[module], base);
+    const url = new URL(runInNewContext(expression, { URL, ...scope(parent.href) }), base);
+    assert.equal(url.origin, base.origin); assert.ok(url.pathname.startsWith(base.pathname));
+    assert.equal(url.search, parent.search, `${module} stylesheet must inherit the requested script query`);
+    const path = url.pathname.slice(base.pathname.length);
+    stylePaths.push(path); requests[path] = `./${path}${url.search}`;
+    if (!release.files.has(path)) release.files.set(path, newFile(path));
+  }
+  assert.deepEqual(stylePaths.sort(), ['loyalty-soft-ui.css', 'retention-mobile-ui.css', 'team-schedule-ui.css']);
+  return requests;
+}
 
 function shell(release, route) {
   const modules = [...executableModules, ...(release === newRelease ? ['report-reconciliation.js'] : [])];
@@ -163,8 +224,8 @@ try {
     }
   }, {prefix,version:oldRelease.version,modules});
 
-  async function cacheHashes(release, requestedModules = release === newRelease ? newCoreModules : modules) {
-    const requests = Object.fromEntries(requestedModules.map(module => [module, moduleRequest(release, module)]));
+  async function cacheHashes(release, requestedModules = release === newRelease ? newCoreModules : modules,
+    requests = Object.fromEntries(requestedModules.map(module => [module, moduleRequest(release, module)]))) {
     return page.evaluate(async ({ cacheName, prefix, requests }) => {
       const cache = await caches.open(cacheName);
       const result = {};
@@ -279,15 +340,31 @@ try {
   }, { cacheName:newRelease.cache, assets:clientFlexibleAssets });
   console.log(`PASS: v${newRelease.version} activates, removes old caches, and reloads the new module scripts`);
 
+  // Do not fetch organizationRequests online: that would repair a stale-key
+  // worker by demand-caching the very URLs this regression must distinguish.
+  await page.evaluate(() => navigator.serviceWorker.controller.postMessage({ type:'warm-provider-features' }));
+  await page.evaluate(async ({ cacheName, assets }) => {
+    const cache = await caches.open(cacheName);
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if ((await Promise.all(assets.map(asset => cache.match(asset)))).every(Boolean)) return;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error('Provider optional assets were not warmed by the service worker');
+  }, { cacheName:newRelease.cache, assets:providerOptionalAssets });
+  assert.deepEqual(await cacheHashes(newRelease, organizationModules, organizationRequests), expectedHashes(newRelease, organizationModules),
+    'Real provider eleven JS and three inherited CSS request keys must already exist exactly in the current warmed cache');
+
+  forceServerOffline = true;
   await context.setOffline(true);
   const resourceResponses = [];
+  const observedModules = [...new Set([...offlineModules, ...organizationModules])];
   page.on('response', response => {
-    if (offlineModules.some(module => new URL(response.url()).pathname.endsWith(`/${module}`))) {
+    if (observedModules.some(module => new URL(response.url()).pathname.endsWith(`/${module}`))) {
       resourceResponses.push({ url:response.url(), serviceWorker:response.fromServiceWorker() });
     }
   });
   await page.reload();
-  const offlineRequests = Object.fromEntries(offlineModules.map(module => [module, moduleRequest(newRelease, module)]));
+  const offlineRequests = { ...Object.fromEntries(offlineModules.map(module => [module, moduleRequest(newRelease, module)])), ...organizationRequests };
   const clientStylesheets = clientFlexibleAssets.filter(asset => asset.split('?')[0].endsWith('.css'));
   for (const asset of clientStylesheets) offlineRequests[asset.split('?')[0].replace(/^\.\//, '')] = asset;
   const iconUrl = newFile('provider.html').toString('utf8').match(/href="(ui-icons\.svg\?v=\d+)#icon-org"/)?.[1];
@@ -306,6 +383,7 @@ try {
   }, { prefix, requests:offlineRequests });
   assert.deepEqual(offlineHashes, {
     ...expectedHashes(newRelease, offlineModules),
+    ...expectedHashes(newRelease, organizationModules),
     ...Object.fromEntries(clientStylesheets.map(asset => { const file = asset.split('?')[0].replace(/^\.\//, ''); return [file, sha(newRelease.files.get(file))]; })),
     ...Object.fromEntries(offlineIcons.map(icon => [icon, sha(newFile('ui-icons.svg'))]))
   }, 'Both legacy and versioned icon URLs must work offline with the released sprite');
@@ -320,7 +398,8 @@ try {
   assert.equal(await page.evaluate(() => Boolean(window.MinutaGroupBookings && window.MinutaBenefits)), true);
   assert.equal(await page.evaluate(() => typeof window.MinutaReportReconciliation?.amounts), 'function');
   assert.deepEqual(await cacheHashes(newRelease, offlineModules), expectedHashes(newRelease, offlineModules));
-  for (const module of offlineModules) {
+  assert.deepEqual(await cacheHashes(newRelease, organizationModules, organizationRequests), expectedHashes(newRelease, organizationModules));
+  for (const module of observedModules) {
     const expected = offlineRequests[module].replace(/^\.\//, '');
     assert.ok(resourceResponses.some(response => response.url.endsWith(`/${expected}`) && response.serviceWorker),
       `${module} must be served by the real worker offline`);
@@ -328,6 +407,8 @@ try {
   assert.deepEqual(externalRequests, []);
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(serverErrors, []);
+  forceServerOffline = false;
+  console.log('PASS: real provider eleven JS and three inherited CSS URLs have exact warm-cache and offline SHA-256 hits');
   console.log('PASS: offline new resources match checkout SHA-256 and are served by the actual service worker');
   console.log('Isolated real-SW resource update: 4/4 passed; installed-PWA and production E2E not exercised');
   } else {

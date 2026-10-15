@@ -107,3 +107,4 @@ html body.provider-body #inventoryPanel.inventory-soft-ui .is-editor-read-recove
   html body.provider-body #inventoryPanel.inventory-soft-ui .is-editor { padding:18px; width:calc(100% - 24px); max-height:calc(100dvh - 24px); }
   html body.provider-body #inventoryPanel.inventory-soft-ui .is-editor-head h3 { font-size:20px; }
 }
+@media (min-width:761px){#inventoryUsageList>.organization-row>button{width:auto}}
