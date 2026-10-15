@@ -1,0 +1,41 @@
+name: Minuta resource reliability
+
+on:
+  pull_request:
+    paths:
+      - 'minuta-online-booking/resource-management.js'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/provider-selects.js'
+      - 'minuta-online-booking/tests/resource-management-reliability-test.mjs'
+      - '.github/workflows/minuta-resource-reliability.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'minuta-online-booking/resource-management.js'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/provider-selects.js'
+      - 'minuta-online-booking/tests/resource-management-reliability-test.mjs'
+      - '.github/workflows/minuta-resource-reliability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install isolated DOM test runtime
+        run: npm install --prefix "$RUNNER_TEMP/resource-test-deps" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund jsdom@30.1.2
+      - name: Check controller and regression behavior
+        env:
+          MINUTA_JSDOM_PACKAGE: ${{ runner.temp }}/resource-test-deps/package.json
+        run: |
+          node --check minuta-online-booking/resource-management.js
+          node minuta-online-booking/resource-management-controller-test.mjs
+          node minuta-online-booking/tests/resource-management-reliability-test.mjs
