@@ -22,6 +22,9 @@ never create negative balances. No blanket bypass for ordinary/future visits.
   new “deduct later” control is introduced. Existing idempotency remains.
 - Rollback restores exact original bodies, not stock or business rows; truthful
   saved markers/audit records survive. Roll back SQL before removing marker UI.
+- Rollback first admits only the exact original, exact current owned patch, or
+  the explicitly known handler-only partial body. Unknown edits inside either
+  tagged region and all other partial forms are refused before stripping tags.
 
 ## Verification
 
@@ -33,10 +36,12 @@ never create negative balances. No blanket bypass for ordinary/future visits.
   is deliberately unchanged, including when connected to the old server.
 - Embedded PostgreSQL executes the actual v164 consumer and v145 wrapper with
   the actual outcome trigger and explicit synthetic legacy-create/outcome/audit
-  dependencies: 16/16 checks. It tests full
+  dependencies: 21/21 checks. It tests full
   multi-material rollback, preserved visit/payment, durable marker, ordinary/
   future/invalid-actor refusal, hard unrelated errors, normal success, no duplicate
   consumption, exact rollback/reapply, owner/ACL/config preservation and drift.
+  Five new tagged-region/partial drift cases reproduce the old rollback failure
+  (missing expected refusal) and pass with the peer's exact closed-set guard.
 - Actual createNewBooking VM tests (48/48) retain unknown-response latch, session/form
   ownership, existing error classification and stored outcome-hint rendering.
 - Native browser scenarios (48/48) are isolated, network-blocked, synthetic fixtures.
@@ -64,7 +69,9 @@ new main 1929921f, which alone uses all 3799094 bytes: the combined tree is
 not an EOL discrepancy. The owner must qualify this exact measured increment
 or a compatible in-scope reduction; no cap increase is hidden in this candidate.
 The earlier redundant block/API response and legacy error mapping are removed.
-PG CI on e3ccf44f passed; shared smoke and service-delete jobs fail at this
+PG CI on e3ccf44f and docs-only 97d436fb passed at 16 cases; the newer rollback
+guard and 21-case engine suite require their own final-head CI. Shared smoke
+and service-delete jobs fail at this
 same CORE gate (their actual service tests pass). A separate card CI stopped
 while installing Chrome, before running its browser tests. Those failures are
 not waived. Recheck the owner's final combined tree and its CI.

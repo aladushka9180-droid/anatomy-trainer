@@ -132,6 +132,26 @@ try{
    const before=await bodies();await patchRefuse(forward,'historical_inventory_partial_patch');assert.deepEqual(await bodies(),before);
    await db.exec(rollback);assert.deepEqual(await bodies(),baseline);
  });
+ const clearBlock=/  -- historical-inventory-v1:clear:start\n[\s\S]*?  -- historical-inventory-v1:clear:end\n/;
+ const handlerBlock=/\n-- historical-inventory-v1:handler:start\n[\s\S]*?-- historical-inventory-v1:handler:end\n/;
+ for(const [name,alter] of [
+   ['foreign handler edit',ddl=>ddl.replace("'reason','insufficient_stock'","'reason','foreign_revision'")],
+   ['foreign clear edit',ddl=>ddl.replace("booking_policy_snapshot=booking_policy_snapshot-'stock_skipped'","booking_policy_snapshot=booking_policy_snapshot-'foreign_revision'")],
+   ['unrecognized clear-only partial',ddl=>ddl.replace(handlerBlock,'\n')],
+   ['foreign handler-only partial',ddl=>ddl.replace(clearBlock,'').replace("'reason','insufficient_stock'","'reason','foreign_revision'")],
+   ['unrecognized comment inside owned block',ddl=>ddl.replace('-- historical-inventory-v1:handler:start','-- historical-inventory-v1:handler:start\n-- foreign revision')]
+ ]){
+   await check(`rollback refuses ${name} without changing functions or business data`,async()=>{
+     await db.exec(forward);
+     const {ddl}=await one(`select pg_get_functiondef('public.consume_minuta_inventory_for_booking(uuid)'::regprocedure) ddl`);
+     const changed=alter(ddl);assert.notEqual(changed,ddl);await db.exec(changed);
+     const before=await bodies(),data=await state(),meta=await metadata();
+     await patchRefuse(rollback,'historical_inventory_unknown_definition');
+     assert.deepEqual(await bodies(),before);assert.deepEqual(await state(),data);assert.deepEqual(await metadata(),meta);
+     // Only this isolated fixture's deliberate drift is reset, never a real definition.
+     await db.exec(ddl);await db.exec(rollback);assert.deepEqual(await bodies(),baseline);
+   });
+ }
  await check('unknown definition refuses forward and rollback without changing its neighbor',async()=>{
    await db.exec(definition('supabase-migration-v164.sql','consume_minuta_inventory_for_booking').replace('v_booking public.bookings%rowtype;','v_booking public.bookings%rowtype; -- unexpected drift\n'));
    const before=await bodies();await patchRefuse(forward,'historical_inventory_unknown_definition');assert.deepEqual(await bodies(),before);
