@@ -162,7 +162,8 @@ async function openAndFill(page,label){
   await page.evaluate(()=>{const time=$('#newBookingHistoricalTime');time.value='10:15';time.dispatchEvent(new Event('input',{bubbles:true}));time.dispatchEvent(new Event('change',{bubbles:true}));});
   await page.locator('#newBookingAdvanced > summary').click();
   await page.locator('.booking-color-compact > summary').click();
-  await page.locator(`[name="newBookingColor"][value="${label==='A'?'mint':'rose'}"]`).check();
+  const color=page.locator(`[name="newBookingColor"][value="${label==='A'?'mint':'rose'}"]`);
+  await color.locator('..').click();assert.equal(await color.isChecked(),true);
   assert.equal(await page.evaluate(()=>newBookingHistoricalMode),true);
   assert.equal(await page.locator('#newBookingHistoricalPayment').isVisible(),true);
   assert.equal(await page.locator('#newBookingHistoricalPaymentMethod').inputValue(),'cash');
@@ -183,6 +184,8 @@ async function answerCreate(page,kind){
     const gate=gates.shift();hold='';
     if(kind==='throw')return gate.reject(Error('slot_unavailable'));
     const result=kind==='refusal'?{data:null,error:{code:'23P01',message:'slot_unavailable'}}
+      :kind==='inventory'?{data:null,error:{code:'55000',message:'insufficient_inventory_stock_for_completed_visit'}}
+      :kind==='inventory-network'?{data:null,error:{code:'08006',message:'insufficient_inventory_stock_for_completed_visit'}}
       :kind==='null'?{data:null,error:null}
       :kind==='partial'?{data:{booking_id:ids.booking},error:null}
       :kind==='network-name'?{data:null,error:{code:'08006',message:'slot_unavailable'}}
@@ -317,7 +320,7 @@ cases.push(['SAFETY pending CREATE survives input/change caption refresh and dup
   assert.equal(disabled,true,'A caption refresh must not unlock an in-flight non-idempotent CREATE');
   assert.equal(calls,1,'Exactly one CREATE while the first result is pending');
 }]);
-for(const kind of ['null','partial','network-name','wrong-pair','throw'])cases.push([
+for(const kind of ['null','partial','network-name','wrong-pair','throw','inventory-network'])cases.push([
   `SAFETY unknown historical ${kind} keeps CREATE latched with no retry`,async page=>{
     await startCreate(page);await answerCreate(page,kind);await exerciseCaption(page);
     const disabled=await page.locator('#newBookingSubmit').isDisabled();await attemptResubmit(page);
@@ -339,6 +342,36 @@ cases.push(['CONTROL exact v98 SQL refusal unlocks editing and a new explicit at
   await page.evaluate(()=>{hold='create';});await page.locator('#newBookingSubmit').click();
   assert.equal(await page.evaluate(()=>effects.filter(e=>e.name==='create_minuta_historical_booking').length),2);
   await answerCreate(page,'refusal');
+}]);
+for(const width of [390,760,1440])cases.push([`UI inventory rollback keeps the historical form editable ${width}`,async page=>{
+  await page.setViewportSize({width,height:850});
+  await page.evaluate(()=>{document.body.className='provider-body';document.body.dataset.providerTheme='sage';document.body.dataset.providerLayout='linear';});
+  for(const match of html.matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^" ]*)?"/g)){
+    await page.addStyleTag({content:readFileSync(new URL(`../${match[1]}`,import.meta.url),'utf8').replace(/url\([^)]*\)/g,'none')});
+  }
+  await page.evaluate(()=>{hold='create';});await openAndFill(page,'A');
+  await page.locator('#newBookingHistoricalPaymentMethod').selectOption('transfer');
+  await page.locator('#newBookingHistoricalAmount').fill('2500');
+  await page.locator('#newBookingSubmit').click();await page.waitForFunction(()=>gates.length===1);
+  await answerCreate(page,'inventory');
+  assert.equal(await page.locator('#newBookingSubmit').isEnabled(),true);
+  assert.match(await page.locator('#newBookingError').innerText(),/Недостаточно материалов на складе/);
+  assert.match(await page.locator('#newBookingError').innerText(),/Запись не создана/);
+  assert.equal(await page.locator('#newBookingHistoricalPaymentMethod').inputValue(),'transfer');
+  assert.equal(await page.locator('#newBookingHistoricalAmount').inputValue(),'2500');
+  assert.equal(await page.locator('#newBookingHistoricalTime').inputValue(),'10:15');
+  assert.equal(await page.evaluate(()=>effects.length),1,'A refused CREATE must not retry or start secondary writes');
+  await page.locator('#newBookingError').scrollIntoViewIfNeeded();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  assert.ok(await page.locator('#newBookingError').evaluate(el=>el.scrollWidth<=el.clientWidth));
+  if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-inventory-error-${width}.png`});
+}]);
+cases.push(['CONTROL historical inventory notice is shown only after a confirmed CREATE',async page=>{
+  await page.evaluate(()=>{historicalAck.materials_not_deducted=true;});
+  await start(page);await release(page);
+  const state=await snapshot(page);assert.equal(state.visible,false);
+  assert.match(state.effects.at(-1).text,/Материалы не списаны/);
+  assert.equal(state.effects.filter(e=>e.name==='create_minuta_historical_booking').length,1);
 }]);
 for(const phase of ['color','refresh'])for(const outcome of ['error','throw'])cases.push([
   `SAFETY confirmed CREATE then ${phase} ${outcome} remains created without another CREATE`,async page=>{

@@ -240,8 +240,13 @@ test('pending historical submit remains single-flight after actual caption recal
 for (const [label, result] of [
   ['null', { data:null, error:null }],
   ['partial', { data:{ booking_id:createdId }, error:null }],
+  ['malformed inventory acknowledgement', { data:{ booking_id:createdId, materials_not_deducted:'true' }, error:null }],
   ['transport', { data:null, error:{ code:'08006', message:'slot_unavailable' } }],
   ['no-code refusal text', { data:null, error:{ message:'slot_unavailable' } }],
+  ['inventory transport text', { data:null, error:{ code:'08006', message:'insufficient_inventory_stock_for_completed_visit' } }],
+  ['inventory no-code text', { data:null, error:{ message:'insufficient_inventory_stock_for_completed_visit' } }],
+  ['inventory wrong pair', { data:null, error:{ code:'23P01', message:'insufficient_inventory_stock_for_completed_visit' } }],
+  ['inventory unknown refusal', { data:null, error:{ code:'55000', message:'unknown_inventory_failure' } }],
 ]) {
   test(`unknown ${label} cannot be retried through caption/input or direct submit`, async () => {
     const h = harness({ deferRpc:true }); await tick(); h.resolveRpc(result); assert.equal(await h.pending, null);
@@ -267,6 +272,57 @@ test('exact v98 refusal releases the form for correction', async () => {
   h.context.updateNewBookingSubmitCaption(); assert.equal(h.nodes.get('#newBookingSubmit').disabled, false);
   await h.resubmit(); assert.equal(h.calls.length, 2);
 });
+
+test('exact inventory rollback explains the stock refusal and preserves the editable historical form', async () => {
+  const h = harness({ deferRpc:true }); await tick();
+  const draft = [...h.storage];
+  const fields = ['#newBookingName', '#newBookingPhone', '#newBookingDate', '#newBookingService', '#newBookingHistoricalPaymentMethod', '#newBookingHistoricalAmount'];
+  const values = fields.map(selector => h.nodes.get(selector).value);
+  h.resolveRpc({ data:null, error:{ code:'55000', message:'insufficient_inventory_stock_for_completed_visit' } });
+  assert.equal(await h.pending, null);
+  assert.equal(h.nodes.get('#newBookingForm').dataset.historicalCreateState, undefined);
+  assert.equal(h.nodes.get('#newBookingSubmit').disabled, false);
+  assert.equal(h.nodes.get('#bookingSheet').hidden, false);
+  assert.deepEqual(fields.map(selector => h.nodes.get(selector).value), values);
+  assert.deepEqual([...h.storage], draft);
+  assert.equal(h.state.newBookingTime, '10:00');
+  assert.equal(h.calls.length, 1, 'A confirmed rollback must not trigger an automatic retry');
+  assert.deepEqual(h.effects.map(effect => effect[0]), ['error']);
+  assert.match(h.effects[0][2], /Недостаточно материалов на складе/);
+  assert.match(h.effects[0][2], /Запись не создана/);
+  assert.match(h.effects[0][2], /остатки и норму расхода/);
+  await h.resubmit(); assert.equal(h.calls.length, 2, 'Only an explicit new submit may retry a confirmed rollback');
+});
+
+test('confirmed historical visit without deduction reports the saved materials notice', async () => {
+  const h = harness({ deferRpc:true }); await tick();
+  h.resolveRpc({ ...h.reply, data:{ ...h.reply.data, materials_not_deducted:true } });
+  await tick(); h.resolveColor(true); assert.equal(await h.pending, null);
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.nodes.get('#bookingSheet').hidden, true);
+  assert.match(h.effects.at(-1)[1], /Материалы не списаны/);
+  assert.match(h.effects.at(-1)[1], /1 000 ₽ учтено в статистике/);
+});
+
+test('record detail renders the persisted inventory marker after a fresh JSON read', () => {
+  const markup=source.match(/^    \$\{item\.booking_policy_snapshot\?\.historical_inventory_unconsumed === true[^\n]+/m)?.[0];
+  assert.ok(markup, 'Actual booking detail must consume the persisted snapshot, not a transient toast flag');
+  const render=item=>vm.runInNewContext('`'+markup+'`',{item:JSON.parse(JSON.stringify(item))}).trim();
+  assert.match(render({booking_policy_snapshot:{historical_inventory_unconsumed:true}}),/Материалы не списаны/);
+  assert.match(render({booking_policy_snapshot:{historical_inventory_unconsumed:true}}),/Расход материалов не учтён/);
+  for(const item of [{},{booking_policy_snapshot:{}},{booking_policy_snapshot:{historical_inventory_unconsumed:false}},{booking_policy_snapshot:{historical_inventory_unconsumed:'true'}}])assert.equal(render(item),'');
+});
+
+for (const account of [actorA, actorB]) {
+  test(`late inventory refusal cannot unlock a replacement ${account === actorA ? 'form' : 'account'}`, async () => {
+    const h = harness({ deferRpc:true }); await tick();
+    h.replaceForm(account); const before = h.snapshot();
+    h.resolveRpc({ data:null, error:{ code:'55000', message:'insufficient_inventory_stock_for_completed_visit' } });
+    assert.equal(await h.pending, null);
+    assert.equal(h.snapshot(), before);
+    assert.equal(h.calls.length, 1);
+  });
+}
 
 test('historical submission from a hidden form starts no RPC or UI operation', async () => {
   const h = harness({ hidden:true }); assert.equal(await h.pending, null);
