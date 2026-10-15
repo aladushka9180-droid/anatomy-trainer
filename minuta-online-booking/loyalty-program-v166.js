@@ -99,6 +99,11 @@
     let writing = false;
     let automaticRewardTitle = false;
     let softView = null, editing = null;
+    const pendingIntents = new Map();
+    let clientsById = new Map(), accountsByClient = new Map(), pendingByClient = new Map();
+    const pageSize = 50;
+    let clientsOffset = 0, rewardsOffset = 0;
+    let mutationIssue = '';
 
     const uuid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const stableJson = value => {
@@ -114,16 +119,29 @@
     const intentKey = action => `minuta-loyalty-v166:${action}:${organization?.id || 'none'}:${getCurrentUser()?.id || 'none'}`;
     function prepareIntent(action, parameters) {
       const key = intentKey(action), fingerprint = digest(parameters);
+      const pending = pendingIntents.get(key);
+      if (pending) return pending.fingerprint === fingerprint
+        ? { key, requestId:pending.requestId, previouslyUnconfirmed:Boolean(pending.submitted) }
+        : { error:'Сначала подтвердите результат предыдущего действия: обновите данные и повторите его с исходными значениями.' };
       try {
         const saved = JSON.parse(localStorage.getItem(key) || 'null');
-        if (saved?.fingerprint === fingerprint && saved?.requestId) return { key, requestId:saved.requestId };
+        if (saved?.requestId) {
+          if (saved.fingerprint !== fingerprint) return { error:'Сначала подтвердите результат предыдущего действия: обновите данные и повторите его с исходными значениями.' };
+          // A durable intent recovered after reload may already have reached the server.
+          pendingIntents.set(key,{...saved,submitted:true});
+          return { key, requestId:saved.requestId, previouslyUnconfirmed:true };
+        }
         const next = { fingerprint, requestId:uuid() };
         localStorage.setItem(key, JSON.stringify(next));
+        const persisted = JSON.parse(localStorage.getItem(key) || 'null');
+        if (persisted?.requestId !== next.requestId || persisted?.fingerprint !== fingerprint) throw new Error('intent_not_persisted');
+        pendingIntents.set(key,next);
         return { key, requestId:next.requestId };
-      } catch (_) { return { key:null, requestId:uuid() }; }
+      } catch (_) { return { error:'Действие не отправлено: браузер не сохранил данные для безопасного повтора. Проверьте доступность хранилища и повторите.' }; }
     }
     function clearIntent(intent) {
       if (!intent?.key) return;
+      pendingIntents.delete(intent.key);
       try { localStorage.removeItem(intent.key); } catch (_) {}
     }
     const integer = value => Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : 0;
@@ -135,8 +153,36 @@
       return 'визитов';
     };
     const dateText = value => value ? new Date(value).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' }) : 'без срока';
-    const clientById = id => payload?.clients?.find(item => item.id === id) || null;
-    const accountByClient = id => payload?.accounts?.find(item => item.client_account_id === id) || null;
+    const clientById = id => clientsById.get(id) || null;
+    const accountByClient = id => accountsByClient.get(id) || null;
+    function indexPayload() {
+      clientsById = new Map((payload?.clients || []).map(item => [item.id,item]));
+      accountsByClient = new Map((payload?.accounts || []).map(item => [item.client_account_id,item]));
+      pendingByClient = new Map();
+      for (const reward of payload?.rewards || []) {
+        if (reward.status === 'pending' && !pendingByClient.has(reward.client_account_id)) pendingByClient.set(reward.client_account_id,reward);
+      }
+    }
+    function pageControls(holder, kind, total, offset) {
+      let controls = holder.parentElement?.querySelector(`[data-loyalty-pagination="${kind}"]`);
+      if (!controls && document.createElement && holder.after) {
+        controls = document.createElement('div'); controls.dataset.loyaltyPagination = kind;
+        controls.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px';
+        for (const direction of ['previous','next']) {
+          const button = document.createElement('button'); button.type='button'; button.className='secondary-button';
+          button.style.cssText='width:auto;flex:0 0 auto';
+          button.dataset.loyaltyPage=kind; button.dataset.direction=direction; button.setAttribute('aria-controls',holder.id);
+          button.textContent=direction==='previous'?'Предыдущие':'Следующие'; controls.append(button);
+        }
+        const status = document.createElement('small'); status.setAttribute('aria-live','polite'); controls.insertBefore(status,controls.lastChild);
+        holder.after(controls);
+      }
+      if (!controls) return;
+      controls.hidden = total <= pageSize;
+      controls.querySelector('[data-direction="previous"]').disabled = offset === 0;
+      controls.querySelector('[data-direction="next"]').disabled = offset + pageSize >= total;
+      controls.querySelector('small').textContent = `${total ? offset+1 : 0}–${Math.min(total,offset+pageSize)} из ${total}`;
+    }
     const rewardText = row => {
       if (!row) return 'Награда';
       if (row.reward_kind === 'percent') return `${integer(row.reward_value) / 100}% скидка`;
@@ -183,6 +229,10 @@
       if ($('#loyaltyProgramFields')) $('#loyaltyProgramFields').inert = !enabled;
       if ($('#loyaltyGoalCustomField')) $('#loyaltyGoalCustomField').hidden = preset !== 'custom';
       if ($('#loyaltyRewardValueField')) $('#loyaltyRewardValueField').hidden = kind === 'text';
+      for (const field of $('#loyaltyProgramFields')?.querySelectorAll('input,select,textarea') || []) {
+        field.disabled = !enabled || (field.id === 'loyaltyGoalCustom' && preset !== 'custom')
+          || (field.id === 'loyaltyRewardValue' && kind === 'text');
+      }
       const input = $('#loyaltyRewardValue');
       if (input) { input.max = kind === 'percent' ? '100' : '10000000'; input.step = kind === 'percent' ? '0.01' : '1'; }
       if ($('#loyaltyRewardValueLabel')) $('#loyaltyRewardValueLabel').textContent = kind === 'percent' ? 'Скидка, %' : 'Скидка, ₽';
@@ -209,7 +259,7 @@
       if (!card || !orbit || !selectedClient) return;
       const enabled = Boolean(payload?.enabled && payload?.rule?.id && selectedClient.clientAccountId);
       const account = accountByClient(selectedClient.clientAccountId);
-      const pending = payload?.rewards?.find(row => row.client_account_id === selectedClient.clientAccountId && row.status === 'pending');
+      const pending = pendingByClient.get(selectedClient.clientAccountId);
       const target = integer(account?.goal_visits || payload?.rule?.goal_visits || 0);
       const progress = Math.min(target, Math.max(0, integer(account?.progress)));
       card.hidden = false;
@@ -233,7 +283,10 @@
       }
       const remaining = Math.max(0, target - progress);
       $('#clientMilestoneText').textContent = `${progress} из ${target} ${visitWord(target)}`;
-      $('#clientMilestoneHint').textContent = `Ещё ${remaining} ${visitWord(remaining)} до награды «${payload.rule.reward_title}»`;
+      const cycleTitle = account?.reward_title || (!account?.rule_id || account.rule_id === payload.rule.id ? payload.rule.reward_title : '');
+      $('#clientMilestoneHint').textContent = cycleTitle
+        ? `Ещё ${remaining} ${visitWord(remaining)} до награды «${cycleTitle}»`
+        : `Ещё ${remaining} ${visitWord(remaining)} до награды по условиям вашего цикла`;
       if (!orbit.classList.contains('has-session-frame')) orbit.setAttribute('aria-label', `${progress} из ${target} визитов, ещё ${remaining} до награды`);
     }
 
@@ -244,23 +297,27 @@
         const account = accountByClient(client.id);
         const target = integer(account?.goal_visits || payload?.rule?.goal_visits || 0);
         const progress = Math.min(target, Math.max(0, integer(account?.progress)));
-        const pending = payload?.rewards?.some(reward => reward.client_account_id === client.id && reward.status === 'pending');
+        const pending = pendingByClient.has(client.id);
         return { client, target, progress, pending };
       }).filter(row => row.progress || row.pending).sort((a,b) => Number(b.pending)-Number(a.pending) || b.progress-a.progress);
-      holder.innerHTML = rows.length ? rows.map(({ client, target, progress, pending }) => `<article class="loyalty-client-row">
+      clientsOffset = Math.min(clientsOffset,Math.max(0,Math.ceil(rows.length/pageSize)-1)*pageSize);
+      holder.innerHTML = rows.length ? rows.slice(clientsOffset,clientsOffset+pageSize).map(({ client, target, progress, pending }) => `<article class="loyalty-client-row">
         <div><strong>${escapeHtml(client.client_name || 'Клиент')}</strong><small>${pending ? 'Награда доступна' : `${progress} из ${target} · ещё ${Math.max(0,target-progress)} до награды`}</small></div>
         <span class="loyalty-progress-value" aria-label="${progress} из ${target}">${progress}/${target}</span>
       </article>`).join('') : '<div class="organization-empty"><strong>Прогресс появится после завершённого визита</strong><small>Старые визиты не засчитываются автоматически.</small></div>';
+      pageControls(holder,'clients',rows.length,clientsOffset);
     }
 
     function renderRewards() {
       const holder = $('#loyaltyRewardsList');
       if (!holder) return;
       const rewards = (payload?.rewards || []).filter(row => row.status === 'pending');
-      holder.innerHTML = rewards.length ? rewards.map(reward => {
+      rewardsOffset = Math.min(rewardsOffset,Math.max(0,Math.ceil(rewards.length/pageSize)-1)*pageSize);
+      holder.innerHTML = rewards.length ? rewards.slice(rewardsOffset,rewardsOffset+pageSize).map(reward => {
         const client = clientById(reward.client_account_id);
         return `<article class="loyalty-reward-row"><div><strong>${escapeHtml(client?.client_name || 'Клиент')} · ${escapeHtml(rewardText(reward))}</strong><small>${reward.expires_at ? `До ${escapeHtml(dateText(reward.expires_at))}` : 'Без срока'}${reward.reward_terms ? ` · ${escapeHtml(reward.reward_terms)}` : ''}</small></div><button class="secondary-button" type="button" data-redeem-loyalty-reward="${escapeHtml(reward.id)}">Отметить использованной</button></article>`;
       }).join('') : '<div class="organization-empty"><strong>Доступных наград пока нет</strong><small>Награда появится один раз при достижении цели.</small></div>';
+      pageControls(holder,'rewards',rewards.length,rewardsOffset);
     }
 
     function renderHistory() {
@@ -291,7 +348,9 @@
       $('#loyaltyIssuedCount').textContent = String(payload?.stats?.issued || 0);
       $('#loyaltyRedeemedCount').textContent = String(payload?.stats?.redeemed || 0);
       const clients = payload?.clients || [];
+      const adjustmentClient = $('#loyaltyAdjustmentClient').value;
       $('#loyaltyAdjustmentClient').innerHTML = `<option value="">Выберите клиента</option>${clients.map(client => `<option value="${escapeHtml(client.id)}">${escapeHtml(client.client_name || 'Клиент')}</option>`).join('')}`;
+      if (clientsById.has(adjustmentClient)) $('#loyaltyAdjustmentClient').value = adjustmentClient;
       renderClients(); renderRewards(); renderHistory(); updateForm(); renderCard();
       if (!softView) $('#loyaltyWorkflowStatus').textContent = enabled ? 'Программа включена. Текущие циклы сохраняют правила, с которыми начались.' : 'Программа выключена. История и выданные награды сохранены.';
       softView?.saved(payload, rewardText(rule), `За ${rule.goal_visits} ${visitWord(rule.goal_visits) === 'визит' ? 'завершённый' : 'завершённых'} ${visitWord(rule.goal_visits)}`);
@@ -309,7 +368,7 @@
         const { data, error } = await db.rpc('get_minuta_loyalty_program_workspace_v166', { p_organization:organizationId });
         if (error) throw error;
         if (!sessionIsCurrent(userId,generation) || current !== revision || organization?.id !== organizationId) return false;
-        payload = data || {}; availability = 'ready';
+        payload = data || {}; indexPayload(); availability = 'ready';
         $('#loyaltyWorkspace').hidden = false; render(); return true;
       } catch (error) {
         if (!sessionIsCurrent(userId,generation) || current !== revision) return false;
@@ -322,22 +381,31 @@
     }
 
     async function mutate(rpc, parameters, button, success, intent) {
+      mutationIssue = '';
       if (writing || !organization?.id || !requireWrites()) return false;
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
       writing = true; if (button) button.disabled = true;
+      const prepared = pendingIntents.get(intent?.key);
+      if (prepared && prepared.requestId === intent?.requestId) prepared.submitted = true;
       try {
         const { error } = await db.rpc(rpc, parameters);
         if (error) throw error;
         if (!sessionIsCurrent(userId,generation) || organization?.id !== organizationId) return false;
         const refreshed = await load({ preserveSettings:rpc === 'set_minuta_loyalty_program_v166' });
-        if (rpc === 'set_minuta_loyalty_program_v166' && !refreshed) return false;
+        if (rpc === 'set_minuta_loyalty_program_v166' && !refreshed) {
+          mutationIssue = 'Не удалось подтвердить актуальные настройки. Черновик сохранён; повторите исходное действие после обновления данных.';
+          return false;
+        }
         clearIntent(intent);
         notify(success); return true;
       } catch (error) {
         const code = String(error?.code || '');
         const known = code.startsWith('22') || code.startsWith('23') || code === '42501' || code === '55000' || code === 'P0002';
-        if (known) clearIntent(intent);
-        if (!known) notify('Не удалось подтвердить результат. Повторите исходное действие после обновления данных.');
+        const confirmedRejection = known && !intent?.previouslyUnconfirmed;
+        if (confirmedRejection) clearIntent(intent);
+        mutationIssue = confirmedRejection ? 'Действие отклонено. Проверьте права и допустимость введённых значений.'
+          : 'Не удалось подтвердить результат. Действие могло быть выполнено; обновите данные и повторите только исходное действие.';
+        if (!confirmedRejection) notify(mutationIssue);
         return false;
       } finally { writing = false; if (button) button.disabled = false; }
     }
@@ -350,9 +418,11 @@
         const titleIssue = enabled ? rewardTitleIssue(kind,Number($('#loyaltyRewardValue').value),$('#loyaltyRewardTitle').value.trim()) : '';
         if (titleIssue) { showError('#loyaltyRuleError',titleIssue); softView?.revealTitle(); $('#loyaltyRewardTitle').focus(); return; }
         const parameters = { p_organization:organization.id,p_enabled:enabled,p_goal_visits:enabled?target:null,p_reward_kind:enabled?kind:null,p_reward_value:enabled?rewardValue():null,p_reward_title:enabled?$('#loyaltyRewardTitle').value.trim():null,p_reward_terms:enabled?$('#loyaltyRewardTerms').value.trim():null,p_validity_days:enabled?validity():null };
-        const intent = prepareIntent('settings',parameters); parameters.p_request_id = intent.requestId;
+        const intent = prepareIntent('settings',parameters);
+        if (intent.error) { showError('#loyaltyRuleError',intent.error); return; }
+        parameters.p_request_id = intent.requestId;
         const ok = await mutate('set_minuta_loyalty_program_v166',parameters,event.submitter,enabled?'Программа лояльности сохранена':'Программа выключена; история сохранена',intent);
-        if (!ok) showError('#loyaltyRuleError','Не удалось подтвердить сохранение. Настройки остаются открытыми; обновите данные и повторите исходное действие.');
+        if (!ok) showError('#loyaltyRuleError',mutationIssue || 'Сохранение не отправлено. Проверьте доступность записи и повторите.');
         else { editing = false; softView?.edit(false,true); }
       }
       if (event.target.id === 'loyaltyAdjustmentForm') {
@@ -360,22 +430,34 @@
         const client = $('#loyaltyAdjustmentClient').value, delta = integer($('#loyaltyAdjustmentPoints').value), reason = $('#loyaltyAdjustmentReason').value.trim();
         if (!client || !delta || reason.length < 3) { showError('#loyaltyAdjustmentError','Выберите клиента, изменение и укажите причину.'); return; }
         const parameters = {p_organization:organization.id,p_client_account:client,p_delta:delta,p_reason:reason};
-        const intent = prepareIntent('adjustment',parameters); parameters.p_request_id = intent.requestId;
+        const intent = prepareIntent('adjustment',parameters);
+        if (intent.error) { showError('#loyaltyAdjustmentError',intent.error); return; }
+        parameters.p_request_id = intent.requestId;
         const ok = await mutate('adjust_minuta_loyalty_progress_v166',parameters,event.submitter,'Прогресс скорректирован',intent);
-        if (ok) event.target.reset(); else showError('#loyaltyAdjustmentError','Корректировка не сохранена. Проверьте допустимый итог прогресса.');
+        if (ok) event.target.reset(); else showError('#loyaltyAdjustmentError',mutationIssue || 'Корректировка не отправлена. Проверьте доступность записи и повторите.');
       }
     }
 
     async function click(event) {
       if (event.target.closest('#editLoyaltyProgram')) { editing = true; softView?.edit(true,true); return; }
       if (event.target.closest('#reloadLoyalty')) { await load({ preserveSettings:Boolean(editing && payload) }); return; }
+      const page = event.target.closest('[data-loyalty-page]');
+      if (page) {
+        const delta = page.dataset.direction==='previous' ? -pageSize : pageSize;
+        if (page.dataset.loyaltyPage === 'clients') { clientsOffset = Math.max(0,clientsOffset+delta); renderClients(); }
+        else { rewardsOffset = Math.max(0,rewardsOffset+delta); renderRewards(); }
+        if (page.disabled) page.parentElement.querySelector(`[data-direction="${delta>0?'previous':'next'}"]`)?.focus();
+        return;
+      }
       const redeem = event.target.closest('[data-redeem-loyalty-reward]');
       if (!redeem) return;
       const reward = payload?.rewards?.find(row => row.id === redeem.dataset.redeemLoyaltyReward);
       const client = clientById(reward?.client_account_id);
       if (!reward || !confirm(`Отметить награду «${rewardText(reward)}» для ${client?.client_name || 'клиента'} использованной?`)) return;
       const parameters = {p_organization:organization.id,p_reward:reward.id,p_booking:null,p_reason:'Подтверждено мастером'};
-      const intent = prepareIntent('redeem',parameters); parameters.p_request_id = intent.requestId;
+      const intent = prepareIntent('redeem',parameters);
+      if (intent.error) { notify(intent.error); return; }
+      parameters.p_request_id = intent.requestId;
       await mutate('redeem_minuta_loyalty_reward_v166',parameters,redeem,'Награда отмечена использованной',intent);
     }
 
@@ -386,10 +468,10 @@
     }
     function change(event) { if (event.target.closest('#loyaltyProgramForm')) updateForm(); }
     function bind() { softView = mountSoftView($); document.addEventListener('submit',submit); document.addEventListener('click',click); document.addEventListener('input',input); document.addEventListener('change',change); }
-    function reset() { organization=null;payload=null;availability='idle';revision+=1;selectedClient=null;automaticRewardTitle=false;editing=null;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
+    function reset() { organization=null;payload=null;indexPayload();pendingIntents.clear();clientsOffset=0;rewardsOffset=0;availability='idle';revision+=1;selectedClient=null;automaticRewardTitle=false;editing=null;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
     async function setOrganization(next) {
       if (next?.id && organization?.id === next.id && payload) { organization=next; render(); return true; }
-      organization=next || null; payload=null; editing=null; if (!organization?.id) { reset(); return false; } return load();
+      organization=next || null; payload=null; indexPayload(); clientsOffset=0; rewardsOffset=0; editing=null; if (!organization?.id) { reset(); return false; } return load();
     }
     function setClient(client) { selectedClient=client || null; renderCard(); }
     return { bind,load,reset,setOrganization,setClient,get availability(){return availability;},get payload(){return payload;} };
