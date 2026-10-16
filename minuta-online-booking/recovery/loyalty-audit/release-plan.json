@@ -1,0 +1,65 @@
+{
+  "scope": "Loyalty audit fixes F01-F08",
+  "stage": "source candidate; not deployed",
+  "migration": "supabase/migrations/20261014230135_loyalty_audit_hardening.sql",
+  "immutableBaseline": "minuta-online-booking/supabase-migration-v166.sql",
+  "functionPins": "source-pins.json",
+  "productionWritesAuthorized": false,
+  "fullSupabaseRestoreQualified": false,
+  "rootIntakeAccepted": false,
+  "liveAcceptance": false,
+  "physicalDeviceVerified": false,
+  "compatibility": {
+    "rpcSignaturesChanged": false,
+    "rowsRewrittenByMigration": false,
+    "newWorkspaceField": "accounts[].reward_title from the account's current rule",
+    "newFrontendWithOldServer": "Old-cycle card uses a truthful generic reward label until the server snapshot field is present",
+    "listRowsPerPage": 50,
+    "allRowsAndAdjustmentClientsRemainAccessible": true,
+    "storageUnavailableBeforePreparation": "Do not send a write without a durable request identity",
+    "preparedUnknownWrite": "Keep the original identity in memory and storage; block changed parameters until original resolution"
+  },
+  "localProof": {
+    "serverScenariosPassed": 44,
+    "browserScenariosPassed": 16,
+    "existingThemeWidthChecksPassed": 200,
+    "existingSoftThemeWidthStateChecksPassed": 246,
+    "existingSqlBusinessRegressionPassedAfterPatch": true,
+    "staticContractPassed": true,
+    "pwaReferenceCheckPassed": true,
+    "exactIsolatedRollbackAndReapplyPassed": true,
+    "allSixLoyaltyTablesComparedAcrossRollback": true,
+    "operationalHoldAndResumePassed": true,
+    "unknownServerDefinitionRejected": true
+  },
+  "renderingMeasurement": {
+    "syntheticClients": 5000,
+    "samples": 30,
+    "beforeMedianMs": 2571.3,
+    "beforeP95Ms": 3157.5,
+    "afterMedianMs": 77,
+    "afterP95Ms": 94.6,
+    "environment": "Desktop Edge loopback fixture; immediate simulated RPC; same dataset, controller render plus layout",
+    "limitations": "Not production RPC latency, cold load, mobile CPU or network. The legacy workspace still transfers the full dataset; only DOM rendering is paged."
+  },
+  "releaseOrder": [
+    "ROOT accepts the exact source commit and CI; check compatibility with the current assembly and assign shared PWA versions",
+    "Qualify the complete isolated DB/Auth/Storage contour and protected original according to project gates",
+    "Apply/read/exact isolated rollback/reapply; compare definitions, grants, triggers and all data",
+    "Obtain the separate production SQL write authorization for the reviewed exact migration",
+    "ROOT applies the approved SQL and publishes the coordinated frontend resources",
+    "Verify actual resources/PWA and authenticated target-route behavior at 390/760/1440; physical device evidence separately"
+  ],
+  "recovery": {
+    "defaultOption": "operational-hold.sql; explicitly authorized operation only",
+    "operationalHoldEffect": "Keep membership protection and all data; temporarily disable public Loyalty reads/writes and accrual triggers. Bookings remain outside this hold.",
+    "holdWindowCompletions": "Not backfilled automatically. Any reconciliation requires a separate reviewed decision.",
+    "resume": "Reapply the reviewed forward migration; grants and both accrual triggers are restored",
+    "exactBaselineRollback": "isolated-exact-rollback.sql; TEST ONLY because baseline has the known membership bug; requires the explicit isolated-test marker"
+  },
+  "exclusions": [
+    "No main, provider.html, provider.js, styles.css or sw.js changes in this package",
+    "No working records, payments, messages or production SQL writes",
+    "No full restore, physical device or live acceptance claim from fixtures"
+  ]
+}
