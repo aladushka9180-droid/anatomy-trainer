@@ -1,0 +1,47 @@
+name: Minuta retention audit fixes
+
+on:
+  push:
+    paths:
+      - 'minuta-online-booking/retention-management.js'
+      - 'minuta-online-booking/retention-soft-ui.css'
+      - 'minuta-online-booking/retention-audit-fixes-*.sql'
+      - 'minuta-online-booking/tests/retention-audit-*.mjs'
+      - 'minuta-online-booking/tests/retention-delta-fixture.mjs'
+      - '.github/workflows/minuta-retention-audit-fixes.yml'
+  pull_request:
+    paths:
+      - 'minuta-online-booking/retention-management.js'
+      - 'minuta-online-booking/retention-soft-ui.css'
+      - 'minuta-online-booking/retention-audit-fixes-*.sql'
+      - 'minuta-online-booking/tests/retention-audit-*.mjs'
+      - 'minuta-online-booking/tests/retention-delta-fixture.mjs'
+      - '.github/workflows/minuta-retention-audit-fixes.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  retention-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated pinned test dependencies
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/retention-audit" --no-save --ignore-scripts playwright@1.62.1 @electric-sql/pglite@0.3.13
+          echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/retention-audit/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "MINUTA_PGLITE_MODULE=$RUNNER_TEMP/retention-audit/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
+      - run: node --check minuta-online-booking/retention-management.js
+      - name: SQL causal, preservation, rollback and drift checks
+        run: node minuta-online-booking/tests/retention-audit-fixes-sql-test.mjs
+      - name: Install isolated browser
+        shell: bash
+        run: node "$RUNNER_TEMP/retention-audit/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Browser causal and recovery checks
+        run: node minuta-online-booking/tests/retention-audit-fixes-browser-test.mjs
