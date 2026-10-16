@@ -61,6 +61,29 @@ async function recordTitle(page,{theme,width,stage}){
 }
 
 try {
+ // Measure every theme before an original fail-fast assertion can hide later font fallbacks.
+ // This diagnostic loop changes no product/QA rule; the original scenarios below still fail fast.
+ for(const theme of ['pink-porcelain','noir-rose','midnight','sage'])for(const width of [320,360,390,760,1440]){
+  let metricPage;
+  try{
+   metricPage=await browser.newPage({viewport:{width,height:950},reducedMotion:'reduce'});
+   // These are action/navigation settings; the existing CI job supplies its overall limit.
+   metricPage.setDefaultTimeout(5000);metricPage.setDefaultNavigationTimeout(5000);
+   await metricPage.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
+   await metricPage.goto(url);await metricPage.waitForFunction(()=>window.fixtureReady||window.fixtureError);
+   if(await metricPage.evaluate(()=>Boolean(window.fixtureError)))throw Error('METRIC_FIXTURE_UNPROVEN');
+   await metricPage.addScriptTag({content:readFileSync(new URL('../provider-selects.js',import.meta.url),'utf8')});
+   await metricPage.addScriptTag({content:readFileSync(new URL('../provider-porcelain-matrix.js',import.meta.url),'utf8')});
+   await metricPage.evaluate(t=>{
+    document.body.dataset.providerTheme=t;
+    const palette=MinutaProviderPorcelainMatrix.paletteFor('petal','gentle-pink');
+    document.body.style.setProperty('--porcelain-action-bg',palette.actionBg);
+    document.body.style.setProperty('--porcelain-action-ink',palette.actionInk);
+   },theme);
+   await recordTitle(metricPage,{theme,width,stage:'matrix'});
+  }catch{publishTitleDiagnostic({theme,width,stage:'matrix-error',status:'FONT_MEASUREMENT_UNPROVEN'});}
+  finally{if(metricPage)try{await metricPage.close();}catch{publishTitleDiagnostic({theme,width,stage:'matrix-close',status:'FONT_MEASUREMENT_UNPROVEN'});}}
+ }
  for(const theme of ['pink-porcelain','noir-rose','midnight','sage'])for(const width of [320,360,390,760,1440]){
   const page=await browser.newPage({viewport:{width,height:950},reducedMotion:'reduce'});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
