@@ -261,7 +261,7 @@ const PROVIDER_LAYOUT_LABELS = Object.freeze({
 const CLIENT_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all'];
 const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
 const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
-  { key:'bookings', label:'Записи', icon:'grid' },
+  { key:'bookings', label:'Записи', icon:'date' },
   { key:'messages', label:'Сообщения', icon:'external' },
   { key:'notifications', label:'Уведомления', icon:'bell' },
   { key:'analytics', label:'Статистика', icon:'chart' },
