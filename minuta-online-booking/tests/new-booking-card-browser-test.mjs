@@ -23,6 +23,7 @@ try {
    document.body.style.setProperty('--porcelain-action-bg',palette.actionBg);
    document.body.style.setProperty('--porcelain-action-ink',palette.actionInk);
   },theme);
+  await page.evaluate(()=>document.fonts.ready);
   const serviceTrigger=await page.locator('#newBookingServiceOpen').evaluate(button=>{
    const title=button.querySelector('strong'),arrow=button.lastElementChild;
    const titleStyle=getComputedStyle(title),arrowStyle=getComputedStyle(arrow),mask=getComputedStyle(arrow,'::before');
@@ -31,7 +32,7 @@ try {
   });
   assert.equal(serviceTrigger.title,'Массаж спины + ШВЗ — базовый');
   assert.ok(serviceTrigger.font>=14&&serviceTrigger.font<=16,JSON.stringify(serviceTrigger));
-  assert.ok(serviceTrigger.height<=serviceTrigger.lineHeight+1&&serviceTrigger.overflow<=1,'the requested basic title stays on one line at each target width: '+JSON.stringify(serviceTrigger));
+  assert.ok(serviceTrigger.height<=serviceTrigger.lineHeight+1&&serviceTrigger.overflow<=1,'the requested basic title stays on one line at each target width: '+JSON.stringify({theme,width,...serviceTrigger}));
   assert.equal(serviceTrigger.arrow.width,18);assert.equal(serviceTrigger.arrow.height,18);assert.equal(serviceTrigger.arrow.font,'0px');assert.notEqual(serviceTrigger.arrow.mask,'none');
   if(out)await page.screenshot({path:resolve(out,`service-trigger-${theme}-${width}.png`)});
   // The added320/360 coverage targets the requested service trigger; preserve the original390/760/1440 functional/layout scope.
@@ -52,6 +53,10 @@ try {
   assert.match(await page.locator('#newBookingWhen').innerText(),/10:30–11:30/);
   await page.locator('#newBookingServiceOpen').click();
   await page.locator('[data-pick-new-booking-service="s2"]').click();
+  await page.evaluate(()=>document.fonts.ready);
+  const longService=await page.locator('#newBookingServiceOpen strong').evaluate(t=>({title:t.textContent,height:t.getBoundingClientRect().height,lineHeight:parseFloat(getComputedStyle(t).lineHeight),overflow:t.scrollWidth-t.clientWidth,whiteSpace:getComputedStyle(t).whiteSpace}));
+  assert.match(longService.title,/Комплексный массаж/);assert.equal(longService.whiteSpace,'normal');assert.ok(longService.overflow<=1,JSON.stringify({theme,width,...longService}));
+  if(width===390)assert.ok(longService.height>=longService.lineHeight*1.8,'long service names retain ordinary multi-line wrapping: '+JSON.stringify({theme,width,...longService}));
   await page.locator('#newBookingWhen').click();
   await page.locator('[data-new-booking-time="11:00"]').click();
   assert.match(await page.locator('#newBookingWhen').innerText(),/11:00–12:30/);
