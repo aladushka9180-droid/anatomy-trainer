@@ -146,3 +146,139 @@ html body.provider-body .pro-select-error[hidden] { display:none!important; }
   }
   html body.provider-body .pro-select-dialog .pro-select-option { min-height:50px; }
 }
+
+/* Visit-only service editor: existing fields, calculations and save handlers stay in place. */
+html body.provider-body #bookingSheet:has(#sessionComposerForm) {
+  --session-surface:var(--theme-surface,#fff);
+  --session-ink:var(--theme-ink,#24232b);
+  --session-muted:var(--theme-muted,#6c6871);
+  --session-line:var(--theme-line,#e5e1e6);
+  --session-accent:var(--theme-accent,#92536d);
+  --session-link:var(--theme-accent,#bd1767);
+  --session-action:var(--theme-accent,#bd1767);
+  --session-action-ink:var(--theme-accent-contrast,#fff);
+}
+html body.provider-body[data-provider-theme="pink-porcelain"] #bookingSheet:has(#sessionComposerForm) {
+  --session-surface:#fff;
+  --session-ink:#24232b;
+  --session-muted:#6c6871;
+  --session-line:#e5e1e6;
+  --session-accent:#92536d;
+  --session-link:#bd1767;
+  --session-action:#fbe0eb;
+  --session-action-ink:#bd1767;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .booking-sheet-panel {
+  width:min(560px,calc(100vw - 24px)); max-width:calc(100vw - 24px);
+  max-height:calc(100dvh - 24px); padding:0; border:1px solid var(--session-line);
+  border-radius:24px; background:var(--session-surface)!important;
+  background-image:none!important; color:var(--session-ink); overflow:auto;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .booking-sheet-panel::before {
+  content:""; display:block; position:absolute; top:9px; left:50%; width:40px; height:4px;
+  margin:0; border-radius:4px; background:var(--session-line); transform:translateX(-50%);
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) #bookingSheetContent { padding:28px 20px 22px; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .booking-sheet-close {
+  position:absolute; top:28px; right:16px; display:grid; place-items:center;
+  width:44px; height:44px; min-height:44px; margin:0; padding:0; border:0;
+  border-radius:50%; background:color-mix(in srgb,var(--session-line) 28%,var(--session-surface))!important;
+  background-image:none!important; color:var(--session-ink)!important;
+  box-shadow:none!important; font:400 26px/1 Arial,sans-serif;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .booking-editor-heading {
+  display:flex; align-items:center; min-height:44px; margin:0 48px 16px 0; padding:0; border:0;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .booking-editor-back {
+  min-height:44px; margin:0; padding:0; border:0; background:none!important;
+  color:var(--session-link)!important; box-shadow:none!important;
+  font-size:16px; font-weight:500;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .booking-editor-heading .booking-sheet-kicker { display:none; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) #bookingSheetTitle {
+  margin:0; color:var(--session-ink)!important; font-size:26px!important;
+  font-weight:600; line-height:1.2; letter-spacing:-.35px; text-wrap:balance;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-lead {
+  margin:10px 0 24px; color:var(--session-muted)!important;
+  font-size:14px; font-weight:400; line-height:1.5;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) #sessionComposerForm { display:grid; gap:20px; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) #sessionComposerItems { display:grid; gap:24px; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-item {
+  display:grid; gap:12px; min-width:0; margin:0; padding:0; border:0; border-radius:0;
+  background:transparent!important; box-shadow:none!important;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-item+.session-composer-item {
+  padding-top:20px; border-top:1px solid var(--session-line);
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-item-head { min-height:24px; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-item-head>strong {
+  color:var(--session-ink); font-size:16px; font-weight:600;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-item-head button {
+  width:44px; height:44px; min-height:44px; margin:0; padding:10px;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-item>label {
+  min-width:0; margin:0; color:var(--session-muted); font-size:14px; font-weight:500; line-height:1.5;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) label:has(>select[data-session-service] + .pro-select-trigger:not([hidden])),
+html body.provider-body #bookingSheet:has(#sessionComposerForm) label:has(>select[data-session-service] ~ .pro-select-trigger:not([hidden])) {
+  font-size:0; line-height:0;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) label:has(>.pro-select-trigger:not([hidden])) .session-service-name { display:none; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .pro-select-trigger {
+  min-height:64px; margin:0; padding:12px 14px; border:1px solid var(--session-line);
+  border-radius:14px; background:var(--session-surface)!important; color:var(--session-ink)!important;
+  font-size:calc(16px + var(--provider-text-step,0px)); font-weight:400; line-height:1.4;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-fields {
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important; gap:12px; min-width:0;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-fields>label {
+  display:flex; flex-direction:column; gap:8px; min-width:0; margin:0;
+  color:var(--session-muted); font-size:calc(14px + var(--provider-text-step,0px)); font-weight:500; line-height:1.45;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-fields input,
+html body.provider-body #bookingSheet:has(#sessionComposerForm) input[data-session-title] {
+  box-sizing:border-box; width:100%; min-width:0; min-height:52px; margin:0; padding:11px 14px;
+  border:1px solid var(--session-line); border-radius:13px;
+  background:var(--session-surface)!important; background-image:none!important; color:var(--session-ink)!important;
+  box-shadow:none!important; font-size:calc(18px + var(--provider-text-step,0px)); font-weight:500; line-height:1.4;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-fields input { margin-top:auto; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-add-button {
+  min-height:48px; margin:0; padding:11px 12px; border:1px solid var(--session-line); border-radius:13px;
+  background:var(--session-surface)!important; background-image:none!important; color:var(--session-accent)!important;
+  box-shadow:none!important; font-size:16px; font-weight:500; line-height:1.4;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-add-button .ui-icon { width:20px; height:20px; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-summary {
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:6px;
+  margin:4px 0 0; padding:20px 0 0; border-top:1px solid var(--session-line);
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-summary>span { display:contents; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-summary>span:first-child>small { display:none; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-summary>span:last-child>small {
+  order:0; flex:1; margin:0; color:var(--session-muted)!important;
+  font-size:14px; font-weight:500; text-transform:none; line-height:1.5;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-composer-summary strong {
+  margin:0; color:var(--session-ink)!important; font-size:18px; font-weight:600; line-height:1.5; white-space:nowrap;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) #sessionComposerDuration { order:1; font-weight:400; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) #sessionComposerDuration::after { content:" ·"; margin-left:4px; color:var(--session-muted); }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) #sessionComposerTotal { order:2; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) #sessionComposerSave {
+  width:100%; min-height:54px; margin:0; padding:13px 16px; border:0; border-radius:16px;
+  background:var(--session-action)!important; background-image:none!important; color:var(--session-action-ink)!important;
+  box-shadow:none!important; font-size:18px; font-weight:600; line-height:1.4;
+}
+html body.provider-body #bookingSheet:has(#sessionComposerForm) #sessionComposerSave:disabled { opacity:.55; cursor:default; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-duration-toggle { line-height:1.5; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-duration-toggle input { accent-color:var(--session-link); }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-duration-toggle span strong { font-size:14px; font-weight:500; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) .session-duration-toggle span small { font-size:13px; font-weight:400; line-height:1.5; }
+html body.provider-body #bookingSheet:has(#sessionComposerForm) :is(input,button):focus-visible {
+  outline:2px solid var(--session-accent); outline-offset:2px;
+}

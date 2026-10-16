@@ -40,6 +40,7 @@ jobs:
       - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
       - name: Install the Chrome channel required by the existing overview test
         run: npx playwright install chrome
+      - run: node minuta-online-booking/tests/new-booking-card-browser-test.mjs
       - run: node minuta-online-booking/tests/booking-delete-diagnostic-test.mjs
       - run: node minuta-online-booking/tests/eldion-connection-browser-test.mjs
       - name: Verify one-release PWA update and stale-tab recovery
@@ -56,6 +57,8 @@ jobs:
         run: node minuta-online-booking/tests/provider-layout-picker-geometry-browser-test.mjs
       - run: node minuta-online-booking/tests/flat-schedule-icons-browser-test.mjs
       - run: node minuta-online-booking/tests/compact-mobile-schedule-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-autobreak-alignment-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-short-grid-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-appearance-layout-browser-test.mjs
       - run: node minuta-online-booking/tests/shift-load-timeout-browser-test.mjs
       - run: node minuta-online-booking/tests/shift-presentation-controller-test.mjs
@@ -87,7 +90,6 @@ jobs:
       - run: node minuta-online-booking/tests/code-scanner-camera-browser-test.mjs
       - run: node minuta-online-booking/tests/client-contact-picker-browser-test.mjs
       - run: node minuta-online-booking/tests/client-profile-from-booking-browser-test.mjs
-      - run: node minuta-online-booking/tests/new-booking-card-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-offday-label-browser-test.mjs
       - run: node minuta-online-booking/tests/client-page-settings-v118-pglite-test.mjs
       - run: node minuta-online-booking/tests/pink-porcelain-v177-pglite-test.mjs

@@ -98,3 +98,131 @@
       bookings:bookingSourceItems, isBlock:isScheduleBlock});
   }, {once:true});
 })();
+
+/* Scale the entire mobile day grid; never mutate a booking or its duration. */
+(() => {
+  'use strict';
+  let ratio = 1, floor = 75, bridge, gesture, suppressUntil = 0, mounted = false;
+  const mobile = () => matchMedia('(max-width:760px)').matches;
+  const clamp = value => Math.max(1, Math.min(3, Math.round(value * 20) / 20));
+  function height(items, isMobile) {
+    if (!isMobile) return 76;
+    const durations = items.filter(item => !item.automatic_break && !isScheduleBlock(item))
+      .map(item => Number(item.duration_minutes || item.services?.duration_minutes || 60))
+      .filter(duration => duration > 1 && duration <= 30);
+    const textStep = Math.max(0, parseFloat(getComputedStyle(document.body).getPropertyValue('--provider-text-step')) || 0);
+    floor = durations.length ? Math.max(75, (34 + 3 * textStep) * 60 / Math.min(...durations)) : 75;
+    return floor * ratio;
+  }
+  function refresh() {
+    const stage = document.querySelector('#providerBookings .timeline-stage');
+    const group = document.querySelector('.schedule-scale-controls');
+    if (group) {
+      group.hidden = !mobile() || !stage;
+      group.querySelector('output').textContent = Math.round(floor * ratio / 75 * 100) + '%';
+      group.querySelector('[data-grid-scale="-1"]').disabled = ratio <= 1;
+      group.querySelector('[data-grid-scale="1"]').disabled = ratio >= 3;
+      group.querySelector('small').hidden = floor <= 75;
+    }
+    if (!mobile() || !stage) return;
+    stage.querySelectorAll('.timeline-booking[data-open-booking]:not(.status-block):not(.minute-only)').forEach(card => {
+      if (Number(card.dataset.bookingDuration) > 40 || card.querySelector('.timeline-details-cue')) return;
+      if (card.classList.contains('timeline-short-visit')) {
+        const tail = card.querySelector('.timeline-mobile-time')?.lastChild;
+        if (tail?.nodeType === Node.TEXT_NODE) tail.textContent = tail.textContent.replace(/ · $/u, '');
+      }
+      const cue = document.createElement('span');
+      cue.className = 'timeline-details-cue';
+      cue.setAttribute('aria-hidden', 'true');
+      cue.innerHTML = '<svg class="ui-icon"><use href="ui-icons.svg#icon-arrow-right"></use></svg>';
+      card.append(cue);
+      card.setAttribute('aria-haspopup', 'dialog');
+      card.setAttribute('aria-controls', 'bookingSheet');
+      card.setAttribute('aria-label', card.getAttribute('aria-label') + '. Открыть подробности и комментарий');
+    });
+  }
+  function change(next, clientY = 180) {
+    next = clamp(next);
+    if (next === ratio || !bridge?.idle()) return refresh();
+    const stage = document.querySelector('#providerBookings .timeline-stage');
+    if (!stage) return;
+    const point = Math.max(0, Math.min(1, (clientY - stage.getBoundingClientRect().top) / Number(stage.dataset.timelineNaturalHeight)));
+    const before = stage.getBoundingClientRect().top + point * Number(stage.dataset.timelineNaturalHeight);
+    ratio = next;
+    bridge.redraw();
+    const updated = document.querySelector('#providerBookings .timeline-stage');
+    if (updated) window.scrollBy(0, updated.getBoundingClientRect().top + point * Number(updated.dataset.timelineNaturalHeight) - before);
+    refresh();
+  }
+  function init(api) {
+    if (mounted) return;
+    const options = document.querySelector('#scheduleViewMenu .schedule-view-options');
+    const holder = document.querySelector('#providerBookings');
+    if (!options || !holder) return;
+    mounted = true;
+    bridge = api;
+    const controls = document.createElement('div');
+    controls.className = 'schedule-view-option-group schedule-scale-controls';
+    controls.setAttribute('role', 'group');
+    controls.setAttribute('aria-label', 'Масштаб шкалы');
+    controls.innerHTML = '<span>Масштаб шкалы</span><div><button type="button" data-grid-scale="-1" aria-label="Уменьшить масштаб шкалы">−</button><output aria-live="polite" aria-label="Масштаб шкалы"></output><button type="button" data-grid-scale="1" aria-label="Увеличить масштаб шкалы">+</button></div><small>Минимум увеличен, чтобы время и имя помещались.</small>';
+    options.append(controls);
+    controls.addEventListener('click', event => {
+      const button = event.target.closest('[data-grid-scale]');
+      if (button) change(ratio + Number(button.dataset.gridScale) * .25);
+    });
+    new MutationObserver(refresh).observe(holder, {childList:true, subtree:true});
+    window.addEventListener('resize', refresh);
+    document.addEventListener('pointerdown', event => {
+      if (event.target.closest?.('.timeline-details-cue') || gesture) event.stopImmediatePropagation();
+    }, true);
+    for (const name of ['pointermove', 'pointerup', 'pointercancel']) document.addEventListener(name, event => {
+      if (gesture) event.stopImmediatePropagation();
+    }, true);
+    document.addEventListener('click', event => {
+      if (Date.now() < suppressUntil && event.target.closest?.('#providerBookings')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+    document.addEventListener('touchstart', event => {
+      if (!mobile() || gesture || event.touches.length !== 2 || !event.cancelable || !bridge.idle()) return;
+      const [a,b] = [...event.touches];
+      if (![a,b].every(touch => touch.target.closest?.('#providerBookings .timeline-stage') && !touch.target.closest('.timeline-booking'))) return;
+      const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      if (distance < 36) return;
+      bridge.cancelSwipe();
+      gesture = {distance, ratio, next:ratio, clientY:(a.clientY + b.clientY) / 2};
+      suppressUntil = Date.now() + 700;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, {capture:true, passive:false});
+    document.addEventListener('touchmove', event => {
+      if (!gesture || event.touches.length !== 2) return;
+      const [a,b] = [...event.touches];
+      gesture.next = clamp(gesture.ratio * Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) / gesture.distance);
+      if (event.cancelable) event.preventDefault();
+      event.stopImmediatePropagation();
+      controls.querySelector('output').textContent = Math.round(floor * gesture.next / 75 * 100) + '%';
+    }, {capture:true, passive:false});
+    for (const name of ['touchend', 'touchcancel']) document.addEventListener(name, event => {
+      if (!gesture) return;
+      if (event.cancelable) event.preventDefault();
+      event.stopImmediatePropagation();
+      suppressUntil = Date.now() + 700;
+      if (event.touches.length && name !== 'touchcancel') return;
+      const state = gesture;
+      gesture = null;
+      if (name === 'touchend') change(state.next, state.clientY); else refresh();
+    }, {capture:true, passive:false});
+    refresh();
+  }
+  window.PrimeTimeScheduleGrid = {height, init};
+  const start = () => {
+    if (typeof renderBookings !== 'function') return;
+    init({redraw:renderBookings,
+      idle:() => !timelineBookingDrag && !timelineMovePending && !timelineMoveConfirmationPending && !scheduleDaySwipe?.active,
+      cancelSwipe:() => { if (scheduleDaySwipe) finishScheduleDaySwipe(scheduleDaySwipe, {clientX:scheduleDaySwipe.startX}); }});
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once:true}); else start();
+})();

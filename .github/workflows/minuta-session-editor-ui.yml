@@ -1,0 +1,22 @@
+name: Minuta visit service editor UI
+on:
+  pull_request:
+    branches: [main]
+    paths: ['minuta-online-booking/provider-selects.*', 'minuta-online-booking/provider.js', 'minuta-online-booking/provider.html', 'minuta-online-booking/styles.css', 'minuta-online-booking/tests/session-editor-*', '.github/workflows/minuta-session-editor-ui.yml']
+  push:
+    branches: [main]
+    paths: ['minuta-online-booking/provider-selects.*', 'minuta-online-booking/provider.js', 'minuta-online-booking/provider.html', 'minuta-online-booking/styles.css', 'minuta-online-booking/tests/session-editor-*', '.github/workflows/minuta-session-editor-ui.yml']
+permissions:
+  contents: read
+jobs:
+  session-editor-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node minuta-online-booking/tests/session-editor-browser-test.mjs
