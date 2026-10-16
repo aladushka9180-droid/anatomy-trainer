@@ -1,0 +1,33 @@
+/* Booking labels share the current Pro palette. Card colors and status visibility stay intact. */
+.provider-body[data-provider-theme] {
+  --provider-status-confirmed-bg:var(--theme-accent-soft);
+  --provider-status-confirmed-ink:var(--theme-ink);
+  --provider-status-success-bg:color-mix(in srgb,#39854c 15%,var(--theme-surface));
+  --provider-status-success-ink:var(--theme-ink);
+}
+
+/* The sheet ID also gives these label colors precedence over older per-screen rules. */
+body.provider-body[data-provider-theme] :is(
+  #bookingSheet .booking-status.status-confirmed,
+  .booking-status.status-confirmed,
+  .status-confirmed .booking-status,
+  .status-confirmed .timeline-booking-status,
+  .client-history-item.status-confirmed>span,
+  .client-booking-item.status-confirmed .client-booking-item-head>span,
+  .profile-card-status.is-confirmed
+) {
+  background:var(--provider-status-confirmed-bg)!important;
+  color:var(--provider-status-confirmed-ink)!important;
+}
+
+body.provider-body[data-provider-theme] :is(
+  #bookingSheet .booking-status.detail-card-completed,
+  .booking-status.status-completed,
+  .status-completed .booking-status,
+  .status-visited:not(.is-imported-history) .booking-status,
+  .timeline-booking.status-visited:not(.is-imported-history) .timeline-booking-status,
+  .profile-card-status.is-success
+) {
+  background:var(--provider-status-success-bg)!important;
+  color:var(--provider-status-success-ink)!important;
+}

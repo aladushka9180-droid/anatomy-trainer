@@ -53,6 +53,7 @@ jobs:
         run: node minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs
       - name: Check theme colours and marked card states
         run: node minuta-online-booking/tests/theme-card-browser-test.mjs
+      - run: node minuta-online-booking/tests/provider-status-theme-browser-test.mjs
       - name: Keep layout picker geometry independent
         run: node minuta-online-booking/tests/provider-layout-picker-geometry-browser-test.mjs
       - run: node minuta-online-booking/tests/flat-schedule-icons-browser-test.mjs

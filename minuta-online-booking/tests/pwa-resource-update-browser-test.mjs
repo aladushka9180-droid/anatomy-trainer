@@ -50,7 +50,7 @@ const oldRelease = snapshot(oldFile, ['group-bookings.js', 'provider.js']);
 const newCoreModules = ['group-bookings.js', 'provider.js', 'report-reconciliation.js'];
 const offlineModules = [...new Set([...newCoreModules, ...executableModules])];
 const newRelease = snapshot(newFile, newCoreModules);
-const organizationRequests = providerOrganizationRequests(newRelease);
+const organizationRequests = { ...providerOrganizationRequests(newRelease), ...providerStatusThemeRequests(newRelease) };
 const organizationModules = Object.keys(organizationRequests);
 // Serve existing optional bytes for the real worker's warmup only. This list
 // never chooses the request keys asserted by the regression below.
@@ -134,6 +134,22 @@ function providerOrganizationRequests(release) {
     if (!release.files.has(path)) release.files.set(path, newFile(path));
   }
   assert.deepEqual(stylePaths.sort(), ['loyalty-soft-ui.css', 'retention-mobile-ui.css', 'team-schedule-ui.css']);
+  return requests;
+}
+
+// Read presentation request keys from the actual HTML, independently of OPTIONAL_ASSETS.
+function providerStatusThemeRequests(release) {
+  const html = release.files.get('provider.html').toString('utf8');
+  const refs = [...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="([^"]+)"/g)].map(match => match[1]);
+  const requests = {};
+  for (const file of ['client-profile-card.js', 'provider-status-theme.css']) {
+    const matches = refs.filter(ref => ref.replace(/^\.\//, '').split('?')[0] === file);
+    assert.equal(matches.length, 1, 'Exactly one actual presentation consumer for ' + file);
+    const request = matches[0].replace(/^\.\//, '');
+    assert.equal(request, file + '?v=' + release.version, 'Exact current presentation query for ' + file);
+    requests[file] = './' + request;
+    if (!release.files.has(file)) release.files.set(file, newFile(file));
+  }
   return requests;
 }
 

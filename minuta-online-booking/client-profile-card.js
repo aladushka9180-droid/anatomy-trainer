@@ -60,7 +60,7 @@
     const { outcome, status, money, serviceName } = current;
     const result=outcome(item), imported=Boolean(item.is_imported_history), cancelled=item.status==='cancelled';
     const label=cancelled?status(item):imported?'Импортировано':result.visit_status==='completed'?'Состоялся':status(item);
-    const tone=cancelled||result.visit_status==='no_show'?'muted':imported?'imported':result.visit_status==='completed'||item.status==='confirmed'?'success':'pending';
+    const tone=cancelled||result.visit_status==='no_show'?'muted':imported?'imported':result.visit_status==='completed'?'success':item.status==='confirmed'?'confirmed':'pending';
     const received=Math.max(0,Number(result.amount_rub)||0);
     const payment=received ? `Получено ${money(received)}` : 'Оплата пока не получена';
     const debt=!cancelled&&result.visit_status==='completed'&&current.value ? Math.max(0,current.value(item)-received) : 0;
