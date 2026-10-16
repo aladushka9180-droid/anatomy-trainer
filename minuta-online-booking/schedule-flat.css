@@ -704,8 +704,8 @@ html body.provider-body[data-provider-resolved-color-mode="dark"][data-provider-
   #dashboard .schedule-context:has(#scheduleViewMenu[open]) { position:relative; z-index:4; overflow:visible!important; }
 }
 
-/* Center the existing automatic-break content, without changing its typography,
-   icon, frame, colours or real duration. Ordinary visits stay unchanged. */
+/* Left-align automatic breaks, preserving vertical centre, typography,
+   icon, frame, colours and real duration. Ordinary visits stay unchanged. */
 @media(max-width:760px) {
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[data-active-view="bookings"] #providerBookings.provider-bookings.timeline-view .timeline-booking.status-block.automatic-break[data-open-automatic-break]:not(.minute-only) {
   display:grid!important;
@@ -714,8 +714,8 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard[da
   gap:3px 10px!important;
   align-items:center!important;
   align-content:center!important;
-  justify-content:center!important;
-  padding-inline:12px!important;
+  justify-content:start!important;
+  padding-inline:9px!important;
   & >.timeline-booking-copy {
     position:static!important;
     inset:auto!important;
