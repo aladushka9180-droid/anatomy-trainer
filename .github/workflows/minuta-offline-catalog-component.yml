@@ -1,0 +1,42 @@
+name: Minuta offline catalog component
+
+on:
+  push:
+    branches: [codex/pro-offline-catalog-ui-drafts]
+    paths:
+      - '.github/workflows/minuta-offline-catalog-component.yml'
+      - 'minuta-online-booking/reliability.js'
+      - 'minuta-online-booking/offline-catalog-drafts.js'
+      - 'minuta-online-booking/offline-catalog-panel.js'
+      - 'minuta-online-booking/offline-catalog-panel.css'
+      - 'minuta-online-booking/tests/offline-catalog-drafts-browser-test.mjs'
+      - 'minuta-online-booking/tests/offline-catalog-panel-browser-test.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node --check minuta-online-booking/reliability.js
+      - run: node --check minuta-online-booking/offline-catalog-drafts.js
+      - run: node --check minuta-online-booking/offline-catalog-panel.js
+      - run: node minuta-online-booking/tests/offline-catalog-drafts-browser-test.mjs
+        env:
+          BROWSER_CHANNEL: chromium
+      - run: node minuta-online-booking/tests/offline-catalog-panel-browser-test.mjs
+        env:
+          BROWSER_CHANNEL: chromium
+      - run: node minuta-online-booking/tests/provider-offline-cold-start-browser-test.mjs
+        env:
+          BROWSER_CHANNEL: chromium
