@@ -21,6 +21,8 @@ try{
  await page.goto('https://schedule.fixture.invalid/provider.html');
  await page.addScriptTag({path:resolve(root,'schedule-break-icons.js')});
  const flatStyle=await page.addStyleTag({content:candidateCSS});
+ // provider.html links this sheet at the end of body; exercise the candidate after it.
+ await flatStyle.evaluate(e=>document.body.append(e));
  const appearance=()=>page.evaluate(()=>{
   const font=e=>{const s=getComputedStyle(e);return Object.fromEntries(['fontFamily','fontSize','fontWeight','fontStyle','lineHeight','letterSpacing','color'].map(k=>[k,s[k]]));};
   const frame=e=>{const s=getComputedStyle(e);return Object.fromEntries(['backgroundColor','backgroundImage','borderColor','borderStyle','borderWidth','borderRadius','boxShadow'].map(k=>[k,s[k]]));};
@@ -49,7 +51,8 @@ try{
  const minutesFromTime=t=>Number(t.slice(0,2))*60+Number(t.slice(3,5)),timeFromMinutes=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
  const bookingStatus=i=>i.status,bookingStatusClass=i=>i.status,isScheduleBlock=i=>i.status==='block',bookingDisplayNote=()=>'',compactBookingCardsEnabled=()=>false,bookingVisitSummaryText=()=>'',bookingVisitSummaryMarkup=()=>'',clientHighlightClasses=()=>'',clientBadgeText=()=>'',clientBadgeMarkup=()=>'',timelineMoveRestriction=()=>'',timelineServiceNameMarkup=n=>escapeHtml(n),bookingNotePresenceMarkup=()=>'',bookingColor=()=> 'auto',serviceName=n=>n,scheduleNowMarkerMarkup=()=>'',timelineEmptyHintOffsetMinutes=()=>120,scheduleCreateHintMarkup=()=>'';
  const items=[20,30,40,60,90].map((d,i)=>({id:'auto-'+d,booking_date:selectedDate,booking_time:['10:00','11:00','12:00','13:00','14:30'][i],duration_minutes:d,status:'block',automatic_break:true}));
- items.push({id:'visit',booking_date:selectedDate,booking_time:'16:30',duration_minutes:40,status:'confirmed',client_name:'Тестовый клиент',services:{name:'Тестовая услуга'}});
+ items.push({id:'visit',booking_date:selectedDate,booking_time:'16:00',duration_minutes:40,status:'confirmed',client_name:'Тестовый клиент',services:{name:'Тестовая услуга'}});
+ items.push({id:'visit60',booking_date:selectedDate,booking_time:'17:00',duration_minutes:60,status:'confirmed',client_name:'Тестовый клиент',services:{name:'Тестовая услуга'}});
  ${actual('renderTimeline')}
  function redraw(){syncScheduleDateDisplay();syncCompactScheduleOrder();renderTimeline(items);}
  window.fixtureRedraw=redraw;redraw();
@@ -68,17 +71,19 @@ try{
     const t=textRect(time),l=textRect(label),parts=[t,l].filter(Boolean),content=l?{top:Math.min(...parts.map(b=>b.top)),bottom:Math.max(...parts.map(b=>b.bottom))}:null;
     const horizontal=l?{left:Math.min(...parts.map(b=>b.left),r(icon).left),right:Math.max(...parts.map(b=>b.right),r(icon).right)}:null;
     const singleLine=!!card.querySelector('.timeline-break-short-time')||!card.querySelector('.timeline-booking-client-row');
-    return{duration,height:box.height,iconCenterDelta:visible(icon)?Math.abs(r(icon).cy-box.cy):null,textCenterDelta:content?Math.abs((content.top+content.bottom)/2-box.cy):null,groupCenterXDelta:horizontal?Math.abs((horizontal.left+horizontal.right)/2-(box.left+box.right)/2):null,timeVisible:!!t,labelVisible:!!l,textFits:!!content&&content.top>=box.top-.5&&content.bottom<=box.bottom+.5&&parts.every(b=>b.left>=box.left-.5&&b.right<=box.right+.5),timeBeforeLabel:!t||!!l&&(singleLine?t.right<=l.left+1:t.bottom<=l.top+1),backgroundImage:getComputedStyle(card).backgroundImage};
+    return{duration,height:box.height,iconCenterDelta:visible(icon)?Math.abs(r(icon).cy-box.cy):null,textCenterDelta:content?Math.abs((content.top+content.bottom)/2-box.cy):null,groupLeftInset:horizontal?horizontal.left-box.left:null,timeVisible:!!t,labelVisible:!!l,textFits:!!content&&content.top>=box.top-.5&&content.bottom<=box.bottom+.5&&parts.every(b=>b.left>=box.left-.5&&b.right<=box.right+.5),timeBeforeLabel:!t||!!l&&(singleLine?t.right<=l.left+1:t.bottom<=l.top+1),backgroundImage:getComputedStyle(card).backgroundImage};
    });
    const summary=document.querySelector('.schedule-toolbar'),timeline=document.querySelector('.schedule-workspace'),stage=document.querySelector('.timeline-stage');
    const active=document.querySelector('#dateStrip .active'),month=active.querySelector('small');
-   return{cards,summary:r(summary),timeline:r(timeline),stageHeight:r(stage).height,gradient:getComputedStyle(active).backgroundImage,monthsVisible:visible(month),overflow:document.documentElement.scrollWidth>innerWidth+1};
+   const visit=document.querySelector('[data-open-booking="visit60"]'),visitText=visit.querySelector('.timeline-mobile-time');
+   const ordinaryVisitInset=r(visitText).left-r(visit).left;
+   return{cards,ordinaryVisitInset,summary:r(summary),timeline:r(timeline),stageHeight:r(stage).height,gradient:getComputedStyle(active).backgroundImage,monthsVisible:visible(month),overflow:document.documentElement.scrollWidth>innerWidth+1};
   });
   reports.push({theme,width,...state});
   if(output){writeFileSync(resolve(output,'geometry.json'),JSON.stringify(reports,null,2));await page.screenshot({path:resolve(output,`${theme}-${width}.png`),fullPage:true});if(width===390)await page.locator('[data-booking-duration="60"][data-open-automatic-break]').screenshot({path:resolve(output,`${theme}-break-60.png`)});}
   assert.equal(state.overflow,false,`${theme}/${width}: page overflow`);assert.equal(state.gradient,'none');assert.equal(state.monthsVisible,true);
   if(width<=760){assert.ok(Math.abs(state.summary.left-state.timeline.left)<1,`${theme}/${width}: shared left edge`);assert.ok(Math.abs(state.summary.right-state.timeline.right)<1,`${theme}/${width}: shared right edge`);}
-  if(width<=760)for(const card of state.cards){const id=`${theme}/${width}/${card.duration}`;assert.equal(card.timeVisible,![20,40].includes(card.duration),`${id}: preserve existing time visibility`);assert.equal(card.labelVisible,true,`${id}: label visible`);assert.equal(card.textFits,true,`${id}: text stays inside real time slot`);assert.ok(card.iconCenterDelta<=.75,`${id}: pause centered (${card.iconCenterDelta})`);assert.ok(card.textCenterDelta<=2,`${id}: text centered (${card.textCenterDelta})`);assert.ok(card.groupCenterXDelta<=1.5,`${id}: entire group centered horizontally (${card.groupCenterXDelta})`);assert.equal(card.timeBeforeLabel,true,`${id}: existing compact line or two centered rows`);assert.equal(card.backgroundImage,'none');}
+  if(width<=760)for(const card of state.cards){const id=`${theme}/${width}/${card.duration}`;assert.equal(card.timeVisible,![20,40].includes(card.duration),`${id}: preserve existing time visibility`);assert.equal(card.labelVisible,true,`${id}: label visible`);assert.equal(card.textFits,true,`${id}: text stays inside real time slot`);assert.ok(card.iconCenterDelta<=.75,`${id}: pause centered (${card.iconCenterDelta})`);assert.ok(card.textCenterDelta<=2,`${id}: text centered (${card.textCenterDelta})`);assert.ok(Math.abs(card.groupLeftInset-state.ordinaryVisitInset)<=1,`${id}: group shares ordinary visit left inset (${card.groupLeftInset}/${state.ordinaryVisitInset})`);assert.equal(card.timeBeforeLabel,true,`${id}: existing compact line or two vertically centered rows`);assert.equal(card.backgroundImage,'none');}
  }
  for(const [value,month] of [['2026-12-31','декабрь 2026'],['2027-01-01','январь 2027'],['2026-10-14','октябрь 2026']]){
   await page.evaluate(value=>{document.querySelector('#scheduleDatePicker').value=value;syncScheduleDateDisplay();},value);
@@ -88,8 +93,8 @@ try{
  for(const key of ['coffee','none','pause']){
   await page.evaluate(key=>fixtureIcon(key),key);await page.waitForTimeout(20);
   assert.equal(await page.locator('[data-open-automatic-break][data-booking-duration="20"] .schedule-break-icon').getAttribute('data-break-icon'),key,'Existing icon preference survives');
-  assert.equal(await page.locator('[data-open-automatic-break][data-booking-duration="20"] .timeline-booking-time').isVisible(),false,'Centering does not reveal a previously hidden time');
+  assert.equal(await page.locator('[data-open-automatic-break][data-booking-duration="20"] .timeline-booking-time').isVisible(),false,'Alignment does not reveal a previously hidden time');
  }
  assert.equal(forbiddenRequests,0,'fixture made no external requests or writes');assert.deepEqual(errors,[]);
- console.log(`PASS: ${reports.length} theme/width layouts, 20/30/40/60/90-minute automatic breaks, both center axes, shared card edges, flat dates, no writes${referenceCSS?', unchanged fonts/icons/frames/ordinary visit':''}`);
+ console.log(`PASS: ${reports.length} theme/width layouts, 20/30/40/60/90-minute automatic breaks, vertical centre and ordinary visit left inset, shared card edges, flat dates, no writes${referenceCSS?', unchanged fonts/icons/frames/ordinary visit':''}`);
 }finally{await browser.close();}

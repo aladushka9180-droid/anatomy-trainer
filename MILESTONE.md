@@ -1,22 +1,22 @@
-# Eldion Pro — согласованный интерфейс v1092
+# Eldion Pro — узкий интерфейс v1093
 
 ## Цель
-Довести ранее согласованные обновления до рабочей приёмки по единому реестру. ROOT — один владелец общего выпуска.
+Принять выбранные человеком левое выравнивание автоперерыва и округлый шеврон «Ещё 8 вариантов». ROOT — единственный владелец интеграции и выпуска.
 
 ## Сделано
-Основа main1929921f/v1091 опубликована,29CI/Pages/семьpublicbytes приняты отдельно от рабочих сценариев. В изолированной ветке собраны четыре точных presentation-передачи календаря/фильтра/повтора, редактор состава сеанса PR118 и узкий service-trigger Source PR121. Сохраняются новые Card/Resources и действующие расчёты/сохранение; SQL не меняется.
+На свежем main6fbc собраны только две CSS-правки: автоперерыв слева с прежним вертикальным центром и оформлением; точные два правила из PR123/ceb2f812 для нативного disclosure. SQL, расчёты и сохранение не менялись.
 
 ## Проверено
-Независимые Source peers сохранены. Все17необщихфайлов19UI равны выбраннымвходам; прежние13Bpaths сохранены, manualrefresh неизменён. У PR121 владелец дал неверный metadataSHA: ROOT принимает проверенный immutableGitpin отдельно, прежние20screens не выданы за exactheadproof. Для новой итоговой композиции расширен существующий synthetic browser-gate до4тем×5ширин, добавлены one-line/basicfont/18pxmask assertions и две штатные schedule-команды вCI. Старые успешные тесты без новых входов не повторяются.
+Автоперерыв: исправлено размещение candidate-style в учебной проверке после body-link; сохранён ordinary40 и добавлен отдельный ordinary60 oracle. Targeted synthetic PASS12 theme/width layouts,20/30/40/60/90мин, прежние fonts/icons/frames/ordinary40 точны; Root просмотрел390/760/1440. Это Source, не авторизованный рабочий экран. PR123 CSS принят по immutable Git, прежние Source20combination proof применяются только к этому exact optional-файлу.
 
 ## Текущий этап
-v1092 с точными HTML/SW/assetbindings и прежнимreload-precache для общихSVG. Итоговые4parse, startup63/3799085 при прежнемcap и redirect/diff PASS (tool1cf21a). Независимый finalpeer и exactnewCI ещё впереди; публикация и рабочая/PWAприёмка открыты.
+Версии HTML/SW/site-update согласованы1093; финальные проверки, независимый peer и CI/публикация ещё впереди. COREcap3799094 сохранён.
 
 ## Следующие шаги
-Затронутые parse/startup/redirect → finalpeer → обычные push/CI/merge/deploy и publicreadback. Затем рабочие экраны/installedPWA и дальнейший согласованный остаток.
+Affected redirect/startup/cache и finalpeer → штатные push/CI/merge/Pages → exact public readback. Затем рабочие UI/PWA по каждой правке отдельно.
 
 ## Зафиксированные решения
-COREcap3799094 не повышается; ожидается3799085. Ни credential/SQL119, ни certificates, ни prototype radio-redesign не включены. До4участников Root+3Sol6.1/max; общие файлы меняет Root.
+Общая48-path Source-сборка08e1acdc и SQL не входят в этот выпуск. Выбранная ранее Source typography14–16 сохраняется как отдельный обязательный пункт: main14px и approvedSource16px ещё требуют квалификации one-line fit; этот конфликт не скрывается и не блокирует независимые две CSS-правки.
 
 ## Ограничения и блокеры
-AuthenticatedBrowser и физическаяPWA остаются отдельными. Полная DB/Auth/Storage копия и samecopyread1/3, осталось2. WSL R5 использован1/1 и остался вsameownerHOLD; безreplay/forcecleanup, неblanketgate UI.
+Рабочая приёмка этих двух правок0/2. Установленная PWA и authenticatedBrowser не проверены. Полная DB/Auth/Storage копия и чтение1/3: каталог сохранён, R6spent1/1/HOLD, supported Auth/Storage barrier и same-copy restore/read открыты.
