@@ -111,7 +111,7 @@ try {
       const transferDebug = await page.evaluate(() => ({ downloads:transferDownloads, notices:transferNotices }));
       assert.equal(transferDebug.downloads.length, 1, JSON.stringify(transferDebug));
       const download = await page.evaluate(() => transferDownloads[0]);
-      assert.match(download.filename, /^primetime-pro-clients-2026-09-11\.csv$/);
+      assert.match(download.filename, /^eldion-pro-clients-2026-09-11\.csv$/);
       assert.equal(await page.evaluate(() => transferCalls.filter(item => item.name === 'export_minuta_provider_transfer_data_v144').length), 1);
       await page.evaluate(() => { transferDownloads.length = 0; });
       await page.locator('#clientTransferExportButton').click();
@@ -138,4 +138,4 @@ try {
 
 assert.deepEqual(errors, []);
 assert.deepEqual(unexpected, []);
-console.log('PrimeTime Pro data transfer browser checks passed at 390, 760 and 1440');
+console.log('Eldion Pro data transfer browser checks passed at 390, 760 and 1440');

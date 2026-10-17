@@ -48,7 +48,7 @@ assert.match(providerSource, /name:serviceName\(item\.name\)/);
 const many = Array.from({ length:41 }, (_, i) => ({ name:`Услуга ${i + 1}`, active:true, price_rub:100, duration_minutes:30 }));
 const pages = await model.imageFiles(many, 'https://example.test/book');
 assert.equal(pages.length, 3);
-assert.equal(pages.map(file => file.name).join(','), 'primetime-price-list-1.png,primetime-price-list-2.png,primetime-price-list-3.png');
+assert.equal(pages.map(file => file.name).join(','), 'eldion-pro-price-list-1.png,eldion-pro-price-list-2.png,eldion-pro-price-list-3.png');
 assert.ok(drawnText.includes('Прайс услуг'));
 assert.ok(drawnText.some(value => String(value).includes('Услуга 1')));
 assert.ok(!drawnText.some(value => String(value).includes('Онлайн-запись') || String(value).includes('https://')));

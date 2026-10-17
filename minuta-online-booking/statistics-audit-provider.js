@@ -77,7 +77,7 @@
     }
     const utm = document.querySelector('#reportUtmFunnelCard .report-section-heading');
     if (utm && !document.querySelector('#reportUtmExplanation')) {
-      utm.insertAdjacentHTML('afterend', '<p class="report-utm-explanation" id="reportUtmExplanation">Конверсия источника — доля сессий, в которых создана запись: сессии с записью ÷ сессии с открытием страницы × 100%. Проценты этапов считаются от всех открывших страницу; посещения — сессии, а не уникальные люди. Только переходы с точной меткой utm_source=primetime_external_test показаны отдельно и исключены из итогов. Похожие названия учитываются обычно.</p>');
+      utm.insertAdjacentHTML('afterend', '<p class="report-utm-explanation" id="reportUtmExplanation">Конверсия источника — доля сессий, в которых создана запись: сессии с записью ÷ сессии с открытием страницы × 100%. Проценты этапов считаются от всех открывших страницу; посещения — сессии, а не уникальные люди. Только переходы с точной технической меткой внешнего теста показаны отдельно и исключены из итогов. Похожие названия учитываются обычно.</p>');
     }
   }
 
