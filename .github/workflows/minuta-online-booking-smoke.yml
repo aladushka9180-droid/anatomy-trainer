@@ -31,6 +31,28 @@ jobs:
       - run: node --test minuta-online-booking/tests/sw-cache-failure-test.mjs
       - run: node minuta-online-booking/provider-ux-audit-test.mjs
       - run: node minuta-online-booking/provider-startup-performance-v565-test.mjs
+      - name: Run Pro audit NoIO regressions
+        env:
+          MESSAGES_CENTER_SOURCE_REF: ""
+        run: >-
+          node --test
+          minuta-online-booking/tests/provider-account-context-test.mjs
+          minuta-online-booking/tests/benefit-inventory-crud-scope-test.mjs
+          minuta-online-booking/tests/client-profile-button-owner-test.mjs
+          minuta-online-booking/tests/inventory-rpc-rejection-noio-test.mjs
+          minuta-online-booking/tests/loyalty-program-scope-test.mjs
+          minuta-online-booking/tests/notification-center-save-lifecycle-noio-test.mjs
+          minuta-online-booking/tests/payroll-plan-refresh-scope-test.mjs
+          minuta-online-booking/tests/provider-booking-audit-regression-test.mjs
+          minuta-online-booking/tests/provider-clients-waitlist-context-test.mjs
+          minuta-online-booking/tests/provider-feedback-inbox-lifecycle-noio-test.mjs
+          minuta-online-booking/tests/provider-messages-lifecycle-noio-test.mjs
+          minuta-online-booking/tests/provider-messages-outbox-owner-noio-test.mjs
+          minuta-online-booking/tests/provider-portfolio-delete-scope-test.mjs
+          minuta-online-booking/tests/provider-service-actions-toggle-noio-test.mjs
+          minuta-online-booking/tests/provider-settings-session-scope-test.mjs
+          minuta-online-booking/tests/resource-mutation-lifecycle-test.mjs
+          minuta-online-booking/tests/team-calendar-move-scope-regression-test.mjs
       - run: node minuta-online-booking/loyalty-program-v166-static-test.mjs
       - run: node minuta-online-booking/help-knowledge-refresh-v565-test.mjs
       - run: node minuta-online-booking/tests/help-editorial-quality-test.mjs
