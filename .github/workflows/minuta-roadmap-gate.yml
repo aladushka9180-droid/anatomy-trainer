@@ -1,4 +1,4 @@
-name: PrimeTime Pro roadmap read-only gate
+name: Eldion Pro roadmap read-only gate
 
 on:
   push:

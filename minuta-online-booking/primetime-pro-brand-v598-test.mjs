@@ -83,6 +83,7 @@ for (const [module, name] of [['primetime-calls', 'Eldion Pro'], ['primetime-cli
 for (const file of ['minuta-online-booking/README.md', 'minuta-online-booking/PRIMETIME_PRO_ROADMAP.md', 'android/primetime-calls/README.md', 'android/primetime-client/README.md']) {
   assert.doesNotMatch(readProject(file), /PrimeTime(?: Pro)?/, `${file}: старый бренд в актуальной инструкции`);
 }
+assert.equal(JSON.parse(read('roadmap/plan.json')).product, 'Eldion Pro');
 
 const rootNotFound = readProject('404.html');
 assert.match(rootNotFound, /Страница не найдена — Eldion Pro/);

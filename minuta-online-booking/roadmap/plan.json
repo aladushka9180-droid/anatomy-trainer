@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "product": "PrimeTime Pro",
+  "product": "Eldion Pro",
   "version": "2026-09-08.1",
   "statusValues": [
     "not_started",
@@ -29,7 +29,7 @@
     {
       "id": "stage-2",
       "order": 2,
-      "title": "Преимущества PrimeTime Pro",
+      "title": "Преимущества Eldion Pro",
       "requiresAll": true,
       "advanceOnlyWhenComplete": true
     }
