@@ -52,8 +52,34 @@ try{
     assert.match(await overview.locator('[data-finance-expense]').textContent(),/900/,'known expense is retained');
     await page.evaluate(async()=>{fixture.receivedKnown=true;fixture.summary.receivedMinor=0;fixture.summary.expenseMinor=0;fixture.expenseCategories=[];await center.reload();});
     assert.match(await overview.locator('[data-finance-profit]').textContent(),/^0/,'empty verified period displays zero');
+    if(width===390&&font===16){
+      await page.evaluate(async()=>{
+        fixture.pendingPayments={known:true,totalCount:1,totalMinor:200000,rows:[{bookingId:'booking-a',bookingDate:'2026-10-02',label:'Изменённая услуга',amountMinor:200000,paymentMethod:'cash',sourceFingerprint:'b'.repeat(64)}]};
+        window.staleReviewWrites=0;
+        adapter.postVisitPayment=async row=>{
+          if(row.sourceFingerprint==='b'.repeat(64)){
+            fixture.pendingPayments.totalMinor=250000;fixture.pendingPayments.rows[0].amountMinor=250000;fixture.pendingPayments.rows[0].sourceFingerprint='c'.repeat(64);
+            throw Object.assign(new Error('visit_payment_source_changed'),{code:'40001'});
+          }
+          staleReviewWrites++;
+        };
+        await center.reload();
+      });
+      await overview.locator('[data-finance-detail="unposted"]').click();
+      const detail=page.locator('[data-finance-detail-dialog]');
+      await detail.getByRole('button',{name:'Проверить',exact:true}).click();
+      await confirm.locator('[name="paidOn"]').fill('2026-10-10');
+      await confirm.getByRole('button',{name:'Провести оплату'}).click();
+      await detail.getByText('Отметка оплаты изменилась. Проверьте обновлённый список.',{exact:true}).waitFor();
+      assert.match(await detail.locator('.finance-center__operation').innerText(),/2.?500/,'stale review reloads the changed amount');
+      await detail.getByRole('button',{name:'Проверить',exact:true}).click();
+      assert.equal(await confirm.locator('[name="paidOn"]').inputValue(),'','changed source needs a new date confirmation');
+      assert.equal(await page.evaluate(()=>staleReviewWrites),0,'refresh never reposts an unconfirmed changed source');
+      await confirm.getByRole('button',{name:'Отмена',exact:true}).click();
+      await detail.locator('[data-finance-detail-close]').click();
+    }
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal page overflow');
     await page.close();
   }
-  assert.deepEqual(errors,[]);console.log('income result browser PASS: 390/760/1440 and 200% text; computed result, explicit historical date, uncertain retry/return, unknown/zero and preserved expense; synthetic network-blocked fixture only');
+  assert.deepEqual(errors,[]);console.log('income result browser PASS: 390/760/1440 and 200% text; computed result, explicit historical date, uncertain retry/return, stale review refresh, unknown/zero and preserved expense; synthetic network-blocked fixture only');
 }finally{await browser.close();}

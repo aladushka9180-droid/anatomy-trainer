@@ -174,7 +174,7 @@
   }
 
   function normalizePendingPayments(raw, { organizationId, bounds, masterId = '' }) {
-    const invalid = { known:false, rows:[], message:'Не удалось подтвердить список непроведённых оплат. Обновите данные.' };
+    const invalid = { known:false, rows:[], message:'Список оплат не подтверждён. Обновите данные.' };
     if (raw?.schema !== 'minuta-unposted-visit-payments-v1' || raw.organization_id !== organizationId
       || raw.period?.start !== bounds.start || raw.period?.end !== bounds.end
       || String(raw.selected_performer_id || '') !== masterId || !Array.isArray(raw.rows)
@@ -288,7 +288,12 @@
       cash_or_bank_account_required:'Сначала добавьте кассу или банковский счёт в разделе «Продажи».',
       active_finance_category_not_found:'Выбранная категория расхода больше недоступна.',
       financial_manager_role_required:'Финансы доступны только владельцу и администратору.',
-      manual_expense_future_date:'Дата расхода не может быть в будущем.'
+      manual_expense_future_date:'Дата расхода не может быть в будущем.',
+      visit_payment_source_changed:'Отметка оплаты изменилась. Проверьте обновлённый список.',
+      invalid_payment_date:'Проверьте дату оплаты: она не может быть в будущем.',
+      destination_account_type_mismatch:'Выберите активный счёт для указанного способа оплаты.',
+      financial_visit_already_posted:'Эта оплата уже проведена. Обновите данные.',
+      financial_transaction_idempotency_conflict:'Данные запроса изменились. Обновите данные перед повтором.'
     };
     const result = new Error(known[message] || fallback);
     result.userMessage = result.message;
@@ -503,7 +508,7 @@
       if (generation !== expectedGeneration || requestScope !== selectedScope) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
       const cash = results[0].status === 'fulfilled' ? results[0].value : null;
       normalized.goods = results[1].status === 'fulfilled' ? results[1].value : { known:false, rows:[] };
-      normalized.pendingPayments = results[2].status === 'fulfilled' ? results[2].value : { known:false, rows:[], message:'Проверка старых оплат пока недоступна. Обновите данные.' };
+      normalized.pendingPayments = results[2].status === 'fulfilled' ? results[2].value : { known:false, rows:[], message:'Проверка оплат недоступна. Повторите.' };
       normalized.cashProjectionUnavailable = normalized.financeEnabled && !cash;
       if (cash?.current.classified) {
         normalized.dateBasis = 'operations';
@@ -537,17 +542,17 @@
         const currentOrg = organization?.id;
         const contextToken = selectedScope;
         const cap = await visitPaymentCapabilities(db, currentOrg);
-        if (currentGeneration !== generation || currentOrg !== organization?.id || !isManager()) throw Object.assign(new Error('Контекст изменился. Откройте проверку снова.'), { name:'AbortError' });
+        if (currentGeneration !== generation || currentOrg !== organization?.id || !isManager()) throw Object.assign(new Error('Откройте проверку снова.'), { name:'AbortError' });
         if (!cap.available || !cap.enabled) throw new Error('Проведение оплаты пока недоступно.');
         return { ...cap, contextToken };
       },
       async postVisitPayment(row, choice, contextToken) {
-        if (!requireWrites?.() || !isManager() || !selectedScope || contextToken !== selectedScope) throw Object.assign(new Error('Контекст изменился. Откройте проверку снова.'), { name:'AbortError' });
+        if (!requireWrites?.() || !isManager() || !selectedScope || contextToken !== selectedScope) throw Object.assign(new Error('Откройте проверку снова.'), { name:'AbortError' });
         const requestScope = selectedScope, currentGeneration = generation;
         const result = await rpc('post_minuta_unposted_visit_payment_v1', {
           p_organization:organization.id, p_booking:row.bookingId, p_expected_fingerprint:row.sourceFingerprint,
           p_paid_on:choice.paidOn, p_destination_account:choice.destinationAccount, p_request_id:choice.requestId
-        }, 'Не удалось подтвердить проведение. Повторите с теми же данными.');
+        }, 'Проведение не подтверждено. Повторите.');
         if (currentGeneration !== generation || requestScope !== selectedScope) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
         if (!UUID.test(String(result?.id)) || result.organization_id !== organization.id || result.source_fingerprint !== row.sourceFingerprint)
           throw new Error('Сервер не подтвердил проведение оплаты. Повторите с теми же данными.');
@@ -668,7 +673,7 @@
     const result = await db.rpc('get_minuta_visit_payment_capabilities_v1', { p_organization:organizationId });
     if (result.error) {
       if (result.error.code === 'PGRST202') return { available:false };
-      throw userError(result.error, 'Не удалось проверить финансовый учёт. Повторите после восстановления связи.');
+      throw userError(result.error, 'Финансовый учёт недоступен. Повторите.');
     }
     const data = result.data;
     if (data?.schema !== 'minuta-visit-payment-v1' || data.organization_id !== organizationId || typeof data.enabled !== 'boolean'
@@ -678,16 +683,16 @@
     return { ...data, available:true };
   }
 
-  // A saved outcome and its posting are one RPC. Never fall back after a write
-  // was attempted: a timed-out response may already have committed both rows.
-  async function persistVisitPayment({ db, organization, record, interactive = false, isCurrent = () => true }) {
+  // Retry the same atomic RPC; never fall back after an attempted write.
+  async function persistVisitPayment({ db, getOrganization, organization = getOrganization?.(), record, interactive = false, isCurrent = () => true }) {
     if (!organization?.id || !['owner','admin'].includes(organization.current_role)
       || record.completion_source !== 'manual' || record.visit_status !== 'completed'
       || !['cash','transfer'].includes(record.payment_method) || !(record.amount_rub > 0)
       || !interactive && !record._finance) return null;
     if (record._finance && record._finance.organizationId !== organization.id) return { ok:false, cancelled:true };
+    const current = () => isCurrent() && (!getOrganization || getOrganization()?.id === organization.id);
     const cap = await visitPaymentCapabilities(db, organization.id);
-    if (!isCurrent()) return { ok:false, cancelled:true };
+    if (!current()) return { ok:false, cancelled:true };
     if (!cap.available || !cap.enabled) return null;
     if (!record._finance) {
       const choice = await global.MinutaFinanceCenter.confirmVisitPayment({
@@ -695,7 +700,7 @@
         defaultPaidOn:cap.today, amountMinor:record.amount_rub * 100,
         title:'Подтвердить оплату', submitLabel:'Сохранить и учесть'
       });
-      if (!choice || !isCurrent()) return { ok:false, cancelled:true };
+      if (!choice || !current()) return { ok:false, cancelled:true };
       record._finance = { ...choice, organizationId:organization.id };
     }
     const result = await db.rpc('save_minuta_visit_payment_v1', {
@@ -704,15 +709,22 @@
       p_paid_on:record._finance.paidOn, p_destination_account:record._finance.destinationAccount,
       p_request_id:record._finance.requestId
     });
-    if (!isCurrent()) return { ok:false, cancelled:true };
-    if (result.error) return { ok:false, error:result.error, noLocalSave:['22023','42501','40001','23505','55000','PGRST202'].includes(result.error.code) };
+    if (!current()) return { ok:false, cancelled:true };
+    if (result.error) return { ok:false, error:userError(result.error, 'Оплата не подтверждена. Повторите запрос.'), noLocalSave:['22023','42501','40001','23505','55000','PGRST202'].includes(result.error.code) };
     if (!UUID.test(String(result.data?.id)) || result.data?.organization_id !== organization.id
       || result.data?.outcome?.booking_id !== record.booking_id || result.data.outcome.visit_status !== 'completed'
       || result.data.outcome.completion_source !== 'manual' || result.data.outcome.payment_method !== record.payment_method
       || Number(result.data.outcome.amount_rub) !== record.amount_rub)
-      return { ok:false, error:{ message:'Сервер не подтвердил сохранение оплаты. Повторите с теми же данными.' } };
+      return { ok:false, error:{ message:'Сохранение не подтверждено. Повторите запрос.' } };
     return { ok:true, outcome:result.data.outcome, ledgerPosted:true };
   }
 
-  global.MinutaFinanceProvider = Object.freeze({ PERIODS, periodBounds, comparisonBounds, projectCashLedger, projectGoodsSales, normalizeFinanceScreen, createController, visitPaymentCapabilities, persistVisitPayment, normalizePendingPayments });
+  function finishVisitPaymentSave(result, button, onNotice) {
+    if (!result.cancelled && !result.noLocalSave) return false;
+    if (button && button.isConnected !== false) { button.disabled = false; button.textContent = 'Сохранить результат'; }
+    if (result.noLocalSave) onNotice(result.error?.message || 'Оплата не сохранена. Проверьте данные и повторите.');
+    return true;
+  }
+
+  global.MinutaFinanceProvider = Object.freeze({ PERIODS, periodBounds, comparisonBounds, projectCashLedger, projectGoodsSales, normalizeFinanceScreen, createController, visitPaymentCapabilities, persistVisitPayment, normalizePendingPayments, finishVisitPaymentSave });
 })(globalThis);

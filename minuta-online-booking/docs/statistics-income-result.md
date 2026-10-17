@@ -17,6 +17,7 @@ the frozen expense-edit PR78 and does not deploy or post historical payments.
 | Partial payment | Received money and the remaining receivable remain distinct |
 | Lost response and retry | Same request replays the same transaction, no second income |
 | Changed source/account/amount or revoked role | Explicit refusal; no partial write or cross-organization effect |
+| Historical mark changes while being reviewed | Refreshed amount and a new date confirmation; no automatic retry against changed evidence |
 | Historical review cancelled | No write; original scope/focus retained |
 | Populated inverse migration | Original outcomes, transactions, postings, grants and functions retained |
 
@@ -35,6 +36,12 @@ old-backend behavior remain compatible and do not invent a payment. A backend
 capability check gates the new atomic path. After an attempted write, the
 client never falls back to a second writer. Stored retry metadata binds the
 original request, date and destination account.
+
+The existing startup cache limit remains unchanged. New payment logic stays
+in the lazily loaded finance adapter. Only the two already-modified outcome
+functions in the cached provider file use compact formatting; their local
+formatting proof compares normalized syntax trees without compression or
+renaming. No neighboring functions or cache limits are changed.
 
 The inverse removes only the five new functions. It never deletes business
 rows or rewrites previous function definitions. Already-created ledger rows

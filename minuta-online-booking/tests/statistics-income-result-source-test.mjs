@@ -48,4 +48,15 @@ assert.equal((await api.persistVisitPayment({...options,isCurrent:()=>false})).c
 const previousAttempts=attempt;
 assert.equal((await api.persistVisitPayment({...options,organization:{id:account,current_role:'owner'}})).cancelled,true,'queued payment cannot follow an organization switch');
 assert.equal(attempt,previousAttempts);
-console.log('income result source PASS: net/unknown/zero, scoped pending data, no auto posting, atomic RPC routing, stable retry, role/context and old-backend compatibility');
+let activeOrganization={id:org,current_role:'owner'};
+const switchingDb={rpc:async name=>{assert.equal(name,'get_minuta_visit_payment_capabilities_v1');activeOrganization={id:account,current_role:'owner'};return {data:cap};}};
+assert.equal((await api.persistVisitPayment({...options,record:{...record,_finance:undefined},db:switchingDb,getOrganization:()=>activeOrganization})).cancelled,true,'organization change during capability read prevents a write');
+const invalidDate={rpc:async name=>name.includes('capabilities')?{data:cap}:{error:{code:'22023',message:'invalid_payment_date'}}};
+const refused=await api.persistVisitPayment({...options,db:invalidDate});
+assert.equal(refused.noLocalSave,true);
+assert.match(refused.error.message,/дату оплаты/,'validation failure is explained in the form');
+let notice='';
+assert.equal(api.finishVisitPaymentSave(refused,undefined,message=>{notice=message;}),true,'detached form can still report a definite refusal');
+assert.equal(notice,refused.error.message);
+assert.equal(api.finishVisitPaymentSave({ok:false,error:new Error('connection lost')},undefined,()=>{}),false,'ambiguous save retains the existing retry queue');
+console.log('income result source PASS: net/unknown/zero, scoped pending data, no auto posting, atomic RPC routing, stable retry, role/context switches, clear validation and old-backend compatibility');

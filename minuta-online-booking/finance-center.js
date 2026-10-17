@@ -271,8 +271,8 @@
     const reasons = [];
     if (!data?.available) return [data?.availabilityMessage || 'Финансовый источник пока недоступен. Попробуйте обновить данные.'];
     if (!data.financeEnabled) reasons.push('Финансовый журнал ещё не подключён. Подтверждённые расходы и операции недоступны. Его настройка находится в разделе «Продажи».');
-    if (!data.receivedKnown) reasons.push('Сумма поступлений не подтверждена. Известные расходы сохранены. Обновите данные.');
-    if (data.financeEnabled && !data.expenseKnown) reasons.push('Сумма расходов не подтверждена. Известные поступления сохранены. Обновите данные.');
+    if (!data.receivedKnown) reasons.push('Поступления не подтверждены. Расходы сохранены.');
+    if (data.financeEnabled && !data.expenseKnown) reasons.push('Расходы не подтверждены. Поступления сохранены.');
     if (data.cashProjectionUnavailable) reasons.push('Не удалось подтвердить движение денег по журналу за выбранные даты. Доступные суммы из отчёта по визитам сохранены. Попробуйте обновить данные.');
     if (data.dateBasis !== 'operations') reasons.push('Часть оплат учтена по датам визитов: отдельная дата денежной операции не подтверждена. Эти суммы нельзя сравнивать с движением денег по датам операций.');
     if (data.visits && !data.visits.known) reasons.push('Визиты за этот период ещё не подтверждены. Известные финансовые операции сохранены; обновите данные, чтобы проверить визиты.');
@@ -286,7 +286,7 @@
     if (data.visits?.known && data.visits.rows.some(row => row.paymentKnown && row.paymentMinor))
       reasons.push('Отметки оплаты визитов относятся к дате визита. Они не заменяют финансовые операции и могут отличаться от «Получено» за те же даты.');
     if (!data.goods.known) reasons.push('Источник продаж товаров не подтвердил количество и сумму за эти даты. Товары и абонементы учитываются отдельно.');
-    reasons.push('Осталось после расходов — получено после возвратов минус учтённые оплаченные расходы. Для чистой прибыли нужен полный учёт себестоимости, налогов и остальных затрат.');
+    reasons.push('Осталось после расходов — поступления после возвратов минус учтённые расходы. Чистая прибыль требует учёта себестоимости, налогов и всех затрат.');
     return reasons;
   }
 
@@ -597,7 +597,7 @@
       elements.chart.replaceChildren();
       if (state.data?.receivedKnown === false) {
         elements.chart.classList.add('is-empty'); find('#financeChartHelp').hidden = true;
-        elements.chart.append(createElement('p', 'finance-center__inline-empty', 'Поступления по дням не подтверждены. Известные суммы сохранены в карточках.'));
+        elements.chart.append(createElement('p', 'finance-center__inline-empty', 'Данные поступлений по дням недоступны.'));
         return;
       }
       const empty = !points.some(point => point.receivedMinor || point.expenseMinor);
@@ -770,7 +770,7 @@
         const pending = data.pendingPayments;
         if (!pending?.known) body.append(createElement('p', 'finance-center__detail-note', pending?.message || 'Список оплат пока не подтверждён. Обновите данные.'));
         else {
-          body.append(createElement('p', 'finance-center__detail-note', 'Это ручные отметки оплаты по датам визитов. В «Получено» они войдут после проверки, по подтверждённой дате оплаты. Автоматические результаты визитов сюда не включаются.'));
+          body.append(createElement('p', 'finance-center__detail-note', 'Проверьте ручные оплаты и их даты. Автоматические отметки исключены.'));
           body.append(createElement('p', 'finance-center__detail-formula', `К проверке: ${pending.totalCount} · ${formatRubles(pending.totalMinor)}`));
           if (pending.totalCount > pending.rows.length) body.append(createElement('p', 'finance-center__detail-note', `Показаны первые ${pending.rows.length} отметок. Общая сумма включает все ${pending.totalCount}.`));
           for (const row of pending.rows) {
@@ -795,12 +795,22 @@
                 if (dialog.open) {
                   openDetail('unposted', trigger);
                   const outside = choice.paidOn < data.bounds?.start || choice.paidOn > data.bounds?.end;
-                  find('[data-finance-detail-body]').prepend(createElement('p', 'finance-center__detail-note', `Оплата учтена по дате ${choice.paidOn}.${outside ? ' Эта дата вне выбранного периода; фильтры сохранены.' : ''}`));
+                  find('[data-finance-detail-body]').prepend(createElement('p', 'finance-center__detail-note', `Оплата учтена по дате ${choice.paidOn}.${outside ? ' Дата оплаты вне периода; фильтры сохранены.' : ''}`));
                 }
               } catch (error) {
                 if (state.data === data && dialog.open && error.name !== 'AbortError') {
-                  body.append(createElement('p', 'finance-center__form-error', error.message || 'Не удалось подтвердить проведение. Повторите с теми же данными.'));
-                  button.textContent = 'Повторить проведение';
+                  if (error.code === '40001') {
+                    state.visitPaymentChoices.delete(choiceKey);
+                    const trigger = state.detailTrigger;
+                    await load({ quiet:true });
+                    if (dialog.open) {
+                      openDetail('unposted', trigger);
+                      find('[data-finance-detail-body]').prepend(createElement('p', 'finance-center__form-error', 'Отметка оплаты изменилась. Проверьте обновлённый список.'));
+                    }
+                  } else {
+                    body.append(createElement('p', 'finance-center__form-error', error.message || 'Проведение не подтверждено. Повторите.'));
+                    button.textContent = 'Повторить проведение';
+                  }
                 }
               } finally { button.disabled = false; }
             });
@@ -1163,10 +1173,10 @@
       }
       if (account.options.length === 2) account.selectedIndex = 1;
       accountLabel.append(account); form.append(dateLabel, accountLabel);
-      form.append(createElement('p', 'finance-center__detail-note', 'Подтвердите фактическую дату оплаты. Дата визита остаётся прежней.'));
+      form.append(createElement('p', 'finance-center__detail-note', 'Подтвердите дату оплаты.'));
       const submit = createElement('button', 'finance-center__submit', submitLabel); submit.type = 'submit';
       const cancel = createElement('button', 'finance-center__cancel', 'Отмена'); cancel.type = 'button';
-      if (account.options.length === 1) { submit.disabled = true; form.append(createElement('p', 'finance-center__form-error', 'Для этого способа оплаты нет активного счёта. Добавьте его в финансовом учёте.')); }
+      if (account.options.length === 1) { submit.disabled = true; form.append(createElement('p', 'finance-center__form-error', 'Добавьте активный счёт для этого способа оплаты.')); }
       form.append(submit, cancel); dialog.append(form); document.body.append(dialog);
       let settled = false;
       function finish(value) {
