@@ -242,6 +242,11 @@ for (const [label, result] of [
   ['partial', { data:{ booking_id:createdId }, error:null }],
   ['transport', { data:null, error:{ code:'08006', message:'slot_unavailable' } }],
   ['no-code refusal text', { data:null, error:{ message:'slot_unavailable' } }],
+  ['inventory transport text', { data:null, error:{ code:'08006', message:'insufficient_inventory_stock_for_completed_visit' } }],
+  ['inventory no-code text', { data:null, error:{ message:'insufficient_inventory_stock_for_completed_visit' } }],
+  ['inventory wrong pair', { data:null, error:{ code:'23P01', message:'insufficient_inventory_stock_for_completed_visit' } }],
+  ['inventory unknown refusal', { data:null, error:{ code:'55000', message:'unknown_inventory_failure' } }],
+  ['legacy inventory refusal', { data:null, error:{ code:'55000', message:'insufficient_inventory_stock_for_completed_visit' } }],
 ]) {
   test(`unknown ${label} cannot be retried through caption/input or direct submit`, async () => {
     const h = harness({ deferRpc:true }); await tick(); h.resolveRpc(result); assert.equal(await h.pending, null);
@@ -267,6 +272,44 @@ test('exact v98 refusal releases the form for correction', async () => {
   h.context.updateNewBookingSubmitCaption(); assert.equal(h.nodes.get('#newBookingSubmit').disabled, false);
   await h.resubmit(); assert.equal(h.calls.length, 2);
 });
+
+test('record detail renders the persisted inventory marker after a fresh JSON read', () => {
+  const actualHint=between('function automaticOutcomeHint(', 'function bookingIsCompleted(');
+  const render=item=>vm.runInNewContext(actualHint+';automaticOutcomeHint(item)',{
+    item:JSON.parse(JSON.stringify(item)),bookingOutcome:()=>({}),bookingWillCompleteAutomatically:()=>false
+  });
+  assert.match(render({booking_policy_snapshot:{stock_skipped:true}}),/Материалы не списаны/);
+  for(const item of [{},{booking_policy_snapshot:{}},{booking_policy_snapshot:{stock_skipped:false}},{booking_policy_snapshot:{stock_skipped:'true'}}])assert.equal(render(item),'');
+  assert.equal(vm.runInNewContext(actualHint+';automaticOutcomeHint(item)',{item:{booking_policy_snapshot:{stock_skipped:true}},bookingOutcome:()=>({_sync_pending:true})}),'Ожидает синхронизации');
+});
+
+test('both organization-aware network reads request the persisted stock snapshot', () => {
+  const loader=between('async function loadBookings(', 'function waitlistPeriodLabel(');
+  const selections=[...loader.matchAll(/queryAllProviderBookings\(userId, '([^']+)'\)/g)].map(match=>match[1]);
+  assert.equal(selections.length,4);
+  for(const selection of selections.slice(0,2))assert.ok(selection.split(',').includes('booking_policy_snapshot'));
+  // Keep the two old organization-less compatibility paths unchanged.
+  for(const selection of selections.slice(2))assert.ok(!selection.split(',').includes('organization_id'));
+});
+
+test('actual cache signature changes when only the persisted stock notice changes', () => {
+  const signature=between('function bookingDataSignature(', 'async function hydrateOfflineBookingInputs(');
+  const hash=marker=>vm.runInNewContext(signature+';bookingDataSignature(items)',{bookingColors:new Map(),items:[{id:createdId,booking_policy_snapshot:marker===undefined?{}:{stock_skipped:marker}}]});
+  assert.notEqual(hash(undefined),hash(true));
+  assert.notEqual(hash(true),hash(false));
+  assert.equal(hash(true),hash(true));
+});
+
+for (const account of [actorA, actorB]) {
+  test(`late inventory refusal cannot unlock a replacement ${account === actorA ? 'form' : 'account'}`, async () => {
+    const h = harness({ deferRpc:true }); await tick();
+    h.replaceForm(account); const before = h.snapshot();
+    h.resolveRpc({ data:null, error:{ code:'55000', message:'insufficient_inventory_stock_for_completed_visit' } });
+    assert.equal(await h.pending, null);
+    assert.equal(h.snapshot(), before);
+    assert.equal(h.calls.length, 1);
+  });
+}
 
 test('historical submission from a hidden form starts no RPC or UI operation', async () => {
   const h = harness({ hidden:true }); assert.equal(await h.pending, null);

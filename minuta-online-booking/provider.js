@@ -868,7 +868,7 @@ function bookingDataSignature(items = allBookings) {
   };
   items.forEach(item => {
     [item.id, item.booking_date, item.booking_time, item.status, item.duration_minutes, item.total_price_rub,
-      item.client_name, item.client_phone, item.services?.name, item.services?.price_rub, item.provider_note, bookingColors.get(item.id)]
+      item.client_name, item.client_phone, item.services?.name, item.services?.price_rub, item.provider_note, bookingColors.get(item.id), item.booking_policy_snapshot?.stock_skipped]
       .forEach(add);
   });
   return `${items.length}:${hash >>> 0}`;
@@ -3438,6 +3438,7 @@ function bookingWillCompleteAutomatically(item) {
 }
 function automaticOutcomeHint(item) {
   if (bookingOutcome(item)._sync_pending) return 'Ожидает синхронизации';
+  if(item.booking_policy_snapshot?.stock_skipped===true) return 'Материалы не списаны';
   if (!bookingWillCompleteAutomatically(item)) return '';
   return bookingSessionEnd(item) <= new Date() ? 'Учитывается автоматически' : 'Будет учтён автоматически';
 }
@@ -12224,8 +12225,6 @@ async function createNewBooking(event) {
       });
       if (!formIsCurrent()) return;
       if (error) {
-        // Exact v98 SQL refusals abort this invocation. Transport text and
-        // malformed acknowledgements do not prove that no row was committed.
         const refusals = {
           '42501':['authentication_required', 'organization_access_denied', 'historical_booking_denied'],
           '22023':['invalid_historical_booking', 'invalid_client_data', 'invalid_historical_time', 'service_unavailable',
@@ -16737,8 +16736,8 @@ async function loadBookings(options = {}) {
     const offlineCache = await showCached();
     return offlineCache ? { ok: false, cached: true, savedAt: offlineCache.savedAt } : { ok: false };
   }
-  let { data, error } = await queryAllProviderBookings(userId, 'id,organization_id,location_id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,cancellation_reason,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,provider_note,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
-  if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,organization_id,location_id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,cancellation_reason,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes)'));
+  let { data, error } = await queryAllProviderBookings(userId, 'id,organization_id,location_id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,cancellation_reason,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,provider_note,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_series(occurrence_count),booking_policy_snapshot');
+  if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,organization_id,location_id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,cancellation_reason,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_policy_snapshot'));
   if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   networkFinished = true;
