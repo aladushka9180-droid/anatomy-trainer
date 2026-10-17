@@ -36,6 +36,7 @@ jobs:
           MESSAGES_CENTER_SOURCE_REF: ""
         run: >-
           node --test
+          minuta-online-booking/tests/integration-missing-rpc-test.mjs
           minuta-online-booking/tests/provider-account-context-test.mjs
           minuta-online-booking/tests/benefit-inventory-crud-scope-test.mjs
           minuta-online-booking/tests/client-profile-button-owner-test.mjs

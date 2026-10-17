@@ -58,7 +58,7 @@
     }
 
     function missing(error) {
-      return /PGRST202|42883|get_minuta_provider_connector_read_model_v144|function .* does not exist/i
+      return /PGRST202|42883|function .* does not exist/i
         .test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
     }
 
