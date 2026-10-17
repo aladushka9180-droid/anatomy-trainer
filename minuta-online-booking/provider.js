@@ -344,6 +344,7 @@ const CLIENT_RENDER_PAGE_SIZE = 80;
 let currentUser = null;
 let providerMessagesController = null;
 let providerMessagesOrganizationId = '';
+let providerMessagesRequest = null;
 let providerLoginPhone = '';
 let providerLoginCodeRequested = false;
 let providerLinkPhone = '';
@@ -7048,6 +7049,9 @@ function showRecoverySent() {
   $('#authDescription').textContent = 'Ссылка для восстановления доступа уже отправлена.';
 }
 function resetProviderMessagesCenter() {
+  const request = providerMessagesRequest;
+  providerMessagesRequest = null;
+  request?.abortController.abort();
   providerMessagesController?.destroy?.();
   providerMessagesController = null;
   providerMessagesOrganizationId = '';
@@ -7056,26 +7060,48 @@ async function loadProviderMessagesCenter() {
   const root = $('#providerMessagesRoot');
   const organization = organizationController?.getActiveOrganization?.();
   if (!root || !currentUser || !organization?.id || !window.MinutaProviderMessages?.mount) return null;
-  if (providerMessagesController && providerMessagesOrganizationId === organization.id) {
-    await providerMessagesController.reload();
-    return providerMessagesController;
+  const userId = currentUser.id, generation = sessionGeneration;
+  const organizationId = organization.id, role = String(organization.current_role || '');
+  const key = [userId, generation, organizationId, role].join(':');
+  const existing = providerMessagesRequest;
+  if (existing?.key === key) {
+    if (providerMessagesController && providerMessagesController.isActive?.() !== false) {
+      const controller = providerMessagesController;
+      await controller.reload();
+      return existing.isCurrent() ? controller : null;
+    }
+    if (existing.pending) return existing.promise;
   }
   resetProviderMessagesCenter();
-  providerMessagesOrganizationId = organization.id;
-  providerMessagesController = await window.MinutaProviderMessages.mount({
-    root,
-    db,
-    organizationId:organization.id,
-    renderClientAvatar:conversation => {
-      if (conversation.kind !== 'client') return '';
-      const booking = allBookings.find(item => item.id === conversation.booking?.booking_id
-        && belongsToActiveOrganization(item));
-      return booking ? clientFramedAvatarMarkup(booking.client_phone, booking.client_name) : '';
-    },
-    canManageSettings:['owner','admin'].includes(String(organization.current_role || ''))
-  });
-  return providerMessagesController;
+  const request = { key, pending:true, abortController:new AbortController(), promise:null, isCurrent:null };
+  request.isCurrent = () => {
+    const active = organizationController?.getActiveOrganization?.();
+    return providerMessagesRequest === request && sessionIsCurrent(userId, generation)
+      && active?.id === organizationId && String(active.current_role || '') === role;
+  };
+  providerMessagesRequest = request;
+  providerMessagesOrganizationId = organizationId;
+  request.promise = (async () => {
+    try {
+      const controller = await window.MinutaProviderMessages.mount({
+        root, db, organizationId,
+        signal:request.abortController.signal, isCurrent:request.isCurrent,
+        renderClientAvatar:conversation => {
+          if (conversation.kind !== 'client') return '';
+          const booking = allBookings.find(item => item.id === conversation.booking?.booking_id
+            && belongsToActiveOrganization(item));
+          return booking ? clientFramedAvatarMarkup(booking.client_phone, booking.client_name) : '';
+        },
+        canManageSettings:['owner','admin'].includes(role)
+      });
+      if (!request.isCurrent()) { controller?.destroy?.(); return null; }
+      providerMessagesController = controller;
+      return controller;
+    } finally { request.pending = false; }
+  })();
+  return request.promise;
 }
+
 async function openProviderMessageForBooking(bookingId) {
   if (!/^[0-9a-f-]{36}$/i.test(String(bookingId || ''))) return;
   closeBookingSheet();
@@ -7189,7 +7215,7 @@ function setFilter(filter, { render = true } = {}) {
 function setJournalMode(mode) {
   journalMode = ['timeline', 'list'].includes(mode) ? mode : 'timeline';
   if (journalMode === 'timeline') currentFilter = 'day';
-  localStorage.setItem(JOURNAL_MODE_KEY, journalMode);
+  try { localStorage.setItem(JOURNAL_MODE_KEY, journalMode); } catch {}
   try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
   $$('[data-filter]').forEach(button => {
     const active = button.dataset.filter === currentFilter;
@@ -10883,7 +10909,7 @@ function offlineCandidateSlots(serviceId, dateIso, requestedDuration = 0) {
   const start = minutesFromTime(schedule?.start_time || '10:00');
   const end = minutesFromTime(schedule?.end_time || '20:00');
   const now = new Date();
-  const earliest = dateIso === businessTodayIso() ? (now.getHours() * 60) + now.getMinutes() : start;
+  const earliest = dateIso === businessTodayIso() ? businessClock(now).minutes : start;
   const slots = [];
   const firstSlot = Math.ceil(start / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
   for (let minute = firstSlot; minute + duration <= end; minute += NEW_BOOKING_GRID_MINUTES) {
@@ -15693,6 +15719,7 @@ async function toggleMonthlyScheduleDay(dateIso, button) {
     return;
   }
   await loadDaysOff();
+  if (!sessionIsCurrent(userId, generation)) return;
   renderBookings();
   freeSlotsController.refresh();
   if (status) status.textContent = state.fullDayOff ? 'День снова открыт для записи.' : 'День закрыт.';
@@ -15715,6 +15742,7 @@ async function restoreMonthlyScheduleDate(dateIso, button) {
     return;
   }
   await loadDaysOff();
+  if (!sessionIsCurrent(userId, generation)) return;
   renderBookings();
   freeSlotsController.refresh();
   if (status) status.textContent = 'Обычный график восстановлен.';
@@ -15811,6 +15839,7 @@ async function saveSchedule() {
   scheduleRows = rows;
   setScheduleDirty(false);
   await saveProviderCache('schedule', scheduleRows, userId);
+  if (!sessionIsCurrent(userId, generation)) return;
   const quickStatus = $('#scheduleQuickStatus');
   if (quickStatus) {
     quickStatus.textContent = 'Расписание сохранено.';
@@ -15872,6 +15901,8 @@ async function loadDaysOff() {
 async function addDayOff(event) {
   event.preventDefault();
   if (!requireWrites()) return;
+  const userId = currentUser?.id, generation = sessionGeneration;
+  if (!userId) return;
   clearFormError('#dayOffError');
   const allDay = $('#dayOffAllDay').checked;
   const date = $('#dayOffDate').value;
@@ -15880,7 +15911,8 @@ async function addDayOff(event) {
   if (!date || (!allDay && (!start || !end || end <= start))) { showFormError('#dayOffError', 'Укажите корректную дату и время.'); return; }
   const button = event.submitter;
   button.disabled = true;
-  const { error } = await db.from('provider_days_off').insert({ performer_id: currentUser.id, off_date: date, all_day: allDay, start_time: allDay ? null : start, end_time: allDay ? null : end, note: $('#dayOffNote').value.trim() });
+  const { error } = await db.from('provider_days_off').insert({ performer_id: userId, off_date: date, all_day: allDay, start_time: allDay ? null : start, end_time: allDay ? null : end, note: $('#dayOffNote').value.trim() });
+  if (!sessionIsCurrent(userId, generation)) return;
   button.disabled = false;
   if (error) { showFormError('#dayOffError', 'Не удалось закрыть выбранное время.'); return; }
   event.target.reset();
@@ -16372,20 +16404,26 @@ async function savePortfolioItem(event) {
 
 async function deletePortfolioItem(id) {
   if (!requireWrites()) return false;
+  const userId = currentUser?.id, generation = sessionGeneration;
+  if (!userId) return false;
   const item = portfolioItems.find(entry => entry.id === id);
   if (!item || !confirm('Удалить эту работу и связанные фотографии?')) return false;
   const paths = (item.photos || []).map(photo => photo.storage_path).filter(Boolean);
   let deleted = false;
   try {
-    const { data, error } = await db.from('portfolio_items').delete().eq('id', id).eq('performer_id', currentUser.id).select('id');
+    const { data, error } = await db.from('portfolio_items').delete().eq('id', id).eq('performer_id', userId).select('id');
+    if (!sessionIsCurrent(userId, generation)) return false;
     deleted = !error && data?.length === 1 && data[0].id === id;
     if (!deleted) {
-      const check = await db.from('portfolio_items').select('id').eq('id', id).eq('performer_id', currentUser.id).maybeSingle();
+      const check = await db.from('portfolio_items').select('id').eq('id', id).eq('performer_id', userId).maybeSingle();
+      if (!sessionIsCurrent(userId, generation)) return false;
       deleted = !check.error && !check.data;
     }
   } catch { /* Keep Storage intact until removal from the catalog is confirmed. */ }
+  if (!sessionIsCurrent(userId, generation)) return false;
   if (!deleted) { notify('Удаление не подтверждено. Исходные фотографии не удалены. Обновите портфолио и повторите.'); return false; }
   const cleaned = await removePortfolioStorage(paths);
+  if (!sessionIsCurrent(userId, generation)) return false;
   notify(cleaned ? 'Работа удалена' : 'Работа удалена из портфолио. Файлы пока остались в хранилище — очистка не подтверждена.');
   await loadPortfolio();
   return true;

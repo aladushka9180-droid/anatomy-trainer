@@ -13,7 +13,9 @@
     let payload = null;
     let availability = null;
     let revision = 0;
+    let scopeRevision = 0;
     let writing = false;
+    let mutationOwner = null;
     let confirming = false;
     let pendingOrganization;
     // Persist BEFORE sending. An unresolved request survives reload/close and
@@ -151,9 +153,11 @@
     }
 
     function reset() {
+      scopeRevision += 1;
+      if (mutationOwner?.button) mutationOwner.button.textContent = mutationOwner.caption;
       stockSubmission = null;
       rememberMovementDraft(); movementFormScope = null;
-      revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined; movementOperation = null;
+      revision += 1; organization = null; payload = null; availability = null; writing = false; mutationOwner = null; pendingOrganization = undefined; movementOperation = null;
       movementErrorScope = null; $('#inventoryMovementError').hidden = true; $('#inventoryMovementError').textContent = '';
       $('#inventoryTransferError').hidden = true; $('#inventoryTransferError').textContent = '';
       movementReadRecovery = null;
@@ -163,6 +167,7 @@
 
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
+      if (normalized?.id !== organization?.id || normalized?.current_role !== organization?.current_role) scopeRevision += 1;
       window.MinutaInventorySoftUI?.setScope(normalized?.id || null);
       // Returning to A after queued B is a new choice, not a same-scope no-op.
       if (pendingOrganization === undefined && movementOperation && sessionIsCurrent(movementOperation.userId, movementOperation.generation)
@@ -415,15 +420,18 @@
     async function mutate(rpc, parameters, button, success, errorHolder) {
       if (!requireWrites() || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return false;
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id, current = ++revision;
-      writing = true; setBusy(true); if (errorHolder) { $(errorHolder).hidden = true; $(errorHolder).textContent = ''; }
+      const scope = scopeRevision, role = organization.current_role;
+      const isContextCurrent = () => scope === scopeRevision && sessionIsCurrent(userId,generation) && organization?.id === organizationId && organization?.current_role === role;
+      const owner = { button, caption:button?.textContent }; mutationOwner = owner; writing = true; setBusy(true); if (errorHolder) { $(errorHolder).hidden = true; $(errorHolder).textContent = ''; }
       const old = button?.textContent; if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
       const { data, error } = await db.rpc(rpc, parameters);
-      if (button) button.textContent = old;
-      const stale = !sessionIsCurrent(userId, generation) || current !== revision || organization?.id !== organizationId; writing = false;
+      if (mutationOwner !== owner) return false;
+      mutationOwner = null; if (button) button.textContent = old;
+      const stale = !isContextCurrent() || current !== revision; writing = false;
       if (stale) { const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return false; }
-      if (error) { const message = messageFor(error); if (errorHolder) { $(errorHolder).textContent = message; $(errorHolder).hidden = false; } else notify(message); await load(); return false; }
+      if (error) { const message = messageFor(error); if (!errorHolder) notify(message); await load(); if (!isContextCurrent()) return false; if (errorHolder) { $(errorHolder).textContent = message; $(errorHolder).hidden = false; } return false; }
       if (!scopeMatches(data, organizationId)) { notify('Ответ другой организации заблокирован.'); await load(); return false; }
-      notify(success); await load(); return true;
+      notify(success); await load(); return isContextCurrent();
     }
 
     function updateMovementKind() {

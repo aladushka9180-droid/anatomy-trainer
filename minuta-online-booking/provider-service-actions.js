@@ -201,9 +201,7 @@
     if (!(details instanceof HTMLDetailsElement) || !details.matches(DETAILS_SELECTOR)) return;
     prepareDetails(details);
     if (!details.open) {
-      summaryFor(details)?.setAttribute('aria-expanded', 'false');
-      clearPosition(details);
-      if (activeDetails === details) activeDetails = null;
+      close(details);
       return;
     }
     open(details);

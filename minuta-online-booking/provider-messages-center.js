@@ -2,6 +2,7 @@
   'use strict';
 
   const core = global.MinutaMessagesCore;
+  const providerMounts = new WeakMap();
   const PROVIDER_RPC_MAP = Object.freeze({
     capability:'get_minuta_message_capability_v162',
     setCapability:'set_minuta_message_center_settings_v162',
@@ -267,6 +268,12 @@
     const productName = actorKind === 'provider' ? 'Eldion Pro' : 'Eldion';
     const conversationTitle = item => item?.kind === 'support' && /^(?:Поддержка (?:Prime ?Time|Eldion)(?: Pro)?)$/.test(item.title || '') ? `Поддержка ${productName}` : item?.title || '';
     if (!root || !bridge || !core) throw new Error('message_center_contract_required');
+    let destroyed = false;
+    function isActive() {
+      try { return !destroyed && !options.signal?.aborted && (typeof options.isCurrent !== 'function' || options.isCurrent()); }
+      catch { return false; }
+    }
+    if (!isActive()) throw new Error('message_center_context_stale');
     const scope = core.identifier(options.scope) || actorKind;
     const canManageSettings = actorKind === 'provider' && options.canManageSettings === true && typeof bridge.setCapability === 'function';
     const outbox = core.createOutbox({ storage:options.storage || global.sessionStorage, scope });
@@ -276,13 +283,28 @@
     let messages = [];
     let afterSequence = 0;
     let loading = false;
-    let destroyed = false;
+    let timelineRevision = 0;
+    let timelineConversationId = '';
     let query = '';
     let unreadOnly = false;
     let pollTimer = null;
     let lastDialogTrigger = null;
     let preparedAction = null;
     const callbacks = new Map();
+    const listeners = [];
+    function listen(target, type, handler) {
+      target.addEventListener(type, handler);
+      listeners.push([target, type, handler]);
+    }
+    function destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      timelineRevision += 1;
+      clearTimeout(pollTimer);
+      callbacks.forEach(clearTimeout);
+      listeners.forEach(([target, type, handler]) => target.removeEventListener(type, handler));
+      listeners.length = 0;
+    }
 
     root.classList.add('message-center');
     root.innerHTML = `<section class="message-center-shell" aria-labelledby="messageCenterTitle">
@@ -309,12 +331,14 @@
     const input = find('[data-message-input]');
 
     function setConnection(state, label) {
+      if (!isActive()) return;
       const node = find('[data-message-connection]');
       node.dataset.state = state;
       node.textContent = label;
     }
 
     function setNotice(title = '', body = '') {
+      if (!isActive()) return;
       const node = find('[data-message-notice]');
       node.hidden = !title;
       find('[data-message-notice-title]').textContent = title;
@@ -327,6 +351,7 @@
     }
 
     function renderConversationList() {
+      if (!isActive()) return;
       const items = visibleConversations();
       find('[data-message-total]').textContent = String(items.length);
       if (!items.length) {
@@ -341,8 +366,9 @@
     }
 
     function renderTimeline({ preserveScroll = false } = {}) {
+      if (!isActive()) return;
       const conversation = selectedConversation();
-      const merged = core.mergeMessages(messages, outbox.list(selectedId));
+      const merged = core.mergeMessages(messages.filter(item => item.conversation_id === selectedId), outbox.list(selectedId));
       const previousBottom = timelineNode.scrollHeight - timelineNode.scrollTop;
       if (!conversation) {
         timelineNode.innerHTML = '<li class="message-center-empty"><div><strong>Выберите диалог</strong><p>Здесь появится переписка и контекст записи.</p></div></li>';
@@ -356,6 +382,7 @@
     }
 
     function renderThreadHeader() {
+      if (!isActive()) return;
       const conversation = selectedConversation();
       find('#messageThreadTitle').textContent = conversationTitle(conversation) || 'Выберите диалог';
       find('[data-message-thread-subtitle]').textContent = conversation?.subtitle || (conversation?.kind === 'support' ? 'Отдельный канал поддержки' : '');
@@ -373,12 +400,13 @@
     }
 
     async function loadConversations({ keepSelection = true } = {}) {
-      if (loading || destroyed) return false;
+      if (loading || !isActive()) return false;
       loading = true;
       setConnection(navigator.onLine ? 'loading' : 'offline', navigator.onLine ? 'Обновляем…' : 'Нет сети');
       try {
         if (!navigator.onLine) throw new Error('offline');
         const response = await bridge.listConversations({ query:query.trim() });
+        if (!isActive()) return false;
         conversations = response.items;
         if (!keepSelection || !conversations.some(item => item.id === selectedId)) selectedId = conversations[0]?.id || '';
         renderConversationList();
@@ -389,6 +417,7 @@
         if (selectedId) await loadTimeline({ focus:false });
         return true;
       } catch (error) {
+        if (!isActive()) return false;
         const offline = !navigator.onLine || core.connectionFailure(error);
         setConnection(offline ? 'offline' : 'error', offline ? 'Нет сети' : 'Не удалось обновить');
         setNotice(offline ? 'Работаем без сети' : 'Сообщения временно недоступны', offline ? 'Черновик можно сохранить. Отправка продолжится после подключения.' : `Другие разделы ${productName} продолжают работать.`);
@@ -398,11 +427,21 @@
     }
 
     async function loadTimeline({ focus = false, incremental = false } = {}) {
+      if (!isActive()) return false;
       const conversation = selectedConversation();
-      if (!conversation || destroyed || !navigator.onLine) { renderTimeline(); return false; }
+      const revision = ++timelineRevision;
+      const isCurrent = () => isActive() && revision === timelineRevision && conversation?.id === selectedId;
+      if (conversation && timelineConversationId !== conversation.id) {
+        timelineConversationId = conversation.id;
+        messages = [];
+        afterSequence = 0;
+        renderTimeline();
+      }
+      if (!conversation || !navigator.onLine) { renderTimeline(); return false; }
       timelineNode.setAttribute('aria-busy', 'true');
       try {
         const response = await bridge.timeline({ conversationId:conversation.id, afterSequence:incremental ? afterSequence : null });
+        if (!isCurrent()) return false;
         messages = incremental ? core.mergeMessages([...messages, ...response.items]) : response.items;
         afterSequence = Math.max(afterSequence, response.after_sequence || messages.at(-1)?.sequence || 0);
         for (const entry of outbox.list(conversation.id)) {
@@ -413,19 +452,22 @@
         const highest = messages.at(-1)?.sequence || 0;
         if (highest && conversation.unread_count) {
           void bridge.markRead({ conversationId:conversation.id, sequence:highest }).then(() => {
+            if (!isCurrent()) return;
             conversations = conversations.map(item => item.id === conversation.id ? Object.freeze({ ...item, unread_count:0 }) : item);
             renderConversationList();
           }).catch(() => {});
         }
         return true;
       } catch {
+        if (!isCurrent()) return false;
         setNotice('Не удалось обновить диалог', 'Текст не потерян. Повторите после восстановления связи.');
         renderTimeline();
         return false;
-      } finally { timelineNode.setAttribute('aria-busy', 'false'); }
+      } finally { if (isCurrent()) timelineNode.setAttribute('aria-busy', 'false'); }
     }
 
     async function deliver(entry) {
+      if (!isActive()) return null;
       const result = await core.sendOutboxEntry({
         entry,
         outbox,
@@ -433,6 +475,7 @@
         send:payload => bridge.send(payload),
         lookup:requestId => bridge.lookup({ conversationId:entry.conversation_id, requestId })
       });
+      if (!isActive()) return result;
       if (result?.id && !result.local) messages = core.mergeMessages([...messages, result]);
       renderTimeline();
       if (result?.status === 'failed') setNotice('Отправка не подтверждена', 'Проверьте связь и нажмите «Повторить безопасно»: используется тот же номер запроса.');
@@ -442,6 +485,7 @@
 
     async function sendMessage(event) {
       event.preventDefault();
+      if (!isActive()) return;
       const conversation = selectedConversation();
       const body = input.value.trim();
       if (!conversation?.can_send || !body) return;
@@ -452,6 +496,7 @@
     }
 
     async function retryMessage(clientRequestId) {
+      if (!isActive()) return;
       const entry = core.retryEntry(outbox, clientRequestId, navigator.onLine);
       if (!entry) return;
       renderTimeline();
@@ -465,11 +510,12 @@
     }
 
     async function prepareMessageAction(actionId, trigger) {
-      if (actorKind !== 'client' || typeof bridge.prepareAction !== 'function') return;
+      if (!isActive() || actorKind !== 'client' || typeof bridge.prepareAction !== 'function') return;
       lastDialogTrigger = trigger;
       trigger.disabled = true;
       try {
         const prepared = await bridge.prepareAction({ actionId, requestId:core.createRequestId() });
+        if (!isActive()) return;
         if (!prepared?.confirmation_token || !prepared?.summary) throw new Error('action_confirmation_unavailable');
         preparedAction = { ...prepared, actionId, requestId:core.createRequestId(), mode:'apply' };
         find('[data-message-confirm-summary]').textContent = prepared.summary;
@@ -478,12 +524,14 @@
         find('[data-message-proposed-time]').hidden = true;
         find('[data-message-confirm-dialog]').showModal();
       } catch {
+        if (!isActive()) return;
         setNotice('Действие сейчас недоступно', 'Запись могла измениться. Обновите диалог и проверьте актуальное состояние.');
         lastDialogTrigger = null;
-      } finally { trigger.disabled = false; }
+      } finally { if (isActive()) trigger.disabled = false; }
     }
 
     function openProposal(actionType, trigger) {
+      if (!isActive()) return;
       const conversation = selectedConversation();
       if (actorKind !== 'provider' || !conversation?.booking || typeof bridge.proposeAction !== 'function') return;
       lastDialogTrigger = trigger;
@@ -507,6 +555,7 @@
 
     async function submitAction(event) {
       event.preventDefault();
+      if (!isActive()) return;
       const submit = find('[data-message-confirm-submit]');
       const errorNode = find('[data-message-confirm-error]');
       const conversation = selectedConversation();
@@ -520,6 +569,7 @@
             confirmationToken:preparedAction.confirmation_token,
             requestId:preparedAction.requestId
           });
+          if (!isActive()) return;
           if (result?.applied !== true) throw new Error(result?.error_code || 'action_not_applied');
         } else {
           const payload = preparedAction.actionType === 'propose_time' ? {
@@ -536,15 +586,17 @@
             actionType:preparedAction.actionType,
             payload
           });
+          if (!isActive()) return;
           if (!result?.action_id && !result?.id) throw new Error('proposal_not_confirmed');
         }
         closeDialog(find('[data-message-confirm-dialog]'));
         preparedAction = null;
         await loadTimeline({ incremental:true });
       } catch {
+        if (!isActive()) return;
         errorNode.textContent = 'Сервер не применил действие. Обновите запись: время или доступность могли измениться.';
         errorNode.hidden = false;
-      } finally { submit.disabled = false; }
+      } finally { if (isActive()) submit.disabled = false; }
     }
 
     function diagnosticsPreview() {
@@ -553,6 +605,7 @@
     }
 
     function openSupport(trigger) {
+      if (!isActive()) return;
       lastDialogTrigger = trigger;
       const preview = diagnosticsPreview();
       find('[data-message-diagnostics]').innerHTML = preview.length
@@ -561,11 +614,12 @@
       find('[data-message-diagnostics-consent]').checked = false;
       find('[data-message-support-error]').hidden = true;
       find('[data-message-support-dialog]').showModal();
-      setTimeout(() => find('[data-message-support-text]').focus(), 0);
+      setTimeout(() => { if (isActive()) find('[data-message-support-text]').focus(); }, 0);
     }
 
     async function submitSupport(event) {
       event.preventDefault();
+      if (!isActive()) return;
       const form = event.currentTarget;
       const message = find('[data-message-support-text]').value.trim();
       const consent = find('[data-message-diagnostics-consent]').checked;
@@ -582,19 +636,22 @@
           diagnosticsConsent:consent,
           bookingCode:selectedConversation()?.booking?.booking_code || (typeof options.supportBookingCode === 'function' ? options.supportBookingCode() : '')
         });
+        if (!isActive()) return;
         if (!result) throw new Error('support_not_confirmed');
         closeDialog(find('[data-message-support-dialog]'));
         find('[data-message-support-text]').value = '';
         await loadConversations({ keepSelection:false });
       } catch {
+        if (!isActive()) return;
         errorNode.textContent = navigator.onLine ? 'Обращение не подтверждено сервером. Ничего не было отмечено как отправленное.' : 'Нет соединения. Текст сохранён в поле; отправьте после подключения.';
         errorNode.hidden = false;
-      } finally { submit.disabled = false; }
+      } finally { if (isActive()) submit.disabled = false; }
     }
 
     async function flushOutbox() {
-      if (!navigator.onLine) return;
+      if (!isActive() || !navigator.onLine) return;
       for (const entry of outbox.list()) {
+        if (!isActive()) return;
         if (entry.status === 'sending') continue;
         await deliver(core.retryEntry(outbox, entry.client_request_id, true));
       }
@@ -602,7 +659,7 @@
 
     function schedulePoll() {
       clearTimeout(pollTimer);
-      if (destroyed) return;
+      if (!isActive()) return;
       pollTimer = setTimeout(async () => {
         if (!document.hidden && navigator.onLine && selectedId) await loadTimeline({ incremental:true });
         schedulePoll();
@@ -610,11 +667,13 @@
     }
 
     async function initialize() {
+      if (!isActive()) return false;
       try {
         capability = await bridge.capability();
       } catch (error) {
         capability = { enabled:false, support_enabled:false, reason:String(error?.message || '') };
       }
+      if (!isActive()) return false;
       const mediaHelp = find('[data-message-media-help]');
       mediaHelp.textContent = capability.media_enabled
         ? 'Сервер разрешил медиа, но загрузка в этом интерфейсе пока не включена.'
@@ -628,13 +687,15 @@
       }
       find('[data-message-enable]').hidden = true;
       await loadConversations();
+      if (!isActive()) return false;
       await flushOutbox();
+      if (!isActive()) return false;
       schedulePoll();
       return true;
     }
 
     function openSettingsActivation(trigger) {
-      if (!canManageSettings || capability.enabled) return;
+      if (!isActive() || !canManageSettings || capability.enabled) return;
       lastDialogTrigger = trigger;
       find('[data-message-settings-error]').hidden = true;
       find('[data-message-settings-dialog]').showModal();
@@ -642,24 +703,27 @@
 
     async function submitSettingsActivation(event) {
       event.preventDefault();
-      if (!canManageSettings || capability.enabled) return;
+      if (!isActive() || !canManageSettings || capability.enabled) return;
       const submit = find('[data-message-settings-submit]');
       const errorNode = find('[data-message-settings-error]');
       submit.disabled = true;
       errorNode.hidden = true;
       try {
         const result = await bridge.setCapability({ enabled:true, supportEnabled:false });
+        if (!isActive()) return;
         if (result?.enabled !== true || result?.support_enabled === true) throw new Error('message_activation_unconfirmed');
         capability = result;
         closeDialog(find('[data-message-settings-dialog]'));
         await initialize();
       } catch {
+        if (!isActive()) return;
         errorNode.textContent = 'Сервер не подтвердил включение. Настройки не считаются изменёнными.';
         errorNode.hidden = false;
-      } finally { submit.disabled = false; }
+      } finally { if (isActive()) submit.disabled = false; }
     }
 
-    root.addEventListener('click', event => {
+    listen(root, 'click', event => {
+      if (!isActive()) return;
       const conversation = event.target.closest('[data-message-conversation]');
       if (conversation) {
         selectedId = conversation.dataset.messageConversation;
@@ -690,48 +754,45 @@
       const close = event.target.closest('[data-message-dialog-close]');
       if (close) closeDialog(close.closest('dialog'));
     });
-    composer.addEventListener('submit', sendMessage);
-    input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); composer.requestSubmit(); } });
-    find('[data-message-confirm-form]').addEventListener('submit', submitAction);
-    find('[data-message-support-form]').addEventListener('submit', submitSupport);
-    find('[data-message-settings-form]').addEventListener('submit', submitSettingsActivation);
-    find('[data-message-search]').addEventListener('input', event => {
+    listen(composer, 'submit', sendMessage);
+    listen(input, 'keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); composer.requestSubmit(); } });
+    listen(find('[data-message-confirm-form]'), 'submit', submitAction);
+    listen(find('[data-message-support-form]'), 'submit', submitSupport);
+    listen(find('[data-message-settings-form]'), 'submit', submitSettingsActivation);
+    listen(find('[data-message-search]'), 'input', event => {
       clearTimeout(callbacks.get('search'));
       query = event.target.value.trim().toLocaleLowerCase('ru-RU');
       renderConversationList();
       callbacks.set('search', setTimeout(() => { void loadConversations(); }, 300));
     });
-    find('[data-message-unread]').addEventListener('change', event => { unreadOnly = event.target.checked; renderConversationList(); });
+    listen(find('[data-message-unread]'), 'change', event => { unreadOnly = event.target.checked; renderConversationList(); });
     const onlineHandler = () => { setConnection('loading', 'Восстанавливаем связь…'); void loadConversations().then(flushOutbox); };
     const offlineHandler = () => { setConnection('offline', 'Нет сети'); setNotice('Работаем без сети', 'Новое сообщение останется в очереди на этом устройстве до повторной отправки.'); };
-    const sessionResetHandler = () => outbox.clear();
-    global.addEventListener('online', onlineHandler);
-    global.addEventListener('offline', offlineHandler);
-    global.addEventListener('minuta:provider-session-reset', sessionResetHandler);
+    const sessionResetHandler = () => { outbox.clear(); destroy(); };
+    listen(global, 'online', onlineHandler);
+    listen(global, 'offline', offlineHandler);
+    listen(global, 'minuta:provider-session-reset', sessionResetHandler);
+    if (options.signal) listen(options.signal, 'abort', destroy);
 
     return Object.freeze({
       initialize,
+      isActive,
       reload:() => loadConversations(),
       async openBooking(bookingId) {
-        if (actorKind !== 'provider' || !core.identifier(bookingId) || capability.enabled !== true) return false;
+        if (!isActive() || actorKind !== 'provider' || !core.identifier(bookingId) || capability.enabled !== true) return false;
         const opened = await bridge.openConversation({ bookingCode:bookingId, requestId:core.createRequestId() });
+        if (!isActive()) return false;
         const conversationId = core.identifier(opened?.conversation_id || opened?.id);
         if (!conversationId) throw new Error('conversation_open_unconfirmed');
         await loadConversations({ keepSelection:false });
         return this.select(conversationId);
       },
       select:conversationId => {
+        if (!isActive()) return false;
         if (!conversations.some(item => item.id === conversationId)) return false;
         selectedId = conversationId; renderConversationList(); renderThreadHeader(); void loadTimeline({ focus:true }); return true;
       },
-      destroy() {
-        destroyed = true;
-        clearTimeout(pollTimer);
-        callbacks.forEach(clearTimeout);
-        global.removeEventListener('online', onlineHandler);
-        global.removeEventListener('offline', offlineHandler);
-        global.removeEventListener('minuta:provider-session-reset', sessionResetHandler);
-      },
+      destroy,
       snapshot:() => ({ capability:{ ...capability }, conversationCount:conversations.length, selectedId, messageCount:messages.length, outbox:outbox.list() })
     });
   }
@@ -739,19 +800,33 @@
   async function mount(options = {}) {
     const root = options.root || document.querySelector('[data-provider-messages-root],#providerMessagesRoot');
     if (!root) return null;
+    const entry = { controller:null };
+    const ownerIsCurrent = () => {
+      try { return !options.signal?.aborted && (typeof options.isCurrent !== 'function' || options.isCurrent()); }
+      catch { return false; }
+    };
+    const isCurrent = () => providerMounts.get(root) === entry && ownerIsCurrent();
+    if (!ownerIsCurrent()) return null;
+    providerMounts.get(root)?.controller?.destroy();
+    providerMounts.set(root, entry);
     try {
       const bridge = options.bridge || createProviderBridge(options);
       const controller = createMessageCenter({
         ...options,
         root,
         bridge,
+        isCurrent,
         actorKind:'provider',
         scope:`provider:${options.organizationId || 'unknown'}`,
         bookingReturnUrl:'provider.html?section=bookings'
       });
+      entry.controller = controller;
       await controller.initialize();
+      if (!isCurrent() || !controller.isActive()) { controller.destroy(); return null; }
       return controller;
     } catch (error) {
+      entry.controller?.destroy();
+      if (!isCurrent()) return null;
       root.classList.add('message-center');
       root.innerHTML = '<div class="message-center-error"><div><strong>Сообщения пока недоступны</strong><p>Контекст организации или схема v162 не подтверждены. Остальные разделы продолжают работать.</p></div></div>';
       return null;

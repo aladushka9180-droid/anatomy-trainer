@@ -748,6 +748,10 @@
     async function moveBooking(item,targetPerformer,date,minute,targetLocationId,options = {}) {
       const { offerUndo = true, successMessage = '', expectedPoint = null, requireAtomic = false, targetServiceId = '' } = options;
       if (!dispatcherActions || actionPending || !requireWrites()) return false;
+      const userId = getCurrentUser()?.id;
+      const generation = getSessionGeneration();
+      const organizationId = organization?.id;
+      if (!userId || !organizationId) return false;
       const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
       const unavailableReason = moveUnavailableReason(item,targetPerformer,date,minute,location,targetServiceId);
       if (unavailableReason) { notify(unavailableReason); return false; }
@@ -756,42 +760,51 @@
         : matchingService(item,targetPerformer);
       if (!service) { notify('Выбранная услуга больше недоступна у специалиста. Расписание обновлено.'); await load(); return false; }
       const previous = { ...item };
-      actionPending = true;
-      let result;
-      let atomicMove = true;
+      const operation = {};
+      const isCurrent = () => actionPending === operation && sessionIsCurrent(userId, generation)
+        && organization?.id === organizationId;
+      actionPending = operation;
       try {
-        const expected = expectedPoint || item;
-        result = await db.rpc('move_minuta_team_booking_v104', {
-          p_organization:organization.id,p_booking:item.id,
-          p_expected_performer:expected.performer_id,p_expected_location:expected.location_id,
-          p_expected_service:expected.service_id,p_expected_date:expected.booking_date,
-          p_expected_time:`${expected.booking_time}:00`,
-          p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00`
-        });
-        if (result?.error && isMissingRpc(result.error)) {
-          if (requireAtomic) result = { error:{ message:'atomic_team_booking_move_unavailable' } };
-          else {
-            atomicMove = false;
-            result = await db.rpc('move_minuta_team_booking_v102', { p_organization:organization.id,p_booking:item.id,p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00` });
+        let result;
+        let atomicMove = true;
+        try {
+          const expected = expectedPoint || item;
+          result = await db.rpc('move_minuta_team_booking_v104', {
+            p_organization:organizationId,p_booking:item.id,
+            p_expected_performer:expected.performer_id,p_expected_location:expected.location_id,
+            p_expected_service:expected.service_id,p_expected_date:expected.booking_date,
+            p_expected_time:`${expected.booking_time}:00`,
+            p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00`
+          });
+          if (!isCurrent()) return false;
+          if (result?.error && isMissingRpc(result.error)) {
+            if (requireAtomic) result = { error:{ message:'atomic_team_booking_move_unavailable' } };
+            else {
+              atomicMove = false;
+              result = await db.rpc('move_minuta_team_booking_v102', { p_organization:organizationId,p_booking:item.id,p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00` });
+            }
           }
+        } catch (error) {
+          result = { error };
         }
-      } catch (error) {
-        result = { error };
+        if (!isCurrent()) return false;
+        if (!result || result.error) { notify(actionError(result?.error || new Error('empty move response'))); await load(); return false; }
+        closeSheet();
+        await load();
+        if (!isCurrent()) return false;
+        Promise.resolve(onDataChange()).catch(() => {});
+        const current = rows.find(row => row.id === item.id) || {
+          ...item, performer_id:targetPerformer, performer_name:memberById(targetPerformer)?.display_name || item.performer_name,
+          location_id:location, location_name:locationById(location)?.name || item.location_name,
+          service_id:service.id, booking_date:date, booking_time:timeFromMinutes(minute)
+        };
+        if (offerUndo && atomicMove) showUndo(previous,current);
+        else if (offerUndo) notify(`Запись перенесена на ${shortDate(current.booking_date)} в ${current.booking_time}`);
+        else notify(successMessage || 'Перенос отменён. Запись возвращена на прежнее время.');
+        return true;
+      } finally {
+        if (actionPending === operation) actionPending = false;
       }
-      actionPending = false;
-      if (!result || result.error) { notify(actionError(result?.error || new Error('empty move response'))); await load(); return false; }
-      closeSheet();
-      await load();
-      Promise.resolve(onDataChange()).catch(() => {});
-      const current = rows.find(row => row.id === item.id) || {
-        ...item, performer_id:targetPerformer, performer_name:memberById(targetPerformer)?.display_name || item.performer_name,
-        location_id:location, location_name:locationById(location)?.name || item.location_name,
-        service_id:service.id, booking_date:date, booking_time:timeFromMinutes(minute)
-      };
-      if (offerUndo && atomicMove) showUndo(previous,current);
-      else if (offerUndo) notify(`Запись перенесена на ${shortDate(current.booking_date)} в ${current.booking_time}`);
-      else notify(successMessage || 'Перенос отменён. Запись возвращена на прежнее время.');
-      return true;
     }
 
     async function bookingForUndo(state) {

@@ -455,6 +455,7 @@
             p_channel:item.channel,
             p_enabled:Boolean(draftChannels.get(channelKey(item.audience, item.channel)))
           });
+          if (!current(operationRevision, organizationId)) return;
           if (result?.error) throw result.error;
           normalized = normalizeWorkspace(result?.data, organizationId, currentUserId);
           if (!normalized) throw new Error('notification_channel_ack_invalid');
@@ -462,6 +463,7 @@
         }
         if (masterChanged) {
           const result = await db.rpc('set_minuta_notification_master', { p_organization:organizationId, p_enabled:draftMaster });
+          if (!current(operationRevision, organizationId)) return;
           if (result?.error) throw result.error;
           normalized = normalizeWorkspace(result?.data, organizationId, currentUserId);
           if (!normalized) throw new Error('notification_master_ack_invalid');
@@ -470,6 +472,7 @@
       } catch {
         if (!current(operationRevision, organizationId)) return;
         notify(saved ? 'Часть настроек не сохранена. Сверяем состояние.' : 'Не удалось сохранить настройки доставки');
+        setBusy(false);
         await load();
         return;
       } finally {

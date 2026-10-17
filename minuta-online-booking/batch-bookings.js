@@ -227,6 +227,14 @@
     async function createBatch(event) {
       event.preventDefault();
       if (!requireWrites() || !organization || !client) return;
+      const userId = getCurrentUser()?.id;
+      const generation = getSessionGeneration();
+      const organizationId = organization.id;
+      const clientPhone = client.phone;
+      const submittedRequestId = requestId;
+      const contextIsCurrent = () => sessionIsCurrent(userId, generation)
+        && organization?.id === organizationId && client?.phone === clientPhone;
+      const draftIsCurrent = () => contextIsCurrent() && requestId === submittedRequestId;
       const errorNode = $('#batchBookingError');
       errorNode.hidden = true;
       const rows = [...$('#batchBookingRows').querySelectorAll('[data-batch-row]')];
@@ -237,6 +245,7 @@
         comment:row.querySelector('[data-batch-comment]').value.trim()
       }));
       const button = event.submitter || $('#createBatchBookings');
+      button.dataset.batchRequestId = submittedRequestId;
       button.disabled = true;
       button.textContent = 'Проверяем все окна…';
       const { data, error } = await db.rpc('create_minuta_batch_bookings', {
@@ -249,8 +258,11 @@
         p_request_id:requestId,
         p_comment:$('#batchBookingComment').value.trim()
       });
+      if (!contextIsCurrent() || button.dataset.batchRequestId !== submittedRequestId) return;
+      delete button.dataset.batchRequestId;
       button.disabled = false;
       button.textContent = 'Создать весь пакет';
+      if (!draftIsCurrent()) return;
       if (error) {
         errorNode.textContent = errorMessage(error);
         errorNode.hidden = false;
@@ -261,6 +273,7 @@
       $('#batchBookingResult').innerHTML = `<strong>${Number(data?.created_count || created.length)} записей создано</strong><ul>${created.map(item => `<li>${escapeHtml(new Date(`${item.date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long'}))}, ${escapeHtml(String(item.time).slice(0,5))}</li>`).join('')}</ul>`;
       notify(`Пакет из ${Number(data?.created_count || created.length)} записей создан`);
       await onCreated?.(data);
+      if (!draftIsCurrent()) return;
       $('#batchBookingComment').value = '';
       resetRows();
       await load();
