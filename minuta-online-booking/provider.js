@@ -15839,54 +15839,54 @@ async function loadSchedule() {
 }
 
 async function saveSchedule() {
-  if (!requireWrites()) return;
-  const userId = currentUser.id;
-  const generation = sessionGeneration;
-  clearFormError('#scheduleError');
-  const rows = scheduleRowsFromForm().map(row => ({ ...row, performer_id:userId }));
-  const invalid = rows.find(row => row.enabled && (row.end_time <= row.start_time || (row.break_start && (row.break_end <= row.break_start || row.break_start < row.start_time || row.break_end > row.end_time))));
-  if (invalid) { $('#scheduleWeekEditor').open = true; $('#weeklyScheduleDetails').open = true; setScheduleSaveError('Проверьте расписание'); showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
-  const button = $('#saveSchedule');
-  button.dataset.operationDisabled = 'true';
-  button.textContent = 'Проверяем…';
-  updateScheduleSaveState();
-  const { data: serverSchedule, error: checkError } = await db.from('provider_schedule').select('*').eq('performer_id', userId).order('weekday');
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (checkError) {
-    delete button.dataset.operationDisabled;
-    button.textContent = 'Сохранить';
-    updateScheduleSaveState();
-    setScheduleSaveError();
-    showFormError('#scheduleError', 'Не удалось проверить актуальность расписания. Изменения не сохранены.');
-    return;
+if (!requireWrites()) return;
+const userId = currentUser.id;
+const generation = sessionGeneration;
+clearFormError('#scheduleError');
+const rows = scheduleRowsFromForm().map(row => ({ ...row, performer_id:userId }));
+const invalid = rows.find(row => row.enabled && (row.end_time <= row.start_time || (row.break_start && (row.break_end <= row.break_start || row.break_start < row.start_time || row.break_end > row.end_time))));
+if (invalid) { $('#scheduleWeekEditor').open = true; $('#weeklyScheduleDetails').open = true; setScheduleSaveError('Проверьте расписание'); showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
+const button = $('#saveSchedule');
+button.dataset.operationDisabled = 'true';
+button.textContent = 'Проверяем…';
+updateScheduleSaveState();
+const { data: serverSchedule, error: checkError } = await db.from('provider_schedule').select('*').eq('performer_id', userId).order('weekday');
+if (!sessionIsCurrent(userId, generation)) return;
+if (checkError) {
+delete button.dataset.operationDisabled;
+button.textContent = 'Сохранить';
+updateScheduleSaveState();
+setScheduleSaveError();
+showFormError('#scheduleError', 'Не удалось проверить актуальность расписания. Изменения не сохранены.');
+return;
   }
-  const serverRows = serverSchedule?.length ? serverSchedule : defaultScheduleRows(userId);
-  if (JSON.stringify(comparableSchedule(serverRows)) !== JSON.stringify(comparableSchedule(scheduleRows))) {
-    delete button.dataset.operationDisabled;
-    button.textContent = 'Сохранить';
-    updateScheduleSaveState();
-    setScheduleSaveError('Изменено на другом устройстве');
-    showFormError('#scheduleError', 'Расписание изменилось на другом устройстве. Обновите данные и внесите изменения заново.');
-    return;
+const serverRows = serverSchedule?.length ? serverSchedule : defaultScheduleRows(userId);
+if (JSON.stringify(comparableSchedule(serverRows)) !== JSON.stringify(comparableSchedule(scheduleRows))) {
+delete button.dataset.operationDisabled;
+button.textContent = 'Сохранить';
+updateScheduleSaveState();
+setScheduleSaveError('Изменено на другом устройстве');
+showFormError('#scheduleError', 'Расписание изменилось на другом устройстве. Обновите данные и внесите изменения заново.');
+return;
   }
-  button.textContent = 'Сохраняем…';
-  const { error } = await db.from('provider_schedule').upsert(rows, { onConflict: 'performer_id,weekday' });
-  if (!sessionIsCurrent(userId, generation)) return;
-  delete button.dataset.operationDisabled;
-  button.textContent = 'Сохранить';
-  if (error) { updateScheduleSaveState(); setScheduleSaveError(); showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
-  scheduleRows = rows;
-  setScheduleDirty(false);
-  await saveProviderCache('schedule', scheduleRows, userId);
-  if (!sessionIsCurrent(userId, generation)) return;
-  const quickStatus = $('#scheduleQuickStatus');
-  if (quickStatus) {
-    quickStatus.textContent = 'Расписание сохранено.';
-    quickStatus.dataset.state = 'saved';
+button.textContent = 'Сохраняем…';
+const { error } = await db.from('provider_schedule').upsert(rows, { onConflict: 'performer_id,weekday' });
+if (!sessionIsCurrent(userId, generation)) return;
+delete button.dataset.operationDisabled;
+button.textContent = 'Сохранить';
+if (error) { updateScheduleSaveState(); setScheduleSaveError(); showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
+scheduleRows = rows;
+setScheduleDirty(false);
+await saveProviderCache('schedule', scheduleRows, userId);
+if (!sessionIsCurrent(userId, generation)) return;
+const quickStatus = $('#scheduleQuickStatus');
+if (quickStatus) {
+quickStatus.textContent = 'Расписание сохранено.';
+quickStatus.dataset.state = 'saved';
   }
-  renderMonthlySchedule();
-  if (!sessionIsCurrent(userId, generation)) return;
-  notify('Расписание сохранено');
+renderMonthlySchedule();
+if (!sessionIsCurrent(userId, generation)) return;
+notify('Расписание сохранено');
 }
 
 function renderDaysOff() {
