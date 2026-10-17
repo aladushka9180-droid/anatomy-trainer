@@ -19450,39 +19450,40 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
   if (event.data?.type === 'open-provider-view' && PROVIDER_VIEW_ORDER.includes(event.data.view) && currentUser) setProviderView(event.data.view);
 });
 function initializeProviderUx() {
-  setInventorySection('balances');
-  const layout = $('#clientsLayout');
-  const search = $('#clientSearch')?.closest('label');
-  if (layout && search) {
-    const toolbar = document.createElement('div');
-    toolbar.className = 'clients-search-tools';
-    const tools = document.createElement('details');
-    tools.id = 'clientDirectoryTools';
-    tools.className = 'clients-tools ux-disclosure';
-    tools.innerHTML = '<summary>Ещё</summary><div aria-label="Импорт и поля клиента"></div>';
-    const panels = [$('#clientImportPanel'), $('#clientFieldsSettings')].filter(Boolean);
-    panels.forEach(panel => tools.lastElementChild.append(panel));
-    const filters = $('#clientDirectoryFilters');
-    toolbar.append(search);
-    if (filters) toolbar.append(filters);
-    toolbar.append(tools);
-    layout.before(toolbar);
-    const syncTools = () => {
-      const hidden = panels.every(panel => panel.hidden);
-      if (tools.hidden !== hidden) tools.hidden = hidden;
-      if (panels.some(panel => !panel.hidden && panel.open)) tools.open = true;
+setInventorySection('balances');
+const layout=$('#clientsLayout');
+const search=$('#clientSearch')?.closest('label');
+if (layout && search) {
+const toolbar=document.createElement('div');
+toolbar.className='clients-search-tools';
+const tools=document.createElement('details');
+tools.id='clientDirectoryTools';
+tools.className='clients-tools ux-disclosure';
+tools.innerHTML='<summary>Ещё</summary><div aria-label="Импорт и поля клиента"></div>';
+tools.onkeydown=e=>{if(e.key==='Escape'&&tools.open&&!e.defaultPrevented){e.preventDefault();e.stopPropagation();tools.open=false;tools.firstElementChild.focus();}};
+const panels=[$('#clientImportPanel'), $('#clientFieldsSettings')].filter(Boolean);
+panels.forEach(panel => tools.lastElementChild.append(panel));
+const filters=$('#clientDirectoryFilters');
+toolbar.append(search);
+if(filters) toolbar.append(filters);
+toolbar.append(tools);
+layout.before(toolbar);
+const syncTools=() => {
+const hidden=panels.every(panel => panel.hidden);
+if (tools.hidden !== hidden) tools.hidden=hidden;
+if (panels.some(panel => !panel.hidden && panel.open)) tools.open = true;
     };
-    panels.forEach(panel => new MutationObserver(syncTools).observe(panel, { attributes:true, attributeFilter:['hidden','open'] }));
-    syncTools();
+panels.forEach(panel => new MutationObserver(syncTools).observe(panel, { attributes:true, attributeFilter:['hidden','open'] }));
+syncTools();
   }
-  const evidence = document.createElement('details');
-  evidence.id = 'reportPaymentEvidence';
-  evidence.className = 'report-payment-evidence';
-  evidence.hidden = true;
-  $('#reportCommandCenter')?.before(evidence);
+const evidence = document.createElement('details');
+evidence.id = 'reportPaymentEvidence';
+evidence.className = 'report-payment-evidence';
+evidence.hidden = true;
+$('#reportCommandCenter')?.before(evidence);
   // Secondary starter commands stay reachable without filling the first screen.
-  const examples = $('.voice-assistant-examples');
-  $$('#voiceAssistantStarters>button:nth-child(n+5)').forEach(button => examples?.append(button));
+const examples = $('.voice-assistant-examples');
+$$('#voiceAssistantStarters>button:nth-child(n+5)').forEach(button => examples?.append(button));
 }
 initializeProviderUx();
 new MutationObserver(refreshSectionNavigation).observe($('#dashboard'), { attributes:true, subtree:true, attributeFilter:['hidden'] });

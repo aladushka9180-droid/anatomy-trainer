@@ -41,6 +41,7 @@ jobs:
           minuta-online-booking/tests/finance-operations-availability-test.cjs
           minuta-online-booking/tests/provider-phone-social-context-test.mjs
           minuta-online-booking/tests/provider-install-event-state-test.mjs
+          minuta-online-booking/tests/provider-client-directory-tools-escape-test.mjs
           minuta-online-booking/tests/provider-account-context-test.mjs
           minuta-online-booking/tests/benefit-inventory-crud-scope-test.mjs
           minuta-online-booking/tests/client-profile-button-owner-test.mjs

@@ -51,6 +51,8 @@ jobs:
           node minuta-online-booking/tests/site-update-notice-browser-test.mjs fdae2ae2a4b9f7e65ae9cb5db2ad9126f0e1032d
       - name: Verify pending navigation cannot block the next worker
         run: node minuta-online-booking/tests/site-update-pending-navigation-browser-test.mjs
+      - name: Verify client More Escape and existing directory controls
+        run: node minuta-online-booking/tests/client-directory-browser-test.mjs
       - name: Check theme colours and marked card states
         run: node minuta-online-booking/tests/theme-card-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-status-theme-browser-test.mjs
