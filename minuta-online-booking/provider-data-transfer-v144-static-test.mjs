@@ -138,7 +138,7 @@ const payload = {
   }]
 };
 const csv = api.buildProviderTransferExport(payload, 'csv');
-assert.equal(csv.filename, 'primetime-pro-clients-2026-09-11.csv');
+assert.equal(csv.filename, 'eldion-pro-clients-2026-09-11.csv');
 assert.equal(csv.rowCount, 1);
 assert.ok(csv.content.startsWith('\ufeff'));
 assert.match(csv.content, /'=2\+2/);
@@ -146,6 +146,7 @@ assert.match(csv.content, /'@external/);
 assert.doesNotMatch(csv.content, /must-not-leak|\[object Object\]/);
 
 const json = api.buildProviderTransferExport(payload, 'json');
+assert.equal(json.filename, 'eldion-pro-clients-2026-09-11.json');
 assert.doesNotMatch(json.content, /must-not-leak|<частное>/);
 const parsedJson = JSON.parse(json.content);
 assert.equal(parsedJson.dataset_revision, exportRevision);
