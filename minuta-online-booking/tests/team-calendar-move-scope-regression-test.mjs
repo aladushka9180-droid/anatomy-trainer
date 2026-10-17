@@ -5,6 +5,7 @@ import { resolve, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
 import test from 'node:test';
+import { extractFunctionDeclaration } from './source-function-fixture.mjs';
 
 const sourcePath = process.argv[2] ? resolve(process.argv[2])
   : fileURLToPath(new URL('../team-calendar.js', import.meta.url));
@@ -12,8 +13,7 @@ assert.equal(basename(sourcePath), 'team-calendar.js');
 const bytes = readFileSync(sourcePath);
 assert.ok(bytes.length > 0 && bytes.length < 200_000);
 const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-const matches = [...source.matchAll(/^    async function moveBooking\([^]*?^    \}/gm)];
-assert.equal(matches.length, 1, 'extract the actual moveBooking function');
+const moveBookingSource = extractFunctionDeclaration(source, 'moveBooking');
 console.log(`team-calendar Source SHA256 ${createHash('sha256').update(bytes).digest('hex')}`);
 
 async function checkMove({ change = 'none', missing = false, rejected = false, thrown = false, requireAtomic = false } = {}) {
@@ -76,7 +76,7 @@ async function checkMove({ change = 'none', missing = false, rejected = false, t
   }, { codeGeneration: { strings: false, wasm: false } });
   const run = script => new vm.Script(script).runInContext(context, { timeout: 500 });
   run(`let organization={id:'SYNTHETIC_ORG_A'},dispatcherActions=true,actionPending=false,rows=[],services=[];
-    ${matches[0][0]}`);
+    ${moveBookingSource}`);
   const pending = run("moveBooking(item,item.performer_id,'2026-10-20',780,item.location_id,options);");
   await entered;
   if (change === 'organization') run("organization={id:'SYNTHETIC_ORG_B'};");

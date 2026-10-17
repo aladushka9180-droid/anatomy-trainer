@@ -376,40 +376,40 @@
       scheduleUndoCountdown();
     }
 
-    function showUndo(previous,current) {
-      const holder = $('#teamCalendarUndo');
-      const message = $('#teamCalendarUndoMessage');
-      if (!holder || !message || !current) {
-        notify(`Запись перенесена на ${shortDate(current?.booking_date || previous.booking_date)} в ${current?.booking_time || previous.booking_time}`);
-        return;
-      }
-      clearUndo();
-      undoState = {
-        bookingId:current.id,
-        previous:{
-          performer_id:previous.performer_id, location_id:previous.location_id, service_id:previous.service_id,
-          booking_date:previous.booking_date, booking_time:previous.booking_time
-        },
-        expected:{
-          performer_id:current.performer_id, location_id:current.location_id,
-          service_id:current.service_id, booking_date:current.booking_date,
-          booking_time:current.booking_time
-        },
-        expiresAt:Date.now() + UNDO_WINDOW_MS,
-        remainingMs:UNDO_WINDOW_MS,
-        paused:false
-      };
-      const state = undoState;
-      holder.hidden = false;
-      message.textContent = '';
-      const announcement = `Запись перенесена: ${shortDate(current.booking_date)}, ${current.booking_time}, ${current.performer_name}`;
-      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => {
-        if (undoState === state) message.textContent = announcement;
-      });
-      else message.textContent = announcement;
-      updateUndoCountdown();
-      scheduleUndoCountdown(true);
-    }
+function showUndo(previous,current) {
+const holder = $('#teamCalendarUndo');
+const message = $('#teamCalendarUndoMessage');
+if (!holder || !message || !current) {
+notify(`Запись перенесена на ${shortDate(current?.booking_date || previous.booking_date)} в ${current?.booking_time || previous.booking_time}`);
+return;
+}
+clearUndo();
+undoState = {
+bookingId:current.id,
+previous:{
+performer_id:previous.performer_id, location_id:previous.location_id, service_id:previous.service_id,
+booking_date:previous.booking_date, booking_time:previous.booking_time
+},
+expected:{
+performer_id:current.performer_id, location_id:current.location_id,
+service_id:current.service_id, booking_date:current.booking_date,
+booking_time:current.booking_time
+},
+expiresAt:Date.now() + UNDO_WINDOW_MS,
+remainingMs:UNDO_WINDOW_MS,
+paused:false
+};
+const state = undoState;
+holder.hidden = false;
+message.textContent = '';
+const announcement = `Запись перенесена: ${shortDate(current.booking_date)}, ${current.booking_time}, ${current.performer_name}`;
+if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => {
+if (undoState === state) message.textContent = announcement;
+});
+else message.textContent = announcement;
+updateUndoCountdown();
+scheduleUndoCountdown(true);
+}
 
     function bookingMatchesPoint(item,point) {
       return Boolean(item && point && item.performer_id === point.performer_id
@@ -466,47 +466,47 @@
       return '';
     }
 
-    function moveUnavailableReason(item,targetPerformer,date,minute,targetLocationId,targetServiceId = '') {
-      const restricted = moveRestriction(item);
-      if (restricted) return restricted;
-      const member = memberById(targetPerformer);
-      const memberName = member?.display_name || 'выбранного специалиста';
-      if (item.has_addons && targetPerformer !== item.performer_id) return 'Сеанс с дополнительными услугами можно перенести только по времени у текущего специалиста.';
-      const service = targetServiceId
-        ? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
-        : matchingService(item,targetPerformer);
-      if (!service) return `У специалиста ${memberName} нет совместимой услуги «${item.service_name}» той же длительности.`;
-      const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
-      if (!location) return 'Не удалось определить филиал. Сначала выберите филиал в фильтре календаря.';
-      const targetTime = timeFromMinutes(minute);
-      if (item.performer_id === targetPerformer && item.location_id === location && item.booking_date === date && item.booking_time === targetTime) return 'Запись уже находится в выбранном времени.';
-      const absence = absenceFor(targetPerformer,date);
-      if (absence) {
-        const title = absenceLabels[absence.kind] || 'Недоступен';
-        return `${memberName}: ${title.toLowerCase()}${absence.note ? ` — ${absence.note}` : ''}.`;
-      }
-      const dayShifts = shiftsFor(targetPerformer,date).filter(item => !location || item.location_id === location);
-      const range = getCalendarRange() || { start:getSelectedDate(),end:getSelectedDate() };
-      const shiftDataCoversDate = loadedDate === `${range.start}:${range.end}` && date >= range.start && date <= range.end;
-      if (shifts.length && shiftDataCoversDate && !dayShifts.length) return `У специалиста ${memberName} на ${shortDate(date)} нет смены в выбранном филиале.`;
-      if (shifts.length && shiftDataCoversDate) {
-        const fittingShift = dayShifts.find(shift => minute >= minutesFromTime(shift.start_time) && minute + item.duration_minutes <= minutesFromTime(shift.end_time));
-        const breakShift = dayShifts.find(shift => {
-          if (!shift.break_start || !shift.break_end) return false;
-          const breakStart = minutesFromTime(shift.break_start);
-          const breakEnd = minutesFromTime(shift.break_end);
-          return minute < breakEnd && minute + item.duration_minutes > breakStart;
-        });
-        if (breakShift) return `В это время у специалиста перерыв ${breakShift.break_start}–${breakShift.break_end}.`;
-        if (!fittingShift) {
-          const intervals = dayShifts.map(item => `${item.start_time}–${item.end_time}`).join(', ');
-          return `Запись не помещается в смену специалиста${intervals ? ` (${intervals})` : ''}.`;
-        }
-      }
-      const conflict = bookingConflict(item,targetPerformer,date,minute);
-      if (conflict) return `В ${conflict.booking_time} у специалиста уже есть запись «${conflict.service_name}» до ${timeFromMinutes(minutesFromTime(conflict.booking_time) + conflict.duration_minutes)}.`;
-      return '';
-    }
+function moveUnavailableReason(item,targetPerformer,date,minute,targetLocationId,targetServiceId = '') {
+const restricted = moveRestriction(item);
+if (restricted) return restricted;
+const member = memberById(targetPerformer);
+const memberName = member?.display_name || 'выбранного специалиста';
+if (item.has_addons && targetPerformer !== item.performer_id) return 'Сеанс с дополнительными услугами можно перенести только по времени у текущего специалиста.';
+const service = targetServiceId
+? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
+: matchingService(item,targetPerformer);
+if (!service) return `У специалиста ${memberName} нет совместимой услуги «${item.service_name}» той же длительности.`;
+const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
+if (!location) return 'Не удалось определить филиал. Сначала выберите филиал в фильтре календаря.';
+const targetTime = timeFromMinutes(minute);
+if (item.performer_id === targetPerformer && item.location_id === location && item.booking_date === date && item.booking_time === targetTime) return 'Запись уже находится в выбранном времени.';
+const absence = absenceFor(targetPerformer,date);
+if (absence) {
+const title = absenceLabels[absence.kind] || 'Недоступен';
+return `${memberName}: ${title.toLowerCase()}${absence.note ? ` — ${absence.note}` : ''}.`;
+}
+const dayShifts = shiftsFor(targetPerformer,date).filter(item => !location || item.location_id === location);
+const range = getCalendarRange() || { start:getSelectedDate(),end:getSelectedDate() };
+const shiftDataCoversDate = loadedDate === `${range.start}:${range.end}` && date >= range.start && date <= range.end;
+if (shifts.length && shiftDataCoversDate && !dayShifts.length) return `У специалиста ${memberName} на ${shortDate(date)} нет смены в выбранном филиале.`;
+if (shifts.length && shiftDataCoversDate) {
+const fittingShift = dayShifts.find(shift => minute >= minutesFromTime(shift.start_time) && minute + item.duration_minutes <= minutesFromTime(shift.end_time));
+const breakShift = dayShifts.find(shift => {
+if (!shift.break_start || !shift.break_end) return false;
+const breakStart = minutesFromTime(shift.break_start);
+const breakEnd = minutesFromTime(shift.break_end);
+return minute < breakEnd && minute + item.duration_minutes > breakStart;
+});
+if (breakShift) return `В это время у специалиста перерыв ${breakShift.break_start}–${breakShift.break_end}.`;
+if (!fittingShift) {
+const intervals = dayShifts.map(item => `${item.start_time}–${item.end_time}`).join(', ');
+return `Запись не помещается в смену специалиста${intervals ? ` (${intervals})` : ''}.`;
+}
+}
+const conflict = bookingConflict(item,targetPerformer,date,minute);
+if (conflict) return `В ${conflict.booking_time} у специалиста уже есть запись «${conflict.service_name}» до ${timeFromMinutes(minutesFromTime(conflict.booking_time) + conflict.duration_minutes)}.`;
+return '';
+}
 
     function timelineBounds(columns) {
       const values = [];
@@ -745,67 +745,67 @@
       return 'Не удалось сохранить изменение. Расписание обновлено, попробуйте другое время.';
     }
 
-    async function moveBooking(item,targetPerformer,date,minute,targetLocationId,options = {}) {
-      const { offerUndo = true, successMessage = '', expectedPoint = null, requireAtomic = false, targetServiceId = '' } = options;
-      if (!dispatcherActions || actionPending || !requireWrites()) return false;
-      const userId = getCurrentUser()?.id;
-      const generation = getSessionGeneration();
-      const organizationId = organization?.id;
-      if (!userId || !organizationId) return false;
-      const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
-      const unavailableReason = moveUnavailableReason(item,targetPerformer,date,minute,location,targetServiceId);
-      if (unavailableReason) { notify(unavailableReason); return false; }
-      const service = targetServiceId
-        ? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
-        : matchingService(item,targetPerformer);
-      if (!service) { notify('Выбранная услуга больше недоступна у специалиста. Расписание обновлено.'); await load(); return false; }
-      const previous = { ...item };
-      const operation = {};
-      const isCurrent = () => actionPending === operation && sessionIsCurrent(userId, generation)
-        && organization?.id === organizationId;
-      actionPending = operation;
-      try {
-        let result;
-        let atomicMove = true;
-        try {
-          const expected = expectedPoint || item;
-          result = await db.rpc('move_minuta_team_booking_v104', {
-            p_organization:organizationId,p_booking:item.id,
-            p_expected_performer:expected.performer_id,p_expected_location:expected.location_id,
-            p_expected_service:expected.service_id,p_expected_date:expected.booking_date,
-            p_expected_time:`${expected.booking_time}:00`,
-            p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00`
-          });
-          if (!isCurrent()) return false;
-          if (result?.error && isMissingRpc(result.error)) {
-            if (requireAtomic) result = { error:{ message:'atomic_team_booking_move_unavailable' } };
-            else {
-              atomicMove = false;
-              result = await db.rpc('move_minuta_team_booking_v102', { p_organization:organizationId,p_booking:item.id,p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00` });
-            }
-          }
-        } catch (error) {
-          result = { error };
-        }
-        if (!isCurrent()) return false;
-        if (!result || result.error) { notify(actionError(result?.error || new Error('empty move response'))); await load(); return false; }
-        closeSheet();
-        await load();
-        if (!isCurrent()) return false;
-        Promise.resolve(onDataChange()).catch(() => {});
-        const current = rows.find(row => row.id === item.id) || {
-          ...item, performer_id:targetPerformer, performer_name:memberById(targetPerformer)?.display_name || item.performer_name,
-          location_id:location, location_name:locationById(location)?.name || item.location_name,
-          service_id:service.id, booking_date:date, booking_time:timeFromMinutes(minute)
-        };
-        if (offerUndo && atomicMove) showUndo(previous,current);
-        else if (offerUndo) notify(`Запись перенесена на ${shortDate(current.booking_date)} в ${current.booking_time}`);
-        else notify(successMessage || 'Перенос отменён. Запись возвращена на прежнее время.');
-        return true;
-      } finally {
-        if (actionPending === operation) actionPending = false;
-      }
-    }
+async function moveBooking(item,targetPerformer,date,minute,targetLocationId,options = {}) {
+const { offerUndo = true, successMessage = '', expectedPoint = null, requireAtomic = false, targetServiceId = '' } = options;
+if (!dispatcherActions || actionPending || !requireWrites()) return false;
+const userId = getCurrentUser()?.id;
+const generation = getSessionGeneration();
+const organizationId = organization?.id;
+if (!userId || !organizationId) return false;
+const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
+const unavailableReason = moveUnavailableReason(item,targetPerformer,date,minute,location,targetServiceId);
+if (unavailableReason) { notify(unavailableReason); return false; }
+const service = targetServiceId
+? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
+: matchingService(item,targetPerformer);
+if (!service) { notify('Выбранная услуга больше недоступна у специалиста. Расписание обновлено.'); await load(); return false; }
+const previous = { ...item };
+const operation = {};
+const isCurrent = () => actionPending === operation && sessionIsCurrent(userId, generation)
+&& organization?.id === organizationId;
+actionPending = operation;
+try {
+let result;
+let atomicMove = true;
+try {
+const expected = expectedPoint || item;
+result = await db.rpc('move_minuta_team_booking_v104', {
+p_organization:organizationId,p_booking:item.id,
+p_expected_performer:expected.performer_id,p_expected_location:expected.location_id,
+p_expected_service:expected.service_id,p_expected_date:expected.booking_date,
+p_expected_time:`${expected.booking_time}:00`,
+p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00`
+});
+if (!isCurrent()) return false;
+if (result?.error && isMissingRpc(result.error)) {
+if (requireAtomic) result = { error:{ message:'atomic_team_booking_move_unavailable' } };
+else {
+atomicMove = false;
+result = await db.rpc('move_minuta_team_booking_v102', { p_organization:organizationId,p_booking:item.id,p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00` });
+}
+}
+} catch (error) {
+result = { error };
+}
+if (!isCurrent()) return false;
+if (!result || result.error) { notify(actionError(result?.error || new Error('empty move response'))); await load(); return false; }
+closeSheet();
+await load();
+if (!isCurrent()) return false;
+Promise.resolve(onDataChange()).catch(() => {});
+const current = rows.find(row => row.id === item.id) || {
+...item, performer_id:targetPerformer, performer_name:memberById(targetPerformer)?.display_name || item.performer_name,
+location_id:location, location_name:locationById(location)?.name || item.location_name,
+service_id:service.id, booking_date:date, booking_time:timeFromMinutes(minute)
+};
+if (offerUndo && atomicMove) showUndo(previous,current);
+else if (offerUndo) notify(`Запись перенесена на ${shortDate(current.booking_date)} в ${current.booking_time}`);
+else notify(successMessage || 'Перенос отменён. Запись возвращена на прежнее время.');
+return true;
+} finally {
+if (actionPending === operation) actionPending = false;
+}
+}
 
     async function bookingForUndo(state) {
       let result;

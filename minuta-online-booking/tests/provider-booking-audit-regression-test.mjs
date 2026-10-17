@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve, basename, dirname } from 'node:path';
 import vm from 'node:vm';
 import test from 'node:test';
+import { extractFunctionDeclaration } from './source-function-fixture.mjs';
 
 // Read public Source only. Never import the application or use a real browser,
 // storage, clock, network, database, worker, or mutation transport.
@@ -195,11 +196,7 @@ async function checkBatchClientContinuation(change = 'none', afterCallback = fal
   const batchBytes = readFileSync(resolve(dirname(providerPath), 'batch-bookings.js'));
   assert.ok(batchBytes.length > 0 && batchBytes.length < 100_000);
   const batchSource = new TextDecoder('utf-8', { fatal: true }).decode(batchBytes);
-  const extract = name => {
-    const matches = [...batchSource.matchAll(new RegExp(`^    (?:async )?function ${name}\\([^]*?^    \\}`, 'gm'))];
-    assert.equal(matches.length, 1);
-    return matches[0][0];
-  };
+  const extract = name => extractFunctionDeclaration(batchSource, name);
   let releaseRpc, requestEntered, releaseCallback, callbackEntered;
   const entered = new Promise(resolve => { requestEntered = resolve; });
   const rpc = new Promise(resolve => { releaseRpc = resolve; });
