@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
-import {readFile} from 'node:fs/promises';
+import {mkdir,readFile} from 'node:fs/promises';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 
@@ -126,7 +126,8 @@ async function run(){
   let browser;
   try{
     browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
-    const page=await browser.newPage();
+    const page=await browser.newPage({storageState:{cookies:[],origins:[]},serviceWorkers:'block'});
+    await page.context().route('**/*',r=>new URL(r.request().url()).origin===new URL(url).origin?r.continue():r.abort());
     const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
     await page.goto(url);await page.locator('#dashboard').waitFor({state:'visible'});
     for(const width of [390,760,1440]){
@@ -185,6 +186,17 @@ async function run(){
     await page.locator('[data-provider-panel="settings"]').waitFor({state:'visible'});
     assert.ok(await page.locator('#appearanceSettingsCard').isVisible(),'Ссылка не открыла настройки оформления');
     assert.deepEqual(pageErrors,[]);
+    const screenshotDir=process.env.MINUTA_APPEARANCE_SCREENSHOT_DIR;
+    if(screenshotDir){
+      await mkdir(screenshotDir,{recursive:true});
+      for(const width of [390,760,1440]){
+        await page.setViewportSize({width,height:1000});
+        await page.evaluate(()=>document.fonts.ready);
+        await page.locator('#appearanceSettingsCard').scrollIntoViewIfNeeded();
+        await page.screenshot({path:path.join(screenshotDir,`appearance-settings-${width}.png`)});
+      }
+      assert.deepEqual(pageErrors,[]);
+    }
     console.log('Appearance menu browser: Sage/Midnight/system shortcuts, saved Pink Porcelain selection and Settings link verified at 390, 760 and 1440 px.');
   }finally{await browser?.close();server.close();}
 }

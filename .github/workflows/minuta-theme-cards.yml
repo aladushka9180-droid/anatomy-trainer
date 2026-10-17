@@ -41,6 +41,12 @@ jobs:
       - name: Install the Chrome channel required by the existing overview test
         run: npx playwright install chrome
       - run: node minuta-online-booking/tests/new-booking-card-browser-test.mjs
+        env:
+          MINUTA_SCREENSHOT_DIR: ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking
+      - name: Capture the isolated existing Appearance fixture
+        run: node minuta-online-booking/tests/appearance-menu-browser-test.mjs
+        env:
+          MINUTA_APPEARANCE_SCREENSHOT_DIR: ${{ runner.temp }}/theme-regression/approved-safe-routes/appearance
       - run: node minuta-online-booking/tests/booking-delete-diagnostic-test.mjs
       - run: node minuta-online-booking/tests/eldion-connection-browser-test.mjs
       - name: Verify one-release PWA update and stale-tab recovery
@@ -135,6 +141,40 @@ jobs:
       - run: node minuta-online-booking/tests/contextual-help-labels-browser-test.mjs
       - run: node minuta-online-booking/help/tools/verify-process-visuals.mjs
       - run: node minuta-online-booking/tests/help-knowledge-rose-browser-test.mjs
+      - name: Require all 15 approved route screenshots
+        env:
+          SAFE_VISUAL_DIR: ${{ runner.temp }}/theme-regression/approved-safe-routes
+        run: |
+          for theme in pink-porcelain noir-rose midnight sage; do
+            for width in 390 760 1440; do
+              test -s "$SAFE_VISUAL_DIR/new-booking/service-trigger-$theme-$width.png" || exit 1
+            done
+          done
+          for width in 390 760 1440; do
+            test -s "$SAFE_VISUAL_DIR/appearance/appearance-settings-$width.png" || exit 1
+          done
+      - name: Retain approved isolated route screenshots after success
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minuta-approved-safe-routes
+          path: |
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-pink-porcelain-390.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-pink-porcelain-760.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-pink-porcelain-1440.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-noir-rose-390.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-noir-rose-760.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-noir-rose-1440.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-midnight-390.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-midnight-760.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-midnight-1440.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-sage-390.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-sage-760.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-sage-1440.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/appearance/appearance-settings-390.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/appearance/appearance-settings-760.png
+            ${{ runner.temp }}/theme-regression/approved-safe-routes/appearance/appearance-settings-1440.png
+          if-no-files-found: error
       - name: Upload visual regression evidence
         if: failure()
         uses: actions/upload-artifact@v4
