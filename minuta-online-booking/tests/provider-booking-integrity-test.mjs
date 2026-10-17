@@ -76,6 +76,16 @@ for (const mode of ['saved','quota','mismatch']) test(`local outcome durability:
   const box=context(['writeLocalOutcomes'],{outcomeStorageKey:()=> 'fixture',bookingOutcomes:new Map([['b',{visit_status:'completed'}]]),localStorage:{setItem(_key,next){if(mode==='quota')throw new DOMException('Quota','QuotaExceededError');value=next;},getItem(){return mode==='mismatch'?'{}':value;}}});
   assert.equal(box.writeLocalOutcomes(),mode==='saved');
 });
+test('older finance module preserves the legacy outcome writer during rollout',async()=>{
+  const calls=[];
+  const box=context(['persistBookingOutcome','cleanOutcomeRecord'],{
+    MinutaFinanceProvider:{createController(){}},outcomesRemoteAvailable:false,
+    captureBookingMetadataContext:()=>{throw new Error('missing optional bridge must not evaluate its arguments');},
+    db:{rpc:async(name,params)=>{calls.push({name,params});return {data:{booking_id:'b',visit_status:'completed'}};}}
+  });
+  assert.equal((await box.persistBookingOutcome({booking_id:'b',visit_status:'completed',payment_method:'cash',amount_rub:1500,completion_source:'manual'})).ok,true);
+  assert.deepEqual(calls.map(call=>call.name),['save_minuta_booking_outcome_v106']);
+});
 test('remote plus local failure preserves outcome form and never reports saved',async()=>{
   const notices=[],rendered=[];const old={visit_status:'scheduled'};
   const form={dataset:{bookingId:'b'},querySelector(){return null;},append(node){this.error=node;}};
@@ -118,7 +128,7 @@ test('offline outcome is accepted locally and queued without a server request',a
   const form={dataset:{bookingId:'b'},querySelector(selector){return selector==='button[type="submit"]'?button:null;},append(){}};
   const fields={'#outcomeVisitStatus':{value:'completed'},'#outcomePaymentMethod':{value:'cash'},'#outcomeAmount':{value:'3000'}};
   const box=context(['saveBookingOutcome','cleanOutcomeRecord','pendingOutcomeRecord'],{
-    requireOutcomeWrites:()=>true,currentUser:{id:'owner'},sessionGeneration:1,sessionIsCurrent:()=>true,navigator:{onLine:false},
+    requireOutcomeWrites:()=>true,currentUser:{id:'owner'},sessionGeneration:1,sessionIsCurrent:()=>true,navigator:{onLine:false},MinutaFinanceProvider:{createController(){}},
     allBookings:[booking],$:id=>fields[id],isPerMinuteBooking:()=>false,bookingMinuteRate:()=>0,
     persistBookingOutcome:async()=>{remoteCalls++;return{ok:true};},writeLocalOutcomes:()=>true,
     bookingOutcomes:new Map(),notify:message=>notices.push(message),
