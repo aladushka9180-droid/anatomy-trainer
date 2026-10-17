@@ -300,8 +300,8 @@ async function navigationResponse(event) {
   const shell = navigationShell(request);
   const cacheReady = Boolean(await safeCacheMatch(CACHE_READY, { cacheName:CACHE }));
   const cached = cacheReady ? await safeCacheMatch(shell, { cacheName:CACHE }) : undefined;
-  const cachedReload = cached && (request.cache === 'reload' || request.cache === 'no-cache');
-  const networkController = cachedReload ? new AbortController() : null;
+  const cachedNetworkFirst = cached && (shell.startsWith('./help/') || request.cache === 'reload' || request.cache === 'no-cache');
+  const networkController = cachedNetworkFirst ? new AbortController() : null;
   if (networkController && request.signal) {
     if (request.signal.aborted) networkController.abort();
     else request.signal.addEventListener('abort', () => networkController.abort(), { once:true });
@@ -310,8 +310,8 @@ async function navigationResponse(event) {
     if (response.ok) await safeCachePut(shell, response.clone());
     return response;
   });
-  // An explicit reload must deliver the fresh shell in this navigation, not the next one.
-  if (cachedReload) {
+  // Help pages and explicit reloads must deliver the fresh shell in this navigation, not the next one.
+  if (cachedNetworkFirst) {
     let deadline;
     try {
       const fresh = await Promise.race([update, new Promise(resolve => { deadline = setTimeout(() => { networkController.abort(); resolve(null); }, 4000); })]);

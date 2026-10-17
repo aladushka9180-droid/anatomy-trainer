@@ -11,9 +11,10 @@ assert.ok(cacheVersion, 'Worker cache version is required');
 const request = new Request('https://example.test/minuta-online-booking/provider.html?date=2026-09-24');
 const asset = new Request('https://example.test/minuta-online-booking/provider.js?v=941');
 
-function worker({ match, put, fetch }) {
+function worker({ match, put, fetch, setTimeout:schedule = setTimeout, clearTimeout:cancel = clearTimeout }) {
   const scope = {
-    URL, Request, Response,
+    URL, Request, Response, AbortController,
+    setTimeout:schedule, clearTimeout:cancel,
     self: { addEventListener() {} },
     caches: {
       match,
@@ -134,4 +135,170 @@ test('degraded worker uses the older shell only when the network is offline', as
   assert.equal(await (await scope.navigationResponse({ request, waitUntil() {} })).text(), 'live provider');
   online = false;
   assert.equal(await (await scope.navigationResponse({ request, waitUntil() {} })).text(), 'old provider');
+});
+
+const helpBase = 'https://example.test/minuta-online-booking/';
+
+function readyHelp(key) {
+  if (key === `./.precache-ready-v${cacheVersion}`) return new Response('ready');
+  if (key.startsWith('./help/')) return new Response('<title>PrimeTime</title>');
+}
+
+for (const path of [
+  'help/index.html', 'help/index.html?query=faq', 'help/', 'help/?query=faq',
+  'help/category.html', 'help/category.html?id=booking',
+  'help/article.html', 'help/article.html?slug=first-steps',
+]) {
+  test(`help navigation returns fresh HTML in this navigation: ${path}`, async () => {
+    const writes = [];
+    const navigation = new Request(new URL(path, helpBase));
+    const scope = worker({
+      match:async key => readyHelp(key),
+      put:async (key, response) => { writes.push([key, await response.text()]); },
+      fetch:async original => {
+        assert.equal(original.url, navigation.url, 'Keep the original help URL and query');
+        return new Response('<title>Eldion</title>');
+      },
+    });
+    const response = await scope.navigationResponse({ request:navigation, waitUntil() {} });
+    assert.equal(await response.text(), '<title>Eldion</title>');
+    assert.deepEqual(writes, [[scope.navigationShell(navigation), '<title>Eldion</title>']]);
+  });
+}
+
+test('help navigation preserves the cached HTML when offline', async () => {
+  let background;
+  const scope = worker({
+    match:async key => readyHelp(key), put:async () => { assert.fail('Do not cache a failed fetch'); },
+    fetch:async () => { throw Error('offline'); },
+  });
+  const response = await scope.navigationResponse({
+    request:new Request(`${helpBase}help/article.html?slug=offline`),
+    waitUntil(value) { background = value; },
+  });
+  assert.equal(await response.text(), '<title>PrimeTime</title>');
+  await background;
+});
+
+test('help navigation preserves the cached HTML on a non-ok response', async () => {
+  let background;
+  const scope = worker({
+    match:async key => readyHelp(key), put:async () => { assert.fail('Do not cache an HTTP failure'); },
+    fetch:async () => new Response('unavailable', { status:503 }),
+  });
+  const response = await scope.navigationResponse({
+    request:new Request(`${helpBase}help/category.html?id=offline`),
+    waitUntil(value) { background = value; },
+  });
+  assert.equal(await response.text(), '<title>PrimeTime</title>');
+  await background;
+});
+
+test('help navigation uses the existing four-second deadline and aborts the pending fetch', async () => {
+  let deadline;
+  let delay;
+  let cleared;
+  let signal;
+  let background;
+  let fetches = 0;
+  let started;
+  const fetchStarted = new Promise(resolve => { started = resolve; });
+  const scope = worker({
+    match:async key => readyHelp(key), put:async () => { assert.fail('Do not cache an aborted fetch'); },
+    setTimeout(callback, milliseconds) { deadline = callback; delay = milliseconds; return 1; },
+    clearTimeout(handle) { cleared = handle; },
+    fetch:(_request, options) => {
+      fetches++;
+      signal = options.signal;
+      started();
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(Error('aborted')), { once:true });
+      });
+    },
+  });
+  const responsePromise = scope.navigationResponse({
+    request:new Request(`${helpBase}help/`), waitUntil(value) { background = value; },
+  });
+  await fetchStarted;
+  assert.equal(delay, 4000);
+  deadline();
+  const response = await responsePromise;
+  assert.equal(await response.text(), '<title>PrimeTime</title>');
+  assert.equal(signal.aborted, true);
+  assert.equal(fetches, 1);
+  assert.equal(cleared, 1);
+  await background;
+});
+
+test('help navigation forwards request cancellation and keeps the cached fallback without retry', async () => {
+  const controller = new AbortController();
+  let signal;
+  let background;
+  let fetches = 0;
+  let started;
+  const fetchStarted = new Promise(resolve => { started = resolve; });
+  const scope = worker({
+    match:async key => readyHelp(key), put:async () => { assert.fail('Do not cache a cancelled fetch'); },
+    fetch:(_request, options) => {
+      fetches++;
+      signal = options.signal;
+      started();
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(Error('cancelled')), { once:true });
+      });
+    },
+  });
+  const responsePromise = scope.navigationResponse({
+    request:new Request(`${helpBase}help/index.html`, { signal:controller.signal }),
+    waitUntil(value) { background = value; },
+  });
+  await fetchStarted;
+  controller.abort();
+  assert.equal(await (await responsePromise).text(), '<title>PrimeTime</title>');
+  assert.equal(signal.aborted, true);
+  assert.equal(fetches, 1);
+  await background;
+});
+
+test('help navigation returns fresh HTML even if the cache write fails', async () => {
+  const scope = worker({
+    match:async key => readyHelp(key), put:async () => { throw Error('Disk full'); },
+    fetch:async () => new Response('<title>Eldion</title>'),
+  });
+  const response = await scope.navigationResponse({
+    request:new Request(`${helpBase}help/article.html?slug=cache-write`), waitUntil() {},
+  });
+  assert.equal(await response.text(), '<title>Eldion</title>');
+});
+
+test('non-help default navigation keeps returning its cached shell while updating in the background', async () => {
+  for (const path of ['provider.html', 'booking.html', 'my-bookings.html', 'messages.html',
+    'waitlist.html', 'privacy.html', 'terms.html', 'index.html', 'help/unknown.html']) {
+    let background;
+    let written;
+    const scope = worker({
+      match:async () => new Response('cached shell'),
+      put:async (_key, response) => { written = await response.text(); },
+      fetch:async () => new Response('fresh shell'),
+    });
+    const response = await scope.navigationResponse({
+      request:new Request(`${helpBase}${path}?source=help`), waitUntil(value) { background = value; },
+    });
+    assert.equal(await response.text(), 'cached shell', path);
+    await background;
+    assert.equal(written, 'fresh shell', path);
+  }
+});
+
+test('non-help explicit reload retains the existing fresh-shell response', async () => {
+  for (const cache of ['reload', 'no-cache']) {
+    const scope = worker({
+      match:async () => new Response('cached provider'), put:async () => {},
+      fetch:async () => new Response('fresh provider'),
+    });
+    const response = await scope.navigationResponse({
+      request:new Request(request, { cache }), waitUntil() {},
+    });
+    assert.equal(await response.text(), 'fresh provider', cache);
+  }
 });
