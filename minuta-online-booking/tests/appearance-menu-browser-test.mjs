@@ -119,6 +119,25 @@ export async function startAppearanceFixture(port=0){
   return {server,url:`http://127.0.0.1:${server.address().port}/provider.html`};
 }
 
+function assertScheduleSurface(result,{width,mode}){
+  if(width>760){
+    assert.equal(result.surfaceBackground,'rgba(0, 0, 0, 0)',
+      `Desktop journal navigation is an intentionally transparent wrapper: ${JSON.stringify({width,mode,result})}`);
+  }else{
+    assert.notEqual(result.surfaceBackground,'rgba(0, 0, 0, 0)',`Visible schedule control lost its surface: ${JSON.stringify({width,mode,result})}`);
+  }
+  assert.ok(result.scheduleControls.length>=2,'Schedule navigation lost its visible own controls');
+  for(const control of result.scheduleControls){
+    const r=control.rect;
+    assert.ok([r.left,r.right,r.top,r.bottom,r.width,r.height,control.opacity].every(Number.isFinite)&&
+      r.width>0&&r.height>0&&r.right>0&&r.left<result.width&&r.bottom>0&&r.top<1000&&control.opacity>0,
+      'Schedule control is not visible in its viewport');
+    assert.ok(control.ink[3]>0,'Schedule control text must retain visible ink');
+    assert.ok(control.ink.slice(0,3).some((value,index)=>value!==control.background[index]),
+      'Schedule control ink disappeared into its computed background');
+  }
+}
+
 async function run(){
   const playwright=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
   const chromium=playwright.chromium||playwright.default?.chromium;
@@ -135,15 +154,39 @@ async function run(){
       for(const mode of ['light','dark','system']){
         await page.evaluate(mode=>window.__appearanceFixture.setMode(mode),mode);
         await page.locator('#providerAppearanceMenu>summary').click();
+        // Read the settled nav wrapper, not an in-flight mobile/theme color transition.
+        await page.locator('.date-navigation').evaluate(async navigation=>{
+          const transitions=navigation.getAnimations().filter(animation=>animation.effect?.target===navigation&&
+            Number.isFinite(animation.effect.getComputedTiming().endTime));
+          await Promise.all(transitions.map(animation=>animation.finished));
+        });
         const result=await page.evaluate(()=>{
           const menu=document.querySelector('.provider-appearance-popover').getBoundingClientRect();
           const bodyStyle=getComputedStyle(document.body),workspaceStyle=getComputedStyle(document.querySelector('.provider-app')),surfaceStyle=getComputedStyle(document.querySelector('.date-navigation'));
           const timelineCardStyle=getComputedStyle(document.querySelector('.timeline-booking')),timelineHeadingStyle=getComputedStyle(document.querySelector('#appearanceTimelineHeading'));
+          const navigation=document.querySelector('.date-navigation');
+          // Normalize computed CSS Color4 values with one off-DOM pixel; no document styling is changed.
+          const canvas=document.createElement('canvas');canvas.width=canvas.height=1;
+          const paint=canvas.getContext('2d',{willReadFrequently:true});
+          const scheduleControls=[...navigation.querySelectorAll('button,summary')].flatMap(control=>{
+            const style=getComputedStyle(control);
+            if(!control.getClientRects().length||style.display==='none'||style.visibility!=='visible')return [];
+            const rect=control.getBoundingClientRect(),ancestors=[];
+            for(let node=control;node;node=node.parentElement)ancestors.unshift(node);
+            paint.clearRect(0,0,1,1);let opacity=1;
+            for(const ancestor of ancestors){
+              const ancestorStyle=getComputedStyle(ancestor);opacity*=Number(ancestorStyle.opacity);
+              paint.fillStyle=ancestorStyle.backgroundColor;paint.fillRect(0,0,1,1);
+            }
+            const background=[...paint.getImageData(0,0,1,1).data];
+            paint.clearRect(0,0,1,1);paint.fillStyle=style.color;paint.fillRect(0,0,1,1);
+            return [{rect:rect.toJSON(),opacity,ink:[...paint.getImageData(0,0,1,1).data],background}];
+          });
           return {
             requested:document.body.dataset.providerColorMode,resolved:document.body.dataset.providerResolvedColorMode,
             theme:document.body.dataset.providerTheme,variant:document.body.dataset.providerColorVariant,
             menu:{left:menu.left,right:menu.right,top:menu.top,bottom:menu.bottom},
-            width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
+            width:innerWidth,scrollWidth:document.documentElement.scrollWidth,scheduleControls,
             bodyBackground:bodyStyle.backgroundColor,workspaceBackground:workspaceStyle.backgroundColor,surfaceBackground:surfaceStyle.backgroundColor,
             timelineCardColor:timelineCardStyle.color,timelineHeadingColor:timelineHeadingStyle.color,
             pressed:[...document.querySelector('#providerAppearanceMenu').querySelectorAll('[data-provider-color-mode]')].filter(button=>button.getAttribute('aria-pressed')==='true').map(button=>button.dataset.providerColorMode)
@@ -156,7 +199,7 @@ async function run(){
         assert.deepEqual(result.pressed,[mode]);
         assert.ok(result.menu.left>=0&&result.menu.right<=width+1&&result.menu.bottom<=1000,'Меню оформления вышло за экран');
         assert.ok(result.scrollWidth<=width+1,'Страница получила горизонтальную прокрутку');
-        assert.notEqual(result.surfaceBackground,'rgba(0, 0, 0, 0)',`Visible schedule control lost its surface: ${JSON.stringify({width,mode,result})}`);
+        assertScheduleSurface(result,{width,mode});
         assert.equal(result.timelineHeadingColor,result.timelineCardColor,'Название записи потеряло контраст');
         await page.keyboard.press('Escape');
         assert.equal(await page.locator('#providerAppearanceMenu').getAttribute('open'),null);
