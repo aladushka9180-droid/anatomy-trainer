@@ -37,6 +37,8 @@ jobs:
         run: >-
           node --test
           minuta-online-booking/tests/integration-missing-rpc-test.mjs
+          minuta-online-booking/tests/commerce-finance-toggle-lifecycle-test.mjs
+          minuta-online-booking/tests/finance-operations-availability-test.cjs
           minuta-online-booking/tests/provider-phone-social-context-test.mjs
           minuta-online-booking/tests/provider-install-event-state-test.mjs
           minuta-online-booking/tests/provider-account-context-test.mjs

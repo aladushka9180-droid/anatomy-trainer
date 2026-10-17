@@ -156,7 +156,7 @@ const OPTIONAL_ASSETS = [
   './provider-integrations.css?v=1008',
   './finance-center.css?v=1085',
   './finance-center.js?v=1085',
-  './finance-center-provider.js?v=1085',
+  './finance-center-provider.js?v=1098',
   './client-records.css?v=811',
   './client-records.js?v=811',
   './messages.html',

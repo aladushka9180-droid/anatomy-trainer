@@ -506,6 +506,7 @@
       openVisitJournal:options => global.MinutaStatisticsAuditProvider?.openVisitJournal?.(options) === true,
       async readOperations({ period, masterId, cursor }) {
         const result = await readScreen({ period, masterId, cursor });
+        if (result.available !== true) throw new Error('finance_operations_unavailable');
         return { operations:result.operations || [], nextCursor:result.nextCursor || '' };
       },
       async prepareExpense({ period, masterId }) {
