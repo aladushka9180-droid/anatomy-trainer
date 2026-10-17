@@ -10,6 +10,9 @@ let smsPhone = '';
 let smsCodeRequested = false;
 let socialAuthUser = null;
 let accountRestoreAttempt = null;
+let bookingsLoadAttempt = null;
+let bookingScopedSession = false;
+let clientAccountRevision = 0;
 
 function applyStoredClientTheme() {
   const catalog = window.MinutaThemeCatalog;
@@ -50,6 +53,7 @@ function loadSessionToken() {
   } catch { return ''; }
 }
 function saveSessionToken(value) {
+  if (sessionToken !== value) clearClientAccountData();
   sessionToken = value;
   try {
     sessionStorage.setItem(SESSION_KEY, value);
@@ -58,10 +62,29 @@ function saveSessionToken(value) {
 }
 function clearSessionToken() {
   sessionToken = '';
+  clearClientAccountData();
   try {
     sessionStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(SESSION_KEY);
   } catch {}
+}
+function clearClientAccountData() {
+  clientAccountRevision += 1;
+  accountRestoreAttempt = null;
+  bookingsLoadAttempt = null;
+  bookingScopedSession = false;
+  bookingsByToken = new Map();
+  currentReviewToken = '';
+  currentReviewRating = 0;
+  currentReviewEditing = false;
+  $('#reviewDialog').close();
+  $('#reviewText').value = '';
+  $('#clientBookingsList').replaceChildren();
+  $('#clientAccountPhone').textContent = '';
+  $('#clientCodeResult').hidden = true;
+  $('#clientNewCode').textContent = '';
+  $('#clientCodeWhatsapp').removeAttribute('href');
+  $('#clientCodeTelegram').removeAttribute('href');
 }
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`; }
@@ -90,37 +113,57 @@ function bookingManageUrl(token) { const url = new URL('booking.html', location.
 function bookingMessagesUrl(code) { const url = new URL('messages.html', location.href); url.searchParams.set('booking', String(code || '')); return url.href; }
 function repeatBookingUrl(serviceId) { const url = new URL('index.html', location.href); url.searchParams.set('service', serviceId); url.searchParams.set('repeat', '1'); return url.href; }
 function ratingStars(value) { const rating = Math.max(0, Math.min(5, Number(value) || 0)); return `${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}`; }
+function hasManagementToken(item) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item?.manage_token || ''); }
+function renderAccountActions(items = []) {
+  const limited = bookingScopedSession || (items.length > 0 && !items.some(hasManagementToken));
+  $('#clientRotateCode').hidden = limited;
+  const messages = $('.client-account-tools a[href="messages.html"]');
+  if (messages) messages.hidden = limited;
+}
 
 function renderBookings(items) {
   const list = $('#clientBookingsList');
   list.hidden = !items.length;
   $('#clientBookingsEmpty').hidden = Boolean(items.length);
-  bookingsByToken = new Map(items.map(item => [String(item.manage_token), item]));
+  renderAccountActions(items);
+  bookingsByToken = new Map(items.filter(hasManagementToken).map(item => [String(item.manage_token), item]));
   list.innerHTML = items.map(item => {
+    const manageable = hasManagementToken(item);
     const reviewed = Number(item.review_rating) > 0;
     const repeat = item.service_active && /^[0-9a-f-]{36}$/i.test(item.service_id || '')
       ? `<a class="client-booking-action repeat-action" href="${escapeHtml(repeatBookingUrl(item.service_id))}">Записаться снова</a>` : '';
-    const review = item.review_eligible
+    const review = manageable && item.review_eligible
       ? `<button class="client-booking-action review-action" type="button" data-open-review="${escapeHtml(item.manage_token)}">${reviewed ? 'Изменить отзыв' : 'Оставить отзыв'}</button>` : '';
-    const messages = item.booking_code
+    const messages = manageable && item.booking_code
       ? `<a class="client-booking-action" href="${escapeHtml(bookingMessagesUrl(item.booking_code))}">Сообщения</a>` : '';
     const reviewResult = reviewed ? `<div class="client-review-result"><span aria-label="Ваша оценка: ${item.review_rating} из 5">${ratingStars(item.review_rating)}</span>${item.review_text ? `<p>${escapeHtml(item.review_text)}</p>` : ''}</div>` : '';
-    return `<article class="client-booking-item status-${escapeHtml(item.status)}"><div class="client-booking-item-head"><span>${escapeHtml(statusLabel(item.status))}</span><small>${escapeHtml(item.performer_name)}</small></div><h2>${escapeHtml(serviceName(item.service_name))}</h2><div class="client-booking-when"><strong>${escapeHtml(bookingDate(item))}</strong><span>${escapeHtml(String(item.booking_time).slice(0, 5))} · ${escapeHtml(item.duration_minutes)} мин</span></div><div class="client-booking-meta"><span>Стоимость <strong>${escapeHtml(money(item.price_rub))}</strong></span>${Number(item.deposit_amount_rub || 0) > 0 ? `<span>Предоплата <strong>${escapeHtml(paymentSummary(item))}</strong></span>` : ''}</div>${reviewResult}<div class="client-booking-actions"><a class="primary" href="${escapeHtml(bookingManageUrl(item.manage_token))}">${['cancelled', 'completed', 'no_show'].includes(item.status) ? 'Посмотреть запись' : 'Управлять записью'}</a>${messages}${repeat}${review}</div></article>`;
+    const manage = manageable ? `<a class="primary" href="${escapeHtml(bookingManageUrl(item.manage_token))}">${['cancelled', 'completed', 'no_show'].includes(item.status) ? 'Посмотреть запись' : 'Управлять записью'}</a>` : '';
+    return `<article class="client-booking-item status-${escapeHtml(item.status)}"><div class="client-booking-item-head"><span>${escapeHtml(statusLabel(item.status))}</span><small>${escapeHtml(item.performer_name)}</small></div><h2>${escapeHtml(serviceName(item.service_name))}</h2><div class="client-booking-when"><strong>${escapeHtml(bookingDate(item))}</strong><span>${escapeHtml(String(item.booking_time).slice(0, 5))} · ${escapeHtml(item.duration_minutes)} мин</span></div><div class="client-booking-meta"><span>Стоимость <strong>${escapeHtml(money(item.price_rub))}</strong></span>${Number(item.deposit_amount_rub || 0) > 0 ? `<span>Предоплата <strong>${escapeHtml(paymentSummary(item))}</strong></span>` : ''}</div>${reviewResult}<div class="client-booking-actions">${manage}${messages}${repeat}${review}</div></article>`;
   }).join('');
 }
 
 async function loadBookings() {
+  if (!sessionToken || $('#clientBookingsCard').hidden) return false;
+  const attempt = { token:sessionToken };
+  bookingsLoadAttempt = attempt;
+  const isCurrent = () => bookingsLoadAttempt === attempt && sessionToken === attempt.token;
   $('#clientBookingsLoading').hidden = false;
   $('#clientBookingsError').hidden = true;
   let data = null;
   let error = null;
-  for (const rpcName of ['get_client_bookings_v3', 'get_client_bookings_v2', 'get_client_bookings']) {
-    ({ data, error } = await db.rpc(rpcName, { p_session_token: sessionToken }));
-    if (!error) break;
-  }
+  try {
+    for (const rpcName of ['get_client_bookings_v3', 'get_client_bookings_v2', 'get_client_bookings']) {
+      ({ data, error } = await db.rpc(rpcName, { p_session_token: attempt.token }));
+      if (!isCurrent()) return false;
+      // A permission/network failure is never permission to try a broader API.
+      if (!error) break;
+      if (bookingScopedSession || !['PGRST202', '42883'].includes(error.code)) break;
+    }
+  } catch (failure) { error = failure; }
+  if (!isCurrent()) return false;
   $('#clientBookingsLoading').hidden = true;
-  if (error) { showError($('#clientBookingsError'), navigator.onLine ? 'Не удалось загрузить записи. Повторите попытку.' : 'Нет соединения с интернетом.'); return false; }
-  renderBookings(data || []);
+  if (error || !Array.isArray(data) || data.some(item => !item || typeof item !== 'object')) { showError($('#clientBookingsError'), navigator.onLine ? 'Не удалось загрузить записи. Повторите попытку.' : 'Нет соединения с интернетом.'); return false; }
+  renderBookings(data);
   return true;
 }
 
@@ -188,8 +231,12 @@ async function openAccount() {
       return false;
     }
     const account = Array.isArray(data) && data.length === 1 ? data[0] : null;
-    if (!account?.normalized_phone || !Number.isFinite(Date.parse(account.session_expires_at))) throw new Error('restore_unconfirmed');
-    $('#clientAccountPhone').textContent = displayPhone(account.normalized_phone);
+    const validPhone = typeof account?.normalized_phone === 'string' && /^7[0-9]{10}$/.test(account.normalized_phone);
+    if (!account || (account.normalized_phone !== null && !validPhone) || typeof account.session_expires_at !== 'string' || !Number.isFinite(Date.parse(account.session_expires_at))) throw new Error('restore_unconfirmed');
+    // v155 deliberately omits a phone for a session limited to one booking.
+    bookingScopedSession = account.normalized_phone === null;
+    $('#clientAccountPhone').textContent = bookingScopedSession ? 'Доступ к записи по личной ссылке' : displayPhone(account.normalized_phone);
+    renderAccountActions();
     $('#clientSocialLink').hidden = true;
     $('#clientRestoreCard').hidden = true;
     $('#clientBookingsCard').hidden = false;
@@ -401,17 +448,24 @@ async function rotateCode() {
 async function logout(options = {}) {
   const current = sessionToken;
   clearSessionToken();
+  const revision = clientAccountRevision;
   $('#clientRestoreCard').hidden = true;
-  if (current && !options.localOnly) db.rpc('revoke_client_session', { p_session_token: current });
   $('#clientBookingsCard').hidden = true;
   $('#clientLoginCard').hidden = false;
   $('#clientLoginCode').value = '';
   $('#clientSmsCode').value = '';
   setSmsCodeStep(false);
-  const { data } = await db.auth.getSession();
-  if (data?.session) await db.auth.signOut();
   socialAuthUser = null;
   window.MinutaSocialAuth?.clearFlow();
+  // PostgREST builders are lazy: consuming the result starts revocation.
+  // Local access is already cleared even if the server is unavailable.
+  if (current && !options.localOnly) {
+    try { await db.rpc('revoke_client_session', { p_session_token: current }); } catch {}
+  }
+  if (clientAccountRevision !== revision || sessionToken) return;
+  const { data } = await db.auth.getSession();
+  if (clientAccountRevision !== revision || sessionToken) return;
+  if (data?.session) await db.auth.signOut();
 }
 
 document.querySelectorAll('[data-social-auth-login]').forEach(button => button.addEventListener('click', () => startClientSocialLogin(button)));

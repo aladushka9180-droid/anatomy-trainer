@@ -9,7 +9,10 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const html=readFileSync(resolve(root,'my-bookings.html'),'utf8').replace(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>[\s\S]*?<\/script>/gi,(tag,src)=>/^(vendor\/supabase[^/]*\.js|config\.js|theme-catalog\.js|my-bookings\.js)(\?|$)/.test(src)?tag:'');
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 const token='a'.repeat(64),key='minuta-client-session-v1';
-let origin,mode='network',restoreCalls=0,release;
+let origin,mode='network',restoreCalls=0,release,releaseBookings;
+const rpcCalls=[];
+const manageToken='11111111-1111-4111-8111-111111111111';
+const booking={booking_code:'SYNTHETIC-BOOKING',manage_token:manageToken,service_id:'22222222-2222-4222-8222-222222222222',service_name:'Synthetic legacy visit',service_active:false,duration_minutes:60,price_rub:1000,performer_name:'Synthetic provider',booking_date:'2098-01-01',booking_time:'12:00',status:'completed',review_eligible:true};
 const unexpected=[];
 const json=(res,data,status=200)=>{res.writeHead(status,{'content-type':'application/json'});res.end(JSON.stringify(data));};
 const server=createServer(async(req,res)=>{
@@ -17,6 +20,8 @@ const server=createServer(async(req,res)=>{
   const url=new URL(req.url,origin);
   if(req.method==='POST'){
    const name=url.pathname.split('/').at(-1);
+   let raw='';for await(const chunk of req)raw+=chunk;
+   const body=JSON.parse(raw||'{}');rpcCalls.push({name,body});
    if(name==='restore_client_session'){
     restoreCalls++;
     if(mode==='held')await new Promise(done=>release=done);
@@ -25,10 +30,23 @@ const server=createServer(async(req,res)=>{
     if(mode==='unknown')return json(res,{message:'unexpected error'},400);
     if(mode==='malformed')return json(res,null);
     if(mode==='malformed-row')return json(res,[{}]);
+    if(mode==='missing-phone')return json(res,[{session_expires_at:'2099-01-01T00:00:00Z'}]);
+    if(mode==='empty-phone')return json(res,[{normalized_phone:'',session_expires_at:'2099-01-01T00:00:00Z'}]);
+    if(mode==='invalid-phone')return json(res,[{normalized_phone:123,session_expires_at:'2099-01-01T00:00:00Z'}]);
     if(mode==='invalid')return json(res,[]);
+    if(mode==='scoped')return json(res,[{normalized_phone:null,session_expires_at:'2099-01-01T00:00:00Z'}]);
     return json(res,[{normalized_phone:'79990000000',session_expires_at:'2099-01-01T00:00:00Z'}]);
    }
-   if(name==='get_client_bookings_v3')return json(res,[]);
+   if(name==='get_client_bookings_v3'){
+    if(mode==='held-bookings'){await new Promise(done=>releaseBookings=done);return json(res,[booking]);}
+    if(mode==='denied-bookings')return json(res,{code:'42501',message:'permission denied'},403);
+    if(mode==='failed-bookings')return json(res,{message:'temporary outage'},503);
+    if(mode==='missing-bookings')return json(res,{code:'PGRST202',message:'function missing'},404);
+    if(mode==='scoped')return json(res,[{...booking,manage_token:null,service_name:'Synthetic scoped visit'}]);
+    return json(res,mode==='legacy'?[booking]:[]);
+   }
+   if(name==='get_client_bookings_v2')return json(res,[booking]);
+   if(name==='revoke_client_session')return json(res,true);
    throw Error('Unexpected write or RPC '+name);
   }
   const relative=decodeURIComponent(url.pathname).replace(/^\/minuta-online-booking\//,'');
@@ -58,7 +76,7 @@ try{for(const width of [390,760,1440]){
  assert.match(await page.locator('#clientRestoreMessage').innerText(),/Доступ сохранён/);
  assert.ok((await page.locator('#clientRestoreRetry').boundingBox()).height>=44);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await capture('network');
- for(const failure of ['server','unknown','malformed','malformed-row']){
+ for(const failure of ['server','unknown','malformed','malformed-row','missing-phone','empty-phone','invalid-phone']){
   mode=failure;await page.locator('#clientRestoreRetry').click();await page.locator('#clientRestoreRetry').waitFor({state:'visible'});assert.equal(await stored(),token,failure);
  }
  await page.reload();await page.locator('#clientRestoreRetry').waitFor({state:'visible'});assert.equal(await stored(),token,'reload retains unknown session');
@@ -68,11 +86,53 @@ try{for(const width of [390,760,1440]){
  for(let i=0;i<100&&!release;i++)await page.waitForTimeout(10);assert.ok(release,'Restore request reaches isolated backend');
  await page.evaluate(()=>Promise.all([openAccount(),openAccount()]));assert.equal(restoreCalls,beforeOffline+1,'single pending restore after reconnect');
  mode='success';release();await page.locator('#clientBookingsEmpty').waitFor({state:'visible'});assert.equal(await stored(),token);await capture('empty');
+ // v155 intentionally returns a valid booking-scoped session without a phone
+ // or management token. Those omissions must not reject entry or invent rights.
+ mode='scoped';assert.equal(await page.evaluate(()=>openAccount()),true,'v155 scoped session restores without a phone');
+ assert.equal(await page.locator('#clientBookingsCard').isVisible(),true);
+ assert.equal(await page.locator('#clientRestoreCard').isVisible(),false);
+ assert.match(await page.locator('#clientAccountPhone').innerText(),/личной ссылке/);
+ assert.match(await page.locator('#clientBookingsList').innerText(),/Synthetic scoped visit/);
+ assert.equal(await page.locator('#clientBookingsList a[href*="booking.html"]').count(),0,'no null management link');
+ assert.equal(await page.locator('#clientBookingsList [data-open-review]').count(),0,'no review action without management token');
+ assert.equal(await page.locator('#clientBookingsList a[href*="messages.html"]').count(),0);
+ assert.equal(await page.locator('#clientRotateCode').isVisible(),false);
+ assert.equal(await page.locator('.client-account-tools a[href="messages.html"]').isVisible(),false);
+ await page.evaluate(()=>openReview('null'));assert.equal(await page.locator('#reviewDialog').isVisible(),false);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await capture('scoped');
+ await page.reload();await page.locator('#clientBookingsCard').waitFor({state:'visible'});assert.equal(await stored(),token);
+ await page.waitForFunction(()=>document.querySelector('#clientBookingsList').textContent.includes('Synthetic scoped visit'));
+ mode='legacy';assert.equal(await page.evaluate(()=>openAccount()),true);
+ assert.match(await page.locator('#clientAccountPhone').innerText(),/999/);
+ assert.equal(await page.locator(`#clientBookingsList a[href$="token=${manageToken}"]`).count(),1,'legacy management link remains');
+ assert.equal(await page.locator('#clientBookingsList [data-open-review]').count(),1);
+ assert.equal(await page.locator('#clientRotateCode').isVisible(),true);
+ for(const failure of ['denied-bookings','failed-bookings']){
+  mode=failure;const start=rpcCalls.length;assert.equal(await page.evaluate(()=>loadBookings()),false);
+  assert.equal(await page.locator('#clientBookingsError').isVisible(),true);
+  assert.deepEqual(rpcCalls.slice(start).map(x=>x.name),['get_client_bookings_v3'],'authorization/server error cannot downgrade to old RPC');
+ }
+ mode='missing-bookings';const fallbackStart=rpcCalls.length;assert.equal(await page.evaluate(()=>loadBookings()),true);
+ assert.deepEqual(rpcCalls.slice(fallbackStart).map(x=>x.name),['get_client_bookings_v3','get_client_bookings_v2'],'old-server compatibility only when RPC is missing');
+ // A late booking read cannot repopulate a signed-out account or the next session.
+ mode='held-bookings';releaseBookings=null;await page.evaluate(()=>{void loadBookings();});
+ for(let i=0;i<100&&!releaseBookings;i++)await page.waitForTimeout(10);assert.ok(releaseBookings);
+ await page.evaluate(()=>logout());assert.equal(await stored(),null);
+ mode='success';releaseBookings();await page.waitForTimeout(80);
+ assert.equal(await page.locator('#clientBookingsList').innerText(),'', 'logout clears private rendered data');
+ assert.equal(await page.locator('#clientLoginCard').isVisible(),true);
+ assert.ok(rpcCalls.some(x=>x.name==='revoke_client_session'&&x.body.p_session_token===token),'logout requests revocation for the departing token');
+ await page.evaluate(token=>saveSessionToken(token),token);mode='held-bookings';releaseBookings=null;
+ await page.evaluate(()=>{void openAccount();});for(let i=0;i<100&&!releaseBookings;i++)await page.waitForTimeout(10);assert.ok(releaseBookings);
+ await page.evaluate(()=>logout({localOnly:true}));mode='scoped';await page.evaluate(token=>saveSessionToken(token),'b'.repeat(64));
+ assert.equal(await page.evaluate(()=>openAccount()),true);releaseBookings();await page.waitForTimeout(80);
+ assert.match(await page.locator('#clientBookingsList').innerText(),/Synthetic scoped visit/);
+ assert.doesNotMatch(await page.locator('#clientBookingsList').innerText(),/Synthetic legacy visit/,'previous session cannot overwrite the new session');
  mode='invalid';await page.evaluate(()=>openAccount());await page.locator('#clientLoginCard').waitFor({state:'visible'});assert.equal(await stored(),null);assert.match(await page.locator('#clientSocialAuthError').innerText(),/больше не действует/);await capture('invalid');
  // A late successful restore cannot reopen a locally signed-out account.
  await page.evaluate(token=>saveSessionToken(token),token);release=null;mode='held';await page.evaluate(()=>{void openAccount();});await page.waitForFunction(()=>document.querySelector('#clientRestoreRetry').disabled);
  for(let i=0;i<100&&!release;i++)await page.waitForTimeout(10);assert.ok(release,'Late restore request reaches isolated backend');
  await page.evaluate(()=>logout({localOnly:true}));mode='success';release();await page.waitForTimeout(80);assert.equal(await stored(),null);assert.equal(await page.locator('#clientLoginCard').isVisible(),true);assert.equal(await page.locator('#clientBookingsCard').isVisible(),false);
- assert.deepEqual(errors,[]);await context.close();console.log(`PASS client saved-session recovery: network/503/unknown/malformed/offline, reload, deduplicated retry, invalid, stale logout at ${width}px`);
+ assert.deepEqual(errors,[]);await context.close();console.log(`PASS client session recovery: v155 null phone, scoped actions, legacy access, strict RPC fallback, revoke, stale reads/restore, network/503/unknown/malformed/offline, reload and retry at ${width}px`);
 }}finally{await browser.close();server.closeAllConnections();await new Promise(done=>server.close(done));}
 assert.deepEqual(unexpected,[]);

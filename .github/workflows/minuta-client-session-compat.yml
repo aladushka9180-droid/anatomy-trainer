@@ -1,0 +1,55 @@
+name: Minuta client session compatibility
+
+on:
+  push:
+    paths:
+      - 'minuta-online-booking/my-bookings.js'
+      - 'minuta-online-booking/my-bookings.html'
+      - 'minuta-online-booking/tests/client-session-v155-compat-test.mjs'
+      - 'minuta-online-booking/tests/client-session-recovery-browser-test.mjs'
+      - '.github/workflows/minuta-client-session-compat.yml'
+  pull_request:
+    paths:
+      - 'minuta-online-booking/my-bookings.js'
+      - 'minuta-online-booking/my-bookings.html'
+      - 'minuta-online-booking/tests/client-session-v155-compat-test.mjs'
+      - 'minuta-online-booking/tests/client-session-recovery-browser-test.mjs'
+      - '.github/workflows/minuta-client-session-compat.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  client-session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check isolated controller behavior and existing contracts
+        run: |
+          node --test minuta-online-booking/tests/client-session-v155-compat-test.mjs
+          node minuta-online-booking/client-url-redirect-test.mjs
+          node minuta-online-booking/phone-auth-v90-static-test.mjs
+          node minuta-online-booking/social-auth-v91-static-test.mjs
+          node minuta-online-booking/tests/client-identity-v155-release-static-test.mjs
+          node minuta-online-booking/provider-startup-performance-v565-test.mjs
+      - name: Prepare browser test dependency
+        run: npm install --prefix "$RUNNER_TEMP/client-session-deps" --no-package-lock --ignore-scripts --no-save playwright@1.62.1
+      - name: Test the actual HTML, SDK and controller against an isolated backend
+        env:
+          BROWSER_CHANNEL: chrome
+        run: |
+          mkdir -p "$RUNNER_TEMP/client-session-screenshots"
+          MINUTA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/client-session-deps/node_modules/playwright/index.mjs" \
+          MINUTA_AUDIT_SCREENSHOTS="$RUNNER_TEMP/client-session-screenshots" \
+          node minuta-online-booking/tests/client-session-recovery-browser-test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-session-compatibility-screenshots
+          path: ${{ runner.temp }}/client-session-screenshots
+          if-no-files-found: ignore
+          retention-days: 7
