@@ -446,12 +446,16 @@ async function logout(options = {}) {
   const current = sessionToken;
   clearSessionToken();
   $('#clientRestoreCard').hidden = true;
-  if (current && !options.localOnly) db.rpc('revoke_client_session', { p_session_token: current });
   $('#clientBookingsCard').hidden = true;
   $('#clientLoginCard').hidden = false;
   $('#clientLoginCode').value = '';
   $('#clientSmsCode').value = '';
   setSmsCodeStep(false);
+  // PostgREST builders are lazy: consuming the result starts revocation.
+  // Local access is already cleared even if the server is unavailable.
+  if (current && !options.localOnly) {
+    try { await db.rpc('revoke_client_session', { p_session_token: current }); } catch {}
+  }
   const { data } = await db.auth.getSession();
   if (data?.session) await db.auth.signOut();
   socialAuthUser = null;

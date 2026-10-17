@@ -43,7 +43,7 @@ function fixture(respond) {
   const storage = map => ({ getItem:key => map.get(key) ?? null,
     setItem:(key,value) => map.set(key,String(value)), removeItem:key => map.delete(key) });
   const calls = [];
-  const db = { rpc:async (name,body) => {
+  const db = { rpc:(name,body) => {
     calls.push({name,body});
     return respond(name,body);
   }, auth:{ getSession:async () => ({data:{session:null}}), signOut:async () => ({error:null}) } };
@@ -179,4 +179,21 @@ test('an empty restore response clears a confirmed invalid or revoked session', 
   assert.equal(await f.run('openAccount()'), false);
   assert.equal(f.session.has('minuta-client-session-v1'), false);
   assert.equal(f.element('#clientLoginCard').hidden, false);
+});
+
+test('logout consumes the lazy PostgREST revocation request after hiding private UI', async () => {
+  let revoked = false;
+  let f;
+  const normal = respondWith({normalized_phone:'79990000000',session_expires_at:expires},[booking]);
+  f = fixture(name => name === 'revoke_client_session' ? {
+    then(resolve) {
+      assert.equal(f.element('#clientBookingsCard').hidden, true);
+      assert.equal(f.session.has('minuta-client-session-v1'), false);
+      revoked = true;
+      resolve({data:true,error:null});
+    }
+  } : normal(name));
+  await f.run('openAccount()');
+  await f.run('logout()');
+  assert.equal(revoked, true, 'SDK builder must be consumed to send revocation');
 });
