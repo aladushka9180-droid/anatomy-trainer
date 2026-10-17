@@ -58,6 +58,8 @@ test('current rejected catalog RPC is contained, reconciled, and never automatic
   await first;
   assert.equal(f.writes.length, 1, 'failure must not silently retry a mutation');
   assert.ok(f.notices.length || !f.node('inventoryItemError').hidden, 'a contained failure is visible');
+  assert.equal(f.node('inventoryItemError').textContent, 'Не удалось подтвердить сохранение. Проверьте обновлённый список перед повтором.');
+  assert.doesNotMatch(f.node('inventoryItemError').textContent, /не сохранено|не изменены/, 'a lost response proves neither commit nor rollback');
   const retry = f.submit(); assert.equal(f.writes.length, 2, 'a later explicit submit is not locked permanently');
   f.writes[1].gate.resolve({ data: { organization_id: 'synthetic-A' }, error: null }); await retry;
 });
@@ -79,6 +81,7 @@ test('ordinary returned catalog rejection still releases only the current operat
   const f = fixture(); await f.setOrganization('synthetic-A');
   const first = f.submit(); f.writes[0].gate.resolve({ data: null, error: { code: '23505', message: 'Synthetic duplicate' } }); await first;
   assert.equal(f.writes.length, 1);
+  assert.equal(f.node('inventoryItemError').textContent, 'Изменение не сохранено. Записи и остатки не изменены.', 'existing returned deterministic rejection mapping is retained');
   const retry = f.submit(); assert.equal(f.writes.length, 2);
   f.writes[1].gate.resolve({ data: { organization_id: 'synthetic-A' }, error: null }); await retry;
 });

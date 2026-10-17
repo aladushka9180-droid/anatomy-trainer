@@ -424,14 +424,14 @@
       const isContextCurrent = () => scope === scopeRevision && sessionIsCurrent(userId,generation) && organization?.id === organizationId && organization?.current_role === role;
       const owner = { button, caption:button?.textContent }; mutationOwner = owner; writing = true; setBusy(true); if (errorHolder) { $(errorHolder).hidden = true; $(errorHolder).textContent = ''; }
       const old = button?.textContent; if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
-      let data = null, error = null;
+      let data = null, error = null, responseMissing = false;
       try { ({ data, error } = await db.rpc(rpc, parameters)); }
-      catch (reason) { error = reason && typeof reason === 'object' ? reason : { message: String(reason || '') }; }
+      catch (reason) { responseMissing = true; error = reason && typeof reason === 'object' ? reason : { message: String(reason || '') }; }
       if (mutationOwner !== owner) return false;
       mutationOwner = null; if (button) button.textContent = old;
       const stale = !isContextCurrent() || current !== revision; writing = false;
       if (stale) { const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return false; }
-      if (error) { const message = messageFor(error); if (!errorHolder) notify(message); await load(); if (!isContextCurrent()) return false; if (errorHolder) { $(errorHolder).textContent = message; $(errorHolder).hidden = false; } return false; }
+      if (error) { const message = responseMissing ? 'Не удалось подтвердить сохранение. Проверьте обновлённый список перед повтором.' : messageFor(error); if (!errorHolder) notify(message); await load(); if (!isContextCurrent()) return false; if (errorHolder) { $(errorHolder).textContent = message; $(errorHolder).hidden = false; } return false; }
       if (!scopeMatches(data, organizationId)) { notify('Ответ другой организации заблокирован.'); await load(); return false; }
       notify(success); await load(); return isContextCurrent();
     }
