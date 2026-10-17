@@ -544,7 +544,8 @@
       }
       if (rpc === RPC.enabled && !settingReplyMatches(result, organizationId, parameters.p_enabled)) { showError(errorSelector, userError({ message:'payroll_setting_unconfirmed' })); await refresh(); return false; }
       if (responseScopeMismatch(result?.data, organizationId)) { notify('Ответ сервера относится к другой организации. Новая операция заблокирована.'); await refresh(); return false; }
-      if (withRequestId) saveFinancialIntent(null, userId, organizationId, parameters.p_request_id); notify(success); await refresh();
+      if (withRequestId) saveFinancialIntent(null, userId, organizationId, parameters.p_request_id); notify(success); const refreshed = await refresh();
+      if (!sessionIsCurrent(userId, generation) || organization?.id !== organizationId || refreshed?.stale) return false;
       const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return true;
     }
     function rublesToMinor(input, errorSelector) {
