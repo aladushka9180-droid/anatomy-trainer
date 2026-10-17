@@ -36,7 +36,10 @@ const db={rpc:async(name,args)=>{
 const record={booking_id:booking,visit_status:'completed',completion_source:'manual',payment_method:'cash',amount_rub:2000};
 const options={db,organization:{id:org,current_role:'owner'},record,interactive:true};
 assert.equal((await api.persistVisitPayment(options)).ok,false);
+const pendingEnvelope=structuredClone(record._finance);
 assert.equal((await api.persistVisitPayment({...options,interactive:false})).ok,true);
+assert.equal(record._finance,undefined,'confirmed payment releases its pending envelope');
+record._finance=pendingEnvelope;
 assert.equal(writes,1);assert.equal(confirmCount,1);assert.equal(requests[0].p_request_id,requests[1].p_request_id,'ambiguous retry retains the original request');
 assert.equal(await api.persistVisitPayment({...options,record:{...record,completion_source:'auto',_finance:undefined}}),null);
 assert.equal(await api.persistVisitPayment({...options,record:{...record,_finance:undefined},organization:{id:org,current_role:'specialist'}}),null);
@@ -64,4 +67,15 @@ let notice='';
 assert.equal(api.finishVisitPaymentSave(refused,undefined,message=>{notice=message;}),true,'detached form can still report a definite refusal');
 assert.equal(notice,refused.error.message);
 assert.equal(api.finishVisitPaymentSave({ok:false,error:new Error('connection lost')},undefined,()=>{}),false,'ambiguous save retains the existing retry queue');
+const rejectedRecord={...record,booking_id:'30000000-0000-4000-8000-000000000002',_finance:undefined};
+const rejectedRequests=[];
+const rejectOnce={rpc:async(name,args)=>{
+  if(name.includes('capabilities'))return {data:cap};
+  rejectedRequests.push(args);
+  return rejectedRequests.length===1?{error:{code:'22023',message:'invalid_payment_date'}}:{data:{id:booking,organization_id:org,outcome:{...rejectedRecord,visit_status:'completed',completion_source:'manual'}}};
+}};
+assert.equal((await api.persistVisitPayment({...options,db:rejectOnce,record:rejectedRecord})).noLocalSave,true);
+assert.equal(rejectedRecord._finance.rejected,true,'definite refusal is retained as a barrier to a later legacy fallback');
+assert.equal((await api.persistVisitPayment({...options,db:rejectOnce,record:rejectedRecord})).ok,true,'a definite refusal allows a fresh date/account confirmation');
+assert.notEqual(rejectedRequests[0].p_request_id,rejectedRequests[1].p_request_id,'a confirmed no-write refusal can start a new attempt');
 console.log('income result source PASS: net/unknown/zero, scoped pending data, no auto posting, atomic RPC routing, stable retry, role/context switches, clear validation and old-backend compatibility');

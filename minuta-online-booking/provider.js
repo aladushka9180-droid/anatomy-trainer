@@ -14141,7 +14141,7 @@ async function saveBookingOutcome(event){event.preventDefault();if(!requireOutco
 ;if(completed&&isPerMinuteBooking(item)&&actualMinutes<1){notify('Укажите фактическое время процедуры');return}
 const calculatedAmount=actualMinutes * bookingMinuteRate(item)
 ;const amount=completed&&paymentMethod!=='unpaid'?Math.max(0,Math.round(Number($('#outcomeAmount').value)||0)):0;const record={booking_id:item.id,
-performer_id:userId,visit_status:visitStatus,payment_method:paymentMethod,amount_rub:amount,completion_source:'manual',updated_at:(new Date).toISOString()}
+performer_id:userId,_finance:window.MinutaVisitPaymentRetries?.get(userId+item.id)||bookingOutcomes.get(item.id)?._finance,visit_status:visitStatus,payment_method:paymentMethod,amount_rub:amount,completion_source:'manual',updated_at:(new Date).toISOString()}
 ;if(isPerMinuteBooking(item)){record.actual_duration_minutes=actualMinutes;record.calculated_amount_rub=calculatedAmount}
 const button=event.submitter||form.querySelector('button[type="submit"]');if(button){button.disabled=true;button.textContent='Сохраняем…'}let result
 ;if(!navigator.onLine)result={ok:false,error:{message:'offline'}};else{try{result=await persistBookingOutcome(record,{interactive:true})}catch(error){result={

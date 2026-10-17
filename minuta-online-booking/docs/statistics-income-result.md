@@ -37,6 +37,16 @@ capability check gates the new atomic path. After an attempted write, the
 client never falls back to a second writer. Stored retry metadata binds the
 original request, date and destination account.
 
+An in-memory actor/booking index owns the unresolved envelope independently
+of the optional adapter namespace and browser storage. Its organization and
+submitted input are bound to that attempt. Every real form submit restores
+the envelope from this index or the durable pending outcome. Changing the
+selected organization cannot hide an unresolved attempt and enable a legacy
+write. Quota/mismatched storage, reopened forms and adapter reloads retain the
+same UUID/date/account. Changed input must be resolved first; a verified
+success releases the envelope. A definite refusal permits fresh confirmation
+while retaining the barrier to a legacy writer.
+
 The existing startup cache limit remains unchanged. New payment logic stays
 in the lazily loaded finance adapter. Only the two already-modified outcome
 functions in the cached provider file use compact formatting; their local

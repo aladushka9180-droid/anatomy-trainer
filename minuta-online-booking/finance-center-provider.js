@@ -1,6 +1,9 @@
 (function (global) {
   'use strict';
 
+  // Runtime ownership survives form rerenders, failed storage and adapter reloads.
+  const visitPaymentRetries = global.MinutaVisitPaymentRetries ||= new Map();
+
   const PERIODS = Object.freeze([
     { value:'current_month', label:'Текущий месяц' },
     { value:'last30', label:'Последние 30 дней' },
@@ -685,39 +688,59 @@
 
   // Retry the same atomic RPC; never fall back after an attempted write.
   async function persistVisitPayment({ db, getOrganization, organization = getOrganization?.(), record, interactive = false, isCurrent = () => true }) {
-    if (!organization?.id || !['owner','admin'].includes(organization.current_role)
-      || record.completion_source !== 'manual' || record.visit_status !== 'completed'
+    if (!organization?.id || !['owner','admin'].includes(organization.current_role))
+      return record._finance ? { ok:false, cancelled:true } : null;
+    if (record._finance && record._finance.organizationId !== organization.id) return { ok:false, cancelled:true };
+    if (record._finance?.actorId && record._finance.actorId !== record.performer_id) return { ok:false, cancelled:true };
+    const retryKey = String(record.performer_id || '') + record.booking_id;
+    const input = { method:record.payment_method, amount:record.amount_rub, minutes:record.actual_duration_minutes ?? null, status:record.visit_status, source:record.completion_source };
+    if (record._finance?.uncertain && record._finance.input && JSON.stringify(record._finance.input) !== JSON.stringify(input))
+      return { ok:false, noLocalSave:true, error:{ message:'Предыдущая оплата ещё не подтверждена. Верните прежние данные визита, чтобы проверить её сохранение.' } };
+    if (record.completion_source !== 'manual' || record.visit_status !== 'completed'
       || !['cash','transfer'].includes(record.payment_method) || !(record.amount_rub > 0)
       || !interactive && !record._finance) return record._finance ? { ok:false, cancelled:true } : null;
-    if (record._finance && record._finance.organizationId !== organization.id) return { ok:false, cancelled:true };
+    if (record._finance) visitPaymentRetries.set(retryKey, record._finance);
     const current = () => isCurrent() && (!getOrganization || getOrganization()?.id === organization.id);
     const cap = await visitPaymentCapabilities(db, organization.id);
     if (!current()) return { ok:false, cancelled:true };
     if (!cap.available || !cap.enabled) return record._finance
       ? { ok:false, noLocalSave:true, error:{ message:'Финансовый учёт недоступен. Сохранённая оплата ждёт подтверждения; повторите позже.' } }
       : null;
-    if (!record._finance) {
+    if (!record._finance || record._finance.rejected && !record._finance.uncertain) {
       const choice = await global.MinutaFinanceCenter.confirmVisitPayment({
         accounts:cap.accounts, paymentMethod:record.payment_method, today:cap.today,
         defaultPaidOn:cap.today, amountMinor:record.amount_rub * 100,
         title:'Подтвердить оплату', submitLabel:'Сохранить и учесть'
       });
       if (!choice || !current()) return { ok:false, cancelled:true };
-      record._finance = { ...choice, organizationId:organization.id };
+      record._finance = { ...choice, organizationId:organization.id, actorId:record.performer_id, input };
     }
-    const result = await db.rpc('save_minuta_visit_payment_v1', {
-      p_organization:organization.id, p_booking:record.booking_id, p_payment_method:record.payment_method, p_amount_rub:record.amount_rub,
-      p_actual_duration_minutes:record.actual_duration_minutes ?? null,
-      p_paid_on:record._finance.paidOn, p_destination_account:record._finance.destinationAccount,
-      p_request_id:record._finance.requestId
-    });
-    if (!current()) return { ok:false, cancelled:true };
-    if (result.error) return { ok:false, error:userError(result.error, 'Оплата не подтверждена. Повторите запрос.'), noLocalSave:['22023','42501','40001','23505','55000','PGRST202'].includes(result.error.code) };
+    visitPaymentRetries.set(retryKey, record._finance);
+    let result;
+    try {
+      result = await db.rpc('save_minuta_visit_payment_v1', {
+        p_organization:organization.id, p_booking:record.booking_id, p_payment_method:record.payment_method, p_amount_rub:record.amount_rub,
+        p_actual_duration_minutes:record.actual_duration_minutes ?? null,
+        p_paid_on:record._finance.paidOn, p_destination_account:record._finance.destinationAccount,
+        p_request_id:record._finance.requestId
+      });
+    } catch (error) { record._finance.uncertain = true; throw error; }
+    if (!current()) { record._finance.uncertain = true; return { ok:false, cancelled:true }; }
+    if (result.error) {
+      const noLocalSave = ['22023','42501','40001','23505','55000','PGRST202'].includes(result.error.code);
+      if (noLocalSave && !record._finance.uncertain) record._finance.rejected = true;
+      else record._finance.uncertain = true;
+      return { ok:false, error:userError(result.error, 'Оплата не подтверждена. Повторите запрос.'), noLocalSave };
+    }
     if (!UUID.test(String(result.data?.id)) || result.data?.organization_id !== organization.id
       || result.data?.outcome?.booking_id !== record.booking_id || result.data.outcome.visit_status !== 'completed'
       || result.data.outcome.completion_source !== 'manual' || result.data.outcome.payment_method !== record.payment_method
-      || Number(result.data.outcome.amount_rub) !== record.amount_rub)
+      || Number(result.data.outcome.amount_rub) !== record.amount_rub) {
+      record._finance.uncertain = true;
       return { ok:false, error:{ message:'Сохранение не подтверждено. Повторите запрос.' } };
+    }
+    visitPaymentRetries.delete(retryKey);
+    delete record._finance;
     return { ok:true, outcome:result.data.outcome, ledgerPosted:true };
   }
 
