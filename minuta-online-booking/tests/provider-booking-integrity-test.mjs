@@ -14,6 +14,7 @@ function actual(name) {
 }
 function context(names, values) {
   const box = vm.createContext(values);
+  box.window = box;
   vm.runInContext(names.map(actual).join('\n'), box);
   return box;
 }
@@ -92,6 +93,24 @@ test('remote plus local failure preserves outcome form and never reports saved',
   assert.equal(fields['#outcomeAmount'].value,'1500');assert.equal(rendered.length,0);
   assert.match(form.error.textContent,/Данные остались в форме/);
   assert.ok(notices.every(message=>!message.includes('Сохранено на устройстве')));
+});
+for (const reason of ['cancelled','noLocalSave']) test(`payment ${reason} preserves the form without a local success`,async()=>{
+  const notices=[],rendered=[];let localWrites=0;
+  const old={visit_status:'scheduled'},button={disabled:false,textContent:'Сохранить результат',isConnected:true};
+  const form={dataset:{bookingId:'b'},querySelector(){return button;}};
+  const fields={'#outcomeVisitStatus':{value:'completed'},'#outcomePaymentMethod':{value:'cash'},'#outcomeAmount':{value:'1500'}};
+  const box=context(['saveBookingOutcome','cleanOutcomeRecord','pendingOutcomeRecord'],{
+    requireOutcomeWrites:()=>true,currentUser:{id:'owner'},sessionGeneration:1,sessionIsCurrent:()=>true,navigator:{onLine:true},
+    allBookings:[booking],$:id=>fields[id],isPerMinuteBooking:()=>false,bookingMinuteRate:()=>0,
+    persistBookingOutcome:async()=>({ok:false,[reason]:true,error:{message:'Проверьте дату оплаты'}}),writeLocalOutcomes:()=>{localWrites++;return true;},
+    bookingOutcomes:new Map([['b',old]]),notify:message=>notices.push(message),
+    renderBookings:()=>rendered.push('bookings'),renderClients:()=>rendered.push('clients'),renderAnalytics:()=>rendered.push('analytics'),openBookingSheet:()=>rendered.push('sheet')
+  });
+  vm.runInContext(readFileSync(new URL('../finance-center-provider.js',import.meta.url),'utf8'),box);
+  await box.saveBookingOutcome({preventDefault(){},currentTarget:form,submitter:button});
+  assert.equal(box.bookingOutcomes.get('b'),old);assert.equal(localWrites,0);assert.equal(rendered.length,0);
+  assert.equal(fields['#outcomeAmount'].value,'1500');assert.equal(button.disabled,false);
+  assert.deepEqual(notices,reason==='cancelled'?[]:['Проверьте дату оплаты']);
 });
 test('offline outcome is accepted locally and queued without a server request',async()=>{
   const notices=[],rendered=[];let remoteCalls=0;
