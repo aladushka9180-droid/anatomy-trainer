@@ -277,6 +277,11 @@
     const scope = core.identifier(options.scope) || actorKind;
     const canManageSettings = actorKind === 'provider' && options.canManageSettings === true && typeof bridge.setCapability === 'function';
     const outbox = core.createOutbox({ storage:options.storage || global.sessionStorage, scope });
+    // Core persists before deliver resumes, so retirement must guard those writes too.
+    const deliveryOutbox = Object.freeze({
+      update:(requestId, patch) => isActive() ? outbox.update(requestId, patch) : null,
+      acknowledge:requestId => { if (isActive()) outbox.acknowledge(requestId); }
+    });
     let capability = { enabled:false, media_enabled:false, transcription_enabled:false, support_enabled:false };
     let conversations = [];
     let selectedId = core.identifier(options.initialConversationId);
@@ -470,10 +475,16 @@
       if (!isActive()) return null;
       const result = await core.sendOutboxEntry({
         entry,
-        outbox,
+        outbox:deliveryOutbox,
         online:navigator.onLine,
-        send:payload => bridge.send(payload),
-        lookup:requestId => bridge.lookup({ conversationId:entry.conversation_id, requestId })
+        send:payload => {
+          if (!isActive()) throw new Error('message_center_context_stale');
+          return bridge.send(payload);
+        },
+        lookup:requestId => {
+          if (!isActive()) throw new Error('message_center_context_stale');
+          return bridge.lookup({ conversationId:entry.conversation_id, requestId });
+        }
       });
       if (!isActive()) return result;
       if (result?.id && !result.local) messages = core.mergeMessages([...messages, result]);
