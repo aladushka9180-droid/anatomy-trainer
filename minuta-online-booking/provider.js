@@ -376,6 +376,7 @@ let bookingsSnapshotFromCache = false;
 let waitlistRequests = [];
 let waitlistRemoteAvailable = false;
 let waitlistLoaded = false;
+let waitlistLoadRevision = 0;
 let bookingOutcomes = new Map();
 let bookingSessionItems = new Map();
 let sessionItemsRemoteAvailable = false;
@@ -13269,10 +13270,25 @@ function applyClientIdentityLocally(oldPhone, newPhone, newName) {
   renderClientDetail(newPhone, { preserveReturn:true });
 }
 
+const clientProfileWriteOwners = new WeakMap();
+function beginClientProfileWrite(button) {
+  const operation = {};
+  clientProfileWriteOwners.set(button, operation);
+  button.disabled = true;
+  return operation;
+}
+function releaseClientProfileWrite(button, operation) {
+  if (clientProfileWriteOwners.get(button) !== operation) return false;
+  clientProfileWriteOwners.delete(button);
+  button.disabled = false;
+  return true;
+}
+
 async function saveClientIdentity(event) {
   event?.preventDefault?.();
   if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canEdit) return;
   const oldPhone = selectedClientPhone;
+  const userId = currentUser?.id, generation = sessionGeneration, organizationId = activeClientOrganizationId, profileRevision = clientProfileDetailsLoadRevision;
   const newPhone = normalizePhone($('#clientIdentityPhone').value);
   const newName = $('#clientIdentityName').value.trim().replace(/\s+/g, ' ');
   clearFormError('#clientIdentityError');
@@ -13287,14 +13303,15 @@ async function saveClientIdentity(event) {
     return;
   }
   const button = $('#clientIdentityForm button[type="submit"]');
-  button.disabled = true;
+  const operation = beginClientProfileWrite(button);
   const { data, error } = await db.rpc('save_minuta_client_identity_v134', {
-    p_organization:activeClientOrganizationId,
+    p_organization:organizationId,
     p_client_phone:oldPhone,
     p_client_name:newName,
     p_new_client_phone:newPhone
   });
-  button.disabled = false;
+  if (!releaseClientProfileWrite(button, operation)) return;
+  if (!sessionIsCurrent(userId, generation) || activeClientOrganizationId !== organizationId || selectedClientPhone !== oldPhone || clientProfileDetailsLoadRevision !== profileRevision) return;
   if (error) {
     const message = String(error.message || '');
     if (message.includes('client_phone_conflict')) showFormError('#clientIdentityError', 'Этот номер уже принадлежит другому клиенту.');
@@ -13315,17 +13332,19 @@ async function saveClientBirthday(event, clear = false) {
   if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canEdit) return;
   const organizationId = activeClientOrganizationId;
   const phone = selectedClientPhone;
+  const userId = currentUser?.id, generation = sessionGeneration, profileRevision = clientProfileDetailsLoadRevision;
   const birthday = clear ? null : ($('#clientBirthdayInput').value || null);
   if (birthday && (birthday > businessTodayIso() || birthday < '1900-01-01')) {
     notify('Проверьте дату рождения');
     return;
   }
   const submit = $('#clientBirthdayForm button[type="submit"]');
-  submit.disabled = true;
+  const operation = beginClientProfileWrite(submit);
   const { data, error } = await db.rpc('save_minuta_client_birthday_v119', {
     p_organization:organizationId,p_client_phone:phone,p_birthday:birthday
   });
-  submit.disabled = false;
+  if (!releaseClientProfileWrite(submit, operation)) return;
+  if (!sessionIsCurrent(userId, generation) || activeClientOrganizationId !== organizationId || selectedClientPhone !== phone || clientProfileDetailsLoadRevision !== profileRevision) return;
   if (error) { notify('Не удалось сохранить дату рождения'); return; }
   clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, ...data, available:true });
   const client = buildClients().find(item => item.phone === phone);
@@ -13360,9 +13379,10 @@ async function confirmClientOnlineBlock() {
   if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canManageBlock) return;
   const organizationId = activeClientOrganizationId;
   const phone = selectedClientPhone;
+  const userId = currentUser?.id, generation = sessionGeneration, profileRevision = clientProfileDetailsLoadRevision;
   const blocked = !clientProfileDetailsState.onlineBookingBlocked;
   const button = $('#clientBlockConfirm');
-  button.disabled = true;
+  const operation = beginClientProfileWrite(button);
   const reason = blocked ? String($('#clientBlockReason')?.value || '').trim() : '';
   let data;
   let error;
@@ -13375,7 +13395,8 @@ async function confirmClientOnlineBlock() {
       p_organization:organizationId,p_client_phone:phone,p_blocked:blocked
     }));
   }
-  button.disabled = false;
+  if (!releaseClientProfileWrite(button, operation)) return;
+  if (!sessionIsCurrent(userId, generation) || activeClientOrganizationId !== organizationId || selectedClientPhone !== phone || clientProfileDetailsLoadRevision !== profileRevision) return;
   if (error) { notify('Не удалось изменить блокировку'); return; }
   clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, ...data, available:true });
   const client = buildClients().find(item => item.phone === phone);
@@ -16850,6 +16871,7 @@ function renderWaitlist() {
 }
 
 async function loadWaitlist() {
+  const loadRevision = ++waitlistLoadRevision;
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   const organizationId = organizationController.getActiveOrganization()?.id || null;
@@ -16867,7 +16889,7 @@ async function loadWaitlist() {
       .eq('organization_id',organizationId).in('status',['waiting','contacted'])
       .order('desired_date',{ascending:true}).order('created_at',{ascending:true});
   }
-  if (!sessionIsCurrent(userId,generation) || (organizationController.getActiveOrganization()?.id || null) !== organizationId) return { ok:false,optional:true,stale:true };
+  if (loadRevision !== waitlistLoadRevision || !sessionIsCurrent(userId,generation) || (organizationController.getActiveOrganization()?.id || null) !== organizationId) return { ok:false,optional:true,stale:true };
   waitlistRemoteAvailable = !error && !scoped.error;
   waitlistLoaded = true;
   waitlistRequests = waitlistRemoteAvailable ? [...(data || []),...(scoped.data || [])]
@@ -17622,10 +17644,12 @@ document.addEventListener('click', async event => {
   }
   if (waitlistStatus) {
     const button = waitlistStatus;
+    const userId = currentUser?.id, generation = sessionGeneration, organizationId = organizationController.getActiveOrganization()?.id || null;
     button.disabled = true;
     const scoped = button.closest('[data-waitlist-scope]')?.dataset.waitlistScope === 'organization';
     const { error } = await db.rpc(scoped ? 'set_minuta_waitlist_status_v111' : 'set_waitlist_request_status', { p_request: button.dataset.waitlistId, p_status: button.dataset.waitlistStatus });
     button.disabled = false;
+    if (!sessionIsCurrent(userId, generation) || (organizationController.getActiveOrganization()?.id || null) !== organizationId) return;
     if (error) { notify('Не удалось обновить заявку'); return; }
     notify(button.dataset.waitlistStatus === 'booked' ? 'Клиент отмечен записанным' : button.dataset.waitlistStatus === 'contacted' ? 'Контакт отмечен' : 'Заявка закрыта');
     await loadWaitlist();
