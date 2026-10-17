@@ -15460,20 +15460,32 @@ async function changePassword(event) {
     showFormError('#passwordError', 'Новый пароль должен отличаться от текущего.');
     return;
   }
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return;
   const button = event.submitter;
+  const owner = {};
+  button.minutaPasswordChangeOwner = owner;
+  const isCurrent = () => sessionIsCurrent(userId, generation) && button.minutaPasswordChangeOwner === owner;
+  const releaseButton = () => {
+    if (button.minutaPasswordChangeOwner !== owner) return;
+    delete button.minutaPasswordChangeOwner;
+    button.disabled = false;
+    button.textContent = 'Сохранить новый пароль';
+  };
   button.disabled = true;
   button.textContent = 'Проверяем…';
   const { error: signInError } = await db.auth.signInWithPassword({ email: currentUser.email, password: currentPassword });
+  if (!isCurrent()) { releaseButton(); return; }
   if (signInError) {
-    button.disabled = false;
-    button.textContent = 'Сохранить новый пароль';
+    releaseButton();
     showFormError('#passwordError', 'Текущий пароль указан неверно.');
     return;
   }
   button.textContent = 'Сохраняем…';
   const { error } = await db.auth.updateUser({ password: newPassword });
-  button.disabled = false;
-  button.textContent = 'Сохранить новый пароль';
+  if (!isCurrent()) { releaseButton(); return; }
+  releaseButton();
   if (error) {
     showFormError('#passwordError', 'Не удалось сменить пароль. Попробуйте другой пароль.');
     return;

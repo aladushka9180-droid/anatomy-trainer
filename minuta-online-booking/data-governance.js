@@ -80,6 +80,8 @@
     createController({ db, $, escapeHtml, notify }) {
       let organization = null;
       let workspace = null;
+      let contextRevision = 0;
+      let loadRevision = 0;
       const card = $('#dataGovernanceCard');
       if (!card) return { bind() {}, setOrganization() {} };
       const status = $('#dataGovernanceStatus');
@@ -146,13 +148,20 @@
       };
 
       const load = async () => {
-        if (!organization?.id) return;
+        const organizationId = organization?.id;
+        if (!organizationId) return;
+        const role = organization.current_role;
+        const context = contextRevision;
+        const revision = ++loadRevision;
+        const isCurrent = () => context === contextRevision && revision === loadRevision && organization?.id === organizationId && organization.current_role === role;
         setStatus('Загружаем настройки...');
         try {
-          workspace = await call('get_minuta_data_governance_workspace_v110', { p_organization: organization.id });
+          const nextWorkspace = await call('get_minuta_data_governance_workspace_v110', { p_organization: organizationId });
+          if (!isCurrent()) return;
+          workspace = nextWorkspace;
           render();
           setStatus(workspace?.role === 'owner' ? 'Настройки и журнал запросов загружены.' : 'Просмотр доступен. Экспортом и сроками управляет владелец.', 'success');
-        } catch (error) { setStatus('Раздел станет доступен после обновления базы данных.', 'warning'); }
+        } catch (error) { if (isCurrent()) setStatus('Раздел станет доступен после обновления базы данных.', 'warning'); }
       };
 
       const save = async () => {
@@ -257,7 +266,7 @@
         });
       }
 
-      return { bind, setOrganization(next) { organization = next || null; workspace = null; card.dataset.owner = 'false'; if (organization?.id) void load(); } };
+      return { bind, setOrganization(next) { ++contextRevision; organization = next || null; workspace = null; render(); if (organization?.id) void load(); } };
     }
   };
 })();
