@@ -680,6 +680,7 @@ async function saveTelegramClientSettings(event) {
   event.preventDefault();
   clearFormError('#telegramClientSettingsError');
   if (!currentUser?.id) return;
+  const userId = currentUser.id, generation = sessionGeneration;
   const rawUsername = $('#telegramContactUsername').value.trim();
   const contactUsername = normalizeTelegramContactUsername(rawUsername);
   if (rawUsername && !contactUsername) {
@@ -698,10 +699,11 @@ async function saveTelegramClientSettings(event) {
   };
   const button = event.submitter || $('#telegramClientSettingsForm button[type="submit"]');
   const status = $('#telegramClientSettingsStatus');
-  if (button) button.disabled = true;
+  const operation = button ? beginClientProfileWrite(button) : null;
   if (status) status.textContent = 'Сохраняем…';
   const { data, error } = await db.auth.updateUser({ data:{ telegram_client_settings:next } });
-  if (button) button.disabled = false;
+  if (button && !releaseClientProfileWrite(button, operation)) return;
+  if (!sessionIsCurrent(userId, generation)) return;
   if (error) {
     showFormError('#telegramClientSettingsError', 'Не удалось сохранить настройки Telegram. Повторите позже.');
     if (status) status.textContent = 'Изменения не сохранены';
@@ -14091,6 +14093,7 @@ async function loadBookingSettings() {
 async function saveBookingPolicy(event) {
   event.preventDefault();
   if (!requireWrites()) return;
+  const userId = currentUser.id, generation = sessionGeneration;
   clearFormError('#bookingPolicyError');
   const depositEnabled = $('#depositEnabled').checked;
   const bookingBufferEnabled = $('#bookingBufferEnabled').checked;
@@ -14123,18 +14126,21 @@ async function saveBookingPolicy(event) {
   }
   const button = event.submitter;
   const buttonLabel = button.textContent;
-  button.disabled = true;
+  const operation = beginClientProfileWrite(button);
   button.textContent = 'Сохраняем…';
   const { error } = await db.from('booking_policies').upsert(record, { onConflict: 'performer_id' });
-  button.disabled = false;
+  if (!releaseClientProfileWrite(button, operation)) return;
   button.textContent = buttonLabel;
+  if (!sessionIsCurrent(userId, generation)) return;
   if (error) { showFormError('#bookingPolicyError', /booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматические перерывы ещё не установлены на сервере.' : /auto_complete/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоучёт визитов ещё не обновлён на сервере.' : 'Не удалось сохранить правила.'); return; }
   bookingPolicy = record;
-  localStorage.setItem(autoCompleteStorageKey(), String(record.auto_complete_visits));
+  localStorage.setItem(autoCompleteStorageKey(userId), String(record.auto_complete_visits));
   renderBookingPolicyForm();
   renderBookings();
-  await saveProviderOfflineSnapshot(currentUser.id, sessionGeneration);
+  await saveProviderOfflineSnapshot(userId, generation);
+  if (!sessionIsCurrent(userId, generation)) return;
   await applyAutomaticVisitOutcomes();
+  if (!sessionIsCurrent(userId, generation)) return;
   notify('Правила онлайн-записи сохранены');
 }
 
