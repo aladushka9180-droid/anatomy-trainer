@@ -68,6 +68,8 @@ for (const [path, method] of [
   ['/rest/v1/rpc/book_appointment', 'POST'], ['/rest/v1/rpc/create_minuta_team_booking_v102', 'POST'],
   ['/rest/v1/rpc/get_unknown_operation', 'POST'], ['/rest/v1/rpc/get_unknown_operation', 'GET'],
   ['/rest/v1/rpc/save_minuta_booking_outcome_v106', 'POST'],
+  ['/rest/v1/rpc/save_minuta_visit_payment_v1', 'POST'],
+  ['/rest/v1/rpc/post_minuta_unposted_visit_payment_v1', 'POST'],
   ['/functions/v1/create-payment', 'POST'], ['/auth/v1/token', 'POST'],
   ['/storage/v1/object/client-avatars/photo', 'POST']
 ]) {

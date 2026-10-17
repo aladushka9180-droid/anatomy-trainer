@@ -60,6 +60,7 @@
 
   function normalizeDashboard(raw = {}) {
     const summary = raw.summary || {};
+    const knownMoney = value => (typeof value === 'number' || typeof value === 'string' && /^-?\d+$/.test(value)) && Number.isSafeInteger(Number(value));
     const receivedMinor = integer(summary.receivedMinor ?? raw.received_minor);
     const expenseMinor = integer(summary.expenseMinor ?? raw.expense_minor);
     const serviceMinor = nonnegative(summary.serviceMinor ?? raw.service_minor);
@@ -89,6 +90,11 @@
     })).filter(item => item.id && item.name) : [];
     return {
       available:raw.available === true,
+      receivedKnown:raw.receivedKnown !== false && knownMoney(summary.receivedMinor ?? raw.received_minor),
+      expenseKnown:raw.expenseKnown !== false && knownMoney(summary.expenseMinor ?? raw.expense_minor),
+      serviceKnown:raw.serviceKnown !== false && knownMoney(summary.serviceMinor ?? raw.service_minor),
+      debtKnown:raw.debtKnown !== false && knownMoney(summary.debtMinor ?? raw.debt_minor),
+      pendingPayments:raw.pendingPayments || { known:false, rows:[] },
       financeEnabled:raw.financeEnabled === true,
       resultReliable:raw.resultReliable === true,
       availabilityMessage:text(raw.availabilityMessage),
@@ -148,6 +154,7 @@
     return {
       id:text(item.id),
       occurredAt:text(item.occurredAt),
+      datePrecision:item.datePrecision === 'day' ? 'day' : 'instant',
       type:item.type,
       label:text(item.label, 'Финансовая операция'),
       category:text(item.category),
@@ -182,15 +189,16 @@
   function summaryShell(overview = false) {
     return `<section class="finance-center__summary${overview ? ' finance-center__overview' : ''}" aria-label="Главные финансовые показатели">
       <div class="finance-center__hero">
-        <button class="finance-center__metric is-profit" type="button" data-finance-detail="profit">${metricHeading('profit','Чистая прибыль')}<strong data-finance-profit>—</strong><small class="finance-center__profit-note">Не рассчитано · <span>Что не учтено</span></small></button>
+        <button class="finance-center__metric is-profit" type="button" data-finance-detail="profit">${metricHeading('profit','Осталось после расходов')}<strong data-finance-profit>—</strong><small class="finance-center__profit-note" data-finance-result-note>Получено минус расходы</small></button>
         <button class="finance-center__metric" type="button" data-finance-detail="received">${metricHeading('received','Получено')}<strong data-finance-received>—</strong><small data-finance-received-note>Учтённые оплаты</small><small class="finance-center__comparison"><span data-finance-change="received"></span><span data-finance-comparison-period="received"></span></small></button>
-        <button class="finance-center__metric" type="button" data-finance-detail="expense">${metricHeading('expense','Общие расходы')}<strong data-finance-expense>—</strong><small>Оплаченные расходы</small><small class="finance-center__comparison"><span data-finance-change="expense"></span><span data-finance-comparison-period="expense"></span></small></button>
+        <button class="finance-center__metric" type="button" data-finance-detail="expense">${metricHeading('expense','Расходы')}<strong data-finance-expense>—</strong><small>Оплаченные расходы</small><small class="finance-center__comparison"><span data-finance-change="expense"></span><span data-finance-comparison-period="expense"></span></small></button>
       </div>
       <div class="finance-center__compact-metrics">
         <button type="button" data-finance-detail="rent">${metricHeading('rent','Аренда')}<strong data-finance-rent>—</strong><small>В составе расходов</small></button>
         <button type="button" data-finance-detail="goods">${metricHeading('goods','Продано товаров')}<strong data-finance-goods>—</strong><small data-finance-goods-note>Количество и сумма</small></button>
       </div>
       <button class="finance-center__data-state" type="button" data-finance-detail="completeness"><span data-finance-data-state>Не рассчитано</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6m0-9v1"/></svg></button>
+      <div class="finance-center__pending" data-finance-pending hidden><p data-finance-pending-note></p><button type="button" data-finance-detail="unposted">Проверить оплаты →</button></div>
       ${overview ? '<div class="finance-center__status finance-center__overview-status" data-finance-read-status role="status" hidden><span data-finance-read-message></span><button type="button" data-finance-retry>Повторить</button></div>' : ''}
       <p class="finance-center__date-basis" data-finance-date-basis></p>
     </section>`;
@@ -208,7 +216,7 @@
   // Missing days are zero only after that projection has been confirmed.
   function receiptSeries(data) {
     const unknown = { known:false, grain:'day', points:[] };
-    if (!data?.available || !data.financeEnabled || data.dateBasis !== 'operations' || data.cashProjectionUnavailable) return unknown;
+    if (!data?.available || data.receivedKnown === false || !data.financeEnabled || data.dateBasis !== 'operations' || data.cashProjectionUnavailable) return unknown;
     const dateTime = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? Date.parse(value + 'T00:00:00Z') : NaN;
     const start = dateTime(data.bounds?.start), end = dateTime(data.bounds?.end);
     const dayMs = 86400000, days = (end - start) / dayMs + 1;
@@ -263,6 +271,8 @@
     const reasons = [];
     if (!data?.available) return [data?.availabilityMessage || 'Финансовый источник пока недоступен. Попробуйте обновить данные.'];
     if (!data.financeEnabled) reasons.push('Финансовый журнал ещё не подключён. Подтверждённые расходы и операции недоступны. Его настройка находится в разделе «Продажи».');
+    if (!data.receivedKnown) reasons.push('Сумма поступлений не подтверждена. Известные расходы сохранены. Обновите данные.');
+    if (data.financeEnabled && !data.expenseKnown) reasons.push('Сумма расходов не подтверждена. Известные поступления сохранены. Обновите данные.');
     if (data.cashProjectionUnavailable) reasons.push('Не удалось подтвердить движение денег по журналу за выбранные даты. Доступные суммы из отчёта по визитам сохранены. Попробуйте обновить данные.');
     if (data.dateBasis !== 'operations') reasons.push('Часть оплат учтена по датам визитов: отдельная дата денежной операции не подтверждена. Эти суммы нельзя сравнивать с движением денег по датам операций.');
     if (data.visits && !data.visits.known) reasons.push('Визиты за этот период ещё не подтверждены. Известные финансовые операции сохранены; обновите данные, чтобы проверить визиты.');
@@ -276,27 +286,39 @@
     if (data.visits?.known && data.visits.rows.some(row => row.paymentKnown && row.paymentMinor))
       reasons.push('Отметки оплаты визитов относятся к дате визита. Они не заменяют финансовые операции и могут отличаться от «Получено» за те же даты.');
     if (!data.goods.known) reasons.push('Источник продаж товаров не подтвердил количество и сумму за эти даты. Товары и абонементы учитываются отдельно.');
-    reasons.push('Чистая прибыль не рассчитана: нет подтверждённого полного учёта себестоимости, налогов и остальных затрат. Денежный результат показывает только получено минус оплаченные расходы.');
+    reasons.push('Осталось после расходов — получено после возвратов минус учтённые оплаченные расходы. Для чистой прибыли нужен полный учёт себестоимости, налогов и остальных затрат.');
     return reasons;
   }
 
   function renderSummary(target, data) {
     const set = (selector, value) => { const node = target.querySelector(selector); if (node) node.textContent = value; };
     const available = data?.available;
-    set('[data-finance-received]', available ? formatRubles(data.summary.receivedMinor) : '—');
-    set('[data-finance-expense]', available && data.financeEnabled ? formatRubles(data.summary.expenseMinor) : '—');
-    const rent = available && data.financeEnabled && data.rentCategoryId
+    const receivedKnown = available && data.receivedKnown;
+    const expenseKnown = available && data.financeEnabled && data.expenseKnown;
+    const resultKnown = receivedKnown && expenseKnown && data.dateBasis === 'operations' && !data.cashProjectionUnavailable;
+    set('[data-finance-received]', receivedKnown ? formatRubles(data.summary.receivedMinor) : '—');
+    set('[data-finance-expense]', expenseKnown ? formatRubles(data.summary.expenseMinor) : '—');
+    set('[data-finance-profit]', resultKnown ? formatRubles(data.summary.netMinor) : '—');
+    set('[data-finance-result-note]', resultKnown ? 'Получено минус учтённые расходы' : !receivedKnown ? 'Поступления не подтверждены' : !expenseKnown ? 'Расходы не подтверждены' : 'Движение денег не подтверждено');
+    const rent = expenseKnown && data.rentCategoryId
       ? data.expenseCategories.filter(item => item.id === data.rentCategoryId).reduce((sum, item) => sum + item.amountMinor, 0) : null;
     set('[data-finance-rent]', rent === null ? '—' : formatRubles(rent));
     set('[data-finance-goods]', data?.goods.known ? `${Number(data.goods.quantity).toLocaleString('ru-RU')} шт.` : '—');
     set('[data-finance-goods-note]', data?.goods.known ? `Продажи на ${formatRubles(data.goods.amountMinor)}` : 'Источник недоступен');
-    set('[data-finance-received-note]', !available ? 'Источник недоступен' : data.dateBasis === 'operations' ? 'После возвратов' : 'Отметки оплаты · по визитам');
+    set('[data-finance-received-note]', !receivedKnown ? 'Поступления не подтверждены' : data.dateBasis === 'operations' ? 'После возвратов' : 'Отметки оплаты · по визитам');
     set('[data-finance-date-basis]', !available ? 'Движение денег за эти даты не подтверждено. Обновите данные.' : data.dateBasis === 'operations'
       ? 'Деньги — по дате операции. Визиты ниже — по дате визита.'
       : 'Часть оплат — по датам визитов. Движение денег пока не подтверждено.');
-    set('[data-finance-data-state]', available && data.financeEnabled ? 'Учтена часть данных' : 'Не рассчитано');
+    const pendingCount = data.pendingPayments?.known ? data.pendingPayments.totalCount : data.summary.unpostedVisits;
+    set('[data-finance-data-state]', resultKnown && data.pendingPayments?.known && !pendingCount && data.resultReliable ? 'Данные полные' : available ? 'Учтена часть данных' : 'Не рассчитано');
+    const pending = target.querySelector('[data-finance-pending]');
+    if (pending) {
+      pending.hidden = !available || !pendingCount;
+      const sum = data.pendingPayments?.known ? ` на ${formatRubles(data.pendingPayments.totalMinor)}` : '';
+      set('[data-finance-pending-note]', `Непроведённые отметки оплаты: ${pendingCount}${sum}.`);
+    }
     for (const kind of ['received','expense']) {
-      const previous = data?.comparison?.[`${kind}Minor`];
+      const previous = (kind === 'received' ? receivedKnown : expenseKnown) ? data?.comparison?.[`${kind}Minor`] : null;
       set(`[data-finance-change="${kind}"]`, previous == null ? '' : changeLabel(data.summary[`${kind}Minor`], previous));
       const change = target.querySelector(`[data-finance-change="${kind}"]`);
       if (change && data?.comparison?.bounds) {
@@ -481,7 +503,7 @@
         const button = createElement('button','finance-dashboard__row'); button.type='button'; button.dataset.financeDetail=`operation:${row.id}`;
         const icon = createElement('span','finance-dashboard__icon'); icon.innerHTML=metricIcon(row.flow === 'expense' ? 'expense' : 'received');
         const copy = createElement('span','finance-dashboard__row-copy');
-        copy.append(createElement('span','',row.label),createElement('small','',operationDate(row.occurredAt,data.timezone)));
+        copy.append(createElement('span','',row.label),createElement('small','',operationDate(row.occurredAt,data.timezone,row.datePrecision)));
         const amount = createElement('strong',row.amountMinor > 0 && row.flow === 'received' ? 'is-received' : '',`${row.amountMinor > 0 ? '+' : ''}${formatRubles(row.amountMinor)}`);
         button.append(icon,copy,amount,createElement('span','finance-dashboard__arrow','›')); operations.append(button);
       }
@@ -573,6 +595,11 @@
 
     function renderChart(points, expensesKnown) {
       elements.chart.replaceChildren();
+      if (state.data?.receivedKnown === false) {
+        elements.chart.classList.add('is-empty'); find('#financeChartHelp').hidden = true;
+        elements.chart.append(createElement('p', 'finance-center__inline-empty', 'Поступления по дням не подтверждены. Известные суммы сохранены в карточках.'));
+        return;
+      }
       const empty = !points.some(point => point.receivedMinor || point.expenseMinor);
       elements.chart.classList.toggle('is-empty', empty);
       find('#financeChartHelp').hidden = empty;
@@ -652,10 +679,10 @@
       layout.append(ring, list); elements.ring.append(layout);
     }
 
-    function operationDate(value, timezone) {
+    function operationDate(value, timezone, precision = 'instant') {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return 'Дата не указана';
-      return new Intl.DateTimeFormat('ru-RU', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', timeZone:timezone }).format(date);
+      return new Intl.DateTimeFormat('ru-RU', { day:'2-digit', month:'short', ...(precision === 'day' ? {} : { hour:'2-digit', minute:'2-digit' }), timeZone:timezone }).format(date);
     }
 
     function renderOperations(ledgerKnown = true) {
@@ -702,9 +729,9 @@
       unavailable.hidden = true;
       const ledgerKnown = data.financeEnabled;
       const netKnown = ledgerKnown && data.dateBasis === 'operations' && !data.cashProjectionUnavailable && Number.isSafeInteger(data.summary.netMinor);
-      setMoney('[data-finance-net]', data.summary.netMinor, netKnown); setMoney('[data-finance-received]', data.summary.receivedMinor);
+      setMoney('[data-finance-net]', data.summary.netMinor, netKnown && data.receivedKnown && data.expenseKnown); setMoney('[data-finance-received]', data.summary.receivedMinor, data.receivedKnown);
       const serviceKnown = !data.visits || data.visits.known && (data.visits.rows.length === 0 || data.visits.rows.some(row => row.serviceKnown !== false));
-      setMoney('[data-finance-expense]', data.summary.expenseMinor, ledgerKnown); setMoney('[data-finance-services]', data.summary.serviceMinor, serviceKnown); setMoney('[data-finance-debt]', data.summary.debtMinor);
+      setMoney('[data-finance-expense]', data.summary.expenseMinor, ledgerKnown && data.expenseKnown); setMoney('[data-finance-services]', data.summary.serviceMinor, serviceKnown && data.serviceKnown); setMoney('[data-finance-debt]', data.summary.debtMinor, data.debtKnown);
       find('[data-finance-services-note]').textContent = data.summary.serviceValueUnknownVisits ? `известная стоимость · без цены: ${data.summary.serviceValueUnknownVisits}` : 'стоимость состоявшихся визитов';
       find('[data-finance-detail="visits"]').setAttribute('aria-label', `Оказано услуг: ${find('[data-finance-services]').textContent}. Открыть детализацию`);
       find('[data-finance-period-label]').textContent = data.periodLabel;
@@ -731,7 +758,7 @@
       const dialog = find('[data-finance-detail-dialog]'), body = find('[data-finance-detail-body]');
       const categoryId = kind.startsWith('category:') ? kind.slice(9) : kind === 'rent' ? data?.rentCategoryId : '';
       const category = data?.expenseCategories.find(item => item.id === categoryId);
-      const titles = { profit:'Чистая прибыль', received:'Получено', expense:'Общие расходы', rent:'Аренда', goods:'Продано товаров', completeness:'Полнота данных', visits:'Оказано услуг', 'payment-unknown':'Визиты без отметки оплаты', 'service-unknown':'Визиты без стоимости', operations:'Финансовые операции' };
+      const titles = { profit:'Осталось после расходов', received:'Получено', expense:'Расходы', rent:'Аренда', goods:'Продано товаров', completeness:'Полнота данных', visits:'Оказано услуг', 'payment-unknown':'Визиты без отметки оплаты', 'service-unknown':'Визиты без стоимости', operations:'Финансовые операции', unposted:'Проверка отметок оплаты' };
       const receiptRange = /^received-range:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/.exec(kind);
       const operationId = kind.startsWith('operation:') ? kind.slice(10) : '';
       find('#financeDetailTitle').textContent = categoryId && kind.startsWith('category:') ? category?.name || 'Категория расходов' : titles[kind] || 'Детализация';
@@ -739,9 +766,49 @@
       body.replaceChildren();
       if (state.readError) body.append(createElement('p', 'finance-center__detail-note', state.readError));
       if (state.master) body.append(createElement('p', 'finance-center__detail-note', 'Показаны операции выбранного сотрудника. Общие расходы организации без назначения сотруднику сюда не входят.'));
-      if (!data?.available || ['profit', 'completeness'].includes(kind)) {
+      if (data?.available && kind === 'unposted') {
+        const pending = data.pendingPayments;
+        if (!pending?.known) body.append(createElement('p', 'finance-center__detail-note', pending?.message || 'Список оплат пока не подтверждён. Обновите данные.'));
+        else {
+          body.append(createElement('p', 'finance-center__detail-note', 'Это ручные отметки оплаты по датам визитов. В «Получено» они войдут после проверки, по подтверждённой дате оплаты. Автоматические результаты визитов сюда не включаются.'));
+          body.append(createElement('p', 'finance-center__detail-formula', `К проверке: ${pending.totalCount} · ${formatRubles(pending.totalMinor)}`));
+          if (pending.totalCount > pending.rows.length) body.append(createElement('p', 'finance-center__detail-note', `Показаны первые ${pending.rows.length} отметок. Общая сумма включает все ${pending.totalCount}.`));
+          for (const row of pending.rows) {
+            const item = createElement('article', 'finance-center__operation'), copy = createElement('div');
+            copy.append(createElement('strong', '', row.label || 'Оплата визита'), createElement('small', '', `Дата визита: ${row.bookingDate}`));
+            const button = createElement('button', 'finance-center__more', 'Проверить'); button.type = 'button';
+            item.append(copy, createElement('b', '', formatRubles(row.amountMinor)), button); body.append(item);
+            const choiceKey = `${data.organizationId}:${row.bookingId}:${row.sourceFingerprint}`;
+            state.visitPaymentChoices ||= new Map();
+            button.addEventListener('click', async () => {
+              if (button.disabled) return; button.disabled = true;
+              try {
+                const cap = await adapter.prepareVisitPayment();
+                if (state.data !== data || !dialog.open) return;
+                const choice = state.visitPaymentChoices.get(choiceKey) || await confirmVisitPayment({ accounts:cap.accounts, paymentMethod:row.paymentMethod, today:cap.today, amountMinor:row.amountMinor });
+                if (!choice || state.data !== data || !dialog.open) return;
+                state.visitPaymentChoices.set(choiceKey, choice);
+                await adapter.postVisitPayment(row, choice, cap.contextToken);
+                if (state.data !== data) return;
+                const trigger = state.detailTrigger;
+                await load({ quiet:true });
+                if (dialog.open) {
+                  openDetail('unposted', trigger);
+                  const outside = choice.paidOn < data.bounds?.start || choice.paidOn > data.bounds?.end;
+                  find('[data-finance-detail-body]').prepend(createElement('p', 'finance-center__detail-note', `Оплата учтена по дате ${choice.paidOn}.${outside ? ' Эта дата вне выбранного периода; фильтры сохранены.' : ''}`));
+                }
+              } catch (error) {
+                if (state.data === data && dialog.open && error.name !== 'AbortError') {
+                  body.append(createElement('p', 'finance-center__form-error', error.message || 'Не удалось подтвердить проведение. Повторите с теми же данными.'));
+                  button.textContent = 'Повторить проведение';
+                }
+              } finally { button.disabled = false; }
+            });
+          }
+        }
+      } else if (!data?.available || ['profit', 'completeness'].includes(kind)) {
         const reasons = dataReasons(data);
-        for (const reason of kind === 'profit' && data?.available ? reasons.slice(-1) : reasons) body.append(createElement('p', 'finance-center__detail-note', reason));
+        for (const reason of reasons) body.append(createElement('p', 'finance-center__detail-note', reason));
         if (data?.visits?.known && data.summary.totalVisits > data.summary.paymentKnownVisits && kind === 'completeness') {
           const visits = createElement('button', 'finance-center__more', 'Визиты без отметки оплаты'); visits.type = 'button';
           visits.addEventListener('click', () => openDetail('payment-unknown', state.detailTrigger)); body.append(visits);
@@ -750,7 +817,7 @@
           const prices = createElement('button', 'finance-center__more', 'Визиты без стоимости'); prices.type = 'button';
           prices.addEventListener('click', () => openDetail('service-unknown', state.detailTrigger)); body.append(prices);
         }
-        if (data?.available && data.financeEnabled && data.dateBasis === 'operations') {
+        if (data?.available && data.financeEnabled && data.dateBasis === 'operations' && data.receivedKnown && data.expenseKnown && !data.cashProjectionUnavailable) {
           body.append(createElement('p', 'finance-center__detail-formula', `Денежный результат: ${formatRubles(data.summary.receivedMinor)} − ${formatRubles(data.summary.expenseMinor)} = ${formatRubles(data.summary.netMinor)}. Это результат по учтённым операциям; он не равен подтверждённой чистой прибыли.`));
         }
         if (kind === 'profit' && data?.financeEnabled) {
@@ -784,7 +851,7 @@
         body.append(createElement('p','finance-center__detail-note',known ? 'По дате финансовой операции. Период и сотрудник сохранены.' : 'Журнал операций пока не подтверждён. Известные суммы остаются в карточках.'));
         for(const row of rows.slice(0,state.visibleOperations)){
           const item=createElement('article','finance-center__operation'), copy=createElement('div');
-          copy.append(createElement('strong','',row.label),createElement('small','',operationDate(row.occurredAt,data.timezone)),createElement('small','',row.category));
+          copy.append(createElement('strong','',row.label),createElement('small','',operationDate(row.occurredAt,data.timezone,row.datePrecision)),createElement('small','',row.category));
           item.append(copy,createElement('b','',`${row.amountMinor>0 ? '+' : ''}${formatRubles(row.amountMinor)}`)); body.append(item);
         }
         if(!rows.length && known)body.append(createElement('p','finance-center__inline-empty','Подтверждённых операций в этой выборке нет.'));
@@ -1078,5 +1145,46 @@
     else if (target instanceof Element) instances.get(target)?.destroy();
   }
 
-  global.MinutaFinanceCenter = Object.freeze({ init, destroy, formatRubles, parseRubles, changeLabel, normalizeDashboard, mergeVisitSnapshot, receiptSeries });
+  function confirmVisitPayment({ accounts = [], paymentMethod, today, defaultPaidOn = '', amountMinor, title = 'Проверить оплату', submitLabel = 'Провести оплату' }) {
+    return new Promise(resolve => {
+      const previousFocus = document.activeElement;
+      const dialog = createElement('dialog', 'finance-center__dialog finance-center__payment-dialog');
+      dialog.setAttribute('aria-label', title);
+      const form = createElement('form', 'finance-center__payment-form');
+      form.append(createElement('h3', '', title), createElement('p', '', `${formatRubles(amountMinor)} · ${paymentMethod === 'cash' ? 'Наличные' : 'Перевод'}`));
+      const dateLabel = createElement('label', '', 'Дата оплаты'), date = createElement('input');
+      date.type = 'date'; date.name = 'paidOn'; date.required = true; date.max = today; date.min = '2000-01-01'; date.value = defaultPaidOn;
+      dateLabel.append(date);
+      const accountLabel = createElement('label', '', 'Куда получены деньги'), account = createElement('select');
+      account.name = 'destinationAccount'; account.required = true;
+      const placeholder = createElement('option', '', 'Выберите счёт'); placeholder.value = ''; account.append(placeholder);
+      for (const row of accounts.filter(row => row.type === (paymentMethod === 'cash' ? 'cash' : 'bank'))) {
+        const option = createElement('option', '', row.name); option.value = row.id; account.append(option);
+      }
+      if (account.options.length === 2) account.selectedIndex = 1;
+      accountLabel.append(account); form.append(dateLabel, accountLabel);
+      form.append(createElement('p', 'finance-center__detail-note', 'Подтвердите фактическую дату оплаты. Дата визита остаётся прежней.'));
+      const submit = createElement('button', 'finance-center__submit', submitLabel); submit.type = 'submit';
+      const cancel = createElement('button', 'finance-center__cancel', 'Отмена'); cancel.type = 'button';
+      if (account.options.length === 1) { submit.disabled = true; form.append(createElement('p', 'finance-center__form-error', 'Для этого способа оплаты нет активного счёта. Добавьте его в финансовом учёте.')); }
+      form.append(submit, cancel); dialog.append(form); document.body.append(dialog);
+      let settled = false;
+      function finish(value) {
+        if (settled) return; settled = true;
+        if (dialog.open && typeof dialog.close === 'function') dialog.close();
+        dialog.remove(); if (previousFocus?.isConnected) previousFocus.focus({ preventScroll:true }); resolve(value);
+      }
+      cancel.addEventListener('click', () => finish(null));
+      dialog.addEventListener('cancel', event => { event.preventDefault(); finish(null); });
+      dialog.addEventListener('close', () => finish(null));
+      form.addEventListener('submit', event => {
+        event.preventDefault(); if (!form.reportValidity()) return;
+        finish({ paidOn:date.value, destinationAccount:account.value, requestId:requestUuid() });
+      });
+      if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+      date.focus();
+    });
+  }
+
+  global.MinutaFinanceCenter = Object.freeze({ init, destroy, formatRubles, parseRubles, changeLabel, normalizeDashboard, mergeVisitSnapshot, receiptSeries, confirmVisitPayment });
 })(globalThis);

@@ -123,7 +123,7 @@
       operations.push({ id:row.id, occurredAt:row.occurred_at, type:row.operation_type === 'reversal' ? 'adjustment' : kind === 'commercial_refund' ? 'refund' : income ? 'income' : 'expense',
         flow:income ? 'received' : 'expense', category:expense ? category : '', categoryId:expense ? categoryId : '',
         label:row.operation_type === 'reversal' ? 'Корректировка операции' : ({ visit_service:'Оплата визита', customer_debt_settlement:'Погашение долга', commercial_sale:'Продажа', commercial_refund:'Возврат', supplier_expense_payment:'Оплата расхода', payroll_payment:'Выплата зарплаты' })[kind],
-        actorName:'', amountMinor:income ? receipt : cash });
+        actorName:'', datePrecision:row.explanation?.date_precision === 'day' ? 'day' : 'instant', amountMinor:income ? receipt : cash });
     }
     operations.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.id.localeCompare(a.id));
     if (![receivedMinor, expenseMinor, receivedMinor - expenseMinor].every(Number.isSafeInteger)
@@ -164,9 +164,27 @@
     return new Intl.DateTimeFormat('ru-RU', options).format(date).replace('.', '');
   }
 
+  function minorKnown(value) {
+    return (typeof value === 'number' || typeof value === 'string' && /^-?\d+$/.test(value)) && Number.isSafeInteger(Number(value));
+  }
+
   function safeInteger(value) {
     const parsed = Number(value);
     return Number.isSafeInteger(parsed) ? parsed : 0;
+  }
+
+  function normalizePendingPayments(raw, { organizationId, bounds, masterId = '' }) {
+    const invalid = { known:false, rows:[], message:'Не удалось подтвердить список непроведённых оплат. Обновите данные.' };
+    if (raw?.schema !== 'minuta-unposted-visit-payments-v1' || raw.organization_id !== organizationId
+      || raw.period?.start !== bounds.start || raw.period?.end !== bounds.end
+      || String(raw.selected_performer_id || '') !== masterId || !Array.isArray(raw.rows)
+      || !minorKnown(raw.total_count) || !minorKnown(raw.total_minor)
+      || raw.total_count < 0 || raw.total_minor < 0 || raw.total_count < raw.rows.length) return invalid;
+    if (raw.rows.some(row => !UUID.test(String(row.bookingId)) || !/^[0-9a-f]{64}$/.test(String(row.sourceFingerprint))
+      || !['cash','transfer'].includes(row.paymentMethod) || !minorKnown(row.amountMinor) || row.amountMinor <= 0
+      || !/^\d{4}-\d{2}-\d{2}$/.test(row.bookingDate) || row.bookingDate < bounds.start || row.bookingDate > bounds.end)) return invalid;
+    if (Number(raw.total_count) === raw.rows.length && raw.rows.reduce((sum,row) => sum + Number(row.amountMinor), 0) !== Number(raw.total_minor)) return invalid;
+    return { known:true, totalCount:Number(raw.total_count), totalMinor:Number(raw.total_minor), rows:raw.rows.map(row => ({ ...row, amountMinor:Number(row.amountMinor) })) };
   }
 
   function operationType(row) {
@@ -217,6 +235,10 @@
       contextToken:context.contextToken || null,
       financeEnabled:raw.finance_enabled === true,
       resultReliable:confidence.result_reliable === true,
+      receivedKnown:minorKnown(raw.summary?.received_minor),
+      expenseKnown:minorKnown(raw.summary?.expense_minor),
+      serviceKnown:minorKnown(raw.summary?.services_minor),
+      debtKnown:minorKnown(raw.summary?.debt_minor),
       timezone:String(raw.timezone || 'Europe/Samara'),
       today:businessDate(new Date(), String(raw.timezone || 'Europe/Samara')),
       periodLabel:periodTitle(bounds.start, bounds.end),
@@ -394,8 +416,6 @@
       if (raw?.period?.start !== bounds.start || raw?.period?.end !== bounds.end || String(raw?.selected_performer_id || '') !== masterId)
         return { available:false, availabilityMessage:'Источник не подтвердил выбранные даты и сотрудника. Обновите данные.' };
       let normalized = normalizeFinanceScreen(raw, { organizationId:organization.id, period, bounds, contextToken:selectedScope?.contextToken });
-      if (['received_minor','expense_minor','services_minor','debt_minor'].some(key => raw.summary?.[key] == null || !Number.isSafeInteger(Number(raw.summary[key]))))
-        return { available:false, availabilityMessage:'Источник не подтвердил точные суммы за выбранный период.' };
       lastDirectory = new Map((normalized.expenseDirectory || []).map(item => [item.id, item.name]));
       lastSelectedMaster = masterId || '';
       if (cursor || !normalized.available) return normalized;
@@ -420,7 +440,7 @@
           if (!normalized.financeEnabled || typeof db.from !== 'function') return null;
           const from = previousBounds?.start || bounds.start;
           // Widen in UTC then filter exact dates in the organization's timezone.
-          const rows = await readPages('financial_transactions', 'id,operation_type,source_type,source_id,reversal_of,occurred_at,financial_postings(side,amount_minor,financial_accounts(account_type,account_class))', query =>
+          const rows = await readPages('financial_transactions', 'id,operation_type,source_type,source_id,reversal_of,occurred_at,explanation,financial_postings(side,amount_minor,financial_accounts(account_type,account_class))', query =>
             query.gte('occurred_at', `${isoDate(addDays(new Date(`${from}T12:00:00Z`), -1))}T00:00:00Z`)
               .lt('occurred_at', `${isoDate(addDays(new Date(`${bounds.end}T12:00:00Z`), 2))}T00:00:00Z`)
               .order('occurred_at', { ascending:false }).order('id', { ascending:false }));
@@ -472,14 +492,22 @@
               .lt('occurred_at', `${isoDate(addDays(new Date(`${bounds.end}T12:00:00Z`), 2))}T00:00:00Z`)
               .order('occurred_at', { ascending:false }).order('id', { ascending:false }));
           return projectGoodsSales(sales, { bounds, timezone:normalized.timezone, masterId });
+        })(),
+        (async () => {
+          const pending = await rpc('get_minuta_unposted_visit_payments_v1', {
+            p_organization:organization.id, p_start:bounds.start, p_end:bounds.end, p_performer:masterId || null
+          }, 'Проверка старых оплат пока недоступна.');
+          return normalizePendingPayments(pending, { organizationId:organization.id, bounds, masterId });
         })()
       ]);
       if (generation !== expectedGeneration || requestScope !== selectedScope) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
       const cash = results[0].status === 'fulfilled' ? results[0].value : null;
       normalized.goods = results[1].status === 'fulfilled' ? results[1].value : { known:false, rows:[] };
+      normalized.pendingPayments = results[2].status === 'fulfilled' ? results[2].value : { known:false, rows:[], message:'Проверка старых оплат пока недоступна. Обновите данные.' };
       normalized.cashProjectionUnavailable = normalized.financeEnabled && !cash;
       if (cash?.current.classified) {
         normalized.dateBasis = 'operations';
+        normalized.receivedKnown = true; normalized.expenseKnown = true;
         normalized.summary.receivedMinor = cash.current.receivedMinor;
         normalized.summary.expenseMinor = cash.current.expenseMinor;
         normalized.movement = cash.current.movement;
@@ -503,6 +531,28 @@
 
     const adapter = {
       readDashboard:readScreen,
+      async prepareVisitPayment() {
+        if (!requireWrites?.()) throw new Error('Изменения сейчас недоступны.');
+        const currentGeneration = generation;
+        const currentOrg = organization?.id;
+        const contextToken = selectedScope;
+        const cap = await visitPaymentCapabilities(db, currentOrg);
+        if (currentGeneration !== generation || currentOrg !== organization?.id || !isManager()) throw Object.assign(new Error('Контекст изменился. Откройте проверку снова.'), { name:'AbortError' });
+        if (!cap.available || !cap.enabled) throw new Error('Проведение оплаты пока недоступно.');
+        return { ...cap, contextToken };
+      },
+      async postVisitPayment(row, choice, contextToken) {
+        if (!requireWrites?.() || !isManager() || !selectedScope || contextToken !== selectedScope) throw Object.assign(new Error('Контекст изменился. Откройте проверку снова.'), { name:'AbortError' });
+        const requestScope = selectedScope, currentGeneration = generation;
+        const result = await rpc('post_minuta_unposted_visit_payment_v1', {
+          p_organization:organization.id, p_booking:row.bookingId, p_expected_fingerprint:row.sourceFingerprint,
+          p_paid_on:choice.paidOn, p_destination_account:choice.destinationAccount, p_request_id:choice.requestId
+        }, 'Не удалось подтвердить проведение. Повторите с теми же данными.');
+        if (currentGeneration !== generation || requestScope !== selectedScope) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
+        if (!UUID.test(String(result?.id)) || result.organization_id !== organization.id || result.source_fingerprint !== row.sourceFingerprint)
+          throw new Error('Сервер не подтвердил проведение оплаты. Повторите с теми же данными.');
+        return result;
+      },
       openVisitJournal:options => global.MinutaStatisticsAuditProvider?.openVisitJournal?.(options) === true,
       async readOperations({ period, masterId, cursor }) {
         const result = await readScreen({ period, masterId, cursor });
@@ -614,5 +664,55 @@
     return { load, setOrganization, reset, financialBounds, invalidateBounds, refreshVisits };
   }
 
-  global.MinutaFinanceProvider = Object.freeze({ PERIODS, periodBounds, comparisonBounds, projectCashLedger, projectGoodsSales, normalizeFinanceScreen, createController });
+  async function visitPaymentCapabilities(db, organizationId) {
+    const result = await db.rpc('get_minuta_visit_payment_capabilities_v1', { p_organization:organizationId });
+    if (result.error) {
+      if (result.error.code === 'PGRST202') return { available:false };
+      throw userError(result.error, 'Не удалось проверить финансовый учёт. Повторите после восстановления связи.');
+    }
+    const data = result.data;
+    if (data?.schema !== 'minuta-visit-payment-v1' || data.organization_id !== organizationId || typeof data.enabled !== 'boolean'
+      || !/^\d{4}-\d{2}-\d{2}$/.test(data.today) || !Array.isArray(data.accounts)
+      || data.accounts.some(row => !UUID.test(String(row.id)) || !['cash','bank'].includes(row.type) || typeof row.name !== 'string' || !row.name.trim()))
+      throw new Error('visit_payment_context_mismatch');
+    return { ...data, available:true };
+  }
+
+  // A saved outcome and its posting are one RPC. Never fall back after a write
+  // was attempted: a timed-out response may already have committed both rows.
+  async function persistVisitPayment({ db, organization, record, interactive = false, isCurrent = () => true }) {
+    if (!organization?.id || !['owner','admin'].includes(organization.current_role)
+      || record.completion_source !== 'manual' || record.visit_status !== 'completed'
+      || !['cash','transfer'].includes(record.payment_method) || !(record.amount_rub > 0)
+      || !interactive && !record._finance) return null;
+    if (record._finance && record._finance.organizationId !== organization.id) return { ok:false, cancelled:true };
+    const cap = await visitPaymentCapabilities(db, organization.id);
+    if (!isCurrent()) return { ok:false, cancelled:true };
+    if (!cap.available || !cap.enabled) return null;
+    if (!record._finance) {
+      const choice = await global.MinutaFinanceCenter.confirmVisitPayment({
+        accounts:cap.accounts, paymentMethod:record.payment_method, today:cap.today,
+        defaultPaidOn:cap.today, amountMinor:record.amount_rub * 100,
+        title:'Подтвердить оплату', submitLabel:'Сохранить и учесть'
+      });
+      if (!choice || !isCurrent()) return { ok:false, cancelled:true };
+      record._finance = { ...choice, organizationId:organization.id };
+    }
+    const result = await db.rpc('save_minuta_visit_payment_v1', {
+      p_booking:record.booking_id, p_payment_method:record.payment_method, p_amount_rub:record.amount_rub,
+      p_actual_duration_minutes:record.actual_duration_minutes ?? null,
+      p_paid_on:record._finance.paidOn, p_destination_account:record._finance.destinationAccount,
+      p_request_id:record._finance.requestId
+    });
+    if (!isCurrent()) return { ok:false, cancelled:true };
+    if (result.error) return { ok:false, error:result.error, noLocalSave:['22023','42501','40001','23505','55000','PGRST202'].includes(result.error.code) };
+    if (!UUID.test(String(result.data?.id)) || result.data?.organization_id !== organization.id
+      || result.data?.outcome?.booking_id !== record.booking_id || result.data.outcome.visit_status !== 'completed'
+      || result.data.outcome.completion_source !== 'manual' || result.data.outcome.payment_method !== record.payment_method
+      || Number(result.data.outcome.amount_rub) !== record.amount_rub)
+      return { ok:false, error:{ message:'Сервер не подтвердил сохранение оплаты. Повторите с теми же данными.' } };
+    return { ok:true, outcome:result.data.outcome, ledgerPosted:true };
+  }
+
+  global.MinutaFinanceProvider = Object.freeze({ PERIODS, periodBounds, comparisonBounds, projectCashLedger, projectGoodsSales, normalizeFinanceScreen, createController, visitPaymentCapabilities, persistVisitPayment, normalizePendingPayments });
 })(globalThis);

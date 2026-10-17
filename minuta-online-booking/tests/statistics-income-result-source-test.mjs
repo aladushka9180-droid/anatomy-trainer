@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import { readFileSync } from 'node:fs';
+const context = { Intl, Date, crypto, console };
+vm.runInNewContext(readFileSync(new URL('../finance-center.js',import.meta.url),'utf8'),context);
+vm.runInNewContext(readFileSync(new URL('../finance-center-provider.js',import.meta.url),'utf8'),context);
+const ui = context.MinutaFinanceCenter, api = context.MinutaFinanceProvider;
+const org='20000000-0000-4000-8000-000000000001', account='40000000-0000-4000-8000-000000000001', booking='30000000-0000-4000-8000-000000000001';
+const bounds={ start:'2026-10-01',end:'2026-10-18' };
+let data=ui.normalizeDashboard({available:true,financeEnabled:true,dateBasis:'operations',summary:{receivedMinor:200000,expenseMinor:90000}});
+assert.equal(data.summary.netMinor,110000);
+assert.equal(data.receivedKnown,true);
+data=ui.normalizeDashboard({available:true,financeEnabled:true,summary:{expenseMinor:90000}});
+assert.equal(data.receivedKnown,false);assert.equal(data.expenseKnown,true,'known expense survives an unknown receipt');
+data=ui.normalizeDashboard({available:true,summary:{receivedMinor:0,expenseMinor:0}});
+assert.equal(data.receivedKnown,true,'verified zero is known');
+assert.equal(ui.normalizeDashboard({available:true,summary:{receivedMinor:false}}).receivedKnown,false,'a malformed boolean is not a verified zero');
+const pending={schema:'minuta-unposted-visit-payments-v1',organization_id:org,period:bounds,selected_performer_id:null,total_count:1,total_minor:200000,rows:[{bookingId:booking,bookingDate:'2026-10-02',paymentMethod:'cash',amountMinor:200000,sourceFingerprint:'a'.repeat(64)}]};
+assert.equal(api.normalizePendingPayments(pending,{organizationId:org,bounds}).known,true);
+assert.equal(api.normalizePendingPayments({...pending,organization_id:account},{organizationId:org,bounds}).known,false);
+assert.equal(api.normalizePendingPayments({...pending,total_minor:null},{organizationId:org,bounds}).known,false);
+assert.equal(api.normalizePendingPayments({...pending,rows:[{...pending.rows[0],paymentMethod:'auto'}]},{organizationId:org,bounds}).known,false);
+const cap={schema:'minuta-visit-payment-v1',organization_id:org,enabled:true,today:'2026-10-18',accounts:[{id:account,name:'Cash',type:'cash'}]};
+let confirmCount=0, writes=0, attempt=0;
+context.MinutaFinanceCenter={...ui,confirmVisitPayment:async()=>{confirmCount++;return {paidOn:'2026-10-10',destinationAccount:account,requestId:crypto.randomUUID()};}};
+const requests=[];
+const db={rpc:async(name,args)=>{
+  if(name==='get_minuta_visit_payment_capabilities_v1')return {data:cap};
+  if(name==='save_minuta_visit_payment_v1'){
+    attempt++; requests.push(args); if(attempt===1){writes++;return {error:{message:'network response lost'}};}
+    return {data:{id:booking,organization_id:org,outcome:{booking_id:booking,amount_rub:2000,visit_status:'completed',completion_source:'manual',payment_method:'cash'}}};
+  }
+  throw new Error(`unexpected RPC ${name}`);
+}};
+const record={booking_id:booking,visit_status:'completed',completion_source:'manual',payment_method:'cash',amount_rub:2000};
+const options={db,organization:{id:org,current_role:'owner'},record,interactive:true};
+assert.equal((await api.persistVisitPayment(options)).ok,false);
+assert.equal((await api.persistVisitPayment({...options,interactive:false})).ok,true);
+assert.equal(writes,1);assert.equal(confirmCount,1);assert.equal(requests[0].p_request_id,requests[1].p_request_id,'ambiguous retry retains the original request');
+assert.equal(await api.persistVisitPayment({...options,record:{...record,completion_source:'auto'}}),null);
+assert.equal(await api.persistVisitPayment({...options,organization:{id:org,current_role:'specialist'}}),null);
+assert.equal(await api.persistVisitPayment({...options,record:{...record,_finance:undefined},interactive:false}),null,'background completion does not invent a payment');
+const missing={rpc:async()=>({error:{code:'PGRST202'}})};
+assert.equal(await api.persistVisitPayment({...options,db:missing,record:{...record,_finance:undefined}}),null,'old backend remains compatible before rollout');
+const denied={rpc:async(name)=>name.includes('capabilities')?{data:cap}:{error:{code:'42501',message:'denied'}}};
+assert.equal((await api.persistVisitPayment({...options,db:denied})).noLocalSave,true,'validation/role refusal is not queued as a successful local payment');
+assert.equal((await api.persistVisitPayment({...options,isCurrent:()=>false})).cancelled,true);
+const previousAttempts=attempt;
+assert.equal((await api.persistVisitPayment({...options,organization:{id:account,current_role:'owner'}})).cancelled,true,'queued payment cannot follow an organization switch');
+assert.equal(attempt,previousAttempts);
+console.log('income result source PASS: net/unknown/zero, scoped pending data, no auto posting, atomic RPC routing, stable retry, role/context and old-backend compatibility');

@@ -13872,8 +13872,17 @@ async function loadBookingOutcomes() {
   return { ok: !error, optional: true };
 }
 
-async function persistBookingOutcome(record) {
+async function persistBookingOutcome(record, options = {}) {
+  if (window.MinutaFinanceProvider?.persistVisitPayment) {
+    const active = organizationController?.getActiveOrganization?.();
+    const actorId = currentUser?.id, currentGeneration = sessionGeneration;
+    const finance = await window.MinutaFinanceProvider.persistVisitPayment({ db, organization:active, record,
+      interactive:options.interactive === true,
+      isCurrent:() => sessionIsCurrent(actorId, currentGeneration) && organizationController?.getActiveOrganization?.()?.id === active?.id });
+    if (finance) return finance;
+  }
   const clean = cleanOutcomeRecord(record);
+  delete clean._finance;
   let { data, error } = await db.rpc('save_minuta_booking_outcome_v106', {
     p_booking:clean.booking_id,
     p_visit_status:clean.visit_status,
@@ -14186,10 +14195,15 @@ async function saveBookingOutcome(event) {
   let result;
   if (!navigator.onLine) result = { ok:false, error:{ message:'offline' } };
   else {
-    try { result = await persistBookingOutcome(record); }
+    try { result = await persistBookingOutcome(record, { interactive:true }); }
     catch (error) { result = { ok:false, error }; }
   }
   if (!sessionIsCurrent(userId, generation)) return;
+  if (result.cancelled || result.noLocalSave) {
+    if (button?.isConnected !== false) { button.disabled = false; button.textContent = 'Сохранить результат'; }
+    if (result.noLocalSave) notify(result.error?.message || 'Оплата не сохранена. Проверьте данные и повторите.');
+    return;
+  }
   const previousOutcome = bookingOutcomes.get(item.id);
   bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
   const locallySaved = writeLocalOutcomes();
@@ -14206,7 +14220,7 @@ async function saveBookingOutcome(event) {
     notify('Результат не сохранён. Данные остались в форме.');
     return;
   }
-  notify(result.ok ? 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
+  notify(result.ok ? result.ledgerPosted ? 'Результат и оплата учтены' : 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
   renderBookings();
   renderClients();
   renderAnalytics();
@@ -14235,7 +14249,7 @@ async function quickCompleteBookingOutcome(button) {
     notify('Результат не сохранён. Повторите после восстановления связи.');
     return;
   }
-  notify(result.ok ? 'Визит и оплата учтены' : 'Сохранено на устройстве · ожидает синхронизации');
+  notify(result.ok ? 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
   renderBookings();
   renderClients();
   renderAnalytics();
