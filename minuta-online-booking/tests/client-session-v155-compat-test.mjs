@@ -56,7 +56,7 @@ function fixture(respond) {
     setTimeout:() => 0,clearTimeout() {},confirm:() => true,console
   });
   vm.runInContext(source.slice(0, entry), context);
-  return { element, calls, session, local, run:code => vm.runInContext(code, context) };
+  return { element, calls, session, local, auth:db.auth, run:code => vm.runInContext(code, context) };
 }
 
 function respondWith(account, items = []) {
@@ -196,4 +196,32 @@ test('logout consumes the lazy PostgREST revocation request after hiding private
   await f.run('openAccount()');
   await f.run('logout()');
   assert.equal(revoked, true, 'SDK builder must be consumed to send revocation');
+});
+
+test('a delayed old revocation cannot sign out the next client session', async () => {
+  const held = deferred();
+  const normal = respondWith({normalized_phone:'79990000000',session_expires_at:expires});
+  const f = fixture(name => name === 'revoke_client_session' ? held.promise : normal(name));
+  let authReads = 0;
+  f.auth.getSession = async () => { authReads += 1; return {data:{session:{user:{id:'new-client'}}}}; };
+  f.auth.signOut = async () => { throw new Error('Must not sign out the new identity'); };
+  await f.run('openAccount()');
+  const logout = f.run('logout()');
+  f.run(`saveSessionToken('${'b'.repeat(64)}')`);
+  await f.run('openAccount()');
+  held.resolve({data:true,error:null});
+  await logout;
+  assert.equal(authReads, 0);
+  assert.equal(f.session.get('minuta-client-session-v1'), 'b'.repeat(64));
+  assert.equal(f.element('#clientBookingsCard').hidden, false);
+});
+
+test('failed remote revocation leaves the local account signed out', async () => {
+  const normal = respondWith({normalized_phone:'79990000000',session_expires_at:expires});
+  const f = fixture(name => name === 'revoke_client_session' ? Promise.reject(new Error('offline')) : normal(name));
+  await f.run('openAccount()');
+  await f.run('logout()');
+  assert.equal(f.session.has('minuta-client-session-v1'), false);
+  assert.equal(f.element('#clientLoginCard').hidden, false);
+  assert.equal(f.element('#clientBookingsCard').hidden, true);
 });

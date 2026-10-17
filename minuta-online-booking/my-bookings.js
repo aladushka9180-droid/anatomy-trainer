@@ -12,6 +12,7 @@ let socialAuthUser = null;
 let accountRestoreAttempt = null;
 let bookingsLoadAttempt = null;
 let bookingScopedSession = false;
+let clientAccountRevision = 0;
 
 function applyStoredClientTheme() {
   const catalog = window.MinutaThemeCatalog;
@@ -68,6 +69,7 @@ function clearSessionToken() {
   } catch {}
 }
 function clearClientAccountData() {
+  clientAccountRevision += 1;
   accountRestoreAttempt = null;
   bookingsLoadAttempt = null;
   bookingScopedSession = false;
@@ -154,7 +156,8 @@ async function loadBookings() {
       ({ data, error } = await db.rpc(rpcName, { p_session_token: attempt.token }));
       if (!isCurrent()) return false;
       // A permission/network failure is never permission to try a broader API.
-      if (!error || bookingScopedSession || !['PGRST202', '42883'].includes(error.code)) break;
+      if (!error) break;
+      if (bookingScopedSession || !['PGRST202', '42883'].includes(error.code)) break;
     }
   } catch (failure) { error = failure; }
   if (!isCurrent()) return false;
@@ -445,21 +448,24 @@ async function rotateCode() {
 async function logout(options = {}) {
   const current = sessionToken;
   clearSessionToken();
+  const revision = clientAccountRevision;
   $('#clientRestoreCard').hidden = true;
   $('#clientBookingsCard').hidden = true;
   $('#clientLoginCard').hidden = false;
   $('#clientLoginCode').value = '';
   $('#clientSmsCode').value = '';
   setSmsCodeStep(false);
+  socialAuthUser = null;
+  window.MinutaSocialAuth?.clearFlow();
   // PostgREST builders are lazy: consuming the result starts revocation.
   // Local access is already cleared even if the server is unavailable.
   if (current && !options.localOnly) {
     try { await db.rpc('revoke_client_session', { p_session_token: current }); } catch {}
   }
+  if (clientAccountRevision !== revision || sessionToken) return;
   const { data } = await db.auth.getSession();
+  if (clientAccountRevision !== revision || sessionToken) return;
   if (data?.session) await db.auth.signOut();
-  socialAuthUser = null;
-  window.MinutaSocialAuth?.clearFlow();
 }
 
 document.querySelectorAll('[data-social-auth-login]').forEach(button => button.addEventListener('click', () => startClientSocialLogin(button)));
