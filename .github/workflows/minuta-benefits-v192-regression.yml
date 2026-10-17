@@ -1,0 +1,50 @@
+name: Minuta benefits v192 isolated regression
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/minuta-benefits-v192-regression.yml'
+      - 'minuta-online-booking/supabase-migration-v192.sql'
+      - 'minuta-online-booking/recovery/rollback-benefits-audit-v192.sql'
+      - 'minuta-online-booking/tests/benefits-v192-*'
+  push:
+    branches: ['codex/benefits-three-regressions-20261015']
+    paths:
+      - '.github/workflows/minuta-benefits-v192-regression.yml'
+      - 'minuta-online-booking/supabase-migration-v192.sql'
+      - 'minuta-online-booking/recovery/rollback-benefits-audit-v192.sql'
+      - 'minuta-online-booking/tests/benefits-v192-*'
+  workflow_dispatch:
+permissions: { contents: read }
+concurrency:
+  group: benefits-v192-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic_test_only
+          POSTGRES_DB: benefits_v192_test_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d benefits_v192_test_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      MINUTA_TEST_DATABASE_URL: postgres://postgres:synthetic_test_only@127.0.0.1:5432/benefits_v192_test_ci
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: '24' }
+      - name: Install the pinned PostgreSQL client
+        run: npm install --no-save --ignore-scripts pg@8.16.3
+      - name: Reproduce failures, apply, verify, rollback and reapply
+        run: node minuta-online-booking/tests/benefits-v192-postgres-regression-test.mjs
+      - name: Verify existing expiry and lost-response recovery
+        run: node --test minuta-online-booking/tests/benefit-expiry-boundary-test.mjs minuta-online-booking/tests/benefit-issue-recovery-test.mjs minuta-online-booking/tests/benefit-client-connection-test.mjs
+      - name: Verify application and lifecycle compatibility
+        run: node minuta-online-booking/tests/benefit-v149-v150-compatibility-test.mjs
