@@ -13873,7 +13873,7 @@ async function loadBookingOutcomes() {
 }
 
 async function persistBookingOutcome(record,options={}){const finance=await(window.MinutaFinanceProvider?.persistVisitPayment?.({db,record,...options,
-getOrganization:()=>organizationController?.getActiveOrganization?.(),isCurrent:captureBookingMetadataContext()}));if(finance)return finance
+getOrganization:()=>organizationController?.getActiveOrganization?.(),isCurrent:captureBookingMetadataContext()}));if(finance)return finance;if(record._finance)return{ok:false,cancelled:true}
 ;const clean=cleanOutcomeRecord(record);delete clean._finance;let{data,error}=await db.rpc('save_minuta_booking_outcome_v106',{p_booking:clean.booking_id,
 p_visit_status:clean.visit_status,p_payment_method:clean.payment_method,p_amount_rub:clean.amount_rub,
 p_actual_duration_minutes:clean.actual_duration_minutes??null,p_completion_source:clean.completion_source||'manual'});if(!error){outcomesRemoteAvailable=true

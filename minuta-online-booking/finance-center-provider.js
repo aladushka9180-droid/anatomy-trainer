@@ -688,12 +688,14 @@
     if (!organization?.id || !['owner','admin'].includes(organization.current_role)
       || record.completion_source !== 'manual' || record.visit_status !== 'completed'
       || !['cash','transfer'].includes(record.payment_method) || !(record.amount_rub > 0)
-      || !interactive && !record._finance) return null;
+      || !interactive && !record._finance) return record._finance ? { ok:false, cancelled:true } : null;
     if (record._finance && record._finance.organizationId !== organization.id) return { ok:false, cancelled:true };
     const current = () => isCurrent() && (!getOrganization || getOrganization()?.id === organization.id);
     const cap = await visitPaymentCapabilities(db, organization.id);
     if (!current()) return { ok:false, cancelled:true };
-    if (!cap.available || !cap.enabled) return null;
+    if (!cap.available || !cap.enabled) return record._finance
+      ? { ok:false, noLocalSave:true, error:{ message:'Финансовый учёт недоступен. Сохранённая оплата ждёт подтверждения; повторите позже.' } }
+      : null;
     if (!record._finance) {
       const choice = await global.MinutaFinanceCenter.confirmVisitPayment({
         accounts:cap.accounts, paymentMethod:record.payment_method, today:cap.today,

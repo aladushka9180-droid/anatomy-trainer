@@ -37,11 +37,15 @@ const options={db,organization:{id:org,current_role:'owner'},record,interactive:
 assert.equal((await api.persistVisitPayment(options)).ok,false);
 assert.equal((await api.persistVisitPayment({...options,interactive:false})).ok,true);
 assert.equal(writes,1);assert.equal(confirmCount,1);assert.equal(requests[0].p_request_id,requests[1].p_request_id,'ambiguous retry retains the original request');
-assert.equal(await api.persistVisitPayment({...options,record:{...record,completion_source:'auto'}}),null);
-assert.equal(await api.persistVisitPayment({...options,organization:{id:org,current_role:'specialist'}}),null);
+assert.equal(await api.persistVisitPayment({...options,record:{...record,completion_source:'auto',_finance:undefined}}),null);
+assert.equal(await api.persistVisitPayment({...options,record:{...record,_finance:undefined},organization:{id:org,current_role:'specialist'}}),null);
 assert.equal(await api.persistVisitPayment({...options,record:{...record,_finance:undefined},interactive:false}),null,'background completion does not invent a payment');
 const missing={rpc:async()=>({error:{code:'PGRST202'}})};
 assert.equal(await api.persistVisitPayment({...options,db:missing,record:{...record,_finance:undefined}}),null,'old backend remains compatible before rollout');
+assert.equal((await api.persistVisitPayment({...options,db:missing})).noLocalSave,true,'an attempted payment never falls back when capability disappears during retry');
+assert.equal((await api.persistVisitPayment({...options,organization:{id:org,current_role:'specialist'}})).cancelled,true,'a queued atomic payment never follows the legacy writer after a role change');
+const disabled={rpc:async()=>({data:{...cap,enabled:false}})};
+assert.equal((await api.persistVisitPayment({...options,db:disabled})).noLocalSave,true,'finance disabled during retry retains the original atomic request');
 const denied={rpc:async(name)=>name.includes('capabilities')?{data:cap}:{error:{code:'42501',message:'denied'}}};
 assert.equal((await api.persistVisitPayment({...options,db:denied})).noLocalSave,true,'validation/role refusal is not queued as a successful local payment');
 assert.equal((await api.persistVisitPayment({...options,isCurrent:()=>false})).cancelled,true);

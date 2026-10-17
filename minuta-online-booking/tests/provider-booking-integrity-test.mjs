@@ -85,6 +85,9 @@ test('older finance module preserves the legacy outcome writer during rollout',a
   });
   assert.equal((await box.persistBookingOutcome({booking_id:'b',visit_status:'completed',payment_method:'cash',amount_rub:1500,completion_source:'manual'})).ok,true);
   assert.deepEqual(calls.map(call=>call.name),['save_minuta_booking_outcome_v106']);
+  const queued=await box.persistBookingOutcome({booking_id:'b',_finance:{requestId:'pending-atomic-request'}});
+  assert.equal(queued.cancelled,true,'an older cached adapter cannot redirect a pending atomic payment to the legacy writer');
+  assert.equal(calls.length,1);
 });
 test('remote plus local failure preserves outcome form and never reports saved',async()=>{
   const notices=[],rendered=[];const old={visit_status:'scheduled'};
