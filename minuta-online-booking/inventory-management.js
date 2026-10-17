@@ -424,7 +424,9 @@
       const isContextCurrent = () => scope === scopeRevision && sessionIsCurrent(userId,generation) && organization?.id === organizationId && organization?.current_role === role;
       const owner = { button, caption:button?.textContent }; mutationOwner = owner; writing = true; setBusy(true); if (errorHolder) { $(errorHolder).hidden = true; $(errorHolder).textContent = ''; }
       const old = button?.textContent; if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
-      const { data, error } = await db.rpc(rpc, parameters);
+      let data = null, error = null;
+      try { ({ data, error } = await db.rpc(rpc, parameters)); }
+      catch (reason) { error = reason && typeof reason === 'object' ? reason : { message: String(reason || '') }; }
       if (mutationOwner !== owner) return false;
       mutationOwner = null; if (button) button.textContent = old;
       const stale = !isContextCurrent() || current !== revision; writing = false;
