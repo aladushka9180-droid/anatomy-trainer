@@ -25,6 +25,7 @@
     let resourceMatchCount = 0;
     let groupsOpen = false;
     let writePending = false;
+    let writeOwner = null;
     let pendingOrganization;
     const drafts = new Map();
     let renderedScope = '';
@@ -149,6 +150,8 @@
       resourceStatus = '';
       resourceLimit = 12;
       groupsOpen = false;
+      if (writeOwner?.button) writeOwner.button.textContent = writeOwner.caption;
+      writeOwner = null;
       writePending = false;
       pendingOrganization = undefined;
       $('#resourcesPanel').hidden = true;
@@ -525,6 +528,8 @@
       const submittedKey = formKey(form);
       const submittedFields = formFields(form);
       const revision = ++requestRevision;
+      const owner = { button, caption:button?.textContent };
+      writeOwner = owner;
       writePending = true;
       setResourceWritesDisabled(true);
       if (errorSelector) $(errorSelector).hidden = true;
@@ -537,6 +542,8 @@
       } catch (reason) {
         error = reason && typeof reason === 'object' ? reason : { message: String(reason || '') };
       }
+      if (writeOwner !== owner) return false;
+      writeOwner = null;
       if (button) button.textContent = oldText;
       const stale = !sessionIsCurrent(userId, generation) || organization?.id !== organizationId || revision !== requestRevision;
       writePending = false;
@@ -576,7 +583,8 @@
         return false;
       }
       if (String(data?.organization_id || '') !== String(organizationId)) {
-        await load();
+        const refreshed = await load();
+        if (!sessionIsCurrent(userId, generation) || organization?.id !== organizationId || refreshed?.stale) return false;
         notify('Ответ сервера не соответствует выбранной организации. Изменение перепроверено.');
         return false;
       }

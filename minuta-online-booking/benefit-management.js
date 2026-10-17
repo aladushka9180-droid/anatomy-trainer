@@ -13,7 +13,9 @@
     let payload = null;
     let availability = null;
     let revision = 0;
+    let scopeRevision = 0;
     let writing = false;
+    let mutationOwner = null;
     let pendingOrganization;
     let issueIntent = null;
     let issueConfirmed = false;
@@ -296,13 +298,16 @@
       });
     }
     function reset() {
-      revision+=1; organization=null; payload=null; availability=null; writing=false; pendingOrganization=undefined;
+      scopeRevision += 1;
+      if(mutationOwner?.button)mutationOwner.button.textContent=mutationOwner.caption;
+      revision+=1; organization=null; payload=null; availability=null; writing=false; mutationOwner=null; pendingOrganization=undefined;
       issueIntent=null;issueConfirmed=false;issueRejected=false;issueStorageFailed=false;issueStorageScope='';
       connectionRows=[];connectionScope='';connectionIntent=null;connectionStorageFailed=false;
       $('#benefitsPanel').hidden=true; $('#benefitsLoading').hidden=true; $('#benefitsUnavailable').hidden=true; $('#benefitsWorkspace').hidden=true;
     }
     async function setOrganization(next) {
       const normalized=next?.id?{...next}:null;
+      if (normalized?.id !== organization?.id || normalized?.current_role !== organization?.current_role) scopeRevision += 1;
       if(writing){pendingOrganization=normalized;revision+=1;$('#benefitsPanel').hidden=!normalized;$('#benefitsWorkspace').hidden=true;return {ok:false,optional:true,pending:true};}
       if(!normalized){reset();return {ok:false,optional:true};}
       if(!['owner','admin'].includes(normalized.current_role)){reset();return {ok:false,optional:true,forbidden:true};}
@@ -425,15 +430,18 @@
     async function mutate(rpc,parameters,button,success,errorHolder) {
       if(!requireWrites()||writing||availability!=='ready'||!scopeMatches(payload,organization?.id))return false;
       const userId=getCurrentUser()?.id,generation=getSessionGeneration(),organizationId=organization.id,current=++revision;
-      writing=true;setBusy(true);if(errorHolder){$(errorHolder).hidden=true;$(errorHolder).textContent='';}const old=button?.textContent;if(button){button.disabled=true;button.textContent='Сохраняем…';}
+      const scope = scopeRevision, role = organization.current_role;
+      const isContextCurrent = () => scope === scopeRevision && sessionIsCurrent(userId,generation) && organization?.id === organizationId && organization?.current_role === role;
+      const owner={button,caption:button?.textContent};mutationOwner=owner;writing=true;setBusy(true);if(errorHolder){$(errorHolder).hidden=true;$(errorHolder).textContent='';}const old=button?.textContent;if(button){button.disabled=true;button.textContent='Сохраняем…';}
       let data=null,error=null;
       try{({data,error}=await db.rpc(rpc,parameters));}
       catch(reason){error=reason instanceof Error?reason:{message:String(reason||'')};}
-      if(button)button.textContent=old;const stale=!sessionIsCurrent(userId,generation)||current!==revision||organization?.id!==organizationId;writing=false;
+      if(mutationOwner!==owner)return false;
+      mutationOwner=null;if(button)button.textContent=old;const stale=!isContextCurrent()||current!==revision;writing=false;
       if(stale){const next=pendingOrganization;pendingOrganization=undefined;if(next!==undefined)await setOrganization(next);return false;}
-      if(error){const message=messageFor(error);if(errorHolder){$(errorHolder).textContent=message;$(errorHolder).hidden=false;}else notify(message);await load();return false;}
+      if(error){const message=messageFor(error);if(!errorHolder)notify(message);await load();if(!isContextCurrent())return false;if(errorHolder){$(errorHolder).textContent=message;$(errorHolder).hidden=false;}return false;}
       if(!scopeMatches(data,organizationId)){notify('Ответ другой организации заблокирован.');await load();return false;}
-      notify(success);await load();return true;
+      notify(success);await load();return isContextCurrent();
     }
     async function applyBenefit(parameters,button,success,errorHolder) {
       if(!requireWrites()||writing||availability!=='ready'||!scopeMatches(payload,organization?.id))return false;
@@ -441,16 +449,19 @@
       try{requestId=uuid();}catch{const message='Не удалось создать защитный номер операции. Обновите страницу и попробуйте снова.';if(errorHolder)showFormError(errorHolder,message);else notify(message);return false;}
       const guarded={...parameters,p_request_id:requestId};
       const userId=getCurrentUser()?.id,generation=getSessionGeneration(),organizationId=organization.id,current=++revision;
-      writing=true;setBusy(true);if(errorHolder){$(errorHolder).hidden=true;$(errorHolder).textContent='';}const old=button?.textContent;if(button){button.disabled=true;button.textContent='Сохраняем…';}
+      const scope = scopeRevision, role = organization.current_role;
+      const isContextCurrent = () => scope === scopeRevision && sessionIsCurrent(userId,generation) && organization?.id === organizationId && organization?.current_role === role;
+      const owner={button,caption:button?.textContent};mutationOwner=owner;writing=true;setBusy(true);if(errorHolder){$(errorHolder).hidden=true;$(errorHolder).textContent='';}const old=button?.textContent;if(button){button.disabled=true;button.textContent='Сохраняем…';}
       let data=null,error=null;
       try {
         ({data,error}=await db.rpc('apply_minuta_benefit_v149',guarded));
       } catch(reason){error=reason instanceof Error?reason:{message:String(reason||'')};}
-      if(button)button.textContent=old;const stale=!sessionIsCurrent(userId,generation)||current!==revision||organization?.id!==organizationId;writing=false;
+      if(mutationOwner!==owner)return false;
+      mutationOwner=null;if(button)button.textContent=old;const stale=!isContextCurrent()||current!==revision;writing=false;
       if(stale){const next=pendingOrganization;pendingOrganization=undefined;if(next!==undefined)await setOrganization(next);return false;}
-      if(error){const message=messageFor(error);if(errorHolder){$(errorHolder).textContent=message;$(errorHolder).hidden=false;}else notify(message);await load();return false;}
+      if(error){const message=messageFor(error);if(!errorHolder)notify(message);await load();if(!isContextCurrent())return false;if(errorHolder){$(errorHolder).textContent=message;$(errorHolder).hidden=false;}return false;}
       if(!scopeMatches(data,organizationId)){notify('Ответ другой организации заблокирован.');await load();return false;}
-      notify(success);await load();return true;
+      notify(success);await load();return isContextCurrent();
     }
     function selectedServices() {
       return [...$('#benefitProductServices').querySelectorAll('[data-benefit-service]:checked')].map(input=>({service_id:input.dataset.benefitService,units:Number($(`[data-benefit-units="${input.dataset.benefitService}"]`).value)}));

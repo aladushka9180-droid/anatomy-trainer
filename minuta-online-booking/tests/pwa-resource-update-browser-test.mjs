@@ -141,14 +141,39 @@ function providerOrganizationRequests(release) {
 function providerStatusThemeRequests(release) {
   const html = release.files.get('provider.html').toString('utf8');
   const refs = [...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="([^"]+)"/g)].map(match => match[1]);
+  // Independent consumer contracts retain unchanged presentation bytes/queries.
+  // A worker release does not require every unchanged explicit consumer to change.
+  const contracts = [
+    {
+      "file": "client-profile-card.js",
+      "request": "client-profile-card.js?v=1097",
+      "bytes": 10565,
+      "sha256": "ebba18ecdcb96ac31588971a2df117b9567e896d94fb5ded4448b96b8d2f1cb9"
+    },
+    {
+      "file": "provider-status-theme.css",
+      "request": "provider-status-theme.css?v=1097",
+      "bytes": 1438,
+      "sha256": "69d00a3c79d5989bcfc8b62a0d353166a2c8c363e466f191eb4f26c32f4d8da7"
+    }
+  ];
+  const optionalBlock = release.files.get('sw.js').toString('utf8')
+    .match(/const OPTIONAL_ASSETS = \[([\s\S]*?)\];/)?.[1];
+  assert.ok(optionalBlock, 'Real worker optional request keys must be present');
+  const optionalRefs = [...optionalBlock.matchAll(/'([^']+)'/g)].map(match => match[1]);
   const requests = {};
-  for (const file of ['client-profile-card.js', 'provider-status-theme.css']) {
+  for (const { file, request:expectedRequest, bytes, sha256 } of contracts) {
     const matches = refs.filter(ref => ref.replace(/^\.\//, '').split('?')[0] === file);
     assert.equal(matches.length, 1, 'Exactly one actual presentation consumer for ' + file);
     const request = matches[0].replace(/^\.\//, '');
-    assert.equal(request, file + '?v=' + release.version, 'Exact current presentation query for ' + file);
-    requests[file] = './' + request;
+    assert.equal(request, expectedRequest, 'Exact independent presentation consumer query for ' + file);
+    const workerMatches = optionalRefs.filter(ref => ref.replace(/^\.\//, '').split('?')[0] === file);
+    assert.deepEqual(workerMatches, ['./' + request], 'Real worker must warm exactly the actual presentation request key for ' + file);
     if (!release.files.has(file)) release.files.set(file, newFile(file));
+    const currentBytes = Buffer.from(release.files.get(file).toString('utf8').replace(/\r\n/g, '\n'));
+    assert.equal(currentBytes.length, bytes, 'Pinned unchanged presentation byte length for ' + file);
+    assert.equal(sha(currentBytes), sha256, 'Pinned unchanged presentation SHA-256 for ' + file);
+    requests[file] = './' + request;
   }
   return requests;
 }

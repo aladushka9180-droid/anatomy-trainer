@@ -66,10 +66,10 @@ try {
  for(const theme of ['pink-porcelain','noir-rose','midnight','sage'])for(const width of [320,360,390,760,1440]){
   let metricPage;
   try{
-   metricPage=await browser.newPage({viewport:{width,height:950},reducedMotion:'reduce'});
+   metricPage=await browser.newPage({viewport:{width,height:950},reducedMotion:'reduce',storageState:{cookies:[],origins:[]},serviceWorkers:'block'});
    // These are action/navigation settings; the existing CI job supplies its overall limit.
    metricPage.setDefaultTimeout(5000);metricPage.setDefaultNavigationTimeout(5000);
-   await metricPage.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
+   await metricPage.context().route('**/*',r=>new URL(r.request().url()).origin===new URL(url).origin?r.continue():r.abort());
    await metricPage.goto(url);await metricPage.waitForFunction(()=>window.fixtureReady||window.fixtureError);
    if(await metricPage.evaluate(()=>Boolean(window.fixtureError)))throw Error('METRIC_FIXTURE_UNPROVEN');
    await metricPage.addScriptTag({content:readFileSync(new URL('../provider-selects.js',import.meta.url),'utf8')});
@@ -85,10 +85,10 @@ try {
   finally{if(metricPage)try{await metricPage.close();}catch{publishTitleDiagnostic({theme,width,stage:'matrix-close',status:'FONT_MEASUREMENT_UNPROVEN'});}}
  }
  for(const theme of ['pink-porcelain','noir-rose','midnight','sage'])for(const width of [320,360,390,760,1440]){
-  const page=await browser.newPage({viewport:{width,height:950},reducedMotion:'reduce'});
+  const page=await browser.newPage({viewport:{width,height:950},reducedMotion:'reduce',storageState:{cookies:[],origins:[]},serviceWorkers:'block'});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   publishTitleDiagnostic({theme,width,stage:'fixture-start',status:'PRE_MEASUREMENT'});
-  await page.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
+  await page.context().route('**/*',r=>new URL(r.request().url()).origin===new URL(url).origin?r.continue():r.abort());
   await page.goto(url);await page.waitForFunction(()=>window.fixtureReady||window.fixtureError);
   assert.equal(await page.evaluate(()=>window.fixtureError),undefined);
   await page.addScriptTag({content:readFileSync(new URL('../provider-selects.js',import.meta.url),'utf8')});
@@ -212,8 +212,8 @@ try {
   }
   assert.deepEqual(errors,[]);await page.close();
  }
- const page=await browser.newPage({viewport:{width:360,height:640},reducedMotion:'reduce'});
- await page.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
+ const page=await browser.newPage({viewport:{width:360,height:640},reducedMotion:'reduce',storageState:{cookies:[],origins:[]},serviceWorkers:'block'});
+ await page.context().route('**/*',r=>new URL(r.request().url()).origin===new URL(url).origin?r.continue():r.abort());
  await page.goto(url);await page.waitForFunction(()=>window.fixtureReady);
  await page.addScriptTag({content:readFileSync(new URL('../provider-selects.js',import.meta.url),'utf8')});
  await page.evaluate(()=>fixtureSelect());
@@ -225,8 +225,8 @@ try {
  await page.locator('#newBookingSubmit').click();assert.equal(await page.evaluate(()=>fixtureSubmitted.service),'s3');
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.close();
- const phonePage=await browser.newPage({viewport:{width:390,height:950}});
- await phonePage.route('**/*',r=>r.request().url().startsWith(url)?r.continue():r.abort());
+ const phonePage=await browser.newPage({viewport:{width:390,height:950},storageState:{cookies:[],origins:[]},serviceWorkers:'block'});
+ await phonePage.context().route('**/*',r=>new URL(r.request().url()).origin===new URL(url).origin?r.continue():r.abort());
  await phonePage.goto(url);await phonePage.waitForFunction(()=>window.fixtureReady);
  const preserved=await phonePage.evaluate(()=>{
   const error=document.querySelector('#newBookingError'),client={...fixtureClient};

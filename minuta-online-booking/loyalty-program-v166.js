@@ -95,6 +95,7 @@
     let payload = null;
     let availability = 'idle';
     let revision = 0;
+    let scopeRevision = 0;
     let selectedClient = null;
     let writing = false;
     let automaticRewardTitle = false;
@@ -384,14 +385,17 @@
       mutationIssue = '';
       if (writing || !organization?.id || !requireWrites()) return false;
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
+      const scope = scopeRevision;
+      const isCurrent = () => scope === scopeRevision && sessionIsCurrent(userId,generation) && organization?.id === organizationId;
       writing = true; if (button) button.disabled = true;
       const prepared = pendingIntents.get(intent?.key);
       if (prepared && prepared.requestId === intent?.requestId) prepared.submitted = true;
       try {
         const { error } = await db.rpc(rpc, parameters);
         if (error) throw error;
-        if (!sessionIsCurrent(userId,generation) || organization?.id !== organizationId) return false;
+        if (!isCurrent()) return null;
         const refreshed = await load({ preserveSettings:rpc === 'set_minuta_loyalty_program_v166' });
+        if (!isCurrent()) return null;
         if (rpc === 'set_minuta_loyalty_program_v166' && !refreshed) {
           mutationIssue = 'Не удалось подтвердить актуальные настройки. Черновик сохранён; повторите исходное действие после обновления данных.';
           return false;
@@ -399,6 +403,7 @@
         clearIntent(intent);
         notify(success); return true;
       } catch (error) {
+        if (!isCurrent()) return null;
         const code = String(error?.code || '');
         const known = code.startsWith('22') || code.startsWith('23') || code === '42501' || code === '55000' || code === 'P0002';
         const confirmedRejection = known && !intent?.previouslyUnconfirmed;
@@ -422,6 +427,7 @@
         if (intent.error) { showError('#loyaltyRuleError',intent.error); return; }
         parameters.p_request_id = intent.requestId;
         const ok = await mutate('set_minuta_loyalty_program_v166',parameters,event.submitter,enabled?'Программа лояльности сохранена':'Программа выключена; история сохранена',intent);
+        if (ok === null) return;
         if (!ok) showError('#loyaltyRuleError',mutationIssue || 'Сохранение не отправлено. Проверьте доступность записи и повторите.');
         else { editing = false; softView?.edit(false,true); }
       }
@@ -434,6 +440,7 @@
         if (intent.error) { showError('#loyaltyAdjustmentError',intent.error); return; }
         parameters.p_request_id = intent.requestId;
         const ok = await mutate('adjust_minuta_loyalty_progress_v166',parameters,event.submitter,'Прогресс скорректирован',intent);
+        if (ok === null) return;
         if (ok) event.target.reset(); else showError('#loyaltyAdjustmentError',mutationIssue || 'Корректировка не отправлена. Проверьте доступность записи и повторите.');
       }
     }
@@ -468,8 +475,9 @@
     }
     function change(event) { if (event.target.closest('#loyaltyProgramForm')) updateForm(); }
     function bind() { softView = mountSoftView($); document.addEventListener('submit',submit); document.addEventListener('click',click); document.addEventListener('input',input); document.addEventListener('change',change); }
-    function reset() { organization=null;payload=null;indexPayload();pendingIntents.clear();clientsOffset=0;rewardsOffset=0;availability='idle';revision+=1;selectedClient=null;automaticRewardTitle=false;editing=null;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
+    function reset() { scopeRevision+=1;organization=null;payload=null;indexPayload();pendingIntents.clear();clientsOffset=0;rewardsOffset=0;availability='idle';revision+=1;selectedClient=null;automaticRewardTitle=false;editing=null;$('#loyaltyWorkspace')?.setAttribute('hidden',''); }
     async function setOrganization(next) {
+      if (next?.id !== organization?.id || next?.current_role !== organization?.current_role) scopeRevision+=1;
       if (next?.id && organization?.id === next.id && payload) { organization=next; render(); return true; }
       organization=next || null; payload=null; indexPayload(); clientsOffset=0; rewardsOffset=0; editing=null; if (!organization?.id) { reset(); return false; } return load();
     }
