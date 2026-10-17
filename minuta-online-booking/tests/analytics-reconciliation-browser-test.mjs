@@ -11,6 +11,17 @@ const source=readFileSync(new URL('../provider.js',import.meta.url),'utf8').repl
 const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
 const moduleSource=readFileSync(new URL('../report-reconciliation.js',import.meta.url),'utf8');
 function declaration(name,sourceText=source){const source=sourceText;const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.ok(start>=0,name);const lineEnd=source.indexOf('\n',start);return source.slice(start,source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',start)+2);}
+function extractReportEvidence(sourceText){
+  const starts=[...sourceText.matchAll(/^[ \t]*const[ \t]+evidence[ \t]*=[ \t]*document\.createElement\('details'\);[ \t]*$/gm)];
+  const ends=[...sourceText.matchAll(/^[ \t]*\/\/ Secondary starter commands stay reachable without filling the first screen\.[ \t]*$/gm)];
+  assert.equal(starts.length,1,'Unique actual report evidence start');
+  assert.equal(ends.length,1,'Unique actual report evidence end');
+  assert.ok(starts[0].index<ends[0].index,'Ordered actual report evidence block');
+  const block=sourceText.slice(starts[0].index,ends[0].index);
+  assert.ok(block.trim().length>0,'Nonempty actual report evidence block');
+  return block;
+}
+const reportEvidenceSource=extractReportEvidence(source);
 // Receipt time belongs to a successful, current request, never to a local redraw.
 const receiptScope=vm.createContext({Date,navigator:{onLine:true},currentUser:{id:'master'},sessionGeneration:1,
   reportCanViewTeam:true,reportScopedBookingsState:{key:'',status:'idle',rows:[]},
@@ -101,7 +112,7 @@ const script=`
   var reportQueryWindows=r=>[r],rpcCalls=0,reportResponse,db={rpc:()=>{rpcCalls++;return new Promise(resolve=>reportResponse=resolve);}};
   ${source.slice(source.indexOf("$('#reportLoadState')?.addEventListener("),source.indexOf('\n});',source.indexOf("$('#reportLoadState')?.addEventListener("))+4)}
   // The production UX initializer inserts this report node dynamically.
-  ${source.slice(source.indexOf("  const evidence = document.createElement('details');"),source.indexOf('  // Secondary starter commands'))}
+  ${reportEvidenceSource}
 `;
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
