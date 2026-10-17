@@ -160,7 +160,7 @@ begin
 end $$;
 
 create or replace function public.save_minuta_visit_payment_v1(
-  p_booking uuid,p_payment_method text,p_amount_rub integer,p_actual_duration_minutes integer,
+  p_organization uuid,p_booking uuid,p_payment_method text,p_amount_rub integer,p_actual_duration_minutes integer,
   p_paid_on date,p_destination_account uuid,p_request_id uuid)
 returns jsonb language plpgsql security definer set search_path to '' as $$
 declare v_org uuid; v_actor uuid; v_fp text; v_existing public.financial_transactions%rowtype; v_outcome jsonb; v_receipt jsonb;
@@ -168,7 +168,7 @@ begin
   if p_booking is null or p_request_id is null or p_payment_method not in('cash','transfer') or p_amount_rub is null or p_amount_rub<=0 then
     raise exception using errcode='22023',message='invalid_visit_payment';
   end if;
-  select organization_id into v_org from public.bookings where id=p_booking;
+  select organization_id into v_org from public.bookings where id=p_booking and organization_id=p_organization;
   if v_org is null then raise exception using errcode='42501',message='financial_manager_role_required'; end if;
   if auth.uid() is null or not public.has_organization_role(v_org,array['owner','admin']) then
     raise exception using errcode='42501',message='financial_manager_role_required';
@@ -229,9 +229,9 @@ end $$;
 revoke all on function public.get_minuta_visit_payment_capabilities_v1(uuid) from public,anon,authenticated,service_role;
 revoke all on function public.get_minuta_unposted_visit_payments_v1(uuid,date,date,uuid) from public,anon,authenticated,service_role;
 revoke all on function public.post_minuta_unposted_visit_payment_v1(uuid,uuid,uuid,uuid,date,text) from public,anon,authenticated,service_role;
-revoke all on function public.save_minuta_visit_payment_v1(uuid,text,integer,integer,date,uuid,uuid) from public,anon,authenticated,service_role;
+revoke all on function public.save_minuta_visit_payment_v1(uuid,uuid,text,integer,integer,date,uuid,uuid) from public,anon,authenticated,service_role;
 grant execute on function public.get_minuta_visit_payment_capabilities_v1(uuid) to authenticated;
 grant execute on function public.get_minuta_unposted_visit_payments_v1(uuid,date,date,uuid) to authenticated;
 grant execute on function public.post_minuta_unposted_visit_payment_v1(uuid,uuid,uuid,uuid,date,text) to authenticated;
-grant execute on function public.save_minuta_visit_payment_v1(uuid,text,integer,integer,date,uuid,uuid) to authenticated;
+grant execute on function public.save_minuta_visit_payment_v1(uuid,uuid,text,integer,integer,date,uuid,uuid) to authenticated;
 commit;

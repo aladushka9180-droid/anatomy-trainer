@@ -27,6 +27,7 @@ const requests=[];
 const db={rpc:async(name,args)=>{
   if(name==='get_minuta_visit_payment_capabilities_v1')return {data:cap};
   if(name==='save_minuta_visit_payment_v1'){
+    assert.equal(args.p_organization,org,'atomic writer is bound to the selected organization');
     attempt++; requests.push(args); if(attempt===1){writes++;return {error:{message:'network response lost'}};}
     return {data:{id:booking,organization_id:org,outcome:{booking_id:booking,amount_rub:2000,visit_status:'completed',completion_source:'manual',payment_method:'cash'}}};
   }

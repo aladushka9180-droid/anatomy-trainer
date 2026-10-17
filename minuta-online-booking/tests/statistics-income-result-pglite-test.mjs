@@ -52,7 +52,7 @@ try {
   const cash=(await scalar('select public.create_minuta_financial_account_v129($1,$2,$3,$4)',[org,request(),'Fixture cash','cash'])).id;
   const bank=(await scalar('select public.create_minuta_financial_account_v129($1,$2,$3,$4)',[org,request(),'Fixture bank','bank'])).id;
   const args=[booking,'cash',600,null,'2026-09-30',cash,request()];
-  const save='select public.save_minuta_visit_payment_v1($1,$2,$3,$4,$5,$6,$7)';
+  const save=`select public.save_minuta_visit_payment_v1('${org}'::uuid,$1,$2,$3,$4,$5,$6,$7)`;
   const first=await scalar(save,args), firstDate=first.outcome.updated_at;
   assert.equal(first.outcome.amount_rub,600);
   assert.equal((await scalar(save,args)).id,first.id);
@@ -65,6 +65,10 @@ try {
   const before=await scalar('select amount_rub from public.booking_outcomes where booking_id=$1',[old]);
   await rejects(save,[old,'cash',300,null,'2026-09-30',bank,request()],'destination_account_type_mismatch');
   assert.equal(await scalar('select amount_rub from public.booking_outcomes where booking_id=$1',[old]),before,'posting failure rolls back outcome save');
+  await db.exec(`reset role;insert into public.organization_memberships values('${other}','${owner}','owner',true);set role authenticated;`);
+  await rejects(save.replace(`'${org}'::uuid`,`'${other}'::uuid`),[old,'cash',300,null,'2026-09-30',cash,request()],'financial_manager_role_required');
+  assert.equal(await scalar('select amount_rub from public.booking_outcomes where booking_id=$1',[old]),before,'selected-organization mismatch changes no outcome even for an owner of both organizations');
+  assert.equal(Number(await scalar('select count(*) from public.financial_transactions')),1,'selected-organization mismatch creates no posting');
   const list=await scalar('select public.get_minuta_unposted_visit_payments_v1($1,$2,$3,$4)',[org,'2026-10-01','2026-10-18',owner]);
   assert.equal(list.total_count,1); assert.equal(list.total_minor,20000); assert.equal(list.rows[0].bookingId,old,'auto outcomes are excluded');
   const post='select public.post_minuta_unposted_visit_payment_v1($1,$2,$3,$4,$5,$6)';
@@ -84,7 +88,7 @@ try {
   assert.equal(await scalar('select completion_source from public.booking_outcomes where booking_id=$1',[auto]),'auto','finance-disabled failure is also atomic');
   await scalar('select public.set_minuta_finance_enabled_v129($1,true)',[org]);
   assert.equal(await scalar("select has_function_privilege('authenticated','public._post_minuta_visit_payment_v1(uuid,uuid,uuid,uuid,date,text,text)','EXECUTE')"),false);
-  assert.equal(await scalar("select has_function_privilege('anon','public.save_minuta_visit_payment_v1(uuid,text,integer,integer,date,uuid,uuid)','EXECUTE')"),false);
+  assert.equal(await scalar("select has_function_privilege('anon','public.save_minuta_visit_payment_v1(uuid,uuid,text,integer,integer,date,uuid,uuid)','EXECUTE')"),false);
   await db.exec(`select set_config('request.jwt.claim.sub','${outsider}',false);`);
   await rejects(save,[old,'cash',200,null,'2026-09-29',cash,request()],'financial_manager_role_required');
   await rejects('select public.get_minuta_unposted_visit_payments_v1($1,$2,$3,$4)',[org,'2026-10-01','2026-10-18',null],'financial_manager_role_required');
@@ -94,5 +98,5 @@ try {
   assert.equal(Number(await scalar('select count(*) from public.financial_transactions')),count,'populated rollback preserves every transaction');
   assert.equal(await scalar("select pg_get_functiondef('public.save_minuta_booking_outcome_v106(uuid,text,text,integer,integer,text)'::regprocedure)"),original,'legacy writer unchanged');
   await db.exec(migration);
-  console.log('income result PGlite PASS: atomic payment, dates, balance/debt, exact retry, input conflict, failure rollback, manual review, auto exclusion, role/ACL isolation, preservation rollback/reapply; synthetic Auth/digest only');
+  console.log('income result PGlite PASS: atomic payment, dates, balance/debt, exact retry, input conflict, failure rollback, selected organization including dual owner, manual review, auto exclusion, role/ACL isolation, preservation rollback/reapply; synthetic Auth/digest only');
 } finally { await db.close(); }

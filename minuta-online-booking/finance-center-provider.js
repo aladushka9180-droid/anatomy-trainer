@@ -706,7 +706,7 @@
       record._finance = { ...choice, organizationId:organization.id };
     }
     const result = await db.rpc('save_minuta_visit_payment_v1', {
-      p_booking:record.booking_id, p_payment_method:record.payment_method, p_amount_rub:record.amount_rub,
+      p_organization:organization.id, p_booking:record.booking_id, p_payment_method:record.payment_method, p_amount_rub:record.amount_rub,
       p_actual_duration_minutes:record.actual_duration_minutes ?? null,
       p_paid_on:record._finance.paidOn, p_destination_account:record._finance.destinationAccount,
       p_request_id:record._finance.requestId
