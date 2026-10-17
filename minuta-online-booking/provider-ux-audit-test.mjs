@@ -19,7 +19,7 @@ assert.doesNotMatch(html, /<span class="panel-count">v81<\/span>/);
 assert.match(html, /provider-ux.css\?v=\d+/);
 assert.match(read('sw.js'), /provider-ux.css\?v=\d+/);
 assert.match(provider, /newBookingMode === 'block' \? 'Занять время' : occurrenceCount > 1 \? `Создать серию из \$\{occurrenceCount\}` : 'Создать запись'/);
-assert.match(provider, /toolbar\.append\(search\);[\s\S]*if \(filters\) toolbar\.append\(filters\);[\s\S]*toolbar\.append\(tools\);/, 'Компактная панель клиентов должна сохранять порядок: поиск, доступные фильтры, дополнительные инструменты');
+assert.match(provider, /toolbar\.append\(search\);[\s\S]*if\s*\(filters\) toolbar\.append\(filters\);[\s\S]*toolbar\.append\(tools\);/, 'Компактная панель клиентов должна сохранять порядок: поиск, доступные фильтры, дополнительные инструменты');
 assert.match(provider, /panel\.hidden/);
 assert.match(provider, /Стоимость сохранена в оказанных услугах; без отметки оплаты она не входит в получено или подтверждённый долг/);
 assert.match(provider, /forecastCard.hidden = forecast.caption === 'Получено за период'/);
