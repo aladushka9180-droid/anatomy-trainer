@@ -76,6 +76,9 @@ const rejectOnce={rpc:async(name,args)=>{
 }};
 assert.equal((await api.persistVisitPayment({...options,db:rejectOnce,record:rejectedRecord})).noLocalSave,true);
 assert.equal(rejectedRecord._finance.rejected,true,'definite refusal is retained as a barrier to a later legacy fallback');
+const confirmationsBeforeBackground=confirmCount;
+assert.equal((await api.persistVisitPayment({...options,db:rejectOnce,record:rejectedRecord,interactive:false})).noLocalSave,true,'background sync requires an explicit new confirmation after a definite refusal');
+assert.equal(confirmCount,confirmationsBeforeBackground);assert.equal(rejectedRequests.length,1);
 assert.equal((await api.persistVisitPayment({...options,db:rejectOnce,record:rejectedRecord})).ok,true,'a definite refusal allows a fresh date/account confirmation');
 assert.notEqual(rejectedRequests[0].p_request_id,rejectedRequests[1].p_request_id,'a confirmed no-write refusal can start a new attempt');
 console.log('income result source PASS: net/unknown/zero, scoped pending data, no auto posting, atomic RPC routing, stable retry, role/context switches, clear validation and old-backend compatibility');
