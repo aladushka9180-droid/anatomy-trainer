@@ -19,7 +19,7 @@ const sale=(id,day,seller_id=MASTER,organization_id=ORG)=>({id,organization_id,s
 const booking=day=>({id:'visit',organization_id:ORG,performer_id:MASTER,booking_date:day});
 
 function fixture({tables={},timezone='Europe/Samara',period='all',master='all',role='owner',failure='',rpcFailure='',invalidTimezone=false,deferEarliest=false}={}) {
-  const calls=[],queries=[],models=[],errors=[];
+  const calls=[],capabilityCalls=[],queries=[],models=[],errors=[];
   let release, started;
   const blocked=new Promise(resolve=>{release=resolve}), entered=new Promise(resolve=>{started=resolve});
   class Query {
@@ -47,6 +47,10 @@ function fixture({tables={},timezone='Europe/Samara',period='all',master='all',r
     then(resolve,reject){return this.execute().then(resolve,reject);}
   }
   const db={from:table=>new Query(table),rpc:async(name,args)=>{
+    if(name==='get_minuta_manual_expense_edit_capabilities_v1'){
+      capabilityCalls.push(structuredClone(args));
+      return {data:{schema:'minuta-manual-expense-edit-v1',can_edit:false},error:null};
+    }
     calls.push({name,args:structuredClone(args)});
     assert.equal(name,'get_minuta_finance_screen_v163','test must never write');
     if((rpcFailure==='metadata'&&args.p_start===args.p_end)||(rpcFailure==='range'&&args.p_start!==args.p_end))return {data:null,error:{message:'synthetic finance source unavailable'}};
@@ -83,9 +87,9 @@ function fixture({tables={},timezone='Europe/Samara',period='all',master='all',r
   controller.setOrganization({id:ORG,current_role:role});
   const load=controller.load;controller.load=(...args)=>{context.pending=load(...args);return context.pending;};context.financeController=controller;
   vm.runInContext(rangeSource+'\n'+overviewSource,context);
-  return {calls,queries,models,errors,controller,release,entered,context,filterSummary,async run(){vm.runInContext('refreshFinancialOverview()',context);await context.pending;return models.at(-1);}};
+  return {calls,capabilityCalls,queries,models,errors,controller,release,entered,context,filterSummary,async run(){vm.runInContext('refreshFinancialOverview()',context);await context.pending;return models.at(-1);}};
 }
-function checkScope(f,master=null){for(const call of f.calls){assert.equal(call.args.p_organization,ORG);assert.equal(call.args.p_performer,master);assert.ok((new Date(call.args.p_end)-new Date(call.args.p_start))/86400000<=3661);}for(const q of f.queries)assert.ok(q.filters.some(([op,k,v])=>op==='eq'&&k==='organization_id'&&v===ORG),q.table+' must retain explicit organization scope');}
+function checkScope(f,master=null){for(const args of f.capabilityCalls)assert.deepEqual(args,{p_organization:ORG},'capability read keeps the exact organization and never carries a write payload');for(const call of f.calls){assert.equal(call.args.p_organization,ORG);assert.equal(call.args.p_performer,master);assert.ok((new Date(call.args.p_end)-new Date(call.args.p_start))/86400000<=3661);}for(const q of f.queries)assert.ok(q.filters.some(([op,k,v])=>op==='eq'&&k==='organization_id'&&v===ORG),q.table+' must retain explicit organization scope');}
 const priorSale=sale('sale','2026-09-29T09:00:00Z');
 const preVisitTables={bookings:[booking('2026-10-01')],commercial_sales:[sale('sale','2026-09-25T09:00:00Z')],financial_transactions:[transaction('income','2026-09-25T09:00:00Z','commercial_sale',5000,'sale'),transaction('expense','2026-09-26T09:00:00Z','supplier_expense_payment',-1000,'expense')],financial_manual_expenses_v163:[{id:'expense-row',organization_id:ORG,expense_source_id:'expense',category_id:'rent',category_name_snapshot:'Аренда',performer_id:MASTER}]};
 const cases=[];
