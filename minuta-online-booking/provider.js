@@ -14139,7 +14139,7 @@ async function saveBookingOutcome(event){event.preventDefault();if(!requireOutco
 ;const paymentMethod=completed?$('#outcomePaymentMethod').value:'unpaid'
 ;const actualMinutes=completed&&isPerMinuteBooking(item)?Math.max(0,Math.min(1440,Math.round(Number($('#outcomeActualMinutes')?.value)||0))):0
 ;if(completed&&isPerMinuteBooking(item)&&actualMinutes<1){notify('Укажите фактическое время процедуры');return}
-const calculatedAmount=actualMinutes*bookingMinuteRate(item)
+const calculatedAmount=actualMinutes * bookingMinuteRate(item)
 ;const amount=completed&&paymentMethod!=='unpaid'?Math.max(0,Math.round(Number($('#outcomeAmount').value)||0)):0;const record={booking_id:item.id,
 performer_id:userId,visit_status:visitStatus,payment_method:paymentMethod,amount_rub:amount,completion_source:'manual',updated_at:(new Date).toISOString()}
 ;if(isPerMinuteBooking(item)){record.actual_duration_minutes=actualMinutes;record.calculated_amount_rub=calculatedAmount}
