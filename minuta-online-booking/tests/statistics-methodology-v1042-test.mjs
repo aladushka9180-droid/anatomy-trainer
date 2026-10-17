@@ -67,7 +67,7 @@ try {
   assert.match(await page.locator('#reportHealthDetails summary').innerText(), /Индекс-ориентир/);
   assert.match(await page.locator('#reportGoalsScope').innerText(), /организации «Тестовая организация»/);
   assert.match(await page.locator('.report-goals-defaults').innerText(), /70%.*35%.*10%/);
-  assert.match(await page.locator('#reportUtmExplanation').textContent(), /точной меткой utm_source=primetime_external_test/);
+  assert.match(await page.locator('#reportUtmExplanation').textContent(), /точной технической меткой внешнего теста/);
   await page.evaluate(() => {
     reportUtmFunnelState.data.rows = [
       {utm_source:'master',utm_campaign:'free_slots',utm_medium:'link'},

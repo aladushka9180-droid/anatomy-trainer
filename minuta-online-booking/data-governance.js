@@ -212,7 +212,7 @@
           const payload = await call('export_minuta_organization_data_v110', { p_organization: organization.id });
           const date = localIsoDate(new Date());
           const readme = `Выгрузка данных Eldion Pro\nОрганизация: ${organization.name || organization.id}\nСоздана: ${new Date().toLocaleString('ru-RU')}\n\nАрхив содержит персональные данные. Храните его в защищённом месте. Это выборочная выгрузка, а не резервная копия базы данных. Автоматического восстановления из ZIP в кабинете нет.\n`;
-          const archive = zipStore([{ name: `primetime-pro-data-${date}.json`, data: JSON.stringify(payload, null, 2) }, { name: 'README.txt', data: readme }]);
+          const archive = zipStore([{ name: `eldion-pro-data-${date}.json`, data: JSON.stringify(payload, null, 2) }, { name: 'README.txt', data: readme }]);
           downloadBlob(archive, `eldion-pro-export-${date}.zip`);
           exportDialog.close();
           exportConfirm.checked = false;

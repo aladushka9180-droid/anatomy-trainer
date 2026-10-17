@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1096`;
-const CACHE_READY = './.precache-ready-v1096';
+const CACHE = `${CACHE_PREFIX}v1097`;
+const CACHE_READY = './.precache-ready-v1097';
 
 const ASSETS = [
   './provider.html',
@@ -15,7 +15,7 @@ const ASSETS = [
   './ui-icons.svg',
   './styles.css?v=1049',
   './provider-connection-guidance.css?v=1007',
-  './provider-reference-screens.css?v=1096',
+  './provider-reference-screens.css?v=1097',
   './onboarding.css?v=811',
   './visitor-presence.css?v=811',
   './provider-theme-loft-modern.css?v=811',
@@ -36,16 +36,16 @@ const ASSETS = [
   './vendor/supabase-2.112.4.min.js',
   './config.js?v=811',
   './pwa-install.js?v=811',
-  './site-update.js?v=1096',
+  './site-update.js?v=1097',
   './provider-porcelain-preview-guard.js?v=893',
   './reliability.js?v=811',
   './phone-auth.js?v=811',
   './social-auth.js?v=811',
   './organization.js?v=1088',
   './payment-management.js?v=1088',
-  './commerce-management.js?v=1096',
+  './commerce-management.js?v=1097',
   './client-fields.js?v=811',
-  './client-import.js?v=1009',
+  './client-import.js?v=1097',
   './batch-bookings.js?v=811',
   './booking-policy-management.js?v=811',
   './team-calendar.js?v=1004',
@@ -54,22 +54,22 @@ const ASSETS = [
   './booking-widgets.js?v=811',
   './onboarding.js?v=811',
   './provider-read-fetch.js?v=1004',
-  './data-governance.js?v=1022',
+  './data-governance.js?v=1097',
   './report-reconciliation.js?v=811',
   './theme-catalog.js?v=885',
   './provider-color-mode.js?v=811',
   './client-directory.js?v=811',
   './client-results.js?v=876',
   './provider-service-actions.js?v=811',
-  './provider-price-list.js?v=1020',
+  './provider-price-list.js?v=1097',
   './provider-connection-guidance.js?v=1036',
-  './provider.js?v=1096',
+  './provider.js?v=1097',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=1085',
 ];
 
 const OPTIONAL_ASSETS = [
-  './provider-notifications-soft.css?v=1096',
+  './provider-notifications-soft.css?v=1097',
   './provider-notifications-soft.js?v=1085',
   './organization-people.js?v=1085',
   './organization-people.css?v=1085',
@@ -78,44 +78,44 @@ const OPTIONAL_ASSETS = [
   './work-hours-soft.css?v=1085',
   './work-hours-soft.js?v=1085',
   './retention-soft-ui.css?v=1088',
-  './retention-mobile-ui.js?v=1096',
-  './retention-mobile-ui.css?v=1096',
+  './retention-mobile-ui.js?v=1097',
+  './retention-mobile-ui.css?v=1097',
   './benefits-soft-polish.css?v=1085',
   './payment-soft-ui.css?v=1055',
-  './loyalty-soft-ui.css?v=1096',
+  './loyalty-soft-ui.css?v=1097',
   './resources-soft-minimalism.css?v=1',
   './resource-icons.svg?v=1',
-  './payroll-management.js?v=1096',
-  './inventory-soft-ui.css?v=1096',
-  './inventory-soft-ui.js?v=1096',
-  './inventory-management.js?v=1096',
-  './provider-selects.css?v=1096',
-  './provider-selects.js?v=1096',
+  './payroll-management.js?v=1097',
+  './inventory-soft-ui.css?v=1097',
+  './inventory-soft-ui.js?v=1097',
+  './inventory-management.js?v=1097',
+  './provider-selects.css?v=1097',
+  './provider-selects.js?v=1097',
   './commerce-soft-ui.css?v=1053',
   './commerce-soft-ui.js?v=1088',
   './payroll-soft-minimalism.css?v=1053',
   './payroll-soft-minimalism.js?v=1053',
-  './benefit-management.js?v=1096',
-  './retention-management.js?v=1096',
+  './benefit-management.js?v=1097',
+  './retention-management.js?v=1097',
   './payment-review.js?v=1085',
   './organization-overview.css?v=1044',
   './organization-group-navigation.css?v=1085',
   './organization-group-navigation.js?v=1085',
-  './resource-management.js?v=1096',
-  './shift-management.js?v=1096',
-  './team-schedule-ui.js?v=1096',
-  './team-schedule-ui.css?v=1096',
-  './schedule-flat.css?v=1096',
-  './schedule-break-icons.js?v=1096',
-  './provider-clients-premium.css?v=1096',
-  './client-directory-soft.js?v=1096',
+  './resource-management.js?v=1097',
+  './shift-management.js?v=1097',
+  './team-schedule-ui.js?v=1097',
+  './team-schedule-ui.css?v=1097',
+  './schedule-flat.css?v=1097',
+  './schedule-break-icons.js?v=1097',
+  './provider-clients-premium.css?v=1097',
+  './client-directory-soft.js?v=1097',
   './client-loyalty-frames.css?v=3',
   './client-loyalty-frames.js?v=3',
   './client-profile-card.css?v=2',
-  './client-profile-card.js?v=1096',
-  './provider-status-theme.css?v=1096',
-  './new-booking-card.css?v=1096',
-  './new-booking-card.js?v=1096',
+  './client-profile-card.js?v=1097',
+  './provider-status-theme.css?v=1097',
+  './new-booking-card.css?v=1097',
+  './new-booking-card.js?v=1097',
   './assets/loyalty/frames-v1.png',
   './assets/loyalty/frame-100-v1.png',
   './booking-detail-card.css?v=3',
@@ -125,7 +125,7 @@ const OPTIONAL_ASSETS = [
   './statistics-audit-ui.css?v=1085',
   './statistics-audit-ui.js?v=1085',
   './report-export-provider.js?v=1085',
-  './statistics-audit-provider.js?v=1085',
+  './statistics-audit-provider.js?v=1097',
   './client-results.css?v=876',
   './provider-porcelain-detail.css?v=1048',
   './provider-schedule-type.css?v=933',
@@ -139,7 +139,7 @@ const OPTIONAL_ASSETS = [
   './client-themes.css?v=885',
   './client-rose-surfaces.css?v=20261007-rose',
   './report-demo-live.js?v=811',
-  './loyalty-program-v166.js?v=1096',
+  './loyalty-program-v166.js?v=1097',
   './provider-schedule-desktop-reference.css?v=1023',
   './settings-nav-scroll.js?v=882',
   './settings-smart-search.js?v=865',
@@ -300,8 +300,8 @@ async function navigationResponse(event) {
   const shell = navigationShell(request);
   const cacheReady = Boolean(await safeCacheMatch(CACHE_READY, { cacheName:CACHE }));
   const cached = cacheReady ? await safeCacheMatch(shell, { cacheName:CACHE }) : undefined;
-  const cachedReload = cached && (request.cache === 'reload' || request.cache === 'no-cache');
-  const networkController = cachedReload ? new AbortController() : null;
+  const cachedNetworkFirst = cached && (shell.startsWith('./help/') || request.cache === 'reload' || request.cache === 'no-cache');
+  const networkController = cachedNetworkFirst ? new AbortController() : null;
   if (networkController && request.signal) {
     if (request.signal.aborted) networkController.abort();
     else request.signal.addEventListener('abort', () => networkController.abort(), { once:true });
@@ -310,8 +310,8 @@ async function navigationResponse(event) {
     if (response.ok) await safeCachePut(shell, response.clone());
     return response;
   });
-  // An explicit reload must deliver the fresh shell in this navigation, not the next one.
-  if (cachedReload) {
+  // Help pages and explicit reloads must deliver the fresh shell in this navigation, not the next one.
+  if (cachedNetworkFirst) {
     let deadline;
     try {
       const fresh = await Promise.race([update, new Promise(resolve => { deadline = setTimeout(() => { networkController.abort(); resolve(null); }, 4000); })]);

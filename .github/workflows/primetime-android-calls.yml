@@ -1,4 +1,4 @@
-name: PrimeTime Android APKs
+name: Eldion Android APKs
 
 on:
   push:
@@ -41,7 +41,7 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: PrimeTime-Pro-calls-debug
+          name: Eldion-Pro-calls-debug
           path: android/primetime-calls/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -68,7 +68,7 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: PrimeTime-client-debug
+          name: Eldion-client-debug
           path: android/primetime-client/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30

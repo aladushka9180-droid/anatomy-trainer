@@ -34,6 +34,7 @@ for (const name of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-
 const publicBrandFiles = [
   '404.html', 'offline.html', 'privacy.html', 'terms.html', 'speech-test.html',
   'provider.html', 'provider.webmanifest', 'provider.js', 'data-governance.js',
+  'client-import.js', 'provider-price-list.js', 'statistics-audit-provider.js',
   'free-slots-share.js', 'retention-management.js', 'voice-assistant.js', 'notify-health-failure.mjs', 'production-health-check.mjs',
   'help/index.html', 'help/category.html', 'help/article.html', 'help/help.js',
   'help/category.js', 'help/article.js', 'help/help-data.js',
@@ -68,10 +69,21 @@ assert.match(read('provider-icon.svg'), /<path[^>]+fill="#f6fbf7"/);
 assert.match(read('provider-icon-maskable.svg'), /<path[^>]+fill="#f6fbf7"/);
 assert.match(read('data-governance.js'), /eldion-pro-bookings-/);
 assert.match(read('data-governance.js'), /eldion-pro-export-/);
+assert.match(read('data-governance.js'), /eldion-pro-data-/);
 assert.match(read('free-slots-share.js'), /eldion-pro-booking-qr\.png/);
 assert.match(read('voice-assistant.js'), /праймтайм\(\?:\\s\+про\)\?/);
 assert.match(read('voice-assistant.js'), /primetime\(\?:\\s\+pro\)\?/);
 assert.match(read('provider.js'), /ОТЧЁТ ELDION PRO/);
+
+for (const [module, name] of [['primetime-calls', 'Eldion Pro'], ['primetime-client', 'Eldion']]) {
+  const strings = readProject(`android/${module}/app/src/main/res/values/strings.xml`);
+  assert.ok(strings.includes(`<string name="app_name">${name}</string>`), `${module}: неверное имя приложения`);
+  assert.doesNotMatch(strings, /PrimeTime/i, `${module}: старый бренд в пользовательских строках`);
+}
+for (const file of ['minuta-online-booking/README.md', 'minuta-online-booking/PRIMETIME_PRO_ROADMAP.md', 'android/primetime-calls/README.md', 'android/primetime-client/README.md']) {
+  assert.doesNotMatch(readProject(file), /PrimeTime(?: Pro)?/, `${file}: старый бренд в актуальной инструкции`);
+}
+assert.equal(JSON.parse(read('roadmap/plan.json')).product, 'Eldion Pro');
 
 const rootNotFound = readProject('404.html');
 assert.match(rootNotFound, /Страница не найдена — Eldion Pro/);
@@ -93,4 +105,4 @@ const providerJsVersion = provider.match(/<script src="provider\.js\?v=(\d+)" de
 assert.ok(providerJsVersion, 'У кабинета нет версионированного provider.js');
 assert.ok(worker.includes(`'./provider.js?v=${providerJsVersion}'`), 'provider.js не согласован с service worker');
 
-console.log(`PrimeTime Pro brand v${release}: PASS (${publicBrandFiles.length} public text surfaces)`);
+console.log(`Eldion Pro brand v${release}: PASS (${publicBrandFiles.length} public text surfaces, Android names and current guides)`);

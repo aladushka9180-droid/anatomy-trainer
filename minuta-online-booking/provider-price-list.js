@@ -77,7 +77,7 @@
       }
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error('image export failed');
-      files.push(new File([blob], `primetime-price-list-${page + 1}.png`, { type:'image/png' }));
+      files.push(new File([blob], `eldion-pro-price-list-${page + 1}.png`, { type:'image/png' }));
     }
     return files;
   }

@@ -139,7 +139,7 @@
     }
     return {
       kind,format,content,mediaType,rowCount:rows.length,datasetRevision,containsPersonalData:true,
-      filename:`primetime-pro-${kind}-${day}.${format}`
+      filename:`eldion-pro-${kind}-${day}.${format}`
     };
   }
 
