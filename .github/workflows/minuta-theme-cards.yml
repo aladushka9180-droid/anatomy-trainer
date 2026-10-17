@@ -159,21 +159,21 @@ jobs:
         with:
           name: minuta-approved-safe-routes
           path: |
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-pink-porcelain-390.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-pink-porcelain-760.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-pink-porcelain-1440.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-noir-rose-390.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-noir-rose-760.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-noir-rose-1440.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-midnight-390.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-midnight-760.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-midnight-1440.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-sage-390.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-sage-760.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/new-booking/service-trigger-sage-1440.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/appearance/appearance-settings-390.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/appearance/appearance-settings-760.png
-            ${{ runner.temp }}/theme-regression/approved-safe-routes/appearance/appearance-settings-1440.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-pink-porcelain-390.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-pink-porcelain-760.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-pink-porcelain-1440.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-noir-rose-390.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-noir-rose-760.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-noir-rose-1440.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-midnight-390.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-midnight-760.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-midnight-1440.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-sage-390.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-sage-760.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/new-booking/service-trigger-sage-1440.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/appearance/appearance-settings-390.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/appearance/appearance-settings-760.png
+            ${{ env.MINUTA_THEME_OUTPUT }}/approved-safe-routes/appearance/appearance-settings-1440.png
           if-no-files-found: error
       - name: Upload visual regression evidence
         if: failure()
