@@ -125,13 +125,14 @@ for (const reason of ['cancelled','noLocalSave']) test(`payment ${reason} preser
   assert.equal(fields['#outcomeAmount'].value,'1500');assert.equal(button.disabled,false);
   assert.deepEqual(notices,reason==='cancelled'?[]:['Проверьте дату оплаты']);
 });
-for (const storage of ['available','quota','mismatch']) for (const mode of ['retry','thrown-response','adapter-reload','stored-reload','capability-missing','finance-disabled','older-adapter','organization-change','changed-amount','changed-method']) {
+for (const storage of ['available','quota','mismatch']) for (const mode of ['retry','thrown-response','inflight-edit','adapter-reload','stored-reload','capability-missing','finance-disabled','older-adapter','organization-change','changed-amount','changed-method']) {
   if(mode==='stored-reload'&&storage!=='available')continue;
   test(`actual payment form retry: ${mode}, storage ${storage}`,async()=>{
     const stored=storage==='available';let serialized;
     const actor='10000000-0000-4000-8000-000000000001',org='20000000-0000-4000-8000-000000000001';
     const id='30000000-0000-4000-8000-000000000001',account='40000000-0000-4000-8000-000000000001';
     const receipts=new Map(),requests=[],legacy=[],notices=[];
+    let releaseFirst;const firstResponse=new Promise(resolve=>{releaseFirst=resolve;});
     let active={id:org,current_role:'owner'},capability=true,enabled=true,confirmations=0;
     const fields={'#outcomeVisitStatus':{value:'completed'},'#outcomePaymentMethod':{value:'cash'},'#outcomeAmount':{value:'1500'}};
     const old={visit_status:'scheduled'},button={disabled:false,textContent:'Сохранить результат',isConnected:true};
@@ -147,15 +148,23 @@ for (const storage of ['available','quota','mismatch']) for (const mode of ['ret
         if(name==='get_minuta_visit_payment_capabilities_v1')return capability?{data:{schema:'minuta-visit-payment-v1',organization_id:org,enabled,today:'2026-10-18',accounts:[{id:account,name:'Касса',type:'cash'}]}}:{error:{code:'PGRST202'}};
         if(name!=='save_minuta_visit_payment_v1'){legacy.push(name);throw new Error('legacy writer is forbidden after an atomic attempt');}
         requests.push(JSON.parse(JSON.stringify(params)));
+        const attempt=requests.length;if(mode==='inflight-edit'&&attempt===1)await firstResponse;
         if(!receipts.has(params.p_request_id))receipts.set(params.p_request_id,{id:'60000000-0000-4000-8000-000000000001',organization_id:org,outcome:{booking_id:id,visit_status:'completed',completion_source:'manual',payment_method:'cash',amount_rub:1500}});
-        if(requests.length===1){if(mode==='thrown-response')throw new Error('lost response');return {error:{message:'lost response'}};}
+        if(attempt===1){if(mode==='thrown-response')throw new Error('lost response');return {error:{message:'lost response'}};}
         return {data:receipts.get(params.p_request_id)};
       },from(){legacy.push('table upsert');throw new Error('legacy table write is forbidden');}},
       MinutaFinanceCenter:{confirmVisitPayment:async()=>{confirmations++;return {requestId:webcrypto.randomUUID(),paidOn:'2026-10-10',destinationAccount:account};}}
     });
     vm.runInContext(readFileSync(new URL('../finance-center-provider.js',import.meta.url),'utf8'),box);
     const submit=()=>box.saveBookingOutcome({preventDefault(){},currentTarget:form(),submitter:button});
-    await submit();
+    const firstSubmit=submit();
+    if(mode==='inflight-edit'){
+      while(!requests.length)await new Promise(resolve=>setImmediate(resolve));
+      fields['#outcomeAmount'].value='2000';await submit();
+      assert.equal(requests.length,1,'in-flight input is immutable before any response has been received');
+      fields['#outcomeAmount'].value='1500';releaseFirst();
+    }
+    await firstSubmit;
     assert.equal(requests.length,1);assert.equal(receipts.size,1);assert.equal(confirmations,1);
     assert.equal(box.MinutaVisitPaymentRetries.get(actor+id).requestId,requests[0].p_request_id,'retry is owned before relying on browser storage');
     if(!stored)assert.equal(box.bookingOutcomes.get(id),old,'storage rejection restores the old business result while retaining retry ownership');
@@ -170,7 +179,7 @@ for (const storage of ['available','quota','mismatch']) for (const mode of ['ret
     if(mode==='changed-method')fields['#outcomePaymentMethod'].value='transfer';
     await submit();
     assert.equal(legacy.length,0,'a fresh form record never falls back after an unresolved atomic write');
-    if(!['retry','thrown-response','adapter-reload','stored-reload'].includes(mode)){
+    if(!['retry','thrown-response','inflight-edit','adapter-reload','stored-reload'].includes(mode)){
       assert.equal(requests.length,1,'context/adapter/input change sends no new atomic write');
       assert.equal(box.MinutaVisitPaymentRetries.get(actor+id).requestId,requests[0].p_request_id);
       capability=true;enabled=true;box.MinutaFinanceProvider=adapter;active={id:org,current_role:'owner'};fields['#outcomeAmount'].value='1500';fields['#outcomePaymentMethod'].value='cash';

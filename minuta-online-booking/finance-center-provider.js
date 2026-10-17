@@ -694,7 +694,7 @@
     if (record._finance?.actorId && record._finance.actorId !== record.performer_id) return { ok:false, cancelled:true };
     const retryKey = String(record.performer_id || '') + record.booking_id;
     const input = { method:record.payment_method, amount:record.amount_rub, minutes:record.actual_duration_minutes ?? null, status:record.visit_status, source:record.completion_source };
-    if (record._finance?.uncertain && record._finance.input && JSON.stringify(record._finance.input) !== JSON.stringify(input))
+    if (record._finance && !record._finance.rejected && record._finance.input && JSON.stringify(record._finance.input) !== JSON.stringify(input))
       return { ok:false, noLocalSave:true, error:{ message:'Предыдущая оплата ещё не подтверждена. Верните прежние данные визита, чтобы проверить её сохранение.' } };
     if (record.completion_source !== 'manual' || record.visit_status !== 'completed'
       || !['cash','transfer'].includes(record.payment_method) || !(record.amount_rub > 0)
