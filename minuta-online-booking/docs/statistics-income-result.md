@@ -39,8 +39,11 @@ original request, date and destination account.
 
 An in-memory actor/booking index owns the unresolved envelope independently
 of the optional adapter namespace and browser storage. Its organization and
-submitted input are bound to that attempt. Every real form submit restores
-the envelope from this index or the durable pending outcome. Changing the
+submitted input are bound to that attempt. The common outcome persistence
+boundary restores this envelope before the optional adapter, eligibility or
+legacy writer. Form, quick completion, automatic completion and old pending
+sync therefore share the barrier. Offline form saves pass the same boundary
+and preserve the envelope in their pending record. Changing the
 selected organization cannot hide an unresolved attempt and enable a legacy
 write. Quota/mismatched storage, reopened forms and adapter reloads retain the
 same UUID/date/account. Changed input must be resolved first; a verified

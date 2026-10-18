@@ -13872,7 +13872,7 @@ async function loadBookingOutcomes() {
   return { ok: !error, optional: true };
 }
 
-async function persistBookingOutcome(record,options={}){const finance=await(window.MinutaFinanceProvider?.persistVisitPayment?.({db,record,...options,
+async function persistBookingOutcome(record,options={}){record._finance||=window.MinutaVisitPaymentRetries?.get(currentUser?.id+record.booking_id)||bookingOutcomes.get(record.booking_id)?._finance;if(!navigator.onLine)return{ok:false,error:{message:'offline'}};const finance=await(window.MinutaFinanceProvider?.persistVisitPayment?.({db,record,...options,
 getOrganization:()=>organizationController?.getActiveOrganization?.(),isCurrent:captureBookingMetadataContext()}));if(finance)return finance;if(record._finance)return{ok:false,cancelled:true}
 ;const clean=cleanOutcomeRecord(record);delete clean._finance;let{data,error}=await db.rpc('save_minuta_booking_outcome_v106',{p_booking:clean.booking_id,
 p_visit_status:clean.visit_status,p_payment_method:clean.payment_method,p_amount_rub:clean.amount_rub,
@@ -14141,11 +14141,11 @@ async function saveBookingOutcome(event){event.preventDefault();if(!requireOutco
 ;if(completed&&isPerMinuteBooking(item)&&actualMinutes<1){notify('Укажите фактическое время процедуры');return}
 const calculatedAmount=actualMinutes * bookingMinuteRate(item)
 ;const amount=completed&&paymentMethod!=='unpaid'?Math.max(0,Math.round(Number($('#outcomeAmount').value)||0)):0;const record={booking_id:item.id,
-performer_id:userId,_finance:window.MinutaVisitPaymentRetries?.get(userId+item.id)||bookingOutcomes.get(item.id)?._finance,visit_status:visitStatus,payment_method:paymentMethod,amount_rub:amount,completion_source:'manual',updated_at:(new Date).toISOString()}
+performer_id:userId,visit_status:visitStatus,payment_method:paymentMethod,amount_rub:amount,completion_source:'manual',updated_at:(new Date).toISOString()}
 ;if(isPerMinuteBooking(item)){record.actual_duration_minutes=actualMinutes;record.calculated_amount_rub=calculatedAmount}
 const button=event.submitter||form.querySelector('button[type="submit"]');if(button){button.disabled=true;button.textContent='Сохраняем…'}let result
-;if(!navigator.onLine)result={ok:false,error:{message:'offline'}};else{try{result=await persistBookingOutcome(record,{interactive:true})}catch(error){result={
-ok:false,error}}}if(!sessionIsCurrent(userId,generation))return;if(window.MinutaFinanceProvider?.finishVisitPaymentSave?.(result,button,notify))return
+;try{result=await persistBookingOutcome(record,{interactive:true})}catch(error){result={
+ok:false,error}}if(!sessionIsCurrent(userId,generation))return;if(window.MinutaFinanceProvider?.finishVisitPaymentSave?.(result,button,notify))return
 ;const previousOutcome=bookingOutcomes.get(item.id);bookingOutcomes.set(item.id,result.ok?cleanOutcomeRecord({...record,...result.outcome||{}
 }):pendingOutcomeRecord(record,result.error));const locallySaved=writeLocalOutcomes();if(button?.isConnected!==false){button.disabled=false
 ;button.textContent='Сохранить результат'}if(!result.ok&&!locallySaved){

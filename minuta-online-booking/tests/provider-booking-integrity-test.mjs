@@ -80,6 +80,7 @@ test('older finance module preserves the legacy outcome writer during rollout',a
   const calls=[];
   const box=context(['persistBookingOutcome','cleanOutcomeRecord'],{
     MinutaFinanceProvider:{createController(){}},outcomesRemoteAvailable:false,
+    currentUser:{id:'owner'},bookingOutcomes:new Map(),navigator:{onLine:true},
     captureBookingMetadataContext:()=>{throw new Error('missing optional bridge must not evaluate its arguments');},
     db:{rpc:async(name,params)=>{calls.push({name,params});return {data:{booking_id:'b',visit_status:'completed'}};}}
   });
@@ -125,7 +126,7 @@ for (const reason of ['cancelled','noLocalSave']) test(`payment ${reason} preser
   assert.equal(fields['#outcomeAmount'].value,'1500');assert.equal(button.disabled,false);
   assert.deepEqual(notices,reason==='cancelled'?[]:['Проверьте дату оплаты']);
 });
-for (const storage of ['available','quota','mismatch']) for (const mode of ['retry','thrown-response','inflight-edit','adapter-reload','stored-reload','capability-missing','finance-disabled','older-adapter','organization-change','changed-amount','changed-method']) {
+for (const storage of ['available','quota','mismatch']) for (const mode of ['retry','thrown-response','inflight-edit','adapter-reload','stored-reload','capability-missing','finance-disabled','older-adapter','organization-change','changed-amount','changed-method','backgrounds-ready','backgrounds-capability-missing','backgrounds-older-adapter','offline-edit']) {
   if(mode==='stored-reload'&&storage!=='available')continue;
   test(`actual payment form retry: ${mode}, storage ${storage}`,async()=>{
     const stored=storage==='available';let serialized;
@@ -137,10 +138,11 @@ for (const storage of ['available','quota','mismatch']) for (const mode of ['ret
     const fields={'#outcomeVisitStatus':{value:'completed'},'#outcomePaymentMethod':{value:'cash'},'#outcomeAmount':{value:'1500'}};
     const old={visit_status:'scheduled'},button={disabled:false,textContent:'Сохранить результат',isConnected:true};
     const form=()=>({dataset:{bookingId:id},querySelector(selector){return selector==='[data-outcome-save-error]'?this.error:button;},append(node){this.error=node;}});
-    const box=context(['saveBookingOutcome','persistBookingOutcome','cleanOutcomeRecord','pendingOutcomeRecord','writeLocalOutcomes'],{
+    const box=context(['saveBookingOutcome','persistBookingOutcome','cleanOutcomeRecord','pendingOutcomeRecord','writeLocalOutcomes','quickCompleteBookingOutcome','applyAutomaticVisitOutcomes','syncPendingBookingOutcomes','completedOutcomeDraft','bookingOutcome'],{
       crypto:webcrypto,requireOutcomeWrites:()=>true,currentUser:{id:actor},sessionGeneration:1,sessionIsCurrent:()=>true,navigator:{onLine:true},
       allBookings:[{...booking,id,performer_id:actor}],$:selector=>fields[selector],isPerMinuteBooking:()=>false,bookingMinuteRate:()=>0,
       captureBookingMetadataContext:()=>()=>true,organizationController:{getActiveOrganization:()=>active},outcomesRemoteAvailable:false,
+      requireWrites:()=>true,writesAllowed:true,isScheduleBlock:()=>false,bookingSessionEnd:()=>new Date('2020-01-01'),bookingCalculatedValue:()=>1000,autoCompletePaymentMethod:()=> 'cash',bookingPolicy:{auto_complete_visits:true},
       bookingOutcomes:new Map([[id,old]]),outcomeStorageKey:()=>`outcomes-${actor}`,notify:message=>notices.push(message),
       localStorage:{setItem(_key,value){if(storage==='quota')throw new DOMException('Quota','QuotaExceededError');serialized=value;},getItem(){return storage==='mismatch'?'{}':serialized;}},
       document:{createElement:()=>({dataset:{},setAttribute(){}})},renderBookings(){},renderClients(){},renderAnalytics(){},openBookingSheet(){},
@@ -177,9 +179,34 @@ for (const storage of ['available','quota','mismatch']) for (const mode of ['ret
     if(mode==='organization-change')active={id:'20000000-0000-4000-8000-000000000002',current_role:'owner'};
     if(mode==='changed-amount')fields['#outcomeAmount'].value='2000';
     if(mode==='changed-method')fields['#outcomePaymentMethod'].value='transfer';
+    if(mode.startsWith('backgrounds-')){
+      if(mode.endsWith('capability-missing'))capability=false;
+      if(mode.endsWith('older-adapter'))box.MinutaFinanceProvider={createController(){}};
+      const employee='90000000-0000-4000-8000-000000000002';box.allBookings[0].performer_id=employee;
+      const writers=[
+        ['quick',()=>box.quickCompleteBookingOutcome({dataset:{quickCompleteBooking:id},disabled:false,textContent:'Завершить'})],
+        ['automatic',()=>box.applyAutomaticVisitOutcomes()],
+        ['old-pending-sync',()=>box.syncPendingBookingOutcomes()],
+        ['fresh-boundary',()=>box.persistBookingOutcome({booking_id:id,performer_id:employee,visit_status:'completed',payment_method:'cash',amount_rub:1000,completion_source:'auto'})]
+      ];
+      for(const [name,write] of writers){
+        box.bookingOutcomes.set(id,{booking_id:id,performer_id:employee,visit_status:'scheduled',payment_method:'unpaid',amount_rub:0,completion_source:'manual',_sync_pending:true});
+        await write();
+        assert.equal(legacy.length,0,`${name} cannot bypass unresolved ownership`);
+        assert.equal(requests.length,1,`${name} cannot change the pending payment`);
+        assert.equal(confirmations,1,`${name} never opens a new payment confirmation`);
+        assert.equal(box.MinutaVisitPaymentRetries.get(actor+id).requestId,requests[0].p_request_id,`${name} retains the original request`);
+      }
+    }
+    if(mode==='offline-edit'){
+      box.navigator.onLine=false;fields['#outcomeAmount'].value='2000';await submit();
+      assert.equal(requests.length,1);assert.equal(legacy.length,0);
+      if(stored){box.MinutaVisitPaymentRetries.clear();box.bookingOutcomes=new Map(Object.entries(JSON.parse(serialized)));}
+      box.navigator.onLine=true;fields['#outcomeAmount'].value='1500';
+    }
     await submit();
     assert.equal(legacy.length,0,'a fresh form record never falls back after an unresolved atomic write');
-    if(!['retry','thrown-response','inflight-edit','adapter-reload','stored-reload'].includes(mode)){
+    if(!['retry','thrown-response','inflight-edit','adapter-reload','stored-reload','offline-edit','backgrounds-ready'].includes(mode)){
       assert.equal(requests.length,1,'context/adapter/input change sends no new atomic write');
       assert.equal(box.MinutaVisitPaymentRetries.get(actor+id).requestId,requests[0].p_request_id);
       capability=true;enabled=true;box.MinutaFinanceProvider=adapter;active={id:org,current_role:'owner'};fields['#outcomeAmount'].value='1500';fields['#outcomePaymentMethod'].value='cash';
@@ -196,10 +223,10 @@ test('offline outcome is accepted locally and queued without a server request',a
   const button={disabled:false,textContent:'Сохранить результат',isConnected:true};
   const form={dataset:{bookingId:'b'},querySelector(selector){return selector==='button[type="submit"]'?button:null;},append(){}};
   const fields={'#outcomeVisitStatus':{value:'completed'},'#outcomePaymentMethod':{value:'cash'},'#outcomeAmount':{value:'3000'}};
-  const box=context(['saveBookingOutcome','cleanOutcomeRecord','pendingOutcomeRecord'],{
+  const box=context(['saveBookingOutcome','persistBookingOutcome','cleanOutcomeRecord','pendingOutcomeRecord'],{
     requireOutcomeWrites:()=>true,currentUser:{id:'owner'},sessionGeneration:1,sessionIsCurrent:()=>true,navigator:{onLine:false},MinutaFinanceProvider:{createController(){}},
     allBookings:[booking],$:id=>fields[id],isPerMinuteBooking:()=>false,bookingMinuteRate:()=>0,
-    persistBookingOutcome:async()=>{remoteCalls++;return{ok:true};},writeLocalOutcomes:()=>true,
+    db:{rpc:async()=>{remoteCalls++;throw new Error('offline must not dispatch');}},writeLocalOutcomes:()=>true,
     bookingOutcomes:new Map(),notify:message=>notices.push(message),
     renderBookings:()=>rendered.push('bookings'),renderClients:()=>rendered.push('clients'),renderAnalytics:()=>rendered.push('analytics'),openBookingSheet:()=>rendered.push('sheet')
   });
