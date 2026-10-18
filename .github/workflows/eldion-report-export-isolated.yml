@@ -1,0 +1,146 @@
+name: Eldion isolated L1 resource qualification
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit:
+        description: Exact reviewed Source commit; separate one-attempt admission required
+        required: true
+        type: string
+permissions: {}
+jobs:
+  resource-l1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: One admitted fixed root resource entry
+        timeout-minutes: 7
+        shell: bash
+        env:
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          set -euo pipefail
+          /usr/bin/python3.12 -I -S -B <<'ELDION_L1_SOURCE_CARRIER'
+          """Future ordinary-user carrier. Inert until the reviewed workflow derivation.
+          
+          It fetches only two exact public Source blobs of its own expected commit,
+          checks their byte pins, and hands the sealed packet to one fixed root entry.
+          No native implementation/guest/application is imported by this carrier.
+          """
+          CARRIER_POLICY = {'packet': {'bytes': 289438, 'sha256': '5f5deefbc4f40366774f6f95c8984b7def6b06fa8c6d3e50c2a088d79c29416b'}, 'bootstrap': {'bytes': 24345, 'sha256': '304ef3845606718551103909054755afc0355e1719fb74f928d8d4366fbdbafe'}, 'contract': (b'"""Pure L1 entry selection. A matching record never grants native authority.\n\nNo imports, environment reads, process creation or native calls at import.\nThe reviewed entry must obtain a genuine live issuer separately; these values\nonly correlate that owner with the one future GitHub run.\n"""\n\nREPOSITORY = \'aladushka9180-droid/anatomy-trainer\'\nWORKFLOW_PATH = \'.github/workflows/eldion-report-export-isolated.yml\'\nBRANCH = \'codex/eldion-ci-resource-diag-20261018-r1\'\nJOB = \'resource-l1\'\nINTERPRETER = \'/usr/bin/python3.12\'\nINTERPRETER_BYTES = 8020928\nINTERPRETER_SHA256 = \'e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f\'\nPRESERVED_ENV = (\n    \'GITHUB_REPOSITORY\', \'GITHUB_RUN_ID\', \'GITHUB_RUN_ATTEMPT\',\n    \'GITHUB_JOB\', \'GITHUB_SHA\', \'GITHUB_WORKFLOW_REF\',\n    \'GITHUB_WORKFLOW_SHA\', \'RUNNER_TRACKING_ID\',\n)\n\n\nclass EntryHold(RuntimeError):\n    def __init__(self, code):\n        self.code = code\n        super().__init__(\'L1_ENTRY_\' + code)\n\n\ndef need(value, code):\n    if not value:\n        raise EntryHold(code)\n\n\ndef sha_shape(value):\n    return (type(value) is str and len(value) == 40 and\n            all(c in \'0123456789abcdef\' for c in value))\n\n\ndef select_job_context(environment, expected_head):\n    """Select closed current-run identifiers, not an admission token.\n\n    The expected commit is the single exact input from Root\'s future dispatch.\n    Its equality to environment values still requires independent run/job\n    intake. Never return a boolean suggesting native authority was established.\n    """\n    need(type(environment) is dict, \'ENVIRONMENT_SHAPE\')\n    need(sha_shape(expected_head), \'EXPECTED_HEAD_UNBOUND\')\n    need(environment.get(\'GITHUB_REPOSITORY\') == REPOSITORY, \'REPOSITORY\')\n    need(environment.get(\'GITHUB_JOB\') == JOB, \'JOB\')\n    need(environment.get(\'GITHUB_RUN_ATTEMPT\') == \'1\', \'ATTEMPT\')\n    run_id = environment.get(\'GITHUB_RUN_ID\')\n    need(type(run_id) is str and 1 <= len(run_id) <= 20 and\n         run_id[0] in \'123456789\' and all(c in \'0123456789\' for c in run_id),\n         \'RUN_ID\')\n    need(environment.get(\'GITHUB_SHA\') == expected_head and\n         environment.get(\'GITHUB_WORKFLOW_SHA\') == expected_head, \'HEAD\')\n    workflow_ref = REPOSITORY + \'/\' + WORKFLOW_PATH + \'@refs/heads/\' + BRANCH\n    need(environment.get(\'GITHUB_WORKFLOW_REF\') == workflow_ref, \'WORKFLOW_REF\')\n    tracking = environment.get(\'RUNNER_TRACKING_ID\')\n    need(type(tracking) is str and 1 <= len(tracking) <= 256 and\n         all(33 <= ord(c) <= 126 for c in tracking), \'TRACKING_NOT_PRESERVED\')\n    return {\n        \'repository\': REPOSITORY, \'workflowPath\': WORKFLOW_PATH,\n        \'branch\': BRANCH, \'head\': expected_head, \'runId\': run_id,\n        \'runAttempt\': 1, \'jobKey\': JOB,\n    }\n\n\ndef fixed_root_command(bootstrap, expected_bootstrap_sha256, digest, expected_head=None):\n    """Describe one prospective root entry; this function never executes it.\n\n    Only the independently pinned fixed bootstrap may occupy -c. No shell,\n    source path, arbitrary program, preserved secrets or fallback is accepted.\n    The bootstrap\'s loader separately checks its finite input packet.\n    """\n    need(sha_shape(expected_head), \'EXPECTED_HEAD_UNBOUND\')\n    need(type(bootstrap) is bytes and 0 < len(bootstrap) <= 32768,\n         \'BOOTSTRAP_BOUND\')\n    need(type(expected_bootstrap_sha256) is str and\n         len(expected_bootstrap_sha256) == 64 and\n         all(c in \'0123456789abcdef\' for c in expected_bootstrap_sha256),\n         \'BOOTSTRAP_PIN\')\n    need(digest(bootstrap) == expected_bootstrap_sha256, \'BOOTSTRAP_DRIFT\')\n    try:\n        text = bootstrap.decode(\'ascii\')\n    except (UnicodeError, ValueError):\n        raise EntryHold(\'BOOTSTRAP_ASCII\') from None\n    need(\'\\x00\' not in text, \'BOOTSTRAP_NUL\')\n    return (\n        \'/usr/bin/sudo\', \'-n\', \'--preserve-env=\' + \',\'.join(PRESERVED_ENV),\n        \'--\', INTERPRETER, \'-I\', \'-S\', \'-B\', \'-c\', text, expected_head,\n    )\n\n\ndef source_status():\n    return {\n        \'format\': \'eldion-l1-entry-source-status-r1\',\n        \'sourceOnly\': True, \'actualNativeAdmission\': False,\n        \'sudoAvailabilityObservedInO0\': False,\n        \'rootEntryExecuted\': False, \'futureJobBindingAccepted\': False,\n        \'resourceAuthorityAccepted\': False,\n        \'nativeQualificationAccepted\': False,\n    }\n', '71ca08a83f5fd7c23fc2c625f84d9b973342329d2fc73778bb1d370fb9a8b320')}
+          
+          
+          def main():
+              if CARRIER_POLICY is None:
+                  return {'format': 'eldion-l1-carrier-r1', 'status': 'SOURCE_UNBOUND',
+                          'rootAttempted': False, 'nativeQualificationAccepted': False}
+              import fcntl
+              import hashlib
+              import json
+              import os
+              import stat
+              import sys
+              import types
+              import urllib.request
+          
+              memfd = None
+              executable_fd = None
+              root_attempted = False
+              try:
+                  policy = CARRIER_POLICY
+                  if type(policy) is not dict or set(policy) != {'packet', 'bootstrap', 'contract'}:
+                      raise RuntimeError('CARRIER_POLICY')
+                  contract_raw, contract_sha = policy['contract']
+                  if hashlib.sha256(contract_raw).hexdigest() != contract_sha:
+                      raise RuntimeError('CARRIER_CONTRACT_PIN')
+                  contract = types.ModuleType('entry_contract')
+                  exec(compile(contract_raw, '<fixed-carrier-entry-contract>', 'exec'), contract.__dict__)
+                  head = os.environ.get('EXPECTED_COMMIT')
+                  environment = {name: os.environ.get(name) for name in contract.PRESERVED_ENV}
+                  contract.select_job_context(environment, head)
+                  if sys.platform != 'linux' or os.getuid() != 1001 or os.geteuid() != 1001:
+                      raise RuntimeError('CARRIER_USER')
+                  executable_fd = os.open('/proc/self/exe', os.O_RDONLY | os.O_CLOEXEC)
+                  info = os.fstat(executable_fd)
+                  if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022
+                          or info.st_size != contract.INTERPRETER_BYTES):
+                      raise RuntimeError('CARRIER_INTERPRETER')
+                  digest = hashlib.sha256()
+                  offset = 0
+                  while offset < contract.INTERPRETER_BYTES:
+                      part = os.pread(executable_fd, min(65536, contract.INTERPRETER_BYTES - offset), offset)
+                      if not part:
+                          raise RuntimeError('CARRIER_INTERPRETER_SHORT')
+                      offset += len(part)
+                      digest.update(part)
+                  if digest.hexdigest() != contract.INTERPRETER_SHA256:
+                      raise RuntimeError('CARRIER_INTERPRETER_PIN')
+                  os.close(executable_fd)
+                  executable_fd = None
+          
+                  class NoRedirect(urllib.request.HTTPRedirectHandler):
+                      def redirect_request(self, req, fp, code, msg, headers, newurl):
+                          return None
+          
+                  opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+          
+                  def fetch(name, expected, maximum):
+                      if (type(expected) is not dict or set(expected) != {'bytes', 'sha256'}
+                              or type(expected['bytes']) is not int
+                              or not 0 < expected['bytes'] <= maximum):
+                          raise RuntimeError('CARRIER_SOURCE_PIN')
+                      url = ('https://raw.githubusercontent.com/' + contract.REPOSITORY +
+                             '/' + head + '/.eldion-l1/' + name)
+                      with opener.open(url, timeout=15) as response:
+                          if response.status != 200 or response.geturl() != url:
+                              raise RuntimeError('CARRIER_SOURCE_RESPONSE')
+                          raw = response.read(expected['bytes'] + 1)
+                      if (len(raw) != expected['bytes'] or
+                              hashlib.sha256(raw).hexdigest() != expected['sha256']):
+                          raise RuntimeError('CARRIER_SOURCE_DRIFT')
+                      return raw
+          
+                  packet = fetch('PACKET-R1.json', policy['packet'], 1048576)
+                  bootstrap = fetch('fixed-root-bootstrap-r1.py', policy['bootstrap'], 32768)
+                  command = contract.fixed_root_command(
+                      bootstrap, policy['bootstrap']['sha256'],
+                      lambda raw: hashlib.sha256(raw).hexdigest(), head)
+                  sudo_info = os.lstat('/usr/bin/sudo')
+                  if (not stat.S_ISREG(sudo_info.st_mode) or sudo_info.st_uid != 0
+                          or sudo_info.st_mode & 0o022):
+                      raise RuntimeError('CARRIER_SUDO_PLATFORM')
+                  # One anonymous immutable public-Source input, separate from the guest
+                  # private CANCEL/report pipes. Its sole inherited reference is stdin0.
+                  memfd = os.memfd_create('eldion-l1-source', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+                  if os.write(memfd, packet) != len(packet):
+                      raise RuntimeError('CARRIER_PACKET_WRITE')
+                  seals = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
+                  fcntl.fcntl(memfd, fcntl.F_ADD_SEALS, seals)
+                  if fcntl.fcntl(memfd, fcntl.F_GET_SEALS) != seals:
+                      raise RuntimeError('CARRIER_PACKET_SEALS')
+                  os.lseek(memfd, 0, os.SEEK_SET)
+                  os.dup2(memfd, 0, inheritable=True)
+                  os.close(memfd)
+                  memfd = None
+                  # Preserve only the closed8 correlation fields and fixed locale/path.
+                  # No token, input, Source blob or arbitrary caller environment is copied.
+                  env = dict(environment, PATH='/usr/bin:/bin', LANG='C.UTF-8', LC_ALL='C.UTF-8')
+                  root_attempted = True
+                  os.execve('/usr/bin/sudo', command, env)
+              except BaseException:
+                  # A pre-entry failure supplies no native ownership/retirement evidence.
+                  # No retry, installation, credential use, syscall probe or fallback.
+                  data = json.dumps({'format': 'eldion-l1-carrier-r1', 'status': 'HOLD',
+                                     'rootAttempted': root_attempted,
+                                     'nativeQualificationAccepted': False,
+                                     'automaticRetry': False}, separators=(',', ':')).encode('ascii') + b'\n'
+                  try:
+                      os.write(1, data)
+                  except BaseException:
+                      pass
+                  # No root owner was returned to this process; its public Source FD
+                  # copies end with this carrier. This is not L1 cleanup acceptance.
+                  return {'format': 'eldion-l1-carrier-r1', 'status': 'HOLD'}
+          
+          main()
+          ELDION_L1_SOURCE_CARRIER
+          
