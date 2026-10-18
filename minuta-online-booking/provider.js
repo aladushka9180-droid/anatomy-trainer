@@ -13872,41 +13872,19 @@ async function loadBookingOutcomes() {
   return { ok: !error, optional: true };
 }
 
-async function persistBookingOutcome(record) {
-  const clean = cleanOutcomeRecord(record);
-  let { data, error } = await db.rpc('save_minuta_booking_outcome_v106', {
-    p_booking:clean.booking_id,
-    p_visit_status:clean.visit_status,
-    p_payment_method:clean.payment_method,
-    p_amount_rub:clean.amount_rub,
-    p_actual_duration_minutes:clean.actual_duration_minutes ?? null,
-    p_completion_source:clean.completion_source || 'manual'
-  });
-  if (!error) {
-    outcomesRemoteAvailable = true;
-    return { ok:true, outcome:data && typeof data === 'object' ? data : clean };
-  }
-  if (!outcomeRpcMissing(error)) {
-    outcomesRemoteAvailable = false;
-    return { ok:false, error };
-  }
-  ({ error } = await db.from('booking_outcomes').upsert(clean, { onConflict:'booking_id' }));
-  if (error && (Object.hasOwn(record, 'actual_duration_minutes') || Object.hasOwn(record, 'calculated_amount_rub'))) {
-    const compatibleRecord = { ...clean };
-    delete compatibleRecord.actual_duration_minutes;
-    delete compatibleRecord.calculated_amount_rub;
-    ({ error } = await db.from('booking_outcomes').upsert(compatibleRecord, { onConflict:'booking_id' }));
-  }
-  if (error && Object.hasOwn(record, 'completion_source')) {
-    const compatibleRecord = { ...clean };
-    delete compatibleRecord.actual_duration_minutes;
-    delete compatibleRecord.calculated_amount_rub;
-    delete compatibleRecord.completion_source;
-    ({ error } = await db.from('booking_outcomes').upsert(compatibleRecord, { onConflict:'booking_id' }));
-  }
-  outcomesRemoteAvailable = !error;
-  return error ? { ok:false, error } : { ok:true, outcome:clean };
-}
+async function persistBookingOutcome(record,options={}){record._finance||=window.MinutaVisitPaymentRetries?.get(currentUser?.id+record.booking_id)||bookingOutcomes.get(record.booking_id)?._finance;if(!navigator.onLine)return{ok:false,error:{message:'offline'}};const finance=await(window.MinutaFinanceProvider?.persistVisitPayment?.({db,record,...options,
+getOrganization:()=>organizationController?.getActiveOrganization?.(),isCurrent:captureBookingMetadataContext()}));if(finance)return finance;if(record._finance)return{ok:false,cancelled:true}
+;const clean=cleanOutcomeRecord(record);delete clean._finance;let{data,error}=await db.rpc('save_minuta_booking_outcome_v106',{p_booking:clean.booking_id,
+p_visit_status:clean.visit_status,p_payment_method:clean.payment_method,p_amount_rub:clean.amount_rub,
+p_actual_duration_minutes:clean.actual_duration_minutes??null,p_completion_source:clean.completion_source||'manual'});if(!error){outcomesRemoteAvailable=true
+;return{ok:true,outcome:data&&typeof data==='object'?data:clean}}if(!outcomeRpcMissing(error)){outcomesRemoteAvailable=false;return{ok:false,error}}
+({error}=await db.from('booking_outcomes').upsert(clean,{onConflict:'booking_id'}))
+;if(error&&(Object.hasOwn(record,'actual_duration_minutes')||Object.hasOwn(record,'calculated_amount_rub'))){const compatibleRecord={...clean}
+;delete compatibleRecord.actual_duration_minutes;delete compatibleRecord.calculated_amount_rub
+;({error}=await db.from('booking_outcomes').upsert(compatibleRecord,{onConflict:'booking_id'}))}if(error&&Object.hasOwn(record,'completion_source')){
+const compatibleRecord={...clean};delete compatibleRecord.actual_duration_minutes;delete compatibleRecord.calculated_amount_rub
+;delete compatibleRecord.completion_source;({error}=await db.from('booking_outcomes').upsert(compatibleRecord,{onConflict:'booking_id'}))}
+outcomesRemoteAvailable=!error;return error?{ok:false,error}:{ok:true,outcome:clean}}
 
 async function syncPendingBookingOutcomes(userId = currentUser?.id, generation = sessionGeneration) {
   if (!userId || !writesAllowed) return 0;
@@ -14155,63 +14133,29 @@ async function saveBookingVisitResult(event) {
   if (result.ok && result.skipped) notify('Добавьте фото или описание результата');
 }
 
-async function saveBookingOutcome(event) {
-  event.preventDefault();
-  if (!requireOutcomeWrites()) return;
-  const userId = currentUser.id;
-  const generation = sessionGeneration;
-  const form = event.currentTarget;
-  const item = allBookings.find(booking => booking.id === form.dataset.bookingId);
-  if (!item) return;
-  const visitStatus = $('#outcomeVisitStatus').value;
-  const completed = visitStatus === 'completed';
-  const paymentMethod = completed ? $('#outcomePaymentMethod').value : 'unpaid';
-  const actualMinutes = completed && isPerMinuteBooking(item) ? Math.max(0, Math.min(1440, Math.round(Number($('#outcomeActualMinutes')?.value) || 0))) : 0;
-  if (completed && isPerMinuteBooking(item) && actualMinutes < 1) {
-    notify('Укажите фактическое время процедуры');
-    return;
-  }
-  const calculatedAmount = actualMinutes * bookingMinuteRate(item);
-  const amount = completed && paymentMethod !== 'unpaid' ? Math.max(0, Math.round(Number($('#outcomeAmount').value) || 0)) : 0;
-  const record = { booking_id: item.id, performer_id: userId, visit_status: visitStatus, payment_method: paymentMethod, amount_rub: amount, completion_source:'manual', updated_at: new Date().toISOString() };
-  if (isPerMinuteBooking(item)) {
-    record.actual_duration_minutes = actualMinutes;
-    record.calculated_amount_rub = calculatedAmount;
-  }
-  const button = event.submitter || form.querySelector('button[type="submit"]');
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'Сохраняем…';
-  }
-  let result;
-  if (!navigator.onLine) result = { ok:false, error:{ message:'offline' } };
-  else {
-    try { result = await persistBookingOutcome(record); }
-    catch (error) { result = { ok:false, error }; }
-  }
-  if (!sessionIsCurrent(userId, generation)) return;
-  const previousOutcome = bookingOutcomes.get(item.id);
-  bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
-  const locallySaved = writeLocalOutcomes();
-  if (button?.isConnected !== false) {
-    button.disabled = false;
-    button.textContent = 'Сохранить результат';
-  }
-  if (!result.ok && !locallySaved) {
-    if (previousOutcome) bookingOutcomes.set(item.id, previousOutcome); else bookingOutcomes.delete(item.id);
-    let error = form.querySelector('[data-outcome-save-error]');
-    if (!error) { error = document.createElement('p'); error.dataset.outcomeSaveError = ''; error.className = 'form-error'; error.setAttribute('role', 'alert'); form.append(error); }
-    error.hidden = false;
-    error.textContent = 'Не удалось подтвердить сохранение на сервере или устройстве. Данные остались в форме — не закрывайте её и повторите после восстановления связи.';
-    notify('Результат не сохранён. Данные остались в форме.');
-    return;
-  }
-  notify(result.ok ? 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
-  renderBookings();
-  renderClients();
-  renderAnalytics();
-  openBookingSheet(item.id);
-}
+async function saveBookingOutcome(event){event.preventDefault();if(!requireOutcomeWrites())return;const userId=currentUser.id;const generation=sessionGeneration
+;const form=event.currentTarget;const item=allBookings.find(booking=>booking.id===form.dataset.bookingId);if(!item)return
+;const visitStatus=$('#outcomeVisitStatus').value;const completed=visitStatus==='completed'
+;const paymentMethod=completed?$('#outcomePaymentMethod').value:'unpaid'
+;const actualMinutes=completed&&isPerMinuteBooking(item)?Math.max(0,Math.min(1440,Math.round(Number($('#outcomeActualMinutes')?.value)||0))):0
+;if(completed&&isPerMinuteBooking(item)&&actualMinutes<1){notify('Укажите фактическое время процедуры');return}
+const calculatedAmount=actualMinutes * bookingMinuteRate(item)
+;const amount=completed&&paymentMethod!=='unpaid'?Math.max(0,Math.round(Number($('#outcomeAmount').value)||0)):0;const record={booking_id:item.id,
+performer_id:userId,visit_status:visitStatus,payment_method:paymentMethod,amount_rub:amount,completion_source:'manual',updated_at:(new Date).toISOString()}
+;if(isPerMinuteBooking(item)){record.actual_duration_minutes=actualMinutes;record.calculated_amount_rub=calculatedAmount}
+const button=event.submitter||form.querySelector('button[type="submit"]');if(button){button.disabled=true;button.textContent='Сохраняем…'}let result
+;try{result=await persistBookingOutcome(record,{interactive:true})}catch(error){result={
+ok:false,error}}if(!sessionIsCurrent(userId,generation))return;if(window.MinutaFinanceProvider?.finishVisitPaymentSave?.(result,button,notify))return
+;const previousOutcome=bookingOutcomes.get(item.id);bookingOutcomes.set(item.id,result.ok?cleanOutcomeRecord({...record,...result.outcome||{}
+}):pendingOutcomeRecord(record,result.error));const locallySaved=writeLocalOutcomes();if(button?.isConnected!==false){button.disabled=false
+;button.textContent='Сохранить результат'}if(!result.ok&&!locallySaved){
+if(previousOutcome)bookingOutcomes.set(item.id,previousOutcome);else bookingOutcomes.delete(item.id);let error=form.querySelector('[data-outcome-save-error]')
+;if(!error){error=document.createElement('p');error.dataset.outcomeSaveError='';error.className='form-error';error.setAttribute('role','alert')
+;form.append(error)}error.hidden=false
+;error.textContent='Не удалось подтвердить сохранение на сервере или устройстве. Данные остались в форме — не закрывайте её и повторите после восстановления связи.'
+;notify('Результат не сохранён. Данные остались в форме.');return}
+notify(result.ok?'Результат визита сохранён':'Сохранено на устройстве · ожидает синхронизации');renderBookings();renderClients();renderAnalytics()
+;openBookingSheet(item.id)}
 
 async function quickCompleteBookingOutcome(button) {
   if (!requireWrites()) return;
@@ -14235,7 +14179,7 @@ async function quickCompleteBookingOutcome(button) {
     notify('Результат не сохранён. Повторите после восстановления связи.');
     return;
   }
-  notify(result.ok ? 'Визит и оплата учтены' : 'Сохранено на устройстве · ожидает синхронизации');
+  notify(result.ok ? 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
   renderBookings();
   renderClients();
   renderAnalytics();

@@ -88,7 +88,7 @@ try {
       return { overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
         cardBottom:overview.querySelector('[data-finance-goods]').getBoundingClientRect().bottom,
         commandTop:document.querySelector('#reportVisitOverview').getBoundingClientRect().top,
-        cards:[...overview.querySelectorAll('[data-finance-detail]')].map(node=>node.getBoundingClientRect().height) };
+        cards:[...overview.querySelectorAll('[data-finance-detail]')].filter(node=>node.getClientRects().length).map(node=>node.getBoundingClientRect().height) };
     });
     assert.ok(geometry.overflow <= 1, `${width}: overflow`);
     assert.ok(geometry.cardBottom < geometry.commandTop, 'financial amounts precede visits and goals');
@@ -107,7 +107,7 @@ try {
     assert.equal(await page.locator('#reportFinanceOverview [data-finance-received]').innerText(), '2\u00a0000\u00a0₽');
     assert.equal(await page.locator('#reportFinanceOverview [data-finance-expense]').innerText(), '10\u00a0000\u00a0₽');
     assert.equal(await page.locator('#reportFinanceOverview [data-finance-rent]').innerText(), '10\u00a0000\u00a0₽');
-    assert.equal(await page.locator('#reportFinanceOverview [data-finance-profit]').innerText(), '—', 'profit still requires cost completeness');
+    assert.equal(await page.locator('#reportFinanceOverview [data-finance-profit]').innerText(), '−8\u00a0000\u00a0₽', 'known cash result is shown under its explicit cash-result label');
     await page.locator('#reportFinanceOverview [data-finance-detail="rent"]').click();
     assert.match(await page.locator('[data-finance-detail-body]').innerText(), /уже включена/);
     assert.match(await page.locator('[data-finance-detail-scope]').innerText(), /1 октября 2026.*2 октября 2026/);
