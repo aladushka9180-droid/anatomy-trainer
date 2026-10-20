@@ -289,6 +289,7 @@
     let afterSequence = 0;
     let loading = false;
     let timelineRevision = 0;
+    let pendingTimelineRevision = 0;
     let timelineConversationId = '';
     let query = '';
     let unreadOnly = false;
@@ -443,6 +444,7 @@
         renderTimeline();
       }
       if (!conversation || !navigator.onLine) { renderTimeline(); return false; }
+      pendingTimelineRevision = revision;
       timelineNode.setAttribute('aria-busy', 'true');
       try {
         const response = await bridge.timeline({ conversationId:conversation.id, afterSequence:incremental ? afterSequence : null });
@@ -468,7 +470,10 @@
         setNotice('Не удалось обновить диалог', 'Текст не потерян. Повторите после восстановления связи.');
         renderTimeline();
         return false;
-      } finally { if (isCurrent()) timelineNode.setAttribute('aria-busy', 'false'); }
+      } finally {
+        if (pendingTimelineRevision === revision) pendingTimelineRevision = 0;
+        if (isCurrent()) timelineNode.setAttribute('aria-busy', 'false');
+      }
     }
 
     async function deliver(entry) {
@@ -672,7 +677,11 @@
       clearTimeout(pollTimer);
       if (!isActive()) return;
       pollTimer = setTimeout(async () => {
-        if (!document.hidden && navigator.onLine && selectedId) await loadTimeline({ incremental:true });
+        // Pro polling must not supersede the selected conversation's pending read.
+        if (!document.hidden && navigator.onLine && selectedId
+            && (actorKind !== 'provider' || pendingTimelineRevision !== timelineRevision)) {
+          await loadTimeline({ incremental:true });
+        }
         schedulePoll();
       }, 15000);
     }

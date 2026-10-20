@@ -64,7 +64,7 @@ const conversations=[
   {id:'a',kind:'client',title:'Synthetic A',subtitle:'A',preview:'',updated_at:'2026-10-17T00:00:00Z',unread_count:0,can_send:true},
   {id:'b',kind:'client',title:'Synthetic B',subtitle:'B',preview:'',updated_at:'2026-10-17T00:00:00Z',unread_count:0,can_send:true}
 ];
-const reply=(id,sequence=1)=>({items:[{id:`${id}-${sequence}`,conversation_id:id,kind:'human',author_kind:'client',author_label:'Synthetic',body:`Body ${id}`,created_at:'2026-10-17T00:00:00Z',sequence,status:'sent'}],after_sequence:sequence});
+const reply=(id,sequence=1)=>({items:[{id:`${id}-${sequence}`,conversation_id:id,kind:'human',author_kind:'client',author_label:'Synthetic',body:`Body ${id} ${sequence}`,created_at:'2026-10-17T00:00:00Z',sequence,status:'sent'}],after_sequence:sequence});
 function bridge(overrides={}) {
   const calls={capability:0,list:0,timeline:[],send:0,markRead:0};
   const result={
@@ -78,6 +78,12 @@ function bridge(overrides={}) {
   return {value:result,calls};
 }
 async function mounted(w,b,extra={}) { return w.api.mount({root:w.root,bridge:b.value,organizationId:'synthetic-org',...extra}); }
+function pollOnce(w) {
+  const [id,callback] = w.state.timers.entries().next().value || [];
+  assert.equal(typeof callback,'function','a poll is scheduled');
+  w.state.timers.delete(id);
+  return callback();
+}
 
 test('ordinary provider mount/reload/selection stays usable',async()=>{
   const w=world(),b=bridge(),controller=await mounted(w,b);
@@ -175,4 +181,87 @@ test('throwing owner predicate refuses mount without DOM or bridge activity',asy
   const w=world(),b=bridge(),before=w.state.writes;
   assert.equal(await mounted(w,b,{isCurrent:()=>{throw Error('SYNTHETIC_OWNER_ERROR');}}),null);
   assert.equal(w.state.writes,before);assert.equal(b.calls.capability,0);
+});
+
+for (const outcome of ['SUCCESS','ERROR']) test(`provider poll preserves pending B after initial A ${outcome}`,async()=>{
+  const w=world(),a=deferred(),bRead=deferred(),calls=[];
+  const b=bridge({timeline:parameters=>{
+    calls.push(parameters);
+    if(parameters.conversationId==='a' && parameters.afterSequence===null)return a.promise;
+    if(parameters.conversationId==='b' && parameters.afterSequence===null)return bRead.promise;
+    if(parameters.conversationId==='b' && parameters.afterSequence===20)return Promise.resolve(reply('b',21));
+    return Promise.reject(new Error('QA04_CURSOR_REFUSED'));
+  }});
+  const mounting=mounted(w,b);await settle();
+  w.root.emit('click',{target:{closest:selector=>selector==='[data-message-conversation]'?{dataset:{messageConversation:'b'}}:null}});
+  assert.equal(calls.length,2,'B starts while initial A is still held');
+  const timeline=w.root.querySelector('[data-message-timeline]');
+  assert.equal(timeline.getAttribute('aria-busy'),'true');
+  const notice=w.root.querySelector('[data-message-notice-title]').textContent;
+  if(outcome==='SUCCESS')a.resolve(reply('a',10));else a.reject(new Error('SYNTHETIC_OLD_FAILURE'));
+  const controller=await mounting;
+  assert.equal(w.root.querySelector('[data-message-notice-title]').textContent,notice);
+  assert.equal(timeline.getAttribute('aria-busy'),'true');
+  for(let tick=0;tick<2;tick++){
+    await pollOnce(w);
+    assert.equal(calls.length,2,'poll must not issue cursor 0 over the held B read');
+    assert.equal(timeline.getAttribute('aria-busy'),'true','old A and poll must preserve B busy');
+    assert.equal(w.root.querySelector('[data-message-notice-title]').textContent,notice);
+  }
+  bRead.resolve(reply('b',20));await settle();
+  assert.match(timeline.innerHTML,/Body b/);assert.doesNotMatch(timeline.innerHTML,/Body a/);
+  assert.equal(timeline.getAttribute('aria-busy'),'false');
+  await pollOnce(w);
+  assert.equal(calls.length,3);assert.equal(calls[2].conversationId,'b');assert.equal(calls[2].afterSequence,20);
+  assert.match(timeline.innerHTML,/Body b 20/);assert.match(timeline.innerHTML,/Body b 21/);
+  assert.equal(b.calls.send,0);assert.equal(w.state.network,0);
+  controller.destroy();
+});
+
+test('provider poll resumes after current B fails, without clearing it for stale A',async()=>{
+  const w=world(),a=deferred(),bRead=deferred(),calls=[];
+  const b=bridge(),controller=await mounted(w,b);
+  b.value.timeline=parameters=>{
+    calls.push(parameters);
+    if(parameters.conversationId==='a')return a.promise;
+    if(parameters.afterSequence===null)return bRead.promise;
+    return Promise.resolve(reply('b',20));
+  };
+  controller.select('a');controller.select('b');
+  a.resolve(reply('a',10));await settle();
+  await pollOnce(w);
+  assert.equal(calls.length,2);
+  bRead.reject(new Error('SYNTHETIC_CURRENT_FAILURE'));await settle();
+  assert.equal(w.root.querySelector('[data-message-timeline]').getAttribute('aria-busy'),'false');
+  assert.match(w.root.querySelector('[data-message-notice-title]').textContent,/Не удалось обновить диалог/);
+  await pollOnce(w);
+  assert.equal(calls.length,3,'a completed failed read must not block later polling');
+  assert.equal(calls[2].conversationId,'b');assert.equal(calls[2].afterSequence,0);
+  assert.match(w.root.querySelector('[data-message-timeline]').innerHTML,/Body b/);
+  assert.equal(w.state.network,0);controller.destroy();
+});
+
+test('provider can select B during a held A page and polling retains B ownership',async()=>{
+  const w=world(),aPage=deferred(),bRead=deferred(),calls=[];
+  const b=bridge({timeline:async parameters=>reply(parameters.conversationId,10)}),controller=await mounted(w,b);
+  b.value.timeline=parameters=>{
+    calls.push(parameters);
+    if(parameters.conversationId==='a')return aPage.promise;
+    if(parameters.afterSequence===null)return bRead.promise;
+    return Promise.resolve(reply('b',21));
+  };
+  const oldPoll=pollOnce(w);await settle();
+  assert.equal(calls[0].afterSequence,10);
+  controller.select('b');
+  assert.equal(calls.length,2,'an unrelated held page must not block selection');
+  aPage.resolve(reply('a',11));await oldPoll;
+  await pollOnce(w);
+  assert.equal(calls.length,2,'completion of A page must not clear B pending ownership');
+  assert.equal(w.root.querySelector('[data-message-timeline]').getAttribute('aria-busy'),'true');
+  bRead.resolve(reply('b',20));await settle();
+  await pollOnce(w);
+  assert.equal(calls[2].conversationId,'b');assert.equal(calls[2].afterSequence,20);
+  const html=w.root.querySelector('[data-message-timeline]').innerHTML;
+  assert.doesNotMatch(html,/Body a/);assert.match(html,/Body b 20/);assert.match(html,/Body b 21/);
+  assert.equal(w.state.network,0);controller.destroy();
 });
