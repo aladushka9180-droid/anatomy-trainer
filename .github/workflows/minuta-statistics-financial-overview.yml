@@ -2,10 +2,10 @@ name: Minuta statistics financial overview
 on:
   push:
     branches: [main]
-    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-financial-*', 'minuta-online-booking/tests/statistics-income-result-*', 'minuta-online-booking/supabase/migrations/*_statistics_income_result.sql', 'minuta-online-booking/tests/statistics-organization-refresh-test.mjs', '.github/workflows/minuta-statistics-financial-overview.yml']
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-financial-*', 'minuta-online-booking/tests/statistics-income-result-*', 'minuta-online-booking/supabase/migrations/*_statistics_income_result.sql', 'minuta-online-booking/tests/statistics-organization-refresh-test.mjs', 'minuta-online-booking/scripts/manual-expense-business-date-*', 'minuta-online-booking/tests/manual-expense-business-date-test.mjs', '.github/workflows/minuta-statistics-financial-overview.yml']
   pull_request:
     branches: [main]
-    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-financial-*', 'minuta-online-booking/tests/statistics-income-result-*', 'minuta-online-booking/supabase/migrations/*_statistics_income_result.sql', 'minuta-online-booking/tests/statistics-organization-refresh-test.mjs', '.github/workflows/minuta-statistics-financial-overview.yml']
+    paths: ['minuta-online-booking/finance-center*', 'minuta-online-booking/statistics-audit*', 'minuta-online-booking/tests/statistics-financial-*', 'minuta-online-booking/tests/statistics-income-result-*', 'minuta-online-booking/supabase/migrations/*_statistics_income_result.sql', 'minuta-online-booking/tests/statistics-organization-refresh-test.mjs', 'minuta-online-booking/scripts/manual-expense-business-date-*', 'minuta-online-booking/tests/manual-expense-business-date-test.mjs', '.github/workflows/minuta-statistics-financial-overview.yml']
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -23,6 +23,7 @@ jobs:
       - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.14
       - run: node minuta-online-booking/tests/statistics-income-result-source-test.mjs
       - run: node minuta-online-booking/tests/statistics-income-result-pglite-test.mjs
+      - run: node minuta-online-booking/tests/manual-expense-business-date-test.mjs
       - run: node minuta-online-booking/tests/statistics-income-result-browser-test.mjs
       - run: node minuta-online-booking/tests/statistics-financial-scenarios-test.mjs
       - run: node minuta-online-booking/tests/statistics-financial-all-bounds-test.mjs
