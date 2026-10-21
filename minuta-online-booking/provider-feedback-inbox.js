@@ -163,6 +163,7 @@
         const nextId = organization?.id || '';
         if (nextId === organizationId) return;
         ++revision;
+        loading = false;
         organizationId = nextId;
         items = [];
         canManage = false;
@@ -172,6 +173,7 @@
       },
       reset() {
         ++revision;
+        loading = false;
         organizationId = '';
         items = [];
         canManage = false;

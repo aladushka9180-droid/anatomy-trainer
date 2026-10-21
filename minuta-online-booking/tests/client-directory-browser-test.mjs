@@ -36,6 +36,37 @@ try {
       window.controller=MinutaClientDirectory.create({root:filterRoot,refresh,outcome:b=>b,getLabels:p=>({vip:p==='2'}),services:()=>[{id:'massage',name:'Массаж'}],nameKey:s=>s.toLowerCase(),today:()=> '2026-09-06'});
       refresh();
     });
+    const toolsSummary=await page.$('#clientDirectoryTools>summary');
+    const toolsField=await page.$('#clientFieldLabel');
+    assert.ok(toolsSummary&&toolsField,'Escape cases use existing provider summary and field');
+    const toolsFixture=await page.evaluate(()=>{
+      const tools=document.querySelector('#clientDirectoryTools');
+      return {open:tools.open,hidden:tools.hidden,panels:[...document.querySelectorAll('#clientImportPanel,#clientFieldsSettings')].map(panel=>({id:panel.id,hidden:panel.hidden,open:panel.open})),formHidden:document.querySelector('#clientFieldDefinitionForm').hidden,value:document.querySelector('#clientFieldLabel').value};
+    });
+    try {
+      await page.evaluate(()=>document.querySelectorAll('#clientImportPanel,#clientFieldsSettings').forEach(panel=>panel.hidden=false));
+      await toolsSummary.click();
+      assert.equal(await toolsSummary.evaluate(summary=>summary.parentElement.open),true,'Trusted summary click opens client tools');
+      await page.keyboard.press('Escape');
+      assert.equal(await toolsSummary.evaluate(summary=>summary.parentElement.open),false,'Summary Escape closes client tools');
+      assert.equal(await toolsSummary.evaluate(summary=>document.activeElement===summary),true,'Summary Escape restores the same summary focus');
+      await toolsSummary.click();
+      await page.locator('#clientFieldsSettings>summary').click();
+      await page.$eval('#clientFieldDefinitionForm',form=>form.hidden=false);
+      await toolsField.fill('SYNTHETIC ESCAPE VALUE');
+      await page.keyboard.press('Escape');
+      assert.equal(await toolsSummary.evaluate(summary=>summary.parentElement.open),false,'Child-field Escape closes client tools');
+      assert.equal(await toolsSummary.evaluate(summary=>document.activeElement===summary),true,'Child-field Escape restores the same summary focus');
+      assert.equal(await toolsField.inputValue(),'SYNTHETIC ESCAPE VALUE','Escape preserves the existing field value');
+    } finally {
+      await page.evaluate(async before=>{
+        before.panels.forEach(saved=>{const panel=document.getElementById(saved.id);panel.hidden=saved.hidden;panel.open=saved.open;});
+        document.querySelector('#clientFieldDefinitionForm').hidden=before.formHidden;
+        document.querySelector('#clientFieldLabel').value=before.value;
+        await Promise.resolve();
+        const tools=document.querySelector('#clientDirectoryTools');tools.open=before.open;tools.hidden=before.hidden;
+      },toolsFixture);
+    }
     assert.equal(await page.locator('[data-client-filters]').isVisible(),true,'Filters must remain visible after real provider UX initialization');
     const toolbarGeometry=await page.evaluate(()=>{const search=document.querySelector('#clientSearch').getBoundingClientRect(),filters=document.querySelector('[data-client-filters]').getBoundingClientRect();return {aligned:Math.abs(search.top-filters.top)<=2,searchWidth:search.width,overflow:document.documentElement.scrollWidth>innerWidth+2,foundHidden:document.querySelector('[data-client-found]').hidden};});
     assert.equal(toolbarGeometry.aligned,true,'Search and filters must stay in one compact row');

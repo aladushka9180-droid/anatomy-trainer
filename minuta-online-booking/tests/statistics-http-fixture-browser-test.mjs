@@ -34,7 +34,7 @@ try{
     assert.equal(compact(await overview.locator('[data-finance-expense]').textContent()),'18000₽');
     assert.equal(compact(await overview.locator('[data-finance-rent]').textContent()),'18000₽');
     assert.equal((await overview.locator('[data-finance-goods]').textContent()).trim(),'2 шт.');
-    assert.equal((await overview.locator('[data-finance-profit]').textContent()).trim(),'—');
+    assert.equal(compact(await overview.locator('[data-finance-profit]').textContent()),'−14500₽','3500 received after refunds minus 18000 paid expenses');
     const slider=overview.getByRole('slider');await slider.press('End');
     assert.match(compact(await overview.locator('.finance-dashboard__selected').innerText()),/−500₽/);
     const points=(await overview.locator('polyline').getAttribute('points')).split(' ').map(p=>p.split(',').map(Number));

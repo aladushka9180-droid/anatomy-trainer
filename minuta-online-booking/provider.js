@@ -344,10 +344,13 @@ const CLIENT_RENDER_PAGE_SIZE = 80;
 let currentUser = null;
 let providerMessagesController = null;
 let providerMessagesOrganizationId = '';
+let providerMessagesRequest = null;
 let providerLoginPhone = '';
 let providerLoginCodeRequested = false;
 let providerLinkPhone = '';
 let providerLinkCodeRequested = false;
+let providerLinkScope = null;
+let providerSocialLinkScope = '';
 let currentFilter = restoreScheduleFilter();
 let calendarView = currentFilter === 'day' ? restoreCalendarView() : 'day';
 let notificationFilter = 'pending';
@@ -359,6 +362,7 @@ let reportSubview = 'overview';
 let notificationTimer = null;
 let topbarClockTimer = null;
 let deferredInstallPrompt = window.MinutaPwaInstall?.currentPrompt?.() || null;
+let providerAppInstallObserved = false;
 let journalMode = restoreJournalMode();
 let selectedDate = restoreSelectedDate();
 let bookingSearchQuery = '';
@@ -375,6 +379,7 @@ let bookingsSnapshotFromCache = false;
 let waitlistRequests = [];
 let waitlistRemoteAvailable = false;
 let waitlistLoaded = false;
+let waitlistLoadRevision = 0;
 let bookingOutcomes = new Map();
 let bookingSessionItems = new Map();
 let sessionItemsRemoteAvailable = false;
@@ -675,17 +680,18 @@ function renderTelegramClientSettings() {
 }
 
 async function saveTelegramClientSettings(event) {
-  event.preventDefault();
-  clearFormError('#telegramClientSettingsError');
-  if (!currentUser?.id) return;
-  const rawUsername = $('#telegramContactUsername').value.trim();
-  const contactUsername = normalizeTelegramContactUsername(rawUsername);
-  if (rawUsername && !contactUsername) {
-    showFormError('#telegramClientSettingsError', 'Укажите Telegram в формате @username: от 5 до 32 латинских букв, цифр или символов _.');
-    $('#telegramContactUsername').focus();
-    return;
+event.preventDefault();
+clearFormError('#telegramClientSettingsError');
+if (!currentUser?.id) return;
+const userId = currentUser.id, generation = sessionGeneration;
+const rawUsername = $('#telegramContactUsername').value.trim();
+const contactUsername = normalizeTelegramContactUsername(rawUsername);
+if (rawUsername && !contactUsername) {
+showFormError('#telegramClientSettingsError', 'Укажите Telegram в формате @username: от 5 до 32 латинских букв, цифр или символов _.');
+$('#telegramContactUsername').focus();
+return;
   }
-  const next = {
+const next = {
     contact_username:contactUsername,
     confirmation:$('#telegramNotifyConfirmation').checked,
     reminder:$('#telegramNotifyReminder').checked,
@@ -694,21 +700,22 @@ async function saveTelegramClientSettings(event) {
     version:1,
     updated_at:Date.now()
   };
-  const button = event.submitter || $('#telegramClientSettingsForm button[type="submit"]');
-  const status = $('#telegramClientSettingsStatus');
-  if (button) button.disabled = true;
-  if (status) status.textContent = 'Сохраняем…';
-  const { data, error } = await db.auth.updateUser({ data:{ telegram_client_settings:next } });
-  if (button) button.disabled = false;
-  if (error) {
-    showFormError('#telegramClientSettingsError', 'Не удалось сохранить настройки Telegram. Повторите позже.');
-    if (status) status.textContent = 'Изменения не сохранены';
-    return;
+const button = event.submitter || $('#telegramClientSettingsForm button[type="submit"]');
+const status = $('#telegramClientSettingsStatus');
+const operation = button ? beginClientProfileWrite(button) : null;
+if (status) status.textContent = 'Сохраняем…';
+const { data, error } = await db.auth.updateUser({ data:{ telegram_client_settings:next } });
+if (button && !releaseClientProfileWrite(button, operation)) return;
+if (!sessionIsCurrent(userId, generation)) return;
+if (error) {
+showFormError('#telegramClientSettingsError', 'Не удалось сохранить настройки Telegram. Повторите позже.');
+if (status) status.textContent = 'Изменения не сохранены';
+return;
   }
-  if (data?.user) currentUser = data.user;
-  telegramClientSettings = normalizeTelegramClientSettings(next);
-  renderTelegramClientSettings();
-  notify('Настройки Telegram сохранены');
+if (data?.user) currentUser = data.user;
+telegramClientSettings = normalizeTelegramClientSettings(next);
+renderTelegramClientSettings();
+notify('Настройки Telegram сохранены');
 }
 
 function providerCacheKey(name, userId = currentUser?.id) { return `provider:${userId || 'anonymous'}:${name === 'bookings' ? 'bookings-v3' : name}`; }
@@ -2702,7 +2709,7 @@ function renderDisplayPreferencesForm() {
   if(orderHolder)orderHolder.innerHTML=moreOrder.map((key,index)=>{const item=PROVIDER_MOBILE_NAV_ITEMS.find(entry=>entry.key===key);return `<div data-role-view-order="${key}"><span>${uiIcon(item.icon)}<strong>${escapeHtml(item.label)}</strong></span><span><button type="button" data-move-role-view="up" aria-label="Поднять ${escapeHtml(item.label)}" ${index===0?'disabled':''}>↑</button><button type="button" data-move-role-view="down" aria-label="Опустить ${escapeHtml(item.label)}" ${index===moreOrder.length-1?'disabled':''}>↓</button></span></div>`;}).join('');
 }
 function providerAppIsInstalled() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  return providerAppInstallObserved || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 function providerAppIsIos() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -7048,34 +7055,59 @@ function showRecoverySent() {
   $('#authDescription').textContent = 'Ссылка для восстановления доступа уже отправлена.';
 }
 function resetProviderMessagesCenter() {
-  providerMessagesController?.destroy?.();
-  providerMessagesController = null;
-  providerMessagesOrganizationId = '';
+const request = providerMessagesRequest;
+providerMessagesRequest = null;
+request?.abortController.abort();
+providerMessagesController?.destroy?.();
+providerMessagesController = null;
+providerMessagesOrganizationId = '';
 }
 async function loadProviderMessagesCenter() {
-  const root = $('#providerMessagesRoot');
-  const organization = organizationController?.getActiveOrganization?.();
-  if (!root || !currentUser || !organization?.id || !window.MinutaProviderMessages?.mount) return null;
-  if (providerMessagesController && providerMessagesOrganizationId === organization.id) {
-    await providerMessagesController.reload();
-    return providerMessagesController;
+const root = $('#providerMessagesRoot');
+const organization = organizationController?.getActiveOrganization?.();
+if (!root || !currentUser || !organization?.id || !window.MinutaProviderMessages?.mount) return null;
+const userId = currentUser.id, generation = sessionGeneration;
+const organizationId = organization.id, role = String(organization.current_role || '');
+const key = [userId, generation, organizationId, role].join(':');
+const existing = providerMessagesRequest;
+if (existing?.key === key) {
+if (providerMessagesController && providerMessagesController.isActive?.() !== false) {
+const controller = providerMessagesController;
+await controller.reload();
+return existing.isCurrent() ? controller : null;
+    }
+if (existing.pending) return existing.promise;
   }
-  resetProviderMessagesCenter();
-  providerMessagesOrganizationId = organization.id;
-  providerMessagesController = await window.MinutaProviderMessages.mount({
-    root,
-    db,
-    organizationId:organization.id,
-    renderClientAvatar:conversation => {
-      if (conversation.kind !== 'client') return '';
-      const booking = allBookings.find(item => item.id === conversation.booking?.booking_id
-        && belongsToActiveOrganization(item));
-      return booking ? clientFramedAvatarMarkup(booking.client_phone, booking.client_name) : '';
-    },
-    canManageSettings:['owner','admin'].includes(String(organization.current_role || ''))
-  });
-  return providerMessagesController;
+resetProviderMessagesCenter();
+const request = { key, pending:true, abortController:new AbortController(), promise:null, isCurrent:null };
+request.isCurrent = () => {
+const active = organizationController?.getActiveOrganization?.();
+return providerMessagesRequest === request && sessionIsCurrent(userId, generation)
+&& active?.id === organizationId && String(active.current_role || '') === role;
+  };
+providerMessagesRequest = request;
+providerMessagesOrganizationId = organizationId;
+request.promise = (async () => {
+try {
+const controller = await window.MinutaProviderMessages.mount({
+        root, db, organizationId,
+        signal:request.abortController.signal, isCurrent:request.isCurrent,
+        renderClientAvatar:conversation => {
+          if (conversation.kind !== 'client') return '';
+          const booking = allBookings.find(item => item.id === conversation.booking?.booking_id
+            && belongsToActiveOrganization(item));
+          return booking ? clientFramedAvatarMarkup(booking.client_phone, booking.client_name) : '';
+        },
+        canManageSettings:['owner','admin'].includes(role)
+      });
+if (!request.isCurrent()) { controller?.destroy?.(); return null; }
+providerMessagesController = controller;
+return controller;
+    } finally { request.pending = false; }
+  })();
+return request.promise;
 }
+
 async function openProviderMessageForBooking(bookingId) {
   if (!/^[0-9a-f-]{36}$/i.test(String(bookingId || ''))) return;
   closeBookingSheet();
@@ -7187,19 +7219,19 @@ function setFilter(filter, { render = true } = {}) {
 }
 
 function setJournalMode(mode) {
-  journalMode = ['timeline', 'list'].includes(mode) ? mode : 'timeline';
-  if (journalMode === 'timeline') currentFilter = 'day';
-  localStorage.setItem(JOURNAL_MODE_KEY, journalMode);
-  try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
-  $$('[data-filter]').forEach(button => {
-    const active = button.dataset.filter === currentFilter;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-pressed', String(active));
+journalMode = ['timeline', 'list'].includes(mode) ? mode : 'timeline';
+if (journalMode === 'timeline') currentFilter = 'day';
+try { localStorage.setItem(JOURNAL_MODE_KEY, journalMode); } catch {}
+try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
+$$('[data-filter]').forEach(button => {
+const active = button.dataset.filter === currentFilter;
+button.classList.toggle('active', active);
+button.setAttribute('aria-pressed', String(active));
   });
-  updateJournalModeButtons();
-  updateBookingQueryTools();
-  syncScheduleContextHistory();
-  renderBookings();
+updateJournalModeButtons();
+updateBookingQueryTools();
+syncScheduleContextHistory();
+renderBookings();
 }
 
 function restoreDefaultScheduleView() {
@@ -10873,33 +10905,33 @@ async function saveBookingChanges(event) {
 }
 
 function offlineCandidateSlots(serviceId, dateIso, requestedDuration = 0) {
-  const service = ownServices.find(item => item.id === serviceId && item.active);
-  const date = parseLocalIsoDate(dateIso);
-  if (!service || !date || dateIso < businessTodayIso()) return [];
-  const weekday = ((date.getDay() + 6) % 7) + 1;
-  const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
-  if (schedule?.enabled === false) return [];
-  const duration = Math.max(1, Number(requestedDuration || service.duration_minutes || 60));
-  const start = minutesFromTime(schedule?.start_time || '10:00');
-  const end = minutesFromTime(schedule?.end_time || '20:00');
-  const now = new Date();
-  const earliest = dateIso === businessTodayIso() ? (now.getHours() * 60) + now.getMinutes() : start;
-  const slots = [];
-  const firstSlot = Math.ceil(start / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
-  for (let minute = firstSlot; minute + duration <= end; minute += NEW_BOOKING_GRID_MINUTES) {
-    if (minute < earliest) continue;
-    const issue = bookingPlacementIssue({ id:'offline-candidate', duration_minutes:duration }, dateIso, minute);
-    const queuedConflict = offlineBookingQueue.some(item => {
-      if (item.id === editingOfflineBookingId) return false;
-      if (item.date !== dateIso) return false;
-      const queuedStart = minutesFromTime(item.time);
-      const queuedService = ownServices.find(entry => entry.id === item.serviceId);
-      const queuedEnd = queuedStart + Math.max(1, Number(item.durationMinutes || queuedService?.duration_minutes || 60));
-      return minute < queuedEnd && minute + duration > queuedStart;
+const service = ownServices.find(item => item.id === serviceId && item.active);
+const date = parseLocalIsoDate(dateIso);
+if (!service || !date || dateIso < businessTodayIso()) return [];
+const weekday = ((date.getDay() + 6) % 7) + 1;
+const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
+if (schedule?.enabled === false) return [];
+const duration = Math.max(1, Number(requestedDuration || service.duration_minutes || 60));
+const start = minutesFromTime(schedule?.start_time || '10:00');
+const end = minutesFromTime(schedule?.end_time || '20:00');
+const now = new Date();
+const earliest = dateIso === businessTodayIso() ? businessClock(now).minutes : start;
+const slots = [];
+const firstSlot = Math.ceil(start / NEW_BOOKING_GRID_MINUTES) * NEW_BOOKING_GRID_MINUTES;
+for (let minute = firstSlot; minute + duration <= end; minute += NEW_BOOKING_GRID_MINUTES) {
+if (minute < earliest) continue;
+const issue = bookingPlacementIssue({ id:'offline-candidate', duration_minutes:duration }, dateIso, minute);
+const queuedConflict = offlineBookingQueue.some(item => {
+if (item.id === editingOfflineBookingId) return false;
+if (item.date !== dateIso) return false;
+const queuedStart = minutesFromTime(item.time);
+const queuedService = ownServices.find(entry => entry.id === item.serviceId);
+const queuedEnd = queuedStart + Math.max(1, Number(item.durationMinutes || queuedService?.duration_minutes || 60));
+return minute < queuedEnd && minute + duration > queuedStart;
     });
-    if (!issue && !queuedConflict) slots.push(timeFromMinutes(minute));
+if (!issue && !queuedConflict) slots.push(timeFromMinutes(minute));
   }
-  return slots;
+return slots;
 }
 
 function newBookingOutsideScheduleLabel(dateIso) {
@@ -13243,69 +13275,87 @@ function applyClientIdentityLocally(oldPhone, newPhone, newName) {
   renderClientDetail(newPhone, { preserveReturn:true });
 }
 
+const clientProfileWriteOwners = new WeakMap();
+function beginClientProfileWrite(button) {
+const operation = {};
+clientProfileWriteOwners.set(button, operation);
+button.disabled = true;
+return operation;
+}
+function releaseClientProfileWrite(button, operation) {
+if (clientProfileWriteOwners.get(button) !== operation) return false;
+clientProfileWriteOwners.delete(button);
+button.disabled = false;
+return true;
+}
+
 async function saveClientIdentity(event) {
-  event?.preventDefault?.();
-  if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canEdit) return;
-  const oldPhone = selectedClientPhone;
-  const newPhone = normalizePhone($('#clientIdentityPhone').value);
-  const newName = $('#clientIdentityName').value.trim().replace(/\s+/g, ' ');
-  clearFormError('#clientIdentityError');
-  if (newName.length < 2 || newName.length > 80) {
-    showFormError('#clientIdentityError', 'Укажите имя от 2 до 80 символов.');
-    $('#clientIdentityName').focus();
-    return;
+event?.preventDefault?.();
+if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canEdit) return;
+const oldPhone = selectedClientPhone;
+const userId = currentUser?.id, generation = sessionGeneration, organizationId = activeClientOrganizationId, profileRevision = clientProfileDetailsLoadRevision;
+const newPhone = normalizePhone($('#clientIdentityPhone').value);
+const newName = $('#clientIdentityName').value.trim().replace(/\s+/g, ' ');
+clearFormError('#clientIdentityError');
+if (newName.length < 2 || newName.length > 80) {
+showFormError('#clientIdentityError', 'Укажите имя от 2 до 80 символов.');
+$('#clientIdentityName').focus();
+return;
   }
-  if (!/^7\d{10}$/.test(newPhone)) {
-    showFormError('#clientIdentityError', 'Укажите российский номер телефона полностью.');
-    $('#clientIdentityPhone').focus();
-    return;
+if (!/^7\d{10}$/.test(newPhone)) {
+showFormError('#clientIdentityError', 'Укажите российский номер телефона полностью.');
+$('#clientIdentityPhone').focus();
+return;
   }
-  const button = $('#clientIdentityForm button[type="submit"]');
-  button.disabled = true;
-  const { data, error } = await db.rpc('save_minuta_client_identity_v134', {
-    p_organization:activeClientOrganizationId,
+const button = $('#clientIdentityForm button[type="submit"]');
+const operation = beginClientProfileWrite(button);
+const { data, error } = await db.rpc('save_minuta_client_identity_v134', {
+    p_organization:organizationId,
     p_client_phone:oldPhone,
     p_client_name:newName,
     p_new_client_phone:newPhone
   });
-  button.disabled = false;
-  if (error) {
-    const message = String(error.message || '');
-    if (message.includes('client_phone_conflict')) showFormError('#clientIdentityError', 'Этот номер уже принадлежит другому клиенту.');
-    else if (message.includes('client_metadata_conflict')) showFormError('#clientIdentityError', 'У нового номера уже есть личные данные. Проверьте карточку клиента.');
-    else if (isMissingRpc(error, 'save_minuta_client_identity_v134')) showFormError('#clientIdentityError', 'Редактирование пока недоступно. Обновите страницу и повторите.');
-    else showFormError('#clientIdentityError', 'Не удалось сохранить изменения. Повторите ещё раз.');
-    return;
+if (!releaseClientProfileWrite(button, operation)) return;
+if (!sessionIsCurrent(userId, generation) || activeClientOrganizationId !== organizationId || selectedClientPhone !== oldPhone || clientProfileDetailsLoadRevision !== profileRevision) return;
+if (error) {
+const message = String(error.message || '');
+if (message.includes('client_phone_conflict')) showFormError('#clientIdentityError', 'Этот номер уже принадлежит другому клиенту.');
+else if (message.includes('client_metadata_conflict')) showFormError('#clientIdentityError', 'У нового номера уже есть личные данные. Проверьте карточку клиента.');
+else if (isMissingRpc(error, 'save_minuta_client_identity_v134')) showFormError('#clientIdentityError', 'Редактирование пока недоступно. Обновите страницу и повторите.');
+else showFormError('#clientIdentityError', 'Не удалось сохранить изменения. Повторите ещё раз.');
+return;
   }
-  const savedPhone = normalizePhone(data?.client_phone || newPhone);
-  const savedName = String(data?.client_name || newName).trim();
-  $('#clientIdentityDialog').close();
-  applyClientIdentityLocally(oldPhone, savedPhone, savedName);
-  notify('Данные клиента сохранены');
+const savedPhone = normalizePhone(data?.client_phone || newPhone);
+const savedName = String(data?.client_name || newName).trim();
+$('#clientIdentityDialog').close();
+applyClientIdentityLocally(oldPhone, savedPhone, savedName);
+notify('Данные клиента сохранены');
 }
 
 async function saveClientBirthday(event, clear = false) {
-  event?.preventDefault?.();
-  if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canEdit) return;
-  const organizationId = activeClientOrganizationId;
-  const phone = selectedClientPhone;
-  const birthday = clear ? null : ($('#clientBirthdayInput').value || null);
-  if (birthday && (birthday > businessTodayIso() || birthday < '1900-01-01')) {
-    notify('Проверьте дату рождения');
-    return;
+event?.preventDefault?.();
+if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canEdit) return;
+const organizationId = activeClientOrganizationId;
+const phone = selectedClientPhone;
+const userId = currentUser?.id, generation = sessionGeneration, profileRevision = clientProfileDetailsLoadRevision;
+const birthday = clear ? null : ($('#clientBirthdayInput').value || null);
+if (birthday && (birthday > businessTodayIso() || birthday < '1900-01-01')) {
+notify('Проверьте дату рождения');
+return;
   }
-  const submit = $('#clientBirthdayForm button[type="submit"]');
-  submit.disabled = true;
-  const { data, error } = await db.rpc('save_minuta_client_birthday_v119', {
+const submit = $('#clientBirthdayForm button[type="submit"]');
+const operation = beginClientProfileWrite(submit);
+const { data, error } = await db.rpc('save_minuta_client_birthday_v119', {
     p_organization:organizationId,p_client_phone:phone,p_birthday:birthday
   });
-  submit.disabled = false;
-  if (error) { notify('Не удалось сохранить дату рождения'); return; }
-  clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, ...data, available:true });
-  const client = buildClients().find(item => item.phone === phone);
-  if (client) renderClientProfileDetails(client);
-  $('#clientBirthdayDialog').close();
-  notify(birthday ? 'Дата рождения сохранена' : 'Дата рождения удалена');
+if (!releaseClientProfileWrite(submit, operation)) return;
+if (!sessionIsCurrent(userId, generation) || activeClientOrganizationId !== organizationId || selectedClientPhone !== phone || clientProfileDetailsLoadRevision !== profileRevision) return;
+if (error) { notify('Не удалось сохранить дату рождения'); return; }
+clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, ...data, available:true });
+const client = buildClients().find(item => item.phone === phone);
+if (client) renderClientProfileDetails(client);
+$('#clientBirthdayDialog').close();
+notify(birthday ? 'Дата рождения сохранена' : 'Дата рождения удалена');
 }
 
 function openClientBlockConfirmation() {
@@ -13331,31 +13381,33 @@ function openClientBlockConfirmation() {
 }
 
 async function confirmClientOnlineBlock() {
-  if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canManageBlock) return;
-  const organizationId = activeClientOrganizationId;
-  const phone = selectedClientPhone;
-  const blocked = !clientProfileDetailsState.onlineBookingBlocked;
-  const button = $('#clientBlockConfirm');
-  button.disabled = true;
-  const reason = blocked ? String($('#clientBlockReason')?.value || '').trim() : '';
-  let data;
-  let error;
-  if (clientProfileDetailsState.supportsBlockReason) {
-    ({ data, error } = await db.rpc('set_minuta_client_online_booking_block_v135', {
+if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canManageBlock) return;
+const organizationId = activeClientOrganizationId;
+const phone = selectedClientPhone;
+const userId = currentUser?.id, generation = sessionGeneration, profileRevision = clientProfileDetailsLoadRevision;
+const blocked = !clientProfileDetailsState.onlineBookingBlocked;
+const button = $('#clientBlockConfirm');
+const operation = beginClientProfileWrite(button);
+const reason = blocked ? String($('#clientBlockReason')?.value || '').trim() : '';
+let data;
+let error;
+if (clientProfileDetailsState.supportsBlockReason) {
+({ data, error } = await db.rpc('set_minuta_client_online_booking_block_v135', {
       p_organization:organizationId,p_client_phone:phone,p_blocked:blocked,p_reason:reason || null
     }));
   } else {
-    ({ data, error } = await db.rpc('set_minuta_client_online_booking_block_v119', {
+({ data, error } = await db.rpc('set_minuta_client_online_booking_block_v119', {
       p_organization:organizationId,p_client_phone:phone,p_blocked:blocked
     }));
   }
-  button.disabled = false;
-  if (error) { notify('Не удалось изменить блокировку'); return; }
-  clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, ...data, available:true });
-  const client = buildClients().find(item => item.phone === phone);
-  if (client) renderClientProfileDetails(client);
-  $('#clientBlockDialog').close();
-  notify(blocked ? 'Онлайн-запись для клиента заблокирована' : 'Онлайн-запись для клиента разблокирована');
+if (!releaseClientProfileWrite(button, operation)) return;
+if (!sessionIsCurrent(userId, generation) || activeClientOrganizationId !== organizationId || selectedClientPhone !== phone || clientProfileDetailsLoadRevision !== profileRevision) return;
+if (error) { notify('Не удалось изменить блокировку'); return; }
+clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, ...data, available:true });
+const client = buildClients().find(item => item.phone === phone);
+if (client) renderClientProfileDetails(client);
+$('#clientBlockDialog').close();
+notify(blocked ? 'Онлайн-запись для клиента заблокирована' : 'Онлайн-запись для клиента разблокирована');
 }
 
 function resetClientProfileReturnContext() {
@@ -13872,41 +13924,19 @@ async function loadBookingOutcomes() {
   return { ok: !error, optional: true };
 }
 
-async function persistBookingOutcome(record) {
-  const clean = cleanOutcomeRecord(record);
-  let { data, error } = await db.rpc('save_minuta_booking_outcome_v106', {
-    p_booking:clean.booking_id,
-    p_visit_status:clean.visit_status,
-    p_payment_method:clean.payment_method,
-    p_amount_rub:clean.amount_rub,
-    p_actual_duration_minutes:clean.actual_duration_minutes ?? null,
-    p_completion_source:clean.completion_source || 'manual'
-  });
-  if (!error) {
-    outcomesRemoteAvailable = true;
-    return { ok:true, outcome:data && typeof data === 'object' ? data : clean };
-  }
-  if (!outcomeRpcMissing(error)) {
-    outcomesRemoteAvailable = false;
-    return { ok:false, error };
-  }
-  ({ error } = await db.from('booking_outcomes').upsert(clean, { onConflict:'booking_id' }));
-  if (error && (Object.hasOwn(record, 'actual_duration_minutes') || Object.hasOwn(record, 'calculated_amount_rub'))) {
-    const compatibleRecord = { ...clean };
-    delete compatibleRecord.actual_duration_minutes;
-    delete compatibleRecord.calculated_amount_rub;
-    ({ error } = await db.from('booking_outcomes').upsert(compatibleRecord, { onConflict:'booking_id' }));
-  }
-  if (error && Object.hasOwn(record, 'completion_source')) {
-    const compatibleRecord = { ...clean };
-    delete compatibleRecord.actual_duration_minutes;
-    delete compatibleRecord.calculated_amount_rub;
-    delete compatibleRecord.completion_source;
-    ({ error } = await db.from('booking_outcomes').upsert(compatibleRecord, { onConflict:'booking_id' }));
-  }
-  outcomesRemoteAvailable = !error;
-  return error ? { ok:false, error } : { ok:true, outcome:clean };
-}
+async function persistBookingOutcome(record,options={}){record._finance||=window.MinutaVisitPaymentRetries?.get(currentUser?.id+record.booking_id)||bookingOutcomes.get(record.booking_id)?._finance;if(!navigator.onLine)return{ok:false,error:{message:'offline'}};const finance=await(window.MinutaFinanceProvider?.persistVisitPayment?.({db,record,...options,
+getOrganization:()=>organizationController?.getActiveOrganization?.(),isCurrent:captureBookingMetadataContext()}));if(finance)return finance;if(record._finance)return{ok:false,cancelled:true}
+;const clean=cleanOutcomeRecord(record);delete clean._finance;let{data,error}=await db.rpc('save_minuta_booking_outcome_v106',{p_booking:clean.booking_id,
+p_visit_status:clean.visit_status,p_payment_method:clean.payment_method,p_amount_rub:clean.amount_rub,
+p_actual_duration_minutes:clean.actual_duration_minutes??null,p_completion_source:clean.completion_source||'manual'});if(!error){outcomesRemoteAvailable=true
+;return{ok:true,outcome:data&&typeof data==='object'?data:clean}}if(!outcomeRpcMissing(error)){outcomesRemoteAvailable=false;return{ok:false,error}}
+({error}=await db.from('booking_outcomes').upsert(clean,{onConflict:'booking_id'}))
+;if(error&&(Object.hasOwn(record,'actual_duration_minutes')||Object.hasOwn(record,'calculated_amount_rub'))){const compatibleRecord={...clean}
+;delete compatibleRecord.actual_duration_minutes;delete compatibleRecord.calculated_amount_rub
+;({error}=await db.from('booking_outcomes').upsert(compatibleRecord,{onConflict:'booking_id'}))}if(error&&Object.hasOwn(record,'completion_source')){
+const compatibleRecord={...clean};delete compatibleRecord.actual_duration_minutes;delete compatibleRecord.calculated_amount_rub
+;delete compatibleRecord.completion_source;({error}=await db.from('booking_outcomes').upsert(compatibleRecord,{onConflict:'booking_id'}))}
+outcomesRemoteAvailable=!error;return error?{ok:false,error}:{ok:true,outcome:clean}}
 
 async function syncPendingBookingOutcomes(userId = currentUser?.id, generation = sessionGeneration) {
   if (!userId || !writesAllowed) return 0;
@@ -14042,13 +14072,14 @@ async function loadBookingSettings() {
 }
 
 async function saveBookingPolicy(event) {
-  event.preventDefault();
-  if (!requireWrites()) return;
-  clearFormError('#bookingPolicyError');
-  const depositEnabled = $('#depositEnabled').checked;
-  const bookingBufferEnabled = $('#bookingBufferEnabled').checked;
-  const bookingBufferMinutes = Math.round(Number($('#bookingBufferMinutes').value) || 0);
-  const record = {
+event.preventDefault();
+if (!requireWrites()) return;
+const userId = currentUser.id, generation = sessionGeneration;
+clearFormError('#bookingPolicyError');
+const depositEnabled = $('#depositEnabled').checked;
+const bookingBufferEnabled = $('#bookingBufferEnabled').checked;
+const bookingBufferMinutes = Math.round(Number($('#bookingBufferMinutes').value) || 0);
+const record = {
     performer_id: currentUser.id,
     cancel_cutoff_hours: Math.round(Number($('#cancelCutoffHours').value)),
     reschedule_cutoff_hours: Math.round(Number($('#rescheduleCutoffHours').value)),
@@ -14061,34 +14092,37 @@ async function saveBookingPolicy(event) {
     booking_buffer_enabled: bookingBufferEnabled,
     booking_buffer_minutes: bookingBufferEnabled ? bookingBufferMinutes : (bookingBufferMinutes >= 1 && bookingBufferMinutes <= 1440 ? bookingBufferMinutes : 60)
   };
-  if (![record.cancel_cutoff_hours, record.reschedule_cutoff_hours].every(value => value >= 0 && value <= 168) || record.max_reschedules < 0 || record.max_reschedules > 20) {
-    showFormError('#bookingPolicyError', 'Проверьте ограничения отмены и переноса.');
-    return;
+if (![record.cancel_cutoff_hours, record.reschedule_cutoff_hours].every(value => value >= 0 && value <= 168) || record.max_reschedules < 0 || record.max_reschedules > 20) {
+showFormError('#bookingPolicyError', 'Проверьте ограничения отмены и переноса.');
+return;
   }
-  if (bookingBufferEnabled && (bookingBufferMinutes < 1 || bookingBufferMinutes > 1440)) {
-    showFormError('#bookingPolicyError', 'Укажите перерыв от 1 минуты до 24 часов.');
-    return;
+if (bookingBufferEnabled && (bookingBufferMinutes < 1 || bookingBufferMinutes > 1440)) {
+showFormError('#bookingPolicyError', 'Укажите перерыв от 1 минуты до 24 часов.');
+return;
   }
-  const managedCheckoutEnabled = paymentController?.isCheckoutEnabled?.() === true;
-  if (depositEnabled && (record.deposit_amount_rub <= 0 || (!/^https:\/\//i.test(record.payment_url_template) && !managedCheckoutEnabled))) {
-    showFormError('#bookingPolicyError', 'Для предоплаты укажите сумму и HTTPS-ссылку либо сначала включите ЮKassa в разделе «Приём оплаты».');
-    return;
+const managedCheckoutEnabled = paymentController?.isCheckoutEnabled?.() === true;
+if (depositEnabled && (record.deposit_amount_rub <= 0 || (!/^https:\/\//i.test(record.payment_url_template) && !managedCheckoutEnabled))) {
+showFormError('#bookingPolicyError', 'Для предоплаты укажите сумму и HTTPS-ссылку либо сначала включите ЮKassa в разделе «Приём оплаты».');
+return;
   }
-  const button = event.submitter;
-  const buttonLabel = button.textContent;
-  button.disabled = true;
-  button.textContent = 'Сохраняем…';
-  const { error } = await db.from('booking_policies').upsert(record, { onConflict: 'performer_id' });
-  button.disabled = false;
-  button.textContent = buttonLabel;
-  if (error) { showFormError('#bookingPolicyError', /booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматические перерывы ещё не установлены на сервере.' : /auto_complete/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоучёт визитов ещё не обновлён на сервере.' : 'Не удалось сохранить правила.'); return; }
-  bookingPolicy = record;
-  localStorage.setItem(autoCompleteStorageKey(), String(record.auto_complete_visits));
-  renderBookingPolicyForm();
-  renderBookings();
-  await saveProviderOfflineSnapshot(currentUser.id, sessionGeneration);
-  await applyAutomaticVisitOutcomes();
-  notify('Правила онлайн-записи сохранены');
+const button = event.submitter;
+const buttonLabel = button.textContent;
+const operation = beginClientProfileWrite(button);
+button.textContent = 'Сохраняем…';
+const { error } = await db.from('booking_policies').upsert(record, { onConflict: 'performer_id' });
+if (!releaseClientProfileWrite(button, operation)) return;
+button.textContent = buttonLabel;
+if (!sessionIsCurrent(userId, generation)) return;
+if (error) { showFormError('#bookingPolicyError', /booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматические перерывы ещё не установлены на сервере.' : /auto_complete/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоучёт визитов ещё не обновлён на сервере.' : 'Не удалось сохранить правила.'); return; }
+bookingPolicy = record;
+localStorage.setItem(autoCompleteStorageKey(userId), String(record.auto_complete_visits));
+renderBookingPolicyForm();
+renderBookings();
+await saveProviderOfflineSnapshot(userId, generation);
+if (!sessionIsCurrent(userId, generation)) return;
+await applyAutomaticVisitOutcomes();
+if (!sessionIsCurrent(userId, generation)) return;
+notify('Правила онлайн-записи сохранены');
 }
 
 async function savePrepaymentStatus(event) {
@@ -14155,63 +14189,29 @@ async function saveBookingVisitResult(event) {
   if (result.ok && result.skipped) notify('Добавьте фото или описание результата');
 }
 
-async function saveBookingOutcome(event) {
-  event.preventDefault();
-  if (!requireOutcomeWrites()) return;
-  const userId = currentUser.id;
-  const generation = sessionGeneration;
-  const form = event.currentTarget;
-  const item = allBookings.find(booking => booking.id === form.dataset.bookingId);
-  if (!item) return;
-  const visitStatus = $('#outcomeVisitStatus').value;
-  const completed = visitStatus === 'completed';
-  const paymentMethod = completed ? $('#outcomePaymentMethod').value : 'unpaid';
-  const actualMinutes = completed && isPerMinuteBooking(item) ? Math.max(0, Math.min(1440, Math.round(Number($('#outcomeActualMinutes')?.value) || 0))) : 0;
-  if (completed && isPerMinuteBooking(item) && actualMinutes < 1) {
-    notify('Укажите фактическое время процедуры');
-    return;
-  }
-  const calculatedAmount = actualMinutes * bookingMinuteRate(item);
-  const amount = completed && paymentMethod !== 'unpaid' ? Math.max(0, Math.round(Number($('#outcomeAmount').value) || 0)) : 0;
-  const record = { booking_id: item.id, performer_id: userId, visit_status: visitStatus, payment_method: paymentMethod, amount_rub: amount, completion_source:'manual', updated_at: new Date().toISOString() };
-  if (isPerMinuteBooking(item)) {
-    record.actual_duration_minutes = actualMinutes;
-    record.calculated_amount_rub = calculatedAmount;
-  }
-  const button = event.submitter || form.querySelector('button[type="submit"]');
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'Сохраняем…';
-  }
-  let result;
-  if (!navigator.onLine) result = { ok:false, error:{ message:'offline' } };
-  else {
-    try { result = await persistBookingOutcome(record); }
-    catch (error) { result = { ok:false, error }; }
-  }
-  if (!sessionIsCurrent(userId, generation)) return;
-  const previousOutcome = bookingOutcomes.get(item.id);
-  bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
-  const locallySaved = writeLocalOutcomes();
-  if (button?.isConnected !== false) {
-    button.disabled = false;
-    button.textContent = 'Сохранить результат';
-  }
-  if (!result.ok && !locallySaved) {
-    if (previousOutcome) bookingOutcomes.set(item.id, previousOutcome); else bookingOutcomes.delete(item.id);
-    let error = form.querySelector('[data-outcome-save-error]');
-    if (!error) { error = document.createElement('p'); error.dataset.outcomeSaveError = ''; error.className = 'form-error'; error.setAttribute('role', 'alert'); form.append(error); }
-    error.hidden = false;
-    error.textContent = 'Не удалось подтвердить сохранение на сервере или устройстве. Данные остались в форме — не закрывайте её и повторите после восстановления связи.';
-    notify('Результат не сохранён. Данные остались в форме.');
-    return;
-  }
-  notify(result.ok ? 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
-  renderBookings();
-  renderClients();
-  renderAnalytics();
-  openBookingSheet(item.id);
-}
+async function saveBookingOutcome(event){event.preventDefault();if(!requireOutcomeWrites())return;const userId=currentUser.id;const generation=sessionGeneration
+;const form=event.currentTarget;const item=allBookings.find(booking=>booking.id===form.dataset.bookingId);if(!item)return
+;const visitStatus=$('#outcomeVisitStatus').value;const completed=visitStatus==='completed'
+;const paymentMethod=completed?$('#outcomePaymentMethod').value:'unpaid'
+;const actualMinutes=completed&&isPerMinuteBooking(item)?Math.max(0,Math.min(1440,Math.round(Number($('#outcomeActualMinutes')?.value)||0))):0
+;if(completed&&isPerMinuteBooking(item)&&actualMinutes<1){notify('Укажите фактическое время процедуры');return}
+const calculatedAmount=actualMinutes * bookingMinuteRate(item)
+;const amount=completed&&paymentMethod!=='unpaid'?Math.max(0,Math.round(Number($('#outcomeAmount').value)||0)):0;const record={booking_id:item.id,
+performer_id:userId,visit_status:visitStatus,payment_method:paymentMethod,amount_rub:amount,completion_source:'manual',updated_at:(new Date).toISOString()}
+;if(isPerMinuteBooking(item)){record.actual_duration_minutes=actualMinutes;record.calculated_amount_rub=calculatedAmount}
+const button=event.submitter||form.querySelector('button[type="submit"]');if(button){button.disabled=true;button.textContent='Сохраняем…'}let result
+;try{result=await persistBookingOutcome(record,{interactive:true})}catch(error){result={
+ok:false,error}}if(!sessionIsCurrent(userId,generation))return;if(window.MinutaFinanceProvider?.finishVisitPaymentSave?.(result,button,notify))return
+;const previousOutcome=bookingOutcomes.get(item.id);bookingOutcomes.set(item.id,result.ok?cleanOutcomeRecord({...record,...result.outcome||{}
+}):pendingOutcomeRecord(record,result.error));const locallySaved=writeLocalOutcomes();if(button?.isConnected!==false){button.disabled=false
+;button.textContent='Сохранить результат'}if(!result.ok&&!locallySaved){
+if(previousOutcome)bookingOutcomes.set(item.id,previousOutcome);else bookingOutcomes.delete(item.id);let error=form.querySelector('[data-outcome-save-error]')
+;if(!error){error=document.createElement('p');error.dataset.outcomeSaveError='';error.className='form-error';error.setAttribute('role','alert')
+;form.append(error)}error.hidden=false
+;error.textContent='Не удалось подтвердить сохранение на сервере или устройстве. Данные остались в форме — не закрывайте её и повторите после восстановления связи.'
+;notify('Результат не сохранён. Данные остались в форме.');return}
+notify(result.ok?'Результат визита сохранён':'Сохранено на устройстве · ожидает синхронизации');renderBookings();renderClients();renderAnalytics()
+;openBookingSheet(item.id)}
 
 async function quickCompleteBookingOutcome(button) {
   if (!requireWrites()) return;
@@ -14235,7 +14235,7 @@ async function quickCompleteBookingOutcome(button) {
     notify('Результат не сохранён. Повторите после восстановления связи.');
     return;
   }
-  notify(result.ok ? 'Визит и оплата учтены' : 'Сохранено на устройстве · ожидает синхронизации');
+  notify(result.ok ? 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
   renderBookings();
   renderClients();
   renderAnalytics();
@@ -14940,19 +14940,24 @@ async function providerAccessAllowed(userId) {
 }
 
 function renderProviderSocialState() {
-  const auth = window.MinutaSocialAuth;
-  if (!auth) return;
-  auth.render(document);
-  const loginButtons = $$('#loginForm [data-social-auth-login]');
-  loginButtons.forEach(button => { button.hidden = button.disabled; });
-  const available = loginButtons.some(button => !button.hidden);
-  $('#providerSocialOptions').hidden = !available;
-  $$('[data-social-auth-link]').forEach(button => {
-    const linked = Boolean(currentUser) && auth.isLinked(currentUser, button.dataset.socialAuthProvider);
-    button.classList.toggle('is-linked', linked);
-    if (linked) button.disabled = true;
-    const state = button.querySelector('[data-social-auth-state]');
-    if (state && linked) state.textContent = 'Привязан';
+const auth = window.MinutaSocialAuth;
+if (!auth) return;
+const scope = (currentUser?.id || '') + ':' + sessionGeneration;
+if (providerSocialLinkScope !== scope) {
+providerSocialLinkScope = scope;
+$$('[data-social-auth-link]').forEach(button => clientProfileWriteOwners.delete(button));
+  }
+auth.render(document);
+const loginButtons = $$('#loginForm [data-social-auth-login]');
+loginButtons.forEach(button => { button.hidden = button.disabled; });
+const available = loginButtons.some(button => !button.hidden);
+$('#providerSocialOptions').hidden = !available;
+$$('[data-social-auth-link]').forEach(button => {
+const linked = Boolean(currentUser) && auth.isLinked(currentUser, button.dataset.socialAuthProvider);
+button.classList.toggle('is-linked', linked);
+if (linked || clientProfileWriteOwners.has(button)) button.disabled = true;
+const state = button.querySelector('[data-social-auth-state]');
+if (state && linked) state.textContent = 'Привязан';
   });
 }
 
@@ -14968,14 +14973,16 @@ async function startProviderSocialLogin(button) {
 }
 
 async function startProviderSocialLink(button) {
-  clearFormError('#providerSocialLinkError');
-  if (!currentUser) return;
-  button.disabled = true;
-  try {
-    await window.MinutaSocialAuth.start(db, button.dataset.socialAuthProvider, 'provider-link', 'provider.html?view=settings');
+if (!currentUser || clientProfileWriteOwners.has(button)) return;
+const userId = currentUser.id, generation = sessionGeneration;
+clearFormError('#providerSocialLinkError');
+const operation = beginClientProfileWrite(button);
+try {
+await window.MinutaSocialAuth.start(db, button.dataset.socialAuthProvider, 'provider-link', 'provider.html?view=settings');
   } catch (error) {
-    showFormError('#providerSocialLinkError', window.MinutaSocialAuth?.message(error) || 'Не удалось привязать аккаунт.');
-    renderProviderSocialState();
+if (!releaseClientProfileWrite(button, operation) || !sessionIsCurrent(userId, generation)) return;
+showFormError('#providerSocialLinkError', window.MinutaSocialAuth?.message(error) || 'Не удалось привязать аккаунт.');
+renderProviderSocialState();
   }
 }
 
@@ -15059,48 +15066,76 @@ async function submitProviderPhoneLogin(event) {
 }
 
 function renderProviderPhoneState() {
-  const label = $('#providerLinkedPhone');
-  if (!label) return;
-  const phone = currentUser?.phone || '';
-  label.textContent = phone ? `Подтверждён: ${window.MinutaPhoneAuth?.formatPhone(phone) || phone}` : 'Телефон не привязан';
-  if (phone && !providerLinkCodeRequested) $('#providerPhoneLinkInput').value = window.MinutaPhoneAuth?.formatPhone(phone) || phone;
+const label = $('#providerLinkedPhone');
+if (!label) return;
+const scope = (currentUser?.id || '') + ':' + sessionGeneration;
+const changed = providerLinkScope !== null && providerLinkScope !== scope;
+providerLinkScope = scope;
+if (changed) {
+providerLinkPhone = '';
+providerLinkCodeRequested = false;
+$('#providerPhoneLinkInput').readOnly = false;
+$('#providerPhoneLinkInput').value = '';
+$('#providerPhoneLinkCodeStep').hidden = true;
+$('#providerPhoneLinkCode').value = '';
+$('#providerPhoneLinkError').hidden = true;
+const button = $('#providerPhoneLinkSubmit');
+const pending = clientProfileWriteOwners.has(button);
+if (pending) {
+clientProfileWriteOwners.delete(button);
+button.disabled = $('#showPhoneLoginButton').disabled;
+    }
+if (pending || !$('#showPhoneLoginButton').disabled) $('#providerPhoneLinkHint').textContent = '1. Введите номер. 2. Получите SMS. 3. Введите шестизначный код. После подтверждения по этому номеру можно будет входить без пароля.';
+if (!button.disabled) button.textContent = currentUser?.phone ? 'Изменить телефон' : 'Привязать телефон';
+  }
+const phone = currentUser?.phone || '';
+label.textContent = phone ? 'Подтверждён: ' + (window.MinutaPhoneAuth?.formatPhone(phone) || phone) : 'Телефон не привязан';
+if (phone && !providerLinkCodeRequested) $('#providerPhoneLinkInput').value = window.MinutaPhoneAuth?.formatPhone(phone) || phone;
 }
 
 async function submitProviderPhoneLink(event) {
-  event.preventDefault();
-  const auth = window.MinutaPhoneAuth;
-  const button = $('#providerPhoneLinkSubmit');
-  $('#providerPhoneLinkError').hidden = true;
-  button.disabled = true;
-  try {
-    if (!providerLinkCodeRequested) {
-      providerLinkPhone = auth.toE164($('#providerPhoneLinkInput').value);
-      button.textContent = 'Отправляем…';
-      const { error } = await db.auth.updateUser({ phone:providerLinkPhone });
-      if (error) throw error;
-      providerLinkCodeRequested = true;
-      $('#providerPhoneLinkInput').readOnly = true;
-      $('#providerPhoneLinkCodeStep').hidden = false;
-      $('#providerPhoneLinkHint').textContent = `Код отправлен на ${auth.formatPhone(providerLinkPhone)}`;
-      setTimeout(() => $('#providerPhoneLinkCode').focus(), 0);
+event.preventDefault();
+const userId = currentUser?.id, generation = sessionGeneration;
+if (!userId) return;
+const auth = window.MinutaPhoneAuth;
+const button = $('#providerPhoneLinkSubmit');
+if (clientProfileWriteOwners.has(button)) return;
+const operation = beginClientProfileWrite(button);
+const isCurrent = () => sessionIsCurrent(userId, generation) && clientProfileWriteOwners.get(button) === operation;
+const verifying = providerLinkCodeRequested;
+$('#providerPhoneLinkError').hidden = true;
+try {
+if (!verifying) {
+const phone = auth.toE164($('#providerPhoneLinkInput').value);
+providerLinkPhone = phone;
+button.textContent = 'Отправляем…';
+const { error } = await db.auth.updateUser({ phone });
+if (!isCurrent()) return;
+if (error) throw error;
+providerLinkCodeRequested = true;
+$('#providerPhoneLinkInput').readOnly = true;
+$('#providerPhoneLinkCodeStep').hidden = false;
+$('#providerPhoneLinkHint').textContent = 'Код отправлен на ' + auth.formatPhone(phone);
+setTimeout(() => { if (isCurrent() || !clientProfileWriteOwners.has(button) && sessionIsCurrent(userId, generation) && providerLinkCodeRequested && providerLinkPhone === phone) $('#providerPhoneLinkCode').focus(); }, 0);
     } else {
-      button.textContent = 'Проверяем…';
-      await auth.verify(db, providerLinkPhone, $('#providerPhoneLinkCode').value, 'phone_change');
-      providerLinkCodeRequested = false;
-      $('#providerPhoneLinkInput').readOnly = false;
-      $('#providerPhoneLinkCodeStep').hidden = true;
-      $('#providerPhoneLinkCode').value = '';
-      $('#providerPhoneLinkHint').textContent = 'Телефон подтверждён. Теперь по нему можно входить без пароля.';
-      const { data } = await db.auth.getUser();
-      if (data?.user) currentUser = data.user;
-      renderProviderPhoneState();
-      notify('Телефон подтверждён');
+button.textContent = 'Проверяем…';
+await auth.verify(db, providerLinkPhone, $('#providerPhoneLinkCode').value, 'phone_change');
+if (!isCurrent()) return;
+providerLinkCodeRequested = false;
+$('#providerPhoneLinkInput').readOnly = false;
+$('#providerPhoneLinkCodeStep').hidden = true;
+$('#providerPhoneLinkCode').value = '';
+$('#providerPhoneLinkHint').textContent = 'Телефон подтверждён. Теперь по нему можно входить без пароля.';
+const { data } = await db.auth.getUser();
+if (!isCurrent() || data?.user && data.user.id !== userId) return;
+if (data?.user) currentUser = data.user;
+renderProviderPhoneState();
+notify('Телефон подтверждён');
     }
   } catch (error) {
-    showFormError('#providerPhoneLinkError', auth.message(error, providerLinkCodeRequested ? 'verify' : 'request'));
+if (isCurrent()) showFormError('#providerPhoneLinkError', auth.message(error, verifying ? 'verify' : 'request'));
   } finally {
-    button.disabled = false;
-    button.textContent = providerLinkCodeRequested ? 'Подтвердить код' : currentUser?.phone ? 'Изменить телефон' : 'Привязать телефон';
+if (releaseClientProfileWrite(button, operation) && sessionIsCurrent(userId, generation)) button.textContent = providerLinkCodeRequested ? 'Подтвердить код' : currentUser?.phone ? 'Изменить телефон' : 'Привязать телефон';
   }
 }
 
@@ -15390,43 +15425,55 @@ async function addService(event) {
 }
 
 async function changePassword(event) {
-  event.preventDefault();
-  clearFormError('#passwordError');
-  const currentPassword = $('#currentPassword').value;
-  const newPassword = $('#newPassword').value;
-  const confirmPassword = $('#confirmPassword').value;
-  if (newPassword.length < 8) {
-    showFormError('#passwordError', 'Новый пароль должен содержать не менее 8 символов.');
-    return;
+event.preventDefault();
+clearFormError('#passwordError');
+const currentPassword = $('#currentPassword').value;
+const newPassword = $('#newPassword').value;
+const confirmPassword = $('#confirmPassword').value;
+if (newPassword.length < 8) {
+showFormError('#passwordError', 'Новый пароль должен содержать не менее 8 символов.');
+return;
   }
-  if (newPassword !== confirmPassword) {
-    showFormError('#passwordError', 'Новые пароли не совпадают.');
-    return;
+if (newPassword !== confirmPassword) {
+showFormError('#passwordError', 'Новые пароли не совпадают.');
+return;
   }
-  if (currentPassword === newPassword) {
-    showFormError('#passwordError', 'Новый пароль должен отличаться от текущего.');
-    return;
+if (currentPassword === newPassword) {
+showFormError('#passwordError', 'Новый пароль должен отличаться от текущего.');
+return;
   }
-  const button = event.submitter;
-  button.disabled = true;
-  button.textContent = 'Проверяем…';
-  const { error: signInError } = await db.auth.signInWithPassword({ email: currentUser.email, password: currentPassword });
-  if (signInError) {
-    button.disabled = false;
-    button.textContent = 'Сохранить новый пароль';
-    showFormError('#passwordError', 'Текущий пароль указан неверно.');
-    return;
+const userId = currentUser?.id;
+const generation = sessionGeneration;
+if (!userId) return;
+const button = event.submitter;
+const owner = {};
+button.minutaPasswordChangeOwner = owner;
+const isCurrent = () => sessionIsCurrent(userId, generation) && button.minutaPasswordChangeOwner === owner;
+const releaseButton = () => {
+if (button.minutaPasswordChangeOwner !== owner) return;
+delete button.minutaPasswordChangeOwner;
+button.disabled = false;
+button.textContent = 'Сохранить новый пароль';
+  };
+button.disabled = true;
+button.textContent = 'Проверяем…';
+const { error: signInError } = await db.auth.signInWithPassword({ email: currentUser.email, password: currentPassword });
+if (!isCurrent()) { releaseButton(); return; }
+if (signInError) {
+releaseButton();
+showFormError('#passwordError', 'Текущий пароль указан неверно.');
+return;
   }
-  button.textContent = 'Сохраняем…';
-  const { error } = await db.auth.updateUser({ password: newPassword });
-  button.disabled = false;
-  button.textContent = 'Сохранить новый пароль';
-  if (error) {
-    showFormError('#passwordError', 'Не удалось сменить пароль. Попробуйте другой пароль.');
-    return;
+button.textContent = 'Сохраняем…';
+const { error } = await db.auth.updateUser({ password: newPassword });
+if (!isCurrent()) { releaseButton(); return; }
+releaseButton();
+if (error) {
+showFormError('#passwordError', 'Не удалось сменить пароль. Попробуйте другой пароль.');
+return;
   }
-  event.target.reset();
-  notify('Пароль успешно изменён');
+event.target.reset();
+notify('Пароль успешно изменён');
 }
 
 function shortTime(value, fallback) { return value ? String(value).slice(0, 5) : fallback; }
@@ -15669,55 +15716,57 @@ function renderMonthlySchedule() {
   renderMonthlyScheduleDetails();
 }
 async function toggleMonthlyScheduleDay(dateIso, button) {
-  if (!requireWrites()) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || '')) || dateIso < businessTodayIso()) return;
-  const userId = currentUser?.id;
-  const generation = sessionGeneration;
-  if (!userId) return;
-  const state = scheduleStateForDate(dateIso);
-  if (!state.weekly?.enabled) {
-    notify(`Сначала включите ${weekdayNames[Number(state.weekly?.weekday || 1) - 1] || 'этот день'} в обычной неделе`);
-    return;
+if (!requireWrites()) return;
+if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || '')) || dateIso < businessTodayIso()) return;
+const userId = currentUser?.id;
+const generation = sessionGeneration;
+if (!userId) return;
+const state = scheduleStateForDate(dateIso);
+if (!state.weekly?.enabled) {
+notify(`Сначала включите ${weekdayNames[Number(state.weekly?.weekday || 1) - 1] || 'этот день'} в обычной неделе`);
+return;
   }
-  const status = $('#monthlyScheduleStatus');
-  button.disabled = true;
-  if (status) status.textContent = state.fullDayOff ? 'Открываем день…' : 'Закрываем день…';
-  const request = state.fullDayOff
-    ? db.from('provider_days_off').delete().eq('id', state.fullDayOff.id).eq('performer_id', userId)
-    : db.from('provider_days_off').insert({ performer_id:userId, off_date:dateIso, all_day:true, start_time:null, end_time:null, note:'Месячный график' });
-  const { error } = await request;
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (error) {
-    button.disabled = false;
-    if (status) status.textContent = 'Не удалось изменить день. Попробуйте ещё раз.';
-    return;
+const status = $('#monthlyScheduleStatus');
+button.disabled = true;
+if (status) status.textContent = state.fullDayOff ? 'Открываем день…' : 'Закрываем день…';
+const request = state.fullDayOff
+? db.from('provider_days_off').delete().eq('id', state.fullDayOff.id).eq('performer_id', userId)
+: db.from('provider_days_off').insert({ performer_id:userId, off_date:dateIso, all_day:true, start_time:null, end_time:null, note:'Месячный график' });
+const { error } = await request;
+if (!sessionIsCurrent(userId, generation)) return;
+if (error) {
+button.disabled = false;
+if (status) status.textContent = 'Не удалось изменить день. Попробуйте ещё раз.';
+return;
   }
-  await loadDaysOff();
-  renderBookings();
-  freeSlotsController.refresh();
-  if (status) status.textContent = state.fullDayOff ? 'День снова открыт для записи.' : 'День закрыт.';
+await loadDaysOff();
+if (!sessionIsCurrent(userId, generation)) return;
+renderBookings();
+freeSlotsController.refresh();
+if (status) status.textContent = state.fullDayOff ? 'День снова открыт для записи.' : 'День закрыт.';
 }
 
 async function restoreMonthlyScheduleDate(dateIso, button) {
-  if (!requireWrites()) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || '')) || dateIso < businessTodayIso()) return;
-  const userId = currentUser?.id;
-  const generation = sessionGeneration;
-  if (!userId) return;
-  const status = $('#monthlyScheduleStatus');
-  button.disabled = true;
-  if (status) status.textContent = 'Возвращаем обычный график…';
-  const { error } = await db.from('provider_days_off').delete().eq('performer_id', userId).eq('off_date', dateIso);
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (error) {
-    button.disabled = false;
-    if (status) status.textContent = 'Не удалось вернуть обычный график. Попробуйте ещё раз.';
-    return;
+if (!requireWrites()) return;
+if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || '')) || dateIso < businessTodayIso()) return;
+const userId = currentUser?.id;
+const generation = sessionGeneration;
+if (!userId) return;
+const status = $('#monthlyScheduleStatus');
+button.disabled = true;
+if (status) status.textContent = 'Возвращаем обычный график…';
+const { error } = await db.from('provider_days_off').delete().eq('performer_id', userId).eq('off_date', dateIso);
+if (!sessionIsCurrent(userId, generation)) return;
+if (error) {
+button.disabled = false;
+if (status) status.textContent = 'Не удалось вернуть обычный график. Попробуйте ещё раз.';
+return;
   }
-  await loadDaysOff();
-  renderBookings();
-  freeSlotsController.refresh();
-  if (status) status.textContent = 'Обычный график восстановлен.';
+await loadDaysOff();
+if (!sessionIsCurrent(userId, generation)) return;
+renderBookings();
+freeSlotsController.refresh();
+if (status) status.textContent = 'Обычный график восстановлен.';
 }
 
 function renderSchedule() {
@@ -15772,53 +15821,54 @@ async function loadSchedule() {
 }
 
 async function saveSchedule() {
-  if (!requireWrites()) return;
-  const userId = currentUser.id;
-  const generation = sessionGeneration;
-  clearFormError('#scheduleError');
-  const rows = scheduleRowsFromForm().map(row => ({ ...row, performer_id:userId }));
-  const invalid = rows.find(row => row.enabled && (row.end_time <= row.start_time || (row.break_start && (row.break_end <= row.break_start || row.break_start < row.start_time || row.break_end > row.end_time))));
-  if (invalid) { $('#scheduleWeekEditor').open = true; $('#weeklyScheduleDetails').open = true; setScheduleSaveError('Проверьте расписание'); showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
-  const button = $('#saveSchedule');
-  button.dataset.operationDisabled = 'true';
-  button.textContent = 'Проверяем…';
-  updateScheduleSaveState();
-  const { data: serverSchedule, error: checkError } = await db.from('provider_schedule').select('*').eq('performer_id', userId).order('weekday');
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (checkError) {
-    delete button.dataset.operationDisabled;
-    button.textContent = 'Сохранить';
-    updateScheduleSaveState();
-    setScheduleSaveError();
-    showFormError('#scheduleError', 'Не удалось проверить актуальность расписания. Изменения не сохранены.');
-    return;
+if (!requireWrites()) return;
+const userId = currentUser.id;
+const generation = sessionGeneration;
+clearFormError('#scheduleError');
+const rows = scheduleRowsFromForm().map(row => ({ ...row, performer_id:userId }));
+const invalid = rows.find(row => row.enabled && (row.end_time <= row.start_time || (row.break_start && (row.break_end <= row.break_start || row.break_start < row.start_time || row.break_end > row.end_time))));
+if (invalid) { $('#scheduleWeekEditor').open = true; $('#weeklyScheduleDetails').open = true; setScheduleSaveError('Проверьте расписание'); showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
+const button = $('#saveSchedule');
+button.dataset.operationDisabled = 'true';
+button.textContent = 'Проверяем…';
+updateScheduleSaveState();
+const { data: serverSchedule, error: checkError } = await db.from('provider_schedule').select('*').eq('performer_id', userId).order('weekday');
+if (!sessionIsCurrent(userId, generation)) return;
+if (checkError) {
+delete button.dataset.operationDisabled;
+button.textContent = 'Сохранить';
+updateScheduleSaveState();
+setScheduleSaveError();
+showFormError('#scheduleError', 'Не удалось проверить актуальность расписания. Изменения не сохранены.');
+return;
   }
-  const serverRows = serverSchedule?.length ? serverSchedule : defaultScheduleRows(userId);
-  if (JSON.stringify(comparableSchedule(serverRows)) !== JSON.stringify(comparableSchedule(scheduleRows))) {
-    delete button.dataset.operationDisabled;
-    button.textContent = 'Сохранить';
-    updateScheduleSaveState();
-    setScheduleSaveError('Изменено на другом устройстве');
-    showFormError('#scheduleError', 'Расписание изменилось на другом устройстве. Обновите данные и внесите изменения заново.');
-    return;
+const serverRows = serverSchedule?.length ? serverSchedule : defaultScheduleRows(userId);
+if (JSON.stringify(comparableSchedule(serverRows)) !== JSON.stringify(comparableSchedule(scheduleRows))) {
+delete button.dataset.operationDisabled;
+button.textContent = 'Сохранить';
+updateScheduleSaveState();
+setScheduleSaveError('Изменено на другом устройстве');
+showFormError('#scheduleError', 'Расписание изменилось на другом устройстве. Обновите данные и внесите изменения заново.');
+return;
   }
-  button.textContent = 'Сохраняем…';
-  const { error } = await db.from('provider_schedule').upsert(rows, { onConflict: 'performer_id,weekday' });
-  if (!sessionIsCurrent(userId, generation)) return;
-  delete button.dataset.operationDisabled;
-  button.textContent = 'Сохранить';
-  if (error) { updateScheduleSaveState(); setScheduleSaveError(); showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
-  scheduleRows = rows;
-  setScheduleDirty(false);
-  await saveProviderCache('schedule', scheduleRows, userId);
-  const quickStatus = $('#scheduleQuickStatus');
-  if (quickStatus) {
-    quickStatus.textContent = 'Расписание сохранено.';
-    quickStatus.dataset.state = 'saved';
+button.textContent = 'Сохраняем…';
+const { error } = await db.from('provider_schedule').upsert(rows, { onConflict: 'performer_id,weekday' });
+if (!sessionIsCurrent(userId, generation)) return;
+delete button.dataset.operationDisabled;
+button.textContent = 'Сохранить';
+if (error) { updateScheduleSaveState(); setScheduleSaveError(); showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
+scheduleRows = rows;
+setScheduleDirty(false);
+await saveProviderCache('schedule', scheduleRows, userId);
+if (!sessionIsCurrent(userId, generation)) return;
+const quickStatus = $('#scheduleQuickStatus');
+if (quickStatus) {
+quickStatus.textContent = 'Расписание сохранено.';
+quickStatus.dataset.state = 'saved';
   }
-  renderMonthlySchedule();
-  if (!sessionIsCurrent(userId, generation)) return;
-  notify('Расписание сохранено');
+renderMonthlySchedule();
+if (!sessionIsCurrent(userId, generation)) return;
+notify('Расписание сохранено');
 }
 
 function renderDaysOff() {
@@ -15870,26 +15920,29 @@ async function loadDaysOff() {
 }
 
 async function addDayOff(event) {
-  event.preventDefault();
-  if (!requireWrites()) return;
-  clearFormError('#dayOffError');
-  const allDay = $('#dayOffAllDay').checked;
-  const date = $('#dayOffDate').value;
-  const start = $('#dayOffStart').value;
-  const end = $('#dayOffEnd').value;
-  if (!date || (!allDay && (!start || !end || end <= start))) { showFormError('#dayOffError', 'Укажите корректную дату и время.'); return; }
-  const button = event.submitter;
-  button.disabled = true;
-  const { error } = await db.from('provider_days_off').insert({ performer_id: currentUser.id, off_date: date, all_day: allDay, start_time: allDay ? null : start, end_time: allDay ? null : end, note: $('#dayOffNote').value.trim() });
-  button.disabled = false;
-  if (error) { showFormError('#dayOffError', 'Не удалось закрыть выбранное время.'); return; }
-  event.target.reset();
-  $('#dayOffAllDay').checked = true;
-  $('#dayOffTime').hidden = true;
-  $('#dayOffDate').min = businessTodayIso();
-  $('#dayOffEditor').hidden = true;
-  notify('Исключение добавлено');
-  await refreshAfterWrite();
+event.preventDefault();
+if (!requireWrites()) return;
+const userId = currentUser?.id, generation = sessionGeneration;
+if (!userId) return;
+clearFormError('#dayOffError');
+const allDay = $('#dayOffAllDay').checked;
+const date = $('#dayOffDate').value;
+const start = $('#dayOffStart').value;
+const end = $('#dayOffEnd').value;
+if (!date || (!allDay && (!start || !end || end <= start))) { showFormError('#dayOffError', 'Укажите корректную дату и время.'); return; }
+const button = event.submitter;
+button.disabled = true;
+const { error } = await db.from('provider_days_off').insert({ performer_id: userId, off_date: date, all_day: allDay, start_time: allDay ? null : start, end_time: allDay ? null : end, note: $('#dayOffNote').value.trim() });
+if (!sessionIsCurrent(userId, generation)) return;
+button.disabled = false;
+if (error) { showFormError('#dayOffError', 'Не удалось закрыть выбранное время.'); return; }
+event.target.reset();
+$('#dayOffAllDay').checked = true;
+$('#dayOffTime').hidden = true;
+$('#dayOffDate').min = businessTodayIso();
+$('#dayOffEditor').hidden = true;
+notify('Исключение добавлено');
+await refreshAfterWrite();
 }
 
 function portfolioPhoto(item, type) { return (item.photos || []).find(photo => photo.photo_type === type); }
@@ -16371,24 +16424,30 @@ async function savePortfolioItem(event) {
 }
 
 async function deletePortfolioItem(id) {
-  if (!requireWrites()) return false;
-  const item = portfolioItems.find(entry => entry.id === id);
-  if (!item || !confirm('Удалить эту работу и связанные фотографии?')) return false;
-  const paths = (item.photos || []).map(photo => photo.storage_path).filter(Boolean);
-  let deleted = false;
-  try {
-    const { data, error } = await db.from('portfolio_items').delete().eq('id', id).eq('performer_id', currentUser.id).select('id');
-    deleted = !error && data?.length === 1 && data[0].id === id;
-    if (!deleted) {
-      const check = await db.from('portfolio_items').select('id').eq('id', id).eq('performer_id', currentUser.id).maybeSingle();
-      deleted = !check.error && !check.data;
+if (!requireWrites()) return false;
+const userId = currentUser?.id, generation = sessionGeneration;
+if (!userId) return false;
+const item = portfolioItems.find(entry => entry.id === id);
+if (!item || !confirm('Удалить эту работу и связанные фотографии?')) return false;
+const paths = (item.photos || []).map(photo => photo.storage_path).filter(Boolean);
+let deleted = false;
+try {
+const { data, error } = await db.from('portfolio_items').delete().eq('id', id).eq('performer_id', userId).select('id');
+if (!sessionIsCurrent(userId, generation)) return false;
+deleted = !error && data?.length === 1 && data[0].id === id;
+if (!deleted) {
+const check = await db.from('portfolio_items').select('id').eq('id', id).eq('performer_id', userId).maybeSingle();
+if (!sessionIsCurrent(userId, generation)) return false;
+deleted = !check.error && !check.data;
     }
   } catch { /* Keep Storage intact until removal from the catalog is confirmed. */ }
-  if (!deleted) { notify('Удаление не подтверждено. Исходные фотографии не удалены. Обновите портфолио и повторите.'); return false; }
-  const cleaned = await removePortfolioStorage(paths);
-  notify(cleaned ? 'Работа удалена' : 'Работа удалена из портфолио. Файлы пока остались в хранилище — очистка не подтверждена.');
-  await loadPortfolio();
-  return true;
+if (!sessionIsCurrent(userId, generation)) return false;
+if (!deleted) { notify('Удаление не подтверждено. Исходные фотографии не удалены. Обновите портфолио и повторите.'); return false; }
+const cleaned = await removePortfolioStorage(paths);
+if (!sessionIsCurrent(userId, generation)) return false;
+notify(cleaned ? 'Работа удалена' : 'Работа удалена из портфолио. Файлы пока остались в хранилище — очистка не подтверждена.');
+await loadPortfolio();
+return true;
 }
 
 function focusAfterPortfolioDelete(previousIndex) {
@@ -16812,30 +16871,31 @@ function renderWaitlist() {
 }
 
 async function loadWaitlist() {
-  const userId = currentUser?.id;
-  const generation = sessionGeneration;
-  const organizationId = organizationController.getActiveOrganization()?.id || null;
-  if (!userId) return { ok: false, optional: true };
-  const { data, error } = await db.from('booking_waitlist_requests')
+const loadRevision = ++waitlistLoadRevision;
+const userId = currentUser?.id;
+const generation = sessionGeneration;
+const organizationId = organizationController.getActiveOrganization()?.id || null;
+if (!userId) return { ok: false, optional: true };
+const { data, error } = await db.from('booking_waitlist_requests')
     .select('id,request_code,client_name,client_phone,desired_date,time_period,status,created_at,services(name)')
     .eq('performer_id', userId)
     .in('status', ['waiting', 'contacted'])
     .order('desired_date', { ascending: true })
     .order('created_at', { ascending: true });
-  let scoped = { data:[],error:null };
-  if (organizationId && !bookingUsesDemoData()) {
-    scoped = await db.from('organization_waitlist_requests')
+let scoped = { data:[],error:null };
+if (organizationId && !bookingUsesDemoData()) {
+scoped = await db.from('organization_waitlist_requests')
       .select('id,organization_id,request_code,client_name,client_phone,desired_date,time_period,status,created_at,services(name),locations(name),performer_profiles(display_name)')
       .eq('organization_id',organizationId).in('status',['waiting','contacted'])
       .order('desired_date',{ascending:true}).order('created_at',{ascending:true});
   }
-  if (!sessionIsCurrent(userId,generation) || (organizationController.getActiveOrganization()?.id || null) !== organizationId) return { ok:false,optional:true,stale:true };
-  waitlistRemoteAvailable = !error && !scoped.error;
-  waitlistLoaded = true;
-  waitlistRequests = waitlistRemoteAvailable ? [...(data || []),...(scoped.data || [])]
-    .sort((a,b)=>a.desired_date.localeCompare(b.desired_date) || a.created_at.localeCompare(b.created_at)) : [];
-  renderWaitlist();
-  return { ok:waitlistRemoteAvailable,optional:true };
+if (loadRevision !== waitlistLoadRevision || !sessionIsCurrent(userId,generation) || (organizationController.getActiveOrganization()?.id || null) !== organizationId) return { ok:false,optional:true,stale:true };
+waitlistRemoteAvailable = !error && !scoped.error;
+waitlistLoaded = true;
+waitlistRequests = waitlistRemoteAvailable ? [...(data || []),...(scoped.data || [])]
+.sort((a,b)=>a.desired_date.localeCompare(b.desired_date) || a.created_at.localeCompare(b.created_at)) : [];
+renderWaitlist();
+return { ok:waitlistRemoteAvailable,optional:true };
 }
 
 document.addEventListener('pointerdown', event => {
@@ -17584,10 +17644,12 @@ document.addEventListener('click', async event => {
   }
   if (waitlistStatus) {
     const button = waitlistStatus;
+    const userId = currentUser?.id, generation = sessionGeneration, organizationId = organizationController.getActiveOrganization()?.id || null;
     button.disabled = true;
     const scoped = button.closest('[data-waitlist-scope]')?.dataset.waitlistScope === 'organization';
     const { error } = await db.rpc(scoped ? 'set_minuta_waitlist_status_v111' : 'set_waitlist_request_status', { p_request: button.dataset.waitlistId, p_status: button.dataset.waitlistStatus });
     button.disabled = false;
+    if (!sessionIsCurrent(userId, generation) || (organizationController.getActiveOrganization()?.id || null) !== organizationId) return;
     if (error) { notify('Не удалось обновить заявку'); return; }
     notify(button.dataset.waitlistStatus === 'booked' ? 'Клиент отмечен записанным' : button.dataset.waitlistStatus === 'contacted' ? 'Контакт отмечен' : 'Заявка закрыта');
     await loadWaitlist();
@@ -19282,6 +19344,7 @@ window.addEventListener('minuta-install-ready', () => {
   refreshInstallAppCard();
 });
 window.addEventListener('appinstalled', () => {
+  providerAppInstallObserved = true;
   deferredInstallPrompt = null;
   window.MinutaPwaInstall?.clearPrompt?.();
   refreshInstallAppCard();
@@ -19331,39 +19394,40 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
   if (event.data?.type === 'open-provider-view' && PROVIDER_VIEW_ORDER.includes(event.data.view) && currentUser) setProviderView(event.data.view);
 });
 function initializeProviderUx() {
-  setInventorySection('balances');
-  const layout = $('#clientsLayout');
-  const search = $('#clientSearch')?.closest('label');
-  if (layout && search) {
-    const toolbar = document.createElement('div');
-    toolbar.className = 'clients-search-tools';
-    const tools = document.createElement('details');
-    tools.id = 'clientDirectoryTools';
-    tools.className = 'clients-tools ux-disclosure';
-    tools.innerHTML = '<summary>Ещё</summary><div aria-label="Импорт и поля клиента"></div>';
-    const panels = [$('#clientImportPanel'), $('#clientFieldsSettings')].filter(Boolean);
-    panels.forEach(panel => tools.lastElementChild.append(panel));
-    const filters = $('#clientDirectoryFilters');
-    toolbar.append(search);
-    if (filters) toolbar.append(filters);
-    toolbar.append(tools);
-    layout.before(toolbar);
-    const syncTools = () => {
-      const hidden = panels.every(panel => panel.hidden);
-      if (tools.hidden !== hidden) tools.hidden = hidden;
-      if (panels.some(panel => !panel.hidden && panel.open)) tools.open = true;
+setInventorySection('balances');
+const layout=$('#clientsLayout');
+const search=$('#clientSearch')?.closest('label');
+if (layout && search) {
+const toolbar=document.createElement('div');
+toolbar.className='clients-search-tools';
+const tools=document.createElement('details');
+tools.id='clientDirectoryTools';
+tools.className='clients-tools ux-disclosure';
+tools.innerHTML='<summary>Ещё</summary><div aria-label="Импорт и поля клиента"></div>';
+tools.onkeydown=e=>{if(e.key==='Escape'&&tools.open&&!e.defaultPrevented){e.preventDefault();e.stopPropagation();tools.open=false;tools.firstElementChild.focus();}};
+const panels=[$('#clientImportPanel'), $('#clientFieldsSettings')].filter(Boolean);
+panels.forEach(panel => tools.lastElementChild.append(panel));
+const filters=$('#clientDirectoryFilters');
+toolbar.append(search);
+if(filters) toolbar.append(filters);
+toolbar.append(tools);
+layout.before(toolbar);
+const syncTools=() => {
+const hidden=panels.every(panel => panel.hidden);
+if (tools.hidden !== hidden) tools.hidden=hidden;
+if (panels.some(panel => !panel.hidden && panel.open)) tools.open = true;
     };
-    panels.forEach(panel => new MutationObserver(syncTools).observe(panel, { attributes:true, attributeFilter:['hidden','open'] }));
-    syncTools();
+panels.forEach(panel => new MutationObserver(syncTools).observe(panel, { attributes:true, attributeFilter:['hidden','open'] }));
+syncTools();
   }
-  const evidence = document.createElement('details');
-  evidence.id = 'reportPaymentEvidence';
-  evidence.className = 'report-payment-evidence';
-  evidence.hidden = true;
-  $('#reportCommandCenter')?.before(evidence);
+const evidence = document.createElement('details');
+evidence.id = 'reportPaymentEvidence';
+evidence.className = 'report-payment-evidence';
+evidence.hidden = true;
+$('#reportCommandCenter')?.before(evidence);
   // Secondary starter commands stay reachable without filling the first screen.
-  const examples = $('.voice-assistant-examples');
-  $$('#voiceAssistantStarters>button:nth-child(n+5)').forEach(button => examples?.append(button));
+const examples = $('.voice-assistant-examples');
+$$('#voiceAssistantStarters>button:nth-child(n+5)').forEach(button => examples?.append(button));
 }
 initializeProviderUx();
 new MutationObserver(refreshSectionNavigation).observe($('#dashboard'), { attributes:true, subtree:true, attributeFilter:['hidden'] });

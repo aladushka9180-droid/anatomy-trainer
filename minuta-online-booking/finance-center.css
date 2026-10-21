@@ -328,3 +328,15 @@ body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #re
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-center__compact-metrics strong { font-size:calc(1.25rem + var(--provider-text-step,0px)); }
   body.provider-body[data-provider-theme][data-provider-layout] #analyticsView #reportFinanceOverview .finance-dashboard__panel { padding:14px 12px; }
 }
+
+/* Payment review uses the existing theme tokens and dialog scale. */
+.finance-center__pending:not([hidden]){display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 0;flex-wrap:wrap}
+.finance-center__pending p{margin:0;color:var(--theme-muted)}
+.finance-center__pending button{min-height:44px;color:var(--theme-accent);background:none;border:0;padding:8px 0;cursor:pointer;text-align:left}
+.finance-center__payment-dialog{box-sizing:border-box;width:min(440px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow:auto;color:var(--theme-ink);background:var(--theme-surface);border:1px solid var(--theme-line);border-radius:20px;padding:20px}
+.finance-center__payment-form{display:grid;gap:16px}
+.finance-center__payment-form h3,.finance-center__payment-form p{margin:0;overflow-wrap:anywhere}
+.finance-center__payment-form label{display:grid;gap:6px;font-size:inherit}
+.finance-center__payment-form input,.finance-center__payment-form select,.finance-center__payment-form button{box-sizing:border-box;min-height:44px;max-width:100%;width:100%;font:inherit;border:1px solid var(--theme-line);border-radius:10px;padding:10px 12px;color:var(--theme-ink);background:var(--theme-surface)}
+.finance-center__payment-form .finance-center__submit{background:var(--theme-accent);color:var(--theme-accent-contrast,#fff);cursor:pointer}
+.finance-center__payment-form button:disabled{opacity:.55;cursor:default}

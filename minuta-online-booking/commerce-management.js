@@ -69,111 +69,114 @@
 	element.hidden = !element.textContent;
   }
 
-  function createController(options) {
-	const { db, $, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
-	let organization = null;
-	let state = null;
-	let loading = null;
-	let revision = 0;
-	let bound = false;
-	let pendingSaleClaim = null;
-	let saleClaimSecret = '';
-	let saleClaimExpiryTimer = 0;
-	const activeWrites = new Set();
-	const writeLabels = new Map();
+function createController(options) {
+const { db, $, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
+let organization = null;
+let state = null;
+let loading = null;
+let revision = 0;
+let bound = false;
+let pendingSaleClaim = null;
+let saleClaimSecret = '';
+let saleClaimExpiryTimer = 0;
+const activeWrites = new Set();
+const writeLabels = new Map();
+let financeToggleOperation = null;
 
-	function currentContext() {
-	  return { organizationId:organization?.id, userId:getCurrentUser()?.id, generation:getSessionGeneration(), revision };
+function currentContext() {
+return { organizationId:organization?.id, userId:getCurrentUser()?.id, generation:getSessionGeneration(), revision };
 	}
 
-	function isCurrent(context) {
-	  return context.revision === revision && organization?.id === context.organizationId
+function isCurrent(context) {
+return context.revision === revision && organization?.id === context.organizationId
 		&& sessionIsCurrent(context.userId, context.generation);
 	}
 
-	function invalidateContext() {
-	  revision += 1;
-	  loading = null;
-	  $('#commerceLoading').hidden = true;
-	  $('#commerceUnavailable').hidden = true;
-	  for (const [submit, label] of writeLabels) submit.textContent = label;
-	  writeLabels.clear();
+function invalidateContext() {
+if (financeToggleOperation) financeToggleOperation.control.disabled = false;
+financeToggleOperation = null;
+revision += 1;
+loading = null;
+$('#commerceLoading').hidden = true;
+$('#commerceUnavailable').hidden = true;
+for (const [submit, label] of writeLabels) submit.textContent = label;
+writeLabels.clear();
 	}
 
-	const intentError = 'Не удалось безопасно подготовить операцию. Разрешите хранение данных для сайта и повторите.';
+const intentError = 'Не удалось безопасно подготовить операцию. Разрешите хранение данных для сайта и повторите.';
 
-	const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-	function clearSaleClaimResult({ forgetRequest = true } = {}) {
-	  saleClaimSecret = '';
-	  clearTimeout(saleClaimExpiryTimer);
-	  saleClaimExpiryTimer = 0;
-	  if (forgetRequest && pendingSaleClaim?.intentKey) clearIntent(pendingSaleClaim.intentKey);
-	  if (forgetRequest) pendingSaleClaim = null;
-	  const holder = $('#commerceClientAccessResult');
-	  if (!holder) return;
-	  holder.hidden = true;
-	  holder.classList.remove('is-loading', 'is-error');
-	  $('#commerceClientAccessTitle').textContent = 'Передайте код клиенту';
-	  $('#commerceClientAccessCode').textContent = '';
-	  $('#commerceClientAccessCode').hidden = true;
-	  $('#commerceClientAccessExpiry').textContent = '';
-	  $('#commerceClientAccessExpiry').hidden = true;
-	  $('#commerceClientAccessNote').textContent = 'Код одноразовый и открывает только покупки этой организации.';
-	  $('#commerceClientAccessCopy').hidden = true;
-	  $('#commerceClientAccessCopy').disabled = false;
-	  $('#commerceClientAccessRetry').hidden = true;
-	  $('#commerceClientAccessRetry').disabled = false;
-	  $('#commerceClientAccessRetry').textContent = 'Повторить выдачу кода';
+function clearSaleClaimResult({ forgetRequest = true } = {}) {
+saleClaimSecret = '';
+clearTimeout(saleClaimExpiryTimer);
+saleClaimExpiryTimer = 0;
+if (forgetRequest && pendingSaleClaim?.intentKey) clearIntent(pendingSaleClaim.intentKey);
+if (forgetRequest) pendingSaleClaim = null;
+const holder = $('#commerceClientAccessResult');
+if (!holder) return;
+holder.hidden = true;
+holder.classList.remove('is-loading', 'is-error');
+$('#commerceClientAccessTitle').textContent = 'Передайте код клиенту';
+$('#commerceClientAccessCode').textContent = '';
+$('#commerceClientAccessCode').hidden = true;
+$('#commerceClientAccessExpiry').textContent = '';
+$('#commerceClientAccessExpiry').hidden = true;
+$('#commerceClientAccessNote').textContent = 'Код одноразовый и открывает только покупки этой организации.';
+$('#commerceClientAccessCopy').hidden = true;
+$('#commerceClientAccessCopy').disabled = false;
+$('#commerceClientAccessRetry').hidden = true;
+$('#commerceClientAccessRetry').disabled = false;
+$('#commerceClientAccessRetry').textContent = 'Повторить выдачу кода';
 	}
 
-	function normalizedSaleClaim(data) {
-	  if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== 'object') return null;
-	  const token = data[0].claim_token;
-	  const expiresAt = data[0].claim_expires_at;
-	  if (typeof token !== 'string' || typeof expiresAt !== 'string') return null;
-	  const expiresTime = Date.parse(expiresAt);
-	  const now = Date.now();
-	  if (!/^PTS1-[0-9A-F]{4}(?:-[0-9A-F]{4}){3}$/.test(token) || !Number.isFinite(expiresTime)
+function normalizedSaleClaim(data) {
+if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== 'object') return null;
+const token = data[0].claim_token;
+const expiresAt = data[0].claim_expires_at;
+if (typeof token !== 'string' || typeof expiresAt !== 'string') return null;
+const expiresTime = Date.parse(expiresAt);
+const now = Date.now();
+if (!/^PTS1-[0-9A-F]{4}(?:-[0-9A-F]{4}){3}$/.test(token) || !Number.isFinite(expiresTime)
 		|| expiresTime <= now || expiresTime > now + 10 * 60_000) return null;
-	  return { token, expiresAt, expiresTime };
+return { token, expiresAt, expiresTime };
 	}
 
-	function renderSaleClaimPending() {
-	  clearSaleClaimResult({ forgetRequest:false });
-	  const holder = $('#commerceClientAccessResult');
-	  holder.hidden = false;
-	  holder.classList.add('is-loading');
-	  $('#commerceClientAccessTitle').textContent = 'Создаём код доступа…';
-	  $('#commerceClientAccessNote').textContent = 'Продажа уже проведена. Повторная продажа не создаётся.';
+function renderSaleClaimPending() {
+clearSaleClaimResult({ forgetRequest:false });
+const holder = $('#commerceClientAccessResult');
+holder.hidden = false;
+holder.classList.add('is-loading');
+$('#commerceClientAccessTitle').textContent = 'Создаём код доступа…';
+$('#commerceClientAccessNote').textContent = 'Продажа уже проведена. Повторная продажа не создаётся.';
 	}
 
-	function renderSaleClaimError(message, { retry = true, retryLabel = 'Повторить выдачу кода' } = {}) {
-	  saleClaimSecret = '';
-	  clearTimeout(saleClaimExpiryTimer);
-	  saleClaimExpiryTimer = 0;
-	  const holder = $('#commerceClientAccessResult');
-	  holder.hidden = false;
-	  holder.classList.remove('is-loading');
-	  holder.classList.add('is-error');
-	  $('#commerceClientAccessTitle').textContent = 'Продажа проведена, код не создан';
-	  $('#commerceClientAccessCode').textContent = '';
-	  $('#commerceClientAccessCode').hidden = true;
-	  $('#commerceClientAccessExpiry').textContent = '';
-	  $('#commerceClientAccessExpiry').hidden = true;
-	  $('#commerceClientAccessNote').textContent = message;
-	  $('#commerceClientAccessCopy').hidden = true;
-	  $('#commerceClientAccessRetry').hidden = !retry;
-	  $('#commerceClientAccessRetry').textContent = retryLabel;
-	  applyWriteAvailability?.(holder);
+function renderSaleClaimError(message, { retry = true, retryLabel = 'Повторить выдачу кода' } = {}) {
+saleClaimSecret = '';
+clearTimeout(saleClaimExpiryTimer);
+saleClaimExpiryTimer = 0;
+const holder = $('#commerceClientAccessResult');
+holder.hidden = false;
+holder.classList.remove('is-loading');
+holder.classList.add('is-error');
+$('#commerceClientAccessTitle').textContent = 'Продажа проведена, код не создан';
+$('#commerceClientAccessCode').textContent = '';
+$('#commerceClientAccessCode').hidden = true;
+$('#commerceClientAccessExpiry').textContent = '';
+$('#commerceClientAccessExpiry').hidden = true;
+$('#commerceClientAccessNote').textContent = message;
+$('#commerceClientAccessCopy').hidden = true;
+$('#commerceClientAccessRetry').hidden = !retry;
+$('#commerceClientAccessRetry').textContent = retryLabel;
+applyWriteAvailability?.(holder);
 	}
 
-	function renderSaleClaimSuccess(claim) {
-	  saleClaimSecret = claim.token;
-	  const holder = $('#commerceClientAccessResult');
-	  holder.hidden = false;
-	  holder.classList.remove('is-loading', 'is-error');
-	  $('#commerceClientAccessTitle').textContent = pendingSaleClaim?.clientName
+function renderSaleClaimSuccess(claim) {
+saleClaimSecret = claim.token;
+const holder = $('#commerceClientAccessResult');
+holder.hidden = false;
+holder.classList.remove('is-loading', 'is-error');
+$('#commerceClientAccessTitle').textContent = pendingSaleClaim?.clientName
 		? `Код для ${pendingSaleClaim.clientName}` : 'Передайте код клиенту';
 	  $('#commerceClientAccessCode').textContent = claim.token;
 	  $('#commerceClientAccessCode').hidden = false;
@@ -753,172 +756,186 @@
 		form.reset();
 		$('#commerceQuantity').value = '1';
 		$('#commerceDiscount').value = '0';
-		selectSaleSeller();
-		$('#commerceSaleCreator').open = Boolean(claimTarget);
-		syncSaleFocusMode();
-		render();
-		if (claimTarget) await issueSaleClaim(claimTarget);
+selectSaleSeller();
+$('#commerceSaleCreator').open = Boolean(claimTarget);
+syncSaleFocusMode();
+render();
+if (claimTarget) await issueSaleClaim(claimTarget);
 	  }
 	}
 
-	function selectRefundSale(saleId, { focusReason = false } = {}) {
-	  const sale = refundableSales().find(item => item.id === saleId);
-	  if (!sale) return;
-	  const quantity = number(sale.line?.quantity) - number(sale.line?.refunded_quantity);
-	  const amount = Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0);
-	  $('#commerceRefundSale').value = sale.id;
-	  $('#commerceRefundQuantity').value = String(quantity);
-	  $('#commerceRefundQuantity').max = String(quantity);
-	  $('#commerceRefundQuantity').readOnly = sale.line?.item_kind === 'benefit_product';
-	  $('#commerceRefundAmount').value = String(amount / 100);
-	  $('#commerceRefundReason').value = '';
-	  updateRefundValidity();
-	  if (focusReason) $('#commerceRefundReason').focus();
+function selectRefundSale(saleId, { focusReason = false } = {}) {
+const sale = refundableSales().find(item => item.id === saleId);
+if (!sale) return;
+const quantity = number(sale.line?.quantity) - number(sale.line?.refunded_quantity);
+const amount = Number(sale.total_minor || 0) - Number(sale.refunded_minor || 0);
+$('#commerceRefundSale').value = sale.id;
+$('#commerceRefundQuantity').value = String(quantity);
+$('#commerceRefundQuantity').max = String(quantity);
+$('#commerceRefundQuantity').readOnly = sale.line?.item_kind === 'benefit_product';
+$('#commerceRefundAmount').value = String(amount / 100);
+$('#commerceRefundReason').value = '';
+updateRefundValidity();
+if (focusReason) $('#commerceRefundReason').focus();
 	}
 
-	function openRefund(saleId) {
-	  const creator = $('#commerceRefundCreator');
-	  if (!creator || creator.hidden) return;
-	  creator.open = true;
-	  selectRefundSale(saleId, { focusReason:true });
+function openRefund(saleId) {
+const creator = $('#commerceRefundCreator');
+if (!creator || creator.hidden) return;
+creator.open = true;
+selectRefundSale(saleId, { focusReason:true });
 	}
 
-	async function submitRefund(event) {
-	  event.preventDefault();
-	  const form = event.currentTarget;
-	  if (!updateRefundValidity()) return;
-	  const context = currentContext();
-	  const payload = { sale:$('#commerceRefundSale').value, quantity:number($('#commerceRefundQuantity').value), amount:minor($('#commerceRefundAmount').value), reason:$('#commerceRefundReason').value.trim() };
-	  const ok = await write(form, $('#commerceRefundError'), 'refund', payload, 'refund_minuta_commercial_sale_v147', { p_organization:organization.id, p_sale:payload.sale, p_quantity:payload.quantity, p_amount_minor:payload.amount, p_reason:payload.reason });
-	  if (!isCurrent(context)) return;
-	  if (ok) { form.reset(); $('#commerceRefundCreator').open = false; }
-	  updateRefundValidity();
+async function submitRefund(event) {
+event.preventDefault();
+const form = event.currentTarget;
+if (!updateRefundValidity()) return;
+const context = currentContext();
+const payload = { sale:$('#commerceRefundSale').value, quantity:number($('#commerceRefundQuantity').value), amount:minor($('#commerceRefundAmount').value), reason:$('#commerceRefundReason').value.trim() };
+const ok = await write(form, $('#commerceRefundError'), 'refund', payload, 'refund_minuta_commercial_sale_v147', { p_organization:organization.id, p_sale:payload.sale, p_quantity:payload.quantity, p_amount_minor:payload.amount, p_reason:payload.reason });
+if (!isCurrent(context)) return;
+if (ok) { form.reset(); $('#commerceRefundCreator').open = false; }
+updateRefundValidity();
 	}
 
-	async function submitRecurring(event) {
-	  event.preventDefault();
-	  const form = event.currentTarget;
-	  const expenseAccount = (state?.accounts || []).find(item => item.system_key === 'operating_expense');
-	  const payload = { name:$('#commerceRecurringName').value.trim(), supplier:$('#commerceRecurringSupplier').value.trim(), amount:minor($('#commerceRecurringAmount').value), day:Math.trunc(number($('#commerceRecurringDay').value)), paymentAccount:$('#commerceRecurringAccount').value, expenseAccount:expenseAccount?.id || '' };
-	  const ok = await write(form, $('#commerceRecurringError'), 'recurring-create', payload, 'create_minuta_recurring_expense_v147', { p_organization:organization.id, p_name:payload.name, p_supplier_name:payload.supplier, p_amount_minor:payload.amount, p_expense_account:payload.expenseAccount, p_payment_account:payload.paymentAccount, p_day_of_month:payload.day });
-	  if (ok) { form.reset(); $('#commerceRecurringName').value = 'Аренда'; $('#commerceRecurringDay').value = '1'; }
+async function submitRecurring(event) {
+event.preventDefault();
+const form = event.currentTarget;
+const expenseAccount = (state?.accounts || []).find(item => item.system_key === 'operating_expense');
+const payload = { name:$('#commerceRecurringName').value.trim(), supplier:$('#commerceRecurringSupplier').value.trim(), amount:minor($('#commerceRecurringAmount').value), day:Math.trunc(number($('#commerceRecurringDay').value)), paymentAccount:$('#commerceRecurringAccount').value, expenseAccount:expenseAccount?.id || '' };
+const ok = await write(form, $('#commerceRecurringError'), 'recurring-create', payload, 'create_minuta_recurring_expense_v147', { p_organization:organization.id, p_name:payload.name, p_supplier_name:payload.supplier, p_amount_minor:payload.amount, p_expense_account:payload.expenseAccount, p_payment_account:payload.paymentAccount, p_day_of_month:payload.day });
+if (ok) { form.reset(); $('#commerceRecurringName').value = 'Аренда'; $('#commerceRecurringDay').value = '1'; }
 	}
 
-	async function recordExpense(ruleId, button) {
-	  if (!organization?.id || !requireWrites() || button.disabled
+async function recordExpense(ruleId, button) {
+if (!organization?.id || !requireWrites() || button.disabled
 		|| !(state?.recurring_expenses || []).some(item => item.id === ruleId && item.active !== false)) return;
-	  const context = currentContext();
-	  const today = new Date();
-	  const occurredOn = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-	  const payload = { ruleId, occurredOn };
-	  const intent = requestIntent(`${organization.id}:recurring-record`, payload);
-	  if (!intent.requestId) { notify(intentError); return; }
-	  button.disabled = true;
-	  try {
-		const result = await db.rpc('record_minuta_recurring_expense_v147', { p_organization:organization.id, p_rule:ruleId, p_occurred_on:occurredOn, p_request_id:intent.requestId });
-		if (result.error) throw result.error;
-		clearIntent(intent.key, intent.requestId);
-		if (!isCurrent(context)) return;
-		await load({ force:true });
-		if (!isCurrent(context)) return;
-		notify(result.data?.replayed ? 'Расход уже учтён в этом месяце' : 'Расход учтён в финансах');
+const context = currentContext();
+const today = new Date();
+const occurredOn = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+const payload = { ruleId, occurredOn };
+const intent = requestIntent(`${organization.id}:recurring-record`, payload);
+if (!intent.requestId) { notify(intentError); return; }
+button.disabled = true;
+try {
+const result = await db.rpc('record_minuta_recurring_expense_v147', { p_organization:organization.id, p_rule:ruleId, p_occurred_on:occurredOn, p_request_id:intent.requestId });
+if (result.error) throw result.error;
+clearIntent(intent.key, intent.requestId);
+if (!isCurrent(context)) return;
+await load({ force:true });
+if (!isCurrent(context)) return;
+notify(result.data?.replayed ? 'Расход уже учтён в этом месяце' : 'Расход учтён в финансах');
 	  } catch (error) {
-		if (!isCurrent(context)) return;
-		notify(errorMessage(error));
-		button.disabled = false;
+if (!isCurrent(context)) return;
+notify(errorMessage(error));
+button.disabled = false;
 	  }
 	}
 
-	async function toggleFinance(event) {
-	  const enabled = event.currentTarget.checked;
-	  event.currentTarget.disabled = true;
-	  try {
-		if (!requireWrites()) throw new Error('writes_disabled');
-		const result = await db.rpc('set_minuta_finance_enabled_v133', { p_organization:organization.id, p_enabled:enabled });
-		if (result.error) throw result.error;
-		await load();
-		notify(enabled ? 'Единый финансовый учёт включён' : 'Финансовый учёт выключен');
+async function toggleFinance(event) {
+const control = event.currentTarget;
+if (!control || financeToggleOperation) return;
+const context = currentContext();
+const enabled = control.checked;
+const operation = { control };
+financeToggleOperation = operation;
+control.disabled = true;
+const isActive = () => financeToggleOperation === operation && isCurrent(context);
+try {
+if (!context.organizationId || !requireWrites()) throw new Error('writes_disabled');
+const result = await db.rpc('set_minuta_finance_enabled_v133', { p_organization:context.organizationId, p_enabled:enabled });
+if (!isActive()) return;
+if (result.error) throw result.error;
+await load();
+if (!isActive()) return;
+notify(enabled ? 'Единый финансовый учёт включён' : 'Финансовый учёт выключен');
 	  } catch (error) {
-		event.currentTarget.checked = !enabled;
-		notify(errorMessage(error));
-	  } finally { event.currentTarget.disabled = false; }
+if (!isActive()) return;
+control.checked = !enabled;
+notify(errorMessage(error));
+	  } finally {
+if (financeToggleOperation === operation) {
+financeToggleOperation = null;
+control.disabled = false;
+		}
+	  }
 	}
 
-	function bind() {
-	  if (bound) return;
-	  bound = true;
-	  $('#reloadCommerce')?.addEventListener('click', () => void load());
-	  $('#commerceFinanceEnabled')?.addEventListener('change', event => void toggleFinance(event));
-	  $('#commerceItemKind')?.addEventListener('change', () => { renderItemControls(); updateSaleValidity(); });
-	  $('#commerceItem')?.addEventListener('change', () => { renderItemControls(); updateSaleValidity(); });
-	  $('#commerceClient')?.addEventListener('change', () => { clearSaleClaimResult(); renderBookings(); updateSaleValidity(); });
-	  $('#commerceBooking')?.addEventListener('change', event => {
-		const booking = (state?.bookings || []).find(item => item.id === event.currentTarget.value);
-		if (booking?.client_account_id) { $('#commerceClient').value = booking.client_account_id; renderBookings(); $('#commerceBooking').value = booking.id; selectSaleSeller(booking.performer_id); }
-		updateSaleValidity();
+function bind() {
+if (bound) return;
+bound = true;
+$('#reloadCommerce')?.addEventListener('click', () => void load());
+$('#commerceFinanceEnabled')?.addEventListener('change', event => void toggleFinance(event));
+$('#commerceItemKind')?.addEventListener('change', () => { renderItemControls(); updateSaleValidity(); });
+$('#commerceItem')?.addEventListener('change', () => { renderItemControls(); updateSaleValidity(); });
+$('#commerceClient')?.addEventListener('change', () => { clearSaleClaimResult(); renderBookings(); updateSaleValidity(); });
+$('#commerceBooking')?.addEventListener('change', event => {
+const booking = (state?.bookings || []).find(item => item.id === event.currentTarget.value);
+if (booking?.client_account_id) { $('#commerceClient').value = booking.client_account_id; renderBookings(); $('#commerceBooking').value = booking.id; selectSaleSeller(booking.performer_id); }
+updateSaleValidity();
 	  });
-	  $('#commercePaymentMethod')?.addEventListener('change', () => { renderPaymentAccounts(); updateSaleValidity(); });
-	  $('#commerceAccountCreateOpen')?.addEventListener('click', () => toggleAccountSetup());
-	  $('#commerceAccountSubmit')?.addEventListener('click', () => void createFinancialAccount());
-	  $('#commerceAccountType')?.addEventListener('change', updateAccountSubmitLabel);
-	  updateAccountSubmitLabel();
-	  $('#commerceAccountName')?.addEventListener('keydown', event => {
-		if (event.key === 'Enter') { event.preventDefault(); void createFinancialAccount(); }
+$('#commercePaymentMethod')?.addEventListener('change', () => { renderPaymentAccounts(); updateSaleValidity(); });
+$('#commerceAccountCreateOpen')?.addEventListener('click', () => toggleAccountSetup());
+$('#commerceAccountSubmit')?.addEventListener('click', () => void createFinancialAccount());
+$('#commerceAccountType')?.addEventListener('change', updateAccountSubmitLabel);
+updateAccountSubmitLabel();
+$('#commerceAccountName')?.addEventListener('keydown', event => {
+if (event.key === 'Enter') { event.preventDefault(); void createFinancialAccount(); }
 	  });
-	  $('#commerceSaleForm')?.addEventListener('submit', event => void submitSale(event));
-	  $('#commerceSaleForm')?.addEventListener('input', updateSaleValidity);
-	  $('#commerceSaleForm')?.addEventListener('change', updateSaleValidity);
-	  $('#commerceSaleCreator')?.addEventListener('toggle', event => {
-		syncSaleFocusMode();
-		if (!event.currentTarget.open) clearSaleClaimResult();
+$('#commerceSaleForm')?.addEventListener('submit', event => void submitSale(event));
+$('#commerceSaleForm')?.addEventListener('input', updateSaleValidity);
+$('#commerceSaleForm')?.addEventListener('change', updateSaleValidity);
+$('#commerceSaleCreator')?.addEventListener('toggle', event => {
+syncSaleFocusMode();
+if (!event.currentTarget.open) clearSaleClaimResult();
 	  });
-	  $('#commerceClientAccessCopy')?.addEventListener('click', () => void copySaleClaim());
-	  $('#commerceClientAccessRetry')?.addEventListener('click', () => {
-		if (pendingSaleClaim) void issueSaleClaim(pendingSaleClaim);
+$('#commerceClientAccessCopy')?.addEventListener('click', () => void copySaleClaim());
+$('#commerceClientAccessRetry')?.addEventListener('click', () => {
+if (pendingSaleClaim) void issueSaleClaim(pendingSaleClaim);
 	  });
-	  $('#commerceRefundForm')?.addEventListener('submit', event => void submitRefund(event));
-	  $('#commerceRefundSale')?.addEventListener('change', event => {
-		if (event.currentTarget.value) selectRefundSale(event.currentTarget.value);
-		else {
-		  $('#commerceRefundQuantity').value = '';
-		  $('#commerceRefundAmount').value = '';
-		  $('#commerceRefundReason').value = '';
-		  updateRefundValidity();
+$('#commerceRefundForm')?.addEventListener('submit', event => void submitRefund(event));
+$('#commerceRefundSale')?.addEventListener('change', event => {
+if (event.currentTarget.value) selectRefundSale(event.currentTarget.value);
+else {
+$('#commerceRefundQuantity').value = '';
+$('#commerceRefundAmount').value = '';
+$('#commerceRefundReason').value = '';
+updateRefundValidity();
 		}
 	  });
-	  $('#commerceRefundQuantity')?.addEventListener('input', () => {
-		syncRefundAmount();
-		updateRefundValidity();
+$('#commerceRefundQuantity')?.addEventListener('input', () => {
+syncRefundAmount();
+updateRefundValidity();
 	  });
-	  $('#commerceRefundForm')?.addEventListener('input', updateRefundValidity);
-	  $('#commerceRecurringForm')?.addEventListener('submit', event => void submitRecurring(event));
-	  $('#commercePanel')?.addEventListener('click', event => {
-		const refund = event.target.closest('[data-commerce-refund]');
-		const record = event.target.closest('[data-commerce-record-expense]');
-		if (refund) openRefund(refund.dataset.commerceRefund);
-		if (record) void recordExpense(record.dataset.commerceRecordExpense, record);
+$('#commerceRefundForm')?.addEventListener('input', updateRefundValidity);
+$('#commerceRecurringForm')?.addEventListener('submit', event => void submitRecurring(event));
+$('#commercePanel')?.addEventListener('click', event => {
+const refund = event.target.closest('[data-commerce-refund]');
+const record = event.target.closest('[data-commerce-record-expense]');
+if (refund) openRefund(refund.dataset.commerceRefund);
+if (record) void recordExpense(record.dataset.commerceRecordExpense, record);
 	  });
 	}
 
-	return {
-	  bind,
-	  load,
-	  startSale({ bookingId = '', clientId = '' } = {}) {
-		clearSaleClaimResult();
-		$('#commerceSaleCreator').open = true;
-		syncSaleFocusMode();
-		if (clientId && [...$('#commerceClient').options].some(option => option.value === clientId)) $('#commerceClient').value = clientId;
-		renderBookings();
-		if (bookingId && [...$('#commerceBooking').options].some(option => option.value === bookingId)) {
-		  $('#commerceBooking').value = bookingId;
-		  selectSaleSeller((state?.bookings || []).find(item => item.id === bookingId)?.performer_id);
+return {
+bind,
+load,
+startSale({ bookingId = '', clientId = '' } = {}) {
+clearSaleClaimResult();
+$('#commerceSaleCreator').open = true;
+syncSaleFocusMode();
+if (clientId && [...$('#commerceClient').options].some(option => option.value === clientId)) $('#commerceClient').value = clientId;
+renderBookings();
+if (bookingId && [...$('#commerceBooking').options].some(option => option.value === bookingId)) {
+$('#commerceBooking').value = bookingId;
+selectSaleSeller((state?.bookings || []).find(item => item.id === bookingId)?.performer_id);
 		} else selectSaleSeller();
-		updateSaleValidity();
-		if (window.MinutaCommerceSoftUI) window.MinutaCommerceSoftUI.focusItem();
-		else $('#commerceItem').focus({ preventScroll:true });
+updateSaleValidity();
+if (window.MinutaCommerceSoftUI) window.MinutaCommerceSoftUI.focusItem();
+else $('#commerceItem').focus({ preventScroll:true });
 	  },
-	  async setOrganization(next) {
-		if (organization?.id === next?.id && organization?.current_role === next?.current_role && state) return;
+async setOrganization(next) {
+if (organization?.id === next?.id && organization?.current_role === next?.current_role && state) return;
 		invalidateContext();
 		clearSaleClaimResult();
 		organization = next || null;

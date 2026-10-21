@@ -1,5 +1,6 @@
 (function () {
   const FLOW_KEY = 'minuta-social-auth-flow-v1';
+  let activeFlowAttempt = null;
   const PROVIDERS = Object.freeze({
     telegram: Object.freeze({ id:'custom:telegram', label:'Telegram' }),
     vk: Object.freeze({ id:'custom:vk', label:'VK ID' }),
@@ -26,11 +27,15 @@
   }
 
   function clearFlow() {
+    activeFlowAttempt = null;
     try { sessionStorage.removeItem(FLOW_KEY); } catch {}
   }
 
-  function saveFlow(provider, mode) {
+function saveFlow(provider, mode) {
+const attempt = {};
+activeFlowAttempt = attempt;
     try { sessionStorage.setItem(FLOW_KEY, JSON.stringify({ provider, mode, startedAt:Date.now() })); } catch {}
+    return attempt;
   }
 
   function callbackUrl(page) {
@@ -39,20 +44,20 @@
     return url.href;
   }
 
-  async function start(db, key, mode, page) {
-    const provider = definition(key);
-    if (!enabled(key)) throw new Error('social_provider_disabled');
-    if (!navigator.onLine) throw new Error('social_auth_offline');
-    saveFlow(key, mode);
-    const options = { redirectTo:callbackUrl(page) };
-    const result = mode === 'provider-link'
-      ? await db.auth.linkIdentity({ provider:provider.id, options })
-      : await db.auth.signInWithOAuth({ provider:provider.id, options });
-    if (result.error) {
-      clearFlow();
-      throw result.error;
+async function start(db, key, mode, page) {
+const provider = definition(key);
+if (!enabled(key)) throw new Error('social_provider_disabled');
+if (!navigator.onLine) throw new Error('social_auth_offline');
+const attempt = saveFlow(key, mode);
+const options = { redirectTo:callbackUrl(page) };
+const result = mode === 'provider-link'
+? await db.auth.linkIdentity({ provider:provider.id, options })
+: await db.auth.signInWithOAuth({ provider:provider.id, options });
+if (result.error) {
+if (activeFlowAttempt === attempt) clearFlow();
+throw result.error;
     }
-    return result.data;
+return result.data;
   }
 
   function render(root = document) {

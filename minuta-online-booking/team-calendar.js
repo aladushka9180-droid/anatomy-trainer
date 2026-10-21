@@ -11,9 +11,9 @@
   const UNDO_WINDOW_MS = 10000;
   const movableStatuses = new Set(['new', 'confirmed']);
 
-  function minutesFromTime(value) {
-    const [hours = 0, minutes = 0] = String(value || '').split(':').map(Number);
-    return (hours * 60) + minutes;
+function minutesFromTime(value) {
+const [hours = 0, minutes = 0] = String(value || '').split(':').map(Number);
+return (hours * 60) + minutes;
   }
 
   function timeFromMinutes(value) {
@@ -58,16 +58,16 @@
     let undoFocused = false;
     let enabled = false;
 
-    function readEnabled(value) {
-      try { return getEnabledPreference(value) === true; } catch { return false; }
+function readEnabled(value) {
+try { return getEnabledPreference(value) === true; } catch { return false; }
     }
 
-    function persistEnabled() {
-      try { onEnabledChange(enabled,organization); } catch {}
+function persistEnabled() {
+try { onEnabledChange(enabled,organization); } catch {}
     }
 
-    function canUseTeamCalendar(value = organization) {
-      return Boolean(value?.id && allowedRoles.has(value.current_role) && value.can_manage !== false);
+function canUseTeamCalendar(value = organization) {
+return Boolean(value?.id && allowedRoles.has(value.current_role) && value.can_manage !== false);
     }
 
     function isMissingRpc(error) {
@@ -75,97 +75,97 @@
       return /(?:PGRST202|42883)/i.test(text) || /function\s+[^\n]*(?:get_minuta_team_calendar|team_booking_v102)[^\n]*does not exist/i.test(text);
     }
 
-    function resetData() {
-      clearUndo();
-      rows = [];
-      locations = [];
-      members = [];
-      resources = [];
-      services = [];
-      shifts = [];
-      absences = [];
-      locationId = '';
-      performerId = '';
-      resourceId = '';
-      resourceCalendar = false;
-      dispatcherActions = false;
-      loadedDate = '';
+function resetData() {
+clearUndo();
+rows = [];
+locations = [];
+members = [];
+resources = [];
+services = [];
+shifts = [];
+absences = [];
+locationId = '';
+performerId = '';
+resourceId = '';
+resourceCalendar = false;
+dispatcherActions = false;
+loadedDate = '';
     }
 
-    function reset() {
-      requestRevision += 1;
-      organization = null;
-      resetData();
-      mode = 'personal';
-      enabled = false;
-      availability = null;
-      updateControls();
-      onModeChange(false);
+function reset() {
+requestRevision += 1;
+organization = null;
+resetData();
+mode = 'personal';
+enabled = false;
+availability = null;
+updateControls();
+onModeChange(false);
     }
 
-    function setOrganization(nextOrganization) {
-      const next = nextOrganization && canUseTeamCalendar(nextOrganization) ? nextOrganization : null;
-      const changed = next?.id !== organization?.id || next?.current_role !== organization?.current_role;
-      organization = next;
-      if (!changed) {
-        updateControls();
-        return;
+function setOrganization(nextOrganization) {
+const next = nextOrganization && canUseTeamCalendar(nextOrganization) ? nextOrganization : null;
+const changed = next?.id !== organization?.id || next?.current_role !== organization?.current_role;
+organization = next;
+if (!changed) {
+updateControls();
+return;
       }
-      requestRevision += 1;
-      resetData();
-      availability = next ? null : 'forbidden';
-      mode = 'personal';
-      enabled = next ? readEnabled(next) : false;
-      updateControls();
-      onModeChange(false);
-      renderLegacy();
-      if (next) Promise.resolve().then(() => {
-        if (organization?.id === next.id && availability === null) load();
+requestRevision += 1;
+resetData();
+availability = next ? null : 'forbidden';
+mode = 'personal';
+enabled = next ? readEnabled(next) : false;
+updateControls();
+onModeChange(false);
+renderLegacy();
+if (next) Promise.resolve().then(() => {
+if (organization?.id === next.id && availability === null) load();
       });
     }
 
-    function normalizePayload(payload, supportsDispatcher) {
-      const source = payload?.calendar || payload || {};
-      const payloadOrganization = source.organization || organization || {};
-      const normalizedLocations = Array.isArray(source.locations) ? source.locations : [];
-      const normalizedMembers = Array.isArray(source.performers) ? source.performers : (Array.isArray(source.members) ? source.members : []);
-      const normalizedResources = Array.isArray(source.resources) ? source.resources : [];
-      const rawRows = Array.isArray(source.bookings) ? source.bookings : (Array.isArray(source.rows) ? source.rows : []);
-      return {
-        available: source.available !== false && allowedRoles.has(payloadOrganization.current_role || organization?.current_role),
-        dispatcherActions: supportsDispatcher && source.dispatcher_actions === true,
-        locations: normalizedLocations.filter(item => item?.id && item.active !== false),
-        members: normalizedMembers.map(item => ({ ...item, user_id:item?.user_id || item?.id })).filter(item => item.user_id && item.active !== false && item.is_bookable !== false),
-        rows: rawRows.map(item => ({
-          id:String(item?.id || ''), service_id:String(item?.service_id || item?.services?.id || ''),
-          performer_id:String(item?.performer_id || item?.performer?.id || ''),
-          performer_name:String(item?.performer_name || item?.performer?.display_name || item?.performer_profiles?.display_name || 'Специалист'),
-          location_id:String(item?.location_id || item?.location?.id || ''), location_name:String(item?.location_name || item?.location?.name || 'Без филиала'),
-          service_name:String(item?.service_name || item?.services?.name || 'Услуга'), client_name:String(item?.client_name || 'Клиент'),
-          client_phone:String(item?.client_phone || ''), booking_date:String(item?.booking_date || ''),
-          booking_time:String(item?.booking_time || '').slice(0, 5), duration_minutes:Math.max(1, Number(item?.duration_minutes || item?.services?.duration_minutes || 60)),
-          status:String(item?.status || item?.visit_status || 'new'), series_id:String(item?.series_id || ''),
-          series_occurrence:Number(item?.series_occurrence || 0), has_addons:item?.has_addons === true,
-          resources:(Array.isArray(item?.resources) ? item.resources : []).map(resource => ({
-            id:String(resource?.id || ''), name:String(resource?.name || 'Ресурс'), group_name:String(resource?.group_name || '')
+function normalizePayload(payload, supportsDispatcher) {
+const source = payload?.calendar || payload || {};
+const payloadOrganization = source.organization || organization || {};
+const normalizedLocations = Array.isArray(source.locations) ? source.locations : [];
+const normalizedMembers = Array.isArray(source.performers) ? source.performers : (Array.isArray(source.members) ? source.members : []);
+const normalizedResources = Array.isArray(source.resources) ? source.resources : [];
+const rawRows = Array.isArray(source.bookings) ? source.bookings : (Array.isArray(source.rows) ? source.rows : []);
+return {
+available: source.available !== false && allowedRoles.has(payloadOrganization.current_role || organization?.current_role),
+dispatcherActions: supportsDispatcher && source.dispatcher_actions === true,
+locations: normalizedLocations.filter(item => item?.id && item.active !== false),
+members: normalizedMembers.map(item => ({ ...item, user_id:item?.user_id || item?.id })).filter(item => item.user_id && item.active !== false && item.is_bookable !== false),
+rows: rawRows.map(item => ({
+id:String(item?.id || ''), service_id:String(item?.service_id || item?.services?.id || ''),
+performer_id:String(item?.performer_id || item?.performer?.id || ''),
+performer_name:String(item?.performer_name || item?.performer?.display_name || item?.performer_profiles?.display_name || 'Специалист'),
+location_id:String(item?.location_id || item?.location?.id || ''), location_name:String(item?.location_name || item?.location?.name || 'Без филиала'),
+service_name:String(item?.service_name || item?.services?.name || 'Услуга'), client_name:String(item?.client_name || 'Клиент'),
+client_phone:String(item?.client_phone || ''), booking_date:String(item?.booking_date || ''),
+booking_time:String(item?.booking_time || '').slice(0, 5), duration_minutes:Math.max(1, Number(item?.duration_minutes || item?.services?.duration_minutes || 60)),
+status:String(item?.status || item?.visit_status || 'new'), series_id:String(item?.series_id || ''),
+series_occurrence:Number(item?.series_occurrence || 0), has_addons:item?.has_addons === true,
+resources:(Array.isArray(item?.resources) ? item.resources : []).map(resource => ({
+id:String(resource?.id || ''), name:String(resource?.name || 'Ресурс'), group_name:String(resource?.group_name || '')
           })).filter(resource => resource.id)
         })).filter(item => item.id && item.performer_id && /^\d{4}-\d{2}-\d{2}$/.test(item.booking_date)),
-        resources:normalizedResources.map(item => ({
-          id:String(item?.id || ''), name:String(item?.name || 'Ресурс'), location_id:String(item?.location_id || ''),
-          group_name:String(item?.group_name || ''), active:item?.active !== false
+resources:normalizedResources.map(item => ({
+id:String(item?.id || ''), name:String(item?.name || 'Ресурс'), location_id:String(item?.location_id || ''),
+group_name:String(item?.group_name || ''), active:item?.active !== false
         })).filter(item => item.id),
-        services:(Array.isArray(source.services) ? source.services : []).map(item => ({
-          id:String(item?.id || ''), performer_id:String(item?.performer_id || ''), name:String(item?.name || 'Услуга'),
-          duration_minutes:Math.max(1,Number(item?.duration_minutes || 60)), price_rub:Number(item?.price_rub || 0)
+services:(Array.isArray(source.services) ? source.services : []).map(item => ({
+id:String(item?.id || ''), performer_id:String(item?.performer_id || ''), name:String(item?.name || 'Услуга'),
+duration_minutes:Math.max(1,Number(item?.duration_minutes || 60)), price_rub:Number(item?.price_rub || 0)
         })).filter(item => item.id && item.performer_id),
-        shifts:(Array.isArray(source.shifts) ? source.shifts : []).map(item => ({
-          id:String(item?.id || ''), location_id:String(item?.location_id || ''), performer_id:String(item?.performer_id || ''),
-          shift_date:String(item?.shift_date || ''), start_time:String(item?.start_time || '').slice(0,5), end_time:String(item?.end_time || '').slice(0,5),
-          break_start:String(item?.break_start || '').slice(0,5), break_end:String(item?.break_end || '').slice(0,5), active:item?.active !== false
+shifts:(Array.isArray(source.shifts) ? source.shifts : []).map(item => ({
+id:String(item?.id || ''), location_id:String(item?.location_id || ''), performer_id:String(item?.performer_id || ''),
+shift_date:String(item?.shift_date || ''), start_time:String(item?.start_time || '').slice(0,5), end_time:String(item?.end_time || '').slice(0,5),
+break_start:String(item?.break_start || '').slice(0,5), break_end:String(item?.break_end || '').slice(0,5), active:item?.active !== false
         })).filter(item => item.performer_id && /^\d{4}-\d{2}-\d{2}$/.test(item.shift_date)),
-        absences:(Array.isArray(source.absences) ? source.absences : []).map(item => ({
-          id:String(item?.id || ''), performer_id:String(item?.performer_id || ''), starts_on:String(item?.starts_on || ''),
-          ends_on:String(item?.ends_on || ''), kind:String(item?.kind || 'other'), note:String(item?.note || ''), active:item?.active !== false
+absences:(Array.isArray(source.absences) ? source.absences : []).map(item => ({
+id:String(item?.id || ''), performer_id:String(item?.performer_id || ''), starts_on:String(item?.starts_on || ''),
+ends_on:String(item?.ends_on || ''), kind:String(item?.kind || 'other'), note:String(item?.note || ''), active:item?.active !== false
         })).filter(item => item.performer_id)
       };
     }
@@ -278,15 +278,15 @@
       if (resourceSelect) resourceSelect.innerHTML = `<option value="">Все ресурсы</option>${selectableResources.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === resourceId ? 'selected' : ''}>${escapeHtml(item.group_name ? `${item.group_name} · ${item.name}` : item.name)}</option>`).join('')}`;
     }
 
-    function updateDensityControls() {
-      const control = $('#teamCalendarDensity');
-      const calendarView = getCalendarView() || 'day';
-      const timeGridVisible = calendarView === 'day' || (calendarView === 'week' && Boolean(performerId));
-      if (control) control.hidden = mode !== 'team' || availability !== 'ready' || !timeGridVisible;
-      $$('[data-team-density]').forEach(button => {
-        const active = button.dataset.teamDensity === density;
-        button.classList.toggle('active',active);
-        button.setAttribute('aria-pressed',String(active));
+function updateDensityControls() {
+const control = $('#teamCalendarDensity');
+const calendarView = getCalendarView() || 'day';
+const timeGridVisible = calendarView === 'day' || (calendarView === 'week' && Boolean(performerId));
+if (control) control.hidden = mode !== 'team' || availability !== 'ready' || !timeGridVisible;
+$$('[data-team-density]').forEach(button => {
+const active = button.dataset.teamDensity === density;
+button.classList.toggle('active',active);
+button.setAttribute('aria-pressed',String(active));
       });
     }
 
@@ -304,33 +304,33 @@
       return Number.isNaN(date.getTime()) ? null : date;
     }
 
-    function localIso(date) {
-      const offset = date.getTimezoneOffset() * 60000;
-      return new Date(date.getTime() - offset).toISOString().slice(0,10);
+function localIso(date) {
+const offset = date.getTimezoneOffset() * 60000;
+return new Date(date.getTime() - offset).toISOString().slice(0,10);
     }
 
-    function shortDate(value) {
-      const date = localDate(value);
-      return date ? date.toLocaleDateString('ru-RU',{ day:'numeric',month:'short' }).replace('.','') : value;
+function shortDate(value) {
+const date = localDate(value);
+return date ? date.toLocaleDateString('ru-RU',{ day:'numeric',month:'short' }).replace('.','') : value;
     }
 
-    function clearUndo() {
-      if (undoTimeout) clearTimeout(undoTimeout);
-      if (undoInterval) clearInterval(undoInterval);
-      undoTimeout = null;
-      undoInterval = null;
-      undoHovered = false;
-      undoFocused = false;
-      undoState = null;
-      const holder = $('#teamCalendarUndo');
-      if (holder) {
-        holder.hidden = true;
-        holder.classList.remove('is-pending');
-        holder.classList.remove('is-active');
-        holder.classList.remove('is-paused');
+function clearUndo() {
+if (undoTimeout) clearTimeout(undoTimeout);
+if (undoInterval) clearInterval(undoInterval);
+undoTimeout = null;
+undoInterval = null;
+undoHovered = false;
+undoFocused = false;
+undoState = null;
+const holder = $('#teamCalendarUndo');
+if (holder) {
+holder.hidden = true;
+holder.classList.remove('is-pending');
+holder.classList.remove('is-active');
+holder.classList.remove('is-paused');
       }
-      const button = $('#teamCalendarUndoButton');
-      if (button) { button.disabled = false; button.textContent = 'Отменить'; }
+const button = $('#teamCalendarUndoButton');
+if (button) { button.disabled = false; button.textContent = 'Отменить'; }
     }
 
     function updateUndoCountdown() {
@@ -341,89 +341,89 @@
       if (!seconds) clearUndo();
     }
 
-    function scheduleUndoCountdown(restartAnimation = false) {
-      if (!undoState) return;
-      if (undoTimeout) clearTimeout(undoTimeout);
-      if (undoInterval) clearInterval(undoInterval);
-      const delay = Math.max(0,undoState.expiresAt - Date.now());
-      undoInterval = setInterval(updateUndoCountdown,1000);
-      undoTimeout = setTimeout(clearUndo,delay + 100);
-      const holder = $('#teamCalendarUndo');
-      if (holder && restartAnimation) {
-        holder.classList.remove('is-active');
-        void holder.offsetWidth;
-        holder.classList.add('is-active');
+function scheduleUndoCountdown(restartAnimation = false) {
+if (!undoState) return;
+if (undoTimeout) clearTimeout(undoTimeout);
+if (undoInterval) clearInterval(undoInterval);
+const delay = Math.max(0,undoState.expiresAt - Date.now());
+undoInterval = setInterval(updateUndoCountdown,1000);
+undoTimeout = setTimeout(clearUndo,delay + 100);
+const holder = $('#teamCalendarUndo');
+if (holder && restartAnimation) {
+holder.classList.remove('is-active');
+void holder.offsetWidth;
+holder.classList.add('is-active');
       }
     }
 
-    function pauseUndoCountdown() {
-      if (!undoState || actionPending || undoState.paused) return;
-      undoState.remainingMs = Math.max(0,undoState.expiresAt - Date.now());
-      undoState.paused = true;
-      if (undoTimeout) clearTimeout(undoTimeout);
-      if (undoInterval) clearInterval(undoInterval);
-      undoTimeout = null;
-      undoInterval = null;
-      $('#teamCalendarUndo')?.classList.add('is-paused');
+function pauseUndoCountdown() {
+if (!undoState || actionPending || undoState.paused) return;
+undoState.remainingMs = Math.max(0,undoState.expiresAt - Date.now());
+undoState.paused = true;
+if (undoTimeout) clearTimeout(undoTimeout);
+if (undoInterval) clearInterval(undoInterval);
+undoTimeout = null;
+undoInterval = null;
+$('#teamCalendarUndo')?.classList.add('is-paused');
     }
 
-    function resumeUndoCountdown() {
-      if (!undoState || actionPending || !undoState.paused || undoHovered || undoFocused) return;
-      undoState.expiresAt = Date.now() + Math.max(0,undoState.remainingMs || 0);
-      undoState.paused = false;
-      $('#teamCalendarUndo')?.classList.remove('is-paused');
-      updateUndoCountdown();
-      scheduleUndoCountdown();
+function resumeUndoCountdown() {
+if (!undoState || actionPending || !undoState.paused || undoHovered || undoFocused) return;
+undoState.expiresAt = Date.now() + Math.max(0,undoState.remainingMs || 0);
+undoState.paused = false;
+$('#teamCalendarUndo')?.classList.remove('is-paused');
+updateUndoCountdown();
+scheduleUndoCountdown();
     }
 
-    function showUndo(previous,current) {
-      const holder = $('#teamCalendarUndo');
-      const message = $('#teamCalendarUndoMessage');
-      if (!holder || !message || !current) {
-        notify(`Запись перенесена на ${shortDate(current?.booking_date || previous.booking_date)} в ${current?.booking_time || previous.booking_time}`);
-        return;
-      }
-      clearUndo();
-      undoState = {
-        bookingId:current.id,
-        previous:{
-          performer_id:previous.performer_id, location_id:previous.location_id, service_id:previous.service_id,
-          booking_date:previous.booking_date, booking_time:previous.booking_time
-        },
-        expected:{
-          performer_id:current.performer_id, location_id:current.location_id,
-          service_id:current.service_id, booking_date:current.booking_date,
-          booking_time:current.booking_time
-        },
-        expiresAt:Date.now() + UNDO_WINDOW_MS,
-        remainingMs:UNDO_WINDOW_MS,
-        paused:false
-      };
-      const state = undoState;
-      holder.hidden = false;
-      message.textContent = '';
-      const announcement = `Запись перенесена: ${shortDate(current.booking_date)}, ${current.booking_time}, ${current.performer_name}`;
-      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => {
-        if (undoState === state) message.textContent = announcement;
-      });
-      else message.textContent = announcement;
-      updateUndoCountdown();
-      scheduleUndoCountdown(true);
+function showUndo(previous,current) {
+const holder = $('#teamCalendarUndo');
+const message = $('#teamCalendarUndoMessage');
+if (!holder || !message || !current) {
+notify(`Запись перенесена на ${shortDate(current?.booking_date || previous.booking_date)} в ${current?.booking_time || previous.booking_time}`);
+return;
+}
+clearUndo();
+undoState = {
+bookingId:current.id,
+previous:{
+performer_id:previous.performer_id, location_id:previous.location_id, service_id:previous.service_id,
+booking_date:previous.booking_date, booking_time:previous.booking_time
+},
+expected:{
+performer_id:current.performer_id, location_id:current.location_id,
+service_id:current.service_id, booking_date:current.booking_date,
+booking_time:current.booking_time
+},
+expiresAt:Date.now() + UNDO_WINDOW_MS,
+remainingMs:UNDO_WINDOW_MS,
+paused:false
+};
+const state = undoState;
+holder.hidden = false;
+message.textContent = '';
+const announcement = `Запись перенесена: ${shortDate(current.booking_date)}, ${current.booking_time}, ${current.performer_name}`;
+if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => {
+if (undoState === state) message.textContent = announcement;
+});
+else message.textContent = announcement;
+updateUndoCountdown();
+scheduleUndoCountdown(true);
+}
+
+function bookingMatchesPoint(item,point) {
+return Boolean(item && point && item.performer_id === point.performer_id
+&& item.location_id === point.location_id && item.service_id === point.service_id
+&& item.booking_date === point.booking_date && item.booking_time === point.booking_time);
     }
 
-    function bookingMatchesPoint(item,point) {
-      return Boolean(item && point && item.performer_id === point.performer_id
-        && item.location_id === point.location_id && item.service_id === point.service_id
-        && item.booking_date === point.booking_date && item.booking_time === point.booking_time);
-    }
-
-    function datesBetween(startValue,endValue) {
-      const start = localDate(startValue);
-      const end = localDate(endValue);
-      const values = [];
-      if (!start || !end) return values;
-      for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) values.push(localIso(cursor));
-      return values;
+function datesBetween(startValue,endValue) {
+const start = localDate(startValue);
+const end = localDate(endValue);
+const values = [];
+if (!start || !end) return values;
+for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) values.push(localIso(cursor));
+return values;
     }
 
     function memberById(id) { return members.find(item => item.user_id === id) || null; }
@@ -431,120 +431,120 @@
     function shiftsFor(performer,date) { return shifts.filter(item => item.active && item.performer_id === performer && item.shift_date === date && (!locationId || item.location_id === locationId)); }
     function absenceFor(performer,date) { return absences.find(item => item.active && item.performer_id === performer && item.starts_on <= date && item.ends_on >= date) || null; }
 
-    function targetLocation(performer,date,fallback = '') {
-      if (locationId) return locationId;
-      const activeLocations = [...new Set(shiftsFor(performer,date).map(item => item.location_id).filter(Boolean))];
-      if (activeLocations.length === 1) return activeLocations[0];
-      if (fallback && locations.some(item => item.id === fallback)) return fallback;
-      return locations.length === 1 ? locations[0].id : '';
+function targetLocation(performer,date,fallback = '') {
+if (locationId) return locationId;
+const activeLocations = [...new Set(shiftsFor(performer,date).map(item => item.location_id).filter(Boolean))];
+if (activeLocations.length === 1) return activeLocations[0];
+if (fallback && locations.some(item => item.id === fallback)) return fallback;
+return locations.length === 1 ? locations[0].id : '';
     }
 
-    function minuteFitsShift(performer,date,minute,duration,targetLocationId) {
-      if (absenceFor(performer,date)) return false;
-      const dayShifts = shiftsFor(performer,date).filter(item => !targetLocationId || item.location_id === targetLocationId);
-      if (!shifts.length) return true;
-      return dayShifts.some(item => {
-        const start = minutesFromTime(item.start_time);
-        const end = minutesFromTime(item.end_time);
-        const breakStart = item.break_start ? minutesFromTime(item.break_start) : null;
-        const breakEnd = item.break_end ? minutesFromTime(item.break_end) : null;
-        return minute >= start && minute + duration <= end && (breakStart === null || minute + duration <= breakStart || minute >= breakEnd);
+function minuteFitsShift(performer,date,minute,duration,targetLocationId) {
+if (absenceFor(performer,date)) return false;
+const dayShifts = shiftsFor(performer,date).filter(item => !targetLocationId || item.location_id === targetLocationId);
+if (!shifts.length) return true;
+return dayShifts.some(item => {
+const start = minutesFromTime(item.start_time);
+const end = minutesFromTime(item.end_time);
+const breakStart = item.break_start ? minutesFromTime(item.break_start) : null;
+const breakEnd = item.break_end ? minutesFromTime(item.break_end) : null;
+return minute >= start && minute + duration <= end && (breakStart === null || minute + duration <= breakStart || minute >= breakEnd);
       });
     }
 
-    function bookingConflict(item,performer,date,minute) {
-      const end = minute + item.duration_minutes;
-      return rows.find(other => other.id !== item.id && other.performer_id === performer && other.booking_date === date && other.status !== 'cancelled' && minute < minutesFromTime(other.booking_time) + other.duration_minutes && end > minutesFromTime(other.booking_time)) || null;
+function bookingConflict(item,performer,date,minute) {
+const end = minute + item.duration_minutes;
+return rows.find(other => other.id !== item.id && other.performer_id === performer && other.booking_date === date && other.status !== 'cancelled' && minute < minutesFromTime(other.booking_time) + other.duration_minutes && end > minutesFromTime(other.booking_time)) || null;
     }
 
-    function moveRestriction(item) {
-      if (item.status === 'cancelled') return 'Отменённую запись нельзя переносить.';
-      if (item.status === 'completed') return 'Завершённую запись нельзя переносить.';
-      if (item.status === 'no_show') return 'Запись с отметкой «Не пришли» нельзя переносить.';
-      if (!movableStatuses.has(item.status)) return 'Эту запись нельзя переносить в текущем статусе.';
-      if (item.series_id) return 'Запись входит в серию. Выберите область изменений в управлении серией.';
-      return '';
+function moveRestriction(item) {
+if (item.status === 'cancelled') return 'Отменённую запись нельзя переносить.';
+if (item.status === 'completed') return 'Завершённую запись нельзя переносить.';
+if (item.status === 'no_show') return 'Запись с отметкой «Не пришли» нельзя переносить.';
+if (!movableStatuses.has(item.status)) return 'Эту запись нельзя переносить в текущем статусе.';
+if (item.series_id) return 'Запись входит в серию. Выберите область изменений в управлении серией.';
+return '';
     }
 
-    function moveUnavailableReason(item,targetPerformer,date,minute,targetLocationId,targetServiceId = '') {
-      const restricted = moveRestriction(item);
-      if (restricted) return restricted;
-      const member = memberById(targetPerformer);
-      const memberName = member?.display_name || 'выбранного специалиста';
-      if (item.has_addons && targetPerformer !== item.performer_id) return 'Сеанс с дополнительными услугами можно перенести только по времени у текущего специалиста.';
-      const service = targetServiceId
-        ? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
-        : matchingService(item,targetPerformer);
-      if (!service) return `У специалиста ${memberName} нет совместимой услуги «${item.service_name}» той же длительности.`;
-      const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
-      if (!location) return 'Не удалось определить филиал. Сначала выберите филиал в фильтре календаря.';
-      const targetTime = timeFromMinutes(minute);
-      if (item.performer_id === targetPerformer && item.location_id === location && item.booking_date === date && item.booking_time === targetTime) return 'Запись уже находится в выбранном времени.';
-      const absence = absenceFor(targetPerformer,date);
-      if (absence) {
-        const title = absenceLabels[absence.kind] || 'Недоступен';
-        return `${memberName}: ${title.toLowerCase()}${absence.note ? ` — ${absence.note}` : ''}.`;
-      }
-      const dayShifts = shiftsFor(targetPerformer,date).filter(item => !location || item.location_id === location);
-      const range = getCalendarRange() || { start:getSelectedDate(),end:getSelectedDate() };
-      const shiftDataCoversDate = loadedDate === `${range.start}:${range.end}` && date >= range.start && date <= range.end;
-      if (shifts.length && shiftDataCoversDate && !dayShifts.length) return `У специалиста ${memberName} на ${shortDate(date)} нет смены в выбранном филиале.`;
-      if (shifts.length && shiftDataCoversDate) {
-        const fittingShift = dayShifts.find(shift => minute >= minutesFromTime(shift.start_time) && minute + item.duration_minutes <= minutesFromTime(shift.end_time));
-        const breakShift = dayShifts.find(shift => {
-          if (!shift.break_start || !shift.break_end) return false;
-          const breakStart = minutesFromTime(shift.break_start);
-          const breakEnd = minutesFromTime(shift.break_end);
-          return minute < breakEnd && minute + item.duration_minutes > breakStart;
+function moveUnavailableReason(item,targetPerformer,date,minute,targetLocationId,targetServiceId = '') {
+const restricted = moveRestriction(item);
+if (restricted) return restricted;
+const member = memberById(targetPerformer);
+const memberName = member?.display_name || 'выбранного специалиста';
+if (item.has_addons && targetPerformer !== item.performer_id) return 'Сеанс с дополнительными услугами можно перенести только по времени у текущего специалиста.';
+const service = targetServiceId
+? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
+: matchingService(item,targetPerformer);
+if (!service) return `У специалиста ${memberName} нет совместимой услуги «${item.service_name}» той же длительности.`;
+const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
+if (!location) return 'Не удалось определить филиал. Сначала выберите филиал в фильтре календаря.';
+const targetTime = timeFromMinutes(minute);
+if (item.performer_id === targetPerformer && item.location_id === location && item.booking_date === date && item.booking_time === targetTime) return 'Запись уже находится в выбранном времени.';
+const absence = absenceFor(targetPerformer,date);
+if (absence) {
+const title = absenceLabels[absence.kind] || 'Недоступен';
+return `${memberName}: ${title.toLowerCase()}${absence.note ? ` — ${absence.note}` : ''}.`;
+}
+const dayShifts = shiftsFor(targetPerformer,date).filter(item => !location || item.location_id === location);
+const range = getCalendarRange() || { start:getSelectedDate(),end:getSelectedDate() };
+const shiftDataCoversDate = loadedDate === `${range.start}:${range.end}` && date >= range.start && date <= range.end;
+if (shifts.length && shiftDataCoversDate && !dayShifts.length) return `У специалиста ${memberName} на ${shortDate(date)} нет смены в выбранном филиале.`;
+if (shifts.length && shiftDataCoversDate) {
+const fittingShift = dayShifts.find(shift => minute >= minutesFromTime(shift.start_time) && minute + item.duration_minutes <= minutesFromTime(shift.end_time));
+const breakShift = dayShifts.find(shift => {
+if (!shift.break_start || !shift.break_end) return false;
+const breakStart = minutesFromTime(shift.break_start);
+const breakEnd = minutesFromTime(shift.break_end);
+return minute < breakEnd && minute + item.duration_minutes > breakStart;
+});
+if (breakShift) return `В это время у специалиста перерыв ${breakShift.break_start}–${breakShift.break_end}.`;
+if (!fittingShift) {
+const intervals = dayShifts.map(item => `${item.start_time}–${item.end_time}`).join(', ');
+return `Запись не помещается в смену специалиста${intervals ? ` (${intervals})` : ''}.`;
+}
+}
+const conflict = bookingConflict(item,targetPerformer,date,minute);
+if (conflict) return `В ${conflict.booking_time} у специалиста уже есть запись «${conflict.service_name}» до ${timeFromMinutes(minutesFromTime(conflict.booking_time) + conflict.duration_minutes)}.`;
+return '';
+}
+
+function timelineBounds(columns) {
+const values = [];
+columns.forEach(column => {
+column.items.forEach(item => values.push(minutesFromTime(item.booking_time),minutesFromTime(item.booking_time) + item.duration_minutes));
+shiftsFor(column.performer_id,column.date).forEach(item => values.push(minutesFromTime(item.start_time),minutesFromTime(item.end_time)));
+      });
+if (!values.length) return { start:DEFAULT_START,end:DEFAULT_END };
+const start = Math.max(0,Math.floor((Math.min(...values) - 30) / 60) * 60);
+const end = Math.min(DAY_MINUTES,Math.ceil((Math.max(...values) + 30) / 60) * 60);
+return { start,end:Math.max(end,start + 4 * 60) };
+    }
+
+function layoutItems(items) {
+const sorted = [...items].sort((a,b) => minutesFromTime(a.booking_time) - minutesFromTime(b.booking_time) || a.id.localeCompare(b.id));
+const clusters = [];
+let cluster = [];
+let clusterEnd = -1;
+sorted.forEach(item => {
+const start = minutesFromTime(item.booking_time);
+if (cluster.length && start >= clusterEnd) { clusters.push(cluster); cluster = []; clusterEnd = -1; }
+cluster.push(item);
+clusterEnd = Math.max(clusterEnd,start + item.duration_minutes);
+      });
+if (cluster.length) clusters.push(cluster);
+const positioned = [];
+clusters.forEach(group => {
+const laneEnds = [];
+const entries = group.map(item => {
+const start = minutesFromTime(item.booking_time);
+let lane = laneEnds.findIndex(end => end <= start);
+if (lane < 0) lane = laneEnds.length;
+laneEnds[lane] = start + item.duration_minutes;
+return { item,lane };
         });
-        if (breakShift) return `В это время у специалиста перерыв ${breakShift.break_start}–${breakShift.break_end}.`;
-        if (!fittingShift) {
-          const intervals = dayShifts.map(item => `${item.start_time}–${item.end_time}`).join(', ');
-          return `Запись не помещается в смену специалиста${intervals ? ` (${intervals})` : ''}.`;
-        }
-      }
-      const conflict = bookingConflict(item,targetPerformer,date,minute);
-      if (conflict) return `В ${conflict.booking_time} у специалиста уже есть запись «${conflict.service_name}» до ${timeFromMinutes(minutesFromTime(conflict.booking_time) + conflict.duration_minutes)}.`;
-      return '';
-    }
-
-    function timelineBounds(columns) {
-      const values = [];
-      columns.forEach(column => {
-        column.items.forEach(item => values.push(minutesFromTime(item.booking_time),minutesFromTime(item.booking_time) + item.duration_minutes));
-        shiftsFor(column.performer_id,column.date).forEach(item => values.push(minutesFromTime(item.start_time),minutesFromTime(item.end_time)));
+entries.forEach(entry => positioned.push({ ...entry,lanes:Math.max(1,laneEnds.length) }));
       });
-      if (!values.length) return { start:DEFAULT_START,end:DEFAULT_END };
-      const start = Math.max(0,Math.floor((Math.min(...values) - 30) / 60) * 60);
-      const end = Math.min(DAY_MINUTES,Math.ceil((Math.max(...values) + 30) / 60) * 60);
-      return { start,end:Math.max(end,start + 4 * 60) };
-    }
-
-    function layoutItems(items) {
-      const sorted = [...items].sort((a,b) => minutesFromTime(a.booking_time) - minutesFromTime(b.booking_time) || a.id.localeCompare(b.id));
-      const clusters = [];
-      let cluster = [];
-      let clusterEnd = -1;
-      sorted.forEach(item => {
-        const start = minutesFromTime(item.booking_time);
-        if (cluster.length && start >= clusterEnd) { clusters.push(cluster); cluster = []; clusterEnd = -1; }
-        cluster.push(item);
-        clusterEnd = Math.max(clusterEnd,start + item.duration_minutes);
-      });
-      if (cluster.length) clusters.push(cluster);
-      const positioned = [];
-      clusters.forEach(group => {
-        const laneEnds = [];
-        const entries = group.map(item => {
-          const start = minutesFromTime(item.booking_time);
-          let lane = laneEnds.findIndex(end => end <= start);
-          if (lane < 0) lane = laneEnds.length;
-          laneEnds[lane] = start + item.duration_minutes;
-          return { item,lane };
-        });
-        entries.forEach(entry => positioned.push({ ...entry,lanes:Math.max(1,laneEnds.length) }));
-      });
-      return positioned;
+return positioned;
     }
 
     function shiftMarkup(column,bounds,hourHeight) {
@@ -627,15 +627,15 @@
       return `<button class="calendar-overview-booking team-calendar-period-booking status-${escapeHtml(String(item.status || 'new').replaceAll('_','-'))}" type="button" data-team-booking-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}. Открыть запись"><time>${escapeHtml(time)}</time><span><strong>${escapeHtml(compact ? item.performer_name : item.service_name)}</strong><small>${escapeHtml(compact ? item.service_name : `${item.performer_name} · ${item.client_name}`)}</small></span></button>`;
     }
 
-    function dayCapacity(date,items) {
-      const relevantShifts = shifts.filter(item => item.active && item.shift_date === date && (!performerId || item.performer_id === performerId) && (!locationId || item.location_id === locationId));
-      const capacity = relevantShifts.reduce((sum,item) => {
-        const work = Math.max(0,minutesFromTime(item.end_time) - minutesFromTime(item.start_time));
-        const pause = item.break_start && item.break_end ? Math.max(0,minutesFromTime(item.break_end) - minutesFromTime(item.break_start)) : 0;
-        return sum + Math.max(0,work - pause);
+function dayCapacity(date,items) {
+const relevantShifts = shifts.filter(item => item.active && item.shift_date === date && (!performerId || item.performer_id === performerId) && (!locationId || item.location_id === locationId));
+const capacity = relevantShifts.reduce((sum,item) => {
+const work = Math.max(0,minutesFromTime(item.end_time) - minutesFromTime(item.start_time));
+const pause = item.break_start && item.break_end ? Math.max(0,minutesFromTime(item.break_end) - minutesFromTime(item.break_start)) : 0;
+return sum + Math.max(0,work - pause);
       },0);
-      const booked = items.filter(item => item.status !== 'cancelled').reduce((sum,item) => sum + item.duration_minutes,0);
-      return capacity ? Math.min(100,Math.round(booked / capacity * 100)) : null;
+const booked = items.filter(item => item.status !== 'cancelled').reduce((sum,item) => sum + item.duration_minutes,0);
+return capacity ? Math.min(100,Math.round(booked / capacity * 100)) : null;
     }
 
     function renderWeekTimeline(holder,visible,range) {
@@ -703,28 +703,28 @@
       return true;
     }
 
-    function setSheet(markup,wide = false) {
-      const sheet = $('#bookingSheet');
-      const content = $('#bookingSheetContent');
-      if (!sheet || !content) return false;
-      sheet.classList.toggle('booking-sheet-wide',wide);
-      sheet.classList.remove('new-booking-sheet');
-      content.innerHTML = markup;
-      sheet.hidden = false;
-      if (typeof document !== 'undefined') document.body?.classList.add('booking-sheet-open');
-      return true;
+function setSheet(markup,wide = false) {
+const sheet = $('#bookingSheet');
+const content = $('#bookingSheetContent');
+if (!sheet || !content) return false;
+sheet.classList.toggle('booking-sheet-wide',wide);
+sheet.classList.remove('new-booking-sheet');
+content.innerHTML = markup;
+sheet.hidden = false;
+if (typeof document !== 'undefined') document.body?.classList.add('booking-sheet-open');
+return true;
     }
 
-    function closeSheet() {
-      const sheet = $('#bookingSheet');
-      if (sheet) sheet.hidden = true;
-      if (typeof document !== 'undefined') document.body?.classList.remove('booking-sheet-open');
+function closeSheet() {
+const sheet = $('#bookingSheet');
+if (sheet) sheet.hidden = true;
+if (typeof document !== 'undefined') document.body?.classList.remove('booking-sheet-open');
     }
 
-    function matchingService(item,targetPerformer) {
-      if (targetPerformer === item.performer_id) return services.find(service => service.id === item.service_id) || null;
-      const source = services.find(service => service.id === item.service_id);
-      return services.find(service => service.performer_id === targetPerformer && service.name.trim().toLowerCase() === item.service_name.trim().toLowerCase() && (!source || service.duration_minutes === source.duration_minutes)) || null;
+function matchingService(item,targetPerformer) {
+if (targetPerformer === item.performer_id) return services.find(service => service.id === item.service_id) || null;
+const source = services.find(service => service.id === item.service_id);
+return services.find(service => service.performer_id === targetPerformer && service.name.trim().toLowerCase() === item.service_name.trim().toLowerCase() && (!source || service.duration_minutes === source.duration_minutes)) || null;
     }
 
     function actionError(error) {
@@ -745,103 +745,116 @@
       return 'Не удалось сохранить изменение. Расписание обновлено, попробуйте другое время.';
     }
 
-    async function moveBooking(item,targetPerformer,date,minute,targetLocationId,options = {}) {
-      const { offerUndo = true, successMessage = '', expectedPoint = null, requireAtomic = false, targetServiceId = '' } = options;
-      if (!dispatcherActions || actionPending || !requireWrites()) return false;
-      const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
-      const unavailableReason = moveUnavailableReason(item,targetPerformer,date,minute,location,targetServiceId);
-      if (unavailableReason) { notify(unavailableReason); return false; }
-      const service = targetServiceId
-        ? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
-        : matchingService(item,targetPerformer);
-      if (!service) { notify('Выбранная услуга больше недоступна у специалиста. Расписание обновлено.'); await load(); return false; }
-      const previous = { ...item };
-      actionPending = true;
-      let result;
-      let atomicMove = true;
-      try {
-        const expected = expectedPoint || item;
-        result = await db.rpc('move_minuta_team_booking_v104', {
-          p_organization:organization.id,p_booking:item.id,
-          p_expected_performer:expected.performer_id,p_expected_location:expected.location_id,
-          p_expected_service:expected.service_id,p_expected_date:expected.booking_date,
-          p_expected_time:`${expected.booking_time}:00`,
-          p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00`
+async function moveBooking(item,targetPerformer,date,minute,targetLocationId,options = {}) {
+const { offerUndo = true, successMessage = '', expectedPoint = null, requireAtomic = false, targetServiceId = '' } = options;
+if (!dispatcherActions || actionPending || !requireWrites()) return false;
+const userId = getCurrentUser()?.id;
+const generation = getSessionGeneration();
+const organizationId = organization?.id;
+if (!userId || !organizationId) return false;
+const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
+const unavailableReason = moveUnavailableReason(item,targetPerformer,date,minute,location,targetServiceId);
+if (unavailableReason) { notify(unavailableReason); return false; }
+const service = targetServiceId
+? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
+: matchingService(item,targetPerformer);
+if (!service) { notify('Выбранная услуга больше недоступна у специалиста. Расписание обновлено.'); await load(); return false; }
+const previous = { ...item };
+const operation = {};
+const isCurrent = () => actionPending === operation && sessionIsCurrent(userId, generation)
+&& organization?.id === organizationId;
+actionPending = operation;
+try {
+let result;
+let atomicMove = true;
+try {
+const expected = expectedPoint || item;
+result = await db.rpc('move_minuta_team_booking_v104', {
+p_organization:organizationId,p_booking:item.id,
+p_expected_performer:expected.performer_id,p_expected_location:expected.location_id,
+p_expected_service:expected.service_id,p_expected_date:expected.booking_date,
+p_expected_time:`${expected.booking_time}:00`,
+p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00`
+});
+if (!isCurrent()) return false;
+if (result?.error && isMissingRpc(result.error)) {
+if (requireAtomic) result = { error:{ message:'atomic_team_booking_move_unavailable' } };
+else {
+atomicMove = false;
+result = await db.rpc('move_minuta_team_booking_v102', { p_organization:organizationId,p_booking:item.id,p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00` });
+}
+}
+} catch (error) {
+result = { error };
+}
+if (!isCurrent()) return false;
+if (!result || result.error) { notify(actionError(result?.error || new Error('empty move response'))); await load(); return false; }
+closeSheet();
+await load();
+if (!isCurrent()) return false;
+Promise.resolve(onDataChange()).catch(() => {});
+const current = rows.find(row => row.id === item.id) || {
+...item, performer_id:targetPerformer, performer_name:memberById(targetPerformer)?.display_name || item.performer_name,
+location_id:location, location_name:locationById(location)?.name || item.location_name,
+service_id:service.id, booking_date:date, booking_time:timeFromMinutes(minute)
+};
+if (offerUndo && atomicMove) showUndo(previous,current);
+else if (offerUndo) notify(`Запись перенесена на ${shortDate(current.booking_date)} в ${current.booking_time}`);
+else notify(successMessage || 'Перенос отменён. Запись возвращена на прежнее время.');
+return true;
+} finally {
+if (actionPending === operation) actionPending = false;
+}
+}
+
+async function bookingForUndo(state) {
+let result;
+try {
+result = await db.rpc('get_minuta_team_calendar_v3', {
+p_organization:organization.id, p_start:state.expected.booking_date, p_end:state.expected.booking_date,
+p_location:null, p_performer:null, p_resource:null
         });
-        if (result?.error && isMissingRpc(result.error)) {
-          if (requireAtomic) result = { error:{ message:'atomic_team_booking_move_unavailable' } };
-          else {
-            atomicMove = false;
-            result = await db.rpc('move_minuta_team_booking_v102', { p_organization:organization.id,p_booking:item.id,p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00` });
-          }
-        }
       } catch (error) {
-        result = { error };
+return { ok:false,error };
       }
-      actionPending = false;
-      if (!result || result.error) { notify(actionError(result?.error || new Error('empty move response'))); await load(); return false; }
-      closeSheet();
-      await load();
-      Promise.resolve(onDataChange()).catch(() => {});
-      const current = rows.find(row => row.id === item.id) || {
-        ...item, performer_id:targetPerformer, performer_name:memberById(targetPerformer)?.display_name || item.performer_name,
-        location_id:location, location_name:locationById(location)?.name || item.location_name,
-        service_id:service.id, booking_date:date, booking_time:timeFromMinutes(minute)
-      };
-      if (offerUndo && atomicMove) showUndo(previous,current);
-      else if (offerUndo) notify(`Запись перенесена на ${shortDate(current.booking_date)} в ${current.booking_time}`);
-      else notify(successMessage || 'Перенос отменён. Запись возвращена на прежнее время.');
-      return true;
+if (!result || result.error) return { ok:false,error:result?.error || new Error('empty calendar response') };
+return { ok:true,item:normalizePayload(result.data,true).rows.find(row => row.id === state.bookingId) || null };
     }
 
-    async function bookingForUndo(state) {
-      let result;
-      try {
-        result = await db.rpc('get_minuta_team_calendar_v3', {
-          p_organization:organization.id, p_start:state.expected.booking_date, p_end:state.expected.booking_date,
-          p_location:null, p_performer:null, p_resource:null
-        });
-      } catch (error) {
-        return { ok:false,error };
+async function undoLastMove() {
+const state = undoState;
+const expired = state && (state.paused ? state.remainingMs <= 0 : Date.now() >= state.expiresAt);
+if (!state || actionPending || expired || !requireWrites()) { clearUndo(); return; }
+if (undoTimeout) clearTimeout(undoTimeout);
+if (undoInterval) clearInterval(undoInterval);
+undoTimeout = null;
+undoInterval = null;
+const holder = $('#teamCalendarUndo');
+const button = $('#teamCalendarUndoButton');
+const countdown = $('#teamCalendarUndoCountdown');
+holder?.classList.add('is-pending');
+if (button) { button.disabled = true; button.textContent = 'Возвращаем…'; }
+if (countdown) countdown.textContent = 'Проверяем, что запись никто не изменил…';
+const refreshed = await bookingForUndo(state);
+if (!undoState || undoState !== state) return;
+if (!refreshed.ok) {
+clearUndo();
+notify('Не удалось проверить запись для безопасной отмены. Запись не изменена.');
+return false;
       }
-      if (!result || result.error) return { ok:false,error:result?.error || new Error('empty calendar response') };
-      return { ok:true,item:normalizePayload(result.data,true).rows.find(row => row.id === state.bookingId) || null };
-    }
-
-    async function undoLastMove() {
-      const state = undoState;
-      const expired = state && (state.paused ? state.remainingMs <= 0 : Date.now() >= state.expiresAt);
-      if (!state || actionPending || expired || !requireWrites()) { clearUndo(); return; }
-      if (undoTimeout) clearTimeout(undoTimeout);
-      if (undoInterval) clearInterval(undoInterval);
-      undoTimeout = null;
-      undoInterval = null;
-      const holder = $('#teamCalendarUndo');
-      const button = $('#teamCalendarUndoButton');
-      const countdown = $('#teamCalendarUndoCountdown');
-      holder?.classList.add('is-pending');
-      if (button) { button.disabled = true; button.textContent = 'Возвращаем…'; }
-      if (countdown) countdown.textContent = 'Проверяем, что запись никто не изменил…';
-      const refreshed = await bookingForUndo(state);
-      if (!undoState || undoState !== state) return;
-      if (!refreshed.ok) {
-        clearUndo();
-        notify('Не удалось проверить запись для безопасной отмены. Запись не изменена.');
-        return false;
+const current = refreshed.item;
+if (!bookingMatchesPoint(current,state.expected)) {
+clearUndo();
+notify('Отмена недоступна: запись уже изменена другим администратором. Чужие изменения сохранены.');
+return;
       }
-      const current = refreshed.item;
-      if (!bookingMatchesPoint(current,state.expected)) {
-        clearUndo();
-        notify('Отмена недоступна: запись уже изменена другим администратором. Чужие изменения сохранены.');
-        return;
-      }
-      const success = await moveBooking(
-        current,state.previous.performer_id,state.previous.booking_date,
-        minutesFromTime(state.previous.booking_time),state.previous.location_id,
-        { offerUndo:false,expectedPoint:state.expected,requireAtomic:true,targetServiceId:state.previous.service_id }
-      );
-      clearUndo();
-      return success;
+const success = await moveBooking(
+current,state.previous.performer_id,state.previous.booking_date,
+minutesFromTime(state.previous.booking_time),state.previous.location_id,
+{ offerUndo:false,expectedPoint:state.expected,requireAtomic:true,targetServiceId:state.previous.service_id }
+);
+clearUndo();
+return success;
     }
 
     function openBookingDetails(item) {
@@ -914,45 +927,45 @@
       });
     }
 
-    function stageMinute(stage,clientY) {
-      const rect = stage.getBoundingClientRect();
-      const start = Number(stage.dataset.teamStart || DEFAULT_START);
-      const end = Number(stage.dataset.teamEnd || DEFAULT_END);
-      const raw = start + ((clientY - rect.top) / Math.max(1,rect.height)) * (end - start);
-      return Math.max(start,Math.min(end - STEP_MINUTES,Math.round(raw / STEP_MINUTES) * STEP_MINUTES));
+function stageMinute(stage,clientY) {
+const rect = stage.getBoundingClientRect();
+const start = Number(stage.dataset.teamStart || DEFAULT_START);
+const end = Number(stage.dataset.teamEnd || DEFAULT_END);
+const raw = start + ((clientY - rect.top) / Math.max(1,rect.height)) * (end - start);
+return Math.max(start,Math.min(end - STEP_MINUTES,Math.round(raw / STEP_MINUTES) * STEP_MINUTES));
     }
 
-    function stageFromPoint(clientX,clientY) {
-      if (typeof document === 'undefined' || !document.elementFromPoint) return null;
-      return document.elementFromPoint(clientX,clientY)?.closest?.('[data-team-stage]') || null;
+function stageFromPoint(clientX,clientY) {
+if (typeof document === 'undefined' || !document.elementFromPoint) return null;
+return document.elementFromPoint(clientX,clientY)?.closest?.('[data-team-stage]') || null;
     }
 
-    function clearMoveVisual(state = moveState) {
-      state?.card?.classList.remove('is-dragging');
-      $$('[data-team-stage].is-drop-target').forEach(stage => {
-        stage.classList.remove('is-drop-target');
-        stage.classList.remove('is-drop-invalid');
+function clearMoveVisual(state = moveState) {
+state?.card?.classList.remove('is-dragging');
+$$('[data-team-stage].is-drop-target').forEach(stage => {
+stage.classList.remove('is-drop-target');
+stage.classList.remove('is-drop-invalid');
       });
-      $$('[data-team-stage] .team-dispatcher-drop-time').forEach(marker => { marker.style.display = ''; marker.dataset.label = ''; });
-      const status = $('#teamCalendarStatus');
-      if (status && state?.statusText !== undefined) {
-        status.textContent = state.statusText;
-        status.classList.remove('is-warning');
-        status.setAttribute('aria-live','polite');
+$$('[data-team-stage] .team-dispatcher-drop-time').forEach(marker => { marker.style.display = ''; marker.dataset.label = ''; });
+const status = $('#teamCalendarStatus');
+if (status && state?.statusText !== undefined) {
+status.textContent = state.statusText;
+status.classList.remove('is-warning');
+status.setAttribute('aria-live','polite');
       }
-      moveState = null;
+moveState = null;
     }
 
-    function beginMove(event,card) {
-      if (!dispatcherActions || actionPending || event.button !== 0) return;
-      const item = rows.find(row => row.id === card.dataset.teamBookingId);
-      if (!item || moveRestriction(item)) return;
-      moveState = {
-        pointerId:event.pointerId,card,item,startX:event.clientX,startY:event.clientY,active:false,targetStage:null,
-        targetMinute:minutesFromTime(item.booking_time), unavailableReason:'', lastStatusText:'', statusText:$('#teamCalendarStatus')?.textContent || ''
+function beginMove(event,card) {
+if (!dispatcherActions || actionPending || event.button !== 0) return;
+const item = rows.find(row => row.id === card.dataset.teamBookingId);
+if (!item || moveRestriction(item)) return;
+moveState = {
+pointerId:event.pointerId,card,item,startX:event.clientX,startY:event.clientY,active:false,targetStage:null,
+targetMinute:minutesFromTime(item.booking_time), unavailableReason:'', lastStatusText:'', statusText:$('#teamCalendarStatus')?.textContent || ''
       };
-      $('#teamCalendarStatus')?.setAttribute('aria-live','off');
-      card.setPointerCapture?.(event.pointerId);
+$('#teamCalendarStatus')?.setAttribute('aria-live','off');
+card.setPointerCapture?.(event.pointerId);
     }
 
     function updateMove(event) {
@@ -997,115 +1010,115 @@
       }
     }
 
-    function finishMove(event) {
-      const state = moveState;
-      if (!state || state.pointerId !== event.pointerId) return;
-      const target = state.targetStage;
-      const active = state.active;
-      const minute = state.targetMinute;
-      const unavailableReason = state.unavailableReason;
-      clearMoveVisual(state);
-      if (!active || !target) return;
-      suppressClickUntil = Date.now() + 450;
-      if (unavailableReason) { notify(unavailableReason); return; }
-      moveBooking(state.item,target.dataset.teamPerformer,target.dataset.teamDate,minute,target.dataset.teamLocation);
+function finishMove(event) {
+const state = moveState;
+if (!state || state.pointerId !== event.pointerId) return;
+const target = state.targetStage;
+const active = state.active;
+const minute = state.targetMinute;
+const unavailableReason = state.unavailableReason;
+clearMoveVisual(state);
+if (!active || !target) return;
+suppressClickUntil = Date.now() + 450;
+if (unavailableReason) { notify(unavailableReason); return; }
+moveBooking(state.item,target.dataset.teamPerformer,target.dataset.teamDate,minute,target.dataset.teamLocation);
     }
 
-    function cancelMove(event) {
-      const state = moveState;
-      if (!state || state.pointerId !== event.pointerId) return;
-      clearMoveVisual(state);
+function cancelMove(event) {
+const state = moveState;
+if (!state || state.pointerId !== event.pointerId) return;
+clearMoveVisual(state);
     }
 
-    async function setMode(nextMode, options = {}) {
-      if (nextMode !== 'team' || !enabled || !canUseTeamCalendar() || availability === 'unsupported') {
-        mode = 'personal';
-        updateControls();
-        if (options.silent !== true) {
-          onModeChange(false);
-          renderLegacy();
+async function setMode(nextMode, options = {}) {
+if (nextMode !== 'team' || !enabled || !canUseTeamCalendar() || availability === 'unsupported') {
+mode = 'personal';
+updateControls();
+if (options.silent !== true) {
+onModeChange(false);
+renderLegacy();
         }
-        return;
+return;
       }
-      mode = 'team';
-      onModeChange(true);
-      updateControls();
-      await load();
+mode = 'team';
+onModeChange(true);
+updateControls();
+await load();
     }
 
-    function setEnabled(nextEnabled) {
-      const canEnable = canUseTeamCalendar() && availability === 'ready' && members.length > 1;
-      enabled = canEnable && nextEnabled === true;
-      persistEnabled();
-      if (!enabled && mode === 'team') setMode('personal');
-      else updateControls();
-      notify(enabled ? 'Расписание команды включено' : 'Расписание команды выключено');
+function setEnabled(nextEnabled) {
+const canEnable = canUseTeamCalendar() && availability === 'ready' && members.length > 1;
+enabled = canEnable && nextEnabled === true;
+persistEnabled();
+if (!enabled && mode === 'team') setMode('personal');
+else updateControls();
+notify(enabled ? 'Расписание команды включено' : 'Расписание команды выключено');
     }
 
-    function handleChange(event) {
-      if (event.target.id === 'teamCalendarLocation') {
-        locationId = event.target.value || '';
-        if (resourceId && !resources.some(item => item.id === resourceId && (!locationId || item.location_id === locationId))) resourceId = '';
+function handleChange(event) {
+if (event.target.id === 'teamCalendarLocation') {
+locationId = event.target.value || '';
+if (resourceId && !resources.some(item => item.id === resourceId && (!locationId || item.location_id === locationId))) resourceId = '';
       } else if (event.target.id === 'teamCalendarPerformer') performerId = event.target.value || '';
-      else if (event.target.id === 'teamCalendarResource') resourceId = event.target.value || '';
-      else return;
-      updateControls();
-      render(getHolder());
+else if (event.target.id === 'teamCalendarResource') resourceId = event.target.value || '';
+else return;
+updateControls();
+render(getHolder());
     }
 
-    function handleHolderClick(event) {
-      const bookingButton = event.target.closest?.('[data-team-booking-id]');
-      if (bookingButton) {
-        if (Date.now() < suppressClickUntil) return;
-        const item = rows.find(row => row.id === bookingButton.dataset.teamBookingId);
-        if (item) openBookingDetails(item);
-        return;
+function handleHolderClick(event) {
+const bookingButton = event.target.closest?.('[data-team-booking-id]');
+if (bookingButton) {
+if (Date.now() < suppressClickUntil) return;
+const item = rows.find(row => row.id === bookingButton.dataset.teamBookingId);
+if (item) openBookingDetails(item);
+return;
       }
-      const surface = event.target.closest?.('[data-team-slot-surface]');
-      if (!surface || Date.now() < suppressClickUntil) return;
-      const stage = surface.closest('[data-team-stage]');
-      if (!stage) return;
-      openCreateBooking(stage.dataset.teamPerformer,stage.dataset.teamDate,stageMinute(stage,event.clientY),stage.dataset.teamLocation);
+const surface = event.target.closest?.('[data-team-slot-surface]');
+if (!surface || Date.now() < suppressClickUntil) return;
+const stage = surface.closest('[data-team-stage]');
+if (!stage) return;
+openCreateBooking(stage.dataset.teamPerformer,stage.dataset.teamDate,stageMinute(stage,event.clientY),stage.dataset.teamLocation);
     }
 
-    function bind() {
-      if (bound) return;
-      bound = true;
-      $$('[data-calendar-mode]').forEach(button => button.addEventListener('click',() => setMode(button.dataset.calendarMode)));
-      $('#teamCalendarEnabled')?.addEventListener('change',event => setEnabled(event.target.checked));
-      $$('[data-team-density]').forEach(button => button.addEventListener('click',() => {
-        const nextDensity = button.dataset.teamDensity;
-        if (nextDensity !== 'compact' && nextDensity !== 'detailed') return;
-        density = nextDensity;
-        updateDensityControls();
-        render(getHolder());
+function bind() {
+if (bound) return;
+bound = true;
+$$('[data-calendar-mode]').forEach(button => button.addEventListener('click',() => setMode(button.dataset.calendarMode)));
+$('#teamCalendarEnabled')?.addEventListener('change',event => setEnabled(event.target.checked));
+$$('[data-team-density]').forEach(button => button.addEventListener('click',() => {
+const nextDensity = button.dataset.teamDensity;
+if (nextDensity !== 'compact' && nextDensity !== 'detailed') return;
+density = nextDensity;
+updateDensityControls();
+render(getHolder());
       }));
-      $('#teamCalendarLocation')?.addEventListener('change',handleChange);
-      $('#teamCalendarPerformer')?.addEventListener('change',handleChange);
-      $('#teamCalendarResource')?.addEventListener('change',handleChange);
-      $('#teamCalendarUndoButton')?.addEventListener('click',undoLastMove);
-      const undoHolder = $('#teamCalendarUndo');
-      undoHolder?.addEventListener('mouseenter',() => { undoHovered = true; pauseUndoCountdown(); });
-      undoHolder?.addEventListener('mouseleave',() => { undoHovered = false; resumeUndoCountdown(); });
-      undoHolder?.addEventListener('focusin',() => { undoFocused = true; pauseUndoCountdown(); });
-      undoHolder?.addEventListener('focusout',event => {
-        if (!undoHolder.contains?.(event.relatedTarget)) {
-          undoFocused = false;
-          resumeUndoCountdown();
+$('#teamCalendarLocation')?.addEventListener('change',handleChange);
+$('#teamCalendarPerformer')?.addEventListener('change',handleChange);
+$('#teamCalendarResource')?.addEventListener('change',handleChange);
+$('#teamCalendarUndoButton')?.addEventListener('click',undoLastMove);
+const undoHolder = $('#teamCalendarUndo');
+undoHolder?.addEventListener('mouseenter',() => { undoHovered = true; pauseUndoCountdown(); });
+undoHolder?.addEventListener('mouseleave',() => { undoHovered = false; resumeUndoCountdown(); });
+undoHolder?.addEventListener('focusin',() => { undoFocused = true; pauseUndoCountdown(); });
+undoHolder?.addEventListener('focusout',event => {
+if (!undoHolder.contains?.(event.relatedTarget)) {
+undoFocused = false;
+resumeUndoCountdown();
         }
       });
-      const holder = getHolder();
-      holder?.addEventListener('click',handleHolderClick);
-      holder?.addEventListener('pointerdown',event => {
-        const card = event.target.closest?.('[data-team-booking-id]');
-        if (card) beginMove(event,card);
+const holder = getHolder();
+holder?.addEventListener('click',handleHolderClick);
+holder?.addEventListener('pointerdown',event => {
+const card = event.target.closest?.('[data-team-booking-id]');
+if (card) beginMove(event,card);
       });
-      if (typeof document !== 'undefined') {
-        document.addEventListener('pointermove',updateMove,{ passive:false });
-        document.addEventListener('pointerup',finishMove);
-        document.addEventListener('pointercancel',cancelMove);
+if (typeof document !== 'undefined') {
+document.addEventListener('pointermove',updateMove,{ passive:false });
+document.addEventListener('pointerup',finishMove);
+document.addEventListener('pointercancel',cancelMove);
       }
-      updateControls();
+updateControls();
     }
 
     return { bind,load,render,reset,setOrganization,setMode,setEnabled,get isTeamMode() { return mode === 'team'; },get dispatcherEnabled() { return dispatcherActions; } };
