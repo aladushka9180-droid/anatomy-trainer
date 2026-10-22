@@ -101,15 +101,19 @@ async function qualifyIndependentGlobals(){
       GRANT SET ON PARAMETER log_statement TO eldion_probe_actor;
       ALTER DEFAULT PRIVILEGES FOR ROLE eldion_probe_owner IN SCHEMA eldion_probe GRANT SELECT ON TABLES TO eldion_probe_actor;`);
     const sourceGlobals=globalsSnapshot(psql),sourceDatabase=databasePrivilegesSnapshot(psql),sourceRows=snapshot('postgres');
+    const sourceBootstrap=psql('postgres','SELECT rolname FROM pg_roles WHERE oid=10;');
+    assert.match(sourceBootstrap,/^[a-z_][a-z0-9_]{0,62}$/);
     assert.equal(sourceGlobals.roles.some(r=>r.rolname===targetAdmin),false);
     assert.equal(psql('postgres',"SELECT count(*) FROM pg_tablespace WHERE spcname NOT IN ('pg_default','pg_global');"),'0');
     receipt.stage='CREATE_INDEPENDENT_EMPTY_CLUSTER';
     docker(['exec','--user','postgres',container,'mkdir','-m','0700',socket]);
-    docker(['exec','--user','postgres',container,'initdb','-D',data,'--username='+targetAdmin,'--auth-local=trust','--auth-host=reject','--encoding=UTF8','--locale=C.UTF-8'],{timeout:60000});
+    docker(['exec','--user','postgres',container,'initdb','-D',data,'--username='+sourceBootstrap,'--auth-local=trust','--auth-host=reject','--encoding=UTF8','--locale=C.UTF-8'],{timeout:60000});
     const options=['-k',socket,'-p',port,'-c','listen_addresses=','-c','shared_preload_libraries=pg_cron,pg_net',
       ...Object.entries(prestartSettings).flatMap(([name,value])=>['-c',name+'='+value])].join(' ');
     docker(['exec','--user','postgres',container,'pg_ctl','-D',data,'-l','/tmp/eldion-independent-target.log','-o',options,'-w','-t','30','start'],{timeout:45000});
     targetStarted=true;receipt.independentGlobals.started=true;
+    assert.equal(targetQuery('postgres','SELECT rolname FROM pg_roles WHERE oid=10;',sourceBootstrap),sourceBootstrap);
+    targetQuery('postgres','CREATE ROLE eldion_target_bootstrap LOGIN SUPERUSER;',sourceBootstrap);
     assert.equal(targetQuery('postgres',"SELECT count(*) FROM pg_roles WHERE rolname LIKE 'eldion_probe_%';"),'0');
     const sourceSystem=psql('postgres','SELECT system_identifier::text FROM pg_control_system();');
     const targetSystem=targetQuery('postgres','SELECT system_identifier::text FROM pg_control_system();');
@@ -123,7 +127,16 @@ async function qualifyIndependentGlobals(){
     docker(['exec',container,'pg_dumpall','-h','/var/run/postgresql','-U','supabase_admin','--globals-only','--no-role-passwords','--file=/tmp/eldion-independent-globals.sql']);
     const globalsSql=docker(['exec',container,'cat','/tmp/eldion-independent-globals.sql']);
     assert.equal(/\bPASSWORD\s+(?:'|NULL)/i.test(globalsSql),false);
-    docker(['exec',container,'psql','-X','-q','-h',socket,'-p',port,'-U',targetAdmin,'-d','postgres','-v','ON_ERROR_STOP=1','--single-transaction','--file=/tmp/eldion-independent-globals.sql'],{timeout:60000});
+    // pg_dumpall documents this one bootstrap CREATE ROLE collision. Every other error is fatal.
+    const globalsRestore=spawnSync('docker',['exec',container,'psql','-X','-q','-h',socket,'-p',port,'-U',targetAdmin,'-d','postgres','-v','ON_ERROR_STOP=0','--file=/tmp/eldion-independent-globals.sql'],{encoding:'utf8',timeout:60000,maxBuffer:1024*1024,stdio:['pipe','pipe','pipe']});
+    assert.equal(globalsRestore.status,0);
+    const globalsErrors=(globalsRestore.stderr??'').split('\n').filter(line=>/(?:^|: )(?:ERROR|FATAL|PANIC):/.test(line));
+    assert.equal(globalsErrors.length,1);
+    assert.ok(globalsErrors[0].endsWith(`ERROR:  role "${sourceBootstrap}" already exists`));
+    assert.equal(/(?:^|: )(?:WARNING|FATAL|PANIC):/m.test(globalsRestore.stderr??''),false);
+    receipt.independentGlobals.bootstrapIdentityPreserved=true;
+    receipt.independentGlobals.expectedExistingBootstrapRoleErrors=1;
+    receipt.independentGlobals.otherGlobalsRestoreErrors=0;
     receipt.stage='RESTORE_SYNTHETIC_DATABASE_WITH_CREATE';
     docker(['exec',container,'pg_dump','-h','/var/run/postgresql','-U','supabase_admin','-d','postgres','--format=custom','--schema=eldion_probe','--file=/tmp/eldion-independent-db.dump']);
     // Only the freshly initialized, verified empty target database is replaced.
@@ -151,6 +164,7 @@ async function qualifyIndependentGlobals(){
       SET LOCAL ROLE eldion_probe_actor; SELECT count(*) FROM eldion_probe.default_acl_future_row; ROLLBACK;`),'1');
     assert.deepEqual(snapshot('postgres',targetQuery),sourceRows);
     Object.assign(receipt.independentGlobals,{completeGlobalsSqlUnmodified:true,passwordVerifiersRead:false,
+      syntheticGlobalsRestoreQualified:true,extraTargetMaintenanceRoles:1,
       customTablespacesPresent:0,globalsRoleCount:sourceGlobals.roles.length,membershipCount:sourceGlobals.memberships?.length??0,
       roleAttributesPreserved:true,roleMembershipOptionsPreserved:true,parameterPrivilegesPreserved:true,
       databaseOwnerAndAclPreserved:true,roleAndDatabaseSettingsPreserved:true,defaultAclPreserved:true,
@@ -280,7 +294,8 @@ try{
 }catch(error){
   failed=true;receipt.status='FAILED_RUNTIME_PROFILE';
   receipt.failureCategory=error.message==='REQUIRED_EXTENSION_VERSION_UNAVAILABLE'?error.message:'BOUNDED_PROBE_FAILED';
-  if(receipt.stage==='VERIFY_PRESTART_BACKGROUND_ISOLATION'||independentGlobals)receipt.syntheticSqlDiagnostic=String(error.stderr??'').split('\n').filter(line=>/^(ERROR|FATAL|DETAIL|HINT|LINE)[: ]/.test(line)&&!/password|secret|token|credential|authorization/i.test(line)).slice(0,4).map(line=>line.slice(0,240));
+  if(receipt.stage==='VERIFY_PRESTART_BACKGROUND_ISOLATION'||independentGlobals)receipt.syntheticSqlDiagnostic=String(error.stderr??'').split('\n').filter(line=>/(?:^|: )(ERROR|FATAL|DETAIL|HINT|LINE)[: ]/.test(line)&&!/password|secret|token|credential|authorization/i.test(line)).slice(0,4).map(line=>line.slice(0,240));
+  if(independentGlobals&&error.code==='ERR_ASSERTION')receipt.syntheticAssertion={operator:error.operator,actual:JSON.stringify(error.actual)?.slice(0,1400),expected:JSON.stringify(error.expected)?.slice(0,1400)};
   if(created&&receipt.stage==='WAIT_FOR_EMPTY_SERVER'){
     try{
       const state=JSON.parse(docker(['inspect','--format','{{json .State}}',container]));
