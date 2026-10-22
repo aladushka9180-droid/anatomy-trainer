@@ -9,7 +9,12 @@ const image='supabase/postgres@sha256:d5424e9f4d0c21d63991c3f3dd77881f23f722c3a2
 const expectedExtensions={btree_gist:'1.7',pg_cron:'1.6.4',pg_net:'0.20.4',pg_stat_statements:'1.11',pgcrypto:'1.3',plpgsql:'1.0',supabase_vault:'0.3.1','uuid-ossp':'1.1'};
 const forbiddenCredentials=['SUPABASE_DB_URL','SUPABASE_SERVICE_ROLE_KEY','SUPABASE_SECRET_KEY','SUPABASE_ACCESS_TOKEN','MINUTA_TEST_DB_URL','MINUTA_RESTORE_TEST_DB_URL','BACKUP_ENCRYPTION_PASSWORD','PGPASSWORD'];
 for(const name of forbiddenCredentials)if(process.env[name])throw new Error('SOURCE_OR_TARGET_CREDENTIAL_ENV_FORBIDDEN');
+assert.ok(process.argv.length<=4&&(process.argv[3]===undefined||process.argv[3]==='--prestart-isolation'));
+const prestart=process.argv[3]==='--prestart-isolation';
+const prestartSettings={max_worker_processes:'0',max_logical_replication_workers:'0',max_parallel_workers:'0',max_parallel_workers_per_gather:'0',max_parallel_maintenance_workers:'0',autovacuum:'off','cron.launch_active_jobs':'off'};
 const contract={format:'eldion-fullcopy-public-runtime-profile-r21',image,engine:'17.6',platform:'linux/amd64',
+  profile:prestart?'RESTORE_BASELINE_PRESTART_ISOLATION_R23':'SYNTHETIC_RUNTIME_FAMILY_R21',
+  prestartSettings:prestart?prestartSettings:null,
   memoryBytes:3221225472,pidsLimit:256,cpus:2,network:'none',hostPortBindings:0,hostBindMounts:0,
   expectedExtensions,scope:'Public image and two synthetic databases inside one disposable container; cluster roles are shared. No full-copy, Auth, Storage or globals-restore qualification.',
   productionConnections:0,realArchivesRead:0,authUsersRead:0,storageBodiesRead:0,sourceCredentialsUsed:0};
@@ -54,7 +59,8 @@ try{
   containerId=docker(['run','--detach','--name',container,'--label',`${label}=${run}`,
     '--network','none','--memory','3g','--pids-limit','256','--cpus','2',
     '--env','POSTGRES_USER=supabase_admin','--env',`POSTGRES_PASSWORD=${password}`,
-    image,'postgres','-D','/etc/postgresql','-c','listen_addresses=','-c','cron.launch_active_jobs=off']);
+    image,'postgres','-D','/etc/postgresql','-c','listen_addresses=','-c','cron.launch_active_jobs=off',
+    ...(prestart?Object.entries(prestartSettings).filter(([name])=>name!=='cron.launch_active_jobs').flatMap(([name,value])=>['-c',`${name}=${value}`]):[])]);
   assert.match(containerId,/^[a-f0-9]{64}$/);created=true;receipt.containerCreated=true;
   receipt.stage='VERIFY_ISOLATION';
   const inspect=JSON.parse(docker(['inspect',container]))[0];
@@ -88,6 +94,46 @@ try{
   receipt.capabilities=capabilities;
   assert.match(capabilities.engine,/^17\.6(?:\s|$)/);assert.equal(capabilities.administrator,true);
   if(!capabilities.extensions.every(e=>e.available))throw new Error('REQUIRED_EXTENSION_VERSION_UNAVAILABLE');
+  if(prestart){
+    receipt.stage='VERIFY_PRESTART_BACKGROUND_ISOLATION';
+    const settings=JSON.parse(psql('postgres',`SELECT json_object_agg(name,json_build_object('setting',setting,'source',source)) FROM pg_settings WHERE name IN (${Object.keys(prestartSettings).map(name=>`'${name}'`).join(',')});`));
+    for(const [name,value] of Object.entries(prestartSettings)){
+      assert.equal(settings[name]?.setting,value);assert.equal(settings[name]?.source,'command line');
+    }
+    psql('postgres',`SET statement_timeout='10s';
+      CREATE EXTENSION IF NOT EXISTS pg_cron VERSION '1.6.4';
+      CREATE EXTENSION IF NOT EXISTS pg_net VERSION '0.20.4';
+      CREATE TABLE public.eldion_prestart_effects(marker text NOT NULL);
+      INSERT INTO cron.job(jobid,schedule,command,nodename,nodeport,database,username,active,jobname)
+        VALUES(9001,'* * * * *','INSERT INTO public.eldion_prestart_effects VALUES (''unexpected scheduler effect'')','localhost',5432,'postgres','supabase_admin',true,'eldion_prestart_fixture');
+      INSERT INTO cron.job_run_details(jobid,runid,status,command,database,username,start_time)
+        VALUES(9001,9001,'running','SELECT 1','postgres','supabase_admin','2000-01-01T00:00:00Z');
+      INSERT INTO net.http_request_queue(id,method,url,headers,body,timeout_milliseconds)
+        VALUES(9001,'POST','https://no-delivery.invalid/fixture','{}',decode('00','hex'),1000);
+      INSERT INTO net._http_response(id,status_code,content_type,headers,content,timed_out,created)
+        VALUES(9002,200,'text/plain','{}','synthetic expired response',false,'2000-01-01T00:00:00Z');`);
+    const idleSnapshot=()=>JSON.parse(psql('postgres',`SET statement_timeout='10s'; SELECT json_build_object(
+      'cronVersion',(SELECT extversion FROM pg_extension WHERE extname='pg_cron'),
+      'netVersion',(SELECT extversion FROM pg_extension WHERE extname='pg_net'),
+      'jobs',(SELECT count(*) FROM cron.job WHERE jobid=9001),
+      'runs',(SELECT count(*) FROM cron.job_run_details WHERE runid=9001 AND status='running'),
+      'requests',(SELECT count(*) FROM net.http_request_queue WHERE id=9001),
+      'expiredResponses',(SELECT count(*) FROM net._http_response WHERE id=9002),
+      'effects',(SELECT count(*) FROM public.eldion_prestart_effects),
+      'extensionWorkers',(SELECT count(*) FROM pg_stat_activity WHERE backend_type ILIKE '%pg_net%' OR backend_type ILIKE '%cron%' OR application_name IN ('pg_cron scheduler','pg_net 0.20.4')),
+      'digest',md5(json_build_array((SELECT row_to_json(t) FROM cron.job t WHERE jobid=9001),(SELECT row_to_json(t) FROM cron.job_run_details t WHERE runid=9001),(SELECT row_to_json(t) FROM net.http_request_queue t WHERE id=9001),(SELECT row_to_json(t) FROM net._http_response t WHERE id=9002))::text));`));
+    const before=idleSnapshot();
+    assert.equal(before.cronVersion,'1.6.4');assert.equal(before.netVersion,'0.20.4');
+    for(const name of ['jobs','runs','requests','expiredResponses'])assert.equal(before[name],1);
+    assert.equal(before.effects,0);assert.equal(before.extensionWorkers,0);
+    await delay(5000);
+    const after=idleSnapshot();assert.deepEqual(after,before);
+    receipt.prestartIsolation={settingsVerifiedBeforeExtensionInstall:true,commandLineSettings:settings,observationMilliseconds:5000,
+      fixtureRowsPreserved:4,activeCronJobPreserved:true,runningCronStatusPreserved:true,pendingHttpRequestPreserved:true,
+      expiredHttpResponsePreserved:true,observedExtensionWorkers:0,observedScheduledEffects:0,fixtureDigest:after.digest,
+      httpSchedulingApisCalled:false,applicationHttpApiBehaviorQualified:false,fullApplicationRuntimeQualified:false,
+      scope:'Synthetic baseline restoration and read-only inspection profile only; no production writer barrier, full capture, globals/Auth/Storage restore or arbitrary application SQL qualification.'};
+  }
   receipt.stage='CREATE_SYNTHETIC_SOURCE';
   psql('postgres',`CREATE ROLE eldion_probe_owner NOLOGIN NOBYPASSRLS;
     CREATE ROLE eldion_probe_actor NOLOGIN NOBYPASSRLS;
@@ -119,6 +165,7 @@ try{
 }catch(error){
   failed=true;receipt.status='FAILED_RUNTIME_PROFILE';
   receipt.failureCategory=error.message==='REQUIRED_EXTENSION_VERSION_UNAVAILABLE'?error.message:'BOUNDED_PROBE_FAILED';
+  if(receipt.stage==='VERIFY_PRESTART_BACKGROUND_ISOLATION')receipt.syntheticSqlDiagnostic=String(error.stderr??'').split('\n').filter(line=>/^(ERROR|FATAL|DETAIL|HINT|LINE)[: ]/.test(line)&&!/password|secret|token|credential|authorization/i.test(line)).slice(0,4).map(line=>line.slice(0,240));
   if(created&&receipt.stage==='WAIT_FOR_EMPTY_SERVER'){
     try{
       const state=JSON.parse(docker(['inspect','--format','{{json .State}}',container]));
