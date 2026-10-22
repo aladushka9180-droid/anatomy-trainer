@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 
@@ -115,6 +115,16 @@ try{
 }catch(error){
   failed=true;receipt.status='FAILED_RUNTIME_PROFILE';
   receipt.failureCategory=error.message==='REQUIRED_EXTENSION_VERSION_UNAVAILABLE'?error.message:'BOUNDED_PROBE_FAILED';
+  if(created&&receipt.stage==='WAIT_FOR_EMPTY_SERVER'){
+    try{
+      const state=JSON.parse(docker(['inspect','--format','{{json .State}}',container]));
+      const logs=spawnSync('docker',['logs','--tail','80',container],{encoding:'utf8',timeout:10000,maxBuffer:65536,stdio:['pipe','pipe','pipe']});
+      const messages=`${logs.stdout??''}\n${logs.stderr??''}`.split('\n')
+        .filter(line=>/FATAL|ERROR|PANIC|failed|could not|initdb|unrecognized|permission denied|No such file/i.test(line))
+        .filter(line=>!/password|secret|token|credential|authorization/i.test(line)).slice(-12).map(line=>line.slice(0,240));
+      receipt.syntheticStartupDiagnostics={state:state.Status,exitCode:state.ExitCode,oomKilled:state.OOMKilled,messages};
+    }catch{receipt.syntheticStartupDiagnostics={unavailable:true};}
+  }
 }finally{
   const failedStage=receipt.stage;
   if(created){
