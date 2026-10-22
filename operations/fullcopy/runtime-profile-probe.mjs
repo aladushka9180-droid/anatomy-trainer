@@ -68,7 +68,11 @@ try{
   let ready=false;
   for(let i=0;i<60;i++){
     try{
-      assert.equal(docker(['exec',container,'cat','/proc/1/comm'],{timeout:5000}),'postgres');
+      const startup=spawnSync('docker',['logs','--tail','80',container],{encoding:'utf8',timeout:5000,maxBuffer:65536,stdio:['pipe','pipe','pipe']});
+      assert.equal(startup.status,0);
+      receipt.initializationCompleted=`${startup.stdout??''}\n${startup.stderr??''}`.includes('PostgreSQL init process complete; ready for start up.');
+      try{receipt.observedPid1Name=docker(['exec',container,'cat','/proc/1/comm'],{timeout:5000}).slice(0,64);}catch{receipt.observedPid1Name='unavailable';}
+      assert.equal(receipt.initializationCompleted,true);
       docker(['exec',container,'pg_isready','-h','/var/run/postgresql','-U','supabase_admin','-d','postgres'],{timeout:5000});ready=true;break;
     }
     catch{await delay(700);}
