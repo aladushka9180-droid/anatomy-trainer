@@ -9,14 +9,15 @@ const image='supabase/postgres@sha256:d5424e9f4d0c21d63991c3f3dd77881f23f722c3a2
 const expectedExtensions={btree_gist:'1.7',pg_cron:'1.6.4',pg_net:'0.20.4',pg_stat_statements:'1.11',pgcrypto:'1.3',plpgsql:'1.0',supabase_vault:'0.3.1','uuid-ossp':'1.1'};
 const forbiddenCredentials=['SUPABASE_DB_URL','SUPABASE_SERVICE_ROLE_KEY','SUPABASE_SECRET_KEY','SUPABASE_ACCESS_TOKEN','MINUTA_TEST_DB_URL','MINUTA_RESTORE_TEST_DB_URL','BACKUP_ENCRYPTION_PASSWORD','PGPASSWORD'];
 for(const name of forbiddenCredentials)if(process.env[name])throw new Error('SOURCE_OR_TARGET_CREDENTIAL_ENV_FORBIDDEN');
-assert.ok(process.argv.length<=4&&(process.argv[3]===undefined||process.argv[3]==='--prestart-isolation'));
-const prestart=process.argv[3]==='--prestart-isolation';
+assert.ok(process.argv.length<=4&&[undefined,'--prestart-isolation','--independent-globals'].includes(process.argv[3]));
+const independentGlobals=process.argv[3]==='--independent-globals';
+const prestart=independentGlobals||process.argv[3]==='--prestart-isolation';
 const prestartSettings={max_worker_processes:'0',max_logical_replication_workers:'0',max_parallel_workers:'0',max_parallel_workers_per_gather:'0',max_parallel_maintenance_workers:'0',autovacuum:'off','cron.launch_active_jobs':'off'};
 const contract={format:'eldion-fullcopy-public-runtime-profile-r21',image,engine:'17.6',platform:'linux/amd64',
-  profile:prestart?'RESTORE_BASELINE_PRESTART_ISOLATION_R23':'SYNTHETIC_RUNTIME_FAMILY_R21',
+  profile:independentGlobals?'INDEPENDENT_CLUSTER_GLOBALS_R24':prestart?'RESTORE_BASELINE_PRESTART_ISOLATION_R23':'SYNTHETIC_RUNTIME_FAMILY_R21',
   prestartSettings:prestart?prestartSettings:null,
   memoryBytes:3221225472,pidsLimit:256,cpus:2,network:'none',hostPortBindings:0,hostBindMounts:0,
-  expectedExtensions,scope:'Public image and two synthetic databases inside one disposable container; cluster roles are shared. No full-copy, Auth, Storage or globals-restore qualification.',
+  expectedExtensions,scope:independentGlobals?'Public image, complete synthetic-source globals and a synthetic schema archive restored into a second independent cluster inside one disposable container. No real full-copy, Auth or Storage qualification.':'Public image and two synthetic databases inside one disposable container; cluster roles are shared. No full-copy, Auth, Storage or globals-restore qualification.',
   productionConnections:0,realArchivesRead:0,authUsersRead:0,storageBodiesRead:0,sourceCredentialsUsed:0};
 if(process.argv[2]==='--plan'){console.log(JSON.stringify({...contract,execution:false},null,2));process.exit(0);}
 assert.equal(process.argv[2],'--run');
@@ -39,8 +40,8 @@ function docker(args,{input,timeout=120000}={}){
 function psql(database,sql){
   return docker(['exec','-i',container,'psql','-X','-qAt','-h','/var/run/postgresql','-U','supabase_admin','-v','ON_ERROR_STOP=1','-d',database],{input:sql,timeout:60000});
 }
-function snapshot(database){
-  return JSON.parse(psql(database,`SELECT json_build_object(
+function snapshot(database,query=psql){
+  return JSON.parse(query(database,`SELECT json_build_object(
     'rows',(SELECT count(*) FROM eldion_probe.records),
     'rowDigest',(SELECT md5(string_agg(row_to_json(t)::text,E'\\n' ORDER BY id)) FROM eldion_probe.records t),
     'tableOwner',(SELECT relowner::regrole::text FROM pg_class WHERE oid='eldion_probe.records'::regclass),
@@ -51,6 +52,119 @@ function snapshot(database){
     'sequenceOwner',(SELECT relowner::regrole::text FROM pg_class WHERE oid='eldion_probe.record_number'::regclass),
     'sequenceLast',(SELECT last_value::text FROM eldion_probe.record_number),
     'sequenceCalled',(SELECT is_called FROM eldion_probe.record_number));`));
+}
+function globalsSnapshot(query){
+  return JSON.parse(query('postgres',`SET timezone='UTC'; SELECT json_build_object(
+    'roles',(SELECT json_agg(row_to_json(t) ORDER BY rolname) FROM (
+      SELECT rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,
+        rolconnlimit,rolvaliduntil::text,rolbypassrls,
+        ARRAY(SELECT unnest(rolconfig) ORDER BY 1) AS settings
+      FROM pg_roles WHERE left(rolname,3)<>'pg_' AND rolname<>'eldion_target_bootstrap') t),
+    'memberships',(SELECT json_agg(row_to_json(t) ORDER BY role_name,member_name,grantor_name) FROM (
+      SELECT roleid::regrole::text role_name,member::regrole::text member_name,grantor::regrole::text grantor_name,
+        admin_option,inherit_option,set_option FROM pg_auth_members) t),
+    'parameterPrivileges',(SELECT json_agg(row_to_json(t) ORDER BY parameter_name,grantor_name,grantee_name,privilege_type,is_grantable) FROM (
+      SELECT p.parname parameter_name,a.grantor::regrole::text grantor_name,
+        CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END grantee_name,
+        a.privilege_type,a.is_grantable FROM pg_parameter_acl p CROSS JOIN LATERAL aclexplode(p.paracl) a) t));`));
+}
+function databasePrivilegesSnapshot(query){
+  return JSON.parse(query('postgres',`SET timezone='UTC'; SELECT json_build_object(
+    'database',(SELECT json_build_object('owner',datdba::regrole::text,'connectionLimit',datconnlimit,'allowConnections',datallowconn)
+      FROM pg_database WHERE datname=current_database()),
+    'databaseAcl',(SELECT json_agg(row_to_json(t) ORDER BY grantor_name,grantee_name,privilege_type,is_grantable) FROM (
+      SELECT a.grantor::regrole::text grantor_name,CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END grantee_name,
+        a.privilege_type,a.is_grantable FROM pg_database d CROSS JOIN LATERAL aclexplode(d.datacl) a WHERE d.datname=current_database()) t),
+    'roleDatabaseSettings',(SELECT json_agg(row_to_json(t) ORDER BY role_name) FROM (
+      SELECT CASE WHEN setrole=0 THEN 'ALL' ELSE setrole::regrole::text END role_name,
+        ARRAY(SELECT unnest(setconfig) ORDER BY 1) settings FROM pg_db_role_setting
+      WHERE setdatabase=(SELECT oid FROM pg_database WHERE datname=current_database())) t),
+    'defaultAcl',(SELECT json_agg(row_to_json(t) ORDER BY owner_name,schema_name,defaclobjtype,grantor_name,grantee_name,privilege_type,is_grantable) FROM (
+      SELECT d.defaclrole::regrole::text owner_name,n.nspname schema_name,d.defaclobjtype,
+        a.grantor::regrole::text grantor_name,CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END grantee_name,
+        a.privilege_type,a.is_grantable FROM pg_default_acl d JOIN pg_namespace n ON n.oid=d.defaclnamespace
+      CROSS JOIN LATERAL aclexplode(d.defaclacl) a WHERE n.nspname='eldion_probe') t));`));
+}
+async function qualifyIndependentGlobals(){
+  const data='/tmp/eldion-independent-target',socket='/tmp/eldion-independent-socket',port='5433';
+  const targetAdmin='eldion_target_bootstrap';
+  const targetQuery=(database,sql,user=targetAdmin)=>docker(['exec','-i',container,'psql','-X','-qAt','-h',socket,'-p',port,'-U',user,'-v','ON_ERROR_STOP=1','-d',database],{input:sql,timeout:60000});
+  let targetStarted=false;
+  receipt.independentGlobals={started:false,targetStopped:false,fullCopyQualified:false,authStorageRestoreQualified:false};
+  try{
+    receipt.stage='SEED_SYNTHETIC_GLOBALS_AND_SETTINGS';
+    psql('postgres',`CREATE ROLE eldion_probe_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 3 VALID UNTIL '2030-01-01T00:00:00Z';
+      GRANT eldion_probe_actor TO eldion_probe_login WITH ADMIN TRUE, INHERIT FALSE, SET TRUE;
+      ALTER ROLE eldion_probe_login SET statement_timeout='1500ms';
+      ALTER ROLE eldion_probe_login IN DATABASE postgres SET lock_timeout='250ms';
+      ALTER DATABASE postgres SET timezone='UTC';
+      GRANT SET ON PARAMETER log_statement TO eldion_probe_actor;
+      ALTER DEFAULT PRIVILEGES FOR ROLE eldion_probe_owner IN SCHEMA eldion_probe GRANT SELECT ON TABLES TO eldion_probe_actor;`);
+    const sourceGlobals=globalsSnapshot(psql),sourceDatabase=databasePrivilegesSnapshot(psql),sourceRows=snapshot('postgres');
+    assert.equal(sourceGlobals.roles.some(r=>r.rolname===targetAdmin),false);
+    assert.equal(psql('postgres',"SELECT count(*) FROM pg_tablespace WHERE spcname NOT IN ('pg_default','pg_global');"),'0');
+    receipt.stage='CREATE_INDEPENDENT_EMPTY_CLUSTER';
+    docker(['exec','--user','postgres',container,'mkdir','-m','0700',socket]);
+    docker(['exec','--user','postgres',container,'initdb','-D',data,'--username='+targetAdmin,'--auth-local=trust','--auth-host=reject','--encoding=UTF8','--locale=C.UTF-8'],{timeout:60000});
+    const options=['-k',socket,'-p',port,'-c','listen_addresses=','-c','shared_preload_libraries=pg_cron,pg_net',
+      ...Object.entries(prestartSettings).flatMap(([name,value])=>['-c',name+'='+value])].join(' ');
+    docker(['exec','--user','postgres',container,'pg_ctl','-D',data,'-l','/tmp/eldion-independent-target.log','-o',options,'-w','-t','30','start'],{timeout:45000});
+    targetStarted=true;receipt.independentGlobals.started=true;
+    assert.equal(targetQuery('postgres',"SELECT count(*) FROM pg_roles WHERE rolname LIKE 'eldion_probe_%';"),'0');
+    const sourceSystem=psql('postgres','SELECT system_identifier::text FROM pg_control_system();');
+    const targetSystem=targetQuery('postgres','SELECT system_identifier::text FROM pg_control_system();');
+    assert.notEqual(sourceSystem,targetSystem);
+    const settings=JSON.parse(targetQuery('postgres',`SELECT json_object_agg(name,setting) FROM pg_settings WHERE name IN (${Object.keys(prestartSettings).map(n=>`'${n}'`).join(',')});`));
+    for(const [name,value] of Object.entries(prestartSettings))assert.equal(settings[name],value);
+    receipt.independentGlobals.distinctClusterIdentifiers=true;
+    receipt.independentGlobals.fixtureRolesAbsentBeforeRestore=true;
+    receipt.independentGlobals.targetPrestartSettingsVerified=true;
+    receipt.stage='DUMP_AND_RESTORE_COMPLETE_SYNTHETIC_GLOBALS';
+    docker(['exec',container,'pg_dumpall','-h','/var/run/postgresql','-U','supabase_admin','--globals-only','--no-role-passwords','--file=/tmp/eldion-independent-globals.sql']);
+    const globalsSql=docker(['exec',container,'cat','/tmp/eldion-independent-globals.sql']);
+    assert.equal(/\bPASSWORD\s+(?:'|NULL)/i.test(globalsSql),false);
+    docker(['exec',container,'psql','-X','-q','-h',socket,'-p',port,'-U',targetAdmin,'-d','postgres','-v','ON_ERROR_STOP=1','--single-transaction','--file=/tmp/eldion-independent-globals.sql'],{timeout:60000});
+    receipt.stage='RESTORE_SYNTHETIC_DATABASE_WITH_CREATE';
+    docker(['exec',container,'pg_dump','-h','/var/run/postgresql','-U','supabase_admin','-d','postgres','--format=custom','--schema=eldion_probe','--file=/tmp/eldion-independent-db.dump']);
+    // Only the freshly initialized, verified empty target database is replaced.
+    assert.equal(targetQuery('postgres',"SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%';"),'0');
+    targetQuery('template1','DROP DATABASE postgres;');
+    docker(['exec',container,'pg_restore','-h',socket,'-p',port,'-U',targetAdmin,'--dbname=template1','--create','--exit-on-error','/tmp/eldion-independent-db.dump'],{timeout:60000});
+    receipt.stage='COMPARE_INDEPENDENT_GLOBALS_AND_DATABASE';
+    assert.deepEqual(globalsSnapshot(targetQuery),sourceGlobals);
+    assert.deepEqual(databasePrivilegesSnapshot(targetQuery),sourceDatabase);
+    assert.deepEqual(snapshot('postgres',targetQuery),sourceRows);
+    assert.deepEqual(globalsSnapshot(psql),sourceGlobals);
+    assert.deepEqual(databasePrivilegesSnapshot(psql),sourceDatabase);
+    assert.deepEqual(snapshot('postgres'),sourceRows);
+    receipt.stage='VERIFY_INDEPENDENT_ROLE_AND_DEFAULT_PRIVILEGES';
+    assert.equal(targetQuery('postgres','SHOW statement_timeout;', 'eldion_probe_login'),'1500ms');
+    assert.equal(targetQuery('postgres','SHOW lock_timeout;', 'eldion_probe_login'),'250ms');
+    let denied=false;
+    try{targetQuery('postgres','SELECT count(*) FROM eldion_probe.records;','eldion_probe_login');}
+    catch(error){denied=/permission denied for (?:schema|table)/.test(String(error.stderr??''));}
+    assert.equal(denied,true);
+    assert.equal(targetQuery('postgres','SET ROLE eldion_probe_actor; SELECT count(*) FROM eldion_probe.records;', 'eldion_probe_login'),'1');
+    assert.equal(targetQuery('postgres',`BEGIN; SET LOCAL ROLE eldion_probe_owner;
+      CREATE TABLE eldion_probe.default_acl_future_row(value integer);
+      INSERT INTO eldion_probe.default_acl_future_row VALUES(1);
+      SET LOCAL ROLE eldion_probe_actor; SELECT count(*) FROM eldion_probe.default_acl_future_row; ROLLBACK;`),'1');
+    assert.deepEqual(snapshot('postgres',targetQuery),sourceRows);
+    Object.assign(receipt.independentGlobals,{completeGlobalsSqlUnmodified:true,passwordVerifiersRead:false,
+      customTablespacesPresent:0,globalsRoleCount:sourceGlobals.roles.length,membershipCount:sourceGlobals.memberships?.length??0,
+      roleAttributesPreserved:true,roleMembershipOptionsPreserved:true,parameterPrivilegesPreserved:true,
+      databaseOwnerAndAclPreserved:true,roleAndDatabaseSettingsPreserved:true,defaultAclPreserved:true,
+      nonInheritedAccessDenied:true,explicitSetRoleRlsOwnRowCount:1,newTableDefaultSelectWorks:true,
+      rowsOwnersAclRlsSequencePreserved:true,sourceUnchanged:true,
+      globalsDigest:docker(['exec',container,'sha256sum','/tmp/eldion-independent-globals.sql']).split(' ')[0],
+      archiveDigest:docker(['exec',container,'sha256sum','/tmp/eldion-independent-db.dump']).split(' ')[0],
+      scope:'Complete globals of this synthetic source and its selected fixture schema only; no real Auth/Storage capture or full-copy qualification.'});
+  }finally{
+    if(targetStarted){
+      docker(['exec','--user','postgres',container,'pg_ctl','-D',data,'-w','-t','30','-m','fast','stop'],{timeout:45000});
+      receipt.independentGlobals.targetStopped=true;
+    }
+  }
 }
 try{
   docker(['pull','--platform','linux/amd64',image],{timeout:240000});
@@ -161,11 +275,12 @@ try{
   const restored=snapshot('eldion_profile_target');assert.deepEqual(restored,source);
   assert.equal(psql('eldion_profile_target',"SET ROLE eldion_probe_actor; SELECT count(*) FROM eldion_probe.records; RESET ROLE;"),'1');
   receipt.syntheticArchive={preservedRows:2,ownersPreserved:true,aclPreserved:true,rlsAndPolicyPreserved:true,sequenceValueAndCalledPreserved:true,actorRlsReadsOnlyOwnRow:true,clusterRolesShared:true,globalsRestoreProven:false,authStorageRestoreProven:false};
+  if(independentGlobals)await qualifyIndependentGlobals();
   receipt.status='PASS_SYNTHETIC_RUNTIME_PROFILE';
 }catch(error){
   failed=true;receipt.status='FAILED_RUNTIME_PROFILE';
   receipt.failureCategory=error.message==='REQUIRED_EXTENSION_VERSION_UNAVAILABLE'?error.message:'BOUNDED_PROBE_FAILED';
-  if(receipt.stage==='VERIFY_PRESTART_BACKGROUND_ISOLATION')receipt.syntheticSqlDiagnostic=String(error.stderr??'').split('\n').filter(line=>/^(ERROR|FATAL|DETAIL|HINT|LINE)[: ]/.test(line)&&!/password|secret|token|credential|authorization/i.test(line)).slice(0,4).map(line=>line.slice(0,240));
+  if(receipt.stage==='VERIFY_PRESTART_BACKGROUND_ISOLATION'||independentGlobals)receipt.syntheticSqlDiagnostic=String(error.stderr??'').split('\n').filter(line=>/^(ERROR|FATAL|DETAIL|HINT|LINE)[: ]/.test(line)&&!/password|secret|token|credential|authorization/i.test(line)).slice(0,4).map(line=>line.slice(0,240));
   if(created&&receipt.stage==='WAIT_FOR_EMPTY_SERVER'){
     try{
       const state=JSON.parse(docker(['inspect','--format','{{json .State}}',container]));

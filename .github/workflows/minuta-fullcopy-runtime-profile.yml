@@ -22,8 +22,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Qualify the image and baseline prestart isolation using synthetic data only
-        run: node operations/fullcopy/runtime-profile-probe.mjs --run --prestart-isolation
+      - name: Qualify independent globals and baseline isolation using synthetic data only
+        run: node operations/fullcopy/runtime-profile-probe.mjs --run --independent-globals
       - name: Retain the bounded synthetic result
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
