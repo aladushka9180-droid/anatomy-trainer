@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync, spawn, spawnSync} from 'node:child_process';
-import {randomBytes} from 'node:crypto';
+import {randomBytes,createHash} from 'node:crypto';
+import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 
 // This fixed public fixture is not a dispatcher or a production maintenance tool.
@@ -33,6 +34,7 @@ const resultPath=path.join(process.env.RUNNER_TEMP,'eldion-maintenance-native.js
 assert.equal(fs.existsSync(resultPath),false);
 const receipt={...contract,runId:run,runAttempt:'1',workflowCommit:process.env.GITHUB_SHA,startedAt:new Date().toISOString(),
   status:'RUNNING',stage:'PULL_IMAGE',results:[],containerCreated:false,containerDestroyed:false};
+receipt.sourceSha256=createHash('sha256').update(fs.readFileSync(fileURLToPath(import.meta.url))).digest('hex');
 let containerId=null,created=false,failed=false,clientNumber=0;
 const clients=new Set();
 function docker(args,{input,timeout=60000}={}){
@@ -186,6 +188,21 @@ try{
     GRANT USAGE ON SCHEMA eldion_native_dml TO eldion_native_writer,eldion_native_reader;
     GRANT SELECT,INSERT,UPDATE,DELETE ON eldion_native_dml.records TO eldion_native_writer;
     GRANT SELECT ON eldion_native_dml.records TO eldion_native_reader;`);
+  // The image's default peer rules do not map OS root to fictional DB roles.
+  // Only this new, networkless, bind-free container gets a three-role local rule.
+  const hba=psql('SHOW hba_file;');assert.match(hba,/^\/etc\/postgresql\/pg_hba\.conf$/);
+  const originalHba=docker(['exec',container,'cat',hba]);
+  const localRule=`local postgres ${role},eldion_native_writer,eldion_native_reader trust`;
+  docker(['exec','-i',container,'tee',hba],{input:localRule+'\n'+originalHba+'\n'});
+  const beforeReload=psql('SELECT pg_conf_load_time()::text;');assert.equal(psql('SELECT pg_reload_conf();'),'t');
+  let reloaded=false;for(let i=0;i<50;i++){
+    if(psql(`SELECT pg_conf_load_time() > '${beforeReload}'::timestamptz;`)==='t'){reloaded=true;break;}
+    await delay(100);
+  }
+  assert.equal(reloaded,true);assert.equal(psql('SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL;'),'0');
+  const rule=json('SELECT row_to_json(t) FROM (SELECT type,database,user_name,auth_method FROM pg_hba_file_rules ORDER BY rule_number LIMIT 1) t;');
+  assert.deepEqual(rule,{type:'local',database:['postgres'],user_name:[role,'eldion_native_writer','eldion_native_reader'],auth_method:'trust'});
+  receipt.syntheticLocalAuth={explicitRoles:3,unixSocketOnly:true,containerNetwork:'none',productionConfigurationChanged:false};
   psql(`CREATE TABLE eldion_native_custody.states(key text PRIMARY KEY,original jsonb NOT NULL,paused jsonb NOT NULL,state text NOT NULL);
     SELECT cron.schedule('eldion-native-first','* * * * *','SELECT 1');
     SELECT cron.schedule('eldion-native-second','* * * * *','SELECT 1');`,role);
