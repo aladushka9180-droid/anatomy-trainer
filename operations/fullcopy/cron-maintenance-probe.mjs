@@ -101,7 +101,14 @@ class Client{
     assert.equal(c.isolation,'repeatable read');assert.equal(c.readOnly,'off');assert.equal(c.canUpdate,false);
     assert.equal(c.canSelect,true);assert.equal(c.canUse,true);assert.equal(c.canAlter,true);return c;
   }
-  async close(){if(!this.closed){this.process.stdin.end('\\q\n');await this.exited;}}
+  async finishInput(){
+    if(!this.closed){
+      if(!this.process.stdin.destroyed)this.process.stdin.end();
+      let timer;try{await Promise.race([this.exited,new Promise((_,reject)=>{timer=setTimeout(()=>{this.process.kill('SIGKILL');reject(new Error('OWN_CLIENT_EXIT_TIMEOUT'));},5000);})]);}
+      finally{clearTimeout(timer);}
+    }
+  }
+  async close(){await this.finishInput();}
 }
 async function client(user=role){return await new Client(user).start();}
 async function jobs(c){return await c.object(jobSql());}
@@ -109,7 +116,10 @@ async function touch(c,rows,actives){for(let i=0;i<ids(rows).length;i++)await c.
 async function terminate(c){
   const owned=json(`SELECT json_build_object('count',count(*),'owned',bool_and(usename='${c.user}' AND application_name='${c.app}'))
     FROM pg_stat_activity WHERE pid=${c.pid};`);assert.equal(owned.count,1);assert.equal(owned.owned,true);
-  assert.equal(psql(`SELECT pg_terminate_backend(${c.pid});`),'t');await c.exited;
+  assert.equal(psql(`SELECT pg_terminate_backend(${c.pid});`),'t');
+  // An idle psql can still be waiting for stdin after its server backend died.
+  // Close input without submitting another SQL command or reconnecting.
+  await c.finishInput();
 }
 async function idle(c){assert.equal(psql(`SELECT state FROM pg_stat_activity WHERE pid=${c.pid};`),'idle');}
 async function pauseAndCommit(c,key){
@@ -139,7 +149,8 @@ async function recover(key){
     return {status:'RESUMED_ORIGINAL_VALUES',apiCalls:2,pid:c.pid,originalTupleXminRestored:false};
   }finally{await c.close();}
 }
-async function runCase(name,fn){receipt.stage=name;const details=await fn();receipt.results.push({id:name,status:'PASS',...details});}
+function progress(){fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'eldion-maintenance-native-progress.json'),JSON.stringify({...receipt,intermediateOnly:true},null,2)+'\n',{mode:0o600});}
+async function runCase(name,fn){receipt.stage=name;progress();const details=await fn();receipt.results.push({id:name,status:'PASS',...details});progress();}
 
 try{
   docker(['pull','--platform','linux/amd64',image],{timeout:240000});
