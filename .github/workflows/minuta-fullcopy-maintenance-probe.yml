@@ -1,0 +1,34 @@
+name: Minuta isolated maintenance mechanics
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/minuta-fullcopy-maintenance-probe.yml
+      - operations/fullcopy/cron-maintenance-probe.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fullcopy-maintenance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  maintenance-mechanics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test native cron transactions and scoped table fence using synthetic data only
+        run: node operations/fullcopy/cron-maintenance-probe.mjs --run
+      - name: Retain the bounded synthetic result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fullcopy-maintenance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/eldion-maintenance-native.json
+          retention-days: 14
+          if-no-files-found: error
