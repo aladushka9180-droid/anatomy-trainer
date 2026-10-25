@@ -1,0 +1,47 @@
+name: Minuta waitlist offers
+on:
+  pull_request:
+    paths:
+      - 'minuta-online-booking/supabase-migration-v196*.sql'
+      - 'minuta-online-booking/tests/waitlist-offers-v196-*.mjs'
+      - '.github/workflows/minuta-waitlist-offers.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'minuta-online-booking/supabase-migration-v196*.sql'
+      - 'minuta-online-booking/tests/waitlist-offers-v196-*.mjs'
+      - '.github/workflows/minuta-waitlist-offers.yml'
+permissions:
+  contents: read
+jobs:
+  embedded:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare test-only runtime
+        run: npm install --prefix "$RUNNER_TEMP/waitlist-deps" --no-package-lock --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.5.8
+      - name: Check semantics and preservation
+        env:
+          MINUTA_PGLITE_MODULE: ${{ runner.temp }}/waitlist-deps/node_modules/@electric-sql/pglite/dist/index.js
+        run: node --test minuta-online-booking/tests/waitlist-offers-v196-db-test.mjs
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare installed native test runtime
+        run: |
+          test -x /usr/lib/postgresql/16/bin/initdb
+          npm install --prefix "$RUNNER_TEMP/waitlist-native-deps" --no-package-lock --ignore-scripts --no-audit --no-fund pg@8.16.3
+      - name: Check real locks, acknowledgement and rollback
+        env:
+          WAITLIST_PG_BIN: /usr/lib/postgresql/16/bin
+          MINUTA_PG_MODULE: ${{ runner.temp }}/waitlist-native-deps/node_modules/pg/lib/index.js
+        run: node minuta-online-booking/tests/waitlist-offers-v196-postgres-test.mjs
