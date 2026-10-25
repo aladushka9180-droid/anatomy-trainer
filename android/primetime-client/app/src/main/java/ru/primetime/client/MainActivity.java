@@ -32,10 +32,13 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(Color.rgb(26, 73, 89));
         configureWebView();
-        setContentView(webView, new ViewGroup.LayoutParams(
+        SystemInsetLayout content = new SystemInsetLayout(this);
+        content.addView(webView, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
+        setContentView(content);
+        content.requestApplyInsets();
         if (savedInstanceState == null) webView.loadUrl(NavigationPolicy.START_URL);
         else webView.restoreState(savedInstanceState);
     }
