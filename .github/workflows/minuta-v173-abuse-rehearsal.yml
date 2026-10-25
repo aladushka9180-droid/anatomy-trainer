@@ -1,0 +1,76 @@
+name: Minuta v173 isolated abuse guard rehearsal
+
+on:
+  push:
+    branches:
+      - codex/pro-abuse-v173-validation
+    paths:
+      - .github/workflows/minuta-v173-abuse-rehearsal.yml
+      - minuta-online-booking/supabase-migration-v173*.sql
+      - minuta-online-booking/tests/abuse-guards-v173-*
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-v173-isolated-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: local-only
+          POSTGRES_DB: local-v173
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d local-v173"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MINUTA_TEST_DATABASE_URL: postgres://postgres:local-only@127.0.0.1:5432/local-v173
+      MINUTA_TEST_PROJECT_REF: local-v173
+      MINUTA_PRODUCTION_PROJECT_REF: production-never
+      MINUTA_TEST_MIGRATION_CONFIRM: MIGRATE_ONLY_ISOLATED_TEST_DATABASE
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install isolated test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+          npm install --prefix "$RUNNER_TEMP/v173-pg" --no-save --ignore-scripts --no-audit --no-fund pg@8.16.3
+      - name: Verify exact disposable database target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$MINUTA_TEST_DATABASE_URL" = 'postgres://postgres:local-only@127.0.0.1:5432/local-v173'
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -At -v ON_ERROR_STOP=1 -c 'select current_database()')" = 'local-v173'
+      - name: Apply, exercise, roll back, and reapply v173
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=minuta-online-booking
+          node "$base/tests/abuse-guards-v173-static-test.mjs"
+          psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$base/tests/abuse-guards-v173-postgres-fixture.sql"
+          psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$base/supabase-migration-v173.sql"
+          psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$base/supabase-migration-v173.sql"
+          psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$base/tests/abuse-guards-v173-integration.sql"
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/v173-pg/node_modules/pg/lib/index.js"
+          node "$base/tests/abuse-guards-v173-postgres-concurrency-test.mjs"
+          psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$base/supabase-migration-v173-rollback.sql"
+          test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -At -v ON_ERROR_STOP=1 -c "select to_regclass('public.minuta_abuse_rate_buckets_v173') is null")" = 't'
+          psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$base/supabase-migration-v173.sql"
+          psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$base/tests/abuse-guards-v173-integration.sql"

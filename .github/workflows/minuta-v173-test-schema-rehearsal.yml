@@ -1,0 +1,49 @@
+name: Minuta v173 full test schema offline rehearsal
+
+on:
+  push:
+    branches: [codex/pro-abuse-v173-validation]
+    paths:
+      - .github/workflows/minuta-v173-test-schema-rehearsal.yml
+      - minuta-online-booking/scripts/abuse-v173-test-schema-rehearsal.sh
+      - minuta-online-booking/tests/abuse-guards-v173-schema-toc.mjs
+      - minuta-online-booking/supabase-migration-v173*.sql
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-v173-full-test-schema
+  cancel-in-progress: false
+
+jobs:
+  rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: minuta-test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install PostgreSQL 17 client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes curl gnupg
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor --yes --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+      - name: Read current test schema and rehearse v173 without database writes
+        shell: bash
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        run: bash minuta-online-booking/scripts/abuse-v173-test-schema-rehearsal.sh
