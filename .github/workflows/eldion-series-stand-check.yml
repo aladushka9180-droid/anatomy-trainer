@@ -1,0 +1,41 @@
+name: Eldion isolated series stand
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/eldion-series-stand-check.yml'
+      - 'minuta-online-booking/scripts/series-isolated-native*'
+      - 'minuta-online-booking/scripts/series-native-runtime/**'
+      - 'minuta-online-booking/tests/repeat-series-full-schema-test.mjs'
+      - 'minuta-online-booking/recovery/provider-series-plan-*.sql'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: series-stand-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  generated-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Check schema boundary and cleanup ownership
+        run: node --test minuta-online-booking/scripts/series-isolated-native.test.mjs
+      - name: Install the locked ordinary PostgreSQL driver
+        working-directory: minuta-online-booking/scripts/series-native-runtime
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test PostgreSQL17.6 generated engine and failed-query cleanup
+        run: node minuta-online-booking/scripts/series-isolated-native.mjs --canary --receipt "$RUNNER_TEMP/series-engine-receipt.json"
+      - name: Preserve engine receipt only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: series-engine-${{ github.run_id }}
+          path: ${{ runner.temp }}/series-engine-receipt.json
+          if-no-files-found: error
+          retention-days: 7
