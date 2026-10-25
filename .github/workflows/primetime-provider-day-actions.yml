@@ -1,0 +1,47 @@
+name: PrimeTime Pro day actions candidate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'minuta-online-booking/provider-day-actions.js'
+      - 'minuta-online-booking/provider-day-actions.css'
+      - 'minuta-online-booking/tests/provider-day-actions-browser-test.mjs'
+      - '.github/workflows/primetime-provider-day-actions.yml'
+  pull_request:
+    paths:
+      - 'minuta-online-booking/provider-day-actions.js'
+      - 'minuta-online-booking/provider-day-actions.css'
+      - 'minuta-online-booking/tests/provider-day-actions-browser-test.mjs'
+      - '.github/workflows/primetime-provider-day-actions.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-day-actions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-day-actions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.58.2
+      - run: node --check minuta-online-booking/provider-day-actions.js
+      - name: Isolated controller and layout checks
+        env:
+          OUTPUT_DIR: ${{ runner.temp }}/provider-day-actions-fixture
+        run: node minuta-online-booking/tests/provider-day-actions-browser-test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: provider-day-actions-fixture-${{ github.sha }}
+          path: ${{ runner.temp }}/provider-day-actions-fixture
+          if-no-files-found: ignore
