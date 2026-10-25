@@ -226,7 +226,10 @@ try {
     await page.keyboard.press('ArrowRight');
     assert.equal(await page.locator('[data-organization-group="sales"]').evaluate(node=>node===document.activeElement),true);
     await page.keyboard.press('Enter');
-    await page.waitForFunction(()=>document.querySelector('#organizationSectionSelect').value==='loyaltyPanel');
+    // Enter moves focus in the next animation frame; finish that navigation
+    // before starting the independent Home/End keyboard case.
+    await page.waitForFunction(()=>document.querySelector('#organizationSectionSelect').value==='loyaltyPanel'
+      && document.activeElement===document.getElementById('loyaltyPanel'));
     await page.locator('[data-organization-group="finance"]').focus();await page.keyboard.press('Home');
     assert.equal(await page.locator('[data-organization-group="overview"]').evaluate(node=>node===document.activeElement),true);
     await page.keyboard.press('End');

@@ -1,0 +1,166 @@
+name: Minuta catalog schema-only clone
+
+on:
+  push:
+    branches: [codex/pro-catalog-sql-v186-v187]
+    paths:
+      - '.github/workflows/minuta-v186-v187-schema-clone.yml'
+      - 'minuta-online-booking/supabase-migration-v186.sql'
+      - 'minuta-online-booking/supabase-migration-v186-rollback.sql'
+      - 'minuta-online-booking/supabase-migration-v187.sql'
+      - 'minuta-online-booking/supabase-migration-v187-rollback.sql'
+      - 'minuta-online-booking/scripts/catalog-v186-v187-restore.sh'
+      - 'minuta-online-booking/scripts/ephemeral-restore-drill.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+
+jobs:
+  schema-only-clone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: minuta-test
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: catalog-ephemeral-only
+          POSTGRES_DB: catalog-schema-fixture
+        ports: ['55433:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with: {node-version: 22}
+      - name: Copy schema only from the isolated test database
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+          MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$GITHUB_REF" = refs/heads/codex/pro-catalog-sql-v186-v187
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          export MINUTA_TEST_DATABASE_URL="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(docker exec -i -e TEST_DSN="$MINUTA_TEST_DATABASE_URL" -e TEST_REF="$MINUTA_TEST_PROJECT_REF" -e PGOPTIONS='-c default_transaction_read_only=on' "$PG_CONTAINER" sh -c 'psql "$TEST_DSN" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$TEST_REF"' 2>"$RUNNER_TEMP/catalog-clone-private.log" <<'SQL'
+          select count(*) from minuta_migration_guard.target
+          where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$marker" = 1
+          docker exec -e TEST_DSN="$MINUTA_TEST_DATABASE_URL" -e PGOPTIONS='-c default_transaction_read_only=on' "$PG_CONTAINER" sh -c 'pg_dump "$TEST_DSN" --schema-only --schema=public --no-owner --file=/tmp/source-schema.sql' 2>"$RUNNER_TEMP/catalog-clone-private.log"
+          docker cp "$PG_CONTAINER:/tmp/source-schema.sql" "$RUNNER_TEMP/catalog-clone-private-schema.sql"
+          node minuta-online-booking/tests/booking-delete-dialog-import.mjs prepare "$RUNNER_TEMP/catalog-clone-private-schema.sql" "$RUNNER_TEMP/catalog-clone-filtered.sql"
+          docker cp minuta-online-booking/scripts/crm-snapshot-offline-bootstrap.sql "$PG_CONTAINER:/tmp/bootstrap.sql"
+          docker cp minuta-online-booking/tests/booking-delete-dialog-bootstrap.sql "$PG_CONTAINER:/tmp/fixture-bootstrap.sql"
+          docker cp "$RUNNER_TEMP/catalog-clone-filtered.sql" "$PG_CONTAINER:/tmp/schema.sql"
+          for stage in bootstrap fixture-bootstrap schema-import; do
+            file="$stage"
+            if test "$stage" = schema-import; then file=schema; fi
+            if ! docker exec "$PG_CONTAINER" psql -U postgres -d catalog-schema-fixture -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f "/tmp/$file.sql" >"$RUNNER_TEMP/catalog-clone-private.log" 2>&1; then
+              node minuta-online-booking/tests/booking-delete-dialog-import.mjs diagnose "$stage" "$RUNNER_TEMP/catalog-clone-private.log"
+              exit 1
+            fi
+          done
+      - name: Apply, roll back, and reapply catalog SQL on the empty clone
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s  %s\n' \
+            4b744d779b6acd9e365c6239c75a63a0d885572051f196288211d4ccc86c4c45 minuta-online-booking/supabase-migration-v186.sql \
+            ac196802a201ac37f8e5cc52849dcc6c5d58805df0fb6cf5e8e1111bc5b43a53 minuta-online-booking/supabase-migration-v186-rollback.sql \
+            05f4c6f2fff3d66e5bdc1018dc71d6ec0eeafb3e878784d4092eaeea7d50055a minuta-online-booking/supabase-migration-v187.sql \
+            3d9f8b399460995b16f62f745750cd7058129ccfe0ab131c87c2f95bbacf9031 minuta-online-booking/supabase-migration-v187-rollback.sql \
+            | sha256sum --status -c -
+          test "$(docker exec "$PG_CONTAINER" psql -U postgres -d catalog-schema-fixture -X -qAt -c "select count(*) from pg_proc where proname in ('save_minuta_inventory_item_draft_v186','save_minuta_service_catalog_draft_v187')")" = 0
+          for stage in v186 v187 v187-rollback v186-rollback v186 v187; do
+            file="minuta-online-booking/supabase-migration-$stage.sql"
+            docker cp "$file" "$PG_CONTAINER:/tmp/catalog-stage.sql"
+            if ! docker exec "$PG_CONTAINER" psql -U postgres -d catalog-schema-fixture -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f /tmp/catalog-stage.sql >"$RUNNER_TEMP/catalog-clone-private.log" 2>&1; then
+              echo "catalog schema clone refused stage $stage; private output withheld" >&2
+              exit 1
+            fi
+            if test "$stage" = v186-rollback; then
+              test "$(docker exec "$PG_CONTAINER" psql -U postgres -d catalog-schema-fixture -X -qAt -c "select count(*) from pg_proc where proname in ('save_minuta_inventory_item_draft_v186','save_minuta_service_catalog_draft_v187')")" = 0
+            fi
+          done
+          result="$(docker exec "$PG_CONTAINER" psql -U postgres -d catalog-schema-fixture -X -qAt -c "select (to_regclass('public.inventory_catalog_requests_v186') is not null and to_regclass('public.service_catalog_requests_v187') is not null and has_function_privilege('authenticated','public.save_minuta_inventory_item_draft_v186(uuid,uuid,uuid,text,text,text,text,numeric,boolean)','execute') and has_function_privilege('authenticated','public.save_minuta_service_catalog_draft_v187(uuid,uuid,uuid,text,text,integer,integer,boolean)','execute') and not has_function_privilege('anon','public.save_minuta_inventory_item_draft_v186(uuid,uuid,uuid,text,text,text,text,numeric,boolean)','execute') and not has_function_privilege('anon','public.save_minuta_service_catalog_draft_v187(uuid,uuid,uuid,text,text,integer,integer,boolean)','execute'))::int")"
+          test "$result" = 1
+      - name: Exercise guarded catalog rehearsal on a separate networkless clone
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          container="minuta-restore-${GITHUB_RUN_ID}"
+          private_log="$RUNNER_TEMP/catalog-guard-private.log"
+          result="$RUNNER_TEMP/catalog-guard-result.json"
+          cleanup() {
+            docker rm -f "$container" >/dev/null 2>&1 || true
+            rm -f -- "$private_log" "$result"
+          }
+          trap cleanup EXIT
+          : > "$private_log"
+          printf '{}\n' > "$result"
+          docker run --detach --rm --network none --name "$container" \
+            -e POSTGRES_PASSWORD=catalog-ephemeral-only postgres:17 >/dev/null
+          for attempt in {1..30}; do
+            if docker exec "$container" pg_isready -U postgres -d postgres >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec "$container" pg_isready -U postgres -d postgres >/dev/null
+          docker cp minuta-online-booking/scripts/crm-snapshot-offline-bootstrap.sql "$container:/tmp/bootstrap.sql"
+          docker cp minuta-online-booking/tests/booking-delete-dialog-bootstrap.sql "$container:/tmp/fixture.sql"
+          docker cp "$RUNNER_TEMP/catalog-clone-filtered.sql" "$container:/tmp/schema.sql"
+          for stage in bootstrap fixture schema; do
+            if ! docker exec "$container" psql -U postgres -d postgres -X -q \
+              -v ON_ERROR_STOP=1 -f "/tmp/$stage.sql" >>"$private_log" 2>&1; then
+              echo "Catalog clone setup failed at $stage; private output withheld" >&2
+              exit 1
+            fi
+          done
+          if ! docker exec "$container" psql -U postgres -d postgres -X -q \
+            -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate \
+            -c "insert into auth.users(id) values ('00000000-0000-4000-8000-00000000c186');
+                insert into public.performer_profiles(id,display_name)
+                values ('00000000-0000-4000-8000-00000000c186','Catalog rehearsal actor');
+                insert into public.services(performer_id,name,duration_minutes,price_rub,active)
+                values ('00000000-0000-4000-8000-00000000c186','Catalog rehearsal service',45,1000,true);
+                insert into public.organizations(id,name,public_slug,status,public_booking_enabled,created_by)
+                values ('00000000-0000-4000-8000-00000000c187','Catalog rehearsal organization',
+                  'catalog-rehearsal-only','active',false,'00000000-0000-4000-8000-00000000c186');
+                insert into public.inventory_items(organization_id,name,unit)
+                values ('00000000-0000-4000-8000-00000000c187','Catalog rehearsal item','piece');"; then
+            echo 'Synthetic catalog seed failed; SQLSTATE above, no row output' >&2
+            exit 1
+          fi
+          test "$(docker exec "$container" psql -U postgres -d postgres -X -qAt \
+            -c 'select count(*) from public.services')" = 1
+          test "$(docker exec "$container" psql -U postgres -d postgres -X -qAt \
+            -c 'select count(*) from public.inventory_items')" = 1
+          bash minuta-online-booking/scripts/catalog-v186-v187-restore.sh \
+            "$container" "$private_log" "$result" \
+            minuta-online-booking/supabase-migration-v186.sql \
+            minuta-online-booking/supabase-migration-v187.sql \
+            minuta-online-booking/supabase-migration-v187-rollback.sql \
+            minuta-online-booking/supabase-migration-v186-rollback.sql
+          jq -e '.candidateMigrationApplied and .candidateRollbackVerified and
+            .candidateReapplied and .catalogBusinessRowsPreserved and
+            .catalogRlsAndPrivilegesVerified' "$result" >/dev/null
+      - name: Remove private schema and logs
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/catalog-clone-private-schema.sql" "$RUNNER_TEMP/catalog-clone-filtered.sql" "$RUNNER_TEMP/catalog-clone-private.log"

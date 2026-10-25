@@ -1,0 +1,250 @@
+# Черновики каталога v186/v187: кандидат и границы выпуска
+
+Статус 03.10.2026: SQL-кандидат находится в ветке
+`codex/pro-catalog-sql-v186-v187`; выпуск ещё не выполнялся. База
+кандидата — `6592ecc2` (Pro v1064); он совмещён с ней без
+конфликтов. Четыре SQL-хеша/renderer, redirect и PWA core budget прошли;
+общие изменённые файлы совпадали с этой основой, номера v186/v187 там не заняты.
+На `ae9a8876` общие CI 13/13 прошли. Свежий public main `594a2fca` (v1065)
+не меняет SQL после v1064; перед интеграцией совместить актуальные ресурсы и
+вновь сверить CI окончательного интегрированного дерева.
+Рабочая база, склад и опубликованный Pro не менялись. Номера v186/v187
+предварительны: непосредственно перед интеграцией проверить свежий `main` и
+параллельные SQL-пакеты. Эта ветка содержит только SQL, изолированные тесты,
+workflow проверки и данный план. Старую UI-ветку
+`codex/pro-offline-cabinet-20260925` целиком не переносить: её база содержит
+замены чужого v181 и общих UI-файлов. Интеграцию выполняет один владелец выпуска.
+
+Пользователь 02.10 разрешил публикацию проверочного процесса, одну новую
+зашифрованную копию, изолированную репетицию и затем применение только v186/v187
+после успешных gates. Актуальный регламент требует полного CURRENT restore
+с исходными данными и правами; старый public-only/Auth-placeholder workflow
+даёт только проверку совместимости SQL. Существующий владелец полного restore
+— «Eldion 1 Завершить защиту записи»; production-выпуск остаётся у той же задачи
+`01a0f8f5-670e-7f62-a2e0-fe72554a22ca`, текущее имя «КААРДИНАТОР».
+До полного receipt PR №6 остаётся draft.
+
+После подтверждённого нового обновления подключения (метаданные 13:14 UTC)
+protected source-facts `37012725934` на private main `dcd5b636` прошёл оба job.
+Уникальный allowlisted receipt независимо сверён с точными run/HEAD:
+`readOnly=true`, PostgreSQL 17.6, `postgres.superuser=false`, остальные пять
+измеренных capabilities true, восемь расширений, Auth/Storage присутствуют.
+`adapterAllCapabilitiesSupported=false`; это открытый барьер совместимости,
+а не ошибка пароля. `productionWritten=false`, `actualDatabaseRestore=false`,
+`authStorageDataCompared=false`, `storageObjectsCompared=false`,
+`embeddedDataClassified=false`. На этом историческом этапе новой копии ещё не было;
+полный restore по-прежнему не подтверждён.
+Повторять пароль и source-facts не нужно. Private PR №9 на frozen `0421274`
+прошёл 5/5 CI и принят в private main как `7bf5a47b`: образ закреплён по digest,
+добавлен отдельный metadata-контракт с фактическим non-superuser postgres.
+Это metadata-предпосылки, не рабочий полный restore executor.
+Отдельный private PR №10, exact `56ee0c3e94b552bbcf398e67ff34be556e60a21f`,
+прошёл source-free native run `37022493149`, attempt 1, job `110888781487`.
+Единственный bounded receipt независимо сверён с run/HEAD: 30 checks PASS,
+`sourceFree/qualified/cleanupProven/cliCleanupProven=true`. В образе доказаны
+PG170006, восемь точных extension versions/namespaces, 11 preload ABI,
+non-superuser postgres, подавление cron/pg_net до synthetic rows и после
+restart, network-none и owned cleanup. `actualDatabaseRestore`,
+`authStorageDataCompared`, `privilegedAnchorsCompared`, `privateClassificationProven`,
+`restoreAllowed`, `calendarSqlAllowed`, `productionWritten` остаются false.
+Нужны реальные anchors/membership/owners/ACL, полный исходный Auth/Storage,
+non-public/sequence baseline, приватная классификация и managed same-job executor.
+Synthetic native qualification не заменяет полный CURRENT restore.
+Пакет принят в private main как `c668ab0c` 02.10 в 15:08 UTC. Это не приёмка
+managed full baseline/classification/executor и не новый capture/restore.
+02.10 21:25 UTC выполнен protected CURRENT capture `37066726261`, attempt 1,
+exact private main `a6769380c7a34765013be8d04cd13dab3473e04f`; checks/capture
+SUCCESS. Приватный encrypted artifact `11252937700` создан, скачан и проверен.
+В job `111036438954` независимо сверён единственный bounded summary
+`current-download-decryption-summary-logical-v2`: downloadedDecryptCompared,
+archiveMembersCompared и logicalSequenceReadFromDownloadedDump true.
+freshCurrentArchiveProven/qualified/certified/independentApprovalProven/
+actualRestoreProven/nativeProof/authStorageProven/productBehaviourProven/
+productionWritten false. Это проверка encrypted кандидата после скачивания,
+не полное восстановление или разрешение SQL. Использовать существующую копию
+в едином полном стенде; дублирующий capture этой задачей не запускать.
+Native квалификация образа выше и nativeProof этого архива — разные доказательства.
+
+02.10 22:48 UTC существующий publisher проверил ту же копию в protected
+run `37074410706`, attempt 1, exact private main
+`0a5af1986706c6d4cab0dfef8d146cb438e955d9` после принятия private PR №14/№15.
+Checks/inspection SUCCESS; в job `111061016986` независимо сверён ровно один
+`expense-v193-archive-inspection-v1`. archiveMembersCompared и
+logicalSequenceReadFromDownloadedDump true; postgres.rolsuper false.
+Найдены 16/16 финансовых RPC и 12/12 отношений, но точное замыкание зависимостей
+этого финансового поднабора не доказано. Это не baseline каталога.
+Классы настроек ролей: searchPath=5, timeLimit=5, loggingDisabled=3, unknown=2,
+malformed=1; ordinaryConfigClassesProven=false. Приватные значения не опубликованы.
+qualified/certified/independentApprovalProven/actualRestoreProven/fullBaselineProven/
+authStorageProven/runtimeRoleCompatibilityProven/financialDependencyClosureProven/
+privateClassificationProven/sqlApplyAllowed/productionWritten false. Проверка
+архива не заменяет полную классификацию или same-job восстановление и не расширяет
+разрешение офлайн-каталога на SQL расходов.
+
+Следующий private PR №17 принят в `642990769f13841e20a6d5e1954b672c1ba8edd7`;
+run `37076414921`, attempt 1, job `111067268780` SUCCESS. Независимо сверён
+один receipt того же формата: searchPath=6, timeLimit=5, loggingDisabled=3,
+transactionReadOnlyOn=1, unknown=0, malformed=0, unsafePreload=1.
+Неразобранный ключ — session_preload_libraries (одна запись); значение не опубликовано.
+ordinaryConfigClassesProven/fullBaselineProven/privateClassificationProven/
+actualRestoreProven/sqlApplyAllowed/productionWritten false. Private PR №18
+с безопасными счётчиками остаётся OPEN; publisher сообщил о двух автоматических
+отказах слияния и уже запросил отдельное решение. Не обходить этот отказ через
+каталог или повторный heartbeat и не дублировать вопрос.
+
+Private draft PR №19 на exact `b49899b83906d3e35c35cb825eb8917bc9f8434d`
+прошёл source-free native run `37079050642`, job `111075345161`.
+Единственный `expense-v193-native-components-v1` независимо сверён с run/HEAD:
+14/14 checks PASS, sourceFree/qualified/cleanupProven/cliCleanupProven true.
+Доказаны PG170006, non-superuser postgres и точные synthetic роли/членства,
+проверка session ABI, перенос полного synthetic dump в другую пустую базу,
+сверка строк и последовательностей, причинный отказ при drift и cleanup.
+actualRestoreProven/sourceArchiveRead/productionWritten/rolePasswordsRead/
+postgresPromoted false. Эти доказательства не удостоверяют реальные managed
+anchors/classification/Auth/Storage или восстановление CURRENT; PR №19 ещё draft.
+
+03.10 в том же draft PR №19 появился exact
+`0969a1969caa331131507ffb3affdc0809b06b0e`. Source-free native run
+`37113298327` от 09:30 UTC, job `111175235759` SUCCESS; единственный
+`expense-v193-native-components-v1` независимо сверён с точными run/HEAD.
+17/17 checks PASS: к прежним 14 добавлены native-extension-inventory-catalog,
+native-extension-column-drift-refused и native-extension-acl-drift-refused.
+sourceFree/qualified/cleanupProven/cliCleanupProven true;
+actualRestoreProven/sourceArchiveRead/productionWritten/rolePasswordsRead/
+postgresPromoted false. Это квалификация synthetic инструмента сравнения.
+Для полного original baseline ещё нужны реальные определения, колонки, владельцы
+и ACL extension-owned таблиц, полученные из того же source snapshot с доказанным
+происхождением. По отчёту publisher отдельные определения этих объектов не покрыты
+обычным дампом; фактическую полноту этой копии ещё нужно доказать.
+Рабочие extension-owned metadata, классификация и CURRENT restore не приняты.
+PR №18 остаётся OPEN после автоматического отказа; существующий publisher снова
+запросил точное решение о слиянии. Его вопрос не дублировать и отказ не обходить.
+
+На сверке 23:52 UTC capture от 21:25 UTC уже вышел за лимит свежести
+принятого private инспектора: fresh() допускает не более 7 200 000 мс.
+Его прежний SUCCESS исторический; перед рабочим выпуском нужна актуальная
+проверка свежести, а не повторное использование старого допуска. Самостоятельный
+новый capture не запускать и freshness guard не ослаблять. Отдельные разрешения
+publisher на расходы не расширяют область этого офлайн-каталога.
+
+Прежде чем использовать полный стенд для каталога, нужны принятые image/bootstrap
+и сохранение действительных capabilities/owners/ACL/расширений/Auth/Storage,
+приватная классификация внешних вызовов и секретов, сеть none, полный baseline
+данных и cleanup. Не повышать измеренную роль postgres до superuser и не
+подменять восстановленные данные synthetic fixture/bootstrap.
+
+PR №6 на `ae9a8876a37746cd6dc8a0625d308c2df11c8b65` завершил 13/13 общих CI.
+Этот результат применим к неизменному SQL/renderer-коду; документационные
+контрольные точки после него не заменяют CI итогового интегрированного дерева.
+Точный docs-only `39a230a814cea2d96e6804d1426f75585e33c177` независимо сверён:
+13/13 общих CI SUCCESS, pending=0; PR №6 OPEN/DRAFT. Это не выпуск.
+
+## Проверка кандидата
+
+- Историческая пара v182/v183 прошла PostgreSQL 17 на синтетической схеме:
+  CI `36385888092`. Историческая пара v185/v186 на точном SHA `e6d69127` прошла оба
+  isolated PostgreSQL 17 job запуска `36570164764`. Текущая пара v186/v187
+  прошла оба isolated PostgreSQL 17 job запуска `36571077359` на `ac1f5b30`.
+  Это не проверка полной восстановленной схемы и не живой авторизованный экран. Общий smoke старой
+  UI-ветки остаётся неуспешным: core precache 3 794 497 байт превышает
+  лимит 3,59 MiB. На `main` этот smoke проходил; размер и состав пересчитать
+  после переноса целевых файлов, без ослабления лимита.
+- На свежем `main` SQL-only SHA `7f25681b`: isolated PostgreSQL 17
+  `36571758657`, booking smoke `36571758731` и theme/browser CI
+  `36571758770` успешны. Полный restore не делали.
+- Schema-only clone тестовой БД на `6d2c4145` прошёл CI `36573493387`:
+  v186 → v187 → rollback → reapply на пустой PostgreSQL 17. Этот запуск
+  не читает строки рабочей базы и не проверяет миграцию на её данных.
+- Текущий SQL-кандидат `eb3e9829` после добавления `notify pgrst` в оба
+  применения и оба отката: isolated PostgreSQL 17 `36580596630` и
+  schema-only clone `36580596513` прошли. Это не полный restore с данными.
+  SQL SHA-256:
+  - `supabase-migration-v186.sql`: `4b744d779b6acd9e365c6239c75a63a0d885572051f196288211d4ccc86c4c45`;
+  - `supabase-migration-v186-rollback.sql`: `ac196802a201ac37f8e5cc52849dcc6c5d58805df0fb6cf5e8e1111bc5b43a53`;
+  - `supabase-migration-v187.sql`: `05f4c6f2fff3d66e5bdc1018dc71d6ec0eeafb3e878784d4092eaeea7d50055a`;
+  - `supabase-migration-v187-rollback.sql`: `3d9f8b399460995b16f62f745750cd7058129ccfe0ab131c87c2f95bbacf9031`.
+- Это SHA-256 нормализованных Git blob; Windows checkout содержит CRLF и
+  имеет иные побайтовые хеши. Хеши Git blob пересчитать после любого
+  изменения SQL. Предыдущий backup
+  `36282912896` исторический и не доказывает свежесть данных к выпуску.
+- Метаданные расписанного backup `36527506691` от 29.09 показывают успешный
+  запуск и неистёкший закрытый артефакт. Содержимое не скачивалось и не
+  восстанавливалось; при будущем запуске заново проверить свежесть, источник,
+  шифрование и целостность средствами защищённого workflow.
+- `scripts/catalog-v186-v187-restore.sh` подготовлен для будущего одноразового
+  PostgreSQL 17 без сети: четыре точных SQL-хеша, применение, откат и повторное
+  применение, права/RLS и неизменность дампа ключевых бизнес-таблиц. Синтаксис
+  Bash проверен; запуск `36589461589` на точном SHA `f654f975` выполнил
+  скрипт на отдельной сетево изолированной копии схемы тестовой БД с
+  синтетическими услугой и складской позицией: apply/rollback/reapply, права/RLS и неизменность
+  выбранных таблиц прошли. Это не проверка сохранности рабочих строк.
+  Подключение к защищённому
+  workflow подготовлено только в draft PR; в `main` его нет. Пользователь
+  разрешил один новый зашифрованный backup рабочей PostgreSQL и сетево
+  изолированную репетицию без записи в production; запуск ещё не выполнен.
+
+## Последовательные ворота
+
+1. Зафиксировать точный SQL-only SHA на свежем `main`: два forward SQL и два
+   rollback SQL, без UI и без удаления hotfix v181/v184. Повторить isolated
+   PostgreSQL 17 для версии, конкуренции, идемпотентности и совместимости с
+   исходным складским writer. Разобрать все падения CI старой UI-ветки после
+   переноса на свежую базу; не считать их автоматически внешними.
+   Дополнительный schema-only clone тестовой базы в
+   `minuta-v186-v187-schema-clone.yml` читает только схему из `minuta-test`,
+   применяет v186 → v187 → rollback → reapply на пустой временной PostgreSQL.
+   Он не заменяет restore рабочей базы с данными в шаге 3.
+2. Разрешённый 02.10 один свежий зашифрованный backup рабочей PostgreSQL
+   в закрытое хранилище выполнить через текущий полный CURRENT-процесс
+   существующим владельцем восстановления. Зафиксировать SHA источника, время, целостность,
+   срок хранения и точную цель восстановления. Не переносить дамп в Git.
+3. На изолированной восстановленной копии проверить неизменность исходных
+   строк, применить v186 → v187, проверить функции, права и RLS, повтор и
+   конкуренцию, выполнить rollback v187 → v186, сверить данные, затем
+   повторно применить v186 → v187. Восстановление поверх рабочей базы не выполнять.
+   В полном same-job процессе выполнить каталог после календарной репетиции
+   и её отката, до глобального cleanup. Пару применять и откатывать одной
+   транзакцией renderer; затем восстановить исходную схему и сверить полный
+   baseline перед cleanup. Разрешена одна новая копия, не отдельная копия
+   на каждый SQL-пакет. Synthetic fixture/bootstrap на этом стенде запрещены.
+4. После успешной полной репетиции и read-only preflight использовать точное
+   разрешение пользователя от 02.10 и применить **только** эти два SQL к рабочей базе защищённым
+   последовательным запуском с закреплёнными SHA и свежим backup. Остановить
+   выпуск при несовпадении хеша, схемы, владельца или результата preflight.
+5. Затем перенести UI/PWA-кандидат на текущий Pro, назначить новый SW cache
+   version, пройти целевые CI и Pages, проверить живые HTML/JS/CSS/SW и
+   авторизованный сценарий без создания реальной записи или движения склада.
+   Физическую Android PWA отмечать отдельно.
+
+Для последовательного выполнения пары подготовлен локальный SQL-renderer
+`scripts/catalog-v186-v187-release-sql.mjs`: сверяет четыре закреплённых SQL-хеша,
+сохраняет исходные тела и формирует одну транзакцию apply v186 → v187 либо
+rollback v187 → v186. Отказ второго применения отменяет первое; отказ v186
+из-за непустого ledger возвращает уже удалённый внутри транзакции v187.
+Renderer не подключается к БД, не публикует workflow и не заменяет полный receipt.
+Он предназначен для принятого владельцем полного стенда, где нужны штатные
+before/after-проверки данных, прав и очистки. Старый `catalog-v186-v187-restore.sh`
+принимает только legacy `minuta-restore-<run>` без сети; переименование контейнера
+не превращает его в полный CURRENT restore.
+
+Изолированный native CI отдельно проверяет сбой второго apply, отказ rollback
+при принятом синтетическом запросе и сохранность обеих таблиц после повторного
+применения. Fixture bootstrap выполняется только в собственной одноразовой
+локальной БД; запускать этот тест на полном CURRENT-стенде запрещено.
+
+Передаваемый пакет: PR №6, код `e382b250291f00eee407f9f424239bfe9cbb37ae`.
+Native PostgreSQL 17 запуск `36990114418` прошёл оба job, включая renderer и
+транзакционные сбои; исходные SQL-хеши выше неизменны. Полный владелец может
+переиспользовать `buildTransaction('apply'/'rollback')` в своём штатном adapter
+только после приёмки полного CURRENT receipt и актуального before/after gate.
+Произвольный контейнер/legacy receipt не являются допуском. Runtime fixture,
+подключение из теста и bootstrap в этот adapter не переносить.
+
+После пользовательских сохранений ledger может быть
+непустым: автоматический schema rollback тогда запрещён; сначала остановить
+новые каталожные записи, сохранить журнал и выбрать адресное восстановление.
+Возврат всего production backup — отдельное опасное действие с потерей более
+поздних данных; этот план его не разрешает.
+
+Исторический подробный план v182/v183 сохранён в
+`V182_V183_OFFLINE_CATALOG_RELEASE.md`; его номера и хеши не применять.
