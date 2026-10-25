@@ -1,0 +1,28 @@
+name: Public performer reviews fixture
+on:
+  pull_request:
+    paths:
+      - 'minuta-online-booking/supabase-public-performer-reviews*.sql'
+      - 'minuta-online-booking/tests/public-performer-reviews-fixture-test.mjs'
+      - '.github/workflows/minuta-public-performer-reviews-fixture.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-performer-reviews-fixture-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  postgres-fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated PostgreSQL engine
+        run: npm install --prefix "$RUNNER_TEMP/performer-review-fixture" --no-save --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.5.8
+      - name: Test apply, public boundaries and rollback
+        env:
+          MINUTA_PGLITE_MODULE: file://${{ runner.temp }}/performer-review-fixture/node_modules/@electric-sql/pglite/dist/index.js
+        run: node minuta-online-booking/tests/public-performer-reviews-fixture-test.mjs
