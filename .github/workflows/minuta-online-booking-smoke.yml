@@ -29,6 +29,7 @@ jobs:
           node-version: 22
       - run: node minuta-online-booking/client-url-redirect-test.mjs
       - run: node --test minuta-online-booking/tests/sw-cache-failure-test.mjs
+      - run: node --test minuta-online-booking/tests/provider-visit-terms-test.mjs
       - run: node minuta-online-booking/provider-ux-audit-test.mjs
       - run: node minuta-online-booking/provider-startup-performance-v565-test.mjs
       - run: node minuta-online-booking/loyalty-program-v166-static-test.mjs
