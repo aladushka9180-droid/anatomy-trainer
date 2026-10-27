@@ -1,0 +1,44 @@
+name: Visit terms atomic edit contract
+on:
+  push:
+    paths:
+      - "supabase/migrations/*_provider_visit_terms_v197.sql"
+      - "minuta-online-booking/recovery/rollback-provider-visit-terms-v197.sql"
+      - "minuta-online-booking/tests/provider-visit-terms-v197-*.mjs"
+      - ".github/workflows/minuta-visit-terms-v197.yml"
+  pull_request:
+    paths:
+      - "supabase/migrations/*_provider_visit_terms_v197.sql"
+      - "minuta-online-booking/recovery/rollback-provider-visit-terms-v197.sql"
+      - "minuta-online-booking/tests/provider-visit-terms-v197-*.mjs"
+      - ".github/workflows/minuta-visit-terms-v197.yml"
+permissions:
+  contents: read
+jobs:
+  atomic-edit-postgres17:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: local_test
+          POSTGRES_DB: visit_terms_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --ignore-scripts --package-lock=false pg@8.13.3 @electric-sql/pglite@0.3.10
+      - run: node --test minuta-online-booking/tests/provider-visit-terms-v197-pglite-test.mjs
+      - run: node --test minuta-online-booking/tests/provider-visit-terms-v197-rollback-test.mjs
+      - run: node --test minuta-online-booking/tests/provider-visit-terms-v197-postgres-test.mjs
+        env:
+          MINUTA_VISIT_TERMS_TEST_DATABASE_URL: postgres://postgres:local_test@127.0.0.1:5432/visit_terms_test
