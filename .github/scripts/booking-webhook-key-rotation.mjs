@@ -41,9 +41,9 @@ function database(sql,write=false){
   const result=execFileSync('psql',[connection.href,'-X','-qAt','-v','ON_ERROR_STOP=1'],{input:sql,encoding:'utf8',maxBuffer:8*1024*1024,timeout:45000,stdio:['pipe','pipe','pipe'],env:{...process.env,PGOPTIONS:`-c default_transaction_read_only=${write?'off':'on'} -c statement_timeout=30000 -c lock_timeout=5000`}});
   return result.trim();
 }
-async function secretApi(method,body){
+export async function secretApi(method,body){
   const response=await fetch(`https://api.supabase.com/v1/projects/${PROJECT}/secrets`,{method,headers:{Authorization:`Bearer ${process.env.SUPABASE_ACCESS_TOKEN}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(20000)});
-  requireCondition(response.ok,'secret_api_failed');return method==='GET'?response.json():null;
+  if(!response.ok)throw new RotationGuardError('secret_api_status_'+response.status);return method==='GET'?response.json():null;
 }
 async function digest(){const rows=await secretApi('GET');const entry=rows.find(row=>row.name===KEY_NAME);requireCondition(entry && typeof entry.value==='string','missing_edge_secret');return entry.value.toLowerCase();}
 function catalog(){return JSON.parse(database('begin read only;\n'+catalogSql+'\nrollback;'));}
