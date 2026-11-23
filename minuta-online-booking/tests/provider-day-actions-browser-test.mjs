@@ -71,7 +71,7 @@ async function install(page) {
   await page.addScriptTag({ content:readFileSync(join(root, 'provider-day-actions.js'), 'utf8') });
   await page.evaluate(() => {
     const state = window.dayTest = {
-      context:{ userId:'test-user', organizationId:'test-org', locationId:'test-location', date:'2026-10-05', timeZone:'Europe/Samara' },
+      context:{ userId:'test-user', organizationId:'test-org', locationId:'test-location', date:'2026-10-05', timeZone:'Europe/Samara', sessionGeneration:1 },
       canWrite:true, saves:[], resolutions:[], actions:[], refreshes:[], behaviour:'success', loadDate:'2026-10-05'
     };
     const result = payload => ({ confirmed:true, date:payload.date, requestId:payload.requestId });
@@ -176,7 +176,7 @@ try {
   assert.deepEqual(Object.keys(saved.payload).sort(), ['date','end','expectedRevision','onlineEnabled','requestId','start'].sort());
   assert.equal(saved.payload.date, '2026-10-05'); assert.equal(saved.payload.start, '10:00'); assert.equal(saved.payload.end, '14:00');
   assert.equal(saved.payload.onlineEnabled, true); assert.match(saved.payload.requestId, /^[\da-f-]{36}$/); checks++;
-  for (const field of ['userId','organizationId','locationId','date','timeZone']) {
+  for (const field of ['userId','organizationId','locationId','date','timeZone','sessionGeneration']) {
     await open();
     await page.evaluate(field => { dayTest.previous = dayTest.context[field]; dayTest.context[field] = 'changed'; }, field);
     await submit(); assert.equal(await page.evaluate(() => dayTest.saves.length), 1, `${field}: stale context denied`);
@@ -225,6 +225,15 @@ try {
     }
     checks++; await isolated.close();
   }
+  const renewed = await setup(); await install(renewed);
+  await renewed.locator('[data-schedule-day-action="hours"]').click();
+  await renewed.evaluate(() => { dayTest.behaviour='pending'; });
+  await renewed.locator('dialog.schedule-day-hours-dialog [type="submit"]').click();
+  await renewed.waitForFunction(() => typeof dayTest.finish === 'function');
+  await renewed.evaluate(async () => { dayTest.context.sessionGeneration += 1; dayTest.finish(); await new Promise(resolve => setTimeout(resolve,0)); });
+  assert.equal(await renewed.locator('dialog.schedule-day-hours-dialog[open]').count(),1,'stale result cannot close a dialog in a new session');
+  assert.equal(await renewed.evaluate(() => dayTest.refreshes.length),0,'late response cannot refresh a new session of the same user');
+  checks++; await renewed.close();
   const dark = await setup(390, 'graphite'); await install(dark);
   const darkColors = await dark.evaluate(() => ({ date:getComputedStyle(document.querySelector('#dateStrip>.active strong')).color, ink:getComputedStyle(document.body).getPropertyValue('--theme-ink').trim() }));
   assert.equal(darkColors.date, 'rgb(242, 241, 245)', 'selected date uses dark theme ink');

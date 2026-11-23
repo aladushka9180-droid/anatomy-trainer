@@ -14,10 +14,10 @@
   const TIME = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
   const REQUEST_ID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
   const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]));
-  const scopeKey = context => JSON.stringify([context?.userId, context?.organizationId, context?.locationId, context?.date, context?.timeZone]);
+  const scopeKey = context => JSON.stringify([context?.userId, context?.organizationId, context?.locationId, context?.date, context?.timeZone, context?.sessionGeneration]);
   function validatedContext(context, date) {
-    if (!context?.userId || !context?.organizationId || !context?.locationId || !context?.timeZone || context.date !== date || !DATE.test(String(date || ''))) throw new Error('day_action_scope_required');
-    return Object.freeze({ userId:context.userId, organizationId:context.organizationId, locationId:context.locationId, date, timeZone:context.timeZone });
+    if (!Number.isSafeInteger(context?.sessionGeneration) || context.sessionGeneration < 0 || !context?.userId || !context?.organizationId || !context?.locationId || !context?.timeZone || context.date !== date || !DATE.test(String(date || ''))) throw new Error('day_action_scope_required');
+    return Object.freeze({ userId:context.userId, organizationId:context.organizationId, locationId:context.locationId, date, timeZone:context.timeZone, sessionGeneration:context.sessionGeneration });
   }
   function create(ports) {
     for (const name of ['getContext', 'canWrite', 'loadDay', 'saveHours', 'resolveHours', 'openAppointment', 'openBlockedTime', 'refresh']) {
