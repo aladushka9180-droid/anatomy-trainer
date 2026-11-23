@@ -6,6 +6,12 @@
   let referenceHeaderScope = '';
   let referenceHeaderDisplay = '';
   let referenceHeaderMedia = null;
+  let referenceHeaderPerformerWidth = 0;
+  let referenceHeaderControlsWidth = 0;
+  let referenceHeaderPerformerFlex = '';
+  let referenceHeaderPerformerMaxWidth = '';
+  let referenceHeaderPerformerBox = null;
+  let referenceHeaderPlaceholder = null;
   function refreshReferenceHeader(scope) {
     const head = document.querySelector('#analyticsView .report-head');
     const filters = document.querySelector('#analyticsView .report-filters');
@@ -36,10 +42,42 @@
     const desktop = referenceHeaderMedia?.matches === true;
     const target = desktop ? controls : filters.querySelector('.report-toolbar');
     if (target && performer.parentElement !== target) target.append(performer);
-    referenceHeaderDisplay = desktop && !performer.hidden ? referenceHeaderScope.split(' · ')[0] : referenceHeaderScope;
+    if (desktop && !performer.hidden) {
+      referenceHeaderPerformerWidth = performer.getBoundingClientRect().width;
+      const style = getComputedStyle(performer);
+      referenceHeaderPerformerFlex = style.flex;
+      referenceHeaderPerformerMaxWidth = style.maxWidth;
+      referenceHeaderPerformerBox = { boxSizing:style.boxSizing, padding:style.padding, border:style.border };
+    }
+    const waitingForRights = desktop && performer.hidden && referenceHeaderPerformerWidth > 0
+      && typeof reportTeamAnalyticsState !== 'undefined'
+      && ['idle', 'loading'].includes(reportTeamAnalyticsState.status);
+    if (waitingForRights) {
+      if (referenceHeaderControlsWidth > 0) controls.style.width = `${referenceHeaderControlsWidth}px`;
+      if (!referenceHeaderPlaceholder) {
+        referenceHeaderPlaceholder = document.createElement('span');
+        referenceHeaderPlaceholder.setAttribute('aria-hidden', 'true');
+        referenceHeaderPlaceholder.style.cssText = 'display:block;flex:none;visibility:hidden;height:44px';
+      }
+      referenceHeaderPlaceholder.style.width = `${referenceHeaderPerformerWidth}px`;
+      referenceHeaderPlaceholder.style.flex = referenceHeaderPerformerFlex;
+      referenceHeaderPlaceholder.style.maxWidth = referenceHeaderPerformerMaxWidth;
+      if (referenceHeaderPerformerBox) Object.assign(referenceHeaderPlaceholder.style, referenceHeaderPerformerBox);
+      performer.before(referenceHeaderPlaceholder);
+    } else {
+      controls.style.removeProperty('width');
+      if (referenceHeaderPlaceholder?.isConnected) referenceHeaderPlaceholder.remove();
+    }
+    referenceHeaderDisplay = desktop && (!performer.hidden || waitingForRights) ? referenceHeaderScope.split(' · ')[0] : referenceHeaderScope;
     if (summary.textContent !== referenceHeaderDisplay) summary.textContent = referenceHeaderDisplay;
-    toggle.title = referenceHeaderScope;
-    toggle.setAttribute('aria-label', `Период статистики: ${referenceHeaderScope}`);
+    toggle.title = waitingForRights ? `${referenceHeaderDisplay} · Проверяем доступ` : referenceHeaderScope;
+    toggle.setAttribute('aria-label', `Период статистики: ${toggle.title}`);
+    if (desktop && !performer.hidden) requestAnimationFrame(() => {
+      if (!performer.hidden && referenceHeaderMedia?.matches) {
+        referenceHeaderPerformerWidth = performer.getBoundingClientRect().width;
+        referenceHeaderControlsWidth = controls.getBoundingClientRect().width;
+      }
+    });
   }
   function restoreVisitOverview() {
     visitOverviewPlacements.splice(0).forEach(({ node, anchor }) => {

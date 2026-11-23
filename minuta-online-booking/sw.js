@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v1097`;
-const CACHE_READY = './.precache-ready-v1097';
+const CACHE = `${CACHE_PREFIX}v1098`;
+const CACHE_READY = './.precache-ready-v1098';
 
 const ASSETS = [
   './provider.html',
@@ -63,7 +63,7 @@ const ASSETS = [
   './provider-service-actions.js?v=811',
   './provider-price-list.js?v=1097',
   './provider-connection-guidance.js?v=1036',
-  './provider.js?v=1097',
+  './provider.js?v=1098',
   './voice-wake.js?v=811',
   './provider-feature-assets.js?v=1085',
 ];
@@ -125,7 +125,7 @@ const OPTIONAL_ASSETS = [
   './statistics-audit-ui.css?v=1085',
   './statistics-audit-ui.js?v=1085',
   './report-export-provider.js?v=1085',
-  './statistics-audit-provider.js?v=1097',
+  './statistics-audit-provider.js?v=1098',
   './client-results.css?v=876',
   './provider-porcelain-detail.css?v=1048',
   './provider-schedule-type.css?v=933',
@@ -155,7 +155,7 @@ const OPTIONAL_ASSETS = [
   './settings-mobile-minimalism.css?v=1052',
   './provider-integrations.css?v=1008',
   './finance-center.css?v=1085',
-  './finance-center.js?v=1085',
+  './finance-center.js?v=1098',
   './finance-center-provider.js?v=1085',
   './client-records.css?v=811',
   './client-records.js?v=811',
