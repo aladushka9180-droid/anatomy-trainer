@@ -1,0 +1,25 @@
+name: Eldion day actions rollback-only database test
+on:
+  push:
+    branches: [codex/pro-day-off-approved-20261123]
+    paths: ['minuta-online-booking/supabase-migration-v192*', 'minuta-online-booking/tests/day-actions-v192*', 'minuta-online-booking/tests/day-actions-v192-canonical/**', '.github/workflows/minuta-day-actions-v192-test.yml']
+permissions: { contents: read }
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+jobs:
+  rollback-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { persist-credentials: false }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Exercise dated hours and native writers without committing changes
+        run: node minuta-online-booking/tests/day-actions-v192-test-runner.mjs
