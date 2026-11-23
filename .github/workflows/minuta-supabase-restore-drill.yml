@@ -499,7 +499,7 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: |
           set -euo pipefail
-          if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181 || test "$CANDIDATE_VERSION" = v184; then
+          if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181 || test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192; then
             jq -e '.candidateMigrationApplied and .candidateRollbackVerified and (.candidateReapplied or .candidateFreshApplyVerified)' \
               "$RUNNER_TEMP/minuta-ephemeral-restore.json" >/dev/null
           fi
@@ -508,7 +508,7 @@ jobs:
             '. + {sourceBackupRunId:$run, sourceBackupSha:$sha, sourceBackupCreatedAt:$created, workflowRunId:env.GITHUB_RUN_ID, candidateVersion:$candidateVersion, candidateSha:$candidateSha}' \
             "$RUNNER_TEMP/minuta-ephemeral-restore.json" > "$RUNNER_TEMP/minuta-ephemeral-restore.final.json"
           mv "$RUNNER_TEMP/minuta-ephemeral-restore.final.json" "$RUNNER_TEMP/minuta-ephemeral-restore.json"
-          if test "$CANDIDATE_VERSION" = v184; then
+          if test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192; then
             [[ "$ENCRYPTED_SHA256" =~ ^[a-f0-9]{64}$ ]]
             jq --arg digest "$ENCRYPTED_SHA256" '. + {sourceEncryptedArchiveVerified:true,sourceEncryptedSha256:$digest}' \
               "$RUNNER_TEMP/minuta-ephemeral-restore.json" > "$RUNNER_TEMP/minuta-ephemeral-restore.final.json"
@@ -522,8 +522,8 @@ jobs:
             echo '- Контейнер: PostgreSQL 17, сеть отключена, после проверки удалён'
             echo '- Восстановлены только public schema/data; Auth и Storage не восстанавливались'
             echo '- Production и testDB: без записи'
-            if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181 || test "$CANDIDATE_VERSION" = v184; then
-              echo "- $CANDIDATE_VERSION apply/rollback/reapply: PASS, SHA \`$CANDIDATE_SHA\`"
+            if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181 || test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192; then
+              echo "- $CANDIDATE_VERSION apply/rollback/final apply: PASS, SHA \`$CANDIDATE_SHA\`"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

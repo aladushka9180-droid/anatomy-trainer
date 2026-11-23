@@ -1,8 +1,8 @@
 name: Eldion day actions rollback-only database test
 on:
   push:
-    branches: [codex/pro-day-off-approved-20261123]
-    paths: ['minuta-online-booking/supabase-migration-v192*', 'minuta-online-booking/tests/day-actions-v192*', 'minuta-online-booking/tests/day-actions-v192-canonical/**', '.github/workflows/minuta-day-actions-v192-test.yml']
+    branches: [main, codex/pro-day-off-approved-20261123]
+    paths: ['minuta-online-booking/provider-day-*', 'minuta-online-booking/provider.js', 'minuta-online-booking/provider.html', '.github/scripts/day-actions-v192*', 'minuta-online-booking/supabase-migration-v192*', 'minuta-online-booking/tests/day-actions-v192*', 'minuta-online-booking/tests/day-actions-v192-canonical/**', '.github/workflows/minuta-day-actions-v192-test.yml']
 permissions: { contents: read }
 concurrency:
   group: minuta-test-database
@@ -41,3 +41,24 @@ jobs:
         env:
           DAY_TEST_POSTGRES: postgresql://postgres:isolated_day_test@127.0.0.1:55433/day_actions_fixture
         run: node minuta-online-booking/tests/day-actions-v192-concurrency-test.mjs
+
+  native-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: |
+          npm install --prefix "$RUNNER_TEMP/day-browser" --no-save --ignore-scripts playwright@1.62.1
+          "$RUNNER_TEMP/day-browser/node_modules/.bin/playwright" install --with-deps chromium
+          echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/day-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/day-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Verify day controller, durable adapter and actual native booking form
+        run: |
+          node minuta-online-booking/tests/provider-day-runtime-test.mjs
+          node minuta-online-booking/tests/provider-day-actions-browser-test.mjs
+          node minuta-online-booking/tests/provider-day-native-browser-test.mjs
+          node minuta-online-booking/client-url-redirect-test.mjs
+          node minuta-online-booking/provider-startup-performance-v565-test.mjs

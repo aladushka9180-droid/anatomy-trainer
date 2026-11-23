@@ -15,4 +15,5 @@ begin
   loop execute format('revoke all on function %s from public,anon,authenticated,service_role',p);end loop;
 end $rollback$;
 comment on function public.get_minuta_provider_day_v192(uuid,uuid,date) is 'primetime_provider_day_v192_rolled_back';
+notify pgrst,'reload schema';
 commit;

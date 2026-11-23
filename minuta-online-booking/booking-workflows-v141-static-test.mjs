@@ -34,7 +34,7 @@ for (const required of [
   'submit.disabled = !newBookingTime || !creationAllowed;',
   "service:block ? '' : service,",
   "db.rpc('get_provider_block_slots_v141'",
-  "db.rpc('create_provider_block_v141'",
+  "db.rpc(dayException?'block_minuta_day_exception_v192':'create_provider_block_v141'",
   "db.rpc('update_provider_block_v141'",
   '(!block && !service)',
   "block ? await saveBookingColor",

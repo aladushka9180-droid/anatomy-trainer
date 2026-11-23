@@ -373,4 +373,5 @@ grant execute on function public.get_minuta_day_exception_slots_v192(uuid,uuid,d
 grant execute on function public.book_minuta_day_exception_v192(uuid,uuid,uuid,uuid,date,time,text,text,integer,integer) to authenticated;
 grant execute on function public.block_minuta_day_exception_v192(uuid,uuid,uuid,date,time,integer,text,text) to authenticated;
 comment on function public.get_minuta_provider_day_v192(uuid,uuid,date) is 'primetime_provider_day_v192';
+notify pgrst,'reload schema';
 commit;
