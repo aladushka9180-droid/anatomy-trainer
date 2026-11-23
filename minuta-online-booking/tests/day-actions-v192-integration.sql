@@ -33,12 +33,12 @@ do $$ begin
 end $$;
 -- Normal booking respects the opened date and cannot use the one-off bypass.
 select pg_temp.day_assert(public.book_minuta_provider_day_v192(current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,gen_random_uuid(),current_setting('v123.service')::uuid,current_setting('v123.date')::date,'13:00','Тестовый клиент','79990000004',1000,60)->>'booking_id' is not null,'normal_booking_on_opened_date');
-do $begin
+do $test$begin
  begin
   perform public.book_minuta_provider_day_v192(current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,gen_random_uuid(),current_setting('v123.service')::uuid,current_setting('v123.date')::date,'21:00','Тестовый клиент','79990000005',1000,60);
   raise exception 'ordinary_booking_bypassed_date_hours';
  exception when sqlstate 'P0001' then if sqlerrm<>'slot_unavailable' then raise;end if;end;
-end $;
+end $test$;
 -- Native client creation must work without opening the remaining day.
 select set_config('v192.client_request',gen_random_uuid()::text,true);
 select set_config('v192.client_result',public.book_minuta_day_exception_v192(current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,current_setting('v192.client_request')::uuid,current_setting('v123.service')::uuid,current_setting('v123.date')::date,'18:00','Тестовый клиент','79990000001',1000,60)::text,true);
@@ -49,12 +49,12 @@ select pg_temp.day_assert((public.get_minuta_provider_day_v192(current_setting('
 select public.reschedule_minuta_provider_booking_v143((current_setting('v192.client_result')::jsonb->>'booking_id')::uuid,current_setting('v123.date')::date,'14:00',current_setting('v123.date')::date,'18:00');
 select pg_temp.day_assert(exists(select 1 from public.get_available_slots_v101(current_setting('v123.service')::uuid,current_setting('v123.date')::date,current_setting('v123.date')::date,(current_setting('v192.client_result')::jsonb->>'booking_id')::uuid) where booking_time='14:00'),'legacy_reschedule_scoped_slots');
 reset role;
-do $begin
+do $test$begin
  begin
   update public.bookings set booking_time='21:00' where id=(current_setting('v192.client_result')::jsonb->>'booking_id')::uuid;
   raise exception 'legacy_update_bypassed_dated_hours';
  exception when exclusion_violation then if sqlerrm<>'day_slot_unavailable' then raise;end if;end;
-end $;
+end $test$;
 select pg_temp.day_assert(not (select enabled from public.provider_schedule where performer_id=current_setting('v123.actor')::uuid and weekday=extract(isodow from current_setting('v123.date')::date)),'weekday_unchanged');
 select pg_temp.day_assert((select count(*)=1 from public.bookings where id=current_setting('v192.block')::uuid),'one_native_row');
 select pg_temp.day_assert(not has_function_privilege('anon','public.save_minuta_provider_day_v192(uuid,uuid,date,uuid,time,time,boolean,text)','EXECUTE'),'anon_denied');

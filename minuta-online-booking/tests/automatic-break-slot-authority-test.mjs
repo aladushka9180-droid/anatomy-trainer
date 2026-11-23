@@ -18,6 +18,7 @@ const controller = [
   declaration('isNewBookingGridTime'),
   declaration('isNewBookingFiveMinuteTime'),
   declaration('newBookingGridSlots'),
+  declaration('scheduleStateForDate'),
   declaration('bookingPlacementIssue'),
   declaration('loadNewBookingSlots'),
   declaration('newBookingPreferredUnavailableMarkup')
@@ -45,7 +46,7 @@ async function fixture({
   };
   let pickerRendered = 0;
   let automaticBreakRefreshes = 0;
-  const sandbox = {
+  const sandbox = {scheduleDirty:false,
     console,
     Date,
     Promise,

@@ -80,3 +80,8 @@ html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:no
 html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card:has(#dateStrip) #providerBookings.provider-bookings.timeline-view:has(>.schedule-day-empty) {
   min-height:0!important; padding:0!important; border:0!important; background:transparent!important; box-shadow:none!important;
 }
+
+/* Keep the existing day summary above the single closed-day card. */
+html body.provider-body[data-provider-theme][data-provider-layout] #dashboard:not([hidden])[data-active-view="bookings"] .schedule-card .schedule-workspace:has(>#providerBookings>.schedule-day-empty) {
+ border:0!important;background:transparent!important;box-shadow:none!important;
+}
