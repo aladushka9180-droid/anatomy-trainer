@@ -22,7 +22,7 @@ const css = [...providerHtml.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*href="([
   return media ? `@media ${media}{${content}}` : content;
 }).join('\n');
 const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
-const browser = await chromium.launch({ headless:true });
+const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const errors = [];
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const masterId = '22222222-2222-4222-8222-222222222222';
@@ -78,9 +78,13 @@ try {
           if (scopeTest.mode === 'pending') await new Promise(resolve => { scopeTest.release = resolve; });
           if (scopeTest.mode === 'error') throw new Error('Synthetic unavailable');
           const start = period === 'quarter' ? '2026-07-01' : '2026-09-01';
-          return MinutaFinanceProvider.normalizeFinanceScreen({ ...raw, selected_performer_id:masterId }, {
+          const normalized = MinutaFinanceProvider.normalizeFinanceScreen({ ...raw, selected_performer_id:masterId }, {
             organizationId, period, bounds:{ start, end:'2026-09-27' }
           });
+          normalized.dateBasis = 'operations';
+          normalized.cashProjectionUnavailable = false;
+          normalized.movement = [{ key:start, receivedMinor:normalized.summary.receivedMinor }];
+          return normalized;
         }
       } });
     }, { raw, organizationId });
@@ -147,6 +151,74 @@ try {
     await page.locator('#reportTabOverview').click();
     await page.waitForFunction(() => document.querySelector('#exportBookings span').textContent === 'Экспорт');
     assert.equal(await note.isVisible(), false);
+    await page.evaluate(async () => finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'team' }));
+    await page.locator('#reportFinanceOverview [data-finance-detail="profit"]').first().click();
+    const detail = page.locator('[data-finance-detail-dialog]');
+    assert.equal(await detail.evaluate(e => e.open), true);
+    const positionBefore = await page.locator('#reportFinanceOverview [data-finance-overview-chart]').evaluate(e => e.getBoundingClientRect().top);
+    const belowChartBefore = await page.locator('#financeOverviewExpenseTitle').evaluate(e => e.getBoundingClientRect().top);
+    await page.evaluate(() => { scopeTest.mode = 'pending'; window.scopeRefresh = finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'checking' }); });
+    assert.equal(await detail.evaluate(e => e.open), true, 'Background scope verification must not close an open detail');
+    assert.doesNotMatch(await detail.innerText(), /12\s*345/, 'Pending scope must not display previous financial amounts');
+    assert.doesNotMatch(await page.locator('#reportFinanceOverview').innerText(), /12\s*345/, 'Pending overview must not display previous financial amounts');
+    const positionDuring = await page.locator('#reportFinanceOverview [data-finance-overview-chart]').evaluate(e => e.getBoundingClientRect().top);
+    const belowChartDuring = await page.locator('#financeOverviewExpenseTitle').evaluate(e => e.getBoundingClientRect().top);
+    assert.ok(Math.abs(positionDuring - positionBefore) < 1, `${width}: chart moved ${positionDuring - positionBefore}px while checking`);
+    assert.ok(Math.abs(belowChartDuring - belowChartBefore) < 1, `${width}: content below chart moved ${belowChartDuring - belowChartBefore}px while checking`);
+    await page.evaluate(async () => { scopeTest.mode = 'ready'; scopeTest.release(); await window.scopeRefresh; });
+    assert.equal(await detail.evaluate(e => e.open), true, 'Detail remains open after refreshed data arrives');
+    assert.equal(await page.locator('[data-finance-overview-chart]').evaluate(e => e.style.minHeight), '', 'Temporary height must be released after refresh');
+    await page.evaluate(async () => { scopeTest.mode = 'error'; await finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'unavailable' }); });
+    assert.equal(await detail.evaluate(e => e.open), true, 'Detail remains open if refresh fails');
+    assert.match(await detail.innerText(), /Не удалось загрузить данные/);
+    assert.equal(await page.locator('[data-finance-overview-chart]').evaluate(e => e.style.minHeight), '', 'Temporary height must be released after failure');
+    assert.doesNotMatch(await detail.innerText(), /12\s*345/, 'Failed scope must not show a previous amount');
+    await page.locator('[data-finance-detail-close]').click();
+    await page.evaluate(async () => { scopeTest.mode = 'ready'; await finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'ready-again' }); });
+    await page.locator('#reportFinanceOverview [data-finance-detail="profit"]').first().click();
+    await page.evaluate(() => { scopeTest.mode = 'pending'; window.scopeRefresh = finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'later' }); });
+    await page.locator('[data-finance-detail-close]').click();
+    await page.evaluate(async () => { scopeTest.mode = 'ready'; scopeTest.release(); await window.scopeRefresh; });
+    assert.equal(await detail.evaluate(e => e.open), false, 'User-closed detail must not reopen on completion');
+    if (width === 1440) {
+      const binding = read('statistics-audit-provider.js');
+      const first = binding.indexOf('  function refreshReferenceHeader(scope) {');
+      const last = binding.indexOf('  function restoreVisitOverview()', first);
+      assert.ok(first >= 0 && last > first);
+      await page.evaluate(() => {
+        const wrap = document.querySelector('#reportPerformerFilterWrap');
+        wrap.hidden = false;
+        wrap.querySelector('select').innerHTML = '<option>Вся команда</option>';
+        document.querySelector('#reportFilterSummary').textContent = '25 окт. — 23 нояб. 2026 г. · Вся команда';
+      });
+      await page.addScriptTag({ content:`let referenceHeaderScope='', referenceHeaderDisplay='', referenceHeaderMedia=null, referenceHeaderPerformerWidth=0, referenceHeaderControlsWidth=0, referenceHeaderPerformerFlex='', referenceHeaderPerformerMaxWidth='', referenceHeaderPerformerBox=null, referenceHeaderPlaceholder=null; let reportTeamAnalyticsState={status:'ready'};\n${binding.slice(first,last)}\nrefreshReferenceHeader();` });
+      await page.evaluate(() => new Promise(requestAnimationFrame));
+      const before = await page.locator('#reportFilterToggle').evaluate(e => e.getBoundingClientRect().width);
+      const topBefore = await page.locator('#reportFinanceOverview').evaluate(e => e.getBoundingClientRect().top);
+      if (output) await page.screenshot({ path:resolve(output, 'rights-check-before.png') });
+      await page.evaluate(() => {
+        reportTeamAnalyticsState.status = 'loading';
+        document.querySelector('#reportFilterSummary').textContent = '25 окт. — 23 нояб. 2026 г. · Личная статистика';
+        document.querySelector('#reportPerformerFilterWrap').hidden = true;
+      });
+      await page.waitForTimeout(100);
+      const during = await page.locator('#reportFilterToggle').evaluate(e => e.getBoundingClientRect().width);
+      if (output) await page.screenshot({ path:resolve(output, 'rights-check-pending.png') });
+      assert.ok(Math.abs(during-before) < 2, `Header changed width ${during-before}px during permission check`);
+      const topDuring = await page.locator('#reportFinanceOverview').evaluate(e => e.getBoundingClientRect().top);
+      assert.ok(Math.abs(topDuring-topBefore) < 2, `Finance cards moved ${topDuring-topBefore}px during permission check`);
+      await page.evaluate(() => { reportTeamAnalyticsState.status = 'ready'; document.querySelector('#reportPerformerFilterWrap').hidden = false; });
+      await page.waitForTimeout(100);
+      assert.ok(Math.abs(await page.locator('#reportFilterToggle').evaluate(e => e.getBoundingClientRect().width) - before) < 2, 'Header remains stable after rights confirm');
+      await page.evaluate(() => {
+        reportTeamAnalyticsState.status = 'loading';
+        document.querySelector('#reportPerformerFilterWrap').hidden = true;
+      });
+      await page.waitForTimeout(100);
+      await page.evaluate(() => { reportTeamAnalyticsState.status = 'ready'; document.querySelector('#reportFilterSummary').textContent = '25 окт. — 23 нояб. 2026 г. · Личная статистика'; });
+      await page.waitForTimeout(100);
+      assert.equal(await page.locator('.report-reference-controls > span[aria-hidden="true"]').count(), 0, 'A denied permission removes the temporary placeholder');
+    }
     await page.close();
   }
 } finally { await browser.close(); }
