@@ -1,0 +1,26 @@
+name: Eldion webhook key rotation tests
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/scripts/booking-webhook-key-rotation*', '.github/workflows/minuta-booking-webhook-key-*.yml']
+  push:
+    branches: [main]
+    paths: ['.github/scripts/booking-webhook-key-rotation*', '.github/workflows/minuta-booking-webhook-key-*.yml']
+permissions: { contents: read }
+jobs:
+  rotation-guards:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+        env: { POSTGRES_PASSWORD: ephemeral_rotation_test }
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { persist-credentials: false }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Test guards and atomic trigger replacement in an isolated PostgreSQL
+        env:
+          ROTATION_TEST_DATABASE_URL: postgresql://postgres:ephemeral_rotation_test@127.0.0.1:5432/postgres
+        run: node .github/scripts/booking-webhook-key-rotation-test.mjs

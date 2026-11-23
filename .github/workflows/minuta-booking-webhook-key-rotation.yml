@@ -1,0 +1,42 @@
+name: Eldion booking webhook key rotation
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha: { description: Exact current main SHA, required: true, type: string }
+      mode:
+        description: Read-only check or approved rotation
+        type: choice
+        options: [check, rotate]
+        default: check
+      confirmation: { description: ROTATE_BOOKING_WEBHOOK_SECRET for approved rotation, required: false, type: string }
+permissions: { contents: read }
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+jobs:
+  rotation:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      EXPECTED_SHA: ${{ inputs.commit_sha }}
+      MODE: ${{ inputs.mode }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - name: Pin exact main and the approved target
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          node minuta-online-booking/scripts/production-db-target-guard.mjs
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify or rotate only the booking webhook key
+        run: node .github/scripts/booking-webhook-key-rotation.mjs
