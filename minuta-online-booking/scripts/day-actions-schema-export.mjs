@@ -26,7 +26,12 @@ export function validateSchema(value) {
   return value;
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href){
-  const schema=validateSchema(JSON.parse(readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,'')));
-  writeFileSync(process.argv[3],JSON.stringify(schema,null,2),{mode:0o600});
-  console.log('Validated scheduling catalog only; no customer rows or connection strings exported.');
+  try {
+    const schema=validateSchema(JSON.parse(readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,'')));
+    writeFileSync(process.argv[3],JSON.stringify(schema,null,2),{mode:0o600});
+    console.log('Validated scheduling catalog only; no customer rows or connection strings exported.');
+  } catch {
+    console.error('Scheduling schema metadata failed validation; export withheld.');
+    process.exitCode=1;
+  }
 }

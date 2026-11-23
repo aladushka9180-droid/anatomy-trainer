@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdtempSync,writeFileSync,existsSync,unlinkSync,rmdirSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {validateSchema} from '../scripts/day-actions-schema-export.mjs';
 const sample=()=>({version:1,functions:['get_available_slots','book_appointment'].map(name=>({name,identity:name+'(uuid)',definition:'CREATE OR REPLACE FUNCTION public.'+name+'(p_id uuid) RETURNS void LANGUAGE sql AS $$ SELECT NULL $$;'})),tables:['bookings','provider_days_off','provider_schedule','services'].map(name=>({name,columns:[{name:'id',type:'uuid',not_null:true}],constraints:[],triggers:[]}))});
 assert.equal(validateSchema(sample()).tables.length,4);
@@ -20,3 +24,17 @@ assert.match(workflow,/environment: minuta-production/);assert.match(workflow,/d
 assert.ok(workflow.indexOf('day-actions-schema-export.mjs')<workflow.indexOf('actions/upload-artifact@'));
 assert.match(workflow,/retention-days: 1/);assert.doesNotMatch(workflow,/path: day-actions-schema-raw/);
 console.log('Day-action schema read: metadata scope, credential rejection, exact main, read-only and export gates PASS');
+
+const dir=mkdtempSync(join(tmpdir(),'eldion-schema-export-'));
+const input=join(dir,'input.json'),output=join(dir,'output.json');
+try {
+  const marker='sensitive_dummy_marker_123456';const rejected=sample();
+  rejected.functions[0].definition+=' -- https://example.invalid/'+marker;
+  writeFileSync(input,JSON.stringify(rejected));
+  const child=spawnSync(process.execPath,[fileURLToPath(new URL('../scripts/day-actions-schema-export.mjs',import.meta.url)),input,output],{encoding:'utf8'});
+  assert.equal(child.status,1);
+  assert.equal(existsSync(output),false,'rejected metadata must not create an export');
+  assert.ok(!child.stderr.includes(marker) && !child.stdout.includes(marker),'rejected content must not appear in logs');
+  assert.match(child.stderr,/export withheld/);
+} finally { unlinkSync(input); if(existsSync(output))unlinkSync(output); rmdirSync(dir); }
+console.log('CLI rejection withholds file and keeps rejected contents out of logs: PASS');
