@@ -62,3 +62,5 @@ jobs:
           node minuta-online-booking/tests/provider-day-native-browser-test.mjs
           node minuta-online-booking/client-url-redirect-test.mjs
           node minuta-online-booking/provider-startup-performance-v565-test.mjs
+          git fetch --no-tags --depth=1 origin dac19d5d90721979dd27c4abf672e973f34631d4
+          node minuta-online-booking/tests/pwa-resource-update-browser-test.mjs dac19d5d90721979dd27c4abf672e973f34631d4
