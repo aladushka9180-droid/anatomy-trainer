@@ -18,7 +18,19 @@ function reviewCopy(value) {
 try {
   const raw=readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,'');
   const original=JSON.parse(raw);
-  const safe=validateSchema(reviewCopy(original));
+  const copy=reviewCopy(original);
+  for(const table of copy.tables||[]) {
+    if(table.triggers==null)continue;
+    if(!Array.isArray(table.triggers))throw new Error('invalid_trigger_catalog');
+    table.triggers=table.triggers.map(definition=>{
+      if(typeof definition!=='string')throw new Error('invalid_trigger_catalog');
+      const match=definition.match(/\bEXECUTE FUNCTION ([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?)\(/i);
+      if(!match)throw new Error('unsupported_trigger_catalog');
+      return 'EXECUTE FUNCTION '+match[1]+'([arguments omitted])';
+    });
+  }
+  const safe=validateSchema(copy);
+  if(safe.functions.some(f=>/\b(?:http_request|authorization|access_token|service_role_key|password)\b|x-[a-z0-9-]*(?:secret|key|token)/i.test(f.definition)))throw new Error('private_function_configuration');
   const source={version:1,purpose:'review-only; redacted definitions must never be applied as replacement DDL',sourceSchemaSha256:createHash('sha256').update(raw).digest('hex'),functions:original.functions.map((f,index)=>({name:f.name,identity:f.identity,definitionMd5:createHash('md5').update(f.definition).digest('hex'),redacted:f.definition!==safe.functions[index].definition}))};
   writeFileSync(process.argv[3],JSON.stringify(safe,null,2),{mode:0o600});
   writeFileSync(join(dirname(process.argv[3]),'source-fingerprints.json'),JSON.stringify(source,null,2),{mode:0o600});
