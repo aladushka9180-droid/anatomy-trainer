@@ -17,6 +17,12 @@ try {
     const copy=readFileSync(output,'utf8');assert.ok(!copy.includes(literal));assert.ok(!copy.includes('dummy_sensitive_marker'));assert.ok(!result.stderr.includes(literal) && !result.stdout.includes(literal));
     const manifest=JSON.parse(readFileSync(fingerprints,'utf8'));assert.equal(manifest.functions[0].redacted,true);assert.equal(manifest.functions[0].definitionMd5,createHash('md5').update(value.functions[0].definition).digest('hex'));assert.equal(manifest.functions[1].redacted,false);assert.match(manifest.purpose,/never be applied/);clean();
   }
+  const triggerInput=sample(),opaque='DUMMY_OPAQUE_PRIVATE_VALUE_NOT_A_KNOWN_KEY_PREFIX';
+  triggerInput.tables[0].triggers=['CREATE TRIGGER notify AFTER INSERT ON public.bookings FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request(\'https://example.invalid/webhook\',\'POST\',\'{"x-booking-secret":"'+opaque+'"}\')'];
+  const triggerResult=run(triggerInput);assert.equal(triggerResult.status,0,triggerResult.stderr);
+  assert.ok(!readFileSync(output,'utf8').includes(opaque));assert.ok(!readFileSync(fingerprints,'utf8').includes(opaque));assert.deepEqual(JSON.parse(readFileSync(output,'utf8')).tables[0].triggers,['EXECUTE FUNCTION supabase_functions.http_request([arguments omitted])']);clean();
+  const privateFunction=sample();privateFunction.functions[0].definition+=' -- x-booking-secret '+opaque;
+  const denied=run(privateFunction);assert.equal(denied.status,1);assert.equal(existsSync(output),false);assert.ok(!denied.stderr.includes(opaque));
   const malformed=run({rows:['dummy_sensitive_marker']});assert.equal(malformed.status,1);assert.equal(existsSync(output),false);assert.equal(existsSync(fingerprints),false);assert.ok(!malformed.stderr.includes('dummy_sensitive_marker'));
 } finally {unlinkSync(input);clean();rmdirSync(dir);}
 const workflow=readFileSync(new URL('../workflows/minuta-day-actions-schema-read.yml',import.meta.url),'utf8');
