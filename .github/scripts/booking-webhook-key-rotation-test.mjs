@@ -17,10 +17,14 @@ if(process.env.ROTATION_TEST_DATABASE_URL){
  const url=new URL(process.env.ROTATION_TEST_DATABASE_URL);assert.ok(['127.0.0.1','localhost'].includes(url.hostname));assert.equal(url.pathname,'/postgres');assert.equal(process.env.GITHUB_ACTIONS,'true','real SQL test runs only in the declared ephemeral CI service');
  const db=query=>execFileSync('psql',[url.href,'-X','-qAt','-v','ON_ERROR_STOP=1'],{input:query,encoding:'utf8',stdio:['pipe','pipe','pipe']}).trim();
  db(`create schema supabase_functions; create function supabase_functions.http_request() returns trigger language plpgsql as $$ begin return new; end $$; create table public.bookings(id integer); create table public.booking_page_visits(id integer); ${sample().definition}; insert into public.bookings values(1);`);
+ const visitDefinition=sample().definition.replaceAll('new_booking_telegram','new_visitor_telegram').replaceAll('public.bookings','public.booking_page_visits');
+ db(visitDefinition+'; insert into public.booking_page_visits values(1);');
  const rows=JSON.parse(db(catalogSql));const realPlan=planRotation(rows,digest,fresh);db(rotationSql(realPlan));db(rotationSql(realPlan));
- const after=JSON.parse(db(catalogSql));assert.equal(JSON.parse(Buffer.from(after[0].args,'base64').toString('utf8').split('\0')[2])['x-booking-secret'],fresh);assert.equal(db('select count(*) from public.bookings;'),'1');
+ const after=JSON.parse(db(catalogSql));assert.equal(after.length,2);for(const row of after)assert.equal(JSON.parse(Buffer.from(row.args,'base64').toString('utf8').split('\0')[2])['x-booking-secret'],fresh);assert.equal(db('select count(*) from public.bookings;'),'1');
+ db(visitDefinition.replace('CREATE TRIGGER ','CREATE OR REPLACE TRIGGER ')+';');
  db(`create or replace trigger new_booking_telegram after insert on public.bookings for each row execute function supabase_functions.http_request('changed');`);
  assert.throws(()=>db(rotationSql(realPlan)));assert.equal(db('select count(*) from public.bookings;'),'1');
+ const rolledBack=JSON.parse(db(catalogSql)).find(row=>row.table==='booking_page_visits');assert.equal(JSON.parse(Buffer.from(rolledBack.args,'base64').toString('utf8').split('\0')[2])['x-booking-secret'],old,'failure at second trigger rolls back the earlier trigger replacement');assert.equal(db('select count(*) from public.booking_page_visits;'),'1');
  console.log('Isolated PostgreSQL: canonical trigger replacement, idempotent retry, drift rejection and preserved rows PASS');
 }
 console.log('Webhook key rotation: endpoint/digest/scope/authorization guards and private logs PASS');
