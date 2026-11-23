@@ -5,7 +5,8 @@ export const PROJECT='cawexmmrqjvothcbgjxr';
 const KEY_NAME='BOOKING_WEBHOOK_SECRET',HEADER='x-booking-secret';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const md5=value=>createHash('md5').update(value).digest('hex');
-const requireCondition=(condition,code)=>{if(!condition)throw new Error(code);};
+class RotationGuardError extends Error { constructor(code){super('Rotation guard rejected');this.safeCode=code;} }
+const requireCondition=(condition,code)=>{if(!condition)throw new RotationGuardError(code);};
 export function planRotation(rows,edgeDigest,newKey){
   requireCondition(Array.isArray(rows),'invalid_catalog');
   requireCondition(/^[a-f0-9]{64}$/.test(newKey),'invalid_new_key');
@@ -13,7 +14,7 @@ export function planRotation(rows,edgeDigest,newKey){
   for(const row of rows){
     const args=Buffer.from(row.args,'base64').toString('utf8').split('\0');
     if(args.at(-1)==='')args.pop();
-    let headers;try{headers=JSON.parse(args[2]||'{}');}catch{throw new Error('invalid_header_configuration');}
+    let headers;try{headers=JSON.parse(args[2]||'{}');}catch{throw new RotationGuardError('invalid_header_configuration');}
     if(!Object.hasOwn(headers,HEADER))continue;
     requireCondition(args[0]===`https://${PROJECT}.supabase.co/functions/v1/telegram-booking-notify`,'unexpected_webhook_target');
     requireCondition(args[1]==='POST' && row.enabled==='O','unexpected_trigger_state');
@@ -74,4 +75,4 @@ async function main(){
   requireCondition(!keysMatch(catalog(),plan,plan.oldKey),'old_key_still_active');
   console.log(`Webhook key rotation confirmed for handler and ${plan.targets.length} trigger(s). Old key replaced. No customer messages sent.`);
 }
-if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href){main().catch(()=>{console.error(`Webhook operation failed at ${phase}; configuration may require verification. Sensitive details withheld.`);process.exitCode=1;});}
+if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href){main().catch(error=>{const reason=error instanceof RotationGuardError?error.safeCode:'operation_error';console.error(`Webhook operation failed at ${phase} (${reason}); configuration may require verification. Sensitive details withheld.`);process.exitCode=1;});}
