@@ -7931,8 +7931,6 @@ function timeFromMinutes(value) {
 }
 
 function timelineBounds(items) {
-  const date = new Date(`${selectedDate}T12:00:00`);
-  const weekday = ((date.getDay() + 6) % 7) + 1;
   const schedule = scheduleStateForDate(selectedDate).weekly;
   let start = schedule?.enabled === false ? 10 * 60 : minutesFromTime(schedule?.start_time || '10:00');
   let end = schedule?.enabled === false ? 20 * 60 : minutesFromTime(schedule?.end_time || '20:00');
@@ -11006,7 +11004,8 @@ async function loadNewBookingSlots() {
     && newBookingMode === mode
     && newBookingDurationMinutes() === duration;
   let data, error;
-  const dayException=providerDayRuntime?.exception($('#newBookingForm'));
+  let dayException;
+  try{dayException=providerDayRuntime?.exception($('#newBookingForm'));}catch{holder.textContent='Откройте выбранный день заново.';return;}
   if(dayException){({data,error}=await providerDayRuntime.slots(newBookingMode==='block'?{}:{p_service:service},$('#newBookingForm'),duration));}
   else if (newBookingMode === 'block') {
     const context = activeProviderBlockContext($('#newBookingLocation')?.value || '');

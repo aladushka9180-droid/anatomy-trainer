@@ -23,3 +23,21 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
       - name: Exercise dated hours and native writers without committing changes
         run: node minuta-online-booking/tests/day-actions-v192-test-runner.mjs
+
+  concurrent-requests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+        env: { POSTGRES_PASSWORD: isolated_day_test, POSTGRES_DB: day_actions_fixture }
+        ports: ['55433:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { persist-credentials: false }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Verify real concurrent dated-hours requests on disposable PostgreSQL
+        env:
+          DAY_TEST_POSTGRES: postgresql://postgres:isolated_day_test@127.0.0.1:55433/day_actions_fixture
+        run: node minuta-online-booking/tests/day-actions-v192-concurrency-test.mjs

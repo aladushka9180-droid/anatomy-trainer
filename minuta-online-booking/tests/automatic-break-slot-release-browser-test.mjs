@@ -36,7 +36,7 @@ async function slotFixture(serverSlots, remainingBreaks = [], preferredTime = '1
     '#newBookingTimes': { innerHTML:'' },
     '#newBookingLocation': { value:'' }
   };
-  const sandbox = {
+  const sandbox = { providerDayRuntime:null,scheduleDirty:false,
     console,
     Date,
     navigator:{ onLine:true },
@@ -88,6 +88,8 @@ async function slotFixture(serverSlots, remainingBreaks = [], preferredTime = '1
     db:{ rpc:async() => ({ data:[], error:null }) }
   };
   vm.createContext(sandbox);
+  const stateStart=source.indexOf('function scheduleStateForDate('),stateEnd=source.indexOf('function scheduleEmptyDayLabel(',stateStart);
+  vm.runInContext(source.slice(stateStart,stateEnd),sandbox);
   vm.runInContext(source.slice(placementStart, placementEnd), sandbox);
   vm.runInContext(`${gridHelpers}\n${source.slice(slotsStart, slotsEnd)}`, sandbox);
   await sandbox.loadNewBookingSlots();
