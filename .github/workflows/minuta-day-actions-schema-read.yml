@@ -45,7 +45,7 @@ jobs:
           psql "$db" -X -qAt -v ON_ERROR_STOP=1 --file=minuta-online-booking/scripts/day-actions-schema-read.sql --output=day-actions-schema-raw.json
           mkdir -p day-actions-schema
           node .github/scripts/day-actions-schema-run.mjs day-actions-schema-raw.json day-actions-schema/schema.json
-          sha256sum day-actions-schema/schema.json > day-actions-schema/SHA256SUMS
+          sha256sum day-actions-schema/schema.json day-actions-schema/source-fingerprints.json > day-actions-schema/SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: day-actions-schema-${{ inputs.commit_sha }}
