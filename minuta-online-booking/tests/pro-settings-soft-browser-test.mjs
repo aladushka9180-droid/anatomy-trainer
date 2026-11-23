@@ -28,7 +28,8 @@ try{
  if(output)await page.screenshot({path:resolve(output,'before-1440.png'),fullPage:true});
  await page.addScriptTag({url:'https://settings.fixture.invalid/pro-settings-soft.js'});
  await page.addScriptTag({url:'https://settings.fixture.invalid/pro-settings-soft.js'});
- const style=await page.addStyleTag({url:'https://settings.fixture.invalid/pro-settings-soft.css'});
+ const bound=page.locator('link[href^="pro-settings-soft.css"]');assert.ok(await bound.count()<=1,'single production CSS hook');
+ const style=await bound.count()?await bound.elementHandle():await page.addStyleTag({url:'https://settings.fixture.invalid/pro-settings-soft.css'});
  assert.equal(await page.locator('.soft-settings-label').count(),2,'idempotent module');
  assert.equal(await page.evaluate(()=>originalInputs.every(n=>n.isConnected)),true,'native controls retain identity');
  assert.equal(await page.evaluate(()=>originalHidden.every(n=>n.hidden)),true,'hidden gates retained');
