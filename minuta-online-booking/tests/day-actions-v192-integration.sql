@@ -31,6 +31,12 @@ do $$ begin
     raise exception 'wrong_scope_accepted';
   exception when insufficient_privilege then if sqlerrm<>'day_scope_denied' then raise;end if;end;
 end $$;
+-- Native client creation must work without opening the remaining day.
+select set_config('v192.client_request',gen_random_uuid()::text,true);
+select set_config('v192.client_result',public.book_minuta_day_exception_v192(current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,current_setting('v192.client_request')::uuid,current_setting('v123.service')::uuid,current_setting('v123.date')::date,'18:00','Тестовый клиент','79990000001',1000,60)::text,true);
+select pg_temp.day_assert(current_setting('v192.client_result')::jsonb->>'request_id'=current_setting('v192.client_request'),'native_client_ack');
+select pg_temp.day_assert(public.book_minuta_day_exception_v192(current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,current_setting('v192.client_request')::uuid,current_setting('v123.service')::uuid,current_setting('v123.date')::date,'18:00','Тестовый клиент','79990000001',1000,60)=current_setting('v192.client_result')::jsonb,'native_client_replay');
+select pg_temp.day_assert((public.get_minuta_provider_day_v192(current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,current_setting('v123.date')::date)->>'end')='17:00','exception_kept_dated_hours');
 reset role;
 select pg_temp.day_assert(not (select enabled from public.provider_schedule where performer_id=current_setting('v123.actor')::uuid and weekday=extract(isodow from current_setting('v123.date')::date)),'weekday_unchanged');
 select pg_temp.day_assert((select count(*)=1 from public.bookings where id=current_setting('v192.block')::uuid),'one_native_row');

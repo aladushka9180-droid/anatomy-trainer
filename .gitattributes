@@ -1,4 +1,4 @@
 minuta-online-booking/vendor/*.min.js binary
 
 # Qualified PostgreSQL definitions contain significant mixed line endings.
-minuta-online-booking/tests/day-actions-v192-canonical/*.sql -text
+minuta-online-booking/tests/day-actions-v192-canonical/*.sql -text whitespace=cr-at-eol

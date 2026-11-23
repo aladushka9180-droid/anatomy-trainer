@@ -223,29 +223,35 @@ end $fn$;
 
 create function public.book_minuta_day_exception_v192(p_organization uuid,p_location uuid,p_request_id uuid,p_service uuid,p_date date,p_time time,p_client_name text,p_client_phone text,p_expected_price_rub integer,p_expected_duration_minutes integer)
 returns jsonb language plpgsql security definer set search_path='' as $fn$
-declare v_end timestamp;v_zone text;v_exception text;v_result record;v_slug text;v_org text:=current_setting('minuta.day_organization',true);v_loc text:=current_setting('minuta.day_location',true);v_public text:=current_setting('minuta.day_public',true);
+declare v_end timestamp;v_zone text;v_exception text;v_result jsonb;v_service public.services%rowtype;v_booking public.bookings%rowtype;
+  v_org text:=current_setting('minuta.day_organization',true);v_loc text:=current_setting('minuta.day_location',true);v_public text:=current_setting('minuta.day_public',true);
+  v_booking_org text:=current_setting('minuta.booking_organization',true);v_booking_loc text:=current_setting('minuta.booking_location',true);
 begin
   v_zone:=public.minuta_validate_day_scope_v192(p_organization,p_location,p_date);
-  if p_request_id is null or p_time is null or p_expected_duration_minutes is null or p_expected_duration_minutes not between 1 and 480 then raise exception using errcode='22023',message='invalid_day_booking';end if;
+  if p_request_id is null or p_time is null or p_expected_duration_minutes is null or p_expected_duration_minutes not between 1 and 480 or p_expected_price_rub is null then raise exception using errcode='22023',message='invalid_day_booking';end if;
   perform pg_advisory_xact_lock(hashtextextended('booking-request:'||p_request_id::text,0));
-  if exists(select 1 from public.bookings where request_id=p_request_id and performer_id=auth.uid()) then
-    select public_slug into v_slug from public.organizations where id=p_organization;
-    select * into v_result from public.book_minuta_appointment_v2(p_request_id,v_slug,p_location,p_service,p_date,p_time,p_client_name,p_client_phone,p_expected_price_rub,p_expected_duration_minutes);
-    return to_jsonb(v_result);
+  select * into v_booking from public.bookings where request_id=p_request_id;
+  if found then
+    if v_booking.performer_id is distinct from auth.uid() or v_booking.organization_id is distinct from p_organization or v_booking.location_id is distinct from p_location then raise exception using errcode='23505',message='day_request_conflict';end if;
+    return public.provider_book_appointment(p_request_id,p_service,p_date,p_time,p_client_name,p_client_phone);
   end if;
-  if not exists(select 1 from public.services where id=p_service and performer_id=auth.uid() and active) then raise exception using errcode='42501',message='day_service_denied';end if;
+  select * into v_service from public.services where id=p_service and performer_id=auth.uid() and active for share;
+  if not found then raise exception using errcode='42501',message='day_service_denied';end if;
+  if v_service.price_rub<>p_expected_price_rub or v_service.duration_minutes<>p_expected_duration_minutes then raise exception using errcode='40001',message='day_service_changed';end if;
   perform pg_advisory_xact_lock(hashtextextended(auth.uid()::text||p_date::text,0));
   if not pg_try_advisory_xact_lock(hashtextextended(p_organization::text,7100)) then raise exception using errcode='40001',message='day_schedule_changed';end if;
-  select public_slug into v_slug from public.organizations where id=p_organization;
   v_end:=p_date+p_time+make_interval(mins=>p_expected_duration_minutes);
   if p_date+p_time<=timezone(v_zone,now()) or v_end>p_date+1 then raise exception using errcode='22023',message='day_exception_unavailable';end if;
   v_exception:=public.minuta_open_day_exception_v192(p_organization,p_location,p_date,p_time,case when v_end=p_date+1 then time '24:00' else v_end::time end);
   perform set_config('minuta.day_organization',p_organization::text,true);perform set_config('minuta.day_location',p_location::text,true);perform set_config('minuta.day_public','off',true);
-  select * into v_result from public.book_minuta_appointment_v2(p_request_id,v_slug,p_location,p_service,p_date,p_time,p_client_name,p_client_phone,p_expected_price_rub,p_expected_duration_minutes);
+  perform set_config('minuta.booking_organization',p_organization::text,true);perform set_config('minuta.booking_location',p_location::text,true);
+  v_result:=public.provider_book_appointment(p_request_id,p_service,p_date,p_time,p_client_name,p_client_phone);
   perform set_config('minuta.day_exception',coalesce(v_exception,''),true);perform set_config('minuta.day_organization',coalesce(v_org,''),true);perform set_config('minuta.day_location',coalesce(v_loc,''),true);perform set_config('minuta.day_public',coalesce(v_public,''),true);
-  return to_jsonb(v_result);
+  perform set_config('minuta.booking_organization',coalesce(v_booking_org,''),true);perform set_config('minuta.booking_location',coalesce(v_booking_loc,''),true);
+  return v_result;
 exception when others then
-  perform set_config('minuta.day_exception',coalesce(v_exception,''),true);perform set_config('minuta.day_organization',coalesce(v_org,''),true);perform set_config('minuta.day_location',coalesce(v_loc,''),true);perform set_config('minuta.day_public',coalesce(v_public,''),true);raise;
+  perform set_config('minuta.day_exception',coalesce(v_exception,''),true);perform set_config('minuta.day_organization',coalesce(v_org,''),true);perform set_config('minuta.day_location',coalesce(v_loc,''),true);perform set_config('minuta.day_public',coalesce(v_public,''),true);
+  perform set_config('minuta.booking_organization',coalesce(v_booking_org,''),true);perform set_config('minuta.booking_location',coalesce(v_booking_loc,''),true);raise;
 end $fn$;
 
 create function public.block_minuta_day_exception_v192(p_organization uuid,p_location uuid,p_request_id uuid,p_date date,p_time time,p_duration integer,p_title text default 'Перерыв',p_note text default '')
@@ -312,7 +318,7 @@ declare v_org uuid;v_performer uuid;v_internal boolean;
   v_previous_org text:=current_setting('minuta.day_organization',true);v_previous_loc text:=current_setting('minuta.day_location',true);
   v_previous_public text:=current_setting('minuta.day_public',true);v_previous_exception text:=current_setting('minuta.day_exception',true);
 begin
-  select id into v_org from public.organizations where public_slug=p_slug;
+  select id into v_org from public.organizations where public_slug=lower(trim(p_slug));
   select performer_id into v_performer from public.services where id=p_service;
   v_internal:=p_start=p_end and public.minuta_virtual_day_v192(v_performer,p_start,v_org,p_location) is not null;
   perform set_config('minuta.day_organization',coalesce(v_org::text,''),true);perform set_config('minuta.day_location',coalesce(p_location::text,''),true);
