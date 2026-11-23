@@ -45,7 +45,7 @@ const harness = `
       const theme = form.querySelector('[name="providerClientTheme"]:checked')?.value;
       const porcelain = theme === 'pink-porcelain';
       document.querySelector('#porcelainCustomization').hidden = !porcelain;
-      document.querySelector('#clientAppearancePreview').dataset.previewTheme = theme;
+      document.querySelector('#clientAppearanceThemeName').textContent = catalog.theme(theme).label;
     });
     form.addEventListener('submit', event => {
       event.preventDefault();
@@ -96,7 +96,8 @@ try {
   await tab.locator('#providerClientThemeChooser > summary').click();
   await tab.locator('input[name="providerClientTheme"][value="pink-porcelain"]').check();
   assert.equal(await tab.locator('#porcelainCustomization').isVisible(), true);
-  assert.equal(await tab.locator('#clientAppearancePreview').getAttribute('data-preview-theme'), 'pink-porcelain');
+  assert.equal(await tab.locator('#clientAppearancePreview').count(), 0);
+  assert.equal(await tab.locator('#clientAppearanceThemeName').textContent(), 'Розовый фарфор');
   assert.equal(await tab.evaluate(() => localStorage.getItem('org-theme')), null, 'Preview must remain a draft');
   await tab.locator('#applyClientAppearance').click();
   assert.equal(await tab.evaluate(() => localStorage.getItem('org-theme')), 'pink-porcelain');
