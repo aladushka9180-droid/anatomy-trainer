@@ -31,6 +31,14 @@ do $$ begin
     raise exception 'wrong_scope_accepted';
   exception when insufficient_privilege then if sqlerrm<>'day_scope_denied' then raise;end if;end;
 end $$;
+-- Normal booking respects the opened date and cannot use the one-off bypass.
+select pg_temp.day_assert(public.book_minuta_provider_day_v192(current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,gen_random_uuid(),current_setting('v123.service')::uuid,current_setting('v123.date')::date,'13:00','Тестовый клиент','79990000004',1000,60)->>'booking_id' is not null,'normal_booking_on_opened_date');
+do $begin
+ begin
+  perform public.book_minuta_provider_day_v192(current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,gen_random_uuid(),current_setting('v123.service')::uuid,current_setting('v123.date')::date,'21:00','Тестовый клиент','79990000005',1000,60);
+  raise exception 'ordinary_booking_bypassed_date_hours';
+ exception when sqlstate 'P0001' then if sqlerrm<>'slot_unavailable' then raise;end if;end;
+end $;
 -- Native client creation must work without opening the remaining day.
 select set_config('v192.client_request',gen_random_uuid()::text,true);
 select set_config('v192.client_result',public.book_minuta_day_exception_v192(current_setting('v123.org')::uuid,current_setting('v123.loc')::uuid,current_setting('v192.client_request')::uuid,current_setting('v123.service')::uuid,current_setting('v123.date')::date,'18:00','Тестовый клиент','79990000001',1000,60)::text,true);

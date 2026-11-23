@@ -956,7 +956,7 @@ async function providerBookingFingerprint(payload) {
     String(payload.repeatSourceSignature || ''),
     Number(payload.repeatTotalPrice || 0),
     String(payload.repeatComment || '').trim(),
-    ...(payload.dayException?['dated-exception',payload.dayException.organizationId,payload.dayException.locationId]:[])
+    ...((payload.dayException||payload.dayContext)?['dated-day',(payload.dayException||payload.dayContext).organizationId,(payload.dayException||payload.dayContext).locationId]:[])
   ]);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
@@ -1021,8 +1021,8 @@ async function submitProviderBookingAttempt(payload) {
     };
     let reply;
     try {
-      reply = payload.dayException
-        ? await globalThis.providerDayRuntime.book(payload.dayException,attempt.requestId,params,payload.durationMinutes,Number(ownServices.find(s=>s.id===payload.service)?.price_rub))
+      reply = payload.dayException || payload.dayContext
+        ? await globalThis.providerDayRuntime.book(payload.dayException||payload.dayContext,attempt.requestId,params,payload.durationMinutes,Number(ownServices.find(s=>s.id===payload.service)?.price_rub),Boolean(payload.dayException))
         : payload.repeatSourceId
         ? await db.rpc('provider_repeat_appointment_v164', {
           p_request_id:attempt.requestId,
@@ -1040,7 +1040,7 @@ async function submitProviderBookingAttempt(payload) {
       reply = { data:null, error };
     }
     if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true, attempt };
-    if (!payload.dayException && !payload.repeatSourceId && isMissingProviderBookingRequestRpc(reply?.error)) {
+    if (!payload.dayException && !payload.dayContext && !payload.repeatSourceId && isMissingProviderBookingRequestRpc(reply?.error)) {
       // The legacy function has no request identity. Persist the one-shot latch
       // before the call so a lost response or tab crash can never auto-repeat it.
       attempt = { ...attempt, legacyFallback:true, legacyUncertain:true };
@@ -7945,8 +7945,6 @@ function timelineBounds(items) {
 }
 
 function scheduleStepForDate(dateIso) {
-  const date = parseLocalIsoDate(dateIso);
-  if (!date) return 5;
   const row = scheduleStateForDate(dateIso).weekly;
   const step = Number(row?.slot_interval_minutes || 5);
   return Number.isInteger(step) && step >= 5 && step <= 60 ? step : 5;
@@ -8094,7 +8092,6 @@ function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, 
   if (!date) return 'Не удалось определить выбранную дату';
   if (startMinute < 0 || endMinute > 1440) return 'Запись должна завершиться в выбранную дату';
   if (!ignoreSchedule) {
-    const weekday = ((date.getDay() + 6) % 7) + 1;
     const schedule = scheduleStateForDate(dateIso).weekly;
     if (schedule?.enabled === false) return 'В этот день в расписании стоит выходной';
     const scheduleStart = minutesFromTime(schedule?.start_time || '10:00');
@@ -11004,7 +11001,7 @@ async function loadNewBookingSlots() {
     && newBookingDurationMinutes() === duration;
   let data, error;
   let dayException;
-  try{dayException=globalThis.providerDayRuntime?.exception($('#newBookingForm'));}catch{holder.textContent='Откройте выбранный день заново.';return;}
+  try{dayException=globalThis.providerDayRuntime?.exception($('#newBookingForm'));}catch{holder.textContent='Откройте день заново.';return;}
   if(dayException){({data,error}=await globalThis.providerDayRuntime.slots(newBookingMode==='block'?{}:{p_service:service},$('#newBookingForm'),duration));}
   else if (newBookingMode === 'block') {
     const context = activeProviderBlockContext($('#newBookingLocation')?.value || '');
@@ -12037,7 +12034,7 @@ async function createNewBooking(event) {
   const userId = currentUser.id;
   const generation = sessionGeneration;
   let dayException;
-  try{dayException=globalThis.providerDayRuntime?.exception(submittedForm);}catch{showFormError('#newBookingError','Контекст изменился. Откройте выбранный день заново.');return;}
+  try{dayException=globalThis.providerDayRuntime?.exception(submittedForm);}catch{showFormError('#newBookingError','Контекст изменился. Откройте день заново.');return;}
   if(dayException&&bookingDeferredMode()){showFormError('#newBookingError','Для разовой записи в выходной нужен интернет.');return;}
   const repeatVisit = newBookingRepeatVisit;
   const block = newBookingMode === 'block';
@@ -12047,6 +12044,7 @@ async function createNewBooking(event) {
   const serviceModel = ownServices.find(item => item.id === service && item.active);
   const durationMinutes = newBookingDurationMinutes();
   const date = $('#newBookingDate').value;
+  const dayContext=globalThis.providerDayRuntime?.bookingContext({service,date});
   const color = $('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT;
   const rememberBreakColor = block && $('#newBookingFutureBreakColor')?.checked;
   const occurrenceCount = block ? 1 : Math.max(1, Number($('#newBookingOccurrences')?.value || 1));
@@ -12420,7 +12418,7 @@ async function createNewBooking(event) {
   } else {
     const write = await submitProviderBookingAttempt({
       surface:repeatVisit ? 'repeat-booking' : 'new-booking', service, date, time:newBookingTime, name, phone,
-      durationMinutes, note, color, dayException,
+      durationMinutes, note, color, dayException, dayContext,
       repeatSourceId:repeatVisit?.source_booking_id || '',
       repeatSourceSignature:repeatVisit?.source_signature || '',
       repeatTotalPrice,
@@ -12522,7 +12520,7 @@ async function createNewBooking(event) {
       return;
     }
   }
-  if (!block && !repeatVisit && !dayException && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
+  if (!block && !repeatVisit && !dayException && !dayContext && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
     const adjusted = await applyPerMinuteBookingTerms([createdBooking.id], serviceModel, durationMinutes);
     if (!adjusted.ok) {
       const rollback = await rollbackCreatedBookings([createdBooking.id]);
@@ -14576,6 +14574,7 @@ function scheduleSynchronizationRetry() {
 
 async function refreshAfterWrite() {
   if (synchronizationPromise) await synchronizationPromise;
+  globalThis.providerDayRuntime?.invalidate();
   return synchronizeProvider();
 }
 
@@ -18133,8 +18132,7 @@ const organizationController = window.MinutaOrganization.createController({
 });
 organizationController.bind();
 globalThis.providerDayRuntime=window.PrimeTimeProviderDayRuntime?.create({db,storage:localStorage,
- getContext(){const c=activeProviderBlockContext();const l=c.locations.find(l=>l.id===c.locationId);return currentUser&&c.organizationId&&c.locationId?{userId:currentUser.id,organizationId:c.organizationId,locationId:c.locationId,date:selectedDate,timeZone:l?.timezone||'Europe/Samara',sessionGeneration}:null;},
- canWrite:()=>writesAllowed&&!bookingDeferredMode()&&!bookingUsesDemoData()&&!teamCalendarController?.isTeamMode,
+ read:()=>({userId:currentUser?.id,...activeProviderBlockContext(),date:selectedDate,sessionGeneration,write:writesAllowed&&!bookingDeferredMode()&&!bookingUsesDemoData()&&!teamCalendarController?.isTeamMode}),services:()=>ownServices,bookings:()=>allBookings,
  today:businessTodayIso,render:renderBookingData,refresh:refreshAfterWrite,
  openBooking:(c,block)=>openNewBookingSheet('',{date:c.date,mode:block?'block':'client',dayException:c})
 });

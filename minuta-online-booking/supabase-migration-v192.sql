@@ -236,7 +236,7 @@ exception when others then
   perform set_config('minuta.day_exception',coalesce(v_exception,''),true);perform set_config('minuta.day_organization',coalesce(v_org,''),true);perform set_config('minuta.day_location',coalesce(v_loc,''),true);perform set_config('minuta.day_public',coalesce(v_public,''),true);raise;
 end $fn$;
 
-create function public.book_minuta_day_exception_v192(p_organization uuid,p_location uuid,p_request_id uuid,p_service uuid,p_date date,p_time time,p_client_name text,p_client_phone text,p_expected_price_rub integer,p_expected_duration_minutes integer)
+create function public.minuta_book_provider_day_v192(p_organization uuid,p_location uuid,p_request_id uuid,p_service uuid,p_date date,p_time time,p_client_name text,p_client_phone text,p_expected_price_rub integer,p_expected_duration_minutes integer,p_exception boolean)
 returns jsonb language plpgsql security definer set search_path='' as $fn$
 declare v_end timestamp;v_zone text;v_exception text;v_result jsonb;v_service public.services%rowtype;v_booking public.bookings%rowtype;
   v_org text:=current_setting('minuta.day_organization',true);v_loc text:=current_setting('minuta.day_location',true);v_public text:=current_setting('minuta.day_public',true);
@@ -257,7 +257,10 @@ begin
   if not pg_try_advisory_xact_lock(hashtextextended(p_organization::text,7100)) then raise exception using errcode='40001',message='day_schedule_changed';end if;
   v_end:=p_date+p_time+make_interval(mins=>p_expected_duration_minutes);
   if p_date+p_time<=timezone(v_zone,now()) or v_end>p_date+1 then raise exception using errcode='22023',message='day_exception_unavailable';end if;
-  v_exception:=public.minuta_open_day_exception_v192(p_organization,p_location,p_date,p_time,case when v_end=p_date+1 then time '24:00' else v_end::time end);
+  v_exception:=current_setting('minuta.day_exception',true);
+  if p_exception then
+    v_exception:=public.minuta_open_day_exception_v192(p_organization,p_location,p_date,p_time,case when v_end=p_date+1 then time '24:00' else v_end::time end);
+  else perform set_config('minuta.day_exception','',true);end if;
   perform set_config('minuta.day_organization',p_organization::text,true);perform set_config('minuta.day_location',p_location::text,true);perform set_config('minuta.day_public','off',true);
   perform set_config('minuta.booking_organization',p_organization::text,true);perform set_config('minuta.booking_location',p_location::text,true);
   v_result:=public.provider_book_appointment(p_request_id,p_service,p_date,p_time,p_client_name,p_client_phone);
@@ -276,6 +279,10 @@ exception when others then
   perform set_config('minuta.day_exception',coalesce(v_exception,''),true);perform set_config('minuta.day_organization',coalesce(v_org,''),true);perform set_config('minuta.day_location',coalesce(v_loc,''),true);perform set_config('minuta.day_public',coalesce(v_public,''),true);
   perform set_config('minuta.booking_organization',coalesce(v_booking_org,''),true);perform set_config('minuta.booking_location',coalesce(v_booking_loc,''),true);raise;
 end $fn$;
+
+create function public.book_minuta_day_exception_v192(p_organization uuid,p_location uuid,p_request_id uuid,p_service uuid,p_date date,p_time time,p_client_name text,p_client_phone text,p_expected_price_rub integer,p_expected_duration_minutes integer) returns jsonb language sql security definer set search_path='' as $fn$ select public.minuta_book_provider_day_v192(p_organization,p_location,p_request_id,p_service,p_date,p_time,p_client_name,p_client_phone,p_expected_price_rub,p_expected_duration_minutes,true) $fn$;
+
+create function public.book_minuta_provider_day_v192(p_organization uuid,p_location uuid,p_request_id uuid,p_service uuid,p_date date,p_time time,p_client_name text,p_client_phone text,p_expected_price_rub integer,p_expected_duration_minutes integer) returns jsonb language sql security definer set search_path='' as $fn$ select public.minuta_book_provider_day_v192(p_organization,p_location,p_request_id,p_service,p_date,p_time,p_client_name,p_client_phone,p_expected_price_rub,p_expected_duration_minutes,false) $fn$;
 
 create function public.block_minuta_day_exception_v192(p_organization uuid,p_location uuid,p_request_id uuid,p_date date,p_time time,p_duration integer,p_title text default 'Перерыв',p_note text default '')
 returns jsonb language plpgsql security definer set search_path='' as $fn$
@@ -360,8 +367,8 @@ do $privileges$
 declare p regprocedure;
 begin
   for p in select f.oid::regprocedure from pg_proc f join pg_namespace n on n.oid=f.pronamespace where n.nspname='public' and f.proname in (
-    'minuta_validate_day_scope_v192','minuta_day_context_v192','minuta_virtual_day_v192','minuta_effective_day_schedule_v192','minuta_effective_days_off_v192','minuta_day_revision_v192','minuta_open_day_exception_v192','minuta_public_day_slots_base_v192',
-    'get_minuta_provider_day_v192','list_minuta_provider_days_v192','save_minuta_provider_day_v192','resolve_minuta_provider_day_v192','get_minuta_provider_day_slots_v192','get_minuta_day_exception_slots_v192','book_minuta_day_exception_v192','block_minuta_day_exception_v192')
+    'minuta_book_provider_day_v192','minuta_validate_day_scope_v192','minuta_day_context_v192','minuta_virtual_day_v192','minuta_effective_day_schedule_v192','minuta_effective_days_off_v192','minuta_day_revision_v192','minuta_open_day_exception_v192','minuta_public_day_slots_base_v192',
+    'get_minuta_provider_day_v192','list_minuta_provider_days_v192','save_minuta_provider_day_v192','resolve_minuta_provider_day_v192','get_minuta_provider_day_slots_v192','get_minuta_day_exception_slots_v192','book_minuta_day_exception_v192','book_minuta_provider_day_v192','block_minuta_day_exception_v192')
   loop execute format('revoke all on function %s from public,anon,authenticated,service_role',p);end loop;
 end $privileges$;
 grant execute on function public.get_minuta_provider_day_v192(uuid,uuid,date) to authenticated;
@@ -371,6 +378,7 @@ grant execute on function public.resolve_minuta_provider_day_v192(uuid,uuid,date
 grant execute on function public.get_minuta_provider_day_slots_v192(uuid,uuid,uuid,date,date,uuid) to authenticated;
 grant execute on function public.get_minuta_day_exception_slots_v192(uuid,uuid,date,uuid,integer) to authenticated;
 grant execute on function public.book_minuta_day_exception_v192(uuid,uuid,uuid,uuid,date,time,text,text,integer,integer) to authenticated;
+grant execute on function public.book_minuta_provider_day_v192(uuid,uuid,uuid,uuid,date,time,text,text,integer,integer) to authenticated;
 grant execute on function public.block_minuta_day_exception_v192(uuid,uuid,uuid,date,time,integer,text,text) to authenticated;
 comment on function public.get_minuta_provider_day_v192(uuid,uuid,date) is 'primetime_provider_day_v192';
 notify pgrst,'reload schema';
