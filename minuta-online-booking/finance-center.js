@@ -898,6 +898,23 @@
       return normalizeDashboard(raw);
     }
 
+    let refreshLayout = [];
+    function holdRefreshLayout() {
+      if (refreshLayout.length || !overview || !state.data) return;
+      const selectors = ['.finance-center__hero', '.finance-center__compact-metrics', '[data-finance-date-basis]', '.finance-dashboard__heading', '[data-finance-overview-chart]', '[data-finance-overview-categories]', '[data-finance-overview-operations]'];
+      refreshLayout = selectors.flatMap(selector => [...overview.querySelectorAll(selector)]).map(element => {
+        const style = getComputedStyle(element);
+        const extra = style.boxSizing === 'border-box' ? 0 : ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+          .reduce((sum, key) => sum + (parseFloat(style[key]) || 0), 0);
+        const previous = element.style.minHeight;
+        element.style.minHeight = `${Math.max(0, element.getBoundingClientRect().height - extra)}px`;
+        return { element, previous };
+      });
+    }
+    function releaseRefreshLayout() {
+      refreshLayout.splice(0).forEach(({ element, previous }) => { element.style.minHeight = previous; });
+    }
+
     async function load({ quiet = false } = {}) {
       const version = ++state.loadVersion;
       state.abort?.abort(); state.abort = new AbortController();
@@ -911,9 +928,11 @@
         normalized.filters.selectedPeriod = normalized.filters.selectedPeriod || state.period;
         normalized.filters.selectedMaster = normalized.filters.selectedMaster || state.master;
         state.readError = '';
-        render(normalized); setLoading(false);
+        render(normalized); releaseRefreshLayout(); setLoading(false);
+        if (detailDialog.open && state.detail) openDetail(state.detail, state.detailTrigger);
       } catch (error) {
-        if (error?.name === 'AbortError' || state.destroyed || version !== state.loadVersion) return;
+        if (state.destroyed || version !== state.loadVersion) return;
+        if (error?.name === 'AbortError') { releaseRefreshLayout(); return; }
         state.readError = state.data?.available
           ? 'Не удалось обновить данные. Показаны последние подтверждённые суммы.'
           : 'Не удалось загрузить данные за выбранные даты. Повторите попытку.';
@@ -921,6 +940,8 @@
         if (!state.data) {
           render(normalizeRead({ available:false, availabilityMessage:'Не удалось загрузить данные за выбранные даты. Обновите данные.' }));
         }
+        releaseRefreshLayout();
+        if (detailDialog.open && state.detail) openDetail(state.detail, state.detailTrigger);
       }
     }
 
@@ -1043,18 +1064,24 @@
       setScope(scope) {
         const key = JSON.stringify(scope);
         if (key === state.scopeKey) return Promise.resolve();
+        holdRefreshLayout();
         state.scopeKey = key; state.sharedScope = scope; state.period = scope.period; state.master = scope.masterId || '';
         state.data = null; state.operations = []; state.nextCursor = ''; state.readError = ''; elements.content.hidden = true;
-        closeDetail(); enableSharedScope(); root.querySelector('.finance-center__filters').hidden = true;
+        if (detailDialog.open) {
+          find('[data-finance-detail-scope]').textContent = 'Проверяем выбранные данные';
+          find('[data-finance-detail-body]').replaceChildren(createElement('p', 'finance-center__detail-note', 'Обновляем данные…'));
+        }
+        enableSharedScope(); root.querySelector('.finance-center__filters').hidden = true;
         const unavailable = normalizeDashboard({ available:false });
         renderSummary(root, unavailable); renderSummary(overview, unavailable); renderOverview(unavailable);
+        if (refreshLayout.length) overview.querySelector('[data-finance-date-basis]').textContent = 'Обновляем данные…';
         return load();
       },
       openExpense,
       getState:() => ({ period:state.period, master:state.master, nextCursor:state.nextCursor, pendingRequestId:state.requestId }),
       destroy() {
         if (state.destroyed) return;
-        state.destroyed = true; state.abort?.abort(); listeners.splice(0).forEach(remove => remove());
+        state.destroyed = true; state.abort?.abort(); releaseRefreshLayout(); listeners.splice(0).forEach(remove => remove());
         closeDetail(); detailDialog.remove(); overview?.remove();
         const visits = document.querySelector('#reportVisitOverview');
         if (typeof global.MinutaStatisticsAuditProvider?.restoreVisitOverview === 'function') {
