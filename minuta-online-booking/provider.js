@@ -12044,7 +12044,7 @@ async function createNewBooking(event) {
   const serviceModel = ownServices.find(item => item.id === service && item.active);
   const durationMinutes = newBookingDurationMinutes();
   const date = $('#newBookingDate').value;
-  const dayContext=globalThis.providerDayRuntime?.bookingContext({service,date});
+  const dayContext=!repeatVisit&&globalThis.providerDayRuntime?.bookingContext({service,date});
   const color = $('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT;
   const rememberBreakColor = block && $('#newBookingFutureBreakColor')?.checked;
   const occurrenceCount = block ? 1 : Math.max(1, Number($('#newBookingOccurrences')?.value || 1));

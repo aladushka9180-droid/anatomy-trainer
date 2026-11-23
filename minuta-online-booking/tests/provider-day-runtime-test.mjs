@@ -26,3 +26,8 @@ const old=c;c={...c,sessionGeneration:2};await assert.rejects(ports.saveHours(ol
 assert.equal(runtime.day(c.date),undefined,'cache invalidated across session generation');
 c={...c,organizationId:'other'};assert.equal(runtime.markup(c.date,'Выходной'),'');
 console.log('PASS: dated-day runtime scope, persisted requests, unknown response, resolve-only retry, native RPC bindings and stale sessions');
+
+// Execute the native form's actual routing declaration: a repeat keeps its native writer.
+const native=fs.readFileSync(new URL('../provider.js',import.meta.url),'utf8');
+const routing=native.match(/^  const dayContext=.*bookingContext\(\{service,date\}\);$/m)?.[0];assert.ok(routing);
+for(const repeat of [true,false]){let routed=0;const probe={repeatVisit:repeat?{}:null,service:'s',date:c.date,providerDayRuntime:{bookingContext(){routed++;return {dated:true};}}};vm.runInNewContext(routing+'\nthis.result=dayContext;',probe);assert.equal(routed,repeat?0:1);if(repeat)assert.equal(probe.result,false);}
