@@ -282,6 +282,7 @@ begin
   v:=pg_get_functiondef('public.get_available_slots(uuid,date,date,uuid)'::regprocedure);
   if md5(v)<>'a349da1694516d588485cc03e339dbbb' then raise exception 'v192_canonical_source_changed';end if;
   v_old:=E'join public.provider_schedule schedule\n    on schedule.performer_id = service.performer_id\n   and schedule.weekday = extract(isodow from d.booking_date)::smallint\n   and schedule.enabled';
+  if strpos(v,v_old)=0 then v_old:=replace(v_old,E'\n',E'\r\n');end if;
   if (length(v)-length(replace(v,v_old,'')))/length(v_old)<>1 then raise exception 'v192_schedule_anchor_changed';end if;
   v:=replace(v,v_old,'cross join lateral public.minuta_effective_day_schedule_v192(service.performer_id,d.booking_date) schedule');
   v_old:='from public.provider_days_off off';
