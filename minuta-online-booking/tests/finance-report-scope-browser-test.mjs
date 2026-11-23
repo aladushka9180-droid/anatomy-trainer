@@ -78,9 +78,13 @@ try {
           if (scopeTest.mode === 'pending') await new Promise(resolve => { scopeTest.release = resolve; });
           if (scopeTest.mode === 'error') throw new Error('Synthetic unavailable');
           const start = period === 'quarter' ? '2026-07-01' : '2026-09-01';
-          return MinutaFinanceProvider.normalizeFinanceScreen({ ...raw, selected_performer_id:masterId }, {
+          const normalized = MinutaFinanceProvider.normalizeFinanceScreen({ ...raw, selected_performer_id:masterId }, {
             organizationId, period, bounds:{ start, end:'2026-09-27' }
           });
+          normalized.dateBasis = 'operations';
+          normalized.cashProjectionUnavailable = false;
+          normalized.movement = [{ key:start, receivedMinor:normalized.summary.receivedMinor }];
+          return normalized;
         }
       } });
     }, { raw, organizationId });
@@ -152,16 +156,22 @@ try {
     const detail = page.locator('[data-finance-detail-dialog]');
     assert.equal(await detail.evaluate(e => e.open), true);
     const positionBefore = await page.locator('#reportFinanceOverview [data-finance-overview-chart]').evaluate(e => e.getBoundingClientRect().top);
+    const belowChartBefore = await page.locator('#financeOverviewExpenseTitle').evaluate(e => e.getBoundingClientRect().top);
     await page.evaluate(() => { scopeTest.mode = 'pending'; window.scopeRefresh = finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'checking' }); });
     assert.equal(await detail.evaluate(e => e.open), true, 'Background scope verification must not close an open detail');
     assert.doesNotMatch(await detail.innerText(), /12\s*345/, 'Pending scope must not display previous financial amounts');
+    assert.doesNotMatch(await page.locator('#reportFinanceOverview').innerText(), /12\s*345/, 'Pending overview must not display previous financial amounts');
     const positionDuring = await page.locator('#reportFinanceOverview [data-finance-overview-chart]').evaluate(e => e.getBoundingClientRect().top);
+    const belowChartDuring = await page.locator('#financeOverviewExpenseTitle').evaluate(e => e.getBoundingClientRect().top);
     assert.ok(Math.abs(positionDuring - positionBefore) < 1, `${width}: chart moved ${positionDuring - positionBefore}px while checking`);
+    assert.ok(Math.abs(belowChartDuring - belowChartBefore) < 1, `${width}: content below chart moved ${belowChartDuring - belowChartBefore}px while checking`);
     await page.evaluate(async () => { scopeTest.mode = 'ready'; scopeTest.release(); await window.scopeRefresh; });
     assert.equal(await detail.evaluate(e => e.open), true, 'Detail remains open after refreshed data arrives');
+    assert.equal(await page.locator('[data-finance-overview-chart]').evaluate(e => e.style.minHeight), '', 'Temporary height must be released after refresh');
     await page.evaluate(async () => { scopeTest.mode = 'error'; await finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'unavailable' }); });
     assert.equal(await detail.evaluate(e => e.open), true, 'Detail remains open if refresh fails');
     assert.match(await detail.innerText(), /Не удалось загрузить данные/);
+    assert.equal(await page.locator('[data-finance-overview-chart]').evaluate(e => e.style.minHeight), '', 'Temporary height must be released after failure');
     assert.doesNotMatch(await detail.innerText(), /12\s*345/, 'Failed scope must not show a previous amount');
     await page.locator('[data-finance-detail-close]').click();
     await page.evaluate(async () => { scopeTest.mode = 'ready'; await finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'ready-again' }); });
