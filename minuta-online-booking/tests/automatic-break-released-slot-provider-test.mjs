@@ -9,7 +9,7 @@ const end = source.lastIndexOf('}', endMarker) + 1;
 assert.ok(start >= 0 && end > start, 'bookingPlacementIssue must remain extractable');
 
 const date = '2026-09-16';
-const sandbox = {
+const sandbox = {scheduleDirty:false,
   bookingPolicy:{ booking_buffer_enabled:true, booking_buffer_minutes:60 },
   automaticBookingBreaksRemoteAvailable:true,
   automaticBookingBreakSegments:new Map(),
@@ -30,6 +30,8 @@ const sandbox = {
   timeFromMinutes:value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`
 };
 vm.createContext(sandbox);
+const stateStart=source.indexOf('function scheduleStateForDate('),stateEnd=source.indexOf('function scheduleEmptyDayLabel(',stateStart);
+vm.runInContext(source.slice(stateStart,stateEnd),sandbox);
 vm.runInContext(`${source.slice(start, end)}\nthis.bookingPlacementIssue = bookingPlacementIssue;`, sandbox);
 
 const issueAt = (time, duration = 15) => sandbox.bookingPlacementIssue(

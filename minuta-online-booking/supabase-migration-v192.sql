@@ -70,6 +70,19 @@ begin
 exception when invalid_text_representation then return '{}'::jsonb;
 end $fn$;
 
+-- Native rescheduling supplies the existing booking identity, even in older clients.
+create function public.minuta_slot_day_context_v192(p_performer uuid,p_ignore uuid)
+returns jsonb language plpgsql stable security definer set search_path='' as $fn$
+declare c jsonb;
+begin
+ c:=public.minuta_day_context_v192();
+ if c->>'organization' is not null and c->>'location' is not null then return c;end if;
+ if p_ignore is not null then
+  select jsonb_build_object('organization',organization_id,'location',location_id) into c from public.bookings where id=p_ignore and performer_id=p_performer;
+ end if;
+ return coalesce(c,'{}'::jsonb);
+end $fn$;
+
 create function public.minuta_virtual_day_v192(p_performer uuid,p_date date,p_organization uuid,p_location uuid)
 returns jsonb language plpgsql stable security definer set search_path='' as $fn$
 declare v jsonb;
@@ -303,8 +316,26 @@ begin
 exception when others then
   perform set_config('minuta.day_exception',coalesce(v_exception,''),true);perform set_config('minuta.day_organization',coalesce(v_org,''),true);perform set_config('minuta.day_location',coalesce(v_loc,''),true);perform set_config('minuta.day_public',coalesce(v_public,''),true);raise;
 end $fn$;
+-- Enforce the dated boundary for future inserts/moves from every native writer.
+-- Existing appointments and status/payment-only edits are preserved.
+create function public.enforce_provider_day_hours_v192() returns trigger language plpgsql security definer set search_path='' as $fn$
+declare s public.provider_schedule%rowtype;v_end timestamp;v_zone text;
+begin
+ if tg_op='UPDATE' and row(new.performer_id,new.organization_id,new.location_id,new.booking_date,new.booking_time,new.duration_minutes) is not distinct from row(old.performer_id,old.organization_id,old.location_id,old.booking_date,old.booking_time,old.duration_minutes) then return new;end if;
+ if new.status='cancelled' or not exists(select 1 from public.provider_day_schedule_v192 d where d.performer_id=new.performer_id and d.organization_id=new.organization_id and d.location_id=new.location_id and d.work_date=new.booking_date) then return new;end if;
+ select timezone into v_zone from public.locations where id=new.location_id and organization_id=new.organization_id;
+ if new.booking_date+new.booking_time<=timezone(v_zone,now()) then return new;end if;
+ v_end:=new.booking_date+new.booking_time+make_interval(mins=>new.duration_minutes);
+ select * into s from public.minuta_effective_day_schedule_v192(new.performer_id,new.booking_date,new.organization_id,new.location_id);
+ if not found or new.booking_time<s.start_time or v_end>new.booking_date+s.end_time
+   or (s.break_start is not null and s.break_end is not null and tsrange(new.booking_date+new.booking_time,v_end,'[)')&&tsrange(new.booking_date+s.break_start,new.booking_date+s.break_end,'[)'))
+   or exists(select 1 from public.minuta_effective_days_off_v192(new.performer_id,new.booking_date,new.organization_id,new.location_id) o where o.all_day or o.start_time is null or o.end_time is null or tsrange(new.booking_date+new.booking_time,v_end,'[)')&&tsrange(new.booking_date+o.start_time,new.booking_date+o.end_time,'[)')) then raise exception using errcode='23P01',message='day_slot_unavailable';end if;
+ return new;
+end $fn$;
+create trigger zzzz_bookings_day_hours_v192 after insert or update of performer_id,organization_id,location_id,booking_date,booking_time,duration_minutes on public.bookings for each row execute function public.enforce_provider_day_hours_v192();
+
 -- Preserve only the four qualified scheduling definitions for guarded rollback.
-create table public.provider_day_sources_v192(identity text primary key,original_definition text not null,original_md5 text not null,installed_md5 text);
+create table public.provider_day_sources_v192(identity text primary key,original_definition text not null,original_md5 text not null,installed_md5 text,trigger_md5 text);
 alter table public.provider_day_sources_v192 enable row level security;
 revoke all on public.provider_day_sources_v192 from public,anon,authenticated,service_role;
 insert into public.provider_day_sources_v192(identity,original_definition,original_md5)
@@ -320,10 +351,10 @@ begin
   v_old:=E'join public.provider_schedule schedule\n    on schedule.performer_id = service.performer_id\n   and schedule.weekday = extract(isodow from d.booking_date)::smallint\n   and schedule.enabled';
   if strpos(v,v_old)=0 then v_old:=replace(v_old,E'\n',E'\r\n');end if;
   if (length(v)-length(replace(v,v_old,'')))/length(v_old)<>1 then raise exception 'v192_schedule_anchor_changed';end if;
-  v:=replace(v,v_old,'cross join lateral public.minuta_effective_day_schedule_v192(service.performer_id,d.booking_date) schedule');
+  v:=replace(v,v_old,'cross join lateral public.minuta_effective_day_schedule_v192(service.performer_id,d.booking_date,(public.minuta_slot_day_context_v192(service.performer_id,p_ignore_booking)->>''organization'')::uuid,(public.minuta_slot_day_context_v192(service.performer_id,p_ignore_booking)->>''location'')::uuid) schedule');
   v_old:='from public.provider_days_off off';
   if (length(v)-length(replace(v,v_old,'')))/length(v_old)<>1 then raise exception 'v192_closure_anchor_changed';end if;
-  execute replace(v,v_old,'from public.minuta_effective_days_off_v192(service.performer_id,d.booking_date) off');
+  execute replace(v,v_old,'from public.minuta_effective_days_off_v192(service.performer_id,d.booking_date,(public.minuta_slot_day_context_v192(service.performer_id,p_ignore_booking)->>''organization'')::uuid,(public.minuta_slot_day_context_v192(service.performer_id,p_ignore_booking)->>''location'')::uuid) off');
 
   v:=pg_get_functiondef('public.minuta_block_slot_valid_v141(uuid,uuid,date,time without time zone,integer,uuid)'::regprocedure);
   if md5(v)<>'cd3297e95fb577d2f688470b4d821366' then raise exception 'v192_canonical_source_changed';end if;
@@ -360,14 +391,14 @@ exception when others then
   perform set_config('minuta.day_organization',coalesce(v_previous_org,''),true);perform set_config('minuta.day_location',coalesce(v_previous_loc,''),true);perform set_config('minuta.day_public',coalesce(v_previous_public,''),true);perform set_config('minuta.day_exception',coalesce(v_previous_exception,''),true);raise;
 end $fn$;
 
-update public.provider_day_sources_v192 set installed_md5=md5(pg_get_functiondef(identity::regprocedure));
+update public.provider_day_sources_v192 set installed_md5=md5(pg_get_functiondef(identity::regprocedure)),trigger_md5=(select md5(pg_get_triggerdef(oid)) from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zzzz_bookings_day_hours_v192');
 
 -- Internal helpers are callable only through the scoped definer entry points.
 do $privileges$
 declare p regprocedure;
 begin
   for p in select f.oid::regprocedure from pg_proc f join pg_namespace n on n.oid=f.pronamespace where n.nspname='public' and f.proname in (
-    'minuta_book_provider_day_v192','minuta_validate_day_scope_v192','minuta_day_context_v192','minuta_virtual_day_v192','minuta_effective_day_schedule_v192','minuta_effective_days_off_v192','minuta_day_revision_v192','minuta_open_day_exception_v192','minuta_public_day_slots_base_v192',
+    'enforce_provider_day_hours_v192','minuta_slot_day_context_v192','minuta_book_provider_day_v192','minuta_validate_day_scope_v192','minuta_day_context_v192','minuta_virtual_day_v192','minuta_effective_day_schedule_v192','minuta_effective_days_off_v192','minuta_day_revision_v192','minuta_open_day_exception_v192','minuta_public_day_slots_base_v192',
     'get_minuta_provider_day_v192','list_minuta_provider_days_v192','save_minuta_provider_day_v192','resolve_minuta_provider_day_v192','get_minuta_provider_day_slots_v192','get_minuta_day_exception_slots_v192','book_minuta_day_exception_v192','book_minuta_provider_day_v192','block_minuta_day_exception_v192')
   loop execute format('revoke all on function %s from public,anon,authenticated,service_role',p);end loop;
 end $privileges$;
