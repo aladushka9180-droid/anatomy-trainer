@@ -129,9 +129,18 @@ try {
       assert.equal(todayState.color,`rgb(${neutralInk.join(', ')})`,`${character}/${shade}: Today must use neutral text on another date`);
       await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainApply')).backgroundColor === color, `rgb(${action.join(', ')})`);
       assert.equal(await page.locator('#providerPorcelainApply').evaluate(button => getComputedStyle(button).backgroundColor), `rgb(${action.join(', ')})`, `${character}/${shade}: editor action must follow the draft shade`);
-      await page.waitForFunction(color => getComputedStyle(document.querySelector('#providerPorcelainPreview').contentDocument.querySelector('#dateStrip button.active')).backgroundColor === color, `rgb(${action.join(', ')})`);
-      const dateColor = await frame.locator('#dateStrip button.active').evaluate(button => getComputedStyle(button).backgroundColor);
-      assert.equal(dateColor,`rgb(${action.join(', ')})`,`${character}/${shade}: selected date must keep the action shade`);
+      const dateState = await frame.locator('#dateStrip button.active').evaluate(button => {
+        const capsule=getComputedStyle(button,'::before');
+        const probe=document.createElement('span');
+        probe.style.background='color-mix(in srgb,var(--theme-accent) 8%,var(--theme-surface))';
+        document.body.append(probe);
+        const expected=getComputedStyle(probe).backgroundColor;probe.remove();
+        return {background:getComputedStyle(button).backgroundColor,capsule:capsule.backgroundColor,width:parseFloat(capsule.width),expected};
+      });
+      assert.equal(dateState.background,'rgba(0, 0, 0, 0)',`${character}/${shade}: selected date uses the approved calm capsule`);
+      assert.equal(dateState.capsule,dateState.expected,`${character}/${shade}: capsule must follow the draft palette`);
+      assert.notEqual(dateState.capsule,'rgba(0, 0, 0, 0)');
+      assert.ok(dateState.width>0&&dateState.width<=76.1,'Selected date remains compact and visible');
       observedPalettes.add(`${expected.bg}/${expected.accent}`);
     }
   }
