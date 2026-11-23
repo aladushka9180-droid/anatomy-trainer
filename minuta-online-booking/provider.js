@@ -6520,35 +6520,14 @@ function clientAppearanceDraftFromForm() {
 }
 function renderClientAppearancePreview(settings = clientAppearanceDraftFromForm()) {
   const catalog = window.MinutaThemeCatalog;
-  const preview = $('#clientAppearancePreview');
-  if (!catalog || !preview) return;
+  if (!catalog) return;
   const normalized = normalizeClientPageSettings(settings);
   const theme = catalog.theme(normalized.theme_key);
-  const headline = catalog.headline(normalized.headline_key);
-  if (!theme || !headline) return;
-  preview.dataset.previewTheme = theme.key;
-  if (normalized.porcelain) preview.dataset.previewCharacter = normalized.porcelain.character;
-  else delete preview.dataset.previewCharacter;
-  const palette = catalog.paletteForSettings(normalized);
-  Object.entries({
-    bg:palette.bg,
-    surface:palette.surface,
-    surfaceAlt:palette.surfaceAlt,
-    ink:palette.ink,
-    muted:palette.muted,
-    line:palette.line,
-    accent:palette.accent,
-    accentSoft:palette.accentSoft,
-    contrast:palette.contrast,
-    pattern:palette.pattern
-  }).forEach(([name,value]) => preview.style.setProperty(`--client-preview-${name}`, value));
+  if (!theme) return;
   $('#clientAppearanceThemeName').textContent = theme.label;
   const shade = normalized.porcelain && catalog.porcelainShades.find(item => item.key === normalized.porcelain.shade);
   const character = normalized.porcelain && catalog.porcelainCharacters.find(item => item.key === normalized.porcelain.character);
   $('#clientAppearanceThemeDescription').textContent = shade && character ? `${shade.label} · ${character.label}` : theme.description;
-  $('#clientAppearancePreviewHeadline').textContent = headline.label;
-  const tagline = $('#clientAppearancePreviewTagline');
-  if (tagline) { tagline.hidden = !character; tagline.textContent = character?.tagline || ''; }
   $('#porcelainCustomization').hidden = !normalized.porcelain;
   $('#resetPorcelainTheme').hidden = !normalized.porcelain;
   $('#applyClientAppearance').textContent = normalized.porcelain ? 'Применить тему' : 'Сохранить для клиентов';

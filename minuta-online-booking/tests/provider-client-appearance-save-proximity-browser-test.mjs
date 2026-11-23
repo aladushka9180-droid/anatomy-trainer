@@ -71,15 +71,14 @@ try {
       const rect = selector => document.querySelector(selector).getBoundingClientRect();
       const selection = rect('#clientAppearanceSettingsCard .client-appearance-selection');
       const headline = rect('#clientAppearanceSettingsCard .client-headline-picker');
-      const preview = rect('#clientAppearancePreview');
+      const previewCount = document.querySelectorAll('#clientAppearancePreview').length;
       const save = rect('#applyClientAppearance');
       return {
         scrollWidth: document.documentElement.scrollWidth,
         selectionBottom: selection.bottom,
         headlineTop: headline.top,
         headlineBottom: headline.bottom,
-        previewTop: preview.top,
-        previewBottom: preview.bottom,
+        previewCount,
         saveTop: save.top,
         saveHeight: save.height,
         saveMinHeight: getComputedStyle(document.querySelector('#applyClientAppearance')).minHeight,
@@ -90,14 +89,12 @@ try {
     assert.ok(layout.scrollWidth <= width + 1, `${width}px horizontal overflow: ${JSON.stringify(layout)}`);
     if (width <= 760) {
       assert.ok(layout.headlineTop >= layout.selectionBottom - 1, `${width}px headline precedes theme selection`);
-      assert.ok(layout.previewTop >= layout.headlineBottom - 1, `${width}px preview precedes headline choices`);
-      assert.ok(layout.saveTop >= layout.previewBottom - 1 && layout.saveTop - layout.previewBottom < 100,
-        `${width}px save is not near preview: ${JSON.stringify(layout)}`);
+      assert.ok(layout.saveTop >= layout.headlineBottom - 1 && layout.saveTop - layout.headlineBottom < 100,
+        `${width}px save is not near headline choices: ${JSON.stringify(layout)}`);
       assert.ok(parseFloat(layout.saveMinHeight) >= 44 && layout.saveHeight >= 44,
         `${width}px save target is smaller than 44 CSS px: ${JSON.stringify(layout)}`);
-    } else {
-      assert.ok(layout.previewTop < layout.headlineTop, 'Desktop preview should retain its original placement');
     }
+    assert.equal(layout.previewCount, 0, 'Removed demo must not remain in the settings');
     if (process.env.MINUTA_UI_OUTPUT) {
       await mkdir(process.env.MINUTA_UI_OUTPUT, { recursive: true });
       await page.locator('#clientAppearanceSettingsCard').screenshot({

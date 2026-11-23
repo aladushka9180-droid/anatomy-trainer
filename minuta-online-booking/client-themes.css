@@ -153,7 +153,7 @@
 .client-appearance-form { grid-column:2/-1; display:grid; gap:18px; min-width:0; }
 .client-appearance-form fieldset { min-width:0; margin:0; padding:0; border:0; }
 .client-appearance-form legend { margin-bottom:9px; color:var(--theme-ink,var(--ink)); font-size:11px; font-weight:900; }
-.client-appearance-summary { display:grid; grid-template-columns:minmax(300px,1.1fr) minmax(260px,.9fr); gap:18px; align-items:start; }
+.client-appearance-summary { display:grid; grid-template-columns:minmax(0,1fr); gap:18px; align-items:start; }
 .client-appearance-preview-shell { grid-column:2; grid-row:1; position:sticky; top:18px; min-width:0; padding:12px; border:1px solid var(--theme-line,var(--line)); border-radius:30px; background:var(--theme-surface-alt,var(--soft)); }
 .client-appearance-preview { position:relative; display:flex; min-height:370px; flex-direction:column; overflow:hidden; padding:38px 20px 20px; border:1px solid var(--client-preview-line); border-radius:22px; background-color:var(--client-preview-bg); background-image:var(--client-preview-pattern); color:var(--client-preview-ink); box-shadow:0 16px 38px color-mix(in srgb,var(--client-preview-ink) 10%,transparent); }
 .client-appearance-preview-browser { position:absolute; inset:0 0 auto; display:flex; height:24px; align-items:center; gap:5px; padding:0 10px; border-bottom:1px solid var(--client-preview-line); background:color-mix(in srgb,var(--client-preview-surface) 88%,transparent); }

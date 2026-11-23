@@ -71,7 +71,8 @@ assert.equal(catalog.theme('concrete-signal').description, 'Холодный с�
 assert.match(providerHtml, /id="clientAppearanceSettingsCard"/);
 assert.match(providerHtml, /data-section-target="clientAppearanceSettingsCard">Страница для клиентов/);
 assert.match(providerHtml, /id="clientAppearanceTitle">Оформление клиентской страницы/);
-assert.match(providerHtml, /id="clientAppearancePreview"/);
+assert.doesNotMatch(providerHtml, /id="clientAppearancePreview"/);
+assert.match(providerHtml, /id="clientAppearanceThemeName"/);
 assert.match(providerHtml, /id="providerClientThemeChooser"/);
 assert.match(providerHtml, /data-client-theme-filter="featured"/);
 assert.match(providerHtml, /Личное оформление их раздела «Мои записи» не меняет страницу организации/);
