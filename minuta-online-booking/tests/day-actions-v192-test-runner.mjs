@@ -13,6 +13,7 @@ try{
  const canonical=fs.readdirSync(new URL('tests/day-actions-v192-canonical/',root)).filter(p=>p.endsWith('.sql')).sort().map(p=>read('tests/day-actions-v192-canonical/'+p)+';').join('\n');
  const sql=String.raw`\set ON_ERROR_STOP on
 begin;
+select set_config('daytest.expected_ref', :'expected_ref', true);
 set local lock_timeout='5s';set local statement_timeout='120s';
 do $$begin
  if (select count(*) from minuta_migration_guard.target where project_ref=current_setting('daytest.expected_ref') and allow_migrations)<>1 then raise exception 'isolated_target_marker_required';end if;
@@ -32,7 +33,7 @@ select case when to_regclass('public.provider_day_schedule_v192') is null then '
 `;
  const file=path.join(directory,'test.sql');fs.writeFileSync(file,sql);
  const ref=process.env.MINUTA_TEST_PROJECT_REF;assert.match(ref,/^[a-z0-9-]{6,64}$/);
- const result=spawnSync('psql',[process.env.MINUTA_TEST_DATABASE_URL.replace(':6543',':5432'),'-X','-qAt','-v','ON_ERROR_STOP=1','-f',file],{encoding:'utf8',env:{...process.env,PGOPTIONS:(process.env.PGOPTIONS||'')+' -c daytest.expected_ref='+ref},maxBuffer:2e6});
+ const result=spawnSync('psql',[process.env.MINUTA_TEST_DATABASE_URL.replace(':6543',':5432'),'-X','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=terse','-v','expected_ref='+ref,'-f',file],{encoding:'utf8',env:{...process.env,PGOPTIONS:(process.env.PGOPTIONS||'')+' -c daytest.expected_ref='+ref},maxBuffer:2e6});
  if(result.status!==0){console.error('Isolated v192 SQL failed:',String(result.stderr||'').slice(-2200));process.exitCode=1;}
  else {const verdict=result.stdout.split(/\r?\n/).filter(s=>/^(PASS|FAIL):/.test(s));assert.equal(verdict.length,1);assert.ok(verdict[0].startsWith('PASS:'));console.log(verdict[0]);}
 }finally{fs.rmSync(directory,{recursive:true,force:true});}
