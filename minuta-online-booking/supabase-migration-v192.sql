@@ -131,11 +131,22 @@ begin
   return jsonb_build_object('date',p_date,'start',left(coalesce(d.start_time,s.start_time,time '10:00')::text,5),
     'end',left(coalesce(d.end_time,s.end_time,time '18:00')::text,5),'onlineEnabled',v_online,'revision',public.minuta_day_revision_v192(p_organization,p_location,p_date),'timeZone',v_zone,
     'hasOverride',d.performer_id is not null,
-    'working',coalesce(s.enabled,false) or d.performer_id is not null,
+    'working',(coalesce(s.enabled,false) or d.performer_id is not null) and not exists(select 1 from public.minuta_effective_days_off_v192(auth.uid(),p_date,p_organization,p_location) o where o.all_day),
     'slotInterval',coalesce(s.slot_interval_minutes,15),
     'breakStart',left(s.break_start::text,5),'breakEnd',left(s.break_end::text,5),
     'closures',(select coalesce(jsonb_agg(jsonb_build_object('allDay',o.all_day,'start',left(o.start_time::text,5),'end',left(o.end_time::text,5))),'[]'::jsonb)
       from public.minuta_effective_days_off_v192(auth.uid(),p_date,p_organization,p_location) o));
+end $fn$;
+
+create function public.list_minuta_provider_days_v192(p_organization uuid,p_location uuid,p_start date,p_end date)
+returns setof jsonb language plpgsql security definer set search_path='' as $fn$
+declare d date;
+begin
+  perform public.minuta_validate_day_scope_v192(p_organization,p_location,p_start);
+  if p_end is null or p_end<p_start or p_end-p_start>62 then raise exception using errcode='22023',message='invalid_day_range';end if;
+  for d in select generate_series(p_start::timestamp,p_end::timestamp,interval '1 day')::date loop
+    return next public.get_minuta_provider_day_v192(p_organization,p_location,d);
+  end loop;
 end $fn$;
 
 create function public.save_minuta_provider_day_v192(p_organization uuid,p_location uuid,p_date date,p_request_id uuid,p_start time,p_end time,p_online boolean,p_expected_revision text)
@@ -214,7 +225,11 @@ begin
     return query select s.booking_date,s.booking_time from public.get_provider_block_slots_v141(p_organization,p_location,p_date,p_duration,null) s;
   else
     if not exists(select 1 from public.services where id=p_service and performer_id=auth.uid() and active) then raise exception using errcode='42501',message='day_service_denied';end if;
+    if p_duration is not null and p_duration>1 and exists(select 1 from public.services where id=p_service and duration_minutes=1) then
+      return query select s.booking_date,s.booking_time from public.get_provider_block_slots_v141(p_organization,p_location,p_date,p_duration,null) s where public.minuta_slot_respects_booking_buffer(p_service,s.booking_date,s.booking_time,p_duration,null);
+    else
     return query select s.booking_date,s.booking_time from public.get_available_slots_v101(p_service,p_date,p_date,null) s where s.booking_date+s.booking_time>timezone(public.minuta_validate_day_scope_v192(p_organization,p_location,p_date),now());
+    end if;
   end if;
   perform set_config('minuta.day_exception',coalesce(v_exception,''),true);perform set_config('minuta.day_organization',coalesce(v_org,''),true);perform set_config('minuta.day_location',coalesce(v_loc,''),true);perform set_config('minuta.day_public',coalesce(v_public,''),true);
 exception when others then
@@ -237,7 +252,7 @@ begin
   end if;
   select * into v_service from public.services where id=p_service and performer_id=auth.uid() and active for share;
   if not found then raise exception using errcode='42501',message='day_service_denied';end if;
-  if v_service.price_rub<>p_expected_price_rub or v_service.duration_minutes<>p_expected_duration_minutes then raise exception using errcode='40001',message='day_service_changed';end if;
+  if v_service.price_rub<>p_expected_price_rub or (v_service.duration_minutes<>1 and v_service.duration_minutes<>p_expected_duration_minutes) then raise exception using errcode='40001',message='day_service_changed';end if;
   perform pg_advisory_xact_lock(hashtextextended(auth.uid()::text||p_date::text,0));
   if not pg_try_advisory_xact_lock(hashtextextended(p_organization::text,7100)) then raise exception using errcode='40001',message='day_schedule_changed';end if;
   v_end:=p_date+p_time+make_interval(mins=>p_expected_duration_minutes);
@@ -246,6 +261,14 @@ begin
   perform set_config('minuta.day_organization',p_organization::text,true);perform set_config('minuta.day_location',p_location::text,true);perform set_config('minuta.day_public','off',true);
   perform set_config('minuta.booking_organization',p_organization::text,true);perform set_config('minuta.booking_location',p_location::text,true);
   v_result:=public.provider_book_appointment(p_request_id,p_service,p_date,p_time,p_client_name,p_client_phone);
+  if v_service.duration_minutes=1 and p_expected_duration_minutes>1 then
+    if not public.minuta_block_slot_valid_v141(p_organization,p_location,p_date,p_time,p_expected_duration_minutes,(v_result->>'booking_id')::uuid)
+       or not public.minuta_slot_respects_booking_buffer(p_service,p_date,p_time,p_expected_duration_minutes,(v_result->>'booking_id')::uuid) then raise exception using errcode='23P01',message='day_slot_unavailable';end if;
+    update public.bookings set duration_minutes=p_expected_duration_minutes,total_price_rub=p_expected_price_rub*p_expected_duration_minutes where id=(v_result->>'booking_id')::uuid;
+    if to_regclass('public.booking_session_items') is not null then
+      update public.booking_session_items set duration_minutes=p_expected_duration_minutes,price_rub=p_expected_price_rub*p_expected_duration_minutes where booking_id=(v_result->>'booking_id')::uuid and performer_id=auth.uid() and item_kind='primary';
+    end if;
+  end if;
   perform set_config('minuta.day_exception',coalesce(v_exception,''),true);perform set_config('minuta.day_organization',coalesce(v_org,''),true);perform set_config('minuta.day_location',coalesce(v_loc,''),true);perform set_config('minuta.day_public',coalesce(v_public,''),true);
   perform set_config('minuta.booking_organization',coalesce(v_booking_org,''),true);perform set_config('minuta.booking_location',coalesce(v_booking_loc,''),true);
   return v_result;
@@ -338,10 +361,11 @@ declare p regprocedure;
 begin
   for p in select f.oid::regprocedure from pg_proc f join pg_namespace n on n.oid=f.pronamespace where n.nspname='public' and f.proname in (
     'minuta_validate_day_scope_v192','minuta_day_context_v192','minuta_virtual_day_v192','minuta_effective_day_schedule_v192','minuta_effective_days_off_v192','minuta_day_revision_v192','minuta_open_day_exception_v192','minuta_public_day_slots_base_v192',
-    'get_minuta_provider_day_v192','save_minuta_provider_day_v192','resolve_minuta_provider_day_v192','get_minuta_provider_day_slots_v192','get_minuta_day_exception_slots_v192','book_minuta_day_exception_v192','block_minuta_day_exception_v192')
+    'get_minuta_provider_day_v192','list_minuta_provider_days_v192','save_minuta_provider_day_v192','resolve_minuta_provider_day_v192','get_minuta_provider_day_slots_v192','get_minuta_day_exception_slots_v192','book_minuta_day_exception_v192','block_minuta_day_exception_v192')
   loop execute format('revoke all on function %s from public,anon,authenticated,service_role',p);end loop;
 end $privileges$;
 grant execute on function public.get_minuta_provider_day_v192(uuid,uuid,date) to authenticated;
+grant execute on function public.list_minuta_provider_days_v192(uuid,uuid,date,date) to authenticated;
 grant execute on function public.save_minuta_provider_day_v192(uuid,uuid,date,uuid,time,time,boolean,text) to authenticated;
 grant execute on function public.resolve_minuta_provider_day_v192(uuid,uuid,date,uuid) to authenticated;
 grant execute on function public.get_minuta_provider_day_slots_v192(uuid,uuid,uuid,date,date,uuid) to authenticated;

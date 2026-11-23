@@ -69,6 +69,9 @@ const ASSETS = [
 ];
 
 const OPTIONAL_ASSETS = [
+  './provider-day-actions.js?v=1101',
+  './provider-day-runtime.js?v=1101',
+  './provider-day-actions.css?v=1101',
   './pro-settings-soft.css?v=1100',
   './pro-settings-soft.js?v=1100',
   './provider-notifications-soft.css?v=1100',
