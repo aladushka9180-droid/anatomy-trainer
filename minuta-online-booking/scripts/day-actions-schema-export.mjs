@@ -22,7 +22,7 @@ export function validateSchema(value) {
     for(const c of table.columns){assert.deepEqual(Object.keys(c).sort(),['name','not_null','type']);assert.equal(typeof c.not_null,'boolean');}
   }
   // Fail closed before any artifact upload if a routine embeds credentials or a URL.
-  assert.doesNotMatch(value.functions.map(item=>item.definition).join("\n")+JSON.stringify(value),/https?:\/\/|postgres(?:ql)?:\/\/|(?:sb_secret_|sk-proj-|eyJ)[A-Za-z0-9_-]{8,}|(?:password|service_role_key|api_key)\s*[:=]\s*['"][^'"]+/i);
+  assert.doesNotMatch(value.functions.map(item=>item.definition).join("\n")+JSON.stringify(value),/https?:\/\/[^\s'"\\]|postgres(?:ql)?:\/\/|(?:sb_secret_|sk-proj-|eyJ)[A-Za-z0-9_-]{8,}|(?:password|service_role_key|api_key)\s*[:=]\s*['"][^'"]+/i);
   return value;
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href){

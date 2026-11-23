@@ -21,7 +21,8 @@ assert.doesNotMatch(sql,/\b(?:from|join)\s+public\./i);
 const workflow=readFileSync(new URL('../../.github/workflows/minuta-day-actions-schema-read.yml',import.meta.url),'utf8');
 assert.match(workflow,/if: github.ref == 'refs\/heads\/main'/);assert.match(workflow,/test "\$EXPECTED_SHA" = "\$GITHUB_SHA"/);
 assert.match(workflow,/environment: minuta-production/);assert.match(workflow,/default_transaction_read_only=on/);assert.match(workflow,/production-db-target-guard/);
-assert.ok(workflow.indexOf('day-actions-schema-export.mjs')<workflow.indexOf('actions/upload-artifact@'));
+const runnerIndex=workflow.indexOf('node .github/scripts/day-actions-schema-run.mjs');
+assert.ok(runnerIndex>=0 && runnerIndex<workflow.indexOf('actions/upload-artifact@'));
 assert.match(workflow,/retention-days: 1/);assert.doesNotMatch(workflow,/path: day-actions-schema-raw/);
 console.log('Day-action schema read: metadata scope, credential rejection, exact main, read-only and export gates PASS');
 
@@ -38,3 +39,9 @@ try {
   assert.match(child.stderr,/export withheld/);
 } finally { unlinkSync(input); if(existsSync(output))unlinkSync(output); rmdirSync(dir); }
 console.log('CLI rejection withholds file and keeps rejected contents out of logs: PASS');
+
+const protocolOnly=sample();
+protocolOnly.functions[0].definition+=" -- protocol check '^https://'";
+protocolOnly.tables[0].constraints=["CHECK (payment_url ~* '^https://')"];
+assert.deepEqual(validateSchema(protocolOnly),protocolOnly,'SQL protocol checks are code, not an endpoint or connection string');
+console.log('Bare SQL protocol literals accepted without rewriting source; real endpoints still rejected: PASS');
