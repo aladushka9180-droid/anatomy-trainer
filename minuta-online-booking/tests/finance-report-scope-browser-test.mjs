@@ -22,7 +22,7 @@ const css = [...providerHtml.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*href="([
   return media ? `@media ${media}{${content}}` : content;
 }).join('\n');
 const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
-const browser = await chromium.launch({ headless:true });
+const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const errors = [];
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const masterId = '22222222-2222-4222-8222-222222222222';
@@ -147,6 +147,26 @@ try {
     await page.locator('#reportTabOverview').click();
     await page.waitForFunction(() => document.querySelector('#exportBookings span').textContent === 'Экспорт');
     assert.equal(await note.isVisible(), false);
+    await page.evaluate(async () => finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'team' }));
+    await page.locator('#reportFinanceOverview [data-finance-detail="profit"]').first().click();
+    const detail = page.locator('[data-finance-detail-dialog]');
+    assert.equal(await detail.evaluate(e => e.open), true);
+    await page.evaluate(() => { scopeTest.mode = 'pending'; window.scopeRefresh = finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'checking' }); });
+    assert.equal(await detail.evaluate(e => e.open), true, 'Background scope verification must not close an open detail');
+    assert.doesNotMatch(await detail.innerText(), /12\s*345/, 'Pending scope must not display previous financial amounts');
+    await page.evaluate(async () => { scopeTest.mode = 'ready'; scopeTest.release(); await window.scopeRefresh; });
+    assert.equal(await detail.evaluate(e => e.open), true, 'Detail remains open after refreshed data arrives');
+    await page.evaluate(async () => { scopeTest.mode = 'error'; await finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'unavailable' }); });
+    assert.equal(await detail.evaluate(e => e.open), true, 'Detail remains open if refresh fails');
+    assert.match(await detail.innerText(), /Не удалось загрузить данные/);
+    assert.doesNotMatch(await detail.innerText(), /12\s*345/, 'Failed scope must not show a previous amount');
+    await page.locator('[data-finance-detail-close]').click();
+    await page.evaluate(async () => { scopeTest.mode = 'ready'; await finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'ready-again' }); });
+    await page.locator('#reportFinanceOverview [data-finance-detail="profit"]').first().click();
+    await page.evaluate(() => { scopeTest.mode = 'pending'; window.scopeRefresh = finance.setScope({ period:'current_month', masterId:'', bounds:{start:'2026-09-01',end:'2026-09-27'}, contextToken:'later' }); });
+    await page.locator('[data-finance-detail-close]').click();
+    await page.evaluate(async () => { scopeTest.mode = 'ready'; scopeTest.release(); await window.scopeRefresh; });
+    assert.equal(await detail.evaluate(e => e.open), false, 'User-closed detail must not reopen on completion');
     await page.close();
   }
 } finally { await browser.close(); }

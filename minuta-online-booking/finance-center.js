@@ -912,6 +912,7 @@
         normalized.filters.selectedMaster = normalized.filters.selectedMaster || state.master;
         state.readError = '';
         render(normalized); setLoading(false);
+        if (detailDialog.open && state.detail) openDetail(state.detail, state.detailTrigger);
       } catch (error) {
         if (error?.name === 'AbortError' || state.destroyed || version !== state.loadVersion) return;
         state.readError = state.data?.available
@@ -921,6 +922,7 @@
         if (!state.data) {
           render(normalizeRead({ available:false, availabilityMessage:'Не удалось загрузить данные за выбранные даты. Обновите данные.' }));
         }
+        if (detailDialog.open && state.detail) openDetail(state.detail, state.detailTrigger);
       }
     }
 
@@ -1045,7 +1047,11 @@
         if (key === state.scopeKey) return Promise.resolve();
         state.scopeKey = key; state.sharedScope = scope; state.period = scope.period; state.master = scope.masterId || '';
         state.data = null; state.operations = []; state.nextCursor = ''; state.readError = ''; elements.content.hidden = true;
-        closeDetail(); enableSharedScope(); root.querySelector('.finance-center__filters').hidden = true;
+        if (detailDialog.open) {
+          find('[data-finance-detail-scope]').textContent = 'Проверяем выбранные данные';
+          find('[data-finance-detail-body]').replaceChildren(createElement('p', 'finance-center__detail-note', 'Обновляем данные…'));
+        }
+        enableSharedScope(); root.querySelector('.finance-center__filters').hidden = true;
         const unavailable = normalizeDashboard({ available:false });
         renderSummary(root, unavailable); renderSummary(overview, unavailable); renderOverview(unavailable);
         return load();
