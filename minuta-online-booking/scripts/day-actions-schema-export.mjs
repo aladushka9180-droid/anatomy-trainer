@@ -5,7 +5,7 @@ export function validateSchema(value) {
   assert.equal(value?.version,1);
   assert.deepEqual(Object.keys(value).sort(),['functions','tables','version']);
   assert.ok(Array.isArray(value.functions) && value.functions.length>0 && value.functions.length<20);
-  const allowedFunctions=new Set(['get_available_slots','get_available_slots_v101','book_appointment']);
+  const allowedFunctions=new Set(['get_available_slots','get_available_slots_v101','book_appointment','book_minuta_appointment_v2','get_public_minuta_available_slots_v101','minuta_block_slot_valid_v141','get_provider_block_slots_v141','create_provider_block_v141']);
   for(const item of value.functions){
     assert.deepEqual(Object.keys(item).sort(),['definition','identity','name']);
     assert.ok(allowedFunctions.has(item.name));
