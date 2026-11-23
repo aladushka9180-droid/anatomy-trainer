@@ -1,0 +1,54 @@
+name: Eldion day actions read-only schema
+run-name: Day actions schema read - ${{ inputs.commit_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact current main commit SHA
+        required: true
+        type: string
+permissions: { contents: read }
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+jobs:
+  schema:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      EXPECTED_SHA: ${{ inputs.commit_sha }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=2000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+      - name: Verify exact approved main and production target
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EXPECTED_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node minuta-online-booking/scripts/production-db-target-guard.mjs
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Read only named function definitions and catalog structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          psql "$db" -X -qAt -v ON_ERROR_STOP=1 --file=minuta-online-booking/scripts/day-actions-schema-read.sql --output=day-actions-schema-raw.json
+          mkdir -p day-actions-schema
+          node .github/scripts/day-actions-schema-run.mjs day-actions-schema-raw.json day-actions-schema/schema.json
+          sha256sum day-actions-schema/schema.json day-actions-schema/source-fingerprints.json > day-actions-schema/SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: day-actions-schema-${{ inputs.commit_sha }}
+          path: day-actions-schema/
+          retention-days: 1
+          if-no-files-found: error

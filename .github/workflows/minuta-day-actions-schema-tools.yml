@@ -1,0 +1,17 @@
+name: Eldion schema inspection tools
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/scripts/day-actions-schema-*', '.github/workflows/minuta-day-actions-schema-*.yml', 'minuta-online-booking/scripts/day-actions-schema-*', 'minuta-online-booking/tests/day-actions-schema-export-test.mjs']
+  push:
+    branches: [main]
+    paths: ['.github/scripts/day-actions-schema-*', '.github/workflows/minuta-day-actions-schema-*.yml', 'minuta-online-booking/scripts/day-actions-schema-*', 'minuta-online-booking/tests/day-actions-schema-export-test.mjs']
+permissions: { contents: read }
+jobs:
+  schema-tool-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { persist-credentials: false }
+      - run: node minuta-online-booking/tests/day-actions-schema-export-test.mjs
+      - run: node .github/scripts/day-actions-schema-run-test.mjs
