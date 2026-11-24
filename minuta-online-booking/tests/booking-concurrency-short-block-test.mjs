@@ -14,7 +14,7 @@ assert.ok(start>=0&&end>start);
 async function fixture(serviceDuration){
  const fields={'#newBookingService':{value:'service'},'#newBookingDate':{value:'2027-01-04'},'#newBookingTimes':{innerHTML:''},'#newBookingLocation':{value:'location'}};
  const calls=[];
- const sandbox={console,Date,navigator:{onLine:true},$:s=>fields[s],newBookingMode:'block',newBookingHistoricalMode:false,
+ const sandbox={providerDayRuntime:null,console,Date,navigator:{onLine:true},$:s=>fields[s],newBookingMode:'block',newBookingHistoricalMode:false,
   newBookingOutsideSchedule:false,newBookingPreferredTime:'10:00',newBookingSlots:[],newBookingTime:'',newBookingHour:'',newBookingSlotsRequestId:0,
   bookingCreationReady:true,writesAllowed:true,bookingDeferredMode:()=>false,
   newBookingDurationMinutes:()=>15,businessTodayIso:()=> '2026-09-08',
@@ -37,7 +37,7 @@ test('fifteen-minute block must fit twenty-minute gap even if shortest service i
 test('late response for an old service and date cannot replace the selected 18:00',async()=>{
  const fields={'#newBookingService':{value:'service-a'},'#newBookingDate':{value:'2027-01-04'},'#newBookingTimes':{innerHTML:''},'#newBookingLocation':{value:''}};
  const pending=[];
- const sandbox={console,Date,navigator:{onLine:true},$:s=>fields[s],newBookingMode:'client',newBookingHistoricalMode:false,
+ const sandbox={providerDayRuntime:null,console,Date,navigator:{onLine:true},$:s=>fields[s],newBookingMode:'client',newBookingHistoricalMode:false,
   newBookingOutsideSchedule:false,newBookingPreferredTime:'18:00',newBookingSlots:[],newBookingTime:'',newBookingHour:'',newBookingSlotsRequestId:0,
   bookingCreationReady:true,writesAllowed:true,bookingDeferredMode:()=>false,
   bookingPolicy:{booking_buffer_enabled:true},currentUser:{id:'provider'},sessionGeneration:1,

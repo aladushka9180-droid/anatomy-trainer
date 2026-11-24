@@ -129,7 +129,7 @@ try {
    for(const card of layout.cards)assert.ok(card.timeVisible && card.nameVisible && card.separate,`${theme}/${width}: time, client and service need separate rows: ${JSON.stringify(card)}`);
    const header=await page.evaluate(()=>{
     const css=s=>getComputedStyle(document.querySelector(s));
-    return {todayInk:css('.date-today-button').color,tabInk:css('.calendar-view-toggle button.active').color,selectedBg:css('.date-strip>button.active').backgroundColor,tab:css('.calendar-view-toggle button.active').backgroundColor,navBorder:css('.date-navigation').borderTopWidth,stripBorder:css('.date-strip-frame').borderBottomWidth,dateBorder:css('.schedule-date-picker').borderTopWidth,todayBorder:css('.date-today-button').borderTopWidth,dateWeight:css('.schedule-date-picker input').fontWeight,buttonInk:css('#newBookingButton span').color,buttonBg:css('#newBookingButton').backgroundColor,topbarBorder:css('#providerTopbarToolsButton').borderTopWidth};
+    return {todayInk:css('.date-today-button').color,tabInk:css('.calendar-view-toggle button.active').color,selectedBg:css('.date-strip>button.active').backgroundColor,selectedCapsuleBg:getComputedStyle(document.querySelector('.date-strip>button.active'),'::before').backgroundColor,selectedCapsuleWidth:parseFloat(getComputedStyle(document.querySelector('.date-strip>button.active'),'::before').width),tab:css('.calendar-view-toggle button.active').backgroundColor,navBorder:css('.date-navigation').borderTopWidth,stripBorder:css('.date-strip-frame').borderBottomWidth,dateBorder:css('.schedule-date-picker').borderTopWidth,todayBorder:css('.date-today-button').borderTopWidth,dateWeight:css('.schedule-date-picker input').fontWeight,buttonInk:css('#newBookingButton span').color,buttonBg:css('#newBookingButton').backgroundColor,topbarBorder:css('#providerTopbarToolsButton').borderTopWidth};
    });
    const contrast=await page.locator('.date-today-button').evaluate(e=>{
     const rgba=c=>{const values=c.match(/[\d.]+/g).map(Number);return [...values.slice(0,3),values[3]??1];};
@@ -146,7 +146,11 @@ try {
     const otherDay=ratio();e.classList.add('is-current');const currentDay=ratio(),currentInk=getComputedStyle(e).color,currentBg=getComputedStyle(e).backgroundColor;e.classList.remove('is-current');return {otherDay,currentDay,currentInk,currentBg};
    });
    assert.ok(contrast.otherDay>=4.5 && contrast.currentDay>=4.5,`${theme}: mobile Today label remains readable in both date states ${JSON.stringify(contrast)}`);
-   assert.notEqual(header.selectedBg,'rgba(0, 0, 0, 0)');
+   // Every palette must visibly identify the date; calm themes paint a compact pseudo capsule.
+   if(header.selectedBg==='rgba(0, 0, 0, 0)'){
+    assert.notEqual(header.selectedCapsuleBg,'rgba(0, 0, 0, 0)','A visible soft capsule identifies the selected date');
+    assert.ok(header.selectedCapsuleWidth>0&&header.selectedCapsuleWidth<=76.1,'The selected capsule remains compact');
+   }else assert.notEqual(header.selectedBg,'rgba(0, 0, 0, 0)');
    assert.equal(header.tab,'rgba(0, 0, 0, 0)','Period tabs must only use an underline');
    assert.equal(header.navBorder,'0px');assert.equal(header.stripBorder,'0px');assert.equal(header.dateBorder,'0px');assert.equal(header.topbarBorder,'0px');assert.equal(header.todayBorder,'0px','Approved flat mobile Today action has no frame');assert.equal(header.dateWeight,'500');
    // X15 uses dark ink on soft pink controls; the 15-palette suite checks contrast.

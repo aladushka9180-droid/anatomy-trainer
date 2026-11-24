@@ -137,6 +137,7 @@ function isMissingRpc(error, name) {
 }
 async function getProviderAvailableSlots({ p_service, p_start, p_end, p_ignore_booking = null }) {
   const parameters = { p_service, p_start, p_end, p_ignore_booking };
+  const dated=await globalThis.providerDayRuntime?.slots(parameters);if(dated)return dated;
   const protectedResult = await db.rpc('get_available_slots_v101', parameters);
   if (!isMissingRpc(protectedResult.error, 'get_available_slots_v101')) return protectedResult;
   return db.rpc('get_available_slots', parameters);
@@ -954,7 +955,8 @@ async function providerBookingFingerprint(payload) {
     String(payload.repeatSourceId || ''),
     String(payload.repeatSourceSignature || ''),
     Number(payload.repeatTotalPrice || 0),
-    String(payload.repeatComment || '').trim()
+    String(payload.repeatComment || '').trim(),
+    ...((payload.dayException||payload.dayContext)?['dated-day',(payload.dayException||payload.dayContext).organizationId,(payload.dayException||payload.dayContext).locationId]:[])
   ]);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
@@ -1019,7 +1021,9 @@ async function submitProviderBookingAttempt(payload) {
     };
     let reply;
     try {
-      reply = payload.repeatSourceId
+      reply = payload.dayException || payload.dayContext
+        ? await globalThis.providerDayRuntime.book(payload.dayException||payload.dayContext,attempt.requestId,params,payload.durationMinutes,Number(ownServices.find(s=>s.id===payload.service)?.price_rub),Boolean(payload.dayException))
+        : payload.repeatSourceId
         ? await db.rpc('provider_repeat_appointment_v164', {
           p_request_id:attempt.requestId,
           p_source_booking:payload.repeatSourceId,
@@ -1036,7 +1040,7 @@ async function submitProviderBookingAttempt(payload) {
       reply = { data:null, error };
     }
     if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true, attempt };
-    if (!payload.repeatSourceId && isMissingProviderBookingRequestRpc(reply?.error)) {
+    if (!payload.dayException && !payload.dayContext && !payload.repeatSourceId && isMissingProviderBookingRequestRpc(reply?.error)) {
       // The legacy function has no request identity. Persist the one-shot latch
       // before the call so a lost response or tab crash can never auto-repeat it.
       attempt = { ...attempt, legacyFallback:true, legacyUncertain:true };
@@ -1836,6 +1840,7 @@ function renderBookingData() {
     const startedAt = performance.now();
     providerBookingRenderFrame = 0;
     providerBookingRenderRevision += 1;
+    void globalThis.providerDayRuntime?.load();
     updateBookingStats();
     renderDayFocus();
     const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
@@ -7926,9 +7931,7 @@ function timeFromMinutes(value) {
 }
 
 function timelineBounds(items) {
-  const date = new Date(`${selectedDate}T12:00:00`);
-  const weekday = ((date.getDay() + 6) % 7) + 1;
-  const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
+  const schedule = scheduleStateForDate(selectedDate).weekly;
   let start = schedule?.enabled === false ? 10 * 60 : minutesFromTime(schedule?.start_time || '10:00');
   let end = schedule?.enabled === false ? 20 * 60 : minutesFromTime(schedule?.end_time || '20:00');
   items.forEach(item => {
@@ -7942,10 +7945,7 @@ function timelineBounds(items) {
 }
 
 function scheduleStepForDate(dateIso) {
-  const date = parseLocalIsoDate(dateIso);
-  if (!date) return 5;
-  const weekday = ((date.getDay() + 6) % 7) + 1;
-  const row = scheduleRows.find(item => Number(item.weekday) === weekday);
+  const row = scheduleStateForDate(dateIso).weekly;
   const step = Number(row?.slot_interval_minutes || 5);
   return Number.isInteger(step) && step >= 5 && step <= 60 ? step : 5;
 }
@@ -8092,8 +8092,7 @@ function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, 
   if (!date) return 'Не удалось определить выбранную дату';
   if (startMinute < 0 || endMinute > 1440) return 'Запись должна завершиться в выбранную дату';
   if (!ignoreSchedule) {
-    const weekday = ((date.getDay() + 6) % 7) + 1;
-    const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
+    const schedule = scheduleStateForDate(dateIso).weekly;
     if (schedule?.enabled === false) return 'В этот день в расписании стоит выходной';
     const scheduleStart = minutesFromTime(schedule?.start_time || '10:00');
     const scheduleEnd = minutesFromTime(schedule?.end_time || '20:00');
@@ -8103,7 +8102,7 @@ function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, 
       const breakEnd = minutesFromTime(schedule.break_end);
       if (startMinute < breakEnd && endMinute > breakStart) return 'Это время пересекается с перерывом в расписании';
     }
-    const dayOff = daysOff.find(entry => {
+    const dayOff = (globalThis.providerDayRuntime?.closures(dateIso,daysOff)||daysOff).find(entry => {
       if (entry.off_date !== dateIso) return false;
       if (entry.all_day) return true;
       const offStart = minutesFromTime(entry.start_time);
@@ -9055,7 +9054,8 @@ function renderTimeline(sourceItems) {
   const closedLabel = scheduleEmptyDayLabel(selectedDate, '');
   if (closedLabel && !items.length) {
     holder.className = 'provider-bookings timeline-view';
-    holder.innerHTML = `<div class="provider-empty schedule-empty"><strong>${escapeHtml(closedLabel)}</strong><small>Запись на этот день закрыта.</small></div>`;
+    holder.innerHTML = globalThis.providerDayRuntime?.markup(selectedDate,closedLabel) || `<div class="provider-empty schedule-empty"><strong>${escapeHtml(closedLabel)}</strong><small>Запись на этот день закрыта.</small></div>`;
+    globalThis.providerDayRuntime?.attach(holder);
     return;
   }
   const mobileTimeline = window.matchMedia('(max-width: 760px)').matches;
@@ -11000,7 +11000,10 @@ async function loadNewBookingSlots() {
     && newBookingMode === mode
     && newBookingDurationMinutes() === duration;
   let data, error;
-  if (newBookingMode === 'block') {
+  let dayException;
+  try{dayException=globalThis.providerDayRuntime?.exception($('#newBookingForm'));}catch{holder.textContent='Откройте день заново.';return;}
+  if(dayException){({data,error}=await globalThis.providerDayRuntime.slots(newBookingMode==='block'?{}:{p_service:service},$('#newBookingForm'),duration));}
+  else if (newBookingMode === 'block') {
     const context = activeProviderBlockContext($('#newBookingLocation')?.value || '');
     if (!context.organizationId || !context.locationId) {
       holder.innerHTML = '<div class="booking-time-warning">Не найден активный филиал. Настройте его в разделе «Организация».</div>';
@@ -11039,7 +11042,7 @@ async function loadNewBookingSlots() {
     : newBookingGridSlots(serverTimes)).filter(time => !bookingMoveTimeIsPast(date, time) && !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration },
     date,
     minutesFromTime(time),
-    { respectAutomaticBreakReleases:true }
+    { respectAutomaticBreakReleases:true,ignoreSchedule:Boolean(dayException) }
   ));
   if (!newBookingSlots.length) {
     renderNewBookingOutsideSchedulePrompt({ preferredTime });
@@ -11233,8 +11236,8 @@ function updateNewBookingConnectivity() {
     if (newBookingMode === 'block') setNewBookingMode('client');
     if (occurrences) occurrences.value = '1';
   }
-  if (occurrences) occurrences.disabled = offline || historical;
-  if (interval) interval.disabled = offline || historical;
+  if (occurrences) occurrences.disabled = offline || historical || Boolean($('#newBookingForm').dataset.dayException);
+  if (interval) interval.disabled = offline || historical || Boolean($('#newBookingForm').dataset.dayException);
   const recurrence = $('#newBookingRecurrence');
   if (recurrence) {
     recurrence.hidden = newBookingMode === 'block' || historical;
@@ -11712,7 +11715,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#bookingSheet').dataset.assistantContext = 'new-booking';
   const services = ownServices.filter(item => item.active);
   newBookingRepeatVisit = normalizeRepeatVisitPreview(preset.repeatVisit);
-  const draft = preset.clientName ? null : readNewBookingDraft();
+  const draft = preset.clientName || preset.dayException ? null : readNewBookingDraft();
   const blockContext = activeProviderBlockContext(draft?.locationId || '');
   const selectedService = services.find(item => item.id === (preset.serviceId || draft?.serviceId)) || services[0];
   const defaultDate = /^\d{4}-\d{2}-\d{2}$/.test(String(selectedDate || '')) ? selectedDate : businessTodayIso();
@@ -11890,6 +11893,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
     const button = event.target.closest('[data-new-booking-client]');
     if (button) selectNewBookingClient(button.dataset.newBookingClient);
   });
+  globalThis.providerDayRuntime?.prepare($('#newBookingForm'),preset.dayException);
   setNewBookingMode(newBookingMode);
   updateNewBookingDurationControl();
   updateNewBookingConnectivity();
@@ -12029,6 +12033,9 @@ async function createNewBooking(event) {
   if (!requireBookingWrites()) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
+  let dayException;
+  try{dayException=globalThis.providerDayRuntime?.exception(submittedForm);}catch{showFormError('#newBookingError','Контекст изменился. Откройте день заново.');return;}
+  if(dayException&&bookingDeferredMode()){showFormError('#newBookingError','Для разовой записи в выходной нужен интернет.');return;}
   const repeatVisit = newBookingRepeatVisit;
   const block = newBookingMode === 'block';
   const name = block ? ($('#newBookingBlockTitle').value.trim() || 'Перерыв') : $('#newBookingName').value.trim();
@@ -12037,6 +12044,7 @@ async function createNewBooking(event) {
   const serviceModel = ownServices.find(item => item.id === service && item.active);
   const durationMinutes = newBookingDurationMinutes();
   const date = $('#newBookingDate').value;
+  const dayContext=!repeatVisit&&globalThis.providerDayRuntime?.bookingContext({service,date});
   const color = $('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT;
   const rememberBreakColor = block && $('#newBookingFutureBreakColor')?.checked;
   const occurrenceCount = block ? 1 : Math.max(1, Number($('#newBookingOccurrences')?.value || 1));
@@ -12385,7 +12393,7 @@ async function createNewBooking(event) {
       return;
     }
     submittedForm.dataset.blockRequestPayload = payload;
-    ({ data:bookingRpcResult, error } = await db.rpc('create_provider_block_v141', {
+    ({ data:bookingRpcResult, error } = await db.rpc(dayException?'block_minuta_day_exception_v192':'create_provider_block_v141',{
       p_organization:context.organizationId,
       p_location:context.locationId,
       p_date:date,
@@ -12410,7 +12418,7 @@ async function createNewBooking(event) {
   } else {
     const write = await submitProviderBookingAttempt({
       surface:repeatVisit ? 'repeat-booking' : 'new-booking', service, date, time:newBookingTime, name, phone,
-      durationMinutes, note, color,
+      durationMinutes, note, color, dayException, dayContext,
       repeatSourceId:repeatVisit?.source_booking_id || '',
       repeatSourceSignature:repeatVisit?.source_signature || '',
       repeatTotalPrice,
@@ -12512,7 +12520,7 @@ async function createNewBooking(event) {
       return;
     }
   }
-  if (!block && !repeatVisit && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
+  if (!block && !repeatVisit && !dayException && !dayContext && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
     const adjusted = await applyPerMinuteBookingTerms([createdBooking.id], serviceModel, durationMinutes);
     if (!adjusted.ok) {
       const rollback = await rollbackCreatedBookings([createdBooking.id]);
@@ -14566,6 +14574,7 @@ function scheduleSynchronizationRetry() {
 
 async function refreshAfterWrite() {
   if (synchronizationPromise) await synchronizationPromise;
+  globalThis.providerDayRuntime?.invalidate();
   return synchronizeProvider();
 }
 
@@ -15502,7 +15511,8 @@ function scheduleStateForDate(dateIso) {
   const weekly = (scheduleDirty ? scheduleRowsFromForm() : scheduleRows).find(row => Number(row.weekday) === weekday);
   const fullDayOff = daysOff.find(item => item.off_date === dateIso && item.all_day);
   const partialDayOff = daysOff.some(item => item.off_date === dateIso && !item.all_day);
-  return { weekly, fullDayOff, partialDayOff, working:Boolean(weekly?.enabled) && !fullDayOff };
+  const base={weekly,fullDayOff,partialDayOff,working:Boolean(weekly?.enabled)&&!fullDayOff};
+  return globalThis.providerDayRuntime?.state(dateIso,base)||base;
 }
 function scheduleEmptyDayLabel(dateIso, fallback) {
   const state = scheduleStateForDate(dateIso);
@@ -18121,6 +18131,11 @@ const organizationController = window.MinutaOrganization.createController({
   }
 });
 organizationController.bind();
+globalThis.providerDayRuntime=window.PrimeTimeProviderDayRuntime?.create({db,storage:localStorage,
+ read:()=>({userId:currentUser?.id,...activeProviderBlockContext(),date:selectedDate,sessionGeneration,write:writesAllowed&&!bookingDeferredMode()&&!bookingUsesDemoData()&&!teamCalendarController?.isTeamMode}),services:()=>ownServices,bookings:()=>allBookings,
+ today:businessTodayIso,render:renderBookingData,refresh:refreshAfterWrite,
+ openBooking:(c,block)=>openNewBookingSheet('',{date:c.date,mode:block?'block':'client',dayException:c})
+});
 window.MinutaClientMessaging?.configure({
   db,
   getOrganization:() => organizationController.getActiveOrganization(),

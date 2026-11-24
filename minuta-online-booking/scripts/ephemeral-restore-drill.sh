@@ -153,8 +153,11 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   test -f "${MINUTA_RESTORE_MIGRATION_SQL:?}"
   test -f "${MINUTA_RESTORE_ROLLBACK_SQL:?}"
   candidate_version="${MINUTA_RESTORE_CANDIDATE_VERSION:-v177}"
-  case "$candidate_version" in v177|v180|v181|v184) ;; *) exit 1 ;; esac
-  if [[ "$candidate_version" == v184 ]]; then
+  case "$candidate_version" in v177|v180|v181|v184|v192) ;; *) exit 1 ;; esac
+  if [[ "$candidate_version" == v192 ]]; then
+    stage=candidate-v192-guarded-rehearsal
+    bash "$script_dir/day-actions-v192-restore.sh" "$container" "$private_log" "$result"
+  elif [[ "$candidate_version" == v184 ]]; then
     stage=candidate-v184-guarded-rehearsal
     bash "$script_dir/booking-delete-v184-restore.sh" "$container" "$private_log" "$result"
   else

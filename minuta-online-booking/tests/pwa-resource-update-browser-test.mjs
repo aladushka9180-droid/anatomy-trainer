@@ -142,7 +142,7 @@ function providerStatusThemeRequests(release) {
   const html = release.files.get('provider.html').toString('utf8');
   const refs = [...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="([^"]+)"/g)].map(match => match[1]);
   const requests = {};
-  for (const file of ['client-profile-card.js', 'provider-status-theme.css']) {
+  for (const file of ['client-profile-card.js', 'provider-status-theme.css', 'provider-day-actions.js', 'provider-day-runtime.js', 'provider-day-actions.css']) {
     const matches = refs.filter(ref => ref.replace(/^\.\//, '').split('?')[0] === file);
     assert.equal(matches.length, 1, 'Exactly one actual presentation consumer for ' + file);
     const request = matches[0].replace(/^\.\//, '');
@@ -368,7 +368,7 @@ try {
     throw new Error('Provider optional assets were not warmed by the service worker');
   }, { cacheName:newRelease.cache, assets:providerOptionalAssets });
   assert.deepEqual(await cacheHashes(newRelease, organizationModules, organizationRequests), expectedHashes(newRelease, organizationModules),
-    'Real provider eleven JS and three inherited CSS request keys must already exist exactly in the current warmed cache');
+    'Real provider modules and stylesheets request keys must already exist exactly in the current warmed cache');
 
   forceServerOffline = true;
   await context.setOffline(true);
@@ -424,7 +424,7 @@ try {
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(serverErrors, []);
   forceServerOffline = false;
-  console.log('PASS: real provider eleven JS and three inherited CSS URLs have exact warm-cache and offline SHA-256 hits');
+  console.log('PASS: real provider modules and stylesheets URLs have exact warm-cache and offline SHA-256 hits');
   console.log('PASS: offline new resources match checkout SHA-256 and are served by the actual service worker');
   console.log('Isolated real-SW resource update: 4/4 passed; installed-PWA and production E2E not exercised');
   } else {
