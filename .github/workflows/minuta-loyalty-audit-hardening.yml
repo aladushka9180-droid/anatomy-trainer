@@ -1,0 +1,43 @@
+name: Minuta loyalty audit hardening
+on:
+  pull_request:
+    paths:
+      - 'minuta-online-booking/loyalty-program-v166.js'
+      - 'minuta-online-booking/tests/loyalty-audit-hardening-*.mjs'
+      - 'minuta-online-booking/recovery/loyalty-audit/**'
+      - 'supabase/migrations/*_loyalty_audit_hardening.sql'
+      - '.github/workflows/minuta-loyalty-audit-hardening.yml'
+  push:
+    paths:
+      - 'minuta-online-booking/loyalty-program-v166.js'
+      - 'minuta-online-booking/tests/loyalty-audit-hardening-*.mjs'
+      - 'minuta-online-booking/recovery/loyalty-audit/**'
+      - 'supabase/migrations/*_loyalty_audit_hardening.sql'
+      - '.github/workflows/minuta-loyalty-audit-hardening.yml'
+permissions:
+  contents: read
+jobs:
+  loyalty-hardening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install isolated test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/loyalty-deps" --no-save --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.5.8 playwright@1.58.2
+          node "$RUNNER_TEMP/loyalty-deps/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "MINUTA_PGLITE_MODULE=$RUNNER_TEMP/loyalty-deps/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
+          echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/loyalty-deps/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Existing static contracts
+        run: |
+          node minuta-online-booking/loyalty-program-v166-static-test.mjs
+          node minuta-online-booking/client-url-redirect-test.mjs
+      - name: Synthetic SQL, ACL and rollback proof
+        run: node minuta-online-booking/tests/loyalty-audit-hardening-pglite-test.mjs
+      - name: Browser regression and rendering measurements
+        run: node minuta-online-booking/tests/loyalty-audit-hardening-browser-test.mjs
+      - name: Existing loyalty browser regression
+        run: node minuta-online-booking/tests/loyalty-program-v166-browser-test.mjs
