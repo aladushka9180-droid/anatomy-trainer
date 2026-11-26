@@ -34,6 +34,7 @@ on:
           - v181
           - v184
           - v192
+          - v193
       candidate_sha:
         description: Exact reviewed commit containing candidate SQL
         required: false
@@ -289,7 +290,7 @@ jobs:
           node-version: 22
 
       - name: Проверить точный SHA кандидата
-        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181' || inputs.candidate_version == 'v184' || inputs.candidate_version == 'v192'
+        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181' || inputs.candidate_version == 'v184' || inputs.candidate_version == 'v192' || inputs.candidate_version == 'v193'
         shell: bash
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
@@ -299,7 +300,7 @@ jobs:
           set -euo pipefail
           [[ "$CANDIDATE_SHA" =~ ^[a-f0-9]{40}$ ]]
           [[ "$MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
-          if test "$CANDIDATE_VERSION" = v192; then
+          if test "$CANDIDATE_VERSION" = v192 || test "$CANDIDATE_VERSION" = v193; then
             test "$CANDIDATE_SHA" = "$MAIN_SHA"
             test "$GITHUB_SHA" = "$MAIN_SHA"
           fi
@@ -310,7 +311,7 @@ jobs:
           fi
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181' || inputs.candidate_version == 'v184' || inputs.candidate_version == 'v192'
+        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181' || inputs.candidate_version == 'v184' || inputs.candidate_version == 'v192' || inputs.candidate_version == 'v193'
         with:
           ref: ${{ inputs.candidate_sha }}
           path: candidate-sql
@@ -324,10 +325,12 @@ jobs:
             minuta-online-booking/supabase-migration-v184-rollback.sql
             minuta-online-booking/supabase-migration-v192.sql
             minuta-online-booking/supabase-migration-v192-rollback.sql
+            minuta-online-booking/supabase-migration-v193.sql
+            minuta-online-booking/supabase-migration-v193-rollback.sql
           sparse-checkout-cone-mode: false
 
       - name: Сверить файлы SQL с указанным SHA
-        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181' || inputs.candidate_version == 'v184' || inputs.candidate_version == 'v192'
+        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181' || inputs.candidate_version == 'v184' || inputs.candidate_version == 'v192' || inputs.candidate_version == 'v193'
         shell: bash
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
@@ -337,10 +340,10 @@ jobs:
           test "$(git -C candidate-sql rev-parse HEAD)" = "$CANDIDATE_SHA"
           test -s "candidate-sql/minuta-online-booking/supabase-migration-$CANDIDATE_VERSION.sql"
           test -s "candidate-sql/minuta-online-booking/supabase-migration-$CANDIDATE_VERSION-rollback.sql"
-          if test "$CANDIDATE_VERSION" = v192; then
+          if test "$CANDIDATE_VERSION" = v192 || test "$CANDIDATE_VERSION" = v193; then
             test "$CANDIDATE_SHA" = "$GITHUB_SHA"
-            cmp candidate-sql/minuta-online-booking/supabase-migration-v192.sql minuta-online-booking/supabase-migration-v192.sql
-            cmp candidate-sql/minuta-online-booking/supabase-migration-v192-rollback.sql minuta-online-booking/supabase-migration-v192-rollback.sql
+            cmp "candidate-sql/minuta-online-booking/supabase-migration-$CANDIDATE_VERSION.sql" "minuta-online-booking/supabase-migration-$CANDIDATE_VERSION.sql"
+            cmp "candidate-sql/minuta-online-booking/supabase-migration-$CANDIDATE_VERSION-rollback.sql" "minuta-online-booking/supabase-migration-$CANDIDATE_VERSION-rollback.sql"
           fi
           if test "$CANDIDATE_VERSION" = v184; then
             cmp candidate-sql/minuta-online-booking/supabase-migration-v184.sql minuta-online-booking/supabase-migration-v184.sql
@@ -380,7 +383,7 @@ jobs:
           age="$(( $(date -u +%s) - $(date -u -d "$created_at" +%s) ))"
           test "$age" -ge 0
           test "$age" -le 86400
-          if test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192; then
+          if test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192 || test "$CANDIDATE_VERSION" = v193; then
             [[ "$REQUESTED_BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
             [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
             test "$age" -le 7200
@@ -415,7 +418,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Подтвердить основу кандидата SQL
-        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181' || inputs.candidate_version == 'v184' || inputs.candidate_version == 'v192'
+        if: inputs.candidate_version == 'v180' || inputs.candidate_version == 'v181' || inputs.candidate_version == 'v184' || inputs.candidate_version == 'v192' || inputs.candidate_version == 'v193'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -483,8 +486,8 @@ jobs:
         env:
           MINUTA_RESTORE_SOURCE_DUMP: ${{ runner.temp }}/minuta-restore-source.dump
           MINUTA_RESTORE_CANDIDATE_VERSION: ${{ inputs.candidate_version }}
-          MINUTA_RESTORE_MIGRATION_SQL: ${{ inputs.candidate_version == 'v180' && 'candidate-sql/minuta-online-booking/supabase-migration-v180.sql' || inputs.candidate_version == 'v181' && 'candidate-sql/minuta-online-booking/supabase-migration-v181.sql' || inputs.candidate_version == 'v184' && 'candidate-sql/minuta-online-booking/supabase-migration-v184.sql' || inputs.candidate_version == 'v192' && 'candidate-sql/minuta-online-booking/supabase-migration-v192.sql' || '' }}
-          MINUTA_RESTORE_ROLLBACK_SQL: ${{ inputs.candidate_version == 'v180' && 'candidate-sql/minuta-online-booking/supabase-migration-v180-rollback.sql' || inputs.candidate_version == 'v181' && 'candidate-sql/minuta-online-booking/supabase-migration-v181-rollback.sql' || inputs.candidate_version == 'v184' && 'candidate-sql/minuta-online-booking/supabase-migration-v184-rollback.sql' || inputs.candidate_version == 'v192' && 'candidate-sql/minuta-online-booking/supabase-migration-v192-rollback.sql' || '' }}
+          MINUTA_RESTORE_MIGRATION_SQL: ${{ inputs.candidate_version == 'v180' && 'candidate-sql/minuta-online-booking/supabase-migration-v180.sql' || inputs.candidate_version == 'v181' && 'candidate-sql/minuta-online-booking/supabase-migration-v181.sql' || inputs.candidate_version == 'v184' && 'candidate-sql/minuta-online-booking/supabase-migration-v184.sql' || inputs.candidate_version == 'v192' && 'candidate-sql/minuta-online-booking/supabase-migration-v192.sql' || inputs.candidate_version == 'v193' && 'candidate-sql/minuta-online-booking/supabase-migration-v193.sql' || '' }}
+          MINUTA_RESTORE_ROLLBACK_SQL: ${{ inputs.candidate_version == 'v180' && 'candidate-sql/minuta-online-booking/supabase-migration-v180-rollback.sql' || inputs.candidate_version == 'v181' && 'candidate-sql/minuta-online-booking/supabase-migration-v181-rollback.sql' || inputs.candidate_version == 'v184' && 'candidate-sql/minuta-online-booking/supabase-migration-v184-rollback.sql' || inputs.candidate_version == 'v192' && 'candidate-sql/minuta-online-booking/supabase-migration-v192-rollback.sql' || inputs.candidate_version == 'v193' && 'candidate-sql/minuta-online-booking/supabase-migration-v193-rollback.sql' || '' }}
         run: bash minuta-online-booking/scripts/ephemeral-restore-drill.sh
 
       - name: Записать проверяемый результат без персональных данных
@@ -499,7 +502,7 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: |
           set -euo pipefail
-          if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181 || test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192; then
+          if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181 || test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192 || test "$CANDIDATE_VERSION" = v193; then
             jq -e '.candidateMigrationApplied and .candidateRollbackVerified and (.candidateReapplied or .candidateFreshApplyVerified)' \
               "$RUNNER_TEMP/minuta-ephemeral-restore.json" >/dev/null
           fi
@@ -508,7 +511,7 @@ jobs:
             '. + {sourceBackupRunId:$run, sourceBackupSha:$sha, sourceBackupCreatedAt:$created, workflowRunId:env.GITHUB_RUN_ID, candidateVersion:$candidateVersion, candidateSha:$candidateSha}' \
             "$RUNNER_TEMP/minuta-ephemeral-restore.json" > "$RUNNER_TEMP/minuta-ephemeral-restore.final.json"
           mv "$RUNNER_TEMP/minuta-ephemeral-restore.final.json" "$RUNNER_TEMP/minuta-ephemeral-restore.json"
-          if test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192; then
+          if test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192 || test "$CANDIDATE_VERSION" = v193; then
             [[ "$ENCRYPTED_SHA256" =~ ^[a-f0-9]{64}$ ]]
             jq --arg digest "$ENCRYPTED_SHA256" '. + {sourceEncryptedArchiveVerified:true,sourceEncryptedSha256:$digest}' \
               "$RUNNER_TEMP/minuta-ephemeral-restore.json" > "$RUNNER_TEMP/minuta-ephemeral-restore.final.json"
@@ -522,7 +525,7 @@ jobs:
             echo '- Контейнер: PostgreSQL 17, сеть отключена, после проверки удалён'
             echo '- Восстановлены только public schema/data; Auth и Storage не восстанавливались'
             echo '- Production и testDB: без записи'
-            if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181 || test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192; then
+            if test "$CANDIDATE_VERSION" = v180 || test "$CANDIDATE_VERSION" = v181 || test "$CANDIDATE_VERSION" = v184 || test "$CANDIDATE_VERSION" = v192 || test "$CANDIDATE_VERSION" = v193; then
               echo "- $CANDIDATE_VERSION apply/rollback/final apply: PASS, SHA \`$CANDIDATE_SHA\`"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
