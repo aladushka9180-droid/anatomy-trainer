@@ -49,6 +49,8 @@ try {
     }
     await open();
     await page.getByText('Подключено к Eldion',{exact:true}).waitFor();
+    assert.equal(await page.locator('#clientAppearanceForm, #openBookingWidgets, #applyClientAppearance').count(), 0, 'Legacy appearance editor and actions are retired');
+    assert.equal(await page.locator('#clientAppearanceSettingsCard').getAttribute('data-legacy-client-editor'), 'retired');
     assert.equal(await page.locator('#eldionConnectButton').isVisible(), false);
     assert.equal(await page.getByRole('link',{name:'Открыть свой профиль'}).getAttribute('href'), `${client}/r/synthetic`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth), false);

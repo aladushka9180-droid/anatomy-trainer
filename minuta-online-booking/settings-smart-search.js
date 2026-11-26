@@ -627,6 +627,10 @@
     }
 
     function registryRecord(definition) {
+      if (document.querySelector('#clientAppearanceSettingsCard')?.dataset.legacyClientEditor === 'retired') {
+        if (definition.id === 'action-booking-links') return null;
+        if (definition.id === 'action-online-page') definition = {...definition, label:'Профиль в Eldion', description:'Актуальная страница для клиентов в Eldion', focus:'#eldionConnectionTitle, #eldionConnection', keywords:'eldion элдион профиль клиентская страница страница клиента онлайн запись'};
+      }
       const sectionCopy = definition.kind === 'section' ? currentSectionCopy(definition.view) : null;
       const element = definition.target
         ? firstAvailableElement(definition.target, { visible:Boolean(definition.requiresVisible) })

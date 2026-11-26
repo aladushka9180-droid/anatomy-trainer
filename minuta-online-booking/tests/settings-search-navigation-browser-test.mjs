@@ -320,6 +320,14 @@ try {
   assert.doesNotMatch(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Ссылки и виджет/, 'Недоступная публичная ссылка не должна показываться рабочим действием');
   assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Страница для клиентов/);
 
+  await page.locator('#clientAppearanceSettingsCard').evaluate(card => {
+    card.dataset.legacyClientEditor = 'retired';
+    card.innerHTML = '<h3 id="eldionConnectionTitle">Профиль в Eldion</h3>';
+  });
+  await search.fill('профиль в Eldion');
+  assert.match(await page.locator('#cabinetSectionsSearchResults').innerText(), /Профиль в Eldion/);
+  assert.doesNotMatch(await page.locator('#cabinetSectionsSearchResults').innerText(), /Ссылки и виджет|Оформление публичной страницы записи/);
+
   await search.fill('посмотреть доход');
   assert.match(await page.locator('#cabinetSectionsSearchResults').innerText(), /Статистика/);
   await page.locator('#cabinetSectionsSearchResults button', { hasText:'Деньги' }).click();
