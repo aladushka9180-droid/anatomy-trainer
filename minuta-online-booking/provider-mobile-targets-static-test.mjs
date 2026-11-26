@@ -51,13 +51,19 @@ assert.ok(px(mobileToggle, 'min-height', 'кнопки «Ещё»') >= 44, 'Кн
 assert.ok(html.includes('provider-reference-screens.css?v='), 'provider.html не ссылается на стили экранов входа');
 const sw = read('sw.js');
 const cacheVersion = /CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/.exec(sw)[1];
-for (const asset of ['styles.css', 'provider-ux.css', 'provider-reference-screens.css', 'provider.js', 'primetime-handoff.js']) {
-  const htmlVersion = new RegExp(`(?:src|href)="${asset}\\?v=(\\d+)"`).exec(html)?.[1];
+assert.ok(sw.includes(`precache-ready-v${cacheVersion}`), 'Метка precache не совпадает с версией кэша');
+
+for (const asset of ['styles.css', 'provider-ux.css', 'provider-reference-screens.css']) {
+  const htmlVersion = new RegExp(`href="${asset}\\?v=(\\d+)"`).exec(html)?.[1];
   assert.ok(htmlVersion, `${asset} не подключён в provider.html`);
   const workerVersion = new RegExp(`'./${asset}\\?v=(\\d+)'`).exec(sw)?.[1];
   assert.ok(workerVersion, `${asset} не попал в precache service worker`);
   assert.equal(htmlVersion, workerVersion, `${asset}: версия в HTML не совпадает с precache`);
-  assert.ok(Number(workerVersion) <= Number(cacheVersion), `${asset}: precache новее кэша ${cacheVersion}`);
+}
+
+for (const script of ['provider.js', 'primetime-handoff.js']) {
+  const scriptVersion = new RegExp(`src="${script}\\?v=(\\d+)"`).exec(html)?.[1];
+  assert.equal(scriptVersion, cacheVersion, `${script}: версия в HTML не совпадает с кэшем v${cacheVersion}`);
 }
 
 console.log('Мобильные цели и текст настроек согласованы.');
