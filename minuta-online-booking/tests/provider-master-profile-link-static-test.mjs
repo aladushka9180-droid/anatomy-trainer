@@ -10,7 +10,7 @@ const version = worker.match(/CACHE_PREFIX}v(\d+)/)?.[1];
 
 assert.ok(version, 'PWA cache version is present');
 assert.match(html, /<a class="provider-master-profile-link" href="https:\/\/primetime-booking\.primetime-booking-ru\.workers\.dev\/for-masters" target="_blank" rel="noopener noreferrer">[\s\S]*?<span>Профили мастеров<\/span><\/a>/);
-assert.match(html, /<a class="provider-client-link" href="index\.html" target="_blank" rel="noopener noreferrer">[\s\S]*?<span>Страница клиента<\/span><\/a>/);
+assert.doesNotMatch(html, /<a class="provider-client-link" href="index\.html"/, 'Legacy client-page sidebar entry is retired; Eldion profile links remain');
 assert.match(html, /<a class="mobile-master-profile-link" href="https:\/\/primetime-booking\.primetime-booking-ru\.workers\.dev\/for-masters" target="_blank" rel="noopener noreferrer">[\s\S]*?<strong>Профили мастеров<\/strong>/);
 assert.match(provider, /title:'Развитие', keys:\['analytics','portfolio'\], extras:\['\.mobile-master-profile-link'\]/);
 assert.ok(html.includes(`site-update.js?v=${version}`));

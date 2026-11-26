@@ -6591,6 +6591,7 @@ function renderClientAppearanceForm() {
   }
 }
 async function loadClientAppearanceSettings(organization = organizationController?.getActiveOrganization?.() || null) {
+  if ($('#clientAppearanceSettingsCard')?.dataset.legacyClientEditor === 'retired') return;
   const loadRevision = ++clientPageSettingsLoadRevision;
   clientPageSettingsServerSupportsPorcelain = false;
   clientPageSettingsOrganizationId = organization?.id || '';
@@ -6605,7 +6606,7 @@ async function loadClientAppearanceSettings(organization = organizationControlle
   let { data, error } = await db.rpc('get_minuta_client_page_settings_v177', { p_organization:organization.id });
   const supportsPorcelain = !isMissingRpc(error,'get_minuta_client_page_settings_v177');
   if (!supportsPorcelain) ({ data, error } = await db.rpc('get_minuta_client_page_settings_v118', { p_organization:organization.id }));
-  if (loadRevision !== clientPageSettingsLoadRevision || !sessionIsCurrent(userId,generation) || organizationController.getActiveOrganization()?.id !== organization.id) return;
+  if ($('#clientAppearanceSettingsCard')?.dataset.legacyClientEditor === 'retired' || loadRevision !== clientPageSettingsLoadRevision || !sessionIsCurrent(userId,generation) || organizationController.getActiveOrganization()?.id !== organization.id) return;
   clientPageSettingsServerSupportsPorcelain = supportsPorcelain && !error;
   if (local && local.sync_status !== 'confirmed') {
     if (organization.current_role === 'owner') void enqueueClientAppearanceServerSave(organization, local, { silent:true });

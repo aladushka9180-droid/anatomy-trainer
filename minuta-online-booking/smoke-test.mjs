@@ -706,7 +706,7 @@ assert.match(provider, /filters\.hidden = Boolean\(teamCalendarController\?\.isT
 assert.match(provider, /function providerViewFromLocation[\s\S]*searchParams\.set\('section', view\)[\s\S]*addEventListener\('popstate'/, 'Открытый раздел не восстанавливается через URL и кнопку «Назад»');
 assert.match(providerHtml, /class="provider-section-nav" aria-label="Разделы организации"/, 'В разделе организации нет внутренней навигации');
 assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по настройкам"/, 'В длинном разделе настроек нет внутренней навигации');
-assert.equal((providerHtml.match(/class="[^"]*provider-client-link[^"]*"/g) || []).length, 2, 'Ссылки на страницу клиента не объединены общей логикой');
+assert.equal((providerHtml.match(/class="[^"]*provider-client-link[^"]*"/g) || []).length, 1, 'Старая ссылка не должна возвращаться в боковое меню; оставшийся editor удаляется handoff-модулем');
 assert.match(providerHtml, /provider-client-link[^>]*target="_blank"[^>]*rel="noopener noreferrer"/, 'Страница клиента не открывается безопасно в новой вкладке');
 assert.match(providerHtml, /id="openPrimeTime"[^>]*aria-label="Управлять профилем в Eldion"/, 'В дополнительных инструментах нет управления профилем Eldion');
 assert.match(provider, /function buildProviderClientUrl[\s\S]*public_booking_enabled[\s\S]*searchParams\.set\('org', organization\.public_slug\)/, 'Ссылка на страницу клиента не учитывает выбранную организацию');
