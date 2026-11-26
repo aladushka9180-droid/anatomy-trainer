@@ -24,10 +24,10 @@ background:rgba(255,255,255,.96)
 .provider-body .auth-card>.auth-footer-actions{ order:5; margin-top:22px; padding-top:17px; border-top:1px solid #dce0e2}
 .provider-body .auth-card .auth-form>label{ display:block; margin-top:14px; color:#171a20; font-size:13px; font-weight:600}
 .provider-body .auth-card .auth-input-wrap{ position:relative; display:block; margin-top:7px}
-.provider-body .auth-card .auth-input-wrap input{ width:100%; min-height:48px; margin:0; padding:0 45px; border:1px solid #cbd1d5; border-radius:12px; background:transparent; color:#17202b; font-size:14px}
+.provider-body .auth-card .auth-input-wrap input{ width:100%; min-height:48px; margin:0; padding:0 47px; border:1px solid #cbd1d5; border-radius:12px; background:transparent; color:#17202b; font-size:14px}
 .provider-body .auth-card .auth-input-symbol{ position:absolute; z-index:1; top:13px; left:14px; display:grid; place-items:center; width:20px; height:20px; color:#536071; font-size:19px}
 .provider-body .auth-card .auth-input-symbol.ui-icon{ padding:0}
-.provider-body .auth-card .auth-password-visibility{ position:absolute; top:4px; right:4px; width:40px; height:40px; padding:0; border:0; background:transparent; color:#536071; font-size:18px}
+.provider-body .auth-card .auth-password-visibility{ position:absolute; top:2px; right:2px; width:44px; height:44px; padding:0; border:0; background:transparent; color:#536071; font-size:18px}
 .provider-body .auth-card .auth-password-visibility .ui-icon{ width:20px; height:20px}
 .provider-body .auth-card .auth-password-hint{ display:block; margin-top:5px; color:#5d6675; font-size:12px}
 .provider-body .auth-card .auth-form .primary{ min-height:51px; margin-top:23px; border-radius:11px; background:#19bd68; color:#fff; font-size:17px}
