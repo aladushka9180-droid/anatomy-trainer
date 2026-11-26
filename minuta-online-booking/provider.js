@@ -16633,7 +16633,7 @@ async function toggleServiceVisibility(button) {
 function refreshSettingsQuickStart() {
   const quickStart = $('#settingsQuickStart');
   if (!quickStart) return;
-  quickStart.hidden = ownServices.some(item => item.active) && scheduleRows.some(item => item.enabled);
+  quickStart.hidden = false;
 }
 
 async function loadOwnServices(options = {}) {
