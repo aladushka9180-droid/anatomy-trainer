@@ -27,7 +27,9 @@ const toggle = rule(referenceCss, '.auth-password-visibility{', 'кнопки п
 assert.ok(px(toggle, 'width', 'кнопки показа пароля') >= 44, 'Кнопка показа пароля уже 44 px');
 assert.ok(px(toggle, 'height', 'кнопки показа пароля') >= 44, 'Кнопка показа пароля ниже 44 px');
 const inputRule = rule(referenceCss, '.auth-input-wrap input{', 'поля пароля');
-assert.ok(px(inputRule, 'padding', 'поля пароля') >= 46, 'Поле пароля не оставляет место под цель 44 px');
+const inputPadding = /padding:0 (\d+(?:\.\d+)?)px/.exec(inputRule);
+assert.ok(inputPadding, 'Поля пароля не имеют бокового отступа вида padding:0 Npx');
+assert.ok(Number(inputPadding[1]) >= 46, 'Поле пароля не оставляет место под цель 44 px');
 
 const preview = rule(styles, '.settings-help-link,.settings-client-preview-link {', 'ссылей предпросмотра');
 assert.ok(preview.includes('font-size:12px'), 'Шрифт ссылки предпросмотра меньше 12 px');
