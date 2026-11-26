@@ -16,7 +16,7 @@
   const units = { piece:'шт.', ml:'мл', g:'г', kg:'кг', l:'л', pack:'упак.' };
   const format = value => new Intl.NumberFormat('ru-RU', { maximumFractionDigits:3 }).format(Number(value || 0));
   const $ = selector => document.querySelector(selector);
-  let panel, settings, settingsStatus, warehouses, warehouseStatus, lastOrganization = null;
+  let panel, settings, settingsStatus, warehouses, warehouseStatus, lastOrganization = null, metadataSupported = false;
   const editors = new Map();
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -25,6 +25,7 @@
     return node;
   }
   function iconName(item = {}) {
+    if (['box','bottle','oil','glove','roll','spray'].includes(item.icon_key)) return item.icon_key;
     const name = String(item.name || '').toLocaleLowerCase('ru-RU');
     if (/перчат|glove/.test(name)) return 'glove';
     if (/простын|салфет|рулон|полотен|towel|roll/.test(name)) return 'roll';
@@ -64,8 +65,9 @@
   function updatePreview() {
     const preview = $('#inventoryIconPreview');
     if (!preview) return;
-    const name = iconName({ name:$('#inventoryItemName').value });
-    preview.replaceChildren(icon(name, 'is-item-icon'), element('span', '', 'Иконка подбирается по названию'));
+    const selected = $('#inventoryItemIcon')?.value || '';
+    const name = iconName({ name:$('#inventoryItemName').value, icon_key:selected });
+    preview.replaceChildren(icon(name, 'is-item-icon'), element('span', '', selected ? 'Выбранная иконка' : 'Иконка подбирается по названию'));
   }
   function updateReadRecovery() {
     const failed = !$('#inventoryUnavailable').hidden;
@@ -95,7 +97,8 @@
     const error = $(`#inventory${kind === 'item' ? 'Item' : 'Warehouse'}Error`);
     error.hidden = true;
     if (kind === 'item') {
-      editor.extra.open = Boolean(editing && $('#inventoryItemSku').value);
+      editor.form.dataset.itemMetadata = metadataSupported ? '193' : '';
+      editor.extra.open = Boolean(editing && ($('#inventoryItemSku').value || $('#inventoryItemCategory')?.value || $('#inventoryItemIcon')?.value));
       updatePreview();
     }
     if (!editor.dialog.open) editor.dialog.showModal();
@@ -148,6 +151,18 @@
       const summary = element('summary', '', 'Дополнительно');
       summary.append(icon('chevron'));
       editor.extra.append(summary, scan, $('#inventoryItemActive').closest('label'));
+      const metadata = element('div', 'is-item-metadata');
+      metadata.id = 'inventoryItemMetadata'; metadata.hidden = true;
+      const categoryLabel = element('label', '', 'Категория — необязательно');
+      const category = element('input'); category.id = 'inventoryItemCategory'; category.maxLength = 60; category.placeholder = 'Например, Расходные материалы';
+      categoryLabel.append(category);
+      const iconLabel = element('label', '', 'Иконка — необязательно');
+      const choice = element('select'); choice.id = 'inventoryItemIcon';
+      for (const [value,text] of [['','Автоматически'],['box','Коробка'],['bottle','Флакон'],['oil','Капля'],['glove','Перчатка'],['roll','Рулон'],['spray','Спрей']]) {
+        const option = element('option', '', text); option.value=value; choice.append(option);
+      }
+      iconLabel.append(choice); metadata.append(categoryLabel,iconLabel); editor.extra.append(metadata);
+      choice.addEventListener('change',updatePreview);
       const preview = element('div', 'is-icon-preview');
       preview.id = 'inventoryIconPreview';
       form.querySelector('.inventory-form-actions').before(preview, editor.extra);
@@ -218,6 +233,8 @@
   function sync(payload) {
     init();
     if (!panel || !payload) return;
+    metadataSupported = Number(payload.item_metadata_version) === 193;
+    $('#inventoryItemMetadata').hidden = !metadataSupported;
     if (lastOrganization !== payload.organization_id) {
       reset();
       settings.open = !payload.enabled;
@@ -242,7 +259,8 @@
       name.dataset.inventoryEditItem = item.id;
       name.setAttribute('data-inventory-write', '');
       name.setAttribute('aria-label', `Изменить позицию: ${item.name}`);
-      main.append(name, element('small', 'is-item-meta', payload.usage.some(usage => usage.inventory_item_id === item.id) ? 'Для услуг · расход по нормам' : 'Складская позиция'));
+      const description = payload.usage.some(usage => usage.inventory_item_id === item.id) ? 'Для услуг · расход по нормам' : 'Складская позиция';
+      main.append(name, element('small', 'is-item-meta', item.category ? `${item.category} · ${description}` : description));
       const stock = element('div', 'is-item-stock', `${format(total)} ${unit}`);
       stock.append(element('small', low ? 'is-low-stock' : 'is-item-meta', !item.active ? 'Скрыта' : low ? 'Ниже минимума' : `Минимум ${format(item.low_stock_threshold)} ${unit}`));
       edit.className = 'is-icon-button is-item-edit';

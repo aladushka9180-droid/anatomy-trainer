@@ -740,7 +740,23 @@
     async function submit(event) {
       if (!event.target.closest('#inventoryPanel')) return;
       if (event.target.id === 'inventoryItemForm') {
-        event.preventDefault(); const ok = await mutate('upsert_minuta_inventory_item', { p_organization:organization.id,p_item:$('#inventoryItemId').value || null,p_name:$('#inventoryItemName').value.trim(),p_sku:$('#inventoryItemSku').value.trim(),p_unit:$('#inventoryItemUnit').value,p_low_stock:Number($('#inventoryItemLow').value || 0),p_active:$('#inventoryItemActive').checked }, event.submitter, 'Складская позиция сохранена', '#inventoryItemError'); if (ok) clearItemForm(); return;
+        event.preventDefault();
+        const metadata = Number(payload?.item_metadata_version) === 193;
+        if (metadata && (!$('#inventoryItemCategory') || !$('#inventoryItemIcon'))) {
+          $('#inventoryItemError').textContent = 'Не удалось полностью загрузить форму. Обновите страницу перед сохранением.';
+          $('#inventoryItemError').hidden = false;
+          return;
+        }
+        if (!metadata && $('#inventoryItemForm')?.dataset?.itemMetadata === '193') {
+          $('#inventoryItemError').textContent = 'Категория и иконка ещё не сохранены. Повторите загрузку склада перед сохранением.';
+          $('#inventoryItemError').hidden = false;
+          return;
+        }
+        const parameters = { p_organization:organization.id,p_item:$('#inventoryItemId').value || null,p_name:$('#inventoryItemName').value.trim(),p_sku:$('#inventoryItemSku').value.trim(),p_unit:$('#inventoryItemUnit').value,p_low_stock:Number($('#inventoryItemLow').value || 0),p_active:$('#inventoryItemActive').checked };
+        if (metadata) Object.assign(parameters, { p_category:$('#inventoryItemCategory')?.value.trim() || '',p_icon_key:$('#inventoryItemIcon')?.value || '' });
+        // A failed v193 write must never fall back and silently discard metadata.
+        const ok = await mutate(metadata ? 'upsert_minuta_inventory_item_v193' : 'upsert_minuta_inventory_item', parameters, event.submitter, 'Складская позиция сохранена', '#inventoryItemError');
+        if (ok) clearItemForm(); return;
       }
       if (event.target.id === 'inventoryWarehouseForm') {
         event.preventDefault(); const ok = await mutate('upsert_minuta_inventory_warehouse', { p_organization:organization.id,p_warehouse:$('#inventoryWarehouseId').value || null,p_location:$('#inventoryWarehouseLocation').value,p_name:$('#inventoryWarehouseName').value.trim(),p_active:$('#inventoryWarehouseActive').checked }, event.submitter, 'Склад сохранён', '#inventoryWarehouseError'); if (ok) clearWarehouseForm(); return;
@@ -807,7 +823,7 @@
       }
       if (event.target.closest('#reloadInventory')) { await load(); return; }
       const editItem = event.target.closest('[data-inventory-edit-item]');
-      if (editItem) { const row = item(editItem.dataset.inventoryEditItem); if (!row) return; $('#inventoryItemId').value=row.id; $('#inventoryItemName').value=row.name; $('#inventoryItemSku').value=row.sku || ''; $('#inventoryItemUnit').value=row.unit; $('#inventoryItemLow').value=row.low_stock_threshold; $('#inventoryItemActive').checked=Boolean(row.active); $('#inventoryItemCreator').open=true; $('#inventoryItemName').focus(); window.MinutaInventorySoftUI?.openEditor('item', editItem); return; }
+      if (editItem) { const row = item(editItem.dataset.inventoryEditItem); if (!row) return; $('#inventoryItemId').value=row.id; $('#inventoryItemName').value=row.name; $('#inventoryItemSku').value=row.sku || ''; $('#inventoryItemUnit').value=row.unit; $('#inventoryItemLow').value=row.low_stock_threshold; $('#inventoryItemActive').checked=Boolean(row.active); if ($('#inventoryItemCategory')) $('#inventoryItemCategory').value=row.category || ''; if ($('#inventoryItemIcon')) $('#inventoryItemIcon').value=row.icon_key || ''; $('#inventoryItemCreator').open=true; $('#inventoryItemName').focus(); window.MinutaInventorySoftUI?.openEditor('item', editItem); return; }
       const editWarehouse = event.target.closest('[data-inventory-edit-warehouse]');
       if (editWarehouse) { const row=warehouse(editWarehouse.dataset.inventoryEditWarehouse); if (!row) return; $('#inventoryWarehouseId').value=row.id; $('#inventoryWarehouseLocation').value=row.location_id; $('#inventoryWarehouseName').value=row.name; $('#inventoryWarehouseActive').checked=Boolean(row.active); $('#inventoryWarehouseCreator').open=true; $('#inventoryWarehouseName').focus(); window.MinutaInventorySoftUI?.openEditor('warehouse', editWarehouse); return; }
       if (event.target.closest('[data-inventory-cancel-item]')) { clearItemForm(); return; }
