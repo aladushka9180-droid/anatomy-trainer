@@ -742,6 +742,11 @@
       if (event.target.id === 'inventoryItemForm') {
         event.preventDefault();
         const metadata = Number(payload?.item_metadata_version) === 193;
+        if (!metadata && $('#inventoryItemForm')?.dataset?.itemMetadata === '193') {
+          $('#inventoryItemError').textContent = 'Категория и иконка ещё не сохранены. Повторите загрузку склада перед сохранением.';
+          $('#inventoryItemError').hidden = false;
+          return;
+        }
         const parameters = { p_organization:organization.id,p_item:$('#inventoryItemId').value || null,p_name:$('#inventoryItemName').value.trim(),p_sku:$('#inventoryItemSku').value.trim(),p_unit:$('#inventoryItemUnit').value,p_low_stock:Number($('#inventoryItemLow').value || 0),p_active:$('#inventoryItemActive').checked };
         if (metadata) Object.assign(parameters, { p_category:$('#inventoryItemCategory')?.value.trim() || '',p_icon_key:$('#inventoryItemIcon')?.value || '' });
         // A failed v193 write must never fall back and silently discard metadata.

@@ -16,7 +16,7 @@
   const units = { piece:'шт.', ml:'мл', g:'г', kg:'кг', l:'л', pack:'упак.' };
   const format = value => new Intl.NumberFormat('ru-RU', { maximumFractionDigits:3 }).format(Number(value || 0));
   const $ = selector => document.querySelector(selector);
-  let panel, settings, settingsStatus, warehouses, warehouseStatus, lastOrganization = null;
+  let panel, settings, settingsStatus, warehouses, warehouseStatus, lastOrganization = null, metadataSupported = false;
   const editors = new Map();
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -97,6 +97,7 @@
     const error = $(`#inventory${kind === 'item' ? 'Item' : 'Warehouse'}Error`);
     error.hidden = true;
     if (kind === 'item') {
+      editor.form.dataset.itemMetadata = metadataSupported ? '193' : '';
       editor.extra.open = Boolean(editing && ($('#inventoryItemSku').value || $('#inventoryItemCategory')?.value || $('#inventoryItemIcon')?.value));
       updatePreview();
     }
@@ -232,7 +233,8 @@
   function sync(payload) {
     init();
     if (!panel || !payload) return;
-    $('#inventoryItemMetadata').hidden = Number(payload.item_metadata_version) !== 193;
+    metadataSupported = Number(payload.item_metadata_version) === 193;
+    $('#inventoryItemMetadata').hidden = !metadataSupported;
     if (lastOrganization !== payload.organization_id) {
       reset();
       settings.open = !payload.enabled;

@@ -234,6 +234,12 @@ try {
     assert.equal(await page.locator('#inventoryItemCategory').inputValue(),'Расходные материалы');
     assert.equal(await page.locator('#inventoryItemIcon').inputValue(),'spray');
     await capture(page,`metadata-${width}.png`);
+    const writesBeforeDowngrade = await page.evaluate(()=>window.rpcCalls.filter(c=>c.name.startsWith('upsert_')).length);
+    await page.evaluate(()=>{delete window.workspace.item_metadata_version;return window.controller.load();});
+    await page.locator('#inventoryItemForm button[type="submit"]').click();
+    assert.equal(await page.evaluate(()=>window.rpcCalls.filter(c=>c.name.startsWith('upsert_')).length),writesBeforeDowngrade,'downgrade cannot silently save without metadata');
+    assert.match(await page.locator('#inventoryItemError').textContent(),/ещё не сохранены/);
+    await page.evaluate(()=>{window.workspace.item_metadata_version=193;return window.controller.load();});
     await page.locator('#inventoryItemCategory').fill('');
     await page.locator('#inventoryItemIcon + .pro-select-trigger').click();
     await page.getByRole('option',{name:'Автоматически',exact:true}).click();
