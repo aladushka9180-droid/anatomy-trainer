@@ -108,3 +108,5 @@ html body.provider-body #inventoryPanel.inventory-soft-ui .is-editor-read-recove
   html body.provider-body #inventoryPanel.inventory-soft-ui .is-editor-head h3 { font-size:20px; }
 }
 @media (min-width:761px){#inventoryUsageList>.organization-row>button{width:auto}}
+html body.provider-body #inventoryPanel .is-item-metadata:not([hidden]) { display:grid; gap:12px; margin-top:12px; }
+html body.provider-body #inventoryPanel .is-item-row .is-item-meta { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

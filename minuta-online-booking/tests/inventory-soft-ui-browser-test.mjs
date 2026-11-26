@@ -45,6 +45,7 @@ async function capture(page, name) {
 try {
   for (const width of [390, 760, 1440]) {
     const page = await browser.newPage({ viewport:{ width, height:1000 } });
+    await page.route('**/*', route => route.abort());
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.setContent('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body></body></html>');
@@ -81,11 +82,12 @@ try {
           window.rpcCalls.push({ name, parameters });
           if (name === 'get_minuta_inventory_workspace_v130') return window.rejectRead
             ? { error:{ message:'read_timeout' } } : { data:structuredClone(window.workspace) };
-          if (name === 'upsert_minuta_inventory_item') {
+          if (name === 'upsert_minuta_inventory_item' || name === 'upsert_minuta_inventory_item_v193') {
             if (window.rejectSave) return { error:{ message:'inventory_unit_locked_by_ledger' } };
             const item = window.workspace.items.find(row => row.id === parameters.p_item);
             Object.assign(item, { name:parameters.p_name, sku:parameters.p_sku, unit:parameters.p_unit,
               low_stock_threshold:parameters.p_low_stock, active:parameters.p_active });
+            if (name.endsWith('_v193')) Object.assign(item, { category:parameters.p_category,icon_key:parameters.p_icon_key });
             return { data:{ organization_id:org } };
           }
           throw new Error(`Unexpected RPC ${name}`);
@@ -121,7 +123,7 @@ try {
     await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
     await page.locator('#inventoryItemDialog').waitFor({ state:'visible' });
     // Navigation hides a provider-view ancestor, not necessarily the panel itself.
-    await page.locator('#inventoryItemDialog .pro-select-trigger').click();
+    await page.locator('#inventoryItemUnit + .pro-select-trigger').click();
     await page.locator('.pro-select-dialog').waitFor({ state:'visible' });
     await page.evaluate(() => { document.querySelector('main').hidden = true; });
     await page.waitForFunction(() => !document.querySelector('#inventoryItemDialog').open);
@@ -148,7 +150,7 @@ try {
     // Server rejection stays visible in the same editor, with the draft intact.
     await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
     await page.evaluate(() => { window.rejectSave = true; window.rejectRead = true; });
-    await page.locator('#inventoryItemDialog .pro-select-trigger').click();
+    await page.locator('#inventoryItemUnit + .pro-select-trigger').click();
     await page.getByRole('option', { name:'шт.', exact:true }).click();
     assert.equal(await page.locator('#inventoryItemDialog').evaluate(node => node.open), true);
     await page.locator('#inventoryItemForm button[type="submit"]').click();
@@ -216,6 +218,30 @@ try {
     await page.evaluate(() => document.querySelector('#inventoryItemForm').dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })));
     assert.equal(await page.evaluate(() => window.rpcCalls.filter(call => call.name === 'upsert_minuta_inventory_item').length), writesBefore);
     await page.keyboard.press('Escape');
+
+    // Metadata appears only with a server that supports the atomic writer.
+    await page.evaluate(() => { window.workspace.item_metadata_version=193; window.testWrites=true; window.rejectSave=false; document.querySelectorAll('[data-inventory-write]').forEach(c=>c.disabled=false); return window.controller.load(); });
+    await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
+    if (!await page.locator('#inventoryItemExtra').evaluate(n=>n.open)) await page.locator('#inventoryItemExtra>summary').click();
+    await page.locator('#inventoryItemCategory').fill('Расходные материалы');
+    await page.locator('#inventoryItemIcon + .pro-select-trigger').click();
+    await page.getByRole('option',{name:'Спрей',exact:true}).click();
+    await page.locator('#inventoryItemForm button[type="submit"]').click();
+    await page.locator('#inventoryItemDialog').waitFor({state:'hidden'});
+    const metadata = await page.evaluate(() => window.rpcCalls.filter(c=>c.name==='upsert_minuta_inventory_item_v193').at(-1));
+    assert.equal(metadata.parameters.p_category,'Расходные материалы');assert.equal(metadata.parameters.p_icon_key,'spray');
+    await page.locator('[data-inventory-edit-item="gloves"].is-item-name').click();
+    assert.equal(await page.locator('#inventoryItemCategory').inputValue(),'Расходные материалы');
+    assert.equal(await page.locator('#inventoryItemIcon').inputValue(),'spray');
+    await capture(page,`metadata-${width}.png`);
+    await page.locator('#inventoryItemCategory').fill('');
+    await page.locator('#inventoryItemIcon + .pro-select-trigger').click();
+    await page.getByRole('option',{name:'Автоматически',exact:true}).click();
+    await page.locator('#inventoryItemForm button[type="submit"]').click();
+    await page.locator('#inventoryItemDialog').waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(()=>window.workspace.items.find(i=>i.id==='gloves').category),'');
+    await page.evaluate(()=>{delete window.workspace.item_metadata_version;return window.controller.load();});
+    assert.equal(await page.locator('#inventoryItemMetadata').isVisible(),false);
 
     // Keep first-run instructions and account-disabled recovery available.
     await page.evaluate(() => {
