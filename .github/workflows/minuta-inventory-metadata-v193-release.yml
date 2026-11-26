@@ -1,0 +1,63 @@
+name: Eldion inventory item metadata production release
+run-name: v193 ${{ inputs.phase }} ${{ inputs.commit_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      phase: { type: choice, options: [check, apply, observe], default: check, required: true }
+      commit_sha: { type: string, required: true, description: Exact current main SHA }
+      test_run: { type: string, required: true, description: Successful v193 database test on exact main }
+      validation_run: { type: string, required: false }
+      backup_run: { type: string, required: false }
+      restore_run: { type: string, required: false }
+      confirmation: { type: string, required: false, description: APPLY_V193_AFTER_BACKUP_RESTORE only after separate user approval }
+permissions: { contents: read, actions: read }
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+jobs:
+  guarded-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: minuta-production
+    env:
+      EXPECTED_SHA: ${{ inputs.commit_sha }}
+      PHASE: ${{ inputs.phase }}
+      TEST_RUN: ${{ inputs.test_run }}
+      VALIDATION_RUN: ${{ inputs.validation_run }}
+      BACKUP_RUN: ${{ inputs.backup_run }}
+      RESTORE_RUN: ${{ inputs.restore_run }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - name: Require exact main, tests, backup and offline rollback evidence
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node minuta-online-booking/scripts/production-db-target-guard.mjs
+          node .github/scripts/inventory-metadata-v193-release-guard.mjs
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Check or apply only the approved inventory metadata migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          private_log="$RUNNER_TEMP/inventory-v193-private.log"
+          trap 'rm -f -- "$private_log" "$RUNNER_TEMP/inventory-v193-before.sql" "$RUNNER_TEMP/inventory-v193-after.sql"' EXIT
+          trap 'echo "Inventory metadata operation stopped; private database output withheld. Verify remote state before any retry." >&2' ERR
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          if test "$PHASE" != observe; then
+            node minuta-online-booking/scripts/inventory-metadata-v193-production-check.mjs before "$RUNNER_TEMP/inventory-v193-before.sql"
+            PGOPTIONS='-c default_transaction_read_only=on -c lock_timeout=5000 -c statement_timeout=120000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/inventory-v193-before.sql" >"$private_log" 2>&1
+          fi
+          if test "$PHASE" = apply; then
+            PGOPTIONS='-c lock_timeout=5000 -c statement_timeout=120000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v193.sql >>"$private_log" 2>&1
+          fi
+          if test "$PHASE" != check; then
+            node minuta-online-booking/scripts/inventory-metadata-v193-production-check.mjs after "$RUNNER_TEMP/inventory-v193-after.sql"
+            PGOPTIONS='-c default_transaction_read_only=on -c lock_timeout=5000 -c statement_timeout=120000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/inventory-v193-after.sql" >>"$private_log" 2>&1
+          fi
+          echo "PASS: inventory metadata $PHASE confirmed on exact main; no customer messages or payment operations invoked."

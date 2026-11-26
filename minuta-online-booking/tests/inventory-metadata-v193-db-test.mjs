@@ -12,6 +12,13 @@ const db=new PGlite(),org='10000000-0000-4000-8000-000000000001',actor='20000000
 const source=read('supabase-migration-v82.sql');
 const definition=name=>{const start=source.indexOf(`create or replace function public.${name}(`);assert.ok(start>=0);return source.slice(start,source.indexOf('end $$;',start)+7);};
 const scalar=async sql=>Object.values((await db.query(sql)).rows[0])[0];
+const productionCheck=async mode=>{
+ const target=join(tmpdir(),`inventory-v193-check-${randomUUID()}.sql`);
+ try {
+  execFileSync(process.execPath,[fileURLToPath(new URL('scripts/inventory-metadata-v193-production-check.mjs',root)),mode,target]);
+  await db.exec(readFileSync(target,'utf8'));
+ } finally {unlinkSync(target);}
+};
 const save=(id='null',category="''",icon="''")=>`select public.upsert_minuta_inventory_item_v193('${org}',${id},'Учебный товар','','piece',0,true,${category},${icon})`;
 try{
  await db.exec(`
@@ -37,7 +44,9 @@ try{
  `);
  for(const name of ['get_minuta_inventory_role','upsert_minuta_inventory_item','get_minuta_inventory_workspace'])await db.exec(definition(name));
  await db.exec(`create function get_minuta_inventory_workspace_v130(uuid) returns jsonb language sql as $$select public.get_minuta_inventory_workspace($1)||jsonb_build_object('transfer_version',130)$$`);
+ await productionCheck('before');
  const migration=read('supabase-migration-v193.sql');await db.exec(migration);await db.exec(migration);
+ await productionCheck('after');
  const first=await scalar(save()),id=`'${first.id}'`;
  assert.equal(await scalar(`select category from inventory_items where id=${id}`),'');
  await db.exec(save(id,"'  Расходные материалы  '","'glove'"));

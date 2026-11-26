@@ -5,6 +5,9 @@ on:
       - 'minuta-online-booking/*v193*'
       - 'minuta-online-booking/scripts/*v193*'
       - 'minuta-online-booking/tests/inventory-metadata-v193-db-test.mjs'
+      - 'minuta-online-booking/tests/inventory-metadata-v193-release-guard-test.mjs'
+      - '.github/scripts/inventory-metadata-v193-release-guard.mjs'
+      - '.github/workflows/minuta-inventory-metadata-v193-release.yml'
       - '.github/workflows/minuta-inventory-metadata.yml'
   workflow_dispatch:
 permissions: {contents: read}
@@ -21,5 +24,6 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/inventory-db" --no-save --ignore-scripts @electric-sql/pglite@0.3.10
           echo "MINUTA_PGLITE_MODULE=$RUNNER_TEMP/inventory-db/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
       - run: node minuta-online-booking/tests/inventory-metadata-v193-db-test.mjs
+      - run: node minuta-online-booking/tests/inventory-metadata-v193-release-guard-test.mjs
       - run: bash -n minuta-online-booking/scripts/inventory-metadata-v193-restore.sh
       - run: bash -n minuta-online-booking/scripts/ephemeral-restore-drill.sh
