@@ -742,6 +742,11 @@
       if (event.target.id === 'inventoryItemForm') {
         event.preventDefault();
         const metadata = Number(payload?.item_metadata_version) === 193;
+        if (metadata && (!$('#inventoryItemCategory') || !$('#inventoryItemIcon'))) {
+          $('#inventoryItemError').textContent = 'Не удалось полностью загрузить форму. Обновите страницу перед сохранением.';
+          $('#inventoryItemError').hidden = false;
+          return;
+        }
         if (!metadata && $('#inventoryItemForm')?.dataset?.itemMetadata === '193') {
           $('#inventoryItemError').textContent = 'Категория и иконка ещё не сохранены. Повторите загрузку склада перед сохранением.';
           $('#inventoryItemError').hidden = false;

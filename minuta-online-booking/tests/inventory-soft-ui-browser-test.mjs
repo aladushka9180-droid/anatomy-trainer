@@ -234,6 +234,12 @@ try {
     assert.equal(await page.locator('#inventoryItemCategory').inputValue(),'Расходные материалы');
     assert.equal(await page.locator('#inventoryItemIcon').inputValue(),'spray');
     await capture(page,`metadata-${width}.png`);
+    const writesBeforeIncompleteForm = await page.evaluate(()=>window.rpcCalls.filter(c=>c.name.startsWith('upsert_')).length);
+    await page.evaluate(()=>{window.categoryField=document.querySelector('#inventoryItemCategory');window.categoryAnchor=document.createComment('category');categoryField.replaceWith(categoryAnchor);});
+    await page.locator('#inventoryItemForm button[type="submit"]').click();
+    assert.equal(await page.evaluate(()=>window.rpcCalls.filter(c=>c.name.startsWith('upsert_')).length),writesBeforeIncompleteForm,'missing field cannot erase stored metadata');
+    assert.match(await page.locator('#inventoryItemError').textContent(),/полностью загрузить форму/);
+    await page.evaluate(()=>categoryAnchor.replaceWith(categoryField));
     const writesBeforeDowngrade = await page.evaluate(()=>window.rpcCalls.filter(c=>c.name.startsWith('upsert_')).length);
     await page.evaluate(()=>{delete window.workspace.item_metadata_version;return window.controller.load();});
     await page.locator('#inventoryItemForm button[type="submit"]').click();
