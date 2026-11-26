@@ -103,6 +103,7 @@ jobs:
           echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/group-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - run: node minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-feature-assets-browser-test.mjs
+      - run: node minuta-online-booking/tests/statistics-zoom-controls-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-notifications-soft-browser-test.mjs
       - run: node minuta-online-booking/tests/provider-offline-cold-start-browser-test.mjs
       - run: node minuta-online-booking/tests/client-results-browser-test.mjs
