@@ -49,12 +49,15 @@ const mobileToggle = rule(styles, '.report-smart-actions .report-actions-toggle 
 assert.ok(px(mobileToggle, 'min-height', 'кнопки «Ещё»') >= 44, 'Кнопка «Ещё» ниже 44 px на мобильном');
 
 assert.ok(html.includes('provider-reference-screens.css?v='), 'provider.html не ссылается на стили экранов входа');
-const cacheVersion = /CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/.exec(read('sw.js'))[1];
-for (const asset of ['styles.css', 'provider-ux.css', 'provider-reference-screens.css']) {
-  const htmlVersion = new RegExp(`${asset}\\?v=(\\d+)`).exec(html)[1];
-  const workerVersion = new RegExp(`'./${asset}\\?v=(\\d+)'`).exec(read('sw.js'))[1];
+const sw = read('sw.js');
+const cacheVersion = /CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/.exec(sw)[1];
+for (const asset of ['styles.css', 'provider-ux.css', 'provider-reference-screens.css', 'provider.js', 'primetime-handoff.js']) {
+  const htmlVersion = new RegExp(`(?:src|href)="${asset}\\?v=(\\d+)"`).exec(html)?.[1];
+  assert.ok(htmlVersion, `${asset} не подключён в provider.html`);
+  const workerVersion = new RegExp(`'./${asset}\\?v=(\\d+)'`).exec(sw)?.[1];
+  assert.ok(workerVersion, `${asset} не попал в precache service worker`);
   assert.equal(htmlVersion, workerVersion, `${asset}: версия в HTML не совпадает с precache`);
-  assert.ok(Number(workerVersion) >= Number(cacheVersion), `${asset}: precache старше кэша ${cacheVersion}`);
+  assert.ok(Number(workerVersion) <= Number(cacheVersion), `${asset}: precache новее кэша ${cacheVersion}`);
 }
 
 console.log('Мобильные цели и текст настроек согласованы.');
