@@ -67,7 +67,7 @@
   host.classList.remove('client-appearance-settings-card');
   host.replaceChildren(card);
   document.querySelectorAll('.provider-client-link, #shareProviderClientPage, #bookingWidgetsDialog').forEach(element => element.remove());
-  document.querySelectorAll('[data-section-target="clientAppearanceSettingsCard"]').forEach(element => { element.textContent = 'Профиль в Eldion'; });
+  document.querySelectorAll('.provider-section-nav [data-section-target="clientAppearanceSettingsCard"]').forEach(element => { element.textContent = 'Профиль в Eldion'; });
   const style = document.createElement('style');
   style.textContent = '#eldionConnection{grid-column:1/-1;display:grid;gap:12px;min-width:0;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--theme-line,var(--line))}#eldionConnection h3,#eldionConnection p{margin:0}#eldionConnection p{color:var(--muted);line-height:1.5}#eldionConnectionLinks{display:grid;gap:8px}#eldionConnectionLinks[hidden]{display:none}#eldionConnection a{color:inherit;font-weight:600;overflow-wrap:anywhere}#eldionConnectButton{justify-self:start;max-width:100%;min-height:44px;white-space:normal;font:inherit;font-weight:600}';
   document.head.append(style);

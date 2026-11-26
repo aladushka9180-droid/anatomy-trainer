@@ -160,17 +160,15 @@ try {
     await page.evaluate(() => refreshSettingsQuickStart());
     const guide = page.locator('#settingsQuickStart');
     assert.equal(await guide.isVisible(), true, `${width}px new cabinet needs its first-run guide`);
-    await guide.locator('summary').click();
-    assert.equal(await guide.locator('ol > li').count(), 5);
+    assert.equal(await guide.locator('ol > li').count(), 3);
     assert.deepEqual(await guide.locator('button[data-provider-view]').evaluateAll(buttons => buttons.map(button => button.dataset.providerView)), ['services', 'schedule']);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, `${width}px first-run guide overflows`);
     if (process.env.MINUTA_UI_OUTPUT) {
       await guide.screenshot({ path: path.join(process.env.MINUTA_UI_OUTPUT, `client-page-first-run-${width}.png`) });
     }
-    await guide.locator('summary').click();
   }
   await page.evaluate(() => { ownServices = [{ active:true }]; scheduleRows = [{ enabled:true }]; refreshSettingsQuickStart(); });
-  assert.equal(await page.locator('#settingsQuickStart').isVisible(), false, 'Completed cabinet does not repeat first-run steps');
+  assert.equal(await page.locator('#settingsQuickStart').isVisible(), true, 'Completed cabinet keeps setup shortcuts available');
   await page.evaluate(() => { scheduleRows = []; refreshSettingsQuickStart(); });
   assert.equal(await page.locator('#settingsQuickStart').isVisible(), true, 'Incomplete schedule keeps first-run help available');
   assert.deepEqual(errors, []);

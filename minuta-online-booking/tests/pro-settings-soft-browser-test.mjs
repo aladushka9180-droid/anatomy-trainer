@@ -39,9 +39,16 @@ try{
   const m=await page.evaluate(()=>{const els=[...document.querySelectorAll('#bookingRulesCard,#batchBookingSettingsCard,#groupBookingSettingsCard')],hint=document.querySelector('#autoCompletePaymentHint');return {overflow:document.documentElement.scrollWidth>innerWidth+1,gradients:els.some(e=>getComputedStyle(e).backgroundImage!=='none'),font:parseFloat(getComputedStyle(hint).fontSize),cards:els.map(e=>({id:e.id,width:e.getBoundingClientRect().width})),inputClip:[...document.querySelectorAll('#bookingRulesCard input:not([type=checkbox]):not([type=hidden])')].filter(e=>e.getBoundingClientRect().width>0).some(e=>e.getBoundingClientRect().right>innerWidth)};});
   assert.equal(m.overflow,false,theme+'/'+width+' overflow');assert.equal(m.gradients,false);assert.ok(m.font>=14);assert.equal(m.inputClip,false);
   const group=await page.locator('#groupBookingSettingsCard').evaluate(e=>({heading:e.querySelector('.settings-heading').getBoundingClientRect().toJSON(),toggle:e.querySelector('.group-booking-toggle').getBoundingClientRect().toJSON()}));assert.ok(group.toggle.top>=group.heading.bottom-1,theme+'/'+width+' group overlap');cases.push({theme,width,...m});
-  if(output&&theme==='pink-porcelain'&&[390,760,1440].includes(width))await page.screenshot({path:resolve(output,'after-'+width+'.png'),fullPage:true});
+  if(output&&theme==='pink-porcelain'&&[390,760,1440].includes(width))await page.locator('#bookingRulesCard').screenshot({path:resolve(output,'after-'+width+'.png')});
  }
+ assert.equal(await page.locator('#organizationBookingPolicyPanel').getAttribute('open'),null,'organization rules start collapsed');
+ assert.equal(await page.locator('#organizationBookingPolicyWorkspace').isVisible(),false);
+ assert.equal(await page.locator('#settingsQuickStart').isVisible(),true);
+ assert.deepEqual(await page.locator('#settingsQuickStart [data-provider-view]').evaluateAll(nodes=>nodes.map(n=>n.dataset.providerView)),['services','schedule']);
+ assert.equal(await page.locator('#settingsQuickStart [data-section-target]').getAttribute('data-section-target'),'clientAppearanceSettingsCard');
+ const order=await page.locator('#settingsQuickStart').evaluate(node=>node.getBoundingClientRect().top<document.querySelector('#organizationBookingPolicyPanel').getBoundingClientRect().top);assert.equal(order,true,'setup precedes advanced rules');
  await page.setViewportSize({width:390,height:1000});await page.locator('#bookingPolicyForm button[type=submit]').click();assert.deepEqual(await page.evaluate(()=>formCalls),[{id:'bookingPolicyForm',value:'3'}]);
+ await page.locator('#organizationBookingPolicyPanel>summary').click();
  await page.locator('#organizationBookingPolicyEditor>summary').click();assert.equal(await page.locator('#organizationBookingPolicyEditor').getAttribute('open'),'');
  await page.locator('#batchBookingsEnabled').check();assert.equal(await page.locator('#batchBookingsEnabled').isChecked(),true);
  const beforeOther=await page.locator('#clientAppearanceSettingsCard').evaluate(e=>{const s=getComputedStyle(e);return[s.backgroundColor,s.padding,s.borderRadius];});await style.evaluate(e=>e.sheet.disabled=true);const afterOther=await page.locator('#clientAppearanceSettingsCard').evaluate(e=>{const s=getComputedStyle(e);return[s.backgroundColor,s.padding,s.borderRadius];});assert.deepEqual(beforeOther,afterOther,'unrelated appearance unchanged');

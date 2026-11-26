@@ -13,7 +13,7 @@ const css = read('provider-ux.css');
 const baseCss = read('styles.css');
 assert.match(html, /id="newBookingButton"[^>]*aria-label="Новая запись"/);
 assert.match(html, /id="reportCommandCenter" data-report-section="overview"/);
-assert.match(html, /<details class="panel settings-quick-start ux-disclosure"/);
+assert.match(html, /<div id="settingsQuickStart"/);
 assert.match(html, /<section class="panel unified-notification-panel smart-delivery-panel"/);
 assert.doesNotMatch(html, /<span class="panel-count">v81<\/span>/);
 assert.match(html, /provider-ux.css\?v=\d+/);
