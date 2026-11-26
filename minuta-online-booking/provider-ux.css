@@ -427,7 +427,7 @@
   color:color-mix(in srgb,var(--theme-ink) 72%,var(--theme-muted));
 }
 .provider-body[data-provider-theme][data-provider-layout] :is(.settings-help-link,.settings-client-preview-link,.settings-search-status,.report-filter-toggle small) {
-  font-size:max(11px,calc(11px + var(--provider-text-step,0px)));
+  font-size:max(12px,calc(12px + var(--provider-text-step,0px)));
 }
 .provider-body[data-provider-theme][data-provider-layout] :is(.report-periods button:not(.active),.report-view-tabs button:not(.active)) {
   border-color:color-mix(in srgb,var(--theme-ink) 18%,var(--theme-line));
