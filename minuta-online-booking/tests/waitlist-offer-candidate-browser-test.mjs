@@ -21,5 +21,15 @@ try{for(const width of [390,760,1440])for(const state of ['offered','accepted','
  if(output)await page.screenshot({path:resolve(output,'offer-'+state+'-'+width+'.png'),fullPage:true});
  if(state==='offered'){await page.locator('#waitlistOfferAccept').dblclick();await page.waitForFunction(()=>document.querySelector('#waitlistOfferState').textContent==='Принято');assert.equal(await page.evaluate(()=>calls.filter(c=>c.name==='accept_minuta_waitlist_offer_v196').length),1);}
  else assert.equal(await page.evaluate(()=>calls.filter(c=>c.name==='accept_minuta_waitlist_offer_v196').length),0);
+ if(state==='offered'){
+  await page.goto('https://offer-candidate.test/waitlist-offer-provider.html#request=00000000-0000-4000-8000-000000000005');
+  await page.evaluate(()=>{window.calls=[];window.MINUTA_CONFIG={};window.supabase={createClient:()=>({auth:{getUser:async()=>({data:{user:{id:'synthetic'}}})},rpc:async(name)=>{calls.push(name);if(name!=='get_minuta_waitlist_employee_v196')throw Error('Writes forbidden');return {data:{requestId:'00000000-0000-4000-8000-000000000005',requestStatus:'waiting',clientName:'ТЕСТ',serviceName:'Тестовая услуга',locationName:'Тестовый филиал',performerName:'Тестовый специалист',clientToken:'00000000-0000-4000-8000-000000000006',serverNow:'2027-01-09T08:00:00Z',slots:[{date:'2027-01-11',time:'10:00:00'}],offer:null}};}})};});
+  await page.addScriptTag({url:'https://offer-candidate.test/waitlist-offers.js'});await page.addScriptTag({url:'https://offer-candidate.test/waitlist-offer-provider.js'});
+  await page.locator('#employeeOfferForm').waitFor({state:'visible'});
+  const targets=await page.locator('#employeeOfferForm button,#employeeOfferForm input,#employeeOfferForm select,#employeeReload,.provider-link').evaluateAll(nodes=>nodes.map(n=>({id:n.id,height:n.getBoundingClientRect().height,font:parseFloat(getComputedStyle(n).fontSize)})));
+  assert.ok(targets.every(x=>x.height>=44&&x.font>=12),JSON.stringify({width,targets}));assert.equal(await page.locator('.provider-link').innerText(),'Вернуться в кабинет');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);assert.deepEqual(await page.evaluate(()=>calls),['get_minuta_waitlist_employee_v196']);
+  if(output)await page.screenshot({path:resolve(output,'employee-'+width+'.png'),fullPage:true});
+ }
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await page.close();
 }console.log('X07 candidate browser PASS: offered/accepted/expired/busy, safe disabled actions, one synthetic accept, 390/760/1440; no external requests.');}finally{await browser.close();}

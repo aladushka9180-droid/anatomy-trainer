@@ -16,3 +16,13 @@
 #waitlistOffer [hidden] {
   display: none;
 }
+
+.waitlist-offer-provider .provider-link {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+}
