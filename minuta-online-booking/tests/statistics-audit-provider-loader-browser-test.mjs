@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { statisticsAuditViewSource } from './statistics-provider-source.mjs';
 
 const modulePath = process.env.MINUTA_PLAYWRIGHT_MODULE;
 const { chromium } = await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
@@ -9,7 +10,9 @@ const html = read('provider.html');
 const scripts = new Map([
   ['statistics-audit-ui.js', read('statistics-audit-ui.js')],
   ['report-export-provider.js', read('report-export-provider.js')],
-  ['statistics-audit-provider.js', read('statistics-audit-provider.js')],
+  ['statistics-audit-provider.js', statisticsAuditViewSource()],
+  ['statistics-branch-scope.js', read('statistics-branch-scope.js')],
+  ['statistics-branch-provider.js', read('statistics-branch-provider.js')],
 ]);
 const browser = await chromium.launch({ headless:true });
 try {
@@ -75,7 +78,7 @@ try {
   await page.locator('#reportPaymentEvidence').evaluate(element => { element.hidden = true; });
   assert.equal(await page.locator('.report-team-payment-warning').isVisible(), false, 'complete payment hides the caveat');
   await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
-  assert.equal(loaded, 3, 'all statistics scripts loaded exactly once');
+  assert.equal(loaded, 5, 'all statistics scripts loaded exactly once');
   assert.deepEqual(await page.evaluate(() => window.downloads), [], 'opening export does not download');
   await page.locator('#reportExportDialog').waitFor({ state:'hidden' });
   await page.locator('#exportBookings').click();
@@ -88,6 +91,6 @@ try {
   await page.locator('.report-export-review [data-audit-cancel]').click();
   assert.deepEqual(await page.evaluate(() => window.downloads), [], 'loader fixture never produces a file');
   await page.locator('#exportBookings').click();
-  assert.equal(loaded, 3, 'second click reuses loaded feature');
+  assert.equal(loaded, 5, 'second click reuses loaded feature');
   await page.close();
 } finally { await browser.close(); }
