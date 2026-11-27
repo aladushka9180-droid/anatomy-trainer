@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { statisticsAuditViewSource } from './statistics-provider-source.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = name => readFileSync(resolve(root, name), 'utf8');
@@ -72,7 +73,7 @@ try {
       financeController.setOrganization(reportOrganization());
       document.querySelectorAll('[data-report-view]').forEach(button=>button.addEventListener('click',()=>{document.querySelector('#analyticsView').dataset.reportTab=button.dataset.reportView;document.querySelectorAll('[data-report-view]').forEach(tab=>{tab.classList.toggle('active',tab===button);tab.toggleAttribute('aria-current',tab===button);});}));
     ` });
-    await page.addScriptTag({ content:read('statistics-audit-provider.js') });
+    await page.addScriptTag({ content:statisticsAuditViewSource() });
     const loaded = await Promise.race([
       page.waitForFunction(() => document.querySelector('#reportFinanceOverview [data-finance-received]')?.textContent === '0\u00a0₽').then(() => ({ ready:true })),
       pageError

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { candidateProvider } from './statistics-clarity-provider-patch.mjs';
+import { statisticsAuditViewSource } from './statistics-provider-source.mjs';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 export function fixtureHtml() {
@@ -36,6 +37,7 @@ export async function serveFixture(port=0) {
       res.writeHead(200,{'content-type':'text/javascript'}).end(functions);return;
     }
     if(!['.css','.js','.svg','.png','.webp','.woff2'].includes(extname(target))){res.writeHead(403).end();return;}
+    if(relative==='statistics-audit-provider.js'){res.writeHead(200,{'content-type':'text/javascript'}).end(statisticsAuditViewSource());return;}
     try {res.writeHead(200,{'content-type':({'.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2'})[extname(target)]}).end(readFileSync(target));}
     catch {res.writeHead(404).end();}
   });
