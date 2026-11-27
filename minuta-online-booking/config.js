@@ -4,6 +4,6 @@ window.MINUTA_CONFIG = Object.freeze({
   defaultOrganizationSlug: 'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f',
   assistantRemoteUnderstanding: false,
   assistantCloudSpeechEnabled: false,
-  statisticsBranchBackendAccepted: false,
+  statisticsBranchBackendAccepted: true,
   socialAuthProviders: Object.freeze({ telegram:false, vk:false, yandex:false })
 });
