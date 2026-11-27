@@ -1,0 +1,61 @@
+name: Eldion remaining eight production release
+run-name: remaining-eight ${{ inputs.phase }} ${{ inputs.commit_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      phase: { type: choice, options: [check, apply, observe], default: check, required: true }
+      commit_sha: { type: string, required: true }
+      test_run: { type: string, required: true }
+      validation_run: { type: string, required: false }
+      backup_run: { type: string, required: false }
+      restore_run: { type: string, required: false }
+      confirmation: { type: string, required: false, description: APPLY_REMAINING_EIGHT_AFTER_USER_APPROVAL }
+permissions: { contents: read, actions: read }
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+jobs:
+  guarded-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: minuta-production
+    env:
+      EXPECTED_SHA: ${{ inputs.commit_sha }}
+      PHASE: ${{ inputs.phase }}
+      TEST_RUN: ${{ inputs.test_run }}
+      VALIDATION_RUN: ${{ inputs.validation_run }}
+      BACKUP_RUN: ${{ inputs.backup_run }}
+      RESTORE_RUN: ${{ inputs.restore_run }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: '${{ inputs.commit_sha }}', persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - name: Verify exact main, target and qualified copy
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node minuta-online-booking/scripts/production-db-target-guard.mjs
+          node .github/scripts/remaining-eight-release-guard.mjs
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply only the approved additive functions and offer table
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          private_log="$RUNNER_TEMP/eight-release-private.log"
+          sql="$RUNNER_TEMP/eight-release.sql"
+          trap 'rm -f -- "$private_log" "$sql"' EXIT
+          trap 'echo "Release stopped; database output withheld. Inspect remote state before retry." >&2' ERR
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          node minuta-online-booking/scripts/remaining-eight-production-sql.mjs "$PHASE" "$sql"
+          if test "$PHASE" = apply; then
+            PGOPTIONS='-c lock_timeout=5000 -c statement_timeout=120000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f "$sql" >"$private_log" 2>&1
+            node minuta-online-booking/scripts/remaining-eight-production-sql.mjs observe "$sql"
+          fi
+          PGOPTIONS='-c default_transaction_read_only=on -c lock_timeout=5000 -c statement_timeout=120000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f "$sql" >>"$private_log" 2>&1
+          echo "PASS: remaining-eight $PHASE verified. No client messages or payment operations invoked."
