@@ -65,13 +65,15 @@ function fixture(options={}) {
   };
   return f;
 }
+// Count only period metadata/result requests; payment review has a separate scoped RPC.
+const scopeCalls=f=>f.calls.filter(call=>call.name!=='get_minuta_unposted_visit_payments_v1');
 const cases=[],test=(name,run)=>cases.push([name,run]);
 test('earlier standalone financial operation propagates common range/header/detail, finite and idempotent',async()=>{
   const f=fixture({tables:tables()});await f.run();f.assertPeriod('2026-09-25');
   assert.equal(f.models.at(-1).summary.receivedMinor,5000);
-  assert.equal(f.renders,2);assert.equal(f.calls.length,2,'one metadata + one final RPC, no alias reload');
+  assert.equal(f.renders,2);assert.equal(scopeCalls(f).length,2,'one metadata + one final RPC, no alias reload');
   for(let n=0;n<3;n++){f.render();await f.settle();f.assertPeriod('2026-09-25');}
-  assert.equal(f.calls.length,2,'ordinary identical renders do not reload');
+  assert.equal(scopeCalls(f).length,2,'ordinary identical renders do not reload');
 });
 test('earlier imported visit remains common/financial start',async()=>{
   const f=fixture({tables:tables('2026-09-25','2026-09-01')});f.context.importedBookingHistory=[{booking_date:'2026-08-04'}];
@@ -85,7 +87,7 @@ test('identical pending render/native force coalesce one read',async()=>{
   assert.equal(f.bounds(),null,'pending has no published financial range');
   f.render();await Promise.resolve();
   const duplicate=f.controller.load(f.context.reportRange(),{force:true});
-  f.release();await duplicate;await f.settle();f.assertPeriod('2026-09-25');assert.equal(f.calls.length,2);
+  f.release();await duplicate;await f.settle();f.assertPeriod('2026-09-25');assert.equal(scopeCalls(f).length,2);
 });
 test('native Money day/master/all switch uses common context and has no stale all comparison',async()=>{
   const f=fixture({tables:tables(),master:MASTER});await f.run();f.assertPeriod('2026-09-25');
@@ -101,7 +103,7 @@ for(const kind of ['unknown','cap'])test(kind+' after a confirmed all clears eff
   assert.equal(f.bounds(),null);assert.equal(f.range().start,'2026-10-01');
   assert.equal(f.header.textContent,`2026-10-01 — ${TODAY}`);
   assert.equal(f.models.at(-1).available,false);assert.equal(f.models.at(-1).summary,undefined);
-  assert.ok(f.renders<=4);assert.equal(f.calls.length,3,'only the safe metadata RPC added');
+  assert.ok(f.renders<=4);assert.equal(scopeCalls(f).length,3,'only the safe metadata RPC added');
 });
 for(const change of ['session','actor','master','end','organization','role','reset','demo'])test(change+' change immediately invalidates published range',async()=>{
   const f=fixture({tables:tables()});await f.run();f.assertPeriod('2026-09-25');
@@ -115,8 +117,8 @@ for(const change of ['session','actor','master','end','organization','role','res
   if(change==='demo')f.context.reportDataSource='demo';
   assert.equal(f.bounds(),null);
   if(['session','actor'].includes(change)){
-    const before=f.calls.length;await f.run();f.assertPeriod('2026-09-25');
-    assert.equal(f.calls.length,before+2,'new session/actor must re-read, not re-publish old model');
+    const before=scopeCalls(f).length;await f.run();f.assertPeriod('2026-09-25');
+    assert.equal(scopeCalls(f).length,before+2,'new session/actor must re-read, not re-publish old model');
   }
 });
 for(const change of ['session','actor','master','day','end','organization','role','reset','demo'])test(change+' change during earliest cannot publish stale scope',async()=>{
@@ -139,7 +141,7 @@ for(const change of ['session','actor','master','day','end','organization','role
     assert.equal(f.bounds().start,'2026-09-25','new current master may publish its own confirmed range');
     assert.equal(f.models.length,1);assert.equal(f.models[0].filters.selectedMaster,MASTER);
   } else assert.equal(f.bounds(),null);
-  if(change!=='end')assert.equal(f.calls.filter(({args})=>args.p_start==='2026-09-25'&&args.p_performer===null).length,0,'stale old all must not issue its final range RPC');
+  if(change!=='end')assert.equal(scopeCalls(f).filter(({args})=>args.p_start==='2026-09-25'&&args.p_performer===null).length,0,'stale old all must not issue its final range RPC');
 });
 test('demo to own must re-read instead of reviving the earlier cached financial period',async()=>{
   const data=tables(),f=fixture({tables:data});await f.run();f.assertPeriod('2026-09-25');
@@ -147,7 +149,7 @@ test('demo to own must re-read instead of reviving the earlier cached financial 
   data.commercial_sales[0].occurred_at='2026-09-20T09:00:00Z';
   data.financial_transactions[0].occurred_at='2026-09-20T09:00:00Z';
   f.context.reportDataSource='own';await f.run();f.assertPeriod('2026-09-20');
-  assert.equal(f.calls.length,4,'a fresh metadata + final read after leaving demo');
+  assert.equal(scopeCalls(f).length,4,'a fresh metadata + final read after leaving demo');
 });
 test('rapid own to demo to own during earliest starts a fresh request and rejects the old one',async()=>{
   const f=fixture({tables:tables(),deferEarliest:true});f.render();await f.entered;
@@ -157,7 +159,7 @@ test('rapid own to demo to own during earliest starts a fresh request and reject
   assert.equal(f.models.length,1);assert.ok(f.errors.some(error=>error.name==='AbortError'));
   assert.equal(f.models[0].bounds.start,'2026-09-25');
   assert.equal(f.bounds().start,'2026-09-25');assert.equal(f.range().start,'2026-09-25');
-  assert.equal(f.calls.length,3,'old metadata, fresh metadata, one current final RPC');
+  assert.equal(scopeCalls(f).length,3,'old metadata, fresh metadata, one current final RPC');
 });
 test('newer same-scope adapter request supersedes the old request before its final RPC',async()=>{
   const f=fixture({tables:tables(),deferEarliest:true});f.render();await f.entered;
@@ -165,7 +167,7 @@ test('newer same-scope adapter request supersedes the old request before its fin
   f.release();const model=await latest;await f.settle();
   assert.equal(model.bounds.start,'2026-09-25');assert.equal(f.models.length,0,'the old UI request must never publish');
   assert.ok(f.errors.some(error=>error.name==='AbortError'));
-  assert.equal(f.calls.filter(({args})=>args.p_start==='2026-09-25').length,1,'only latest final RPC');
+  assert.equal(scopeCalls(f).filter(({args})=>args.p_start==='2026-09-25').length,1,'only latest final RPC');
 });
 test('getter rejects wrong org/master/end and returned bounds cannot mutate cache',async()=>{
   const f=fixture({tables:tables()});await f.run();f.assertPeriod('2026-09-25');

@@ -27,7 +27,7 @@ try {
     assert.equal(money(await overview.locator('[data-finance-expense]').textContent()),'40000₽');
     assert.equal(money(await overview.locator('[data-finance-rent]').textContent()),'20000₽');
     assert.equal((await overview.locator('[data-finance-goods]').textContent()).trim(),'8 шт.');
-    assert.equal((await overview.locator('[data-finance-profit]').textContent()).trim(),'—');
+    assert.equal(money(await overview.locator('[data-finance-profit]').textContent()),'20000₽');
     assert.equal(await overview.locator('.finance-dashboard__surface polyline').count(),1);
     assert.doesNotMatch(await overview.innerText(),/%/);
     assert.ok(await page.locator('#reportTabOverview').evaluate(node=>{
