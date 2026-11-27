@@ -14,7 +14,7 @@ const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL
 const browser=await chromium.launch({headless:true,channel:process.env.BROWSER_CHANNEL||undefined});
 const output=process.env.MINUTA_VISUAL_OUTPUT;if(output)mkdirSync(output,{recursive:true});
 try {
-  for(const width of [390,760,1440])for(const scale of [1,2]) {
+  for(const width of [1440,1489,1200,1000,760,390])for(const scale of [1,2]) {
     const page=await browser.newPage({viewport:{width,height:1000},serviceWorkers:'block'});
     await page.route('**/*',r=>r.abort());
     await page.setContent('<!doctype html><html lang="ru"><body class="provider-body" data-provider-theme="warm" data-provider-layout="soft"><main id="dashboard" data-active-view="analytics"><div class="provider-workspace"></div></main></body></html>');
@@ -34,18 +34,26 @@ try {
     },html);
     for(const content of styles)await page.addStyleTag({content});
     await page.addStyleTag({content:read('statistics-audit-ui.css')});
+    await page.addScriptTag({content:read('provider-selects.js')});
+    await page.locator('#reportPerformerFilterWrap .pro-select-trigger').waitFor({state:'attached'});
     await page.addScriptTag({content:header});
+    if(width<1000)await page.locator('.report-filters').evaluate(el=>el.classList.add('is-open'));
     await page.evaluate(s=>document.documentElement.style.fontSize=16*s+'px',scale);
     const result=await page.evaluate(()=>{
       const box=s=>document.querySelector(s).getBoundingClientRect().toJSON();
-      return {period:box('#reportFilterToggle'),text:box('.report-smart-action>div'),button:box('.report-smart-action>button'),overflow:document.documentElement.scrollWidth-innerWidth};
+      const value=document.querySelector('#reportPerformerFilterWrap .pro-select-value');
+      const range=document.createRange();range.selectNodeContents(value);
+      return {exportButton:box('#exportBookings'),performer:box('#reportPerformerFilterWrap'),performerText:range.getBoundingClientRect().toJSON(),performerSize:parseFloat(getComputedStyle(value).fontSize),period:box('#reportFilterToggle'),text:box('.report-smart-action>div'),button:box('.report-smart-action>button'),overflow:document.documentElement.scrollWidth-innerWidth};
     });
     assert.ok(result.period.width>=200,`${width}/${scale}: readable period width ${result.period.width}`);
+    assert.ok(result.performerText.height<=result.performerSize*3.1,`${width}/${scale}: employee name collapsed into a column ${JSON.stringify(result.performerText)}`);
+    assert.ok(result.performerText.width>=70,`${width}/${scale}: employee text lost its usable width`);
+    if(width>=1200)assert.ok(result.performer.right<=result.exportButton.left+1,`${width}/${scale}: employee filter overlaps export ${JSON.stringify(result)}`);
     assert.ok(result.button.top>=result.text.bottom-1,`${width}/${scale}: action overlaps text`);
     assert.ok(result.button.width>=44&&result.button.height>=44,`${width}/${scale}: action target`);
     assert.ok(result.overflow<=1,`${width}/${scale}: horizontal overflow ${result.overflow}`);
     if(output)await page.screenshot({path:resolve(output,`controls-${width}-${scale}.png`),fullPage:true});
     await page.close();
   }
-  console.log('PASS: period and action controls at 390/760/1440, normal and enlarged text; isolated, no backend requests');
+    console.log('PASS: real select presentation, readable employee/period/action controls at 390/760/1000/1200/1440/1489, normal and enlarged text; isolated, no backend requests');
 }finally{await browser.close();}
