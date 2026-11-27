@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import {readFileSync, mkdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import {statisticsAuditViewSource} from './statistics-provider-source.mjs';
 const root=process.env.MINUTA_PROJECT_ROOT||fileURLToPath(new URL('../',import.meta.url));
 const read=name=>readFileSync(resolve(root,name),'utf8');
 const html=read('provider.html');
-const binding=read('statistics-audit-provider.js');
+const binding=statisticsAuditViewSource();
 const header=binding.slice(0,binding.indexOf('  function restoreVisitOverview('))+
   'refreshReferenceHeader("30 дней · Вся команда · Демо"); })();';
 const styles=[...html.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*href="([^"?]+\.css)(?:\?[^"]*)?"[^>]*>/g)].map(m=>read(m[1]));

@@ -299,7 +299,9 @@
 
     async function rpc(name, params, fallback) {
       const expectedOrganization = organization?.id;
-      const result = await db.rpc(name, params);
+      const branch = global.MinutaStatisticsBranchRuntime;
+      const result = name === 'get_minuta_finance_screen_v163' && branch?.enabled && branch.locationId
+        ? await branch.readLegacy(name, params) : await db.rpc(name, params);
       if (expectedOrganization !== organization?.id) throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
       if (result.error) throw userError(result.error, fallback);
       return result.data;
@@ -318,6 +320,13 @@
           throw Object.assign(new Error('stale_finance_context'), { name:'AbortError' });
       };
       let bounds = selectedScope?.bounds || periodBounds(period);
+      const branchScope = global.MinutaStatisticsBranchRuntime;
+      if (branchScope?.enabled && branchScope.locationId) {
+        const result = await branchScope.readLegacy('get_minuta_finance_screen_v163', { p_start:bounds.start, p_end:bounds.end, p_performer:masterId || null, p_limit:30 });
+        assertContext();
+        if (result.error?.code !== 'S10_METRIC_UNAVAILABLE') throw userError(result.error || new Error('branch_finance_scope_rejected'), 'Не удалось подтвердить филиал.');
+        return { available:false, resultReliable:false, availabilityMessage:'Финансы выбранного филиала недоступны: расходы и денежные операции не имеют полной привязки к филиалу.' };
+      }
       let parsedCursor = null;
       try { parsedCursor = cursor ? JSON.parse(cursor) : null; } catch (_) { parsedCursor = null; }
       const readRaw = (bounds, includeCursor = true) => {

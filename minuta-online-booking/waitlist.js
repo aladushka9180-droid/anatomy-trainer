@@ -2,7 +2,15 @@ const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window
 const $ = selector => document.querySelector(selector);
 const token = new URLSearchParams(location.search).get('token') || new URLSearchParams(location.hash.slice(1)).get('token') || '';
 const organizationScope = new URLSearchParams(location.search).get('scope') === 'organization';
-if (new URLSearchParams(location.search).has('token')) history.replaceState({}, '', `waitlist.html${organizationScope ? '?scope=organization' : ''}#token=${encodeURIComponent(token)}`);
+const offerId = new URLSearchParams(location.hash.slice(1)).get('offer') || '';
+if (new URLSearchParams(location.search).has('token')) history.replaceState({}, '', `waitlist.html${organizationScope ? '?scope=organization' : ''}#${new URLSearchParams({token,...(offerId ? {offer:offerId} : {})})}`);
+const offerApi = window.MinutaWaitlistOffers;
+let offerController = null;
+if (organizationScope && offerId && offerApi?.uuid(offerId) && offerApi.uuid(token)) {
+  offerController = offerApi.client({db,offer:offerId,token,render:renderOffer});
+  $('#waitlistOfferAccept').addEventListener('click',()=>offerController.accept());
+  $('#waitlistOfferReload').addEventListener('click',()=>offerController.load());
+}
 applyStoredClientTheme();
 
 function applyStoredClientTheme() {
@@ -52,6 +60,8 @@ async function loadRequest() {
     $('#waitlistManageError').hidden = true;
     $('#waitlistManageContent').hidden = false;
     renderRequest(data[0]);
+    if (offerController) await offerController.load();
+    else if (offerId) renderOffer({error:'Ссылка предложения недействительна. Попросите новую ссылку.'});
   } catch { showError(true); }
 }
 
@@ -76,5 +86,18 @@ $('#cancelWaitlist').addEventListener('click', async () => {
   } catch { notify('Не удалось отменить заявку. Проверьте соединение и попробуйте ещё раз.'); }
   finally { button.disabled = false; }
 });
+
+function renderOffer({offer,loading,error}) {
+  $('#waitlistOffer').hidden=false;
+  $('#waitlistOfferAccept').disabled=Boolean(loading)||!offer||offer.state!=='offered';
+  $('#waitlistOfferAccept').hidden=offer?.state==='accepted';
+  $('#waitlistOfferReload').disabled=Boolean(loading);
+  $('#waitlistOfferState').textContent=loading?'Проверяем предложение…':error?'Не удалось подтвердить':offerApi.labels[offer.state];
+  $('#waitlistOfferDetails').textContent=offer?`${offer.bookingDate} · ${offer.bookingTime.slice(0,5)} · ${offer.priceRub} ₽ · ${offer.durationMinutes} мин. Принять до ${offerApi.dateText(offer.expiresAt)}.`:'';
+  $('#waitlistOfferReason').textContent=error||offerApi.reasons[offer?.reason]||'';
+  const booking=$('#waitlistOfferBooking'); booking.hidden=loading||error||offer?.state!=='accepted';
+  booking.removeAttribute('href');
+  if(!booking.hidden){const url=new URL('booking.html',location.href);url.hash=new URLSearchParams({token:offer.booking.manageToken}).toString();booking.href=url.href;}
+}
 
 loadRequest();

@@ -1,0 +1,28 @@
+#waitlistOffer .manage-actions > :is(button, a),
+.waitlist-offer-provider :is(button, input, select) {
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+#waitlistOffer .manage-actions > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#waitlistOffer [hidden] {
+  display: none;
+}
+
+.waitlist-offer-provider .provider-link {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+}

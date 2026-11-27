@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { pathToFileURL } from 'node:url';
+import { statisticsAuditViewSource } from './statistics-provider-source.mjs';
 
 const read = name => readFileSync(new URL(`../${name}`, import.meta.url), 'utf8');
 const core = read('provider.js');
@@ -61,7 +62,7 @@ try {
     function exportBookingsPdf(){}
   ` });
   await page.addScriptTag({ content:read('statistics-audit-ui.js') });
-  await page.addScriptTag({ content:read('statistics-audit-provider.js') });
+  await page.addScriptTag({ content:statisticsAuditViewSource() });
   await page.locator('#reportHealthDetails').evaluate(node => { node.open = true; });
   assert.match(await page.locator('#reportHealthDetails').innerText(), /Посещения · 30%[\s\S]*Оплаты · 25%[\s\S]*Повторные клиенты · 20%[\s\S]*Загрузка · 25%/);
   assert.match(await page.locator('#reportHealthDetails summary').innerText(), /Индекс-ориентир/);

@@ -6,12 +6,13 @@ function reportExportScope() {
   const query = reportUsesScopedBookings()
     ? reportDataQueryRange({ start:previous?.start || range.start, end:reportForecastEnd(range) }) : null;
   const expectedKey = query ? reportSessionKey(organizationId, query.start, query.end, performer) : '';
-  const locationId = String(document.querySelector('#reportExportLocation')?.value || 'all');
+  const branch = window.MinutaStatisticsBranchRuntime;
+  const locationId = branch?.enabled ? branch.locationId || 'all' : String(document.querySelector('#reportExportLocation')?.value || 'all');
   const segment = String(document.querySelector('#reportExportSegment')?.value || 'all');
   return { userId:String(currentUser?.id || ''), generation:sessionGeneration,
     organizationId, activeOrganizationId:String(organizationController?.getActiveOrganization?.()?.id || ''),
     source:reportDataSource, start:range.start, end:range.end, period:reportPeriod, locationId, segment,
-    performer, scopedKey:reportUsesScopedBookings() ? reportScopedBookingsState.key : '',
+    performer, branchToken:branch?.enabled ? branch.token : '', scopedKey:reportUsesScopedBookings() ? reportScopedBookingsState.key : '',
     scopedStatus:reportUsesScopedBookings() && reportScopedBookingsState.key === expectedKey
       ? reportScopedBookingsState.status : reportUsesScopedBookings() ? 'stale' : 'ready' };
 }

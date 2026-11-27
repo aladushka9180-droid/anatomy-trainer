@@ -41,7 +41,7 @@ for (const name of ['[Content_Types].xml', 'xl/workbook.xml', 'xl/styles.xml', '
 assert.ok(binaryText.includes('Аладушка &amp; партнёры'), 'Текст отчёта не экранирован для Excel');
 assert.match(source, /async function exportBookingsXlsxInBackground\(privacy='masked'\)/, 'Фоновый экспорт не принимает настройку приватности');
 assert.match(serviceWorkerSource, new RegExp(`report-worker\\.js\\?v=${workerVersion}`), 'Worker отчёта не включён в PWA-кэш с версией страницы');
-assert.match(providerHtml, /<template data-provider-feature="statistics"><script src="statistics-audit-ui\.js\?v=\d+"><\/script><script src="report-export-provider\.js\?v=\d+"><\/script><script src="statistics-audit-provider\.js\?v=\d+"><\/script><\/template>/, 'Модуль статистики не подключён к странице');
+assert.match(providerHtml, /<template data-provider-feature="statistics"><script src="statistics-audit-ui\.js\?v=\d+"><\/script><script src="report-export-provider\.js\?v=\d+"><\/script><script src="statistics-audit-provider\.js\?v=\d+"><\/script><script src="statistics-branch-scope\.js\?v=\d+"><\/script><script src="statistics-branch-provider\.js\?v=\d+"><\/script><\/template>/, 'Статистика и фильтр филиала подключены в безопасном порядке');
 assert.match(statisticsUiSource, /\$\('#exportBookings'\)\?\.addEventListener\('click'/, 'Кнопка отчёта не подключена к модулю статистики');
 assert.match(statisticsSource, /if \(format === 'xlsx'\) void exportBookingsXlsxInBackground\(privacy\)/, 'Кнопка отчёта не подключена к фоновому экспорту XLSX');
 assert.match(source, /exportBookingsXlsx\(privacy\)/, 'При недоступном worker нет безопасного синхронного экспорта');

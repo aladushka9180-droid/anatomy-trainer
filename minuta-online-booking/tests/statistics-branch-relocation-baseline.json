@@ -1,0 +1,21 @@
+{
+  "reportUsesScopedBookings": "e06438939255dfb3db5ecd349a6767480c1a49785263059230ad4221cf0a2333",
+  "loadSelectedReportData": "fdaf06c87577fecf6ffa6ed9e3429b33fe1fd2afbc798e1d494e18dde7af2059",
+  "reportStatisticsRpc": "bae1d9aec25708a2965e37713d0db85d9d97bc7285d844d55eb0ab7ea7c9d802",
+  "reportHistoryBookings": "59feedd8872cc0a8488bbc0c837df662569d3cef92e53ed286d9941cdcf2c3a9",
+  "reportBranchImportedHistory": "564e036309ad284c9b4c26887d0477b5ba9fc37cc00aef93c4991fc8c9753117",
+  "reportSessionKey": "51ddfd355235c32600481b42138bea0e820bb4c7532a064f8e410dc8f389f0c8",
+  "reportRange": "a38848754810679f19c42e256239f73da706b951305d39e1bc28e1c7941f350c",
+  "reportBookings": "3583111ece2698001d9121b0317a31da16a5fe59f6221097fde46d932d58543c",
+  "reportClientMetrics": "99f7fc050af67d440f0d0de0bdc02cc98a2c07d4db4470d6013306db020267a6",
+  "reportAvailableScheduleMinutes": "49d6196fb3a8de5c821590d66b2476cbf92f8758f806871bcaae810244ae75b4",
+  "ensureReportRetention": "1bde1af45b6a9bb7d93b1ec41f34b9f8ec9d2464a0ca9c997202eca56b03a83b",
+  "loadReportAvailability": "35fa4bfd2a03f4aa5ec7092df93ee21ebf8d5d8da040b80ff645f1568b6344bb",
+  "loadReportScopedBookings": "3ea88c44b99a5880fc88c559bb4a37b0ef5d8d3ba7e76ac5d4d21fb8934c5591",
+  "loadReportTeamAnalytics": "38ca04efcf3a86d8af1e52336a631bb191986973c6e2d708c8d40cf7ced62f58",
+  "renderReportUtmFunnel": "dd8a709da82ea890884295d5908cfd5cf0cbf081d02b51bbb7432b4bdca396f1",
+  "loadReportUtmFunnel": "0dac77e125a55809f86584bf77f5bec9cca3838bb0dd1f6a91bb8caf5291087e",
+  "reportBookingPool": "b4431163035c289dd47e95a6c6a3371604eaac5d909005b4ef142a2f0ff5bf19",
+  "reportHeatmapAvailability": "30dba0ccf8d7853d14c61538ff7bfb2bcbf8311a7514ccab9581912be95341cc",
+  "loadReportEvents": "381dd9115f8b41462f1a441c5a772ab4c835fa3a75aef69dc091401a36d9f60f"
+}

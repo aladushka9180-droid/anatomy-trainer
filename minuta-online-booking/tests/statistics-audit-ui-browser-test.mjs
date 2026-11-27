@@ -15,7 +15,7 @@ const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_C
 
 try {
   for (const width of [360, 390, 760, 1440]) {
-    const page = await browser.newPage({ viewport:{ width, height:900 } });
+    const page = await browser.newPage({ viewport:{ width, height:900 }, deviceScaleFactor:Number(process.env.STATISTICS_DEVICE_SCALE || 1) });
     await page.route('**/*', route => route.abort());
     await page.goto('about:blank');
     await page.evaluate(source => {

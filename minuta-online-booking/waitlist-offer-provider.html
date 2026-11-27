@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <title>Предложить время — Eldion Pro</title><link rel="stylesheet" href="styles.css?v=811">
+<link rel="stylesheet" href="waitlist-offers.css?v=1108"></head><body class="manage-body waitlist-offer-provider"><header class="site-header manage-header"><a class="provider-link" href="provider.html">Вернуться в кабинет</a></header>
+<main class="manage-layout"><section class="manage-card">
+  <h1>Предложить время</h1><p id="employeeContext">Загружаем заявку…</p>
+  <p id="employeeError" class="form-error" role="alert" hidden></p>
+  <div id="employeeContent" hidden>
+    <p>Предложение не резервирует время. Клиент создаёт запись, когда принимает его.</p>
+    <section id="employeeLastOffer" aria-live="polite" hidden><h2 id="employeeOfferState"></h2><p id="employeeOfferDetails"></p><p id="employeeOfferReason"></p>
+      <label>Ссылка для клиента<input id="employeeOfferLink" type="url" readonly></label>
+      <button id="employeeCopyLink" type="button" class="secondary-button">Скопировать ссылку</button><p id="employeeCopyResult" role="status"></p>
+    </section>
+    <form id="employeeOfferForm"><label>Доступное время<select id="employeeSlot" required></select></label>
+      <label>Клиент может принять до (время Самары)<input id="employeeDeadline" type="datetime-local" required></label>
+      <p>Укажите срок в будущем, строго до начала выбранного времени.</p>
+      <button id="employeeCreateOffer" type="submit" class="primary">Создать предложение</button>
+    </form>
+  </div><button id="employeeReload" type="button" class="secondary-button">Обновить</button>
+</section></main>
+<script src="vendor/supabase-2.112.4.min.js"></script><script src="config.js?v=1108"></script>
+<script src="waitlist-offers.js?v=1108" defer></script><script src="waitlist-offer-provider.js?v=1108" defer></script>
+</body></html>

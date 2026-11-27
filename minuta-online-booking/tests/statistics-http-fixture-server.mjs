@@ -4,6 +4,7 @@ import {dirname,resolve,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {fixtureHtml} from './statistics-clarity-fixture-server.mjs';
 import {candidateProvider} from './statistics-clarity-provider-patch.mjs';
+import {statisticsAuditViewSource} from './statistics-provider-source.mjs';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const org='11111111-1111-4111-8111-111111111111',master='33333333-3333-4333-8333-333333333333',rent='22222222-2222-4222-8222-222222222222';
@@ -84,6 +85,7 @@ export async function serveHttpFixture(port=0){
       const source=candidateProvider(readFileSync(resolve(root,'provider.js'),'utf8'));
       return send(200,'text/javascript; charset=utf-8',source.slice(source.indexOf('function reportPerformerName()'),source.indexOf('\nasync function loadReportAvailability(')));
     }
+    if(relative==='statistics-audit-provider.js')return send(200,'text/javascript; charset=utf-8',statisticsAuditViewSource());
     if(!['.css','.js','.svg','.png','.webp','.woff2'].includes(extname(target)))return send(403,'text/plain','forbidden');
     try{return send(200,({'.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2'})[extname(target)],readFileSync(target));}
     catch{return send(404,'text/plain','not found');}
