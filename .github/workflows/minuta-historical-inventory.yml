@@ -1,0 +1,24 @@
+name: Historical visit inventory safety
+on:
+  pull_request:
+    paths:
+      - 'minuta-online-booking/provider.js'
+      - 'minuta-online-booking/recovery/historical-inventory-*'
+      - 'minuta-online-booking/tests/historical-inventory-postgres-test.mjs'
+      - 'minuta-online-booking/tests/historical-booking-context-test.mjs'
+      - '.github/workflows/minuta-historical-inventory.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test minuta-online-booking/tests/historical-booking-context-test.mjs
+      - run: npm install --prefix "$RUNNER_TEMP/historical-inventory" --no-save --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.3.10
+      - run: MINUTA_PGLITE_MODULE="$RUNNER_TEMP/historical-inventory/node_modules/@electric-sql/pglite/dist/index.js" node minuta-online-booking/tests/historical-inventory-postgres-test.mjs
