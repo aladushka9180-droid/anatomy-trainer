@@ -24,5 +24,5 @@
   return scope;
  }
  root.MinutaStatisticsBranchProvider=Object.freeze({activate});
- if(root.MINUTA_CONFIG?.statisticsBranchBackendAccepted===true && typeof currentUser!=='undefined' && currentUser?.id && typeof reportDataSource!=='undefined' && reportDataSource==='own' && reportOrganizationId() && root.MinutaStatisticsAuditProvider?.branchSourceReady===true)activate({backendAccepted:true});
+ if(root.MINUTA_CONFIG?.statisticsBranchBackendAccepted===true && typeof currentUser!=='undefined' && currentUser?.id && typeof reportDataSource!=='undefined' && reportDataSource==='own' && reportOrganizationId() && reportOrganization()?.current_role && root.MinutaStatisticsAuditProvider?.branchSourceReady===true)activate({backendAccepted:true});
 })(typeof window==='undefined'?globalThis:window);
