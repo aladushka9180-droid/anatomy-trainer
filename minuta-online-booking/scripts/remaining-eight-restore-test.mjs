@@ -20,7 +20,7 @@ test('outer transaction is removed without altering inner PLpgSQL blocks',()=>{
 });
 test('restore remains main-only, private and network-isolated',()=>{
  const shell=read('remaining-eight-restore.sh'),workflow=read('../../.github/workflows/minuta-supabase-restore-drill.yml');
- assert.match(shell,/NetworkMode[\s\S]*= none/);assert.match(shell,/VERBOSITY=sqlstate[\s\S]*private_log/);
+ assert.match(shell,/NetworkMode[\s\S]*= none/);assert.match(shell,/VERBOSITY=default[\s\S]*private_log/);
  assert.doesNotMatch(shell,/SUPABASE_DB_URL|curl|wget|pg_restore|psql "\$/);
  assert.match(workflow,/ephemeral-restore-drill:[\s\S]*github\.ref == 'refs\/heads\/main'/);
  assert.match(workflow,/test "\$age" -le 7200/);assert.match(workflow,/remaining-eight-restore-sql\.mjs candidate-sql\/minuta-online-booking --verify/);
@@ -68,3 +68,16 @@ test('SQL rehearsal preserves original state and catches a destructive candidate
  const changedFunction={...fixture};changedFunction['statistics-branch-candidate.sql']=changedFunction['statistics-branch-candidate.sql'].replace('commit;',()=> 'create or replace function public.rehearsal_legacy() returns int language sql as $$select 99$$;commit;');
  await assert.rejects(()=>run(changedFunction),/remaining_eight_changed_original_state/);
 });
+
+ test('functional diagnostics redact arbitrary database messages',{skip:!process.env.MINUTA_PGLITE_MODULE},async()=>{
+ const {PGlite}=await import(pathToFileURL(process.env.MINUTA_PGLITE_MODULE).href);
+ const sql=read('remaining-eight-functional.sql');
+ for(const [index,input] of [sql,sql.replace(/begin\r?\n/,()=>"begin\n raise exception 'PRIVATE_SENTINEL';\n")].entries()){
+  const db=new PGlite();try{
+   await assert.rejects(()=>db.exec(input),error=>{
+    assert.match(error.message,/^remaining-eight-phase=fixture state=(42P01|P0001) check=redacted$/);
+    assert.ok(!error.message.includes('PRIVATE_SENTINEL'));assert.ok(error.message.includes(index===1?'state=P0001':'state=42P01'));return true;
+   });
+  }finally{await db.close()}
+ }
+ });

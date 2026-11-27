@@ -38,12 +38,15 @@ begin
  end loop;
  insert into public.organization_waitlist_requests(id,organization_id,location_id,performer_id,service_id,request_code,manage_token,client_name,client_phone,desired_date,time_period)
  values(request_id,org_id,template.location_id,template.performer_id,template.service_id,'QA-EIGHT-'||request_id,token_one,'ТЕСТ: копия базы',phone_value,slot.booking_date,'any');
+ stage:='offer_employee';
  result:=public.get_minuta_waitlist_employee_v196(request_id);
  if result->>'requestId' is distinct from request_id::text or jsonb_array_length(result->'slots')=0 then raise exception 'restored_offer_employee_read_failed';end if;
  select count(*) into bookings_before from public.bookings;
+ stage:='offer_create';
  result:=public.create_minuta_waitlist_offer_v196(offer_one,request_id,slot.booking_date,slot.booking_time,expires);
  if result->>'state' is distinct from 'offered' or (select count(*) from public.bookings)<>bookings_before then raise exception 'restored_offer_created_booking_early';end if;
  perform set_config('request.jwt.claim.role','anon',true);perform set_config('request.jwt.claim.sub','',true);perform set_config('request.jwt.claims','{}',true);
+ stage:='offer_accept';
  result:=public.accept_minuta_waitlist_offer_v196(offer_one,token_one);
  if result->>'state' is distinct from 'accepted' then raise exception 'restored_offer_accept_failed';end if;
  perform public.accept_minuta_waitlist_offer_v196(offer_one,token_one);
@@ -52,6 +55,7 @@ begin
  perform set_config('request.jwt.claim.role','authenticated',true);
  perform set_config('request.jwt.claim.sub',owner_id::text,true);
  perform set_config('request.jwt.claims',jsonb_build_object('sub',owner_id,'role','authenticated')::text,true);
+ stage:='offer_expired';
  select * into second_slot from public.get_public_minuta_available_slots_v101(slug,template.location_id,template.service_id,slot.booking_date,slot.booking_date) order by booking_time limit 1;
  if second_slot.booking_date is null then raise exception 'restored_fixture_second_slot_unavailable';end if;
  insert into public.organization_waitlist_requests(id,organization_id,location_id,performer_id,service_id,request_code,manage_token,client_name,client_phone,desired_date,time_period)
@@ -67,6 +71,7 @@ begin
  perform set_config('request.jwt.claim.role','authenticated',true);
  perform set_config('request.jwt.claim.sub',owner_id::text,true);
  perform set_config('request.jwt.claims',jsonb_build_object('sub',owner_id,'role','authenticated')::text,true);
+ stage:='offer_compete';
  perform public.create_minuta_waitlist_offer_v196(offer_busy,second_request,second_slot.booking_date,second_slot.booking_time,expires);
  loop
   competitor_phone:='79'||lpad(floor(random()*1000000000)::bigint::text,9,'0');
@@ -94,13 +99,16 @@ begin
  end if;
  update public.bookings b set client_account_id=client_id where b.id=(select o.booking_id from public.organization_waitlist_offers o where o.id=offer_one);
  stage:='loyalty';
+ stage:='loyalty_settings';
  perform public.set_minuta_loyalty_program_v166(org_id,true,10,'text',null,'ТЕСТ: восстановленная копия',null,null,gen_random_uuid());
+ stage:='loyalty_preview';
  preview:=public.preview_minuta_loyalty_adjustment_v166(org_id,client_id,delta_value);
  if not (preview->>'allowed')::boolean then
   delta_value:=greatest(-100,least(100,-(preview->>'before')::integer));
   preview:=public.preview_minuta_loyalty_adjustment_v166(org_id,client_id,delta_value);
  end if;
  if not coalesce((preview->>'allowed')::boolean,false) then raise exception 'restored_fixture_loyalty_progress_unavailable';end if;
+ stage:='loyalty_confirm';
  result:=public.confirm_minuta_loyalty_adjustment_v166(org_id,client_id,delta_value,'ТЕСТ: проверка копии',adjustment_id,(preview->>'before')::integer,(preview->>'cycle_number')::integer,(preview->>'rule_id')::uuid);
  perform public.confirm_minuta_loyalty_adjustment_v166(org_id,client_id,delta_value,'ТЕСТ: проверка копии',adjustment_id,(preview->>'before')::integer,(preview->>'cycle_number')::integer,(preview->>'rule_id')::uuid);
  if (select count(*) from public.loyalty_program_history_v166 h where h.organization_id=org_id and h.request_id=adjustment_id)<>1 then raise exception 'restored_loyalty_duplicate_adjustment';end if;
@@ -119,6 +127,7 @@ begin
  stage:='statistics';
  for location_id in select null::uuid union all select l.id from public.locations l where l.organization_id=org_id and l.active limit 2 loop
   foreach source_name in array array['bookings','imported','availability','team','finance','retention','history','utm'] loop
+   stage:='statistics_'||source_name||case when location_id is null then '_all' else '_branch' end;
    result:=public.get_minuta_statistics_branch_candidate(org_id,current_date-7,current_date+7,null,location_id,source_name,25,null);
    if result->>'contract' is distinct from 's10-branch-v1'
    or (result#>>'{scope,organization_id}')::uuid is distinct from org_id
@@ -128,6 +137,5 @@ begin
  end loop;
 
 exception when others then
- raise notice using errcode=case stage when 'loyalty' then 'R8019' when 'statistics' then 'R8010' when 'offers' then 'R8007' else 'R8000' end,message='restored-copy functional stage';
- raise;
+ raise exception using errcode='P0001',message='remaining-eight-phase='||stage||' state='||SQLSTATE||' check='||case when SQLERRM=any(array['restored_fixture_owner_unavailable','restored_fixture_free_slot_unavailable','restored_offer_employee_read_failed','restored_offer_created_booking_early','restored_offer_accept_failed','restored_offer_accept_duplicate','restored_fixture_second_slot_unavailable','restored_offer_expired_label_failed','restored_offer_expired_write','restored_offer_competing_accept_failed','restored_offer_busy_slot_not_protected','restored_fixture_loyalty_progress_unavailable','restored_loyalty_duplicate_adjustment','restored_loyalty_stale_preview_accepted','restored_loyalty_bounds_not_enforced','restored_loyalty_out_of_bounds_accepted','restored_branch_scope_contract_failed']) then SQLERRM else 'redacted' end;
 end $functional$;
