@@ -7054,7 +7054,7 @@ async function loadProviderMessagesCenter() {
     renderClientAvatar:conversation => {
       if (conversation.kind !== 'client') return '';
       const booking = allBookings.find(item => item.id === conversation.booking?.booking_id
-        && belongsToActiveOrganization(item));
+        && item.organization_id === organization.id);
       return booking ? clientFramedAvatarMarkup(booking.client_phone, booking.client_name) : '';
     },
     canManageSettings:['owner','admin'].includes(String(organization.current_role || ''))
