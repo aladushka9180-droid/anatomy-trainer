@@ -5,7 +5,31 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import test from 'node:test';
 import {body,generate,pins,readPinned} from './remaining-eight-restore-sql.mjs';
+import {releaseSql,functionChecks} from './remaining-eight-production-sql.mjs';
 const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+test('production release is atomic, additive, pinned and excludes functional writes',()=>{
+ const sources=readPinned(new URL('../',import.meta.url).pathname.replace(/^\/([A-Z]:)/i,'$1'));
+ const apply=releaseSql(sources,'apply'),check=releaseSql(sources,'check'),observe=releaseSql(sources,'observe');
+ assert.match(apply,/begin isolation level repeatable read;/);
+ assert.equal((apply.match(/^commit;$/gm)||[]).length,1);
+ assert.doesNotMatch(apply,/^rollback;|functional_checks|ТЕСТ:|set_minuta_loyalty_program_v166\(/m);
+ for(const f of ['supabase-candidate-loyalty-adjustment-preview.sql','statistics-branch-candidate.sql','supabase-candidate-waitlist-offers.sql'])assert.ok(apply.includes(body(sources[f])));
+ assert.match(apply,/remaining_eight_changed_original_state/);assert.match(apply,/remaining_eight_installed_source_mismatch/);
+ for(const sql of [check,observe]){assert.match(sql,/^begin read only;/);assert.doesNotMatch(sql,/create table|create function|^commit;/m);}
+ const guard=read('../../.github/scripts/remaining-eight-release-guard.mjs'),workflow=read('../../.github/workflows/minuta-remaining-eight-release.yml');
+ for(const required of ['APPLY_REMAINING_EIGHT_AFTER_USER_APPROVAL','candidateProductionApplyEnvelopeVerified','candidatePositiveLoyaltyAndBranchAndOfferChecks','candidateOriginalPublicRowsAndDefinitionsPreserved','7200000'])assert.ok(guard.includes(required));
+ assert.match(workflow,/environment: minuta-production/);assert.match(workflow,/group: minuta-production-database/);
+ assert.match(workflow,/default_transaction_read_only=on/);assert.doesNotMatch(workflow,/--echo|cat "\$private_log/);
+});
+test('installed-body verifier rejects drift',{skip:!process.env.MINUTA_PGLITE_MODULE},async()=>{
+ const {PGlite}=await import(pathToFileURL(process.env.MINUTA_PGLITE_MODULE).href);
+ const db=new PGlite();try{
+  const source="create function public.release_fixture() returns int language sql security definer set search_path='' as $$select 1$$;";
+  await db.exec(source);const check='do $$begin '+functionChecks({source}).sql+'end$$;';await db.exec(check);
+  await db.exec(source.replace('create function','create or replace function').replace('select 1','select 2'));
+  await assert.rejects(()=>db.exec(check),/remaining_eight_installed_source_mismatch/);
+ }finally{await db.close();}
+});
 test('only six exact reviewed SQL sources are admitted',()=>{
  assert.equal(Object.keys(pins).length,6);
  for(const hash of Object.values(pins))assert.match(hash,/^[a-f0-9]{64}$/);
