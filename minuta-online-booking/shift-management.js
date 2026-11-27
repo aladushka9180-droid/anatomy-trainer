@@ -1,6 +1,7 @@
 (function () {
   'use strict';
 
+  const scriptUrl = document.currentScript?.src;
   const absenceLabels = { vacation: 'Отпуск', sick: 'Больничный', unavailable: 'Недоступен' };
   const auditLabels = {
     shift_created: 'Создана смена', shift_updated: 'Изменена смена', shift_cancelled: 'Смена отменена',
@@ -456,6 +457,18 @@
       if (event.target.id === 'substitutionBooking') renderSubstitution(Boolean(payload?.can_manage_team));
       if (event.target.id === 'shiftSchedulingEnabled') {
         const desired = event.target.checked;
+        if (desired) {
+          event.target.checked = false;
+          if (pending || !payload || payload.current_role !== 'owner' || !requireWrites()) return;
+          const rev = revision, id = organization.id, user = getCurrentUser()?.id, gen = getSessionGeneration();
+          const current = () => revision === rev && organization?.id === id && sessionIsCurrent(user, gen);
+          event.target.disabled = true;
+          try {
+            const { review } = await import(new URL('shift-enable-review.js'+new URL(scriptUrl || location.href).search,scriptUrl || location.href).href);
+            if (!current() || !await review({ db, organizationId:id, current, timeoutMs:loadTimeoutMs }) || !current()) return;
+          } catch { if (current()) notify('Не удалось проверить покрытие сменами. Обновите график и повторите проверку.'); return; }
+          finally { if (current()) event.target.disabled = false; }
+        }
         const ok = await mutate('set_minuta_branch_shifts_enabled', { p_organization: organization.id, p_enabled: desired }, event.target, desired ? 'Смены учитываются при онлайн-записи' : 'Учёт смен при онлайн-записи выключен');
         if (!ok && payload) event.target.checked = Boolean(payload.enabled);
       }
