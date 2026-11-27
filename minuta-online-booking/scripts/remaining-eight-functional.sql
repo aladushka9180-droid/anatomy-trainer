@@ -12,7 +12,7 @@ declare
 begin
  select m.user_id,m.organization_id into owner_id,org_id
  from public.organization_memberships m join public.organizations o on o.id=m.organization_id
- where m.active and m.role='owner' and o.status='active' and coalesce(o.public_slug,'')<>''
+ where m.active and m.role='owner' and o.status='active' and o.public_booking_enabled and coalesce(o.public_slug,'')<>''
  and exists(select 1 from public.bookings b where b.organization_id=m.organization_id)
  order by (select count(*) from public.bookings b where b.organization_id=m.organization_id) desc limit 1;
  if owner_id is null then raise exception 'restored_fixture_owner_unavailable';end if;
@@ -22,8 +22,9 @@ begin
  stage:='offers';
  select o.public_slug into slug from public.organizations o where o.id=org_id;
  for template in select distinct b.performer_id,b.service_id,b.location_id
- from public.bookings b join public.services s on s.id=b.service_id and s.active
- join public.locations l on l.id=b.location_id and l.organization_id=b.organization_id and l.active
+ from public.bookings b join public.services s on s.id=b.service_id and s.active and s.performer_id=b.performer_id
+ join public.locations l on l.id=b.location_id and l.organization_id=b.organization_id and l.active and l.timezone='Europe/Samara'
+ join public.organization_memberships eligible on eligible.organization_id=b.organization_id and eligible.user_id=b.performer_id and eligible.active and eligible.is_bookable
  where b.organization_id=org_id and b.performer_id is not null loop
   select * into slot from public.get_public_minuta_available_slots_v101(slug,template.location_id,template.service_id,current_date+1,current_date+14) order by booking_date,booking_time limit 1;
   has_slot:=found;exit when has_slot;
@@ -137,5 +138,5 @@ begin
  end loop;
 
 exception when others then
- raise exception using errcode='P0001',message='remaining-eight-phase='||stage||' state='||SQLSTATE||' check='||case when SQLERRM=any(array['restored_fixture_owner_unavailable','restored_fixture_free_slot_unavailable','restored_offer_employee_read_failed','restored_offer_created_booking_early','restored_offer_accept_failed','restored_offer_accept_duplicate','restored_fixture_second_slot_unavailable','restored_offer_expired_label_failed','restored_offer_expired_write','restored_offer_competing_accept_failed','restored_offer_busy_slot_not_protected','restored_fixture_loyalty_progress_unavailable','restored_loyalty_duplicate_adjustment','restored_loyalty_stale_preview_accepted','restored_loyalty_bounds_not_enforced','restored_loyalty_out_of_bounds_accepted','restored_branch_scope_contract_failed']) then SQLERRM else 'redacted' end;
+ raise exception using errcode='P0001',message='remaining-eight-phase='||stage||' state='||SQLSTATE||' check='||case when SQLERRM=any(array['waitlist_offers_prerequisites_missing','waitlist_offers_existing_object_conflict','waitlist_offer_unavailable','waitlist_offer_booking_binding_invalid','waitlist_offer_request_conflict','invalid_waitlist_offer','waitlist_offer_outside_supported_horizon','service_unavailable','waitlist_offer_slot_busy','waitlist_offer_already_active','waitlist_offer_deadline_elapsed','waitlist_offer_atomic_ack_invalid','loyalty_program_management_denied','invalid_loyalty_progress_adjustment','loyalty_client_not_in_organization','loyalty_program_disabled','loyalty_rule_missing','invalid_loyalty_adjustment_confirmation','loyalty_adjustment_preview_stale','invalid_loyalty_progress_result','authentication_required','invalid_branch_scope','organization_access_denied','branch_access_denied','staff_report_access_denied','invalid_branch_range','invalid_branch_source','stale_branch_cursor','invalid_branch_cursor','finance_access_denied','retention_access_denied','organization_unavailable','service_or_location_unavailable','restored_fixture_owner_unavailable','restored_fixture_free_slot_unavailable','restored_offer_employee_read_failed','restored_offer_created_booking_early','restored_offer_accept_failed','restored_offer_accept_duplicate','restored_fixture_second_slot_unavailable','restored_offer_expired_label_failed','restored_offer_expired_write','restored_offer_competing_accept_failed','restored_offer_busy_slot_not_protected','restored_fixture_loyalty_progress_unavailable','restored_loyalty_duplicate_adjustment','restored_loyalty_stale_preview_accepted','restored_loyalty_bounds_not_enforced','restored_loyalty_out_of_bounds_accepted','restored_branch_scope_contract_failed']) then SQLERRM else 'redacted' end;
 end $functional$;
