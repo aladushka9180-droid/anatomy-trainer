@@ -153,8 +153,11 @@ if [[ -n "${MINUTA_RESTORE_MIGRATION_SQL:-}" || -n "${MINUTA_RESTORE_ROLLBACK_SQ
   test -f "${MINUTA_RESTORE_MIGRATION_SQL:?}"
   test -f "${MINUTA_RESTORE_ROLLBACK_SQL:?}"
   candidate_version="${MINUTA_RESTORE_CANDIDATE_VERSION:-v177}"
-  case "$candidate_version" in v177|v180|v181|v184|v192|v193) ;; *) exit 1 ;; esac
-  if [[ "$candidate_version" == v193 ]]; then
+  case "$candidate_version" in v177|v180|v181|v184|v192|v193|remaining-eight) ;; *) exit 1 ;; esac
+  if [[ "$candidate_version" == remaining-eight ]]; then
+    stage=candidate-remaining-eight-restored-public
+    bash "$script_dir/remaining-eight-restore.sh" "$container" "$private_log" "$result"
+  elif [[ "$candidate_version" == v193 ]]; then
     stage=candidate-v193-guarded-rehearsal
     bash "$script_dir/inventory-metadata-v193-restore.sh" "$container" "$private_log" "$result"
   elif [[ "$candidate_version" == v192 ]]; then
