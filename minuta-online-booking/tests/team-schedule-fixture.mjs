@@ -3,7 +3,7 @@ import { dirname, resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export function fixtureHtml({ ui = true, theme = 'pink-porcelain', role = 'owner', empty = false } = {}) {
+export function fixtureHtml({ ui = true, theme = 'pink-porcelain', role = 'owner', empty = false, acceptance = false } = {}) {
   let html = readFileSync(resolve(app, 'provider.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<meta[^>]*http-equiv="Content-Security-Policy"[^>]*>/i, '');
   // This fixture never imports Supabase or sends RPCs. All records are fictional.
   const setup = `
@@ -23,16 +23,22 @@ export function fixtureHtml({ ui = true, theme = 'pink-porcelain', role = 'owner
     const today=(()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)})();
     const add=(date,n)=>{const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
     const role=${JSON.stringify(role)}; let actor='u1',generation=1,writeMode='ok',allowed=true,org='org-a';
-    const names=['Анна','Мария','Елена','Анастасия Константинопольская',...Array.from({length:26},(_,i)=>'Специалист '+(i+5))];
+    const names=['Анна','Мария','Елена','Анастасия Константинопольская',...Array.from({length:26},(_,i)=>'Специалист '+(i+5))].slice(0,${acceptance ? 5 : 30});
     const initial={organization_id:org,current_role:role,can_manage_team:['owner','admin'].includes(role),enabled:false,
       locations:[{id:'l1',name:'Основной филиал',active:true},{id:'l2',name:'Северный',active:true}],
       performers:${empty ? '[]' : "names.map((display_name,i)=>({id:'u'+(i+1),display_name}))"},
-      shifts:[],absences:[],bookings:[{id:'b1',booking_date:today,booking_time:'12:00',service_name:'Массаж',performer_id:'u1',status:'confirmed',duration_minutes:60}],
+      shifts:[],absences:[],bookings:[{id:'b1',location_id:'l1',booking_date:today,booking_time:'12:00',service_name:'Массаж',performer_id:'u1',status:'confirmed',duration_minutes:60}],
       services:[{id:'srv1',performer_id:'u1',name:'Массаж',duration_minutes:60},{id:'srv2',performer_id:'u2',name:'Массаж',duration_minutes:60}],utilization:[],audit:[]};
     for(const p of initial.performers)for(const offset of [0,1,3,4])initial.shifts.push({id:'s-'+p.id+'-'+offset,performer_id:p.id,location_id:p.id==='u4'?'l2':'l1',shift_date:add(today,offset),start_time:'10:00',end_time:'18:00',break_start:'14:00',break_end:'15:00',active:true,note:''});
+    if(${acceptance}){
+      initial.locations.push({id:'l3',name:'Южный',active:true});
+      initial.shifts.filter(s=>s.performer_id==='u5').forEach(s=>s.location_id='l3');
+      initial.shifts.push({id:'test-overlap',performer_id:'u1',location_id:'l2',shift_date:today,start_time:'11:00',end_time:'16:00',active:true,note:'Синтетический конфликт O09'});
+      initial.absences.push({id:'test-absence',performer_id:'u2',starts_on:today,ends_on:today,kind:'vacation',active:true});
+    }
     if(initial.performers.length)initial.absences.push({id:'a1',performer_id:'u3',starts_on:add(today,2),ends_on:add(today,2),kind:'vacation',active:true});
     if(!initial.performers.length){initial.bookings=[];initial.services=[];}
-    const storageKey='team-schedule-fixture:'+role+':${empty}';
+    const storageKey='team-schedule-fixture:'+role+':${empty}:${acceptance}';
     let state;try{state=JSON.parse(sessionStorage.getItem(storageKey)||'null')}catch{};state=state||initial;
     const calls=[];const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const persist=()=>sessionStorage.setItem(storageKey,JSON.stringify(state));
@@ -82,7 +88,7 @@ if (process.argv.includes('--serve')) {
     if (url.pathname === '/' || url.pathname === '/schedule-preview.html') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Content-Security-Policy', "default-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; object-src 'none'; frame-src 'none'");
-      res.end(fixtureHtml({ ui: url.searchParams.get('ui') !== '0', theme: url.searchParams.get('theme') || 'pink-porcelain', role: url.searchParams.get('role') || 'owner', empty: url.searchParams.get('empty') === '1' })); return;
+      res.end(fixtureHtml({ ui: url.searchParams.get('ui') !== '0', theme: url.searchParams.get('theme') || 'pink-porcelain', role: url.searchParams.get('role') || 'owner', empty: url.searchParams.get('empty') === '1', acceptance:url.searchParams.get('acceptance') === '1' })); return;
     }
     const file = resolve(app, '.' + decodeURIComponent(url.pathname));
     if (!file.startsWith(app + sep)) { res.writeHead(403).end(); return; }

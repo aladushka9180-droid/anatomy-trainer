@@ -11,7 +11,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=811">
   <link rel="stylesheet" href="client-themes.css?v=885">
-</head>
+<link rel="stylesheet" href="waitlist-offers.css?v=1108"></head>
 <body class="manage-body booking-client-page" data-client-theme="sage">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
   <header class="site-header manage-header"><a class="brand" href="index.html"><span class="brand-mark">М</span><span><strong>Массаж в Ижевске</strong><small>лист ожидания</small></span></a><a class="provider-link" href="index.html"><span>Онлайн-запись</span></a></header>
@@ -23,11 +23,18 @@
       <div class="manage-appointment"><div class="manage-date-mark"><strong id="waitlistManageDay">—</strong><span id="waitlistManageMonth">—</span></div><div><strong id="waitlistManageDate">—</strong><span id="waitlistManagePeriod">—</span></div></div>
       <dl class="manage-details"><div><dt>Исполнитель</dt><dd id="waitlistManagePerformer">—</dd></div><div><dt>Номер заявки</dt><dd id="waitlistManageCode">—</dd></div></dl>
       <p class="manage-policy">Мастер свяжется с вами, когда появится подходящее окно. Заявка не является гарантированной записью.</p>
+      <section id="waitlistOffer" aria-live="polite" hidden>
+        <h2 id="waitlistOfferState">Проверяем предложение…</h2><p id="waitlistOfferDetails"></p><p id="waitlistOfferReason"></p>
+        <p>Предложение не резервирует время. Доступность проверится при принятии.</p>
+        <div class="manage-actions"><button id="waitlistOfferAccept" type="button" class="primary" disabled>Принять и записаться</button>
+          <button id="waitlistOfferReload" type="button" class="manage-secondary">Обновить предложение</button>
+          <a id="waitlistOfferBooking" class="primary" hidden>Открыть запись</a></div>
+      </section>
       <div class="manage-actions" id="waitlistManageActions"><a class="primary" href="index.html">Проверить свободное время</a><button class="manage-danger" id="cancelWaitlist" type="button">Отменить заявку</button></div>
     </div>
   </section></main>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=811"></script><script src="site-update.js?v=1022" defer></script><script src="theme-catalog.js?v=885"></script><script src="waitlist.js?v=885" defer></script>
+  <script src="config.js?v=1108"></script><script src="site-update.js?v=1108" defer></script><script src="theme-catalog.js?v=885"></script><script src="waitlist-offers.js?v=1108" defer></script><script src="waitlist.js?v=1108" defer></script>
 </body>
 </html>

@@ -49,7 +49,7 @@ assert.match(provider,/clientLoyaltySettings[\s\S]{0,500}await Promise\.resolve\
 assert.match(module,/get_minuta_loyalty_program_workspace_v166/);
 assert.match(module,/set_minuta_loyalty_program_v166/);
 assert.match(module,/redeem_minuta_loyalty_reward_v166/);
-assert.match(module,/const next = \{ fingerprint, requestId:uuid\(\) \}[\s\S]*localStorage\.setItem\(key, JSON\.stringify\(next\)\)/i,'Ambiguous writes keep an opaque retry intent across reloads');
+assert.match(module,/const next = \{ fingerprint, requestId:uuid\(\),[^\n]+\}[\s\S]*localStorage\.setItem\(key, JSON\.stringify\(next\)\)/i,'Ambiguous writes keep the request identity and original preview across reloads');
 assert.match(module,/if \(confirmedRejection\) clearIntent\(intent\)/,'An initial confirmed business failure releases the retry intent; prior unknown outcomes remain protected');
 assert.doesNotMatch(module,/send_message|notification_outbox|referral|cashback/i,'V1 has no messaging, referrals or cashback');
 for (const asset of ['provider.js', 'styles.css']) {

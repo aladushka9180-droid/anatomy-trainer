@@ -61,7 +61,7 @@
 
   function scopeKey(scope) {
     if (!scope) return '';
-    return JSON.stringify([scope.session, scope.organization, scope.organizationName, scope.source, scope.start, scope.end, scope.performer, scope.performerName, scope.view, scope.status, scope.role, scope.locations, scope.locationId, scope.segment]);
+    return JSON.stringify([scope.session, scope.organization, scope.organizationName, scope.source, scope.start, scope.end, scope.performer, scope.performerName, scope.view, scope.status, scope.role, scope.locations, scope.locationId, scope.segment, scope.branchToken]);
   }
 
   function scopeText(scope) {
@@ -106,7 +106,8 @@
     function readyScope() {
       const scope = getScope();
       if (!scope || scope.status !== 'ready' || !scope.start || !scope.end || scope.start > scope.end) return null;
-      const locationId = $('#reportExportLocation')?.value || 'all';
+      const branch = window.MinutaStatisticsBranchRuntime;
+      const locationId = branch?.enabled ? branch.locationId || 'all' : $('#reportExportLocation')?.value || 'all';
       const segment = $('#reportExportSegment')?.value || 'all';
       if (!exportSegmentTitles[segment] || locationId !== 'all' && !scope.locations?.some(item => item.id === locationId)) return null;
       return { ...scope, locationId, segment };
@@ -132,13 +133,14 @@
       const segment = $('#reportExportSegment');
       const privacy = $('#reportExportPrivacy');
       if (!location || !segment || !privacy) return;
-      const selected = location.value;
+      const branch = window.MinutaStatisticsBranchRuntime;
+      const selected = branch?.enabled ? branch.locationId || 'all' : location.value;
       location.replaceChildren(new Option('Все филиалы', 'all'));
       if (scope?.source === 'own') for (const item of scope.locations || []) {
         if (item.id) location.add(new Option(item.name || 'Филиал', item.id));
       }
       location.value = [...location.options].some(option => option.value === selected) ? selected : 'all';
-      location.disabled = scope?.source !== 'own';
+      location.disabled = scope?.source !== 'own' || Boolean(branch?.enabled);
       segment.disabled = scope?.source !== 'own';
       if (segment.disabled) segment.value = 'all';
       const full = privacy.querySelector('option[value="full"]');
@@ -195,7 +197,7 @@
       const caption = dialog.querySelector('.report-audit-head small');
       if (caption) caption.textContent = 'Возврат клиентов';
       dialog.querySelector('#reportSegmentTitle').textContent = retentionSegmentTitles[kind];
-      dialog.querySelector('.report-audit-scope').textContent = `${snapshot.scope.organizationName || 'Организация'} · Все филиалы. Период и сотрудник статистики не применяются.`;
+      dialog.querySelector('.report-audit-scope').textContent = `${snapshot.scope.organizationName || 'Организация'} · ${snapshot.scope.locationName || 'Все филиалы'}. Период и сотрудник статистики не применяются.`;
       dialog.querySelector('.report-audit-count').textContent = `${clientCount(rows.length)} · только просмотр · сообщения не отправляются`;
       const list = dialog.querySelector('.report-audit-list');
       list.replaceChildren();

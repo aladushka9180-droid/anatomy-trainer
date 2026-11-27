@@ -32,6 +32,12 @@ jobs:
       - run: node minuta-online-booking/provider-ux-audit-test.mjs
       - run: node minuta-online-booking/provider-startup-performance-v565-test.mjs
       - run: node minuta-online-booking/loyalty-program-v166-static-test.mjs
+      - name: Проверить перенос оставшихся критериев без рабочей базы
+        run: |
+          node minuta-online-booking/tests/loyalty-preview-source-test.mjs
+          node minuta-online-booking/tests/loyalty-preview-full-restore-probe-contract-test.mjs
+          node minuta-online-booking/tests/statistics-branch-scope-test.mjs
+          node minuta-online-booking/tests/statistics-branch-relocation-test.mjs
       - run: node minuta-online-booking/help-knowledge-refresh-v565-test.mjs
       - run: node minuta-online-booking/tests/help-editorial-quality-test.mjs
       - run: node minuta-online-booking/primetime-pro-brand-v598-test.mjs

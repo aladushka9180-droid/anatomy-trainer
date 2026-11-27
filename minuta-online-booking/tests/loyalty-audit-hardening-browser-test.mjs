@@ -44,7 +44,8 @@ async function setup(existingPage){
         return f.readFailure?{error:{code:'FETCH_FAILED'}}:{data:value};
       }
       if(f.delay)await new Promise(r=>setTimeout(r,f.delay));
-      if(name==='adjust_minuta_loyalty_progress_v166'){
+      if(name==='preview_minuta_loyalty_adjustment_v166')return {data:{before:f.actualProgress,after:f.actualProgress+p.p_delta,delta:p.p_delta,goal_visits:10,cycle_number:1,rule_id:'rule-old',allowed:f.actualProgress+p.p_delta>=0&&f.actualProgress+p.p_delta<=10}};
+      if(name==='confirm_minuta_loyalty_adjustment_v166'){
         if(f.adjustmentDenied)return {error:{code:'42501',message:'Synthetic membership denial before request replay lookup'}};
         if(!f.processed.includes(p.p_request_id)){f.processed.push(p.p_request_id);f.actualProgress+=p.p_delta;const account=f.state.accounts.find(a=>a.client_account_id===p.p_client_account);if(account)account.progress=f.actualProgress;}
         if(f.failFirstAdjustment&&!f.failedOnce){f.failedOnce=true;return {error:{code:'FETCH_FAILED'}};}
@@ -84,24 +85,24 @@ try{
   await check('storage-denial-retry',7,'При недоступном хранилище исходный повтор не удваивает корректировку',async page=>{
     await adjustment(page);await page.evaluate(()=>{fixture.failFirstAdjustment=true;Object.defineProperty(Storage.prototype,'setItem',{value(){throw new DOMException('Synthetic storage unavailable','QuotaExceededError');}});});
     await page.locator('#loyaltyAdjustmentForm button').click();await page.locator('#loyaltyAdjustmentError').waitFor({state:'visible'});await page.locator('#loyaltyAdjustmentForm button').click();
-    const value=await page.evaluate(()=>({progress:fixture.actualProgress,requests:fixture.calls.filter(c=>c.name==='adjust_minuta_loyalty_progress_v166').map(c=>c.parameters.p_request_id)}));
+    const value=await page.evaluate(()=>({progress:fixture.actualProgress,requests:fixture.calls.filter(c=>c.name==='confirm_minuta_loyalty_adjustment_v166').map(c=>c.parameters.p_request_id)}));
     assert.equal(value.progress,1,'Storage failure must stop the first write, not mint a replacement identity');assert.equal(value.requests.length,0);assert.match(await page.locator('#loyaltyAdjustmentError').innerText(),/не отправлено|не сохранил/);
   });
   await check('normal-retry-one-request',7,'При доступном хранилище потерянный ответ повторяется с прежним идентификатором',async page=>{
     await adjustment(page);await page.evaluate(()=>fixture.failFirstAdjustment=true);await page.locator('#loyaltyAdjustmentForm button').click();await page.locator('#loyaltyAdjustmentError').waitFor({state:'visible'});await page.locator('#loyaltyAdjustmentForm button').click();
-    const value=await page.evaluate(()=>({progress:fixture.actualProgress,requests:fixture.calls.filter(c=>c.name==='adjust_minuta_loyalty_progress_v166').map(c=>c.parameters.p_request_id)}));assert.equal(value.progress,2);assert.equal(value.requests[0],value.requests[1]);return value;
+    const value=await page.evaluate(()=>({progress:fixture.actualProgress,requests:fixture.calls.filter(c=>c.name==='confirm_minuta_loyalty_adjustment_v166').map(c=>c.parameters.p_request_id)}));assert.equal(value.progress,2);assert.equal(value.requests[0],value.requests[1]);return value;
   });
   await check('unknown-retry-membership-denial',7,'Временный отказ доступа после потерянного ответа сохраняет исходную операцию, включая перезагрузку',async page=>{
     await adjustment(page);await page.evaluate(()=>fixture.failFirstAdjustment=true);
     await page.locator('#loyaltyAdjustmentForm button').click();await page.locator('#loyaltyAdjustmentError').waitFor({state:'visible'});
     await page.evaluate(()=>fixture.adjustmentDenied=true);await page.locator('#loyaltyAdjustmentForm button').click();
     const deniedBeforeReload=await page.locator('#loyaltyAdjustmentError').innerText();
-    const previous=await page.evaluate(()=>({progress:fixture.actualProgress,processed:fixture.processed,accounts:fixture.state.accounts,ids:fixture.calls.filter(c=>c.name==='adjust_minuta_loyalty_progress_v166').map(c=>c.parameters.p_request_id)}));
+    const previous=await page.evaluate(()=>({progress:fixture.actualProgress,processed:fixture.processed,accounts:fixture.state.accounts,ids:fixture.calls.filter(c=>c.name==='confirm_minuta_loyalty_adjustment_v166').map(c=>c.parameters.p_request_id)}));
     await setup(page);await page.evaluate(async previous=>{fixture.actualProgress=previous.progress;fixture.processed=previous.processed;fixture.state.accounts=previous.accounts;await controller.load();fixture.adjustmentDenied=true;},previous);
     await adjustment(page);await page.locator('#loyaltyAdjustmentForm button').click();
     const deniedAfterReload=await page.locator('#loyaltyAdjustmentError').innerText();
     await page.evaluate(()=>fixture.adjustmentDenied=false);await page.locator('#loyaltyAdjustmentForm button').click();
-    const replay=await page.evaluate(()=>({progress:fixture.actualProgress,ids:fixture.calls.filter(c=>c.name==='adjust_minuta_loyalty_progress_v166').map(c=>c.parameters.p_request_id)}));
+    const replay=await page.evaluate(()=>({progress:fixture.actualProgress,ids:fixture.calls.filter(c=>c.name==='confirm_minuta_loyalty_adjustment_v166').map(c=>c.parameters.p_request_id)}));
     const originalAttempts=[...previous.ids,...replay.ids];
     assert.equal(replay.progress,2,`Lost-response operation was counted again: progress=${replay.progress}, ids=${JSON.stringify(originalAttempts)}`);
     assert.equal(new Set(originalAttempts).size,1,'Every retry must retain the original request identity');
@@ -137,18 +138,18 @@ try{
   });
   await check('request-survives-reload',7,'После перезагрузки сохраняется идентификатор исходной неподтверждённой корректировки',async page=>{
     await adjustment(page);await page.evaluate(()=>fixture.failFirstAdjustment=true);await page.locator('#loyaltyAdjustmentForm button').click();await page.locator('#loyaltyAdjustmentError').waitFor({state:'visible'});
-    const original=await page.evaluate(()=>fixture.calls.find(c=>c.name==='adjust_minuta_loyalty_progress_v166').parameters.p_request_id);
+    const original=await page.evaluate(()=>fixture.calls.find(c=>c.name==='confirm_minuta_loyalty_adjustment_v166').parameters.p_request_id);
     await setup(page);await adjustment(page);await page.locator('#loyaltyAdjustmentForm button').click();
-    const recovered=await page.evaluate(()=>fixture.calls.find(c=>c.name==='adjust_minuta_loyalty_progress_v166').parameters.p_request_id);assert.equal(recovered,original);return {sameRequest:true,note:'Browser reload identity verified; server idempotence is covered independently by PGlite'};
+    const recovered=await page.evaluate(()=>fixture.calls.find(c=>c.name==='confirm_minuta_loyalty_adjustment_v166').parameters.p_request_id);assert.equal(recovered,original);return {sameRequest:true,note:'Browser reload identity verified; server idempotence is covered independently by PGlite'};
   });
   await check('prepared-retry-storage-lost',7,'Уже подготовленный запрос сохраняет идентификатор при последующем отказе хранилища',async page=>{
     await adjustment(page);await page.evaluate(()=>fixture.failFirstAdjustment=true);await page.locator('#loyaltyAdjustmentForm button').click();await page.locator('#loyaltyAdjustmentError').waitFor({state:'visible'});
     await page.evaluate(()=>{Object.defineProperty(Storage.prototype,'getItem',{value(){throw new DOMException('Synthetic storage unavailable','SecurityError');}});Object.defineProperty(Storage.prototype,'setItem',{value(){throw new DOMException('Synthetic storage unavailable','SecurityError');}});});
-    await page.locator('#loyaltyAdjustmentForm button').click();const value=await page.evaluate(()=>({progress:fixture.actualProgress,ids:fixture.calls.filter(c=>c.name==='adjust_minuta_loyalty_progress_v166').map(c=>c.parameters.p_request_id)}));assert.equal(value.progress,2);assert.equal(value.ids[0],value.ids[1]);
+    await page.locator('#loyaltyAdjustmentForm button').click();const value=await page.evaluate(()=>({progress:fixture.actualProgress,ids:fixture.calls.filter(c=>c.name==='confirm_minuta_loyalty_adjustment_v166').map(c=>c.parameters.p_request_id)}));assert.equal(value.progress,2);assert.equal(value.ids[0],value.ids[1]);
   });
   await check('unknown-intent-parameter-change',7,'Неопределённое действие не подменяется другим запросом',async page=>{
     await adjustment(page);await page.evaluate(()=>fixture.failFirstAdjustment=true);await page.locator('#loyaltyAdjustmentForm button').click();await page.locator('#loyaltyAdjustmentError').waitFor({state:'visible'});await page.locator('#loyaltyAdjustmentPoints').fill('2');await page.locator('#loyaltyAdjustmentForm button').click();
-    assert.equal(await page.evaluate(()=>fixture.calls.filter(c=>c.name==='adjust_minuta_loyalty_progress_v166').length),1);assert.match(await page.locator('#loyaltyAdjustmentError').innerText(),/предыдущего действия/);
+    assert.equal(await page.evaluate(()=>fixture.calls.filter(c=>c.name==='confirm_minuta_loyalty_adjustment_v166').length),1);assert.match(await page.locator('#loyaltyAdjustmentError').innerText(),/предыдущего действия/);
     await page.locator('#loyaltyAdjustmentPoints').fill('1');await page.locator('#loyaltyAdjustmentForm button').click();assert.equal(await page.evaluate(()=>fixture.actualProgress),2);
   });
   await check('old-server-cycle-fallback',6,'Старый RPC не заставляет карточку обещать награду новых правил',async page=>{
@@ -170,7 +171,7 @@ try{
       await page.setViewportSize({width,height:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth)<=width+1);
       if(output)await page.locator('[data-loyalty-pagination="clients"]').screenshot({path:path.join(output,`pagination-${width}.png`)});
     }
-    await page.locator('.loyalty-operation summary').click();await page.locator('#loyaltyAdjustmentClient').selectOption('paged-122');await page.locator('#loyaltyAdjustmentPoints').fill('1');await page.locator('#loyaltyAdjustmentReason').fill('Тест клиента вне первой порции');await page.locator('#loyaltyAdjustmentForm button').click();assert.equal(await page.evaluate(()=>fixture.calls.find(c=>c.name==='adjust_minuta_loyalty_progress_v166').parameters.p_client_account),'paged-122');
+    await page.locator('.loyalty-operation summary').click();await page.locator('#loyaltyAdjustmentClient').selectOption('paged-122');await page.locator('#loyaltyAdjustmentPoints').fill('1');await page.locator('#loyaltyAdjustmentReason').fill('Тест клиента вне первой порции');await page.locator('#loyaltyAdjustmentForm button').click();assert.equal(await page.evaluate(()=>fixture.calls.find(c=>c.name==='confirm_minuta_loyalty_adjustment_v166').parameters.p_client_account),'paged-122');
     await page.evaluate(()=>controller.setOrganization({id:'synthetic-other-org'}));assert.equal(await page.locator('.loyalty-client-row').count(),50);assert.equal(await page.locator('.loyalty-reward-row').count(),50);
   });
   if(!selectedCases){
