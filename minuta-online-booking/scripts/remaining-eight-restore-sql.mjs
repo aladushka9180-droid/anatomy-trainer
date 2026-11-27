@@ -23,7 +23,21 @@ export function body(sql){
  assert.match(sql,/^begin;\s*$/mi);assert.match(sql,/\bcommit;\s*$/i);
  return sql.replace(/^begin;\s*$/mi,'').replace(/\bcommit;\s*$/i,'');
 }
-export function generate(sources){
+export function generate(sources,functionalSql=''){
+ assert.doesNotMatch(functionalSql,/^\s*(?:begin|commit|rollback|savepoint|release);/mi,'Fixture must stay inside our savepoint');
+ const functional=functionalSql ? String.raw`
+savepoint functional_checks;
+`+functionalSql+String.raw`
+rollback to savepoint functional_checks;
+do $functional_preservation$ declare expected jsonb; actual jsonb; sequence_keys text[]; begin
+ select coalesce(array_agg(relname::text),array[]::text[]) into sequence_keys from original_eight_relations where relkind='S';
+ select jsonb_set(value,'{rows}',(value->'rows')-sequence_keys) into expected from before_eight;
+ actual:=pg_temp.original_eight_snapshot();actual:=jsonb_set(actual,'{rows}',(actual->'rows')-sequence_keys);
+ if expected is distinct from actual then raise exception 'remaining_eight_functional_rollback_changed_original_state';end if;
+ if exists(select 1 from public.organization_waitlist_offers) then raise exception 'remaining_eight_functional_offers_not_rolled_back';end if;
+end $functional_preservation$;
+-- nextval is not transactional; synthetic sequence advances exist only in the destroyed copy.
+` : '';
  const apply=['supabase-candidate-loyalty-adjustment-preview.sql','statistics-branch-candidate.sql','supabase-candidate-waitlist-offers.sql'].map(f=>body(sources[f])).join('\n');
  const rollback=['supabase-candidate-waitlist-offers-rollback.sql','statistics-branch-rollback.sql','supabase-candidate-loyalty-adjustment-preview-rollback.sql'].map(f=>body(sources[f])).join('\n');
  const unchanged=String.raw`do $check$ begin
@@ -95,7 +109,7 @@ do $rollback$ begin
  or has_function_privilege('authenticated','public.create_minuta_waitlist_offer_v196(uuid,uuid,date,time without time zone,timestamptz)','EXECUTE')
  then raise exception 'remaining_eight_offer_rollback_access';end if;
 end $rollback$;
-`+unchanged+'\n'+apply+'\n'+checks+'\n'+unchanged+String.raw`
+`+unchanged+'\n'+apply+'\n'+checks+'\n'+unchanged+'\n'+functional+String.raw`
 rollback;
 select 'remaining-eight exact restored-public apply/read/rollback/reapply PASS';
 `;
@@ -103,7 +117,9 @@ select 'remaining-eight exact restored-public apply/read/rollback/reapply PASS';
 if(process.argv[1] && realpathSync(process.argv[1])===realpathSync(fileURLToPath(import.meta.url))){
  const sources=readPinned(process.argv[2]);
  if(process.argv[3]!=='--verify'){
-  assert.ok(process.argv[3],'output path required');writeFileSync(resolve(process.argv[3]),generate(sources),{mode:0o600});
+  assert.ok(process.argv[3],'output path required');
+  const functional=readFileSync(new URL('./remaining-eight-functional.sql',import.meta.url),'utf8');
+  writeFileSync(resolve(process.argv[3]),generate(sources,functional),{mode:0o600});
  }
  console.log('Six reviewed SQL files verified');
 }

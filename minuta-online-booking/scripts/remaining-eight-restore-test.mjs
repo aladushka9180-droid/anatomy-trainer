@@ -24,6 +24,10 @@ test('restore remains main-only, private and network-isolated',()=>{
  assert.doesNotMatch(shell,/SUPABASE_DB_URL|curl|wget|pg_restore|psql "\$/);
  assert.match(workflow,/ephemeral-restore-drill:[\s\S]*github\.ref == 'refs\/heads\/main'/);
  assert.match(workflow,/test "\$age" -le 7200/);assert.match(workflow,/remaining-eight-restore-sql\.mjs candidate-sql\/minuta-online-booking --verify/);
+ const functional=read('remaining-eight-functional.sql');
+ assert.match(read('remaining-eight-restore-sql.mjs'),/readFileSync\(new URL\('\.\/remaining-eight-functional\.sql'/);
+ for(const contract of ['restored_offer_accept_duplicate','restored_offer_busy_slot_not_protected','restored_offer_expired_write','restored_loyalty_duplicate_adjustment','restored_loyalty_stale_preview_accepted','restored_loyalty_out_of_bounds_accepted','restored_branch_scope_contract_failed'])assert.ok(functional.includes(contract));
+ assert.doesNotMatch(functional,/https?:\/\/|dblink|net\.http|\bcommit;/i);
 });
 const fixture={
  'supabase-candidate-loyalty-adjustment-preview.sql':`begin;
@@ -50,13 +54,15 @@ const fixture={
 };
 test('SQL rehearsal preserves original state and catches a destructive candidate',{skip:!process.env.MINUTA_PGLITE_MODULE},async()=>{
  const {PGlite}=await import(pathToFileURL(process.env.MINUTA_PGLITE_MODULE).href);
- async function run(sources){const db=new PGlite();try{
+ async function run(sources,functional=''){const db=new PGlite();try{
   await db.exec("create role anon;create role authenticated;create table public.rehearsal_original(id int primary key,value text);insert into public.rehearsal_original values(1,'unchanged');create sequence public.rehearsal_sequence;create function public.rehearsal_legacy() returns int language sql as $$select 42$$;");
-  await db.exec(generate(sources).replace('\\set ON_ERROR_STOP on\n',''));
+  await db.exec(generate(sources,functional).replace('\\set ON_ERROR_STOP on\n',''));
   assert.equal((await db.query('select value from public.rehearsal_original')).rows[0].value,'unchanged');
   assert.equal((await db.query("select to_regclass('public.organization_waitlist_offers') as candidate")).rows[0].candidate,null);
  }finally{await db.close()}}
  await run(fixture);
+ await run(fixture,"update public.rehearsal_original set value='temporary fixture';select nextval('public.rehearsal_sequence');");
+ assert.throws(()=>generate(fixture,'commit;'),/savepoint/);
  const changed={...fixture};changed['statistics-branch-candidate.sql']=changed['statistics-branch-candidate.sql'].replace('commit;',"update public.rehearsal_original set value='changed';commit;");
  await assert.rejects(()=>run(changed),/remaining_eight_changed_original_state/);
  const changedFunction={...fixture};changedFunction['statistics-branch-candidate.sql']=changedFunction['statistics-branch-candidate.sql'].replace('commit;',()=> 'create or replace function public.rehearsal_legacy() returns int language sql as $$select 99$$;commit;');
